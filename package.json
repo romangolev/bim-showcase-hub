@@ -1,0 +1,23 @@
+{
+  "name": "bim-showcase-hub",
+  "version": "1.0.0",
+  "description": "bim hub application using Autodesk Platform Services",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js",
+    "devStart": "nodemon index.js"
+  },
+  "author": "Roman Golev",
+  "license": "MIT",
+  "dependencies": {
+    "chart.js": "^4.4.0",
+    "cookie-session": "^2.0.0",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "forge-apis": "^0.9.6",
+    "jquery": "^3.7.1",
+    "jstree": "^3.3.15",
+    "nodemon": "^3.0.1"
+  }
+}
