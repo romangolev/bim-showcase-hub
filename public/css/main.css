@@ -1,0 +1,92 @@
+html, body {
+  width: 100%;
+  position: absolute;
+  height: 100%;
+}
+#userHubs {
+  overflow: auto;
+  width: 30vw;
+  height: calc(100vh - 80px);
+}
+
+#toggleSidebar {
+  /* position:fixed;
+  left:40px; */
+  top:8px;
+  display:block;
+  color:#000000;
+  padding:2px 4px;
+} 
+
+#sidebar-nav {
+  width: 30vw;  
+}
+
+
+#sidebarcolumn{
+  height: calc(100vh - 41px);
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
+#viewercolumn{
+  height: calc(100vh - 41px);
+  position: relative;
+}
+
+#forgeViewer {
+  width: 100%;
+  position: relative; 
+  height: calc(100vh - 50px);
+}
+
+#dashboard {
+
+  padding-top: 5px;
+  padding-bottom: 5px;
+
+}
+
+.myAwesomeExtensionIcon {
+  background-image: url("https://img.icons8.com/ios-filled/24/FFFFFF/pie-chart.png");
+  background-size: 24px;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+.handleSelectionExtensionIcon {
+  background-image: url("https://github.com/encharm/Font-Awesome-SVG-PNG/raw/master/white/png/24/object-group.png");
+  background-size: 24px;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+.modelSummaryExtensionIcon {
+  background-image: url("https://github.com/encharm/Font-Awesome-SVG-PNG/raw/master/white/png/24/dashboard.png");
+  background-size: 24px;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+.toolbarXLSButton {
+  background-image: url(/img/excel.png);
+  background-size: 16px;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+
+.collapsing {
+  position: relative;
+  height: 0;
+  overflow: hidden;
+  -webkit-transition-property: height, visibility;
+  transition-property: height, visibility;
+  -webkit-transition-duration: 0.35s;
+  transition-duration: 0.35s;
+  -webkit-transition-timing-function: ease;
+  transition-timing-function: ease;
+}
+.collapsing.width {
+  -webkit-transition-property: width, visibility;
+  transition-property: width, visibility;
+  width: 0;
+  height: auto;
+}
