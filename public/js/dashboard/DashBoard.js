@@ -34,28 +34,8 @@ class Dashboard {
 
 
         let dashdiv = document.getElementById('dashboard');
-        //Get page name (if it v1 or v2)`
-        var path = window.location.pathname;
-        var page = path.split("/").pop();
-        //console.log(page);
-        if (page == 'index1.html') {
-            console.log('version 1');
-            // var hhcol = $("#hh-col");
-            // var hhcol = document.getElementById('hh-col');
-            if(!!dashdiv){
-                $( ".dashboard" ).empty();
-            }
-            // $(hhcol[0]).append('<div class="dash" id="dashboard"></div>');
-
-            } else {
-            console.log('version 0');
-            if(!!dashdiv){
-                dashdiv.parentElement.removeChild(dashdiv);
-            }
-            
-            // Add hidden container for the dashboard. To be triggered by Forge extension
-            $("#viewercolumn").after('<div class="col-sm-3 transition-width border-start" style="display:none" id="dashboard"></div>');
-        }
+        // Add hidden container for the dashboard. To be triggered by Forge extension   
+        $("#viewercolumn").after('<div class="col-sm-3 transition-width border-start" style="display:none" id="dashboard"></div>');
          
     }
 
@@ -64,7 +44,23 @@ class Dashboard {
         var data = new ModelData(this);
         data.init(function () {
             $('#dashboard').empty();
-            $('#dashboard').append('<select id="property-name" class="form-select form-select-lg mb-3" aria-label=".form-select-lg example"></select>');
+            $('#dashboard').append(`
+            <div class="grid-container">
+                <div class="grid-item">
+                    <a href="#" id="dashboardExpand" class="nav-link px-2 link-dark" onclick="dashexpand();">
+                        <i class="glyphicon glyphicon-chevron-left"></i>
+                    </a>
+                </div>
+                <div class="grid-item">
+                    <select id="property-name" class="form-select form-select-lg mb-3" aria-label=".form-select-lg example"></select>
+                </div>
+                <div class="grid-item">
+                    <a href="#" id="dashboardCollapse" class="nav-link px-2 link-dark" onclick="dashcollapse();">
+                        <i class="glyphicon glyphicon-chevron-right"></i>
+                    </a>
+                </div>
+            </div>`);
+
             for (const propName of data.getAllPropertyNames()){
                 $('#property-name').append(`<option value="${propName}">${propName}</option>`)
             }

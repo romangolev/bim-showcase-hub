@@ -33,13 +33,8 @@ class DashboardHandler extends Autodesk.Viewing.Extension {
         // Add a new button to the toolbar group
         this._button = new Autodesk.Viewing.UI.Button('DashboardHandlerButton');
         this._button.onClick = (ev) => {
-            //alert('You are using RHI hub web application!')
-            // Execute an action here
-            console.log($("#one"));
-
-            var path = window.location.pathname;
-            var page = path.split("/").pop();
-            //console.log(page);
+            
+            // Show panel while the button clicked
             if (document.getElementById("dashboard").style.display === "none"){
                 document.getElementById("dashboard").style.display = "";
                 viewer.resize();
