@@ -1,1 +1,165 @@
-<h1>BIM Showcase Hub</h1>
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>BIM Showcase Hub</title>
+  <meta charset="utf-8" />
+  <link rel="shortcut icon" href="https://bimshowcase.romangolev.com/favicon.ico" color="#5bbad5">
+  <!-- Common packages: jQuery, Bootstrap, jsTree -->
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>  <script src="//cdnjs.cloudflare.com/ajax/libs/jstree/3.3.7/jstree.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
+
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.4.1/css/bootstrap.min.css">
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/jstree/3.3.7/themes/default/style.min.css" />
+  <!-- Chart JS -->
+  <script src="//cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.min.js" ></script>
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.min.css" />
+
+
+
+  <!-- Notification ballons and clipboard util -->
+  <script src="js/libraries/notify.min.js"></script>
+  <script src="js/libraries/clipboard.min.js"></script>
+
+  <!-- SheetJS   https://github.com/Autodesk-Forge/bim360appstore-model.derivative-nodejs-xls.exporter   -->
+  <!-- <script src="node_modules/xlsx/dist/xlsx.core.min.js"></script> -->
+  <!-- <script src="node_modules/jszip/dist/jszip.min.js"></script> -->
+
+  <!-- XLS related libraries -->
+  <script src="js/libraries/Blob.js"></script> <!-- https://github.com/eligrey/Blob.js -->
+  <script src="js/libraries/FileSaver.min.js"></script> <!-- https://github.com/eligrey/FileSaver.js -->
+  <script src="js/libraries/xlsx.core.min.js"></script> <!-- https://github.com/SheetJS/js-xlsx -->
+  <script src="js/ForgeXLS.js"></script>
+
+  <!-- Autodesk Forge Viewer files -->
+  <link rel="stylesheet" href="https://developer.api.autodesk.com/modelderivative/v2/viewers/7.*/style.min.css" type="text/css">
+  <script src="https://developer.api.autodesk.com/modelderivative/v2/viewers/7.*/viewer3D.min.js"></script>
+  <!-- this project files -->
+  <link href="css/main.css" rel="stylesheet" />
+  <script src="js/ForgeTree.js"></script>
+  <script src="js/myawesoweextension.js"></script>
+  <script src="js/handleselectionextension.js"></script>
+  <script src="js/modelsummaryextension.js"></script>
+  <script src="js/ForgeXLS.js"></script>  
+  <script src="js/xlsextension.js"></script>
+  <script src="js/dashboardhandler.js"></script>
+ 
+  <!-- https://www.chartjs.org/docs/latest/getting-started/installation.html -->
+  <script src="js/dashboard/DashBoardPanel.js"></script>
+  <script src="js/dashboard/PanelBarChart.js"></script>
+  <script src="js/dashboard/PanelPieChart.js"></script>
+  <script src="js/dashboard/DashBoard.js"></script>
+  <script src="js/ForgeViewer.js"></script>
+
+
+</head>
+
+<body>
+
+  <header class="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start border-bottom">
+    <a href="#" id="toggleSidebar" data-bs-target="#sidebar" data-bs-toggle="collapse" class="nav-link px-2 link-dark" ><i class="glyphicon glyphicon-chevron-left"></i></a>
+    <a href="/" class="d-flex align-items-center col-md-3 mb-2 mb-md-0 text-dark text-decoration-none">BIM Showcase Hub</a>
+    <ul class="nav col-12 col-md-auto mb-2 justify-content-center mb-md-0">
+      <li><a href="#" data-bs-target="#sidebar" data-bs-toggle="collapse" class="nav-link px-2 link-dark" onclick="window.setTimeout('viewer.resize()',501)"><i class="bi bi-list bi-lg py-2 p-1"></i>Tree</a></li>
+      <li><a href="#" class="nav-link px-2 link-dark" onclick="button5event();">Hide/Show Dashboard</a></li>
+    </ul>
+    <div class="col-md-3 text-end">
+  </header>
+<div class="container-fluid">
+    <div class="row flex-nowrap">
+        <div id="sidebarcolumn" class="col-auto px-0">
+            <div id="sidebar" class="collapse width collapse-horizontal show border-end">
+                <div class="panel-heading" data-toggle="tooltip" style="padding: 0px;">
+                  <span id="userInfo"></span>
+                  <span id="refreshHubs" class="glyphicon glyphicon-refresh" style="cursor: pointer; display: none" title="Refresh list of files"></span>
+                  <span id="signOut" class="glyphicon glyphicon-log-out" style="margin-top:5px;cursor: pointer; float: right; display: none" title="Sign out"> </span>
+                </div>
+                <div id="userHubs">
+                  <div style="padding-top: 100px; text-align: center;">
+                    <button class="btn btn-lg btn-default" id="autodeskSigninButton">
+                      <img src="https://github.com/Autodesk-Forge/learn.forge.viewhubmodels/raw/master/img/autodesk_text.png"
+                        height="20"> Sign in
+                    </button>
+                    <br/>
+                    <br/>
+                    <br/> You may also need to provision your<br/> BIM 360 Docs account for this app.<br/>
+                    <a href="https://forge.autodesk.com/blog/bim-360-docs-provisioning-forge-apps">Learn more</a>.
+                  </div>
+                </div>
+
+            </div>
+        </div>
+        <main id="viewercolumn" class="col ps-md-2 pt-2 border-top-0">
+            <div id="forgeViewer">
+        </main>
+    </div>
+</div>
+<script>
+
+$('#toggleSidebar').on("click", function() {
+  //handle click event on toggleSifebar fixed button
+  if ($("#toggleSidebar").attr("aria-expanded") === 'false') {
+    $('#toggleSidebar').children().removeClass('glyphicon glyphicon-chevron-left');
+    $('#toggleSidebar').children().addClass('glyphicon glyphicon-chevron-right');
+  } else if ($("#toggleSidebar").attr("aria-expanded") === 'true'){
+    $('#toggleSidebar').children().removeClass('glyphicon glyphicon-chevron-right');
+    $('#toggleSidebar').children().addClass('glyphicon glyphicon-chevron-left');
+  }
+});
+//Viewer events on sidepanel collapse
+$('#sidebar').on('shown.bs.collapse', function () {
+     if ($('#forgeViewer').children().length > 0) {
+               viewer.resize();
+     }
+})
+$('#sidebar').on('hidden.bs.collapse', function () {
+     if ($('#forgeViewer').children().length > 0) {
+               viewer.resize();
+     }
+})
+
+function dashexpand(){
+     let classname = $('#dashboard').attr("class")
+     let re = /col-sm-./;
+     let col = classname.match(re)[0]
+     let n = col[col.length-1]
+     if (n < 8){
+          $('#dashboard').removeClass('col-sm-'+n);
+          $('#dashboard').addClass('col-sm-'+ (parseInt(n)+1));
+          if ($('#forgeViewer').children().length > 0) {
+               viewer.resize();
+          }          
+     } else if (n == 8){
+          $('#dashboard').removeClass('col-sm-'+n);
+          $('#dashboard').addClass('col-sm-'+ (parseInt(n)+1));
+          if ($('#forgeViewer').children().length > 0) {
+               viewer.resize();
+          }
+     }
+}
+function dashcollapse(){
+     let classname = $('#dashboard').attr("class")
+     let re = /col-sm-./;
+     let col = classname.match(re)[0]
+     let n = col[col.length-1]
+     if (n > 3){
+          $('#dashboard').removeClass('col-sm-'+n);
+          $('#dashboard').addClass('col-sm-'+ (parseInt(n)-1));
+          console.log(viewer);
+          try{
+               viewer.resize();
+          } catch (error) {
+               console.log("Model is not loaded")
+          }
+          
+     } else if (n == 8){
+          $('#dashboard').removeClass('col-sm-'+n);
+          $('#dashboard').addClass('col-sm-'+ (parseInt(n)-1));
+          viewer.resize();
+     }
+}
+</script>
+</body>
+<iframe id="hiddenFrame" style="visibility: hidden; display: none" />
+</html>
