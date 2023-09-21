@@ -6,10 +6,10 @@ XLSExtension.prototype = Object.create(Autodesk.Viewing.Extension.prototype);
 XLSExtension.prototype.constructor = XLSExtension;
 
 
-  function statusCallback(completed, message) {
-    $.notify(message, { className: "info", position:"bottom right" });
-    $('#downloadExcel').prop("disabled", !completed);
-  }
+function statusCallback(completed, message) {
+  $.notify(message, { className: "info", position:"bottom right" });
+  $('#downloadExcel').prop("disabled", !completed);
+}
 
 
 XLSExtension.prototype.load = function () {
@@ -36,7 +36,7 @@ XLSExtension.prototype.load = function () {
     // Button 1
     var button1 = new Autodesk.Viewing.UI.Button('toolbarXLS');
     //var documentId = 'urn:' + urn;
-    button1.onClick = function (e) {
+    button1.onClick = async function (e) {
         ForgeXLS.downloadXLSX(fileName.replace(/\./g, '') + ".xlsx", statusCallback);/*Optional*/
     };
     button1.addClass('toolbarXLSButton');
