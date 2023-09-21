@@ -109,10 +109,14 @@ $('#toggleSidebar').on("click", function() {
 });
 //Viewer events on sidepanel collapse
 $('#sidebar').on('shown.bs.collapse', function () {
-  viewer.resize();
+     if ($('#forgeViewer').children().length > 0) {
+               viewer.resize();
+     }
 })
 $('#sidebar').on('hidden.bs.collapse', function () {
-  viewer.resize();
+     if ($('#forgeViewer').children().length > 0) {
+               viewer.resize();
+     }
 })
 
 function dashexpand(){
@@ -123,11 +127,15 @@ function dashexpand(){
      if (n < 8){
           $('#dashboard').removeClass('col-sm-'+n);
           $('#dashboard').addClass('col-sm-'+ (parseInt(n)+1));
-          viewer.resize();
+          if ($('#forgeViewer').children().length > 0) {
+               viewer.resize();
+          }          
      } else if (n == 8){
           $('#dashboard').removeClass('col-sm-'+n);
           $('#dashboard').addClass('col-sm-'+ (parseInt(n)+1));
-          viewer.resize();
+          if ($('#forgeViewer').children().length > 0) {
+               viewer.resize();
+          }
      }
 }
 function dashcollapse(){
@@ -135,11 +143,16 @@ function dashcollapse(){
      let re = /col-sm-./;
      let col = classname.match(re)[0]
      let n = col[col.length-1]
-     console.log(n)
      if (n > 3){
           $('#dashboard').removeClass('col-sm-'+n);
           $('#dashboard').addClass('col-sm-'+ (parseInt(n)-1));
-          viewer.resize();
+          console.log(viewer);
+          try{
+               viewer.resize();
+          } catch (error) {
+               console.log("Model is not loaded")
+          }
+          
      } else if (n == 8){
           $('#dashboard').removeClass('col-sm-'+n);
           $('#dashboard').addClass('col-sm-'+ (parseInt(n)-1));

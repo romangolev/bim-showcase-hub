@@ -1,7 +1,11 @@
 class PieChart extends DashboardPanelChart {
     constructor(property) {
         super();
-        this.propertyToUse = property;
+        if (this.propertyToUse = ''){
+            this.propertyToUse = 'viewable_in'
+        } else {
+            this.propertyToUse = property;
+        }
     }
 
     load(parentDivId, viewer, modelData) {

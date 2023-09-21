@@ -12,8 +12,8 @@ class DashboardPanelChart extends DashboardPanel {
     load(parentDivId, divId, viewer, modelData) {
         if (!modelData.hasProperty(this.propertyToUse)){
             //alert('This model does not contain a ' + this.propertyToUse +' property for the ' + this.constructor.name);
-            console.log('These are the properties available on this model: ');
-            console.log(Object.keys(modelData._modelData));
+            // console.log('These are the properties available on this model: ');
+            // console.log(Object.keys(modelData._modelData));
             return false;
         } 
         divId = this.propertyToUse.replace(/[^A-Za-z0-9]/gi, '') + divId; // div name = property + chart type
@@ -56,7 +56,7 @@ class ModelData {
                         prop.displayValue = prop.displayValue.replace('Revit ', ''); // remove this Revit prefix
                         prop.displayValue = prop.displayValue.replace('Код по классификатору ', 'Assembly Code'); // replace assembly code
                         if (prop.displayValue.indexOf('<') == 0) return; // skip categories that start with <
-
+                        if (prop.displayValue.indexOf('viewable_in') == 0) return; // skip categories that start with viewable_in
                         // ok, now let's organize the data into this hash table
                         if (_this._modelData[prop.displayName] == null) _this._modelData[prop.displayName] = {};
                         if (_this._modelData[prop.displayName][prop.displayValue] == null) _this._modelData[prop.displayName][prop.displayValue] = [];

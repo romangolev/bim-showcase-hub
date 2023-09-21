@@ -1,11 +1,11 @@
-$(document).ready(function () {
+$(function () {
     $(document).on('DOMNodeInserted', function (e) {
         if ($(e.target).hasClass('orbit-gizmo')) {
             // here, viewer represents the variable defined at viewer initialization
             if (viewer === null || viewer === undefined) return;
             new Dashboard(viewer, [
-                new BarChart('Category'),
-                new PieChart('Category'),
+                new BarChart('Name'),
+                new PieChart('Name'),
                 //new PieChart('Assembly Code')
             ])
         }
@@ -25,18 +25,13 @@ class Dashboard {
     }
 
     adjustLayout() {
-        // this function may vary for layout to layout...
-        // for learn forge tutorials, let's get the ROW and adjust the size of the 
-        // columns so it can fit the new dashboard column, also we added a smooth transition css class for a better user experience
-
-        var row = $(".row").children();
-        
-
-
-        let dashdiv = document.getElementById('dashboard');
-        // Add hidden container for the dashboard. To be triggered by Forge extension   
+        // Add hidden container for the dashboard. To be triggered by Forge extension 
+        if ($('#dashboard').length !== 0){
+            console.log("Dashboard exists");
+            $('#dashboard').remove();
+            this._viewer.resize();
+        }  
         $("#viewercolumn").after('<div class="col-sm-3 transition-width border-start" style="display:none" id="dashboard"></div>');
-         
     }
 
     loadPanels () {
@@ -44,16 +39,18 @@ class Dashboard {
         var data = new ModelData(this);
         data.init(function () {
             $('#dashboard').empty();
+
+            // Add dashboard containers - dropdown menu and expand/collapse handlers
             $('#dashboard').append(`
             <div class="grid-container">
+                <div class="grid-item">
+                    <select id="property-name" class="form-select form-select-lg mb-3" aria-label=".form-select-lg example"></select>
+                </div>
                 <div class="grid-item">
                     <a href="#" id="dashboardExpand" class="nav-link px-2 link-dark" onclick="dashexpand();">
                         <i class="glyphicon glyphicon-chevron-left"></i>
                     </a>
-                </div>
-                <div class="grid-item">
-                    <select id="property-name" class="form-select form-select-lg mb-3" aria-label=".form-select-lg example"></select>
-                </div>
+                </div>                
                 <div class="grid-item">
                     <a href="#" id="dashboardCollapse" class="nav-link px-2 link-dark" onclick="dashcollapse();">
                         <i class="glyphicon glyphicon-chevron-right"></i>
@@ -64,6 +61,8 @@ class Dashboard {
             for (const propName of data.getAllPropertyNames()){
                 $('#property-name').append(`<option value="${propName}">${propName}</option>`)
             }
+
+
             $('#property-name').on('change', function (){
                 $('.dashboardPanel').remove();
                 _this._panels.forEach(function(panel) {
@@ -72,7 +71,7 @@ class Dashboard {
                     panel.load('dashboard', viewer, data);
                 });
             });
-
+            
 
             _this._panels.forEach(function (panel) {
                 // let's create a DIV with the Panel Function name and load it
