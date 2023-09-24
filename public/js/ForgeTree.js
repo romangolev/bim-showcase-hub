@@ -1,4 +1,4 @@
-$(document).ready(function () {
+$(function () {
     // first, check if current visitor is signed in
     jQuery.ajax({
       url: '/api/forge/oauth/token',

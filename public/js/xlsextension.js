@@ -1,63 +1,49 @@
-function XLSExtension(viewer, options) {
-  Autodesk.Viewing.Extension.call(this, viewer, options);
+class XLSExtension extends Autodesk.Viewing.Extension {
+  constructor(viewer, options) {
+      super(viewer, options);
+      this._group = null;
+      this._button = null;
+  }
+
+  load() {
+      console.log('XLSExtension has been loaded');
+      return true;
+  }
+
+  unload() {
+      // Clean our UI elements if we added any
+      if (this._group) {
+          this._group.removeControl(this._button);
+          if (this._group.getNumberOfControls() === 0) {
+              this.viewer.toolbar.removeControl(this._group);
+          }
+      }
+      console.log('XLSExtension has been unloaded');
+      return true;
+  }
+
+  onToolbarCreated() {
+      // Create a new toolbar group if it doesn't exist
+      this._group = this.viewer.toolbar.getControl('allMyAwesomeExtensionsToolbar');
+      if (!this._group) {
+          this._group = new Autodesk.Viewing.UI.ControlGroup('allMyAwesomeExtensionsToolbar');
+          this.viewer.toolbar.addControl(this._group);
+      }
+
+      // Add a new button to the toolbar group
+      this._button = new Autodesk.Viewing.UI.Button('XLSExtensionButton');
+      this._button.onClick = async function (e) {
+        function statusCallback(completed, message) {
+          $.notify(message, { className: "info", position:"bottom right" });
+          $('#downloadExcel').prop("disabled", !completed);
+        }
+        ForgeXLS.downloadXLSX(fileName.replace(/\./g, '') + ".xlsx", statusCallback);
+
+      };
+      this._button.setToolTip('Export to .XLSX');
+      this._button.addClass('toolbarXLSButton');
+      this._group.addControl(this._button);
+  }
 }
-
-XLSExtension.prototype = Object.create(Autodesk.Viewing.Extension.prototype);
-XLSExtension.prototype.constructor = XLSExtension;
-
-
-function statusCallback(completed, message) {
-  $.notify(message, { className: "info", position:"bottom right" });
-  $('#downloadExcel').prop("disabled", !completed);
-}
-
-
-XLSExtension.prototype.load = function () {
-  var _viewer = this.viewer;
-
-
-  // get Forge token (use your data:read endpoint here)
-  // this sample is using client-side JavaScript only, so no
-  // back-end that authenticate with Forge nor files, therefore
-  // is using files from another sample. On your implementation,
-  // you should replace this with your own Token endpoint
-  // function getForgeToken(callback) {
-  //   jQuery.ajax({
-  //     url: '/api/forge/oauth/token',
-  //     success: function (oauth) {
-  //       if (callback)
-  //         callback(oauth.access_token, oauth.expires_in);
-  //     }
-  //   });
-  // }
-
-
-  createUI = function () {
-    // Button 1
-    var button1 = new Autodesk.Viewing.UI.Button('toolbarXLS');
-    //var documentId = 'urn:' + urn;
-    button1.onClick = async function (e) {
-        ForgeXLS.downloadXLSX(fileName.replace(/\./g, '') + ".xlsx", statusCallback);/*Optional*/
-    };
-    button1.addClass('toolbarXLSButton');
-    button1.setToolTip('Export to .XLSX');
-
-    // SubToolbar
-    this.subToolbar = new Autodesk.Viewing.UI.ControlGroup('myAppGroup1');
-    this.subToolbar.addControl(button1);
-
-    _viewer.toolbar.addControl(this.subToolbar);
-  };
-
-  createUI();
-
-  return true;
-};
-
-
-XLSExtension.prototype.unload = function () {
-  alert('XLSExtension is now unloaded!');
-  return true;
-};
 
 Autodesk.Viewing.theExtensionManager.registerExtension('Autodesk.Sample.XLSExtension', XLSExtension);

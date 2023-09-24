@@ -1,15 +1,22 @@
 $(function () {
-    $(document).on('DOMNodeInserted', function (e) {
-        if ($(e.target).hasClass('orbit-gizmo')) {
-            // here, viewer represents the variable defined at viewer initialization
-            if (viewer === null || viewer === undefined) return;
-            new Dashboard(viewer, [
-                new BarChart('Category'),
-                new PieChart('Category'),
-            ])
-        }
-    });
+    var container = document.querySelector("#forgeViewer");
+    new MutationObserver((e) => {
+        var canvases = document.querySelectorAll(".canvas-wrap");
+        var canvas = canvases[canvases.length-1]
+        new MutationObserver((e) => {
+            if (document.querySelector('.orbit-gizmo')) {
+                // here, viewer represents the variable defined at viewer initialization
+                if (viewer === null || viewer === undefined) return;
+                new Dashboard(viewer, [
+                    new BarChart('Category'),
+                    new PieChart('Category'),
+                ])
+            }    
+        }).observe(canvas, { childList: true });
+    }).observe(container, { attributes: false, childList: true, subtree: false });
 })
+
+
 
 // Handles the Dashboard panels
 class Dashboard {
@@ -26,7 +33,7 @@ class Dashboard {
     adjustLayout() {
         // Add hidden container for the dashboard. To be triggered by Forge extension 
         if ($('#dashboard').length !== 0){
-            console.log("Dashboard exists");
+            //Dashboard exists, need to delete it to reinitiate with new viewer
             $('#dashboard').remove();
             this._viewer.resize();
         }  

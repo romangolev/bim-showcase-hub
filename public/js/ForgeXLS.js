@@ -20,7 +20,7 @@ if (!window.XLSX) alert('Sheet JS is required for this sample');
 
 var ForgeXLS = {
 
-  downloadXLSX: function (fileName, status) {
+  downloadXLSX: async function (fileName, status) {
 
     if (status) {
       status(false, 'Preparing ' + fileName);
@@ -111,7 +111,11 @@ var ForgeXLS = {
   prepareTables: function (callback) {
     let data = new ModelData(this);
     data.init(async function () {
+      debugger
         let hierarchy = data._modelData.Category;
+        if (hierarchy === undefined){
+          hierarchy = data._modelData['Source File'];
+        } 
         let t = await ForgeXLS.prepareRawData(hierarchy);
         callback(t);
     });
