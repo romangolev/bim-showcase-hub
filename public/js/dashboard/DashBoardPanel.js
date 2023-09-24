@@ -51,12 +51,14 @@ class ModelData {
                 viewer.getProperties(dbId, function (props) {
                     props.properties.forEach(function (prop) {
                         if (!isNaN(prop.displayValue)) return; // let's not categorize properties that store numbers
-
-                        // some adjustments for revit:
+                        
+                        // some adjustments for data:
                         prop.displayValue = prop.displayValue.replace('Revit ', ''); // remove this Revit prefix
                         prop.displayValue = prop.displayValue.replace('Код по классификатору ', 'Assembly Code'); // replace assembly code
                         if (prop.displayValue.indexOf('<') == 0) return; // skip categories that start with <
-                        if (prop.displayValue.indexOf('viewable_in') == 0) return; // skip categories that start with viewable_in
+                        if (prop.displayName === 'viewable_in') return; // skip viewable_in property
+                        if (prop.displayName === 'hyperlink') return; // skip hyperlink property
+
                         // ok, now let's organize the data into this hash table
                         if (_this._modelData[prop.displayName] == null) _this._modelData[prop.displayName] = {};
                         if (_this._modelData[prop.displayName][prop.displayValue] == null) _this._modelData[prop.displayName][prop.displayValue] = [];

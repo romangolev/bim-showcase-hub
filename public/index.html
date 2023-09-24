@@ -58,7 +58,7 @@
 <body>
 
   <header class="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start border-bottom">
-    <a href="#" id="toggleSidebar" data-bs-target="#sidebar" data-bs-toggle="collapse" class="nav-link px-2 link-dark" ><i class="glyphicon glyphicon-chevron-left"></i></a>
+    <a href="#" id="toggleSidebar" title="Show/collapse project tree" data-bs-target="#sidebar" data-bs-toggle="collapse" class="nav-link px-2 link-dark" ><i class="glyphicon glyphicon-chevron-left"></i></a>
     <a href="/" class="d-flex align-items-center col-md-3 mb-2 mb-md-0 text-dark text-decoration-none">BIM Showcase Hub</a>
     <ul class="nav col-12 col-md-auto mb-2 justify-content-center mb-md-0">
       <li><a href="#" data-bs-target="#sidebar" data-bs-toggle="collapse" class="nav-link px-2 link-dark" onclick="window.setTimeout('viewer.resize()',501)"><i class="bi bi-list bi-lg py-2 p-1"></i>Tree</a></li>
@@ -129,7 +129,7 @@ function dashexpand(){
           $('#dashboard').addClass('col-sm-'+ (parseInt(n)+1));
           if ($('#forgeViewer').children().length > 0) {
                viewer.resize();
-          }          
+          }
      } else if (n == 8){
           $('#dashboard').removeClass('col-sm-'+n);
           $('#dashboard').addClass('col-sm-'+ (parseInt(n)+1));
@@ -146,17 +146,16 @@ function dashcollapse(){
      if (n > 3){
           $('#dashboard').removeClass('col-sm-'+n);
           $('#dashboard').addClass('col-sm-'+ (parseInt(n)-1));
-          console.log(viewer);
-          try{
+          if ($('#forgeViewer').children().length > 0) {
                viewer.resize();
-          } catch (error) {
-               console.log("Model is not loaded")
           }
           
      } else if (n == 8){
           $('#dashboard').removeClass('col-sm-'+n);
           $('#dashboard').addClass('col-sm-'+ (parseInt(n)-1));
-          viewer.resize();
+          if ($('#forgeViewer').children().length > 0) {
+               viewer.resize();
+          }    
      }
 }
 </script>

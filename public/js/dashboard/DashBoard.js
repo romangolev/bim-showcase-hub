@@ -4,9 +4,8 @@ $(function () {
             // here, viewer represents the variable defined at viewer initialization
             if (viewer === null || viewer === undefined) return;
             new Dashboard(viewer, [
-                new BarChart('Name'),
-                new PieChart('Name'),
-                //new PieChart('Assembly Code')
+                new BarChart('Category'),
+                new PieChart('Category'),
             ])
         }
     });
@@ -31,7 +30,9 @@ class Dashboard {
             $('#dashboard').remove();
             this._viewer.resize();
         }  
-        $("#viewercolumn").after('<div class="col-sm-3 transition-width border-start" style="display:none" id="dashboard"></div>');
+        // $("#viewercolumn").after('<div class="col-sm-3 transition-width border-start" style="display:none" id="dashboard"></div>');
+        $("#viewercolumn").after('<div class="col-sm-3 transition-width border-start" id="dashboard"></div>');
+
     }
 
     loadPanels () {
@@ -39,7 +40,7 @@ class Dashboard {
         var data = new ModelData(this);
         data.init(function () {
             $('#dashboard').empty();
-
+            
             // Add dashboard containers - dropdown menu and expand/collapse handlers
             $('#dashboard').append(`
             <div class="grid-container">
@@ -47,12 +48,12 @@ class Dashboard {
                     <select id="property-name" class="form-select form-select-lg mb-3" aria-label=".form-select-lg example"></select>
                 </div>
                 <div class="grid-item">
-                    <a href="#" id="dashboardExpand" class="nav-link px-2 link-dark" onclick="dashexpand();">
+                    <a href="#" id="dashboardExpand" title="Expand dashboard" class="nav-link px-2 link-dark" onclick="dashexpand();">
                         <i class="glyphicon glyphicon-chevron-left"></i>
                     </a>
                 </div>                
                 <div class="grid-item">
-                    <a href="#" id="dashboardCollapse" class="nav-link px-2 link-dark" onclick="dashcollapse();">
+                    <a href="#" id="dashboardCollapse" title="Collapse dashboard" class="nav-link px-2 link-dark" onclick="dashcollapse();">
                         <i class="glyphicon glyphicon-chevron-right"></i>
                     </a>
                 </div>
@@ -72,8 +73,12 @@ class Dashboard {
                 });
             });
             
-
-            _this._panels.forEach(function (panel) {
+            
+            _this._panels.forEach(async function (panel) {
+                // Check if the defaoult property exist in the model
+                if (!data.hasProperty('Category')){
+                    panel.propertyToUse = data.getAllPropertyNames()[0];
+                }
                 // let's create a DIV with the Panel Function name and load it
                 panel.load('dashboard', viewer, data);
             });
