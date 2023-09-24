@@ -5,7 +5,7 @@ var fileType;
 var documentId;
 
 
-$(document).ready(function () {
+$(function () {
   // in case we want to load this app with a model pre-loaded
   var urn = getParameterByName('urn');
   if (urn !== null && urn !== '')
@@ -44,7 +44,8 @@ function launchViewer(urn, viewableId,name,type) {
        'HandleSelectionExtension',
        'ModelSummaryExtension', 
        'Autodesk.VisualClusters', 
-       'DashboardHandler']
+       'DashboardHandler',
+       'Autodesk.Sample.XLSExtension']
      };
     viewer = new Autodesk.Viewing.GuiViewer3D(document.getElementById('forgeViewer'), config );
     viewer.start();
@@ -59,7 +60,6 @@ function launchViewer(urn, viewableId,name,type) {
     viewer.loadDocumentNode(doc, viewables).then(i => {
       // any additional action here?
       
-      viewer.loadExtension('Autodesk.Sample.XLSExtension')
     });
   }
 
@@ -75,14 +75,3 @@ function getForgeToken(callback) {
     });
   });
 }
-
-// function getForgeToken1() {
-//   jQuery.ajax({
-//     url: '/api/forge/oauth/token',
-//     success: function (res) {
-//       token = res;
-//     },
-//     async: false
-//   });
-//   return token;
-// }
