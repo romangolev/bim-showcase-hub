@@ -8,7 +8,7 @@ $(function () {
         $('#refreshHubs').show();
   
         // prepare sign out
-        $('#signOut').on('click', function () {
+        $('#signOut').on('click', function () {  
           $('#hiddenFrame').on('load', function (event) {
             location.href = '/api/forge/oauth/signout';
           });
@@ -54,18 +54,18 @@ $(function () {
         }
       },
       'types': {
-        'default': { 'icon': 'glyphicon glyphicon-question-sign' },
-        '#': { 'icon': 'glyphicon glyphicon-user' },
+        'default': { 'icon': 'bi bi-question-lg' },
+        '#': { 'icon': 'bi bi-person' },
         'hubs': { 'icon': 'https://github.com/Autodesk-Forge/bim360appstore-data.management-nodejs-transfer.storage/raw/master/www/img/a360hub.png' },
         'personalHub': { 'icon': 'https://github.com/Autodesk-Forge/bim360appstore-data.management-nodejs-transfer.storage/raw/master/www/img/a360hub.png' },
         'bim360Hubs': { 'icon': 'https://github.com/Autodesk-Forge/bim360appstore-data.management-nodejs-transfer.storage/raw/master/www/img/bim360hub.png' },
         'bim360projects': { 'icon': 'https://github.com/Autodesk-Forge/bim360appstore-data.management-nodejs-transfer.storage/raw/master/www/img/bim360project.png' },
         'a360projects': { 'icon': 'https://github.com/Autodesk-Forge/bim360appstore-data.management-nodejs-transfer.storage/raw/master/www/img/a360project.png' },      
-        'folders': { 'icon': 'glyphicon glyphicon-folder-open' },
-        'items': { 'icon': 'glyphicon glyphicon-file' },
-        'bim360documents': { 'icon': 'glyphicon glyphicon-file' },
-        'versions': { 'icon': 'glyphicon glyphicon-time' },
-        'unsupported': { 'icon': 'glyphicon glyphicon-ban-circle' }
+        'folders': { 'icon': 'bi bi-folder2-open' },
+        'items': { 'icon': 'bi bi-file-earmark' },
+        'bim360documents': { 'icon': 'bi bi-file-earmark' },
+        'versions': { 'icon': 'bi bi-stopwatch' },
+        'unsupported': { 'icon': 'bi bi-slash-circle' }
       },
       "sort": function (a, b) {
         var a1 = this.get_node(a);

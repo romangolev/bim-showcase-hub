@@ -52,16 +52,16 @@ class Dashboard {
             $('#dashboard').append(`
             <div class="grid-container">
                 <div class="grid-item">
-                    <select id="property-name" class="form-select form-select-lg mb-3" aria-label=".form-select-lg example"></select>
+                    <select id="property-name" class="form-select form-select-sm" aria-label=".form-select-sm example"></select>
                 </div>
                 <div class="grid-item">
                     <a href="#" id="dashboardExpand" title="Expand dashboard" class="nav-link px-2 link-dark" onclick="dashexpand();">
-                        <i class="glyphicon glyphicon-chevron-left"></i>
+                        <i class="bi bi-chevron-left"></i>
                     </a>
                 </div>                
                 <div class="grid-item">
                     <a href="#" id="dashboardCollapse" title="Collapse dashboard" class="nav-link px-2 link-dark" onclick="dashcollapse();">
-                        <i class="glyphicon glyphicon-chevron-right"></i>
+                        <i class="bi bi-chevron-right"></i>
                     </a>
                 </div>
             </div>`);
@@ -79,8 +79,25 @@ class Dashboard {
                     panel.load('dashboard', viewer, data);
                 });
             });
-            
-            
+
+            $('#dashboardExpand').on('click', function () {
+                $('.dashboardPanel').remove();
+                _this._panels.forEach(function(panel) {
+                    // let's create a DIV with the Panel Function name and load it
+                    panel.propertyToUse = $('#property-name').val();
+                    panel.load('dashboard', viewer, data);
+                });
+            })
+
+            $('#dashboardCollapse').on('click', function () {
+                $('.dashboardPanel').remove();
+                _this._panels.forEach(function(panel) {
+                    // let's create a DIV with the Panel Function name and load it
+                    panel.propertyToUse = $('#property-name').val();
+                    panel.load('dashboard', viewer, data);
+                });
+            })
+
             _this._panels.forEach(async function (panel) {
                 // Check if the defaoult property exist in the model
                 if (!data.hasProperty('Category')){
