@@ -4,11 +4,12 @@ $(function () {
       url: '/api/forge/oauth/token',
       success: function (res) {
         // yes, it is signed in...
-        $('#signOut').show();
+        //$('#signOut').show();
+        $('#signOutNav').removeClass('disabled')
         $('#refreshHubs').show();
   
         // prepare sign out
-        $('#signOut').on('click', function () {  
+        $('#signOutNav').on('click', function () {  
           $('#hiddenFrame').on('load', function (event) {
             location.href = '/api/forge/oauth/signout';
           });
@@ -28,6 +29,15 @@ $(function () {
       }
     });
   
+    $('#autodeskSigninButtonNav').on('click', function () {
+      jQuery.ajax({
+        url: '/api/forge/oauth/url',
+        success: function (url) {
+          location.href = url;
+        }
+      });
+    });
+    
     $('#autodeskSigninButton').on('click', function () {
       jQuery.ajax({
         url: '/api/forge/oauth/url',
@@ -37,11 +47,12 @@ $(function () {
       });
     })
   });
+
   
   function prepareUserHubsTree() {
     $('#userHubs').jstree({
       'core': {
-        'themes': { "icons": true },
+        'themes': { "name": "default-dark", "icons": true },
         'multiple': false,
         'data': {
           "url": '/api/forge/datamanagement',
@@ -56,11 +67,11 @@ $(function () {
       'types': {
         'default': { 'icon': 'bi bi-question-lg' },
         '#': { 'icon': 'bi bi-person' },
-        'hubs': { 'icon': 'https://github.com/Autodesk-Forge/bim360appstore-data.management-nodejs-transfer.storage/raw/master/www/img/a360hub.png' },
-        'personalHub': { 'icon': 'https://github.com/Autodesk-Forge/bim360appstore-data.management-nodejs-transfer.storage/raw/master/www/img/a360hub.png' },
-        'bim360Hubs': { 'icon': 'https://github.com/Autodesk-Forge/bim360appstore-data.management-nodejs-transfer.storage/raw/master/www/img/bim360hub.png' },
-        'bim360projects': { 'icon': 'https://github.com/Autodesk-Forge/bim360appstore-data.management-nodejs-transfer.storage/raw/master/www/img/bim360project.png' },
-        'a360projects': { 'icon': 'https://github.com/Autodesk-Forge/bim360appstore-data.management-nodejs-transfer.storage/raw/master/www/img/a360project.png' },      
+        'hubs': { 'icon': 'bi bi-database-fill-gear' }, // https://github.com/Autodesk-Forge/bim360appstore-data.management-nodejs-transfer.storage/raw/master/www/img/a360hub.png
+        'personalHub': { 'icon': 'bi bi-database-fill-gear' },
+        'bim360Hubs': { 'icon': 'https://img.icons8.com/ios-filled/16/b.png' }, // https://github.com/Autodesk-Forge/bim360appstore-data.management-nodejs-transfer.storage/raw/master/www/img/bim360hub.png
+        'bim360projects': { 'icon': 'globe-americas' }, // https://github.com/Autodesk-Forge/bim360appstore-data.management-nodejs-transfer.storage/raw/master/www/img/bim360project.png
+        'a360projects': { 'icon': 'bi bi-database-fill-gear' },      
         'folders': { 'icon': 'bi bi-folder2-open' },
         'items': { 'icon': 'bi bi-file-earmark' },
         'bim360documents': { 'icon': 'bi bi-file-earmark' },
@@ -107,7 +118,10 @@ $(function () {
       url: '/api/forge/user/profile',
       success: function (profile) {
         var img = '<img src="' + profile.picture + '" height="30px">';
-        $('#userInfo').html(img + profile.name);
+        // $('#userInfo').html(img + profile.name);
+        $("#userInfoNav").attr("src",profile.picture+profile.name);
+        $("#autodeskSigninButtonNav").addClass("disabled");
+        $("#navUserName").text("Hi, " + profile.name + "!");
       }
     });
   }

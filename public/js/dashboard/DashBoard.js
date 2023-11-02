@@ -55,12 +55,12 @@ class Dashboard {
                     <select id="property-name" class="form-select form-select-sm" aria-label=".form-select-sm example"></select>
                 </div>
                 <div class="grid-item">
-                    <a href="#" id="dashboardExpand" title="Expand dashboard" class="nav-link px-2 link-dark" onclick="dashexpand();">
+                    <a href="#" id="dashboardExpand" title="Expand dashboard" class="nav-link px-2" onclick="dashexpand();">
                         <i class="bi bi-chevron-left"></i>
                     </a>
                 </div>                
                 <div class="grid-item">
-                    <a href="#" id="dashboardCollapse" title="Collapse dashboard" class="nav-link px-2 link-dark" onclick="dashcollapse();">
+                    <a href="#" id="dashboardCollapse" title="Collapse dashboard" class="nav-link px-2" onclick="dashcollapse();">
                         <i class="bi bi-chevron-right"></i>
                     </a>
                 </div>
