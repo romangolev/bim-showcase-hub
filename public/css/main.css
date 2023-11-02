@@ -3,10 +3,19 @@ html, body {
   position: absolute;
   height: 100%;
 }
+
+#hiddenFrame{
+  width: 10;
+  position: absolute;
+  height: 10;
+}
+
 #userHubs {
   overflow: auto;
   width: 30vw;
-  height: calc(100vh - 80px);
+  height: calc(100vh - 95px);
+  font-size: 0.8rem;
+  background: none;
 }
 
 #toggleSidebar {
@@ -14,30 +23,32 @@ html, body {
   left:40px; */
   top:8px;
   display:block;
-  color:#000000;
   padding:2px 4px;
 } 
 
 #sidebar-nav {
-  width: 30vw;  
+  width: 30vw; 
 }
 
+#sidebar {
+  font-size: 0.9rem;
+}
 
 #sidebarcolumn{
-  height: calc(100vh - 41px);
+  height: calc(100vh - 80px);
   padding-top: 5px;
   padding-bottom: 5px;
 }
 
 #viewercolumn{
-  height: calc(100vh - 41px);
+  height: calc(100vh - 80px);
   position: relative;
 }
 
 #forgeViewer {
   width: 100%;
   position: relative; 
-  height: calc(100vh - 50px);
+  height: calc(100vh - 70px);
 }
 
 #dashboard {
@@ -100,4 +111,16 @@ html, body {
   transition-property: width, visibility;
   width: 0;
   height: auto;
+}
+
+ol {
+  list-style-type: none;
+}
+/* or */
+ul {
+  list-style-type: none;
+}
+
+.grid-item, #dashboardExpand, #dashboardCollapse{
+  height: 37px;
 }
