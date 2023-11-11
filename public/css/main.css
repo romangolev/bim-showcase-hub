@@ -81,6 +81,36 @@ html, body {
   background-repeat: no-repeat;
   background-position: center;
 }
+.paintComboIcon {
+  background-image: url("https://img.icons8.com/ios-glyphs/24/FFFFFF/paint-bucket.png");
+  background-size: 24px;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+.paintBrushRedIcon {
+  background-image: url("https://img.icons8.com/isometric/50/roller-brush.png");
+  background-size: 24px;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+.paintBrushGreenIcon {
+  background-image: url(/img/icons8-paint-roller-24-green.png);
+  background-size: 24px;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+.paintBrushBlueIcon {
+  background-image: url(/img/icons8-paint-roller-24-blue.png);
+  background-size: 24px;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+.paintBrushResetIcon {
+  background-image: url("https://img.icons8.com/ios-glyphs/24/FFFFFF/recurring-appointment.png");
+  background-size: 24px;
+  background-repeat: no-repeat;
+  background-position: center;
+}
 .modelSummaryExtensionIcon {
   background-image: url("https://github.com/encharm/Font-Awesome-SVG-PNG/raw/master/white/png/24/dashboard.png");
   background-size: 24px;
