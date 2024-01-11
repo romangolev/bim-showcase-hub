@@ -38,7 +38,7 @@
   <!-- this project files -->
   <link href="css/main.css" rel="stylesheet" />
   <script src="js/ForgeTree.js"></script>
-  <script src="js/handleselectionextension.js"></script>
+  <script src="js/paintbrushes.js"></script>
   <script src="js/modelsummaryextension.js"></script>
   <script src="js/ForgeXLS.js"></script>  
   <script src="js/xlsextension.js"></script>
@@ -58,19 +58,19 @@
 
    <nav class="navbar navbar-expand-lg bg-body-tertiary">
      <div class="container-fluid">
-       <a href="#" 
-          id="toggleSidebar" 
-          title="Show/collapse project tree" 
-          data-bs-target="#sidebar" 
-          data-bs-toggle="collapse" 
+       <a href="#"
+          id="toggleSidebar"
+          title="Show/collapse project tree"
+          data-bs-target="#sidebar"
+          data-bs-toggle="collapse"
           class="nav-link px-2" ><i class="bi bi-chevron-left "></i></a>
        <a href="/" class="navbar-brand">BIM Showcase Hub</a>
        <button class="navbar-toggler" 
-               type="button" 
+               type="button"
                data-bs-toggle="collapse" 
                data-bs-target="#navbarSupportedContent" 
                aria-controls="navbarSupportedContent" 
-               aria-expanded="false" 
+               aria-expanded="false"
                aria-label="Toggle navigation">
          <span class="navbar-toggler-icon"></span>
        </button>
@@ -123,9 +123,44 @@
            <ul>
              <li>To make this application work you might need a provisioning from your APS account.</li>
              <li>In order to make provisioning follow this steps:</li>
-             <li>1. </li>
-             <li>2. </li>
-             <li>3. </li>
+             <li><a href="https://tutorials.autodesk.io/#provision-access-in-other-products" target="_blank">Provisioning manual</a></li>
+             <li>And put the following credentials: </li>
+             <li>Client ID:</li>
+             <fieldset>
+               <div class="input-group mb-3">
+                    <input id="clientid"
+                           readonly="true" 
+                           type="text" 
+                           class="form-control" 
+                           placeholder="Recipient's username" 
+                           aria-label="Recipient's username" 
+                           aria-describedby="basic-addon2" 
+                           value="ai0Zu2vLgT0WB0WmJQ1HFrn1KRbUl4At"
+                           >
+                    <button class="btn btn-outline-secondary" 
+                            type="button" 
+                            id="button-copy-clientid" 
+                            data-clipboard-target="clientid"
+                            onclick="copyToClipboard('clientid')">Copy to clipboard</button>
+               </div>
+             </fieldset>
+             <li>Application Name:</li>
+             <fieldset>
+               <div class="input-group mb-3">
+                    <input id="appname"
+                           readonly="true" 
+                           type="text" 
+                           class="form-control" 
+                           placeholder="Recipient's username" 
+                           aria-label="Recipient's username" 
+                           aria-describedby="basic-addon2" 
+                           value="BIM Showcase Hub">
+                    <button class="btn btn-outline-secondary" 
+                            type="button" 
+                            id="button-copy-appname"
+                            onclick="copyToClipboard('appname')">Copy to clipboard</button>
+               </div>
+             </fieldset>
              <iframe id="hiddenFrame" style="visibility: hidden" ></iframe>
            </ul>
            
@@ -175,11 +210,12 @@
     <div class="row flex-nowrap">
         <div id="sidebarcolumn" class="col-auto px-0">
             <div id="sidebar" class="collapse width collapse-horizontal show border-end">
-                <div class="bi bi-boxes panel-heading" 
-                     data-toggle="tooltip" 
-                     style="padding: 0px;margin-left:10px;">
+                <div>
                   <!-- <span id="userInfo"></span> -->
-                  <span>Project Tree</span>
+                  <span id="projectTree"
+                        class="bi bi-boxes panel-heading" 
+                        data-toggle="tooltip" 
+                        style="padding: 0px;margin-left:10px;display: none;">  Project Tree</span>
                   <span id="refreshHubs" 
                         class="bi bi-arrow-clockwise" 
                         style="cursor: pointer; display: none;float: right; margin-right:10px" 
@@ -296,8 +332,13 @@ function changeColorMode(){
 
      }
 }
+// copy to clipboard function
+function copyToClipboard(destId) {
+  var copyText = document.getElementById(destId);
+  copyText.select();
+  navigator.clipboard.writeText(copyText.value);
+}
 
 </script>
-
 </body>
 </html>

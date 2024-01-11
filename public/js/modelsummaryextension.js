@@ -63,7 +63,7 @@ class ModelSummaryExtension extends Autodesk.Viewing.Extension {
             // getAllLeafComponents function is defined at the bottom
             this.getAllLeafComponents((dbIds) => {
                 // Now for leaf components, let's get some properties and count occurrences of each value
-                const filteredProps = ['Assembly Code','Код по классификатору', 'RHI_GN_WBS код','WBS','Commodity Code','RA_002_Наименование', 'RA_003_Техническая характеристика', 'RA_004_Тип, марка, обзначение документа, опросного листа'];
+                const filteredProps = ['Assembly Code','Код по классификатору', 'Name'];
                 // Get only the properties we need for the leaf dbIds
                 this.viewer.model.getBulkProperties(dbIds, filteredProps, (items) => {
                     // Iterate through the elements we found

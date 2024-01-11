@@ -41,7 +41,7 @@ function launchViewer(urn, viewableId,name,type) {
     var config =  {
       extensions: 
       [ 'Autodesk.DocumentBrowser',
-       'HandleSelectionExtension',
+       'PaintBrushes',
        'ModelSummaryExtension', 
        'Autodesk.VisualClusters', 
        'DashboardHandler',

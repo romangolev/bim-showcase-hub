@@ -111,7 +111,7 @@ var ForgeXLS = {
   prepareTables: function (callback) {
     let data = new ModelData(this);
     data.init(async function () {
-      debugger
+      //debugger
         let hierarchy = data._modelData.Category;
         if (hierarchy === undefined){
           hierarchy = data._modelData['Source File'];

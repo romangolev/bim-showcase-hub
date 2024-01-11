@@ -7,6 +7,7 @@ $(function () {
         //$('#signOut').show();
         $('#signOutNav').removeClass('disabled')
         $('#refreshHubs').show();
+        $('#projectTree').show();
   
         // prepare sign out
         $('#signOutNav').on('click', function () {  
@@ -37,7 +38,7 @@ $(function () {
         }
       });
     });
-    
+
     $('#autodeskSigninButton').on('click', function () {
       jQuery.ajax({
         url: '/api/forge/oauth/url',
