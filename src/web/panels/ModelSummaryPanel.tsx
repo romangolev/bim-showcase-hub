@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
+import { Icon } from '../components/icons.js';
 import { StateBlock } from '../components/StateBlock.js';
 import {
   DEFAULT_SUMMARY_PROPERTIES,
@@ -15,6 +16,9 @@ export interface ModelSummaryPanelProps {
   propertyNames?: readonly string[];
   title?: string;
   className?: string;
+  collapsed?: boolean;
+  defaultCollapsed?: boolean;
+  onCollapsedChange?: (collapsed: boolean) => void;
 }
 
 const EMPTY: SummaryEntry[] = [];
@@ -25,7 +29,13 @@ export function ModelSummaryPanel({
   propertyNames = DEFAULT_SUMMARY_PROPERTIES,
   title = 'Model summary',
   className,
+  collapsed,
+  defaultCollapsed = false,
+  onCollapsedChange,
 }: ModelSummaryPanelProps) {
+  const uid = useId();
+  const [innerCollapsed, setInnerCollapsed] = useState(defaultCollapsed);
+  const isCollapsed = collapsed ?? innerCollapsed;
   const [showAll, setShowAll] = useState(false);
   const resolved = useResolvedAdapter(adapter);
   const state = usePropertyRows(resolved, propertyNames);
@@ -35,66 +45,101 @@ export function ModelSummaryPanel({
     [state.status, state.rows, propertyNames],
   );
 
+  const toggle = () => {
+    const next = !isCollapsed;
+    if (collapsed === undefined) setInnerCollapsed(next);
+    onCollapsedChange?.(next);
+  };
+
+  const bodyId = `${uid}-body`;
+  const titleId = `${uid}-title`;
+  const toggleLabel = isCollapsed ? `Expand ${title}` : `Collapse ${title}`;
+
   return (
     <section
-      className={`bsh-card ${className ?? ''}`.trim()}
-      aria-labelledby="bsh-summary-title"
+      className={`bsh-card bsh-summary ${className ?? ''}`.trim()}
+      aria-labelledby={titleId}
+      data-collapsed={isCollapsed}
       data-rows-collapsed={!showAll && entries.length > STACKED_ROW_LIMIT}
     >
-      <header className="bsh-card__header">
-        <h2 id="bsh-summary-title" className="bsh-card__title">
+      <header className="bsh-card__header bsh-summary__header">
+        <h2 id={titleId} className="bsh-card__title">
           {title}
         </h2>
         <button
           type="button"
-          className="bsh-button"
+          className="bsh-button bsh-summary__refresh"
           onClick={state.reload}
           disabled={!resolved}
         >
           Refresh
         </button>
-      </header>
-      {!resolved && (
-        <StateBlock
-          variant="empty"
-          title="No model loaded yet"
-          message="Select a viewable version in the document tree and its element summary appears here."
-        />
-      )}
-      {resolved && state.status === 'loading' && (
-        <StateBlock
-          variant="loading"
-          message="Reading element properties"
-          rows={5}
-        />
-      )}
-      {state.status === 'error' && (
-        <StateBlock
-          variant="error"
-          message="We could not read this model's properties. Try again."
-          detail={state.message}
-          action={{ label: 'Retry', onClick: state.reload }}
-        />
-      )}
-      {state.status === 'ready' && entries.length === 0 && (
-        <StateBlock
-          variant="empty"
-          title="No elements to summarize"
-          message="This version has no readable elements. Try another version."
-          action={{ label: 'Refresh', onClick: state.reload }}
-        />
-      )}
-      {entries.length > 0 && <SummaryTable entries={entries} />}
-      {entries.length > STACKED_ROW_LIMIT && (
         <button
           type="button"
-          className="bsh-button summary-toggle"
-          aria-expanded={showAll}
-          onClick={() => setShowAll((value) => !value)}
+          className="bsh-icon-button bsh-summary__toggle"
+          aria-expanded={!isCollapsed}
+          aria-controls={bodyId}
+          onClick={toggle}
         >
-          {showAll ? 'Show fewer rows' : `Show all ${entries.length} rows`}
+          <Icon
+            name="chevron"
+            size={16}
+            className="bsh-summary__toggle-icon"
+            data-expanded={!isCollapsed}
+          />
+          <span className="bsh-sr-only">{toggleLabel}</span>
         </button>
-      )}
+      </header>
+      <div
+        id={bodyId}
+        className="bsh-summary__wrap"
+        inert={isCollapsed}
+        aria-hidden={isCollapsed || undefined}
+      >
+        <div className="bsh-summary__body">
+          {!resolved && (
+            <StateBlock
+              variant="empty"
+              title="No model loaded yet"
+              message="Select a viewable version in the document tree and its element summary appears here."
+            />
+          )}
+          {resolved && state.status === 'loading' && (
+            <StateBlock
+              variant="loading"
+              message="Reading element properties"
+              rows={5}
+            />
+          )}
+          {state.status === 'error' && (
+            <StateBlock
+              variant="error"
+              message="We could not read this model's properties. Try again."
+              detail={state.message}
+              action={{ label: 'Retry', onClick: state.reload }}
+            />
+          )}
+          {state.status === 'ready' && entries.length === 0 && (
+            <StateBlock
+              variant="empty"
+              title="No elements to summarize"
+              message="This version has no readable elements. Try another version."
+              action={{ label: 'Refresh', onClick: state.reload }}
+            />
+          )}
+          {entries.length > 0 && <SummaryTable entries={entries} />}
+          {entries.length > STACKED_ROW_LIMIT && (
+            <button
+              type="button"
+              className="bsh-button summary-toggle"
+              aria-expanded={showAll}
+              onClick={() => setShowAll((value) => !value)}
+            >
+              {showAll ? 'Show fewer rows' : `Show all ${entries.length} rows`}
+            </button>
+          )}
+        </div>
+      </div>
     </section>
   );
 }

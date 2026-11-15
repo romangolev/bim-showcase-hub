@@ -1,6 +1,12 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import { StrictMode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ModelSummaryPanel } from '../panels/ModelSummaryPanel.js';
 import { createMockViewerAdapter } from './MockViewerAdapter.js';
 import type { ViewerAdapter, ViewerAdapterFactory } from './ViewerAdapter.js';
@@ -28,9 +34,9 @@ describe('ViewerPane', () => {
     const { factory } = trackedFactory();
     const onReady = vi.fn();
     render(<ViewerPane urn="abc" factory={factory} onReady={onReady} />);
-    expect(screen.getByRole('status')).toHaveTextContent('Loading model');
+    expect(screen.getByText('Loading model')).toBeInTheDocument();
     await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
-    expect(screen.queryByRole('status')).toBeNull();
+    expect(screen.queryByText('Loading model')).toBeNull();
     expect(document.querySelector('[data-dbid]')).not.toBeNull();
   });
 
@@ -81,5 +87,163 @@ describe('ViewerPane', () => {
       </ViewerProvider>,
     );
     expect(await screen.findByText('Level 1')).toBeInTheDocument();
+  });
+});
+
+class FakeResizeObserver {
+  static instances: FakeResizeObserver[] = [];
+  observed: Element[] = [];
+  disconnected = false;
+
+  constructor(readonly callback: ResizeObserverCallback) {
+    FakeResizeObserver.instances.push(this);
+  }
+
+  observe(target: Element): void {
+    this.observed.push(target);
+  }
+
+  unobserve(): void {}
+
+  disconnect(): void {
+    this.disconnected = true;
+  }
+
+  trigger(): void {
+    this.callback([], this as unknown as ResizeObserver);
+  }
+}
+
+describe('ViewerPane resize wiring', () => {
+  afterEach(() => {
+    FakeResizeObserver.instances = [];
+    vi.unstubAllGlobals();
+  });
+
+  async function mounted() {
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+      cb(0);
+      return 1;
+    });
+    vi.stubGlobal('cancelAnimationFrame', () => {});
+    const { factory, created } = trackedFactory();
+    const onReady = vi.fn();
+    const view = render(
+      <ViewerPane urn="abc" factory={factory} onReady={onReady} />,
+    );
+    await waitFor(() => expect(onReady).toHaveBeenCalled());
+    const adapter = created[0] as ViewerAdapter;
+    const spy = vi.spyOn(adapter, 'resize');
+    return { view, spy };
+  }
+
+  it('observes the viewer container and resizes the adapter on size changes', async () => {
+    const { spy } = await mounted();
+    const observer = FakeResizeObserver.instances[0];
+    expect(observer?.observed[0]).toHaveClass('bsh-viewer-surface');
+    observer?.trigger();
+    expect(spy).toHaveBeenCalledTimes(1);
+    observer?.trigger();
+    expect(spy).toHaveBeenCalledTimes(2);
+  });
+
+  it('throttles bursts into one resize per animation frame', async () => {
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+    const frames: FrameRequestCallback[] = [];
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+      frames.push(cb);
+      return frames.length;
+    });
+    vi.stubGlobal('cancelAnimationFrame', () => {});
+    const { factory, created } = trackedFactory();
+    const onReady = vi.fn();
+    render(<ViewerPane urn="abc" factory={factory} onReady={onReady} />);
+    await waitFor(() => expect(onReady).toHaveBeenCalled());
+    const spy = vi.spyOn(created[0] as ViewerAdapter, 'resize');
+    frames.length = 0;
+    const observer = FakeResizeObserver.instances[0];
+    observer?.trigger();
+    observer?.trigger();
+    observer?.trigger();
+    expect(frames).toHaveLength(1);
+    frames[0]?.(0);
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('also resizes on transitionend and window resize', async () => {
+    const { view, spy } = await mounted();
+    fireEvent.transitionEnd(view.container.firstElementChild as Element);
+    expect(spy).toHaveBeenCalledTimes(1);
+    fireEvent(window, new Event('resize'));
+    expect(spy).toHaveBeenCalledTimes(2);
+  });
+
+  it('cleans up the observer and listeners on unmount', async () => {
+    const { view, spy } = await mounted();
+    const observer = FakeResizeObserver.instances[0];
+    const root = view.container.firstElementChild as Element;
+    view.unmount();
+    expect(observer?.disconnected).toBe(true);
+    spy.mockClear();
+    fireEvent(window, new Event('resize'));
+    fireEvent.transitionEnd(root);
+    expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+describe('ViewerPane export status badge', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('shows an aria-live badge after export and dismisses it after 4s', async () => {
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    vi.stubGlobal('URL', {
+      ...URL,
+      createObjectURL: () => 'blob:x',
+      revokeObjectURL: () => {},
+    });
+    const { factory } = trackedFactory();
+    const onReady = vi.fn();
+    const { container } = render(
+      <ViewerPane urn="abc" factory={factory} onReady={onReady} />,
+    );
+    await waitFor(() => expect(onReady).toHaveBeenCalled());
+    const live = screen.getByRole('status');
+    expect(live).toHaveAttribute('aria-live', 'polite');
+    expect(live).toBeEmptyDOMElement();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    fireEvent.click(screen.getByRole('button', { name: 'Export to Excel' }));
+    await waitFor(() => expect(live).toHaveTextContent(/^Exported \d+ rows/));
+    expect(live.querySelector('.badge .badge__dot')).not.toBeNull();
+    expect(live.querySelector('.badge')).toHaveAttribute('data-variant', 'ok');
+    expect(container.querySelector('.bsh-viewer-status')).toBe(live);
+    act(() => {
+      vi.advanceTimersByTime(3900);
+    });
+    expect(live).not.toBeEmptyDOMElement();
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+    expect(live).toBeEmptyDOMElement();
+  });
+
+  it('formats the exported row count with separators and shows errors in the error variant', async () => {
+    const { factory, created } = trackedFactory();
+    const onReady = vi.fn();
+    render(<ViewerPane urn="abc" factory={factory} onReady={onReady} />);
+    await waitFor(() => expect(onReady).toHaveBeenCalled());
+    const adapter = created[0] as ViewerAdapter;
+    vi.spyOn(adapter, 'getLeafProperties').mockRejectedValue(new Error('boom'));
+    fireEvent.click(screen.getByRole('button', { name: 'Export to Excel' }));
+    const live = screen.getByRole('status');
+    await waitFor(() => expect(live).toHaveTextContent('Export failed'));
+    expect(live.querySelector('.badge')).toHaveAttribute(
+      'data-variant',
+      'error',
+    );
   });
 });

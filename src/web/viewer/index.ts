@@ -3,8 +3,11 @@ export {
   isMockViewer,
 } from './createViewerAdapter.js';
 export type {
+  ExportToolSpec,
+  PaintSwatchSpec,
+  PaintToolSpec,
   Rgba,
-  ToolbarButtonSpec,
+  ToolGroupSpec,
   ViewerAdapter,
   ViewerAdapterFactory,
 } from './ViewerAdapter.js';

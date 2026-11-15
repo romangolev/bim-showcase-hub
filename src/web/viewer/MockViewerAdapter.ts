@@ -1,15 +1,22 @@
 import type { PropertyRow } from '../../shared/types.js';
 import {
+  EXPORT_ICON_CLASS,
+  PAINT_ICON_CLASS,
+  RESET_ICON_CLASS,
+  swatchIconClass,
+} from './autodeskTools.js';
+import {
   buildMockElements,
   buildMockRows,
+  LARGE_FIXTURE_ROWS,
   type MockElement,
   type Point,
 } from './mockModel.js';
-import type {
-  Rgba,
-  ToolbarButtonSpec,
-  ViewerAdapter,
-} from './ViewerAdapter.js';
+import {
+  ToolGroupController,
+  type ToolGroupState,
+} from './toolGroupController.js';
+import type { Rgba, ToolGroupSpec, ViewerAdapter } from './ViewerAdapter.js';
 import './viewer.css';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -36,6 +43,25 @@ function pointsAttr(points: Point[]): string {
   return points.map(([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`).join(' ');
 }
 
+interface MockToolGroup {
+  element: HTMLElement;
+  dispose: () => void;
+}
+
+function iconSpan(iconClass: string): string {
+  return `<span class="bsh-mock__icon ${iconClass}" aria-hidden="true"></span>`;
+}
+
+function setDisabled(
+  button: HTMLButtonElement,
+  disabled: boolean,
+  tooltip: string,
+): void {
+  button.title = tooltip;
+  if (disabled) button.setAttribute('aria-disabled', 'true');
+  else button.removeAttribute('aria-disabled');
+}
+
 function rgbaCss([r, g, b, a]: Rgba): string {
   const to = (v: number) => Math.round(Math.min(1, Math.max(0, v)) * 255);
   return `rgba(${to(r)}, ${to(g)}, ${to(b)}, ${a})`;
@@ -50,7 +76,14 @@ export class MockViewerAdapter implements ViewerAdapter {
   private readonly nodes = new Map<number, SVGPolygonElement>();
   private readonly themed = new Map<number, Rgba>();
   private readonly listeners = new Set<(ids: number[]) => void>();
-  private readonly buttons = new Map<string, HTMLButtonElement>();
+  private bounds: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null = null;
+  private controller: ToolGroupController | null = null;
+  private disposeGroup: (() => void) | null = null;
   private loaded = false;
   private destroyed = false;
 
@@ -72,8 +105,14 @@ export class MockViewerAdapter implements ViewerAdapter {
     this.svg?.replaceChildren();
     this.nodes.clear();
     this.themed.clear();
+    this.bounds = null;
     this.loaded = false;
     this.setSelection([]);
+    this.controller?.clearPainted();
+  }
+
+  resize(): void {
+    this.fit();
   }
 
   getSelection(): number[] {
@@ -109,21 +148,28 @@ export class MockViewerAdapter implements ViewerAdapter {
 
   async getLeafProperties(propertyNames: string[]): Promise<PropertyRow[]> {
     if (!this.loaded) return [];
-    return buildMockRows(propertyNames);
+    return buildMockRows(
+      propertyNames,
+      import.meta.env.MODE === 'test' ? 0 : LARGE_FIXTURE_ROWS,
+    );
   }
 
-  registerToolbarButton(spec: ToolbarButtonSpec): () => void {
+  registerToolGroup(spec: ToolGroupSpec): () => void {
     const toolbar = this.toolbar;
     if (!toolbar || this.destroyed) return () => {};
-    const existing = this.buttons.get(spec.id);
-    existing?.remove();
-    const button = this.createToolbarButton(spec.id, spec.tooltip, spec.icon);
-    button.addEventListener('click', () => spec.onClick());
-    this.buttons.set(spec.id, button);
-    toolbar.appendChild(button);
+    this.disposeGroup?.();
+    this.controller?.dispose();
+    const controller = new ToolGroupController(spec, this);
+    const group = this.buildToolGroup(controller);
+    toolbar.appendChild(group.element);
+    this.controller = controller;
+    this.disposeGroup = group.dispose;
     return () => {
-      if (this.buttons.get(spec.id) === button) this.buttons.delete(spec.id);
-      button.remove();
+      if (this.controller !== controller) return;
+      group.dispose();
+      controller.dispose();
+      this.controller = null;
+      this.disposeGroup = null;
     };
   }
 
@@ -140,7 +186,10 @@ export class MockViewerAdapter implements ViewerAdapter {
     this.listeners.clear();
     this.nodes.clear();
     this.themed.clear();
-    this.buttons.clear();
+    this.disposeGroup?.();
+    this.disposeGroup = null;
+    this.controller?.dispose();
+    this.controller = null;
     this.selection.clear();
     this.root?.remove();
     this.root = null;
@@ -175,10 +224,6 @@ export class MockViewerAdapter implements ViewerAdapter {
       });
       toolbar.appendChild(button);
     }
-    const separator = document.createElement('span');
-    separator.className = 'bsh-mock__separator';
-    toolbar.appendChild(separator);
-
     root.append(svg, status, toolbar);
     this.container.appendChild(root);
     this.root = root;
@@ -200,6 +245,133 @@ export class MockViewerAdapter implements ViewerAdapter {
     button.setAttribute('aria-label', tooltip);
     button.innerHTML = icon;
     return button;
+  }
+
+  private buildToolGroup(controller: ToolGroupController): MockToolGroup {
+    const { spec } = controller;
+    const group = document.createElement('div');
+    group.className = 'bsh-mock__group';
+    group.dataset.groupId = spec.id;
+    group.setAttribute('role', 'group');
+    group.setAttribute('aria-label', spec.title);
+
+    const separator = document.createElement('span');
+    separator.className = 'bsh-mock__separator';
+
+    const combo = document.createElement('div');
+    combo.className = 'bsh-mock__combo';
+    const trigger = this.createToolbarButton(
+      spec.paint.id,
+      spec.paint.tooltip,
+      iconSpan(PAINT_ICON_CLASS),
+    );
+    trigger.setAttribute('aria-haspopup', 'true');
+    trigger.setAttribute('aria-expanded', 'false');
+    const flyout = document.createElement('div');
+    flyout.className = 'bsh-mock__flyout';
+    flyout.hidden = true;
+    flyout.setAttribute('role', 'group');
+    flyout.setAttribute('aria-label', spec.paint.tooltip);
+
+    const swatches = spec.paint.swatches.map((swatch) => {
+      const button = this.createToolbarButton(
+        swatch.id,
+        swatch.label,
+        iconSpan(swatchIconClass(swatch.id)),
+      );
+      button.addEventListener('click', () => {
+        if (!controller.state.hasSelection) return;
+        controller.paint(swatch.color);
+        setOpen(false);
+      });
+      flyout.appendChild(button);
+      return { swatch, button };
+    });
+    const reset = this.createToolbarButton(
+      spec.paint.reset.id,
+      spec.paint.reset.label,
+      iconSpan(RESET_ICON_CLASS),
+    );
+    reset.addEventListener('click', () => {
+      if (!controller.state.painted) return;
+      controller.reset();
+      setOpen(false);
+    });
+    flyout.appendChild(reset);
+    combo.append(trigger, flyout);
+
+    const exportButton = this.createToolbarButton(
+      spec.export.id,
+      spec.export.tooltip,
+      iconSpan(EXPORT_ICON_CLASS),
+    );
+    exportButton.addEventListener('click', () => controller.export());
+
+    const onOutside = (event: Event) => {
+      if (!combo.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setOpen(false);
+      trigger.focus();
+    };
+    const setOpen = (open: boolean) => {
+      flyout.hidden = !open;
+      trigger.setAttribute('aria-expanded', String(open));
+      if (open) {
+        document.addEventListener('pointerdown', onOutside);
+        document.addEventListener('keydown', onKey);
+      } else {
+        document.removeEventListener('pointerdown', onOutside);
+        document.removeEventListener('keydown', onKey);
+      }
+    };
+    trigger.addEventListener('click', () => setOpen(Boolean(flyout.hidden)));
+
+    const apply = (state: ToolGroupState) => {
+      for (const { swatch, button } of swatches) {
+        setDisabled(
+          button,
+          !state.hasSelection,
+          state.hasSelection ? swatch.label : spec.paint.selectHint,
+        );
+      }
+      setDisabled(
+        reset,
+        !state.painted,
+        state.painted ? spec.paint.reset.label : spec.paint.resetHint,
+      );
+    };
+    apply(controller.state);
+    const stop = controller.subscribe(apply);
+    group.append(separator, combo, exportButton);
+    return {
+      element: group,
+      dispose: () => {
+        stop();
+        setOpen(false);
+        group.remove();
+      },
+    };
+  }
+
+  private fit(): void {
+    const svg = this.svg;
+    const bounds = this.bounds;
+    if (!svg || !bounds) return;
+    const width = this.container.clientWidth;
+    const height = this.container.clientHeight;
+    if (width === 0 || height === 0) return;
+    const aspect = width / height;
+    let viewWidth = bounds.width;
+    let viewHeight = bounds.height;
+    if (viewWidth / viewHeight < aspect) viewWidth = viewHeight * aspect;
+    else viewHeight = viewWidth / aspect;
+    const x = bounds.x + (bounds.width - viewWidth) / 2;
+    const y = bounds.y + (bounds.height - viewHeight) / 2;
+    svg.setAttribute('viewBox', `${x} ${y} ${viewWidth} ${viewHeight}`);
+    svg.dataset.fitWidth = String(width);
+    svg.dataset.fitHeight = String(height);
   }
 
   private renderScene(elements: MockElement[]): void {
@@ -230,11 +402,18 @@ export class MockViewerAdapter implements ViewerAdapter {
       }
     }
     const pad = 24;
+    this.bounds = {
+      x: minX - pad,
+      y: minY - pad,
+      width: maxX - minX + pad * 2,
+      height: maxY - minY + pad * 2,
+    };
     svg.setAttribute(
       'viewBox',
-      `${minX - pad} ${minY - pad} ${maxX - minX + pad * 2} ${maxY - minY + pad * 2}`,
+      `${this.bounds.x} ${this.bounds.y} ${this.bounds.width} ${this.bounds.height}`,
     );
     svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    this.fit();
   }
 
   private readonly onSceneClick = (event: MouseEvent): void => {

@@ -4,7 +4,7 @@ import {
   useTable,
 } from '@tanstack/react-table';
 import { useRef } from 'react';
-import type { SummaryEntry } from '../extensions/modelSummary.js';
+import { formatCount, type SummaryEntry } from '../extensions/modelSummary.js';
 import { useScrollable } from './useScrollable.js';
 import './panels.css';
 
@@ -13,7 +13,10 @@ const helper = createColumnHelper<typeof features, SummaryEntry>();
 const columns = helper.columns([
   helper.accessor('property', { header: 'Property' }),
   helper.accessor('value', { header: 'Value' }),
-  helper.accessor('count', { header: 'Count' }),
+  helper.accessor('count', {
+    header: 'Count',
+    cell: (info) => formatCount(info.getValue()),
+  }),
 ]);
 
 const COLUMN_CLASS: Record<string, string> = {
@@ -70,7 +73,11 @@ export function SummaryTable({
                 <td
                   key={cell.id}
                   className={COLUMN_CLASS[cell.column.id]}
-                  title={String(cell.getValue() ?? '')}
+                  title={
+                    cell.column.id === 'count'
+                      ? formatCount(Number(cell.getValue()))
+                      : String(cell.getValue() ?? '')
+                  }
                 >
                   <span className="bsh-clamp">
                     <table.FlexRender cell={cell} />

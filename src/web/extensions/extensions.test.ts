@@ -18,13 +18,10 @@ import {
 import {
   DEFAULT_SUMMARY_PROPERTIES,
   EMPTY_VALUE_LABEL,
+  formatCount,
   summarize,
 } from './modelSummary.js';
-import {
-  PAINT_PRESETS,
-  paintSelection,
-  registerPaintBrushes,
-} from './paintBrushes.js';
+import { PAINT_PRESETS, paintSelection } from './paintBrushes.js';
 
 function row(
   dbId: number,
@@ -66,6 +63,14 @@ describe('summarize', () => {
     expect(summarize([row(1, {})], ['Level'])).toEqual([
       { property: 'Level', value: EMPTY_VALUE_LABEL, count: 1 },
     ]);
+  });
+});
+
+describe('formatCount', () => {
+  it('adds thousands separators', () => {
+    expect(formatCount(104686)).toBe('104,686');
+    expect(formatCount(7)).toBe('7');
+    expect(formatCount(1234567)).toBe('1,234,567');
   });
 });
 
@@ -201,17 +206,6 @@ describe('paint brushes', () => {
     const adapter = new MockViewerAdapter(document.createElement('div'));
     await adapter.load('urn');
     expect(paintSelection(adapter, [1, 0, 0, 1])).toBe(false);
-    adapter.destroy();
-  });
-
-  it('registers and removes toolbar buttons', async () => {
-    const host = document.createElement('div');
-    const adapter = new MockViewerAdapter(host);
-    await adapter.load('urn');
-    const dispose = registerPaintBrushes(adapter);
-    expect(host.querySelectorAll('[data-button-id^="paint-"]')).toHaveLength(4);
-    dispose();
-    expect(host.querySelectorAll('[data-button-id^="paint-"]')).toHaveLength(0);
     adapter.destroy();
   });
 });

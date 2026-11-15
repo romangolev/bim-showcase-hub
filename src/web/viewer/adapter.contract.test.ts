@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { isMockViewer } from './createViewerAdapter.js';
 import { MockViewerAdapter } from './MockViewerAdapter.js';
-import { buildMockElements } from './mockModel.js';
+import {
+  buildMockElements,
+  buildMockRows,
+  LARGE_FIXTURE_ROWS,
+} from './mockModel.js';
 import { apiForRegion, detectRegion } from './RealViewerAdapter.js';
 import type { ViewerAdapter } from './ViewerAdapter.js';
 
@@ -109,24 +113,6 @@ describe('ViewerAdapter contract (mock)', () => {
     );
   });
 
-  it('registers and unregisters toolbar buttons', async () => {
-    await setup();
-    const onClick = vi.fn();
-    const off = adapter.registerToolbarButton({
-      id: 'custom',
-      tooltip: 'Custom',
-      icon: '<svg></svg>',
-      onClick,
-    });
-    const button = host.querySelector<HTMLButtonElement>(
-      '[data-button-id="custom"]',
-    );
-    button?.click();
-    expect(onClick).toHaveBeenCalledTimes(1);
-    off();
-    expect(host.querySelector('[data-button-id="custom"]')).toBeNull();
-  });
-
   it('clears the scene on unload and removes DOM on destroy', async () => {
     await setup();
     adapter.unload();
@@ -141,6 +127,15 @@ describe('ViewerAdapter contract (mock)', () => {
     await setup();
     const typed: ViewerAdapter = adapter;
     expect(typeof typed.load).toBe('function');
+  });
+});
+
+describe('mock bulk fixture rows', () => {
+  it('produces a six digit count when bulk rows are requested', () => {
+    const rows = buildMockRows(['Category'], LARGE_FIXTURE_ROWS);
+    const walls = rows.filter((r) => r.properties.Category === 'Walls');
+    expect(walls.length).toBeGreaterThan(99999);
+    expect(new Set(rows.map((r) => r.dbId)).size).toBe(rows.length);
   });
 });
 

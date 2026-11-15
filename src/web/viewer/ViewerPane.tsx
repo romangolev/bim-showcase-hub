@@ -1,5 +1,6 @@
 import {
   type ReactNode,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -7,7 +8,12 @@ import {
   useState,
 } from 'react';
 import { StateBlock } from '../components/StateBlock.js';
-import { registerPaintBrushes } from '../extensions/paintBrushes.js';
+import {
+  describeStatus,
+  type ExportStatus,
+} from '../extensions/excelExport.js';
+import { formatCount } from '../extensions/modelSummary.js';
+import { registerViewerTools } from '../extensions/viewerTools.js';
 import { createViewerAdapter } from './createViewerAdapter.js';
 import type { ViewerAdapter, ViewerAdapterFactory } from './ViewerAdapter.js';
 import { ViewerContext } from './ViewerContext.js';
@@ -17,7 +23,7 @@ export interface ViewerPaneProps {
   urn: string;
   onReady?: (adapter: ViewerAdapter) => void;
   factory?: ViewerAdapterFactory;
-  paintBrushes?: boolean;
+  tools?: boolean;
   children?: ReactNode;
 }
 
@@ -25,6 +31,19 @@ type PaneState =
   | { status: 'loading' }
   | { status: 'ready' }
   | { status: 'error'; message: string };
+
+export const STATUS_DISMISS_MS = 4000;
+
+function isBusy(status: ExportStatus): boolean {
+  return status.phase === 'reading' || status.phase === 'building';
+}
+
+function badgeText(status: ExportStatus): string {
+  if (status.phase === 'error') return 'Export failed';
+  if (status.phase === 'done')
+    return `Exported ${formatCount(status.rowCount)} rows`;
+  return describeStatus(status);
+}
 
 const LOAD_ERROR_COPY =
   'The model could not be loaded. It may still be processing, or you may not have access to it.';
@@ -37,12 +56,17 @@ export function ViewerPane({
   urn,
   onReady,
   factory = createViewerAdapter,
-  paintBrushes = true,
+  tools = true,
   children,
 }: ViewerPaneProps) {
   const outer = useContext(ViewerContext);
   const publish = outer?.setAdapter;
   const hostRef = useRef<HTMLDivElement>(null);
+  const adapterRef = useRef<ViewerAdapter | null>(null);
+  const statusTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  const [exportStatus, setExportStatus] = useState<ExportStatus | null>(null);
   const onReadyRef = useRef(onReady);
   const [adapter, setAdapter] = useState<ViewerAdapter | null>(null);
   const [state, setState] = useState<PaneState>({ status: 'loading' });
@@ -51,6 +75,48 @@ export function ViewerPane({
   useEffect(() => {
     onReadyRef.current = onReady;
   }, [onReady]);
+
+  const handleExportStatus = useCallback((next: ExportStatus) => {
+    clearTimeout(statusTimer.current);
+    setExportStatus(next);
+    if (!isBusy(next)) {
+      statusTimer.current = setTimeout(
+        () => setExportStatus(null),
+        STATUS_DISMISS_MS,
+      );
+    }
+  }, []);
+
+  useEffect(() => () => clearTimeout(statusTimer.current), []);
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    let pending = false;
+    let frame = 0;
+    const schedule = () => {
+      if (pending) return;
+      pending = true;
+      frame = requestAnimationFrame(() => {
+        pending = false;
+        adapterRef.current?.resize();
+      });
+    };
+    const observer =
+      typeof ResizeObserver === 'undefined'
+        ? null
+        : new ResizeObserver(schedule);
+    observer?.observe(host);
+    const grid = host.closest('.model-page') ?? host.parentElement;
+    grid?.addEventListener('transitionend', schedule);
+    window.addEventListener('resize', schedule);
+    return () => {
+      if (pending) cancelAnimationFrame(frame);
+      observer?.disconnect();
+      grid?.removeEventListener('transitionend', schedule);
+      window.removeEventListener('resize', schedule);
+    };
+  }, []);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -69,9 +135,15 @@ export function ViewerPane({
           instance.destroy();
           return;
         }
-        if (paintBrushes) disposeExtensions = registerPaintBrushes(instance);
+        if (tools) {
+          disposeExtensions = registerViewerTools(instance, {
+            onStatus: handleExportStatus,
+          });
+        }
         await instance.load(urn);
         if (cancelled) return;
+        adapterRef.current = instance;
+        instance.resize();
         setAdapter(instance);
         publish?.(instance);
         setState({ status: 'ready' });
@@ -83,12 +155,13 @@ export function ViewerPane({
 
     return () => {
       cancelled = true;
+      adapterRef.current = null;
       disposeExtensions?.();
       created?.destroy();
       setAdapter(null);
       publish?.(null);
     };
-  }, [urn, factory, paintBrushes, publish, attempt]);
+  }, [urn, factory, tools, publish, attempt, handleExportStatus]);
 
   const value = useMemo(
     () => ({ adapter, setAdapter: publish ?? (() => {}) }),
@@ -124,6 +197,20 @@ export function ViewerPane({
             />
           </div>
         )}
+        <div className="bsh-viewer-status" role="status" aria-live="polite">
+          {exportStatus ? (
+            <span
+              className="badge bsh-viewer-badge"
+              data-variant={exportStatus.phase === 'error' ? 'error' : 'ok'}
+              title={describeStatus(exportStatus)}
+            >
+              <span className="badge__dot" aria-hidden="true" />
+              <span className="bsh-viewer-badge__text">
+                {badgeText(exportStatus)}
+              </span>
+            </span>
+          ) : null}
+        </div>
         {children}
       </div>
     </ViewerContext.Provider>

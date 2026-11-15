@@ -2,17 +2,47 @@ export interface ViewerEvent {
   dbIdArray?: number[];
 }
 
+export interface ButtonStates {
+  ACTIVE: number;
+  INACTIVE: number;
+  DISABLED: number;
+}
+
 export interface ControlButton {
   onClick: (ev?: unknown) => void;
   setToolTip(text: string): void;
+  setIcon(iconClass: string): void;
+  setState(state: number): boolean;
+  getState(): number;
   icon?: HTMLElement;
   container?: HTMLElement;
 }
 
-export interface ControlGroup {
+export interface ComboButton extends ControlButton {
   addControl(control: ControlButton): void;
-  removeControl(control: ControlButton | string): void;
+  removeControl(control: ControlButton): void;
+}
+
+export interface ControlGroup {
+  addControl(control: ControlButton | ComboButton): void;
+  removeControl(control: ControlButton | ComboButton | string): void;
   getNumberOfControls(): number;
+}
+
+export interface ViewerExtension {
+  viewer: GuiViewer3D;
+  options: unknown;
+  load(): boolean | Promise<boolean>;
+  unload(): boolean;
+}
+
+export type ViewerExtensionClass = new (
+  viewer: GuiViewer3D,
+  options?: unknown,
+) => ViewerExtension;
+
+export interface ExtensionManager {
+  registerExtension(id: string, extension: ViewerExtensionClass): boolean;
 }
 
 export interface Toolbar {
@@ -54,6 +84,9 @@ export interface GuiViewer3D {
   toolbar?: Toolbar;
   model?: ViewerModel;
   start(): number | undefined;
+  resize(): void;
+  loadExtension(id: string, options?: unknown): Promise<unknown>;
+  unloadExtension(id: string): boolean;
   setTheme(theme: string): void;
   loadDocumentNode(doc: ViewingDocument, node: unknown): Promise<ViewerModel>;
   getObjectTree(
@@ -89,9 +122,12 @@ export interface AutodeskViewing {
       onError: (code: number, message: string) => void,
     ): void;
   };
+  Extension: ViewerExtensionClass;
+  theExtensionManager: ExtensionManager;
   UI: {
     ControlGroup: new (id: string) => ControlGroup;
-    Button: new (id: string) => ControlButton;
+    Button: (new (id: string) => ControlButton) & { State: ButtonStates };
+    ComboButton: new (id: string) => ComboButton;
   };
   SELECTION_CHANGED_EVENT: string;
   TOOLBAR_CREATED_EVENT: string;
