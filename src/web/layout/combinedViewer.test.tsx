@@ -135,6 +135,27 @@ describe('combined viewer tab', () => {
     );
   });
 
+  it('follows a new with list in the url without bouncing back', async () => {
+    const { appRouter } = renderPath('/model/aaa?file=A.rvt&with=bbb');
+    await dockReady();
+    await screen.findByRole('tab', { name: '2 models' });
+    await act(() =>
+      appRouter.navigate({
+        to: '/model/$urn',
+        params: { urn: 'aaa' },
+        search: { file: 'A.rvt', with: 'bbb,ccc' },
+      }),
+    );
+    await screen.findByRole('tab', { name: '3 models' });
+    await waitFor(() => expect(groups()).toEqual(['aaa', 'bbb', 'ccc']));
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(searchOf(appRouter).with).toBe('bbb,ccc');
+    expect(
+      JSON.parse(sessionStorage.getItem(OPEN_MODELS_KEY) ?? '{}').models[0]
+        .context.with,
+    ).toBe('bbb,ccc');
+  });
+
   it('restores a combined tab after a reload', async () => {
     const first = renderPath('/model/aaa?file=A.rvt&with=bbb,ccc');
     await dockReady();

@@ -61,12 +61,22 @@ export function ModelRouteSync() {
   }, [state]);
 
   const routeWith = context.with ?? '';
+  const activeWith =
+    urn && state.active === urn ? (contextOf(state, urn)?.with ?? '') : '';
+  const seenWith = useRef<{ route: string; store: string } | null>(null);
   useEffect(() => {
-    if (!urn || state.active !== urn) return;
-    const entry = contextOf(state, urn);
-    if (!entry || (entry.with ?? '') === routeWith) return;
-    go.current(urn, entry);
-  }, [state, urn, routeWith]);
+    const previous = seenWith.current;
+    seenWith.current = { route: routeWith, store: activeWith };
+    if (!store || !urn) return;
+    const routeChanged = !previous || previous.route !== routeWith;
+    const storeChanged = !previous || previous.store !== activeWith;
+    const follow = routeChanged
+      ? !routeWith && Boolean(activeWith)
+      : storeChanged && activeWith !== routeWith;
+    if (!follow) return;
+    const entry = contextOf(store.getState(), urn);
+    if (entry) go.current(urn, entry);
+  }, [store, urn, routeWith, activeWith]);
 
   const activeContext = state.active ? contextOf(state, state.active) : null;
   useDocumentTitle(
