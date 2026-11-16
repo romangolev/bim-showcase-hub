@@ -472,3 +472,34 @@ describe('RealViewerAdapter tool group extension', () => {
     }
   });
 });
+
+describe('RealViewerAdapter initialization', () => {
+  const EU_URN = btoa('urn:adsk.wipemea:fs.file:vf.x').replace(/=+$/, '');
+
+  function spyOnInitializer() {
+    const viewing = autodeskWindow().Autodesk?.Viewing;
+    if (!viewing) throw new Error('fake viewing missing');
+    const initializer = vi.fn((_options: unknown, cb: () => void) => {
+      setTimeout(cb, 0);
+    });
+    viewing.Initializer = initializer;
+    return initializer;
+  }
+
+  it('runs the initializer once for concurrent loads', async () => {
+    const initializer = spyOnInitializer();
+    const other = new RealViewerAdapter(document.createElement('div'));
+    makeAdapter();
+    await Promise.all([adapter.load('dXJu'), other.load('dXJu')]);
+    expect(initializer).toHaveBeenCalledTimes(1);
+    other.destroy();
+  });
+
+  it('refuses a model from another region instead of re-initializing', async () => {
+    const initializer = spyOnInitializer();
+    makeAdapter();
+    await adapter.load('dXJu');
+    await expect(adapter.load(EU_URN)).rejects.toThrow(/another region/);
+    expect(initializer).toHaveBeenCalledTimes(1);
+  });
+});

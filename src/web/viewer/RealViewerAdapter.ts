@@ -23,7 +23,11 @@ const VIEWER_THEMES: Record<Theme, string> = {
 };
 
 let assetsPromise: Promise<void> | null = null;
-let initializedApi: string | null = null;
+let initialization: {
+  viewing: unknown;
+  api: string;
+  promise: Promise<void>;
+} | null = null;
 
 export type ViewerRegion = 'US' | 'EU';
 
@@ -89,9 +93,19 @@ async function fetchToken(): Promise<TokenResponse> {
 }
 
 function initializeViewing(api: string): Promise<void> {
-  if (initializedApi === api) return Promise.resolve();
-  return new Promise((resolve) => {
-    getViewing().Initializer(
+  const viewing = getViewing();
+  if (initialization && initialization.viewing === viewing) {
+    if (initialization.api !== api) {
+      return Promise.reject(
+        new Error(
+          'The viewer is already initialized for another region. Reload the page to open this model.',
+        ),
+      );
+    }
+    return initialization.promise;
+  }
+  const promise = new Promise<void>((resolve) => {
+    viewing.Initializer(
       {
         env: 'AutodeskProduction',
         api,
@@ -102,12 +116,11 @@ function initializeViewing(api: string): Promise<void> {
           );
         },
       },
-      () => {
-        initializedApi = api;
-        resolve();
-      },
+      resolve,
     );
   });
+  initialization = { viewing, api, promise };
+  return promise;
 }
 
 function loadDocument(urn: string) {
