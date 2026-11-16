@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '../test/render.js';
+import { act, fireEvent, render, screen, waitFor } from '../test/render.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
 import { DashboardPanel } from './DashboardPanel.js';
 import { ModelSummaryPanel } from './ModelSummaryPanel.js';
@@ -341,5 +341,29 @@ describe('model scope in combined views', () => {
     const scope = await screen.findByRole('combobox', { name: 'Chart models' });
     fireEvent.change(scope, { target: { value: 'urn-a' } });
     expect((scope as HTMLSelectElement).value).toBe('urn-a');
+  });
+});
+
+describe('every model hidden', () => {
+  it('explains the empty summary and dashboard', async () => {
+    const adapter = new MockViewerAdapter(document.createElement('div'));
+    await adapter.loadModels([{ urn: 'urn-a' }, { urn: 'urn-b' }]);
+    adapters.push(adapter);
+    render(
+      <>
+        <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />
+        <DashboardPanel adapter={adapter} />
+      </>,
+    );
+    await screen.findAllByRole('cell', { name: 'Walls' });
+    act(() => {
+      adapter.setModelVisible('urn-a', false);
+      adapter.setModelVisible('urn-b', false);
+    });
+    expect(await screen.findAllByText('All models are hidden')).toHaveLength(2);
+    expect(screen.queryAllByRole('cell', { name: 'Walls' })).toHaveLength(0);
+    act(() => adapter.setModelVisible('urn-b', true));
+    await screen.findAllByRole('cell', { name: 'Walls' });
+    expect(screen.queryByText('All models are hidden')).toBeNull();
   });
 });

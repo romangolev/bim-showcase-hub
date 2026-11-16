@@ -13,7 +13,12 @@ import {
   useModelScope,
 } from './ModelScope.js';
 import { SummaryTable } from './SummaryTable.js';
-import { usePropertyRows, useResolvedAdapter } from './usePropertyRows.js';
+import {
+  HIDDEN_MESSAGE,
+  HIDDEN_TITLE,
+  usePropertyRows,
+  useResolvedAdapter,
+} from './usePropertyRows.js';
 import './panels.css';
 
 export interface SummaryModel {
@@ -129,6 +134,13 @@ export function ModelSummaryPanel({
               variant="empty"
               title="No model loaded yet"
               message="Select a viewable version in the document tree and its element summary appears here."
+            />
+          )}
+          {state.status === 'hidden' && (
+            <StateBlock
+              variant="empty"
+              title={HIDDEN_TITLE}
+              message={HIDDEN_MESSAGE}
             />
           )}
           {resolved && state.status === 'loading' && (

@@ -14,7 +14,12 @@ import {
   UnavailableModels,
   useModelScope,
 } from './ModelScope.js';
-import { usePropertyRows, useResolvedAdapter } from './usePropertyRows.js';
+import {
+  HIDDEN_MESSAGE,
+  HIDDEN_TITLE,
+  usePropertyRows,
+  useResolvedAdapter,
+} from './usePropertyRows.js';
 import './panels.css';
 
 export interface DashboardPanelProps {
@@ -146,6 +151,14 @@ export function DashboardPanel({
             compact
             title="No charts yet"
             message="Open a viewable version to chart its elements."
+          />
+        )}
+        {state.status === 'hidden' && (
+          <StateBlock
+            variant="empty"
+            compact
+            title={HIDDEN_TITLE}
+            message={HIDDEN_MESSAGE}
           />
         )}
         {resolved && state.status === 'loading' && (
