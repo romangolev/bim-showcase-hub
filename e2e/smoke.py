@@ -56,6 +56,62 @@ BUTTON_COLOR_SCRIPT = """mw:() => {
     return button && getComputedStyle(button).color;
 }"""
 
+CONTEXT_MENU_SCRIPT = """mw:() => {
+    const menus = [...document.querySelectorAll('.adsk-viewing-viewer .menu.docking-panel')];
+    if (!menus.length) return null;
+    const channels = (value) => (value.match(/[\\d.]+/g) || []).slice(0, 3).map(Number);
+    const luminance = (value) => {
+        const [r, g, b] = channels(value).map((v) => {
+            const c = v / 255;
+            return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+        });
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const contrast = (a, b) => {
+        const la = luminance(a);
+        const lb = luminance(b);
+        return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+    };
+    const visible = (rect) => rect.width > 0 && rect.height > 0;
+    const items = [];
+    let inViewport = true;
+    const sizes = [];
+    menus.forEach((menu) => {
+        const menuRect = menu.getBoundingClientRect();
+        const background = getComputedStyle(menu).backgroundColor;
+        sizes.push([Math.round(menuRect.width), Math.round(menuRect.height)]);
+        inViewport = inViewport && menuRect.left >= 0 && menuRect.top >= 0
+            && menuRect.right <= window.innerWidth && menuRect.bottom <= window.innerHeight;
+        menu.querySelectorAll('.menu-item').forEach((item) => {
+            const text = item.querySelector('.menu-item-text');
+            const icon = item.querySelector('.menu-item-icon');
+            item.scrollIntoView({ block: 'nearest' });
+            const itemRect = item.getBoundingClientRect();
+            const textRect = text.getBoundingClientRect();
+            const iconRect = icon.getBoundingClientRect();
+            const color = getComputedStyle(text).color;
+            const probe = document.elementFromPoint(
+                textRect.left + textRect.width / 2,
+                textRect.top + textRect.height / 2,
+            );
+            const iconStyle = getComputedStyle(icon);
+            items.push({
+                label: text.textContent.trim(),
+                visible: visible(itemRect) && visible(textRect),
+                contrast: contrast(color, background),
+                iconOversized: visible(iconRect)
+                    && (iconRect.width > itemRect.width + 0.5 || iconRect.height > itemRect.height + 0.5),
+                iconCovers: !!probe && icon.contains(probe) && visible(iconRect),
+                iconPaintsBox: visible(iconRect)
+                    && iconStyle.backgroundColor !== 'rgba(0, 0, 0, 0)'
+                    && iconStyle.maskImage === 'none',
+                topmost: !!probe && item.contains(probe) && !icon.contains(probe),
+            });
+        });
+    });
+    return { items, inViewport, size: sizes, menus: menus.length };
+}"""
+
 
 def list_of(context, path):
     status, body = api_get(context, path)
@@ -146,6 +202,7 @@ def run_model_checks(page, checks, found):
         checks.add("excel export downloads an xlsx", False, f"{type(exc).__name__}: {str(exc)[:160]}")
     page.screenshot(path=str(OUTPUT_DIR / "03-after-export.png"))
     check_viewer_chrome(page, checks)
+    check_context_menu(page, checks)
     check_canvas_follows_summary(page, checks)
 
 
@@ -205,6 +262,68 @@ def check_viewer_chrome(page, checks):
         checks.add("viewer chrome selectors still exist upstream", not problems, "; ".join(problems[:3]))
     except Exception as exc:
         checks.add("viewer chrome selectors still exist upstream", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+
+
+def check_context_menu(page, checks):
+    try:
+        canvas = page.locator(".adsk-viewing-viewer canvas").first
+        box = canvas.bounding_box()
+        page.mouse.click(
+            box["x"] + box["width"] / 2,
+            box["y"] + box["height"] / 2,
+            button="right",
+        )
+        page.wait_for_selector(".adsk-viewing-viewer .menu.docking-panel", timeout=8000)
+        page.wait_for_timeout(300)
+        state = page.evaluate(CONTEXT_MENU_SCRIPT)
+        page.screenshot(path=str(OUTPUT_DIR / "10-context-menu.png"))
+        parent = page.locator(
+            ".adsk-viewing-viewer .menu.docking-panel .menu-item:has(.menu-item-expand[style*='opacity: 1'])"
+        ).first
+        if parent.count():
+            parent.hover(timeout=5000)
+            page.wait_for_timeout(500)
+            nested = page.evaluate(CONTEXT_MENU_SCRIPT)
+            page.screenshot(path=str(OUTPUT_DIR / "11-context-submenu.png"))
+            if nested and nested["menus"] > state["menus"]:
+                state = nested
+        items = state["items"]
+        checks.add("context menu has items", len(items) > 0, state["size"])
+        checks.add(
+            "context menu items are visible with text",
+            bool(items) and all(i["visible"] and i["label"] for i in items),
+            [i["label"] for i in items],
+        )
+        checks.add(
+            "context menu text has 4.5:1 contrast",
+            bool(items) and all(i["contrast"] >= 4.5 for i in items),
+            [round(i["contrast"], 2) for i in items],
+        )
+        checks.add(
+            "context menu icon slot is not larger than its item",
+            not any(i["iconOversized"] for i in items),
+        )
+        checks.add(
+            "context menu icon does not cover the label",
+            not any(i["iconCovers"] or i["iconPaintsBox"] or not i["topmost"] for i in items),
+        )
+        checks.add("context menu stays inside the viewport", state["inViewport"], state["size"])
+    except Exception as exc:
+        checks.add("context menu is readable", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+    try:
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(300)
+        if page.locator(".adsk-viewing-viewer .menu.docking-panel").count():
+            canvas = page.locator(".adsk-viewing-viewer canvas").first
+            box = canvas.bounding_box()
+            page.mouse.click(box["x"] + 20, box["y"] + 20)
+            page.wait_for_timeout(300)
+        checks.add(
+            "context menu closes",
+            page.locator(".adsk-viewing-viewer .menu.docking-panel").count() == 0,
+        )
+    except Exception as exc:
+        checks.add("context menu closes", False, f"{type(exc).__name__}: {str(exc)[:160]}")
 
 
 def check_canvas_follows_summary(page, checks):
