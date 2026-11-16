@@ -98,6 +98,29 @@ describe('stacked layout', () => {
     );
   });
 
+  it('labels the viewer section with the model name and keeps the path in the tooltip', async () => {
+    mockMatchMedia(800);
+    renderPath(
+      `/model/abc123?file=Tower.rvt&v=v2&crumbs=${encodeURIComponent(JSON.stringify(['Hub', 'Docs']))}`,
+    );
+    const label = await screen.findByRole('heading', {
+      level: 2,
+      name: 'Tower.rvt · v2',
+    });
+    expect(label).toHaveAttribute(
+      'title',
+      'Hub / Docs / Tower.rvt · v2\nabc123',
+    );
+    expect(label.nextElementSibling?.getAttribute('data-slot')).toBe('viewer');
+  });
+
+  it('shows no viewer label on the index route', async () => {
+    mockMatchMedia(800);
+    renderPath('/');
+    await screen.findByRole('heading', { name: 'Pick a model to explore' });
+    expect(document.querySelector('.stack__label')).toBeNull();
+  });
+
   it('shows only main on the index route', async () => {
     mockMatchMedia(800);
     renderPath('/');

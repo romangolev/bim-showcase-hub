@@ -67,7 +67,7 @@ With `config.mock`, `createMockDataService()` replaces the APS data service and 
 
 ### TanStack usage
 
-- **Router** (`routes/router.tsx`): a root route renders `AppShell`, an index route renders `EmptyState`, and `/model/$urn` renders the lazily loaded `ModelPage` (the model header). Search parameters (`file`, `v`, `crumbs`, `trail`) are validated by `parseModelContext`. They carry the file name, version label and tree path from the tree to the page.
+- **Router** (`routes/router.tsx`): a root route renders `AppShell`, an index route renders `EmptyState`, and `/model/$urn` renders the lazily loaded `ModelPage` (a headless component). Search parameters (`file`, `v`, `crumbs`, `trail`) are validated by `parseModelContext`. They carry the file name, version label and tree path from the tree to the page.
 - **Query** (`api/hooks.ts`, `queryClient.ts`): the session query (`['session']`, no retry) decides between the landing page and the app. Each tree node's children are a query keyed by `scopeKey`, with a 5 minute stale time. Sign-out removes the children queries and clears the session. Sign-in fetches the authorize URL and assigns `window.location`.
 - **Table** (`panels/SummaryTable.tsx`): renders the model summary.
 - **Virtual** (`components/tree/DocumentTree.tsx`): virtualizes tree rows.
@@ -84,7 +84,7 @@ With `config.mock`, `createMockDataService()` replaces the APS data service and 
 
 ### Model page
 
-The Viewer pane is the main pane: `<main id="main">` holds the route content (the model header from `ModelPage`, the empty state or not found) and, on `/model/$urn`, the `ViewerPane` for the URN read from the router. `ModelPage` shows the header (breadcrumb, title, URN) and sets the document title. Paint and export are not in a page toolbar: they live in the viewer toolbar as a tool group. The summary and the dashboard are their own panes. Panes read the active adapter from the viewer context and fetch property rows through `usePropertyRows`. Collapse state lives in the layout record (`collapsed`); in the dock it shrinks the pane's group to its header, in the stack the panels' own toggles show it.
+The Viewer pane is the main pane: `<main id="main">` holds the route content (the empty state or not found) and, on `/model/$urn`, the `ViewerPane` for the URN read from the router. The viewer fills the pane edge to edge: there is no model header. `ModelPage` renders nothing; it sets the document title and publishes the viewer's title (file name and version, with the breadcrumb path and URN as the tooltip) through `PaneTitleContext`. The export status badge is an overlay inside the viewer. Paint and export are not in a page toolbar: they live in the viewer toolbar as a tool group. The summary and the dashboard are their own panes. Panes read the active adapter from the viewer context and fetch property rows through `usePropertyRows`. Collapse state lives in the layout record (`collapsed`); in the dock it shrinks the pane's group to its header, in the stack the panels' own toggles show it.
 
 ## ViewerAdapter contract
 

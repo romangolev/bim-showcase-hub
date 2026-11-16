@@ -52,7 +52,6 @@ const modelRoute = createRoute({
           file={context.file}
           version={context.v}
           crumbs={context.crumbs}
-          hasTrail={Boolean(context.trail?.length)}
         />
       </Suspense>
     );

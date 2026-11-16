@@ -52,7 +52,10 @@ function renderPath(path = '/model/abc123') {
   const appRouter = createAppRouter(
     createMemoryHistory({ initialEntries: [path] }),
   );
-  return render(<App appRouter={appRouter} client={createTestClient()} />);
+  return {
+    appRouter,
+    ...render(<App appRouter={appRouter} client={createTestClient()} />),
+  };
 }
 
 function handle(): LayoutHandle {
@@ -150,6 +153,53 @@ describe('dock layout', () => {
       screen.queryByRole('combobox', { name: 'Group elements by' }),
     ).toBeNull();
     expect(handle().openPanes()).not.toContain('dashboard');
+  });
+
+  it('names the viewer tab after the open model and falls back to Viewer', async () => {
+    const { appRouter } = renderPath('/');
+    await dockReady();
+    expect(await screen.findByRole('tab', { name: 'Viewer' })).toBeVisible();
+
+    await act(() =>
+      appRouter.navigate({
+        to: '/model/$urn',
+        params: { urn: 'abc123' },
+        search: {
+          file: 'FILI_20170810_01.nwd',
+          v: 'v1',
+          crumbs: ['Hub', 'Docs'],
+        },
+      }),
+    );
+    const tab = await screen.findByRole('tab', {
+      name: 'FILI_20170810_01.nwd · v1',
+    });
+    expect(tab.querySelector('[title]')).toHaveAttribute(
+      'title',
+      'Hub / Docs / FILI_20170810_01.nwd · v1\nabc123',
+    );
+    expect(screen.queryByRole('tab', { name: 'Viewer' })).toBeNull();
+
+    await act(() =>
+      appRouter.navigate({
+        to: '/model/$urn',
+        params: { urn: 'def456' },
+        search: { file: 'Other.rvt', v: 'v3' },
+      }),
+    );
+    expect(
+      await screen.findByRole('tab', { name: 'Other.rvt · v3' }),
+    ).toBeVisible();
+
+    await act(() => appRouter.navigate({ to: '/' }));
+    expect(await screen.findByRole('tab', { name: 'Viewer' })).toBeVisible();
+    await waitFor(() =>
+      expect(
+        Object.values(saved()?.dock?.panels ?? {}).find(
+          (panel) => (panel as { id: string }).id === 'viewer',
+        ),
+      ).toMatchObject({ title: 'Viewer' }),
+    );
   });
 
   it('re-adds the viewer when a saved layout lost it', async () => {

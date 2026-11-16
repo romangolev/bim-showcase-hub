@@ -222,6 +222,17 @@
   padding: var(--padding-panel);
 }
 
+.pane-slot--dock .pane-main[data-route="model"] {
+  gap: 0;
+  padding: 0;
+}
+
+.pane-slot--dock .pane-main[data-route="model"] .model-viewer {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
 .pane-slot--dock .tree-panel {
   flex: 1;
   width: auto;

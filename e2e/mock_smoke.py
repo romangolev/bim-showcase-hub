@@ -33,7 +33,7 @@ SCENE_FIT_WIDTH = "() => Number(document.querySelector('.bsh-mock__scene')?.data
 ROOT_THEME = "() => document.documentElement.dataset.theme"
 GROUPS = """() => Object.fromEntries([...document.querySelectorAll('.dv-groupview')].map((group) => {
     const box = group.getBoundingClientRect();
-    return [group.getAttribute('aria-label'), {
+    return [group.querySelector('.model-viewer') ? 'Viewer' : group.getAttribute('aria-label'), {
         left: box.left, top: box.top, right: box.right, bottom: box.bottom,
         floating: Boolean(group.closest('.dv-resize-container')),
     }];
@@ -45,6 +45,25 @@ VIEWER_FITS = """() => {
     const fit = Number(document.querySelector('.bsh-mock__scene')?.dataset.fitWidth || 0);
     return box ? Math.abs(box.width - fit) : 999;
 }"""
+VIEWER_TAB = """() => {
+    const panel = document.querySelector('.model-viewer')?.closest('.dv-groupview');
+    const tab = panel?.querySelector('.dv-tab.dv-active-tab');
+    return tab ? {text: tab.textContent.trim(), title: tab.querySelector('[title]')?.getAttribute('title') || ''} : null;
+}"""
+VIEWER_FILL = """() => {
+    const canvas = document.querySelector('.model-viewer')?.getBoundingClientRect();
+    const slot = document.querySelector('.model-viewer')?.closest('.pane-slot')?.getBoundingClientRect();
+    const main = document.querySelector('.model-viewer')?.closest('.pane-main');
+    if (!canvas || !slot || !main) return null;
+    return {
+        canvasWidth: canvas.width, canvasHeight: canvas.height,
+        slotWidth: slot.width, slotHeight: slot.height,
+        text: main.innerText,
+        header: Boolean(document.querySelector('.model-head, .urn-control, .model-title, .crumbs')),
+        breadcrumb: document.querySelectorAll("nav[aria-label^='Breadcrumb']").length,
+    };
+}"""
+STACKED_LABEL = "() => document.querySelector('.stack__label')?.textContent || ''"
 STORED_LAYOUT = "() => JSON.parse(localStorage.getItem('bsh.layout.v1') || 'null')"
 
 
@@ -172,7 +191,7 @@ def check_layout(page, checks, notes):
     page.evaluate(TAG_VIEWER)
 
     dashboard_tab = page.get_by_role("tab", name="Dashboard")
-    viewer_box = page.locator(".dv-groupview[aria-label='Viewer'] .dv-content-container").bounding_box()
+    viewer_box = page.locator(".dv-groupview:has(.model-viewer) .dv-content-container").bounding_box()
     before = groups(page)["Dashboard"]
     pointer_drag(page, dashboard_tab, viewer_box["x"] + 24, viewer_box["y"] + viewer_box["height"] / 2)
     after = groups(page).get("Dashboard")
@@ -222,6 +241,8 @@ def check_layout(page, checks, notes):
     settle(page, 1000)
     checks.add("narrow screens use the stacked layout", page.locator(".dv-dockview").count() == 0 and page.locator(".stack").count() == 1)
     checks.add("stacked layout keeps the viewer", page.evaluate(VIEWER_KEPT))
+    stacked_label = page.evaluate(STACKED_LABEL)
+    checks.add("stacked layout labels the viewer with the model name", bool(stacked_label) and stacked_label != "Viewer" and "·" in stacked_label, stacked_label)
     tree_toggle = page.get_by_role("button", name=TREE_TOGGLE).first
     tree_toggle.click()
     settle(page, 400)
@@ -297,9 +318,27 @@ def run(context, checks, notes):
     page.wait_for_timeout(2500)
     title = page.title()
     checks.add("document title names the model", title.endswith(APP_NAME) and title != APP_NAME, title)
-    crumbs = page.locator("nav[aria-label^='Breadcrumb']")
-    label = crumbs.get_attribute("aria-label") if crumbs.count() == 1 else ""
-    checks.add("breadcrumb shows the hub path", " / " in (label or ""), label)
+    file_name = title.split(" ")[0]
+    version = re.search(r" (v\d+) ", title)
+    expected = f"{file_name} · {version.group(1)}" if version else file_name
+    tab = page.evaluate(VIEWER_TAB) or {}
+    checks.add("viewer tab shows the file name and version", tab.get("text") == expected, f"{tab.get('text')!r} vs {expected!r}")
+    path, _, urn = tab.get("title", "").partition("\n")
+    checks.add("viewer tab tooltip holds the breadcrumb path and the urn", path.count(" / ") >= 2 and path.endswith(expected) and len(urn) > 10, tab.get("title"))
+    fill = page.evaluate(VIEWER_FILL) or {}
+    text = fill.get("text", "")
+    checks.add(
+        "viewer pane has no header, breadcrumb, urn or show-in-documents",
+        bool(fill) and not fill["header"] and fill["breadcrumb"] == 0 and "Show in documents" not in text and urn not in text and expected not in text,
+        text[:120],
+    )
+    checks.add(
+        "viewer canvas fills its dock panel",
+        bool(fill) and fill["canvasHeight"] >= fill["slotHeight"] - 1 and fill["canvasWidth"] >= fill["slotWidth"] - 1,
+        f"canvas {fill.get('canvasWidth')}x{fill.get('canvasHeight')} panel {fill.get('slotWidth')}x{fill.get('slotHeight')}",
+    )
+    notes["viewer_canvas"] = f"{fill.get('canvasWidth')}x{fill.get('canvasHeight')}"
+    page.screenshot(path=str(OUTPUT_DIR / "mock-model.png"))
     checks.add("mock viewer is present", page.get_by_label(MOCK_VIEWER_LABEL).count() >= 1)
 
     rows = page.locator("table tbody tr")

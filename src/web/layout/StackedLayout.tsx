@@ -1,3 +1,5 @@
+import { Fragment } from 'react';
+import type { PaneTitles } from './layoutContext.js';
 import { PANES, type PaneId } from './paneRegistry.js';
 import { useModelUrn } from './panes.js';
 import { type HostStore, PaneSlot } from './ViewerHost.js';
@@ -5,6 +7,7 @@ import { type HostStore, PaneSlot } from './ViewerHost.js';
 export interface StackedLayoutProps {
   hosts: HostStore<PaneId>;
   open: readonly PaneId[];
+  titles?: PaneTitles;
   onAttach: (id: PaneId) => void;
   treeOpen: boolean;
   onCloseTree: () => void;
@@ -28,6 +31,7 @@ export function stackedPanes(
 export function StackedLayout({
   hosts,
   open,
+  titles = {},
   onAttach,
   treeOpen,
   onCloseTree,
@@ -48,13 +52,23 @@ export function StackedLayout({
       />
       <div className="app-main stack__column" inert={treeOpen}>
         {stackedPanes(open, onModel).map((id) => (
-          <PaneSlot
-            key={id}
-            hosts={hosts}
-            id={id}
-            onAttach={onAttach}
-            className={`stack__pane stack__pane--${id}`}
-          />
+          <Fragment key={id}>
+            {id === 'viewer' && titles.viewer ? (
+              <h2
+                className="stack__label"
+                title={titles.viewer.tooltip}
+                data-pane-label="viewer"
+              >
+                {titles.viewer.label}
+              </h2>
+            ) : null}
+            <PaneSlot
+              hosts={hosts}
+              id={id}
+              onAttach={onAttach}
+              className={`stack__pane stack__pane--${id}`}
+            />
+          </Fragment>
         ))}
       </div>
     </div>

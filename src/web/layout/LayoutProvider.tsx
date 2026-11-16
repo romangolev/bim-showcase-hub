@@ -21,6 +21,9 @@ import {
   type LayoutMode,
   MainContentContext,
   type MoveTarget,
+  type PaneTitle,
+  PaneTitleContext,
+  type PaneTitles,
 } from './layoutContext.js';
 import {
   type LayoutModel,
@@ -105,6 +108,7 @@ export function LayoutProvider({ main }: LayoutProviderProps) {
   const [attached, setAttached] = useState<readonly PaneId[]>([]);
   const [signals, setSignals] = useState<Partial<Record<PaneId, number>>>({});
   const [overlayTreeOpen, setOverlayTreeOpen] = useState(false);
+  const [titles, setTitles] = useState<PaneTitles>({});
   const [seenMode, setSeenMode] = useState(mode);
   const controller = useRef<DockController | null>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
@@ -181,6 +185,22 @@ export function LayoutProvider({ main }: LayoutProviderProps) {
 
   const onController = useCallback((next: DockController | null) => {
     controller.current = next;
+  }, []);
+
+  const setPaneTitle = useCallback((id: PaneId, title: PaneTitle | null) => {
+    setTitles((current) => {
+      const existing = current[id];
+      if (
+        existing?.label === title?.label &&
+        existing?.tooltip === title?.tooltip
+      ) {
+        return current;
+      }
+      const next = { ...current };
+      if (title) next[id] = title;
+      else delete next[id];
+      return next;
+    });
   }, []);
 
   const [announcement, setAnnouncement] = useState('');
@@ -314,53 +334,57 @@ export function LayoutProvider({ main }: LayoutProviderProps) {
     <LayoutContext.Provider value={api}>
       <MainContentContext.Provider value={main}>
         <TreeControlContext.Provider value={treeControl}>
-          <ViewerProvider>
-            <TopBar
-              treeOpen={treeOpen}
-              onToggleTree={toggleTree}
-              toggleRef={toggleRef}
-              actions={<LayoutMenu />}
-            />
-            {stacked ? (
-              <StackedLayout
-                hosts={hosts}
-                open={openPanes}
-                onAttach={onAttach}
-                treeOpen={overlayOpen}
-                onCloseTree={closeTree}
+          <PaneTitleContext.Provider value={setPaneTitle}>
+            <ViewerProvider>
+              <TopBar
+                treeOpen={treeOpen}
+                onToggleTree={toggleTree}
+                toggleRef={toggleRef}
+                actions={<LayoutMenu />}
               />
-            ) : (
-              <div className="app-body app-body--dock">
-                <Suspense
-                  fallback={
-                    <p className="app-loading" role="status">
-                      Loading layout
-                    </p>
-                  }
-                >
-                  <DockLayout
-                    hosts={hosts}
-                    dock={model.dock}
-                    treeWidth={model.treeWidth}
-                    collapsed={model.collapsed}
-                    onAttach={onAttach}
-                    onMoved={bump}
-                    onChange={onDockChange}
-                    onController={onController}
-                    headerActions={({ pane }) => <PaneActions pane={pane} />}
-                  />
-                </Suspense>
+              {stacked ? (
+                <StackedLayout
+                  hosts={hosts}
+                  open={openPanes}
+                  titles={titles}
+                  onAttach={onAttach}
+                  treeOpen={overlayOpen}
+                  onCloseTree={closeTree}
+                />
+              ) : (
+                <div className="app-body app-body--dock">
+                  <Suspense
+                    fallback={
+                      <p className="app-loading" role="status">
+                        Loading layout
+                      </p>
+                    }
+                  >
+                    <DockLayout
+                      hosts={hosts}
+                      dock={model.dock}
+                      treeWidth={model.treeWidth}
+                      collapsed={model.collapsed}
+                      titles={titles}
+                      onAttach={onAttach}
+                      onMoved={bump}
+                      onChange={onDockChange}
+                      onController={onController}
+                      headerActions={({ pane }) => <PaneActions pane={pane} />}
+                    />
+                  </Suspense>
+                </div>
+              )}
+              <PaneHosts hosts={hosts} panes={mounted} render={renderPane} />
+              <div
+                className="visually-hidden layout-announcer"
+                role="status"
+                aria-live="polite"
+              >
+                {announcement}
               </div>
-            )}
-            <PaneHosts hosts={hosts} panes={mounted} render={renderPane} />
-            <div
-              className="visually-hidden layout-announcer"
-              role="status"
-              aria-live="polite"
-            >
-              {announcement}
-            </div>
-          </ViewerProvider>
+            </ViewerProvider>
+          </PaneTitleContext.Provider>
         </TreeControlContext.Provider>
       </MainContentContext.Provider>
     </LayoutContext.Provider>
