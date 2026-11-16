@@ -243,7 +243,8 @@ describe('production static serving', () => {
     loadConfig({
       NODE_ENV: 'production',
       SESSION_SECRET: 's',
-      MOCK_APS: '1',
+      APS_CLIENT_ID: 'id',
+      APS_CLIENT_SECRET: 'secret',
       STATIC_DIR: dir,
     }),
   );

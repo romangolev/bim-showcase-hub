@@ -19,7 +19,7 @@ const PLACEHOLDER_SECRET = 'change-me';
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
   const production = env.NODE_ENV === 'production';
-  const mock = env.MOCK_APS === '1';
+  const mock = !production && env.MOCK_APS === '1';
   let sessionSecret = env.SESSION_SECRET;
   if (production && sessionSecret === PLACEHOLDER_SECRET) {
     throw new Error('SESSION_SECRET must not be the placeholder in production');

@@ -5,6 +5,8 @@
       "**",
       "!dist",
       "!.claude",
+      "!.playwright-mcp",
+      "!.vercel",
       "!node_modules",
       "!docs",
       "!package-lock.json",

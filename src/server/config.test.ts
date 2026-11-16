@@ -25,14 +25,36 @@ describe('loadConfig', () => {
     ).toThrow(/placeholder/);
   });
 
-  it('requires APS credentials in production unless mocking', () => {
+  it('requires APS credentials in production', () => {
     expect(() =>
       loadConfig({ NODE_ENV: 'production', SESSION_SECRET: 's' }),
     ).toThrow(/APS_CLIENT_ID/);
     expect(
-      loadConfig({ NODE_ENV: 'production', SESSION_SECRET: 's', MOCK_APS: '1' })
-        .production,
+      loadConfig({
+        NODE_ENV: 'production',
+        SESSION_SECRET: 's',
+        APS_CLIENT_ID: 'id',
+        APS_CLIENT_SECRET: 'secret',
+      }).production,
     ).toBe(true);
+  });
+
+  it('ignores MOCK_APS in production and still demands credentials', () => {
+    expect(() =>
+      loadConfig({
+        NODE_ENV: 'production',
+        SESSION_SECRET: 's',
+        MOCK_APS: '1',
+      }),
+    ).toThrow(/APS_CLIENT_ID/);
+    const config = loadConfig({
+      NODE_ENV: 'production',
+      SESSION_SECRET: 's',
+      MOCK_APS: '1',
+      APS_CLIENT_ID: 'id',
+      APS_CLIENT_SECRET: 'secret',
+    });
+    expect(config.mock).toBe(false);
   });
 
   it('reads mock mode and scopes', () => {
