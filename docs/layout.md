@@ -101,7 +101,7 @@ Reset layout is in every pane menu and in the top bar Panes menu. It drops the s
 - Every pane header has a collapse button and a menu: Move left, Move right, Move below (to that edge of the dock), Float or Dock, Collapse or Expand, Close (closable panes only), Reset layout. Every drag has a menu path.
 - The Panes menu in the top bar lists the optional panes (Model summary, Dashboard) as checkbox items and resets the layout. Opening one without a model shows its "No model loaded yet" state. Documents is not listed because it cannot close, and model tabs open from Documents.
 - The top bar Documents button collapses or expands the Documents pane in the dock.
-- `F6` and `Shift+F6` move focus between pane groups. Tabs use dockview's `tablist` and roving `tabindex`.
+- `F6` and `Shift+F6` move focus between pane groups from anywhere in the page, including the top bar, except while typing in a field or inside the viewer canvas. Tabs use dockview's `tablist` and roving `tabindex`.
 - After a move, focus goes to the moved pane's tab.
 - dockview's live region announces open, close, float and dock; the layout's own live region announces moves, collapse and reset. Announcements are muted while a layout is restored or reset.
 

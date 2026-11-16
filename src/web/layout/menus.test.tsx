@@ -284,4 +284,29 @@ describe('keyboard', () => {
     expect(tab).toHaveFocus();
     expect(root).toBeTruthy();
   });
+
+  it('enters the first pane group with F6 from the top bar', async () => {
+    renderModel();
+    await screen.findByRole('tab', { name: 'Untitled model' });
+    const panes = screen.getByRole('button', { name: 'Panes' });
+    panes.focus();
+    fireEvent.keyDown(panes, { key: 'F6' });
+    const focused = document.activeElement as HTMLElement;
+    expect(focused).toHaveAttribute('role', 'tab');
+    expect(focused.closest('.dv-groupview')).toBe(
+      document.querySelector('.dv-groupview'),
+    );
+  });
+
+  it('leaves F6 alone while typing in a field', async () => {
+    renderModel();
+    const filter = await screen.findByRole('searchbox', {
+      name: 'Filter loaded nodes',
+    });
+    await waitFor(() => expect(filter).toBeEnabled());
+    filter.focus();
+    expect(filter).toHaveFocus();
+    fireEvent.keyDown(filter, { key: 'F6' });
+    expect(filter).toHaveFocus();
+  });
 });

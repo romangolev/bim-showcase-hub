@@ -131,8 +131,19 @@ function PaneActions({ activePanel, group }: IDockviewHeaderActionsProps) {
 
 const COMPONENTS = { pane: PaneContent };
 
+const TYPING =
+  'input, textarea, select, [contenteditable=""], [contenteditable="true"]';
+const VIEWER_SURFACE = '.bsh-viewer-surface';
+
 export function cycleGroups(root: HTMLElement, event: KeyboardEvent) {
   if (event.key !== 'F6' || event.altKey || event.ctrlKey || event.metaKey) {
+    return;
+  }
+  const target = event.target;
+  if (
+    target instanceof Element &&
+    (target.closest(TYPING) || target.closest(VIEWER_SURFACE))
+  ) {
     return;
   }
   const groups = Array.from(
@@ -870,9 +881,10 @@ export function DockLayout(props: DockLayoutProps) {
   useLayoutEffect(() => {
     const root = rootRef.current;
     if (!root) return;
+    const doc = root.ownerDocument;
     const onKey = (event: KeyboardEvent) => cycleGroups(root, event);
-    root.addEventListener('keydown', onKey);
-    return () => root.removeEventListener('keydown', onKey);
+    doc.addEventListener('keydown', onKey);
+    return () => doc.removeEventListener('keydown', onKey);
   }, []);
 
   const emitRef = useRef(emit);
