@@ -48,11 +48,19 @@
   background: var(--color-void);
 }
 
-.bsh-viewer-surface .adsk-toolbar,
+.bsh-viewer-surface .adsk-toolbar {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  pointer-events: none;
+}
+
 .bsh-viewer-surface .adsk-toolbar .adsk-control-group {
   background: var(--color-graphite);
   border: var(--border-hairline);
   border-radius: var(--radius-button);
+  pointer-events: auto;
 }
 
 .bsh-viewer-surface [class*="bsh-ico-"] {
