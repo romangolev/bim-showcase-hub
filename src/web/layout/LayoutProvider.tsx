@@ -542,7 +542,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
                       instances={instances}
                       activeInstance={activeInstance}
                       companions={companions}
-                      arrangement={model.lastViewer}
+                      arrangement={model.lastViewerArrangement}
                       onAttach={onAttach}
                       onVisibility={onVisibility}
                       onMoved={bump}

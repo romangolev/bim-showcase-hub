@@ -63,7 +63,7 @@ export interface LayoutModel {
   collapsed: PaneId[];
   treeWidth: number;
   dismissed: PaneId[];
-  lastViewer: SerializedDock | null;
+  lastViewerArrangement: SerializedDock | null;
 }
 
 export const PREVIOUS_VIEWER = 'viewer:previous';
@@ -86,7 +86,7 @@ export function defaultModel(_height: number): LayoutModel {
     collapsed: ['dashboard'],
     treeWidth: TREE_WIDTH_DEFAULT,
     dismissed: [],
-    lastViewer: null,
+    lastViewerArrangement: null,
   };
 }
 
@@ -102,7 +102,7 @@ export function layoutReducer(
   switch (action.type) {
     case 'dock':
       return hasViewerPanel(action.dock)
-        ? { ...model, dock: action.dock, lastViewer: action.dock }
+        ? { ...model, dock: action.dock, lastViewerArrangement: action.dock }
         : { ...model, dock: action.dock };
     case 'setCollapsed': {
       const collapsed = toggled(model.collapsed, action.id, action.collapsed);
@@ -355,8 +355,8 @@ export function parseLayout(
     : layout.dock;
   const dock = source === null ? null : (sanitizeDock(source)?.dock ?? null);
   const remembered = sanitizeDock(
-    isRecord(layout.lastViewer)
-      ? layout.lastViewer
+    isRecord(layout.lastViewerArrangement)
+      ? layout.lastViewerArrangement
       : withPreviousViewer(source),
   )?.dock;
   return {
@@ -364,7 +364,8 @@ export function parseLayout(
     collapsed: [...new Set(collapsed)],
     treeWidth,
     dismissed: [...new Set(dismissed)],
-    lastViewer: remembered && hasViewerPanel(remembered) ? remembered : null,
+    lastViewerArrangement:
+      remembered && hasViewerPanel(remembered) ? remembered : null,
   };
 }
 

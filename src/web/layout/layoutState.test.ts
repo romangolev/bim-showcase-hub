@@ -89,7 +89,7 @@ describe('layoutReducer', () => {
       collapsed: ['summary' as const],
       treeWidth: 400,
       dismissed: ['dashboard' as const],
-      lastViewer: sampleDock(),
+      lastViewerArrangement: sampleDock(),
     };
     expect(layoutReducer(custom, { type: 'reset', height: 800 })).toEqual(
       defaultModel(800),
@@ -142,7 +142,7 @@ describe('serialize and parse', () => {
       collapsed: ['dashboard' as const],
       treeWidth: 360,
       dismissed: ['summary' as const],
-      lastViewer: sampleDock(),
+      lastViewerArrangement: sampleDock(),
     };
     const raw = serializeLayout(model);
     expect(JSON.parse(raw)).toMatchObject({ version: 2 });
@@ -168,7 +168,7 @@ describe('serialize and parse', () => {
       collapsed: ['summary'],
       treeWidth: 260,
       dismissed: [],
-      lastViewer: null,
+      lastViewerArrangement: null,
     });
   });
 
@@ -317,7 +317,7 @@ describe('storage', () => {
       collapsed: ['summary'],
       treeWidth: 400,
       dismissed: [],
-      lastViewer: null,
+      lastViewerArrangement: null,
     });
     expect(storage.getItem(LEGACY_KEYS.treeWidth)).toBeNull();
     expect(storage.getItem(LEGACY_KEYS.summary)).toBeNull();
@@ -366,7 +366,7 @@ describe('storage', () => {
         collapsed: ['dashboard'],
         treeWidth: 320,
         dismissed: [],
-        lastViewer: null,
+        lastViewerArrangement: null,
       },
     });
   });
@@ -426,7 +426,7 @@ describe('model tabs in the dock', () => {
       collapsed: [],
       treeWidth: 320,
       dismissed: [],
-      lastViewer: null,
+      lastViewerArrangement: null,
     };
     expect(
       parseLayout(serializeLayout(model))?.dock?.panels['viewer:a'],
@@ -493,16 +493,17 @@ describe('remembered viewer arrangement', () => {
       type: 'dock',
       dock: sampleDock(),
     });
-    expect(withModel.lastViewer).toEqual(sampleDock());
+    expect(withModel.lastViewerArrangement).toEqual(sampleDock());
     const alone = sanitizeDock(sampleDock(), [])?.dock as SerializedDock;
     const closed = layoutReducer(withModel, { type: 'dock', dock: alone });
     expect(closed.dock).toEqual(alone);
-    expect(closed.lastViewer).toEqual(sampleDock());
-    expect(parseLayout(serializeLayout(closed))?.lastViewer).toEqual(
+    expect(closed.lastViewerArrangement).toEqual(sampleDock());
+    expect(parseLayout(serializeLayout(closed))?.lastViewerArrangement).toEqual(
       sampleDock(),
     );
     expect(
-      layoutReducer(closed, { type: 'reset', height: 1000 }).lastViewer,
+      layoutReducer(closed, { type: 'reset', height: 1000 })
+        .lastViewerArrangement,
     ).toBeNull();
   });
 
@@ -558,7 +559,7 @@ describe('remembered viewer arrangement', () => {
     });
     const model = parseLayout(raw);
     expect(Object.keys(model?.dock?.panels ?? {})).not.toContain('viewer');
-    expect(viewsOf(model?.lastViewer ?? undefined, '2')).toEqual([
+    expect(viewsOf(model?.lastViewerArrangement ?? undefined, '2')).toEqual([
       PREVIOUS_VIEWER,
     ]);
     const migrated = migrateV1(
@@ -568,7 +569,7 @@ describe('remembered viewer arrangement', () => {
       }),
       [],
     );
-    expect(viewsOf(migrated?.lastViewer ?? undefined, '2')).toEqual([
+    expect(viewsOf(migrated?.lastViewerArrangement ?? undefined, '2')).toEqual([
       PREVIOUS_VIEWER,
     ]);
   });
