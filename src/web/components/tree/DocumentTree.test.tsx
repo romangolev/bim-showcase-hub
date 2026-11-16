@@ -715,3 +715,161 @@ describe('DocumentTree versions that were never checked', () => {
     expect(listings()).toBe(1);
   });
 });
+
+describe('DocumentTree on-demand checks', () => {
+  const never = (index: number) => ({
+    id: `nv${index}`,
+    kind: 'version' as const,
+    name: `v${index}: Issue ${index}`,
+    hasChildren: false,
+    viewable: true,
+    viewState: 'unknown' as const,
+    checked: false,
+    urn: `urn-${index}`,
+    parentId: 'i1',
+  });
+
+  interface Setup {
+    count: number;
+    respond: (id: string, call: number) => Response | Promise<Response>;
+    pollMs?: number;
+  }
+
+  async function setup({ count, respond, pollMs = 0 }: Setup) {
+    let listings = 0;
+    const calls: string[] = [];
+    let running = 0;
+    let peak = 0;
+    const routes: Record<string, unknown> = {
+      ...treeRoutes,
+      '/api/projects/p1/items/i1/versions': () => {
+        listings += 1;
+        return json(Array.from({ length: count }, (_, i) => never(i + 1)));
+      },
+    };
+    for (let i = 1; i <= count; i++) {
+      const id = `nv${i}`;
+      routes[`/api/projects/p1/items/i1/versions/${id}/view-state`] =
+        async () => {
+          calls.push(id);
+          running += 1;
+          peak = Math.max(peak, running);
+          try {
+            return await respond(
+              id,
+              calls.filter((call) => call === id).length,
+            );
+          } finally {
+            running -= 1;
+          }
+        };
+    }
+    mockFetch(routes);
+    const onOpenModel = vi.fn();
+    render(
+      <QueryClientProvider client={createTestClient()}>
+        <DocumentTree
+          onOpenModel={onOpenModel}
+          onOpenTogether={vi.fn()}
+          pollMs={pollMs}
+        />
+      </QueryClientProvider>,
+    );
+    await expandTo('Studio hub');
+    await expandTo('Riverside Tower');
+    await expandTo('Project Files');
+    await expandTo('Tower.rvt');
+    await screen.findByRole('treeitem', { name: 'v1: Issue 1' });
+    return {
+      onOpenModel,
+      calls,
+      peak: () => peak,
+      listings: () => listings,
+    };
+  }
+
+  const state = (viewState: string) =>
+    json({ viewState, viewable: viewState === 'ready' });
+
+  it('does not keep a failed check and asks again next time', async () => {
+    const { onOpenModel, calls } = await setup({
+      count: 1,
+      respond: (_id, call) =>
+        call === 1 ? json({ error: 'busy' }, 429) : state('no-geometry'),
+    });
+    fireEvent.click(row(1));
+    await waitFor(() => expect(onOpenModel).toHaveBeenCalledTimes(1));
+    fireEvent.click(row(1));
+    await waitFor(() =>
+      expect(
+        document.querySelector('.doc-tree__notice')?.textContent,
+      ).toContain('cannot be opened'),
+    );
+    expect(calls).toEqual(['nv1', 'nv1']);
+    expect(onOpenModel).toHaveBeenCalledTimes(1);
+  });
+
+  it('Check again forgets the on-demand result', async () => {
+    const { onOpenModel, calls } = await setup({
+      count: 1,
+      respond: (_id, call) =>
+        call === 1 ? state('processing') : state('ready'),
+    });
+    fireEvent.click(row(1));
+    await screen.findByRole('button', { name: 'Check again' });
+    fireEvent.click(screen.getByRole('button', { name: 'Check again' }));
+    await screen.findByRole('treeitem', { name: 'v1: Issue 1' });
+    fireEvent.click(screen.getByRole('treeitem', { name: 'v1: Issue 1' }));
+    await waitFor(() => expect(onOpenModel).toHaveBeenCalledTimes(1));
+    expect(calls).toEqual(['nv1', 'nv1']);
+  });
+
+  it('polls the item while an on-demand check says processing', async () => {
+    const { listings } = await setup({
+      count: 1,
+      respond: () => state('processing'),
+      pollMs: 30,
+    });
+    fireEvent.click(row(1));
+    await waitFor(() => expect(listings()).toBeGreaterThan(1), {
+      timeout: 2000,
+    });
+  });
+
+  it('checks only the picked range, once per version, four at a time', async () => {
+    const gate: (() => void)[] = [];
+    const { calls, peak } = await setup({
+      count: 8,
+      respond: () =>
+        new Promise<Response>((resolve) => {
+          gate.push(() => resolve(state('ready')));
+        }),
+    });
+    fireEvent.click(row(2), { ctrlKey: true });
+    fireEvent.click(row(2), { ctrlKey: true });
+    await waitFor(() => expect(gate).toHaveLength(1));
+    gate.shift()?.();
+    await waitFor(() =>
+      expect(row(2)).toHaveAttribute('data-view-state', 'ready'),
+    );
+    expect(calls).toEqual(['nv2']);
+    if (row(2).getAttribute('aria-checked') !== 'true') {
+      fireEvent.click(row(2), { ctrlKey: true });
+    }
+    expect(row(2)).toHaveAttribute('aria-checked', 'true');
+    expect(calls).toEqual(['nv2']);
+    fireEvent.click(row(8), { shiftKey: true });
+    await waitFor(() => expect(gate.length).toBeGreaterThan(0));
+    while (gate.length > 0 || calls.length < 7) {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      gate.shift()?.();
+    }
+    await waitFor(() =>
+      expect(screen.getByText('7 selected')).toBeInTheDocument(),
+    );
+    expect([...calls].sort()).toEqual(
+      ['nv2', 'nv3', 'nv4', 'nv5', 'nv6', 'nv7', 'nv8'].sort(),
+    );
+    expect(peak()).toBeLessThanOrEqual(4);
+  });
+});

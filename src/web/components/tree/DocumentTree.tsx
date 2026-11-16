@@ -82,6 +82,7 @@ function pickLabel(model: PickedModel): string {
 }
 
 export const VERSION_POLL_MS = 15_000;
+export const CHECK_CONCURRENCY = 4;
 const UNCHECKED_POLL_LIMIT = 3;
 
 type StatusVariant = 'loading' | 'error' | 'empty';
@@ -214,33 +215,80 @@ export function DocumentTree({
     return context;
   };
 
-  const [checkedStates, setCheckedStates] = useState<
-    Record<string, VersionViewState>
-  >({});
+  const [, setCheckVersion] = useState(0);
+  const checks = useRef({
+    results: new Map<string, { base: TreeNode; state: VersionViewState }>(),
+    inflight: new Map<string, Promise<TreeNode>>(),
+    waiting: [] as (() => void)[],
+    active: 0,
+  }).current;
 
   const resolved = (node: TreeNode): TreeNode => {
-    const found = checkedStates[node.id];
-    return found ? { ...node, ...found, checked: true } : node;
+    const found = checks.results.get(node.id);
+    if (!found) return node;
+    if (registry.nodes.get(node.id) !== found.base) {
+      checks.results.delete(node.id);
+      return node;
+    }
+    return { ...node, ...found.state, checked: true };
+  };
+
+  const forgetChecks = (parentId: string) => {
+    for (const [id, entry] of checks.results) {
+      if (entry.base.parentId === parentId) checks.results.delete(id);
+    }
   };
 
   const needsCheck = (node: TreeNode) =>
     node.kind === 'version' && node.checked === false;
 
-  const ensureChecked = async (input: TreeNode): Promise<TreeNode> => {
-    const node = resolved(input);
-    if (!needsCheck(node)) return node;
+  const slot = async (): Promise<void> => {
+    if (checks.active < CHECK_CONCURRENCY) {
+      checks.active += 1;
+      return;
+    }
+    await new Promise<void>((resolve) => checks.waiting.push(resolve));
+  };
+
+  const freeSlot = () => {
+    const next = checks.waiting.shift();
+    if (next) next();
+    else checks.active -= 1;
+  };
+
+  const runCheck = async (node: TreeNode): Promise<TreeNode> => {
     const scope = registry.scopes.get(node.id);
     const projectId =
       scope && scope.kind !== 'root' ? scope.projectId : undefined;
     if (!projectId || !node.parentId) return node;
-    let state: VersionViewState;
+    const base = registry.nodes.get(node.id);
+    await slot();
+    let state: VersionViewState | null = null;
     try {
       state = await fetchVersionViewState(projectId, node.parentId, node.id);
     } catch {
-      state = { viewState: 'unknown', viewable: true };
+      state = null;
+    } finally {
+      freeSlot();
     }
-    setCheckedStates((current) => ({ ...current, [node.id]: state }));
+    if (!state || state.viewState === 'unknown') return node;
+    if (base) {
+      checks.results.set(node.id, { base, state });
+      setCheckVersion((version) => version + 1);
+    }
     return { ...node, ...state, checked: true };
+  };
+
+  const ensureChecked = (input: TreeNode): Promise<TreeNode> => {
+    const node = resolved(input);
+    if (!needsCheck(node)) return Promise.resolve(node);
+    const pending = checks.inflight.get(node.id);
+    if (pending) return pending;
+    const started = runCheck(node).finally(() => {
+      checks.inflight.delete(node.id);
+    });
+    checks.inflight.set(node.id, started);
+    return started;
   };
 
   const openNode = (input: TreeNode) => {
@@ -315,10 +363,20 @@ export function DocumentTree({
             : null;
       return data?.kind === 'version' ? [resolved(data)] : [];
     });
-    if (listed.some(needsCheck)) {
-      void Promise.all(listed.map(ensureChecked)).then((checked) =>
-        pickRangeOf(checked, node),
-      );
+    const from = listed.findIndex((entry) => entry.id === anchorRef.current);
+    const to = listed.findIndex((entry) => entry.id === node.id);
+    const range =
+      from === -1 || to === -1
+        ? listed.filter((entry) => entry.id === node.id)
+        : listed.slice(Math.min(from, to), Math.max(from, to) + 1);
+    if (range.some(needsCheck)) {
+      void Promise.all(range.map(ensureChecked)).then((checked) => {
+        const byId = new Map(checked.map((entry) => [entry.id, entry]));
+        pickRangeOf(
+          listed.map((entry) => byId.get(entry.id) ?? entry),
+          node,
+        );
+      });
       return;
     }
     pickRangeOf(listed, node);
@@ -637,6 +695,7 @@ export function DocumentTree({
   };
 
   const recheck = (id: string) => {
+    forgetChecks(id);
     queryClient.removeQueries({
       queryKey: scopeKey(registry.scopes.get(id) ?? ROOT_SCOPE),
       exact: true,
@@ -646,7 +705,8 @@ export function DocumentTree({
 
   const pendingParents = new Set<string>();
   const processingParents = new Set<string>();
-  for (const node of registry.nodes.values()) {
+  for (const stored of registry.nodes.values()) {
+    const node = resolved(stored);
     if (node.kind !== 'version' || !node.parentId) {
       continue;
     }
