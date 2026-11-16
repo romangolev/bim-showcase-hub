@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
 import { DashboardPanel } from './DashboardPanel.js';
@@ -177,29 +183,32 @@ describe('SummaryTable scroll region', () => {
 });
 
 describe('PaintToolbar', () => {
+  function swatch(color: string) {
+    return screen.getByRole('button', {
+      name: `Paint selected items in ${color}`,
+    });
+  }
+
   it('paints the current selection', async () => {
     const adapter = await loaded();
     const spy = vi.spyOn(adapter, 'setThemingColor');
     vi.spyOn(adapter, 'getSelection').mockReturnValue([101, 102]);
     render(<PaintToolbar adapter={adapter} />);
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Paint selected items in red' }),
-    );
+    fireEvent.click(swatch('red'));
     expect(spy).toHaveBeenCalledWith([101, 102], [1, 0, 0, 0.5]);
   });
 
-  it('names every swatch by color and keeps reset as an icon button', () => {
-    render(<PaintToolbar />);
+  it('names every swatch by color and keeps reset as an icon button', async () => {
+    const adapter = await loaded();
+    vi.spyOn(adapter, 'getSelection').mockReturnValue([1]);
+    render(<PaintToolbar adapter={adapter} />);
     for (const color of ['red', 'green', 'blue']) {
-      const chip = screen.getByRole('button', {
-        name: `Paint selected items in ${color}`,
-      });
+      const chip = swatch(color);
       expect(chip).toHaveAttribute('title', `Paint selected items in ${color}`);
       expect(chip.querySelector('.bsh-paint__swatch')).not.toBeNull();
     }
     const reset = screen.getByRole('button', { name: 'Reset appearance' });
     expect(reset.querySelector('svg')).not.toBeNull();
-    expect(reset).toHaveAttribute('title', 'Reset appearance');
   });
 
   it('is disabled without an adapter', () => {
@@ -207,6 +216,52 @@ describe('PaintToolbar', () => {
     expect(
       screen.getByRole('button', { name: 'Reset appearance' }),
     ).toBeDisabled();
+  });
+
+  it('disables swatches with an explanatory tooltip until something is selected', async () => {
+    const adapter = await loaded();
+    render(<PaintToolbar adapter={adapter} />);
+    for (const color of ['red', 'green', 'blue']) {
+      expect(swatch(color)).toHaveAttribute('aria-disabled', 'true');
+      expect(swatch(color)).toHaveAttribute(
+        'title',
+        'Select elements to paint',
+      );
+    }
+    const spy = vi.spyOn(adapter, 'setThemingColor');
+    fireEvent.click(swatch('red'));
+    expect(spy).not.toHaveBeenCalled();
+
+    act(() => adapter.selectIds([101]));
+    for (const color of ['red', 'green', 'blue']) {
+      expect(swatch(color)).not.toHaveAttribute('aria-disabled');
+      expect(swatch(color)).toHaveAttribute(
+        'title',
+        `Paint selected items in ${color}`,
+      );
+    }
+
+    act(() => adapter.selectIds([]));
+    expect(swatch('green')).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('enables reset only after something has been painted', async () => {
+    const adapter = await loaded();
+    const clear = vi.spyOn(adapter, 'clearThemingColors');
+    render(<PaintToolbar adapter={adapter} />);
+    const reset = screen.getByRole('button', { name: 'Reset appearance' });
+    expect(reset).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(reset);
+    expect(clear).not.toHaveBeenCalled();
+
+    act(() => adapter.selectIds([101]));
+    fireEvent.click(swatch('blue'));
+    expect(reset).not.toHaveAttribute('aria-disabled');
+    expect(swatch('blue')).toHaveAttribute('aria-disabled', 'true');
+
+    fireEvent.click(reset);
+    expect(clear).toHaveBeenCalledTimes(1);
+    expect(reset).toHaveAttribute('aria-disabled', 'true');
   });
 });
 
