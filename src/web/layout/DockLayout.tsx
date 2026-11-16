@@ -66,6 +66,7 @@ interface SlotContextValue {
   hosts: HostStore<PanelId>;
   onAttach: (id: PanelId) => void;
   onCloseInstance: (id: PanelId) => void;
+  onClosePane: (id: PaneId) => void;
   titles: PaneTitles;
   headerActions?: (props: {
     pane: PanelId;
@@ -101,14 +102,16 @@ function PaneTab(props: IDockviewPanelHeaderProps) {
   const slot = useContext(SlotContext);
   const id = props.api.id;
   const instance = Boolean(parsePanelId(id)?.instance);
+  const close = () => {
+    if (instance) slot?.onCloseInstance(id);
+    else if (isPaneId(id)) slot?.onClosePane(id);
+  };
   return (
     <DockviewDefaultTab
       {...props}
       hideClose={!isPanelClosable(id)}
       title={slot?.titles[id]?.tooltip}
-      closeActionOverride={
-        instance ? () => slot?.onCloseInstance(id) : undefined
-      }
+      closeActionOverride={close}
     />
   );
 }
@@ -255,31 +258,46 @@ export interface InstanceSync {
   instances: readonly PanelId[];
   active: PanelId | null;
   titles: PaneTitles;
+  companions: readonly PaneId[];
+  treeWidth: number;
 }
+
+export const FOLLOWERS: readonly PaneId[] = PANES.filter(
+  (pane) => pane.requires !== 'none',
+).map((pane) => pane.id);
 
 function isInstance(id: PanelId): boolean {
   return Boolean(parsePanelId(id)?.instance);
+}
+
+function wantedOf(sync: InstanceSync, kind: PaneId): PanelId[] {
+  return sync.instances.filter((id) => paneKind(id) === kind);
+}
+
+export function changesShape(api: DockviewApi, sync: InstanceSync): boolean {
+  return PANES.some(
+    (pane) =>
+      pane.instances &&
+      (kindPanels(api, pane.id).length === 0) !==
+        (wantedOf(sync, pane.id).length === 0),
+  );
+}
+
+function sizeTree(api: DockviewApi, width: number) {
+  const tree = api.getPanel('tree');
+  if (tree && tree.api.location.type === 'grid') {
+    tree.group.api.setSize({ width });
+  }
 }
 
 export function syncInstances(api: DockviewApi, sync: InstanceSync) {
   const wanted = new Set(sync.instances);
   for (const pane of PANES) {
     if (!pane.instances) continue;
-    const want = sync.instances.filter((id) => paneKind(id) === pane.id);
-    const stale = kindPanels(api, pane.id).filter(
-      (panel) => isInstance(panel.id) && !wanted.has(panel.id),
-    );
-    for (const panel of stale) {
-      const others = kindPanels(api, pane.id).filter(
-        (other) => other !== panel && !stale.includes(other),
-      );
-      if (others.length === 0 && !pane.closable && want.length === 0) {
-        api.addPanel({
-          ...panelBase(pane.id),
-          position: { referenceGroup: panel.group },
-        });
-      }
-      panel.api.close();
+    const want = wantedOf(sync, pane.id);
+    const before = kindPanels(api, pane.id).length;
+    for (const panel of kindPanels(api, pane.id)) {
+      if (isInstance(panel.id) && !wanted.has(panel.id)) panel.api.close();
     }
     for (const id of want) {
       if (api.getPanel(id)) continue;
@@ -298,9 +316,16 @@ export function syncInstances(api: DockviewApi, sync: InstanceSync) {
         addPane(api, id, placementOf(api, pane), title);
       }
     }
-    if (want.length > 0) api.getPanel(pane.id)?.api.close();
-    if (kindPanels(api, pane.id).length === 0 && !pane.closable) {
-      addPane(api, pane.id, placementOf(api, pane));
+    const followers = PANES.filter((other) => other.requires === pane.id);
+    if (want.length === 0) {
+      for (const follower of followers) api.getPanel(follower.id)?.api.close();
+    } else if (before === 0) {
+      sizeTree(api, sync.treeWidth);
+      for (const follower of followers) {
+        if (!sync.companions.includes(follower.id)) continue;
+        if (api.getPanel(follower.id)) continue;
+        addPane(api, follower.id, placementOf(api, follower));
+      }
     }
   }
   const active = sync.active ? api.getPanel(sync.active) : undefined;
@@ -309,7 +334,14 @@ export function syncInstances(api: DockviewApi, sync: InstanceSync) {
 
 function buildDefault(api: DockviewApi, treeWidth: number, sync: InstanceSync) {
   api.clear();
-  const steps = defaultSteps(treeWidth);
+  const open = sync.instances.length > 0;
+  const steps = defaultSteps(treeWidth).filter((step) => {
+    const pane = paneById(step.id);
+    if (pane.instances) return open;
+    if (pane.requires !== 'none')
+      return open && sync.companions.includes(step.id);
+    return true;
+  });
   for (const step of steps) {
     const first = paneById(step.id).instances
       ? (sync.instances.find((id) => id === sync.active) ??
@@ -394,12 +426,14 @@ export interface DockLayoutProps {
   titles: PaneTitles;
   instances: readonly PanelId[];
   activeInstance: PanelId | null;
+  companions: readonly PaneId[];
   onAttach: (id: PanelId) => void;
   onMoved: (id: PanelId) => void;
   onChange: (dock: SerializedDock, open: PaneId[]) => void;
   onController: (controller: DockController | null) => void;
   onActivateInstance: (id: PanelId) => void;
   onCloseInstance: (id: PanelId) => void;
+  onClosePane: (id: PaneId) => void;
   headerActions?: SlotContextValue['headerActions'];
 }
 
@@ -419,6 +453,8 @@ export function DockLayout(props: DockLayoutProps) {
     instances: latest.current.instances,
     active: latest.current.activeInstance,
     titles: latest.current.titles,
+    companions: latest.current.companions,
+    treeWidth: latest.current.treeWidth,
   });
 
   const relax = (group: DockviewGroupPanel) => {
@@ -663,7 +699,13 @@ export function DockLayout(props: DockLayoutProps) {
       steady(() => panel.api.close(), [panel.group.id]);
     },
     reset: (treeWidth) =>
-      rebuild((api) => buildDefault(api, treeWidth, sync())),
+      rebuild((api) =>
+        buildDefault(api, treeWidth, {
+          ...sync(),
+          companions: FOLLOWERS,
+          treeWidth,
+        }),
+      ),
     focusPane: (id) => {
       const api = apiRef.current;
       const panel = api
@@ -690,7 +732,17 @@ export function DockLayout(props: DockLayoutProps) {
   const reconcile = () => {
     const api = apiRef.current;
     if (!api || !live.current) return;
-    steady((api) => syncInstances(api, sync()));
+    const next = sync();
+    if (changesShape(api, next)) {
+      busy.current += 1;
+      try {
+        syncInstances(api, next);
+      } finally {
+        busy.current -= 1;
+      }
+    } else {
+      steady((api) => syncInstances(api, next));
+    }
     emit();
   };
   const reconcileRef = useRef(reconcile);
@@ -801,6 +853,7 @@ export function DockLayout(props: DockLayoutProps) {
         hosts: props.hosts,
         onAttach: props.onAttach,
         onCloseInstance: props.onCloseInstance,
+        onClosePane: props.onClosePane,
         titles: props.titles,
         headerActions: props.headerActions,
       }}

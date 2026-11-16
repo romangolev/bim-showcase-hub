@@ -29,6 +29,7 @@ interface Handle {
   togglePane: (id: string) => void;
   location: (id: string) => string | null;
   resetLayout: () => void;
+  openPanes: () => string[];
   models: () => {
     models: { urn: string }[];
     active: string | null;
@@ -135,7 +136,7 @@ describe('several models', () => {
   it('opens each model in its own tab, never twice, and mirrors the active one in the url', async () => {
     const { appRouter } = renderPath('/');
     await dockReady();
-    expect(await screen.findByRole('tab', { name: 'Viewer' })).toBeVisible();
+    expect(screen.queryByRole('tab', { name: 'Viewer' })).toBeNull();
     await open(appRouter, 'aaa', 'A.rvt');
     await screen.findByRole('tab', { name: 'A.rvt · v1' });
     await open(appRouter, 'bbb', 'B.rvt');
@@ -204,10 +205,14 @@ describe('several models', () => {
     act(() => handle().togglePane('viewer:aaa'));
     await waitFor(() => expect(pathOf(appRouter)).toBe('/'));
     expect(destroyedA()).toBe(1);
-    expect(await screen.findByRole('tab', { name: 'Viewer' })).toBeVisible();
+    await waitFor(() => expect(handle().openPanes()).toEqual(['tree']));
+    expect(screen.queryByRole('tab', { name: 'Model summary' })).toBeNull();
     expect(
-      screen.getByRole('heading', { name: 'Pick a model to explore' }),
+      await screen.findByRole('heading', { name: 'Pick a model to explore' }),
     ).toBeInTheDocument();
+    expect(screen.getByRole('main')).toContainElement(
+      screen.getByRole('complementary', { name: 'Documents' }),
+    );
   });
 
   it('never destroys or reloads a model while its tab is moved, floated or split', async () => {
@@ -402,5 +407,86 @@ describe('several models on a narrow screen', () => {
     );
     expect(destroy).toHaveBeenCalledTimes(1);
     expect(sceneA?.isConnected).toBe(true);
+  });
+});
+
+describe('Documents first', () => {
+  it('keeps Documents required: no close button and no Close item', async () => {
+    renderPath('/');
+    await dockReady();
+    const tab = screen.getByRole('tab', { name: 'Documents' });
+    expect(tab.querySelector('.dv-default-tab-action')).toBeNull();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Documents pane options' }),
+    );
+    const menu = screen.getByRole('menu', { name: 'Documents pane options' });
+    expect(within(menu).queryByRole('menuitem', { name: 'Close' })).toBeNull();
+  });
+
+  it('remembers a closed companion for later models until Reset layout', async () => {
+    const { appRouter } = renderPath('/model/aaa?file=A.rvt&v=v1');
+    await dockReady();
+    const summaryTab = await screen.findByRole('tab', {
+      name: 'Model summary',
+    });
+    fireEvent.click(
+      summaryTab.querySelector('.dv-default-tab-action') as Element,
+    );
+    await waitFor(() =>
+      expect(parseLayout(storage.getItem(LAYOUT_KEY))?.dismissed).toEqual([
+        'summary',
+      ]),
+    );
+    act(() => handle().closeModel('aaa'));
+    await waitFor(() => expect(handle().openPanes()).toEqual(['tree']));
+    await open(appRouter, 'bbb', 'B.rvt');
+    await screen.findByRole('tab', { name: 'B.rvt · v1' });
+    await waitFor(() =>
+      expect(handle().openPanes()).toEqual(['tree', 'viewer', 'dashboard']),
+    );
+    act(() => handle().togglePane('summary'));
+    await screen.findByRole('tab', { name: 'Model summary' });
+    await waitFor(() =>
+      expect(parseLayout(storage.getItem(LAYOUT_KEY))?.dismissed).toEqual([]),
+    );
+    act(() => handle().togglePane('summary'));
+    await waitFor(() => expect(handle().openPanes()).not.toContain('summary'));
+    act(() => handle().resetLayout());
+    await waitFor(() => expect(handle().openPanes()).toContain('summary'));
+    await waitFor(() =>
+      expect(parseLayout(storage.getItem(LAYOUT_KEY))?.dismissed).toEqual([]),
+    );
+  });
+
+  it('opens the viewer section from Documents on a narrow screen and goes back', async () => {
+    media.setWidth(800);
+    const { appRouter } = renderPath('/');
+    const docs = await screen.findByRole('complementary', {
+      name: 'Documents',
+    });
+    expect(screen.getByRole('main')).toContainElement(docs);
+    expect(screen.queryByRole('tablist', { name: 'Open models' })).toBeNull();
+    await open(appRouter, 'aaa', 'A.rvt');
+    expect(
+      await screen.findByRole('tablist', { name: 'Open models' }),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(sceneOf('aaa')).not.toBeNull());
+    expect(
+      screen.queryByRole('complementary', { name: 'Documents' }),
+    ).toBeNull();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Expand document tree' }),
+    );
+    expect(
+      await screen.findByRole('complementary', { name: 'Documents' }),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Close A.rvt · v1', hidden: true }),
+    );
+    await waitFor(() => expect(pathOf(appRouter)).toBe('/'));
+    expect(
+      await screen.findByRole('complementary', { name: 'Documents' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('tablist', { name: 'Open models' })).toBeNull();
   });
 });

@@ -208,14 +208,16 @@ describe('pane menus', () => {
 
   it('collapses from the menu and from the header button', async () => {
     renderModel();
-    const menu = await openPaneMenu('Dashboard');
+    const menu = await openPaneMenu('Model summary');
     fireEvent.click(within(menu).getByRole('menuitem', { name: 'Collapse' }));
     expect(
-      screen.getByRole('button', { name: 'Expand Dashboard' }),
+      screen.getByRole('button', { name: 'Expand Model summary' }),
     ).toHaveAttribute('aria-expanded', 'false');
-    fireEvent.click(screen.getByRole('button', { name: 'Expand Dashboard' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Expand Model summary' }),
+    );
     expect(
-      screen.getByRole('button', { name: 'Collapse Dashboard' }),
+      screen.getByRole('button', { name: 'Collapse Model summary' }),
     ).toHaveAttribute('aria-expanded', 'true');
   });
 });
@@ -230,7 +232,7 @@ describe('panes menu in the top bar', () => {
       within(menu)
         .getAllByRole('menuitemcheckbox')
         .map((item) => item.textContent),
-    ).toEqual(['Documents', 'Model summary', 'Dashboard']);
+    ).toEqual(['Model summary', 'Dashboard']);
     const dashboard = within(menu).getByRole('menuitemcheckbox', {
       name: 'Dashboard',
     });

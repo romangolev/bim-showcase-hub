@@ -23,15 +23,20 @@ export function useModelUrn(): string | null {
 
 export function TreePane() {
   const layout = useLayout();
-  return <TreePanel onNavigate={layout.closeTreeOverlay} />;
-}
-
-export function ViewerPaneBody() {
   const content = useMainContent();
+  const { active } = useOpenModels();
+  const home = active === null;
   return (
-    <main id="main" className="pane-main" tabIndex={-1}>
-      {content}
-    </main>
+    <div
+      id={home ? 'main' : undefined}
+      role={home ? 'main' : undefined}
+      className="pane-docs"
+      data-home={home}
+      tabIndex={-1}
+    >
+      <TreePanel onNavigate={layout.closeTreeOverlay} />
+      {home ? <div className="pane-docs__hint">{content}</div> : null}
+    </div>
   );
 }
 

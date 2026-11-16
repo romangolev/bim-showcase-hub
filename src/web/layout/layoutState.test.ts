@@ -32,7 +32,7 @@ function panels(ids: string[]) {
   );
 }
 
-function sampleDock(): SerializedDock {
+function sampleDock(viewer = 'viewer:m1'): SerializedDock {
   return {
     grid: {
       root: {
@@ -43,7 +43,7 @@ function sampleDock(): SerializedDock {
           {
             type: 'branch',
             size: 800,
-            data: [leaf('2', ['viewer'], 600), leaf('3', ['dashboard'], 220)],
+            data: [leaf('2', [viewer], 600), leaf('3', ['dashboard'], 220)],
           },
           leaf('4', ['summary'], 320),
         ],
@@ -52,7 +52,7 @@ function sampleDock(): SerializedDock {
       height: 844,
       orientation: 'HORIZONTAL',
     },
-    panels: panels(['tree', 'viewer', 'dashboard', 'summary']),
+    panels: panels(['tree', viewer, 'dashboard', 'summary']),
     activeGroup: '2',
   };
 }
@@ -72,30 +72,52 @@ describe('layoutReducer', () => {
       id: 'summary',
       collapsed: true,
     });
-    expect(again.collapsed).toEqual(['summary']);
+    expect(again.collapsed).toEqual(['dashboard', 'summary']);
     const expanded = layoutReducer(again, {
       type: 'setCollapsed',
       id: 'summary',
       collapsed: false,
     });
-    expect(expanded.collapsed).toEqual([]);
+    expect(expanded.collapsed).toEqual(['dashboard']);
   });
 
-  it('resets to the default model for the window height', () => {
+  it('resets to the default model and forgets closed panes', () => {
     const custom = {
       dock: sampleDock(),
       collapsed: ['summary' as const],
       treeWidth: 400,
+      dismissed: ['dashboard' as const],
     };
     expect(layoutReducer(custom, { type: 'reset', height: 800 })).toEqual(
       defaultModel(800),
     );
   });
 
-  it('collapses the dashboard by default only on short windows', () => {
-    expect(defaultModel(1000).collapsed).toEqual([]);
+  it('starts with the dashboard collapsed and nothing closed', () => {
+    expect(defaultModel(1000).collapsed).toEqual(['dashboard']);
     expect(defaultModel(800).collapsed).toEqual(['dashboard']);
     expect(defaultModel(800).dock).toBeNull();
+    expect(defaultModel(800).dismissed).toEqual([]);
+  });
+
+  it('remembers panes the user closed without duplicates', () => {
+    const start = defaultModel(1000);
+    const once = layoutReducer(start, {
+      type: 'dismiss',
+      id: 'summary',
+      dismissed: true,
+    });
+    const twice = layoutReducer(once, {
+      type: 'dismiss',
+      id: 'summary',
+      dismissed: true,
+    });
+    expect(twice.dismissed).toEqual(['summary']);
+    expect(twice).toBe(once);
+    expect(
+      layoutReducer(twice, { type: 'dismiss', id: 'summary', dismissed: false })
+        .dismissed,
+    ).toEqual([]);
   });
 });
 
@@ -105,6 +127,7 @@ describe('serialize and parse', () => {
       dock: sampleDock(),
       collapsed: ['dashboard' as const],
       treeWidth: 360,
+      dismissed: ['summary' as const],
     };
     const raw = serializeLayout(model);
     expect(JSON.parse(raw)).toMatchObject({ version: 2 });
@@ -129,6 +152,7 @@ describe('serialize and parse', () => {
       dock: null,
       collapsed: ['summary'],
       treeWidth: 260,
+      dismissed: [],
     });
   });
 
@@ -165,29 +189,39 @@ describe('sanitizeDock', () => {
         size: 900,
         data: {
           id: '1',
-          views: ['terminal', 'viewer'],
+          views: ['terminal', 'viewer:m1'],
           activeView: 'terminal',
         },
       },
     ];
-    dock.panels = panels(['terminal', 'viewer']);
+    dock.panels = panels(['terminal', 'viewer:m1']);
     const result = sanitizeDock(dock);
     const only = (
       (result?.dock.grid.root.data ?? []) as { data: unknown }[]
     )[0];
     expect(only?.data).toEqual({
       id: '1',
-      views: ['viewer'],
-      activeView: 'viewer',
+      views: ['viewer:m1'],
+      activeView: 'viewer:m1',
     });
-    expect(Object.keys(result?.dock.panels ?? {})).toEqual(['viewer']);
+    expect(Object.keys(result?.dock.panels ?? {})).toEqual(['viewer:m1']);
   });
 
-  it('reports required panes that are missing', () => {
+  it('reports Documents as missing and nothing else', () => {
     const dock = sampleDock();
+    dock.grid.root.data = [leaf('1', ['summary'], 900)];
+    dock.panels = panels(['summary']);
+    expect(sanitizeDock(dock)?.missing).toEqual(['tree']);
     dock.grid.root.data = [leaf('1', ['tree'], 900)];
     dock.panels = panels(['tree']);
-    expect(sanitizeDock(dock)?.missing).toEqual(['viewer']);
+    expect(sanitizeDock(dock)?.missing).toEqual([]);
+  });
+
+  it('drops the empty viewer of older layouts', () => {
+    const result = sanitizeDock(sampleDock('viewer'));
+    expect(viewsOf(result?.dock, '2')).toEqual([]);
+    expect(Object.keys(result?.dock.panels ?? {})).not.toContain('viewer');
+    expect(result?.missing).toEqual([]);
   });
 
   it('cleans floating groups, drops popout groups and duplicate panes', () => {
@@ -266,6 +300,7 @@ describe('storage', () => {
       dock: null,
       collapsed: ['summary'],
       treeWidth: 400,
+      dismissed: [],
     });
     expect(storage.getItem(LEGACY_KEYS.treeWidth)).toBeNull();
     expect(storage.getItem(LEGACY_KEYS.summary)).toBeNull();
@@ -275,9 +310,11 @@ describe('storage', () => {
     expect(readLayout(storage, 800)).toEqual(model);
   });
 
-  it('uses the window height when no dashboard choice was stored', () => {
+  it('collapses the dashboard unless it was expanded before', () => {
     const storage = installMemoryStorage();
     expect(importLegacy(storage, 800).collapsed).toEqual(['dashboard']);
+    expect(importLegacy(storage, 1000).collapsed).toEqual(['dashboard']);
+    storage.setItem(LEGACY_KEYS.dashboard, '0');
     expect(importLegacy(storage, 1000).collapsed).toEqual([]);
   });
 
@@ -307,7 +344,12 @@ describe('storage', () => {
     writeLayout(storage, defaultModel(1000));
     expect(JSON.parse(storage.getItem(LAYOUT_KEY) ?? '')).toEqual({
       version: 2,
-      layout: { dock: null, collapsed: [], treeWidth: 320 },
+      layout: {
+        dock: null,
+        collapsed: ['dashboard'],
+        treeWidth: 320,
+        dismissed: [],
+      },
     });
   });
 });
@@ -348,36 +390,16 @@ describe('model tabs in the dock', () => {
     expect(result?.missing).toEqual([]);
   });
 
-  it('turns the first stale model tab into the empty viewer when none is open', () => {
+  it('drops every model tab when no model is open and asks for nothing', () => {
     const dock = modelDock(['viewer:a', 'viewer:b']);
     const result = sanitizeDock(dock, []);
-    expect(viewsOf(result?.dock, '2')).toEqual(['viewer']);
-    expect(result?.dock.panels.viewer).toMatchObject({
-      id: 'viewer',
-      title: 'Viewer',
-    });
+    expect(viewsOf(result?.dock, '2')).toEqual([]);
+    expect(Object.keys(result?.dock.panels ?? {}).sort()).toEqual([
+      'dashboard',
+      'summary',
+      'tree',
+    ]);
     expect(result?.missing).toEqual([]);
-  });
-
-  it('keeps the arrangement when open models are not in the dock yet', () => {
-    const result = sanitizeDock(sampleDock(), ['viewer:a']);
-    expect(viewsOf(result?.dock, '2')).toEqual(['viewer']);
-    expect(result?.missing).toEqual([]);
-  });
-
-  it('does not ask for the empty viewer while models are open', () => {
-    const dock = sampleDock();
-    const root = dock.grid.root.data as unknown[];
-    root.splice(1, 1);
-    const result = sanitizeDock(
-      { ...dock, panels: panels(['tree', 'summary']) },
-      ['viewer:a'],
-    );
-    expect(result?.missing).toEqual([]);
-    expect(
-      sanitizeDock({ ...dock, panels: panels(['tree', 'summary']) }, [])
-        ?.missing,
-    ).toEqual(['viewer']);
   });
 
   it('parses model tabs without knowing which models are open', () => {
@@ -385,6 +407,7 @@ describe('model tabs in the dock', () => {
       dock: modelDock(['viewer:a']),
       collapsed: [],
       treeWidth: 320,
+      dismissed: [],
     };
     expect(
       parseLayout(serializeLayout(model))?.dock?.panels['viewer:a'],
@@ -393,7 +416,7 @@ describe('model tabs in the dock', () => {
 });
 
 describe('migration from v1', () => {
-  function v1(dock: SerializedDock | null = sampleDock()) {
+  function v1(dock: SerializedDock | null = sampleDock('viewer')) {
     return JSON.stringify({
       version: 1,
       layout: { dock, collapsed: ['summary'], treeWidth: 360 },
@@ -412,9 +435,15 @@ describe('migration from v1', () => {
     expect(migrated?.dock?.activeGroup).toBe('2');
   });
 
-  it('keeps the empty viewer when no model is open', () => {
+  it('drops the viewer and keeps the rest when no model is open', () => {
     const migrated = migrateV1(v1(), []);
-    expect(migrated?.dock).toEqual(sampleDock());
+    expect(viewsOf(migrated?.dock ?? undefined, '2')).toEqual([]);
+    expect(Object.keys(migrated?.dock?.panels ?? {}).sort()).toEqual([
+      'dashboard',
+      'summary',
+      'tree',
+    ]);
+    expect(migrated?.dismissed).toEqual([]);
   });
 
   it('rejects a corrupt v1 record', () => {

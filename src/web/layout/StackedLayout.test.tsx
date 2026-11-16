@@ -43,13 +43,13 @@ describe('stackedPanes', () => {
     ).toEqual(['viewer', 'dashboard', 'summary']);
   });
 
-  it('shows only main off the model route', () => {
+  it('shows no viewer section without a model', () => {
     expect(
       stackedPanes(['tree', 'viewer', 'summary', 'dashboard'], false),
-    ).toEqual(['viewer']);
+    ).toEqual([]);
   });
 
-  it('keeps panes closed in the dock closed and never drops the viewer', () => {
+  it('keeps closed companions closed and always shows the open model', () => {
     expect(stackedPanes(['tree'], true)).toEqual(['viewer']);
   });
 });
@@ -92,9 +92,9 @@ describe('stacked layout', () => {
     expect(
       await screen.findByRole('button', { name: 'Collapse Model summary' }),
     ).toHaveClass('bsh-summary__toggle');
-    expect(screen.getByRole('button', { name: 'Collapse' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Expand' })).toHaveAttribute(
       'aria-expanded',
-      'true',
+      'false',
     );
   });
 

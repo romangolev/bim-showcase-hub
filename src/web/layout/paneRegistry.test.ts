@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  hasPlainPanel,
   instancePanelId,
   isPaneId,
   isPanelClosable,
@@ -19,12 +20,15 @@ describe('pane registry', () => {
     }
   });
 
-  it('keeps the viewer open and floatable', () => {
-    const viewer = paneById('viewer');
-    expect(viewer.closable).toBe(false);
-    expect(viewer.canFloat).toBe(true);
-    expect(isRequired('viewer')).toBe(true);
-    expect(PANES.filter((pane) => isRequired(pane.id))).toEqual([viewer]);
+  it('makes Documents the only required pane', () => {
+    const tree = paneById('tree');
+    expect(tree.closable).toBe(false);
+    expect(isRequired('tree')).toBe(true);
+    expect(PANES.filter((pane) => isRequired(pane.id))).toEqual([tree]);
+    expect(isRequired('viewer')).toBe(false);
+    expect(paneById('viewer').canFloat).toBe(true);
+    expect(hasPlainPanel('viewer')).toBe(false);
+    expect(hasPlainPanel('tree')).toBe(true);
   });
 
   it('places exactly one pane at the root and references only known panes', () => {
@@ -66,7 +70,8 @@ describe('pane registry', () => {
     expect(paneKind(id)).toBe('viewer');
     expect(parsePanelId('viewer')).toEqual({ kind: 'viewer', instance: null });
     expect(isPanelClosable(id)).toBe(true);
-    expect(isPanelClosable('viewer')).toBe(false);
+    expect(isPanelClosable('tree')).toBe(false);
+    expect(isPanelClosable('summary')).toBe(true);
   });
 
   it('rejects instances of panes without instances', () => {

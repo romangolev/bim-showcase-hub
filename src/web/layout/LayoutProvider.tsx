@@ -85,7 +85,7 @@ function initialModel(openPanels: readonly PanelId[]): LayoutModel {
   const height = window.innerHeight;
   if (!store) {
     return layoutReducer(
-      { dock: null, collapsed: [], treeWidth: 0 },
+      { dock: null, collapsed: [], treeWidth: 0, dismissed: [] },
       { type: 'reset', height },
     );
   }
@@ -93,7 +93,7 @@ function initialModel(openPanels: readonly PanelId[]): LayoutModel {
 }
 
 function openFromDock(dock: SerializedDock | null): PaneId[] {
-  if (!dock) return [...PANE_IDS];
+  if (!dock) return ['tree'];
   const kinds = new Set(Object.keys(dock.panels).map(paneKind));
   return PANE_IDS.filter((id) => kinds.has(id));
 }
@@ -203,8 +203,15 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
     setSeenMode(mode);
     setOverlayTreeOpen(false);
   }
-  const overlayOpen = stacked && overlayTreeOpen;
-  const treeOpen = stacked ? overlayTreeOpen : openPanes.includes('tree');
+  const home = models.models.length === 0;
+  const overlayOpen = stacked && overlayTreeOpen && !home;
+  const treeOpen = stacked
+    ? home || overlayTreeOpen
+    : !model.collapsed.includes('tree');
+  const companions = useMemo(
+    () => FOLLOWERS.filter((id) => !model.dismissed.includes(id)),
+    [model.dismissed],
+  );
   const previousMode = useRef(mode);
 
   useDebouncedWrite(model);
@@ -309,20 +316,29 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
     dispatch({ type: 'setCollapsed', id, collapsed });
   }, []);
 
+  const focusTreeInput = useCallback(() => {
+    requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>('#document-panel input')?.focus();
+    });
+  }, []);
+
   const toggleTree = useCallback(() => {
     if (modeRef.current === 'stacked') {
-      setOverlayTreeOpen((open) => !open);
-      requestAnimationFrame(() => {
-        document.querySelector<HTMLElement>('#document-panel input')?.focus();
-      });
+      if (!home) setOverlayTreeOpen((open) => !open);
+      focusTreeInput();
       return;
     }
-    if (openPanes.includes('tree')) {
-      controller.current?.closePane('tree');
-    } else {
-      controller.current?.openPane('tree');
-    }
-  }, [openPanes]);
+    const collapsed = model.collapsed.includes('tree');
+    dispatch({ type: 'setCollapsed', id: 'tree', collapsed: !collapsed });
+    controller.current?.openPane('tree');
+    if (collapsed) focusTreeInput();
+  }, [home, model.collapsed, focusTreeInput]);
+
+  const closePane = useCallback((id: PaneId) => {
+    if (!paneById(id).closable) return;
+    dispatch({ type: 'dismiss', id, dismissed: true });
+    controller.current?.closePane(id);
+  }, []);
 
   const treeControl = useMemo(
     () => ({
@@ -366,13 +382,13 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
           modelStore.close(urn);
           return;
         }
-        if (!isPaneId(id)) return;
-        if (id === 'tree') {
-          toggleTree();
+        if (!isPaneId(id) || !paneById(id).closable) return;
+        if (openPanes.includes(id)) {
+          closePane(id);
           return;
         }
-        if (openPanes.includes(id)) controller.current?.closePane(id);
-        else controller.current?.openPane(id);
+        dispatch({ type: 'dismiss', id, dismissed: false });
+        controller.current?.openPane(id);
       },
       movePane: (id, target) => {
         const kind = paneKind(id);
@@ -406,12 +422,12 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       openPanes,
       model.collapsed,
       setCollapsed,
-      toggleTree,
       treeControl,
       signals,
       closeTreeOverlay,
       paneTitle,
       modelStore,
+      closePane,
     ],
   );
 
@@ -447,7 +463,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       return <Instance instance={parsed.instance} />;
     }
     const Component = pane.component;
-    return <Component />;
+    return Component ? <Component /> : null;
   }, []);
 
   const wanted = new Set(instances);
@@ -455,7 +471,11 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
     const parsed = parsePanelId(id);
     if (!parsed) return false;
     if (parsed.instance) return wanted.has(id);
-    return openPanes.includes(parsed.kind) || id === 'tree' || id === 'viewer';
+    return (
+      openPanes.includes(parsed.kind) ||
+      id === 'tree' ||
+      (stacked && companions.includes(parsed.kind))
+    );
   });
 
   return (
@@ -474,7 +494,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
               {stacked ? (
                 <StackedLayout
                   hosts={hosts}
-                  open={openPanes}
+                  open={companions}
                   titles={titles}
                   models={models}
                   onSelectModel={modelStore.activate}
@@ -500,12 +520,14 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
                       titles={titles}
                       instances={instances}
                       activeInstance={activeInstance}
+                      companions={companions}
                       onAttach={onAttach}
                       onMoved={bump}
                       onChange={onDockChange}
                       onController={onController}
                       onActivateInstance={onActivateInstance}
                       onCloseInstance={onCloseInstance}
+                      onClosePane={closePane}
                       headerActions={({ pane }) => <PaneActions pane={pane} />}
                     />
                   </Suspense>

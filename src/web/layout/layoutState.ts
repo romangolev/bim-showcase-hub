@@ -1,11 +1,10 @@
 import {
+  hasPlainPanel,
   isPaneId,
   isRequired,
   PANE_IDS,
-  PANES,
   type PaneId,
   type PanelId,
-  paneById,
   paneKind,
   parsePanelId,
   TREE_WIDTH_DEFAULT,
@@ -21,7 +20,6 @@ export const LEGACY_KEYS = {
 } as const;
 export const TREE_WIDTH_MIN = 260;
 export const TREE_WIDTH_MAX = 480;
-export const DASHBOARD_AUTO_COLLAPSE_HEIGHT = 900;
 
 export interface SerializedNode {
   type: 'leaf' | 'branch';
@@ -61,11 +59,13 @@ export interface LayoutModel {
   dock: SerializedDock | null;
   collapsed: PaneId[];
   treeWidth: number;
+  dismissed: PaneId[];
 }
 
 export type LayoutAction =
   | { type: 'dock'; dock: SerializedDock }
   | { type: 'setCollapsed'; id: PaneId; collapsed: boolean }
+  | { type: 'dismiss'; id: PaneId; dismissed: boolean }
   | { type: 'reset'; height: number };
 
 export function clampTreeWidth(value: number): number {
@@ -73,12 +73,18 @@ export function clampTreeWidth(value: number): number {
   return Math.min(TREE_WIDTH_MAX, Math.max(TREE_WIDTH_MIN, Math.round(value)));
 }
 
-export function defaultModel(height: number): LayoutModel {
+export function defaultModel(_height: number): LayoutModel {
   return {
     dock: null,
-    collapsed: height < DASHBOARD_AUTO_COLLAPSE_HEIGHT ? ['dashboard'] : [],
+    collapsed: ['dashboard'],
     treeWidth: TREE_WIDTH_DEFAULT,
+    dismissed: [],
   };
+}
+
+function toggled(list: PaneId[], id: PaneId, on: boolean): PaneId[] {
+  if (list.includes(id) === on) return list;
+  return on ? [...list, id] : list.filter((entry) => entry !== id);
 }
 
 export function layoutReducer(
@@ -89,9 +95,12 @@ export function layoutReducer(
     case 'dock':
       return { ...model, dock: action.dock };
     case 'setCollapsed': {
-      const without = model.collapsed.filter((id) => id !== action.id);
-      const collapsed = action.collapsed ? [...without, action.id] : without;
-      return { ...model, collapsed };
+      const collapsed = toggled(model.collapsed, action.id, action.collapsed);
+      return collapsed === model.collapsed ? model : { ...model, collapsed };
+    }
+    case 'dismiss': {
+      const dismissed = toggled(model.dismissed, action.id, action.dismissed);
+      return dismissed === model.dismissed ? model : { ...model, dismissed };
     }
     case 'reset':
       return defaultModel(action.height);
@@ -106,8 +115,6 @@ interface CleanScope {
   seen: Set<PanelId>;
   panels: Record<string, unknown>;
   allowed: (id: PanelId) => boolean;
-  rename: Map<string, PanelId>;
-  sources: Map<PanelId, string>;
 }
 
 function cleanGroup(value: unknown, scope: CleanScope): SerializedGroup | null {
@@ -117,16 +124,14 @@ function cleanGroup(value: unknown, scope: CleanScope): SerializedGroup | null {
   let active: PanelId | undefined;
   for (const view of value.views) {
     if (typeof view !== 'string') continue;
-    const id = scope.rename.get(view) ?? view;
     if (
-      scope.allowed(id) &&
-      !scope.seen.has(id) &&
+      scope.allowed(view) &&
+      !scope.seen.has(view) &&
       isRecord(scope.panels[view])
     ) {
-      scope.seen.add(id);
-      scope.sources.set(id, view);
-      views.push(id);
-      if (view === value.activeView) active = id;
+      scope.seen.add(view);
+      views.push(view);
+      if (view === value.activeView) active = view;
     }
   }
   if (views.length === 0) return null;
@@ -155,43 +160,6 @@ function cleanNode(
   return null;
 }
 
-function viewsIn(input: Record<string, unknown>): string[] {
-  const views: string[] = [];
-  const fromGroup = (group: unknown) => {
-    if (!isRecord(group) || !Array.isArray(group.views)) return;
-    for (const view of group.views)
-      if (typeof view === 'string') views.push(view);
-  };
-  const visit = (node: unknown) => {
-    if (!isRecord(node)) return;
-    if (node.type === 'leaf') fromGroup(node.data);
-    else if (Array.isArray(node.data))
-      for (const child of node.data) visit(child);
-  };
-  if (isRecord(input.grid)) visit(input.grid.root);
-  if (Array.isArray(input.floatingGroups)) {
-    for (const floating of input.floatingGroups) {
-      if (isRecord(floating)) fromGroup(floating.data);
-    }
-  }
-  return views;
-}
-
-function placeholderRenames(
-  views: readonly string[],
-  allowed: (id: PanelId) => boolean,
-): Map<string, PanelId> {
-  const rename = new Map<string, PanelId>();
-  for (const pane of PANES) {
-    if (!pane.instances || pane.closable) continue;
-    const ofKind = views.filter((view) => paneKind(view) === pane.id);
-    if (ofKind.some(allowed)) continue;
-    const stale = ofKind.find((view) => parsePanelId(view)?.instance);
-    if (stale) rename.set(stale, pane.id);
-  }
-  return rename;
-}
-
 export function sanitizeDock(
   input: unknown,
   instances?: readonly PanelId[],
@@ -207,16 +175,10 @@ export function sanitizeDock(
   const allowed = (id: PanelId) => {
     const parsed = parsePanelId(id);
     if (!parsed) return false;
-    if (!parsed.instance) return true;
+    if (!parsed.instance) return hasPlainPanel(parsed.kind);
     return wanted ? wanted.has(id) : true;
   };
-  const scope: CleanScope = {
-    seen: new Set(),
-    panels: input.panels,
-    allowed,
-    rename: wanted ? placeholderRenames(viewsIn(input), allowed) : new Map(),
-    sources: new Map(),
-  };
+  const scope: CleanScope = { seen: new Set(), panels: input.panels, allowed };
   const groups = new Set<string>();
   const root = cleanNode(grid.root, scope, groups);
   if (root?.type !== 'branch') return null;
@@ -237,13 +199,8 @@ export function sanitizeDock(
   if (scope.seen.size === 0) return null;
   const panels: SerializedDock['panels'] = {};
   for (const id of scope.seen) {
-    const source = scope.sources.get(id) ?? id;
-    const panel = scope.panels[source];
-    if (!isRecord(panel)) continue;
-    panels[id] =
-      source === id
-        ? { ...panel, id }
-        : { ...panel, id, title: paneById(paneKind(id) as PaneId).title };
+    const panel = scope.panels[id];
+    if (isRecord(panel)) panels[id] = { ...panel, id };
   }
   const { popoutGroups: _popouts, ...rest } = input;
   const dock: SerializedDock = {
@@ -262,10 +219,7 @@ export function sanitizeDock(
     delete dock.activeGroup;
   }
   const kinds = new Set([...scope.seen].map(paneKind));
-  const missing = PANE_IDS.filter((id) => {
-    if (!isRequired(id) || kinds.has(id)) return false;
-    return !(paneById(id).instances && wanted?.size);
-  });
+  const missing = PANE_IDS.filter((id) => isRequired(id) && !kinds.has(id));
   return { dock, missing };
 }
 
@@ -363,6 +317,7 @@ export function serializeLayout(model: LayoutModel): string {
 export function parseLayout(
   raw: string | null,
   version: number = LAYOUT_VERSION,
+  prepare: (dock: SerializedDock) => SerializedDock = (dock) => dock,
 ): LayoutModel | null {
   if (raw === null) return null;
   let parsed: unknown;
@@ -378,9 +333,19 @@ export function parseLayout(
     ? layout.collapsed.filter(isPaneId)
     : [];
   const treeWidth = clampTreeWidth(Number(layout.treeWidth));
-  const dock =
-    layout.dock === null ? null : (sanitizeDock(layout.dock)?.dock ?? null);
-  return { dock, collapsed: [...new Set(collapsed)], treeWidth };
+  const dismissed = Array.isArray(layout.dismissed)
+    ? layout.dismissed.filter(isPaneId)
+    : [];
+  const source = isRecord(layout.dock)
+    ? prepare(layout.dock as SerializedDock)
+    : layout.dock;
+  const dock = source === null ? null : (sanitizeDock(source)?.dock ?? null);
+  return {
+    dock,
+    collapsed: [...new Set(collapsed)],
+    treeWidth,
+    dismissed: [...new Set(dismissed)],
+  };
 }
 
 function safeGet(storage: Storage, key: string): string | null {
@@ -406,10 +371,7 @@ export function importLegacy(storage: Storage, height: number): LayoutModel {
   const dashboard = safeGet(storage, LEGACY_KEYS.dashboard);
   const collapsed: PaneId[] = [];
   if (summary === '1') collapsed.push('summary');
-  if (
-    dashboard === '1' ||
-    (dashboard === null && height < DASHBOARD_AUTO_COLLAPSE_HEIGHT)
-  ) {
+  if (dashboard !== '0') {
     collapsed.push('dashboard');
   }
   for (const key of Object.values(LEGACY_KEYS)) safeRemove(storage, key);
@@ -432,11 +394,12 @@ export function migrateV1(
   raw: string | null,
   openPanels: readonly PanelId[],
 ): LayoutModel | null {
-  const model = parseLayout(raw, 1);
-  if (!model) return null;
   const first = openPanels[0];
-  if (!model.dock || !first) return model;
-  return { ...model, dock: renamePanel(model.dock, 'viewer', first) };
+  return parseLayout(raw, 1, (dock) =>
+    first && isRecord(dock.panels) && isRecord(dock.grid)
+      ? renamePanel(dock, 'viewer', first)
+      : dock,
+  );
 }
 
 export function readLayout(

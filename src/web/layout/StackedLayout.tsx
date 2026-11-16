@@ -3,7 +3,7 @@ import type { OpenModelsState } from '../api/openModels.js';
 import { Icon } from '../components/icons.js';
 import type { PaneTitles } from './layoutContext.js';
 import { PANES, type PaneId, type PanelId } from './paneRegistry.js';
-import { modelPanelId, useModelUrn } from './panes.js';
+import { modelPanelId } from './panes.js';
 import { type HostStore, PaneSlot } from './ViewerHost.js';
 
 export interface StackedLayoutProps {
@@ -27,9 +27,9 @@ export function stackedPanes(
   return STACK_ORDER.filter((id) => {
     const pane = PANES.find((entry) => entry.id === id);
     if (!pane) return false;
-    if (!pane.closable) return true;
+    if (pane.instances) return onModel;
     if (pane.requires === 'viewer' && !onModel) return false;
-    return open.includes(id);
+    return !pane.closable || open.includes(id);
   });
 }
 
@@ -96,8 +96,22 @@ export function StackedLayout({
   treeOpen,
   onCloseTree,
 }: StackedLayoutProps) {
-  const onModel = useModelUrn() !== null || models.active !== null;
-  const viewerSlot = models.active ? modelPanelId(models.active) : 'viewer';
+  const onModel = models.active !== null;
+  if (!onModel) {
+    return (
+      <div className="app-body stack" data-home="true">
+        <div className="app-main stack__column">
+          <PaneSlot
+            hosts={hosts}
+            id="tree"
+            onAttach={onAttach}
+            className="stack__pane stack__pane--tree"
+          />
+        </div>
+      </div>
+    );
+  }
+  const viewerSlot = modelPanelId(models.active as string);
   return (
     <div className="app-body stack">
       <div className="stack__tree" hidden={!treeOpen}>

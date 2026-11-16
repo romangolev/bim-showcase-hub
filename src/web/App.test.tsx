@@ -244,8 +244,8 @@ describe('App shell', () => {
     });
     fireEvent.click(toggle);
     expect(
-      screen.queryByRole('complementary', { name: 'Documents' }),
-    ).not.toBeInTheDocument();
+      screen.getByRole('complementary', { name: 'Documents', hidden: true }),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Expand document tree' }),
     ).toHaveAttribute('aria-expanded', 'false');

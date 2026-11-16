@@ -6,7 +6,6 @@ import {
   ModelPaneBody,
   SummaryPane,
   TreePane,
-  ViewerPaneBody,
 } from './panes.js';
 
 export type PaneId = 'tree' | 'viewer' | 'summary' | 'dashboard';
@@ -32,7 +31,7 @@ export interface PaneDefinition {
   id: PaneId;
   title: string;
   icon: IconName;
-  component: ComponentType;
+  component: ComponentType | null;
   minSize: { width: number; height: number };
   defaultPlacement: Placement;
   closable: boolean;
@@ -55,7 +54,7 @@ export const PANES: readonly PaneDefinition[] = [
       direction: 'left',
       size: TREE_WIDTH_DEFAULT,
     },
-    closable: true,
+    closable: false,
     canFloat: true,
     requires: 'none',
   },
@@ -63,10 +62,10 @@ export const PANES: readonly PaneDefinition[] = [
     id: 'viewer',
     title: 'Viewer',
     icon: 'model',
-    component: ViewerPaneBody,
+    component: null,
     minSize: { width: 360, height: 280 },
     defaultPlacement: { kind: 'root' },
-    closable: false,
+    closable: true,
     canFloat: true,
     requires: 'none',
     instances: { component: ModelPaneBody, closable: true },
@@ -159,6 +158,10 @@ export function definitionOf(id: PanelId): PaneDefinition {
   const kind = paneKind(id);
   if (!kind) throw new Error(`Unknown panel ${id}`);
   return paneById(kind);
+}
+
+export function hasPlainPanel(id: PaneId): boolean {
+  return paneById(id).component !== null;
 }
 
 export function isPanelClosable(id: PanelId): boolean {

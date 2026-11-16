@@ -115,7 +115,7 @@ export function PaneActions({ pane }: { pane: PanelId }) {
 
 export function layoutMenuEntries(layout: LayoutApi): MenuEntry[] {
   return [
-    ...PANES.filter((pane) => pane.closable).map((pane) => ({
+    ...PANES.filter((pane) => pane.closable && !pane.instances).map((pane) => ({
       id: pane.id,
       label: pane.title,
       icon: pane.icon,
