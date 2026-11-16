@@ -168,27 +168,27 @@
 }
 
 .bsh-mock__el--slabs {
-  fill: rgb(255 255 255 / 0.03);
+  fill: var(--color-mock-slab);
   stroke: var(--color-steel);
 }
 
 .bsh-mock__el--walls {
-  fill: rgb(255 255 255 / 0.08);
+  fill: var(--color-mock-wall);
   stroke: var(--color-fog);
 }
 
 .bsh-mock__el--columns {
-  fill: rgb(255 255 255 / 0.16);
+  fill: var(--color-mock-column);
   stroke: var(--color-ash);
 }
 
 .bsh-mock__el--doors {
-  fill: rgb(96 165 250 / 0.14);
+  fill: var(--color-mock-door);
   stroke: var(--color-arc-blue);
 }
 
 .bsh-mock__el--windows {
-  fill: rgb(147 197 253 / 0.1);
+  fill: var(--color-mock-window);
   stroke: var(--color-ring-blue);
 }
 
@@ -199,7 +199,7 @@
 .bsh-mock__el--selected {
   stroke: var(--color-ring-blue);
   stroke-width: 2;
-  fill: rgb(59 130 246 / 0.35);
+  fill: var(--color-mock-selected);
 }
 
 .bsh-mock__el--themed {

@@ -1,13 +1,9 @@
-import {
-  act,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from '@testing-library/react';
 import { StrictMode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ModelSummaryPanel } from '../panels/ModelSummaryPanel.js';
+import { installMemoryStorage } from '../test/mockApi.js';
+import { act, fireEvent, render, screen, waitFor } from '../test/render.js';
+import { useTheme } from '../theme/ThemeContext.js';
 import { createMockViewerAdapter } from './MockViewerAdapter.js';
 import type { ViewerAdapter, ViewerAdapterFactory } from './ViewerAdapter.js';
 import { ViewerProvider } from './ViewerContext.js';
@@ -244,6 +240,53 @@ describe('ViewerPane export status badge', () => {
     expect(live.querySelector('.badge')).toHaveAttribute(
       'data-variant',
       'error',
+    );
+  });
+});
+
+function ThemeSwitch() {
+  const { toggleTheme } = useTheme();
+  return (
+    <button type="button" onClick={toggleTheme}>
+      switch theme
+    </button>
+  );
+}
+
+describe('ViewerPane theme propagation', () => {
+  it('applies the current theme on mount and on every change', async () => {
+    installMemoryStorage();
+    document.documentElement.dataset.theme = 'dark';
+    const adapters: ViewerAdapter[] = [];
+    const factory: ViewerAdapterFactory = async (container) => {
+      const adapter = await createMockViewerAdapter(container);
+      vi.spyOn(adapter, 'setTheme');
+      adapters.push(adapter);
+      return adapter;
+    };
+    const onReady = vi.fn();
+    render(
+      <>
+        <ThemeSwitch />
+        <ViewerPane urn="abc" factory={factory} onReady={onReady} />
+      </>,
+    );
+    await waitFor(() => expect(onReady).toHaveBeenCalled());
+    const adapter = adapters[0];
+    expect(adapter?.setTheme).toHaveBeenCalledWith('dark');
+    expect(
+      document.querySelector('.bsh-mock')?.getAttribute('data-viewer-theme'),
+    ).toBe('dark');
+    fireEvent.click(screen.getByRole('button', { name: 'switch theme' }));
+    await waitFor(() =>
+      expect(adapter?.setTheme).toHaveBeenLastCalledWith('light'),
+    );
+    expect(
+      document.querySelector('.bsh-mock')?.getAttribute('data-viewer-theme'),
+    ).toBe('light');
+    fireEvent.click(screen.getByRole('button', { name: 'switch theme' }));
+    await waitFor(() =>
+      expect(adapter?.setTheme).toHaveBeenLastCalledWith('dark'),
     );
   });
 });

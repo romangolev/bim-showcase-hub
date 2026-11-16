@@ -91,13 +91,74 @@ Depth comes from 0.5px translucent white hairline borders and 1px inset white hi
 - Gradients or heavy drop shadows.
 - Decorative green or red.
 
+## Light theme
+
+The dark palette above is the reference. The light theme keeps every token role and changes only the values, so components never branch on theme. It is derived, not part of the Refero source.
+
+Theme is set by `data-theme="dark|light"` on `<html>`, together with `color-scheme`. The default follows `prefers-color-scheme` (dark when unsupported). The top bar toggle (sun and moon icon button, placed before the user menu, also on the signed-out landing) stores an explicit choice in localStorage under `bsh-theme`. The system scheme is followed live only while no choice is stored. A tiny inline script in `index.html` applies the theme before first paint.
+
+### Light neutrals
+
+| Token | Hex | Role |
+|---|---|---|
+| void | #f5f6f8 | Page canvas, footer, viewer pane |
+| graphite | #ffffff | Cards, panels, table rows |
+| charcoal | #eceef2 | Inputs, bar tracks, secondary surfaces |
+| smoke | #c9cdd5 | Scrollbar thumbs, resizer, subtle separators |
+| steel | #6b7280 | Captions, mock viewer slab strokes |
+| fog | #515867 | Secondary text, icon strokes |
+| ash | #5f6675 | Tertiary text, placeholders, disabled |
+| chalk | #272a31 | Body text, table cell text |
+| snow | #0a0b0d | Headings and primary text |
+| bone | #15171b | Primary CTA fill (inverted: ink fill) |
+| ink | #ffffff | CTA label text |
+
+### Light accents
+
+| Token | Hex | Role |
+|---|---|---|
+| signal-blue | #2563eb | Active states, links, icon fills, selection |
+| arc-blue | #1d4ed8 | Text accents, Viewable badge, icon tiles |
+| ring-blue | #3b82f6 | Focus rings (3.4:1 on canvas, 3.7:1 on cards) |
+| mint | #15803d | Success badge text and outline |
+| fern | #16a34a | Soft green washes |
+| coral | #c62828 | Destructive and error text |
+| ember | #ea580c | Decorative icon chip only (unchanged) |
+| iris | #314ef0 | Brand chip tint (unchanged) |
+
+### Light translucent layers
+
+| Token | Value | Role |
+|---|---|---|
+| hairline | rgb(0 0 0 / 0.10) | 0.5px borders |
+| hairline-faint | rgb(0 0 0 / 0.06) | Row dividers, chart grid |
+| ghost-fill | rgb(0 0 0 / 0.04) | Secondary button, icon tile |
+| ghost-fill-hover | rgb(0 0 0 / 0.08) | Hover and selected row |
+| ghost-fill-active | rgb(0 0 0 / 0.12) | Pressed |
+| inset-highlight | transparent | No inset highlight on white cards |
+| accent-pressed | #1e40af | Pressed Viewable badge text (dark: ring-blue) |
+| scrim | rgb(15 17 22 / 0.4) | Overlay backdrop (dark: black at 0.6) |
+| match | rgb(37 99 235 / 0.18) | Search match highlight |
+| swatch-ring | rgb(0 0 0 / 0.25) | Inner ring on paint swatches |
+
+Paint swatches keep their fixed data colors in both themes. The mock viewer fills and the landing floor plan fills have per-theme tokens (`mock-*`, `plan-fill`).
+
+### Light rules
+
+- Same character: 0.5px hairline borders, weight 400 headings, no gradients, blue only for active, links, icons and availability, mint and coral only for status.
+- Primary CTA is inverted: ink fill (bone token), white label (ink token), 10px radius, hover goes to snow.
+- Elevation: no inset highlight. The only cast shadow stays on the landing product mockups, `0 24px 48px rgb(15 23 42 / 0.10)` in light against `rgb(0 0 0 / 0.4)` in dark. The primary button shadow is `0 1px 2px rgb(15 23 42 / 0.16)`.
+- Selection text is white on signal-blue in both themes (`on-accent`).
+- Every text pair verified in dark passes WCAG AA in light: body 13.3 to 14.4, secondary fog 6.0 to 7.1, selected row fog 6.0, ash 4.8 to 5.8, Viewable badge 5.6 to 6.7, mint 4.6 to 5.0, coral 5.2 to 5.6, CTA label 17.9, selection 5.2. Focus ring and icon fills pass 3:1.
+
 ## Adaptations for this app
 
 The source describes a marketing site. For the BIM Showcase Hub application:
 
 - The project tree is a collapsible left panel styled as a graphite card, in place of "no sidebar".
 - The landing view uses the two-column hero, with the app shell below it after sign-in.
-- The Autodesk Viewer uses its dark theme plus CSS overrides to match these tokens.
+- The Autodesk Viewer follows the page theme through `setTheme` (`dark-theme` or `light-theme`), and the scene background is set from the graphite and void tokens on start, model load and every theme change. CSS overrides match these tokens.
+- The app has dark and light themes (see Light theme). The dark sections above remain the reference palette.
 - Paint swatches are user data colors, not status. They use the same three chips (red, green, blue) in the toolbar and the landing mockup, and are the only sanctioned use of red, green and blue outside status and active states.
 - Feedback uses one shared state block with loading (skeleton rows), empty (specific copy and a next step) and error (icon, plain-language message, Retry) variants. Raw server strings appear only in a title attribute.
 - The document panel is 320px by default and resizable between 260 and 480px.

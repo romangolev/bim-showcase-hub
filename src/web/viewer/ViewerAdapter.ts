@@ -1,4 +1,5 @@
 import type { PropertyRow } from '../../shared/types.js';
+import type { Theme } from '../theme/theme.js';
 
 export type Rgba = readonly [r: number, g: number, b: number, a: number];
 
@@ -41,6 +42,7 @@ export interface ViewerAdapter {
   clearSelection?(): void;
   setThemingColor(ids: number[], color: Rgba): void;
   clearThemingColors(): void;
+  setTheme(theme: Theme): void;
   getLeafProperties(propertyNames: string[]): Promise<PropertyRow[]>;
   registerToolGroup(spec: ToolGroupSpec): () => void;
   onSelectionChange(cb: (ids: number[]) => void): () => void;

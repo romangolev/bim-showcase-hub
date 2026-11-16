@@ -143,6 +143,8 @@ class FakeViewer implements GuiViewer3D {
 
   setTheme(): void {}
 
+  setBackgroundColor(): void {}
+
   resize(): void {
     this.resizeCalls += 1;
   }

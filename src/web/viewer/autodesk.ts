@@ -88,6 +88,14 @@ export interface GuiViewer3D {
   loadExtension(id: string, options?: unknown): Promise<unknown>;
   unloadExtension(id: string): boolean;
   setTheme(theme: string): void;
+  setBackgroundColor(
+    red: number,
+    green: number,
+    blue: number,
+    red2: number,
+    green2: number,
+    blue2: number,
+  ): void;
   loadDocumentNode(doc: ViewingDocument, node: unknown): Promise<ViewerModel>;
   getObjectTree(
     onSuccess: (tree: InstanceTree) => void,

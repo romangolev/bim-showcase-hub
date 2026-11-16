@@ -3,8 +3,25 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>BIM Showcase Hub</title>
+    <script>
+      (() => {
+        let theme = null;
+        try {
+          theme = localStorage.getItem("bsh-theme");
+        } catch {
+          theme = null;
+        }
+        if (theme !== "light" && theme !== "dark") {
+          const light = window.matchMedia?.("(prefers-color-scheme: light)");
+          theme = light?.matches ? "light" : "dark";
+        }
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.style.colorScheme = theme;
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

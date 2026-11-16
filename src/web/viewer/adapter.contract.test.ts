@@ -123,6 +123,17 @@ describe('ViewerAdapter contract (mock)', () => {
     adapter.destroy();
   });
 
+  it('exposes the applied theme and follows the page tokens', async () => {
+    await setup();
+    const root = host.querySelector<HTMLElement>('.bsh-mock');
+    expect(root?.dataset.viewerTheme).toBe('dark');
+    adapter.setTheme('light');
+    expect(root?.dataset.viewerTheme).toBe('light');
+    adapter.setTheme('dark');
+    expect(root?.dataset.viewerTheme).toBe('dark');
+    expect(root?.querySelector('[style*="#"]')).toBeNull();
+  });
+
   it('satisfies the ViewerAdapter shape', async () => {
     await setup();
     const typed: ViewerAdapter = adapter;

@@ -377,7 +377,7 @@
     z-index: 39;
     display: block;
     border: 0;
-    background: rgb(0 0 0 / 0.6);
+    background: var(--color-scrim);
     cursor: pointer;
   }
 

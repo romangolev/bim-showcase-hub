@@ -1,4 +1,5 @@
 import type { PropertyRow } from '../../shared/types.js';
+import type { Theme } from '../theme/theme.js';
 import {
   autodeskWindow,
   type BulkPropertyItem,
@@ -8,11 +9,17 @@ import {
   type ViewerEvent,
 } from './autodesk.js';
 import { ensureToolsExtension, TOOLS_EXTENSION_ID } from './autodeskTools.js';
+import { readSceneBackground } from './sceneBackground.js';
 import { ToolGroupController } from './toolGroupController.js';
 import type { Rgba, ToolGroupSpec, ViewerAdapter } from './ViewerAdapter.js';
 
 const VIEWER_VERSION = '7.*';
 const VIEWER_BASE = `https://developer.api.autodesk.com/modelderivative/v2/viewers/${VIEWER_VERSION}`;
+
+const VIEWER_THEMES: Record<Theme, string> = {
+  dark: 'dark-theme',
+  light: 'light-theme',
+};
 
 let assetsPromise: Promise<void> | null = null;
 let initializedApi: string | null = null;
@@ -137,6 +144,7 @@ function toPropertyValue(value: unknown): string | number | boolean | null {
 export class RealViewerAdapter implements ViewerAdapter {
   private viewer: GuiViewer3D | null = null;
   private destroyed = false;
+  private theme: Theme = 'dark';
   private readonly selectionListeners = new Set<(ids: number[]) => void>();
   private controller: ToolGroupController | null = null;
   private toolsMounted = false;
@@ -162,11 +170,12 @@ export class RealViewerAdapter implements ViewerAdapter {
     viewer.addEventListener(viewing.SELECTION_CHANGED_EVENT, this.onSelection);
     const startCode = viewer.start();
     if (startCode) throw new Error(`Viewer failed to start (${startCode})`);
-    viewer.setTheme('dark-theme');
+    this.applyTheme(viewer);
     const doc = await loadDocument(urn);
     if (this.destroyed || this.viewer !== viewer) return;
     await viewer.loadDocumentNode(doc, doc.getRoot().getDefaultGeometry());
     if (this.destroyed || this.viewer !== viewer) return;
+    this.applyTheme(viewer);
     this.modelLoaded = true;
     await this.mountTools();
     this.resize();
@@ -205,6 +214,16 @@ export class RealViewerAdapter implements ViewerAdapter {
 
   clearSelection(): void {
     this.viewer?.clearSelection();
+  }
+
+  setTheme(theme: Theme): void {
+    this.theme = theme;
+    if (this.viewer) this.applyTheme(this.viewer);
+  }
+
+  private applyTheme(viewer: GuiViewer3D): void {
+    viewer.setTheme(VIEWER_THEMES[this.theme]);
+    viewer.setBackgroundColor(...readSceneBackground());
   }
 
   setThemingColor(ids: number[], color: Rgba): void {

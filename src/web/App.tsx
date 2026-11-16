@@ -2,6 +2,7 @@ import { type QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from '@tanstack/react-router';
 import { queryClient } from './queryClient.js';
 import { router } from './routes/router.js';
+import { ThemeProvider } from './theme/ThemeContext.js';
 
 export interface AppProps {
   appRouter?: typeof router;
@@ -10,8 +11,10 @@ export interface AppProps {
 
 export function App({ appRouter = router, client = queryClient }: AppProps) {
   return (
-    <QueryClientProvider client={client}>
-      <RouterProvider router={appRouter} />
-    </QueryClientProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={client}>
+        <RouterProvider router={appRouter} />
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }

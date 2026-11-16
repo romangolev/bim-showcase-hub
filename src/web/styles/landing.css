@@ -50,9 +50,7 @@
   border: var(--border-hairline);
   border-radius: var(--radius-container);
   background: var(--color-graphite);
-  box-shadow:
-    var(--shadow-inset),
-    0 24px 48px rgb(0 0 0 / 0.4);
+  box-shadow: var(--shadow-inset), var(--shadow-float);
 }
 
 .mockup__body {
@@ -89,7 +87,7 @@
 }
 
 .mockup__plan rect:nth-of-type(n + 2) {
-  fill: rgb(96 165 250 / 0.14);
+  fill: var(--color-plan-fill);
   stroke: var(--color-arc-blue);
 }
 
@@ -191,9 +189,7 @@
   border: var(--border-hairline);
   border-radius: var(--radius-container);
   background: var(--color-graphite);
-  box-shadow:
-    var(--shadow-inset),
-    0 24px 48px rgb(0 0 0 / 0.4);
+  box-shadow: var(--shadow-inset), var(--shadow-float);
 }
 
 .preview[hidden] {
