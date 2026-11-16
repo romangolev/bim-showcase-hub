@@ -35,9 +35,9 @@ export const PAINT_PRESETS: readonly PaintPreset[] = [
 export const RESET_PAINT_LABEL = 'Reset appearance';
 
 export function paintSelection(adapter: ViewerAdapter, color: Rgba): boolean {
-  const selection = adapter.getSelection();
+  const selection = adapter.getModelSelection();
   if (selection.length === 0) return false;
-  adapter.setThemingColor(selection, color);
+  adapter.setModelThemingColor(selection, color);
   adapter.clearSelection?.();
   return true;
 }

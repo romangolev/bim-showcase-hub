@@ -1,4 +1,5 @@
 import type { PropertyRow } from '../../shared/types.js';
+import { readySignature } from './modelSet.js';
 import type { ViewerAdapter } from './ViewerAdapter.js';
 
 interface InFlight {
@@ -17,12 +18,18 @@ interface AdapterReads {
 }
 
 const reads = new WeakMap<ViewerAdapter, AdapterReads>();
+const signatures = new WeakMap<AdapterReads, string>();
 
 function readsFor(adapter: ViewerAdapter): AdapterReads {
+  const signature =
+    typeof adapter.getModels === 'function'
+      ? readySignature(adapter.getModels())
+      : '';
   let entry = reads.get(adapter);
-  if (!entry) {
+  if (!entry || signatures.get(entry) !== signature) {
     entry = { inFlight: null, batch: null };
     reads.set(adapter, entry);
+    signatures.set(entry, signature);
   }
   return entry;
 }
@@ -31,7 +38,14 @@ function project(rows: PropertyRow[], names: readonly string[]): PropertyRow[] {
   return rows.map((row) => {
     const properties: PropertyRow['properties'] = {};
     for (const name of names) properties[name] = row.properties[name] ?? null;
-    return { dbId: row.dbId, name: row.name, properties };
+    const projected: PropertyRow = {
+      dbId: row.dbId,
+      name: row.name,
+      properties,
+    };
+    if (row.modelId !== undefined) projected.modelId = row.modelId;
+    if (row.modelName !== undefined) projected.modelName = row.modelName;
+    return projected;
   });
 }
 

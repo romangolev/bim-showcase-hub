@@ -67,7 +67,7 @@ When developing with real credentials, run the server on port 3000 so the defaul
 
 ### Mock mode is development only
 
-Mock mode needs `MOCK_APS=1` and a non-production `NODE_ENV`. The server computes `mock = !production && MOCK_APS === '1'`, so a production process with `MOCK_APS=1` still uses real APS. The client mock viewer additionally requires `import.meta.env.DEV`, so it is not reachable from a production build. In mock mode every request is signed in as "Alex Rivera" and no Autodesk call is made.
+Mock mode needs `MOCK_APS=1` and a non-production `NODE_ENV`. The server computes `mock = !production && MOCK_APS === '1'`, so a production process with `MOCK_APS=1` still uses real APS. The client mock viewer additionally requires `import.meta.env.DEV`, so it is not reachable from a production build. In mock mode every request is signed in as "Alex Rivera" and no Autodesk call is made. The mock viewer can hold several models (one SVG group each); a urn containing `broken` fails to load so per-model errors can be tested.
 
 ## End-to-end tests
 

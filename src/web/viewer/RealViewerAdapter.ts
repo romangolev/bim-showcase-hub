@@ -8,9 +8,31 @@ import {
   getViewing,
   type InstanceTree,
   type ViewerEvent,
+  type ViewerModel,
+  type ViewingDocument,
 } from './autodesk.js';
 import { ensureToolsExtension, TOOLS_EXTENSION_ID } from './autodeskTools.js';
+import {
+  anchorOf,
+  type FederationAnchor,
+  federatedLoadOptions,
+  OTHER_REGION_MESSAGE,
+  pickGeometryNode,
+  selectionIds,
+} from './federation.js';
 import { fullscreenElementOf, watchFullscreen } from './fullscreen.js';
+import { tagRows } from './modelScope.js';
+import {
+  checkCapacity,
+  loadFailureMessage,
+  type ModelDbId,
+  type ModelInfo,
+  ModelSet,
+  ModelSetError,
+  type ModelSource,
+  modelIdFor,
+  uniqueSources,
+} from './modelSet.js';
 import { readSceneBackground } from './sceneBackground.js';
 import { ToolGroupController } from './toolGroupController.js';
 import type { Rgba, ToolGroupSpec, ViewerAdapter } from './ViewerAdapter.js';
@@ -20,6 +42,8 @@ const VIEWER_BASE = `https://developer.api.autodesk.com/modelderivative/v2/viewe
 
 export const SCREEN_MODE_SETTLE_MS = 400;
 const FILL_BROWSER_CLASS = 'viewer-fill-browser';
+
+type TaggedContainer = HTMLElement & { bshViewer?: GuiViewer3D };
 
 const VIEWER_THEMES: Record<Theme, string> = {
   dark: 'dark-theme',
@@ -128,13 +152,21 @@ function initializeViewing(api: string): Promise<void> {
 }
 
 function loadDocument(urn: string) {
-  return new Promise<Parameters<GuiViewer3D['loadDocumentNode']>[0]>(
-    (resolve, reject) => {
-      getViewing().Document.load(`urn:${urn}`, resolve, (code, message) =>
-        reject(new Error(`Document load failed (${code}): ${message}`)),
-      );
-    },
-  );
+  return new Promise<ViewingDocument>((resolve, reject) => {
+    getViewing().Document.load(`urn:${urn}`, resolve, (code, message) =>
+      reject(new Error(`Document load failed (${code}): ${message}`)),
+    );
+  });
+}
+
+function readTree(
+  viewer: GuiViewer3D,
+  model: ViewerModel,
+): Promise<InstanceTree> {
+  return new Promise<InstanceTree>((resolve, reject) => {
+    if (model.getObjectTree) model.getObjectTree(resolve, reject);
+    else viewer.getObjectTree(resolve, reject);
+  });
 }
 
 function leafIds(tree: InstanceTree): number[] {
@@ -173,8 +205,13 @@ export class RealViewerAdapter implements ViewerAdapter {
   private resizeFrame = 0;
   private resizePending = false;
   private settleTimer: ReturnType<typeof setTimeout> | undefined;
+  private readonly models = new ModelSet<ViewerModel>();
+  private anchor: FederationAnchor | null = null;
+  private api = '';
+  private selectionEvent = '';
+  private settling: Promise<void> = Promise.resolve();
   private readonly onSelection = (ev: ViewerEvent) => {
-    const ids = ev.dbIdArray ?? [];
+    const ids = selectionIds(ev);
     for (const cb of this.selectionListeners) cb([...ids]);
   };
   private readonly scheduleResize = () => {
@@ -202,29 +239,224 @@ export class RealViewerAdapter implements ViewerAdapter {
   constructor(private readonly container: HTMLElement) {}
 
   async load(urn: string): Promise<void> {
+    await this.loadModels([{ urn }]);
+  }
+
+  async loadModels(sources: readonly ModelSource[]): Promise<ModelInfo[]> {
+    const unique = uniqueSources(sources);
+    checkCapacity(0, unique.length);
+    const first = unique[0]?.urn ?? '';
+    const api = apiForRegion(detectRegion(first));
     await loadViewerAssets();
-    if (this.destroyed) return;
-    await initializeViewing(apiForRegion(detectRegion(urn)));
-    if (this.destroyed) return;
+    if (this.destroyed) return [];
+    await initializeViewing(api);
+    if (this.destroyed) return [];
     this.unload();
     const viewing = getViewing();
     const viewer = new viewing.GuiViewer3D(this.container, {
       extensions: ['Autodesk.DocumentBrowser', 'Autodesk.VisualClusters'],
     });
     this.viewer = viewer;
-    viewer.addEventListener(viewing.SELECTION_CHANGED_EVENT, this.onSelection);
+    this.api = api;
+    this.selectionEvent =
+      viewing.AGGREGATE_SELECTION_CHANGED_EVENT ??
+      viewing.SELECTION_CHANGED_EVENT;
+    viewer.addEventListener(this.selectionEvent, this.onSelection);
     const startCode = viewer.start();
     if (startCode) throw new Error(`Viewer failed to start (${startCode})`);
+    this.tagContainer(viewer);
     this.watchScreenMode(viewer, viewing.FULLSCREEN_MODE_EVENT);
     this.applyTheme(viewer);
-    const doc = await loadDocument(urn);
+    for (const source of unique) this.models.add(source);
+    const settling = this.loadSet(viewer, unique);
+    this.settling = settling.catch(() => {});
+    await settling;
+    if (this.destroyed || this.viewer !== viewer) return [];
+    const models = this.models.list();
+    if (!models.some((model) => model.status === 'ready')) {
+      throw new Error(loadFailureMessage(models));
+    }
+    return models;
+  }
+
+  async addModel(source: ModelSource): Promise<ModelInfo> {
+    const viewer = this.viewer;
+    if (!viewer || this.models.size === 0) {
+      try {
+        await this.loadModels([source]);
+      } catch (err) {
+        if (err instanceof ModelSetError) throw err;
+      }
+      return this.models.get(modelIdFor(source.urn)) ?? this.failedInfo(source);
+    }
+    const info = this.models.add(source);
+    await this.settling;
+    if (this.viewer !== viewer) return this.models.get(info.id) ?? info;
+    await this.loadOne(viewer, source, this.fetchDocument(source.urn));
+    const current = this.models.get(info.id) ?? info;
+    if (current.status === 'ready') viewer.fitToView?.();
+    return current;
+  }
+
+  removeModel(modelId: string): void {
+    const removed = this.models.remove(modelId);
+    if (!removed) return;
+    const viewer = this.viewer;
+    const model = removed.handle;
+    if (viewer && model) {
+      viewer.clearThemingColors(model);
+      viewer.unloadModel?.(model);
+    }
+    if (this.models.size === 0) this.anchor = null;
+    this.emitSelection();
+  }
+
+  getModels(): ModelInfo[] {
+    return this.models.list();
+  }
+
+  setModelVisible(modelId: string, visible: boolean): void {
+    if (!this.models.setVisible(modelId, visible)) return;
+    const viewer = this.viewer;
+    const model = this.models.handle(modelId);
+    if (!viewer || !model) return;
+    if (visible) viewer.showModel?.(model, true);
+    else viewer.hideModel?.(model);
+    this.emitSelection();
+  }
+
+  onModelsChange(cb: (models: ModelInfo[]) => void): () => void {
+    return this.models.onChange(cb);
+  }
+
+  getModelSelection(): ModelDbId[] {
+    const viewer = this.viewer;
+    if (!viewer) return [];
+    if (viewer.getAggregateSelection) {
+      return viewer.getAggregateSelection().flatMap(({ model, selection }) => {
+        const modelId = this.models.idOf(model);
+        return modelId ? selection.map((dbId) => ({ modelId, dbId })) : [];
+      });
+    }
+    const primary = this.models.primaryId();
+    if (!primary) return [];
+    return viewer.getSelection().map((dbId) => ({ modelId: primary, dbId }));
+  }
+
+  setModelThemingColor(items: readonly ModelDbId[], color: Rgba): void {
+    const viewer = this.viewer;
+    const THREE = autodeskWindow().THREE;
+    if (!viewer || !THREE) return;
+    const vector = new THREE.Vector4(color[0], color[1], color[2], color[3]);
+    for (const { modelId, dbId } of items) {
+      const model = this.models.handle(modelId);
+      if (model) viewer.setThemingColor(dbId, vector, model);
+    }
+  }
+
+  private failedInfo(source: ModelSource): ModelInfo {
+    return {
+      id: modelIdFor(source.urn),
+      urn: source.urn,
+      name: source.name ?? source.urn,
+      visible: true,
+      status: 'error',
+      error: 'The viewer could not start',
+    };
+  }
+
+  private fetchDocument(urn: string): Promise<ViewingDocument> {
+    const promise = loadDocument(urn);
+    promise.catch(() => {});
+    return promise;
+  }
+
+  private async loadSet(
+    viewer: GuiViewer3D,
+    sources: readonly ModelSource[],
+  ): Promise<void> {
+    const docs = new Map(
+      sources.map((source) => [source.urn, this.fetchDocument(source.urn)]),
+    );
+    const pending = [...sources];
+    while (!this.anchor && pending.length > 0) {
+      const source = pending.shift();
+      const doc = source && docs.get(source.urn);
+      if (!source || !doc) continue;
+      await this.loadOne(viewer, source, doc);
+      if (this.destroyed || this.viewer !== viewer) return;
+    }
+    await Promise.all(
+      pending.map((source) => {
+        const doc = docs.get(source.urn);
+        return doc ? this.loadOne(viewer, source, doc) : Promise.resolve();
+      }),
+    );
     if (this.destroyed || this.viewer !== viewer) return;
-    await viewer.loadDocumentNode(doc, doc.getRoot().getDefaultGeometry());
-    if (this.destroyed || this.viewer !== viewer) return;
-    this.applyTheme(viewer);
-    this.modelLoaded = true;
-    await this.mountTools();
-    this.resize();
+    if (this.models.ready().length > 1) viewer.fitToView?.();
+  }
+
+  private async loadOne(
+    viewer: GuiViewer3D,
+    source: ModelSource,
+    docPromise: Promise<ViewingDocument>,
+  ): Promise<void> {
+    const id = modelIdFor(source.urn);
+    const stale = () =>
+      this.destroyed || this.viewer !== viewer || !this.models.has(id);
+    try {
+      if (apiForRegion(detectRegion(source.urn)) !== this.api) {
+        throw new Error(OTHER_REGION_MESSAGE);
+      }
+      const doc = await docPromise;
+      if (stale()) return;
+      const node = pickGeometryNode(doc, this.anchor);
+      const model = await viewer.loadDocumentNode(
+        doc,
+        node,
+        federatedLoadOptions(this.anchor),
+      );
+      if (this.destroyed || this.viewer !== viewer) return;
+      if (!this.models.resolve(id, model)) {
+        viewer.unloadModel?.(model);
+        return;
+      }
+      if (!this.anchor) this.anchor = anchorOf(model);
+      if (!this.models.get(id)?.visible) viewer.hideModel?.(model);
+      if (!this.modelLoaded) {
+        this.applyTheme(viewer);
+        this.modelLoaded = true;
+        await this.mountTools();
+        this.resize();
+      }
+    } catch (err) {
+      if (this.destroyed || this.viewer !== viewer) return;
+      this.models.fail(
+        id,
+        err instanceof Error ? err.message : 'The model could not be loaded',
+      );
+    }
+  }
+
+  private tagContainer(viewer: GuiViewer3D): void {
+    this.container.dataset.bshViewer = '';
+    (this.container as TaggedContainer).bshViewer = viewer;
+  }
+
+  private untagContainer(): void {
+    delete this.container.dataset.bshViewer;
+    delete (this.container as TaggedContainer).bshViewer;
+  }
+
+  private emitSelection(): void {
+    const ids = this.getSelection();
+    for (const cb of [...this.selectionListeners]) {
+      try {
+        cb([...ids]);
+      } catch (err) {
+        console.error(err);
+      }
+    }
   }
 
   resize(): void {
@@ -257,7 +489,7 @@ export class RealViewerAdapter implements ViewerAdapter {
     const viewing = autodeskWindow().Autodesk?.Viewing;
     if (viewing) {
       viewer.removeEventListener(
-        viewing.SELECTION_CHANGED_EVENT,
+        this.selectionEvent || viewing.SELECTION_CHANGED_EVENT,
         this.onSelection,
       );
       if (viewing.FULLSCREEN_MODE_EVENT) {
@@ -268,6 +500,10 @@ export class RealViewerAdapter implements ViewerAdapter {
       }
     }
     this.unwatchScreenMode();
+    this.untagContainer();
+    this.models.clear();
+    this.anchor = null;
+    this.settling = Promise.resolve();
     this.toolsMounted = false;
     this.modelLoaded = false;
     this.controller?.resetState();
@@ -277,7 +513,14 @@ export class RealViewerAdapter implements ViewerAdapter {
   }
 
   getSelection(): number[] {
-    return this.viewer ? [...this.viewer.getSelection()] : [];
+    const viewer = this.viewer;
+    if (!viewer) return [];
+    if (viewer.getAggregateSelection) {
+      return viewer
+        .getAggregateSelection()
+        .flatMap(({ selection }) => [...selection]);
+    }
+    return [...viewer.getSelection()];
   }
 
   clearSelection(): void {
@@ -303,16 +546,43 @@ export class RealViewerAdapter implements ViewerAdapter {
   }
 
   clearThemingColors(): void {
-    this.viewer?.clearThemingColors();
+    const viewer = this.viewer;
+    if (!viewer) return;
+    const ready = this.models.ready();
+    if (ready.length === 0) {
+      viewer.clearThemingColors();
+      return;
+    }
+    for (const { handle } of ready) viewer.clearThemingColors(handle);
   }
 
   async getLeafProperties(propertyNames: string[]): Promise<PropertyRow[]> {
     const viewer = this.viewer;
-    if (!viewer?.model) return [];
-    const model = viewer.model;
-    const tree = await new Promise<InstanceTree>((resolve, reject) =>
-      viewer.getObjectTree(resolve, reject),
+    if (!viewer) return [];
+    const ready = this.models.ready();
+    const results = await Promise.allSettled(
+      ready.map(async ({ info, handle }) =>
+        tagRows(await this.readModelRows(viewer, handle, propertyNames), info),
+      ),
     );
+    const rows: PropertyRow[] = [];
+    let failure: unknown = null;
+    for (const result of results) {
+      if (result.status === 'fulfilled') rows.push(...result.value);
+      else failure ??= result.reason;
+    }
+    if (failure !== null && rows.length === 0 && ready.length > 0) {
+      throw failure;
+    }
+    return rows;
+  }
+
+  private async readModelRows(
+    viewer: GuiViewer3D,
+    model: ViewerModel,
+    propertyNames: string[],
+  ): Promise<PropertyRow[]> {
+    const tree = await readTree(viewer, model);
     const ids = leafIds(tree);
     const items = await new Promise<BulkPropertyItem[]>((resolve, reject) =>
       model.getBulkProperties(
@@ -359,6 +629,7 @@ export class RealViewerAdapter implements ViewerAdapter {
     this.controller?.dispose();
     this.controller = null;
     this.selectionListeners.clear();
+    this.models.dispose();
   }
 
   private document(): Document {

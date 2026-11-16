@@ -13,6 +13,7 @@ import {
   buildExportSheets,
   describeStatus,
   exportToXlsx,
+  MODEL_COLUMN,
   sheetNameFor,
 } from './excelExport.js';
 import {
@@ -98,6 +99,35 @@ describe('export rows', () => {
     expect(sheets).toHaveLength(1);
     expect(sheets[0]?.name).toBe('Elements');
     expect(sheets[0]?.rows).toHaveLength(4);
+  });
+
+  it('adds a model column only when rows come from several models', () => {
+    const tagged = (r: PropertyRow, modelId: string, modelName?: string) => ({
+      ...r,
+      modelId,
+      modelName,
+    });
+    const one = rows.map((r) => tagged(r, 'a', 'Arch'));
+    expect(buildExportSheets(one, ['Name'], null)[0]?.header).toEqual([
+      'dbId',
+      'Name',
+    ]);
+    const mixed = [
+      tagged(rows[0] as PropertyRow, 'a', 'Arch'),
+      tagged(rows[0] as PropertyRow, 's'),
+    ];
+    const sheets = buildExportSheets(mixed, ['Category', 'Name']);
+    expect(sheets).toHaveLength(1);
+    expect(sheets[0]?.header).toEqual([
+      MODEL_COLUMN,
+      'dbId',
+      'Category',
+      'Name',
+    ]);
+    expect(sheets[0]?.rows).toEqual([
+      ['Arch', 1, 'Walls', 'W1'],
+      ['s', 1, 'Walls', 'W1'],
+    ]);
   });
 
   it('returns no sheets for no rows', () => {

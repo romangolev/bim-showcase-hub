@@ -33,4 +33,6 @@ export interface PropertyRow {
   dbId: number;
   name: string;
   properties: Record<string, string | number | boolean | null>;
+  modelId?: string;
+  modelName?: string;
 }

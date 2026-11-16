@@ -1,5 +1,6 @@
 import type { PropertyRow } from '../../shared/types.js';
 import type { Theme } from '../theme/theme.js';
+import type { ModelDbId, ModelInfo, ModelSource } from './modelSet.js';
 
 export type Rgba = readonly [r: number, g: number, b: number, a: number];
 
@@ -47,6 +48,14 @@ export interface ViewerAdapter {
   registerToolGroup(spec: ToolGroupSpec): () => void;
   onSelectionChange(cb: (ids: number[]) => void): () => void;
   destroy(): void;
+  loadModels(sources: readonly ModelSource[]): Promise<ModelInfo[]>;
+  addModel(source: ModelSource): Promise<ModelInfo>;
+  removeModel(modelId: string): void;
+  getModels(): ModelInfo[];
+  setModelVisible(modelId: string, visible: boolean): void;
+  onModelsChange(cb: (models: ModelInfo[]) => void): () => void;
+  getModelSelection(): ModelDbId[];
+  setModelThemingColor(items: readonly ModelDbId[], color: Rgba): void;
 }
 
 export type ViewerAdapterFactory = (

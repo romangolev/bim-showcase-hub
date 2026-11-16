@@ -104,15 +104,35 @@ interface ViewerAdapter {
   registerToolGroup(spec: ToolGroupSpec): () => void;
   onSelectionChange(cb: (ids: number[]) => void): () => void;
   destroy(): void;
+  loadModels(sources: readonly ModelSource[]): Promise<ModelInfo[]>;
+  addModel(source: ModelSource): Promise<ModelInfo>;
+  removeModel(modelId: string): void;
+  getModels(): ModelInfo[];
+  setModelVisible(modelId: string, visible: boolean): void;
+  onModelsChange(cb: (models: ModelInfo[]) => void): () => void;
+  getModelSelection(): ModelDbId[];
+  setModelThemingColor(items: readonly ModelDbId[], color: Rgba): void;
 }
 ```
+
+### Model sets (combined view)
+
+One adapter can hold several models in one viewer and one scene (`viewer/modelSet.ts`). A source is `{ urn, name? }`; a model is `{ id, urn, name, visible, status, error? }` with `id === urn` and `status` one of `loading`, `ready`, `error`. `load(urn)` is `loadModels([{ urn }])`, so a single model is a set of one. The set holds at most `MAX_COMBINED_MODELS` (6) models: more throws `ModelSetError` (`limit`) before anything loads, and adding a urn already in the set throws `ModelSetError` (`duplicate`).
+
+- **Error isolation.** Each model loads on its own. A failing model gets `status: 'error'` and a message, and the others keep loading. `loadModels` rejects only when every model failed; `load` therefore still rejects when its one model fails.
+- **Selection.** dbIds collide across models, so selection is read as `{ modelId, dbId }` pairs with `getModelSelection()`. `getSelection()` returns every selected dbId for counts, and `onSelectionChange` fires for a selection in any model. The real adapter listens to `AGGREGATE_SELECTION_CHANGED_EVENT`, because the Autodesk viewer fires `SELECTION_CHANGED_EVENT` only while exactly one model is loaded.
+- **Paint.** `setModelThemingColor` paints per model. `setThemingColor(ids)` targets the first ready model; `clearThemingColors()` clears every model.
+- **Properties.** `getLeafProperties` returns the rows of every ready model, tagged with `modelId` and `modelName`. If one model's property database fails, the others' rows are still returned; it rejects only when all fail. `viewer/modelScope.ts` filters rows by model (`scopeRows`, `ALL_MODELS`, `modelScopeOptions`); counting the union sums values across models.
+- **Row cache.** `sharedLeafRows.ts` keys its shared reads by the set of ready models, and `usePropertyRows` re-reads when that set changes (`useModels`, `useReadySignature`).
+- **Alignment (real adapter).** Same recipe as Autodesk's `AggregatedView`: every model loads with `keepCurrentModels: true` and `applyRefPoint: true` (Revit shared coordinates). The first model that loads is the anchor; the others get its `globalOffset` and `applyScaling: <anchor unit>`, so models in feet and metres line up. The anchor loads first and the rest in parallel; the view fits the whole set after the first batch and after each added model. The offset and unit survive removing the anchor until the set is empty. A 2D-only file cannot join a 3D set (and the reverse), and a model from another region than the first fails, each with a per-model error.
+- **Test hook.** The real adapter marks its container with `data-bsh-viewer` and sets a `bshViewer` property on it, so e2e scripts reach the right viewer without the global `NOP_VIEWER`.
 
 `ToolGroupSpec` describes one group: an id and title, a paint tool (swatches, a reset entry, hints and `onPaint`/`onReset` callbacks) and an export tool (`onExport`). `registerToolGroup` returns a disposer.
 
 `createViewerAdapter` picks the implementation. It uses the mock adapter only when `import.meta.env.DEV` is true and `VITE_MOCK_APS=1` (or `window.__MOCK_APS__`). Otherwise it dynamically imports the real one. The mock adapter is a dynamic import behind the dev check, so a production build contains no mock viewer code.
 
 - **RealViewerAdapter** loads the Autodesk Viewer 7.* script and style from `developer.api.autodesk.com`, initializes it once per page with a `getAccessToken` callback that calls `/api/viewer/token` (concurrent loads share one `Initializer` call, and a 401 from the token route marks the session as signed out), picks the `derivativeV2_EU` API when the decoded URN contains `emea` and `derivativeV2` otherwise, and starts a `GuiViewer3D`. The Autodesk Viewer cannot be initialized twice, so opening a model from the other region after the page was initialized rejects with a clear error and asks for a page reload. Property rows come from `getBulkProperties` over the leaf nodes of the object tree. `setTheme` applies the viewer's `dark-theme` or `light-theme` and sets the scene background from the `--color-graphite` and `--color-void` tokens (`sceneBackground.ts`). It is applied at start, again after the model loads, and on every theme change.
-- **MockViewerAdapter** draws a fixture building as SVG labeled "Mock building model", supports selection by click, theming colors, a fake toolbar with the same tool group, a `data-viewer-theme` attribute for the theme, and generated property rows from `mockModel.ts`. Outside tests it adds a large synthetic set of rows (104,000) so export and summary behave with a realistic size.
+- **MockViewerAdapter** draws a fixture building as SVG labeled "Mock building model", supports selection by click, theming colors, a fake toolbar with the same tool group, a `data-viewer-theme` attribute for the theme, and generated property rows from `mockModel.ts`. Each model of a set is its own SVG group (`data-model-id`), placed side by side; a urn containing `broken` fails to load, for per-model error tests. Outside tests it adds a large synthetic set of rows (104,000) so export and summary behave with a realistic size.
 
 ### Autodesk tool group
 
@@ -130,7 +150,7 @@ Full screen. The native toolbar button (`#toolbar-fullscreenTool`) calls `viewer
 
 `ViewerPane` reads the theme from `useTheme()`, calls `adapter.setTheme` when the adapter is created and whenever the theme changes. See [design-system.md](design-system.md).
 
-`ViewerPane` creates the adapter for a URN, loads the model, shows loading and error states, shows the export status as a badge inside the viewer, publishes the adapter through context and destroys it on unmount. `adapter.contract.test.ts` pins the contract on the mock adapter.
+`ViewerPane` creates the adapter for a URN, loads the model, shows loading and error states, shows the export status as a badge inside the viewer, publishes the adapter through context and destroys it on unmount. `adapter.contract.test.ts` pins the contract on the mock adapter. `modelSet.contract.test.ts` runs the model-set contract against both adapters, the real one on a fake federated Autodesk viewer (`viewer/fakeFederatedViewer.ts`).
 
 ## Extensions
 

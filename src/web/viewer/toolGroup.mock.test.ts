@@ -87,7 +87,7 @@ describe('mock toolbar tool group', () => {
 
   it('disables swatches until the selection is non-empty and reset until something is painted', async () => {
     await setup();
-    const spy = vi.spyOn(adapter, 'setThemingColor');
+    const spy = vi.spyOn(adapter, 'setModelThemingColor');
     const clear = vi.spyOn(adapter, 'clearThemingColors');
     adapter.registerToolGroup(buildToolGroupSpec(adapter));
     for (const id of SWATCHES) {
@@ -112,7 +112,10 @@ describe('mock toolbar tool group', () => {
 
     button('paint').click();
     button('paint-blue').click();
-    expect(spy).toHaveBeenCalledWith(ids, [0, 0, 1, 0.5]);
+    expect(spy).toHaveBeenCalledWith(
+      ids.map((dbId) => ({ modelId: 'dXJu', dbId })),
+      [0, 0, 1, 0.5],
+    );
     expect(adapter.getSelection()).toEqual([]);
     expect(host.querySelector<HTMLElement>('.bsh-mock__flyout')?.hidden).toBe(
       true,

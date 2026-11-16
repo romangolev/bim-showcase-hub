@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { PropertyRow } from '../../shared/types.js';
 import { readLeafRows } from '../viewer/sharedLeafRows.js';
+import { useReadySignature } from '../viewer/useModels.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { useViewer } from '../viewer/ViewerContext.js';
 
@@ -26,6 +27,8 @@ export function usePropertyRows(
   const [state, setState] = useState<RowsState>({ status: 'idle', rows: [] });
   const [version, setVersion] = useState(0);
   const reload = useCallback(() => setVersion((v) => v + 1), []);
+  const models = useReadySignature(adapter);
+  const request = useMemo(() => ({ names, models }), [names, models]);
 
   useEffect(() => {
     if (!adapter) {
@@ -38,7 +41,7 @@ export function usePropertyRows(
       rows: prev.rows,
       request: version,
     }));
-    readLeafRows(adapter, names).then(
+    readLeafRows(adapter, request.names).then(
       (rows) => {
         if (!cancelled) setState({ status: 'ready', rows });
       },
@@ -55,7 +58,7 @@ export function usePropertyRows(
     return () => {
       cancelled = true;
     };
-  }, [adapter, names, version]);
+  }, [adapter, request, version]);
 
   return { ...state, reload };
 }

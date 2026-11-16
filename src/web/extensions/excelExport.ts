@@ -1,4 +1,5 @@
 import type { PropertyRow } from '../../shared/types.js';
+import { distinctModelCount } from '../viewer/modelScope.js';
 import { readLeafRows } from '../viewer/sharedLeafRows.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { formatValue } from './modelSummary.js';
@@ -13,6 +14,7 @@ export const DEFAULT_EXPORT_PROPERTIES: readonly string[] = [
 
 export const DEFAULT_GROUP_BY = 'Category';
 export const DEFAULT_FILE_NAME = 'model-properties.xlsx';
+export const MODEL_COLUMN = 'Model';
 export const FALLBACK_SHEET_NAME = 'Elements';
 
 export type ExportCell = string | number | boolean;
@@ -56,12 +58,20 @@ function cellOf(
 export function buildExportRows(
   rows: readonly PropertyRow[],
   propertyNames: readonly string[],
+  withModel = false,
 ): { header: string[]; rows: ExportCell[][] } {
+  const values = (row: PropertyRow): ExportCell[] => [
+    row.dbId,
+    ...propertyNames.map((name) => cellOf(row.properties[name])),
+  ];
+  if (!withModel) {
+    return { header: ['dbId', ...propertyNames], rows: rows.map(values) };
+  }
   return {
-    header: ['dbId', ...propertyNames],
+    header: [MODEL_COLUMN, 'dbId', ...propertyNames],
     rows: rows.map((row) => [
-      row.dbId,
-      ...propertyNames.map((name) => cellOf(row.properties[name])),
+      cellOf(row.modelName ?? row.modelId),
+      ...values(row),
     ]),
   };
 }
@@ -73,8 +83,9 @@ export function buildExportSheets(
 ): ExportSheet[] {
   if (rows.length === 0) return [];
   const used = new Set<string>();
+  const withModel = distinctModelCount(rows) > 1;
   if (!groupBy || !propertyNames.includes(groupBy)) {
-    const built = buildExportRows(rows, propertyNames);
+    const built = buildExportRows(rows, propertyNames, withModel);
     return [{ name: sheetNameFor(FALLBACK_SHEET_NAME, used), ...built }];
   }
   const groups = new Map<string, PropertyRow[]>();
@@ -88,7 +99,7 @@ export function buildExportSheets(
     .filter(([key]) => !key.includes('<'))
     .map(([key, bucket]) => ({
       name: sheetNameFor(key, used),
-      ...buildExportRows(bucket, propertyNames),
+      ...buildExportRows(bucket, propertyNames, withModel),
     }));
 }
 
