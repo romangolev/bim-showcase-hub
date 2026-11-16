@@ -10,3 +10,6 @@ Camoufox is the only browser for end-to-end tests and visual QA in this repo. Do
 - Camoufox runs `page.evaluate` in an isolated world. To reach page globals, launch with `main_world_eval=True` and prefix the expression with `mw:`.
 - Ad-hoc measurements and screenshots are written as small Camoufox scripts, not browser tools. Reuse the helpers in `e2e/common.py`.
 - Details: `docs/development.md`.
+- Background mode is the default: launch Camoufox with `headless=True` so no window takes the foreground. Only `e2e/signin.py` (the owner signs in by hand) and a deliberate visual debugging session use `headless=False`. The Autodesk viewer, fullscreen and WebGL all work headless.
+- Real-APS checks use Revit test models, not only the Navisworks file. The owner's test hub has `.rvt` files (Snowdon Towers Sample Architectural, racbasicsampleproject, rmebasicsampleproject, House Design) plus a `.nwd`, `.nwc`, `.dwg` and `.dwf`. Run viewer, summary, export and layout checks on an `.rvt`, and use more than one model for anything about opening several models.
+
