@@ -109,6 +109,33 @@ describe('federated loading', () => {
     expect(viewer().modelOf('mep').options.globalOffset).toBeUndefined();
   });
 
+  it('drops the anchor when only failed models remain after it is removed', async () => {
+    env.specs.set('arch', { offset: OFFSET, unit: 'ft' });
+    env.specs.set('bad', { fail: 'gone' });
+    env.specs.set('sheet', { only2d: true });
+    await adapter.loadModels([{ urn: 'arch' }, { urn: 'bad' }]);
+    adapter.removeModel('arch');
+    expect(adapter.getModels().map((m) => m.status)).toEqual(['error']);
+    const sheet = await adapter.addModel({ urn: 'sheet' });
+    expect(sheet.status).toBe('ready');
+    expect(viewer().modelOf('sheet').options).toEqual({
+      keepCurrentModels: true,
+      applyRefPoint: true,
+    });
+  });
+
+  it('moves the anchor to the next ready model when the anchor is removed', async () => {
+    env.specs.set('arch', { offset: OFFSET, unit: 'ft' });
+    await adapter.loadModels([{ urn: 'arch' }, { urn: 'str' }]);
+    adapter.removeModel('arch');
+    await adapter.addModel({ urn: 'mep' });
+    expect(viewer().modelOf('mep').options).toMatchObject({
+      globalOffset: OFFSET,
+      applyScaling: 'ft',
+    });
+    expect(adapter.getTogetherOffsets()).not.toHaveProperty('str');
+  });
+
   it('refuses a 2D-only file in a 3D set', async () => {
     env.specs.set('sheet', { only2d: true });
     const models = await adapter.loadModels([

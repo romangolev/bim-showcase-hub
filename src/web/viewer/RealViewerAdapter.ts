@@ -385,11 +385,29 @@ export class RealViewerAdapter implements ViewerAdapter {
     }
     this.boxes.delete(modelId);
     if (model) this.placements.delete(model);
-    if (this.models.size === 0) {
-      this.anchor = null;
-      this.anchorId = null;
+    if (modelId === this.anchorId || this.models.size === 0) {
+      this.reanchor();
     }
     this.emitSelection();
+  }
+
+  private reanchor(): void {
+    const ready = this.models.ready()[0];
+    const loading = this.models
+      .list()
+      .some((model) => model.status === 'loading');
+    if (!ready) {
+      this.anchorId = null;
+      if (!loading) this.anchor = null;
+      return;
+    }
+    this.anchorId = ready.info.id;
+    const next = anchorOf(ready.handle);
+    this.anchor = {
+      globalOffset: this.anchor?.globalOffset ?? next.globalOffset,
+      unit: this.anchor?.unit ?? next.unit,
+      is2d: next.is2d,
+    };
   }
 
   getSpread(): ModelSpread | null {
@@ -587,6 +605,8 @@ export class RealViewerAdapter implements ViewerAdapter {
       }
       if (!this.anchor) {
         this.anchor = anchorOf(model);
+        this.anchorId = id;
+      } else if (!this.anchorId) {
         this.anchorId = id;
       }
       const box = model.getBoundingBox?.();
