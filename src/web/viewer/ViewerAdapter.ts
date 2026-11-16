@@ -13,6 +13,7 @@ export interface ViewerAdapter {
   load(urn: string): Promise<void>;
   unload(): void;
   getSelection(): number[];
+  clearSelection?(): void;
   setThemingColor(ids: number[], color: Rgba): void;
   clearThemingColors(): void;
   getLeafProperties(propertyNames: string[]): Promise<PropertyRow[]>;
