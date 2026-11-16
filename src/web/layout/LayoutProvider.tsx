@@ -43,6 +43,7 @@ import {
 import { LayoutMenu, PaneActions } from './PaneMenu.js';
 import {
   definitionOf,
+  FOLLOWERS,
   isPaneId,
   PANE_IDS,
   type PaneId,
@@ -113,10 +114,6 @@ function modelOf(id: PanelId): string | null {
   const parsed = parsePanelId(id);
   return parsed?.kind === MODEL_KIND ? parsed.instance : null;
 }
-
-const FOLLOWERS: readonly PaneId[] = PANE_IDS.filter(
-  (id) => paneById(id).requires === 'viewer',
-);
 
 function titlesFor(models: OpenModelsState): PaneTitles {
   const titles: Record<PanelId, PaneTitle> = {};

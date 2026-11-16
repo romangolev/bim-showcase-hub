@@ -33,6 +33,9 @@ import {
 } from './layoutState.js';
 import {
   definitionOf,
+  FOLLOWERS,
+  followersOf,
+  isFollower,
   isPaneId,
   isPanelClosable,
   PANES,
@@ -262,10 +265,6 @@ export interface InstanceSync {
   treeWidth: number;
 }
 
-export const FOLLOWERS: readonly PaneId[] = PANES.filter(
-  (pane) => pane.requires !== 'none',
-).map((pane) => pane.id);
-
 function isInstance(id: PanelId): boolean {
   return Boolean(parsePanelId(id)?.instance);
 }
@@ -316,15 +315,15 @@ export function syncInstances(api: DockviewApi, sync: InstanceSync) {
         addPane(api, id, placementOf(api, pane), title);
       }
     }
-    const followers = PANES.filter((other) => other.requires === pane.id);
+    const followers = followersOf(pane.id);
     if (want.length === 0) {
-      for (const follower of followers) api.getPanel(follower.id)?.api.close();
+      for (const follower of followers) api.getPanel(follower)?.api.close();
     } else if (before === 0) {
       sizeTree(api, sync.treeWidth);
       for (const follower of followers) {
-        if (!sync.companions.includes(follower.id)) continue;
-        if (api.getPanel(follower.id)) continue;
-        addPane(api, follower.id, placementOf(api, follower));
+        if (!sync.companions.includes(follower)) continue;
+        if (api.getPanel(follower)) continue;
+        addPane(api, follower, placementOf(api, paneById(follower)));
       }
     }
   }
@@ -338,8 +337,7 @@ function buildDefault(api: DockviewApi, treeWidth: number, sync: InstanceSync) {
   const steps = defaultSteps(treeWidth).filter((step) => {
     const pane = paneById(step.id);
     if (pane.instances) return open;
-    if (pane.requires !== 'none')
-      return open && sync.companions.includes(step.id);
+    if (isFollower(step.id)) return open && sync.companions.includes(step.id);
     return true;
   });
   for (const step of steps) {

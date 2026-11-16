@@ -2,7 +2,12 @@ import { Fragment } from 'react';
 import type { OpenModelsState } from '../api/openModels.js';
 import { Icon } from '../components/icons.js';
 import type { PaneTitles } from './layoutContext.js';
-import { PANES, type PaneId, type PanelId } from './paneRegistry.js';
+import {
+  isFollower,
+  PANES,
+  type PaneId,
+  type PanelId,
+} from './paneRegistry.js';
 import { modelPanelId } from './panes.js';
 import { type HostStore, PaneSlot } from './ViewerHost.js';
 
@@ -28,7 +33,7 @@ export function stackedPanes(
     const pane = PANES.find((entry) => entry.id === id);
     if (!pane) return false;
     if (pane.instances) return onModel;
-    if (pane.requires === 'viewer' && !onModel) return false;
+    if (isFollower(id) && !onModel) return false;
     return !pane.closable || open.includes(id);
   });
 }

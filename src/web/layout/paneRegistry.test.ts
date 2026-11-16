@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  FOLLOWERS,
+  followersOf,
   hasPlainPanel,
   instancePanelId,
   isPaneId,
@@ -72,6 +74,12 @@ describe('pane registry', () => {
     expect(isPanelClosable(id)).toBe(true);
     expect(isPanelClosable('tree')).toBe(false);
     expect(isPanelClosable('summary')).toBe(true);
+  });
+
+  it('derives the viewer followers from the registry in one place', () => {
+    expect(FOLLOWERS).toEqual(['summary', 'dashboard']);
+    expect(followersOf('viewer')).toEqual(['summary', 'dashboard']);
+    expect(followersOf('tree')).toEqual([]);
   });
 
   it('rejects instances of panes without instances', () => {

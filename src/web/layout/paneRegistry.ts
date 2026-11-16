@@ -160,6 +160,16 @@ export function definitionOf(id: PanelId): PaneDefinition {
   return paneById(kind);
 }
 
+export function followersOf(kind: PaneId): PaneId[] {
+  return PANES.filter((pane) => pane.requires === kind).map((pane) => pane.id);
+}
+
+export function isFollower(id: PaneId): boolean {
+  return paneById(id).requires !== 'none';
+}
+
+export const FOLLOWERS: readonly PaneId[] = PANE_IDS.filter(isFollower);
+
 export function hasPlainPanel(id: PaneId): boolean {
   return paneById(id).component !== null;
 }
