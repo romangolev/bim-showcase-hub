@@ -260,24 +260,61 @@ export function removeFromModel(
                       ),
                     )
                   : null,
+                spread: model.spread ?? null,
               },
             )
           : model,
       ),
     };
   }
-  const [primary, ...others] = extras;
-  if (!primary) return closeModel(state, target, limit);
-  if (state.models.some((model) => model.urn === primary)) {
-    return closeModel(state, target, limit);
+  if (extras.length === 0) return closeModel(state, target, limit);
+  const tabs = new Set(state.models.map((model) => model.urn));
+  const primary = extras.find((urn) => !tabs.has(urn));
+  if (!primary) {
+    const [host, ...others] = extras as [string, ...string[]];
+    const merged = closeModel(state, target, limit);
+    const into = merged.models.find((model) => model.urn === host);
+    if (!into) return merged;
+    const joined = joinWith([...withUrns(into.context), ...others]);
+    const { with: _with, ...single } = into.context;
+    return activateModel(
+      {
+        ...merged,
+        models: merged.models.map((model) =>
+          model.urn === host
+            ? {
+                ...model,
+                context: joined ? { ...single, with: joined } : single,
+              }
+            : model,
+        ),
+      },
+      state.active === target ? host : (merged.active ?? host),
+      limit,
+    );
   }
+  const others = extras.filter((urn) => urn !== primary);
   const base = parseModelContext(contextFor(primary));
   const { with: _with, ...single } = base;
   const rest = joinWith(others);
   const context: ModelContext = rest ? { ...single, with: rest } : single;
   return {
     models: state.models.map((model) =>
-      model.urn === target ? { urn: primary, context } : model,
+      model.urn === target
+        ? withView(
+            { urn: primary, context },
+            {
+              offsets: model.offsets
+                ? Object.fromEntries(
+                    Object.entries(model.offsets).filter(
+                      ([id]) => id !== target,
+                    ),
+                  )
+                : null,
+              spread: model.spread ?? null,
+            },
+          )
+        : model,
     ),
     active: state.active === target ? primary : state.active,
     live: rename(state.live, target, primary),

@@ -125,6 +125,33 @@ describe('combined entries in the open-models store', () => {
     expect(state.active).toBeNull();
   });
 
+  it('keeps the other members when the next one also has its own tab', () => {
+    let state = open(EMPTY_OPEN_MODELS, 'b');
+    state = open(state, 'a', { with: 'b,c,d' });
+    state = removeFromModel(state, 'a', 'a');
+    expect(
+      state.models.map((model) => [model.urn, model.context.with]),
+    ).toEqual([
+      ['b', undefined],
+      ['c', 'b,d'],
+    ]);
+    expect(state.active).toBe('c');
+  });
+
+  it('merges into an open member tab when every member has its own tab', () => {
+    let state = open(EMPTY_OPEN_MODELS, 'b');
+    state = open(state, 'c');
+    state = open(state, 'a', { with: 'b,c' });
+    state = removeFromModel(state, 'a', 'a');
+    expect(
+      state.models.map((model) => [model.urn, model.context.with]),
+    ).toEqual([
+      ['b', 'c'],
+      ['c', undefined],
+    ]);
+    expect(state.active).toBe('b');
+  });
+
   it('closes instead of re-keying onto a urn that has its own tab', () => {
     let state = open(EMPTY_OPEN_MODELS, 'b');
     state = open(state, 'a', { with: 'b' });
@@ -180,8 +207,11 @@ describe('positions of a combined tab', () => {
     expect(store.getState().models[0]?.offsets).toBeUndefined();
     store.setView('a', { offsets: { c: [4, 5, 6] } });
     store.removeFrom('a', 'a');
-    expect(store.getState().models[0]).toMatchObject({ urn: 'c' });
-    expect(store.getState().models[0]?.offsets).toBeUndefined();
+    expect(store.getState().models[0]).toMatchObject({
+      urn: 'c',
+      offsets: { c: [4, 5, 6] },
+      spread: 423_000,
+    });
   });
 
   it('ignores malformed saved offsets', () => {
