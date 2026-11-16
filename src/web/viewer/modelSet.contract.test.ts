@@ -166,6 +166,27 @@ describe.each([mockFactory, realFactory])(
       );
     });
 
+    it('retries a failed model and does not count it toward the cap', async () => {
+      const { adapter, failingUrn } = setup();
+      await adapter.loadModels([{ urn: 'urn-0' }, { urn: failingUrn }]);
+      for (let i = 1; i < 6; i++) await adapter.addModel({ urn: `urn-${i}` });
+      expect(adapter.getModels()).toHaveLength(7);
+      await expect(adapter.addModel({ urn: 'urn-x' })).rejects.toMatchObject({
+        code: 'limit',
+      });
+      adapter.removeModel('urn-5');
+      const retried = await adapter.addModel({ urn: failingUrn });
+      expect(retried).toMatchObject({ id: failingUrn, status: 'error' });
+      expect(adapter.getModels().map((m) => m.id)).toEqual([
+        'urn-0',
+        failingUrn,
+        'urn-1',
+        'urn-2',
+        'urn-3',
+        'urn-4',
+      ]);
+    });
+
     it('rejects when every model fails', async () => {
       const { adapter, failingUrn } = setup();
       await expect(adapter.load(failingUrn)).rejects.toThrow();

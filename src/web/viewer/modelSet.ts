@@ -130,6 +130,14 @@ export class ModelSet<H> {
     return undefined;
   }
 
+  activeCount(): number {
+    let count = 0;
+    for (const entry of this.entries.values()) {
+      if (entry.info.status !== 'error') count += 1;
+    }
+    return count;
+  }
+
   primaryId(): string | undefined {
     return this.ready()[0]?.info.id;
   }
@@ -137,15 +145,17 @@ export class ModelSet<H> {
   add(source: ModelSource): ModelInfo {
     if (!source.urn) throw new ModelSetError('empty', EMPTY_SOURCE_MESSAGE);
     const id = modelIdFor(source.urn);
-    if (this.entries.has(id)) {
+    const existing = this.entries.get(id);
+    if (existing && existing.info.status !== 'error') {
       throw new ModelSetError('duplicate', DUPLICATE_MODEL_MESSAGE);
     }
-    checkCapacity(this.entries.size, 1, this.cap);
-    this.serial += 1;
+    checkCapacity(this.activeCount(), 1, this.cap);
+    if (!existing) this.serial += 1;
     const info: ModelInfo = {
       id,
       urn: source.urn,
-      name: source.name?.trim() || `Model ${this.serial}`,
+      name:
+        source.name?.trim() || existing?.info.name || `Model ${this.serial}`,
       visible: true,
       status: 'loading',
     };

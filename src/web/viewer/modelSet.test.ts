@@ -69,6 +69,21 @@ describe('ModelSet', () => {
     expect(caught(() => set.add({ urn: '' })).code).toBe('empty');
   });
 
+  it('lets a failed model be retried and not count toward the cap', () => {
+    const set = new ModelSet<string>();
+    set.add({ urn: 'bad', name: 'Bad.rvt' });
+    set.add({ urn: 'b' });
+    set.fail('bad', 'boom');
+    for (let i = 0; i < 5; i++) set.add({ urn: `u${i}` });
+    expect(set.activeCount()).toBe(6);
+    expect(caught(() => set.add({ urn: 'u9' })).code).toBe('limit');
+    set.remove('u4');
+    const retried = set.add({ urn: 'bad' });
+    expect(retried).toMatchObject({ name: 'Bad.rvt', status: 'loading' });
+    expect(set.list()[0]?.id).toBe('bad');
+    expect(set.size).toBe(6);
+  });
+
   it('tracks ready and failed models independently', () => {
     const set = new ModelSet<string>();
     set.add({ urn: 'a' });
