@@ -24,6 +24,74 @@ APP_NAME = "BIM Showcase Hub"
 MOCK_VIEWER_LABEL = "Mock building model"
 
 
+THEME_TOGGLE = re.compile(r"Switch to (light|dark) theme", re.I)
+SUMMARY_TOGGLE = re.compile(r"(Collapse|Expand) .*summary", re.I)
+TREE_TOGGLE = re.compile(r"(Collapse|Expand) document tree", re.I)
+VIEWER_WIDTH = "() => document.querySelector('.model-viewer').getBoundingClientRect().width"
+SCENE_FIT_WIDTH = "() => Number(document.querySelector('.bsh-mock__scene')?.dataset.fitWidth || 0)"
+ROOT_THEME = "() => document.documentElement.dataset.theme"
+
+
+def settle(page, ms=700):
+    page.wait_for_timeout(ms)
+
+
+def viewer_width(page):
+    return page.evaluate(VIEWER_WIDTH)
+
+
+def check_theme(page, checks):
+    start = page.evaluate(ROOT_THEME)
+    other = "light" if start == "dark" else "dark"
+    toggle = page.get_by_role("button", name=THEME_TOGGLE).first
+    toggle.click()
+    settle(page, 300)
+    checks.add("theme toggle flips the theme", page.evaluate(ROOT_THEME) == other, page.evaluate(ROOT_THEME))
+    page.reload(wait_until="networkidle")
+    settle(page)
+    checks.add("theme choice persists across reload", page.evaluate(ROOT_THEME) == other, page.evaluate(ROOT_THEME))
+    page.get_by_role("button", name=THEME_TOGGLE).first.click()
+    settle(page, 300)
+    checks.add("theme toggle flips back", page.evaluate(ROOT_THEME) == start, page.evaluate(ROOT_THEME))
+    page.reload(wait_until="networkidle")
+    settle(page)
+    checks.add("original theme persists across reload", page.evaluate(ROOT_THEME) == start, page.evaluate(ROOT_THEME))
+
+
+def check_summary_rail(page, checks):
+    toggle = page.get_by_role("button", name=SUMMARY_TOGGLE).first
+    before = viewer_width(page)
+    toggle.click()
+    settle(page)
+    collapsed = viewer_width(page)
+    checks.add("collapsing the summary widens the viewer", collapsed > before + 20, f"{before} -> {collapsed}")
+    page.get_by_role("button", name=SUMMARY_TOGGLE).first.click()
+    settle(page)
+    restored = viewer_width(page)
+    checks.add("expanding the summary restores the viewer width", abs(restored - before) <= 2, f"{before} -> {restored}")
+
+
+def check_tree_resize(page, checks):
+    toggle = page.get_by_role("button", name=TREE_TOGGLE).first
+    before = viewer_width(page)
+    toggle.click()
+    settle(page, 1000)
+    after = viewer_width(page)
+    fit = page.evaluate(SCENE_FIT_WIDTH)
+    checks.add("collapsing the tree widens the viewer", after > before + 20, f"{before} -> {after}")
+    checks.add("viewer fits its new container", abs(fit - after) <= 2, f"scene {fit}, container {after}")
+    page.get_by_role("button", name=TREE_TOGGLE).first.click()
+    settle(page, 1000)
+
+
+def run_interaction_checks(page, checks):
+    for check in (check_theme, check_summary_rail, check_tree_resize):
+        try:
+            check(page, checks)
+        except Exception as exc:
+            checks.add(check.__name__, False, f"{type(exc).__name__}: {str(exc)[:160]}")
+
+
 def run(context, checks, notes):
     page = context.new_page()
     watch(page, notes)
@@ -75,6 +143,8 @@ def run(context, checks, notes):
         checks.add("export downloads a non-empty xlsx", size > 1000 and magic == XLSX_MAGIC, f"{size} bytes")
     except Exception as exc:
         checks.add("export downloads a non-empty xlsx", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+
+    run_interaction_checks(page, checks)
 
     for name, (width, height) in (("desktop", DESKTOP), ("mobile", MOBILE)):
         page.set_viewport_size({"width": width, "height": height})
