@@ -5,6 +5,7 @@ from camoufox.sync_api import Camoufox
 from common import (
     BASE_URL,
     DESKTOP,
+    HOST_OS,
     EXIT_CHECK_FAILED,
     EXIT_PASS,
     PROFILE_DIR,
@@ -23,6 +24,7 @@ def main():
         persistent_context=True,
         user_data_dir=str(PROFILE_DIR),
         window=DESKTOP,
+        os=HOST_OS,
     ) as context:
         page = context.pages[0] if context.pages else context.new_page()
         page.goto(BASE_URL, wait_until="domcontentloaded")

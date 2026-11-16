@@ -6,6 +6,7 @@ import viewer_selectors
 from common import (
     BASE_URL,
     DESKTOP,
+    HOST_OS,
     EXIT_NOT_SIGNED_IN,
     OUTPUT_DIR,
     PROFILE_DIR,
@@ -261,6 +262,7 @@ def main():
         persistent_context=True,
         user_data_dir=str(PROFILE_DIR),
         window=DESKTOP,
+        os=HOST_OS,
         main_world_eval=True,
     ) as context:
         if not app_reachable(context):

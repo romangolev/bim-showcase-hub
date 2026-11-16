@@ -10,13 +10,13 @@ PROFILE_DIR = Path(os.environ.get("E2E_PROFILE_DIR", ROOT / ".profile"))
 OUTPUT_DIR = Path(os.environ.get("E2E_OUTPUT_DIR", ROOT / "output"))
 DESKTOP = (1440, 900)
 MOBILE = (390, 844)
+HOST_OS = {"darwin": "macos", "win32": "windows"}.get(sys.platform, "linux")
 
 EXIT_PASS = 0
 EXIT_CHECK_FAILED = 1
 EXIT_NOT_SIGNED_IN = 2
 
 IGNORED_FAILURES = ("favicon", "cdn.derivative.autodesk.com")
-IGNORED_PAGE_ERRORS = ("too many uniforms",)
 
 EXPORT_NAME = re.compile(r"Export", re.I)
 XLSX_MAGIC = b"PK"
@@ -56,9 +56,7 @@ def watch(page, notes):
             notes["console_errors"].append(message.text[:200])
 
     def on_page_error(error):
-        text = str(error)
-        if not any(token in text for token in IGNORED_PAGE_ERRORS):
-            notes["page_errors"].append(text[:200])
+        notes["page_errors"].append(str(error)[:200])
 
     def on_response(response):
         if response.status >= 400 and not any(
