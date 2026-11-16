@@ -17,7 +17,10 @@
     "lint": "biome check .",
     "format": "biome check --write .",
     "typecheck": "tsc -p tsconfig.server.json --noEmit && tsc -p tsconfig.web.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "e2e:setup": "uv venv e2e/.venv --python 3.12 && uv pip install --python e2e/.venv/bin/python -r e2e/requirements.txt && e2e/.venv/bin/python -m camoufox fetch",
+    "e2e:signin": "e2e/.venv/bin/python e2e/signin.py",
+    "e2e:smoke": "e2e/.venv/bin/python e2e/smoke.py"
   },
   "dependencies": {
     "@aps_sdk/authentication": "^1.0.1",
