@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '../test/render.js';
+import { act, fireEvent, render, screen, waitFor } from '../test/render.js';
 import {
   createMockViewerAdapter,
   MockViewerAdapter,
@@ -12,7 +12,11 @@ import {
 } from './modelSet.js';
 import { claimRegion, resetRegion } from './region.js';
 import type { ViewerAdapter, ViewerAdapterFactory } from './ViewerAdapter.js';
-import { ViewerPane } from './ViewerPane.js';
+import {
+  ADD_FAILED_MESSAGE,
+  NOTICE_DISMISS_MS,
+  ViewerPane,
+} from './ViewerPane.js';
 
 function tracked() {
   const created: ViewerAdapter[] = [];
@@ -216,6 +220,51 @@ describe('ViewerPane with several models', () => {
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(screen.queryByText(CANCELLED_MESSAGE)).toBeNull();
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('says when an add fails for another reason and lets the notice go', async () => {
+    const factory: ViewerAdapterFactory = async (container) => {
+      const adapter = new MockViewerAdapter(container);
+      adapter.addModel = () => Promise.reject(new TypeError('boom'));
+      return adapter;
+    };
+    const { rerender } = render(
+      <ViewerPane urn="urn-a" members={[B]} factory={factory} />,
+    );
+    await screen.findByRole('button', { name: 'Models in this viewer (2)' });
+    rerender(<ViewerPane urn="urn-a" members={[B, C]} factory={factory} />);
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(ADD_FAILED_MESSAGE);
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('dismisses the add notice on its own after a while', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const { factory } = tracked();
+      const five = ['b', 'c', 'd', 'e', 'f'].map((id) => ({
+        urn: `urn-${id}`,
+      }));
+      const { rerender } = render(
+        <ViewerPane urn="urn-a" members={five} factory={factory} />,
+      );
+      await screen.findByRole('button', { name: 'Models in this viewer (6)' });
+      rerender(
+        <ViewerPane
+          urn="urn-a"
+          members={[...five, { urn: 'urn-g' }]}
+          factory={factory}
+        />,
+      );
+      await screen.findByText(MODEL_LIMIT_MESSAGE);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(NOTICE_DISMISS_MS + 10);
+      });
+      expect(screen.queryByText(MODEL_LIMIT_MESSAGE)).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('explains the cap when a seventh model is added', async () => {

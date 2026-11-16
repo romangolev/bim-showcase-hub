@@ -391,6 +391,9 @@
 }
 
 .bsh-viewer-models__notice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   position: absolute;
   bottom: var(--space-8);
   left: 50%;
@@ -403,6 +406,16 @@
   color: var(--color-coral);
   font-size: var(--text-13);
   transform: translateX(-50%);
+}
+
+.bsh-viewer-models__notice-dismiss {
+  padding: 0 var(--space-2);
+  border: var(--border-hairline);
+  border-radius: var(--radius-button);
+  background: transparent;
+  color: var(--color-chalk);
+  font: inherit;
+  cursor: pointer;
 }
 
 .bsh-viewer-pane:has(.bsh-viewer-models) .bsh-mock__status {

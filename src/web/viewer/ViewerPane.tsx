@@ -68,6 +68,8 @@ type PaneState =
   | { status: 'region'; region: ViewerRegion };
 
 export const STATUS_DISMISS_MS = 4000;
+export const NOTICE_DISMISS_MS = 8000;
+export const ADD_FAILED_MESSAGE = 'Could not add the model';
 export const SETTLE_MS = 250;
 
 function isBusy(status: ExportStatus): boolean {
@@ -149,6 +151,12 @@ export function ViewerPane({
   }, []);
 
   useEffect(() => () => clearTimeout(statusTimer.current), []);
+
+  useEffect(() => {
+    if (!setNotice) return;
+    const timer = setTimeout(() => setSetNotice(null), NOTICE_DISMISS_MS);
+    return () => clearTimeout(timer);
+  }, [setNotice]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -266,11 +274,9 @@ export function ViewerPane({
       target.addModel(source).then(
         () => setSetNotice(null),
         (err: unknown) => {
-          if (
-            err instanceof ModelSetError &&
-            err.code !== 'closed' &&
-            err.code !== 'cancelled'
-          ) {
+          if (!(err instanceof ModelSetError)) {
+            setSetNotice(ADD_FAILED_MESSAGE);
+          } else if (err.code !== 'closed' && err.code !== 'cancelled') {
             setSetNotice(err.message);
           }
         },
@@ -441,9 +447,16 @@ export function ViewerPane({
           />
         ) : null}
         {setNotice ? (
-          <p className="bsh-viewer-models__notice" role="alert">
-            {setNotice}
-          </p>
+          <div className="bsh-viewer-models__notice" role="alert">
+            <span>{setNotice}</span>
+            <button
+              type="button"
+              className="bsh-viewer-models__notice-dismiss"
+              onClick={() => setSetNotice(null)}
+            >
+              Dismiss
+            </button>
+          </div>
         ) : null}
         {children}
       </div>
