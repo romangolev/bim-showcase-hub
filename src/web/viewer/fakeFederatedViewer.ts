@@ -100,6 +100,7 @@ export interface FakeEnvironment {
   specs: Map<string, FakeModelSpec>;
   gate: Map<string, Promise<void>>;
   startCode?: number;
+  documentLoads: string[];
 }
 
 export class FakeFederatedViewer implements GuiViewer3D {
@@ -264,6 +265,7 @@ export function installFakeFederation(): FakeEnvironment {
     viewers: [],
     specs: new Map(),
     gate: new Map(),
+    documentLoads: [],
   };
   class Viewer extends FakeFederatedViewer {
     constructor(container: HTMLElement) {
@@ -289,6 +291,7 @@ export function installFakeFederation(): FakeEnvironment {
     Document: {
       load: (path, onSuccess, onError) => {
         const urn = path.replace(/^urn:/, '');
+        env.documentLoads.push(urn);
         const spec = env.specs.get(urn) ?? {};
         if (spec.fail) {
           onError(404, spec.fail);

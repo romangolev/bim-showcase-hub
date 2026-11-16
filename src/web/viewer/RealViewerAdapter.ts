@@ -303,11 +303,12 @@ export class RealViewerAdapter implements ViewerAdapter {
       throw new ModelSetError('closed', VIEWER_CLOSED_MESSAGE);
     }
     if (!viewer) return current();
+    const doc = this.fetchDocument(source.urn);
     await this.settling;
     if (this.viewer !== viewer || this.models.token(info.id) !== token) {
       return current();
     }
-    await this.loadOne(viewer, source, this.fetchDocument(source.urn));
+    await this.loadOne(viewer, source, doc);
     const loaded = current();
     if (loaded.status === 'ready') viewer.fitToView?.();
     return loaded;
@@ -413,7 +414,10 @@ export class RealViewerAdapter implements ViewerAdapter {
   }
 
   private fetchDocument(urn: string): Promise<ViewingDocument> {
-    const promise = loadDocument(urn);
+    const promise =
+      apiForRegion(detectRegion(urn)) === this.api
+        ? loadDocument(urn)
+        : Promise.reject(new Error(OTHER_REGION_MESSAGE));
     promise.catch(() => {});
     return promise;
   }

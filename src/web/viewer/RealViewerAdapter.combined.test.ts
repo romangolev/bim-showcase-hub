@@ -128,6 +128,30 @@ describe('federated loading', () => {
     });
   });
 
+  it('fetches an added manifest while earlier loads still run', async () => {
+    const gate = deferred();
+    env.gate.set('arch', gate.promise);
+    const loading = adapter.loadModels([{ urn: 'arch' }]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const adding = adapter.addModel({ urn: 'mep' });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(env.documentLoads).toEqual(['arch', 'mep']);
+    expect(viewer().models).toHaveLength(0);
+    gate.release();
+    await loading;
+    expect((await adding).status).toBe('ready');
+  });
+
+  it('checks the region before fetching the manifest', async () => {
+    const eu = btoa('urn:adsk.wipemea:fs.file:abc');
+    await adapter.loadModels([{ urn: 'arch' }, { urn: eu }]);
+    const info = await adapter.addModel({
+      urn: btoa('urn:adsk.wipemea:fs.file:xyz'),
+    });
+    expect(info.error).toBe(OTHER_REGION_MESSAGE);
+    expect(env.documentLoads).toEqual(['arch']);
+  });
+
   it('unloads a model removed while it was loading', async () => {
     const gate = deferred();
     env.gate.set('slow', gate.promise);
