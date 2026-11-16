@@ -76,6 +76,17 @@ describe('TreeRowView', () => {
     expect(row).toHaveAttribute('title', NAME);
   });
 
+  it('renders every badge with the same structure so truncation applies', () => {
+    for (const state of VIEW_STATES) {
+      const { container, unmount } = render(
+        <TreeRowView level={3} kind="version" name={NAME} viewState={state} />,
+      );
+      const badge = container.querySelector('.tree-row__state');
+      expect(badge?.querySelector('.tree-row__state-text')).not.toBeNull();
+      unmount();
+    }
+  });
+
   it('shows no badge on folders', () => {
     const { container } = render(
       <TreeRowView level={1} kind="folder" name="Files" />,

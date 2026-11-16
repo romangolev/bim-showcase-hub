@@ -502,6 +502,27 @@ def expand_state_rows(page, file_name):
     return row.locator("xpath=following-sibling::*[@role='treeitem'][1]")
 
 
+BADGE_RECTS = """() => [...document.querySelectorAll('.tree-row__state')].map((badge) => {
+    const row = badge.closest('.tree-row').getBoundingClientRect();
+    const box = badge.getBoundingClientRect();
+    const text = badge.querySelector('.tree-row__state-text');
+    return {
+        state: badge.dataset.state,
+        gap: Math.round((row.right - box.right) * 10) / 10,
+        inside: box.left >= row.left && box.right <= row.right + 0.5,
+        clipped: text.scrollWidth > text.clientWidth + 1,
+    };
+})"""
+
+
+def check_badge_layout(page, checks, label):
+    rects = page.evaluate(BADGE_RECTS)
+    checks.add(f"badges ({label}): are rendered", len(rects) >= 3, len(rects))
+    checks.add(f"badges ({label}): none clipped or outside the row", all(r["inside"] and not r["clipped"] for r in rects), rects)
+    gaps = {r["gap"] for r in rects}
+    checks.add(f"badges ({label}): share the right edge", max(gaps) - min(gaps) <= 1, sorted(gaps))
+
+
 def check_view_states(page, checks):
     page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
     start_url = page.url
@@ -527,6 +548,17 @@ def check_view_states(page, checks):
         if state == "processing":
             checks.add("processing: badge has a spinner", row.locator(".tree-row__state svg.spin").count() == 1)
     page.screenshot(path=str(OUTPUT_DIR / "mock-view-states.png"))
+    check_badge_layout(page, checks, "desktop")
+    page.get_by_role("button", name=THEME_TOGGLE).first.click()
+    page.wait_for_timeout(400)
+    page.screenshot(path=str(OUTPUT_DIR / "mock-view-states-theme-toggled.png"))
+    check_badge_layout(page, checks, "toggled theme")
+    page.get_by_role("button", name=THEME_TOGGLE).first.click()
+    page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
+    page.wait_for_timeout(600)
+    page.screenshot(path=str(OUTPUT_DIR / "mock-view-states-narrow.png"))
+    check_badge_layout(page, checks, "narrow")
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
     page.goto(BASE_URL, wait_until="networkidle")
 
 

@@ -216,7 +216,7 @@ export function TreeRowView({
               {state === 'processing' ? (
                 <Icon name="spinner" size={10} className="spin" />
               ) : null}
-              {copy.label}
+              <span className="tree-row__state-text">{copy.label}</span>
             </span>
           ) : null}
         </span>
