@@ -2,6 +2,7 @@ import re
 import sys
 
 from camoufox.sync_api import Camoufox
+import viewer_selectors
 from common import (
     BASE_URL,
     DESKTOP,
@@ -25,6 +26,34 @@ CALL_BUDGET = 40
 MODEL_EXTENSIONS = (".rvt", ".nwd", ".nwc", ".ifc", ".dwg")
 VIEWER_TIMEOUT_MS = 60000
 VIEWER_SETTLE_MS = 15000
+AUTODESK_CYAN = "rgb(0, 191, 255)"
+
+GRAPHITE_RGB_SCRIPT = """mw:() => {
+    const probe = document.createElement('div');
+    probe.style.backgroundColor = 'var(--color-graphite)';
+    document.body.appendChild(probe);
+    const value = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return value;
+}"""
+
+CHROME_STATE_SCRIPT = """mw:() => {
+    const group = document.querySelector('.adsk-control-group');
+    const tooltip = document.querySelector('.adsk-control-tooltip');
+    const panel = document.querySelector('.docking-panel');
+    const groupStyle = group && getComputedStyle(group);
+    return {
+        groupBackground: groupStyle && groupStyle.backgroundColor,
+        groupShadow: groupStyle && groupStyle.boxShadow,
+        tooltipTransform: tooltip && getComputedStyle(tooltip).textTransform,
+        panelFont: panel && getComputedStyle(panel).fontFamily,
+    };
+}"""
+
+BUTTON_COLOR_SCRIPT = """mw:() => {
+    const button = document.querySelector('.adsk-toolbar .adsk-button:hover');
+    return button && getComputedStyle(button).color;
+}"""
 
 
 def list_of(context, path):
@@ -115,7 +144,62 @@ def run_model_checks(page, checks, found):
     except Exception as exc:
         checks.add("excel export downloads an xlsx", False, f"{type(exc).__name__}: {str(exc)[:160]}")
     page.screenshot(path=str(OUTPUT_DIR / "03-after-export.png"))
+    check_viewer_chrome(page, checks)
     check_canvas_follows_summary(page, checks)
+
+
+def check_viewer_chrome(page, checks):
+    try:
+        graphite = page.evaluate(GRAPHITE_RGB_SCRIPT)
+        button = page.locator(".adsk-toolbar .adsk-button:not(.disabled)").first
+        button.hover(timeout=8000)
+        page.wait_for_timeout(300)
+        hover_color = page.evaluate(BUTTON_COLOR_SCRIPT)
+        state = page.evaluate(CHROME_STATE_SCRIPT)
+        browser_button = page.locator("#toolbar-modelStructureTool")
+        opened_panel = False
+        if not state["panelFont"] and browser_button.count():
+            browser_button.click(timeout=8000)
+            opened_panel = True
+            page.wait_for_selector(".docking-panel", timeout=8000)
+            state = page.evaluate(CHROME_STATE_SCRIPT)
+        checks.add(
+            "viewer chrome is themed: control group uses the graphite token",
+            state["groupBackground"] == graphite,
+            f"{state['groupBackground']} vs {graphite}",
+        )
+        checks.add(
+            "viewer chrome is themed: control group has no shadow",
+            state["groupShadow"] in (None, "none"),
+            state["groupShadow"],
+        )
+        checks.add(
+            "viewer chrome is themed: button hover is not the Autodesk cyan",
+            bool(hover_color) and hover_color != AUTODESK_CYAN,
+            hover_color,
+        )
+        checks.add(
+            "viewer chrome is themed: tooltip text is not capitalized",
+            state["tooltipTransform"] == "none",
+            state["tooltipTransform"],
+        )
+        checks.add(
+            "viewer chrome is themed: docking panel font is Inter",
+            bool(state["panelFont"]) and "Inter" in state["panelFont"],
+            state["panelFont"],
+        )
+        page.screenshot(path=str(OUTPUT_DIR / "05-viewer-chrome.png"))
+        if opened_panel:
+            browser_button.click(timeout=8000)
+    except Exception as exc:
+        checks.add("viewer chrome is themed", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+    try:
+        problems = viewer_selectors.check(
+            viewer_selectors.fetch_stylesheet(viewer_selectors.stylesheet_url())
+        )
+        checks.add("viewer chrome selectors still exist upstream", not problems, "; ".join(problems[:3]))
+    except Exception as exc:
+        checks.add("viewer chrome selectors still exist upstream", False, f"{type(exc).__name__}: {str(exc)[:160]}")
 
 
 def check_canvas_follows_summary(page, checks):
@@ -173,6 +257,7 @@ def main():
         persistent_context=True,
         user_data_dir=str(PROFILE_DIR),
         window=DESKTOP,
+        main_world_eval=True,
     ) as context:
         if not app_reachable(context):
             checks.add("app is reachable", False, f"{BASE_URL}/api/health did not return 200")
