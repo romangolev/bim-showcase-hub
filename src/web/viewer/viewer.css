@@ -56,6 +56,10 @@
   pointer-events: none;
 }
 
+.bsh-viewer-surface .adsk-toolbar * {
+  pointer-events: auto;
+}
+
 .bsh-viewer-surface .adsk-toolbar .adsk-control-group {
   background: var(--color-graphite);
   border: var(--border-hairline);
