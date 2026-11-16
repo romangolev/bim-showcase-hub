@@ -43,6 +43,7 @@ import {
   type SerializedDock,
   writeLayout,
 } from './layoutState.js';
+import { mountedPanels } from './mounted.js';
 import { LayoutMenu, PaneActions } from './PaneMenu.js';
 import {
   definitionOf,
@@ -486,16 +487,12 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
     return Component ? <Component /> : null;
   }, []);
 
-  const wanted = new Set(instances);
-  const mounted = attached.filter((id) => {
-    const parsed = parsePanelId(id);
-    if (!parsed) return false;
-    if (parsed.instance) return wanted.has(id);
-    return (
-      openPanes.includes(parsed.kind) ||
-      id === 'tree' ||
-      (stacked && companions.includes(parsed.kind))
-    );
+  const mounted = mountedPanels(attached, {
+    mode,
+    open: openPanes,
+    companions,
+    onModel: models.active !== null,
+    instances,
   });
 
   return (
