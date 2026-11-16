@@ -121,7 +121,12 @@ export function DashboardPanel({
           </div>
         ) : null}
       </header>
-      <div id={bodyId} className="bsh-drawer__body" hidden={isCollapsed}>
+      <div
+        id={bodyId}
+        className="bsh-drawer__body"
+        inert={isCollapsed}
+        aria-hidden={isCollapsed || undefined}
+      >
         {!resolved && (
           <StateBlock
             variant="empty"
