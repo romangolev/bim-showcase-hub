@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { Fragment, type KeyboardEvent, useEffect, useRef } from 'react';
 import type { OpenModelsState } from '../api/openModels.js';
 import { Icon } from '../components/icons.js';
 import type { PaneTitles } from './layoutContext.js';
@@ -46,47 +46,101 @@ export interface ModelSwitcherProps {
   onClose: (urn: string) => void;
 }
 
+export const STACK_MODEL_PANEL = 'stack-model-panel';
+
+export function stackTabId(index: number): string {
+  return `stack-model-tab-${index}`;
+}
+
+const MOVES: Record<string, (index: number, count: number) => number> = {
+  ArrowRight: (index, count) => (index + 1) % count,
+  ArrowLeft: (index, count) => (index - 1 + count) % count,
+  Home: () => 0,
+  End: (_index, count) => count - 1,
+};
+
 export function ModelSwitcher({
   models,
   titles,
   onSelect,
   onClose,
 }: ModelSwitcherProps) {
+  const tabs = useRef(new Map<string, HTMLButtonElement>());
+  const refocus = useRef(false);
+  const active = models.active;
+  useEffect(() => {
+    if (!refocus.current || !active) return;
+    refocus.current = false;
+    tabs.current.get(active)?.focus();
+  }, [active]);
   if (models.models.length === 0) return null;
+  const urns = models.models.map((model) => model.urn);
+  const labelOf = (urn: string) => titles[modelPanelId(urn)]?.label ?? urn;
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const urn = (event.target as HTMLElement).dataset.urn;
+    if (!urn) return;
+    const index = urns.indexOf(urn);
+    const move = MOVES[event.key];
+    if (move) {
+      event.preventDefault();
+      const next = urns[move(index, urns.length)];
+      if (!next) return;
+      onSelect(next);
+      tabs.current.get(next)?.focus();
+      return;
+    }
+    if (event.key === 'Delete') {
+      event.preventDefault();
+      refocus.current = true;
+      onClose(urn);
+    }
+  };
   return (
-    <div className="stack__models" role="tablist" aria-label="Open models">
-      {models.models.map(({ urn }) => {
-        const title = titles[modelPanelId(urn)];
-        const label = title?.label ?? urn;
-        const selected = urn === models.active;
-        return (
-          <div
-            key={urn}
-            className="stack__model"
-            data-active={selected}
-            title={title?.tooltip}
-          >
+    <div className="stack__models">
+      <div
+        className="stack__tabs"
+        role="tablist"
+        aria-label="Open models"
+        onKeyDown={onKeyDown}
+      >
+        {models.models.map(({ urn }, index) => {
+          const selected = urn === active;
+          return (
             <button
+              key={urn}
+              ref={(element) => {
+                if (element) tabs.current.set(urn, element);
+                else tabs.current.delete(urn);
+              }}
+              id={stackTabId(index)}
               type="button"
               role="tab"
               aria-selected={selected}
+              aria-controls={STACK_MODEL_PANEL}
+              aria-keyshortcuts="Delete"
               tabIndex={selected ? 0 : -1}
               className="stack__model-tab"
+              data-active={selected}
+              data-urn={urn}
+              title={titles[modelPanelId(urn)]?.tooltip}
               onClick={() => onSelect(urn)}
             >
-              {label}
+              {labelOf(urn)}
             </button>
-            <button
-              type="button"
-              className="stack__model-close"
-              aria-label={`Close ${label}`}
-              onClick={() => onClose(urn)}
-            >
-              <Icon name="close" size={12} />
-            </button>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
+      {active ? (
+        <button
+          type="button"
+          className="stack__model-close"
+          aria-label={`Close ${labelOf(active)}`}
+          title={`Close ${labelOf(active)}`}
+          onClick={() => onClose(active)}
+        >
+          <Icon name="close" size={12} />
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -143,14 +197,34 @@ export function StackedLayout({
                 onClose={onCloseModel}
               />
             ) : null}
-            <PaneSlot
-              key={id === 'viewer' ? viewerSlot : id}
-              hosts={hosts}
-              id={id === 'viewer' ? viewerSlot : id}
-              onAttach={onAttach}
-              onVisibility={onVisibility}
-              className={`stack__pane stack__pane--${id}`}
-            />
+            {id === 'viewer' ? (
+              <div
+                id={STACK_MODEL_PANEL}
+                role="tabpanel"
+                aria-labelledby={stackTabId(
+                  models.models.findIndex(({ urn }) => urn === models.active),
+                )}
+                className="stack__panel"
+              >
+                <PaneSlot
+                  key={viewerSlot}
+                  hosts={hosts}
+                  id={viewerSlot}
+                  onAttach={onAttach}
+                  onVisibility={onVisibility}
+                  className="stack__pane stack__pane--viewer"
+                />
+              </div>
+            ) : (
+              <PaneSlot
+                key={id}
+                hosts={hosts}
+                id={id}
+                onAttach={onAttach}
+                onVisibility={onVisibility}
+                className={`stack__pane stack__pane--${id}`}
+              />
+            )}
           </Fragment>
         ))}
       </div>

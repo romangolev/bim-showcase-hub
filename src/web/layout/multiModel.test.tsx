@@ -402,9 +402,8 @@ describe('several models on a narrow screen', () => {
     await waitFor(() => expect(pathOf(appRouter)).toBe('/model/aaa'));
     expect(sceneOf('aaa')).toBe(sceneA);
     expect(sceneA?.isConnected).toBe(true);
-    fireEvent.click(
-      within(strip).getByRole('button', { name: 'Close B.rvt · v1' }),
-    );
+    const tabB = within(strip).getByRole('tab', { name: 'B.rvt · v1' });
+    fireEvent.keyDown(tabB, { key: 'Delete' });
     await waitFor(() =>
       expect(
         within(strip).queryByRole('tab', { name: 'B.rvt · v1' }),

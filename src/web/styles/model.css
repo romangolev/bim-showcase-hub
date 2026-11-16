@@ -53,33 +53,36 @@
 }
 
 .stack__models {
-  flex: none;
   display: flex;
+  flex: none;
+  gap: var(--space-1);
+  align-items: center;
+  min-width: 0;
+}
+
+.stack__tabs {
+  display: flex;
+  flex: 1 1 auto;
   gap: var(--space-1);
   min-width: 0;
   overflow-x: auto;
   scrollbar-width: thin;
 }
 
-.stack__model {
+.stack__panel {
   display: flex;
-  flex: 0 1 auto;
-  align-items: center;
+  flex-direction: column;
   min-width: 0;
-  max-width: 100%;
-  border: var(--border-hairline);
-  border-radius: var(--radius-card);
-}
-
-.stack__model[data-active="true"] {
-  border-color: var(--color-chalk);
 }
 
 .stack__model-tab {
+  flex: 0 1 auto;
   min-width: 0;
+  max-width: 100%;
   padding: var(--space-1) var(--space-2);
   overflow: hidden;
-  border: 0;
+  border: var(--border-hairline);
+  border-radius: var(--radius-card);
   background: none;
   color: var(--color-fog);
   font: inherit;
@@ -89,7 +92,8 @@
   cursor: pointer;
 }
 
-.stack__model[data-active="true"] .stack__model-tab {
+.stack__model-tab[data-active="true"] {
+  border-color: var(--color-chalk);
   color: var(--color-chalk);
   font-weight: var(--weight-label);
 }
@@ -101,7 +105,8 @@
   justify-content: center;
   width: 28px;
   height: 28px;
-  border: 0;
+  border: var(--border-hairline);
+  border-radius: var(--radius-card);
   background: none;
   color: var(--color-fog);
   cursor: pointer;
