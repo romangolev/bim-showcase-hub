@@ -35,6 +35,10 @@ npm run dev:mock
 
 Biome handles formatting, linting and import order: two-space indent, single quotes. `docs`, `dist`, `node_modules`, `package-lock.json` and `DESIGN.md` are excluded (see `biome.json`). Run `npm run lint` before committing.
 
+## Theme in development
+
+The theme lives in `src/web/theme`. State is `document.documentElement.dataset.theme` (`dark` or `light`) and the `bsh-theme` key in `localStorage`. Add or change color values per theme in `src/web/styles/tokens.css` (the `:root[data-theme="dark"]` and `:root[data-theme="light"]` blocks) and document them in DESIGN.md. To try the other theme, click the toggle in the top bar or run `localStorage.removeItem('bsh-theme')` to go back to following the system. Tests that need `useTheme` import `render` from `src/web/test/render.tsx`.
+
 ## Vitest
 
 `vitest.config.ts` defines two projects. `server` runs `src/server/**/*.test.ts` and `src/shared/**/*.test.ts` in Node. `web` runs `src/web/**/*.test.{ts,tsx}` in jsdom with Testing Library. Server routes are tested with supertest. The viewer adapter contract is tested against the mock adapter.
@@ -129,7 +133,10 @@ It writes `01-home.png`, `02-model.png`, `03-after-export.png`, `export.xlsx` an
 - the title and breadcrumb are correct
 - the mock viewer is present
 - the summary has rows and counts never wrap
-- the export control, found by its accessible name (`/Export/i`), downloads a non-empty xlsx
+- the export control, found by its accessible name or title (`/Export/i`) in the viewer toolbar, downloads a non-empty xlsx
+- the theme toggle flips `document.documentElement.dataset.theme` in both directions and the choice survives a reload
+- the summary rail collapses and expands, and the viewer width grows and is restored
+- the viewer resizes after the document tree collapses
 - no horizontal overflow at 1440x900 and 390x844
 - no uncaught page errors
 
@@ -150,7 +157,7 @@ Everything else counts. Console errors are recorded in the report but do not fai
 
 ### Session lifetime and the profile
 
-The app session cookie lasts about one hour and is refreshed only by activity that renews tokens. After roughly an hour `smoke.py` exits 2. Run `npm run e2e:signin` again.
+The session cookie (`bim-hub-session`, `cookie-session`) is set with `maxAge` of one hour (`src/server/index.ts`). It does not roll: the cookie is only sent again when the session content changes, which happens at sign-in and when the server refreshes the Autodesk access token (when it is within 60 seconds of expiry, see `sessionTokens.ts`). Each such write sets a new one-hour cookie. Plain page loads and API calls do not extend it, and a failed refresh clears the session. So an idle profile is signed out about an hour after the last sign-in or token refresh, and `smoke.py` then exits 2. Run `npm run e2e:signin` again.
 
 `e2e/.profile` contains cookies that are equivalent to your Autodesk login for the app. It is gitignored along with `e2e/.venv` and `e2e/output`. Never commit, copy or share it. Do not point `E2E_PROFILE_DIR` at a folder inside a synced or shared location.
 

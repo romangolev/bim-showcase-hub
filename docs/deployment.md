@@ -24,7 +24,7 @@ Set these for Production and for Preview.
 
 Ignored on Vercel: `MOCK_APS` (production ignores it), `VITE_MOCK_APS` (dev server only), `PORT` (Vercel assigns it) and `STATIC_DIR` (the function does not serve static files). `NODE_ENV` is `production` on Vercel builds and functions.
 
-`APS_CALLBACK_URL` is read as a plain environment variable, so Preview needs its own value. A preview deployment URL changes per deployment unless you use a stable branch alias. Use that alias in `APS_CALLBACK_URL` and in the APS app.
+`APS_CALLBACK_URL` is read as a plain environment variable, so Preview needs its own value. A preview deployment URL changes per deployment, so this project sets the Preview `APS_CALLBACK_URL` to the stable branch alias URL (`https://<branch-alias>/api/auth/callback`) and registers that same URL in the APS app. Open the preview through the alias, not through a per-deployment URL, or the callback will not match.
 
 Never put secret values in the repository, in these docs or in `vercel.json`.
 
@@ -32,7 +32,7 @@ Never put secret values in the repository, in these docs or in `vercel.json`.
 
 1. Sign in to https://aps.autodesk.com and create an application.
 2. Choose the type **Traditional Web App**. The app uses the three-legged flow with a client secret.
-3. Enable the APIs the app calls: **Data Management API** and **Model Derivative API** (for the viewer). The server requests the scopes `data:read` and `viewables:read`.
+3. Enable the APIs the app uses. The server calls the Data Management API (scope `data:read`). The viewer needs Model Derivative and the Viewer (scope `viewables:read`). Enable Data Management and Model Derivative for the app.
 4. Add one callback URL per environment. Each must match `APS_CALLBACK_URL` for that environment exactly, including scheme, host, path and the absence of a trailing slash:
    - `https://<production-host>/api/auth/callback`
    - `https://<preview-alias>/api/auth/callback`
@@ -41,7 +41,7 @@ Never put secret values in the repository, in these docs or in `vercel.json`.
 
 ### ACC and BIM 360 Docs
 
-To see hubs from Autodesk Construction Cloud or BIM 360 Docs, an account administrator must add your APS app as a custom integration in that account (Account Admin, Settings, Custom Integrations), using the client ID. Without it, the Data Management API returns no hubs for that account, even though sign-in succeeds. Personal and other hub types appear without this step.
+To see hubs from Autodesk Construction Cloud or BIM 360 Docs, an account administrator must add the app's Client ID as a custom integration in the Autodesk Docs or ACC account administration. The menu names change between Autodesk releases, so look for the custom integrations section there. Without it, the Data Management API returns no hubs for that account, even though sign-in succeeds. Personal and other hub types appear without this step.
 
 ## Troubleshooting
 

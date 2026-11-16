@@ -78,7 +78,7 @@ With `config.mock`, `createMockDataService()` replaces the APS data service and 
 
 ### Model page
 
-`ModelPage` wraps a `ViewerProvider` and shows the header (breadcrumb, title, URN copy), the paint toolbar and export button, the viewer, the dashboard and the model summary. Panels read the active adapter from the viewer context and fetch property rows through `usePropertyRows`.
+`ModelPage` wraps a `ViewerProvider` and shows the header (breadcrumb, title, URN copy), the viewer, the dashboard and the model summary. Paint and export are not in the page toolbar: they live in the viewer toolbar as a tool group. The summary is a rail beside the viewer that collapses to a narrow strip; its state is stored in `localStorage` under `bsh.summary.collapsed`, and the dashboard's under `bsh.dashboard.collapsed`. Panels read the active adapter from the viewer context and fetch property rows through `usePropertyRows`.
 
 ## ViewerAdapter contract
 
@@ -88,23 +88,39 @@ With `config.mock`, `createMockDataService()` replaces the APS data service and 
 interface ViewerAdapter {
   load(urn: string): Promise<void>;
   unload(): void;
+  resize(): void;
   getSelection(): number[];
   clearSelection?(): void;
   setThemingColor(ids: number[], color: Rgba): void;
   clearThemingColors(): void;
+  setTheme(theme: Theme): void;
   getLeafProperties(propertyNames: string[]): Promise<PropertyRow[]>;
-  registerToolbarButton(spec: ToolbarButtonSpec): () => void;
+  registerToolGroup(spec: ToolGroupSpec): () => void;
   onSelectionChange(cb: (ids: number[]) => void): () => void;
   destroy(): void;
 }
 ```
 
-`createViewerAdapter` picks the implementation. It uses the mock adapter only when `import.meta.env.DEV` is true and `VITE_MOCK_APS=1` (or `window.__MOCK_APS__`). Otherwise it dynamically imports the real one.
+`ToolGroupSpec` describes one group: an id and title, a paint tool (swatches, a reset entry, hints and `onPaint`/`onReset` callbacks) and an export tool (`onExport`). `registerToolGroup` returns a disposer.
 
-- **RealViewerAdapter** loads the Autodesk Viewer 7.* script and style from `developer.api.autodesk.com`, initializes it with a `getAccessToken` callback that calls `/api/viewer/token`, picks the `derivativeV2_EU` API when the decoded URN contains `emea` and `derivativeV2` otherwise, and starts a `GuiViewer3D` in the dark theme. Property rows come from `getBulkProperties` over the leaf nodes of the object tree. Toolbar buttons are added to a control group called `bim-showcase-hub-toolbar`.
-- **MockViewerAdapter** draws a fixture building as SVG labeled "Mock building model", supports selection by click, theming colors, a fake toolbar and generated property rows from `mockModel.ts`.
+`createViewerAdapter` picks the implementation. It uses the mock adapter only when `import.meta.env.DEV` is true and `VITE_MOCK_APS=1` (or `window.__MOCK_APS__`). Otherwise it dynamically imports the real one. The mock adapter is a dynamic import behind the dev check, so a production build contains no mock viewer code.
 
-`ViewerPane` creates the adapter for a URN, loads the model, shows loading and error states, publishes the adapter through context and destroys it on unmount. `adapter.contract.test.ts` pins the contract on the mock adapter.
+- **RealViewerAdapter** loads the Autodesk Viewer 7.* script and style from `developer.api.autodesk.com`, initializes it with a `getAccessToken` callback that calls `/api/viewer/token`, picks the `derivativeV2_EU` API when the decoded URN contains `emea` and `derivativeV2` otherwise, and starts a `GuiViewer3D`. Property rows come from `getBulkProperties` over the leaf nodes of the object tree. `setTheme` applies the viewer's `dark-theme` or `light-theme` and sets the scene background from the `--color-graphite` and `--color-void` tokens (`sceneBackground.ts`). It is applied at start, again after the model loads, and on every theme change.
+- **MockViewerAdapter** draws a fixture building as SVG labeled "Mock building model", supports selection by click, theming colors, a fake toolbar with the same tool group, a `data-viewer-theme` attribute for the theme, and generated property rows from `mockModel.ts`. Outside tests it adds a large synthetic set of rows (104,000) so export and summary behave with a realistic size.
+
+### Autodesk tool group
+
+The real adapter mounts the tool group as an Autodesk Viewer extension, `BimShowcaseHub.Tools` (`viewer/autodeskTools.ts`). Once the model has loaded and a group is registered, the adapter loads the extension with a `ToolGroupController` as its option. The extension adds a control group to the native viewer toolbar with a paint combo button (red, green, blue and reset) and an export button, and keeps their enabled states in sync with the controller: swatches need a selection, reset needs something painted. Unregistering or `unload` removes the group. The controller (`viewer/toolGroupController.ts`) is shared with the mock adapter, so behavior and tests are the same for both.
+
+### Resize flow
+
+The viewer must follow its container when the document tree, dashboard or summary rail opens or closes. `ViewerPane` observes its host element with a `ResizeObserver`, and also listens to `transitionend` on the model page grid and to window `resize`. Events are coalesced with `requestAnimationFrame` and call `adapter.resize()`. The real adapter calls the Autodesk `viewer.resize()` only when the container has a non-zero size. The mock adapter refits its SVG view box. `ViewerPane` also calls `resize()` once after the model loads.
+
+### Theme
+
+`ViewerPane` reads the theme from `useTheme()`, calls `adapter.setTheme` when the adapter is created and whenever the theme changes. See [design-system.md](design-system.md).
+
+`ViewerPane` creates the adapter for a URN, loads the model, shows loading and error states, shows the export status as a badge inside the viewer, publishes the adapter through context and destroys it on unmount. `adapter.contract.test.ts` pins the contract on the mock adapter.
 
 ## Extensions
 

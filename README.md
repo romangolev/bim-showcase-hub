@@ -1,10 +1,12 @@
 # BIM Showcase Hub
 
-A browser workspace for Autodesk Platform Services (APS) models. Sign in with an Autodesk account, browse hubs, projects, folders and versions, open a model in the Autodesk Viewer, and read its properties as a summary table and charts. Selected elements can be painted, and the property table can be exported to Excel.
+A browser workspace for Autodesk Platform Services (APS) models. Sign in with an Autodesk account, browse hubs, projects, folders and versions, open a model in the Autodesk Viewer, and read its properties as a summary table and charts. Selected elements can be painted and the property table exported to Excel from the viewer toolbar, in a dark or light theme.
 
 ![Landing page](docs/images/landing.png)
 
 ![Model page](docs/images/model.png)
+
+![Model page, light theme](docs/images/model-light.png)
 
 The screenshots use the built-in mock data, not a real account.
 
@@ -13,10 +15,11 @@ The screenshots use the built-in mock data, not a real account.
 - Autodesk three-legged sign-in with a cookie session. Tokens never reach the browser except a short-lived viewer token.
 - Lazy document tree for hubs, projects, folders, items and versions, with filtering, keyboard navigation, a resizable panel and a collapsible layout on narrow screens.
 - Autodesk Viewer for any viewable version, in the US or EU region.
-- Paint tools: color selected elements red, green or blue, or reset the appearance.
-- Model summary: element counts grouped by Assembly Code, Classification Code and Name.
+- Tool group inside the viewer toolbar: paint selected elements red, green or blue (or reset), and export to Excel, with an in-viewer status badge for the export.
+- Dark and light themes with a top bar toggle. The choice is remembered, the viewer and charts follow it.
+- Model summary: element counts grouped by Assembly Code, Classification Code and Name, in a rail that collapses to give the viewer more room.
 - Dashboard: bar chart and donut chart of elements by Category, Level, Assembly Code, Classification Code or Name.
-- Excel export: one sheet per Category with selected properties, built in the browser.
+- Excel export: one sheet per Category with selected properties, built in the browser. The viewer resizes when the tree, dashboard or summary rail opens or closes.
 - Mock mode with fixture hubs and a fake viewer, so the whole app runs without Autodesk credentials.
 
 ## Quick start (mock mode)
