@@ -49,6 +49,26 @@ describe('TreeRowView', () => {
     expect(screen.queryByText('Viewable')).toBeNull();
   });
 
+  it('says a never-checked version is checked on open, not that a check failed', () => {
+    const { container } = render(
+      <TreeRowView
+        level={3}
+        kind="version"
+        name={NAME}
+        viewState="unknown"
+        checked={false}
+      />,
+    );
+    const badge = screen.getByText('Unchecked').closest('.tree-row__state');
+    expect(badge).toHaveAttribute(
+      'title',
+      'Not checked yet. It is checked when you open it.',
+    );
+    const row = container.querySelector('.tree-row') as HTMLElement;
+    expect(row.getAttribute('title')).toContain('Not checked yet');
+    expect(row.getAttribute('title')).not.toContain('Could not verify');
+  });
+
   it('links the reason to blocked rows through aria-describedby and title', () => {
     const { container } = render(
       <TreeRowView

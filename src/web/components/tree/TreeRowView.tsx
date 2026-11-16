@@ -2,7 +2,7 @@ import { type HTMLAttributes, type ReactNode, type Ref, useId } from 'react';
 import type { TreeNodeKind } from '../../../shared/types.js';
 import { type ViewState, viewableFor } from '../../../shared/viewState.js';
 import { Icon, type IconName } from '../icons.js';
-import { VIEW_STATE_COPY, viewStateOf } from './viewStateCopy.js';
+import { reasonFor, VIEW_STATE_COPY, viewStateOf } from './viewStateCopy.js';
 
 export const ROW_HEIGHT = 30;
 export const TWO_LINE_ROW_HEIGHT = 46;
@@ -118,6 +118,7 @@ export interface TreeRowViewProps {
   selected?: boolean;
   focused?: boolean;
   viewState?: ViewState;
+  checked?: boolean;
   busy?: boolean;
   caption?: string;
   secondary?: string;
@@ -139,6 +140,7 @@ export function TreeRowView({
   selected = false,
   focused = false,
   viewState,
+  checked,
   busy = false,
   caption,
   secondary,
@@ -150,6 +152,7 @@ export function TreeRowView({
   const isVersion = kind === 'version';
   const state = viewStateOf({ viewState });
   const copy = VIEW_STATE_COPY[state];
+  const reason = reasonFor(state, checked);
   const reasonId = useId();
   const explained = isVersion && state !== 'ready';
   const disabled = isVersion && !viewableFor(state);
@@ -173,7 +176,7 @@ export function TreeRowView({
       {...(explained
         ? {
             'aria-describedby': reasonId,
-            title: `${name}. ${copy.reason}`,
+            title: `${name}. ${reason}`,
           }
         : {})}
       data-two-line={Boolean(second)}
@@ -186,7 +189,7 @@ export function TreeRowView({
     >
       {explained ? (
         <span id={reasonId} className="visually-hidden">
-          {copy.reason}
+          {reason}
         </span>
       ) : null}
       <span
@@ -216,7 +219,7 @@ export function TreeRowView({
             <span
               className="tree-row__state"
               data-state={BADGE_KIND[state]}
-              title={copy.reason}
+              title={reason}
             >
               {state === 'processing' ? (
                 <Icon name="spinner" size={10} className="spin" />

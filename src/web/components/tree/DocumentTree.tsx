@@ -818,6 +818,7 @@ export function DocumentTree({
           selected={urn !== null && urn === selectedUrn}
           focused={item.isFocused()}
           viewState={viewStateOf(node)}
+          checked={node.checked}
           picked={urn !== null && pickedUrns.has(urn)}
           action={rowAction(node)}
           rowProps={{
@@ -861,6 +862,7 @@ export function DocumentTree({
           kind={resultNode.kind}
           name={resultNode.name}
           viewState={viewStateOf(resultNode)}
+          checked={resultNode.checked}
           caption={resultNode.kind === 'version' ? undefined : resultNode.kind}
           secondary={parentName(resultNode)}
           highlight={query}

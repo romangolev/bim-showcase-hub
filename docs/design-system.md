@@ -22,7 +22,7 @@ Other stylesheets in `src/web/styles` (`global.css`, `shell.css`, `tree.css`, `l
 | State | Badge | Style |
 |---|---|---|
 | `ready` | Viewable | arc-blue outline |
-| `unknown` | Unchecked | neutral (fog) text with an ash outline; the tooltip says the geometry could not be verified and it may still open |
+| `unknown` | Unchecked | neutral (fog) text with an ash outline; the tooltip depends on why: a version past the checked window (`checked: false`) says "Not checked yet. It is checked when you open it.", a failed check says the geometry could not be verified (access, rate limit or network) and it may still open |
 | `processing` | Processing | neutral (chalk) outline with a spinner that stops under reduced motion |
 | `no-geometry` | No 3D or 2D view | muted (ash) text, no outline |
 | `not-translated` | Not translated | muted (ash) text, no outline |

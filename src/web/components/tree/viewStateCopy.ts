@@ -34,6 +34,15 @@ export const VIEW_STATE_COPY: Record<ViewState, ViewStateCopy> = {
   },
 };
 
+export const NOT_CHECKED_REASON =
+  'Not checked yet. It is checked when you open it.';
+
+export function reasonFor(state: ViewState, checked?: boolean): string {
+  return state === 'unknown' && checked === false
+    ? NOT_CHECKED_REASON
+    : VIEW_STATE_COPY[state].reason;
+}
+
 export function viewStateOf(node: { viewState?: ViewState }): ViewState {
   return node.viewState ?? 'not-translated';
 }
