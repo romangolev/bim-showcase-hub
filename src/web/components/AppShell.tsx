@@ -20,7 +20,11 @@ export const OVERLAY_QUERY = '(max-width: 999px)';
 export function AppShell({ children }: { children: ReactNode }) {
   const session = useSession();
   const overlay = useMediaQuery(OVERLAY_QUERY);
-  const [treeOpen, setTreeOpen] = useState(!overlay);
+  const [desktopOpen, setDesktopOpen] = useState(true);
+  const [overlayTreeOpen, setOverlayTreeOpen] = useState(false);
+  const treeOpen = overlay ? overlayTreeOpen : desktopOpen;
+  const overlayRef = useRef(overlay);
+  overlayRef.current = overlay;
   const toggleRef = useRef<HTMLButtonElement>(null);
   const [seenOverlay, setSeenOverlay] = useState(overlay);
   const signedIn = Boolean(session.data);
@@ -29,9 +33,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   });
   if (seenOverlay !== overlay) {
     setSeenOverlay(overlay);
-    setTreeOpen(!overlay);
+    setOverlayTreeOpen(false);
   }
-  const overlayOpen = overlay && treeOpen;
+  const overlayOpen = overlay && overlayTreeOpen;
   const previousOverlay = useRef(overlay);
 
   useLayoutEffect(() => {
@@ -47,7 +51,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [overlay]);
 
   const closeTree = useCallback(() => {
-    setTreeOpen(false);
+    setOverlayTreeOpen(false);
     toggleRef.current?.focus();
   }, []);
 
@@ -67,7 +71,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   const treeControl = useMemo(
     () => ({
       reveal: () => {
-        setTreeOpen(true);
+        if (overlayRef.current) {
+          setOverlayTreeOpen(true);
+        } else {
+          setDesktopOpen(true);
+        }
         requestAnimationFrame(() => {
           const target =
             document.querySelector<HTMLElement>(
@@ -83,7 +91,11 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const toggleTree = () => {
     const next = !treeOpen;
-    setTreeOpen(next);
+    if (overlay) {
+      setOverlayTreeOpen(next);
+    } else {
+      setDesktopOpen(next);
+    }
     if (next && overlay) {
       requestAnimationFrame(() => {
         document.querySelector<HTMLElement>('#document-panel input')?.focus();

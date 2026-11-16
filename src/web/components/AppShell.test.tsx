@@ -63,6 +63,52 @@ describe('AppShell responsive tree', () => {
     ).toHaveAttribute('aria-expanded', 'true');
   });
 
+  it('restores an explicit desktop collapse after a breakpoint round trip', async () => {
+    const media = mockMatchMedia(1100);
+    renderApp();
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Collapse document tree' }),
+    );
+    expect(
+      screen.queryByRole('complementary', { name: 'Documents' }),
+    ).not.toBeInTheDocument();
+
+    act(() => media.setWidth(900));
+    expect(
+      screen.getByRole('button', { name: 'Expand document tree' }),
+    ).toHaveAttribute('aria-expanded', 'false');
+
+    act(() => media.setWidth(1100));
+    expect(
+      screen.queryByRole('complementary', { name: 'Documents' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Expand document tree' }),
+    ).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('keeps the overlay choice separate from the desktop preference', async () => {
+    const media = mockMatchMedia(1100);
+    renderApp();
+    await screen.findByRole('complementary', { name: 'Documents' });
+
+    act(() => media.setWidth(900));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Expand document tree' }),
+    );
+    expect(
+      await screen.findByRole('complementary', { name: 'Documents' }),
+    ).toBeInTheDocument();
+
+    act(() => media.setWidth(1100));
+    expect(
+      await screen.findByRole('complementary', { name: 'Documents' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Collapse document tree' }),
+    ).toHaveAttribute('aria-expanded', 'true');
+  });
+
   it('makes main inert while the overlay is open and closes on Escape returning focus', async () => {
     mockMatchMedia(800);
     renderApp();
