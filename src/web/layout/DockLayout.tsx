@@ -334,6 +334,22 @@ export function syncInstances(api: DockviewApi, sync: InstanceSync) {
     const want = wantedOf(sync, pane.id);
     const before = kindPanels(api, pane.id).length;
     const adopted = before === 0 && want.length > 0 && adopt(api, sync, want);
+    const leaving = kindPanels(api, pane.id).filter(
+      (panel) => isInstance(panel.id) && !wanted.has(panel.id),
+    );
+    const arriving = want.filter((id) => !api.getPanel(id));
+    const [old] = leaving;
+    const [renamed] = arriving;
+    if (leaving.length === 1 && arriving.length === 1 && old && renamed) {
+      api.addPanel({
+        ...panelBase(renamed, sync.titles[renamed]?.label),
+        position: {
+          referenceGroup: old.group,
+          index: old.group.panels.indexOf(old),
+        },
+        inactive: renamed !== sync.active && old.group.activePanel !== old,
+      });
+    }
     for (const panel of kindPanels(api, pane.id)) {
       if (isInstance(panel.id) && !wanted.has(panel.id)) panel.api.close();
     }

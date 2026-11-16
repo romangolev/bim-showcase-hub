@@ -193,3 +193,90 @@ describe('combined viewer tab', () => {
     await waitFor(() => expect(groups()).toEqual(['aaa', 'bbb', 'ccc']));
   });
 });
+
+interface LayoutHandle {
+  movePane: (id: string, target: 'left' | 'right' | 'below' | 'float') => void;
+  location: (id: string) => string | null;
+  activateModel: (urn: string) => void;
+}
+
+function layout(): LayoutHandle {
+  const value = (window as unknown as { __bshLayout?: LayoutHandle })
+    .__bshLayout;
+  if (!value) throw new Error('layout handle missing');
+  return value;
+}
+
+function groupOf(name: string): Element | null {
+  return screen.getByRole('tab', { name }).closest('.dv-groupview');
+}
+
+function tabsOf(group: Element | null): string[] {
+  return [...(group?.querySelectorAll('[role="tab"]') ?? [])].map(
+    (tab) => tab.textContent ?? '',
+  );
+}
+
+async function openSingle(appRouter: Router, urn: string, file: string) {
+  await act(() =>
+    appRouter.navigate({
+      to: '/model/$urn',
+      params: { urn },
+      search: { file },
+    }),
+  );
+  await screen.findByRole('tab', { name: file });
+}
+
+async function removeFirstMember() {
+  act(() => layout().activateModel('aaa'));
+  fireEvent.click(
+    await screen.findByRole('button', { name: 'Models in this viewer (2)' }),
+  );
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Remove A.rvt' }));
+  await screen.findByRole('tab', { name: 'Untitled model' });
+}
+
+describe('combined tab keeps its place when its first model is removed', () => {
+  it('stays at its index in an ordinary group', async () => {
+    const { appRouter } = renderPath('/model/aaa?file=A.rvt&with=bbb');
+    await dockReady();
+    await screen.findByRole('tab', { name: '2 models' });
+    await openSingle(appRouter, 'ccc', 'C.rvt');
+    await openSingle(appRouter, 'ddd', 'D.rvt');
+    expect(tabsOf(groupOf('2 models'))).toEqual(['2 models', 'C.rvt', 'D.rvt']);
+    await removeFirstMember();
+    expect(tabsOf(groupOf('Untitled model'))).toEqual([
+      'Untitled model',
+      'C.rvt',
+      'D.rvt',
+    ]);
+  });
+
+  it('stays floating', async () => {
+    const { appRouter } = renderPath('/model/aaa?file=A.rvt&with=bbb');
+    await dockReady();
+    await screen.findByRole('tab', { name: '2 models' });
+    await openSingle(appRouter, 'ccc', 'C.rvt');
+    act(() => layout().movePane('viewer:aaa', 'float'));
+    await waitFor(() =>
+      expect(layout().location('viewer:aaa')).toBe('floating'),
+    );
+    await removeFirstMember();
+    expect(layout().location('viewer:bbb')).toBe('floating');
+    expect(groupOf('Untitled model')).not.toBe(groupOf('C.rvt'));
+  });
+
+  it('stays in its own split', async () => {
+    const { appRouter } = renderPath('/model/aaa?file=A.rvt&with=bbb');
+    await dockReady();
+    await screen.findByRole('tab', { name: '2 models' });
+    await openSingle(appRouter, 'ccc', 'C.rvt');
+    act(() => layout().movePane('viewer:aaa', 'below'));
+    await waitFor(() => expect(groupOf('2 models')).not.toBe(groupOf('C.rvt')));
+    await removeFirstMember();
+    expect(layout().location('viewer:bbb')).toBe('grid');
+    expect(tabsOf(groupOf('Untitled model'))).toEqual(['Untitled model']);
+    expect(tabsOf(groupOf('C.rvt'))).toEqual(['C.rvt']);
+  });
+});
