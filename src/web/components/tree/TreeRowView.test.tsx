@@ -49,6 +49,33 @@ describe('TreeRowView', () => {
     expect(screen.queryByText('Viewable')).toBeNull();
   });
 
+  it('links the reason to blocked rows through aria-describedby and title', () => {
+    const { container } = render(
+      <TreeRowView
+        level={3}
+        kind="version"
+        name={NAME}
+        viewState="no-geometry"
+      />,
+    );
+    const row = container.querySelector('.tree-row') as HTMLElement;
+    const id = row.getAttribute('aria-describedby') as string;
+    const reason = container.querySelector(`[id="${id}"]`);
+    expect(reason).toHaveClass('visually-hidden');
+    expect(reason).toHaveTextContent('publish a 3D view, or re-translate');
+    expect(row.getAttribute('title')).toContain(NAME);
+    expect(row.getAttribute('title')).toContain('no 3D or 2D view');
+  });
+
+  it('does not describe a ready row', () => {
+    const { container } = render(
+      <TreeRowView level={3} kind="version" name={NAME} viewState="ready" />,
+    );
+    const row = container.querySelector('.tree-row');
+    expect(row).not.toHaveAttribute('aria-describedby');
+    expect(row).toHaveAttribute('title', NAME);
+  });
+
   it('shows no badge on folders', () => {
     const { container } = render(
       <TreeRowView level={1} kind="folder" name="Files" />,

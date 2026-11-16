@@ -1,4 +1,4 @@
-import type { HTMLAttributes, ReactNode, Ref } from 'react';
+import { type HTMLAttributes, type ReactNode, type Ref, useId } from 'react';
 import type { TreeNodeKind } from '../../../shared/types.js';
 import { type ViewState, viewableFor } from '../../../shared/viewState.js';
 import { Icon, type IconName } from '../icons.js';
@@ -146,6 +146,8 @@ export function TreeRowView({
   const isVersion = kind === 'version';
   const state = viewStateOf({ viewState });
   const copy = VIEW_STATE_COPY[state];
+  const reasonId = useId();
+  const explained = isVersion && state !== 'ready';
   const disabled = isVersion && !viewableFor(state);
   const icon: IconName = disabled ? 'ban' : KIND_ICON[kind];
   const parts = isVersion && !secondary ? versionParts(name) : null;
@@ -164,9 +166,12 @@ export function TreeRowView({
       data-disabled={disabled}
       data-viewable={isVersion && !disabled}
       data-view-state={isVersion ? state : undefined}
-      aria-description={
-        isVersion && state !== 'ready' ? copy.reason : undefined
-      }
+      {...(explained
+        ? {
+            'aria-describedby': reasonId,
+            title: `${name}. ${copy.reason}`,
+          }
+        : {})}
       data-two-line={Boolean(second)}
       style={{
         ...rowProps?.style,
@@ -174,6 +179,11 @@ export function TreeRowView({
         paddingInlineStart: `calc(var(--space-2) + ${level * INDENT}px)`,
       }}
     >
+      {explained ? (
+        <span id={reasonId} className="visually-hidden">
+          {copy.reason}
+        </span>
+      ) : null}
       <span
         className="tree-row__twisty"
         data-expanded={expanded}
