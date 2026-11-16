@@ -170,6 +170,22 @@ describe('App shell', () => {
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
 
+  it('returns focus to the user menu trigger after the settings dialog closes', async () => {
+    mockFetch({
+      '/api/session': { name: 'Ada Lovelace', picture: null },
+      ...treeRoutes,
+    });
+    renderApp();
+
+    const trigger = await screen.findByRole('button', {
+      name: /Ada Lovelace/,
+    });
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Settings' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Close' }));
+    await waitFor(() => expect(trigger).toHaveFocus());
+  });
+
   it('opens a deep link without search params using a fallback title', async () => {
     mockFetch({
       '/api/session': { name: 'Ada', picture: null },

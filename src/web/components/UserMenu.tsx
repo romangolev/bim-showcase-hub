@@ -131,11 +131,11 @@ export function UserMenu({ user }: { user: Session }) {
             role="menuitem"
             className="user-menu__item"
             onClick={() => {
-              close(false);
+              close(true);
               modal.open('settings');
             }}
           >
-            <Icon name="layers" size={14} />
+            <Icon name="settings" size={14} />
             Settings
           </button>
           <button

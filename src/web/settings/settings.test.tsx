@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { installMemoryStorage } from '../test/mockApi.js';
 import {
   DEFAULT_SETTINGS,
@@ -7,6 +7,7 @@ import {
   SETTINGS_STORAGE_KEY,
   SettingsProvider,
   useSettings,
+  writeSettings,
 } from './index.js';
 
 beforeEach(() => {
@@ -44,6 +45,21 @@ function Probe() {
     </button>
   );
 }
+
+describe('settings edge cases', () => {
+  it.each(['null', '"5"', '[]'])('defaults for non-object JSON %s', (raw) => {
+    window.localStorage.setItem(SETTINGS_STORAGE_KEY, raw);
+    expect(readSettings()).toEqual(DEFAULT_SETTINGS);
+  });
+
+  it('swallows a throwing setItem', () => {
+    vi.spyOn(window.localStorage, 'setItem').mockImplementation(() => {
+      throw new Error('quota');
+    });
+    expect(() => writeSettings(DEFAULT_SETTINGS)).not.toThrow();
+    vi.restoreAllMocks();
+  });
+});
 
 describe('SettingsProvider', () => {
   it('persists a changed setting', () => {

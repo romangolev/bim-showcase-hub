@@ -8,7 +8,7 @@ export const DEFAULT_SETTINGS: Settings = {
   excelExport: true,
 };
 
-export const SETTINGS_STORAGE_KEY = 'bsh-settings';
+export const SETTINGS_STORAGE_KEY = 'bsh-settings-v1';
 
 function flag(value: unknown, fallback: boolean): boolean {
   return typeof value === 'boolean' ? value : fallback;

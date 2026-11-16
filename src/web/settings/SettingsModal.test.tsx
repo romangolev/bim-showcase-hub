@@ -39,4 +39,20 @@ describe('SettingsBody', () => {
       JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '{}'),
     ).toMatchObject({ paintBrushes: false });
   });
+
+  it('toggles the dark theme switch', () => {
+    render(
+      <SettingsProvider>
+        <ThemeProvider>
+          <SettingsBody />
+        </ThemeProvider>
+      </SettingsProvider>,
+    );
+    const dark = screen.getByRole('switch', { name: 'Dark theme' });
+    const before = dark.getAttribute('aria-checked');
+    const theme = document.documentElement.dataset.theme;
+    fireEvent.click(dark);
+    expect(dark.getAttribute('aria-checked')).not.toBe(before);
+    expect(document.documentElement.dataset.theme).not.toBe(theme);
+  });
 });
