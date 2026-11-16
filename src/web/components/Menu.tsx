@@ -20,6 +20,7 @@ export type MenuEntry =
       disabled?: boolean;
       checked?: boolean;
       icon?: IconName;
+      description?: string;
     }
   | { kind: 'separator'; id: string };
 
@@ -238,6 +239,7 @@ export function Menu({
                     role="menuitem"
                     className="menu__item"
                     disabled={entry.disabled}
+                    title={entry.description}
                     onClick={() => select(entry)}
                   >
                     <CheckMark checked={entry.checked} />

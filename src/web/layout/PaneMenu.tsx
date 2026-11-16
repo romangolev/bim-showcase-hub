@@ -8,6 +8,9 @@ import {
   type PanelId,
 } from './paneRegistry.js';
 
+export const RESET_LAYOUT_DESCRIPTION =
+  'Resets the arrangement. Open models stay open; remembered viewer position and closed panes are cleared.';
+
 export function paneMenuEntries(layout: LayoutApi, pane: PanelId): MenuEntry[] {
   const definition = definitionOf(pane);
   const kind = definition.id;
@@ -66,7 +69,12 @@ export function paneMenuEntries(layout: LayoutApi, pane: PanelId): MenuEntry[] {
   }
   entries.push(
     { kind: 'separator', id: 'sep' },
-    { id: 'reset', label: 'Reset layout', onSelect: layout.resetLayout },
+    {
+      id: 'reset',
+      label: 'Reset layout',
+      description: RESET_LAYOUT_DESCRIPTION,
+      onSelect: layout.resetLayout,
+    },
   );
   return entries;
 }
@@ -128,7 +136,12 @@ export function layoutMenuEntries(layout: LayoutApi): MenuEntry[] {
       onSelect: () => layout.togglePane(pane.id),
     })),
     { kind: 'separator' as const, id: 'sep' },
-    { id: 'reset', label: 'Reset layout', onSelect: layout.resetLayout },
+    {
+      id: 'reset',
+      label: 'Reset layout',
+      description: RESET_LAYOUT_DESCRIPTION,
+      onSelect: layout.resetLayout,
+    },
   ];
 }
 

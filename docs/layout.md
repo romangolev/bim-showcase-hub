@@ -97,7 +97,7 @@ On the first run (neither `bsh.layout.v2` nor `bsh.layout.v1`) the old keys are 
 
 ## Reset
 
-Reset layout is in every pane menu and in the top bar Panes menu. It drops the saved dock and the dismissed companions and rebuilds the default arrangement without remounting any pane: Documents alone when no model is open, otherwise Documents, the viewer with all open model tabs in one group, summary and dashboard (collapsed).
+Reset layout is in every pane menu and in the top bar Panes menu; its tooltip says "Resets the arrangement. Open models stay open; remembered viewer position and closed panes are cleared." Open models stay open, but Reset also clears `lastViewerArrangement` (where the viewer and its companions go back when the first model opens again) and `dismissed` (the companions the user closed, which come back). It drops the saved dock and rebuilds the default arrangement without remounting any pane: Documents alone when no model is open, otherwise Documents, the viewer with all open model tabs in one group, summary and dashboard (collapsed).
 
 ## Keyboard and screen readers
 

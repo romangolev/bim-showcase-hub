@@ -256,7 +256,11 @@ describe('panes menu in the top bar', () => {
     ).toBeInTheDocument();
 
     fireEvent.click(trigger);
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Reset layout' }));
+    const reset = screen.getByRole('menuitem', { name: 'Reset layout' });
+    expect(reset).toHaveAccessibleDescription(
+      'Resets the arrangement. Open models stay open; remembered viewer position and closed panes are cleared.',
+    );
+    fireEvent.click(reset);
     expect(document.querySelector('.layout-announcer')).toHaveTextContent(
       'Layout reset',
     );
