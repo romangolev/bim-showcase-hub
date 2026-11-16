@@ -1,6 +1,6 @@
 # Layout
 
-The signed-in app is a dock: every part of the screen is a pane that can be moved, resized, tabbed, collapsed, floated inside the page and, except for the empty viewer, closed. Every open model is its own viewer tab. The design is in [superpowers/specs/2026-11-16-dockable-layout-design.md](superpowers/specs/2026-11-16-dockable-layout-design.md) and the multi-model plan in [superpowers/plans/2026-11-16-multi-model-plan.md](superpowers/plans/2026-11-16-multi-model-plan.md).
+The signed-in app is a dock: every part of the screen is a pane that can be moved, resized, tabbed, collapsed, floated inside the page and, except for Documents, closed. Documents is the main pane: it is always there, and on first load or after Reset layout with no model open it fills the dock alone with a "Select a model version to open it in the viewer" hint. The viewer opens from the selected document, and every open model is its own viewer tab. The design is in [superpowers/specs/2026-11-16-dockable-layout-design.md](superpowers/specs/2026-11-16-dockable-layout-design.md) and the multi-model plan in [superpowers/plans/2026-11-16-multi-model-plan.md](superpowers/plans/2026-11-16-multi-model-plan.md).
 
 ## Pieces
 
@@ -10,7 +10,7 @@ Everything lives in `src/web/layout`.
 |---|---|
 | `paneRegistry.ts` | The list of panes (`PANES`), their rules, and panel ids (`parsePanelId`, `paneKind`, `isPanelClosable`) |
 | `panelIds.ts` | `instancePanelId(kind, instance)`: the `kind:instance` id of a dynamic pane |
-| `panes.tsx` | The pane bodies: tree, the empty viewer (route content), one model tab per open model, summary, dashboard |
+| `panes.tsx` | The pane bodies: Documents (the tree, plus the route content as a hint while no model is open), one model tab per open model, summary, dashboard |
 | `layoutContext.ts` | `useLayout()` and its types. `paneTitle(id)` returns a panel's label and tooltip: model tabs use the file name and version with the breadcrumb path and URN, summary and dashboard name the active model in their tooltip, everything else uses the registry title |
 | `ViewerHost.tsx` | `PaneHosts` renders each open panel once into a detached host `div` with `createPortal`. `PaneSlot` attaches a host to a slot and reports it once it is visible |
 | `LayoutProvider.tsx` | State, persistence, reset, the open-models store, the dock or stacked switch, the top bar, `useLayout()` |
@@ -27,13 +27,15 @@ A panel's portal is rendered only after its host was attached to a visible slot 
 
 ## Model tabs
 
-The Viewer pane has instances: `instances` in its registry entry gives the body (`ModelPaneBody`) and makes them closable. Each open model is a panel `viewer:<urn>` with its own host, `ViewerPane` and adapter. The plain `viewer` panel is the empty viewer; it exists only while no model is open and is replaced in place by the first model tab.
+The Viewer pane has instances: `instances` in its registry entry gives the body (`ModelPaneBody`) and makes them closable. Each open model is a panel `viewer:<urn>` with its own host, `ViewerPane` and adapter. The Viewer has no plain panel (`component: null`): with no model open there is no viewer group at all.
 
-- The tree, a deep link or Back opens a model in a new tab in the active model's group, or activates its tab when it is already open.
+- Selecting a viewable version in Documents, a deep link or Back opens the model in a new tab in the active model's group, or activates its tab when it is already open.
+- The first model creates the viewer group at its default slot, right of Documents (Documents goes back to its tree width). Summary and dashboard open with it, summary on the right and dashboard below, collapsed, unless the user closed them before.
+- Closing the last model tab closes the viewer group and its companions (summary and dashboard), so Documents is alone again, and the URL returns to `/`.
 - Tabs reorder, split, float and close with the usual dock gestures and pane menu. Dropping a tab on the edge of the viewer group puts two models side by side.
-- The tab close button and the pane menu Close remove the model from the open-models store; the dock follows the store (`syncInstances` in `DockLayout.tsx`), so closing the last tab puts the empty viewer back in the same place.
+- The tab close button and the pane menu Close remove the model from the open-models store; the dock follows the store (`syncInstances` in `DockLayout.tsx`), so it never needs a placeholder.
 - Activating a tab activates its model: summary, dashboard and the URL follow it.
-- The dock adapter knows nothing about models. It receives the wanted instance panel ids, the active one, titles and two callbacks (`onActivateInstance`, `onCloseInstance`).
+- The dock adapter knows nothing about models. It receives the wanted instance panel ids, the active one, titles, the companions to open with the first instance, and callbacks (`onActivateInstance`, `onCloseInstance`, `onClosePane`).
 
 ## Add a pane
 
@@ -61,10 +63,11 @@ Fields:
 
 | Field | Meaning |
 |---|---|
-| `instances` | Optional. Makes the pane a kind with instances `kind:instance`, rendered by `instances.component` with an `instance` prop. The plain panel is shown while there are none |
+| `instances` | Optional. Makes the pane a kind with instances `kind:instance`, rendered by `instances.component` with an `instance` prop. Panes listed with `requires` equal to this kind open with its first instance and close with its last |
+| `component` | The body of the plain panel, or `null` for a kind that only has instances |
 | `defaultPlacement` | `root` (the first pane), `beside` a reference pane (`left`, `right`, `below`) or at an `edge` of the dock, with a size in px. Root comes first, then `beside` in registry order, then `edge`. When a reopened pane's reference is closed it goes to the dock edge in the same direction |
 | `minSize` | Minimum width and height of the pane's group |
-| `closable` | `false` makes the pane required: no close button, no Close item, re-added if a saved layout lost it |
+| `closable` | `false` makes the pane required: no close button, no Close item, re-added if a saved layout lost it. Only Documents is required |
 | `canFloat` | Offers Float in the pane menu |
 | `requires` | `'viewer'` hides the pane in the stacked layout outside the model route |
 
@@ -73,29 +76,31 @@ Fields:
 One layout per browser in `localStorage` under `bsh.layout.v2`:
 
 ```json
-{ "version": 2, "layout": { "dock": { "grid": {}, "panels": {} }, "collapsed": ["summary"], "treeWidth": 320 } }
+{ "version": 2, "layout": { "dock": { "grid": {}, "panels": {} }, "collapsed": ["dashboard"], "treeWidth": 320, "dismissed": ["summary"] } }
 ```
 
 The open model tabs and the active one are in `sessionStorage` under `bsh.models.open`, so a reload restores them and a new browser tab starts with none. Restored tabs load lazily: only the tabs that are visible load at once, the others when they are first shown.
 
 - `dock` is dockview's `toJSON()` output, or `null` before the dock was first shown.
 - `collapsed` lists collapsed pane kinds. Collapsing a model tab collapses its group under the `viewer` kind.
-- `treeWidth` is used only when the default layout is built.
+- `treeWidth` is used when the default layout is built and when the first model opens next to Documents.
+- `dismissed` lists the companions the user closed (tab close button, pane menu Close or the Panes menu). They stay closed when later models open; reopening one from the Panes menu or Reset layout clears it. Closing companions because the last model closed does not count. Older records without the field read as none dismissed.
 
-It is written 300 ms after the last layout change (and at once on `pagehide` and unmount); dock events that serialize to the same JSON are not dispatched at all. On load the record is parsed in a try/catch. A corrupt record, another `version`, or a dock without any known pane falls back to the default layout. Unknown pane ids are dropped from the grid, tabs and floating groups, empty groups and branches are pruned, popout groups are removed, and required panes that are missing are added back at their default position. Model tabs are reconciled with the open-models store when the dock is restored: tabs of models that are no longer open are dropped (the first one becomes the empty viewer when no viewer panel is left, so the arrangement is kept) and open models that are missing are added to the viewer group.
+It is written 300 ms after the last layout change (and at once on `pagehide` and unmount); dock events that serialize to the same JSON are not dispatched at all. On load the record is parsed in a try/catch. A corrupt record, another `version`, or a dock without any known pane falls back to the default layout. Unknown pane ids are dropped from the grid, tabs and floating groups, empty groups and branches are pruned, popout groups are removed, and required panes that are missing are added back at their default position. Model tabs are reconciled with the open-models store when the dock is restored: tabs of models that are no longer open are dropped and open models that are missing are added to the viewer group, or at the viewer's default slot when there is none. With no model open the companions are closed too. The empty `viewer` panel of earlier v2 records is dropped, which reads as "no model open".
 
-A `bsh.layout.v1` record is migrated once into `bsh.layout.v2` and then deleted: the arrangement, collapse state and tree width are kept and its `viewer` panel becomes the first open model tab, or stays the empty viewer.
+A `bsh.layout.v1` record is migrated once into `bsh.layout.v2` and then deleted: the arrangement, collapse state and tree width are kept and its `viewer` panel becomes the first open model tab, or is dropped when no model is open.
 
-On the first run (neither `bsh.layout.v2` nor `bsh.layout.v1`) the old keys are imported once and deleted: `bsh.tree.width` becomes `treeWidth`, `bsh.summary.collapsed=1` collapses the summary, and `bsh.dashboard.collapsed` collapses the dashboard (without a stored choice the dashboard starts collapsed on windows shorter than 900px, as before).
+On the first run (neither `bsh.layout.v2` nor `bsh.layout.v1`) the old keys are imported once and deleted: `bsh.tree.width` becomes `treeWidth`, `bsh.summary.collapsed=1` collapses the summary, and the dashboard starts collapsed unless `bsh.dashboard.collapsed=0` was stored.
 
 ## Reset
 
-Reset layout is in every pane menu and in the top bar Panes menu. It drops the saved dock and rebuilds the default arrangement without remounting any pane. Open models stay open: their tabs go back into one viewer group.
+Reset layout is in every pane menu and in the top bar Panes menu. It drops the saved dock and the dismissed companions and rebuilds the default arrangement without remounting any pane: Documents alone when no model is open, otherwise Documents, the viewer with all open model tabs in one group, summary and dashboard (collapsed).
 
 ## Keyboard and screen readers
 
 - Every pane header has a collapse button and a menu: Move left, Move right, Move below (to that edge of the dock), Float or Dock, Collapse or Expand, Close (closable panes only), Reset layout. Every drag has a menu path.
-- The Panes menu in the top bar reopens closed panes (checkbox items) and resets the layout.
+- The Panes menu in the top bar lists the optional panes (Model summary, Dashboard) as checkbox items and resets the layout. Opening one without a model shows its "No model loaded yet" state. Documents is not listed because it cannot close, and model tabs open from Documents.
+- The top bar Documents button collapses or expands the Documents pane in the dock.
 - `F6` and `Shift+F6` move focus between pane groups. Tabs use dockview's `tablist` and roving `tabindex`.
 - After a move, focus goes to the moved pane's tab.
 - dockview's live region announces open, close, float and dock; the layout's own live region announces moves, collapse and reset. Announcements are muted while a layout is restored or reset.
@@ -104,7 +109,7 @@ dockview 8 ships its keyboard navigation and keyboard docking only in the commer
 
 ## Narrow screens
 
-Below 876px (`STACKED_QUERY`) the dock is not rendered. `StackedLayout` shows main, dashboard and summary in a column with the tree as an overlay (backdrop, `inert` column, Escape and focus return to the top bar button). The saved dock is untouched and comes back when the window is wide again. The layout cannot be customized on narrow screens. With models open, a tab strip (`role="tablist"`, "Open models") above the viewer switches and closes them; only the active model is shown, the others stay mounted in detached hosts.
+Below 876px (`STACKED_QUERY`) the dock is not rendered. With no model open, `StackedLayout` shows Documents as the main section with the hint. Selecting a model switches to the viewer section: the model switcher, the viewer, dashboard and summary in a column, with Documents as an overlay from the top bar button (backdrop, `inert` column, Escape and focus return to the button). That button is the way back to Documents; closing the last model in the switcher shows Documents again. The saved dock is untouched and comes back when the window is wide again. The layout cannot be customized on narrow screens. With models open, a tab strip (`role="tablist"`, "Open models") above the viewer switches and closes them; only the active model is shown, the others stay mounted in detached hosts.
 
 ## Limits
 
@@ -117,6 +122,6 @@ Below 876px (`STACKED_QUERY`) the dock is not rendered. `StackedLayout` shows ma
 
 ## Testing
 
-- Unit tests (Vitest, jsdom, real dockview with a no-op `ResizeObserver`): `paneRegistry.test.ts`, `layoutState.test.ts`, `defaultLayout.test.ts`, `ViewerHost.test.tsx`, `LayoutProvider.test.tsx`, `StackedLayout.test.tsx`, `menus.test.tsx`, `floating.test.ts`. They assert that `MockViewerAdapter.destroy` is never called and `load` runs once across moves, floating, collapse, reset and the breakpoint switch. `multiModel.test.tsx` covers several models: no duplicate tabs, URL sync, closing destroys only that model, moving and splitting destroy nothing, a failed load stays in its tab, summary switching from the cache, lazy restore after a reload, the loaded-model cap, the debounced write and the stacked switcher. `api/openModels.test.ts` covers the store and `layoutState.test.ts` the v1 migration and model tab reconciliation.
+- Unit tests (Vitest, jsdom, real dockview with a no-op `ResizeObserver`): `paneRegistry.test.ts`, `layoutState.test.ts`, `defaultLayout.test.ts`, `ViewerHost.test.tsx`, `LayoutProvider.test.tsx`, `StackedLayout.test.tsx`, `menus.test.tsx`, `floating.test.ts`. They assert that `MockViewerAdapter.destroy` is never called and `load` runs once across moves, floating, collapse, reset and the breakpoint switch. `multiModel.test.tsx` covers several models: no duplicate tabs, URL sync, closing destroys only that model, moving and splitting destroy nothing, a failed load stays in its tab, summary switching from the cache, lazy restore after a reload, the loaded-model cap, the debounced write and the stacked switcher, and the Documents-first rules: Documents has no Close, closing the last model leaves Documents alone, a closed companion stays closed until it is reopened or the layout is reset, and the narrow-screen path from Documents to the viewer and back. `api/openModels.test.ts` covers the store and `layoutState.test.ts` the v1 migration and model tab reconciliation.
 - In mock mode only (`import.meta.env.DEV` and the mock viewer), `window.__bshLayout` exposes `movePane`, `togglePane`, `setCollapsed`, `resetLayout`, `openPanes`, `location`, `mode`, `read`, `models`, `activateModel` and `closeModel`. It is not in a production build.
-- `e2e/mock_smoke.py` checks the layout and several models in Camoufox, including real pointer drags of a pane and of a model tab. `e2e/smoke.py --layout` checks the real Autodesk viewer and `e2e/smoke.py --multi` three Revit models at once.
+- `e2e/mock_smoke.py` checks the Documents-only start, the layout and several models in Camoufox, including real pointer drags of a pane and of a model tab. `e2e/smoke.py --layout` checks the real Autodesk viewer and `e2e/smoke.py --multi` three Revit models at once.

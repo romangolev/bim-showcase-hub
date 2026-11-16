@@ -152,6 +152,7 @@ It writes `01-home.png`, `02-model.png`, `03-after-export.png`, `05-viewer-chrom
 - the keyboard path: Enter opens the pane menu, arrows pick Move below, focus lands on the moved tab, and `F6` moves focus to another pane; both live regions are present
 - Reset layout in the top bar Panes menu restores the default arrangement
 - at 800 px the stacked layout replaces the dock, the tree opens as an overlay and Escape closes it; back at 1440 px the saved dock arrangement returns and the viewer is still the same element
+- Documents first: the start is Documents alone with the hint, Documents is the main landmark and has no close button or Close item; at the end, closing the summary from its tab and reopening it from the Panes menu, and closing the last model tab leaves Documents alone with the URL back at `/`
 - several models: opening a second version adds a second tab and the URL follows, clicking an open version adds no duplicate, the summary follows the active tab and comes back unchanged, a pointer drag of a tab splits two models side by side with both scenes fitted, closing a tab keeps the other rendering, a reload restores the tabs and loads only the visible model, and at 800 px the model switcher activates the other model
 - collapsing the summary from its pane header widens the viewer and expanding restores the width exactly
 - the viewer resizes after the document tree pane closes

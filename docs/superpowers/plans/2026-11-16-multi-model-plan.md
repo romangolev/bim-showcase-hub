@@ -6,7 +6,7 @@
 
 ## Decisions
 
-- **Dynamic panes.** `paneRegistry.ts` gets pane kinds with instances. The `viewer` kind has instances `viewer:<urn>`, one per open model, rendered by `ModelPaneBody`. The plain `viewer` panel is the placeholder that holds the empty state; it exists only while no model is open. `paneKind(panelId)` maps any panel id to its registry entry, so the dock, menus, collapse and persistence work on kinds and never hard-code model tabs.
+- **Dynamic panes.** `paneRegistry.ts` gets pane kinds with instances. The `viewer` kind has instances `viewer:<urn>`, one per open model, rendered by `ModelPaneBody`. The plain `viewer` panel is the placeholder that holds the empty state; it exists only while no model is open (removed in phase 5). `paneKind(panelId)` maps any panel id to its registry entry, so the dock, menus, collapse and persistence work on kinds and never hard-code model tabs.
 - **One host per model.** Each model panel gets its own detached host and portal, so moving, tabbing, floating or splitting never remounts it. Closing the tab unmounts the portal and destroys only that adapter.
 - **Open-models store** (`src/web/api/openModels.ts`): `models` (urn plus its `file`, `v`, `crumbs`, `trail`), `active`, and `live` (loaded models, least recently shown first). Opening an open urn activates it, so there are never duplicates. Closing the active tab activates the right neighbour, else the left one. Persisted in `sessionStorage` under `bsh.models.open` (models and active only), so a reload restores the tabs and a new browser tab starts clean.
 - **Lazy loading.** A model loads only when its tab is first shown (active tab, or the visible tab of another group in a split). Restored background tabs stay unloaded until shown.
@@ -35,5 +35,13 @@ Requested after phases 1 to 4: "Documents should be the main panel, other ones s
 - Default layout is Documents alone with an empty hint. No placeholder viewer.
 - Selecting a viewable version (or a deep link) opens the viewer group right of Documents if it is not open, with a new model tab. Closing the last model tab closes the viewer group and returns to `/`.
 - Summary and dashboard open next to the viewer when the first model opens (summary right, dashboard below and collapsed), unless the user closed them before. That choice is persisted per pane and cleared by Reset layout. With no model open they stay listed in the Panes menu and show their "no model" empty state.
-- Schema v3 with a migration from v1 and v2: arrangement kept, Documents required, a missing viewer means no model open.
+- Schema: v2 is extended with `dismissed` instead of a v3 bump (v2 never shipped). Older v2 records read as nothing dismissed and their empty `viewer` panel is dropped, which reads as no model open; v1 still migrates once. Arrangement kept, Documents required.
 - Stacked: Documents is the primary section; the viewer section appears after a model is selected, with a way back to Documents.
+
+### Decisions taken in phase 5
+
+- With no model open, summary and dashboard are closed; the Panes menu can still open them and they show their "No model loaded yet" state (the simpler choice). The Panes menu does not list the Viewer, because model tabs open from Documents.
+- Only explicit closes (tab close button, pane menu Close, Panes menu) are remembered in `dismissed`.
+- The dashboard now starts collapsed for everyone (the old rule collapsed it only below 900 px of window height).
+- The top bar Documents button collapses or expands Documents in the dock, because it can no longer close.
+- Documents shows the route content (empty state hint, not found) next to the tree while no model is open, and is the `main` landmark then; the active model tab is `main` otherwise.
