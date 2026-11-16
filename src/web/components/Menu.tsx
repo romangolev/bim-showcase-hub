@@ -81,8 +81,7 @@ export function Menu({
     if (restore) triggerRef.current?.focus();
   }, []);
 
-  useLayoutEffect(() => {
-    if (!open) return;
+  const place = useCallback(() => {
     const rect = triggerRef.current?.getBoundingClientRect();
     const menu = menuRef.current;
     if (!rect || !menu) return;
@@ -98,9 +97,14 @@ export function Menu({
         ? Math.max(GAP, rect.top - height - GAP)
         : below;
     setPosition({ top, left });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    place();
     const list = focusables();
     (open === 'last' ? list[list.length - 1] : list[0])?.focus();
-  }, [open, focusables]);
+  }, [open, focusables, place]);
 
   useEffect(() => {
     if (!open) return;
@@ -113,18 +117,15 @@ export function Menu({
         close(false);
       }
     };
-    const onScroll = (event: Event) => {
-      if (!menuRef.current?.contains(event.target as Node)) close(false);
-    };
     document.addEventListener('pointerdown', onPointer);
-    window.addEventListener('resize', onScroll);
-    document.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', place);
+    document.addEventListener('scroll', place, true);
     return () => {
       document.removeEventListener('pointerdown', onPointer);
-      window.removeEventListener('resize', onScroll);
-      document.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', place);
+      document.removeEventListener('scroll', place, true);
     };
-  }, [open, close]);
+  }, [open, close, place]);
 
   const onMenuKeyDown = (event: KeyboardEvent) => {
     const list = focusables();

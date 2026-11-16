@@ -439,7 +439,7 @@
 
 .menu__popover {
   position: fixed;
-  z-index: 60;
+  z-index: 1000;
   min-width: 200px;
   padding: var(--space-1);
   border: var(--border-hairline);
