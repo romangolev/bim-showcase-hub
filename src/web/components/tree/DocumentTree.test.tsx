@@ -46,13 +46,14 @@ describe('DocumentTree', () => {
   it('Refresh documents refetches the loaded folders', async () => {
     const fetchMock = mockFetch(treeRoutes);
     renderTree();
-    await screen.findByText('Studio hub');
+    await expandTo('Studio hub');
+    await screen.findByText('Riverside Tower');
     const before = fetchMock.mock.calls.length;
 
     fireEvent.click(screen.getByRole('button', { name: 'Refresh documents' }));
 
     await waitFor(() =>
-      expect(fetchMock.mock.calls.length).toBeGreaterThan(before),
+      expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(before + 2),
     );
   });
 

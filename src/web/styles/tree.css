@@ -53,7 +53,7 @@
 .doc-tree__search input {
   width: 100%;
   height: var(--hit-target);
-  padding: 0 64px 0 34px;
+  padding: 0 calc(2 * var(--hit-target) + var(--space-2)) 0 34px;
   border: var(--border-hairline);
   border-radius: var(--radius-button);
   background: var(--color-charcoal);
@@ -358,7 +358,7 @@
 }
 
 .doc-tree__clear {
-  right: 34px;
+  right: calc(var(--hit-target) + var(--space-1));
 }
 
 .doc-tree__clear:hover,
