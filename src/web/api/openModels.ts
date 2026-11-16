@@ -1,4 +1,8 @@
-import { isStringArray, type ModelContext } from './modelContext.js';
+import {
+  type ModelContext,
+  parseModelContext,
+  sameModelContext,
+} from './modelContext.js';
 import { hasModelContext } from './modelStore.js';
 
 export const OPEN_MODELS_KEY = 'bsh.models.open';
@@ -20,19 +24,6 @@ export const EMPTY_OPEN_MODELS: OpenModelsState = {
   active: null,
   live: [],
 };
-
-function cleanContext(context: ModelContext): ModelContext {
-  const next: ModelContext = {};
-  if (context.file) next.file = context.file;
-  if (context.v) next.v = context.v;
-  if (context.crumbs?.length) next.crumbs = [...context.crumbs];
-  if (context.trail?.length) next.trail = [...context.trail];
-  return next;
-}
-
-function sameContext(a: ModelContext, b: ModelContext): boolean {
-  return JSON.stringify(cleanContext(a)) === JSON.stringify(cleanContext(b));
-}
 
 export function isOpen(state: OpenModelsState, urn: string): boolean {
   return state.models.some((model) => model.urn === urn);
@@ -81,13 +72,13 @@ export function openModel(
   const existing = state.models.find((model) => model.urn === urn);
   let models = state.models;
   if (!existing) {
-    models = [...models, { urn, context: cleanContext(context) }];
+    models = [...models, { urn, context: parseModelContext(context) }];
   } else if (
     hasModelContext(context) &&
-    !sameContext(existing.context, context)
+    !sameModelContext(existing.context, context)
   ) {
     models = models.map((model) =>
-      model.urn === urn ? { urn, context: cleanContext(context) } : model,
+      model.urn === urn ? { urn, context: parseModelContext(context) } : model,
     );
   }
   const next = models === state.models ? state : { ...state, models };
@@ -116,17 +107,6 @@ export function serializeOpenModels(state: OpenModelsState): string {
   return JSON.stringify({ models: state.models, active: state.active });
 }
 
-function isContext(value: unknown): value is ModelContext {
-  if (typeof value !== 'object' || value === null) return false;
-  const entry = value as Record<string, unknown>;
-  return (
-    (entry.file === undefined || typeof entry.file === 'string') &&
-    (entry.v === undefined || typeof entry.v === 'string') &&
-    (entry.trail === undefined || isStringArray(entry.trail)) &&
-    (entry.crumbs === undefined || isStringArray(entry.crumbs))
-  );
-}
-
 export function parseOpenModels(raw: string | null): OpenModelsState {
   if (!raw) return EMPTY_OPEN_MODELS;
   let parsed: unknown;
@@ -146,7 +126,7 @@ export function parseOpenModels(raw: string | null): OpenModelsState {
       if (models.some((model) => model.urn === urn)) continue;
       models.push({
         urn,
-        context: isContext(context) ? cleanContext(context) : {},
+        context: parseModelContext(context),
       });
     }
   }

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { decodeUrn, describeModel } from './modelContext.js';
+import {
+  decodeUrn,
+  describeModel,
+  parseModelContext,
+  sameModelContext,
+} from './modelContext.js';
 
 const URN =
   'dXJuOmFkc2sud2lwcHJvZDpmcy5maWxlOnZmLmFCY0RlRmdIaUprTG1ObzE_dmVyc2lvbj0y';
@@ -32,5 +37,41 @@ describe('describeModel', () => {
       version: undefined,
       hasFile: false,
     });
+  });
+});
+
+describe('model context normalizer', () => {
+  it('keeps only valid, non-empty fields from any value', () => {
+    expect(
+      parseModelContext({
+        file: 'A.rvt',
+        v: '',
+        crumbs: ['Hub', 3],
+        trail: [],
+        extra: true,
+      }),
+    ).toEqual({ file: 'A.rvt' });
+    expect(parseModelContext(null)).toEqual({});
+    expect(parseModelContext('x')).toEqual({});
+  });
+
+  it('copies the lists it keeps', () => {
+    const crumbs = ['Hub'];
+    const parsed = parseModelContext({ crumbs });
+    crumbs.push('Docs');
+    expect(parsed.crumbs).toEqual(['Hub']);
+  });
+
+  it('compares contexts field by field, ignoring empty fields', () => {
+    expect(
+      sameModelContext({ v: 'v1', file: 'A.rvt' }, { file: 'A.rvt', v: 'v1' }),
+    ).toBe(true);
+    expect(
+      sameModelContext({ file: 'A.rvt', crumbs: [] }, { file: 'A.rvt' }),
+    ).toBe(true);
+    expect(
+      sameModelContext({ crumbs: ['a', 'b'] }, { crumbs: ['b', 'a'] }),
+    ).toBe(false);
+    expect(sameModelContext({ file: 'A.rvt' }, { file: 'B.rvt' })).toBe(false);
   });
 });

@@ -11,10 +11,26 @@ export function isStringArray(value: unknown): value is string[] {
   );
 }
 
-export function parseModelContext(
-  search: Record<string, unknown>,
-): ModelContext {
+function sameList(a?: readonly string[], b?: readonly string[]): boolean {
+  if (!a || !b) return a === b;
+  return a.length === b.length && a.every((value, index) => value === b[index]);
+}
+
+export function sameModelContext(a: ModelContext, b: ModelContext): boolean {
+  const left = parseModelContext(a);
+  const right = parseModelContext(b);
+  return (
+    left.file === right.file &&
+    left.v === right.v &&
+    sameList(left.crumbs, right.crumbs) &&
+    sameList(left.trail, right.trail)
+  );
+}
+
+export function parseModelContext(value: unknown): ModelContext {
   const context: ModelContext = {};
+  if (typeof value !== 'object' || value === null) return context;
+  const search = value as Record<string, unknown>;
   if (typeof search.file === 'string' && search.file) {
     context.file = search.file;
   }
@@ -22,10 +38,10 @@ export function parseModelContext(
     context.v = search.v;
   }
   if (isStringArray(search.trail) && search.trail.length > 0) {
-    context.trail = search.trail;
+    context.trail = [...search.trail];
   }
   if (isStringArray(search.crumbs) && search.crumbs.length > 0) {
-    context.crumbs = search.crumbs;
+    context.crumbs = [...search.crumbs];
   }
   return context;
 }
