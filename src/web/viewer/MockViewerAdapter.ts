@@ -303,12 +303,16 @@ export class MockViewerAdapter implements ViewerAdapter {
     this.themed.clear();
   }
 
-  async getLeafProperties(propertyNames: string[]): Promise<PropertyRow[]> {
+  async getLeafProperties(
+    propertyNames: string[],
+    modelIds?: readonly string[],
+  ): Promise<PropertyRow[]> {
     if (!this.loaded) return [];
     const bulk = import.meta.env.MODE === 'test' ? 0 : LARGE_FIXTURE_ROWS;
     const rows: PropertyRow[] = [];
     let failed = false;
     for (const { info } of this.models.shown()) {
+      if (modelIds && !modelIds.includes(info.id)) continue;
       if (info.urn.includes(MOCK_NO_PROPERTIES_MARKER)) {
         failed = true;
         this.models.setPropertiesError(info.id, MOCK_PROPERTIES_ERROR);

@@ -1,44 +1,42 @@
 import type { PropertyRow } from '../../shared/types.js';
-import { readySignature } from './modelSet.js';
+import type { ModelInfo } from './modelSet.js';
 import type { ViewerAdapter } from './ViewerAdapter.js';
 
-interface InFlight {
+interface Pending {
   names: Set<string>;
   promise: Promise<PropertyRow[]>;
 }
 
-interface Batch {
-  names: Set<string>;
-  promise: Promise<PropertyRow[]>;
-}
-
-interface Settled {
-  names: Set<string>;
-  rows: PropertyRow[];
+interface KeyReads {
+  inFlight: Pending | null;
+  batch: Pending | null;
+  settled: { names: Set<string>; rows: PropertyRow[] } | null;
 }
 
 interface AdapterReads {
-  inFlight: InFlight | null;
-  batch: Batch | null;
-  settled: Settled | null;
   generation: number;
+  keys: Map<string, KeyReads>;
 }
 
+const WHOLE = '';
 const reads = new WeakMap<ViewerAdapter, AdapterReads>();
-const signatures = new WeakMap<AdapterReads, string>();
 
 function readsFor(adapter: ViewerAdapter): AdapterReads {
-  const signature =
-    typeof adapter.getModels === 'function'
-      ? readySignature(adapter.getModels())
-      : '';
   let entry = reads.get(adapter);
-  if (!entry || signatures.get(entry) !== signature) {
-    entry = { inFlight: null, batch: null, settled: null, generation: 0 };
+  if (!entry) {
+    entry = { generation: 0, keys: new Map() };
     reads.set(adapter, entry);
-    signatures.set(entry, signature);
   }
   return entry;
+}
+
+function keyReads(entry: AdapterReads, key: string): KeyReads {
+  let reads = entry.keys.get(key);
+  if (!reads) {
+    reads = { inFlight: null, batch: null, settled: null };
+    entry.keys.set(key, reads);
+  }
+  return reads;
 }
 
 function project(rows: PropertyRow[], names: readonly string[]): PropertyRow[] {
@@ -60,26 +58,66 @@ function covers(have: Set<string>, want: readonly string[]): boolean {
   return want.every((name) => have.has(name));
 }
 
-function startBatch(adapter: ViewerAdapter, entry: AdapterReads): Batch {
+function startBatch(
+  adapter: ViewerAdapter,
+  entry: AdapterReads,
+  key: KeyReads,
+  modelIds: readonly string[] | undefined,
+): Pending {
   const names = new Set<string>();
+  const generation = entry.generation;
   const promise = Promise.resolve().then(() => {
-    entry.batch = null;
+    key.batch = null;
     const union = new Set(names);
-    const generation = entry.generation;
-    const read = adapter.getLeafProperties([...union]);
-    const inFlight: InFlight = { names: union, promise: read };
-    entry.inFlight = inFlight;
+    const read = modelIds
+      ? adapter.getLeafProperties([...union], modelIds)
+      : adapter.getLeafProperties([...union]);
+    const inFlight: Pending = { names: union, promise: read };
+    key.inFlight = inFlight;
     const release = () => {
-      if (entry.inFlight === inFlight) entry.inFlight = null;
+      if (key.inFlight === inFlight) key.inFlight = null;
     };
     read.then((rows) => {
       release();
-      if (entry.generation === generation)
-        entry.settled = { names: union, rows };
+      if (entry.generation === generation) key.settled = { names: union, rows };
     }, release);
     return read;
   });
   return { names, promise };
+}
+
+function readKey(
+  adapter: ViewerAdapter,
+  entry: AdapterReads,
+  id: string,
+  names: readonly string[],
+  modelIds?: readonly string[],
+): Promise<PropertyRow[]> {
+  const key = keyReads(entry, id);
+  if (key.settled && covers(key.settled.names, names)) {
+    return Promise.resolve(key.settled.rows);
+  }
+  if (key.inFlight && covers(key.inFlight.names, names)) {
+    return key.inFlight.promise;
+  }
+  if (!key.batch) key.batch = startBatch(adapter, entry, key, modelIds);
+  for (const name of names) key.batch.names.add(name);
+  return key.batch.promise;
+}
+
+function shownModels(adapter: ViewerAdapter): ModelInfo[] | null {
+  if (typeof adapter.getModels !== 'function') return null;
+  return adapter
+    .getModels()
+    .filter((model) => model.status === 'ready' && model.visible);
+}
+
+function tag(rows: PropertyRow[], model: ModelInfo): PropertyRow[] {
+  return rows.map((row) => ({
+    ...row,
+    modelId: model.id,
+    modelName: model.name,
+  }));
 }
 
 export async function readLeafRows(
@@ -87,21 +125,38 @@ export async function readLeafRows(
   propertyNames: readonly string[],
 ): Promise<PropertyRow[]> {
   const entry = readsFor(adapter);
-  if (entry.settled && covers(entry.settled.names, propertyNames)) {
-    return project(entry.settled.rows, propertyNames);
+  const models = shownModels(adapter);
+  if (models === null) {
+    return project(
+      await readKey(adapter, entry, WHOLE, propertyNames),
+      propertyNames,
+    );
   }
-  if (entry.inFlight && covers(entry.inFlight.names, propertyNames)) {
-    return project(await entry.inFlight.promise, propertyNames);
+  const known = new Set(adapter.getModels().map((model) => model.id));
+  for (const id of entry.keys.keys()) {
+    if (id !== WHOLE && !known.has(id)) entry.keys.delete(id);
   }
-  if (!entry.batch) entry.batch = startBatch(adapter, entry);
-  for (const name of propertyNames) entry.batch.names.add(name);
-  return project(await entry.batch.promise, propertyNames);
+  const results = await Promise.allSettled(
+    models.map(async (model) =>
+      tag(
+        await readKey(adapter, entry, model.id, propertyNames, [model.id]),
+        model,
+      ),
+    ),
+  );
+  const rows: PropertyRow[] = [];
+  let failure: unknown = null;
+  for (const result of results) {
+    if (result.status === 'fulfilled') rows.push(...result.value);
+    else failure ??= result.reason;
+  }
+  if (failure !== null && rows.length === 0) throw failure;
+  return project(rows, propertyNames);
 }
 
 export function forgetLeafRows(adapter: ViewerAdapter): void {
   const entry = reads.get(adapter);
   if (!entry) return;
-  entry.settled = null;
-  entry.inFlight = null;
   entry.generation += 1;
+  entry.keys.clear();
 }

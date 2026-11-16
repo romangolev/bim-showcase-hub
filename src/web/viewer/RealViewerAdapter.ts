@@ -642,10 +642,15 @@ export class RealViewerAdapter implements ViewerAdapter {
     for (const { handle } of ready) viewer.clearThemingColors(handle);
   }
 
-  async getLeafProperties(propertyNames: string[]): Promise<PropertyRow[]> {
+  async getLeafProperties(
+    propertyNames: string[],
+    modelIds?: readonly string[],
+  ): Promise<PropertyRow[]> {
     const viewer = this.viewer;
     if (!viewer) return [];
-    const shown = this.models.shown();
+    const shown = this.models
+      .shown()
+      .filter(({ info }) => !modelIds || modelIds.includes(info.id));
     const results = await Promise.allSettled(
       shown.map(async ({ info, handle }) =>
         tagRows(await this.readModelRows(viewer, handle, propertyNames), info),

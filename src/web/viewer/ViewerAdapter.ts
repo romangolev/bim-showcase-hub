@@ -46,7 +46,10 @@ export interface ViewerAdapter {
   setThemingColor(ids: number[], color: Rgba): void;
   clearThemingColors(): void;
   setTheme(theme: Theme): void;
-  getLeafProperties(propertyNames: string[]): Promise<PropertyRow[]>;
+  getLeafProperties(
+    propertyNames: string[],
+    modelIds?: readonly string[],
+  ): Promise<PropertyRow[]>;
   registerToolGroup(spec: ToolGroupSpec): () => void;
   onSelectionChange(cb: (ids: number[]) => void): () => void;
   destroy(): void;

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { PropertyRow } from '../../shared/types.js';
+import { MockViewerAdapter } from './MockViewerAdapter.js';
 import { forgetLeafRows, readLeafRows } from './sharedLeafRows.js';
 import type { ViewerAdapter } from './ViewerAdapter.js';
 
@@ -90,5 +91,57 @@ describe('readLeafRows', () => {
     expect(getLeafProperties).toHaveBeenCalledTimes(1);
     expect(a[0]?.properties).toEqual({ Name: 'n', Level: 'l' });
     expect(b[0]?.properties).toEqual({ Name: 'n' });
+  });
+});
+
+describe('readLeafRows with a model set', () => {
+  async function combined(urns: string[]) {
+    const adapter = new MockViewerAdapter(document.createElement('div'));
+    await adapter.loadModels(urns.map((urn) => ({ urn })));
+    const spy = vi.spyOn(adapter, 'getLeafProperties');
+    return { adapter, spy };
+  }
+
+  function callsFor(spy: { mock: { calls: unknown[][] } }, id: string) {
+    return spy.mock.calls.filter((call) =>
+      (call[1] as string[] | undefined)?.includes(id),
+    ).length;
+  }
+
+  it('reads each model once and never re-reads on visibility changes', async () => {
+    const { adapter, spy } = await combined(['urn-a', 'urn-b']);
+    const both = await readLeafRows(adapter, ['Category']);
+    expect(callsFor(spy, 'urn-a')).toBe(1);
+    expect(callsFor(spy, 'urn-b')).toBe(1);
+    adapter.setModelVisible('urn-b', false);
+    const one = await readLeafRows(adapter, ['Category']);
+    expect(one).toHaveLength(both.length / 2);
+    adapter.setModelVisible('urn-b', true);
+    expect(await readLeafRows(adapter, ['Category'])).toHaveLength(both.length);
+    expect(spy).toHaveBeenCalledTimes(2);
+    adapter.destroy();
+  });
+
+  it('never caches a failed model read', async () => {
+    const { adapter, spy } = await combined(['urn-a', 'urn-noprops']);
+    const first = await readLeafRows(adapter, ['Category']);
+    expect(first.every((row) => row.modelId === 'urn-a')).toBe(true);
+    await readLeafRows(adapter, ['Category']);
+    expect(callsFor(spy, 'urn-noprops')).toBe(2);
+    expect(callsFor(spy, 'urn-a')).toBe(1);
+    adapter.destroy();
+  });
+
+  it('reuses the rows of the same version and leaves out removed models', async () => {
+    const { adapter, spy } = await combined(['urn-a', 'urn-b']);
+    await readLeafRows(adapter, ['Category']);
+    adapter.removeModel('urn-b');
+    const left = await readLeafRows(adapter, ['Category']);
+    expect(left.every((row) => row.modelId === 'urn-a')).toBe(true);
+    await adapter.addModel({ urn: 'urn-b', name: 'Renamed' });
+    const back = await readLeafRows(adapter, ['Category']);
+    expect(callsFor(spy, 'urn-b')).toBe(2);
+    expect(back.some((row) => row.modelName === 'Renamed')).toBe(true);
+    adapter.destroy();
   });
 });
