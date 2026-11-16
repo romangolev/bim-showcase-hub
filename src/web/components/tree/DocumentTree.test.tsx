@@ -836,6 +836,46 @@ describe('DocumentTree on-demand checks', () => {
     });
   });
 
+  it('picks a version whose check fails without checking it again', async () => {
+    const { calls } = await setup({
+      count: 2,
+      respond: () => json({ error: 'busy' }, 429),
+    });
+    fireEvent.click(row(1), { ctrlKey: true });
+    await waitFor(() => expect(row(1)).toHaveAttribute('aria-checked', 'true'));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(calls).toEqual(['nv1']);
+    fireEvent.click(row(2), { shiftKey: true });
+    await waitFor(() => expect(row(2)).toHaveAttribute('aria-checked', 'true'));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect([...calls].sort()).toEqual(['nv1', 'nv1', 'nv2']);
+    expect(screen.getByText('2 selected')).toBeInTheDocument();
+  });
+
+  it('picks a version that cannot be checked without looping', async () => {
+    const orphan = { ...never(1) } as Partial<ReturnType<typeof never>>;
+    delete orphan.parentId;
+    mockFetch({
+      ...treeRoutes,
+      '/api/projects/p1/items/i1/versions': () => json([orphan]),
+    });
+    render(
+      <QueryClientProvider client={createTestClient()}>
+        <DocumentTree onOpenModel={vi.fn()} onOpenTogether={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    await expandTo('Studio hub');
+    await expandTo('Riverside Tower');
+    await expandTo('Project Files');
+    await expandTo('Tower.rvt');
+    await screen.findByRole('treeitem', { name: 'v1: Issue 1' });
+    fireEvent.click(row(1), { ctrlKey: true });
+    await waitFor(() => expect(row(1)).toHaveAttribute('aria-checked', 'true'));
+    fireEvent.click(row(1), { shiftKey: true });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
+  });
+
   it('checks only the picked range, once per version, four at a time', async () => {
     const gate: (() => void)[] = [];
     const { calls, peak } = await setup({

@@ -338,9 +338,15 @@ export function DocumentTree({
   const togglePick = (input: TreeNode) => {
     const node = resolved(input);
     if (needsCheck(node)) {
-      void ensureChecked(node).then((checked) =>
-        isBlocked(checked) ? openChecked(checked) : togglePick(checked),
-      );
+      void ensureChecked(node).then(pickChecked);
+      return;
+    }
+    pickChecked(node);
+  };
+
+  const pickChecked = (node: TreeNode) => {
+    if (isBlocked(node)) {
+      openChecked(node);
       return;
     }
     const urn = openableUrn(node);
@@ -386,8 +392,7 @@ export function DocumentTree({
     const from = versions.findIndex((entry) => entry.id === anchorRef.current);
     const to = versions.findIndex((entry) => entry.id === node.id);
     if (from === -1 || to === -1) {
-      if (isBlocked(resolved(node))) openNode(node);
-      else togglePick(node);
+      pickChecked(versions[to] ?? resolved(node));
       return;
     }
     const [start, end] = from < to ? [from, to] : [to, from];
