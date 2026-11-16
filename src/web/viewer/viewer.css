@@ -44,8 +44,16 @@
   cursor: pointer;
 }
 
+.bsh-viewer-overlay button {
+  transition: background-color var(--transition-ui);
+}
+
 .bsh-viewer-overlay button:hover {
   background: var(--color-ghost-fill-hover);
+}
+
+.bsh-viewer-overlay button:active {
+  background: var(--color-ghost-fill-active);
 }
 
 .bsh-viewer-surface .adsk-viewing-viewer {
@@ -78,7 +86,7 @@
   top: var(--space-3);
   left: var(--space-3);
   padding: var(--space-1) var(--space-2);
-  color: var(--color-steel);
+  color: var(--color-ash);
   font-size: var(--text-13);
   font-weight: var(--weight-label);
   border: var(--border-hairline);
@@ -169,6 +177,9 @@
   border: 0;
   border-radius: var(--radius-tile);
   cursor: pointer;
+  transition:
+    background-color var(--transition-ui),
+    color var(--transition-ui);
 }
 
 .bsh-mock__button:hover {
@@ -176,7 +187,6 @@
   background: var(--color-ghost-fill-hover);
 }
 
-.bsh-mock__button:focus-visible {
-  outline: none;
-  box-shadow: var(--ring-focus);
+.bsh-mock__button:active {
+  background: var(--color-ghost-fill-active);
 }

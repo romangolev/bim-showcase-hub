@@ -65,7 +65,7 @@ export class MockViewerAdapter implements ViewerAdapter {
     const elements = buildMockElements();
     this.renderScene(elements);
     this.loaded = true;
-    if (this.status) this.status.textContent = 'Mock viewer - fixture model';
+    if (this.status) this.status.textContent = 'Mock viewer, fixture model';
   }
 
   unload(): void {

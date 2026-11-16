@@ -43,11 +43,24 @@ a:hover {
 }
 
 :focus-visible {
-  outline: none;
-  box-shadow: var(--ring-focus);
+  outline: var(--ring-width) solid var(--color-ring-blue);
+  outline-offset: var(--ring-offset);
+}
+
+@media (forced-colors: active) {
+  :focus-visible {
+    outline-color: Highlight;
+  }
 }
 
 ::selection {
   background: var(--color-signal-blue);
   color: var(--color-snow);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn,
+  .icon-button {
+    transition: none;
+  }
 }

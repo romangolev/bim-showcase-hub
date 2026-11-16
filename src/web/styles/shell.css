@@ -166,7 +166,7 @@
   align-items: center;
   gap: var(--space-3);
   height: 100%;
-  padding: 0 var(--space-6);
+  padding: 0 var(--gutter);
 }
 
 .topbar__spacer {
@@ -219,8 +219,16 @@
   cursor: pointer;
 }
 
+.user-menu__trigger {
+  transition: background-color var(--transition-ui);
+}
+
 .user-menu__trigger:hover {
-  background: var(--color-ghost-fill);
+  background: var(--color-ghost-fill-hover);
+}
+
+.user-menu__trigger:active {
+  background: var(--color-ghost-fill-active);
 }
 
 .avatar {
@@ -234,7 +242,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: var(--color-iris);
+  border: var(--border-hairline);
+  background: var(--color-ghost-fill);
   color: var(--color-snow);
   font-size: var(--text-13);
   font-weight: var(--weight-label);
@@ -273,11 +282,18 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
+  transition:
+    background-color var(--transition-ui),
+    color var(--transition-ui);
 }
 
 .user-menu__item:hover:not(:disabled) {
-  background: var(--color-ghost-fill);
+  background: var(--color-ghost-fill-hover);
   color: var(--color-snow);
+}
+
+.user-menu__item:active:not(:disabled) {
+  background: var(--color-ghost-fill-active);
 }
 
 .user-menu__error {
@@ -299,7 +315,15 @@
 }
 
 .app-main:focus-visible {
-  box-shadow: none;
+  outline-offset: -2px;
+}
+
+.app-main[data-route="model"] {
+  overflow: hidden;
+}
+
+.tree-backdrop {
+  display: none;
 }
 
 .app-loading {
@@ -336,16 +360,35 @@
     animation: none;
   }
 
-  .btn {
+  .user-menu__trigger,
+  .user-menu__item {
     transition: none;
   }
 }
 
-@media (max-width: 900px) {
-  .topbar__inner {
-    padding: 0 var(--space-4);
+@media (max-width: 1099px) {
+  .app-main[data-route="model"] {
+    overflow: auto;
+  }
+}
+
+@media (max-width: 999px) {
+  .tree-backdrop {
+    position: fixed;
+    inset: var(--nav-height) 0 0;
+    z-index: 39;
+    display: block;
+    border: 0;
+    background: rgb(0 0 0 / 0.6);
+    cursor: pointer;
   }
 
+  .tree-backdrop[hidden] {
+    display: none;
+  }
+}
+
+@media (max-width: 700px) {
   .user-menu__name {
     display: none;
   }
