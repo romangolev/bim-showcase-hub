@@ -1,0 +1,34 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.6.8/schema.json",
+  "files": {
+    "includes": [
+      "**",
+      "!dist",
+      "!.claude",
+      "!.playwright-mcp",
+      "!.vercel",
+      "!e2e/output",
+      "!e2e/.profile",
+      "!node_modules",
+      "!docs",
+      "!package-lock.json",
+      "!DESIGN.md"
+    ]
+  },
+  "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2 },
+  "javascript": { "formatter": { "quoteStyle": "single" } },
+  "linter": { "enabled": true },
+  "overrides": [
+    {
+      "includes": ["src/web/viewer/viewerChrome.css"],
+      "linter": {
+        "rules": {
+          "correctness": { "noUnknownTypeSelector": "off" },
+          "complexity": { "noImportantStyles": "off" },
+          "style": { "noDescendingSpecificity": "off" }
+        }
+      }
+    }
+  ],
+  "assist": { "actions": { "source": { "organizeImports": "on" } } }
+}

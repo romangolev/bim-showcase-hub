@@ -1,0 +1,283 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '../test/render.js';
+import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
+import { DashboardPanel } from './DashboardPanel.js';
+import { ModelSummaryPanel } from './ModelSummaryPanel.js';
+import { SummaryTable } from './SummaryTable.js';
+
+vi.mock('chart.js', () => {
+  class Chart {
+    static register = vi.fn();
+    static defaults = { font: {}, color: '' };
+    destroy = vi.fn();
+  }
+  const stub = {};
+  return {
+    Chart,
+    ArcElement: stub,
+    BarController: stub,
+    BarElement: stub,
+    CategoryScale: stub,
+    LinearScale: stub,
+    DoughnutController: stub,
+    Tooltip: stub,
+  };
+});
+
+const adapters: MockViewerAdapter[] = [];
+
+async function loaded(): Promise<MockViewerAdapter> {
+  const adapter = new MockViewerAdapter(document.createElement('div'));
+  await adapter.load('urn');
+  adapters.push(adapter);
+  return adapter;
+}
+
+afterEach(() => {
+  for (const a of adapters.splice(0)) a.destroy();
+});
+
+describe('ModelSummaryPanel', () => {
+  it('renders counts in a table', async () => {
+    const adapter = await loaded();
+    render(
+      <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />,
+    );
+    const walls = await screen.findByRole('cell', { name: 'Walls' });
+    const row = walls.closest('tr');
+    expect(row).not.toBeNull();
+    expect(row?.querySelectorAll('td')[2]?.textContent).toMatch(/^\d+$/);
+    expect(
+      screen.getByRole('columnheader', { name: 'Count' }),
+    ).toBeInTheDocument();
+  });
+
+  it('offers a toggle to show every row when there are more than twelve', async () => {
+    const adapter = await loaded();
+    const { container } = render(
+      <ModelSummaryPanel
+        adapter={adapter}
+        propertyNames={['Category', 'Name', 'Level', 'Assembly Code']}
+      />,
+    );
+    const toggle = await screen.findByRole('button', {
+      name: /^Show all \d+ rows$/,
+    });
+    const card = container.querySelector('section');
+    expect(card).toHaveAttribute('data-rows-collapsed', 'true');
+    fireEvent.click(toggle);
+    expect(card).toHaveAttribute('data-rows-collapsed', 'false');
+    expect(
+      screen.getByRole('button', { name: 'Show fewer rows' }),
+    ).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('prompts to load a model when there is no adapter', () => {
+    render(<ModelSummaryPanel />);
+    expect(screen.getByText(/No model loaded yet/)).toBeInTheDocument();
+  });
+});
+
+describe('ModelSummaryPanel collapse and counts', () => {
+  it('collapses with an accessible toggle and inert body', async () => {
+    const adapter = await loaded();
+    const onChange = vi.fn();
+    render(
+      <ModelSummaryPanel
+        adapter={adapter}
+        propertyNames={['Category']}
+        onCollapsedChange={onChange}
+      />,
+    );
+    const toggle = screen.getByRole('button', {
+      name: 'Collapse Model summary',
+    });
+    const body = document.getElementById(
+      toggle.getAttribute('aria-controls') ?? '',
+    );
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.click(toggle);
+    expect(onChange).toHaveBeenCalledWith(true);
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(body).toHaveAttribute('inert');
+    expect(body).toHaveAttribute('aria-hidden', 'true');
+    expect(
+      document.querySelector('.bsh-summary')?.getAttribute('data-collapsed'),
+    ).toBe('true');
+  });
+
+  it('honours the controlled collapsed prop', () => {
+    render(<ModelSummaryPanel collapsed onCollapsedChange={() => {}} />);
+    expect(
+      screen.getByRole('button', { name: 'Expand Model summary' }),
+    ).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('formats large counts with separators and never wraps them', () => {
+    render(
+      <SummaryTable
+        entries={[{ property: 'Category', value: 'Walls', count: 104686 }]}
+      />,
+    );
+    const cell = screen.getByText('104,686').closest('td');
+    expect(cell).toHaveClass('bsh-num');
+    expect(cell).toHaveAttribute('title', '104,686');
+  });
+});
+
+describe('shared property read', () => {
+  it('reads the union of both panels properties once', async () => {
+    const adapter = await loaded();
+    const spy = vi.spyOn(adapter, 'getLeafProperties');
+    render(
+      <>
+        <DashboardPanel adapter={adapter} />
+        <ModelSummaryPanel adapter={adapter} />
+      </>,
+    );
+    await screen.findByRole('img', {
+      name: 'Bar chart of element counts by Category',
+    });
+    await screen.findAllByText(/Assembly Code/);
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('DashboardPanel', () => {
+  it('renders labelled charts and a data table fallback', async () => {
+    const adapter = await loaded();
+    render(<DashboardPanel adapter={adapter} />);
+    expect(
+      await screen.findByRole('img', {
+        name: 'Bar chart of element counts by Category',
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('list', { name: /Legend/ })).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', {
+        name: 'Doughnut chart of element share by Category',
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Data table')).toBeInTheDocument();
+  });
+
+  it('switches property and collapses', async () => {
+    const adapter = await loaded();
+    const onCollapsedChange = vi.fn();
+    render(
+      <DashboardPanel
+        adapter={adapter}
+        onCollapsedChange={onCollapsedChange}
+      />,
+    );
+    const select = await screen.findByLabelText('Group elements by');
+    fireEvent.change(select, { target: { value: 'Level' } });
+    expect(
+      await screen.findByRole('img', {
+        name: 'Bar chart of element counts by Level',
+      }),
+    ).toBeInTheDocument();
+    const toggle = screen.getByRole('button', { name: 'Collapse' });
+    fireEvent.click(toggle);
+    expect(onCollapsedChange).toHaveBeenCalledWith(true);
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('honours the controlled collapsed prop', async () => {
+    const adapter = await loaded();
+    render(<DashboardPanel adapter={adapter} collapsed />);
+    expect(screen.getByRole('button', { name: 'Expand' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+  });
+});
+
+describe('SummaryTable scroll region', () => {
+  const entries = [{ property: 'Category', value: 'Walls', count: 4 }];
+
+  function stubScroll(scrollHeight: number, clientHeight: number) {
+    Object.defineProperty(HTMLElement.prototype, 'scrollHeight', {
+      configurable: true,
+      value: scrollHeight,
+    });
+    Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
+      configurable: true,
+      value: clientHeight,
+    });
+  }
+
+  afterEach(() => {
+    Reflect.deleteProperty(HTMLElement.prototype, 'scrollHeight');
+    Reflect.deleteProperty(HTMLElement.prototype, 'clientHeight');
+  });
+
+  it('is not focusable when nothing scrolls', () => {
+    stubScroll(100, 100);
+    const { container } = render(<SummaryTable entries={entries} />);
+    const wrap = container.querySelector('.bsh-table-wrap');
+    expect(wrap).not.toHaveAttribute('tabindex');
+    expect(wrap).not.toHaveAttribute('aria-label');
+  });
+
+  it('is a labelled focusable region when content scrolls', () => {
+    stubScroll(300, 100);
+    render(<SummaryTable entries={entries} />);
+    const region = screen.getByRole('region', {
+      name: 'Summary table, scrollable',
+    });
+    expect(region).toHaveAttribute('tabindex', '0');
+  });
+
+  it('gives every cell a title and clamps long values', () => {
+    stubScroll(100, 100);
+    const { container } = render(<SummaryTable entries={entries} />);
+    for (const cell of container.querySelectorAll('tbody td')) {
+      expect(cell).toHaveAttribute('title');
+      expect(cell.querySelector('.bsh-clamp')).not.toBeNull();
+    }
+  });
+});
+
+describe('Feedback states', () => {
+  it('shows skeleton rows while the summary reads properties', async () => {
+    const adapter = await loaded();
+    vi.spyOn(adapter, 'getLeafProperties').mockReturnValue(
+      new Promise(() => undefined),
+    );
+    const { container } = render(<ModelSummaryPanel adapter={adapter} />);
+    expect(container.querySelectorAll('.state-block__bar').length).toBe(5);
+  });
+
+  it('maps summary errors to friendly copy with retry and raw detail in a title', async () => {
+    const adapter = await loaded();
+    const read = vi
+      .spyOn(adapter, 'getLeafProperties')
+      .mockRejectedValueOnce(new Error('ECONNRESET at 10.0.0.4'));
+    render(<ModelSummaryPanel adapter={adapter} />);
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(
+      "We could not read this model's properties",
+    );
+    expect(alert).not.toHaveTextContent('ECONNRESET');
+    expect(alert).toHaveAttribute('title', 'ECONNRESET at 10.0.0.4');
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(read).toHaveBeenCalledTimes(2));
+  });
+
+  it('shows the dashboard empty state without a model', () => {
+    render(<DashboardPanel />);
+    expect(screen.getByText('No charts yet')).toBeInTheDocument();
+  });
+
+  it('maps dashboard errors to friendly copy', async () => {
+    const adapter = await loaded();
+    vi.spyOn(adapter, 'getLeafProperties').mockRejectedValue(
+      new Error('boom internals'),
+    );
+    render(<DashboardPanel adapter={adapter} />);
+    const alert = await screen.findByRole('alert');
+    expect(alert).not.toHaveTextContent('boom internals');
+    expect(alert).toHaveAttribute('title', 'boom internals');
+  });
+});

@@ -135,3 +135,17 @@ dist
 
 
 .idea
+dist
+.vite
+.env.*
+!.env.example
+
+.claude/
+.playwright-mcp/
+.vercel
+graphify-out/
+
+e2e/.profile/
+e2e/.venv/
+e2e/output/
+e2e/__pycache__/

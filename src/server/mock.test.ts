@@ -1,0 +1,199 @@
+import request from 'supertest';
+import { describe, expect, it } from 'vitest';
+import type { TreeNode } from '../shared/types.js';
+import { loadConfig } from './config.js';
+import { decodeId } from './ids.js';
+import { createApp } from './index.js';
+
+const app = createApp(loadConfig({ MOCK_APS: '1' }));
+
+async function getNodes(url: string): Promise<TreeNode[]> {
+  const res = await request(app).get(url);
+  expect(res.status, url).toBe(200);
+  return res.body as TreeNode[];
+}
+
+interface Walk {
+  hubs: TreeNode[];
+  projects: TreeNode[];
+  folders: TreeNode[];
+  items: TreeNode[];
+  versions: TreeNode[];
+  maxDepth: number;
+}
+
+async function walk(): Promise<Walk> {
+  const out: Walk = {
+    hubs: [],
+    projects: [],
+    folders: [],
+    items: [],
+    versions: [],
+    maxDepth: 0,
+  };
+  async function visitFolder(
+    projectId: string,
+    folder: TreeNode,
+    depth: number,
+  ): Promise<void> {
+    out.folders.push(folder);
+    out.maxDepth = Math.max(out.maxDepth, depth);
+    const contents = await getNodes(
+      `/api/projects/${projectId}/folders/${folder.id}/contents`,
+    );
+    for (const node of contents) {
+      expect(node.parentId).toBe(folder.id);
+      if (node.kind === 'folder') {
+        await visitFolder(projectId, node, depth + 1);
+      } else {
+        expect(node.kind).toBe('item');
+        out.items.push(node);
+        const versions = await getNodes(
+          `/api/projects/${projectId}/items/${node.id}/versions`,
+        );
+        for (const version of versions) {
+          expect(version.parentId).toBe(node.id);
+        }
+        out.versions.push(...versions);
+      }
+    }
+  }
+  out.hubs = await getNodes('/api/hubs');
+  for (const hub of out.hubs) {
+    const projects = await getNodes(`/api/hubs/${hub.id}/projects`);
+    for (const project of projects) {
+      expect(project.parentId).toBe(hub.id);
+      out.projects.push(project);
+      const tops = await getNodes(
+        `/api/hubs/${hub.id}/projects/${project.id}/folders`,
+      );
+      for (const top of tops) {
+        expect(top.parentId).toBe(project.id);
+        await visitFolder(project.id, top, 1);
+      }
+    }
+  }
+  return out;
+}
+
+describe('mock mode', () => {
+  it('serves a signed-in fake user without login', async () => {
+    const res = await request(app).get('/api/session');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ name: 'Alex Rivera', picture: null });
+  });
+
+  it('serves a dummy viewer token', async () => {
+    const res = await request(app).get('/api/viewer/token');
+    expect(res.status).toBe(200);
+    expect(res.body.access_token).toEqual(expect.any(String));
+    expect(res.body.expires_in).toBeGreaterThan(0);
+  });
+
+  it('accepts signout and the auth redirect without network', async () => {
+    expect((await request(app).post('/api/auth/signout')).status).toBe(204);
+    expect(
+      (await request(app).get('/api/auth/callback')).headers.location,
+    ).toBe('/');
+    expect((await request(app).get('/api/auth/url')).body.url).toEqual(
+      expect.any(String),
+    );
+  });
+
+  it('exposes a deterministic tree large enough to need virtualization', async () => {
+    const tree = await walk();
+    expect(tree.hubs).toHaveLength(2);
+    expect(tree.projects.length).toBeGreaterThanOrEqual(4);
+    expect(tree.maxDepth).toBeGreaterThanOrEqual(3);
+    expect(tree.items.length).toBeGreaterThanOrEqual(300);
+    const all = [
+      ...tree.hubs,
+      ...tree.projects,
+      ...tree.folders,
+      ...tree.items,
+      ...tree.versions,
+    ];
+    expect(new Set(all.map((n) => n.id)).size).toBe(all.length);
+    expect(all.every((n) => /^[A-Za-z0-9_-]+$/.test(n.id))).toBe(true);
+
+    const perItem = new Map<string, number>();
+    for (const v of tree.versions) {
+      perItem.set(
+        v.parentId as string,
+        (perItem.get(v.parentId as string) ?? 0) + 1,
+      );
+    }
+    const counts = new Set(perItem.values());
+    expect([...counts].every((c) => c >= 1 && c <= 4)).toBe(true);
+    expect(counts.size).toBe(4);
+
+    expect(tree.versions.some((v) => v.viewable)).toBe(true);
+    expect(tree.versions.some((v) => !v.viewable)).toBe(true);
+    expect(tree.versions.every((v) => v.viewable === Boolean(v.urn))).toBe(
+      true,
+    );
+    expect(tree.versions.every((v) => /^v\d: .+ by .+$/.test(v.name))).toBe(
+      true,
+    );
+
+    const extensions = new Set(tree.items.map((i) => i.name.split('.').pop()));
+    for (const ext of ['rvt', 'nwd', 'ifc', 'dwg', 'pdf']) {
+      expect(extensions.has(ext)).toBe(true);
+    }
+  });
+
+  it('is deterministic across app instances', async () => {
+    const other = createApp(loadConfig({ MOCK_APS: '1' }));
+    const a = await request(app).get('/api/hubs');
+    const b = await request(other).get('/api/hubs');
+    expect(a.body).toEqual(b.body);
+  });
+
+  it('returns 404 for unknown but well-formed ids', async () => {
+    const ghost = Buffer.from('ghost').toString('base64url');
+    const [hub] = await getNodes('/api/hubs');
+    const [project] = await getNodes(`/api/hubs/${hub?.id}/projects`);
+    const [folder] = await getNodes(
+      `/api/hubs/${hub?.id}/projects/${project?.id}/folders`,
+    );
+    for (const url of [
+      `/api/hubs/${ghost}/projects`,
+      `/api/hubs/${hub?.id}/projects/${ghost}/folders`,
+      `/api/projects/${project?.id}/folders/${ghost}/contents`,
+      `/api/projects/${ghost}/folders/${folder?.id}/contents`,
+      `/api/projects/${project?.id}/items/${ghost}/versions`,
+    ]) {
+      const res = await request(app).get(url);
+      expect(res.status, url).toBe(404);
+      expect(res.body.error).toEqual(expect.any(String));
+    }
+  });
+
+  it('does not let a project read another hub or project', async () => {
+    const hubs = await getNodes('/api/hubs');
+    const [p1] = await getNodes(`/api/hubs/${hubs[0]?.id}/projects`);
+    const res = await request(app).get(
+      `/api/hubs/${hubs[1]?.id}/projects/${p1?.id}/folders`,
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 400 for malformed ids', async () => {
+    for (const url of [
+      '/api/hubs/not%20valid/projects',
+      '/api/hubs/a/projects/b/folders',
+      '/api/projects/!!/folders/@@/contents',
+      '/api/projects/x/items/y%2Fz/versions',
+    ]) {
+      const res = await request(app).get(url);
+      expect(res.status, url).toBe(400);
+    }
+    expect(() => decodeId('a')).toThrow();
+  });
+
+  it('returns a json 404 for unknown api routes', async () => {
+    const res = await request(app).get('/api/nope');
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: 'Not found' });
+  });
+});
