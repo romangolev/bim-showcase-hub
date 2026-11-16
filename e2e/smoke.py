@@ -121,28 +121,47 @@ def run_model_checks(page, checks, found):
 def check_canvas_follows_summary(page, checks):
     toggle = page.locator(".model-summary button.bsh-summary__toggle").first
     page.bring_to_front()
+    start_expanded = None
+    first = None
     try:
         start_expanded = toggle.get_attribute("aria-expanded") == "true"
         before = main_canvas_width(page)
-        toggle.click(timeout=8000)
-        if start_expanded:
-            first = wait_for_canvas_width(page, lambda w: w > before + 20)
-            ok = first > before + 20
-        else:
-            first = wait_for_canvas_width(page, lambda w: w < before - 20)
-            ok = first < before - 20
-        checks.add("canvas follows the first summary toggle", ok, f"{before:.0f} -> {first:.0f}")
-        page.screenshot(path=str(OUTPUT_DIR / "04-summary-toggled.png"))
-        toggle.click(timeout=8000)
-        if start_expanded:
-            back = wait_for_canvas_width(page, lambda w: w < first - 20)
-            ok = back < first - 20
-        else:
-            back = wait_for_canvas_width(page, lambda w: w > first + 20)
-            ok = back > first + 20
-        checks.add("canvas follows the second summary toggle", ok, f"{first:.0f} -> {back:.0f}")
+        try:
+            toggle.click(timeout=8000)
+            if start_expanded:
+                first = wait_for_canvas_width(page, lambda w: w > before + 20)
+                ok = first > before + 20
+            else:
+                first = wait_for_canvas_width(page, lambda w: w < before - 20)
+                ok = first < before - 20
+            checks.add("canvas follows the first summary toggle", ok, f"{before:.0f} -> {first:.0f}")
+            page.screenshot(path=str(OUTPUT_DIR / "04-summary-toggled.png"))
+        except Exception as exc:
+            checks.add("canvas follows the first summary toggle", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+        try:
+            if first is None:
+                raise RuntimeError("first toggle did not produce a width")
+            toggle.click(timeout=8000)
+            if start_expanded:
+                back = wait_for_canvas_width(page, lambda w: w < first - 20)
+                ok = back < first - 20
+            else:
+                back = wait_for_canvas_width(page, lambda w: w > first + 20)
+                ok = back > first + 20
+            checks.add("canvas follows the second summary toggle", ok, f"{first:.0f} -> {back:.0f}")
+        except Exception as exc:
+            checks.add("canvas follows the second summary toggle", False, f"{type(exc).__name__}: {str(exc)[:160]}")
     except Exception as exc:
-        checks.add("canvas follows the summary panel", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+        for name in ("canvas follows the first summary toggle", "canvas follows the second summary toggle"):
+            if not any(r["name"] == name for r in checks.results):
+                checks.add(name, False, f"{type(exc).__name__}: {str(exc)[:160]}")
+    finally:
+        if start_expanded is not None:
+            try:
+                if (toggle.get_attribute("aria-expanded") == "true") != start_expanded:
+                    toggle.click(timeout=8000)
+            except Exception:
+                pass
 
 
 def main():
