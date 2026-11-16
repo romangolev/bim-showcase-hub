@@ -121,14 +121,25 @@ def run_model_checks(page, checks, found):
 def check_canvas_follows_summary(page, checks):
     toggle = page.locator(".model-summary button.bsh-summary__toggle").first
     try:
+        start_expanded = toggle.get_attribute("aria-expanded") == "true"
         before = main_canvas_width(page)
         toggle.click(timeout=8000)
-        grown = wait_for_canvas_width(page, lambda w: w > before + 20)
-        checks.add("canvas grows when the summary collapses", grown > before + 20, f"{before:.0f} -> {grown:.0f}")
-        page.screenshot(path=str(OUTPUT_DIR / "04-summary-collapsed.png"))
+        if start_expanded:
+            first = wait_for_canvas_width(page, lambda w: w > before + 20)
+            ok = first > before + 20
+        else:
+            first = wait_for_canvas_width(page, lambda w: w < before - 20)
+            ok = first < before - 20
+        checks.add("canvas follows the first summary toggle", ok, f"{before:.0f} -> {first:.0f}")
+        page.screenshot(path=str(OUTPUT_DIR / "04-summary-toggled.png"))
         toggle.click(timeout=8000)
-        shrunk = wait_for_canvas_width(page, lambda w: w < grown - 20)
-        checks.add("canvas shrinks when the summary reopens", shrunk < grown - 20, f"{grown:.0f} -> {shrunk:.0f}")
+        if start_expanded:
+            back = wait_for_canvas_width(page, lambda w: w < first - 20)
+            ok = back < first - 20
+        else:
+            back = wait_for_canvas_width(page, lambda w: w > first + 20)
+            ok = back > first + 20
+        checks.add("canvas follows the second summary toggle", ok, f"{first:.0f} -> {back:.0f}")
     except Exception as exc:
         checks.add("canvas follows the summary panel", False, f"{type(exc).__name__}: {str(exc)[:160]}")
 
