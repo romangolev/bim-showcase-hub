@@ -218,6 +218,25 @@ describe.each([mockFactory, realFactory])(
       );
     });
 
+    it('fails the same way on a destroyed adapter and an empty urn', async () => {
+      const { adapter } = setup();
+      await expect(adapter.addModel({ urn: '' })).rejects.toMatchObject({
+        code: 'empty',
+      });
+      await expect(adapter.loadModels([])).rejects.toMatchObject({
+        code: 'empty',
+      });
+      const seen = vi.fn();
+      adapter.onModelsChange(seen);
+      adapter.destroy();
+      await expect(adapter.addModel({ urn: 'urn-a' })).rejects.toMatchObject({
+        code: 'closed',
+      });
+      expect(await adapter.loadModels([{ urn: 'urn-a' }])).toEqual([]);
+      expect(adapter.getModels()).toEqual([]);
+      expect(seen).not.toHaveBeenCalled();
+    });
+
     it('rejects when every model fails', async () => {
       const { adapter, failingUrn } = setup();
       await expect(adapter.load(failingUrn)).rejects.toThrow();

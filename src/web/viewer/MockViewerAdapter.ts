@@ -24,6 +24,7 @@ import {
   type ModelSource,
   modelIdFor,
   uniqueSources,
+  VIEWER_CLOSED_MESSAGE,
 } from './modelSet.js';
 import {
   ToolGroupController,
@@ -176,7 +177,7 @@ export class MockViewerAdapter implements ViewerAdapter {
 
   async addModel(source: ModelSource): Promise<ModelInfo> {
     if (this.destroyed) {
-      throw new ModelSetError('empty', 'The viewer is closed');
+      throw new ModelSetError('closed', VIEWER_CLOSED_MESSAGE);
     }
     const info = this.models.add(source);
     this.loadOne(source);
@@ -535,7 +536,10 @@ export class MockViewerAdapter implements ViewerAdapter {
       return;
     }
     const scene = this.renderModel(id, buildMockElements());
-    if (!scene) return;
+    if (!scene) {
+      this.models.fail(id, MOCK_LOAD_ERROR);
+      return;
+    }
     if (!this.models.resolve(id, scene)) {
       scene.group.remove();
       return;
