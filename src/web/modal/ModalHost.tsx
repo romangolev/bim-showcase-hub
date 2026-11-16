@@ -12,27 +12,33 @@ export function ModalHost({ definition, onClose }: ModalHostProps) {
   const titleId = useId();
   const { Body } = definition;
 
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     const dialog = dialogRef.current;
     const opener = document.activeElement as HTMLElement | null;
     const onBackdropClick = (event: MouseEvent) => {
-      if (event.target === dialog) onClose();
+      if (event.target === dialog) onCloseRef.current();
+    };
+    const onNativeClose = () => {
+      if (dialog && !dialog.open) onCloseRef.current();
     };
     dialog?.addEventListener('click', onBackdropClick);
+    dialog?.addEventListener('close', onNativeClose);
     dialog?.showModal();
     return () => {
       dialog?.removeEventListener('click', onBackdropClick);
-      if (dialog?.open) dialog.close();
+      dialog?.removeEventListener('close', onNativeClose);
       opener?.focus();
     };
-  }, [onClose]);
+  }, []);
 
   return (
     <dialog
       ref={dialogRef}
       className={`modal modal--${definition.size}`}
       aria-labelledby={titleId}
-      onClose={onClose}
     >
       <div className="modal__panel">
         <header className="modal__head">
