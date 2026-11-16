@@ -149,3 +149,5 @@ e2e/.profile/
 e2e/.venv/
 e2e/output/
 e2e/__pycache__/
+
+docs/superpowers/plans/

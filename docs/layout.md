@@ -1,6 +1,6 @@
 # Layout
 
-The signed-in app is a dock: every part of the screen is a pane that can be moved, resized, tabbed, collapsed, floated inside the page and, except for Documents, closed. Documents is the main pane: it is always there, and on first load or after Reset layout with no model open it fills the dock alone with a "Select a model version to open it in the viewer" hint. The viewer opens from the selected document, and every open model is its own viewer tab. The design is in [superpowers/specs/2026-11-16-dockable-layout-design.md](superpowers/specs/2026-11-16-dockable-layout-design.md) and the multi-model plan in [superpowers/plans/2026-11-16-multi-model-plan.md](superpowers/plans/2026-11-16-multi-model-plan.md).
+The signed-in app is a dock: every part of the screen is a pane that can be moved, resized, tabbed, collapsed, floated inside the page and, except for Documents, closed. Documents is the main pane: it is always there, and on first load or after Reset layout with no model open it fills the dock alone with a "Select a model version to open it in the viewer" hint. The viewer opens from the selected document, and every open model is its own viewer tab. The design is in [superpowers/specs/2026-11-16-dockable-layout-design.md](superpowers/specs/2026-11-16-dockable-layout-design.md).
 
 ## Pieces
 
