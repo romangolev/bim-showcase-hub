@@ -11,7 +11,7 @@ export interface StateBlockAction {
 export interface StateBlockProps {
   variant: 'loading' | 'empty' | 'error';
   title?: string;
-  titleAs?: 'p' | 'h1' | 'h2';
+  titleAs?: 'p' | 'h1' | 'h2' | 'h3';
   titleId?: string;
   message?: string;
   detail?: string;

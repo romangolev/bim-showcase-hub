@@ -1,24 +1,10 @@
-import { isStringArray, type ModelContext } from './modelContext.js';
+import { type ModelContext, parseModelContext } from './modelContext.js';
 
 export const MODEL_STORE_KEY = 'bsh.models.recent';
 export const MODEL_STORE_LIMIT = 50;
 
 interface StoredModel extends ModelContext {
   urn: string;
-}
-
-function isStored(value: unknown): value is StoredModel {
-  if (typeof value !== 'object' || value === null) {
-    return false;
-  }
-  const entry = value as Record<string, unknown>;
-  return (
-    typeof entry.urn === 'string' &&
-    (entry.file === undefined || typeof entry.file === 'string') &&
-    (entry.v === undefined || typeof entry.v === 'string') &&
-    (entry.trail === undefined || isStringArray(entry.trail)) &&
-    (entry.crumbs === undefined || isStringArray(entry.crumbs))
-  );
 }
 
 function readAll(): StoredModel[] {
@@ -28,10 +14,45 @@ function readAll(): StoredModel[] {
       return [];
     }
     const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter(isStored) : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.flatMap((entry: unknown) => {
+      const urn = (entry as { urn?: unknown } | null)?.urn;
+      return typeof urn === 'string' && urn
+        ? [{ urn, ...parseModelContext(entry) }]
+        : [];
+    });
   } catch {
     return [];
   }
+}
+
+let storeVersion = 0;
+const storeListeners = new Set<() => void>();
+
+function notifyStore(): void {
+  storeVersion += 1;
+  for (const listener of [...storeListeners]) listener();
+}
+
+function onStorage(event: StorageEvent): void {
+  if (event.key === null || event.key === MODEL_STORE_KEY) notifyStore();
+}
+
+export function subscribeModelStore(listener: () => void): () => void {
+  if (storeListeners.size === 0 && typeof window !== 'undefined') {
+    window.addEventListener('storage', onStorage);
+  }
+  storeListeners.add(listener);
+  return () => {
+    storeListeners.delete(listener);
+    if (storeListeners.size === 0 && typeof window !== 'undefined') {
+      window.removeEventListener('storage', onStorage);
+    }
+  };
+}
+
+export function modelStoreVersion(): number {
+  return storeVersion;
 }
 
 export function hasModelContext(context: ModelContext): boolean {
@@ -47,11 +68,8 @@ export function rememberModel(urn: string, context: ModelContext): void {
   if (!urn || !hasModelContext(context)) {
     return;
   }
-  const entry: StoredModel = { urn };
-  if (context.file) entry.file = context.file;
-  if (context.v) entry.v = context.v;
-  if (context.crumbs?.length) entry.crumbs = [...context.crumbs];
-  if (context.trail?.length) entry.trail = [...context.trail];
+  const { with: _with, ...single } = parseModelContext(context);
+  const entry: StoredModel = { urn, ...single };
   const next = [
     entry,
     ...readAll().filter((stored) => stored.urn !== urn),
@@ -61,6 +79,7 @@ export function rememberModel(urn: string, context: ModelContext): void {
   } catch {
     return;
   }
+  notifyStore();
 }
 
 export function recallModel(urn: string): ModelContext | null {
@@ -68,6 +87,6 @@ export function recallModel(urn: string): ModelContext | null {
   if (!found) {
     return null;
   }
-  const { urn: _urn, ...context } = found;
+  const { urn: _urn, with: _with, ...context } = found;
   return context;
 }

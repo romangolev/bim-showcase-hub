@@ -143,15 +143,17 @@ describe('Menu', () => {
 });
 
 describe('pane menus', () => {
-  it('offers every move without dragging and no Close for the viewer', async () => {
+  it('offers every move without dragging and Close for a model tab', async () => {
     renderModel();
-    const menu = await openPaneMenu('Viewer');
+    const menu = await openPaneMenu('Untitled model');
     expect(itemNames(menu)).toEqual([
       'Move left',
       'Move right',
       'Move below',
       'Float',
+      'Resize with arrow keys',
       'Collapse',
+      'Close',
       'Reset layout',
     ]);
   });
@@ -162,7 +164,7 @@ describe('pane menus', () => {
     expect(itemNames(menu)).toContain('Close');
   });
 
-  it('hides the tab close button only for the viewer', async () => {
+  it('shows a close button on model tabs and closable panes', async () => {
     renderModel();
     await screen.findByRole('tab', { name: 'Untitled model' });
     const tabs = screen.getAllByRole('tab');
@@ -172,7 +174,7 @@ describe('pane menus', () => {
     const summary = tabs.find(
       (tab) => tab.getAttribute('aria-label') === 'Model summary',
     );
-    expect(viewer?.querySelector('.dv-default-tab-action')).toBeNull();
+    expect(viewer?.querySelector('.dv-default-tab-action')).not.toBeNull();
     expect(summary?.querySelector('.dv-default-tab-action')).not.toBeNull();
   });
 
@@ -181,18 +183,18 @@ describe('pane menus', () => {
     const load = vi.spyOn(MockViewerAdapter.prototype, 'load');
     renderModel();
     await screen.findByLabelText('Mock building model');
-    let menu = await openPaneMenu('Viewer');
+    let menu = await openPaneMenu('Untitled model');
     fireEvent.click(within(menu).getByRole('menuitem', { name: 'Float' }));
     expect(document.querySelector('.dv-resize-container')).not.toBeNull();
     expect(document.querySelector('.dv-live-region')).toHaveTextContent(
       'Untitled model floated',
     );
-    menu = await openPaneMenu('Viewer');
+    menu = await openPaneMenu('Untitled model');
     expect(itemNames(menu)).toContain('Dock');
     expect(itemNames(menu)).not.toContain('Collapse');
     fireEvent.click(within(menu).getByRole('menuitem', { name: 'Dock' }));
     expect(document.querySelector('.dv-resize-container')).toBeNull();
-    menu = await openPaneMenu('Viewer');
+    menu = await openPaneMenu('Untitled model');
     fireEvent.click(within(menu).getByRole('menuitem', { name: 'Move left' }));
     await waitFor(() => expect(load).toHaveBeenCalledTimes(1));
     expect(destroy).not.toHaveBeenCalled();
@@ -207,14 +209,16 @@ describe('pane menus', () => {
 
   it('collapses from the menu and from the header button', async () => {
     renderModel();
-    const menu = await openPaneMenu('Dashboard');
+    const menu = await openPaneMenu('Model summary');
     fireEvent.click(within(menu).getByRole('menuitem', { name: 'Collapse' }));
     expect(
-      screen.getByRole('button', { name: 'Expand Dashboard' }),
+      screen.getByRole('button', { name: 'Expand Model summary' }),
     ).toHaveAttribute('aria-expanded', 'false');
-    fireEvent.click(screen.getByRole('button', { name: 'Expand Dashboard' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Expand Model summary' }),
+    );
     expect(
-      screen.getByRole('button', { name: 'Collapse Dashboard' }),
+      screen.getByRole('button', { name: 'Collapse Model summary' }),
     ).toHaveAttribute('aria-expanded', 'true');
   });
 });
@@ -229,7 +233,7 @@ describe('panes menu in the top bar', () => {
       within(menu)
         .getAllByRole('menuitemcheckbox')
         .map((item) => item.textContent),
-    ).toEqual(['Documents', 'Model summary', 'Dashboard']);
+    ).toEqual(['Model summary', 'Dashboard']);
     const dashboard = within(menu).getByRole('menuitemcheckbox', {
       name: 'Dashboard',
     });
@@ -252,7 +256,11 @@ describe('panes menu in the top bar', () => {
     ).toBeInTheDocument();
 
     fireEvent.click(trigger);
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Reset layout' }));
+    const reset = screen.getByRole('menuitem', { name: 'Reset layout' });
+    expect(reset).toHaveAccessibleDescription(
+      'Resets the arrangement. Open models stay open; remembered viewer position and closed panes are cleared.',
+    );
+    fireEvent.click(reset);
     expect(document.querySelector('.layout-announcer')).toHaveTextContent(
       'Layout reset',
     );
@@ -268,6 +276,25 @@ describe('panes menu in the top bar', () => {
 });
 
 describe('keyboard', () => {
+  it('resizes a pane with the arrow keys from its menu', async () => {
+    renderModel();
+    const menu = await openPaneMenu('Model summary');
+    fireEvent.click(
+      within(menu).getByRole('menuitem', { name: 'Resize with arrow keys' }),
+    );
+    const announcer = document.querySelector('.layout-announcer');
+    expect(announcer).toHaveTextContent('Resizing Model summary');
+    expect(
+      fireEvent.keyDown(document.body, { key: 'ArrowLeft', shiftKey: true }),
+    ).toBe(false);
+    expect(announcer?.textContent).toMatch(/^Model summary \d+ by \d+ pixels/);
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    expect(announcer).toHaveTextContent('Model summary resize finished');
+    const after = announcer?.textContent;
+    expect(fireEvent.keyDown(document.body, { key: 'ArrowLeft' })).toBe(true);
+    expect(announcer?.textContent).toBe(after);
+  });
+
   it('cycles focus between pane groups with F6 and Shift+F6', async () => {
     renderModel();
     const tab = await screen.findByRole('tab', { name: 'Untitled model' });
@@ -280,5 +307,30 @@ describe('keyboard', () => {
     fireEvent.keyDown(next, { key: 'F6', shiftKey: true });
     expect(tab).toHaveFocus();
     expect(root).toBeTruthy();
+  });
+
+  it('enters the first pane group with F6 from the top bar', async () => {
+    renderModel();
+    await screen.findByRole('tab', { name: 'Untitled model' });
+    const panes = screen.getByRole('button', { name: 'Panes' });
+    panes.focus();
+    fireEvent.keyDown(panes, { key: 'F6' });
+    const focused = document.activeElement as HTMLElement;
+    expect(focused).toHaveAttribute('role', 'tab');
+    expect(focused.closest('.dv-groupview')).toBe(
+      document.querySelector('.dv-groupview'),
+    );
+  });
+
+  it('leaves F6 alone while typing in a field', async () => {
+    renderModel();
+    const filter = await screen.findByRole('searchbox', {
+      name: 'Filter loaded nodes',
+    });
+    await waitFor(() => expect(filter).toBeEnabled());
+    filter.focus();
+    expect(filter).toHaveFocus();
+    fireEvent.keyDown(filter, { key: 'F6' });
+    expect(filter).toHaveFocus();
   });
 });

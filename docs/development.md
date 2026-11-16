@@ -41,7 +41,7 @@ The theme lives in `src/web/theme`. State is `document.documentElement.dataset.t
 
 ## Layout in development
 
-The layout is saved in `localStorage` under `bsh.layout.v1`. Run `localStorage.removeItem('bsh.layout.v1')` or use Reset layout in the top bar Panes menu to get the default back. In mock mode `window.__bshLayout` exposes the layout API (`movePane`, `togglePane`, `setCollapsed`, `resetLayout`, `openPanes`, `location`, `mode`, `read`); it does not exist in a production build. See [layout.md](layout.md).
+The layout is saved in `localStorage` under `bsh.layout.v2` (a `bsh.layout.v1` record is migrated once), and the open model tabs in `sessionStorage` under `bsh.models.open`. Run `localStorage.removeItem('bsh.layout.v2')` or use Reset layout in the top bar Panes menu to get the default arrangement back; `sessionStorage.removeItem('bsh.models.open')` forgets the open tabs. In mock mode `window.__bshLayout` exposes the layout API (`movePane`, `togglePane`, `setCollapsed`, `resetLayout`, `openPanes`, `location`, `mode`, `read`, `models`, `activateModel`, `closeModel`); it does not exist in a production build. The mock viewer returns a slightly different number of rows per URN, so the summary changes between open models. See [layout.md](layout.md).
 
 ## Vitest
 
@@ -58,6 +58,8 @@ Copy `.env.example` to `.env`. `.env` is gitignored.
 | `APS_CALLBACK_URL` | server | `http://localhost:3000/api/auth/callback` | Must match the callback registered in the APS app exactly |
 | `SESSION_SECRET` | server | random per start in development | Required in production. `change-me` is rejected in production |
 | `MOCK_APS` | server | `0` | `1` enables mock data. Ignored when `NODE_ENV=production` |
+| `MOCK_EMPTY_HUBS` | server | unset | `1` with mock mode makes the hub list empty, to see the no-projects hint |
+| `MOCK_PERSONAL_ONLY` | server | unset | `1` with mock mode returns only one personal hub, to see the dismissible notice |
 | `VITE_MOCK_APS` | web | unset | `1` enables the mock viewer. Works only in the Vite dev server. `npm run dev:mock` sets it |
 | `PORT` | server, Vite proxy | `3000` | Server port. Vite reads it to find the server |
 | `NODE_ENV` | server | `development` | `production` turns on secure cookies, static serving and the strict checks |
@@ -67,7 +69,7 @@ When developing with real credentials, run the server on port 3000 so the defaul
 
 ### Mock mode is development only
 
-Mock mode needs `MOCK_APS=1` and a non-production `NODE_ENV`. The server computes `mock = !production && MOCK_APS === '1'`, so a production process with `MOCK_APS=1` still uses real APS. The client mock viewer additionally requires `import.meta.env.DEV`, so it is not reachable from a production build. In mock mode every request is signed in as "Alex Rivera" and no Autodesk call is made.
+Mock mode needs `MOCK_APS=1` and a non-production `NODE_ENV`. The server computes `mock = !production && MOCK_APS === '1'`, so a production process with `MOCK_APS=1` still uses real APS. The client mock viewer additionally requires `import.meta.env.DEV`, so it is not reachable from a production build. In mock mode every request is signed in as "Alex Rivera" and no Autodesk call is made. The mock viewer can hold several models (one SVG group each); a urn containing `broken` fails to load, `nogeom` fails with the no-geometry message and `noprops` fails its property read, so per-model errors can be tested.
 
 ## End-to-end tests
 
@@ -94,6 +96,7 @@ e2e/.venv/bin/python -m camoufox fetch
 | `E2E_BASE_URL` | `http://localhost:5173` | App under test |
 | `E2E_PROFILE_DIR` | `e2e/.profile` | Persistent Camoufox profile used by `signin.py` and `smoke.py` |
 | `E2E_OUTPUT_DIR` | `e2e/output` | Screenshots, downloads and JSON reports |
+| `E2E_HEADLESS` | `1` | `smoke.py` and `mock_smoke.py` run headless; `0` shows the window. `signin.py` is always headed |
 
 ### Exit codes
 
@@ -129,6 +132,11 @@ e2e/.venv/bin/python -m camoufox fetch
 
 It writes `01-home.png`, `02-model.png`, `03-after-export.png`, `05-viewer-chrome.png`, `export.xlsx` and `report.json` to `E2E_OUTPUT_DIR`.
 
+`smoke.py --multi` checks several models with the real viewer. It finds three different `.rvt` items through the API (by file name, no fixed ids) and opens each from the tree. For each it checks that a tab named after the file exists, the canvas matches its container within 4 px, the model is loaded, the URL holds its URN and the summary shows that model with its own rows. It then activates the first tab, drags the second tab to the right edge of the viewer group and checks both canvases follow their containers side by side, closes a tab and checks the others stay loaded, reopens it, reloads, and checks the tabs come back, the active model loads, hidden tabs fetch no manifest until activated, and no page errors. It writes `10-multi-*.png` to `13-multi-reloaded.png` and `multi-report.json`.
+
+`smoke.py --combined` checks the combined viewer with the real viewer. It looks up `Snowdon Towers Sample Architectural.rvt` and `racbasicsampleproject.rvt` (by file name suffix, no fixed ids) plus `FILI_20170810_01.nwd` or `sgok_test.nwd`, keeps those whose manifest has an `svf` or `svf2` derivative, and opens them as one tab through `/model/<urn>?with=...`. Through the tagged viewer (`[data-bsh-viewer]`, property `bshViewer`, no `NOP_VIEWER`) it checks `getAllModels()` holds every model and each `isLoadDone()`, the visible scene bounds enclose every model box (it writes the distance between model centres and the units to the report and only warns when the models look unaligned), selecting a leaf of the last model shows up in `getAggregateSelection()`, the summary scope lists All models plus each model and every model has rows, the far apart warning appears (the owner's sample models are far apart), "Bring models together (view only)" shrinks the union of the model boxes below twice the largest model diagonal with every model still loaded, and "Restore positions" returns every model centre to where it was; then removing one model from the Models menu leaves the others loaded and the canvas follows its container. It then opens two good models with `rmebasicsampleproject.rvt` (translated without geometry) and checks that member reports "No viewable geometry" (or a document load error when it has no manifest at all) while the others stay loaded, and that no page error occurred. It writes `combined-01-loaded.png`, `combined-02-bad-member.png` and `combined-report.json`.
+`smoke.py --states` checks view states against the real account without fixed names. It discovers up to 40 items through the API (Test projects first), reads each version's `viewState` from the versions API, expands one file per state in the tree and asserts every version row's `data-view-state` equals the API value. For a version that is not ready or unknown it asserts that selecting opens no tab and the notice appears; for a ready one it asserts the model opens. It reports the state counts and does not fail when the account has none of a state. Set `E2E_STATE_EXPECT="name=state,..."` (file name suffix, for example `rmebasicsampleproject.rvt=no-geometry`) to also assert the latest version state of named files. It writes `states-report.json`.
+
 `smoke.py --layout` opens the same model and checks only the dock layout with the real Autodesk viewer: the viewer element is tagged, then moved through its pane menu (Move right, Float, Dock, Move below, Move left) and the layout is reset from the top bar Panes menu. After each step the render canvas must match its container within 4 px, the tagged viewer element must still be the same one, and `NOP_VIEWER.model` must still be loaded. It writes `06-layout-*.png`, `07-layout-reset.png` and `layout-report.json`.
 
 **mock_smoke.py** (run `e2e/.venv/bin/python e2e/mock_smoke.py`). Needs no sign-in. Start `npm run dev:mock` first (with `NODE_ENV=development` when `.env` sets production). It runs headless in a fresh, non-persistent session, launched with `os=HOST_OS` and `main_world_eval=True`, and checks:
@@ -139,16 +147,23 @@ It writes `01-home.png`, `02-model.png`, `03-after-export.png`, `05-viewer-chrom
 - clicking the version opens the model route
 - the document title names the model, the viewer tab shows the file name and version with the path and URN as its tooltip, the viewer pane has no header and the canvas fills its panel
 - the mock viewer is present
+- the `View States` folder shows the right badge and `data-view-state` for each state, selecting or pressing Enter on a version that is not ready opens no tab and shows the explanation, and the processing badge has a spinner, and all badges share the right edge without clipping on desktop, in the toggled theme and in the narrow layout
 - the summary has rows and counts never wrap
 - the export control, found by its accessible name or title (`/Export/i`) in the viewer toolbar, downloads a non-empty xlsx
 - the theme toggle flips `document.documentElement.dataset.theme` in both directions and the choice survives a reload
 - the dock shows the default layout (tree left, summary right, dashboard below the viewer)
 - the pane menu moves the dashboard to the right edge, floats the viewer and docks it again, and the mock viewer element (tagged with a data attribute) is never replaced
-- the layout is saved under `bsh.layout.v1` with `version: 1` and survives a reload
+- the layout is saved under `bsh.layout.v2` with `version: 2` and survives a reload
 - a real pointer drag of the Dashboard tab onto the left of the viewer docks it there (if the drag ever stops working, the check falls back to `window.__bshLayout.movePane` through `mw:` and records a note)
 - the keyboard path: Enter opens the pane menu, arrows pick Move below, focus lands on the moved tab, and `F6` moves focus to another pane; both live regions are present
 - Reset layout in the top bar Panes menu restores the default arrangement
 - at 800 px the stacked layout replaces the dock, the tree opens as an overlay and Escape closes it; back at 1440 px the saved dock arrangement returns and the viewer is still the same element
+- the missing-hubs hint is absent with the default mock data. Run the script with `E2E_MOCK_VARIANT=empty` against a server started with `MOCK_EMPTY_HUBS=1` (full hint, placeholder Client ID, help link attributes, no overflow at 1440 and 390 in both themes) or `E2E_MOCK_VARIANT=personal` against `MOCK_PERSONAL_ONLY=1` (notice above the filter box, tree still visible, dismissal survives a reload); these variant runs check only the hint
+- Documents first: the start is Documents alone with the hint, Documents is the main landmark and has no close button or Close item; at the end, closing the summary from its tab and reopening it from the Panes menu, and closing the last model tab leaves Documents alone with the URL back at `/`
+- several models: opening a second version adds a second tab and the URL follows, clicking an open version adds no duplicate, the summary follows the active tab and comes back unchanged, a pointer drag of a tab splits two models side by side with both scenes fitted, closing a tab keeps the other rendering, a reload restores the tabs and loads only the visible model, and at 800 px the model switcher activates the other model
+- combined viewer: Ctrl or Cmd click and Space pick two versions (`aria-checked`) without opening them, Open together makes one `2 models` tab with one viewer and both models, the tooltip lists the files and the URL carries `with=`, the summary scope lists All models and each model and one model narrows the counts, paint covers a selection spread over both models, the export has a Model column, the Models menu hides a model, a reload restores the tab, a member whose urn contains `nogeom` explains "No viewable geometry" while the others render, removing members updates the URL and ends in a single-model tab, a row's Add to the open viewer button adds a version, and with six models the menu's Add model... is disabled with the limit
+- far apart models: a member whose urn contains `far` sits 1,000 km away; the Models menu and the tab tooltip warn, Bring models together moves it, the positions survive a reload and Restore positions puts it back
+- blocked versions in the View States folder: Ctrl or Cmd click and Space pick nothing and show the notice, a Shift range skips them and says so, and they get no add-to-viewer button
 - collapsing the summary from its pane header widens the viewer and expanding restores the width exactly
 - the viewer resizes after the document tree pane closes
 - no horizontal overflow at 1440x900 and 390x844

@@ -1,13 +1,20 @@
 import { DataManagementClient } from '@aps_sdk/data-management';
-import { toHttpError } from '../errors.js';
+import { viewableFor } from '../../shared/viewState.js';
+import { HttpError, toHttpError } from '../errors.js';
 import {
   mapFolderContents,
   mapHubs,
   mapProjects,
   mapTopFolders,
   mapVersions,
+  type VersionResource,
 } from './mapping.js';
 import type { DataService } from './types.js';
+import {
+  createViewStateChecker,
+  type ViewStateChecker,
+  withViewStates,
+} from './viewState.js';
 
 type Client = Pick<
   DataManagementClient,
@@ -16,6 +23,7 @@ type Client = Pick<
   | 'getProjectTopFolders'
   | 'getFolderContents'
   | 'getItemVersions'
+  | 'getVersion'
 >;
 
 async function guarded<T>(call: () => Promise<T>): Promise<T> {
@@ -28,6 +36,7 @@ async function guarded<T>(call: () => Promise<T>): Promise<T> {
 
 export function createApsDataService(
   client: Client = new DataManagementClient(),
+  views: ViewStateChecker = createViewStateChecker(),
 ): DataService {
   return {
     listHubs: (token) =>
@@ -59,7 +68,29 @@ export function createApsDataService(
         const res = await client.getItemVersions(projectId, itemId, {
           accessToken: token,
         });
-        return mapVersions(res.data ?? [], itemId);
+        return withViewStates(
+          mapVersions(res.data ?? [], itemId),
+          token,
+          views,
+        );
+      }),
+    versionViewState: (token, projectId, itemId, versionId) =>
+      guarded(async () => {
+        const res = await client.getVersion(projectId, versionId, {
+          accessToken: token,
+        });
+        const resource = res.data as VersionResource | undefined;
+        const owner = resource?.relationships?.item?.data?.id;
+        const version =
+          resource && (!owner || owner === itemId)
+            ? mapVersions([resource], itemId)[0]
+            : undefined;
+        if (!version) throw new HttpError(404, 'Version not found');
+        if (!version.urn) {
+          return { viewState: 'not-translated', viewable: false };
+        }
+        const viewState = await views.check(token, version.urn);
+        return { viewState, viewable: viewableFor(viewState) };
       }),
   };
 }

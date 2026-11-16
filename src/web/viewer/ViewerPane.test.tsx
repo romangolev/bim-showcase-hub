@@ -77,7 +77,7 @@ describe('ViewerPane', () => {
   it('feeds panels through the shared provider', async () => {
     const { factory } = trackedFactory();
     render(
-      <ViewerProvider>
+      <ViewerProvider active="abc">
         <ViewerPane urn="abc" factory={factory} />
         <ModelSummaryPanel propertyNames={['Level']} />
       </ViewerProvider>,

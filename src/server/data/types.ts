@@ -1,4 +1,4 @@
-import type { TreeNode } from '../../shared/types.js';
+import type { TreeNode, VersionViewState } from '../../shared/types.js';
 
 export interface DataService {
   listHubs(token: string): Promise<TreeNode[]>;
@@ -18,4 +18,10 @@ export interface DataService {
     projectId: string,
     itemId: string,
   ): Promise<TreeNode[]>;
+  versionViewState(
+    token: string,
+    projectId: string,
+    itemId: string,
+    versionId: string,
+  ): Promise<VersionViewState>;
 }

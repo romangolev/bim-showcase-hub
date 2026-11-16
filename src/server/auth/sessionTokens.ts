@@ -38,13 +38,20 @@ export function storeTokens(
 }
 
 export function storeUser(session: SessionStore, user: SessionUser): void {
-  session.user = { name: user.name, picture: user.picture };
+  session.user = user.id
+    ? { id: user.id, name: user.name, picture: user.picture }
+    : { name: user.name, picture: user.picture };
 }
 
 export function readUser(session: SessionStore): SessionUser | null {
   const value = session.user as Partial<SessionUser> | undefined;
   if (value && typeof value.name === 'string') {
-    return { name: value.name, picture: value.picture ?? null };
+    const user: SessionUser = {
+      name: value.name,
+      picture: value.picture ?? null,
+    };
+    if (typeof value.id === 'string' && value.id) user.id = value.id;
+    return user;
   }
   return null;
 }

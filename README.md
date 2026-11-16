@@ -13,14 +13,16 @@ The screenshots use the built-in mock data, not a real account.
 ## Features
 
 - Autodesk three-legged sign-in with a cookie session. Tokens never reach the browser except a short-lived viewer token.
+- Documents first: the app opens on the document tree alone, and selecting a model version opens the viewer next to it with the summary and dashboard. Closing the last model goes back to Documents.
 - Dockable workspace: move, resize, tab, collapse and float the document tree, the viewer, the summary and the dashboard inside the page, with a menu and keyboard path for every move, a Panes menu to reopen closed panes, Reset layout, and the arrangement saved per browser. Below 876px the panes stack and the tree becomes an overlay.
 - Lazy document tree for hubs, projects, folders, items and versions, with filtering and keyboard navigation.
-- Autodesk Viewer for any viewable version, in the US or EU region.
+- Autodesk Viewer for any viewable version, in the US or EU region. Several models open at once, each in its own viewer tab: compare two side by side by dragging a tab, and the summary, dashboard and URL follow the active one. Open tabs come back after a reload and load when first shown.
+- Combined viewer: pick several versions in Documents (Ctrl or Cmd click, Shift click or Space) and open them together in one viewer and one scene, aligned by shared coordinates, up to six models. Add a version to the open viewer from its row, hide or remove models from the Models menu, and switch the summary and dashboard between all models and one model. A model that fails to load says why and leaves the others in place.
 - Tool group inside the viewer toolbar: paint selected elements red, green or blue (or reset), and export to Excel, with an in-viewer status badge for the export.
 - Dark and light themes with a top bar toggle. The choice is remembered, the viewer, including its native toolbar and panels, and the charts follow it.
 - Model summary: element counts grouped by Assembly Code, Classification Code and Name, in a pane that collapses to give the viewer more room.
 - Dashboard: bar chart and donut chart of elements by Category, Level, Assembly Code, Classification Code or Name.
-- Excel export: one sheet per Category with selected properties, built in the browser. The viewer keeps its model and resizes when panes move, float, open, close or collapse.
+- Excel export: one sheet per Category with selected properties, built in the browser, with a Model column when the viewer holds several models. The viewer keeps its model and resizes when panes move, float, open, close or collapse.
 - Mock mode with fixture hubs and a fake viewer, so the whole app runs without Autodesk credentials.
 
 ## Quick start (mock mode)
@@ -32,7 +34,7 @@ npm install
 npm run dev:mock
 ```
 
-Open http://localhost:5173. The app signs you in as a mock user and serves fixture data. Mock mode works only in development. A production build ignores `MOCK_APS`.
+Open http://localhost:5173. The app signs you in as a mock user and serves fixture data. Mock mode works only in development. `MOCK_EMPTY_HUBS=1` and `MOCK_PERSONAL_ONLY=1` show the missing-hubs hint. A production build ignores `MOCK_APS`.
 
 ## Real credentials
 

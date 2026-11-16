@@ -1,10 +1,18 @@
 import type { PropertyRow } from '../../shared/types.js';
 import type { Theme } from '../theme/theme.js';
+import type {
+  ModelDbId,
+  ModelInfo,
+  ModelSource,
+  ModelSpread,
+  Vec3,
+} from './modelSet.js';
 
 export type Rgba = readonly [r: number, g: number, b: number, a: number];
 
 export interface PaintSwatchSpec {
   id: string;
+  icon: string;
   label: string;
   swatch: string;
   color: Rgba;
@@ -35,18 +43,31 @@ export interface ToolGroupSpec {
 }
 
 export interface ViewerAdapter {
-  load(urn: string): Promise<void>;
+  load(urn: string, name?: string): Promise<void>;
   unload(): void;
   resize(): void;
-  getSelection(): number[];
+  scheduleResize(settleMs: number): void;
   clearSelection?(): void;
-  setThemingColor(ids: number[], color: Rgba): void;
   clearThemingColors(): void;
   setTheme(theme: Theme): void;
-  getLeafProperties(propertyNames: string[]): Promise<PropertyRow[]>;
+  getLeafProperties(
+    propertyNames: string[],
+    modelIds?: readonly string[],
+  ): Promise<PropertyRow[]>;
   registerToolGroup(spec: ToolGroupSpec): () => void;
-  onSelectionChange(cb: (ids: number[]) => void): () => void;
+  onSelectionChange(cb: (items: ModelDbId[]) => void): () => void;
   destroy(): void;
+  loadModels(sources: readonly ModelSource[]): Promise<ModelInfo[]>;
+  addModel(source: ModelSource): Promise<ModelInfo>;
+  removeModel(modelId: string): void;
+  getModels(): ModelInfo[];
+  setModelVisible(modelId: string, visible: boolean): void;
+  onModelsChange(cb: (models: ModelInfo[]) => void): () => void;
+  getModelSelection(): ModelDbId[];
+  setModelThemingColor(items: readonly ModelDbId[], color: Rgba): void;
+  getSpread(): ModelSpread | null;
+  getTogetherOffsets(): Record<string, Vec3>;
+  setModelOffsets(offsets: Readonly<Record<string, Vec3>> | null): void;
 }
 
 export type ViewerAdapterFactory = (

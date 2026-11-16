@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { loadConfig } from '../config.js';
-import { createApsAuth } from './apsAuth.js';
+import { createApsAuth, userIdOf } from './apsAuth.js';
 
 const config = loadConfig({
   SESSION_SECRET: 's',
@@ -81,6 +81,17 @@ describe('createApsAuth', () => {
       name: 'Ann Lee',
       picture: null,
     });
+  });
+
+  it('adds a stable hashed id from the Autodesk subject', async () => {
+    const client = fakeClient();
+    client.getUserInfo.mockResolvedValue({ sub: 'ABC123', name: 'Sam' });
+    const auth = createApsAuth(config, client as never);
+    const user = await auth.getUser('a');
+    expect(user.id).toBe(userIdOf('ABC123'));
+    expect(user.id).not.toContain('ABC123');
+    expect(userIdOf('ABC123')).toBe(userIdOf('ABC123'));
+    expect(userIdOf('ABC124')).not.toBe(userIdOf('ABC123'));
   });
 
   it('turns SDK failures into http errors', async () => {

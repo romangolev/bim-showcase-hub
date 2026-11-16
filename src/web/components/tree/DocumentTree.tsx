@@ -7,8 +7,17 @@ import {
 import { useTree } from '@headless-tree/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useVirtualizer, type Virtualizer } from '@tanstack/react-virtual';
-import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
-import type { TreeNode } from '../../../shared/types.js';
+import {
+  type KeyboardEvent,
+  type MouseEvent,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
+import { MAX_COMBINED_MODELS } from '../../../shared/combined.js';
+import type { TreeNode, VersionViewState } from '../../../shared/types.js';
+import { viewableFor } from '../../../shared/viewState.js';
+import { fetchVersionViewState } from '../../api/client.js';
 import { friendlyError } from '../../api/friendlyError.js';
 import { childrenQueryOptions } from '../../api/hooks.js';
 import { type ModelContext, versionTag } from '../../api/modelContext.js';
@@ -20,20 +29,62 @@ import {
   ROOT_SCOPE,
   scopeKey,
 } from '../../api/scope.js';
+import { MODEL_LIMIT_MESSAGE } from '../../viewer/modelSet.js';
 import { Icon } from '../icons.js';
 import { StateBlock } from '../StateBlock.js';
+import { NoHubsHint, PersonalHubNotice } from './NoHubsHint.js';
 import {
   INDENT,
   ROW_HEIGHT,
   rowHeightFor,
   TreeRowView,
 } from './TreeRowView.js';
+import {
+  blockedNotice,
+  VIEW_STATE_COPY,
+  viewStateOf,
+} from './viewStateCopy.js';
+
+export interface PickedModel {
+  urn: string;
+  context: ModelContext;
+}
+
+export interface AddTarget {
+  label: string;
+  canAdd: (urn: string) => boolean;
+  onAdd: (models: PickedModel[]) => void;
+}
 
 export interface DocumentTreeProps {
   selectedUrn?: string;
   revealTrail?: readonly string[];
   onOpenModel: (urn: string, context: ModelContext) => void;
+  onOpenTogether?: (models: PickedModel[]) => void;
+  addTarget?: AddTarget | null;
+  pollMs?: number;
 }
+
+export function skippedNotice(nodes: readonly TreeNode[]): {
+  title: string;
+  message: string;
+} {
+  const states = [...new Set(nodes.map((node) => viewStateOf(node)))];
+  const count = nodes.length;
+  const labels = states.map((state) => VIEW_STATE_COPY[state].label);
+  return {
+    title: `Skipped ${count} ${count === 1 ? 'version' : 'versions'} that cannot be opened: ${labels.join(', ')}`,
+    message: states.map((state) => VIEW_STATE_COPY[state].reason).join(' '),
+  };
+}
+
+function pickLabel(model: PickedModel): string {
+  return model.context.file ?? model.urn;
+}
+
+export const VERSION_POLL_MS = 15_000;
+export const CHECK_CONCURRENCY = 4;
+const UNCHECKED_POLL_LIMIT = 3;
 
 type StatusVariant = 'loading' | 'error' | 'empty';
 
@@ -50,6 +101,7 @@ type Row =
       message?: string;
       detail?: string;
       clearFilter?: boolean;
+      noHubs?: boolean;
     };
 
 const LOADING_NODE: TreeNode = {
@@ -61,7 +113,7 @@ const LOADING_NODE: TreeNode = {
 };
 
 function openableUrn(node: TreeNode): string | null {
-  if (node.kind === 'version' && node.viewable && node.urn) {
+  if (node.kind === 'version' && viewableFor(viewStateOf(node)) && node.urn) {
     return node.urn;
   }
   return null;
@@ -106,10 +158,20 @@ export function DocumentTree({
   selectedUrn,
   revealTrail,
   onOpenModel,
+  onOpenTogether,
+  addTarget,
+  pollMs = VERSION_POLL_MS,
 }: DocumentTreeProps) {
   const queryClient = useQueryClient();
+  const [picked, setPicked] = useState<PickedModel[]>([]);
+  const anchorRef = useRef<string | null>(null);
   const [errors, setErrors] = useState<Record<string, NodeError>>({});
   const [filter, setFilter] = useState('');
+  const [notice, setNotice] = useState<{
+    title: string;
+    message: string;
+    itemId?: string;
+  } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const rowsRef = useRef<Row[]>([]);
   const virtualizerRef = useRef<Virtualizer<HTMLDivElement, Element> | null>(
@@ -155,6 +217,108 @@ export function DocumentTree({
     return context;
   };
 
+  const [, setCheckVersion] = useState(0);
+  const checks = useRef({
+    results: new Map<string, { base: TreeNode; state: VersionViewState }>(),
+    inflight: new Map<string, Promise<TreeNode>>(),
+    waiting: [] as (() => void)[],
+    active: 0,
+  }).current;
+
+  const resolved = (node: TreeNode): TreeNode => {
+    const found = checks.results.get(node.id);
+    if (!found) return node;
+    if (registry.nodes.get(node.id) !== found.base) {
+      checks.results.delete(node.id);
+      return node;
+    }
+    return { ...node, ...found.state, checked: true };
+  };
+
+  const forgetChecks = (parentId: string) => {
+    for (const [id, entry] of checks.results) {
+      if (entry.base.parentId === parentId) checks.results.delete(id);
+    }
+  };
+
+  const needsCheck = (node: TreeNode) =>
+    node.kind === 'version' && node.checked === false;
+
+  const slot = async (): Promise<void> => {
+    if (checks.active < CHECK_CONCURRENCY) {
+      checks.active += 1;
+      return;
+    }
+    await new Promise<void>((resolve) => checks.waiting.push(resolve));
+  };
+
+  const freeSlot = () => {
+    const next = checks.waiting.shift();
+    if (next) next();
+    else checks.active -= 1;
+  };
+
+  const runCheck = async (node: TreeNode): Promise<TreeNode> => {
+    const scope = registry.scopes.get(node.id);
+    const projectId =
+      scope && scope.kind !== 'root' ? scope.projectId : undefined;
+    if (!projectId || !node.parentId) return node;
+    const base = registry.nodes.get(node.id);
+    await slot();
+    let state: VersionViewState | null = null;
+    try {
+      state = await fetchVersionViewState(projectId, node.parentId, node.id);
+    } catch {
+      state = null;
+    } finally {
+      freeSlot();
+    }
+    if (!state || state.viewState === 'unknown') return node;
+    if (base) {
+      checks.results.set(node.id, { base, state });
+      setCheckVersion((version) => version + 1);
+    }
+    return { ...node, ...state, checked: true };
+  };
+
+  const ensureChecked = (input: TreeNode): Promise<TreeNode> => {
+    const node = resolved(input);
+    if (!needsCheck(node)) return Promise.resolve(node);
+    const pending = checks.inflight.get(node.id);
+    if (pending) return pending;
+    const started = runCheck(node).finally(() => {
+      checks.inflight.delete(node.id);
+    });
+    checks.inflight.set(node.id, started);
+    return started;
+  };
+
+  const openNode = (input: TreeNode) => {
+    const node = resolved(input);
+    if (needsCheck(node)) {
+      void ensureChecked(node).then(openChecked);
+      return;
+    }
+    openChecked(node);
+  };
+
+  const openChecked = (node: TreeNode) => {
+    const urn = openableUrn(node);
+    if (urn) {
+      setNotice(null);
+      onOpenModel(urn, contextFor(node));
+      return;
+    }
+    const message = blockedNotice(node);
+    if (message) {
+      setNotice({
+        title: `${versionTag(node.name) ?? node.name} cannot be opened`,
+        message,
+        itemId: node.parentId,
+      });
+    }
+  };
+
   const activate = (item: ItemInstance<TreeNode>) => {
     const node = item.getItemData();
     if (item.isFolder()) {
@@ -165,10 +329,141 @@ export function DocumentTree({
       }
       return;
     }
-    const urn = openableUrn(node);
-    if (urn) {
-      onOpenModel(urn, contextFor(node));
+    openNode(node);
+  };
+
+  const pickedUrns = new Set(picked.map((model) => model.urn));
+
+  const isBlocked = (node: TreeNode) =>
+    node.kind === 'version' && openableUrn(node) === null;
+
+  const togglePick = (input: TreeNode) => {
+    const node = resolved(input);
+    if (needsCheck(node)) {
+      void ensureChecked(node).then(pickChecked);
+      return;
     }
+    pickChecked(node);
+  };
+
+  const pickChecked = (node: TreeNode) => {
+    if (isBlocked(node)) {
+      openChecked(node);
+      return;
+    }
+    const urn = openableUrn(node);
+    if (!urn) return;
+    anchorRef.current = node.id;
+    setPicked((current) =>
+      current.some((model) => model.urn === urn)
+        ? current.filter((model) => model.urn !== urn)
+        : [...current, { urn, context: contextFor(node) }],
+    );
+  };
+
+  const pickRange = (node: TreeNode) => {
+    const listed = rowsRef.current.flatMap((row) => {
+      const data =
+        row.type === 'node'
+          ? row.item.getItemData()
+          : row.type === 'result'
+            ? row.node
+            : null;
+      return data?.kind === 'version' ? [resolved(data)] : [];
+    });
+    const from = listed.findIndex((entry) => entry.id === anchorRef.current);
+    const to = listed.findIndex((entry) => entry.id === node.id);
+    const range =
+      from === -1 || to === -1
+        ? listed.filter((entry) => entry.id === node.id)
+        : listed.slice(Math.min(from, to), Math.max(from, to) + 1);
+    if (range.some(needsCheck)) {
+      void Promise.all(range.map(ensureChecked)).then((checked) => {
+        const byId = new Map(checked.map((entry) => [entry.id, entry]));
+        pickRangeOf(
+          listed.map((entry) => byId.get(entry.id) ?? entry),
+          node,
+        );
+      });
+      return;
+    }
+    pickRangeOf(listed, node);
+  };
+
+  const pickRangeOf = (versions: TreeNode[], node: TreeNode) => {
+    const from = versions.findIndex((entry) => entry.id === anchorRef.current);
+    const to = versions.findIndex((entry) => entry.id === node.id);
+    if (from === -1 || to === -1) {
+      pickChecked(versions[to] ?? resolved(node));
+      return;
+    }
+    const [start, end] = from < to ? [from, to] : [to, from];
+    const range = versions.slice(start, end + 1);
+    const skipped = range.filter(isBlocked);
+    setPicked((current) => {
+      const next = [...current];
+      for (const entry of range) {
+        const id = openableUrn(entry);
+        if (id && !next.some((model) => model.urn === id)) {
+          next.push({ urn: id, context: contextFor(entry) });
+        }
+      }
+      return next;
+    });
+    if (skipped.length > 0) setNotice(skippedNotice(skipped));
+    else setNotice(null);
+  };
+
+  const onPickClick = (event: MouseEvent, node: TreeNode): boolean => {
+    if (node.kind !== 'version') return false;
+    if (event.metaKey || event.ctrlKey) {
+      event.preventDefault();
+      if (isBlocked(node)) openNode(node);
+      else togglePick(node);
+      return true;
+    }
+    if (event.shiftKey) {
+      event.preventDefault();
+      pickRange(node);
+      return true;
+    }
+    return false;
+  };
+
+  const onPickKey = (event: KeyboardEvent, node: TreeNode): boolean => {
+    if (event.key !== ' ' || node.kind !== 'version') return false;
+    event.preventDefault();
+    event.stopPropagation();
+    if (isBlocked(node)) openNode(node);
+    else togglePick(node);
+    return true;
+  };
+
+  const rowAction = (node: TreeNode) => {
+    const urn = openableUrn(node);
+    if (!urn || !addTarget?.canAdd(urn)) return null;
+    const label = `Add ${contextFor(node).file ?? node.name} to ${addTarget.label}`;
+    return (
+      <button
+        type="button"
+        className="tree-row__action"
+        tabIndex={-1}
+        aria-label={label}
+        title={`${label}. With the keyboard, press Space to select the version, then use Add to ${addTarget.label} in the selection bar.`}
+        onClick={(event) => {
+          event.stopPropagation();
+          void ensureChecked(node).then((checked) => {
+            if (openableUrn(checked)) {
+              addTarget.onAdd([{ urn, context: contextFor(checked) }]);
+            } else {
+              openChecked(checked);
+            }
+          });
+        }}
+      >
+        <Icon name="plus" size={13} />
+      </button>
+    );
   };
 
   const tree = useTree<TreeNode>({
@@ -345,6 +640,7 @@ export function DocumentTree({
           parentId: ROOT_ID,
           title: 'No hubs found',
           message: 'Add your Autodesk account to a hub, then refresh.',
+          noHubs: true,
         });
       } else if (rootItem.isLoading() || !registry.loaded.has(ROOT_ID)) {
         rows.push({
@@ -406,6 +702,77 @@ export function DocumentTree({
     retry(id);
   };
 
+  const recheck = (id: string) => {
+    forgetChecks(id);
+    queryClient.removeQueries({
+      queryKey: scopeKey(registry.scopes.get(id) ?? ROOT_SCOPE),
+      exact: true,
+    });
+    void tree.getItemInstance(id).invalidateChildrenIds(true);
+  };
+
+  const pendingParents = new Set<string>();
+  const processingParents = new Set<string>();
+  for (const stored of registry.nodes.values()) {
+    const node = resolved(stored);
+    if (node.kind !== 'version' || !node.parentId) {
+      continue;
+    }
+    if (node.checked === false) {
+      continue;
+    }
+    const state = viewStateOf(node);
+    if (state === 'processing') {
+      processingParents.add(node.parentId);
+      pendingParents.add(node.parentId);
+    } else if (state === 'unknown') {
+      pendingParents.add(node.parentId);
+    }
+  }
+  const pendingKey = [...pendingParents].sort().join(TRAIL_SEPARATOR);
+  const recheckRef = useRef(recheck);
+  recheckRef.current = recheck;
+  const processingRef = useRef(processingParents);
+  processingRef.current = processingParents;
+  const attemptsRef = useRef(new Map<string, number>());
+  const expandedKey = (tree.getState().expandedItems ?? []).join(
+    TRAIL_SEPARATOR,
+  );
+
+  useEffect(() => {
+    const expanded = new Set(expandedKey.split(TRAIL_SEPARATOR));
+    for (const id of [...attemptsRef.current.keys()]) {
+      if (!expanded.has(id)) attemptsRef.current.delete(id);
+    }
+  }, [expandedKey]);
+
+  useEffect(() => {
+    if (!pendingKey) {
+      return;
+    }
+    const ids = pendingKey.split(TRAIL_SEPARATOR);
+    const timer = setInterval(() => {
+      if (document.visibilityState === 'hidden') {
+        return;
+      }
+      for (const id of ids) {
+        if (!tree.getItemInstance(id).isExpanded()) {
+          continue;
+        }
+        const attempts = attemptsRef.current.get(id) ?? 0;
+        if (
+          !processingRef.current.has(id) &&
+          attempts >= UNCHECKED_POLL_LIMIT
+        ) {
+          continue;
+        }
+        attemptsRef.current.set(id, attempts + 1);
+        recheckRef.current(id);
+      }
+    }, pollMs);
+    return () => clearInterval(timer);
+  }, [pendingKey, pollMs, tree]);
+
   const filterDisabled = !query && !rows.some((row) => row.type === 'node');
 
   const containerProps: Record<string, unknown> = query
@@ -415,10 +782,7 @@ export function DocumentTree({
   const onResultKeyDown = (event: KeyboardEvent, node: TreeNode) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
-      const urn = openableUrn(node);
-      if (urn) {
-        onOpenModel(urn, contextFor(node));
-      }
+      openNode(node);
     }
   };
 
@@ -440,7 +804,7 @@ export function DocumentTree({
 
     if (row.type === 'node') {
       const item = row.item;
-      const node = item.getItemData();
+      const node = resolved(item.getItemData());
       const meta = item.getItemMeta();
       const urn = openableUrn(node);
       const disabled = node.kind === 'version' && urn === null;
@@ -456,21 +820,32 @@ export function DocumentTree({
           busy={item.isLoading() && item.isExpanded()}
           selected={urn !== null && urn === selectedUrn}
           focused={item.isFocused()}
-          viewable={node.viewable}
+          viewState={viewStateOf(node)}
+          checked={node.checked}
+          picked={urn !== null && pickedUrns.has(urn)}
+          action={rowAction(node)}
           rowProps={{
             ...props,
             'data-index': index,
+            'aria-checked':
+              urn !== null && onOpenTogether ? pickedUrns.has(urn) : undefined,
+            onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => {
+              if (onOpenTogether && onPickKey(event, node)) return;
+              (
+                props as {
+                  onKeyDown?: (event: KeyboardEvent<HTMLDivElement>) => void;
+                }
+              ).onKeyDown?.(event);
+            },
             ref: (element: HTMLDivElement | null) => {
               item.registerElement(element);
               virtualizer.measureElement(element);
             },
             'aria-selected': urn !== null && urn === selectedUrn,
             'aria-disabled': disabled || undefined,
-            ...(disabled
-              ? { title: `${node.name}: no viewable geometry` }
-              : {}),
-            onClick: () => {
+            onClick: (event: MouseEvent<HTMLDivElement>) => {
               item.setFocused();
+              if (onOpenTogether && onPickClick(event, node)) return;
               activate(item);
             },
             style: position,
@@ -480,32 +855,40 @@ export function DocumentTree({
     }
 
     if (row.type === 'result') {
-      const urn = openableUrn(row.node);
-      const disabled = row.node.kind === 'version' && urn === null;
+      const resultNode = resolved(row.node);
+      const urn = openableUrn(resultNode);
+      const disabled = resultNode.kind === 'version' && urn === null;
       return (
         <TreeRowView
           key={row.key}
           level={0}
-          kind={row.node.kind}
-          name={row.node.name}
-          viewable={row.node.viewable}
-          caption={row.node.kind === 'version' ? undefined : row.node.kind}
-          secondary={parentName(row.node)}
+          kind={resultNode.kind}
+          name={resultNode.name}
+          viewState={viewStateOf(resultNode)}
+          checked={resultNode.checked}
+          caption={resultNode.kind === 'version' ? undefined : resultNode.kind}
+          secondary={parentName(resultNode)}
           highlight={query}
           selected={urn !== null && urn === selectedUrn}
+          picked={urn !== null && pickedUrns.has(urn)}
+          action={rowAction(resultNode)}
           rowProps={{
             role: 'option',
+            'aria-checked':
+              urn !== null && onOpenTogether ? pickedUrns.has(urn) : undefined,
             'data-index': index,
             ref: virtualizer.measureElement,
             tabIndex: 0,
             'aria-selected': urn !== null && urn === selectedUrn,
             'aria-disabled': disabled || undefined,
-            onClick: () => {
-              if (urn) {
-                onOpenModel(urn, contextFor(row.node));
-              }
+            onClick: (event: MouseEvent<HTMLDivElement>) => {
+              if (onOpenTogether && onPickClick(event, resultNode)) return;
+              openNode(resultNode);
             },
-            onKeyDown: (event) => onResultKeyDown(event, row.node),
+            onKeyDown: (event) => {
+              if (onOpenTogether && onPickKey(event, resultNode)) return;
+              onResultKeyDown(event, resultNode);
+            },
             style: position,
           }}
         />
@@ -542,6 +925,8 @@ export function DocumentTree({
             compact
             rows={row.parentId === ROOT_ID ? 4 : 2}
           />
+        ) : row.noHubs ? (
+          <NoHubsHint onCheckAgain={() => refresh(row.parentId)} />
         ) : (
           <StateBlock
             variant="empty"
@@ -562,6 +947,7 @@ export function DocumentTree({
 
   return (
     <div className="doc-tree">
+      <PersonalHubNotice onCheckAgain={() => refresh(ROOT_ID)} />
       <div className="doc-tree__search">
         <Icon name="search" size={14} />
         <input
@@ -592,6 +978,49 @@ export function DocumentTree({
           </button>
         ) : null}
       </div>
+      {onOpenTogether ? (
+        <PickBar
+          picked={picked}
+          addTarget={addTarget ?? null}
+          onOpenTogether={(models) => {
+            onOpenTogether(models);
+            setPicked([]);
+          }}
+          onClear={() => setPicked([])}
+        />
+      ) : null}
+      <div className="doc-tree__notice" role="status" aria-live="polite">
+        {notice ? (
+          <StateBlock
+            variant="empty"
+            compact
+            icon="alert"
+            title={notice.title}
+            message={notice.message}
+            action={
+              notice.itemId
+                ? {
+                    label: 'Check again',
+                    onClick: () => {
+                      recheck(notice.itemId as string);
+                      setNotice(null);
+                    },
+                  }
+                : { label: 'Dismiss', onClick: () => setNotice(null) }
+            }
+          >
+            {notice.itemId ? (
+              <button
+                type="button"
+                className="btn btn-small"
+                onClick={() => setNotice(null)}
+              >
+                Dismiss
+              </button>
+            ) : null}
+          </StateBlock>
+        ) : null}
+      </div>
       <div ref={scrollRef} className="doc-tree__scroll">
         <div
           {...containerProps}
@@ -606,5 +1035,73 @@ export function DocumentTree({
         </div>
       </div>
     </div>
+  );
+}
+
+function PickBar({
+  picked,
+  addTarget,
+  onOpenTogether,
+  onClear,
+}: {
+  picked: PickedModel[];
+  addTarget: AddTarget | null;
+  onOpenTogether: (models: PickedModel[]) => void;
+  onClear: () => void;
+}) {
+  const tooMany = picked.length > MAX_COMBINED_MODELS;
+  const addable = addTarget
+    ? picked.filter((model) => addTarget.canAdd(model.urn))
+    : [];
+  return (
+    <section
+      className="doc-tree__picks"
+      data-empty={picked.length === 0}
+      aria-label="Selected versions"
+    >
+      <span className="doc-tree__picks-count" aria-live="polite">
+        {picked.length === 0
+          ? 'Ctrl or Cmd click, Shift click or Space selects versions to open together'
+          : `${picked.length} selected`}
+      </span>
+      {picked.length > 0 ? (
+        <>
+          <button
+            type="button"
+            className="bsh-button doc-tree__pick-action"
+            disabled={picked.length < 2 || tooMany}
+            title={picked.map(pickLabel).join('\n')}
+            onClick={() => onOpenTogether(picked)}
+          >
+            Open together
+          </button>
+          {addTarget ? (
+            <button
+              type="button"
+              className="bsh-button doc-tree__pick-action"
+              disabled={addable.length === 0}
+              onClick={() => {
+                addTarget.onAdd(addable);
+                onClear();
+              }}
+            >
+              Add to {addTarget.label}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="bsh-button doc-tree__pick-action"
+            onClick={onClear}
+          >
+            Clear
+          </button>
+          {tooMany ? (
+            <span className="doc-tree__picks-limit" role="alert">
+              {MODEL_LIMIT_MESSAGE}
+            </span>
+          ) : null}
+        </>
+      ) : null}
+    </section>
   );
 }

@@ -12,6 +12,7 @@ import {
   postSignOut,
   subscribeUnauthorized,
 } from './client.js';
+import { forgetModels } from './openModels.js';
 import { type NodeScope, scopeKey } from './scope.js';
 
 export const sessionQueryKey = ['session'] as const;
@@ -58,6 +59,7 @@ export function useSignOut() {
   return useMutation({
     mutationFn: postSignOut,
     onSuccess: () => {
+      forgetModels();
       client.removeQueries({ queryKey: ['children'] });
       client.setQueryData(sessionQueryKey, null);
     },

@@ -1,16 +1,20 @@
 import { createContext, type ReactNode, useContext } from 'react';
-import type { PaneId } from './paneRegistry.js';
+import type { PaneId, PanelId } from './paneRegistry.js';
 
 export type LayoutMode = 'dock' | 'stacked';
 export type MoveTarget = 'left' | 'right' | 'below' | 'float' | 'dock';
 
 export interface DockController {
-  movePane: (id: PaneId, target: MoveTarget) => void;
+  movePane: (id: PanelId, target: MoveTarget) => void;
   openPane: (id: PaneId) => void;
   closePane: (id: PaneId) => void;
   reset: (treeWidth: number) => void;
-  focusPane: (id: PaneId) => void;
-  location: (id: PaneId) => 'grid' | 'floating' | null;
+  focusPane: (id: PanelId) => void;
+  location: (id: PanelId) => 'grid' | 'floating' | null;
+  resizePane: (
+    id: PanelId,
+    delta: { width?: number; height?: number },
+  ) => { width: number; height: number } | null;
 }
 
 export interface LayoutApi {
@@ -19,13 +23,16 @@ export interface LayoutApi {
   isOpen: (id: PaneId) => boolean;
   isCollapsed: (id: PaneId) => boolean;
   setCollapsed: (id: PaneId, collapsed: boolean) => void;
-  togglePane: (id: PaneId) => void;
-  movePane: (id: PaneId, target: MoveTarget) => void;
+  togglePane: (id: PanelId) => void;
+  movePane: (id: PanelId, target: MoveTarget) => void;
   resetLayout: () => void;
-  focusPane: (id: PaneId) => void;
-  resizeSignal: (id: PaneId) => number;
-  location: (id: PaneId) => 'grid' | 'floating' | null;
+  focusPane: (id: PanelId) => void;
+  resizeSignal: (id: PanelId) => number;
+  location: (id: PanelId) => 'grid' | 'floating' | null;
+  startResize: (id: PanelId) => void;
+  resizing: PanelId | null;
   closeTreeOverlay: () => void;
+  paneTitle: (id: PanelId) => PaneTitle;
 }
 
 export const LayoutContext = createContext<LayoutApi | null>(null);
@@ -49,14 +56,4 @@ export interface PaneTitle {
   tooltip: string;
 }
 
-export type PaneTitles = Partial<Record<PaneId, PaneTitle>>;
-
-export type SetPaneTitle = (id: PaneId, title: PaneTitle | null) => void;
-
-const NOOP_TITLE: SetPaneTitle = () => {};
-
-export const PaneTitleContext = createContext<SetPaneTitle | null>(null);
-
-export function usePaneTitle(): SetPaneTitle {
-  return useContext(PaneTitleContext) ?? NOOP_TITLE;
-}
+export type PaneTitles = Readonly<Record<PanelId, PaneTitle>>;

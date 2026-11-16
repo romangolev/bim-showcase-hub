@@ -1,11 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { PropertyRow } from '../../shared/types.js';
-import { readLeafRows } from '../viewer/sharedLeafRows.js';
+import { readySignature } from '../viewer/modelSet.js';
+import { forgetLeafRows, readLeafRows } from '../viewer/sharedLeafRows.js';
+import { useModels } from '../viewer/useModels.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { useViewer } from '../viewer/ViewerContext.js';
 
+export const HIDDEN_TITLE = 'All models are hidden';
+export const HIDDEN_MESSAGE =
+  'Show a model in the Models menu to see its elements here.';
+
 export type RowsState =
   | { status: 'idle'; rows: PropertyRow[] }
+  | { status: 'hidden'; rows: PropertyRow[] }
   | { status: 'loading'; rows: PropertyRow[]; request: number }
   | { status: 'ready'; rows: PropertyRow[] }
   | { status: 'error'; rows: PropertyRow[]; message: string };
@@ -25,11 +32,18 @@ export function usePropertyRows(
   const names = useMemo(() => (key ? key.split('\u0000') : []), [key]);
   const [state, setState] = useState<RowsState>({ status: 'idle', rows: [] });
   const [version, setVersion] = useState(0);
-  const reload = useCallback(() => setVersion((v) => v + 1), []);
+  const all = useModels(adapter);
+  const models = readySignature(all);
+  const hidden =
+    !models && all.some((model) => model.status === 'ready' && !model.visible);
+  const reload = useCallback(() => {
+    if (adapter) forgetLeafRows(adapter);
+    setVersion((v) => v + 1);
+  }, [adapter]);
 
   useEffect(() => {
-    if (!adapter) {
-      setState({ status: 'idle', rows: [] });
+    if (!adapter || !models) {
+      setState({ status: hidden ? 'hidden' : 'idle', rows: [] });
       return;
     }
     let cancelled = false;
@@ -55,7 +69,7 @@ export function usePropertyRows(
     return () => {
       cancelled = true;
     };
-  }, [adapter, names, version]);
+  }, [adapter, names, models, version, hidden]);
 
   return { ...state, reload };
 }

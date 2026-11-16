@@ -1,3 +1,4 @@
+import type { ModelDbId } from './modelSet.js';
 import type { Rgba, ToolGroupSpec } from './ViewerAdapter.js';
 
 export interface ToolGroupState {
@@ -6,8 +7,8 @@ export interface ToolGroupState {
 }
 
 export interface SelectionSource {
-  getSelection(): number[];
-  onSelectionChange(cb: (ids: number[]) => void): () => void;
+  getModelSelection(): ModelDbId[];
+  onSelectionChange(cb: (items: ModelDbId[]) => void): () => void;
 }
 
 export class ToolGroupController {
@@ -20,7 +21,7 @@ export class ToolGroupController {
     source: SelectionSource,
   ) {
     this.current = {
-      hasSelection: source.getSelection().length > 0,
+      hasSelection: source.getModelSelection().length > 0,
       painted: false,
     };
     this.unsubscribe = source.onSelectionChange((ids) => {

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '../test/render.js';
+import { act, fireEvent, render, screen, waitFor } from '../test/render.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
 import { DashboardPanel } from './DashboardPanel.js';
 import { ModelSummaryPanel } from './ModelSummaryPanel.js';
@@ -279,5 +279,91 @@ describe('Feedback states', () => {
     const alert = await screen.findByRole('alert');
     expect(alert).not.toHaveTextContent('boom internals');
     expect(alert).toHaveAttribute('title', 'boom internals');
+  });
+});
+
+describe('model scope in combined views', () => {
+  async function combined(): Promise<MockViewerAdapter> {
+    const adapter = new MockViewerAdapter(document.createElement('div'));
+    await adapter.loadModels([
+      { urn: 'urn-a', name: 'Arch' },
+      { urn: 'urn-b', name: 'MEP' },
+    ]);
+    adapters.push(adapter);
+    return adapter;
+  }
+
+  function wallsCount(): number {
+    const row = screen.getByRole('cell', { name: 'Walls' }).closest('tr');
+    return Number(row?.querySelectorAll('td')[2]?.textContent ?? '0');
+  }
+
+  it('sums counts over all models and narrows to one model', async () => {
+    const adapter = await combined();
+    render(
+      <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />,
+    );
+    await screen.findByRole('cell', { name: 'Walls' });
+    const scope = screen.getByRole('combobox', { name: 'Summarize models' });
+    expect(
+      [...(scope as HTMLSelectElement).options].map((o) => o.textContent),
+    ).toEqual(['All models', 'Arch', 'MEP']);
+    const all = wallsCount();
+    fireEvent.change(scope, { target: { value: 'urn-b' } });
+    await waitFor(() => expect(wallsCount()).toBe(all / 2));
+    adapter.removeModel('urn-b');
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('combobox', { name: 'Summarize models' }),
+      ).toBeNull(),
+    );
+    await waitFor(() => expect(wallsCount()).toBe(all / 2));
+  });
+
+  it('names a model whose properties cannot be read', async () => {
+    const adapter = new MockViewerAdapter(document.createElement('div'));
+    await adapter.loadModels([
+      { urn: 'urn-a', name: 'Arch' },
+      { urn: 'urn-noprops', name: 'Broken DB' },
+    ]);
+    adapters.push(adapter);
+    render(
+      <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />,
+    );
+    expect(
+      await screen.findByText(/Properties unavailable for Broken DB/),
+    ).toBeInTheDocument();
+  });
+
+  it('charts one model in the dashboard', async () => {
+    const adapter = await combined();
+    render(<DashboardPanel adapter={adapter} />);
+    const scope = await screen.findByRole('combobox', { name: 'Chart models' });
+    fireEvent.change(scope, { target: { value: 'urn-a' } });
+    expect((scope as HTMLSelectElement).value).toBe('urn-a');
+  });
+});
+
+describe('every model hidden', () => {
+  it('explains the empty summary and dashboard', async () => {
+    const adapter = new MockViewerAdapter(document.createElement('div'));
+    await adapter.loadModels([{ urn: 'urn-a' }, { urn: 'urn-b' }]);
+    adapters.push(adapter);
+    render(
+      <>
+        <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />
+        <DashboardPanel adapter={adapter} />
+      </>,
+    );
+    await screen.findAllByRole('cell', { name: 'Walls' });
+    act(() => {
+      adapter.setModelVisible('urn-a', false);
+      adapter.setModelVisible('urn-b', false);
+    });
+    expect(await screen.findAllByText('All models are hidden')).toHaveLength(2);
+    expect(screen.queryAllByRole('cell', { name: 'Walls' })).toHaveLength(0);
+    act(() => adapter.setModelVisible('urn-b', true));
+    await screen.findAllByRole('cell', { name: 'Walls' });
+    expect(screen.queryByText('All models are hidden')).toBeNull();
   });
 });

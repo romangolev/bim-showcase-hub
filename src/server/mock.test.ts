@@ -4,6 +4,7 @@ import type { TreeNode } from '../shared/types.js';
 import { loadConfig } from './config.js';
 import { decodeId } from './ids.js';
 import { createApp } from './index.js';
+import { createMockDataService, MOCK_APP_CLIENT_ID } from './mock/index.js';
 
 const app = createApp(loadConfig({ MOCK_APS: '1' }));
 
@@ -20,6 +21,7 @@ interface Walk {
   items: TreeNode[];
   versions: TreeNode[];
   maxDepth: number;
+  projectOf: Record<string, string>;
 }
 
 async function walk(): Promise<Walk> {
@@ -30,6 +32,7 @@ async function walk(): Promise<Walk> {
     items: [],
     versions: [],
     maxDepth: 0,
+    projectOf: {},
   };
   async function visitFolder(
     projectId: string,
@@ -48,6 +51,7 @@ async function walk(): Promise<Walk> {
       } else {
         expect(node.kind).toBe('item');
         out.items.push(node);
+        out.projectOf[node.id] = projectId;
         const versions = await getNodes(
           `/api/projects/${projectId}/items/${node.id}/versions`,
         );
@@ -77,10 +81,24 @@ async function walk(): Promise<Walk> {
 }
 
 describe('mock mode', () => {
+  it('returns no hubs when the empty-hubs switch is on', async () => {
+    const empty = createApp(loadConfig({ MOCK_APS: '1' }), {
+      auth: {} as never,
+      data: createMockDataService(undefined, { emptyHubs: true }),
+    });
+    const res = await request(empty).get('/api/hubs');
+    expect(res.body).toEqual([]);
+  });
+
   it('serves a signed-in fake user without login', async () => {
     const res = await request(app).get('/api/session');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ name: 'Alex Rivera', picture: null });
+    expect(res.body).toEqual({
+      id: 'mock-user',
+      name: 'Alex Rivera',
+      picture: null,
+      appClientId: MOCK_APP_CLIENT_ID,
+    });
   });
 
   it('serves a dummy viewer token', async () => {
@@ -129,9 +147,22 @@ describe('mock mode', () => {
 
     expect(tree.versions.some((v) => v.viewable)).toBe(true);
     expect(tree.versions.some((v) => !v.viewable)).toBe(true);
-    expect(tree.versions.every((v) => v.viewable === Boolean(v.urn))).toBe(
-      true,
+    expect(
+      tree.versions.every((v) => v.viewable === (v.viewState === 'ready')),
+    ).toBe(true);
+    expect(new Set(tree.versions.map((v) => v.viewState))).toEqual(
+      new Set([
+        'ready',
+        'no-geometry',
+        'processing',
+        'not-translated',
+        'failed',
+      ]),
     );
+    for (const name of ['no-geometry', 'processing', 'not-translated']) {
+      const item = tree.items.find((i) => i.name === `STATE-${name}.rvt`);
+      expect(item, name).toBeDefined();
+    }
     expect(tree.versions.every((v) => /^v\d: .+ by .+$/.test(v.name))).toBe(
       true,
     );
@@ -140,6 +171,28 @@ describe('mock mode', () => {
     for (const ext of ['rvt', 'nwd', 'ifc', 'dwg', 'pdf']) {
       expect(extensions.has(ext)).toBe(true);
     }
+  });
+
+  it('reports the view state of a single version', async () => {
+    const tree = await walk();
+    const item = tree.items.find((i) => i.name === 'STATE-no-geometry.rvt');
+    const version = tree.versions.find((v) => v.parentId === item?.id);
+    expect(item && version).toBeTruthy();
+    const projectId = tree.projectOf[item?.id ?? ''];
+    const res = await request(app).get(
+      `/api/projects/${projectId}/items/${item?.id}/versions/${version?.id}/view-state`,
+    );
+    expect(projectId).toBeTruthy();
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ viewState: 'no-geometry', viewable: false });
+    const missing = await request(app).get(
+      `/api/projects/${projectId}/items/${item?.id}/versions/${item?.id}/view-state`,
+    );
+    expect(missing.status).toBe(404);
+    const malformed = await request(app).get(
+      `/api/projects/${projectId}/items/${item?.id}/versions/!!/view-state`,
+    );
+    expect(malformed.status).toBe(400);
   });
 
   it('is deterministic across app instances', async () => {

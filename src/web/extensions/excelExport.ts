@@ -1,4 +1,5 @@
 import type { PropertyRow } from '../../shared/types.js';
+import { distinctModelCount, unavailableModels } from '../viewer/modelScope.js';
 import { readLeafRows } from '../viewer/sharedLeafRows.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { formatValue } from './modelSummary.js';
@@ -13,9 +14,30 @@ export const DEFAULT_EXPORT_PROPERTIES: readonly string[] = [
 
 export const DEFAULT_GROUP_BY = 'Category';
 export const DEFAULT_FILE_NAME = 'model-properties.xlsx';
+export const MODEL_COLUMN = 'Model';
+
+export function exportFileName(file?: string, version?: string): string {
+  const base = (file ?? '').replace(/\.[A-Za-z0-9]{1,5}$/, '');
+  const parts = [base, version ?? '']
+    .map((part) =>
+      part
+        .normalize('NFKD')
+        .replace(/[^A-Za-z0-9._-]+/g, '-')
+        .replace(/-{2,}/g, '-')
+        .replace(/^[-.]+|[-.]+$/g, ''),
+    )
+    .filter(Boolean);
+  if (!base || parts.length === 0) return DEFAULT_FILE_NAME;
+  return `${parts.join('-').slice(0, 120)}-properties.xlsx`;
+}
 export const FALLBACK_SHEET_NAME = 'Elements';
 
 export type ExportCell = string | number | boolean;
+
+function missingModels(adapter: ViewerAdapter): string[] {
+  if (typeof adapter.getModels !== 'function') return [];
+  return unavailableModels(adapter.getModels()).map((model) => model.name);
+}
 
 export interface ExportSheet {
   name: string;
@@ -26,7 +48,7 @@ export interface ExportSheet {
 export type ExportStatus =
   | { phase: 'reading' }
   | { phase: 'building' }
-  | { phase: 'done'; fileName: string; rowCount: number }
+  | { phase: 'done'; fileName: string; rowCount: number; missing?: string[] }
   | { phase: 'empty' }
   | { phase: 'error'; message: string };
 
@@ -56,12 +78,20 @@ function cellOf(
 export function buildExportRows(
   rows: readonly PropertyRow[],
   propertyNames: readonly string[],
+  withModel = false,
 ): { header: string[]; rows: ExportCell[][] } {
+  const values = (row: PropertyRow): ExportCell[] => [
+    row.dbId,
+    ...propertyNames.map((name) => cellOf(row.properties[name])),
+  ];
+  if (!withModel) {
+    return { header: ['dbId', ...propertyNames], rows: rows.map(values) };
+  }
   return {
-    header: ['dbId', ...propertyNames],
+    header: [MODEL_COLUMN, 'dbId', ...propertyNames],
     rows: rows.map((row) => [
-      row.dbId,
-      ...propertyNames.map((name) => cellOf(row.properties[name])),
+      cellOf(row.modelName ?? row.modelId),
+      ...values(row),
     ]),
   };
 }
@@ -73,8 +103,9 @@ export function buildExportSheets(
 ): ExportSheet[] {
   if (rows.length === 0) return [];
   const used = new Set<string>();
+  const withModel = distinctModelCount(rows) > 1;
   if (!groupBy || !propertyNames.includes(groupBy)) {
-    const built = buildExportRows(rows, propertyNames);
+    const built = buildExportRows(rows, propertyNames, withModel);
     return [{ name: sheetNameFor(FALLBACK_SHEET_NAME, used), ...built }];
   }
   const groups = new Map<string, PropertyRow[]>();
@@ -88,7 +119,7 @@ export function buildExportSheets(
     .filter(([key]) => !key.includes('<'))
     .map(([key, bucket]) => ({
       name: sheetNameFor(key, used),
-      ...buildExportRows(bucket, propertyNames),
+      ...buildExportRows(bucket, propertyNames, withModel),
     }));
 }
 
@@ -147,7 +178,12 @@ export async function exportToXlsx(
       (total, sheet) => total + sheet.rows.length,
       0,
     );
-    return emit({ phase: 'done', fileName, rowCount });
+    const missing = missingModels(adapter);
+    return emit(
+      missing.length > 0
+        ? { phase: 'done', fileName, rowCount, missing }
+        : { phase: 'done', fileName, rowCount },
+    );
   } catch (err) {
     return emit({
       phase: 'error',
@@ -163,7 +199,9 @@ export function describeStatus(status: ExportStatus): string {
     case 'building':
       return 'Building the Excel file';
     case 'done':
-      return `Exported ${status.rowCount} elements to ${status.fileName}`;
+      return status.missing?.length
+        ? `Exported ${status.rowCount} elements to ${status.fileName}. Missing ${status.missing.join(', ')}: properties could not be read`
+        : `Exported ${status.rowCount} elements to ${status.fileName}`;
     case 'empty':
       return 'No elements to export';
     case 'error':

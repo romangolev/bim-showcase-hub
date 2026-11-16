@@ -77,7 +77,11 @@ describe('session and auth', () => {
 
     const session = await agent.get('/api/session');
     expect(session.status).toBe(200);
-    expect(session.body).toEqual({ name: 'Sam Smith', picture: null });
+    expect(session.body).toEqual({
+      name: 'Sam Smith',
+      picture: null,
+      appClientId: realConfig.aps.clientId,
+    });
 
     const token = await agent.get('/api/viewer/token');
     expect(token.status).toBe(200);
@@ -87,11 +91,49 @@ describe('session and auth', () => {
     expect((await agent.get('/api/hubs')).status).toBe(200);
   });
 
+  it('returns the stable user id with the session', async () => {
+    const auth = fakeAuth({
+      getUser: vi.fn().mockResolvedValue({
+        id: 'hashed-1',
+        name: 'Sam Smith',
+        picture: null,
+      }),
+    });
+    const agent = request.agent(realApp(auth));
+    await signIn(agent);
+    const session = await agent.get('/api/session');
+    expect(session.body).toMatchObject({
+      id: 'hashed-1',
+      name: 'Sam Smith',
+      picture: null,
+    });
+  });
+
   it('does not expose tokens in the session response or cookie value', async () => {
     const agent = request.agent(realApp());
     await signIn(agent);
     const session = await agent.get('/api/session');
     expect(JSON.stringify(session.body)).not.toContain('access-1');
+  });
+
+  it('returns the app client id only when signed in and never a secret', async () => {
+    const config = loadConfig({
+      SESSION_SECRET: 'test-session-secret',
+      APS_CLIENT_ID: 'public-client-id',
+      APS_CLIENT_SECRET: 'private-client-secret',
+    });
+    const app = createApp(config, {
+      auth: fakeAuth(),
+      data: createMockDataService(),
+    });
+    expect((await request(app).get('/api/session')).status).toBe(401);
+    const agent = request.agent(app);
+    await signIn(agent);
+    const session = await agent.get('/api/session');
+    expect(session.body.appClientId).toBe('public-client-id');
+    const text = JSON.stringify(session.body);
+    expect(text).not.toContain('private-client-secret');
+    expect(text).not.toContain('test-session-secret');
   });
 
   it('rejects a callback with a wrong or missing state', async () => {

@@ -9,10 +9,22 @@ import {
   useReducer,
   useRef,
   useState,
+  useSyncExternalStore,
 } from 'react';
+import { useSession } from '../api/hooks.js';
+import {
+  claimModels,
+  createOpenModelsStore,
+  type OpenModelsState,
+  type OpenModelsStore,
+  ownerKey,
+} from '../api/openModels.js';
+import { OpenModelsContext } from '../api/useOpenModels.js';
 import { TopBar } from '../components/TopBar.js';
 import { TreeControlContext } from '../components/TreeControl.js';
 import { useMediaQuery } from '../components/useMediaQuery.js';
+import { modelTabTitle } from '../routes/ModelPage.js';
+import { ModelRouteSync } from '../routes/ModelRouteSync.js';
 import { isMockViewer, ViewerProvider } from '../viewer/index.js';
 import {
   type DockController,
@@ -22,23 +34,31 @@ import {
   MainContentContext,
   type MoveTarget,
   type PaneTitle,
-  PaneTitleContext,
   type PaneTitles,
 } from './layoutContext.js';
 import {
+  defaultModel,
   type LayoutModel,
   layoutReducer,
   readLayout,
   type SerializedDock,
   writeLayout,
 } from './layoutState.js';
+import { mountedPanels } from './mounted.js';
 import { LayoutMenu, PaneActions } from './PaneMenu.js';
 import {
+  definitionOf,
+  FOLLOWERS,
+  isPaneId,
   PANE_IDS,
   type PaneId,
+  type PanelId,
   paneById,
+  paneKind,
+  parsePanelId,
   TREE_WIDTH_DEFAULT,
 } from './paneRegistry.js';
+import { MODEL_KIND, modelPanelId } from './panes.js';
 import { StackedLayout } from './StackedLayout.js';
 import { createHostStore, PaneHosts } from './ViewerHost.js';
 
@@ -56,6 +76,19 @@ const MOVE_MESSAGES: Partial<Record<MoveTarget, string>> = {
 
 export const STACKED_MAX_WIDTH = 875;
 export const STACKED_QUERY = `(max-width: ${STACKED_MAX_WIDTH}px)`;
+export const LAYOUT_WRITE_DELAY_MS = 300;
+export const RESIZE_STEP = 16;
+export const RESIZE_STEP_FAST = 64;
+
+const RESIZE_KEYS: Record<
+  string,
+  (step: number) => { width?: number; height?: number }
+> = {
+  ArrowRight: (step) => ({ width: step }),
+  ArrowLeft: (step) => ({ width: -step }),
+  ArrowDown: (step) => ({ height: step }),
+  ArrowUp: (step) => ({ height: -step }),
+};
 
 function storage(): Storage | null {
   try {
@@ -65,21 +98,15 @@ function storage(): Storage | null {
   }
 }
 
-function initialModel(): LayoutModel {
+function initialModel(openPanels: readonly PanelId[]): LayoutModel {
   const store = storage();
-  const height = window.innerHeight;
-  if (!store) {
-    return layoutReducer(
-      { dock: null, collapsed: [], treeWidth: 0 },
-      { type: 'reset', height },
-    );
-  }
-  return readLayout(store, height);
+  return store ? readLayout(store, openPanels) : defaultModel();
 }
 
 function openFromDock(dock: SerializedDock | null): PaneId[] {
-  if (!dock) return [...PANE_IDS];
-  return PANE_IDS.filter((id) => id in dock.panels);
+  if (!dock) return ['tree'];
+  const kinds = new Set(Object.keys(dock.panels).map(paneKind));
+  return PANE_IDS.filter((id) => kinds.has(id));
 }
 
 function focusTreeTarget() {
@@ -93,22 +120,98 @@ function focusTreeTarget() {
   });
 }
 
-export interface LayoutProviderProps {
-  main: ReactNode;
+function modelOf(id: PanelId): string | null {
+  const parsed = parsePanelId(id);
+  return parsed?.kind === MODEL_KIND ? parsed.instance : null;
 }
 
-export function LayoutProvider({ main }: LayoutProviderProps) {
+function titlesFor(models: OpenModelsState): PaneTitles {
+  const titles: Record<PanelId, PaneTitle> = {};
+  for (const { urn, context, spread } of models.models) {
+    titles[modelPanelId(urn)] = modelTabTitle(urn, context, undefined, spread);
+  }
+  const active = models.active ? titles[modelPanelId(models.active)] : null;
+  if (active) {
+    for (const id of FOLLOWERS) {
+      const label = paneById(id).title;
+      titles[id] = { label, tooltip: `${label} of ${active.label}` };
+    }
+  }
+  return titles;
+}
+
+function useDebouncedWrite(model: LayoutModel) {
+  const pending = useRef<LayoutModel | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const flush = useCallback(() => {
+    clearTimeout(timer.current);
+    timer.current = undefined;
+    const next = pending.current;
+    pending.current = null;
+    const store = storage();
+    if (next && store) writeLayout(store, next);
+  }, []);
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    pending.current = model;
+    clearTimeout(timer.current);
+    timer.current = setTimeout(flush, LAYOUT_WRITE_DELAY_MS);
+  }, [model, flush]);
+  useEffect(() => {
+    window.addEventListener('pagehide', flush);
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      flush();
+    };
+  }, [flush]);
+}
+
+export interface LayoutProviderProps {
+  main: ReactNode;
+  openModels?: OpenModelsStore;
+}
+
+export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
+  const user = useSession().data;
+  const ownerId = user?.id;
+  const ownerName = user?.name ?? '';
+  const owner = ownerName ? ownerKey({ id: ownerId, name: ownerName }) : '';
+  const [modelStore] = useState(() => {
+    if (owner) claimModels({ id: ownerId, name: ownerName });
+    return openModels ?? createOpenModelsStore();
+  });
+  const claimed = useRef(owner);
+  useEffect(() => {
+    if (!owner || owner === claimed.current) return;
+    claimed.current = owner;
+    if (claimModels({ id: ownerId, name: ownerName })) modelStore.clear();
+  }, [owner, ownerId, ownerName, modelStore]);
+  const models = useSyncExternalStore(
+    modelStore.subscribe,
+    modelStore.getState,
+    modelStore.getState,
+  );
+  const instances = useMemo(
+    () => models.models.map(({ urn }) => modelPanelId(urn)),
+    [models.models],
+  );
+  const activeInstance = models.active ? modelPanelId(models.active) : null;
+  const titles = useMemo(() => titlesFor(models), [models]);
+
   const stacked = useMediaQuery(STACKED_QUERY);
   const mode: LayoutMode = stacked ? 'stacked' : 'dock';
-  const [model, dispatch] = useReducer(layoutReducer, undefined, initialModel);
+  const [model, dispatch] = useReducer(layoutReducer, instances, initialModel);
   const [openPanes, setOpenPanes] = useState<readonly PaneId[]>(() =>
     openFromDock(model.dock),
   );
-  const [hosts] = useState(() => createHostStore<PaneId>());
-  const [attached, setAttached] = useState<readonly PaneId[]>([]);
-  const [signals, setSignals] = useState<Partial<Record<PaneId, number>>>({});
+  const [hosts] = useState(() => createHostStore<PanelId>());
+  const [attached, setAttached] = useState<readonly PanelId[]>([]);
+  const [signals, setSignals] = useState<Readonly<Record<PanelId, number>>>({});
   const [overlayTreeOpen, setOverlayTreeOpen] = useState(false);
-  const [titles, setTitles] = useState<PaneTitles>({});
   const [seenMode, setSeenMode] = useState(mode);
   const controller = useRef<DockController | null>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
@@ -120,14 +223,31 @@ export function LayoutProvider({ main }: LayoutProviderProps) {
     setSeenMode(mode);
     setOverlayTreeOpen(false);
   }
-  const overlayOpen = stacked && overlayTreeOpen;
-  const treeOpen = stacked ? overlayTreeOpen : openPanes.includes('tree');
+  const home = models.models.length === 0;
+  const overlayOpen = stacked && overlayTreeOpen && !home;
+  const treeOpen = stacked
+    ? home || overlayTreeOpen
+    : !model.collapsed.includes('tree');
+  const companions = useMemo(
+    () => FOLLOWERS.filter((id) => !model.dismissed.includes(id)),
+    [model.dismissed],
+  );
   const previousMode = useRef(mode);
 
+  useDebouncedWrite(model);
+
+  const instanceKey = instances.join('\n');
+  const attachedRef = useRef(attached);
+  attachedRef.current = attached;
   useEffect(() => {
-    const store = storage();
-    if (store) writeLayout(store, model);
-  }, [model]);
+    const wanted = new Set(instanceKey ? instanceKey.split('\n') : []);
+    const gone = attachedRef.current.filter(
+      (id) => parsePanelId(id)?.instance && !wanted.has(id),
+    );
+    if (gone.length === 0) return;
+    for (const id of gone) hosts.release(id);
+    setAttached((list) => list.filter((id) => !gone.includes(id)));
+  }, [instanceKey, hosts]);
 
   useLayoutEffect(() => {
     const was = previousMode.current;
@@ -162,16 +282,30 @@ export function LayoutProvider({ main }: LayoutProviderProps) {
     return () => document.removeEventListener('keydown', onKey);
   }, [overlayOpen, closeTree]);
 
-  const bump = useCallback((id: PaneId) => {
+  const bump = useCallback((id: PanelId) => {
     setSignals((current) => ({ ...current, [id]: (current[id] ?? 0) + 1 }));
   }, []);
 
   const onAttach = useCallback(
-    (id: PaneId) => {
+    (id: PanelId) => {
       setAttached((list) => (list.includes(id) ? list : [...list, id]));
       bump(id);
+      const urn = modelOf(id);
+      if (urn) modelStore.show(urn);
     },
-    [bump],
+    [bump, modelStore],
+  );
+
+  const shown = useRef(new Set<PanelId>());
+  const onVisibility = useCallback(
+    (id: PanelId, visible: boolean) => {
+      const urn = modelOf(id);
+      if (!urn) return;
+      if (visible) shown.current.add(urn);
+      else shown.current.delete(urn);
+      modelStore.setVisible([...shown.current]);
+    },
+    [modelStore],
   );
 
   const onDockChange = useCallback((dock: SerializedDock, open: PaneId[]) => {
@@ -183,30 +317,35 @@ export function LayoutProvider({ main }: LayoutProviderProps) {
     );
   }, []);
 
+  const onTreeWidth = useCallback((width: number) => {
+    dispatch({ type: 'treeWidth', width });
+  }, []);
+
   const onController = useCallback((next: DockController | null) => {
     controller.current = next;
   }, []);
 
-  const setPaneTitle = useCallback((id: PaneId, title: PaneTitle | null) => {
-    setTitles((current) => {
-      const existing = current[id];
-      if (
-        existing?.label === title?.label &&
-        existing?.tooltip === title?.tooltip
-      ) {
-        return current;
-      }
-      const next = { ...current };
-      if (title) next[id] = title;
-      else delete next[id];
-      return next;
-    });
-  }, []);
+  const onActivateInstance = useCallback(
+    (id: PanelId) => {
+      const urn = modelOf(id);
+      if (urn) modelStore.activate(urn);
+    },
+    [modelStore],
+  );
 
+  const onCloseInstance = useCallback(
+    (id: PanelId) => {
+      const urn = modelOf(id);
+      if (urn) modelStore.close(urn);
+    },
+    [modelStore],
+  );
+
+  const [resizing, setResizing] = useState<PanelId | null>(null);
   const [announcement, setAnnouncement] = useState('');
   const announce = useCallback((message: string) => {
     setAnnouncement((current) =>
-      current === message ? `${message}\u00a0` : message,
+      current === message ? `${message} ` : message,
     );
   }, []);
 
@@ -214,20 +353,29 @@ export function LayoutProvider({ main }: LayoutProviderProps) {
     dispatch({ type: 'setCollapsed', id, collapsed });
   }, []);
 
+  const focusTreeInput = useCallback(() => {
+    requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>('#document-panel input')?.focus();
+    });
+  }, []);
+
   const toggleTree = useCallback(() => {
     if (modeRef.current === 'stacked') {
-      setOverlayTreeOpen((open) => !open);
-      requestAnimationFrame(() => {
-        document.querySelector<HTMLElement>('#document-panel input')?.focus();
-      });
+      if (!home) setOverlayTreeOpen((open) => !open);
+      focusTreeInput();
       return;
     }
-    if (openPanes.includes('tree')) {
-      controller.current?.closePane('tree');
-    } else {
-      controller.current?.openPane('tree');
-    }
-  }, [openPanes]);
+    const collapsed = model.collapsed.includes('tree');
+    dispatch({ type: 'setCollapsed', id: 'tree', collapsed: !collapsed });
+    controller.current?.openPane('tree');
+    if (collapsed) focusTreeInput();
+  }, [home, model.collapsed, focusTreeInput]);
+
+  const closePane = useCallback((id: PaneId) => {
+    if (!paneById(id).closable) return;
+    dispatch({ type: 'dismiss', id, dismissed: true });
+    controller.current?.closePane(id);
+  }, []);
 
   const treeControl = useMemo(
     () => ({
@@ -244,6 +392,15 @@ export function LayoutProvider({ main }: LayoutProviderProps) {
     [setCollapsed],
   );
 
+  const paneTitle = useCallback(
+    (id: PanelId): PaneTitle =>
+      titles[id] ?? {
+        label: paneKind(id) ? definitionOf(id).title : id,
+        tooltip: '',
+      },
+    [titles],
+  );
+
   const api = useMemo<LayoutApi>(
     () => ({
       mode,
@@ -257,22 +414,29 @@ export function LayoutProvider({ main }: LayoutProviderProps) {
         );
       },
       togglePane: (id) => {
-        if (id === 'tree') {
-          toggleTree();
+        const urn = modelOf(id);
+        if (urn) {
+          modelStore.close(urn);
           return;
         }
-        if (openPanes.includes(id)) controller.current?.closePane(id);
-        else controller.current?.openPane(id);
+        if (!isPaneId(id) || !paneById(id).closable) return;
+        if (openPanes.includes(id)) {
+          closePane(id);
+          return;
+        }
+        dispatch({ type: 'dismiss', id, dismissed: false });
+        controller.current?.openPane(id);
       },
       movePane: (id, target) => {
-        setCollapsed(id, false);
+        const kind = paneKind(id);
+        if (kind) setCollapsed(kind, false);
         controller.current?.movePane(id, target);
         const message = MOVE_MESSAGES[target];
-        if (message) announce(`${paneById(id).title} ${message}`);
+        if (message) announce(`${paneTitle(id).label} ${message}`);
         requestAnimationFrame(() => controller.current?.focusPane(id));
       },
       resetLayout: () => {
-        dispatch({ type: 'reset', height: window.innerHeight });
+        dispatch({ type: 'reset' });
         controller.current?.reset(TREE_WIDTH_DEFAULT);
         announce('Layout reset');
         requestAnimationFrame(() => controller.current?.focusPane('viewer'));
@@ -286,7 +450,17 @@ export function LayoutProvider({ main }: LayoutProviderProps) {
       },
       resizeSignal: (id) => signals[id] ?? 0,
       location: (id) => controller.current?.location(id) ?? null,
+      startResize: (id) => {
+        if (modeRef.current !== 'dock') return;
+        setResizing(id);
+        announce(
+          `Resizing ${paneTitle(id).label}. Arrow keys change its size, Shift moves faster, Escape finishes.`,
+        );
+        requestAnimationFrame(() => controller.current?.focusPane(id));
+      },
+      resizing,
       closeTreeOverlay,
+      paneTitle,
     }),
     [
       announce,
@@ -294,12 +468,47 @@ export function LayoutProvider({ main }: LayoutProviderProps) {
       openPanes,
       model.collapsed,
       setCollapsed,
-      toggleTree,
       treeControl,
       signals,
       closeTreeOverlay,
+      paneTitle,
+      modelStore,
+      closePane,
+      resizing,
     ],
   );
+
+  useEffect(() => {
+    if (!resizing) return;
+    if (mode !== 'dock') {
+      setResizing(null);
+      return;
+    }
+    const label = paneTitle(resizing).label;
+    const onKey = (event: KeyboardEvent) => {
+      const step = event.shiftKey ? RESIZE_STEP_FAST : RESIZE_STEP;
+      const delta = RESIZE_KEYS[event.key]?.(step);
+      if (delta) {
+        event.preventDefault();
+        event.stopPropagation();
+        const size = controller.current?.resizePane(resizing, delta);
+        if (size) announce(`${label} ${size.width} by ${size.height} pixels`);
+        return;
+      }
+      if (
+        event.key === 'Escape' ||
+        event.key === 'Enter' ||
+        event.key === 'Tab'
+      ) {
+        if (event.key !== 'Tab') event.preventDefault();
+        event.stopPropagation();
+        setResizing(null);
+        announce(`${label} resize finished`);
+      }
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
+  }, [resizing, mode, paneTitle, announce]);
 
   const modelRef = useRef(model);
   modelRef.current = model;
@@ -315,27 +524,42 @@ export function LayoutProvider({ main }: LayoutProviderProps) {
       location: api.location,
       mode: () => api.mode,
       read: () => modelRef.current,
+      models: () => modelStore.getState(),
+      activateModel: modelStore.activate,
+      closeModel: modelStore.close,
     };
     return () => {
       delete target.__bshLayout;
     };
-  }, [api]);
+  }, [api, modelStore]);
 
-  const renderPane = useCallback((id: PaneId) => {
-    const Component = paneById(id).component;
-    return <Component />;
+  const renderPane = useCallback((id: PanelId) => {
+    const parsed = parsePanelId(id);
+    if (!parsed) return null;
+    const pane = paneById(parsed.kind);
+    if (parsed.instance && pane.instances) {
+      const Instance = pane.instances.component;
+      return <Instance instance={parsed.instance} />;
+    }
+    const Component = pane.component;
+    return Component ? <Component /> : null;
   }, []);
 
-  const mounted = attached.filter(
-    (id) => openPanes.includes(id) || id === 'tree' || id === 'viewer',
-  );
+  const mounted = mountedPanels(attached, {
+    mode,
+    open: openPanes,
+    companions,
+    onModel: models.active !== null,
+    instances,
+  });
 
   return (
-    <LayoutContext.Provider value={api}>
-      <MainContentContext.Provider value={main}>
-        <TreeControlContext.Provider value={treeControl}>
-          <PaneTitleContext.Provider value={setPaneTitle}>
-            <ViewerProvider>
+    <OpenModelsContext.Provider value={modelStore}>
+      <LayoutContext.Provider value={api}>
+        <MainContentContext.Provider value={main}>
+          <TreeControlContext.Provider value={treeControl}>
+            <ViewerProvider active={models.active}>
+              <ModelRouteSync />
               <TopBar
                 treeOpen={treeOpen}
                 onToggleTree={toggleTree}
@@ -345,9 +569,13 @@ export function LayoutProvider({ main }: LayoutProviderProps) {
               {stacked ? (
                 <StackedLayout
                   hosts={hosts}
-                  open={openPanes}
+                  open={companions}
                   titles={titles}
+                  models={models}
+                  onSelectModel={modelStore.activate}
+                  onCloseModel={modelStore.close}
                   onAttach={onAttach}
+                  onVisibility={onVisibility}
                   treeOpen={overlayOpen}
                   onCloseTree={closeTree}
                 />
@@ -366,10 +594,19 @@ export function LayoutProvider({ main }: LayoutProviderProps) {
                       treeWidth={model.treeWidth}
                       collapsed={model.collapsed}
                       titles={titles}
+                      instances={instances}
+                      activeInstance={activeInstance}
+                      companions={companions}
+                      arrangement={model.lastViewerArrangement}
                       onAttach={onAttach}
+                      onVisibility={onVisibility}
                       onMoved={bump}
                       onChange={onDockChange}
+                      onTreeWidth={onTreeWidth}
                       onController={onController}
+                      onActivateInstance={onActivateInstance}
+                      onCloseInstance={onCloseInstance}
+                      onClosePane={closePane}
                       headerActions={({ pane }) => <PaneActions pane={pane} />}
                     />
                   </Suspense>
@@ -384,9 +621,9 @@ export function LayoutProvider({ main }: LayoutProviderProps) {
                 {announcement}
               </div>
             </ViewerProvider>
-          </PaneTitleContext.Provider>
-        </TreeControlContext.Provider>
-      </MainContentContext.Provider>
-    </LayoutContext.Provider>
+          </TreeControlContext.Provider>
+        </MainContentContext.Provider>
+      </LayoutContext.Provider>
+    </OpenModelsContext.Provider>
   );
 }

@@ -1,11 +1,18 @@
 import type { SessionUser, TreeNode, ViewerToken } from '../../shared/types.js';
+import { viewableFor } from '../../shared/viewState.js';
 import { versionLabel } from '../data/mapping.js';
 import type { DataService } from '../data/types.js';
 import { HttpError } from '../errors.js';
 import { encodeId } from '../ids.js';
 import { buildMockData, type MockData, type MockFolder } from './fixtures.js';
 
-export const MOCK_USER: SessionUser = { name: 'Alex Rivera', picture: null };
+export const MOCK_USER: SessionUser = {
+  id: 'mock-user',
+  name: 'Alex Rivera',
+  picture: null,
+};
+
+export const MOCK_APP_CLIENT_ID = 'MOCK-CLIENT-ID-NOT-A-REAL-KEY';
 
 export const MOCK_VIEWER_TOKEN: ViewerToken = {
   access_token: 'mock-viewer-token',
@@ -29,15 +36,22 @@ function folderNode(folder: MockFolder): TreeNode {
 
 export function createMockDataService(
   data: MockData = buildMockData(),
+  options: { emptyHubs?: boolean; personalOnly?: boolean } = {},
 ): DataService {
   return {
     async listHubs() {
-      return [...data.hubs.values()].map((hub) => ({
+      if (options.emptyHubs) {
+        return [];
+      }
+      const hubs = [...data.hubs.values()];
+      const shown = options.personalOnly ? hubs.slice(0, 1) : hubs;
+      return shown.map((hub) => ({
         id: encodeId(hub.id),
         kind: 'hub',
         name: hub.name,
         hasChildren: hub.projectIds.length > 0,
         viewable: false,
+        hubType: options.personalOnly ? 'personal' : hub.hubType,
       }));
     },
 
@@ -116,14 +130,30 @@ export function createMockDataService(
           kind: 'version',
           name: versionLabel(version.number, version.modifiedAt, version.user),
           hasChildren: false,
-          viewable: version.viewable,
+          viewable: viewableFor(version.viewState),
+          viewState: version.viewState,
           parentId: encodeId(itemId),
         };
-        if (version.viewable) {
+        if (version.hasUrn) {
           node.urn = encodeId(`urn:adsk.mock:${version.id}`);
         }
         return node;
       });
+    },
+
+    async versionViewState(_token, projectId, itemId, versionId) {
+      const item = data.items.get(itemId);
+      if (!item || item.projectId !== projectId) {
+        throw notFound('Item');
+      }
+      const version = item.versions.find((entry) => entry.id === versionId);
+      if (!version) {
+        throw notFound('Version');
+      }
+      return {
+        viewState: version.viewState,
+        viewable: viewableFor(version.viewState),
+      };
     },
   };
 }

@@ -7,12 +7,28 @@ import {
   summarize,
 } from '../extensions/modelSummary.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
+import {
+  ModelScopeSelect,
+  UnavailableModels,
+  useModelScope,
+} from './ModelScope.js';
 import { SummaryTable } from './SummaryTable.js';
-import { usePropertyRows, useResolvedAdapter } from './usePropertyRows.js';
+import {
+  HIDDEN_MESSAGE,
+  HIDDEN_TITLE,
+  usePropertyRows,
+  useResolvedAdapter,
+} from './usePropertyRows.js';
 import './panels.css';
+
+export interface SummaryModel {
+  label: string;
+  tooltip: string;
+}
 
 export interface ModelSummaryPanelProps {
   adapter?: ViewerAdapter | null;
+  model?: SummaryModel | null;
   propertyNames?: readonly string[];
   title?: string;
   className?: string;
@@ -27,6 +43,7 @@ export const STACKED_ROW_LIMIT = 12;
 
 export function ModelSummaryPanel({
   adapter,
+  model,
   propertyNames = DEFAULT_SUMMARY_PROPERTIES,
   title = 'Model summary',
   className,
@@ -41,10 +58,11 @@ export function ModelSummaryPanel({
   const [showAll, setShowAll] = useState(false);
   const resolved = useResolvedAdapter(adapter);
   const state = usePropertyRows(resolved, propertyNames);
+  const scope = useModelScope(resolved, state.rows);
   const entries = useMemo(
     () =>
-      state.status === 'ready' ? summarize(state.rows, propertyNames) : EMPTY,
-    [state.status, state.rows, propertyNames],
+      state.status === 'ready' ? summarize(scope.rows, propertyNames) : EMPTY,
+    [state.status, scope.rows, propertyNames],
   );
 
   const toggle = () => {
@@ -65,9 +83,16 @@ export function ModelSummaryPanel({
       data-rows-collapsed={!showAll && entries.length > STACKED_ROW_LIMIT}
     >
       <header className="bsh-card__header bsh-summary__header">
-        <h2 id={titleId} className="bsh-card__title">
+        <h2 id={titleId} className="bsh-card__title bsh-summary__title">
           {title}
+          {model ? (
+            <span className="bsh-summary__model" title={model.tooltip}>
+              <span className="bsh-sr-only">: </span>
+              {model.label}
+            </span>
+          ) : null}
         </h2>
+        <ModelScopeSelect state={scope} label="Summarize models" />
         <button
           type="button"
           className="bsh-button bsh-summary__refresh"
@@ -101,11 +126,21 @@ export function ModelSummaryPanel({
         aria-hidden={isCollapsed || undefined}
       >
         <div className="bsh-summary__body">
+          {state.status === 'ready' ? (
+            <UnavailableModels models={scope.unavailable} />
+          ) : null}
           {!resolved && (
             <StateBlock
               variant="empty"
               title="No model loaded yet"
               message="Select a viewable version in the document tree and its element summary appears here."
+            />
+          )}
+          {state.status === 'hidden' && (
+            <StateBlock
+              variant="empty"
+              title={HIDDEN_TITLE}
+              message={HIDDEN_MESSAGE}
             />
           )}
           {resolved && state.status === 'loading' && (

@@ -6,6 +6,7 @@ import {
   RESET_ICON_CLASS,
   swatchIconClass,
 } from './autodeskTools.js';
+import { NO_GEOMETRY_MESSAGE } from './federation.js';
 import {
   buildMockElements,
   buildMockRows,
@@ -13,6 +14,31 @@ import {
   type MockElement,
   type Point,
 } from './mockModel.js';
+import { tagRows } from './modelScope.js';
+import {
+  checkCapacity,
+  loadFailureMessage,
+  type ModelBox,
+  type ModelDbId,
+  type ModelInfo,
+  ModelSet,
+  ModelSetError,
+  type ModelSource,
+  type ModelSpread,
+  modelIdFor,
+  spreadOf,
+  togetherOffsets,
+  uniqueSources,
+  type Vec3,
+  VIEWER_CLOSED_MESSAGE,
+} from './modelSet.js';
+import {
+  claimRegion,
+  detectRegion,
+  RegionConflictError,
+  regionAvailable,
+} from './region.js';
+import { createResizeScheduler } from './resizeScheduler.js';
 import {
   ToolGroupController,
   type ToolGroupState,
@@ -63,6 +89,84 @@ function setDisabled(
   else button.removeAttribute('aria-disabled');
 }
 
+export const MOCK_BROKEN_MARKER = 'broken';
+export const MOCK_LOAD_ERROR = 'Mock model failed to load';
+export const MOCK_NO_PROPERTIES_MARKER = 'noprops';
+export const MOCK_NO_GEOMETRY_MARKER = 'nogeom';
+export const MOCK_PROPERTIES_ERROR = 'Properties could not be read: mock';
+const MODEL_GAP = 48;
+
+interface Box {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+interface MockScene {
+  group: SVGGElement;
+  nodes: Map<number, SVGPolygonElement>;
+  box: Box;
+  shift: number;
+  offset: Vec3;
+}
+
+export const MOCK_FAR_MARKER = 'far';
+export const MOCK_FAR_DISTANCE = 1_000_000;
+
+function placedBox(scene: MockScene): Box {
+  return {
+    ...scene.box,
+    x: scene.box.x + scene.offset[0],
+    y: scene.box.y + scene.offset[1],
+  };
+}
+
+function modelBoxOf(id: string, box: Box): ModelBox {
+  return {
+    id,
+    min: [box.x, box.y, 0],
+    max: [box.x + box.width, box.y + box.height, 0],
+  };
+}
+
+function selectionKey(modelId: string, dbId: number): string {
+  return `${dbId}\u0000${modelId}`;
+}
+
+function parseKey(key: string): ModelDbId {
+  const split = key.indexOf('\u0000');
+  return { dbId: Number(key.slice(0, split)), modelId: key.slice(split + 1) };
+}
+
+function boxOf(elements: readonly MockElement[]): Box {
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (const element of elements) {
+    for (const [x, y] of element.points) {
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+    }
+  }
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+}
+
+function statusText(ready: number): string {
+  if (ready > 1) return `Mock viewer, ${ready} models`;
+  if (ready === 1) return 'Mock viewer, fixture model';
+  return 'Mock viewer';
+}
+
+export function mockRowVariant(urn: string): number {
+  let hash = 0;
+  for (const char of urn) hash = (hash * 31 + char.charCodeAt(0)) % 9973;
+  return hash % 997;
+}
+
 function rgbaCss([r, g, b, a]: Rgba): string {
   const to = (v: number) => Math.round(Math.min(1, Math.max(0, v)) * 255);
   return `rgba(${to(r)}, ${to(g)}, ${to(b)}, ${a})`;
@@ -73,10 +177,12 @@ export class MockViewerAdapter implements ViewerAdapter {
   private svg: SVGSVGElement | null = null;
   private toolbar: HTMLDivElement | null = null;
   private status: HTMLDivElement | null = null;
-  private selection = new Set<number>();
-  private readonly nodes = new Map<number, SVGPolygonElement>();
-  private readonly themed = new Map<number, Rgba>();
-  private readonly listeners = new Set<(ids: number[]) => void>();
+  private selection = new Set<string>();
+  private readonly models = new ModelSet<MockScene>();
+  private readonly themed = new Map<string, Rgba>();
+  private readonly listeners = new Set<(items: ModelDbId[]) => void>();
+  private placed = 0;
+  private offsets: Record<string, Vec3> | null = null;
   private bounds: {
     x: number;
     y: number;
@@ -88,45 +194,158 @@ export class MockViewerAdapter implements ViewerAdapter {
   private theme: Theme = 'dark';
   private loaded = false;
   private destroyed = false;
+  private readonly resizer = createResizeScheduler(() => this.resize());
 
   constructor(private readonly container: HTMLElement) {
     this.build();
   }
 
-  async load(urn: string): Promise<void> {
-    if (this.destroyed) return;
-    if (!urn) throw new Error('A model URN is required');
+  async load(urn: string, name?: string): Promise<void> {
+    await this.loadModels([name ? { urn, name } : { urn }]);
+  }
+
+  async loadModels(sources: readonly ModelSource[]): Promise<ModelInfo[]> {
+    if (this.destroyed) return [];
+    const unique = uniqueSources(sources);
+    checkCapacity(0, unique.length);
+    const region = detectRegion(unique[0]?.urn ?? '');
+    if (!regionAvailable(region)) throw new RegionConflictError(region);
     this.unload();
-    const elements = buildMockElements();
-    this.renderScene(elements);
-    this.loaded = true;
-    if (this.status) this.status.textContent = 'Mock viewer, fixture model';
+    for (const source of unique) this.models.add(source);
+    for (const source of unique) this.loadOne(source);
+    const models = this.models.list();
+    if (models.some((model) => model.status === 'ready')) claimRegion(region);
+    if (!models.some((model) => model.status === 'ready')) {
+      throw new Error(loadFailureMessage(models));
+    }
+    return models;
+  }
+
+  async addModel(source: ModelSource): Promise<ModelInfo> {
+    if (this.destroyed) {
+      throw new ModelSetError('closed', VIEWER_CLOSED_MESSAGE);
+    }
+    const info = this.models.add(source);
+    this.loadOne(source);
+    return this.models.get(info.id) ?? info;
+  }
+
+  removeModel(modelId: string): void {
+    const removed = this.models.remove(modelId);
+    if (!removed) return;
+    removed.handle?.group.remove();
+    this.forgetModel(modelId);
+    this.refresh();
+  }
+
+  getSpread(): ModelSpread | null {
+    return spreadOf(
+      this.models
+        .ready()
+        .map(({ info, handle }) => modelBoxOf(info.id, handle.box)),
+    );
+  }
+
+  getTogetherOffsets(): Record<string, Vec3> {
+    const ready = this.models.ready();
+    const anchor = ready[0];
+    if (!anchor) return {};
+    return togetherOffsets(
+      ready.map(({ info, handle }) => modelBoxOf(info.id, handle.box)),
+      anchor.info.id,
+    );
+  }
+
+  setModelOffsets(offsets: Readonly<Record<string, Vec3>> | null): void {
+    this.offsets =
+      offsets && Object.keys(offsets).length > 0 ? { ...offsets } : null;
+    for (const { info, handle } of this.models.ready()) {
+      this.applyOffset(handle, this.offsets?.[info.id]);
+    }
+    this.refresh();
+  }
+
+  private applyOffset(scene: MockScene, offset: Vec3 | undefined): void {
+    scene.offset = offset ?? [0, 0, 0];
+    const x = scene.shift + scene.offset[0];
+    const y = scene.offset[1];
+    if (x || y) scene.group.setAttribute('transform', `translate(${x} ${y})`);
+    else scene.group.removeAttribute('transform');
+    scene.group.dataset.offset = offset ? 'moved' : 'original';
+  }
+
+  getModels(): ModelInfo[] {
+    return this.models.list();
+  }
+
+  setModelVisible(modelId: string, visible: boolean): void {
+    if (!this.models.setVisible(modelId, visible)) return;
+    const scene = this.models.handle(modelId);
+    if (!scene) return;
+    if (visible) {
+      scene.group.removeAttribute('display');
+    } else {
+      scene.group.setAttribute('display', 'none');
+      this.dropSelectionOf(modelId);
+    }
+    this.refresh();
+  }
+
+  onModelsChange(cb: (models: ModelInfo[]) => void): () => void {
+    return this.models.onChange(cb);
+  }
+
+  getModelSelection(): ModelDbId[] {
+    return [...this.selection].map(parseKey);
+  }
+
+  selectModelIds(items: readonly ModelDbId[]): void {
+    this.setSelectionKeys(
+      items
+        .filter((item) => this.nodeOf(item.modelId, item.dbId))
+        .map((item) => selectionKey(item.modelId, item.dbId)),
+    );
+  }
+
+  setModelThemingColor(items: readonly ModelDbId[], color: Rgba): void {
+    for (const { modelId, dbId } of items) {
+      const node = this.nodeOf(modelId, dbId);
+      if (!node) continue;
+      this.themed.set(selectionKey(modelId, dbId), color);
+      node.style.fill = rgbaCss(color);
+      node.classList.add('bsh-mock__el--themed');
+    }
   }
 
   unload(): void {
+    for (const scene of this.models.clear()) scene.group.remove();
     this.svg?.replaceChildren();
-    this.nodes.clear();
     this.themed.clear();
     this.bounds = null;
     this.loaded = false;
-    this.setSelection([]);
+    this.placed = 0;
+    this.offsets = null;
+    this.setSelectionKeys([]);
     this.controller?.clearPainted();
+    this.refresh();
   }
 
   resize(): void {
     this.fit();
   }
 
-  getSelection(): number[] {
-    return [...this.selection];
+  scheduleResize(settleMs: number): void {
+    this.resizer.schedule(settleMs);
   }
 
   clearSelection(): void {
-    this.setSelection([]);
+    this.setSelectionKeys([]);
   }
 
   selectIds(ids: number[]): void {
-    this.setSelection(ids.filter((id) => this.nodes.has(id)));
+    const primary = this.models.primaryId();
+    if (!primary) return;
+    this.selectModelIds(ids.map((dbId) => ({ modelId: primary, dbId })));
   }
 
   setTheme(theme: Theme): void {
@@ -134,31 +353,37 @@ export class MockViewerAdapter implements ViewerAdapter {
     if (this.root) this.root.dataset.viewerTheme = theme;
   }
 
-  setThemingColor(ids: number[], color: Rgba): void {
-    for (const id of ids) {
-      const node = this.nodes.get(id);
-      if (!node) continue;
-      this.themed.set(id, color);
-      node.style.fill = rgbaCss(color);
-      node.classList.add('bsh-mock__el--themed');
-    }
-  }
-
   clearThemingColors(): void {
-    for (const id of this.themed.keys()) {
-      const node = this.nodes.get(id);
+    for (const key of this.themed.keys()) {
+      const { modelId, dbId } = parseKey(key);
+      const node = this.nodeOf(modelId, dbId);
       node?.style.removeProperty('fill');
       node?.classList.remove('bsh-mock__el--themed');
     }
     this.themed.clear();
   }
 
-  async getLeafProperties(propertyNames: string[]): Promise<PropertyRow[]> {
+  async getLeafProperties(
+    propertyNames: string[],
+    modelIds?: readonly string[],
+  ): Promise<PropertyRow[]> {
     if (!this.loaded) return [];
-    return buildMockRows(
-      propertyNames,
-      import.meta.env.MODE === 'test' ? 0 : LARGE_FIXTURE_ROWS,
-    );
+    const bulk = import.meta.env.MODE === 'test' ? 0 : LARGE_FIXTURE_ROWS;
+    const rows: PropertyRow[] = [];
+    let failed = false;
+    for (const { info } of this.models.shown()) {
+      if (modelIds && !modelIds.includes(info.id)) continue;
+      if (info.urn.includes(MOCK_NO_PROPERTIES_MARKER)) {
+        failed = true;
+        this.models.setPropertiesError(info.id, MOCK_PROPERTIES_ERROR);
+        continue;
+      }
+      this.models.setPropertiesError(info.id);
+      const extra = bulk ? bulk + mockRowVariant(info.urn) : 0;
+      rows.push(...tagRows(buildMockRows(propertyNames, extra), info));
+    }
+    if (failed && rows.length === 0) throw new Error(MOCK_PROPERTIES_ERROR);
+    return rows;
   }
 
   registerToolGroup(spec: ToolGroupSpec): () => void {
@@ -180,7 +405,7 @@ export class MockViewerAdapter implements ViewerAdapter {
     };
   }
 
-  onSelectionChange(cb: (ids: number[]) => void): () => void {
+  onSelectionChange(cb: (items: ModelDbId[]) => void): () => void {
     this.listeners.add(cb);
     return () => {
       this.listeners.delete(cb);
@@ -191,12 +416,14 @@ export class MockViewerAdapter implements ViewerAdapter {
     if (this.destroyed) return;
     this.destroyed = true;
     this.listeners.clear();
-    this.nodes.clear();
+    this.models.clear();
+    this.models.dispose();
     this.themed.clear();
     this.disposeGroup?.();
     this.disposeGroup = null;
     this.controller?.dispose();
     this.controller = null;
+    this.resizer.cancel();
     this.selection.clear();
     this.root?.remove();
     this.root = null;
@@ -228,7 +455,7 @@ export class MockViewerAdapter implements ViewerAdapter {
     for (const tool of FAKE_TOOLS) {
       const button = this.createToolbarButton(tool.id, tool.label, tool.icon);
       button.addEventListener('click', () => {
-        if (tool.id === 'home') this.setSelection([]);
+        if (tool.id === 'home') this.setSelectionKeys([]);
       });
       toolbar.appendChild(button);
     }
@@ -285,7 +512,7 @@ export class MockViewerAdapter implements ViewerAdapter {
       const button = this.createToolbarButton(
         swatch.id,
         swatch.label,
-        iconSpan(swatchIconClass(swatch.id)),
+        iconSpan(swatchIconClass(swatch.icon)),
       );
       button.addEventListener('click', () => {
         if (!controller.state.hasSelection) return;
@@ -382,13 +609,49 @@ export class MockViewerAdapter implements ViewerAdapter {
     svg.dataset.fitHeight = String(height);
   }
 
-  private renderScene(elements: MockElement[]): void {
+  private loadOne(source: ModelSource): void {
+    const id = modelIdFor(source.urn);
+    if (source.urn.includes(MOCK_BROKEN_MARKER)) {
+      this.models.fail(id, MOCK_LOAD_ERROR);
+      return;
+    }
+    if (source.urn.includes(MOCK_NO_GEOMETRY_MARKER)) {
+      this.models.fail(id, NO_GEOMETRY_MESSAGE);
+      return;
+    }
+    const scene = this.renderModel(id, buildMockElements());
+    if (!scene) {
+      this.models.fail(id, MOCK_LOAD_ERROR);
+      return;
+    }
+    if (!this.models.resolve(id, scene)) {
+      scene.group.remove();
+      return;
+    }
+    const offset = this.offsets?.[id];
+    if (offset) this.applyOffset(scene, offset);
+    if (!this.models.get(id)?.visible) {
+      scene.group.setAttribute('display', 'none');
+    }
+    this.refresh();
+  }
+
+  private renderModel(
+    modelId: string,
+    elements: MockElement[],
+  ): MockScene | null {
     const svg = this.svg;
-    if (!svg) return;
-    let minX = Number.POSITIVE_INFINITY;
-    let minY = Number.POSITIVE_INFINITY;
-    let maxX = Number.NEGATIVE_INFINITY;
-    let maxY = Number.NEGATIVE_INFINITY;
+    if (!svg) return null;
+    const box = boxOf(elements);
+    const shift =
+      this.placed * (box.width + MODEL_GAP) +
+      (modelId.includes(MOCK_FAR_MARKER) ? MOCK_FAR_DISTANCE : 0);
+    this.placed += 1;
+    const group = document.createElementNS(SVG_NS, 'g');
+    group.setAttribute('class', 'bsh-mock__model');
+    group.dataset.modelId = modelId;
+    if (shift) group.setAttribute('transform', `translate(${shift} 0)`);
+    const nodes = new Map<number, SVGPolygonElement>();
     for (const element of elements) {
       const polygon = document.createElementNS(SVG_NS, 'polygon');
       polygon.setAttribute('points', pointsAttr(element.points));
@@ -400,15 +663,40 @@ export class MockViewerAdapter implements ViewerAdapter {
       const title = document.createElementNS(SVG_NS, 'title');
       title.textContent = `${element.category}: ${element.name} (${element.level})`;
       polygon.appendChild(title);
-      svg.appendChild(polygon);
-      this.nodes.set(element.dbId, polygon);
-      for (const [x, y] of element.points) {
-        minX = Math.min(minX, x);
-        minY = Math.min(minY, y);
-        maxX = Math.max(maxX, x);
-        maxY = Math.max(maxY, y);
-      }
+      group.appendChild(polygon);
+      nodes.set(element.dbId, polygon);
     }
+    svg.appendChild(group);
+    return {
+      group,
+      nodes,
+      box: { ...box, x: box.x + shift },
+      shift,
+      offset: [0, 0, 0],
+    };
+  }
+
+  private refresh(): void {
+    const ready = this.models.ready();
+    this.loaded = ready.length > 0;
+    if (this.status) this.status.textContent = statusText(ready.length);
+    const visible = ready.filter(({ info }) => info.visible);
+    const svg = this.svg;
+    if (!svg || visible.length === 0) {
+      this.bounds = null;
+      return;
+    }
+    const spread = this.getSpread();
+    const anchor = ready[0];
+    const framed =
+      spread?.farApart && !this.offsets && anchor?.info.visible
+        ? [anchor]
+        : visible;
+    const boxes = framed.map(({ handle }) => placedBox(handle));
+    const minX = Math.min(...boxes.map((b) => b.x));
+    const minY = Math.min(...boxes.map((b) => b.y));
+    const maxX = Math.max(...boxes.map((b) => b.x + b.width));
+    const maxY = Math.max(...boxes.map((b) => b.y + b.height));
     const pad = 24;
     this.bounds = {
       x: minX - pad,
@@ -424,38 +712,67 @@ export class MockViewerAdapter implements ViewerAdapter {
     this.fit();
   }
 
+  private nodeOf(modelId: string, dbId: number): SVGPolygonElement | undefined {
+    return this.models.handle(modelId)?.nodes.get(dbId);
+  }
+
+  private dropSelectionOf(modelId: string): void {
+    this.setSelectionKeys(
+      [...this.selection].filter((key) => parseKey(key).modelId !== modelId),
+    );
+  }
+
+  private forgetModel(modelId: string): void {
+    for (const key of [...this.themed.keys()]) {
+      if (parseKey(key).modelId === modelId) this.themed.delete(key);
+    }
+    this.dropSelectionOf(modelId);
+  }
+
   private readonly onSceneClick = (event: MouseEvent): void => {
-    const target = (event.target as Element | null)?.closest('[data-dbid]');
-    const id = target ? Number((target as SVGElement).dataset.dbid) : null;
-    if (id === null) {
-      this.setSelection([]);
+    const target = (event.target as Element | null)?.closest<SVGElement>(
+      '[data-dbid]',
+    );
+    const modelId =
+      target?.closest<SVGElement>('[data-model-id]')?.dataset.modelId;
+    if (!target || modelId === undefined) {
+      this.setSelectionKeys([]);
       return;
     }
+    const key = selectionKey(modelId, Number(target.dataset.dbid));
     if (event.shiftKey || event.ctrlKey || event.metaKey) {
       const next = new Set(this.selection);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      this.setSelection([...next]);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      this.setSelectionKeys([...next]);
       return;
     }
-    this.setSelection([id]);
+    this.setSelectionKeys([key]);
   };
 
-  private setSelection(ids: number[]): void {
-    const next = new Set(ids);
+  private setSelectionKeys(keys: string[]): void {
+    const next = new Set(keys);
     const unchanged =
       next.size === this.selection.size &&
-      [...next].every((id) => this.selection.has(id));
+      [...next].every((key) => this.selection.has(key));
     if (unchanged) return;
-    for (const id of this.selection) {
-      this.nodes.get(id)?.classList.remove('bsh-mock__el--selected');
+    for (const key of this.selection) {
+      const { modelId, dbId } = parseKey(key);
+      this.nodeOf(modelId, dbId)?.classList.remove('bsh-mock__el--selected');
     }
     this.selection = next;
-    for (const id of next) {
-      this.nodes.get(id)?.classList.add('bsh-mock__el--selected');
+    for (const key of next) {
+      const { modelId, dbId } = parseKey(key);
+      this.nodeOf(modelId, dbId)?.classList.add('bsh-mock__el--selected');
     }
-    const snapshot = [...next];
-    for (const cb of this.listeners) cb([...snapshot]);
+    const items = this.getModelSelection();
+    for (const cb of [...this.listeners]) {
+      try {
+        cb(items.map((item) => ({ ...item })));
+      } catch (err) {
+        console.error(err);
+      }
+    }
   }
 }
 

@@ -6,7 +6,7 @@ import {
   buildMockRows,
   LARGE_FIXTURE_ROWS,
 } from './mockModel.js';
-import { apiForRegion, detectRegion } from './RealViewerAdapter.js';
+import { apiForRegion, detectRegion } from './region.js';
 import type { ViewerAdapter } from './ViewerAdapter.js';
 
 let host: HTMLElement;
@@ -50,10 +50,12 @@ describe('ViewerAdapter contract (mock)', () => {
   it('fires onSelectionChange when an element is clicked', async () => {
     await setup();
     const seen: number[][] = [];
-    adapter.onSelectionChange((ids) => seen.push(ids));
+    adapter.onSelectionChange((items) =>
+      seen.push(items.map((item) => item.dbId)),
+    );
     const id = buildMockElements()[0]?.dbId ?? 0;
     elementNode(id).dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    expect(adapter.getSelection()).toEqual([id]);
+    expect(adapter.getModelSelection().map((item) => item.dbId)).toEqual([id]);
     expect(seen).toEqual([[id]]);
     expect(elementNode(id).classList.contains('bsh-mock__el--selected')).toBe(
       true,
@@ -70,11 +72,16 @@ describe('ViewerAdapter contract (mock)', () => {
     elementNode(ids[1] ?? 0).dispatchEvent(
       new MouseEvent('click', { bubbles: true, shiftKey: true }),
     );
-    expect(adapter.getSelection().sort()).toEqual([...ids].sort());
+    expect(
+      adapter
+        .getModelSelection()
+        .map((item) => item.dbId)
+        .sort(),
+    ).toEqual([...ids].sort());
     host
       .querySelector('svg')
       ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    expect(adapter.getSelection()).toEqual([]);
+    expect(adapter.getModelSelection().map((item) => item.dbId)).toEqual([]);
   });
 
   it('stops notifying after unsubscribe', async () => {
@@ -89,7 +96,10 @@ describe('ViewerAdapter contract (mock)', () => {
   it('applies and clears theming colours', async () => {
     await setup();
     const id = buildMockElements()[0]?.dbId ?? 0;
-    adapter.setThemingColor([id], [1, 0, 0, 0.5]);
+    adapter.setModelThemingColor(
+      [{ modelId: 'dXJuOmFkc2s', dbId: id }],
+      [1, 0, 0, 0.5],
+    );
     expect(elementNode(id).style.fill).toContain('rgba(255, 0, 0');
     adapter.clearThemingColors();
     expect(elementNode(id).style.fill).toBe('');
@@ -167,5 +177,25 @@ describe('mock switch and region helpers', () => {
     expect(detectRegion('%%%')).toBe('US');
     expect(apiForRegion('EU')).toBe('derivativeV2_EU');
     expect(apiForRegion('US')).toBe('derivativeV2');
+  });
+});
+
+describe('mock models far apart', () => {
+  it('places a far model away, brings it together and restores it', async () => {
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    adapter = new MockViewerAdapter(host);
+    await adapter.loadModels([{ urn: 'urn-a' }, { urn: 'urn-far' }]);
+    expect(adapter.getSpread()?.farApart).toBe(true);
+    const group = () =>
+      host.querySelector<SVGGElement>('[data-model-id="urn-far"]');
+    expect(group()?.getAttribute('transform')).toContain('1000');
+    adapter.setModelOffsets(adapter.getTogetherOffsets());
+    expect(group()?.dataset.offset).toBe('moved');
+    adapter.setModelVisible('urn-far', false);
+    adapter.setModelVisible('urn-far', true);
+    expect(group()?.dataset.offset).toBe('moved');
+    adapter.setModelOffsets(null);
+    expect(group()?.dataset.offset).toBe('original');
   });
 });

@@ -1,9 +1,13 @@
+import type { HubType } from '../../shared/types.js';
+import type { ViewState } from '../../shared/viewState.js';
+
 export interface MockVersion {
   id: string;
   number: number;
   modifiedAt: string;
   user: string;
-  viewable: boolean;
+  viewState: ViewState;
+  hasUrn: boolean;
 }
 
 export interface MockItem {
@@ -33,6 +37,7 @@ export interface MockProject {
 export interface MockHub {
   id: string;
   name: string;
+  hubType: HubType;
   projectIds: string[];
 }
 
@@ -47,11 +52,13 @@ const HUBS = [
   {
     id: 'hub-northwind',
     name: 'Northwind Architects',
+    hubType: 'account' as HubType,
     projects: ['Riverside Tower', 'Civic Library Retrofit', 'Metro Depot'],
   },
   {
     id: 'hub-harborline',
     name: 'Harborline Construction',
+    hubType: 'team' as HubType,
     projects: ['St. Mary Hospital Wing', 'Airport Terminal B'],
   },
 ];
@@ -123,6 +130,14 @@ const BASE_DATE = Date.UTC(2025, 0, 6, 9, 30);
 const DAY_MS = 86_400_000;
 const EXPORT_FOLDER_ITEMS = 150;
 
+const STATE_FIXTURES: { name: string; viewState: ViewState }[] = [
+  { name: 'STATE-ready.rvt', viewState: 'ready' },
+  { name: 'STATE-no-geometry.rvt', viewState: 'no-geometry' },
+  { name: 'STATE-processing.rvt', viewState: 'processing' },
+  { name: 'STATE-not-translated.rvt', viewState: 'not-translated' },
+  { name: 'STATE-failed.rvt', viewState: 'failed' },
+];
+
 function pad(value: number, width: number): string {
   return String(value).padStart(width, '0');
 }
@@ -151,7 +166,8 @@ export function buildMockData(): MockData {
           BASE_DATE + (itemCounter * 3 + n * 11) * DAY_MS,
         ).toISOString(),
         user: USERS[(itemCounter + n) % USERS.length] as string,
-        viewable: !unviewable,
+        viewState: unviewable ? 'not-translated' : 'ready',
+        hasUrn: !unviewable,
       });
     }
   }
@@ -198,6 +214,7 @@ export function buildMockData(): MockData {
     const hub: MockHub = {
       id: hubSource.id,
       name: hubSource.name,
+      hubType: hubSource.hubType,
       projectIds: [],
     };
     data.hubs.set(hub.id, hub);
@@ -286,6 +303,34 @@ export function buildMockData(): MockData {
       });
 
       if (hubIndex === 0 && projectIndex === 0) {
+        const statesFolder = addFolder(
+          projectId,
+          filesFolder.id,
+          `${filesFolder.id}-states`,
+          'View States',
+        );
+        filesFolder.folderIds.push(statesFolder.id);
+        STATE_FIXTURES.forEach((fixture, index) => {
+          const item: MockItem = {
+            id: `state-${pad(index + 1, 3)}`,
+            folderId: statesFolder.id,
+            projectId,
+            name: fixture.name,
+            versions: [
+              {
+                id: `state-${pad(index + 1, 3)}~v1`,
+                number: 1,
+                modifiedAt: new Date(BASE_DATE).toISOString(),
+                user: USERS[0] as string,
+                viewState: fixture.viewState,
+                hasUrn: true,
+              },
+            ],
+          };
+          data.items.set(item.id, item);
+          statesFolder.itemIds.push(item.id);
+        });
+
         const exportsFolder = addFolder(
           projectId,
           sharedFolder.id,

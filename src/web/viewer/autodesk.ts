@@ -1,5 +1,11 @@
+export interface AggregateSelectionEntry {
+  model: ViewerModel;
+  dbIdArray?: number[];
+}
+
 export interface ViewerEvent {
   dbIdArray?: number[];
+  selections?: AggregateSelectionEntry[];
 }
 
 export interface ButtonStates {
@@ -74,10 +80,50 @@ export interface ViewerModel {
     onSuccess: (items: BulkPropertyItem[]) => void,
     onError?: (err: unknown) => void,
   ): void;
+  getObjectTree?(
+    onSuccess: (tree: InstanceTree) => void,
+    onError?: (err: unknown) => void,
+  ): void;
+  getData?(): { globalOffset?: unknown } | undefined;
+  getUnitString?(): string | null | undefined;
+  is2d?(): boolean;
+  isLoadDone?(): boolean;
+  getBoundingBox?(): ViewerBox;
+  getPlacementTransform?(): PlacementMatrix;
+}
+
+export interface ViewerBox {
+  min: { x: number; y: number; z: number };
+  max: { x: number; y: number; z: number };
+}
+
+export interface PlacementMatrix {
+  elements: number[] | Float64Array | Float32Array;
+  clone(): PlacementMatrix;
+}
+
+export interface BubbleNode {
+  is2D?(): boolean;
+  is3D?(): boolean;
 }
 
 export interface ViewingDocument {
-  getRoot(): { getDefaultGeometry(): unknown };
+  getRoot(): {
+    getDefaultGeometry(): unknown;
+    search?(query: { type: string; role?: string }): unknown[];
+  };
+}
+
+export interface DocumentNodeLoadOptions {
+  keepCurrentModels?: boolean;
+  applyRefPoint?: boolean;
+  globalOffset?: unknown;
+  applyScaling?: string;
+}
+
+export interface AggregateSelection {
+  model: ViewerModel;
+  selection: number[];
 }
 
 export interface GuiViewer3D {
@@ -85,7 +131,11 @@ export interface GuiViewer3D {
   model?: ViewerModel;
   container?: HTMLElement;
   canvas?: HTMLCanvasElement;
-  impl?: { resize?(width: number, height: number): void };
+  impl?: {
+    resize?(width: number, height: number): void;
+    setPlacementTransform?(model: ViewerModel, matrix: PlacementMatrix): void;
+  };
+  navigation?: { fitBounds(immediate: boolean, bounds: ViewerBox): void };
   start(): number | undefined;
   resize(): void;
   loadExtension(id: string, options?: unknown): Promise<unknown>;
@@ -99,7 +149,18 @@ export interface GuiViewer3D {
     green2: number,
     blue2: number,
   ): void;
-  loadDocumentNode(doc: ViewingDocument, node: unknown): Promise<ViewerModel>;
+  loadDocumentNode(
+    doc: ViewingDocument,
+    node: unknown,
+    options?: DocumentNodeLoadOptions,
+  ): Promise<ViewerModel>;
+  unloadModel?(model: ViewerModel): void;
+  hideModel?(model: ViewerModel | number): boolean;
+  showModel?(model: ViewerModel | number, preserveTools?: boolean): boolean;
+  getAllModels?(): ViewerModel[];
+  select?(ids: number[], model?: ViewerModel): void;
+  getAggregateSelection?(): AggregateSelection[];
+  fitToView?(): void;
   getObjectTree(
     onSuccess: (tree: InstanceTree) => void,
     onError?: (err: unknown) => void,
@@ -141,6 +202,7 @@ export interface AutodeskViewing {
     ComboButton: new (id: string) => ComboButton;
   };
   SELECTION_CHANGED_EVENT: string;
+  AGGREGATE_SELECTION_CHANGED_EVENT?: string;
   TOOLBAR_CREATED_EVENT: string;
   FULLSCREEN_MODE_EVENT?: string;
 }

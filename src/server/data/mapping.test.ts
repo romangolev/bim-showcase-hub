@@ -38,7 +38,31 @@ describe('mapHubs', () => {
         name: 'Acme',
         hasChildren: true,
         viewable: false,
+        hubType: 'unknown',
       },
+    ]);
+  });
+
+  it('maps the extension type to a hub type', () => {
+    const types = [
+      'hubs:autodesk.a360:PersonalHub',
+      'hubs:autodesk.core:Hub',
+      'hubs:autodesk.bim360:Account',
+      'hubs:autodesk.other:Thing',
+    ];
+    const nodes = mapHubs([
+      ...types.map((type, index) => ({
+        id: `h${index}`,
+        attributes: { name: type, extension: { type } },
+      })),
+      { id: 'none', attributes: { name: 'none' } },
+    ]);
+    expect(nodes.map((node) => node.hubType)).toEqual([
+      'personal',
+      'team',
+      'account',
+      'unknown',
+      'unknown',
     ]);
   });
 });
@@ -120,11 +144,13 @@ describe('versions', () => {
       kind: 'version',
       name: 'v2: 2025-03-04 10:20 by Sam',
       viewable: true,
+      viewState: 'unknown',
       urn: 'dXJuOmFiYw',
       hasChildren: false,
       parentId: encodeId('i'),
     });
     expect(nodes[1]?.viewable).toBe(false);
+    expect(nodes[1]?.viewState).toBe('not-translated');
     expect(nodes[1]?.urn).toBeUndefined();
   });
 });

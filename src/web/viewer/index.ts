@@ -1,7 +1,26 @@
+export { MAX_COMBINED_MODELS } from '../../shared/combined.js';
 export {
   createViewerAdapter,
   isMockViewer,
 } from './createViewerAdapter.js';
+export {
+  ALL_MODELS,
+  ALL_MODELS_LABEL,
+  type ModelScope,
+  type ModelScopeOption,
+  modelScopeOptions,
+  resolveScope,
+  scopeRows,
+} from './modelScope.js';
+export {
+  MODEL_LIMIT_MESSAGE,
+  type ModelDbId,
+  type ModelInfo,
+  ModelSetError,
+  type ModelSource,
+  type ModelStatus,
+} from './modelSet.js';
+export { useModels, useReadySignature } from './useModels.js';
 export type {
   ExportToolSpec,
   PaintSwatchSpec,

@@ -13,6 +13,7 @@ import {
   buildExportSheets,
   describeStatus,
   exportToXlsx,
+  MODEL_COLUMN,
   sheetNameFor,
 } from './excelExport.js';
 import {
@@ -98,6 +99,49 @@ describe('export rows', () => {
     expect(sheets).toHaveLength(1);
     expect(sheets[0]?.name).toBe('Elements');
     expect(sheets[0]?.rows).toHaveLength(4);
+  });
+
+  it('adds a model column only when rows come from several models', () => {
+    const tagged = (r: PropertyRow, modelId: string, modelName?: string) => ({
+      ...r,
+      modelId,
+      modelName,
+    });
+    const one = rows.map((r) => tagged(r, 'a', 'Arch'));
+    expect(buildExportSheets(one, ['Name'], null)[0]?.header).toEqual([
+      'dbId',
+      'Name',
+    ]);
+    const mixed = [
+      tagged(rows[0] as PropertyRow, 'a', 'Arch'),
+      tagged(rows[0] as PropertyRow, 's'),
+    ];
+    const sheets = buildExportSheets(mixed, ['Category', 'Name']);
+    expect(sheets).toHaveLength(1);
+    expect(sheets[0]?.header).toEqual([
+      MODEL_COLUMN,
+      'dbId',
+      'Category',
+      'Name',
+    ]);
+    expect(sheets[0]?.rows).toEqual([
+      ['Arch', 1, 'Walls', 'W1'],
+      ['s', 1, 'Walls', 'W1'],
+    ]);
+  });
+
+  it('names the models whose properties are missing from an export', async () => {
+    const adapter = new MockViewerAdapter(document.createElement('div'));
+    await adapter.loadModels([
+      { urn: 'urn-a', name: 'Arch' },
+      { urn: 'urn-noprops', name: 'Broken DB' },
+    ]);
+    const status = await exportToXlsx(adapter, { save: vi.fn() });
+    expect(status).toMatchObject({ phase: 'done', missing: ['Broken DB'] });
+    expect(describeStatus(status)).toContain(
+      'Missing Broken DB: properties could not be read',
+    );
+    adapter.destroy();
   });
 
   it('returns no sheets for no rows', () => {
@@ -235,7 +279,7 @@ describe('paint brushes', () => {
     adapter.selectIds(ids);
     const preset = PAINT_PRESETS[0];
     expect(preset && paintSelection(adapter, preset.color)).toBe(true);
-    expect(adapter.getSelection()).toEqual([]);
+    expect(adapter.getModelSelection().map((item) => item.dbId)).toEqual([]);
     expect(host.querySelectorAll('.bsh-mock__el--themed')).toHaveLength(
       ids.length,
     );

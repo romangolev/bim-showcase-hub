@@ -480,6 +480,20 @@
   min-width: 0;
 }
 
+.bsh-summary__title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bsh-summary__model {
+  overflow: hidden;
+  color: var(--color-fog);
+  font-size: var(--text-13);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .bsh-summary__toggle {
   flex: none;
   color: var(--color-fog);
@@ -540,4 +554,14 @@
 .summary-toggle {
   display: none;
   align-self: flex-start;
+}
+
+.bsh-scope .bsh-select {
+  max-width: 180px;
+}
+
+.bsh-scope__notice {
+  margin: 0 0 var(--space-2);
+  color: var(--color-coral);
+  font-size: var(--text-13);
 }

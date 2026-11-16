@@ -1,6 +1,8 @@
-import type { HTMLAttributes, ReactNode, Ref } from 'react';
+import { type HTMLAttributes, type ReactNode, type Ref, useId } from 'react';
 import type { TreeNodeKind } from '../../../shared/types.js';
+import { type ViewState, viewableFor } from '../../../shared/viewState.js';
 import { Icon, type IconName } from '../icons.js';
+import { reasonFor, VIEW_STATE_COPY, viewStateOf } from './viewStateCopy.js';
 
 export const ROW_HEIGHT = 30;
 export const TWO_LINE_ROW_HEIGHT = 46;
@@ -12,6 +14,15 @@ const KIND_ICON: Record<TreeNodeKind, IconName> = {
   folder: 'folder',
   item: 'item',
   version: 'version',
+};
+
+const BADGE_KIND: Record<ViewState, string> = {
+  ready: 'viewable',
+  unknown: 'unchecked',
+  processing: 'processing',
+  failed: 'failed',
+  'no-geometry': 'muted',
+  'not-translated': 'muted',
 };
 
 const VERSION_PATTERN = /^(v\S+?):\s*(.*?)\s+by\s+(.+)$/;
@@ -106,11 +117,14 @@ export interface TreeRowViewProps {
   expanded?: boolean;
   selected?: boolean;
   focused?: boolean;
-  viewable?: boolean;
+  viewState?: ViewState;
+  checked?: boolean;
   busy?: boolean;
   caption?: string;
   secondary?: string;
   highlight?: string;
+  picked?: boolean;
+  action?: ReactNode;
   rowProps?: HTMLAttributes<HTMLDivElement> & {
     ref?: Ref<HTMLDivElement>;
     'data-index'?: number;
@@ -125,15 +139,23 @@ export function TreeRowView({
   expanded = false,
   selected = false,
   focused = false,
-  viewable = false,
+  viewState,
+  checked,
   busy = false,
   caption,
   secondary,
   highlight,
+  picked,
+  action,
   rowProps,
 }: TreeRowViewProps) {
   const isVersion = kind === 'version';
-  const disabled = isVersion && !viewable;
+  const state = viewStateOf({ viewState });
+  const copy = VIEW_STATE_COPY[state];
+  const reason = reasonFor(state, checked);
+  const reasonId = useId();
+  const explained = isVersion && state !== 'ready';
+  const disabled = isVersion && !viewableFor(state);
   const icon: IconName = disabled ? 'ban' : KIND_ICON[kind];
   const parts = isVersion && !secondary ? versionParts(name) : null;
   const primary = parts ? parts.label : name;
@@ -149,14 +171,27 @@ export function TreeRowView({
       data-selected={selected}
       data-focused={focused}
       data-disabled={disabled}
-      data-viewable={isVersion && viewable}
+      data-viewable={isVersion && !disabled}
+      data-view-state={isVersion ? state : undefined}
+      {...(explained
+        ? {
+            'aria-describedby': reasonId,
+            title: `${name}. ${reason}`,
+          }
+        : {})}
       data-two-line={Boolean(second)}
+      data-picked={picked || undefined}
       style={{
         ...rowProps?.style,
         minHeight,
         paddingInlineStart: `calc(var(--space-2) + ${level * INDENT}px)`,
       }}
     >
+      {explained ? (
+        <span id={reasonId} className="visually-hidden">
+          {reason}
+        </span>
+      ) : null}
       <span
         className="tree-row__twisty"
         data-expanded={expanded}
@@ -169,7 +204,7 @@ export function TreeRowView({
         )}
       </span>
       <span className="tree-row__icon">
-        <Icon name={icon} size={15} />
+        <Icon name={picked ? 'check' : icon} size={15} />
       </span>
       <span className="tree-row__text">
         <span className="tree-row__line">
@@ -180,14 +215,16 @@ export function TreeRowView({
               highlightMatch(primary, highlight)
             )}
           </span>
-          {isVersion && viewable ? (
-            <span className="tree-row__state" data-state="viewable">
-              Viewable
-            </span>
-          ) : null}
-          {disabled ? (
-            <span className="tree-row__state" data-state="blocked">
-              Not viewable
+          {isVersion ? (
+            <span
+              className="tree-row__state"
+              data-state={BADGE_KIND[state]}
+              title={reason}
+            >
+              {state === 'processing' ? (
+                <Icon name="spinner" size={10} className="spin" />
+              ) : null}
+              <span className="tree-row__state-text">{copy.label}</span>
             </span>
           ) : null}
         </span>
@@ -208,6 +245,7 @@ export function TreeRowView({
         ) : null}
       </span>
       {caption ? <span className="tree-row__caption">{caption}</span> : null}
+      {action}
     </div>
   );
 }

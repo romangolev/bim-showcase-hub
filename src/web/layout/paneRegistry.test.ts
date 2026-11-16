@@ -1,10 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import {
+  FOLLOWERS,
+  followersOf,
+  hasPlainPanel,
+  instancePanelId,
   isPaneId,
+  isPanelClosable,
   isRequired,
   PANE_IDS,
   PANES,
   paneById,
+  paneKind,
+  parsePanelId,
 } from './paneRegistry.js';
 
 describe('pane registry', () => {
@@ -15,12 +22,15 @@ describe('pane registry', () => {
     }
   });
 
-  it('keeps the viewer open and floatable', () => {
-    const viewer = paneById('viewer');
-    expect(viewer.closable).toBe(false);
-    expect(viewer.canFloat).toBe(true);
-    expect(isRequired('viewer')).toBe(true);
-    expect(PANES.filter((pane) => isRequired(pane.id))).toEqual([viewer]);
+  it('makes Documents the only required pane', () => {
+    const tree = paneById('tree');
+    expect(tree.closable).toBe(false);
+    expect(isRequired('tree')).toBe(true);
+    expect(PANES.filter((pane) => isRequired(pane.id))).toEqual([tree]);
+    expect(isRequired('viewer')).toBe(false);
+    expect(paneById('viewer').canFloat).toBe(true);
+    expect(hasPlainPanel('viewer')).toBe(false);
+    expect(hasPlainPanel('tree')).toBe(true);
   });
 
   it('places exactly one pane at the root and references only known panes', () => {
@@ -50,5 +60,32 @@ describe('pane registry', () => {
     expect(isPaneId('terminal')).toBe(false);
     expect(isPaneId(3)).toBe(false);
     expect(() => paneById('terminal' as never)).toThrow();
+  });
+
+  it('maps model tab ids to the viewer pane kind', () => {
+    const id = instancePanelId('viewer', 'dXJuOmE_dmVyc2lvbj0y');
+    expect(id).toBe('viewer:dXJuOmE_dmVyc2lvbj0y');
+    expect(parsePanelId(id)).toEqual({
+      kind: 'viewer',
+      instance: 'dXJuOmE_dmVyc2lvbj0y',
+    });
+    expect(paneKind(id)).toBe('viewer');
+    expect(parsePanelId('viewer')).toEqual({ kind: 'viewer', instance: null });
+    expect(isPanelClosable(id)).toBe(true);
+    expect(isPanelClosable('tree')).toBe(false);
+    expect(isPanelClosable('summary')).toBe(true);
+  });
+
+  it('derives the viewer followers from the registry in one place', () => {
+    expect(FOLLOWERS).toEqual(['summary', 'dashboard']);
+    expect(followersOf('viewer')).toEqual(['summary', 'dashboard']);
+    expect(followersOf('tree')).toEqual([]);
+  });
+
+  it('rejects instances of panes without instances', () => {
+    expect(parsePanelId('summary:x')).toBeNull();
+    expect(parsePanelId('viewer:')).toBeNull();
+    expect(parsePanelId('terminal:x')).toBeNull();
+    expect(paneKind(42)).toBeNull();
   });
 });

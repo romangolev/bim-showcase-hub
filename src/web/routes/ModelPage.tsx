@@ -1,10 +1,12 @@
-import { useEffect } from 'react';
-import { describeModel } from '../api/modelContext.js';
 import {
-  composeTitle,
-  useDocumentTitle,
-} from '../components/useDocumentTitle.js';
-import { type PaneTitle, usePaneTitle } from '../layout/layoutContext.js';
+  describeModel,
+  type ModelContext,
+  withUrns,
+} from '../api/modelContext.js';
+import { recallModel } from '../api/modelStore.js';
+import { composeTitle } from '../components/useDocumentTitle.js';
+import type { PaneTitle } from '../layout/layoutContext.js';
+import { farApartMessage } from '../viewer/modelSet.js';
 
 export function viewerTabTitle(
   urn: string,
@@ -20,29 +22,54 @@ export function viewerTabTitle(
   return { label, tooltip: `${path}\n${urn}` };
 }
 
-export interface ModelPageProps {
-  urn: string;
-  file?: string;
-  version?: string;
-  crumbs?: readonly string[];
+export function memberLabel(
+  urn: string,
+  context?: ModelContext | null,
+): string {
+  const identity = describeModel(urn, context?.file, context?.v);
+  return identity.version
+    ? `${identity.title} · ${identity.version}`
+    : identity.title;
 }
 
-export function ModelPage({ urn, file, version, crumbs }: ModelPageProps) {
-  const setPaneTitle = usePaneTitle();
+export function modelTabTitle(
+  urn: string,
+  context: ModelContext,
+  recall: (urn: string) => ModelContext | null = recallModel,
+  spread?: number,
+): PaneTitle {
+  const title = baseTabTitle(urn, context, recall);
+  if (spread === undefined) return title;
+  const warning = farApartMessage({ distanceMeters: spread });
+  return { ...title, tooltip: `${title.tooltip}\n${warning}` };
+}
 
+function baseTabTitle(
+  urn: string,
+  context: ModelContext,
+  recall: (urn: string) => ModelContext | null,
+): PaneTitle {
+  const extras = withUrns(context);
+  if (extras.length === 0) {
+    return viewerTabTitle(urn, context.file, context.v, context.crumbs);
+  }
+  const names = [
+    memberLabel(urn, context),
+    ...extras.map((extra) => memberLabel(extra, recall(extra))),
+  ];
+  return {
+    label: `${names.length} models`,
+    tooltip: names.join('\n'),
+  };
+}
+
+export function modelDocumentTitle(
+  urn: string,
+  file?: string,
+  version?: string,
+): string {
   const identity = describeModel(urn, file, version);
-  useDocumentTitle(
-    identity.hasFile
-      ? composeTitle(identity.title, identity.version)
-      : composeTitle('Model', identity.version),
-  );
-
-  const crumbKey = crumbs?.join('\u0000') ?? '';
-  useEffect(() => {
-    const parts = crumbKey ? crumbKey.split('\u0000') : [];
-    setPaneTitle('viewer', viewerTabTitle(urn, file, version, parts));
-    return () => setPaneTitle('viewer', null);
-  }, [setPaneTitle, urn, file, version, crumbKey]);
-
-  return null;
+  return identity.hasFile
+    ? composeTitle(identity.title, identity.version)
+    : composeTitle('Model', identity.version);
 }

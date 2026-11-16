@@ -9,7 +9,17 @@ import {
 } from '../extensions/dashboardData.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { ChartCanvas } from './ChartCanvas.js';
-import { usePropertyRows, useResolvedAdapter } from './usePropertyRows.js';
+import {
+  ModelScopeSelect,
+  UnavailableModels,
+  useModelScope,
+} from './ModelScope.js';
+import {
+  HIDDEN_MESSAGE,
+  HIDDEN_TITLE,
+  usePropertyRows,
+  useResolvedAdapter,
+} from './usePropertyRows.js';
 import './panels.css';
 
 export interface DashboardPanelProps {
@@ -40,6 +50,7 @@ export function DashboardPanel({
   const uid = useId();
   const resolved = useResolvedAdapter(adapter);
   const state = usePropertyRows(resolved, propertyNames);
+  const scope = useModelScope(resolved, state.rows);
   const [innerCollapsed, setInnerCollapsed] = useState(defaultCollapsed);
   const isCollapsed = collapsed ?? innerCollapsed;
   const [selected, setSelected] = useState(defaultProperty ?? propertyNames[0]);
@@ -47,9 +58,9 @@ export function DashboardPanel({
   const options = useMemo(
     () =>
       state.status === 'ready'
-        ? availableProperties(state.rows, propertyNames)
+        ? availableProperties(scope.rows, propertyNames)
         : [],
-    [state.status, state.rows, propertyNames],
+    [state.status, scope.rows, propertyNames],
   );
 
   useEffect(() => {
@@ -61,9 +72,9 @@ export function DashboardPanel({
   const chart = useMemo(
     () =>
       state.status === 'ready' && selected
-        ? shapeChartData(state.rows, selected, maxCategories)
+        ? shapeChartData(scope.rows, selected, maxCategories)
         : null,
-    [state.status, state.rows, selected, maxCategories],
+    [state.status, scope.rows, selected, maxCategories],
   );
 
   const toggle = () => {
@@ -104,6 +115,9 @@ export function DashboardPanel({
             </span>
           </button>
         ) : null}
+        {!isCollapsed ? (
+          <ModelScopeSelect state={scope} label="Chart models" />
+        ) : null}
         {chart && options.length > 0 && !isCollapsed ? (
           <div className="bsh-field">
             <span aria-hidden="true">Group by</span>
@@ -139,6 +153,14 @@ export function DashboardPanel({
             message="Open a viewable version to chart its elements."
           />
         )}
+        {state.status === 'hidden' && (
+          <StateBlock
+            variant="empty"
+            compact
+            title={HIDDEN_TITLE}
+            message={HIDDEN_MESSAGE}
+          />
+        )}
         {resolved && state.status === 'loading' && (
           <StateBlock
             variant="loading"
@@ -156,6 +178,9 @@ export function DashboardPanel({
             action={{ label: 'Retry', onClick: state.reload }}
           />
         )}
+        {state.status === 'ready' ? (
+          <UnavailableModels models={scope.unavailable} />
+        ) : null}
         {chart && options.length > 0 && (
           <>
             <div className="bsh-charts">
