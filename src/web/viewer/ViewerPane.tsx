@@ -18,8 +18,9 @@ import { createViewerAdapter } from './createViewerAdapter.js';
 import { ModelsMenu } from './ModelsMenu.js';
 import { ModelSetError, type ModelSource } from './modelSet.js';
 import {
-  claimRegion,
   detectRegion,
+  RegionConflictError,
+  regionAvailable,
   regionConflictMessage,
   type ViewerRegion,
 } from './region.js';
@@ -172,7 +173,7 @@ export function ViewerPane({
     let created: ViewerAdapter | null = null;
     let disposeExtensions: (() => void) | null = null;
     const region = detectRegion(urn);
-    if (!claimRegion(region)) {
+    if (!regionAvailable(region)) {
       setState({ status: 'region', region });
       return;
     }
@@ -215,7 +216,12 @@ export function ViewerPane({
         setState({ status: 'ready' });
         onReadyRef.current?.(instance);
       } catch (err) {
-        if (!cancelled) setState({ status: 'error', message: detailOf(err) });
+        if (cancelled) return;
+        if (err instanceof RegionConflictError) {
+          setState({ status: 'region', region: err.region });
+          return;
+        }
+        setState({ status: 'error', message: detailOf(err) });
       }
     })();
 

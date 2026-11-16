@@ -19,6 +19,7 @@ import {
   RealViewerAdapter,
   SCREEN_MODE_SETTLE_MS,
 } from './RealViewerAdapter.js';
+import { resetRegion } from './region.js';
 import type { ToolGroupSpec } from './ViewerAdapter.js';
 
 const STATE: ButtonStates = { ACTIVE: 0, INACTIVE: 1, DISABLED: 2 };
@@ -338,6 +339,7 @@ function parts(viewer: FakeViewer) {
 }
 
 beforeEach(() => {
+  resetRegion();
   installFakeAutodesk();
 });
 
@@ -710,7 +712,9 @@ describe('RealViewerAdapter initialization', () => {
     const initializer = spyOnInitializer();
     makeAdapter();
     await adapter.load('dXJu');
-    await expect(adapter.load(EU_URN)).rejects.toThrow(/another region/);
+    await expect(adapter.load(EU_URN)).rejects.toThrow(
+      'This model is in the EU region',
+    );
     expect(initializer).toHaveBeenCalledTimes(1);
   });
 });

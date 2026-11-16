@@ -18,12 +18,14 @@ import {
   selectionIds,
 } from './federation.js';
 import { RealViewerAdapter } from './RealViewerAdapter.js';
+import { resetRegion } from './region.js';
 
 let env: FakeEnvironment;
 let host: HTMLElement;
 let adapter: RealViewerAdapter;
 
 beforeEach(() => {
+  resetRegion();
   env = installFakeFederation();
   host = document.createElement('div');
   document.body.appendChild(host);
@@ -296,7 +298,7 @@ describe('viewer startup', () => {
     const eu = btoa('urn:adsk.wipemea:fs.file:abc');
     const info = await adapter.addModel({ urn: eu });
     expect(info.status).toBe('error');
-    expect(info.error).toMatch(/already initialized for another region/);
+    expect(info.error).toMatch(/This model is in the EU region/);
     other.destroy();
   });
 

@@ -20,6 +20,10 @@ export function claimRegion(region: ViewerRegion): boolean {
   return pageRegion === region;
 }
 
+export function regionAvailable(region: ViewerRegion): boolean {
+  return pageRegion === null || pageRegion === region;
+}
+
 export function currentRegion(): ViewerRegion | null {
   return pageRegion;
 }
@@ -30,6 +34,13 @@ export function resetRegion(): void {
 
 export function regionConflictMessage(region: ViewerRegion): string {
   return `This model is in the ${region} region. The viewer supports one region per page.`;
+}
+
+export class RegionConflictError extends Error {
+  constructor(readonly region: ViewerRegion) {
+    super(regionConflictMessage(region));
+    this.name = 'RegionConflictError';
+  }
 }
 
 export const page = {

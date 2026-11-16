@@ -10,6 +10,7 @@ import {
   ModelSetError,
   type ModelSource,
 } from './modelSet.js';
+import { resetRegion } from './region.js';
 import type { ViewerAdapter, ViewerAdapterFactory } from './ViewerAdapter.js';
 import { ViewerPane } from './ViewerPane.js';
 
@@ -117,6 +118,25 @@ describe('ViewerPane with several models', () => {
     fireEvent.click(trigger);
     fireEvent.click(screen.getByRole('menuitem', { name: 'Add model...' }));
     expect(onAddModel).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not lock the page region when the first load fails', async () => {
+    resetRegion();
+    const { factory } = tracked();
+    const first = render(<ViewerPane urn="urn-broken" factory={factory} />);
+    await screen.findByText('Model unavailable');
+    first.unmount();
+    const eu = btoa('urn:adsk.wipemea:fs.file:vf.eu?version=1')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+    const onReady = vi.fn();
+    render(<ViewerPane urn={eu} factory={factory} onReady={onReady} />);
+    await waitFor(() => expect(onReady).toHaveBeenCalled());
+    expect(screen.queryByText('Model in another region')).toBeNull();
+    render(<ViewerPane urn="urn-us" factory={factory} />);
+    expect(await screen.findByText('Model in another region')).toBeVisible();
+    resetRegion();
   });
 
   it('stays quiet when an add is cancelled', async () => {

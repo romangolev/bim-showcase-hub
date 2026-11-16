@@ -27,6 +27,12 @@ import {
   uniqueSources,
   VIEWER_CLOSED_MESSAGE,
 } from './modelSet.js';
+import {
+  claimRegion,
+  detectRegion,
+  RegionConflictError,
+  regionAvailable,
+} from './region.js';
 import { createResizeScheduler } from './resizeScheduler.js';
 import {
   ToolGroupController,
@@ -175,10 +181,13 @@ export class MockViewerAdapter implements ViewerAdapter {
     if (this.destroyed) return [];
     const unique = uniqueSources(sources);
     checkCapacity(0, unique.length);
+    const region = detectRegion(unique[0]?.urn ?? '');
+    if (!regionAvailable(region)) throw new RegionConflictError(region);
     this.unload();
     for (const source of unique) this.models.add(source);
     for (const source of unique) this.loadOne(source);
     const models = this.models.list();
+    if (models.some((model) => model.status === 'ready')) claimRegion(region);
     if (!models.some((model) => model.status === 'ready')) {
       throw new Error(loadFailureMessage(models));
     }

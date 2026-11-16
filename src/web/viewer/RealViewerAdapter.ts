@@ -35,7 +35,13 @@ import {
   uniqueSources,
   VIEWER_CLOSED_MESSAGE,
 } from './modelSet.js';
-import { apiForRegion, detectRegion } from './region.js';
+import {
+  apiForRegion,
+  claimRegion,
+  detectRegion,
+  RegionConflictError,
+  type ViewerRegion,
+} from './region.js';
 import { createResizeScheduler } from './resizeScheduler.js';
 import { readSceneBackground } from './sceneBackground.js';
 import { ToolGroupController } from './toolGroupController.js';
@@ -57,7 +63,6 @@ const VIEWER_THEMES: Record<Theme, string> = {
 let assetsPromise: Promise<void> | null = null;
 let initialization: {
   viewing: unknown;
-  api: string;
   promise: Promise<void>;
 } | null = null;
 
@@ -115,18 +120,15 @@ async function fetchToken(): Promise<TokenResponse> {
   return (await res.json()) as TokenResponse;
 }
 
-function initializeViewing(api: string): Promise<void> {
+function initializeViewing(region: ViewerRegion): Promise<void> {
   const viewing = getViewing();
+  if (!claimRegion(region)) {
+    return Promise.reject(new RegionConflictError(region));
+  }
   if (initialization && initialization.viewing === viewing) {
-    if (initialization.api !== api) {
-      return Promise.reject(
-        new Error(
-          'The viewer is already initialized for another region. Reload the page to open this model.',
-        ),
-      );
-    }
     return initialization.promise;
   }
+  const api = apiForRegion(region);
   const promise = new Promise<void>((resolve) => {
     viewing.Initializer(
       {
@@ -142,7 +144,7 @@ function initializeViewing(api: string): Promise<void> {
       resolve,
     );
   });
-  initialization = { viewing, api, promise };
+  initialization = { viewing, promise };
   return promise;
 }
 
@@ -246,14 +248,14 @@ export class RealViewerAdapter implements ViewerAdapter {
     checkCapacity(0, unique.length);
     if (this.destroyed) return [];
     this.unload();
-    const api = apiForRegion(detectRegion(unique[0]?.urn ?? ''));
+    const region = detectRegion(unique[0]?.urn ?? '');
     const entries = unique.map((source) => {
       const info = this.models.add(source);
       return { id: info.id, token: this.models.token(info.id) };
     });
     let viewer: GuiViewer3D | null;
     try {
-      viewer = await this.ensureViewer(api);
+      viewer = await this.ensureViewer(region);
     } catch (err) {
       if (!this.destroyed) {
         for (const { id, token } of entries) {
@@ -283,7 +285,7 @@ export class RealViewerAdapter implements ViewerAdapter {
     const current = () => this.models.get(info.id) ?? info;
     let viewer: GuiViewer3D | null;
     try {
-      viewer = await this.ensureViewer(apiForRegion(detectRegion(source.urn)));
+      viewer = await this.ensureViewer(detectRegion(source.urn));
     } catch (err) {
       if (this.destroyed) {
         throw new ModelSetError('closed', VIEWER_CLOSED_MESSAGE);
@@ -313,10 +315,10 @@ export class RealViewerAdapter implements ViewerAdapter {
     return loaded;
   }
 
-  private ensureViewer(api: string): Promise<GuiViewer3D | null> {
+  private ensureViewer(region: ViewerRegion): Promise<GuiViewer3D | null> {
     if (this.viewer) return Promise.resolve(this.viewer);
     if (!this.starting) {
-      const starting = this.startViewer(api, this.epoch);
+      const starting = this.startViewer(region, this.epoch);
       this.starting = starting;
       const clear = () => {
         if (this.starting === starting) this.starting = null;
@@ -327,13 +329,13 @@ export class RealViewerAdapter implements ViewerAdapter {
   }
 
   private async startViewer(
-    api: string,
+    region: ViewerRegion,
     epoch: number,
   ): Promise<GuiViewer3D | null> {
     const superseded = () => this.destroyed || epoch !== this.epoch;
     await loadViewerAssets();
     if (superseded()) return null;
-    await initializeViewing(api);
+    await initializeViewing(region);
     if (superseded()) return null;
     const viewing = getViewing();
     const viewer = new viewing.GuiViewer3D(this.container, {
@@ -356,7 +358,7 @@ export class RealViewerAdapter implements ViewerAdapter {
     }
     this.viewer = viewer;
     this.started = true;
-    this.api = api;
+    this.api = apiForRegion(region);
     this.tagContainer(viewer);
     this.watchScreenMode(viewer, viewing.FULLSCREEN_MODE_EVENT);
     this.applyTheme(viewer);
