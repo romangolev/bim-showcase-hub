@@ -160,6 +160,12 @@
   background: var(--color-graphite);
 }
 
+@media (max-width: 700px) {
+  .bsh-mock__status {
+    display: none;
+  }
+}
+
 .bsh-mock__el {
   stroke-width: 0.6;
   vector-effect: non-scaling-stroke;
