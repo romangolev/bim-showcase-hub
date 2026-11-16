@@ -1,9 +1,12 @@
+import { randomBytes } from 'node:crypto';
 import 'dotenv/config';
 
 export interface ServerConfig {
   port: number;
   mock: boolean;
+  production: boolean;
   sessionSecret: string;
+  staticDir: string | null;
   aps: {
     clientId: string;
     clientSecret: string;
@@ -13,10 +16,24 @@ export interface ServerConfig {
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
+  const production = env.NODE_ENV === 'production';
+  const mock = env.MOCK_APS === '1';
+  let sessionSecret = env.SESSION_SECRET;
+  if (!sessionSecret) {
+    if (production) {
+      throw new Error('SESSION_SECRET is required in production');
+    }
+    sessionSecret = randomBytes(32).toString('hex');
+  }
+  if (production && !mock && (!env.APS_CLIENT_ID || !env.APS_CLIENT_SECRET)) {
+    throw new Error('APS_CLIENT_ID and APS_CLIENT_SECRET are required');
+  }
   return {
     port: Number(env.PORT ?? 3000),
-    mock: env.MOCK_APS === '1',
-    sessionSecret: env.SESSION_SECRET ?? 'dev-only-insecure-secret',
+    mock,
+    production,
+    sessionSecret,
+    staticDir: production ? (env.STATIC_DIR ?? null) : null,
     aps: {
       clientId: env.APS_CLIENT_ID ?? '',
       clientSecret: env.APS_CLIENT_SECRET ?? '',

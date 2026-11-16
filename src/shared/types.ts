@@ -11,10 +11,17 @@ export interface TreeNode {
 }
 
 export interface SessionUser {
-  id: string;
   name: string;
-  email?: string;
-  avatarUrl?: string;
+  picture: string | null;
+}
+
+export interface ViewerToken {
+  access_token: string;
+  expires_in: number;
+}
+
+export interface ApiError {
+  error: string;
 }
 
 export interface HealthResponse {
