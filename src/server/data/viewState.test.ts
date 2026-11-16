@@ -196,6 +196,28 @@ describe('createViewStateChecker', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(4);
   });
 
+  it('does not share results or in-flight requests between tokens', async () => {
+    const fetchImpl = vi.fn(
+      async (_url: string, init: { headers: Record<string, string> }) =>
+        init.headers.Authorization === 'Bearer alice'
+          ? reply(200, {
+              status: 'success',
+              derivatives: [geometry('svf', 'success')],
+            })
+          : reply(404),
+    );
+    const checker = createViewStateChecker({ fetchImpl });
+    const [alice, bob] = await Promise.all([
+      checker.check('alice', 'u'),
+      checker.check('bob', 'u'),
+    ]);
+    expect(alice).toBe('ready');
+    expect(bob).toBe('not-translated');
+    expect(await checker.check('alice', 'u')).toBe('ready');
+    expect(await checker.check('bob', 'u')).toBe('not-translated');
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
   it('shares one request between concurrent checks of the same urn', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(reply(404));
     const checker = createViewStateChecker({ fetchImpl });

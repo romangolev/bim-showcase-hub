@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { TreeNode } from '../../shared/types.js';
 import { type ViewState, viewableFor } from '../../shared/viewState.js';
 
@@ -77,6 +78,11 @@ export function classifyManifest(body: unknown): ViewState {
   }
   const manifest = stateOfStatus(statusOf(body.status));
   return manifest === 'ready' ? 'no-geometry' : manifest;
+}
+
+function keyFor(token: string, urn: string): string {
+  const owner = createHash('sha256').update(token).digest('hex');
+  return `${owner}:${urn}`;
 }
 
 function ttlFor(state: ViewState): number {
@@ -163,30 +169,35 @@ export function createViewStateChecker(
     cache.set(key, { state, expires: time + ttlFor(state) });
   }
 
-  async function run(token: string, urn: string): Promise<ViewState> {
+  async function run(
+    token: string,
+    urn: string,
+    key: string,
+  ): Promise<ViewState> {
     await acquire();
     try {
       const state = await fetchState(token, urn);
-      store(urn, state);
+      store(key, state);
       return state;
     } finally {
       release();
-      inflight.delete(urn);
+      inflight.delete(key);
     }
   }
 
   return {
     check(token, urn) {
-      const hit = cache.get(urn);
+      const key = keyFor(token, urn);
+      const hit = cache.get(key);
       if (hit && hit.expires > now()) {
         return Promise.resolve(hit.state);
       }
-      const pending = inflight.get(urn);
+      const pending = inflight.get(key);
       if (pending) {
         return pending;
       }
-      const started = run(token, urn);
-      inflight.set(urn, started);
+      const started = run(token, urn, key);
+      inflight.set(key, started);
       return started;
     },
     clear() {
