@@ -825,13 +825,19 @@ export function DockLayout(props: DockLayoutProps) {
     if (apiRef.current) applyTitles(apiRef.current, props.titles);
   }, [props.titles]);
   const collapsedKey = props.collapsed.join(' ');
+  const seenCollapsed = useRef<string | null>(null);
   useLayoutEffect(() => {
-    if (collapsedKey !== undefined) emitRef.current();
-  }, [collapsedKey]);
+    if (seenCollapsed.current === collapsedKey) return;
+    seenCollapsed.current = collapsedKey;
+    emitRef.current();
+  });
   const instancesKey = `${props.activeInstance}\n${props.instances.join('\n')}`;
+  const seenInstances = useRef<string | null>(null);
   useLayoutEffect(() => {
-    if (instancesKey !== undefined) reconcileRef.current();
-  }, [instancesKey]);
+    if (seenInstances.current === instancesKey) return;
+    seenInstances.current = instancesKey;
+    reconcileRef.current();
+  });
 
   useLayoutEffect(() => {
     if (kept.current) attachRef.current(kept.current);

@@ -34,6 +34,7 @@ import {
   type PaneTitles,
 } from './layoutContext.js';
 import {
+  defaultModel,
   type LayoutModel,
   layoutReducer,
   readLayout,
@@ -84,13 +85,7 @@ function storage(): Storage | null {
 function initialModel(openPanels: readonly PanelId[]): LayoutModel {
   const store = storage();
   const height = window.innerHeight;
-  if (!store) {
-    return layoutReducer(
-      { dock: null, collapsed: [], treeWidth: 0, dismissed: [] },
-      { type: 'reset', height },
-    );
-  }
-  return readLayout(store, height, openPanels);
+  return store ? readLayout(store, height, openPanels) : defaultModel(height);
 }
 
 function openFromDock(dock: SerializedDock | null): PaneId[] {
