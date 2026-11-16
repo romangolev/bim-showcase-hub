@@ -181,6 +181,7 @@ export function DocumentTree({
     nodes: new Map<string, TreeNode>([[ROOT_ID, ROOT_NODE]]),
     scopes: new Map<string, NodeScope>([[ROOT_ID, ROOT_SCOPE]]),
     loaded: new Set<string>(),
+    stale: new Set<string>(),
   }).current;
 
   const selectedUrnRef = useRef(selectedUrn);
@@ -695,6 +696,7 @@ export function DocumentTree({
 
   const refresh = (id: string) => {
     registry.loaded.delete(id);
+    registry.stale.delete(id);
     queryClient.removeQueries({
       queryKey: scopeKey(registry.scopes.get(id) ?? ROOT_SCOPE),
       exact: true,
@@ -707,11 +709,24 @@ export function DocumentTree({
     for (const item of tree.getItems()) {
       if (item.isFolder() && item.isExpanded()) ids.add(item.getId());
     }
+    for (const id of registry.loaded) {
+      if (!ids.has(id)) registry.stale.add(id);
+    }
     for (const id of ids) {
       forgetChecks(id);
       refresh(id);
     }
   };
+
+  useEffect(() => {
+    if (registry.stale.size === 0) return;
+    for (const item of tree.getItems()) {
+      const id = item.getId();
+      if (registry.stale.has(id) && item.isFolder() && item.isExpanded()) {
+        refresh(id);
+      }
+    }
+  });
 
   const recheck = (id: string) => {
     forgetChecks(id);

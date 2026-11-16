@@ -546,6 +546,30 @@ describe('RealViewerAdapter tool group extension', () => {
       expect(viewer.extensions.size).toBe(0);
     });
 
+    it('still mounts a later registration after unloadExtension throws once', async () => {
+      makeAdapter();
+      await adapter.load('dXJu');
+      const viewer = viewers[0] as FakeViewer;
+      const unload = viewer.unloadExtension.bind(viewer);
+      let thrown = false;
+      viewer.unloadExtension = (id: string) => {
+        if (!thrown) {
+          thrown = true;
+          throw new Error('unload failed');
+        }
+        return unload(id);
+      };
+      const load = vi.spyOn(viewer, 'loadExtension');
+      const dispose = adapter.registerToolGroup(buildToolGroupSpec(adapter));
+      await settle();
+      dispose();
+      await settle();
+      expect(thrown).toBe(true);
+      adapter.registerToolGroup(buildToolGroupSpec(adapter));
+      await settle();
+      expect(load).toHaveBeenCalledTimes(2);
+    });
+
     it('ends with none after register, dispose, register, dispose in a row', async () => {
       const { viewer, open } = await gatedViewer();
       adapter.registerToolGroup(buildToolGroupSpec(adapter))();

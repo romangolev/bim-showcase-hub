@@ -3,6 +3,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createTestClient,
+  folder,
+  item,
   json,
   mockFetch,
   stubLayout,
@@ -79,6 +81,63 @@ describe('DocumentTree', () => {
     );
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(count('/api/hubs/h1/projects/p1/folders')).toBe(folders);
+  });
+
+  it('Refresh marks a collapsed loaded folder stale and refetches it on expand', async () => {
+    let renamed = false;
+    const fetchMock = mockFetch({
+      ...treeRoutes,
+      '/api/hubs/h1/projects/p1/folders': () =>
+        json([{ ...folder, name: renamed ? 'Fresh Files' : folder.name }]),
+    });
+    renderTree();
+    await expandTo('Studio hub');
+    await expandTo('Riverside Tower');
+    await screen.findByText('Project Files');
+    await expandTo('Riverside Tower');
+    await waitFor(() =>
+      expect(screen.queryByText('Project Files')).not.toBeInTheDocument(),
+    );
+    const count = () =>
+      fetchMock.mock.calls.filter(
+        (call) => String(call[0]) === '/api/hubs/h1/projects/p1/folders',
+      ).length;
+    const before = count();
+    renamed = true;
+
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh documents' }));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(count()).toBe(before);
+
+    await expandTo('Riverside Tower');
+    expect(await screen.findByText('Fresh Files')).toBeInTheDocument();
+    expect(count()).toBe(before + 1);
+  });
+
+  it('Refresh refreshes an expanded folder under a collapsed ancestor once the ancestor opens', async () => {
+    let renamed = false;
+    mockFetch({
+      ...treeRoutes,
+      '/api/projects/p1/folders/f1/contents': () =>
+        json([{ ...item, name: renamed ? 'Fresh.rvt' : item.name }]),
+    });
+    renderTree();
+    await expandTo('Studio hub');
+    await expandTo('Riverside Tower');
+    await expandTo('Project Files');
+    await screen.findByText('Tower.rvt');
+    await expandTo('Studio hub');
+    await waitFor(() =>
+      expect(screen.queryByText('Riverside Tower')).not.toBeInTheDocument(),
+    );
+    renamed = true;
+
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh documents' }));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    await expandTo('Studio hub');
+    expect(await screen.findByText('Fresh.rvt')).toBeInTheDocument();
+    expect(screen.queryByText('Tower.rvt')).not.toBeInTheDocument();
   });
 
   it('Refresh retries a folder that failed to load even when collapsed', async () => {

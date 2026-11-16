@@ -821,12 +821,12 @@ export class RealViewerAdapter implements ViewerAdapter {
     this.controller?.dispose();
     const controller = new ToolGroupController(spec, this);
     this.controller = controller;
-    void this.syncTools();
+    void this.syncTools().catch(() => undefined);
     return () => {
       if (this.controller !== controller) return;
       controller.dispose();
       this.controller = null;
-      void this.syncTools();
+      void this.syncTools().catch(() => undefined);
     };
   }
 
@@ -891,7 +891,7 @@ export class RealViewerAdapter implements ViewerAdapter {
 
   private syncTools(): Promise<void> {
     const run = this.toolsChain.then(() => this.reconcileTools());
-    this.toolsChain = run;
+    this.toolsChain = run.catch(() => undefined);
     return run;
   }
 
