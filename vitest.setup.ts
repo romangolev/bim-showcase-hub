@@ -7,3 +7,14 @@ if (typeof globalThis.ResizeObserver === 'undefined') {
     disconnect() {}
   };
 }
+
+if (typeof HTMLDialogElement !== 'undefined') {
+  const proto = HTMLDialogElement.prototype;
+  proto.showModal = function showModal() {
+    this.setAttribute('open', '');
+  };
+  proto.close = function close() {
+    this.removeAttribute('open');
+    this.dispatchEvent(new Event('close'));
+  };
+}

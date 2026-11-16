@@ -137,17 +137,37 @@ describe('App shell', () => {
       name: /Ada Lovelace/,
     });
     fireEvent.click(trigger);
-    const item = screen.getByRole('menuitem', { name: 'Sign out' });
+    const item = screen.getByRole('menuitem', { name: 'Settings' });
+    const last = screen.getByRole('menuitem', { name: 'Sign out' });
     await waitFor(() => expect(item).toHaveFocus());
 
     fireEvent.keyDown(item, { key: 'ArrowDown' });
-    expect(item).toHaveFocus();
-    fireEvent.keyDown(item, { key: 'End' });
+    expect(last).toHaveFocus();
+    fireEvent.keyDown(last, { key: 'End' });
+    expect(last).toHaveFocus();
+    fireEvent.keyDown(last, { key: 'Home' });
     expect(item).toHaveFocus();
 
     fireEvent.keyDown(item, { key: 'Escape' });
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     expect(trigger).toHaveFocus();
+  });
+
+  it('opens the settings dialog from the user menu', async () => {
+    mockFetch({
+      '/api/session': { name: 'Ada Lovelace', picture: null },
+      ...treeRoutes,
+    });
+    renderApp();
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: /Ada Lovelace/ }),
+    );
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Settings' }));
+    expect(
+      await screen.findByRole('dialog', { name: 'Settings' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
 
   it('opens a deep link without search params using a fallback title', async () => {

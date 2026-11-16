@@ -3,6 +3,7 @@ import { RouterProvider } from '@tanstack/react-router';
 import { ModalProvider } from './modal/index.js';
 import { queryClient } from './queryClient.js';
 import { router } from './routes/router.js';
+import { SettingsProvider } from './settings/index.js';
 import { ThemeProvider } from './theme/ThemeContext.js';
 
 export interface AppProps {
@@ -13,11 +14,13 @@ export interface AppProps {
 export function App({ appRouter = router, client = queryClient }: AppProps) {
   return (
     <ThemeProvider>
-      <QueryClientProvider client={client}>
-        <ModalProvider>
-          <RouterProvider router={appRouter} />
-        </ModalProvider>
-      </QueryClientProvider>
+      <SettingsProvider>
+        <QueryClientProvider client={client}>
+          <ModalProvider>
+            <RouterProvider router={appRouter} />
+          </ModalProvider>
+        </QueryClientProvider>
+      </SettingsProvider>
     </ThemeProvider>
   );
 }

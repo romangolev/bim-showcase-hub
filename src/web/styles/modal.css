@@ -45,3 +45,38 @@
   padding: var(--space-4);
   overflow: auto;
 }
+
+.settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.settings__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.settings__heading {
+  margin: 0;
+  font-size: var(--text-13);
+  color: var(--color-ash);
+}
+
+.switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.switch-row__text {
+  display: flex;
+  flex-direction: column;
+}
+
+.switch-row__hint {
+  color: var(--color-ash);
+  font-size: var(--text-13);
+}

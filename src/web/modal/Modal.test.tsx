@@ -1,19 +1,8 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { StrictMode, useState } from 'react';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { ModalProvider, useModal } from './index.js';
 import type { ModalDefinition } from './types.js';
-
-beforeAll(() => {
-  const proto = HTMLDialogElement.prototype;
-  proto.showModal = function showModal() {
-    this.setAttribute('open', '');
-  };
-  proto.close = function close() {
-    this.removeAttribute('open');
-    this.dispatchEvent(new Event('close'));
-  };
-});
 
 const DEFINITIONS: ModalDefinition[] = [
   {
