@@ -28,6 +28,10 @@ function firstString(value: unknown): string | null {
   return typeof value === 'string' && value !== '' ? value : null;
 }
 
+function authErrorUrl(code: string): string {
+  return `/?auth_error=${code}`;
+}
+
 export function authRouter(config: ServerConfig, auth: ApsAuth): Router {
   const router = Router();
 
@@ -63,20 +67,27 @@ export function authRouter(config: ServerConfig, auth: ApsAuth): Router {
     const expected = session.oauthState;
     delete session.oauthState;
     if (!statesMatch(expected, req.query.state)) {
-      throw new HttpError(400, 'Invalid state');
+      res.redirect(authErrorUrl('invalid_state'));
+      return;
     }
     if (firstString(req.query.error)) {
-      res.redirect('/?auth_error=access_denied');
+      res.redirect(authErrorUrl('access_denied'));
       return;
     }
     const code = firstString(req.query.code);
     if (!code) {
-      throw new HttpError(400, 'Missing code');
+      res.redirect(authErrorUrl('missing_code'));
+      return;
     }
-    const tokens = await auth.exchangeCode(code);
-    const user = await auth.getUser(tokens.accessToken);
-    storeTokens(session, tokens);
-    storeUser(session, user);
+    try {
+      const tokens = await auth.exchangeCode(code);
+      const user = await auth.getUser(tokens.accessToken);
+      storeTokens(session, tokens);
+      storeUser(session, user);
+    } catch {
+      res.redirect(authErrorUrl('upstream_error'));
+      return;
+    }
     res.redirect('/');
   });
 

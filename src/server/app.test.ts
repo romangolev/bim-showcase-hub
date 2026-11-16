@@ -100,11 +100,13 @@ describe('session and auth', () => {
     const wrong = await agent
       .get('/api/auth/callback')
       .query({ code: 'abc', state: 'forged' });
-    expect(wrong.status).toBe(400);
+    expect(wrong.status).toBe(302);
+    expect(wrong.headers.location).toBe('/?auth_error=invalid_state');
     const missing = await request(realApp())
       .get('/api/auth/callback')
       .query({ code: 'abc' });
-    expect(missing.status).toBe(400);
+    expect(missing.status).toBe(302);
+    expect(missing.headers.location).toBe('/?auth_error=invalid_state');
   });
 
   it('consumes the state so it cannot be replayed', async () => {
@@ -115,7 +117,8 @@ describe('session and auth', () => {
     const replay = await agent
       .get('/api/auth/callback')
       .query({ code: 'abc', state });
-    expect(replay.status).toBe(400);
+    expect(replay.status).toBe(302);
+    expect(replay.headers.location).toBe('/?auth_error=invalid_state');
   });
 
   it('requires a code after a valid state', async () => {
@@ -123,7 +126,21 @@ describe('session and auth', () => {
     const urlRes = await agent.get('/api/auth/url');
     const state = new URL(urlRes.body.url).searchParams.get('state');
     const res = await agent.get('/api/auth/callback').query({ state });
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe('/?auth_error=missing_code');
+  });
+
+  it('redirects with an upstream error when the code exchange fails', async () => {
+    const auth = fakeAuth({
+      exchangeCode: vi
+        .fn()
+        .mockRejectedValue(new HttpError(502, 'Upstream service error')),
+    });
+    const agent = request.agent(realApp(auth));
+    const res = await signIn(agent);
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe('/?auth_error=upstream_error');
+    expect((await agent.get('/api/session')).status).toBe(401);
   });
 
   it('redirects home when the user denies access', async () => {
@@ -134,7 +151,7 @@ describe('session and auth', () => {
       .get('/api/auth/callback')
       .query({ error: 'access_denied', state });
     expect(res.status).toBe(302);
-    expect(res.headers.location).toContain('auth_error');
+    expect(res.headers.location).toBe('/?auth_error=access_denied');
     expect((await agent.get('/api/session')).status).toBe(401);
   });
 
