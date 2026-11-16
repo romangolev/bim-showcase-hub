@@ -96,7 +96,7 @@
   top: 50%;
   left: 50%;
   width: 3px;
-  height: 36px;
+  height: var(--hit-target);
   border-radius: 2px;
   background: var(--color-smoke);
   opacity: 0;
@@ -354,8 +354,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: var(--hit-target);
+  height: var(--hit-target);
   padding: 0;
   border: 0;
   border-radius: var(--radius-tile);
@@ -373,6 +373,13 @@
 
 .doc-tree__clear:active {
   background: var(--color-ghost-fill-active);
+}
+
+@media (pointer: coarse) {
+  .tree-panel__resizer {
+    right: calc(var(--hit-target) / -2);
+    width: var(--hit-target);
+  }
 }
 
 @media (max-width: 999px) {
