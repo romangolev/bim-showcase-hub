@@ -1,3 +1,4 @@
+import gzip
 import re
 import sys
 import urllib.request
@@ -202,7 +203,10 @@ def stylesheet_url():
 
 def fetch_stylesheet(url):
     with urllib.request.urlopen(url, timeout=30) as response:
-        return response.read().decode("utf-8", "replace")
+        body = response.read()
+    if body[:2] == b"\x1f\x8b":
+        body = gzip.decompress(body)
+    return body.decode("utf-8", "replace")
 
 
 def chrome_tails(css_text):

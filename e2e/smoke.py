@@ -151,10 +151,14 @@ def run_model_checks(page, checks, found):
 def check_viewer_chrome(page, checks):
     try:
         graphite = page.evaluate(GRAPHITE_RGB_SCRIPT)
-        button = page.locator(".adsk-toolbar .adsk-button:not(.disabled)").first
-        button.hover(timeout=8000)
-        page.wait_for_timeout(300)
-        hover_color = page.evaluate(BUTTON_COLOR_SCRIPT)
+        button = page.locator(".adsk-toolbar .adsk-button:not(.disabled):visible").first
+        hover_color = None
+        for _ in range(5):
+            button.hover(timeout=8000)
+            page.wait_for_timeout(400)
+            hover_color = page.evaluate(BUTTON_COLOR_SCRIPT)
+            if hover_color:
+                break
         state = page.evaluate(CHROME_STATE_SCRIPT)
         browser_button = page.locator("#toolbar-modelStructureTool")
         opened_panel = False
