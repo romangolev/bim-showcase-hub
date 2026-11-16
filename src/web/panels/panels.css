@@ -436,7 +436,7 @@
   }
 }
 
-@container main (max-width: 911px) {
+@container main (max-width: 875px) {
   .bsh-drawer {
     --drawer-body: 200px;
   }
@@ -539,7 +539,7 @@
   display: none;
 }
 
-@container main (min-width: 912px) {
+@container main (min-width: 876px) {
   .bsh-summary[data-collapsed="true"] {
     align-items: center;
     padding: var(--space-3) 0;
@@ -563,7 +563,7 @@
   }
 }
 
-@container main (max-width: 911px) {
+@container main (max-width: 875px) {
   .bsh-summary__toggle-icon[data-expanded="true"] {
     transform: rotate(-90deg);
   }

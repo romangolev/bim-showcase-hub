@@ -20,6 +20,10 @@ Other stylesheets in `src/web/styles` (`global.css`, `shell.css`, `tree.css`, `l
 - Loading, empty and error feedback uses the shared `StateBlock` component, not ad hoc text.
 - Interactive controls need an accessible name (`aria-label` or visible text) and a visible focus ring.
 
+## Model page breakpoint
+
+The model page switches between two columns and one stacked column at a single `main` container width, because custom properties cannot be used in `@container` conditions. Two columns need the page padding (2 x `--gutter`, 24px), the minimum viewer column (560px), the column gap (`--gutter`, 12px) and the minimum summary column (280px): 24 + 560 + 12 + 280 = 876px. The stacked layout applies up to `max-width: 875px` and the two-column rules from `min-width: 876px`, in both `src/web/styles/model.css` and `src/web/panels/panels.css`. Change the number in all of them together when those minimums change.
+
 ## Themes
 
 The app has dark and light themes. The light theme keeps every token role and changes only the values, so components never branch on theme. DESIGN.md has the light palette tables.
