@@ -114,10 +114,21 @@ function modelOf(id: PanelId): string | null {
   return parsed?.kind === MODEL_KIND ? parsed.instance : null;
 }
 
+const FOLLOWERS: readonly PaneId[] = PANE_IDS.filter(
+  (id) => paneById(id).requires === 'viewer',
+);
+
 function titlesFor(models: OpenModelsState): PaneTitles {
   const titles: Record<PanelId, PaneTitle> = {};
   for (const { urn, context } of models.models) {
     titles[modelPanelId(urn)] = modelTabTitle(urn, context);
+  }
+  const active = models.active ? titles[modelPanelId(models.active)] : null;
+  if (active) {
+    for (const id of FOLLOWERS) {
+      const label = paneById(id).title;
+      titles[id] = { label, tooltip: `${label} of ${active.label}` };
+    }
   }
   return titles;
 }

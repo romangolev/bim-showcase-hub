@@ -53,6 +53,7 @@
 }
 
 .stack__models {
+  flex: none;
   display: flex;
   gap: var(--space-1);
   min-width: 0;

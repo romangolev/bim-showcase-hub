@@ -282,6 +282,11 @@ describe('several models', () => {
     expect(summary.querySelector('.bsh-summary__model')).toHaveTextContent(
       'B.rvt · v1',
     );
+    expect(
+      screen
+        .getByRole('tab', { name: 'Model summary' })
+        .querySelector('[title]'),
+    ).toHaveAttribute('title', 'Model summary of B.rvt · v1');
     const reads = read.mock.calls.length;
     act(() => handle().activateModel('aaa'));
     expect(await within(summary).findByText('Name of aaa')).toBeInTheDocument();
