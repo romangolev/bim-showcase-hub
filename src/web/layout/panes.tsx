@@ -33,6 +33,22 @@ export function useModelUrn(): string | null {
   return onModel && urn ? urn : null;
 }
 
+export function pausedCopy(count: number): {
+  message: string;
+  action: string;
+} {
+  return count > 1
+    ? {
+        message: `This tab holds ${count} models. Only a few models stay loaded at once. Load them again to keep working with them.`,
+        action: 'Load models',
+      }
+    : {
+        message:
+          'Only a few models stay loaded at once. Load this one again to keep working with it.',
+        action: 'Load model',
+      };
+}
+
 export function TreePane() {
   const layout = useLayout();
   const content = useMainContent();
@@ -132,9 +148,9 @@ export function ModelPaneBody({ instance }: { instance: string }) {
               <StateBlock
                 variant="empty"
                 title="Paused to save memory"
-                message="Only a few models stay loaded at once. Load this one again to keep working with it."
+                message={pausedCopy(members.length + 1).message}
                 action={{
-                  label: 'Load model',
+                  label: pausedCopy(members.length + 1).action,
                   onClick: () => store?.activate(instance),
                   primary: true,
                 }}

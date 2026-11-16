@@ -1,15 +1,17 @@
 import { describe, expect, it } from 'vitest';
+import { MAX_LOADED_MEMBERS } from '../../shared/combined.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { MODEL_STORE_KEY } from './modelStore.js';
 import {
   activateModel,
+  addToModel,
   claimModels,
   closeModel,
   createOpenModelsStore,
   EMPTY_OPEN_MODELS,
   forgetModels,
   keepOnlyModel,
-  MAX_LOADED_MODELS,
+  liveWeight,
   MODEL_OWNER_KEY,
   OPEN_MODELS_KEY,
   type OpenModelsState,
@@ -77,16 +79,57 @@ describe('open models', () => {
 
   it('suspends the least recently shown model above the cap', () => {
     const urns = Array.from(
-      { length: MAX_LOADED_MODELS + 1 },
+      { length: MAX_LOADED_MEMBERS + 1 },
       (_, index) => `m${index}`,
     );
     const state = openAll(...urns);
-    expect(state.live).toHaveLength(MAX_LOADED_MODELS);
+    expect(state.live).toHaveLength(MAX_LOADED_MEMBERS);
     expect(state.live).not.toContain('m0');
-    expect(state.models).toHaveLength(MAX_LOADED_MODELS + 1);
+    expect(state.models).toHaveLength(MAX_LOADED_MEMBERS + 1);
     const back = activateModel(state, 'm0');
     expect(back.live).toContain('m0');
     expect(back.live).not.toContain('m1');
+  });
+
+  it('weights the loaded budget by the models each tab holds', () => {
+    const combined = (urn: string, members: string[]) =>
+      ({ file: `${urn}.rvt`, with: members.join(',') }) as const;
+    let state = openModel(
+      EMPTY_OPEN_MODELS,
+      'a',
+      combined('a', ['a2', 'a3', 'a4', 'a5', 'a6']),
+    );
+    expect(liveWeight(state, 'a')).toBe(6);
+    state = openModel(state, 'b', { file: 'b.rvt' });
+    state = openModel(state, 'c', { file: 'c.rvt' });
+    expect(state.live).toEqual(['a', 'b', 'c']);
+    state = openModel(state, 'd', combined('d', ['d2', 'd3']));
+    expect(state.live).toEqual(['b', 'c', 'd']);
+    state = activateModel(state, 'a');
+    expect(state.live).toEqual(['a']);
+  });
+
+  it('keeps a single tab larger than the budget and the visible tabs', () => {
+    let state = openModel(EMPTY_OPEN_MODELS, 'a', {
+      with: 'a2,a3,a4,a5,a6',
+    });
+    state = setVisible(state, ['a']);
+    state = openModel(state, 'b', { with: 'b2,b3,b4,b5,b6' });
+    expect(state.live).toEqual(['a', 'b']);
+    state = setVisible(state, ['a', 'b']);
+    state = touchLive(state, 'b', 4);
+    expect(state.live).toEqual(['a', 'b']);
+    state = setVisible(state, ['b']);
+    state = touchLive(state, 'b', 4);
+    expect(state.live).toEqual(['b']);
+  });
+
+  it('pauses a background tab when a member is added over the budget', () => {
+    let state = openAll('x', 'y', 'z');
+    state = openModel(state, 'a', { with: 'a2,a3,a4,a5' });
+    expect(state.live).toEqual(['x', 'y', 'z', 'a']);
+    state = addToModel(state, 'a', 'a6');
+    expect(state.live).toEqual(['y', 'z', 'a']);
   });
 
   it('never suspends the active model when a background tab is shown', () => {

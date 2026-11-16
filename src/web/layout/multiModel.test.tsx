@@ -9,9 +9,10 @@ import {
 } from '@testing-library/react';
 import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { MAX_LOADED_MEMBERS } from '../../shared/combined.js';
 import type { PropertyRow } from '../../shared/types.js';
 import { App } from '../App.js';
-import { MAX_LOADED_MODELS, OPEN_MODELS_KEY } from '../api/openModels.js';
+import { OPEN_MODELS_KEY } from '../api/openModels.js';
 import { createAppRouter } from '../routes/router.js';
 import {
   createTestClient,
@@ -25,6 +26,7 @@ import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
 import { page, resetRegion } from '../viewer/region.js';
 import type { MoveTarget } from './layoutContext.js';
 import { LAYOUT_KEY, parseLayout } from './layoutState.js';
+import { pausedCopy } from './panes.js';
 
 interface Handle {
   movePane: (id: string, target: MoveTarget) => void;
@@ -376,18 +378,43 @@ describe('several models', () => {
     const destroy = vi.spyOn(MockViewerAdapter.prototype, 'destroy');
     const { appRouter } = renderPath('/');
     await dockReady();
-    for (let index = 0; index <= MAX_LOADED_MODELS; index++) {
+    for (let index = 0; index <= MAX_LOADED_MEMBERS; index++) {
       await open(appRouter, `m${index}`, `M${index}.rvt`);
       await waitFor(() => expect(sceneOf(`m${index}`)).not.toBeNull());
     }
     expect(handle().models().live).not.toContain('m0');
-    expect(handle().models().live).toHaveLength(MAX_LOADED_MODELS);
+    expect(handle().models().live).toHaveLength(MAX_LOADED_MEMBERS);
     expect(destroy).toHaveBeenCalledTimes(1);
     expect(urnOf.get(destroy.mock.contexts[0] as MockViewerAdapter)).toBe('m0');
     act(() => handle().activateModel('m0'));
     await waitFor(() => expect(sceneOf('m0')).not.toBeNull());
     expect(handle().models().live).not.toContain('m1');
     expect(destroy).toHaveBeenCalledTimes(2);
+  });
+
+  it('counts every model of a combined tab toward the loaded budget', async () => {
+    const { appRouter } = renderPath('/');
+    await dockReady();
+    await act(() =>
+      appRouter.navigate({
+        to: '/model/$urn',
+        params: { urn: 'aaa' },
+        search: { file: 'A.rvt', with: 'bbb,ccc' },
+      }),
+    );
+    await waitFor(() => expect(sceneOf('aaa')).not.toBeNull());
+    const singles = MAX_LOADED_MEMBERS - 2;
+    for (let index = 0; index < singles; index++) {
+      await open(appRouter, `s${index}`, `S${index}.rvt`);
+      await waitFor(() => expect(sceneOf(`s${index}`)).not.toBeNull());
+    }
+    expect(handle().models().live).not.toContain('aaa');
+    expect(handle().models().live).toHaveLength(singles);
+    expect(pausedCopy(3)).toEqual({
+      message: expect.stringContaining('This tab holds 3 models'),
+      action: 'Load models',
+    });
+    expect(pausedCopy(1).action).toBe('Load model');
   });
 
   it('writes the layout once per change after a short delay', async () => {

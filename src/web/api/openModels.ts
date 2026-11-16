@@ -1,4 +1,8 @@
-import { MAX_COMBINED_MODELS, type Vec3 } from '../../shared/combined.js';
+import {
+  MAX_COMBINED_MODELS,
+  MAX_LOADED_MEMBERS,
+  type Vec3,
+} from '../../shared/combined.js';
 import {
   joinWith,
   type ModelContext,
@@ -11,7 +15,6 @@ import { hasModelContext, MODEL_STORE_KEY, recallModel } from './modelStore.js';
 
 export const OPEN_MODELS_KEY = 'bsh.models.open';
 export const MODEL_OWNER_KEY = 'bsh.models.owner';
-export const MAX_LOADED_MODELS = 4;
 
 export interface OpenModel {
   urn: string;
@@ -107,22 +110,47 @@ export function contextOf(
   return state.models.find((model) => model.urn === urn)?.context ?? null;
 }
 
+export function liveWeight(state: OpenModelsState, urn: string): number {
+  return Math.max(1, modelUrnsOf(state, urn).length);
+}
+
+function fitLive(
+  state: OpenModelsState,
+  live: readonly string[],
+  keep: string,
+  limit: number,
+): string[] {
+  const kept = [...live];
+  let total = kept.reduce((sum, id) => sum + liveWeight(state, id), 0);
+  while (total > limit) {
+    const victim = kept.findIndex(
+      (id) => id !== keep && id !== state.active && !state.visible.includes(id),
+    );
+    if (victim === -1) break;
+    total -= liveWeight(state, kept[victim] as string);
+    kept.splice(victim, 1);
+  }
+  return kept;
+}
+
+function withLive(
+  state: OpenModelsState,
+  live: readonly string[],
+): OpenModelsState {
+  const same =
+    live.length === state.live.length &&
+    live.every((id, index) => state.live[index] === id);
+  return same ? state : { ...state, live: [...live] };
+}
+
 export function touchLive(
   state: OpenModelsState,
   urn: string,
-  limit = MAX_LOADED_MODELS,
+  limit = MAX_LOADED_MEMBERS,
 ): OpenModelsState {
   if (!isOpen(state, urn)) return state;
-  if (state.live[state.live.length - 1] === urn) return state;
-  const live = [...state.live.filter((id) => id !== urn), urn];
-  while (live.length > Math.max(1, limit)) {
-    const victim = live.findIndex(
-      (id) => id !== urn && id !== state.active && !state.visible.includes(id),
-    );
-    if (victim === -1) break;
-    live.splice(victim, 1);
-  }
-  return { ...state, live };
+  const order = [...state.live.filter((id) => id !== urn), urn];
+  return withLive(state, fitLive(state, order, urn, limit));
 }
 
 export function setVisible(
@@ -139,7 +167,7 @@ export function setVisible(
 export function activateModel(
   state: OpenModelsState,
   urn: string,
-  limit = MAX_LOADED_MODELS,
+  limit = MAX_LOADED_MEMBERS,
 ): OpenModelsState {
   if (!isOpen(state, urn)) return state;
   const next = state.active === urn ? state : { ...state, active: urn };
@@ -157,7 +185,7 @@ export function openModel(
   state: OpenModelsState,
   urn: string,
   context: ModelContext = {},
-  limit = MAX_LOADED_MODELS,
+  limit = MAX_LOADED_MEMBERS,
 ): OpenModelsState {
   if (!urn) return state;
   const existing = state.models.find((model) => model.urn === urn);
@@ -186,7 +214,7 @@ export function openModel(
 export function closeModel(
   state: OpenModelsState,
   urn: string,
-  limit = MAX_LOADED_MODELS,
+  limit = MAX_LOADED_MEMBERS,
 ): OpenModelsState {
   const index = state.models.findIndex((model) => model.urn === urn);
   if (index === -1) return state;
@@ -215,6 +243,7 @@ export function addToModel(
   state: OpenModelsState,
   target: string,
   urn: string,
+  limit = MAX_LOADED_MEMBERS,
 ): OpenModelsState {
   const entry = state.models.find((model) => model.urn === target);
   if (!entry || !urn) return state;
@@ -223,7 +252,7 @@ export function addToModel(
     return state;
   }
   const extra = joinWith([...withUrns(entry.context), urn]);
-  return {
+  const next = {
     ...state,
     models: state.models.map((model) =>
       model.urn === target
@@ -231,6 +260,9 @@ export function addToModel(
         : model,
     ),
   };
+  return next.live.includes(target)
+    ? withLive(next, fitLive(next, next.live, target, limit))
+    : next;
 }
 
 function rename(list: readonly string[], from: string, to: string): string[] {
@@ -242,7 +274,7 @@ export function removeFromModel(
   target: string,
   urn: string,
   contextFor: (urn: string) => ModelContext = () => ({}),
-  limit = MAX_LOADED_MODELS,
+  limit = MAX_LOADED_MEMBERS,
 ): OpenModelsState {
   const entry = state.models.find((model) => model.urn === target);
   if (!entry) return state;
@@ -424,7 +456,7 @@ function sessionStore(): Storage | null {
 
 export function createOpenModelsStore(
   storage: Storage | null = sessionStore(),
-  limit = MAX_LOADED_MODELS,
+  limit = MAX_LOADED_MEMBERS,
   contextFor: (urn: string) => ModelContext = (urn) => recallModel(urn) ?? {},
 ): OpenModelsStore {
   let raw: string | null = null;
@@ -466,7 +498,7 @@ export function createOpenModelsStore(
     setVisible: (urns) => apply(setVisible(state, urns)),
     close: (urn) => apply(closeModel(state, urn, limit)),
     keepOnly: (urn) => apply(keepOnlyModel(state, urn)),
-    addTo: (target, urn) => apply(addToModel(state, target, urn)),
+    addTo: (target, urn) => apply(addToModel(state, target, urn, limit)),
     removeFrom: (target, urn) =>
       apply(removeFromModel(state, target, urn, contextFor, limit)),
     setView: (urn, view) => apply(setModelView(state, urn, view)),
