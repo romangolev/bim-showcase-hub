@@ -1,13 +1,13 @@
 import { DataManagementClient } from '@aps_sdk/data-management';
 import { viewableFor } from '../../shared/viewState.js';
 import { HttpError, toHttpError } from '../errors.js';
-import { encodeId } from '../ids.js';
 import {
   mapFolderContents,
   mapHubs,
   mapProjects,
   mapTopFolders,
   mapVersions,
+  type VersionResource,
 } from './mapping.js';
 import type { DataService } from './types.js';
 import {
@@ -23,6 +23,7 @@ type Client = Pick<
   | 'getProjectTopFolders'
   | 'getFolderContents'
   | 'getItemVersions'
+  | 'getVersion'
 >;
 
 async function guarded<T>(call: () => Promise<T>): Promise<T> {
@@ -75,12 +76,12 @@ export function createApsDataService(
       }),
     versionViewState: (token, projectId, itemId, versionId) =>
       guarded(async () => {
-        const res = await client.getItemVersions(projectId, itemId, {
+        const res = await client.getVersion(projectId, versionId, {
           accessToken: token,
         });
-        const version = mapVersions(res.data ?? [], itemId).find(
-          (node) => node.id === encodeId(versionId),
-        );
+        const version = res.data
+          ? mapVersions([res.data as VersionResource], itemId)[0]
+          : undefined;
         if (!version) throw new HttpError(404, 'Version not found');
         if (!version.urn) {
           return { viewState: 'not-translated', viewable: false };
