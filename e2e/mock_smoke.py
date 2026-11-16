@@ -712,6 +712,38 @@ def check_blocked_picks(page, checks):
     close_all_models(page)
 
 
+FAR_OFFSET = "(urn) => document.querySelector(`[data-active='true'] [data-model-id='${urn}']`)?.dataset.offset || ''"
+
+
+def check_far_apart(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    close_all_models(page)
+    page.goto(BASE_URL, wait_until="networkidle")
+    expand_to_viewable(page).click()
+    page.wait_for_url(re.compile(r"/model/"), timeout=15000)
+    urn = models(page)["active"]
+    far = f"{urn}-far"
+    page.goto(f"{BASE_URL}/model/{urn}?with={far}", wait_until="networkidle")
+    warning = page.locator("[data-active='true'] .bsh-viewer-models__far")
+    wait_until(page, lambda: warning.count() == 1)
+    text = warning.inner_text() if warning.count() else ""
+    checks.add("far apart: the models menu warns with the distance", "far apart in model space" in text and " km" in text, text[:160])
+    tooltip = (page.evaluate(VIEWER_TAB) or {}).get("title", "")
+    checks.add("far apart: the tab tooltip carries the warning", "far apart in model space" in tooltip, tooltip[-120:])
+    page.get_by_role("button", name="Bring models together (view only)").click()
+    wait_until(page, lambda: page.evaluate(FAR_OFFSET, far) == "moved")
+    checks.add("far apart: Bring models together moves the far model", page.evaluate(FAR_OFFSET, far) == "moved")
+    page.reload(wait_until="networkidle")
+    settle(page, 2000)
+    wait_until(page, lambda: page.evaluate(FAR_OFFSET, far) == "moved")
+    checks.add("far apart: positions survive a reload", page.evaluate(FAR_OFFSET, far) == "moved")
+    page.get_by_role("button", name="Restore positions").first.click()
+    wait_until(page, lambda: page.evaluate(FAR_OFFSET, far) == "original")
+    checks.add("far apart: Restore positions puts the model back", page.evaluate(FAR_OFFSET, far) == "original")
+    page.screenshot(path=str(OUTPUT_DIR / "mock-far-apart.png"))
+    close_all_models(page)
+
+
 def check_view_states(page, checks):
     page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
     start_url = page.url
@@ -819,6 +851,11 @@ def run_interaction_checks(page, checks, notes):
     except Exception as exc:
         page.screenshot(path=str(OUTPUT_DIR / "mock-combined-failure.png"))
         checks.add("check_combined", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+    try:
+        check_far_apart(page, checks)
+    except Exception as exc:
+        page.screenshot(path=str(OUTPUT_DIR / "mock-far-apart-failure.png"))
+        checks.add("check_far_apart", False, f"{type(exc).__name__}: {str(exc)[:160]}")
     try:
         check_blocked_picks(page, checks)
     except Exception as exc:

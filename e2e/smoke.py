@@ -1109,6 +1109,46 @@ def combined_url(members):
     return f"{BASE_URL}/model/{first['urn']}?{query}"
 
 
+def union_box(boxes):
+    return {
+        "min": [min(b["min"][i] for b in boxes) for i in range(3)],
+        "max": [max(b["max"][i] for b in boxes) for i in range(3)],
+    }
+
+
+def check_far_apart_live(page, checks, notes, count):
+    warning = page.locator("[data-active='true'] .bsh-viewer-models__far")
+    try:
+        warning.wait_for(timeout=VIEWER_TIMEOUT_MS)
+    except Exception:
+        pass
+    text = warning.inner_text() if warning.count() else ""
+    notes["combined_far_warning"] = text[:200]
+    checks.add("combined: the far apart warning appears", "far apart in model space" in text, text[:160] or "no warning")
+    if not text:
+        return
+    before = combined_state(page)
+    original = {m["id"]: center(m["box"]) for m in before["models"] if m["box"]}
+    largest = max(diagonal(m["box"]) for m in before["models"] if m["box"])
+    page.get_by_role("button", name="Bring models together (view only)").first.click()
+    together = wait_combined(page, lambda s: s["models"] and diagonal(union_box([m["box"] for m in s["models"] if m["box"]])) < largest * 2)
+    boxes = [m["box"] for m in (together or {}).get("models", []) if m["box"]]
+    spread = diagonal(union_box(boxes)) if boxes else None
+    notes["combined_together_diagonal"] = spread and round(spread, 2)
+    checks.add("combined: Bring models together shrinks the scene below 2x the largest model", spread is not None and spread < largest * 2, f"{spread} vs {largest}")
+    checks.add("combined: every model stays loaded after moving", bool(together) and len(together["models"]) == count and all(m["done"] for m in together["models"]), together and len(together["models"]))
+    page.screenshot(path=str(OUTPUT_DIR / "combined-03-together.png"))
+    page.get_by_role("button", name="Restore positions").first.click()
+    page.wait_for_timeout(1500)
+    after = combined_state(page)
+    restored = {m["id"]: center(m["box"]) for m in after["models"] if m["box"]}
+    worst = max(
+        (sum((restored[i][k] - original[i][k]) ** 2 for k in range(3)) ** 0.5 for i in original if i in restored),
+        default=None,
+    )
+    checks.add("combined: Restore positions returns the original centres", worst is not None and worst <= largest * 0.001 + 0.01, worst)
+
+
 def check_combined(page, context, checks, notes):
     page.bring_to_front()
     errors_before = len(notes["page_errors"])
@@ -1167,6 +1207,7 @@ def check_combined(page, context, checks, notes):
     scope.select_option(index=0)
     checks.add("combined: summary rows include data from every model", all(count > 0 for count in per_model.values()), per_model)
     page.screenshot(path=str(OUTPUT_DIR / "combined-01-loaded.png"))
+    check_far_apart_live(page, checks, notes, len(good))
 
     page.locator("[data-active='true'] .bsh-viewer-models__trigger").click()
     remove = page.get_by_role("menuitem", name=re.compile(r"^Remove ")).last
