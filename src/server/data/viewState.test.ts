@@ -283,6 +283,44 @@ describe('withViewStates', () => {
     ]);
   });
 
+  it('checks only the newest versions and leaves older ones unchecked', async () => {
+    const nodes = Array.from({ length: 12 }, (_, i) =>
+      version(`v${i + 1}`, `u${i + 1}`),
+    );
+    const check = vi.fn().mockResolvedValue('ready');
+    const out = await withViewStates(nodes, 't', {
+      check,
+      clear: () => undefined,
+    });
+    expect(check).toHaveBeenCalledTimes(5);
+    const urns = check.mock.calls.map((call) => call[1]).sort();
+    expect(urns).toEqual(['u10', 'u11', 'u12', 'u8', 'u9']);
+    expect(out.filter((n) => n.viewState === 'ready')).toHaveLength(5);
+    const older = out.filter((n) => n.viewState === 'unknown');
+    expect(older).toHaveLength(7);
+    expect(older.every((n) => n.viewable)).toBe(true);
+  });
+
+  it('returns within the budget for 150 slow versions', async () => {
+    const nodes = Array.from({ length: 150 }, (_, i) =>
+      version(`v${i + 1}`, `u${i + 1}`),
+    );
+    const check = vi.fn(() => new Promise<never>(() => undefined));
+    const started = Date.now();
+    const out = await withViewStates(
+      nodes,
+      't',
+      { check, clear: () => undefined },
+      { budgetMs: 30 },
+    );
+    expect(Date.now() - started).toBeLessThan(500);
+    expect(check).toHaveBeenCalledTimes(5);
+    expect(out).toHaveLength(150);
+    expect(out.every((n) => n.viewState === 'unknown' && n.viewable)).toBe(
+      true,
+    );
+  });
+
   it('keeps unknown versions openable', async () => {
     const [node] = await withViewStates([version('a', 'u')], 't', {
       check: async () => 'unknown',

@@ -206,18 +206,56 @@ export function createViewStateChecker(
   };
 }
 
+export const CHECKED_VERSIONS = 5;
+export const LIST_BUDGET_MS = 6000;
+
+export interface WithViewStatesOptions {
+  limit?: number;
+  budgetMs?: number;
+}
+
+function versionNumber(node: TreeNode): number {
+  const match = /^v(\d+)/.exec(node.name);
+  return match?.[1] ? Number(match[1]) : -1;
+}
+
 export async function withViewStates(
   nodes: TreeNode[],
   token: string,
   checker: ViewStateChecker,
+  options: WithViewStatesOptions = {},
 ): Promise<TreeNode[]> {
-  return Promise.all(
-    nodes.map(async (node) => {
-      if (node.kind !== 'version' || !node.urn) {
-        return node;
-      }
-      const viewState = await checker.check(token, node.urn);
-      return { ...node, viewState, viewable: viewableFor(viewState) };
-    }),
+  const limit = options.limit ?? CHECKED_VERSIONS;
+  const budgetMs = options.budgetMs ?? LIST_BUDGET_MS;
+  const checked = new Set(
+    nodes
+      .map((node, index) => ({ node, index }))
+      .filter(({ node }) => node.kind === 'version' && node.urn)
+      .sort(
+        (a, b) =>
+          versionNumber(b.node) - versionNumber(a.node) || a.index - b.index,
+      )
+      .slice(0, limit)
+      .map(({ node }) => node),
   );
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<ViewState>((resolve) => {
+    timer = setTimeout(() => resolve('unknown'), budgetMs);
+  });
+  try {
+    return await Promise.all(
+      nodes.map(async (node) => {
+        if (!checked.has(node) || !node.urn) {
+          return node;
+        }
+        const viewState = await Promise.race([
+          checker.check(token, node.urn),
+          deadline,
+        ]);
+        return { ...node, viewState, viewable: viewableFor(viewState) };
+      }),
+    );
+  } finally {
+    clearTimeout(timer);
+  }
 }
