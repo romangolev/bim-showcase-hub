@@ -1012,11 +1012,126 @@ html
   color: var(--color-chalk);
 }
 
+html .bsh-viewer-surface .adsk-viewing-viewer .docking-panel.menu {
+  display: flex;
+  flex-direction: column;
+  min-width: 160px;
+  padding: var(--space-1) 0;
+  background-color: var(--color-graphite);
+  color: var(--color-chalk);
+  border: var(--border-hairline);
+  border-radius: var(--radius-card);
+  box-shadow: none;
+  max-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .docking-panel.menu .menu-item {
+  display: flex;
+  align-items: center;
+  flex: none;
+  box-sizing: border-box;
+  height: 32px;
+  margin: 0;
+  padding: 0 var(--space-3);
+  color: var(--color-chalk);
+  background-color: transparent;
+  font-size: var(--text-13);
+  cursor: pointer;
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .docking-panel.menu
+  .menu-item-icon {
+  display: none;
+  float: none;
+  box-sizing: border-box;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-right: var(--space-2);
+  padding: 0;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .docking-panel.menu
+  .menu-item-icon:not([class="menu-item-icon"]) {
+  display: block;
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .docking-panel.menu
+  .menu-item-text {
+  display: block;
+  flex: 1 1 auto;
+  padding: 0;
+  color: inherit;
+  white-space: nowrap;
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .docking-panel.menu
+  .menu-item-shortcut {
+  display: block;
+  float: none;
+  flex: none;
+  width: auto;
+  height: auto;
+  margin: 0 0 0 var(--space-4);
+  padding: 0;
+  color: var(--color-ash);
+  cursor: pointer;
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .docking-panel.menu
+  .menu-item-shortcut:empty {
+  display: none;
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .docking-panel.menu
+  .menu-divider-container {
+  display: block;
+  flex: none;
+  box-sizing: border-box;
+  height: 9px;
+  padding: var(--space-1) 0;
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .docking-panel.menu
+  .menu-divider {
+  position: static;
+  width: 100%;
+  height: 0.5px;
+  margin: 0;
+}
+
 html
   .bsh-viewer-surface
   .adsk-viewing-viewer
   .docking-panel.menu
   .menu-item:hover {
+  color: var(--color-snow);
   background-color: var(--color-ghost-fill-hover);
 }
 
@@ -1033,6 +1148,13 @@ html
   .adsk-viewing-viewer
   .docking-panel.menu
   .menu-item-expand {
+  display: block;
+  flex: none;
+  box-sizing: border-box;
+  width: 6px;
+  height: 10px;
+  margin-left: var(--space-3);
+  padding: 0;
   background: currentColor;
   color: var(--color-ash);
   -webkit-mask: var(--bsh-mask-right) center / 6px 10px no-repeat;
