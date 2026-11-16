@@ -120,6 +120,7 @@ def run_model_checks(page, checks, found):
 
 def check_canvas_follows_summary(page, checks):
     toggle = page.locator(".model-summary button.bsh-summary__toggle").first
+    page.bring_to_front()
     try:
         start_expanded = toggle.get_attribute("aria-expanded") == "true"
         before = main_canvas_width(page)
