@@ -217,7 +217,7 @@ def run_model_checks(page, checks, found, notes):
     except Exception:
         checks.add("autodesk viewer is mounted", False, f"no viewer element within {VIEWER_TIMEOUT_MS // 1000}s")
     checks.add("viewer toolbar is present", page.locator(".adsk-toolbar").count() >= 1)
-    checks.add("tool group is in the native toolbar", page.locator(".adsk-toolbar #paint, .adsk-toolbar #export-xlsx").count() >= 2)
+    checks.add("tool group is in the native toolbar", page.locator(".adsk-toolbar [id^='paint-'], .adsk-toolbar [id^='export-xlsx-']").count() >= 2)
     page.screenshot(path=str(OUTPUT_DIR / "02-model.png"))
     rows = page.locator("table tbody tr").count()
     checks.add("summary has rows", rows > 0, rows)

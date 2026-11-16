@@ -12,7 +12,7 @@ import {
   type ExportStatus,
 } from '../extensions/excelExport.js';
 import { formatCount } from '../extensions/modelSummary.js';
-import { registerViewerTools } from '../extensions/viewerTools.js';
+import { modelKey, registerViewerTools } from '../extensions/viewerTools.js';
 import { useTheme } from '../theme/ThemeContext.js';
 import { createViewerAdapter } from './createViewerAdapter.js';
 import type { ViewerAdapter, ViewerAdapterFactory } from './ViewerAdapter.js';
@@ -26,6 +26,7 @@ export interface ViewerPaneProps {
   factory?: ViewerAdapterFactory;
   tools?: boolean;
   resizeSignal?: number;
+  exportName?: string;
   children?: ReactNode;
 }
 
@@ -61,6 +62,7 @@ export function ViewerPane({
   factory = createViewerAdapter,
   tools = true,
   resizeSignal,
+  exportName,
   children,
 }: ViewerPaneProps) {
   const registry = useContext(ActiveViewerContext);
@@ -73,6 +75,8 @@ export function ViewerPane({
   );
   const [exportStatus, setExportStatus] = useState<ExportStatus | null>(null);
   const onReadyRef = useRef(onReady);
+  const exportNameRef = useRef(exportName);
+  exportNameRef.current = exportName;
   const [adapter, setAdapter] = useState<ViewerAdapter | null>(null);
   const [state, setState] = useState<PaneState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
@@ -161,6 +165,8 @@ export function ViewerPane({
         if (tools) {
           disposeExtensions = registerViewerTools(instance, {
             onStatus: handleExportStatus,
+            key: modelKey(urn),
+            fileName: () => exportNameRef.current ?? '',
           });
         }
         await instance.load(urn);

@@ -58,7 +58,7 @@ function createToolsExtension(viewing: AutodeskViewing): ViewerExtensionClass {
 
       const swatches = spec.paint.swatches.map((swatch) => {
         const button: ControlButton = new UI.Button(swatch.id);
-        button.setIcon(swatchIconClass(swatch.id));
+        button.setIcon(swatchIconClass(swatch.icon));
         button.onClick = () => controller.paint(swatch.color);
         combo.addControl(button);
         return { swatch, button };

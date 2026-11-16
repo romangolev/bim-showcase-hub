@@ -295,7 +295,7 @@ export class MockViewerAdapter implements ViewerAdapter {
       const button = this.createToolbarButton(
         swatch.id,
         swatch.label,
-        iconSpan(swatchIconClass(swatch.id)),
+        iconSpan(swatchIconClass(swatch.icon)),
       );
       button.addEventListener('click', () => {
         if (!controller.state.hasSelection) return;

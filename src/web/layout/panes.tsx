@@ -1,7 +1,9 @@
 import { useParams, useRouterState } from '@tanstack/react-router';
+import { contextOf } from '../api/openModels.js';
 import { useOpenModels, useOpenModelsStore } from '../api/useOpenModels.js';
 import { StateBlock } from '../components/StateBlock.js';
 import { TreePanel } from '../components/TreePanel.js';
+import { exportFileName } from '../extensions/excelExport.js';
 import { DashboardPanel, ModelSummaryPanel } from '../panels/index.js';
 import { ViewerPane } from '../viewer/index.js';
 import { useLayout, useMainContent } from './layoutContext.js';
@@ -47,6 +49,7 @@ export function ModelPaneBody({ instance }: { instance: string }) {
   const panel = modelPanelId(instance);
   const active = state.active === instance;
   const live = state.live.includes(instance);
+  const context = contextOf(state, instance);
   const title = layout.paneTitle(panel);
   return (
     <section
@@ -65,6 +68,7 @@ export function ModelPaneBody({ instance }: { instance: string }) {
           <ViewerPane
             urn={instance}
             resizeSignal={layout.resizeSignal(panel)}
+            exportName={exportFileName(context?.file, context?.v)}
           />
         ) : (
           <div className="bsh-viewer-pane" data-state="paused">

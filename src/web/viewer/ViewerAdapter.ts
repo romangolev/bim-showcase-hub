@@ -5,6 +5,7 @@ export type Rgba = readonly [r: number, g: number, b: number, a: number];
 
 export interface PaintSwatchSpec {
   id: string;
+  icon: string;
   label: string;
   swatch: string;
   color: Rgba;
