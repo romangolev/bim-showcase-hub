@@ -779,7 +779,7 @@ describe('RealViewerAdapter with several viewers', () => {
     });
     one.onSelectionChange(later);
     expect(() => viewers[0]?.select([7])).not.toThrow();
-    expect(later).toHaveBeenCalledWith([7]);
+    expect(later).toHaveBeenCalledWith([{ modelId: 'urn-a', dbId: 7 }]);
     expect(error).toHaveBeenCalled();
   });
 });

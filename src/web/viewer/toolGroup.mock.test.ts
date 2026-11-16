@@ -116,7 +116,7 @@ describe('mock toolbar tool group', () => {
       ids.map((dbId) => ({ modelId: 'dXJu', dbId })),
       [0, 0, 1, 0.5],
     );
-    expect(adapter.getSelection()).toEqual([]);
+    expect(adapter.getModelSelection().map((item) => item.dbId)).toEqual([]);
     expect(host.querySelector<HTMLElement>('.bsh-mock__flyout')?.hidden).toBe(
       true,
     );

@@ -148,7 +148,7 @@ export class MockViewerAdapter implements ViewerAdapter {
   private selection = new Set<string>();
   private readonly models = new ModelSet<MockScene>();
   private readonly themed = new Map<string, Rgba>();
-  private readonly listeners = new Set<(ids: number[]) => void>();
+  private readonly listeners = new Set<(items: ModelDbId[]) => void>();
   private placed = 0;
   private bounds: {
     x: number;
@@ -265,10 +265,6 @@ export class MockViewerAdapter implements ViewerAdapter {
     this.resizer.schedule(settleMs);
   }
 
-  getSelection(): number[] {
-    return this.getModelSelection().map((item) => item.dbId);
-  }
-
   clearSelection(): void {
     this.setSelectionKeys([]);
   }
@@ -282,15 +278,6 @@ export class MockViewerAdapter implements ViewerAdapter {
   setTheme(theme: Theme): void {
     this.theme = theme;
     if (this.root) this.root.dataset.viewerTheme = theme;
-  }
-
-  setThemingColor(ids: number[], color: Rgba): void {
-    const primary = this.models.primaryId();
-    if (!primary) return;
-    this.setModelThemingColor(
-      ids.map((dbId) => ({ modelId: primary, dbId })),
-      color,
-    );
   }
 
   clearThemingColors(): void {
@@ -345,7 +332,7 @@ export class MockViewerAdapter implements ViewerAdapter {
     };
   }
 
-  onSelectionChange(cb: (ids: number[]) => void): () => void {
+  onSelectionChange(cb: (items: ModelDbId[]) => void): () => void {
     this.listeners.add(cb);
     return () => {
       this.listeners.delete(cb);
@@ -689,10 +676,10 @@ export class MockViewerAdapter implements ViewerAdapter {
       const { modelId, dbId } = parseKey(key);
       this.nodeOf(modelId, dbId)?.classList.add('bsh-mock__el--selected');
     }
-    const ids = this.getSelection();
+    const items = this.getModelSelection();
     for (const cb of [...this.listeners]) {
       try {
-        cb([...ids]);
+        cb(items.map((item) => ({ ...item })));
       } catch (err) {
         console.error(err);
       }

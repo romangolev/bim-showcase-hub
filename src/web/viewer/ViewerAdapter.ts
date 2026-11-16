@@ -41,9 +41,7 @@ export interface ViewerAdapter {
   unload(): void;
   resize(): void;
   scheduleResize(settleMs: number): void;
-  getSelection(): number[];
   clearSelection?(): void;
-  setThemingColor(ids: number[], color: Rgba): void;
   clearThemingColors(): void;
   setTheme(theme: Theme): void;
   getLeafProperties(
@@ -51,7 +49,7 @@ export interface ViewerAdapter {
     modelIds?: readonly string[],
   ): Promise<PropertyRow[]>;
   registerToolGroup(spec: ToolGroupSpec): () => void;
-  onSelectionChange(cb: (ids: number[]) => void): () => void;
+  onSelectionChange(cb: (items: ModelDbId[]) => void): () => void;
   destroy(): void;
   loadModels(sources: readonly ModelSource[]): Promise<ModelInfo[]>;
   addModel(source: ModelSource): Promise<ModelInfo>;

@@ -38,7 +38,7 @@ Read from `viewer3D.min.js`, which ships Autodesk's own federation helper `Autod
 `ViewerAdapter` keeps every single-model method. New:
 
 - `loadModels(sources)`, `addModel(source)`, `removeModel(id)`, `getModels()`, `setModelVisible(id, visible)`, `onModelsChange(cb)`. A source is `{ urn, name? }`; a model is `{ id, urn, name, visible, status, error? }` with `id === urn`.
-- `getModelSelection(): { modelId, dbId }[]` and `setModelThemingColor(items, color)`. The single-model `getSelection()` returns every selected dbId (for counts), `setThemingColor(ids)` targets the first model, `clearThemingColors()` clears every model. `onSelectionChange` fires for selection in any model; the real adapter listens to `AGGREGATE_SELECTION_CHANGED_EVENT`.
+- `getModelSelection(): { modelId, dbId }[]` and `setModelThemingColor(items, color)`. The model-less `getSelection()` and `setThemingColor(ids)` were removed after review; `clearThemingColors()` clears every model. `onSelectionChange` passes `{ modelId, dbId }` pairs for a selection in any model; the real adapter listens to `AGGREGATE_SELECTION_CHANGED_EVENT`.
 - `getLeafProperties(names)` returns rows of every ready model, tagged with `modelId` and `modelName` (optional fields on `PropertyRow`).
 - Row reads (`sharedLeafRows.ts`) are keyed by the set of ready models, so a model that finishes loading or is removed triggers a fresh read; `useModels(adapter)` and `usePropertyRows` follow the model set.
 - Aggregation (`src/web/viewer/modelScope.ts`): `ALL_MODELS` scope, `scopeRows(rows, scope)`, `modelScopeOptions(models)`. Summary and dashboard count the union of rows, so values are summed across models.

@@ -116,14 +116,12 @@ interface ViewerAdapter {
   load(urn: string): Promise<void>;
   unload(): void;
   resize(): void;
-  getSelection(): number[];
   clearSelection?(): void;
-  setThemingColor(ids: number[], color: Rgba): void;
   clearThemingColors(): void;
   setTheme(theme: Theme): void;
   getLeafProperties(propertyNames: string[]): Promise<PropertyRow[]>;
   registerToolGroup(spec: ToolGroupSpec): () => void;
-  onSelectionChange(cb: (ids: number[]) => void): () => void;
+  onSelectionChange(cb: (items: ModelDbId[]) => void): () => void;
   destroy(): void;
   loadModels(sources: readonly ModelSource[]): Promise<ModelInfo[]>;
   addModel(source: ModelSource): Promise<ModelInfo>;
@@ -142,8 +140,8 @@ One adapter can hold several models in one viewer and one scene (`viewer/modelSe
 
 - **Startup.** The viewer starts once per adapter: concurrent `addModel` calls share one start, and an empty but live viewer is reused. If the script, the token, the Autodesk initializer or `viewer.start()` fails, the models being added get that real message as their error. On a destroyed adapter `addModel` throws `ModelSetError` (`closed`) and no model is marked failed.
 - **Error isolation.** Each model loads on its own. A failing model gets `status: 'error'` and a message, and the others keep loading. `loadModels` rejects only when every model failed; `load` therefore still rejects when its one model fails.
-- **Selection.** dbIds collide across models, so selection is read as `{ modelId, dbId }` pairs with `getModelSelection()`. `getSelection()` returns every selected dbId for counts, and `onSelectionChange` fires for a selection in any model. The real adapter listens to `AGGREGATE_SELECTION_CHANGED_EVENT`, because the Autodesk viewer fires `SELECTION_CHANGED_EVENT` only while exactly one model is loaded. Hiding a model clears its selection (the real adapter calls `viewer.select([], model)` before `hideModel`) and selection reads skip hidden models, so showing it again does not bring the old selection back.
-- **Paint.** `setModelThemingColor` paints per model. `setThemingColor(ids)` targets the first ready model; `clearThemingColors()` clears every model.
+- **Selection.** dbIds collide across models, so selection is read as `{ modelId, dbId }` pairs with `getModelSelection()`. There is no model-less selection or paint API: `onSelectionChange` passes the same pairs and fires for a selection in any model, and the tool group only asks whether `getModelSelection()` is empty. The real adapter listens to `AGGREGATE_SELECTION_CHANGED_EVENT`, because the Autodesk viewer fires `SELECTION_CHANGED_EVENT` only while exactly one model is loaded. Hiding a model clears its selection (the real adapter calls `viewer.select([], model)` before `hideModel`) and selection reads skip hidden models, so showing it again does not bring the old selection back.
+- **Paint.** `setModelThemingColor` paints per model; `clearThemingColors()` clears every model.
 - **Properties.** `getLeafProperties` returns the rows of every ready and visible model, tagged with `modelId` and `modelName`. Hidden models are left out on purpose: summary, dashboard and export follow what is on screen, and toggling visibility triggers a fresh read. If one model's property database fails, the others' rows are still returned and that model gets `propertiesError` (its `status` stays `ready`, its geometry is fine); `unavailableModels(models)` lists them so the UI can say which model is missing. It rejects only when every visible model fails. `viewer/modelScope.ts` filters rows by model (`scopeRows`, `ALL_MODELS`, `modelScopeOptions`); counting the union sums values across models.
 - **Row cache.** `sharedLeafRows.ts` keys its shared reads by the set of ready models, and `usePropertyRows` re-reads when that set changes (`useModels`, `useReadySignature`).
 - **Alignment (real adapter).** Same recipe as Autodesk's `AggregatedView`: every model loads with `keepCurrentModels: true` and `applyRefPoint: true` (Revit shared coordinates). The first model that loads is the anchor; the others get its `globalOffset` and `applyScaling: <anchor unit>`, so models in feet and metres line up. The anchor loads first and the rest in parallel; the view fits the whole set after the first batch and after each added model. The offset and unit survive removing the anchor until the set is empty. A 2D-only file cannot join a 3D set (and the reverse), and a model from another region than the first fails, each with a per-model error.

@@ -288,7 +288,9 @@ describe.each([mockFactory, realFactory])(
       await adapter.loadModels([{ urn: 'urn-a' }, { urn: 'urn-b' }]);
       const [first, second] = dbIds();
       const seen: number[][] = [];
-      adapter.onSelectionChange((ids) => seen.push(ids));
+      adapter.onSelectionChange((items) =>
+        seen.push(items.map((item) => item.dbId)),
+      );
       select([
         { modelId: 'urn-a', dbId: first ?? 0 },
         { modelId: 'urn-b', dbId: first ?? 0 },
@@ -303,7 +305,9 @@ describe.each([mockFactory, realFactory])(
           { modelId: 'urn-b', dbId: second },
         ]),
       );
-      expect(adapter.getSelection()).toHaveLength(3);
+      expect(adapter.getModelSelection().map((item) => item.dbId)).toHaveLength(
+        3,
+      );
       expect(seen.at(-1)).toHaveLength(3);
     });
 
@@ -361,7 +365,9 @@ describe.each([mockFactory, realFactory])(
         { modelId: 'urn-b', dbId: first ?? 0 },
       ]);
       const seen: number[][] = [];
-      adapter.onSelectionChange((ids) => seen.push(ids));
+      adapter.onSelectionChange((items) =>
+        seen.push(items.map((item) => item.dbId)),
+      );
       adapter.removeModel('urn-a');
       adapter.removeModel('missing');
       expect(statuses(adapter.getModels())).toEqual([['urn-b', 'ready']]);
@@ -380,13 +386,17 @@ describe.each([mockFactory, realFactory])(
         { modelId: 'urn-b', dbId: first ?? 0 },
       ]);
       const seen: number[][] = [];
-      adapter.onSelectionChange((ids) => seen.push(ids));
+      adapter.onSelectionChange((items) =>
+        seen.push(items.map((item) => item.dbId)),
+      );
       adapter.setModelVisible('urn-b', false);
       expect(adapter.getModels().map((m) => m.visible)).toEqual([true, false]);
       expect(adapter.getModelSelection()).toEqual([
         { modelId: 'urn-a', dbId: first },
       ]);
-      expect(adapter.getSelection()).toEqual([first]);
+      expect(adapter.getModelSelection().map((item) => item.dbId)).toEqual([
+        first,
+      ]);
       expect(seen.at(-1)).toEqual([first]);
       adapter.setModelVisible('urn-b', true);
       expect(adapter.getModels().map((m) => m.visible)).toEqual([true, true]);

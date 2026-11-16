@@ -279,7 +279,7 @@ describe('paint brushes', () => {
     adapter.selectIds(ids);
     const preset = PAINT_PRESETS[0];
     expect(preset && paintSelection(adapter, preset.color)).toBe(true);
-    expect(adapter.getSelection()).toEqual([]);
+    expect(adapter.getModelSelection().map((item) => item.dbId)).toEqual([]);
     expect(host.querySelectorAll('.bsh-mock__el--themed')).toHaveLength(
       ids.length,
     );

@@ -323,7 +323,9 @@ describe('federated selection, paint and properties', () => {
     expect(viewer().listenerCount(FAKE_AGGREGATE_EVENT)).toBe(1);
     expect(viewer().listenerCount(FAKE_SELECTION_EVENT)).toBe(0);
     const seen: number[][] = [];
-    adapter.onSelectionChange((ids) => seen.push(ids));
+    adapter.onSelectionChange((items) =>
+      seen.push(items.map((item) => item.dbId)),
+    );
     viewer().selectIn('b', [12]);
     expect(seen).toEqual([[12]]);
     expect(adapter.getModelSelection()).toEqual([{ modelId: 'b', dbId: 12 }]);
@@ -335,14 +337,6 @@ describe('federated selection, paint and properties', () => {
     await adapter.loadModels([{ urn: 'a' }, { urn: 'b' }]);
     adapter.clearThemingColors();
     expect(viewer().cleared).toEqual(viewer().models);
-  });
-
-  it('paints legacy ids on the first model', async () => {
-    await adapter.loadModels([{ urn: 'a' }, { urn: 'b' }]);
-    adapter.setThemingColor([11], [1, 0, 0, 1]);
-    expect(viewer().themed).toEqual([
-      { model: viewer().modelOf('a'), dbId: 11 },
-    ]);
   });
 
   it('reads properties of every model and keeps the rest when one fails', async () => {

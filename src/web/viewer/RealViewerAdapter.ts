@@ -201,7 +201,7 @@ export class RealViewerAdapter implements ViewerAdapter {
   private viewer: GuiViewer3D | null = null;
   private destroyed = false;
   private theme: Theme = 'dark';
-  private readonly selectionListeners = new Set<(ids: number[]) => void>();
+  private readonly selectionListeners = new Set<(items: ModelDbId[]) => void>();
   private controller: ToolGroupController | null = null;
   private toolsMounted = false;
   private modelLoaded = false;
@@ -216,15 +216,8 @@ export class RealViewerAdapter implements ViewerAdapter {
   private starting: Promise<GuiViewer3D | null> | null = null;
   private epoch = 0;
   private anchoring: Promise<void> | null = null;
-  private readonly onSelection = (ev: ViewerEvent) => {
-    const ids = selectionIds(ev);
-    for (const cb of [...this.selectionListeners]) {
-      try {
-        cb([...ids]);
-      } catch (err) {
-        console.error(err);
-      }
-    }
+  private readonly onSelection = () => {
+    this.emitSelection();
   };
   private readonly resizer = createResizeScheduler(() => this.resize());
   private readonly onScreenChange = () => {
@@ -542,10 +535,10 @@ export class RealViewerAdapter implements ViewerAdapter {
   }
 
   private emitSelection(): void {
-    const ids = this.getSelection();
+    const items = this.getModelSelection();
     for (const cb of [...this.selectionListeners]) {
       try {
-        cb([...ids]);
+        cb(items.map((item) => ({ ...item })));
       } catch (err) {
         console.error(err);
       }
@@ -632,13 +625,6 @@ export class RealViewerAdapter implements ViewerAdapter {
     }
   }
 
-  getSelection(): number[] {
-    const viewer = this.viewer;
-    if (!viewer) return [];
-    if (this.models.size === 0) return [...viewer.getSelection()];
-    return this.getModelSelection().map((item) => item.dbId);
-  }
-
   clearSelection(): void {
     this.viewer?.clearSelection();
   }
@@ -651,14 +637,6 @@ export class RealViewerAdapter implements ViewerAdapter {
   private applyTheme(viewer: GuiViewer3D): void {
     viewer.setTheme(VIEWER_THEMES[this.theme]);
     viewer.setBackgroundColor(...readSceneBackground());
-  }
-
-  setThemingColor(ids: number[], color: Rgba): void {
-    const viewer = this.viewer;
-    const THREE = autodeskWindow().THREE;
-    if (!viewer || !THREE) return;
-    const vector = new THREE.Vector4(color[0], color[1], color[2], color[3]);
-    for (const id of ids) viewer.setThemingColor(id, vector);
   }
 
   clearThemingColors(): void {
@@ -741,7 +719,7 @@ export class RealViewerAdapter implements ViewerAdapter {
     };
   }
 
-  onSelectionChange(cb: (ids: number[]) => void): () => void {
+  onSelectionChange(cb: (items: ModelDbId[]) => void): () => void {
     this.selectionListeners.add(cb);
     return () => {
       this.selectionListeners.delete(cb);

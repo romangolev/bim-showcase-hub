@@ -50,10 +50,12 @@ describe('ViewerAdapter contract (mock)', () => {
   it('fires onSelectionChange when an element is clicked', async () => {
     await setup();
     const seen: number[][] = [];
-    adapter.onSelectionChange((ids) => seen.push(ids));
+    adapter.onSelectionChange((items) =>
+      seen.push(items.map((item) => item.dbId)),
+    );
     const id = buildMockElements()[0]?.dbId ?? 0;
     elementNode(id).dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    expect(adapter.getSelection()).toEqual([id]);
+    expect(adapter.getModelSelection().map((item) => item.dbId)).toEqual([id]);
     expect(seen).toEqual([[id]]);
     expect(elementNode(id).classList.contains('bsh-mock__el--selected')).toBe(
       true,
@@ -70,11 +72,16 @@ describe('ViewerAdapter contract (mock)', () => {
     elementNode(ids[1] ?? 0).dispatchEvent(
       new MouseEvent('click', { bubbles: true, shiftKey: true }),
     );
-    expect(adapter.getSelection().sort()).toEqual([...ids].sort());
+    expect(
+      adapter
+        .getModelSelection()
+        .map((item) => item.dbId)
+        .sort(),
+    ).toEqual([...ids].sort());
     host
       .querySelector('svg')
       ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    expect(adapter.getSelection()).toEqual([]);
+    expect(adapter.getModelSelection().map((item) => item.dbId)).toEqual([]);
   });
 
   it('stops notifying after unsubscribe', async () => {
@@ -89,7 +96,10 @@ describe('ViewerAdapter contract (mock)', () => {
   it('applies and clears theming colours', async () => {
     await setup();
     const id = buildMockElements()[0]?.dbId ?? 0;
-    adapter.setThemingColor([id], [1, 0, 0, 0.5]);
+    adapter.setModelThemingColor(
+      [{ modelId: 'dXJuOmFkc2s', dbId: id }],
+      [1, 0, 0, 0.5],
+    );
     expect(elementNode(id).style.fill).toContain('rgba(255, 0, 0');
     adapter.clearThemingColors();
     expect(elementNode(id).style.fill).toBe('');
