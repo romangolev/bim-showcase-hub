@@ -12,7 +12,11 @@ import {
 import type { ApsAuth } from '../auth/types.js';
 import type { ServerConfig } from '../config.js';
 import { HttpError } from '../errors.js';
-import { MOCK_USER, MOCK_VIEWER_TOKEN } from '../mock/index.js';
+import {
+  MOCK_APP_CLIENT_ID,
+  MOCK_USER,
+  MOCK_VIEWER_TOKEN,
+} from '../mock/index.js';
 import { sessionOf } from './session.js';
 
 function statesMatch(expected: unknown, received: unknown): boolean {
@@ -37,7 +41,10 @@ export function authRouter(config: ServerConfig, auth: ApsAuth): Router {
 
   router.get('/session', (req, res) => {
     if (config.mock) {
-      res.json(MOCK_USER satisfies SessionUser);
+      res.json({
+        ...MOCK_USER,
+        appClientId: MOCK_APP_CLIENT_ID,
+      } satisfies SessionUser);
       return;
     }
     const session = sessionOf(req);
@@ -45,7 +52,10 @@ export function authRouter(config: ServerConfig, auth: ApsAuth): Router {
     if (!user || !isSignedIn(session)) {
       throw new HttpError(401, 'Not signed in');
     }
-    res.json(user satisfies SessionUser);
+    res.json({
+      ...user,
+      appClientId: config.aps.clientId,
+    } satisfies SessionUser);
   });
 
   router.get('/auth/url', (req, res) => {

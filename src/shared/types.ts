@@ -2,12 +2,15 @@ import type { ViewState } from './viewState.js';
 
 export type TreeNodeKind = 'hub' | 'project' | 'folder' | 'item' | 'version';
 
+export type HubType = 'personal' | 'team' | 'account' | 'unknown';
+
 export interface TreeNode {
   id: string;
   kind: TreeNodeKind;
   name: string;
   hasChildren: boolean;
   viewable: boolean;
+  hubType?: HubType;
   viewState?: ViewState;
   checked?: boolean;
   urn?: string;
@@ -22,6 +25,7 @@ export interface VersionViewState {
 export interface SessionUser {
   name: string;
   picture: string | null;
+  appClientId?: string;
 }
 
 export interface ViewerToken {

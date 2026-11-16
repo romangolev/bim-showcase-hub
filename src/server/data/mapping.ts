@@ -1,10 +1,25 @@
-import type { TreeNode } from '../../shared/types.js';
+import type { HubType, TreeNode } from '../../shared/types.js';
 import { encodeId } from '../ids.js';
 
 export interface NamedResource {
   id?: string;
   links?: { self?: { href?: string } };
-  attributes?: { name?: string; displayName?: string };
+  attributes?: {
+    name?: string;
+    displayName?: string;
+    extension?: { type?: string };
+  };
+}
+
+const HUB_TYPES: Record<string, HubType> = {
+  'hubs:autodesk.a360:PersonalHub': 'personal',
+  'hubs:autodesk.core:Hub': 'team',
+  'hubs:autodesk.bim360:Account': 'account',
+};
+
+export function hubTypeOf(resource: NamedResource): HubType {
+  const type = resource.attributes?.extension?.type;
+  return (type && HUB_TYPES[type]) || 'unknown';
 }
 
 export interface FolderContentResource {
@@ -44,6 +59,7 @@ export function mapHubs(resources: NamedResource[]): TreeNode[] {
       name: pickName(resource.attributes) || id,
       hasChildren: true,
       viewable: false,
+      hubType: hubTypeOf(resource),
     });
   }
   return nodes;

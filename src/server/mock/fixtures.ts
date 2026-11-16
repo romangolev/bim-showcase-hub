@@ -1,3 +1,4 @@
+import type { HubType } from '../../shared/types.js';
 import type { ViewState } from '../../shared/viewState.js';
 
 export interface MockVersion {
@@ -36,6 +37,7 @@ export interface MockProject {
 export interface MockHub {
   id: string;
   name: string;
+  hubType: HubType;
   projectIds: string[];
 }
 
@@ -50,11 +52,13 @@ const HUBS = [
   {
     id: 'hub-northwind',
     name: 'Northwind Architects',
+    hubType: 'account' as HubType,
     projects: ['Riverside Tower', 'Civic Library Retrofit', 'Metro Depot'],
   },
   {
     id: 'hub-harborline',
     name: 'Harborline Construction',
+    hubType: 'team' as HubType,
     projects: ['St. Mary Hospital Wing', 'Airport Terminal B'],
   },
 ];
@@ -210,6 +214,7 @@ export function buildMockData(): MockData {
     const hub: MockHub = {
       id: hubSource.id,
       name: hubSource.name,
+      hubType: hubSource.hubType,
       projectIds: [],
     };
     data.hubs.set(hub.id, hub);
