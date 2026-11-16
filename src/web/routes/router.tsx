@@ -4,27 +4,30 @@ import {
   createRouter,
   Outlet,
 } from '@tanstack/react-router';
+import { AppShell } from '../components/AppShell.js';
+import { EmptyState } from '../components/EmptyState.js';
+import { ModelPage } from './ModelPage.js';
 
 const rootRoute = createRootRoute({
   component: () => (
-    <div data-testid="app-root">
+    <AppShell>
       <Outlet />
-    </div>
+    </AppShell>
   ),
 });
 
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
-  component: () => <main>BIM Showcase Hub</main>,
+  component: EmptyState,
 });
 
 const modelRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/model/$urn',
-  component: function ModelPage() {
+  component: function ModelRoute() {
     const { urn } = modelRoute.useParams();
-    return <main>Model {urn}</main>;
+    return <ModelPage urn={urn} />;
   },
 });
 
