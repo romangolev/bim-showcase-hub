@@ -15,6 +15,16 @@ describe('loadConfig', () => {
     );
   });
 
+  it('rejects the placeholder secret in production', () => {
+    expect(() =>
+      loadConfig({
+        NODE_ENV: 'production',
+        MOCK_APS: '1',
+        SESSION_SECRET: 'change-me',
+      }),
+    ).toThrow(/placeholder/);
+  });
+
   it('requires APS credentials in production unless mocking', () => {
     expect(() =>
       loadConfig({ NODE_ENV: 'production', SESSION_SECRET: 's' }),

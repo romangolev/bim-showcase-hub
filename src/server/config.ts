@@ -15,10 +15,15 @@ export interface ServerConfig {
   };
 }
 
+const PLACEHOLDER_SECRET = 'change-me';
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
   const production = env.NODE_ENV === 'production';
   const mock = env.MOCK_APS === '1';
   let sessionSecret = env.SESSION_SECRET;
+  if (production && sessionSecret === PLACEHOLDER_SECRET) {
+    throw new Error('SESSION_SECRET must not be the placeholder in production');
+  }
   if (!sessionSecret) {
     if (production) {
       throw new Error('SESSION_SECRET is required in production');
@@ -33,7 +38,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     mock,
     production,
     sessionSecret,
-    staticDir: production ? (env.STATIC_DIR ?? null) : null,
+    staticDir: production ? env.STATIC_DIR || null : null,
     aps: {
       clientId: env.APS_CLIENT_ID ?? '',
       clientSecret: env.APS_CLIENT_SECRET ?? '',
