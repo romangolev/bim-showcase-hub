@@ -33,6 +33,26 @@ describe('useModels', () => {
     expect(result.current.signature).toBe('urn-a\nurn-b');
   });
 
+  it('renders once on mount and never shows the previous adapter models', async () => {
+    const first = create();
+    const second = create();
+    await first.loadModels([{ urn: 'urn-a', name: 'Arch' }]);
+    await second.loadModels([{ urn: 'urn-b', name: 'MEP' }]);
+    const seen: string[][] = [];
+    const { rerender } = renderHook(
+      ({ adapter }) => {
+        const models = useModels(adapter);
+        seen.push(models.map((m) => m.name));
+        return models;
+      },
+      { initialProps: { adapter: first } },
+    );
+    expect(seen).toEqual([['Arch']]);
+    rerender({ adapter: second });
+    expect(seen.slice(1).every((names) => names[0] === 'MEP')).toBe(true);
+    expect(seen.at(-1)).toEqual(['MEP']);
+  });
+
   it('returns no models without an adapter', () => {
     const { result } = renderHook(() => useModels(null));
     expect(result.current).toEqual([]);

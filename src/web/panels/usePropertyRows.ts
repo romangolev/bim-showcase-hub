@@ -28,10 +28,9 @@ export function usePropertyRows(
   const [version, setVersion] = useState(0);
   const reload = useCallback(() => setVersion((v) => v + 1), []);
   const models = useReadySignature(adapter);
-  const request = useMemo(() => ({ names, models }), [names, models]);
 
   useEffect(() => {
-    if (!adapter) {
+    if (!adapter || !models) {
       setState({ status: 'idle', rows: [] });
       return;
     }
@@ -41,7 +40,7 @@ export function usePropertyRows(
       rows: prev.rows,
       request: version,
     }));
-    readLeafRows(adapter, request.names).then(
+    readLeafRows(adapter, names).then(
       (rows) => {
         if (!cancelled) setState({ status: 'ready', rows });
       },
@@ -58,7 +57,7 @@ export function usePropertyRows(
     return () => {
       cancelled = true;
     };
-  }, [adapter, request, version]);
+  }, [adapter, names, models, version]);
 
   return { ...state, reload };
 }
