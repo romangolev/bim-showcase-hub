@@ -28,7 +28,7 @@ export function versionParts(name: string): VersionParts | null {
   }
   return {
     label: match[1] ?? '',
-    detail: `${(match[2] ?? '').replace(/^(\d{4}-\d{2}-\d{2}) \d{2}:\d{2}$/, '$1')} by ${match[3] ?? ''}`,
+    detail: `${(match[2] ?? '').replace(/^(\d{4}-\d{2}-\d{2}) \d{2}:\d{2}$/, '$1')} · ${match[3] ?? ''}`,
   };
 }
 
@@ -78,7 +78,10 @@ export interface TreeRowViewProps {
   caption?: string;
   secondary?: string;
   highlight?: string;
-  rowProps?: HTMLAttributes<HTMLDivElement> & { ref?: Ref<HTMLDivElement> };
+  rowProps?: HTMLAttributes<HTMLDivElement> & {
+    ref?: Ref<HTMLDivElement>;
+    'data-index'?: number;
+  };
 }
 
 export function TreeRowView({
@@ -102,7 +105,7 @@ export function TreeRowView({
   const parts = isVersion && !secondary ? versionParts(name) : null;
   const primary = parts ? parts.label : name;
   const second = parts ? parts.detail : secondary;
-  const height = rowHeightFor(kind, name, secondary);
+  const minHeight = rowHeightFor(kind, name, secondary);
   return (
     <div
       title={name}
@@ -116,7 +119,7 @@ export function TreeRowView({
       data-two-line={Boolean(second)}
       style={{
         ...rowProps?.style,
-        height,
+        minHeight,
         paddingInlineStart: `calc(var(--space-2) + ${level * INDENT}px)`,
       }}
     >
@@ -135,17 +138,27 @@ export function TreeRowView({
         <Icon name={icon} size={15} />
       </span>
       <span className="tree-row__text">
-        <span className="tree-row__label">
-          {highlightMatch(primary, highlight)}
+        <span className="tree-row__line">
+          <span className="tree-row__label">
+            {highlightMatch(primary, highlight)}
+          </span>
+          {isVersion && viewable ? (
+            <span className="tree-row__state" data-state="viewable">
+              Viewable
+            </span>
+          ) : null}
+          {disabled ? (
+            <span className="tree-row__state" data-state="blocked">
+              Not viewable
+            </span>
+          ) : null}
         </span>
-        {second ? <span className="tree-row__secondary">{second}</span> : null}
+        {second ? (
+          <span className="tree-row__secondary" title={second}>
+            {second}
+          </span>
+        ) : null}
       </span>
-      {isVersion && viewable ? (
-        <span className="tree-row__badge">3D</span>
-      ) : null}
-      {disabled ? (
-        <span className="tree-row__caption">Not viewable</span>
-      ) : null}
       {caption ? <span className="tree-row__caption">{caption}</span> : null}
     </div>
   );

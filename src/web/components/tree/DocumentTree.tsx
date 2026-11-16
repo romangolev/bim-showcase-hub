@@ -9,6 +9,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useVirtualizer, type Virtualizer } from '@tanstack/react-virtual';
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import type { TreeNode } from '../../../shared/types.js';
+import { friendlyError } from '../../api/friendlyError.js';
 import { childrenQueryOptions } from '../../api/hooks.js';
 import { type ModelContext, versionTag } from '../../api/modelContext.js';
 import {
@@ -19,6 +20,7 @@ import {
   ROOT_SCOPE,
 } from '../../api/scope.js';
 import { Icon } from '../icons.js';
+import { StateBlock } from '../StateBlock.js';
 import { ROW_HEIGHT, rowHeightFor, TreeRowView } from './TreeRowView.js';
 
 export interface DocumentTreeProps {
@@ -39,6 +41,7 @@ type Row =
       level: number;
       parentId: string;
       message?: string;
+      detail?: string;
     };
 
 const LOADING_NODE: TreeNode = {
@@ -56,15 +59,22 @@ function openableUrn(node: TreeNode): string | null {
   return null;
 }
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'Request failed';
+interface NodeError {
+  message: string;
+  detail?: string;
+}
+
+function toNodeError(error: unknown): NodeError {
+  return friendlyError(error, 'We could not load this. Try again.');
 }
 
 const STATUS_COPY: Record<StatusVariant, string> = {
   loading: 'Loading',
-  error: 'Failed to load',
+  error: 'We could not load this. Try again.',
   empty: 'Nothing here yet',
 };
+
+const MIN_ROW_HEIGHT = 30;
 
 const TRAIL_SEPARATOR = '|';
 const REVEAL_TIMEOUT_MS = 5000;
@@ -90,7 +100,7 @@ export function DocumentTree({
   onOpenModel,
 }: DocumentTreeProps) {
   const queryClient = useQueryClient();
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<Record<string, NodeError>>({});
   const [filter, setFilter] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
   const rowsRef = useRef<Row[]>([]);
@@ -193,7 +203,7 @@ export function DocumentTree({
             return { id: node.id, data: node };
           });
         } catch (error) {
-          setErrors((prev) => ({ ...prev, [id]: errorMessage(error) }));
+          setErrors((prev) => ({ ...prev, [id]: toNodeError(error) }));
           return [];
         }
       },
@@ -280,7 +290,8 @@ export function DocumentTree({
             variant: 'error',
             level: level + 1,
             parentId: id,
-            message: errors[id],
+            message: errors[id]?.message,
+            detail: errors[id]?.detail,
           });
         } else if (item.isLoading() && childCount === 0) {
           rows.push({
@@ -309,7 +320,8 @@ export function DocumentTree({
           variant: 'error',
           level: 0,
           parentId: ROOT_ID,
-          message: errors[ROOT_ID],
+          message: errors[ROOT_ID]?.message,
+          detail: errors[ROOT_ID]?.detail,
         });
       } else if (registry.loaded.has(ROOT_ID)) {
         rows.push({
@@ -345,7 +357,17 @@ export function DocumentTree({
       if (row?.type === 'result') {
         return rowHeightFor(row.node.kind, row.node.name, parentName(row.node));
       }
-      return ROW_HEIGHT;
+      return row?.type === 'status' && row.variant === 'loading'
+        ? MIN_ROW_HEIGHT + 40
+        : MIN_ROW_HEIGHT;
+    },
+    measureElement: (element, _entry, instance) => {
+      const measured = element.getBoundingClientRect().height;
+      if (measured > 0) {
+        return measured;
+      }
+      const index = Number(element.getAttribute('data-index'));
+      return instance.options.estimateSize(index);
     },
     overscan: 8,
     getItemKey: (index) => rows[index]?.key ?? index,
@@ -412,7 +434,11 @@ export function DocumentTree({
           viewable={node.viewable}
           rowProps={{
             ...props,
-            ref: item.registerElement,
+            'data-index': index,
+            ref: (element: HTMLDivElement | null) => {
+              item.registerElement(element);
+              virtualizer.measureElement(element);
+            },
             'aria-selected': urn !== null && urn === selectedUrn,
             'aria-disabled': disabled || undefined,
             ...(disabled
@@ -444,6 +470,8 @@ export function DocumentTree({
           selected={urn !== null && urn === selectedUrn}
           rowProps={{
             role: 'option',
+            'data-index': index,
+            ref: virtualizer.measureElement,
             tabIndex: 0,
             'aria-selected': urn !== null && urn === selectedUrn,
             'aria-disabled': disabled || undefined,
@@ -459,43 +487,42 @@ export function DocumentTree({
       );
     }
 
+    const indent = `calc(var(--space-2) + ${row.level * 16 + 20}px)`;
     return (
       <div
         key={row.key}
+        ref={virtualizer.measureElement}
+        data-index={index}
         className="tree-status"
         data-variant={row.variant}
         role="presentation"
         style={{
           ...position,
-          height: ROW_HEIGHT,
-          paddingInlineStart: `calc(var(--space-2) + ${row.level * 16 + 22}px)`,
+          minHeight: ROW_HEIGHT,
+          paddingInlineStart: indent,
         }}
       >
         {row.variant === 'error' ? (
-          <span role="alert" className="tree-status__body">
-            <Icon name="alert" size={14} />
-            <span>
-              {STATUS_COPY.error}
-              {row.message ? `: ${row.message}` : ''}
-            </span>
-            <button
-              type="button"
-              className="tree-status__retry"
-              onClick={() => retry(row.parentId)}
-            >
-              Retry
-            </button>
-          </span>
+          <StateBlock
+            variant="error"
+            compact
+            message={row.message ?? STATUS_COPY.error}
+            detail={row.detail}
+            action={{ label: 'Retry', onClick: () => retry(row.parentId) }}
+          />
+        ) : row.variant === 'loading' ? (
+          <StateBlock
+            variant="loading"
+            compact
+            rows={row.parentId === ROOT_ID ? 4 : 2}
+          />
         ) : (
-          <span
-            role={row.variant === 'loading' ? 'status' : undefined}
-            className="tree-status__body"
-          >
-            {row.variant === 'loading' ? (
-              <Icon name="spinner" size={14} className="spin" />
-            ) : null}
-            <span>{row.message ?? STATUS_COPY[row.variant]}</span>
-          </span>
+          <StateBlock
+            variant="empty"
+            compact
+            icon="folder"
+            message={row.message ?? STATUS_COPY.empty}
+          />
         )}
       </div>
     );
@@ -509,11 +536,28 @@ export function DocumentTree({
           type="search"
           value={filter}
           onChange={(event) => setFilter(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape' && filter) {
+              event.stopPropagation();
+              setFilter('');
+            }
+          }}
           placeholder="Filter loaded nodes"
           aria-label="Filter loaded nodes"
           autoComplete="off"
           spellCheck={false}
         />
+        {filter ? (
+          <button
+            type="button"
+            className="doc-tree__clear"
+            aria-label="Clear filter"
+            title="Clear filter"
+            onClick={() => setFilter('')}
+          >
+            <Icon name="close" size={14} />
+          </button>
+        ) : null}
       </div>
       <div ref={scrollRef} className="doc-tree__scroll">
         <div

@@ -84,7 +84,9 @@ describe('DocumentTree', () => {
 
     await expandTo('Studio hub');
     const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent('Failed to load: Upstream unavailable');
+    expect(alert).toHaveTextContent('The service had a problem');
+    expect(alert).not.toHaveTextContent('Upstream unavailable');
+    expect(alert).toHaveAttribute('title', 'Upstream unavailable');
 
     fail = false;
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
