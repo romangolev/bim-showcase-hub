@@ -470,8 +470,9 @@ def viewer_menu(page, item):
 def check_layout(page, checks):
     page.bring_to_front()
     checks.add("viewer element can be tagged", page.evaluate(TAG_VIEWER_SCRIPT))
-    start = wait_for_viewer_state(page, canvas_follows)
+    start = wait_for_viewer_state(page, lambda s: canvas_follows(s) and s["loaded"], timeout_ms=VIEWER_TIMEOUT_MS)
     checks.add("layout: canvas fills the viewer before moving", canvas_follows(start), start)
+    checks.add("layout: the model finished loading before moving", start["loaded"], start)
     for move in LAYOUT_MOVES:
         try:
             viewer_menu(page, move)
