@@ -1,4 +1,5 @@
 import type { PropertyRow } from '../../shared/types.js';
+import type { Theme } from '../theme/theme.js';
 import {
   buildMockElements,
   buildMockRows,
@@ -51,6 +52,7 @@ export class MockViewerAdapter implements ViewerAdapter {
   private readonly themed = new Map<number, Rgba>();
   private readonly listeners = new Set<(ids: number[]) => void>();
   private readonly buttons = new Map<string, HTMLButtonElement>();
+  private theme: Theme = 'dark';
   private loaded = false;
   private destroyed = false;
 
@@ -86,6 +88,11 @@ export class MockViewerAdapter implements ViewerAdapter {
 
   selectIds(ids: number[]): void {
     this.setSelection(ids.filter((id) => this.nodes.has(id)));
+  }
+
+  setTheme(theme: Theme): void {
+    this.theme = theme;
+    if (this.root) this.root.dataset.viewerTheme = theme;
   }
 
   setThemingColor(ids: number[], color: Rgba): void {
@@ -153,6 +160,7 @@ export class MockViewerAdapter implements ViewerAdapter {
     const root = document.createElement('div');
     root.className = 'bsh-mock';
     root.dataset.testid = 'mock-viewer';
+    root.dataset.viewerTheme = this.theme;
 
     const svg = document.createElementNS(SVG_NS, 'svg');
     svg.setAttribute('class', 'bsh-mock__scene');

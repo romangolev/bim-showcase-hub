@@ -8,12 +8,13 @@ import {
   LinearScale,
   Tooltip,
 } from 'chart.js';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   type ChartData,
   readChartTheme,
   seriesColors,
 } from '../extensions/dashboardData.js';
+import { useTheme } from '../theme/ThemeContext.js';
 
 Chart.register(
   ArcElement,
@@ -44,19 +45,19 @@ function shorten(text: string): string {
 
 export function ChartCanvas({ kind, chart, label }: ChartCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const colors = useMemo(
-    () =>
-      seriesColors(
-        readChartTheme(),
-        chart.data.map((d) => d.label),
-      ),
-    [chart],
-  );
+  const { theme: pageTheme } = useTheme();
+  const [colors, setColors] = useState<string[]>([]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    canvas.dataset.theme = pageTheme;
     const theme = readChartTheme();
+    const colors = seriesColors(
+      theme,
+      chart.data.map((d) => d.label),
+    );
+    setColors(colors);
     Chart.defaults.font.family = theme.fontFamily;
     Chart.defaults.font.size = theme.fontSize;
     Chart.defaults.font.weight = Number(theme.fontWeight) || 420;
@@ -114,7 +115,7 @@ export function ChartCanvas({ kind, chart, label }: ChartCanvasProps) {
       },
     });
     return () => instance.destroy();
-  }, [kind, chart, colors]);
+  }, [kind, chart, pageTheme]);
 
   const legend = chart.data.slice(0, LEGEND_LIMIT);
   const hidden = chart.data.length - legend.length;
@@ -130,7 +131,7 @@ export function ChartCanvas({ kind, chart, label }: ChartCanvasProps) {
             <li key={d.label} className="bsh-legend__item">
               <span
                 className="bsh-legend__swatch"
-                style={{ background: colors[index] }}
+                style={{ background: colors[index] ?? 'transparent' }}
                 aria-hidden="true"
               />
               <span className="bsh-legend__label" title={d.label}>

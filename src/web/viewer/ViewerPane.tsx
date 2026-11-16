@@ -8,6 +8,7 @@ import {
 } from 'react';
 import { StateBlock } from '../components/StateBlock.js';
 import { registerPaintBrushes } from '../extensions/paintBrushes.js';
+import { useTheme } from '../theme/ThemeContext.js';
 import { createViewerAdapter } from './createViewerAdapter.js';
 import type { ViewerAdapter, ViewerAdapterFactory } from './ViewerAdapter.js';
 import { ViewerContext } from './ViewerContext.js';
@@ -47,10 +48,18 @@ export function ViewerPane({
   const [adapter, setAdapter] = useState<ViewerAdapter | null>(null);
   const [state, setState] = useState<PaneState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
+  const { theme } = useTheme();
+  const themeRef = useRef(theme);
+  const instanceRef = useRef<ViewerAdapter | null>(null);
 
   useEffect(() => {
     onReadyRef.current = onReady;
   }, [onReady]);
+
+  useEffect(() => {
+    themeRef.current = theme;
+    instanceRef.current?.setTheme(theme);
+  }, [theme]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -65,6 +74,8 @@ export function ViewerPane({
       try {
         const instance = await factory(host);
         created = instance;
+        instanceRef.current = instance;
+        instance.setTheme(themeRef.current);
         if (cancelled) {
           instance.destroy();
           return;
@@ -85,6 +96,7 @@ export function ViewerPane({
       cancelled = true;
       disposeExtensions?.();
       created?.destroy();
+      if (instanceRef.current === created) instanceRef.current = null;
       setAdapter(null);
       publish?.(null);
     };

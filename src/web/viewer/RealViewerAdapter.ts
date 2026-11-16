@@ -1,4 +1,5 @@
 import type { PropertyRow } from '../../shared/types.js';
+import type { Theme } from '../theme/theme.js';
 import {
   autodeskWindow,
   type BulkPropertyItem,
@@ -9,6 +10,7 @@ import {
   type InstanceTree,
   type ViewerEvent,
 } from './autodesk.js';
+import { readSceneBackground } from './sceneBackground.js';
 import type {
   Rgba,
   ToolbarButtonSpec,
@@ -18,6 +20,11 @@ import type {
 const VIEWER_VERSION = '7.*';
 const VIEWER_BASE = `https://developer.api.autodesk.com/modelderivative/v2/viewers/${VIEWER_VERSION}`;
 const TOOLBAR_GROUP_ID = 'bim-showcase-hub-toolbar';
+
+const VIEWER_THEMES: Record<Theme, string> = {
+  dark: 'dark-theme',
+  light: 'light-theme',
+};
 
 let assetsPromise: Promise<void> | null = null;
 let initializedApi: string | null = null;
@@ -142,6 +149,7 @@ function toPropertyValue(value: unknown): string | number | boolean | null {
 export class RealViewerAdapter implements ViewerAdapter {
   private viewer: GuiViewer3D | null = null;
   private destroyed = false;
+  private theme: Theme = 'dark';
   private readonly selectionListeners = new Set<(ids: number[]) => void>();
   private readonly pendingButtons = new Map<string, ToolbarButtonSpec>();
   private readonly mountedButtons = new Map<
@@ -171,11 +179,12 @@ export class RealViewerAdapter implements ViewerAdapter {
     viewer.addEventListener(viewing.TOOLBAR_CREATED_EVENT, this.onToolbar);
     const startCode = viewer.start();
     if (startCode) throw new Error(`Viewer failed to start (${startCode})`);
-    viewer.setTheme('dark-theme');
+    this.applyTheme(viewer);
     this.mountPending();
     const doc = await loadDocument(urn);
     if (this.destroyed || this.viewer !== viewer) return;
     await viewer.loadDocumentNode(doc, doc.getRoot().getDefaultGeometry());
+    if (this.viewer === viewer) this.applyTheme(viewer);
   }
 
   unload(): void {
@@ -201,6 +210,16 @@ export class RealViewerAdapter implements ViewerAdapter {
 
   clearSelection(): void {
     this.viewer?.clearSelection();
+  }
+
+  setTheme(theme: Theme): void {
+    this.theme = theme;
+    if (this.viewer) this.applyTheme(this.viewer);
+  }
+
+  private applyTheme(viewer: GuiViewer3D): void {
+    viewer.setTheme(VIEWER_THEMES[this.theme]);
+    viewer.setBackgroundColor(...readSceneBackground());
   }
 
   setThemingColor(ids: number[], color: Rgba): void {
