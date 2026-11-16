@@ -11,6 +11,8 @@ OUTPUT_DIR = Path(os.environ.get("E2E_OUTPUT_DIR", ROOT / "output"))
 DESKTOP = (1440, 900)
 MOBILE = (390, 844)
 HOST_OS = {"darwin": "macos", "win32": "windows"}.get(sys.platform, "linux")
+HEADLESS = os.environ.get("E2E_HEADLESS", "1").strip().lower() not in ("0", "false", "no", "off")
+ACTIVE_MODEL = "[data-active='true']"
 
 EXIT_PASS = 0
 EXIT_CHECK_FAILED = 1
@@ -116,7 +118,7 @@ def horizontal_overflow(page):
 def main_canvas_width(page):
     return page.evaluate(
         """() => {
-            const widths = [...document.querySelectorAll('.adsk-viewing-viewer canvas')]
+            const widths = [...document.querySelectorAll("[data-active='true'] .adsk-viewing-viewer canvas")]
                 .map((c) => c.getBoundingClientRect().width);
             return widths.length ? Math.max(...widths) : 0;
         }"""
@@ -135,7 +137,7 @@ def wait_for_canvas_width(page, predicate, timeout_ms=5000):
 
 
 def download_export(page, target):
-    toolbar_button = page.locator("#export-xlsx")
+    toolbar_button = page.locator(f"{ACTIVE_MODEL} #export-xlsx")
     button = toolbar_button if toolbar_button.count() else page.get_by_role("button", name=EXPORT_NAME).first
     with page.expect_download(timeout=60000) as download_info:
         button.click(timeout=8000)

@@ -5,6 +5,7 @@ from camoufox.sync_api import Camoufox
 from common import (
     BASE_URL,
     DESKTOP,
+    HEADLESS,
     HOST_OS,
     MOBILE,
     OUTPUT_DIR,
@@ -28,32 +29,36 @@ MOCK_VIEWER_LABEL = "Mock building model"
 THEME_TOGGLE = re.compile(r"Switch to (light|dark) theme", re.I)
 SUMMARY_TOGGLE = re.compile(r"(Collapse|Expand) .*summary", re.I)
 TREE_TOGGLE = re.compile(r"(Collapse|Expand) document tree", re.I)
-VIEWER_WIDTH = "() => document.querySelector('.model-viewer').getBoundingClientRect().width"
-SCENE_FIT_WIDTH = "() => Number(document.querySelector('.bsh-mock__scene')?.dataset.fitWidth || 0)"
+VIEWER_WIDTH = "() => document.querySelector(\"[data-active='true'] .model-viewer\").getBoundingClientRect().width"
+SCENE_FIT_WIDTH = "() => Number(document.querySelector(\"[data-active='true'] .bsh-mock__scene\")?.dataset.fitWidth || 0)"
 ROOT_THEME = "() => document.documentElement.dataset.theme"
 GROUPS = """() => Object.fromEntries([...document.querySelectorAll('.dv-groupview')].map((group) => {
     const box = group.getBoundingClientRect();
-    return [group.querySelector('.model-viewer') ? 'Viewer' : group.getAttribute('aria-label'), {
+    const name = group.querySelector("[data-active='true'] .model-viewer")
+        ? 'Viewer'
+        : group.querySelector('.model-viewer') ? 'Other viewer' : group.getAttribute('aria-label');
+    return [name, {
         left: box.left, top: box.top, right: box.right, bottom: box.bottom,
         floating: Boolean(group.closest('.dv-resize-container')),
     }];
 }))"""
-TAG_VIEWER = "() => { const el = document.querySelector('.bsh-mock'); if (el) el.dataset.e2eTag = 'kept'; return Boolean(el); }"
-VIEWER_KEPT = "() => document.querySelector('.bsh-mock')?.dataset.e2eTag === 'kept'"
+TAG_VIEWER = "() => { const el = document.querySelector(\"[data-active='true'] .bsh-mock\"); if (el) el.dataset.e2eTag = 'kept'; return Boolean(el); }"
+VIEWER_KEPT = "() => document.querySelector(\"[data-active='true'] .bsh-mock\")?.dataset.e2eTag === 'kept'"
 VIEWER_FITS = """() => {
-    const box = document.querySelector('.model-viewer')?.getBoundingClientRect();
-    const fit = Number(document.querySelector('.bsh-mock__scene')?.dataset.fitWidth || 0);
+    const box = document.querySelector("[data-active='true'] .model-viewer")?.getBoundingClientRect();
+    const fit = Number(document.querySelector("[data-active='true'] .bsh-mock__scene")?.dataset.fitWidth || 0);
     return box ? Math.abs(box.width - fit) : 999;
 }"""
 VIEWER_TAB = """() => {
-    const panel = document.querySelector('.model-viewer')?.closest('.dv-groupview');
+    const panel = document.querySelector("[data-active='true'] .model-viewer")?.closest('.dv-groupview');
     const tab = panel?.querySelector('.dv-tab.dv-active-tab');
     return tab ? {text: tab.textContent.trim(), title: tab.querySelector('[title]')?.getAttribute('title') || ''} : null;
 }"""
 VIEWER_FILL = """() => {
-    const canvas = document.querySelector('.model-viewer')?.getBoundingClientRect();
-    const slot = document.querySelector('.model-viewer')?.closest('.pane-slot')?.getBoundingClientRect();
-    const main = document.querySelector('.model-viewer')?.closest('.pane-main');
+    const viewer = document.querySelector("[data-active='true'] .model-viewer");
+    const canvas = viewer?.getBoundingClientRect();
+    const slot = viewer?.closest('.pane-slot')?.getBoundingClientRect();
+    const main = viewer?.closest('.pane-main');
     if (!canvas || !slot || !main) return null;
     return {
         canvasWidth: canvas.width, canvasHeight: canvas.height,
@@ -63,8 +68,27 @@ VIEWER_FILL = """() => {
         breadcrumb: document.querySelectorAll("nav[aria-label^='Breadcrumb']").length,
     };
 }"""
-STACKED_LABEL = "() => document.querySelector('.stack__label')?.textContent || ''"
-STORED_LAYOUT = "() => JSON.parse(localStorage.getItem('bsh.layout.v1') || 'null')"
+STACKED_LABEL = "() => document.querySelector(\".stack__model[data-active='true'] .stack__model-tab\")?.textContent || ''"
+STORED_LAYOUT = "() => JSON.parse(localStorage.getItem('bsh.layout.v2') || 'null')"
+MODELS = "mw:() => window.__bshLayout.models()"
+VIEWERS = """() => [...document.querySelectorAll('.pane-model')].map((body) => {
+    const viewer = body.querySelector('.model-viewer')?.getBoundingClientRect();
+    const scene = body.querySelector('.bsh-mock__scene');
+    return {
+        urn: body.dataset.model,
+        active: body.dataset.active === 'true',
+        state: body.querySelector('.bsh-viewer-pane')?.dataset.state || '',
+        left: viewer?.left || 0,
+        right: viewer?.right || 0,
+        width: viewer?.width || 0,
+        fit: Number(scene?.dataset.fitWidth || 0),
+        shapes: scene ? scene.querySelectorAll('polygon').length : 0,
+    };
+})"""
+SUMMARY_STATE = """() => ({
+    model: (document.querySelector('.bsh-summary__model')?.textContent || '').replace(/^:\\s*/, ''),
+    rows: [...document.querySelectorAll('.pane-summary tbody tr')].map((row) => row.innerText).join('|'),
+})"""
 
 
 def settle(page, ms=700):
@@ -123,6 +147,10 @@ def groups(page):
     return page.evaluate(GROUPS)
 
 
+def viewer_title(page):
+    return (page.evaluate(VIEWER_TAB) or {}).get("text", "")
+
+
 def pane_menu(page, title, item):
     page.get_by_role("button", name=f"{title} pane options").click()
     page.get_by_role("menuitem", name=item).click()
@@ -169,17 +197,17 @@ def check_layout(page, checks, notes):
         found["Dashboard"]["left"] >= found["Model summary"]["right"],
         found,
     )
-    pane_menu(page, "Viewer", "Float")
+    pane_menu(page, viewer_title(page), "Float")
     found = groups(page)
     checks.add("pane menu floats the viewer", found.get("Viewer", {}).get("floating") is True, found)
     checks.add("floating viewer is not remounted", page.evaluate(VIEWER_KEPT))
     checks.add("floating viewer fits its container", page.evaluate(VIEWER_FITS) <= 2, page.evaluate(VIEWER_FITS))
-    pane_menu(page, "Viewer", "Dock")
+    pane_menu(page, viewer_title(page), "Dock")
     checks.add("pane menu docks the viewer again", groups(page).get("Viewer", {}).get("floating") is False)
     checks.add("docked viewer is not remounted", page.evaluate(VIEWER_KEPT))
 
     stored = page.evaluate(STORED_LAYOUT)
-    checks.add("layout is saved as version 1", bool(stored) and stored.get("version") == 1, str(stored)[:120])
+    checks.add("layout is saved as version 2", bool(stored) and stored.get("version") == 2, str(stored)[:120])
     page.reload(wait_until="networkidle")
     settle(page, 2000)
     found = groups(page)
@@ -191,7 +219,7 @@ def check_layout(page, checks, notes):
     page.evaluate(TAG_VIEWER)
 
     dashboard_tab = page.get_by_role("tab", name="Dashboard")
-    viewer_box = page.locator(".dv-groupview:has(.model-viewer) .dv-content-container").bounding_box()
+    viewer_box = page.locator(".dv-groupview:has([data-active='true'] .model-viewer) .dv-content-container").bounding_box()
     before = groups(page)["Dashboard"]
     pointer_drag(page, dashboard_tab, viewer_box["x"] + 24, viewer_box["y"] + viewer_box["height"] / 2)
     after = groups(page).get("Dashboard")
@@ -264,6 +292,175 @@ def check_layout(page, checks, notes):
     settle(page)
 
 
+def models(page):
+    return page.evaluate(MODELS)
+
+
+def viewers(page):
+    return page.evaluate(VIEWERS)
+
+
+def summary_state(page):
+    return page.evaluate(SUMMARY_STATE)
+
+
+def wait_until(page, predicate, timeout_ms=8000):
+    for _ in range(timeout_ms // 200):
+        value = predicate()
+        if value:
+            return value
+        page.wait_for_timeout(200)
+    return predicate()
+
+
+def model_tab(page, label):
+    return page.locator(".dv-tab").filter(has_text=label)
+
+
+def rendered(view):
+    return (
+        view["state"] == "ready"
+        and view["shapes"] > 0
+        and view["width"] > 0
+        and abs(view["width"] - view["fit"]) <= 2
+    )
+
+
+def unselected_version(rows):
+    for index in range(rows.count()):
+        if rows.nth(index).get_attribute("aria-selected") != "true":
+            return rows.nth(index)
+    return None
+
+
+def summary_for(page, label):
+    def ready():
+        state = summary_state(page)
+        return state if state["model"] == label and state["rows"] else None
+
+    return wait_until(page, ready) or {}
+
+
+def ensure_viewables(page, wanted=2):
+    rows = page.locator("[role=treeitem][data-viewable=true]")
+    for _ in range(12):
+        if rows.count() >= wanted:
+            break
+        level = int(rows.first.get_attribute("aria-level") or "2") - 1
+        collapsed = page.locator(f"[role=treeitem][aria-level='{level}'][aria-expanded='false']")
+        if collapsed.count() == 0:
+            break
+        collapsed.first.click()
+        page.keyboard.press("ArrowRight")
+        page.wait_for_timeout(800)
+    return rows
+
+
+def check_multi_model(page, checks, notes):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page)
+    rows = ensure_viewables(page)
+    checks.add("tree has two viewable versions", rows.count() >= 2, rows.count())
+    first_urn = models(page)["active"]
+    first_label = viewer_title(page)
+    first_summary = summary_for(page, first_label)
+    target = unselected_version(rows)
+    target.click()
+    second_urn = wait_until(page, lambda: models(page)["active"] if models(page)["active"] != first_urn else None)
+    page.wait_for_url(re.compile(re.escape(second_urn or "missing")), timeout=8000)
+    wait_until(page, lambda: any(v["urn"] == second_urn and rendered(v) for v in viewers(page)))
+    second_label = viewer_title(page)
+    state = models(page)
+    checks.add(
+        "opening another version adds a second tab",
+        len(state["models"]) == 2
+        and second_label != first_label
+        and model_tab(page, first_label).count() == 1
+        and model_tab(page, second_label).count() == 1,
+        f"{first_label} / {second_label}",
+    )
+    checks.add("url mirrors the new active model", second_urn in page.url, page.url)
+    second_summary = summary_for(page, second_label)
+    checks.add(
+        "summary follows the active model",
+        second_summary.get("model") == second_label and second_summary.get("rows") != first_summary.get("rows"),
+        f"{first_summary.get('model')} -> {second_summary.get('model')}",
+    )
+
+    target.click()
+    settle(page)
+    checks.add("clicking an open version adds no duplicate", len(models(page)["models"]) == 2, len(models(page)["models"]))
+
+    model_tab(page, first_label).click()
+    wait_until(page, lambda: models(page)["active"] == first_urn)
+    checks.add("activating a tab updates the url", first_urn in page.url, page.url)
+    back = summary_for(page, first_label)
+    checks.add("summary switches back to the same rows", back.get("rows") == first_summary.get("rows"), back.get("model"))
+
+    content = page.locator(".dv-groupview:has([data-active='true'] .model-viewer) .dv-content-container").bounding_box()
+    pointer_drag(page, model_tab(page, second_label), content["x"] + content["width"] - 20, content["y"] + content["height"] / 2)
+    settle(page, 1000)
+    views = viewers(page)
+    split = [v for v in views if v["width"] > 0]
+    side_by_side = len(split) == 2 and (split[0]["right"] <= split[1]["left"] + 2 or split[1]["right"] <= split[0]["left"] + 2)
+    if side_by_side:
+        checks.add("dragging a tab splits two models side by side", all(rendered(v) for v in split), views)
+    else:
+        notes.setdefault("drag", []).append(f"tab drag did not split: {views}")
+        page.evaluate(f"mw:() => window.__bshLayout.movePane('viewer:{second_urn}', 'right')")
+        settle(page, 1000)
+        split = [v for v in viewers(page) if v["width"] > 0]
+        checks.add("mock layout API splits two models side by side (drag fallback)", len(split) == 2 and all(rendered(v) for v in split), split)
+    page.screenshot(path=str(OUTPUT_DIR / "mock-multi-split.png"))
+
+    tab = model_tab(page, first_label)
+    tab.hover()
+    tab.locator(".dv-default-tab-action").click()
+    settle(page, 800)
+    views = viewers(page)
+    remaining = [v for v in views if v["urn"] == second_urn]
+    checks.add(
+        "closing one tab keeps the other rendering",
+        len(models(page)["models"]) == 1 and bool(remaining) and rendered(remaining[0]),
+        views,
+    )
+    checks.add("closing the active tab moves the url to the remaining model", second_urn in page.url, page.url)
+
+    again = unselected_version(rows)
+    if again is not None:
+        again.click()
+    wait_until(page, lambda: len(models(page)["models"]) == 2)
+    active = models(page)["active"]
+    page.reload(wait_until="networkidle")
+    settle(page, 2500)
+    state = models(page)
+    shown = {v["urn"] for v in viewers(page) if v["width"] > 0}
+    checks.add("reload restores the open tabs", len(state["models"]) == 2 and state["active"] == active, state)
+    checks.add("reload loads only the visible models", set(state["live"]) == shown and len(shown) == 1, f"live {state['live']} shown {sorted(shown)}")
+    checks.add("url mirrors the active model after reload", active in page.url, page.url)
+
+    page.set_viewport_size({"width": 800, "height": DESKTOP[1]})
+    settle(page, 1000)
+    strip = page.get_by_role("tablist", name="Open models")
+    checks.add("stacked layout shows a model switcher", strip.count() == 1 and strip.get_by_role("tab").count() == 2)
+    other = strip.locator("[role=tab][aria-selected='false']")
+    if other.count():
+        other.first.click()
+        settle(page, 1000)
+    now = models(page)["active"]
+    checks.add("stacked switcher activates the other model", now != active and now in page.url, page.url)
+    visible = [v for v in viewers(page) if v["width"] > 0]
+    checks.add("stacked layout shows one loaded viewer", len(visible) == 1 and visible[0]["urn"] == now and rendered(visible[0]), visible)
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page, 1000)
+    for model in models(page)["models"]:
+        if model["urn"] != now:
+            page.evaluate(f"mw:() => window.__bshLayout.closeModel('{model['urn']}')")
+    page.get_by_role("button", name="Panes").click()
+    page.get_by_role("menuitem", name="Reset layout").click()
+    settle(page)
+
+
 def run_interaction_checks(page, checks, notes):
     try:
         check_layout(page, checks, notes)
@@ -275,6 +472,11 @@ def run_interaction_checks(page, checks, notes):
             check(page, checks)
         except Exception as exc:
             checks.add(check.__name__, False, f"{type(exc).__name__}: {str(exc)[:160]}")
+    try:
+        check_multi_model(page, checks, notes)
+    except Exception as exc:
+        page.screenshot(path=str(OUTPUT_DIR / "mock-multi-failure.png"))
+        checks.add("check_multi_model", False, f"{type(exc).__name__}: {str(exc)[:160]}")
 
 
 def run(context, checks, notes):
@@ -372,7 +574,7 @@ def main():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     checks = Checks()
     notes = new_notes()
-    with Camoufox(headless=True, os=HOST_OS, main_world_eval=True) as browser:
+    with Camoufox(headless=HEADLESS, os=HOST_OS, main_world_eval=True) as browser:
         context = browser.new_context(viewport={"width": DESKTOP[0], "height": DESKTOP[1]})
         if not app_reachable(context):
             checks.add("app is reachable", False, f"{BASE_URL}/api/health did not return 200; start npm run dev:mock")

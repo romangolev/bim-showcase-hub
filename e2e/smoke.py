@@ -8,6 +8,7 @@ from common import (
     DESKTOP,
     HOST_OS,
     EXIT_NOT_SIGNED_IN,
+    HEADLESS,
     OUTPUT_DIR,
     PROFILE_DIR,
     XLSX_MAGIC,
@@ -51,7 +52,7 @@ CHROME_STATE_SCRIPT = """mw:() => {
     };
 }"""
 
-FULLSCREEN_BUTTON = "#toolbar-fullscreenTool"
+FULLSCREEN_BUTTON = "[data-active='true'] #toolbar-fullscreenTool"
 FULLSCREEN_TOLERANCE_PX = 2
 FULLSCREEN_TIMEOUT_MS = 8000
 FULLSCREEN_ATTEMPTS = 3
@@ -63,14 +64,15 @@ FRAME_STATE_SCRIPT = """mw:() => {
         return { left: r.left, top: r.top, width: r.width, height: r.height };
     };
     const full = document.fullscreenElement || document.webkitFullscreenElement || null;
-    const viewer = document.querySelector('.bsh-viewer-surface > .adsk-viewing-viewer');
-    const canvas = document.querySelector('.bsh-viewer-surface .canvas-wrap canvas');
+    const active = document.querySelector("[data-active='true']") || document;
+    const viewer = active.querySelector('.bsh-viewer-surface > .adsk-viewing-viewer');
+    const canvas = active.querySelector('.bsh-viewer-surface .canvas-wrap canvas');
     const toolbar = viewer && viewer.querySelector('.adsk-toolbar');
     return {
         fullscreen: Boolean(full),
         viewerIsFullscreen: Boolean(full && full === viewer),
         frame: rect(full),
-        host: rect(document.querySelector('.bsh-viewer-surface')),
+        host: rect(active.querySelector('.bsh-viewer-surface')),
         canvas: rect(canvas),
         toolbar: rect(toolbar),
         window: { width: window.innerWidth, height: window.innerHeight },
@@ -205,7 +207,7 @@ def run_model_checks(page, checks, found, notes):
         page.goto(f"{BASE_URL}/model/{found['urn']}", wait_until="domcontentloaded")
     page.wait_for_timeout(2000)
     checks.add("document title names the file", found["file"] in page.title(), page.title())
-    tab_text = page.evaluate("() => document.querySelector('.model-viewer')?.closest('.dv-groupview')?.querySelector('.dv-tab.dv-active-tab')?.textContent?.trim() || ''")
+    tab_text = active_tab_label(page)
     checks.add("viewer tab is named after the file", found["file"] in tab_text, tab_text)
     checks.add("viewer pane has no breadcrumb header", page.locator("nav[aria-label^='Breadcrumb'], .model-head").count() == 0)
     try:
@@ -402,8 +404,9 @@ def check_canvas_follows_summary(page, checks):
 
 
 VIEWER_STATE_SCRIPT = """mw:() => {
-    const host = document.querySelector('.model-viewer');
-    const canvases = [...document.querySelectorAll('.adsk-viewing-viewer canvas')];
+    const active = document.querySelector("[data-active='true']") || document;
+    const host = active.querySelector('.model-viewer');
+    const canvases = [...active.querySelectorAll('.adsk-viewing-viewer canvas')];
     const canvas = canvases.sort((a, b) => b.getBoundingClientRect().width - a.getBoundingClientRect().width)[0];
     const viewer = window.NOP_VIEWER;
     const model = viewer && viewer.model;
@@ -411,14 +414,22 @@ VIEWER_STATE_SCRIPT = """mw:() => {
     return {
         host: box(host),
         canvas: box(canvas),
-        kept: document.querySelector('.adsk-viewing-viewer')?.dataset.e2eTag === 'kept',
+        kept: active.querySelector('.adsk-viewing-viewer')?.dataset.e2eTag === 'kept',
         loaded: Boolean(model && (typeof model.isLoadDone !== 'function' || model.isLoadDone())),
-        ready: document.querySelector('.bsh-viewer-pane')?.dataset.state === 'ready',
-        floating: Boolean(document.querySelector('.dv-resize-container .model-viewer')),
+        ready: active.querySelector('.bsh-viewer-pane')?.dataset.state === 'ready',
+        floating: Boolean(document.querySelector(".dv-resize-container [data-active='true'] .model-viewer")),
     };
 }"""
-TAG_VIEWER_SCRIPT = "() => { const el = document.querySelector('.adsk-viewing-viewer'); if (el) el.dataset.e2eTag = 'kept'; return Boolean(el); }"
+TAG_VIEWER_SCRIPT = "() => { const el = document.querySelector(\"[data-active='true'] .adsk-viewing-viewer\"); if (el) el.dataset.e2eTag = 'kept'; return Boolean(el); }"
 LAYOUT_MOVES = ("Move right", "Float", "Dock", "Move below", "Move left")
+ACTIVE_TAB_SCRIPT = """() => {
+    const body = document.querySelector("[data-active='true']");
+    const group = body && body.closest('.dv-groupview');
+    const tab = group && group.querySelector('.dv-tab.dv-active-tab');
+    if (tab) return tab.textContent.trim();
+    const stacked = document.querySelector(".stack__model[data-active='true'] .stack__model-tab");
+    return stacked ? stacked.textContent.trim() : '';
+}"""
 
 
 def canvas_follows(state, tolerance=4):
@@ -438,8 +449,12 @@ def wait_for_viewer_state(page, predicate, timeout_ms=8000):
     return state
 
 
+def active_tab_label(page):
+    return page.evaluate(ACTIVE_TAB_SCRIPT) or ""
+
+
 def viewer_menu(page, item):
-    page.get_by_role("button", name="Viewer pane options").click(timeout=8000)
+    page.get_by_role("button", name=f"{active_tab_label(page)} pane options").click(timeout=8000)
     page.get_by_role("menuitem", name=item).click(timeout=8000)
 
 
@@ -613,13 +628,246 @@ def check_fullscreen(page, checks, notes):
     checks.add("no page errors during fullscreen", not new_errors, new_errors[:2])
 
 
+MULTI_COUNT = 3
+MULTI_CALL_BUDGET = 90
+MULTI_EXTENSIONS = (".rvt",)
+
+MULTI_STATE_SCRIPT = """mw:() => [...document.querySelectorAll('.pane-model')].map((body) => {
+    const box = (el) => { if (!el) return null; const r = el.getBoundingClientRect(); return { left: r.left, top: r.top, width: r.width, height: r.height }; };
+    const canvases = [...body.querySelectorAll('.adsk-viewing-viewer canvas')];
+    const canvas = canvases.sort((a, b) => b.getBoundingClientRect().width - a.getBoundingClientRect().width)[0];
+    return {
+        urn: body.dataset.model,
+        label: body.getAttribute('aria-label') || '',
+        active: body.dataset.active === 'true',
+        live: body.dataset.live === 'true',
+        state: body.querySelector('.bsh-viewer-pane')?.dataset.state || '',
+        host: box(body.querySelector('.model-viewer')),
+        canvas: box(canvas),
+        viewers: body.querySelectorAll('.adsk-viewing-viewer').length,
+    };
+})"""
+
+SUMMARY_SCRIPT = """() => ({
+    model: (document.querySelector('.bsh-summary__model')?.textContent || '').replace(/^:\\s*/, ''),
+    tooltip: document.querySelector('.dv-tab[aria-label="Model summary"] [title]')?.getAttribute('title') || '',
+    rows: [...document.querySelectorAll('.pane-summary tbody tr')].map((row) => row.innerText).join('|'),
+})"""
+
+
+def find_models(context, count=MULTI_COUNT, extensions=MULTI_EXTENSIONS):
+    found = []
+    seen = set()
+    calls = 0
+    for hub in list_of(context, "/api/hubs") or []:
+        projects = list_of(context, f"/api/hubs/{hub['id']}/projects")
+        calls += 1
+        for project in (projects or [])[:6]:
+            top = list_of(context, f"/api/hubs/{hub['id']}/projects/{project['id']}/folders")
+            calls += 1
+            queue = [(project["id"], f["id"], [hub["name"], project["name"], f["name"]]) for f in top or []]
+            while queue and calls < MULTI_CALL_BUDGET and len(found) < count:
+                pid, fid, crumbs = queue.pop(0)
+                contents = list_of(context, f"/api/projects/{pid}/folders/{fid}/contents")
+                calls += 1
+                if contents is None:
+                    continue
+                queue.extend((pid, n["id"], crumbs + [n["name"]]) for n in contents if n["kind"] == "folder")
+                for item in contents:
+                    if len(found) >= count or calls >= MULTI_CALL_BUDGET:
+                        break
+                    if item["kind"] != "item" or not item["name"].lower().endswith(extensions):
+                        continue
+                    if item["name"] in seen:
+                        continue
+                    versions = list_of(context, f"/api/projects/{pid}/items/{item['id']}/versions")
+                    calls += 1
+                    version = next((v for v in versions or [] if v.get("viewable") and v.get("urn")), None)
+                    if version:
+                        seen.add(item["name"])
+                        found.append({"urn": version["urn"], "file": item["name"], "crumbs": crumbs, "version": version.get("name", "")})
+            if len(found) >= count:
+                return found
+    return found
+
+
+def open_version(page, found):
+    previous = None
+    for depth, name in enumerate(found["crumbs"] + [found["file"]], start=1):
+        if previous is None:
+            row = page.locator(f"[role=treeitem][aria-level='{depth}']", has_text=name).first
+        else:
+            row = previous.locator(f"xpath=following-sibling::*[@role='treeitem'][@aria-level='{depth}']").filter(has_text=name).first
+        row.wait_for(timeout=20000)
+        if row.get_attribute("aria-expanded") != "true":
+            row.click()
+            page.keyboard.press("ArrowRight")
+        page.wait_for_timeout(1500)
+        previous = row
+    version_row = previous.locator("xpath=following-sibling::*[@data-viewable='true']").first
+    version_row.wait_for(timeout=20000)
+    version_row.click()
+
+
+def multi_state(page):
+    return page.evaluate(MULTI_STATE_SCRIPT)
+
+
+def follows(view, tolerance=4):
+    host, canvas = view.get("host"), view.get("canvas")
+    if not host or not canvas or host["width"] == 0:
+        return False
+    return abs(host["width"] - canvas["width"]) <= tolerance and abs(host["height"] - canvas["height"]) <= tolerance
+
+
+def visible_models(page):
+    return [v for v in multi_state(page) if v["host"] and v["host"]["width"] > 0]
+
+
+def wait_models(page, predicate, timeout_ms=VIEWER_TIMEOUT_MS):
+    views = visible_models(page)
+    for _ in range(timeout_ms // 500):
+        if predicate(views):
+            return views
+        page.wait_for_timeout(500)
+        views = visible_models(page)
+    return views
+
+
+def loaded(view):
+    return view["state"] == "ready" and view["viewers"] >= 1 and follows(view)
+
+
+def summary_of(page, label, timeout_ms=VIEWER_TIMEOUT_MS):
+    state = page.evaluate(SUMMARY_SCRIPT)
+    for _ in range(timeout_ms // 500):
+        if state["model"] == label and state["rows"]:
+            return state
+        page.wait_for_timeout(500)
+        state = page.evaluate(SUMMARY_SCRIPT)
+    return state
+
+
+def tab_of(page, label):
+    return page.locator(".dv-tab").filter(has_text=label).first
+
+
+def pointer_drag(page, source, target_x, target_y):
+    box = source.bounding_box()
+    page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+    page.mouse.down()
+    for step in range(1, 13):
+        page.mouse.move(
+            box["x"] + (target_x - box["x"]) * step / 12,
+            box["y"] + (target_y - box["y"]) * step / 12,
+        )
+        page.wait_for_timeout(30)
+    page.mouse.up()
+    page.wait_for_timeout(1500)
+
+
+def check_multi_model(page, checks, revit, notes):
+    page.bring_to_front()
+    errors_before = len(notes["page_errors"])
+    models = revit[:MULTI_COUNT]
+    labels = {}
+    summaries = {}
+    for model in models:
+        name = model["file"]
+        try:
+            open_version(page, model)
+            page.wait_for_url(re.compile(re.escape(model["urn"])), timeout=20000)
+            views = wait_models(page, lambda vs: any(v["urn"] == model["urn"] and v["active"] and loaded(v) for v in vs))
+            view = next((v for v in views if v["urn"] == model["urn"]), None)
+            label = active_tab_label(page)
+            labels[model["urn"]] = label
+            checks.add(f"multi: {name} opens in its own tab", name in label and tab_of(page, label).count() == 1, label)
+            checks.add(f"multi: {name} canvas fills its container", bool(view) and follows(view), view)
+            checks.add(f"multi: {name} model is loaded", bool(view) and view["state"] == "ready", view)
+            checks.add(f"multi: url mirrors {name}", model["urn"] in page.url, page.url)
+            summary = summary_of(page, label)
+            summaries[model["urn"]] = summary
+            checks.add(f"multi: summary belongs to {name}", summary["model"] == label and bool(summary["rows"]) and name in summary["tooltip"], summary["model"])
+            page.screenshot(path=str(OUTPUT_DIR / f"10-multi-{len(labels)}.png"))
+        except Exception as exc:
+            checks.add(f"multi: open {name}", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+    tabs = page.locator(".dv-tab").filter(has_text=".rvt").count()
+    checks.add("multi: one tab per opened model", tabs == len(labels), tabs)
+    rows = [s["rows"] for s in summaries.values()]
+    checks.add("multi: summary rows differ between models", len(set(rows)) == len(rows) and len(rows) >= 2, [len(r) for r in rows])
+
+    if len(labels) >= 2:
+        try:
+            first_urn, second_urn = list(labels)[0], list(labels)[1]
+            tab_of(page, labels[first_urn]).click()
+            page.wait_for_url(re.compile(re.escape(first_urn)), timeout=10000)
+            back = summary_of(page, labels[first_urn])
+            checks.add("multi: activating a tab switches the summary back", back["rows"] == summaries[first_urn]["rows"], back["model"])
+            checks.add("multi: activating a tab updates the url", first_urn in page.url, page.url)
+            content = page.locator(".dv-groupview:has([data-active='true'] .model-viewer) .dv-content-container").bounding_box()
+            pointer_drag(page, tab_of(page, labels[second_urn]), content["x"] + content["width"] - 24, content["y"] + content["height"] / 2)
+            views = wait_models(page, lambda vs: len(vs) >= 2 and all(loaded(v) for v in vs))
+            side = len(views) >= 2 and (
+                views[0]["host"]["left"] + views[0]["host"]["width"] <= views[1]["host"]["left"] + 2
+                or views[1]["host"]["left"] + views[1]["host"]["width"] <= views[0]["host"]["left"] + 2
+            )
+            checks.add("multi: dragging a tab splits two models side by side", side, views)
+            checks.add("multi: both split canvases follow their containers", len(views) >= 2 and all(follows(v) for v in views), views)
+            checks.add("multi: both split models stay loaded", len(views) >= 2 and all(v["state"] == "ready" for v in views), views)
+            page.screenshot(path=str(OUTPUT_DIR / "11-multi-split.png"))
+
+            closing = next((v for v in views if v["urn"] == first_urn), None)
+            tab = tab_of(page, labels[first_urn])
+            tab.hover()
+            tab.locator(".dv-default-tab-action").click(timeout=8000)
+            page.wait_for_timeout(2000)
+            remaining = wait_models(page, lambda vs: vs and all(loaded(v) for v in vs))
+            checks.add("multi: closing a tab removes it", tab_of(page, labels[first_urn]).count() == 0 and closing is not None)
+            checks.add("multi: the other models stay loaded after a close", bool(remaining) and all(loaded(v) for v in remaining), remaining)
+            page.screenshot(path=str(OUTPUT_DIR / "12-multi-closed.png"))
+        except Exception as exc:
+            checks.add("multi: split and close", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+
+    try:
+        reopened = models[0]
+        open_version(page, reopened)
+        page.wait_for_url(re.compile(re.escape(reopened["urn"])), timeout=20000)
+        views = wait_models(page, lambda vs: any(v["urn"] == reopened["urn"] and loaded(v) for v in vs))
+        checks.add("multi: a closed model opens again in a new tab", any(v["urn"] == reopened["urn"] and loaded(v) for v in views), views)
+        open_tabs = [label for label in labels.values() if tab_of(page, label).count()]
+        active_label = active_tab_label(page)
+        manifests = []
+        page.on("request", lambda request: manifests.append(request.url))
+        page.reload(wait_until="domcontentloaded")
+        views = wait_models(page, lambda vs: any(v["active"] and loaded(v) for v in vs))
+        page.wait_for_timeout(3000)
+        restored = [label for label in open_tabs if tab_of(page, label).count()]
+        checks.add("multi: reload restores the tabs", restored == open_tabs, f"{restored} vs {open_tabs}")
+        checks.add("multi: reload loads the active model", any(v["active"] and loaded(v) for v in views) and active_tab_label(page) == active_label, views)
+        shown = {v["urn"] for v in visible_models(page)}
+        hidden = [urn for urn, label in labels.items() if label in open_tabs and urn not in shown]
+        fetched = [urn for urn in hidden if any(urn in url for url in manifests)]
+        checks.add("multi: hidden tabs stay unloaded after reload", not fetched, f"hidden {len(hidden)}, fetched {len(fetched)}")
+        if hidden:
+            urn = hidden[0]
+            tab_of(page, labels[urn]).click()
+            views = wait_models(page, lambda vs: any(v["urn"] == urn and loaded(v) for v in vs))
+            checks.add("multi: a hidden tab loads when activated", any(v["urn"] == urn and loaded(v) for v in views), views)
+        page.screenshot(path=str(OUTPUT_DIR / "13-multi-reloaded.png"))
+    except Exception as exc:
+        checks.add("multi: reload", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+    new_errors = notes["page_errors"][errors_before:]
+    checks.add("multi: no page errors", not new_errors, new_errors[:2])
+
+
 def main():
     layout_only = "--layout" in sys.argv[1:]
+    multi = "--multi" in sys.argv[1:]
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     checks = Checks()
     notes = new_notes()
     with Camoufox(
-        headless=False,
+        headless=HEADLESS,
         persistent_context=True,
         user_data_dir=str(PROFILE_DIR),
         window=DESKTOP,
@@ -638,8 +886,12 @@ def main():
         checks.add("health reports real APS", status == 200 and isinstance(health, dict) and health.get("mock") is False, health)
         status, token = api_get(context, "/api/viewer/token")
         checks.add("viewer token issued", status == 200 and isinstance(token, dict) and bool(token.get("access_token")), f"status {status}")
-        found = find_viewable(context)
-        checks.add("a viewable model exists", found is not None, "none found within the API call budget")
+        found = None if multi else find_viewable(context)
+        if not multi:
+            checks.add("a viewable model exists", found is not None, "none found within the API call budget")
+        revit = find_models(context) if multi else []
+        if multi:
+            checks.add(f"{MULTI_COUNT} different Revit models exist", len(revit) >= MULTI_COUNT, [m["file"] for m in revit])
 
         page = context.pages[0] if context.pages else context.new_page()
         watch(page, notes)
@@ -647,14 +899,17 @@ def main():
         page.wait_for_timeout(1500)
         checks.add("tree lists hubs", page.locator("[role=treeitem]").count() >= 1)
         page.screenshot(path=str(OUTPUT_DIR / "01-home.png"))
-        if found and layout_only:
+        if multi and len(revit) >= 2:
+            check_multi_model(page, checks, revit, notes)
+        elif found and layout_only:
             if open_model_for_layout(page, checks, found):
                 check_layout(page, checks)
         elif found:
             run_model_checks(page, checks, found, notes)
         checks.add("no uncaught page errors", not notes["page_errors"], notes["page_errors"][:2])
         checks.add("no failed app requests", not notes["failed_requests"], notes["failed_requests"][:3])
-    return checks.finish(notes, "layout-report.json" if layout_only else "report.json")
+    report = "multi-report.json" if multi else "layout-report.json" if layout_only else "report.json"
+    return checks.finish(notes, report)
 
 
 if __name__ == "__main__":
