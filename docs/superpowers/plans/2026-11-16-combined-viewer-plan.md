@@ -54,3 +54,12 @@ Read from `viewer3D.min.js`, which ships Autodesk's own federation helper `Autod
 - URL: `/model/$urn?...&with=<urn2>,<urn3>`. URNs are base64url, so a comma is a safe separator. The first urn stays the path so deep links keep working; `with` lists the rest in order. The URL mirrors the active tab.
 - Persistence: the open-models store entry gets the extra urns; restore stays lazy.
 - e2e: combined flow in `mock_smoke.py`; `check_combined` in `smoke.py` behind `--combined`.
+
+## Stage B decisions (implemented)
+
+- A combined tab is one open-models entry keyed by its first URN; the others live in `context.with`, so URL, persistence and lazy restore reuse the multi-model machinery. Removing the first model re-keys the tab (the viewer reloads the rest); this is the one case that reloads.
+- Opening the first URN again from Documents keeps its members, so the URL is normalized to include `with`.
+- Members' names come from the recent-models store (`rememberModel` when picked in Documents); deep links without that history show "Untitled model" for unknown members.
+- Picked rows use `aria-checked` because `aria-selected` already marks the open model.
+- Visibility is per viewer and not persisted.
+- Combined export files are named `<N>-models-properties.xlsx`.

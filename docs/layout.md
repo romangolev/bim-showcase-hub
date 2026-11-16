@@ -35,6 +35,8 @@ The Viewer pane has instances: `instances` in its registry entry gives the body 
 - Tabs reorder, split, float and close with the usual dock gestures and pane menu. Dropping a tab on the edge of the viewer group puts two models side by side.
 - The tab close button and the pane menu Close remove the model from the open-models store; the dock follows the store (`syncInstances` in `DockLayout.tsx`), so it never needs a placeholder.
 - Activating a tab activates its model: summary, dashboard and the URL follow it.
+- A combined tab is one entry and one panel too: its key is the first model's URN and its context carries the others in `with` (comma separated URNs). The tab is titled `N models` and its tooltip lists the files. Opening the first model again keeps the members; opening a version that is only a member opens it in its own tab. Removing a member updates `with`; removing the first model moves the tab to the next member (the panel id changes, so the viewer reloads the remaining models); removing the last one closes the tab. The URL of a combined tab is `/model/<first urn>?...&with=<urn2>,<urn3>`, and `ModelRouteSync` puts `with` back into the URL whenever the store holds members the URL lacks.
+- In Documents, Ctrl or Cmd click and Space pick viewable versions (`aria-checked` on the row) and Shift click picks a range. The pick bar offers Open together (2 to 6 versions), Add to the open viewer and Clear. Every viewable row also has an Add to the open viewer button (on hover, focus or when picked) while a viewer tab is active.
 - The dock adapter knows nothing about models. It receives the wanted instance panel ids, the active one, titles, the companions to open with the first instance, and callbacks (`onActivateInstance`, `onCloseInstance`, `onClosePane`).
 
 ## Add a pane
@@ -79,7 +81,7 @@ One layout per browser in `localStorage` under `bsh.layout.v2`:
 { "version": 2, "layout": { "dock": { "grid": {}, "panels": {} }, "collapsed": ["dashboard"], "treeWidth": 320, "dismissed": ["summary"], "lastViewerArrangement": { "grid": {}, "panels": {} } } }
 ```
 
-The open model tabs and the active one are in `sessionStorage` under `bsh.models.open`, so a reload restores them and a new browser tab starts with none. Sign-out clears them together with the recent-models store (`bsh.models.recent`, which holds file names); the signed-in user's name is kept in `bsh.models.owner` and a different user clears both on sign-in (the session has no stable user id). Restored tabs load lazily: only the tabs that are visible load at once, the others when they are first shown.
+The open model tabs (with their `with` members) and the active one are in `sessionStorage` under `bsh.models.open`, so a reload restores them and a new browser tab starts with none. Sign-out clears them together with the recent-models store (`bsh.models.recent`, which holds file names); the signed-in user's name is kept in `bsh.models.owner` and a different user clears both on sign-in (the session has no stable user id). Restored tabs load lazily: only the tabs that are visible load at once, the others when they are first shown.
 
 - `dock` is dockview's `toJSON()` output, or `null` before the dock was first shown.
 - `collapsed` lists collapsed pane kinds. Collapsing a model tab collapses its group under the `viewer` kind.
@@ -120,6 +122,7 @@ Below 876px (`STACKED_QUERY`) the dock is not rendered. With no model open, `Sta
 - No named presets.
 - At most 4 models are loaded at once (`MAX_LOADED_MODELS` in `api/openModels.ts`). A model that is visible in any group is never paused, so a split of more than four can go over the cap. Showing another pauses the least recently shown hidden model, and a model that becomes active (by closing the active tab, for example) is loaded at once. A paused model has its adapter destroyed; its tab stays and offers Load model. This was chosen over a blocking prompt because opening never fails.
 - All open models must come from one Autodesk region: the viewer is initialized once per page. The first model that starts loading claims the region (`viewer/region.ts`). A tab from the other region is detected from its URN before any viewer is created and shows "This model is in the EU region. The viewer supports one region per page." with Close other models and reload, which keeps only that tab and reloads; it never creates a viewer that would fail.
+- A combined tab holds at most 6 models (`MAX_COMBINED_MODELS`) and counts as one loaded model for the cap of 4. Its members must come from the page's region; a member from the other region fails on its own with a message, the rest load.
 - Window resizes are shared proportionally between groups. Opening, closing, collapsing and expanding keep the other groups' sizes and give the difference to the viewer.
 
 ## Testing
