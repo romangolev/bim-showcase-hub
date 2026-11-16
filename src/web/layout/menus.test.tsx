@@ -95,6 +95,19 @@ describe('Menu', () => {
     expect(within(menu).getByRole('separator')).toBeInTheDocument();
   });
 
+  it('opens with Enter and picks with Enter without a second activation', () => {
+    const { trigger, onPick } = renderMenu();
+    fireEvent.keyDown(trigger, { key: 'Enter' });
+    const menu = screen.getByRole('menu', { name: 'Things' });
+    expect(within(menu).getByRole('menuitem', { name: 'Alpha' })).toHaveFocus();
+    expect(onPick).not.toHaveBeenCalled();
+    fireEvent.keyDown(menu, { key: 'ArrowDown' });
+    fireEvent.keyDown(menu, { key: 'Enter' });
+    expect(onPick).toHaveBeenCalledTimes(1);
+    expect(onPick).toHaveBeenCalledWith('b');
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
   it('opens on the last item with ArrowUp', () => {
     const { trigger } = renderMenu();
     fireEvent.keyDown(trigger, { key: 'ArrowUp' });

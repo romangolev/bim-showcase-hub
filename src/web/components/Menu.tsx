@@ -99,12 +99,24 @@ export function Menu({
     setPosition({ top, left });
   }, []);
 
+  const pendingFocus = useRef<null | 'first' | 'last'>(null);
+
   useLayoutEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setPosition(null);
+      return;
+    }
+    pendingFocus.current = open;
     place();
+  }, [open, place]);
+
+  useLayoutEffect(() => {
+    const where = pendingFocus.current;
+    if (!position || !where) return;
+    pendingFocus.current = null;
     const list = focusables();
-    (open === 'last' ? list[list.length - 1] : list[0])?.focus();
-  }, [open, focusables, place]);
+    (where === 'last' ? list[list.length - 1] : list[0])?.focus();
+  }, [position, focusables]);
 
   useEffect(() => {
     if (!open) return;
@@ -147,6 +159,11 @@ export function Menu({
       case 'End':
         move(list.length - 1);
         break;
+      case 'Enter':
+      case ' ':
+        event.preventDefault();
+        list[index]?.click();
+        break;
       case 'Escape':
         event.preventDefault();
         event.stopPropagation();
@@ -178,7 +195,11 @@ export function Menu({
         onClick={() => (open ? close(false) : show('first'))}
         onKeyDown={(event) => {
           if (open) return;
-          if (event.key === 'ArrowDown') {
+          if (
+            event.key === 'ArrowDown' ||
+            event.key === 'Enter' ||
+            event.key === ' '
+          ) {
             event.preventDefault();
             show('first');
           } else if (event.key === 'ArrowUp') {
