@@ -18,6 +18,8 @@ const VERSION_PATTERN = /^(v\S+?):\s*(.*?)\s+by\s+(.+)$/;
 
 export interface VersionParts {
   label: string;
+  date: string;
+  author: string;
   detail: string;
 }
 
@@ -26,9 +28,16 @@ export function versionParts(name: string): VersionParts | null {
   if (!match) {
     return null;
   }
+  const date = (match[2] ?? '').replace(
+    /^(\d{4}-\d{2}-\d{2}) \d{2}:\d{2}$/,
+    '$1',
+  );
+  const author = match[3] ?? '';
   return {
     label: match[1] ?? '',
-    detail: `${(match[2] ?? '').replace(/^(\d{4}-\d{2}-\d{2}) \d{2}:\d{2}$/, '$1')} · ${match[3] ?? ''}`,
+    date,
+    author,
+    detail: date ? `${date} · ${author}` : author,
   };
 }
 
@@ -62,6 +71,30 @@ export function highlightMatch(text: string, query?: string): ReactNode {
       </mark>
       {text.slice(index + needle.length)}
     </>
+  );
+}
+
+const TAIL_MIN = 6;
+
+export function splitFileName(name: string): [string, string] | null {
+  const extension = /\.[A-Za-z0-9]{1,6}$/.exec(name)?.[0] ?? '';
+  const tail = Math.max(TAIL_MIN, extension.length + 3);
+  if (name.length <= tail + TAIL_MIN) {
+    return null;
+  }
+  return [name.slice(0, -tail), name.slice(-tail)];
+}
+
+function MiddleLabel({ name }: { name: string }) {
+  const parts = splitFileName(name);
+  if (!parts) {
+    return <span className="tree-row__mid">{name}</span>;
+  }
+  return (
+    <span className="tree-row__mid">
+      <span className="tree-row__mid-head">{parts[0]}</span>
+      <span className="tree-row__mid-tail">{parts[1]}</span>
+    </span>
   );
 }
 
@@ -105,6 +138,7 @@ export function TreeRowView({
   const parts = isVersion && !secondary ? versionParts(name) : null;
   const primary = parts ? parts.label : name;
   const second = parts ? parts.detail : secondary;
+  const middleTruncate = kind === 'item' && !highlight?.trim();
   const minHeight = rowHeightFor(kind, name, secondary);
   return (
     <div
@@ -140,7 +174,11 @@ export function TreeRowView({
       <span className="tree-row__text">
         <span className="tree-row__line">
           <span className="tree-row__label">
-            {highlightMatch(primary, highlight)}
+            {middleTruncate ? (
+              <MiddleLabel name={primary} />
+            ) : (
+              highlightMatch(primary, highlight)
+            )}
           </span>
           {isVersion && viewable ? (
             <span className="tree-row__state" data-state="viewable">
@@ -155,7 +193,17 @@ export function TreeRowView({
         </span>
         {second ? (
           <span className="tree-row__secondary" title={second}>
-            {second}
+            {parts ? (
+              <>
+                {parts.date ? (
+                  <span className="tree-row__date">{parts.date}</span>
+                ) : null}
+                {parts.date ? <span className="tree-row__sep">·</span> : null}
+                <span className="tree-row__author">{parts.author}</span>
+              </>
+            ) : (
+              <span className="tree-row__plain">{second}</span>
+            )}
           </span>
         ) : null}
       </span>

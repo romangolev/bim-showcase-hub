@@ -1,4 +1,5 @@
 .tree-panel {
+  container: tree / inline-size;
   display: flex;
   flex: none;
   flex-direction: column;
@@ -146,20 +147,6 @@
   box-shadow: inset 2px 0 0 var(--color-signal-blue);
 }
 
-.tree-row[data-disabled="true"] {
-  color: var(--color-fog);
-  cursor: not-allowed;
-}
-
-.tree-row[data-disabled="true"] .tree-row__icon {
-  color: var(--color-steel);
-}
-
-.tree-row[data-disabled="true"]:hover,
-.tree-row[data-disabled="true"]:active {
-  background: transparent;
-}
-
 .tree-row__twisty {
   display: inline-flex;
   flex: none;
@@ -218,11 +205,61 @@
 }
 
 .tree-row__secondary {
+  display: flex;
+  min-width: 0;
   overflow: hidden;
   color: var(--color-fog);
   font-size: var(--text-13);
-  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.tree-row__date,
+.tree-row__sep {
+  flex: none;
+}
+
+.tree-row__sep {
+  margin: 0 0.4em;
+}
+
+.tree-row__plain,
+.tree-row__author {
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tree-row__author {
+  min-width: min(10ch, 100%);
+}
+
+.tree-row__mid {
+  display: flex;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.tree-row__mid-head {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tree-row__mid-tail {
+  flex: none;
+}
+
+.tree-row[data-kind="item"] .tree-row__label {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+@container tree (max-width: 299px) {
+  .tree-row__sep,
+  .tree-row__author {
+    display: none;
+  }
 }
 
 .tree-row[data-two-line="true"] .tree-row__label {
@@ -282,7 +319,7 @@
 
 .tree-row__state[data-state="blocked"] {
   margin-left: auto;
-  color: var(--color-fog);
+  color: var(--color-ash);
   font-weight: var(--weight-body);
 }
 
@@ -365,8 +402,11 @@
   }
 }
 
-.tree-row:hover:not([data-disabled="true"]) .tree-row__secondary,
 .tree-row[data-selected="true"] .tree-row__secondary {
+  color: var(--color-chalk);
+}
+
+.tree-row:hover:not([data-disabled="true"]) .tree-row__secondary {
   color: var(--color-chalk);
 }
 
@@ -374,4 +414,19 @@
   .tree-row__state[data-state="viewable"] {
   border-color: var(--color-ring-blue);
   color: var(--color-ring-blue);
+}
+
+.tree-row[data-disabled="true"] {
+  color: var(--color-ash);
+  cursor: not-allowed;
+}
+
+.tree-row[data-disabled="true"] .tree-row__icon {
+  color: var(--color-ash);
+  opacity: 0.55;
+}
+
+.tree-row[data-disabled="true"]:hover,
+.tree-row[data-disabled="true"]:active {
+  background: transparent;
 }

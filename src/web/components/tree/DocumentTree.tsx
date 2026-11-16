@@ -41,8 +41,10 @@ type Row =
       variant: StatusVariant;
       level: number;
       parentId: string;
+      title?: string;
       message?: string;
       detail?: string;
+      clearFilter?: boolean;
     };
 
 const LOADING_NODE: TreeNode = {
@@ -72,7 +74,7 @@ function toNodeError(error: unknown): NodeError {
 const STATUS_COPY: Record<StatusVariant, string> = {
   loading: 'Loading',
   error: 'We could not load this. Try again.',
-  empty: 'Nothing here yet',
+  empty: 'Nothing here yet.',
 };
 
 const MIN_ROW_HEIGHT = 30;
@@ -272,7 +274,9 @@ export function DocumentTree({
         variant: 'empty',
         level: 0,
         parentId: ROOT_ID,
-        message: 'No loaded nodes match',
+        title: 'Nothing found',
+        message: `No matches for “${filter.trim()}” in loaded folders. Expand more folders to search deeper.`,
+        clearFilter: true,
       });
     }
   } else {
@@ -291,6 +295,7 @@ export function DocumentTree({
             variant: 'error',
             level: level + 1,
             parentId: id,
+            title: 'Could not load this folder',
             message: errors[id]?.message,
             detail: errors[id]?.detail,
           });
@@ -309,6 +314,7 @@ export function DocumentTree({
             variant: 'empty',
             level: level + 1,
             parentId: id,
+            title: 'Empty folder',
           });
         }
       }
@@ -321,6 +327,7 @@ export function DocumentTree({
           variant: 'error',
           level: 0,
           parentId: ROOT_ID,
+          title: 'Could not load hubs',
           message: errors[ROOT_ID]?.message,
           detail: errors[ROOT_ID]?.detail,
         });
@@ -331,8 +338,8 @@ export function DocumentTree({
           variant: 'empty',
           level: 0,
           parentId: ROOT_ID,
-          message:
-            'No hubs found for this account. Make sure your Autodesk account is added to a hub, then refresh.',
+          title: 'No hubs found',
+          message: 'Add your Autodesk account to a hub, then refresh.',
         });
       } else if (rootItem.isLoading() || !registry.loaded.has(ROOT_ID)) {
         rows.push({
@@ -519,6 +526,7 @@ export function DocumentTree({
           <StateBlock
             variant="error"
             compact
+            title={row.title}
             message={row.message ?? STATUS_COPY.error}
             detail={row.detail}
             action={{ label: 'Retry', onClick: () => retry(row.parentId) }}
@@ -533,12 +541,13 @@ export function DocumentTree({
           <StateBlock
             variant="empty"
             compact
-            icon="folder"
+            icon={row.clearFilter ? 'search' : 'folder'}
+            title={row.title}
             message={row.message ?? STATUS_COPY.empty}
             action={
-              row.parentId === ROOT_ID && !query
-                ? { label: 'Refresh', onClick: () => refresh(ROOT_ID) }
-                : undefined
+              row.clearFilter
+                ? { label: 'Show all', onClick: () => setFilter('') }
+                : { label: 'Refresh', onClick: () => refresh(row.parentId) }
             }
           />
         )}

@@ -111,7 +111,16 @@ describe('DocumentTree', () => {
     expect(screen.queryByRole('option', { name: /^Studio hub/ })).toBeNull();
 
     fireEvent.change(input, { target: { value: 'zzz' } });
-    expect(screen.getByText('No loaded nodes match')).toBeInTheDocument();
+    expect(screen.getByText('Nothing found')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'No matches for “zzz” in loaded folders. Expand more folders to search deeper.',
+      ),
+    ).toBeInTheDocument();
+    expect(input).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Show all' }));
+    expect(input).toHaveValue('');
+    fireEvent.change(input, { target: { value: 'zzz' } });
 
     fireEvent.change(input, { target: { value: '' } });
     expect(await screen.findByText('Studio hub')).toBeInTheDocument();
@@ -193,10 +202,9 @@ describe('DocumentTree', () => {
     expect(
       screen.getByRole('searchbox', { name: 'Filter loaded nodes' }),
     ).toBeDisabled();
+    expect(await screen.findByText('No hubs found')).toBeInTheDocument();
     expect(
-      await screen.findByText(
-        'No hubs found for this account. Make sure your Autodesk account is added to a hub, then refresh.',
-      ),
+      screen.getByText('Add your Autodesk account to a hub, then refresh.'),
     ).toBeInTheDocument();
     expect(
       screen.getByRole('searchbox', { name: 'Filter loaded nodes' }),
