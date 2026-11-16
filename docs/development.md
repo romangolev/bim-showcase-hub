@@ -149,12 +149,11 @@ It writes screenshots, `export.xlsx` and `mock-report.json` to `E2E_OUTPUT_DIR`.
 
 ### Known noise
 
-The checks ignore two kinds of third-party noise from the Autodesk viewer:
+The checks ignore failed requests to `cdn.derivative.autodesk.com` (404 for optional derivative assets) and the favicon. Everything else counts, including the page error `too many uniforms` (see below). Console errors are recorded in the report but do not fail a run.
 
-- Failed requests to `cdn.derivative.autodesk.com` (404 for optional derivative assets) and the favicon.
-- The uncaught page error `too many uniforms`, raised by the viewer's WebGL shaders on software rendering.
+### Fingerprint OS
 
-Everything else counts. Console errors are recorded in the report but do not fail a run.
+`smoke.py` and `signin.py` launch Camoufox with `os=HOST_OS`, the operating system the script runs on. Without it Camoufox picks a random OS per launch and spoofs the user agent and WebGL limits to match. A Windows fingerprint on a Mac makes the viewer take its transform feedback path, which it disables for Firefox on macOS, and report 4096 vertex uniform vectors instead of the real 1024. The shader link then fails with `too many uniforms`, the exception escapes the viewer's main loop and the loop stops for good. The model stays on screen but never redraws or resizes, so the canvas no longer follows the layout.
 
 ### Session lifetime and the profile
 
