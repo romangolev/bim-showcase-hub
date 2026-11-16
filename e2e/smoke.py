@@ -886,9 +886,217 @@ def check_multi_model(page, checks, revit, notes):
     checks.add("multi: no page errors", not new_errors, new_errors[:2])
 
 
+COMBINED_GOOD = ("snowdon towers sample architectural.rvt", "racbasicsampleproject.rvt")
+COMBINED_FILL = ("fili_20170810_01.nwd", "sgok_test.nwd")
+COMBINED_BAD = ("rmebasicsampleproject.rvt",)
+COMBINED_CALL_BUDGET = 120
+NO_GEOMETRY_TEXT = "No viewable geometry"
+
+COMBINED_STATE_SCRIPT = """mw:() => {
+    const host = document.querySelector("[data-active='true'] [data-bsh-viewer]");
+    const viewer = host?.bshViewer;
+    if (!viewer) return null;
+    const boxOf = (b) => b ? { min: [b.min.x, b.min.y, b.min.z], max: [b.max.x, b.max.y, b.max.z] } : null;
+    const models = viewer.getAllModels().map((model) => ({
+        id: model.id,
+        done: Boolean(model.isLoadDone && model.isLoadDone()),
+        box: boxOf(model.getBoundingBox && model.getBoundingBox()),
+        unit: model.getUnitString ? model.getUnitString() : null,
+    }));
+    const visible = viewer.impl && viewer.impl.getVisibleBounds ? boxOf(viewer.impl.getVisibleBounds(true)) : null;
+    const canvas = viewer.canvas?.getBoundingClientRect();
+    const frame = host.getBoundingClientRect();
+    return {
+        models,
+        visible,
+        canvas: canvas ? { width: canvas.width, height: canvas.height } : null,
+        host: { width: frame.width, height: frame.height },
+    };
+}"""
+
+COMBINED_SELECT_SCRIPT = """mw:() => new Promise((resolve) => {
+    const viewer = document.querySelector("[data-active='true'] [data-bsh-viewer]")?.bshViewer;
+    const models = viewer ? viewer.getAllModels() : [];
+    const model = models[models.length - 1];
+    if (!model) return resolve(null);
+    model.getObjectTree((tree) => {
+        let leaf = null;
+        tree.enumNodeChildren(tree.getRootId(), (id) => {
+            if (leaf === null && tree.getChildCount(id) === 0) leaf = id;
+        }, true);
+        viewer.select([leaf], model);
+        const selection = viewer.getAggregateSelection();
+        resolve({ leaf, modelId: model.id, selected: selection.map((s) => ({ modelId: s.model.id, ids: s.selection })) });
+    }, () => resolve(null));
+})"""
+
+
+def find_named(context, wanted):
+    found = {}
+    calls = 0
+    for hub in list_of(context, "/api/hubs") or []:
+        for project in (list_of(context, f"/api/hubs/{hub['id']}/projects") or [])[:6]:
+            calls += 1
+            top = list_of(context, f"/api/hubs/{hub['id']}/projects/{project['id']}/folders")
+            calls += 1
+            queue = [(project["id"], f["id"], [hub["name"], project["name"], f["name"]]) for f in top or []]
+            while queue and calls < COMBINED_CALL_BUDGET and len(found) < len(wanted):
+                pid, fid, crumbs = queue.pop(0)
+                contents = list_of(context, f"/api/projects/{pid}/folders/{fid}/contents")
+                calls += 1
+                if contents is None:
+                    continue
+                queue.extend((pid, n["id"], crumbs + [n["name"]]) for n in contents if n["kind"] == "folder")
+                for item in contents:
+                    name = item["name"].lower()
+                    key = next((w for w in wanted if name.endswith(w)), None)
+                    if item["kind"] != "item" or key is None or key in found:
+                        continue
+                    versions = list_of(context, f"/api/projects/{pid}/items/{item['id']}/versions")
+                    calls += 1
+                    version = next((v for v in versions or [] if v.get("viewable") and v.get("urn")), None)
+                    if version:
+                        found[key] = {"urn": version["urn"], "file": item["name"], "crumbs": crumbs, "version": version.get("name", "")}
+            if len(found) >= len(wanted):
+                return found
+    return found
+
+
+def combined_state(page):
+    return page.evaluate(COMBINED_STATE_SCRIPT)
+
+
+def wait_combined(page, predicate, timeout_ms=VIEWER_TIMEOUT_MS * 2):
+    state = combined_state(page)
+    for _ in range(timeout_ms // 1000):
+        if state and predicate(state):
+            return state
+        page.wait_for_timeout(1000)
+        state = combined_state(page)
+    return state
+
+
+def center(box):
+    return [(box["min"][i] + box["max"][i]) / 2 for i in range(3)]
+
+
+def diagonal(box):
+    return sum((box["max"][i] - box["min"][i]) ** 2 for i in range(3)) ** 0.5
+
+
+def encloses(outer, inner, tolerance):
+    return all(outer["min"][i] <= inner["min"][i] + tolerance and outer["max"][i] >= inner["max"][i] - tolerance for i in range(3))
+
+
+def combined_url(members):
+    from urllib.parse import quote
+
+    first, rest = members[0], members[1:]
+    query = f"file={quote(first['file'])}"
+    if rest:
+        query += "&with=" + ",".join(member["urn"] for member in rest)
+    return f"{BASE_URL}/model/{first['urn']}?{query}"
+
+
+def check_combined(page, context, checks, notes):
+    page.bring_to_front()
+    errors_before = len(notes["page_errors"])
+    named = find_named(context, COMBINED_GOOD + COMBINED_FILL + COMBINED_BAD)
+    good = [named[name] for name in COMBINED_GOOD if name in named]
+    fill = next((named[name] for name in COMBINED_FILL if name in named and has_geometry(context, named[name]["urn"])), None)
+    if fill:
+        good.append(fill)
+    good = [member for member in good if has_geometry(context, member["urn"])]
+    checks.add("combined: two or three models with geometry exist", len(good) >= 2, [m["file"] for m in good])
+    notes["combined_members"] = [m["file"] for m in good]
+    if len(good) < 2:
+        return
+
+    page.goto(combined_url(good), wait_until="networkidle")
+    tab = page.locator(".dv-tab").filter(has_text=f"{len(good)} models")
+    tab.first.wait_for(timeout=VIEWER_TIMEOUT_MS)
+    checks.add("combined: one tab for the set", tab.count() == 1 and page.locator(".pane-model").count() == 1, tab.count())
+    state = wait_combined(page, lambda s: len(s["models"]) == len(good) and all(m["done"] for m in s["models"]))
+    count = len(state["models"]) if state else 0
+    checks.add("combined: getAllModels has every model", count == len(good), f"{count} of {len(good)}")
+    checks.add("combined: every model finished loading", bool(state) and all(m["done"] for m in state["models"]), state and [m["done"] for m in state["models"]])
+
+    boxes = [m["box"] for m in (state or {}).get("models", []) if m["box"]]
+    if boxes and state.get("visible"):
+        tolerance = max(diagonal(b) for b in boxes) * 0.01 + 0.01
+        checks.add("combined: the scene bounds enclose every model", all(encloses(state["visible"], b, tolerance) for b in boxes), state["visible"])
+        centers = [center(b) for b in boxes]
+        distances = [sum((centers[0][i] - c[i]) ** 2 for i in range(3)) ** 0.5 for c in centers[1:]]
+        largest = max(diagonal(b) for b in boxes)
+        notes["combined_center_distances"] = [round(d, 2) for d in distances]
+        notes["combined_units"] = [m["unit"] for m in state["models"]]
+        if any(d > largest * 2 for d in distances):
+            notes.setdefault("warnings", []).append(f"combined models look unaligned: centre distances {distances} vs largest diagonal {largest:.1f}")
+    else:
+        checks.add("combined: model bounds are readable", False, state)
+
+    selection = page.evaluate(COMBINED_SELECT_SCRIPT)
+    picked = bool(selection) and any(s["modelId"] == selection["modelId"] and selection["leaf"] in s["ids"] for s in selection["selected"])
+    checks.add("combined: selecting an object in a later model works", picked, selection)
+    page.evaluate("mw:() => document.querySelector(\"[data-active='true'] [data-bsh-viewer]\")?.bshViewer?.clearSelection()")
+
+    scope = page.get_by_role("combobox", name="Summarize models")
+    scope.wait_for(timeout=VIEWER_TIMEOUT_MS)
+    options = scope.locator("option").all_inner_texts()
+    checks.add("combined: summary offers All models and each model", len(options) == len(good) + 1 and options[0] == "All models", options)
+    per_model = {}
+    for index in range(1, len(options)):
+        scope.select_option(index=index)
+        rows = page.locator(".pane-summary tbody tr")
+        try:
+            rows.first.wait_for(timeout=VIEWER_TIMEOUT_MS)
+        except Exception:
+            pass
+        per_model[f"{index}:{options[index]}"] = rows.count()
+    scope.select_option(index=0)
+    checks.add("combined: summary rows include data from every model", all(count > 0 for count in per_model.values()), per_model)
+    page.screenshot(path=str(OUTPUT_DIR / "combined-01-loaded.png"))
+
+    page.locator("[data-active='true'] .bsh-viewer-models__trigger").click()
+    remove = page.get_by_role("menuitem", name=re.compile(r"^Remove ")).last
+    removed_label = remove.inner_text()
+    remove.click()
+    after = wait_combined(page, lambda s: len(s["models"]) == len(good) - 1)
+    remaining = after["models"] if after else []
+    checks.add("combined: removing one model leaves the others rendered", len(remaining) == len(good) - 1 and all(m["done"] for m in remaining), f"{removed_label}: {len(remaining)} left")
+    page.wait_for_timeout(1500)
+    after = combined_state(page)
+    follows_container = bool(after and after["canvas"]) and abs(after["canvas"]["width"] - after["host"]["width"]) <= 4 and abs(after["canvas"]["height"] - after["host"]["height"]) <= 4
+    checks.add("combined: canvas follows its container", follows_container, after and (after["canvas"], after["host"]))
+
+    bad = named.get(COMBINED_BAD[0])
+    if bad:
+        members = good[:2] + [bad]
+        page.goto(combined_url(members), wait_until="networkidle")
+        failed = page.get_by_role("list", name="Models that failed")
+        try:
+            failed.wait_for(timeout=VIEWER_TIMEOUT_MS)
+        except Exception:
+            pass
+        text = failed.inner_text() if failed.count() else ""
+        notes["combined_bad_member"] = text[:200]
+        checks.add("combined: a member without geometry explains why", NO_GEOMETRY_TEXT in text or "Document load failed" in text, text[:160])
+        if NO_GEOMETRY_TEXT not in text:
+            notes.setdefault("warnings", []).append(f"{bad['file']} failed without the no-geometry text: {text[:120]}")
+        state = wait_combined(page, lambda s: len(s["models"]) == 2 and all(m["done"] for m in s["models"]))
+        checks.add("combined: the bad member leaves the others rendered", bool(state) and len(state["models"]) == 2 and all(m["done"] for m in state["models"]), state and len(state["models"]))
+        page.screenshot(path=str(OUTPUT_DIR / "combined-02-bad-member.png"))
+    else:
+        notes.setdefault("warnings", []).append("rmebasicsampleproject.rvt not found; bad member check skipped")
+
+    new_errors = notes["page_errors"][errors_before:]
+    checks.add("combined: no page errors", not new_errors, new_errors[:2])
+
+
 def main():
     layout_only = "--layout" in sys.argv[1:]
     multi = "--multi" in sys.argv[1:]
+    combined = "--combined" in sys.argv[1:]
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     checks = Checks()
     notes = new_notes()
@@ -912,8 +1120,8 @@ def main():
         checks.add("health reports real APS", status == 200 and isinstance(health, dict) and health.get("mock") is False, health)
         status, token = api_get(context, "/api/viewer/token")
         checks.add("viewer token issued", status == 200 and isinstance(token, dict) and bool(token.get("access_token")), f"status {status}")
-        found = None if multi else find_viewable(context)
-        if not multi:
+        found = None if multi or combined else find_viewable(context)
+        if not multi and not combined:
             checks.add("a viewable model exists", found is not None, "none found within the API call budget")
         revit = find_models(context) if multi else []
         if multi and len(revit) < MULTI_COUNT:
@@ -927,7 +1135,9 @@ def main():
         page.wait_for_timeout(1500)
         checks.add("tree lists hubs", page.locator("[role=treeitem]").count() >= 1)
         page.screenshot(path=str(OUTPUT_DIR / "01-home.png"))
-        if multi and len(revit) >= 2:
+        if combined:
+            check_combined(page, context, checks, notes)
+        elif multi and len(revit) >= 2:
             check_multi_model(page, checks, revit, notes)
         elif found and layout_only:
             if open_model_for_layout(page, checks, found):
@@ -936,7 +1146,7 @@ def main():
             run_model_checks(page, checks, found, notes)
         checks.add("no uncaught page errors", not notes["page_errors"], notes["page_errors"][:2])
         checks.add("no failed app requests", not notes["failed_requests"], notes["failed_requests"][:3])
-    report = "multi-report.json" if multi else "layout-report.json" if layout_only else "report.json"
+    report = "combined-report.json" if combined else "multi-report.json" if multi else "layout-report.json" if layout_only else "report.json"
     return checks.finish(notes, report)
 
 

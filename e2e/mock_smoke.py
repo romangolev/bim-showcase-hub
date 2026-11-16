@@ -476,6 +476,148 @@ def check_multi_model(page, checks, notes):
     settle(page)
 
 
+COMBINED_GROUPS = """() => [...document.querySelectorAll("[data-active='true'] [data-model-id]")].map((group) => ({
+    id: group.dataset.modelId,
+    hidden: group.getAttribute('display') === 'none',
+    shapes: group.querySelectorAll('polygon').length,
+    themed: group.querySelectorAll('.bsh-mock__el--themed').length,
+}))"""
+MOCK_VIEWERS = "() => document.querySelectorAll('.pane-model .bsh-mock').length"
+FIRST_COUNT = """() => {
+    const row = document.querySelector('.pane-summary tbody tr');
+    return row ? Number(row.querySelectorAll('td')[2]?.textContent.replace(/,/g, '') || 0) : 0;
+}"""
+
+
+def close_all_models(page):
+    for model in models(page)["models"]:
+        page.evaluate(f"mw:() => window.__bshLayout.closeModel('{model['urn']}')")
+    settle(page, 800)
+
+
+def combined_groups(page):
+    return page.evaluate(COMBINED_GROUPS)
+
+
+def models_trigger(page):
+    return page.locator("[data-active='true'] .bsh-viewer-models__trigger")
+
+
+def xlsx_has_model_column(path):
+    import zipfile
+
+    with zipfile.ZipFile(path) as archive:
+        names = [name for name in archive.namelist() if name.startswith("xl/")]
+        text = "".join(archive.read(name).decode("utf-8", "ignore") for name in names if name.endswith(".xml"))
+    return ">Model<" in text
+
+
+def check_combined(page, checks, notes):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    close_all_models(page)
+    rows = ensure_viewables(page)
+    checks.add("combined: tree has two viewable versions", rows.count() >= 2, rows.count())
+    rows.nth(0).click(modifiers=["ControlOrMeta"])
+    rows.nth(1).click(modifiers=["ControlOrMeta"])
+    picked = page.locator("[role=treeitem][aria-checked='true']").count()
+    checks.add("combined: Ctrl or Cmd click picks versions with aria-checked", picked == 2, picked)
+    checks.add("combined: picking does not open a model", not models(page)["models"], models(page))
+    rows.nth(1).focus()
+    page.keyboard.press("Space")
+    unpicked = page.locator("[role=treeitem][aria-checked='true']").count()
+    page.keyboard.press("Space")
+    checks.add("combined: Space toggles the pick", unpicked == 1 and page.locator("[role=treeitem][aria-checked='true']").count() == 2)
+    page.get_by_role("button", name="Open together").click()
+    wait_until(page, lambda: len(combined_groups(page)) == 2)
+    settle(page, 1200)
+    state = models(page)
+    checks.add("combined: Open together makes one tab", len(state["models"]) == 1, state)
+    checks.add("combined: one viewer holds both models", page.evaluate(MOCK_VIEWERS) == 1 and len(combined_groups(page)) == 2, combined_groups(page))
+    checks.add("combined: tab title counts the models", model_tab(page, "2 models").count() == 1, viewer_title(page))
+    tooltip = (page.evaluate(VIEWER_TAB) or {}).get("title", "")
+    checks.add("combined: tab tooltip lists the files", tooltip.count("\n") == 1, tooltip)
+    checks.add("combined: url carries with=", "with=" in page.url, page.url)
+
+    summary_scope = page.get_by_role("combobox", name="Summarize models")
+    wait_until(page, lambda: summary_scope.count() == 1 and page.evaluate(FIRST_COUNT) > 0)
+    all_count = page.evaluate(FIRST_COUNT)
+    options = summary_scope.locator("option").all_inner_texts() if summary_scope.count() else []
+    checks.add("combined: summary offers All models and each model", len(options) == 3 and options[0] == "All models", options)
+    if summary_scope.count():
+        summary_scope.select_option(index=1)
+        one = wait_until(page, lambda: page.evaluate(FIRST_COUNT) if page.evaluate(FIRST_COUNT) != all_count else 0)
+        checks.add("combined: one-model scope narrows the counts", bool(one) and one < all_count, f"{all_count} -> {one}")
+        summary_scope.select_option(index=0)
+
+    first, second = [group["id"] for group in combined_groups(page)][:2]
+    page.locator(f"[data-active='true'] [data-model-id='{first}'] polygon").nth(10).dispatch_event("click")
+    page.locator(f"[data-active='true'] [data-model-id='{second}'] polygon").nth(10).dispatch_event("click", {"ctrlKey": True})
+    page.locator("[data-active='true'] .bsh-mock__button[title='Paint selection']").click()
+    page.locator("[data-active='true'] .bsh-mock__button[title='Paint selected items in red']").click()
+    settle(page, 400)
+    painted = [group["themed"] for group in combined_groups(page)]
+    checks.add("combined: paint covers the selection in both models", painted[:2] == [1, 1], painted)
+
+    try:
+        size, magic = download_export(page, OUTPUT_DIR / "combined-export.xlsx")
+        has_column = xlsx_has_model_column(OUTPUT_DIR / "combined-export.xlsx")
+        checks.add("combined: export has a Model column", magic == XLSX_MAGIC and has_column, f"{size} bytes")
+    except Exception as exc:
+        checks.add("combined: export has a Model column", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+
+    models_trigger(page).click()
+    page.get_by_role("menuitemcheckbox").nth(1).click()
+    settle(page, 400)
+    hidden = [group["hidden"] for group in combined_groups(page)]
+    checks.add("combined: models menu hides a model", hidden == [False, True], hidden)
+    models_trigger(page).click()
+    page.get_by_role("menuitemcheckbox").nth(1).click()
+    settle(page, 400)
+
+    page.reload(wait_until="networkidle")
+    settle(page, 2500)
+    restored = wait_until(page, lambda: len(combined_groups(page)) == 2)
+    checks.add("combined: reload restores the combined tab", bool(restored) and model_tab(page, "2 models").count() == 1, combined_groups(page))
+
+    urn = models(page)["active"]
+    broken = f"{urn}-nogeom"
+    page.goto(f"{BASE_URL}/model/{urn}?with={second},{broken}", wait_until="networkidle")
+    settle(page, 2000)
+    failed = page.get_by_role("list", name="Models that failed")
+    wait_until(page, lambda: failed.count() == 1)
+    text = failed.inner_text() if failed.count() else ""
+    checks.add("combined: a file without geometry explains itself", "No viewable geometry" in text, text[:160])
+    checks.add("combined: the failed model leaves the others rendered", len([g for g in combined_groups(page) if g["shapes"] > 0]) == 2, combined_groups(page))
+    page.screenshot(path=str(OUTPUT_DIR / "mock-combined.png"))
+
+    failed.get_by_role("button", name="Remove").click()
+    settle(page, 600)
+    checks.add("combined: removing the failed model drops it from the url", broken not in page.url and "with=" in page.url, page.url)
+
+    models_trigger(page).click()
+    page.get_by_role("menuitem", name=re.compile(r"^Remove ")).last.click()
+    settle(page, 800)
+    checks.add("combined: removing a member leaves a single-model tab", len(combined_groups(page)) == 1 and "with=" not in page.url and models_trigger(page).count() == 0, page.url)
+
+    ensure_viewables(page)
+    addable = page.locator("[role=treeitem][data-viewable=true] .tree-row__action")
+    target = page.locator("[role=treeitem][data-viewable=true]").filter(has=page.locator(".tree-row__action")).first
+    if target.count():
+        target.hover()
+        target.locator(".tree-row__action").click()
+        wait_until(page, lambda: len(combined_groups(page)) == 2)
+    checks.add("combined: Add to open viewer adds a version to the active tab", addable.count() >= 1 and len(combined_groups(page)) == 2 and len(models(page)["models"]) == 1, combined_groups(page))
+
+    six = ",".join(f"{urn}-extra{index}" for index in range(5))
+    page.goto(f"{BASE_URL}/model/{urn}?with={six}", wait_until="networkidle")
+    settle(page, 2000)
+    models_trigger(page).click()
+    add = page.get_by_role("menuitem", name=re.compile(r"^Add model"))
+    checks.add("combined: the menu explains the cap of six", add.count() == 1 and "limit of 6" in add.inner_text() and add.is_disabled(), add.inner_text() if add.count() else "")
+    page.keyboard.press("Escape")
+    close_all_models(page)
+
+
 def documents_alone(page):
     found = groups(page)
     return list(found) == ["Documents"]
@@ -544,6 +686,11 @@ def run_interaction_checks(page, checks, notes):
     except Exception as exc:
         page.screenshot(path=str(OUTPUT_DIR / "mock-multi-failure.png"))
         checks.add("check_multi_model", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+    try:
+        check_combined(page, checks, notes)
+    except Exception as exc:
+        page.screenshot(path=str(OUTPUT_DIR / "mock-combined-failure.png"))
+        checks.add("check_combined", False, f"{type(exc).__name__}: {str(exc)[:160]}")
     try:
         check_documents_return(page, checks)
     except Exception as exc:
