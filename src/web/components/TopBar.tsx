@@ -1,5 +1,6 @@
 import type { Ref } from 'react';
 import { useSession, useSignIn } from '../api/hooks.js';
+import { ThemeToggle } from '../theme/ThemeToggle.js';
 import { Icon } from './icons.js';
 import { UserMenu } from './UserMenu.js';
 
@@ -44,6 +45,7 @@ export function TopBar({ treeOpen, onToggleTree, toggleRef }: TopBarProps) {
             Session unavailable
           </span>
         ) : null}
+        <ThemeToggle />
         {user ? (
           <UserMenu user={user} />
         ) : session.isPending ? null : (

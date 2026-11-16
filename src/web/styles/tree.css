@@ -292,7 +292,7 @@
 
 .tree-row__match {
   border-radius: 2px;
-  background: rgb(59 130 246 / 0.3);
+  background: var(--color-match);
   color: var(--color-snow);
 }
 
@@ -412,8 +412,8 @@
 
 .tree-row:active:not([data-disabled="true"])
   .tree-row__state[data-state="viewable"] {
-  border-color: var(--color-ring-blue);
-  color: var(--color-ring-blue);
+  border-color: var(--color-accent-pressed);
+  color: var(--color-accent-pressed);
 }
 
 .tree-row[data-disabled="true"] {
