@@ -139,8 +139,8 @@ export interface GuiViewer3D {
     options?: DocumentNodeLoadOptions,
   ): Promise<ViewerModel>;
   unloadModel?(model: ViewerModel): void;
-  hideModel?(model: ViewerModel): boolean;
-  showModel?(model: ViewerModel, preserveTools?: boolean): boolean;
+  hideModel?(model: ViewerModel | number): boolean;
+  showModel?(model: ViewerModel | number, preserveTools?: boolean): boolean;
   getAllModels?(): ViewerModel[];
   select?(ids: number[], model?: ViewerModel): void;
   getAggregateSelection?(): AggregateSelection[];

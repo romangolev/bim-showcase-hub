@@ -23,8 +23,11 @@ export interface FakeModelSpec {
   propsFail?: string;
 }
 
+let modelIds = 0;
+
 export class FakeModel implements ViewerModel {
   globalOffset: unknown;
+  readonly id = ++modelIds;
 
   constructor(
     readonly urn: string,
@@ -166,24 +169,37 @@ export class FakeFederatedViewer implements GuiViewer3D {
     return model;
   }
 
-  unloadModel(model: ViewerModel): void {
-    this.models = this.models.filter((m) => m !== model);
-    this.selections.delete(model as FakeModel);
-    this.unloaded.push(model as FakeModel);
+  private own(model: ViewerModel | number | undefined): FakeModel {
+    const found =
+      typeof model === 'number'
+        ? this.models.find((m) => m.id === model)
+        : this.models.find((m) => m === model);
+    if (!found) throw new TypeError('expected a loaded model or its id');
+    return found;
   }
 
-  hideModel(model: ViewerModel): boolean {
-    this.hidden.add(model as FakeModel);
+  unloadModel(model: ViewerModel): void {
+    if (!(model instanceof FakeModel)) {
+      throw new TypeError('unloadModel takes a model');
+    }
+    const own = this.own(model);
+    this.models = this.models.filter((m) => m !== own);
+    this.selections.delete(own);
+    this.unloaded.push(own);
+  }
+
+  hideModel(model: ViewerModel | number): boolean {
+    this.hidden.add(this.own(model));
     return true;
   }
 
   select(ids: number[], model: ViewerModel): void {
-    this.selections.set(model as FakeModel, [...ids]);
+    this.selections.set(this.own(model), [...ids]);
     this.fire();
   }
 
-  showModel(model: ViewerModel): boolean {
-    return this.hidden.delete(model as FakeModel);
+  showModel(model: ViewerModel | number): boolean {
+    return this.hidden.delete(this.own(model));
   }
 
   getAllModels(): ViewerModel[] {
@@ -220,11 +236,14 @@ export class FakeFederatedViewer implements GuiViewer3D {
   }
 
   setThemingColor(dbId: number, _color: unknown, model?: ViewerModel): void {
-    this.themed.push({ model: model ?? this.models[0], dbId });
+    this.themed.push({
+      model: model === undefined ? this.models[0] : this.own(model),
+      dbId,
+    });
   }
 
   clearThemingColors(model?: ViewerModel): void {
-    this.cleared.push(model);
+    this.cleared.push(model === undefined ? model : this.own(model));
   }
 
   addEventListener(type: string, cb: (ev: ViewerEvent) => void): void {
