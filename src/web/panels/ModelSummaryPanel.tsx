@@ -1,8 +1,3 @@
-import {
-  createColumnHelper,
-  tableFeatures,
-  useTable,
-} from '@tanstack/react-table';
 import { useMemo } from 'react';
 import {
   DEFAULT_SUMMARY_PROPERTIES,
@@ -10,6 +5,7 @@ import {
   summarize,
 } from '../extensions/modelSummary.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
+import { SummaryTable } from './SummaryTable.js';
 import { usePropertyRows, useResolvedAdapter } from './usePropertyRows.js';
 import './panels.css';
 
@@ -19,14 +15,6 @@ export interface ModelSummaryPanelProps {
   title?: string;
   className?: string;
 }
-
-const features = tableFeatures({});
-const helper = createColumnHelper<typeof features, SummaryEntry>();
-const columns = helper.columns([
-  helper.accessor('property', { header: 'Property' }),
-  helper.accessor('value', { header: 'Value' }),
-  helper.accessor('count', { header: 'Count' }),
-]);
 
 const EMPTY: SummaryEntry[] = [];
 
@@ -43,7 +31,6 @@ export function ModelSummaryPanel({
       state.status === 'ready' ? summarize(state.rows, propertyNames) : EMPTY,
     [state.status, state.rows, propertyNames],
   );
-  const table = useTable({ features, columns, data: entries });
 
   return (
     <section
@@ -79,47 +66,7 @@ export function ModelSummaryPanel({
       {state.status === 'ready' && entries.length === 0 && (
         <p className="bsh-muted">No elements found.</p>
       )}
-      {entries.length > 0 && (
-        <div className="bsh-table-wrap">
-          <table className="bsh-table">
-            <thead>
-              {table.getHeaderGroups().map((group) => (
-                <tr key={group.id}>
-                  {group.headers.map((header) => (
-                    <th
-                      key={header.id}
-                      scope="col"
-                      className={
-                        header.column.id === 'count' ? 'bsh-num' : undefined
-                      }
-                    >
-                      {header.isPlaceholder ? null : (
-                        <table.FlexRender header={header} />
-                      )}
-                    </th>
-                  ))}
-                </tr>
-              ))}
-            </thead>
-            <tbody>
-              {table.getRowModel().rows.map((row) => (
-                <tr key={row.id}>
-                  {row.getAllCells().map((cell) => (
-                    <td
-                      key={cell.id}
-                      className={
-                        cell.column.id === 'count' ? 'bsh-num' : undefined
-                      }
-                    >
-                      <table.FlexRender cell={cell} />
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      {entries.length > 0 && <SummaryTable entries={entries} />}
     </section>
   );
 }

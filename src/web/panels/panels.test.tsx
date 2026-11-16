@@ -9,6 +9,7 @@ import { PaintToolbar } from './PaintToolbar.js';
 vi.mock('chart.js', () => {
   class Chart {
     static register = vi.fn();
+    static defaults = { font: {}, color: '' };
     destroy = vi.fn();
   }
   const stub = {};
@@ -18,9 +19,8 @@ vi.mock('chart.js', () => {
     BarController: stub,
     BarElement: stub,
     CategoryScale: stub,
-    Legend: stub,
     LinearScale: stub,
-    PieController: stub,
+    DoughnutController: stub,
     Tooltip: stub,
   };
 });
@@ -68,9 +68,10 @@ describe('DashboardPanel', () => {
         name: 'Bar chart of element counts by Category',
       }),
     ).toBeInTheDocument();
+    expect(screen.getByRole('list', { name: /Legend/ })).toBeInTheDocument();
     expect(
       screen.getByRole('img', {
-        name: 'Pie chart of element counts by Category',
+        name: 'Doughnut chart of element share by Category',
       }),
     ).toBeInTheDocument();
     expect(screen.getByText('Data table')).toBeInTheDocument();
@@ -132,6 +133,7 @@ describe('ExportButton', () => {
   it('shows status feedback', async () => {
     const adapter = await loaded();
     const onStatus = vi.fn();
+    const timeout = vi.spyOn(globalThis, 'setTimeout');
     vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
     vi.stubGlobal('URL', {
       ...URL,
@@ -145,6 +147,10 @@ describe('ExportButton', () => {
         /^Exported \d+ elements/,
       ),
     );
+    expect(
+      screen.getByRole('status').querySelector('.badge .badge__dot'),
+    ).not.toBeNull();
+    expect(timeout.mock.calls.some((call) => call[1] === 4000)).toBe(true);
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });

@@ -20,7 +20,13 @@ export interface ExportButtonProps {
   className?: string;
 }
 
-const TOAST_MS = 5000;
+const TOAST_MS = 4000;
+
+function badgeVariant(status: ExportStatus): string {
+  if (status.phase === 'error') return 'badge--error';
+  if (status.phase === 'done') return '';
+  return 'badge--busy';
+}
 
 export function ExportButton({
   adapter,
@@ -76,12 +82,13 @@ export function ExportButton({
       >
         {label}
       </button>
-      <div
-        className={`bsh-toast ${status ? `bsh-toast--${status.phase}` : ''}`.trim()}
-        role="status"
-        aria-live="polite"
-      >
-        {status ? describeStatus(status) : ''}
+      <div className="bsh-export__status" role="status" aria-live="polite">
+        {status ? (
+          <span className={`badge ${badgeVariant(status)}`.trim()}>
+            <span className="badge__dot" aria-hidden="true" />
+            {describeStatus(status)}
+          </span>
+        ) : null}
       </div>
     </div>
   );

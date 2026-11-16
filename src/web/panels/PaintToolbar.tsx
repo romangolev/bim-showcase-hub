@@ -21,6 +21,7 @@ export function PaintToolbar({ adapter, className }: PaintToolbarProps) {
       className={`bsh-paint ${className ?? ''}`.trim()}
       aria-label="Paint tools"
     >
+      <span className="bsh-paint__label">Paint selection</span>
       {PAINT_PRESETS.map((preset) => (
         <button
           key={preset.id}

@@ -160,9 +160,24 @@ describe('dashboard data', () => {
     ).toEqual(['Category', 'Assembly Code']);
   });
 
-  it('cycles theme colours', () => {
-    const theme = { series: ['a', 'b'], text: 't', grid: 'g', surface: 's' };
-    expect(seriesColors(theme, 5)).toEqual(['a', 'b', 'a', 'b', 'a']);
+  it('builds a single-hue ramp with a muted Other slice', () => {
+    const theme = {
+      accent: '#3b82f6',
+      muted: '#9d9e9f',
+      text: '#858687',
+      label: '#cececf',
+      grid: 'g',
+      surface: '#131416',
+      fontFamily: 'Inter',
+      fontWeight: '420',
+      fontSize: 12,
+    };
+    const colors = seriesColors(theme, ['a', 'b', 'c', OTHER_LABEL]);
+    expect(colors).toHaveLength(4);
+    expect(colors[0]).toBe('rgb(59, 130, 246)');
+    expect(new Set(colors).size).toBe(4);
+    expect(colors[3]).not.toBe(colors[2]);
+    expect(seriesColors(theme, ['only'])).toEqual(['rgb(59, 130, 246)']);
   });
 });
 

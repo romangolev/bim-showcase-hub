@@ -73,13 +73,34 @@ export function DashboardPanel({
 
   return (
     <section
-      className={`bsh-card ${className ?? ''}`.trim()}
+      className={`bsh-card bsh-drawer ${className ?? ''}`.trim()}
       aria-labelledby={`${uid}-title`}
+      data-collapsed={isCollapsed}
     >
-      <header className="bsh-card__header">
+      <header className="bsh-card__header bsh-drawer__header">
         <h2 id={`${uid}-title`} className="bsh-card__title">
           {title}
         </h2>
+        {chart && options.length > 0 && !isCollapsed ? (
+          <div className="bsh-field">
+            <span aria-hidden="true">Group by</span>
+            <label htmlFor={selectId} className="bsh-sr-only">
+              Group elements by
+            </label>
+            <select
+              id={selectId}
+              className="bsh-select"
+              value={selected}
+              onChange={(e) => setSelected(e.target.value)}
+            >
+              {options.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
         <button
           type="button"
           className="bsh-button"
@@ -90,7 +111,7 @@ export function DashboardPanel({
           {isCollapsed ? 'Expand' : 'Collapse'}
         </button>
       </header>
-      <div id={bodyId} hidden={isCollapsed}>
+      <div id={bodyId} className="bsh-drawer__body" hidden={isCollapsed}>
         {!resolved && <p className="bsh-muted">Load a model to see charts.</p>}
         {resolved && state.status === 'loading' && (
           <p className="bsh-muted" role="status">
@@ -104,31 +125,18 @@ export function DashboardPanel({
         )}
         {chart && options.length > 0 && (
           <>
-            <div className="bsh-field">
-              <label htmlFor={selectId}>Group elements by</label>
-              <select
-                id={selectId}
-                className="bsh-select"
-                value={selected}
-                onChange={(e) => setSelected(e.target.value)}
-              >
-                {options.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-              </select>
+            <div className="bsh-charts">
+              <ChartCanvas
+                kind="bar"
+                chart={chart}
+                label={`Bar chart of element counts by ${chart.property}`}
+              />
+              <ChartCanvas
+                kind="doughnut"
+                chart={chart}
+                label={`Doughnut chart of element share by ${chart.property}`}
+              />
             </div>
-            <ChartCanvas
-              kind="bar"
-              chart={chart}
-              label={`Bar chart of element counts by ${chart.property}`}
-            />
-            <ChartCanvas
-              kind="pie"
-              chart={chart}
-              label={`Pie chart of element counts by ${chart.property}`}
-            />
             <details className="bsh-details">
               <summary>Data table</summary>
               <table className="bsh-table">

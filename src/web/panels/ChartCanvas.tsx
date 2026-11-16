@@ -4,12 +4,11 @@ import {
   BarElement,
   CategoryScale,
   Chart,
-  Legend,
+  DoughnutController,
   LinearScale,
-  PieController,
   Tooltip,
 } from 'chart.js';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import {
   type ChartData,
   readChartTheme,
@@ -21,13 +20,15 @@ Chart.register(
   BarController,
   BarElement,
   CategoryScale,
-  Legend,
+  DoughnutController,
   LinearScale,
-  PieController,
   Tooltip,
 );
 
-export type ChartKind = 'bar' | 'pie';
+export type ChartKind = 'bar' | 'doughnut';
+
+export const LEGEND_LIMIT = 8;
+const TICK_LABEL_LIMIT = 10;
 
 export interface ChartCanvasProps {
   kind: ChartKind;
@@ -35,14 +36,31 @@ export interface ChartCanvasProps {
   label: string;
 }
 
+function shorten(text: string): string {
+  return text.length > TICK_LABEL_LIMIT
+    ? `${text.slice(0, TICK_LABEL_LIMIT - 1)}…`
+    : text;
+}
+
 export function ChartCanvas({ kind, chart, label }: ChartCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const colors = useMemo(
+    () =>
+      seriesColors(
+        readChartTheme(),
+        chart.data.map((d) => d.label),
+      ),
+    [chart],
+  );
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const theme = readChartTheme();
-    const colors = seriesColors(theme, chart.data.length);
+    Chart.defaults.font.family = theme.fontFamily;
+    Chart.defaults.font.size = theme.fontSize;
+    Chart.defaults.font.weight = Number(theme.fontWeight) || 420;
+    Chart.defaults.color = theme.text;
     const labels = chart.data.map((d) => d.label);
     const counts = chart.data.map((d) => d.count);
     const instance = new Chart(canvas, {
@@ -54,8 +72,8 @@ export function ChartCanvas({ kind, chart, label }: ChartCanvasProps) {
             label: chart.property,
             data: counts,
             backgroundColor: colors,
-            borderColor: theme.surface,
-            borderWidth: kind === 'pie' ? 1 : 0,
+            borderWidth: 0,
+            ...(kind === 'doughnut' ? { spacing: 2, borderRadius: 2 } : {}),
           },
         ],
       },
@@ -63,24 +81,32 @@ export function ChartCanvas({ kind, chart, label }: ChartCanvasProps) {
         responsive: true,
         maintainAspectRatio: false,
         animation: false,
+        ...(kind === 'doughnut' ? { cutout: '64%' } : {}),
         plugins: {
-          legend: {
-            display: kind === 'pie',
-            position: 'bottom',
-            labels: { color: theme.text, boxWidth: 10 },
-          },
+          legend: { display: false },
           tooltip: { enabled: true },
         },
         scales:
           kind === 'bar'
             ? {
                 x: {
-                  ticks: { color: theme.text },
-                  grid: { color: theme.grid },
+                  border: { display: false },
+                  ticks: {
+                    color: theme.text,
+                    maxRotation: 0,
+                    autoSkip: true,
+                    callback(value) {
+                      return shorten(
+                        String(this.getLabelForValue(Number(value))),
+                      );
+                    },
+                  },
+                  grid: { display: false },
                 },
                 y: {
                   beginAtZero: true,
-                  ticks: { color: theme.text, precision: 0 },
+                  border: { display: false },
+                  ticks: { color: theme.text, precision: 0, maxTicksLimit: 4 },
                   grid: { color: theme.grid },
                 },
               }
@@ -88,11 +114,37 @@ export function ChartCanvas({ kind, chart, label }: ChartCanvasProps) {
       },
     });
     return () => instance.destroy();
-  }, [kind, chart]);
+  }, [kind, chart, colors]);
+
+  const legend = chart.data.slice(0, LEGEND_LIMIT);
+  const hidden = chart.data.length - legend.length;
 
   return (
-    <div className="bsh-chart">
-      <canvas ref={canvasRef} role="img" aria-label={label} />
+    <div className={`bsh-chart bsh-chart--${kind}`}>
+      <div className="bsh-chart__plot">
+        <canvas ref={canvasRef} role="img" aria-label={label} />
+      </div>
+      {kind === 'doughnut' ? (
+        <ul className="bsh-legend" aria-label={`Legend for ${chart.property}`}>
+          {legend.map((d, index) => (
+            <li key={d.label} className="bsh-legend__item">
+              <span
+                className="bsh-legend__swatch"
+                style={{ background: colors[index] }}
+                aria-hidden="true"
+              />
+              <span className="bsh-legend__label" title={d.label}>
+                {d.label}
+              </span>
+            </li>
+          ))}
+          {hidden > 0 ? (
+            <li className="bsh-legend__item bsh-legend__more">
+              {hidden} more in the data table
+            </li>
+          ) : null}
+        </ul>
+      ) : null}
     </div>
   );
 }

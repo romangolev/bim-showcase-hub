@@ -67,25 +67,16 @@ export function availableProperties(
   );
 }
 
-export const CHART_PALETTE_TOKENS: readonly {
-  token: string;
-  fallback: string;
-}[] = [
-  { token: '--color-signal-blue', fallback: '#3b82f6' },
-  { token: '--color-arc-blue', fallback: '#60a5fa' },
-  { token: '--color-iris', fallback: '#314ef0' },
-  { token: '--color-ring-blue', fallback: '#93c5fd' },
-  { token: '--color-ash', fallback: '#9d9e9f' },
-  { token: '--color-steel', fallback: '#71717a' },
-  { token: '--color-chalk', fallback: '#cececf' },
-  { token: '--color-smoke', fallback: '#3c3d3e' },
-];
-
 export interface ChartTheme {
-  series: string[];
+  accent: string;
+  muted: string;
   text: string;
+  label: string;
   grid: string;
   surface: string;
+  fontFamily: string;
+  fontWeight: string;
+  fontSize: number;
 }
 
 function readToken(
@@ -102,18 +93,59 @@ export function readChartTheme(
 ): ChartTheme {
   const style = getComputedStyle(root);
   return {
-    series: CHART_PALETTE_TOKENS.map((t) =>
-      readToken(style, t.token, t.fallback),
-    ),
-    text: readToken(style, '--color-chalk', '#cececf'),
+    accent: readToken(style, '--color-signal-blue', '#3b82f6'),
+    muted: readToken(style, '--color-ash', '#9d9e9f'),
+    text: readToken(style, '--color-fog', '#858687'),
+    label: readToken(style, '--color-chalk', '#cececf'),
     grid: readToken(style, '--color-hairline-faint', 'rgba(255,255,255,0.06)'),
     surface: readToken(style, '--color-graphite', '#131416'),
+    fontFamily: readToken(
+      style,
+      '--font-sans',
+      '"Inter Variable", Inter, system-ui, sans-serif',
+    ),
+    fontWeight: readToken(style, '--weight-body', '420'),
+    fontSize: 12,
   };
 }
 
-export function seriesColors(theme: ChartTheme, count: number): string[] {
-  return Array.from(
-    { length: count },
-    (_, i) => theme.series[i % theme.series.length] ?? theme.text,
+function parseHex(color: string): [number, number, number] | null {
+  const match = /^#([0-9a-f]{6})$/i.exec(color.trim());
+  if (!match?.[1]) return null;
+  const value = Number.parseInt(match[1], 16);
+  return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
+}
+
+export function mixColors(from: string, to: string, weight: number): string {
+  const a = parseHex(from);
+  const b = parseHex(to);
+  if (!a || !b) return from;
+  const mixed = a.map((channel, i) =>
+    Math.round(channel * weight + (b[i] ?? 0) * (1 - weight)),
   );
+  return `rgb(${mixed.join(', ')})`;
+}
+
+const RAMP_MAX_WEIGHT = 1;
+const RAMP_MIN_WEIGHT = 0.32;
+const MUTED_WEIGHT = 0.5;
+
+export function seriesColors(
+  theme: ChartTheme,
+  labels: readonly string[],
+): string[] {
+  const steps = labels.filter((label) => label !== OTHER_LABEL).length;
+  let index = 0;
+  return labels.map((label) => {
+    if (label === OTHER_LABEL) {
+      return mixColors(theme.muted, theme.surface, MUTED_WEIGHT);
+    }
+    const t = steps <= 1 ? 0 : index / (steps - 1);
+    index += 1;
+    return mixColors(
+      theme.accent,
+      theme.surface,
+      RAMP_MAX_WEIGHT - t * (RAMP_MAX_WEIGHT - RAMP_MIN_WEIGHT),
+    );
+  });
 }

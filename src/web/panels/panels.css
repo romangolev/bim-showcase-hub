@@ -2,6 +2,8 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  min-width: 0;
+  min-height: 0;
   padding: var(--space-4);
   background: var(--color-graphite);
   border: var(--border-hairline);
@@ -17,6 +19,7 @@
 
 .bsh-card__header {
   display: flex;
+  flex: none;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
@@ -32,7 +35,7 @@
 
 .bsh-muted {
   margin: 0;
-  color: var(--color-steel);
+  color: var(--color-ash);
 }
 
 .bsh-error {
@@ -42,21 +45,30 @@
 
 .bsh-button,
 .bsh-select {
-  padding: var(--space-2) var(--space-3);
+  min-height: 32px;
+  padding: 0 var(--space-3);
   background: var(--color-ghost-fill);
   color: var(--color-snow);
   border: var(--border-hairline);
   border-radius: var(--radius-button);
   font: inherit;
+  font-size: var(--text-13);
   font-weight: var(--weight-ui);
 }
 
 .bsh-button {
   cursor: pointer;
+  transition:
+    background-color var(--transition-ui),
+    color var(--transition-ui);
 }
 
 .bsh-button:hover:not(:disabled) {
   background: var(--color-ghost-fill-hover);
+}
+
+.bsh-button:active:not(:disabled) {
+  background: var(--color-ghost-fill-active);
 }
 
 .bsh-button:disabled {
@@ -64,15 +76,10 @@
   cursor: not-allowed;
 }
 
-.bsh-button:focus-visible,
-.bsh-select:focus-visible,
-.bsh-icon-button:focus-visible {
-  outline: none;
-  box-shadow: var(--ring-focus);
-}
-
 .bsh-select {
+  max-width: 240px;
   background: var(--color-charcoal);
+  text-overflow: ellipsis;
 }
 
 .bsh-icon-button {
@@ -85,10 +92,15 @@
   border: var(--border-hairline);
   border-radius: var(--radius-tile);
   cursor: pointer;
+  transition: background-color var(--transition-ui);
 }
 
 .bsh-icon-button:hover:not(:disabled) {
   background: var(--color-ghost-fill-hover);
+}
+
+.bsh-icon-button:active:not(:disabled) {
+  background: var(--color-ghost-fill-active);
 }
 
 .bsh-icon-button:disabled {
@@ -97,13 +109,19 @@
 }
 
 .bsh-paint {
-  margin: 0;
-  padding: 0;
-  border: 0;
-  min-width: 0;
   display: inline-flex;
   align-items: center;
   gap: var(--gap-element);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.bsh-paint__label {
+  margin-right: var(--space-1);
+  color: var(--color-fog);
+  font-size: var(--text-13);
 }
 
 .bsh-paint__swatch {
@@ -113,53 +131,174 @@
 }
 
 .bsh-field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
   color: var(--color-fog);
   font-size: var(--text-13);
   font-weight: var(--weight-label);
 }
 
 .bsh-table-wrap {
-  max-height: 360px;
+  flex: 1;
+  min-height: 0;
   overflow: auto;
 }
 
 .bsh-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: var(--text-13);
 }
 
 .bsh-table th {
   position: sticky;
   top: 0;
-  padding: var(--space-2) var(--space-3);
+  z-index: 1;
+  padding: var(--space-2);
   background: var(--color-graphite);
   color: var(--color-fog);
   font-weight: var(--weight-label);
   text-align: left;
+  white-space: nowrap;
   border-bottom: var(--border-hairline);
 }
 
 .bsh-table td {
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-2);
   color: var(--color-chalk);
+  white-space: nowrap;
   border-bottom: 0.5px solid var(--color-hairline-faint);
 }
 
-.bsh-num {
+.bsh-table--summary .bsh-col-property {
+  min-width: 112px;
+}
+
+.bsh-table--summary .bsh-col-value {
+  width: 100%;
+  max-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bsh-table .bsh-num {
+  width: 1%;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
+.bsh-drawer {
+  gap: 0;
+  padding: 0;
+}
+
+.bsh-drawer__header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-graphite);
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
+}
+
+.bsh-drawer[data-collapsed="true"] .bsh-drawer__header {
+  border-radius: var(--radius-card);
+}
+
+.bsh-drawer__header .bsh-button[aria-expanded] {
+  margin-left: auto;
+}
+
+.bsh-drawer__body {
+  height: 172px;
+  padding: var(--space-3) var(--space-4) var(--space-3);
+  overflow: auto;
+  border-top: var(--border-hairline);
+}
+
+.bsh-drawer__body[hidden] {
+  display: none;
+}
+
+.bsh-charts {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: var(--gutter);
+  align-items: start;
+}
+
 .bsh-chart {
   position: relative;
-  height: 220px;
+  min-width: 0;
+  height: 120px;
+}
+
+.bsh-chart--doughnut {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.bsh-chart__plot {
+  position: relative;
+  flex: none;
+  width: 120px;
+  height: 120px;
+}
+
+.bsh-chart--bar .bsh-chart__plot {
+  width: 100%;
+}
+
+.bsh-legend {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  color: var(--color-chalk);
+  font-size: 12px;
+  list-style: none;
+}
+
+.bsh-legend__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.bsh-legend__swatch {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+.bsh-legend__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bsh-legend__more {
+  color: var(--color-fog);
+}
+
+.bsh-details {
+  margin-top: var(--space-2);
 }
 
 .bsh-details summary {
+  width: fit-content;
   cursor: pointer;
   color: var(--color-fog);
   font-size: var(--text-13);
@@ -180,16 +319,24 @@
   gap: var(--space-3);
 }
 
-.bsh-toast {
-  min-height: 1em;
-  color: var(--color-fog);
-  font-size: var(--text-13);
+.bsh-export__status {
+  display: inline-flex;
+  min-width: 0;
 }
 
-.bsh-toast--done {
-  color: var(--color-mint);
+@media (max-width: 700px) {
+  .bsh-charts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .bsh-drawer__body {
+    height: min(360px, 56vh);
+  }
 }
 
-.bsh-toast--error {
-  color: var(--color-coral);
+@media (prefers-reduced-motion: reduce) {
+  .bsh-button,
+  .bsh-icon-button {
+    transition: none;
+  }
 }
