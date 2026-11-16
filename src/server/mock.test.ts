@@ -20,6 +20,7 @@ interface Walk {
   items: TreeNode[];
   versions: TreeNode[];
   maxDepth: number;
+  projectOf: Record<string, string>;
 }
 
 async function walk(): Promise<Walk> {
@@ -30,6 +31,7 @@ async function walk(): Promise<Walk> {
     items: [],
     versions: [],
     maxDepth: 0,
+    projectOf: {},
   };
   async function visitFolder(
     projectId: string,
@@ -48,6 +50,7 @@ async function walk(): Promise<Walk> {
       } else {
         expect(node.kind).toBe('item');
         out.items.push(node);
+        out.projectOf[node.id] = projectId;
         const versions = await getNodes(
           `/api/projects/${projectId}/items/${node.id}/versions`,
         );
@@ -153,6 +156,24 @@ describe('mock mode', () => {
     for (const ext of ['rvt', 'nwd', 'ifc', 'dwg', 'pdf']) {
       expect(extensions.has(ext)).toBe(true);
     }
+  });
+
+  it('reports the view state of a single version', async () => {
+    const tree = await walk();
+    const item = tree.items.find((i) => i.name === 'STATE-no-geometry.rvt');
+    const version = tree.versions.find((v) => v.parentId === item?.id);
+    expect(item && version).toBeTruthy();
+    const projectId = tree.projectOf[item?.id ?? ''];
+    const res = await request(app).get(
+      `/api/projects/${projectId}/items/${item?.id}/versions/${version?.id}/view-state`,
+    );
+    expect(projectId).toBeTruthy();
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ viewState: 'no-geometry', viewable: false });
+    const missing = await request(app).get(
+      `/api/projects/${projectId}/items/${item?.id}/versions/${item?.id}/view-state`,
+    );
+    expect(missing.status).toBe(404);
   });
 
   it('is deterministic across app instances', async () => {

@@ -299,6 +299,8 @@ describe('withViewStates', () => {
     const older = out.filter((n) => n.viewState === 'unknown');
     expect(older).toHaveLength(7);
     expect(older.every((n) => n.viewable)).toBe(true);
+    expect(older.every((n) => n.checked === false)).toBe(true);
+    expect(out.filter((n) => n.checked === false)).toHaveLength(7);
   });
 
   it('returns within the budget for 150 slow versions', async () => {
@@ -319,6 +321,7 @@ describe('withViewStates', () => {
     expect(out.every((n) => n.viewState === 'unknown' && n.viewable)).toBe(
       true,
     );
+    expect(out.filter((n) => n.checked !== false)).toHaveLength(5);
   });
 
   it('keeps unknown versions openable', async () => {

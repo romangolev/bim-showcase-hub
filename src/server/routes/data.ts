@@ -71,5 +71,21 @@ export function dataRouter(
     ['projectId', 'itemId'],
   );
 
+  const viewState: RequestHandler = async (req, res) => {
+    const token = await tokenFor(req);
+    res.json(
+      await data.versionViewState(
+        token,
+        decodeId(String(req.params.projectId)),
+        decodeId(String(req.params.itemId)),
+        decodeId(String(req.params.versionId)),
+      ),
+    );
+  };
+  router.get(
+    '/projects/:projectId/items/:itemId/versions/:versionId/view-state',
+    viewState,
+  );
+
   return router;
 }

@@ -493,9 +493,11 @@ describe('DocumentTree multi-select', () => {
     fireEvent.click(
       screen.getByRole('button', { name: 'Add Tower.rvt to the open viewer' }),
     );
-    expect(onAdd).toHaveBeenCalledWith([
-      expect.objectContaining({ urn: 'urn-1' }),
-    ]);
+    await waitFor(() =>
+      expect(onAdd).toHaveBeenCalledWith([
+        expect.objectContaining({ urn: 'urn-1' }),
+      ]),
+    );
   });
 });
 
@@ -587,5 +589,129 @@ describe('DocumentTree picking skips blocked versions', () => {
     expect(row(1).querySelector('.tree-row__action')).not.toBeNull();
     expect(row(2).querySelector('.tree-row__action')).toBeNull();
     expect(row(4).querySelector('.tree-row__action')).toBeNull();
+  });
+});
+
+describe('DocumentTree versions that were never checked', () => {
+  const never = (index: number, urn: string) => ({
+    id: `nv${index}`,
+    kind: 'version' as const,
+    name: `v${index}: Issue ${index}`,
+    hasChildren: false,
+    viewable: true,
+    viewState: 'unknown' as const,
+    checked: false,
+    urn,
+    parentId: 'i1',
+  });
+
+  async function openNever(
+    states: Record<string, string>,
+    props: Record<string, unknown> = {},
+    pollMs = 0,
+  ) {
+    let listings = 0;
+    const checks: string[] = [];
+    const routes: Record<string, unknown> = {
+      ...treeRoutes,
+      '/api/projects/p1/items/i1/versions': () => {
+        listings += 1;
+        return json([never(1, 'urn-1'), never(2, 'urn-2')]);
+      },
+    };
+    for (const [id, state] of Object.entries(states)) {
+      routes[`/api/projects/p1/items/i1/versions/${id}/view-state`] = () => {
+        checks.push(id);
+        return json({ viewState: state, viewable: state === 'ready' });
+      };
+    }
+    mockFetch(routes);
+    const onOpenModel = vi.fn();
+    const onOpenTogether = vi.fn();
+    render(
+      <QueryClientProvider client={createTestClient()}>
+        <DocumentTree
+          onOpenModel={onOpenModel}
+          onOpenTogether={onOpenTogether}
+          pollMs={pollMs}
+          {...props}
+        />
+      </QueryClientProvider>,
+    );
+    await expandTo('Studio hub');
+    await expandTo('Riverside Tower');
+    await expandTo('Project Files');
+    await expandTo('Tower.rvt');
+    await screen.findByRole('treeitem', { name: 'v1: Issue 1' });
+    return { onOpenModel, onOpenTogether, checks, listings: () => listings };
+  }
+
+  it('checks a never-checked version before opening it', async () => {
+    const { onOpenModel, checks } = await openNever({
+      nv1: 'no-geometry',
+      nv2: 'ready',
+    });
+    fireEvent.click(row(1));
+    await waitFor(() =>
+      expect(
+        document.querySelector('.doc-tree__notice')?.textContent,
+      ).toContain('cannot be opened'),
+    );
+    expect(onOpenModel).not.toHaveBeenCalled();
+    expect(row(1)).toHaveAttribute('data-view-state', 'no-geometry');
+    fireEvent.click(row(2));
+    await waitFor(() => expect(onOpenModel).toHaveBeenCalledTimes(1));
+    expect(onOpenModel.mock.calls[0]?.[0]).toBe('urn-2');
+    expect(checks).toEqual(['nv1', 'nv2']);
+    fireEvent.click(row(2));
+    await waitFor(() => expect(onOpenModel).toHaveBeenCalledTimes(2));
+    expect(checks).toEqual(['nv1', 'nv2']);
+  });
+
+  it('checks before picking and never picks a blocked one', async () => {
+    await openNever({ nv1: 'processing', nv2: 'ready' });
+    fireEvent.click(row(1), { ctrlKey: true });
+    await waitFor(() =>
+      expect(
+        document.querySelector('.doc-tree__notice')?.textContent,
+      ).toContain('cannot be opened'),
+    );
+    expect(row(1)).not.toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(row(2), { ctrlKey: true });
+    await waitFor(() => expect(row(2)).toHaveAttribute('aria-checked', 'true'));
+  });
+
+  it('checks before adding to the open viewer', async () => {
+    const onAdd = vi.fn();
+    await openNever(
+      { nv1: 'failed', nv2: 'ready' },
+      {
+        addTarget: {
+          label: 'the open viewer',
+          canAdd: () => true,
+          onAdd,
+        },
+      },
+    );
+    const buttons = screen.getAllByRole('button', {
+      name: 'Add Tower.rvt to the open viewer',
+    });
+    fireEvent.click(buttons[0] as HTMLElement);
+    await waitFor(() =>
+      expect(
+        document.querySelector('.doc-tree__notice')?.textContent,
+      ).toContain('cannot be opened'),
+    );
+    expect(onAdd).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Add Tower.rvt to the open viewer' }),
+    );
+    await waitFor(() => expect(onAdd).toHaveBeenCalledTimes(1));
+  });
+
+  it('does not poll for versions that were never checked', async () => {
+    const { listings } = await openNever({}, {}, 20);
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(listings()).toBe(1);
   });
 });

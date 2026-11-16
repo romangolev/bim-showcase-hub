@@ -1,4 +1,8 @@
-import type { SessionUser, TreeNode } from '../../shared/types.js';
+import type {
+  SessionUser,
+  TreeNode,
+  VersionViewState,
+} from '../../shared/types.js';
 import { childrenPath, type NodeScope } from './scope.js';
 
 export type Session = SessionUser;
@@ -83,6 +87,18 @@ export async function fetchAuthUrl(): Promise<string> {
 
 export async function postSignOut(): Promise<void> {
   await request('/api/auth/signout', { method: 'POST' });
+}
+
+export async function fetchVersionViewState(
+  projectId: string,
+  itemId: string,
+  versionId: string,
+): Promise<VersionViewState> {
+  const enc = encodeURIComponent;
+  const res = await request(
+    `/api/projects/${enc(projectId)}/items/${enc(itemId)}/versions/${enc(versionId)}/view-state`,
+  );
+  return (await res.json()) as VersionViewState;
 }
 
 export async function fetchChildren(

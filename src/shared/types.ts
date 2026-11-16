@@ -9,8 +9,14 @@ export interface TreeNode {
   hasChildren: boolean;
   viewable: boolean;
   viewState?: ViewState;
+  checked?: boolean;
   urn?: string;
   parentId?: string;
+}
+
+export interface VersionViewState {
+  viewState: ViewState;
+  viewable: boolean;
 }
 
 export interface SessionUser {

@@ -14,8 +14,9 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { TreeNode } from '../../../shared/types.js';
+import type { TreeNode, VersionViewState } from '../../../shared/types.js';
 import { viewableFor } from '../../../shared/viewState.js';
+import { fetchVersionViewState } from '../../api/client.js';
 import { friendlyError } from '../../api/friendlyError.js';
 import { childrenQueryOptions } from '../../api/hooks.js';
 import { type ModelContext, versionTag } from '../../api/modelContext.js';
@@ -215,7 +216,45 @@ export function DocumentTree({
     return context;
   };
 
-  const openNode = (node: TreeNode) => {
+  const [checkedStates, setCheckedStates] = useState<
+    Record<string, VersionViewState>
+  >({});
+
+  const resolved = (node: TreeNode): TreeNode => {
+    const found = checkedStates[node.id];
+    return found ? { ...node, ...found, checked: true } : node;
+  };
+
+  const needsCheck = (node: TreeNode) =>
+    node.kind === 'version' && node.checked === false;
+
+  const ensureChecked = async (input: TreeNode): Promise<TreeNode> => {
+    const node = resolved(input);
+    if (!needsCheck(node)) return node;
+    const scope = registry.scopes.get(node.id);
+    const projectId =
+      scope && scope.kind !== 'root' ? scope.projectId : undefined;
+    if (!projectId || !node.parentId) return node;
+    let state: VersionViewState;
+    try {
+      state = await fetchVersionViewState(projectId, node.parentId, node.id);
+    } catch {
+      state = { viewState: 'unknown', viewable: true };
+    }
+    setCheckedStates((current) => ({ ...current, [node.id]: state }));
+    return { ...node, ...state, checked: true };
+  };
+
+  const openNode = (input: TreeNode) => {
+    const node = resolved(input);
+    if (needsCheck(node)) {
+      void ensureChecked(node).then(openChecked);
+      return;
+    }
+    openChecked(node);
+  };
+
+  const openChecked = (node: TreeNode) => {
     const urn = openableUrn(node);
     if (urn) {
       setNotice(null);
@@ -250,7 +289,14 @@ export function DocumentTree({
   const isBlocked = (node: TreeNode) =>
     node.kind === 'version' && openableUrn(node) === null;
 
-  const togglePick = (node: TreeNode) => {
+  const togglePick = (input: TreeNode) => {
+    const node = resolved(input);
+    if (needsCheck(node)) {
+      void ensureChecked(node).then((checked) =>
+        isBlocked(checked) ? openChecked(checked) : togglePick(checked),
+      );
+      return;
+    }
     const urn = openableUrn(node);
     if (!urn) return;
     anchorRef.current = node.id;
@@ -262,19 +308,29 @@ export function DocumentTree({
   };
 
   const pickRange = (node: TreeNode) => {
-    const versions = rowsRef.current.flatMap((row) => {
+    const listed = rowsRef.current.flatMap((row) => {
       const data =
         row.type === 'node'
           ? row.item.getItemData()
           : row.type === 'result'
             ? row.node
             : null;
-      return data?.kind === 'version' ? [data] : [];
+      return data?.kind === 'version' ? [resolved(data)] : [];
     });
+    if (listed.some(needsCheck)) {
+      void Promise.all(listed.map(ensureChecked)).then((checked) =>
+        pickRangeOf(checked, node),
+      );
+      return;
+    }
+    pickRangeOf(listed, node);
+  };
+
+  const pickRangeOf = (versions: TreeNode[], node: TreeNode) => {
     const from = versions.findIndex((entry) => entry.id === anchorRef.current);
     const to = versions.findIndex((entry) => entry.id === node.id);
     if (from === -1 || to === -1) {
-      if (isBlocked(node)) openNode(node);
+      if (isBlocked(resolved(node))) openNode(node);
       else togglePick(node);
       return;
     }
@@ -333,7 +389,13 @@ export function DocumentTree({
         title={label}
         onClick={(event) => {
           event.stopPropagation();
-          addTarget.onAdd([{ urn, context: contextFor(node) }]);
+          void ensureChecked(node).then((checked) => {
+            if (openableUrn(checked)) {
+              addTarget.onAdd([{ urn, context: contextFor(checked) }]);
+            } else {
+              openChecked(checked);
+            }
+          });
         }}
       >
         <Icon name="plus" size={13} />
@@ -590,6 +652,9 @@ export function DocumentTree({
     if (node.kind !== 'version' || !node.parentId) {
       continue;
     }
+    if (node.checked === false) {
+      continue;
+    }
     const state = viewStateOf(node);
     if (state === 'processing') {
       processingParents.add(node.parentId);
@@ -663,7 +728,7 @@ export function DocumentTree({
 
     if (row.type === 'node') {
       const item = row.item;
-      const node = item.getItemData();
+      const node = resolved(item.getItemData());
       const meta = item.getItemMeta();
       const urn = openableUrn(node);
       const disabled = node.kind === 'version' && urn === null;
@@ -713,21 +778,22 @@ export function DocumentTree({
     }
 
     if (row.type === 'result') {
-      const urn = openableUrn(row.node);
-      const disabled = row.node.kind === 'version' && urn === null;
+      const resultNode = resolved(row.node);
+      const urn = openableUrn(resultNode);
+      const disabled = resultNode.kind === 'version' && urn === null;
       return (
         <TreeRowView
           key={row.key}
           level={0}
-          kind={row.node.kind}
-          name={row.node.name}
-          viewState={viewStateOf(row.node)}
-          caption={row.node.kind === 'version' ? undefined : row.node.kind}
-          secondary={parentName(row.node)}
+          kind={resultNode.kind}
+          name={resultNode.name}
+          viewState={viewStateOf(resultNode)}
+          caption={resultNode.kind === 'version' ? undefined : resultNode.kind}
+          secondary={parentName(resultNode)}
           highlight={query}
           selected={urn !== null && urn === selectedUrn}
           picked={urn !== null && pickedUrns.has(urn)}
-          action={rowAction(row.node)}
+          action={rowAction(resultNode)}
           rowProps={{
             role: 'option',
             'aria-checked':
@@ -738,12 +804,12 @@ export function DocumentTree({
             'aria-selected': urn !== null && urn === selectedUrn,
             'aria-disabled': disabled || undefined,
             onClick: (event: MouseEvent<HTMLDivElement>) => {
-              if (onOpenTogether && onPickClick(event, row.node)) return;
-              openNode(row.node);
+              if (onOpenTogether && onPickClick(event, resultNode)) return;
+              openNode(resultNode);
             },
             onKeyDown: (event) => {
-              if (onOpenTogether && onPickKey(event, row.node)) return;
-              onResultKeyDown(event, row.node);
+              if (onOpenTogether && onPickKey(event, resultNode)) return;
+              onResultKeyDown(event, resultNode);
             },
             style: position,
           }}

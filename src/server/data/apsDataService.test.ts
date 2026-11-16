@@ -47,6 +47,35 @@ describe('createApsDataService', () => {
     expect(versions[0]?.kind).toBe('version');
   });
 
+  it('checks one version on demand with the shared checker', async () => {
+    const client = fakeClient();
+    client.getItemVersions.mockResolvedValue({
+      data: [
+        {
+          id: 'v?version=2',
+          relationships: { derivatives: { data: { id: 'urnA' } } },
+        },
+        { id: 'v?version=1' },
+      ],
+    });
+    const check = vi.fn().mockResolvedValue('no-geometry');
+    const service = createApsDataService(client as never, {
+      check,
+      clear: () => undefined,
+    });
+    check.mockClear();
+    await expect(
+      service.versionViewState('tok', 'b.p', 'i1', 'v?version=2'),
+    ).resolves.toEqual({ viewState: 'no-geometry', viewable: false });
+    expect(check).toHaveBeenCalledWith('tok', 'urnA');
+    await expect(
+      service.versionViewState('tok', 'b.p', 'i1', 'v?version=1'),
+    ).resolves.toEqual({ viewState: 'not-translated', viewable: false });
+    await expect(
+      service.versionViewState('tok', 'b.p', 'i1', 'v?version=9'),
+    ).rejects.toMatchObject({ status: 404 });
+  });
+
   it('attaches the checked view state to each version with a derivative', async () => {
     const client = fakeClient();
     client.getItemVersions.mockResolvedValue({

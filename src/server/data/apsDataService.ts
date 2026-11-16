@@ -1,5 +1,7 @@
 import { DataManagementClient } from '@aps_sdk/data-management';
-import { toHttpError } from '../errors.js';
+import { viewableFor } from '../../shared/viewState.js';
+import { HttpError, toHttpError } from '../errors.js';
+import { encodeId } from '../ids.js';
 import {
   mapFolderContents,
   mapHubs,
@@ -70,6 +72,21 @@ export function createApsDataService(
           token,
           views,
         );
+      }),
+    versionViewState: (token, projectId, itemId, versionId) =>
+      guarded(async () => {
+        const res = await client.getItemVersions(projectId, itemId, {
+          accessToken: token,
+        });
+        const version = mapVersions(res.data ?? [], itemId).find(
+          (node) => node.id === encodeId(versionId),
+        );
+        if (!version) throw new HttpError(404, 'Version not found');
+        if (!version.urn) {
+          return { viewState: 'not-translated', viewable: false };
+        }
+        const viewState = await views.check(token, version.urn);
+        return { viewState, viewable: viewableFor(viewState) };
       }),
   };
 }

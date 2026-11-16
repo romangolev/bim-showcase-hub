@@ -127,5 +127,20 @@ export function createMockDataService(
         return node;
       });
     },
+
+    async versionViewState(_token, projectId, itemId, versionId) {
+      const item = data.items.get(itemId);
+      if (!item || item.projectId !== projectId) {
+        throw notFound('Item');
+      }
+      const version = item.versions.find((entry) => entry.id === versionId);
+      if (!version) {
+        throw notFound('Version');
+      }
+      return {
+        viewState: version.viewState,
+        viewable: viewableFor(version.viewState),
+      };
+    },
   };
 }

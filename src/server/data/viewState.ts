@@ -245,8 +245,11 @@ export async function withViewStates(
   try {
     return await Promise.all(
       nodes.map(async (node) => {
-        if (!checked.has(node) || !node.urn) {
+        if (!node.urn) {
           return node;
+        }
+        if (!checked.has(node)) {
+          return { ...node, checked: false };
         }
         const viewState = await Promise.race([
           checker.check(token, node.urn),
