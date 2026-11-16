@@ -8,12 +8,14 @@ import { lazy, Suspense } from 'react';
 import { type ModelContext, parseModelContext } from '../api/modelContext.js';
 import { AppShell } from '../components/AppShell.js';
 import { EmptyState } from '../components/EmptyState.js';
+import { NotFound } from '../components/NotFound.js';
 
 const ModelPage = lazy(() =>
   import('./ModelPage.js').then((module) => ({ default: module.ModelPage })),
 );
 
 const rootRoute = createRootRoute({
+  notFoundComponent: NotFound,
   component: () => (
     <AppShell>
       <Outlet />
@@ -48,6 +50,7 @@ const modelRoute = createRoute({
           file={search.file}
           version={search.v}
           crumbs={search.crumbs}
+          hasTrail={Boolean(search.trail?.length)}
         />
       </Suspense>
     );

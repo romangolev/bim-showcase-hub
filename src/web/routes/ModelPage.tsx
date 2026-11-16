@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { describeModel } from '../api/modelContext.js';
 import { Icon } from '../components/icons.js';
+import { useTreeControl } from '../components/TreeControl.js';
 import {
   composeTitle,
   useDocumentTitle,
@@ -107,9 +108,17 @@ export interface ModelPageProps {
   file?: string;
   version?: string;
   crumbs?: readonly string[];
+  hasTrail?: boolean;
 }
 
-export function ModelPage({ urn, file, version, crumbs }: ModelPageProps) {
+export function ModelPage({
+  urn,
+  file,
+  version,
+  crumbs,
+  hasTrail = false,
+}: ModelPageProps) {
+  const treeControl = useTreeControl();
   const [dashboardCollapsed, setDashboardCollapsed] = useState(
     readDashboardCollapsed,
   );
@@ -154,11 +163,31 @@ export function ModelPage({ urn, file, version, crumbs }: ModelPageProps) {
               ) : null}
             </h1>
             <UrnControl urn={urn} />
+            {hasTrail ? (
+              <button
+                type="button"
+                className="icon-button model-locate"
+                aria-label="Show in documents"
+                title="Show in documents"
+                onClick={() => treeControl?.reveal()}
+              >
+                <Icon name="locate" size={16} />
+              </button>
+            ) : null}
           </div>
-          {identity.hasFile ? null : (
+          {identity.hasFile || hasTrail ? null : (
             <p className="model-hint">
-              Open this model from the document tree to see its file name and
-              location.
+              <span>
+                Open the document panel and pick this model to see its file name
+                and location
+              </span>
+              <button
+                type="button"
+                className="model-hint__action"
+                onClick={() => treeControl?.reveal()}
+              >
+                Open documents
+              </button>
             </p>
           )}
         </header>

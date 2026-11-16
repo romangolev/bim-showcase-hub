@@ -55,6 +55,13 @@ const PATHS = {
   layers: ['m12 2 10 5-10 5L2 7Z', 'm2 12 10 5 10-5', 'm2 17 10 5 10-5'],
   table: ['M3 5h18v14H3Z', 'M3 10h18', 'M9 10v9'],
   close: ['M18 6 6 18', 'm6 6 12 12'],
+  locate: [
+    'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z',
+    'M12 2v3',
+    'M12 19v3',
+    'M2 12h3',
+    'M19 12h3',
+  ],
 } as const;
 
 export type IconName = keyof typeof PATHS;

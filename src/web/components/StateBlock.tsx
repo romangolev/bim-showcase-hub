@@ -5,11 +5,14 @@ import './state-block.css';
 export interface StateBlockAction {
   label: string;
   onClick: () => void;
+  primary?: boolean;
 }
 
 export interface StateBlockProps {
   variant: 'loading' | 'empty' | 'error';
   title?: string;
+  titleAs?: 'p' | 'h1' | 'h2';
+  titleId?: string;
   message?: string;
   detail?: string;
   action?: StateBlockAction;
@@ -25,6 +28,8 @@ const SKELETON_WIDTHS = ['72%', '54%', '88%', '46%', '66%'];
 export function StateBlock({
   variant,
   title,
+  titleAs: TitleTag = 'p',
+  titleId,
   message,
   detail,
   action,
@@ -75,14 +80,18 @@ export function StateBlock({
         <Icon name={resolvedIcon} size={compact ? 14 : 18} />
       </span>
       <div className="state-block__body">
-        {title ? <p className="state-block__title">{title}</p> : null}
+        {title ? (
+          <TitleTag id={titleId} className="state-block__title">
+            {title}
+          </TitleTag>
+        ) : null}
         {message ? <p className="state-block__message">{message}</p> : null}
         {children}
       </div>
       {action ? (
         <button
           type="button"
-          className="btn btn-small state-block__action"
+          className={`btn btn-small state-block__action${action.primary ? ' btn-primary' : ''}`}
           onClick={action.onClick}
         >
           {action.label}

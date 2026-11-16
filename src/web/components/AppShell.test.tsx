@@ -11,9 +11,9 @@ import {
   treeRoutes,
 } from '../test/mockApi.js';
 
-function renderApp() {
+function renderApp(path = '/') {
   const appRouter = createAppRouter(
-    createMemoryHistory({ initialEntries: ['/'] }),
+    createMemoryHistory({ initialEntries: [path] }),
   );
   render(<App appRouter={appRouter} client={createTestClient()} />);
 }
@@ -116,6 +116,54 @@ describe('AppShell responsive tree', () => {
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(
       screen.getByRole('complementary', { name: 'Documents' }),
+    ).toBeInTheDocument();
+  });
+
+  it('moves focus to the toggle when the tree auto-closes with focus inside it', async () => {
+    const media = mockMatchMedia(1100);
+    renderApp();
+    const filter = await screen.findByRole('searchbox', {
+      name: 'Filter loaded nodes',
+    });
+    filter.focus();
+    expect(filter).toHaveFocus();
+
+    act(() => media.setWidth(900));
+    expect(
+      screen.getByRole('button', { name: 'Expand document tree' }),
+    ).toHaveFocus();
+  });
+
+  it('leaves focus alone when the tree auto-closes with focus elsewhere', async () => {
+    const media = mockMatchMedia(1100);
+    renderApp();
+    await screen.findByRole('complementary', { name: 'Documents' });
+    const main = screen.getByRole('main');
+    main.focus();
+
+    act(() => media.setWidth(900));
+    expect(main).toHaveFocus();
+  });
+});
+
+describe('unknown routes', () => {
+  it('renders a not found state inside the shell with a way back', async () => {
+    mockMatchMedia(1440);
+    renderApp('/nope');
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Page not found' }),
+    ).toBeInTheDocument();
+    expect(document.title).toBe('Not found · BIM Showcase Hub');
+    expect(screen.getByRole('main')).toContainElement(
+      screen.getByRole('heading', { name: 'Page not found' }),
+    );
+    expect(
+      screen.getByRole('complementary', { name: 'Documents' }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back to documents' }));
+    expect(
+      await screen.findByRole('heading', { name: 'Pick a model to explore' }),
     ).toBeInTheDocument();
   });
 });

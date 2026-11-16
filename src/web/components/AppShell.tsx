@@ -3,12 +3,15 @@ import {
   type ReactNode,
   useCallback,
   useEffect,
+  useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
 import { useSession } from '../api/hooks.js';
 import { Landing } from './Landing.js';
 import { TopBar } from './TopBar.js';
+import { TreeControlContext } from './TreeControl.js';
 import { TreePanel } from './TreePanel.js';
 import { useMediaQuery } from './useMediaQuery.js';
 
@@ -29,6 +32,19 @@ export function AppShell({ children }: { children: ReactNode }) {
     setTreeOpen(!overlay);
   }
   const overlayOpen = overlay && treeOpen;
+  const previousOverlay = useRef(overlay);
+
+  useLayoutEffect(() => {
+    const wasOverlay = previousOverlay.current;
+    previousOverlay.current = overlay;
+    if (wasOverlay || !overlay) {
+      return;
+    }
+    const panel = document.getElementById('document-panel');
+    if (panel?.contains(document.activeElement)) {
+      toggleRef.current?.focus();
+    }
+  }, [overlay]);
 
   const closeTree = useCallback(() => {
     setTreeOpen(false);
@@ -47,6 +63,23 @@ export function AppShell({ children }: { children: ReactNode }) {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [overlayOpen, closeTree]);
+
+  const treeControl = useMemo(
+    () => ({
+      reveal: () => {
+        setTreeOpen(true);
+        requestAnimationFrame(() => {
+          const target =
+            document.querySelector<HTMLElement>(
+              '#document-panel [aria-selected="true"]',
+            ) ?? document.querySelector<HTMLElement>('#document-panel input');
+          target?.focus();
+          target?.scrollIntoView({ block: 'nearest' });
+        });
+      },
+    }),
+    [],
+  );
 
   const toggleTree = () => {
     const next = !treeOpen;
@@ -101,7 +134,9 @@ export function AppShell({ children }: { children: ReactNode }) {
               Loading
             </p>
           ) : signedIn ? (
-            children
+            <TreeControlContext.Provider value={treeControl}>
+              {children}
+            </TreeControlContext.Provider>
           ) : (
             <Landing />
           )}

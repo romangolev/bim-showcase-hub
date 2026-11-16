@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { TreeControlContext } from '../components/TreeControl.js';
 import {
   DASHBOARD_STORAGE_KEY,
   ModelPage,
@@ -87,8 +88,16 @@ describe('ModelPage', () => {
     expect(heading).toHaveTextContent(/^Untitled model/);
     expect(heading).toHaveTextContent('v2');
     expect(
-      screen.getByText(/Open this model from the document tree/),
+      screen.getByText(
+        'Open the document panel and pick this model to see its file name and location',
+      ),
     ).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'Open documents' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Show in documents' }),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole('navigation', { name: 'Breadcrumb' }),
     ).not.toBeInTheDocument();
@@ -199,5 +208,30 @@ describe('middleEllipsis', () => {
     expect(middleEllipsis('abcdefghijklmnopqrstuvwxyz', 6, 4)).toBe(
       'abcdef…wxyz',
     );
+  });
+
+  it('reveals the tree from the show in documents action when trail context exists', () => {
+    const reveal = vi.fn();
+    render(
+      <TreeControlContext.Provider value={{ reveal }}>
+        <ModelPage urn={LONG_URN} file="Tower.rvt" hasTrail />
+      </TreeControlContext.Provider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Show in documents' }));
+    expect(reveal).toHaveBeenCalledTimes(1);
+    expect(
+      screen.queryByRole('button', { name: 'Open documents' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('opens the tree from the empty hint action', () => {
+    const reveal = vi.fn();
+    render(
+      <TreeControlContext.Provider value={{ reveal }}>
+        <ModelPage urn={LONG_URN} />
+      </TreeControlContext.Provider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Open documents' }));
+    expect(reveal).toHaveBeenCalledTimes(1);
   });
 });

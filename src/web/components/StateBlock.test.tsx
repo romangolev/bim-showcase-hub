@@ -45,4 +45,21 @@ describe('StateBlock', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(retry).toHaveBeenCalledTimes(1);
   });
+
+  it('renders the title as the requested heading and a primary action', () => {
+    render(
+      <StateBlock
+        variant="empty"
+        title="Page not found"
+        titleAs="h1"
+        action={{ label: 'Go back', onClick: () => undefined, primary: true }}
+      />,
+    );
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Page not found' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Go back' })).toHaveClass(
+      'btn-primary',
+    );
+  });
 });
