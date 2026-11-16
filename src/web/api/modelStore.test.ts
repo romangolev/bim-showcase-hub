@@ -1,9 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   MODEL_STORE_KEY,
   MODEL_STORE_LIMIT,
+  modelStoreVersion,
   recallModel,
   rememberModel,
+  subscribeModelStore,
 } from './modelStore.js';
 
 function memoryStorage(): Storage {
@@ -70,6 +72,22 @@ describe('modelStore', () => {
     ) as { urn: string }[];
     expect(stored.map((entry) => entry.urn)).toEqual(['urn-a', 'urn-b']);
     expect(recallModel('urn-a')?.file).toBe('A2.rvt');
+  });
+
+  it('tells subscribers when a model is remembered or another tab writes', () => {
+    const listener = vi.fn();
+    const stop = subscribeModelStore(listener);
+    const before = modelStoreVersion();
+    rememberModel('urn-a', { file: 'A.rvt' });
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(modelStoreVersion()).toBe(before + 1);
+    window.dispatchEvent(new StorageEvent('storage', { key: MODEL_STORE_KEY }));
+    expect(listener).toHaveBeenCalledTimes(2);
+    window.dispatchEvent(new StorageEvent('storage', { key: 'other' }));
+    expect(listener).toHaveBeenCalledTimes(2);
+    stop();
+    rememberModel('urn-b', { file: 'B.rvt' });
+    expect(listener).toHaveBeenCalledTimes(2);
   });
 
   it('caps the store to the most recent models', () => {

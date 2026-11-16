@@ -7,9 +7,24 @@ export function apiForRegion(region: ViewerRegion): string {
 }
 
 let pageRegion: ViewerRegion | null = null;
+const regionListeners = new Set<() => void>();
+
+function notifyRegion(): void {
+  for (const listener of [...regionListeners]) listener();
+}
+
+export function onRegionChange(listener: () => void): () => void {
+  regionListeners.add(listener);
+  return () => {
+    regionListeners.delete(listener);
+  };
+}
 
 export function claimRegion(region: ViewerRegion): boolean {
-  if (pageRegion === null) pageRegion = region;
+  if (pageRegion === null) {
+    pageRegion = region;
+    notifyRegion();
+  }
   return pageRegion === region;
 }
 
@@ -22,7 +37,9 @@ export function currentRegion(): ViewerRegion | null {
 }
 
 export function resetRegion(): void {
+  if (pageRegion === null) return;
   pageRegion = null;
+  notifyRegion();
 }
 
 export function regionConflictMessage(region: ViewerRegion): string {

@@ -26,6 +26,35 @@ function readAll(): StoredModel[] {
   }
 }
 
+let storeVersion = 0;
+const storeListeners = new Set<() => void>();
+
+function notifyStore(): void {
+  storeVersion += 1;
+  for (const listener of [...storeListeners]) listener();
+}
+
+function onStorage(event: StorageEvent): void {
+  if (event.key === null || event.key === MODEL_STORE_KEY) notifyStore();
+}
+
+export function subscribeModelStore(listener: () => void): () => void {
+  if (storeListeners.size === 0 && typeof window !== 'undefined') {
+    window.addEventListener('storage', onStorage);
+  }
+  storeListeners.add(listener);
+  return () => {
+    storeListeners.delete(listener);
+    if (storeListeners.size === 0 && typeof window !== 'undefined') {
+      window.removeEventListener('storage', onStorage);
+    }
+  };
+}
+
+export function modelStoreVersion(): number {
+  return storeVersion;
+}
+
 export function hasModelContext(context: ModelContext): boolean {
   return Boolean(
     context.file ||
@@ -50,6 +79,7 @@ export function rememberModel(urn: string, context: ModelContext): void {
   } catch {
     return;
   }
+  notifyStore();
 }
 
 export function recallModel(urn: string): ModelContext | null {

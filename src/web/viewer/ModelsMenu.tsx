@@ -16,6 +16,7 @@ export interface ModelsMenuProps {
   models: readonly ModelInfo[];
   onToggle: (id: string, visible: boolean) => void;
   onRemove: (id: string) => void;
+  onRetry?: (id: string) => void;
   onAdd?: () => void;
   spread?: ModelSpread | null;
   together?: boolean;
@@ -33,6 +34,7 @@ export function modelsMenuEntries({
   models,
   onToggle,
   onRemove,
+  onRetry,
   onAdd,
   spread,
   together,
@@ -63,6 +65,17 @@ export function modelsMenuEntries({
       disabled: model.status !== 'ready',
       onSelect: () => onToggle(model.id, !model.visible),
     });
+  }
+  const failed = models.filter((model) => model.status === 'error');
+  if (onRetry && failed.length > 0) {
+    entries.push({ kind: 'separator', id: 'retry-separator' });
+    for (const model of failed) {
+      entries.push({
+        id: `retry:${model.id}`,
+        label: `Retry ${model.name}`,
+        onSelect: () => onRetry(model.id),
+      });
+    }
   }
   entries.push({ kind: 'separator', id: 'remove-separator' });
   for (const model of models) {
@@ -143,13 +156,25 @@ export function ModelsMenu(props: ModelsMenuProps) {
               <span className="bsh-viewer-models__error-text">
                 {model.error}
               </span>
-              <button
-                type="button"
-                className="bsh-viewer-models__remove"
-                onClick={() => props.onRemove(model.id)}
-              >
-                Remove
-              </button>
+              <span className="bsh-viewer-models__error-actions">
+                {props.onRetry ? (
+                  <button
+                    type="button"
+                    className="bsh-viewer-models__remove"
+                    aria-label={`Retry ${model.name}`}
+                    onClick={() => props.onRetry?.(model.id)}
+                  >
+                    Retry
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="bsh-viewer-models__remove"
+                  onClick={() => props.onRemove(model.id)}
+                >
+                  Remove
+                </button>
+              </span>
             </li>
           ))}
         </ul>

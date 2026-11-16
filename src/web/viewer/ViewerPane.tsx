@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -24,6 +25,7 @@ import {
 } from './modelSet.js';
 import {
   detectRegion,
+  onRegionChange,
   RegionConflictError,
   regionAvailable,
   regionConflictMessage,
@@ -247,24 +249,21 @@ export function ViewerPane({
     };
   }, [urn, factory, tools, publish, withdraw, attempt, handleExportStatus]);
 
-  const memberKey = membersKey(members);
-  useEffect(() => {
-    if (!adapter) return;
-    const wanted = (memberKey ? memberKey.split(',') : []).map(
-      (member) =>
-        membersRef.current.find((source) => source.urn === member) ?? {
-          urn: member,
-        },
-    );
-    const current = adapter.getModels().filter((model) => model.id !== urn);
-    for (const model of current) {
-      if (!wanted.some((member) => member.urn === model.urn)) {
-        adapter.removeModel(model.id);
+  const sourceFor = useCallback(
+    (id: string): ModelSource => {
+      if (id === urn) {
+        return nameRef.current ? { urn, name: nameRef.current } : { urn };
       }
-    }
-    for (const member of wanted) {
-      if (current.some((model) => model.urn === member.urn)) continue;
-      adapter.addModel(member).then(
+      return (
+        membersRef.current.find((source) => source.urn === id) ?? { urn: id }
+      );
+    },
+    [urn],
+  );
+
+  const addMember = useCallback(
+    (target: ViewerAdapter, source: ModelSource) => {
+      target.addModel(source).then(
         () => setSetNotice(null),
         (err: unknown) => {
           if (
@@ -276,10 +275,56 @@ export function ViewerPane({
           }
         },
       );
-    }
-  }, [adapter, urn, memberKey]);
+    },
+    [],
+  );
 
-  const models = useModels(adapter);
+  const memberKey = membersKey(members);
+  useEffect(() => {
+    if (!adapter) return;
+    const wanted = (memberKey ? memberKey.split(',') : []).map(sourceFor);
+    const current = adapter.getModels().filter((model) => model.id !== urn);
+    for (const model of current) {
+      if (!wanted.some((member) => member.urn === model.urn)) {
+        adapter.removeModel(model.id);
+      }
+    }
+    for (const member of wanted) {
+      if (current.some((model) => model.urn === member.urn)) continue;
+      addMember(adapter, member);
+    }
+  }, [adapter, urn, memberKey, sourceFor, addMember]);
+
+  const retried = useRef(new Set<string>());
+  useEffect(() => {
+    if (!adapter) return;
+    const seen = retried.current;
+    return onRegionChange(() => {
+      for (const model of adapter.getModels()) {
+        if (model.status !== 'error' || seen.has(model.id)) continue;
+        seen.add(model.id);
+        addMember(adapter, sourceFor(model.id));
+      }
+    });
+  }, [adapter, sourceFor, addMember]);
+
+  const loaded = useModels(adapter);
+  const labelKey = JSON.stringify([
+    name ? [urn, name] : null,
+    ...members.map((member) =>
+      member.name ? [member.urn, member.name] : null,
+    ),
+  ]);
+  const models = useMemo(() => {
+    const labels = new Map<string, string>();
+    for (const entry of JSON.parse(labelKey) as ([string, string] | null)[]) {
+      if (entry && !labels.has(entry[0])) labels.set(entry[0], entry[1]);
+    }
+    return loaded.map((model) => {
+      const label = labels.get(model.urn);
+      return label && label !== model.name ? { ...model, name: label } : model;
+    });
+  }, [loaded, labelKey]);
   const combined = members.length > 0 || models.length > 1;
   const [spread, setSpread] = useState<ModelSpread | null>(null);
   const onSpreadRef = useRef(onSpreadChange);
@@ -387,6 +432,7 @@ export function ViewerPane({
               if (onRemoveModel) onRemoveModel(id);
               else adapter.removeModel(id);
             }}
+            onRetry={(id) => addMember(adapter, sourceFor(id))}
             onAdd={onAddModel}
             spread={spread}
             together={together}

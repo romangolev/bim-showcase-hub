@@ -1,7 +1,11 @@
 import { useParams, useRouter, useRouterState } from '@tanstack/react-router';
-import { useMemo } from 'react';
+import { useMemo, useSyncExternalStore } from 'react';
 import { withUrns } from '../api/modelContext.js';
-import { recallModel } from '../api/modelStore.js';
+import {
+  modelStoreVersion,
+  recallModel,
+  subscribeModelStore,
+} from '../api/modelStore.js';
 import { contextOf } from '../api/openModels.js';
 import { useOpenModels, useOpenModelsStore } from '../api/useOpenModels.js';
 import { StateBlock } from '../components/StateBlock.js';
@@ -65,15 +69,20 @@ export function ModelPaneBody({ instance }: { instance: string }) {
   const router = useRouter();
   const extras = withUrns(context);
   const memberKey = extras.join(',');
+  const recalled = useSyncExternalStore(
+    subscribeModelStore,
+    modelStoreVersion,
+    modelStoreVersion,
+  );
   const members = useMemo(
     () =>
-      memberKey
+      memberKey && recalled >= 0
         ? memberKey.split(',').map((urn) => ({
             urn,
             name: memberLabel(urn, recallModel(urn)),
           }))
         : [],
-    [memberKey],
+    [memberKey, recalled],
   );
   const exportName =
     members.length > 0

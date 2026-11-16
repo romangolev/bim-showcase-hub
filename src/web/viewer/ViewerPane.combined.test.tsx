@@ -10,7 +10,7 @@ import {
   ModelSetError,
   type ModelSource,
 } from './modelSet.js';
-import { resetRegion } from './region.js';
+import { claimRegion, resetRegion } from './region.js';
 import type { ViewerAdapter, ViewerAdapterFactory } from './ViewerAdapter.js';
 import { ViewerPane } from './ViewerPane.js';
 
@@ -90,6 +90,66 @@ describe('ViewerPane with several models', () => {
     expect(groups()).toEqual(['urn-a', 'urn-c']);
     fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
     expect(onRemoveModel).toHaveBeenCalledWith('urn-broken');
+  });
+
+  it('retries a failed member from the list and the menu', async () => {
+    const { factory } = tracked();
+    const broken = { urn: 'urn-broken', name: 'Broken.rvt' };
+    const add = vi.spyOn(MockViewerAdapter.prototype, 'addModel');
+    render(<ViewerPane urn="urn-a" members={[broken, C]} factory={factory} />);
+    await screen.findByRole('list', { name: 'Models that failed' });
+    add.mockClear();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry Broken.rvt' }));
+    await waitFor(() => expect(add).toHaveBeenCalledWith(broken));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Models in this viewer (3)' }),
+    );
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Retry Broken.rvt' }));
+    await waitFor(() => expect(add).toHaveBeenCalledTimes(2));
+    add.mockRestore();
+  });
+
+  it('retries a failed member once when the page region changes', async () => {
+    const { factory } = tracked();
+    const broken = { urn: 'urn-broken', name: 'Broken.rvt' };
+    const add = vi.spyOn(MockViewerAdapter.prototype, 'addModel');
+    render(<ViewerPane urn="urn-a" members={[broken]} factory={factory} />);
+    await screen.findByRole('list', { name: 'Models that failed' });
+    add.mockClear();
+    resetRegion();
+    claimRegion('US');
+    await waitFor(() => expect(add).toHaveBeenCalledWith(broken));
+    await screen.findByRole('list', { name: 'Models that failed' });
+    resetRegion();
+    claimRegion('US');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(add).toHaveBeenCalledTimes(1);
+    add.mockRestore();
+  });
+
+  it('shows new member labels without reloading', async () => {
+    const { factory } = tracked();
+    const { rerender } = render(
+      <ViewerPane urn="urn-a" members={[{ urn: 'urn-b' }]} factory={factory} />,
+    );
+    const trigger = await screen.findByRole('button', {
+      name: 'Models in this viewer (2)',
+    });
+    rerender(
+      <ViewerPane
+        urn="urn-a"
+        name="A.rvt"
+        members={[{ urn: 'urn-b', name: 'Better B.rvt' }]}
+        factory={factory}
+      />,
+    );
+    fireEvent.click(trigger);
+    expect(
+      screen.getByRole('menuitemcheckbox', { name: 'Show Better B.rvt' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('menuitemcheckbox', { name: 'Show A.rvt' }),
+    ).toBeInTheDocument();
   });
 
   it('toggles visibility and offers to add a model from the menu', async () => {
