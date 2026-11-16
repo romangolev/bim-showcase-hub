@@ -349,6 +349,29 @@ describe('several models', () => {
     expect(appRouter.state.location.search).toMatchObject({ file: 'A.rvt' });
   });
 
+  it('lets the user go home or to a missing page while models stay open', async () => {
+    const { appRouter } = renderPath('/model/aaa?file=A.rvt&v=v1');
+    await dockReady();
+    await open(appRouter, 'bbb', 'B.rvt');
+    await screen.findByRole('tab', { name: 'B.rvt · v1' });
+    await act(() => appRouter.navigate({ to: '/' }));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(pathOf(appRouter)).toBe('/');
+    expect(handle().models().models).toHaveLength(2);
+    await act(() => appRouter.navigate({ to: '/nowhere' as '/' }));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(pathOf(appRouter)).toBe('/nowhere');
+    expect(
+      await screen.findByRole('heading', { name: 'Page not found' }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Back to documents' }));
+    await waitFor(() => expect(pathOf(appRouter)).toBe('/'));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(pathOf(appRouter)).toBe('/');
+    act(() => handle().activateModel('aaa'));
+    await waitFor(() => expect(pathOf(appRouter)).toBe('/model/aaa'));
+  });
+
   it('pauses the least recently shown model above the cap', async () => {
     const destroy = vi.spyOn(MockViewerAdapter.prototype, 'destroy');
     const { appRouter } = renderPath('/');

@@ -1,4 +1,4 @@
-import { useNavigate, useSearch } from '@tanstack/react-router';
+import { useNavigate, useRouterState, useSearch } from '@tanstack/react-router';
 import { useEffect, useRef } from 'react';
 import type { ModelContext } from '../api/modelContext.js';
 import { contextOf } from '../api/openModels.js';
@@ -18,6 +18,10 @@ export function ModelRouteSync() {
   const contextKey = JSON.stringify(context);
   const routeUrn = useRef(urn);
   routeUrn.current = urn;
+  const home = useRouterState({
+    select: (routerState) => routerState.location.pathname === '/',
+  });
+  const restored = useRef(false);
 
   const go = useRef<(target: string | null, next: ModelContext | null) => void>(
     () => {},
@@ -37,15 +41,17 @@ export function ModelRouteSync() {
 
   useEffect(() => {
     if (!store) return;
+    const first = !restored.current;
+    restored.current = true;
     if (urn) {
       store.open(urn, JSON.parse(contextKey) as ModelContext);
       return;
     }
     const current = store.getState();
-    if (current.active) {
+    if (first && home && current.active) {
       go.current(current.active, contextOf(current, current.active));
     }
-  }, [store, urn, contextKey]);
+  }, [store, urn, contextKey, home]);
 
   const seen = useRef<string | null | undefined>(undefined);
   useEffect(() => {
@@ -80,7 +86,7 @@ export function ModelRouteSync() {
 
   const activeContext = state.active ? contextOf(state, state.active) : null;
   useDocumentTitle(
-    state.active
+    state.active && urn
       ? modelDocumentTitle(state.active, activeContext?.file, activeContext?.v)
       : null,
   );

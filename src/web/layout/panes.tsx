@@ -34,6 +34,7 @@ export function TreePane() {
   const content = useMainContent();
   const { active } = useOpenModels();
   const home = active === null;
+  const routed = useModelUrn() !== null;
   return (
     <div
       id={home ? 'main' : undefined}
@@ -43,7 +44,9 @@ export function TreePane() {
       tabIndex={-1}
     >
       <TreePanel onNavigate={layout.closeTreeOverlay} />
-      {home ? <div className="pane-docs__hint">{content}</div> : null}
+      {home || !routed ? (
+        <div className="pane-docs__hint">{content}</div>
+      ) : null}
     </div>
   );
 }
