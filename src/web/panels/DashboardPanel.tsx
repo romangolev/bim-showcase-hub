@@ -20,6 +20,7 @@ export interface DashboardPanelProps {
   collapsed?: boolean;
   defaultCollapsed?: boolean;
   onCollapsedChange?: (collapsed: boolean) => void;
+  toggleable?: boolean;
   title?: string;
   className?: string;
 }
@@ -32,6 +33,7 @@ export function DashboardPanel({
   collapsed,
   defaultCollapsed = false,
   onCollapsedChange,
+  toggleable = true,
   title = 'Dashboard',
   className,
 }: DashboardPanelProps) {
@@ -83,23 +85,25 @@ export function DashboardPanel({
         <h2 id={`${uid}-title`} className="bsh-card__title">
           {title}
         </h2>
-        <button
-          type="button"
-          className="bsh-button"
-          aria-expanded={!isCollapsed}
-          aria-controls={bodyId}
-          onClick={toggle}
-        >
-          <Icon
-            name="chevron"
-            size={16}
-            className="bsh-drawer__toggle-icon"
-            data-expanded={!isCollapsed}
-          />
-          <span className="bsh-drawer__toggle-label">
-            {isCollapsed ? 'Expand' : 'Collapse'}
-          </span>
-        </button>
+        {toggleable ? (
+          <button
+            type="button"
+            className="bsh-button"
+            aria-expanded={!isCollapsed}
+            aria-controls={bodyId}
+            onClick={toggle}
+          >
+            <Icon
+              name="chevron"
+              size={16}
+              className="bsh-drawer__toggle-icon"
+              data-expanded={!isCollapsed}
+            />
+            <span className="bsh-drawer__toggle-label">
+              {isCollapsed ? 'Expand' : 'Collapse'}
+            </span>
+          </button>
+        ) : null}
         {chart && options.length > 0 && !isCollapsed ? (
           <div className="bsh-field">
             <span aria-hidden="true">Group by</span>

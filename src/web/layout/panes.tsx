@@ -14,12 +14,7 @@ export function useModelUrn(): string | null {
 
 export function TreePane() {
   const layout = useLayout();
-  return (
-    <TreePanel
-      resizable={layout.mode !== 'dock'}
-      onNavigate={layout.closeTreeOverlay}
-    />
-  );
+  return <TreePanel onNavigate={layout.closeTreeOverlay} />;
 }
 
 export function ViewerPaneBody() {
@@ -35,7 +30,7 @@ export function ViewerPaneBody() {
     >
       {content}
       {urn ? (
-        <section className="model-viewer" aria-label="Viewer">
+        <section className="model-viewer" aria-label="Model viewer">
           <ViewerPane urn={urn} resizeSignal={layout.resizeSignal('viewer')} />
         </section>
       ) : null}
@@ -48,7 +43,8 @@ export function SummaryPane() {
   return (
     <aside className="pane-summary" aria-label="Model summary">
       <ModelSummaryPanel
-        collapsed={layout.isCollapsed('summary')}
+        collapsed={layout.mode === 'stacked' && layout.isCollapsed('summary')}
+        toggleable={layout.mode === 'stacked'}
         onCollapsedChange={(next) => layout.setCollapsed('summary', next)}
       />
     </aside>
@@ -60,7 +56,8 @@ export function DashboardPane() {
   return (
     <div className="pane-dashboard">
       <DashboardPanel
-        collapsed={layout.isCollapsed('dashboard')}
+        collapsed={layout.mode === 'stacked' && layout.isCollapsed('dashboard')}
+        toggleable={layout.mode === 'stacked'}
         onCollapsedChange={(next) => layout.setCollapsed('dashboard', next)}
       />
     </div>

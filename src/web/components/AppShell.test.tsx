@@ -67,7 +67,7 @@ describe('AppShell responsive tree', () => {
     renderApp();
     await screen.findByRole('complementary', { name: 'Documents' });
 
-    act(() => media.setWidth(900));
+    act(() => media.setWidth(800));
     expect(
       screen.queryByRole('complementary', { name: 'Documents' }),
     ).not.toBeInTheDocument();
@@ -86,7 +86,7 @@ describe('AppShell responsive tree', () => {
   });
 
   it('restores an explicit desktop collapse after a breakpoint round trip', async () => {
-    const media = mockMatchMedia(1100);
+    const media = mockMatchMedia(920);
     renderApp();
     fireEvent.click(
       await screen.findByRole('button', { name: 'Collapse document tree' }),
@@ -95,12 +95,12 @@ describe('AppShell responsive tree', () => {
       screen.queryByRole('complementary', { name: 'Documents' }),
     ).not.toBeInTheDocument();
 
-    act(() => media.setWidth(900));
+    act(() => media.setWidth(800));
     expect(
       screen.getByRole('button', { name: 'Expand document tree' }),
     ).toHaveAttribute('aria-expanded', 'false');
 
-    act(() => media.setWidth(1100));
+    act(() => media.setWidth(920));
     expect(
       screen.queryByRole('complementary', { name: 'Documents' }),
     ).not.toBeInTheDocument();
@@ -110,11 +110,11 @@ describe('AppShell responsive tree', () => {
   });
 
   it('keeps the overlay choice separate from the desktop preference', async () => {
-    const media = mockMatchMedia(1100);
+    const media = mockMatchMedia(920);
     renderApp();
     await screen.findByRole('complementary', { name: 'Documents' });
 
-    act(() => media.setWidth(900));
+    act(() => media.setWidth(800));
     fireEvent.click(
       screen.getByRole('button', { name: 'Expand document tree' }),
     );
@@ -122,7 +122,7 @@ describe('AppShell responsive tree', () => {
       await screen.findByRole('complementary', { name: 'Documents' }),
     ).toBeInTheDocument();
 
-    act(() => media.setWidth(1100));
+    act(() => media.setWidth(920));
     expect(
       await screen.findByRole('complementary', { name: 'Documents' }),
     ).toBeInTheDocument();
@@ -188,7 +188,7 @@ describe('AppShell responsive tree', () => {
   });
 
   it('moves focus to the toggle when the tree auto-closes with focus inside it', async () => {
-    const media = mockMatchMedia(1100);
+    const media = mockMatchMedia(920);
     renderApp();
     const filter = await screen.findByRole('searchbox', {
       name: 'Filter loaded nodes',
@@ -197,20 +197,20 @@ describe('AppShell responsive tree', () => {
     filter.focus();
     expect(filter).toHaveFocus();
 
-    act(() => media.setWidth(900));
+    act(() => media.setWidth(800));
     expect(
       screen.getByRole('button', { name: 'Expand document tree' }),
     ).toHaveFocus();
   });
 
   it('leaves focus alone when the tree auto-closes with focus elsewhere', async () => {
-    const media = mockMatchMedia(1100);
+    const media = mockMatchMedia(920);
     renderApp();
     await screen.findByRole('complementary', { name: 'Documents' });
     const main = screen.getByRole('main');
     main.focus();
 
-    act(() => media.setWidth(900));
+    act(() => media.setWidth(800));
     expect(main).toHaveFocus();
   });
 });

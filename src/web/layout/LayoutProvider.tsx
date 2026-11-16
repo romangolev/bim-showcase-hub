@@ -1,65 +1,110 @@
 import {
+  lazy,
   type ReactNode,
+  Suspense,
   useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
+  useReducer,
   useRef,
   useState,
 } from 'react';
+import { Icon } from '../components/icons.js';
 import { TopBar } from '../components/TopBar.js';
 import { TreeControlContext } from '../components/TreeControl.js';
 import { useMediaQuery } from '../components/useMediaQuery.js';
-import { ViewerProvider } from '../viewer/index.js';
+import { isMockViewer, ViewerProvider } from '../viewer/index.js';
 import { ClassicLayout } from './ClassicLayout.js';
 import {
+  type DockController,
   type LayoutApi,
   LayoutContext,
+  type LayoutMode,
   MainContentContext,
+  useLayout,
 } from './layoutContext.js';
-import { PANE_IDS, type PaneId, paneById } from './paneRegistry.js';
+import {
+  type LayoutModel,
+  layoutReducer,
+  readLayout,
+  type SerializedDock,
+  writeLayout,
+} from './layoutState.js';
+import {
+  PANE_IDS,
+  type PaneId,
+  paneById,
+  TREE_WIDTH_DEFAULT,
+} from './paneRegistry.js';
 import { createHostStore, PaneHosts } from './ViewerHost.js';
 
-export const OVERLAY_QUERY = '(max-width: 999px)';
-export const DASHBOARD_STORAGE_KEY = 'bsh.dashboard.collapsed';
-export const SUMMARY_STORAGE_KEY = 'bsh.summary.collapsed';
-export const DASHBOARD_AUTO_COLLAPSE_HEIGHT = 900;
+const DockLayout = lazy(() =>
+  import('./DockLayout.js').then((module) => ({
+    default: module.DockLayout,
+  })),
+);
 
-function readFlag(key: string): boolean | null {
+export const STACKED_MAX_WIDTH = 875;
+export const STACKED_QUERY = `(max-width: ${STACKED_MAX_WIDTH}px)`;
+
+function storage(): Storage | null {
   try {
-    const stored = window.localStorage.getItem(key);
-    if (stored === '1') return true;
-    if (stored === '0') return false;
+    return window.localStorage;
   } catch {
     return null;
   }
-  return null;
 }
 
-function writeFlag(key: string, value: boolean) {
-  try {
-    window.localStorage.setItem(key, value ? '1' : '0');
-  } catch {
-    return;
+function initialModel(): LayoutModel {
+  const store = storage();
+  const height = window.innerHeight;
+  if (!store) {
+    return layoutReducer(
+      { dock: null, collapsed: [], treeWidth: 0 },
+      { type: 'reset', height },
+    );
   }
+  return readLayout(store, height);
 }
 
-const COLLAPSE_KEYS: Partial<Record<PaneId, string>> = {
-  summary: SUMMARY_STORAGE_KEY,
-  dashboard: DASHBOARD_STORAGE_KEY,
-};
+function openFromDock(dock: SerializedDock | null): PaneId[] {
+  if (!dock) return [...PANE_IDS];
+  return PANE_IDS.filter((id) => id in dock.panels);
+}
 
-function initialCollapsed(): PaneId[] {
-  const collapsed: PaneId[] = [];
-  if (readFlag(SUMMARY_STORAGE_KEY) === true) collapsed.push('summary');
-  const dashboard = readFlag(DASHBOARD_STORAGE_KEY);
-  if (
-    dashboard === true ||
-    (dashboard === null && window.innerHeight < DASHBOARD_AUTO_COLLAPSE_HEIGHT)
-  ) {
-    collapsed.push('dashboard');
-  }
-  return collapsed;
+function focusTreeTarget() {
+  requestAnimationFrame(() => {
+    const target =
+      document.querySelector<HTMLElement>(
+        '#document-panel [aria-selected="true"]',
+      ) ?? document.querySelector<HTMLElement>('#document-panel input');
+    target?.focus();
+    target?.scrollIntoView({ block: 'nearest' });
+  });
+}
+
+function CollapseAction({ pane }: { pane: PaneId }) {
+  const layout = useLayout();
+  const collapsed = layout.isCollapsed(pane);
+  const label = `${collapsed ? 'Expand' : 'Collapse'} ${paneById(pane).title}`;
+  return (
+    <button
+      type="button"
+      className="dock-action"
+      aria-expanded={!collapsed}
+      aria-label={label}
+      title={label}
+      onClick={() => layout.setCollapsed(pane, !collapsed)}
+    >
+      <Icon
+        name="chevron"
+        size={14}
+        className="dock-action__chevron"
+        data-expanded={!collapsed}
+      />
+    </button>
+  );
 }
 
 export interface LayoutProviderProps {
@@ -67,34 +112,50 @@ export interface LayoutProviderProps {
 }
 
 export function LayoutProvider({ main }: LayoutProviderProps) {
-  const overlay = useMediaQuery(OVERLAY_QUERY);
+  const stacked = useMediaQuery(STACKED_QUERY);
+  const mode: LayoutMode = stacked ? 'stacked' : 'dock';
+  const [model, dispatch] = useReducer(layoutReducer, undefined, initialModel);
+  const [openPanes, setOpenPanes] = useState<readonly PaneId[]>(() =>
+    openFromDock(model.dock),
+  );
   const [hosts] = useState(() => createHostStore<PaneId>());
   const [attached, setAttached] = useState<readonly PaneId[]>([]);
   const [signals, setSignals] = useState<Partial<Record<PaneId, number>>>({});
-  const [collapsed, setCollapsedList] = useState(initialCollapsed);
-  const [desktopOpen, setDesktopOpen] = useState(true);
   const [overlayTreeOpen, setOverlayTreeOpen] = useState(false);
-  const [seenOverlay, setSeenOverlay] = useState(overlay);
+  const [seenMode, setSeenMode] = useState(mode);
+  const controller = useRef<DockController | null>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
-  const overlayRef = useRef(overlay);
-  overlayRef.current = overlay;
-  if (seenOverlay !== overlay) {
-    setSeenOverlay(overlay);
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
+  const focusBeforeSwitch = useRef<Element | null>(null);
+  if (seenMode !== mode) {
+    focusBeforeSwitch.current = document.activeElement;
+    setSeenMode(mode);
     setOverlayTreeOpen(false);
   }
-  const treeOpen = overlay ? overlayTreeOpen : desktopOpen;
-  const overlayOpen = overlay && overlayTreeOpen;
-  const previousOverlay = useRef(overlay);
+  const overlayOpen = stacked && overlayTreeOpen;
+  const treeOpen = stacked ? overlayTreeOpen : openPanes.includes('tree');
+  const previousMode = useRef(mode);
+
+  useEffect(() => {
+    const store = storage();
+    if (store) writeLayout(store, model);
+  }, [model]);
 
   useLayoutEffect(() => {
-    const wasOverlay = previousOverlay.current;
-    previousOverlay.current = overlay;
-    if (wasOverlay || !overlay) return;
-    const panel = document.getElementById('document-panel');
-    if (panel?.contains(document.activeElement)) {
+    const was = previousMode.current;
+    previousMode.current = mode;
+    if (was === mode) return;
+    const focused = focusBeforeSwitch.current;
+    focusBeforeSwitch.current = null;
+    if (!(focused instanceof HTMLElement)) return;
+    const inTree = Boolean(focused.closest('#document-panel'));
+    if (mode === 'stacked' && inTree) {
       toggleRef.current?.focus();
+    } else if (focused.isConnected && document.activeElement !== focused) {
+      focused.focus();
     }
-  }, [overlay]);
+  }, [mode]);
 
   const closeTree = useCallback(() => {
     setOverlayTreeOpen(false);
@@ -102,7 +163,7 @@ export function LayoutProvider({ main }: LayoutProviderProps) {
   }, []);
 
   const closeTreeOverlay = useCallback(() => {
-    if (overlayRef.current) closeTree();
+    if (modeRef.current === 'stacked') closeTree();
   }, [closeTree]);
 
   useEffect(() => {
@@ -114,78 +175,103 @@ export function LayoutProvider({ main }: LayoutProviderProps) {
     return () => document.removeEventListener('keydown', onKey);
   }, [overlayOpen, closeTree]);
 
-  const onAttach = useCallback((id: PaneId) => {
-    setAttached((list) => (list.includes(id) ? list : [...list, id]));
+  const bump = useCallback((id: PaneId) => {
     setSignals((current) => ({ ...current, [id]: (current[id] ?? 0) + 1 }));
   }, []);
 
-  const setCollapsed = useCallback((id: PaneId, next: boolean) => {
-    setCollapsedList((list) => {
-      const without = list.filter((item) => item !== id);
-      return next ? [...without, id] : without;
-    });
-    const key = COLLAPSE_KEYS[id];
-    if (key) writeFlag(key, next);
+  const onAttach = useCallback(
+    (id: PaneId) => {
+      setAttached((list) => (list.includes(id) ? list : [...list, id]));
+      bump(id);
+    },
+    [bump],
+  );
+
+  const onDockChange = useCallback((dock: SerializedDock, open: PaneId[]) => {
+    dispatch({ type: 'dock', dock });
+    setOpenPanes((current) =>
+      current.length === open.length && current.every((id) => open.includes(id))
+        ? current
+        : open,
+    );
+  }, []);
+
+  const onController = useCallback((next: DockController | null) => {
+    controller.current = next;
+  }, []);
+
+  const setCollapsed = useCallback((id: PaneId, collapsed: boolean) => {
+    dispatch({ type: 'setCollapsed', id, collapsed });
   }, []);
 
   const toggleTree = useCallback(() => {
-    if (overlayRef.current) {
-      setOverlayTreeOpen((open) => {
-        if (!open) {
-          requestAnimationFrame(() => {
-            document
-              .querySelector<HTMLElement>('#document-panel input')
-              ?.focus();
-          });
-        }
-        return !open;
+    if (modeRef.current === 'stacked') {
+      setOverlayTreeOpen((open) => !open);
+      requestAnimationFrame(() => {
+        document.querySelector<HTMLElement>('#document-panel input')?.focus();
       });
-    } else {
-      setDesktopOpen((open) => !open);
+      return;
     }
-  }, []);
+    if (openPanes.includes('tree')) {
+      controller.current?.closePane('tree');
+    } else {
+      controller.current?.openPane('tree');
+    }
+  }, [openPanes]);
 
   const treeControl = useMemo(
     () => ({
       reveal: () => {
-        if (overlayRef.current) {
+        if (modeRef.current === 'stacked') {
           setOverlayTreeOpen(true);
         } else {
-          setDesktopOpen(true);
+          setCollapsed('tree', false);
+          controller.current?.openPane('tree');
         }
-        requestAnimationFrame(() => {
-          const target =
-            document.querySelector<HTMLElement>(
-              '#document-panel [aria-selected="true"]',
-            ) ?? document.querySelector<HTMLElement>('#document-panel input');
-          target?.focus();
-          target?.scrollIntoView({ block: 'nearest' });
-        });
+        focusTreeTarget();
       },
     }),
-    [],
+    [setCollapsed],
   );
 
   const api = useMemo<LayoutApi>(
     () => ({
-      mode: 'stacked',
-      openPanes: PANE_IDS,
-      isOpen: () => true,
-      isCollapsed: (id) => collapsed.includes(id),
+      mode,
+      openPanes,
+      isOpen: (id) => openPanes.includes(id),
+      isCollapsed: (id) => model.collapsed.includes(id),
       setCollapsed,
       togglePane: (id) => {
-        if (id === 'tree') toggleTree();
+        if (id === 'tree') {
+          toggleTree();
+          return;
+        }
+        if (openPanes.includes(id)) controller.current?.closePane(id);
+        else controller.current?.openPane(id);
       },
-      movePane: () => undefined,
-      resetLayout: () => undefined,
+      movePane: (id, target) => {
+        setCollapsed(id, false);
+        controller.current?.movePane(id, target);
+      },
+      resetLayout: () => {
+        dispatch({ type: 'reset', height: window.innerHeight });
+        controller.current?.reset(TREE_WIDTH_DEFAULT);
+      },
       focusPane: (id) => {
-        if (id === 'tree') treeControl.reveal();
+        if (id === 'tree') {
+          treeControl.reveal();
+          return;
+        }
+        controller.current?.focusPane(id);
       },
       resizeSignal: (id) => signals[id] ?? 0,
+      location: (id) => controller.current?.location(id) ?? null,
       closeTreeOverlay,
     }),
     [
-      collapsed,
+      mode,
+      openPanes,
+      model.collapsed,
       setCollapsed,
       toggleTree,
       treeControl,
@@ -194,10 +280,34 @@ export function LayoutProvider({ main }: LayoutProviderProps) {
     ],
   );
 
+  const modelRef = useRef(model);
+  modelRef.current = model;
+  useEffect(() => {
+    if (!import.meta.env.DEV || !isMockViewer()) return;
+    const target = window as unknown as Record<string, unknown>;
+    target.__bshLayout = {
+      movePane: api.movePane,
+      togglePane: api.togglePane,
+      setCollapsed: api.setCollapsed,
+      resetLayout: api.resetLayout,
+      openPanes: () => [...api.openPanes],
+      location: api.location,
+      mode: () => api.mode,
+      read: () => modelRef.current,
+    };
+    return () => {
+      delete target.__bshLayout;
+    };
+  }, [api]);
+
   const renderPane = useCallback((id: PaneId) => {
     const Component = paneById(id).component;
     return <Component />;
   }, []);
+
+  const mounted = attached.filter(
+    (id) => openPanes.includes(id) || id === 'tree' || id === 'viewer',
+  );
 
   return (
     <LayoutContext.Provider value={api}>
@@ -209,15 +319,39 @@ export function LayoutProvider({ main }: LayoutProviderProps) {
               onToggleTree={toggleTree}
               toggleRef={toggleRef}
             />
-            <ClassicLayout
-              hosts={hosts}
-              onAttach={onAttach}
-              treeOpen={treeOpen}
-              overlayOpen={overlayOpen}
-              onCloseTree={closeTree}
-              summaryCollapsed={collapsed.includes('summary')}
-            />
-            <PaneHosts hosts={hosts} panes={attached} render={renderPane} />
+            {stacked ? (
+              <ClassicLayout
+                hosts={hosts}
+                onAttach={onAttach}
+                treeOpen={overlayTreeOpen}
+                overlayOpen={overlayOpen}
+                onCloseTree={closeTree}
+                summaryCollapsed={model.collapsed.includes('summary')}
+              />
+            ) : (
+              <div className="app-body app-body--dock">
+                <Suspense
+                  fallback={
+                    <p className="app-loading" role="status">
+                      Loading layout
+                    </p>
+                  }
+                >
+                  <DockLayout
+                    hosts={hosts}
+                    dock={model.dock}
+                    treeWidth={model.treeWidth}
+                    collapsed={model.collapsed}
+                    onAttach={onAttach}
+                    onMoved={bump}
+                    onChange={onDockChange}
+                    onController={onController}
+                    headerActions={({ pane }) => <CollapseAction pane={pane} />}
+                  />
+                </Suspense>
+              </div>
+            )}
+            <PaneHosts hosts={hosts} panes={mounted} render={renderPane} />
           </ViewerProvider>
         </TreeControlContext.Provider>
       </MainContentContext.Provider>

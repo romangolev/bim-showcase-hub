@@ -1,0 +1,260 @@
+.app-body--dock {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.dock-root {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  padding: var(--gutter);
+  background: var(--color-void);
+}
+
+.dock-root > div {
+  height: 100%;
+}
+
+.bsh-dock {
+  --dv-group-view-background-color: var(--color-graphite);
+  --dv-tabs-and-actions-container-background-color: var(--color-graphite);
+  --dv-tabs-and-actions-container-height: 32px;
+  --dv-tabs-and-actions-container-font-size: var(--text-13);
+  --dv-activegroup-visiblepanel-tab-background-color: transparent;
+  --dv-activegroup-hiddenpanel-tab-background-color: transparent;
+  --dv-inactivegroup-visiblepanel-tab-background-color: transparent;
+  --dv-inactivegroup-hiddenpanel-tab-background-color: transparent;
+  --dv-activegroup-visiblepanel-tab-color: var(--color-snow);
+  --dv-activegroup-hiddenpanel-tab-color: var(--color-fog);
+  --dv-inactivegroup-visiblepanel-tab-color: var(--color-chalk);
+  --dv-inactivegroup-hiddenpanel-tab-color: var(--color-fog);
+  --dv-tab-divider-color: transparent;
+  --dv-separator-border: transparent;
+  --dv-paneview-header-border-color: var(--color-hairline);
+  --dv-paneview-active-outline-color: var(--color-ring-blue);
+  --dv-drag-over-background-color: var(--color-match);
+  --dv-drag-over-border-color: var(--color-signal-blue);
+  --dv-drag-over-border: 0.5px solid var(--color-signal-blue);
+  --dv-edge-dock-indicator-color: var(--color-signal-blue);
+  --dv-tabs-container-scrollbar-color: var(--color-smoke);
+  --dv-scrollbar-background-color: var(--color-smoke);
+  --dv-icon-hover-background-color: var(--color-ghost-fill-hover);
+  --dv-floating-box-shadow: none;
+  --dv-floating-border: var(--border-hairline);
+  --dv-floating-group-border: var(--border-hairline);
+  --dv-floating-titlebar-height: 12px;
+  --dv-floating-titlebar-background-color: var(--color-charcoal);
+  --dv-floating-titlebar-border-bottom: var(--border-hairline);
+  --dv-floating-group-dragging-opacity: 0.6;
+  --dv-border-radius: var(--radius-card);
+  --dv-tab-border-radius: var(--radius-tile);
+  --dv-dropdown-border-radius: var(--radius-card);
+  --dv-sash-border-radius: 2px;
+  --dv-sash-color: transparent;
+  --dv-active-sash-color: var(--color-smoke);
+  --dv-active-sash-transition-delay: 0s;
+  --dv-spacing-padding: 0px;
+  --dv-tab-margin: 0;
+  --dv-tab-font-size: var(--text-13);
+  --dv-tab-close-icon-size: 12px;
+  --dv-overlay-z-index: 30;
+  --dv-transition-duration: 120ms;
+  color: var(--color-chalk);
+  font-family: var(--font-sans);
+}
+
+.bsh-dock .dv-groupview {
+  overflow: hidden;
+  border: var(--border-hairline);
+  border-radius: var(--radius-card);
+  background: var(--color-graphite);
+  box-shadow: var(--shadow-inset);
+}
+
+.bsh-dock .dv-resize-container {
+  border: 0;
+  border-radius: var(--radius-card);
+  box-shadow: none;
+}
+
+.bsh-dock .dv-floating-titlebar {
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
+}
+
+.bsh-dock .dv-resize-container-with-titlebar .dv-groupview {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.bsh-dock .dv-tabs-and-actions-container {
+  border-bottom: var(--border-hairline);
+}
+
+.bsh-dock .dv-tab {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  font-weight: var(--weight-label);
+  letter-spacing: var(--tracking-body);
+}
+
+.bsh-dock .dv-active-group .dv-tab.dv-active-tab {
+  box-shadow: inset 0 -1px 0 var(--color-signal-blue);
+}
+
+.bsh-dock .dv-tab:focus-visible,
+.bsh-dock .dv-groupview:focus-visible {
+  outline: var(--ring-width) solid var(--color-ring-blue);
+  outline-offset: -2px;
+}
+
+.bsh-dock .dv-default-tab-action {
+  border-radius: var(--radius-badge);
+}
+
+.bsh-dock .dv-right-actions-container {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-1);
+}
+
+.bsh-dock .dv-groupview[data-collapsed] > .dv-content-container {
+  display: none;
+}
+
+.bsh-dock
+  .dv-groupview[data-collapsed="width"]
+  > .dv-tabs-and-actions-container {
+  flex-direction: column-reverse;
+  justify-content: flex-end;
+  height: 100%;
+  border-bottom: 0;
+}
+
+.bsh-dock
+  .dv-groupview[data-collapsed="width"]
+  > .dv-tabs-and-actions-container
+  .dv-scrollable {
+  writing-mode: vertical-rl;
+}
+
+.bsh-dock .dv-groupview[data-collapsed="width"] .dv-right-actions-container {
+  padding: var(--space-1) 0;
+}
+
+.dock-action {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-badge);
+  background: transparent;
+  color: var(--color-fog);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-ui),
+    color var(--transition-ui);
+}
+
+.dock-action:hover {
+  background: var(--color-ghost-fill-hover);
+  color: var(--color-snow);
+}
+
+.dock-action:focus-visible {
+  outline-offset: -2px;
+}
+
+.dock-action__chevron[data-expanded="true"] {
+  transform: rotate(-90deg);
+}
+
+.dock-action__chevron[data-expanded="false"] {
+  transform: rotate(90deg);
+}
+
+.pane-slot--dock {
+  container: pane / inline-size;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+.pane-slot--dock .pane-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: var(--padding-panel);
+}
+
+.pane-slot--dock .tree-panel {
+  flex: 1;
+  width: auto;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.pane-slot--dock .tree-panel__head,
+.pane-slot--dock .bsh-card__title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.pane-slot--dock .tree-panel .doc-tree__search {
+  margin-top: var(--space-3);
+}
+
+.pane-slot--dock .pane-summary,
+.pane-slot--dock .pane-dashboard {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.pane-slot--dock .bsh-card {
+  flex: 1;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.pane-slot--dock .bsh-summary__header {
+  justify-content: flex-end;
+}
+
+.pane-slot--dock .bsh-drawer__header {
+  position: static;
+  border-radius: 0;
+}
+
+.pane-slot--dock .bsh-drawer__body {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+}
+
+.pane-slot--dock .bsh-charts {
+  height: max(120px, 100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dock-action {
+    transition: none;
+  }
+}

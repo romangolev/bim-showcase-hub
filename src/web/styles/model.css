@@ -315,7 +315,7 @@
   }
 }
 
-@media (max-width: 999px) {
+@media (max-width: 875px) {
   .model-title__name {
     display: -webkit-box;
     overflow-wrap: anywhere;

@@ -19,6 +19,7 @@ export interface ModelSummaryPanelProps {
   collapsed?: boolean;
   defaultCollapsed?: boolean;
   onCollapsedChange?: (collapsed: boolean) => void;
+  toggleable?: boolean;
 }
 
 const EMPTY: SummaryEntry[] = [];
@@ -32,6 +33,7 @@ export function ModelSummaryPanel({
   collapsed,
   defaultCollapsed = false,
   onCollapsedChange,
+  toggleable = true,
 }: ModelSummaryPanelProps) {
   const uid = useId();
   const [innerCollapsed, setInnerCollapsed] = useState(defaultCollapsed);
@@ -74,21 +76,23 @@ export function ModelSummaryPanel({
         >
           Refresh
         </button>
-        <button
-          type="button"
-          className="bsh-icon-button bsh-summary__toggle"
-          aria-expanded={!isCollapsed}
-          aria-controls={bodyId}
-          onClick={toggle}
-        >
-          <Icon
-            name="chevron"
-            size={16}
-            className="bsh-summary__toggle-icon"
-            data-expanded={!isCollapsed}
-          />
-          <span className="bsh-sr-only">{toggleLabel}</span>
-        </button>
+        {toggleable ? (
+          <button
+            type="button"
+            className="bsh-icon-button bsh-summary__toggle"
+            aria-expanded={!isCollapsed}
+            aria-controls={bodyId}
+            onClick={toggle}
+          >
+            <Icon
+              name="chevron"
+              size={16}
+              className="bsh-summary__toggle-icon"
+              data-expanded={!isCollapsed}
+            />
+            <span className="bsh-sr-only">{toggleLabel}</span>
+          </button>
+        ) : null}
       </header>
       <div
         id={bodyId}

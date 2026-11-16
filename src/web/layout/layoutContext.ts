@@ -4,6 +4,15 @@ import type { PaneId } from './paneRegistry.js';
 export type LayoutMode = 'dock' | 'stacked';
 export type MoveTarget = 'left' | 'right' | 'below' | 'float' | 'dock';
 
+export interface DockController {
+  movePane: (id: PaneId, target: MoveTarget) => void;
+  openPane: (id: PaneId) => void;
+  closePane: (id: PaneId) => void;
+  reset: (treeWidth: number) => void;
+  focusPane: (id: PaneId) => void;
+  location: (id: PaneId) => 'grid' | 'floating' | null;
+}
+
 export interface LayoutApi {
   mode: LayoutMode;
   openPanes: readonly PaneId[];
@@ -15,6 +24,7 @@ export interface LayoutApi {
   resetLayout: () => void;
   focusPane: (id: PaneId) => void;
   resizeSignal: (id: PaneId) => number;
+  location: (id: PaneId) => 'grid' | 'floating' | null;
   closeTreeOverlay: () => void;
 }
 

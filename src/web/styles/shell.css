@@ -370,7 +370,7 @@
   }
 }
 
-@media (max-width: 999px) {
+@media (max-width: 875px) {
   .tree-backdrop {
     position: fixed;
     inset: var(--nav-height) 0 0;

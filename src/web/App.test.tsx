@@ -275,7 +275,7 @@ describe('App shell', () => {
       expect(appRouter.state.location.pathname).toBe('/model/dXJuOmFkc2s'),
     );
     expect(
-      await screen.findByRole('region', { name: 'Viewer' }),
+      await screen.findByRole('region', { name: 'Model viewer' }),
     ).toBeInTheDocument();
     expect(appRouter.state.location.search).toMatchObject({
       file: 'Tower.rvt',
@@ -290,7 +290,7 @@ describe('App shell', () => {
       screen.getByRole('navigation', { name: /^Breadcrumb/ }),
     ).toHaveTextContent('Riverside Tower');
     expect(
-      screen.getByRole('region', { name: 'Dashboard' }),
+      screen.getAllByRole('region', { name: 'Dashboard' })[0],
     ).toBeInTheDocument();
     expect(
       screen.getByRole('complementary', { name: 'Model summary' }),
