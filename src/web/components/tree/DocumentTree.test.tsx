@@ -508,6 +508,11 @@ describe('DocumentTree multi-select', () => {
         name: 'Add Tower.rvt to the open viewer',
       }),
     ).not.toBeNull();
+    expect(
+      screen
+        .getByRole('button', { name: 'Add Tower.rvt to the open viewer' })
+        .getAttribute('title'),
+    ).toContain('Space to select the version');
     fireEvent.click(
       screen.getByRole('button', { name: 'Add Tower.rvt to the open viewer' }),
     );

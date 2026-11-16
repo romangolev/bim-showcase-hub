@@ -447,7 +447,7 @@ export function DocumentTree({
         className="tree-row__action"
         tabIndex={-1}
         aria-label={label}
-        title={label}
+        title={`${label}. With the keyboard, press Space to select the version, then use Add to ${addTarget.label} in the selection bar.`}
         onClick={(event) => {
           event.stopPropagation();
           void ensureChecked(node).then((checked) => {
