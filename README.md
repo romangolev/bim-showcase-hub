@@ -16,7 +16,7 @@ The screenshots use the built-in mock data, not a real account.
 - Lazy document tree for hubs, projects, folders, items and versions, with filtering, keyboard navigation, a resizable panel and a collapsible layout on narrow screens.
 - Autodesk Viewer for any viewable version, in the US or EU region.
 - Tool group inside the viewer toolbar: paint selected elements red, green or blue (or reset), and export to Excel, with an in-viewer status badge for the export.
-- Dark and light themes with a top bar toggle. The choice is remembered, the viewer and charts follow it.
+- Dark and light themes with a top bar toggle. The choice is remembered, the viewer, including its native toolbar and panels, and the charts follow it.
 - Model summary: element counts grouped by Assembly Code, Classification Code and Name, in a rail that collapses to give the viewer more room.
 - Dashboard: bar chart and donut chart of elements by Category, Level, Assembly Code, Classification Code or Name.
 - Excel export: one sheet per Category with selected properties, built in the browser. The viewer resizes when the tree, dashboard or summary rail opens or closes.

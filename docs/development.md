@@ -120,9 +120,10 @@ e2e/.venv/bin/python -m camoufox fetch
 - summary counts never wrap
 - the page has no horizontal overflow
 - the Excel export downloads an xlsx
+- the native viewer chrome is themed (control group uses the graphite token with no shadow, button hover is not Autodesk cyan, tooltips are not capitalized, docking panels use Inter) and every selector in `viewerChrome.css` still exists in the Autodesk stylesheet (`e2e/viewer_selectors.py`, also runnable alone)
 - no uncaught page errors and no failed app requests
 
-It writes `01-home.png`, `02-model.png`, `03-after-export.png`, `export.xlsx` and `report.json` to `E2E_OUTPUT_DIR`.
+It writes `01-home.png`, `02-model.png`, `03-after-export.png`, `05-viewer-chrome.png`, `export.xlsx` and `report.json` to `E2E_OUTPUT_DIR`.
 
 **mock_smoke.py** (run `e2e/.venv/bin/python e2e/mock_smoke.py`). Needs no sign-in. Start `npm run dev:mock` first. It runs headless in a fresh, non-persistent session and checks:
 

@@ -36,4 +36,18 @@ The app has dark and light themes. The light theme keeps every token role and ch
 
 ## Viewer
 
-The Autodesk Viewer follows the app theme: `dark-theme` or `light-theme`, plus a scene background taken from the `--color-graphite` and `--color-void` tokens. `src/web/viewer/viewer.css` overrides its styling to match the tokens, and the mock viewer uses the same stylesheet. The paint and export controls are a group in the native viewer toolbar (see [architecture.md](architecture.md)).
+The Autodesk Viewer follows the app theme: `dark-theme` or `light-theme`, plus a scene background taken from the `--color-graphite` and `--color-void` tokens. `src/web/viewer/viewer.css` holds the pane, overlay and tool icon styles and the mock viewer uses it too. `src/web/viewer/viewerChrome.css` restyles the native Autodesk chrome, see below. The paint and export controls are a group in the native viewer toolbar (see [architecture.md](architecture.md)).
+
+## Viewer chrome
+
+`src/web/viewer/viewerChrome.css` themes the native Autodesk Viewer 7 UI with the same tokens as the app, so one rule set serves both themes: surfaces are `--color-graphite` and `--color-charcoal`, text `--color-chalk` and `--color-ash`, active state `--color-signal-blue` (`--color-arc-blue` for text), borders 0.5px hairlines, no gradients and no shadows, Inter instead of Artifakt.
+
+Themed: toolbar groups, buttons (idle, hover, active, disabled, `:focus-visible` ring), tooltips, the settings sub menu, docking panels (title, footer, buttons, text box, scrollbars), the Model Browser tree, Properties and Settings panels and their inputs, search and filter boxes, context menus, the loading spinner, the progress bar and the alert box. Image-based icons (panel close, resizer, tree arrows, visibility eye, search, filter, clear and menu expand) are redrawn as inline SVG masks filled with `currentColor`, so they follow the theme. The tool icons in `viewer.css` use the same pattern.
+
+Deliberately native: the ViewCube faces (WebGL), the environment thumbnails in Settings, the alert illustrations, the Layers and animation icons, the experimental disclaimer in Settings and any CSS injected by extensions.
+
+Why the selectors look long: Autodesk injects its stylesheet at runtime, after ours, and hard-codes colors per theme in `.adsk-viewing-viewer.dark-theme` and `.light-theme` blocks. Every rule is prefixed with `html .bsh-viewer-surface .adsk-viewing-viewer`, which outranks those blocks when the tail selector is the same, so `!important` is used only where Autodesk uses it (tree selection and hover, Settings labels).
+
+To extend: find the selector in the Autodesk stylesheet, add a rule with the scope prefix and the same tail, then add the tail to `UPSTREAM_SELECTORS` in `e2e/viewer_selectors.py` (or to `OWN_SELECTORS` when it does not exist upstream, such as `:focus-visible`). Use tokens only. Check text contrast at 4.5:1 and UI contrast at 3:1 in both themes.
+
+Version drift: the viewer is loaded as `7.*`, so Autodesk can rename classes at any time. `python3 e2e/viewer_selectors.py` fetches the stylesheet the app loads and fails when a listed selector is gone or when the list and `viewerChrome.css` disagree. `e2e/smoke.py` runs the same check and also asserts computed styles on the live viewer. It accepts a local file path to check against a saved stylesheet.
