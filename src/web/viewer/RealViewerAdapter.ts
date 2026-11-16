@@ -898,6 +898,10 @@ export class RealViewerAdapter implements ViewerAdapter {
     this.toolsMounted = true;
     try {
       await viewer.loadExtension(TOOLS_EXTENSION_ID, { controller });
+      if (this.controller !== controller) {
+        this.toolsMounted = true;
+        this.unmountTools();
+      }
     } catch {
       this.toolsMounted = false;
     }

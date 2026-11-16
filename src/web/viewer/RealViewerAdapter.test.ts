@@ -167,7 +167,10 @@ class FakeViewer implements GuiViewer3D {
     return this.model;
   }
 
+  loadGate: Promise<void> | null = null;
+
   async loadExtension(id: string, options?: unknown): Promise<unknown> {
+    await this.loadGate;
     const Extension = registry.get(id);
     if (!Extension) throw new Error(`unknown extension ${id}`);
     const extension = new Extension(this, options);
@@ -471,6 +474,26 @@ describe('RealViewerAdapter tool group extension', () => {
     expect(viewer.extensions.size).toBe(0);
     expect(viewer.toolbar.groups).toHaveLength(0);
     viewer.select([1]);
+  });
+
+  it('unloads a group whose registration was disposed while the extension was loading', async () => {
+    makeAdapter();
+    await adapter.load('dXJu');
+    const viewer = viewers[0] as FakeViewer;
+    let release: () => void = () => {};
+    viewer.loadGate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const dispose = adapter.registerToolGroup(buildToolGroupSpec(adapter));
+    dispose();
+    viewer.loadGate = null;
+    release();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(viewer.toolbar.groups).toHaveLength(0);
+    expect(viewer.extensions.size).toBe(0);
+    adapter.registerToolGroup(buildToolGroupSpec(adapter));
+    await vi.waitFor(() => expect(viewer.toolbar.groups).toHaveLength(1));
+    expect(viewer.extensions.size).toBe(1);
   });
 
   it('removes the group when the adapter is destroyed', async () => {

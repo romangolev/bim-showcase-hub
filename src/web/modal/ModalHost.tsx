@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Icon } from '../components/icons.js';
 import type { ModalDefinition } from './types.js';
 
@@ -12,12 +12,13 @@ export function ModalHost({ definition, onClose }: ModalHostProps) {
   const titleId = useId();
   const { Body } = definition;
 
+  const [opener] = useState(() => document.activeElement as HTMLElement | null);
+
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
   useEffect(() => {
     const dialog = dialogRef.current;
-    const opener = document.activeElement as HTMLElement | null;
     const onBackdropClick = (event: MouseEvent) => {
       if (event.target === dialog) onCloseRef.current();
     };
@@ -26,13 +27,13 @@ export function ModalHost({ definition, onClose }: ModalHostProps) {
     };
     dialog?.addEventListener('click', onBackdropClick);
     dialog?.addEventListener('close', onNativeClose);
-    dialog?.showModal();
+    if (dialog && !dialog.open) dialog.showModal();
     return () => {
       dialog?.removeEventListener('click', onBackdropClick);
       dialog?.removeEventListener('close', onNativeClose);
       opener?.focus();
     };
-  }, []);
+  }, [opener]);
 
   return (
     <dialog

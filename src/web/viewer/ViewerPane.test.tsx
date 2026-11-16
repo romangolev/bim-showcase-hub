@@ -267,8 +267,11 @@ describe('ViewerPane export status badge', () => {
     const live = screen.getByRole('status');
     expect(live).toHaveAttribute('aria-live', 'polite');
     expect(live).toBeEmptyDOMElement();
+    const exportButton = await screen.findByRole('button', {
+      name: 'Export to Excel',
+    });
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    fireEvent.click(screen.getByRole('button', { name: 'Export to Excel' }));
+    fireEvent.click(exportButton);
     await waitFor(() => expect(live).toHaveTextContent(/^Exported \d+ rows/));
     expect(live.querySelector('.badge .badge__dot')).not.toBeNull();
     expect(live.querySelector('.badge')).toHaveAttribute('data-variant', 'ok');
@@ -290,7 +293,9 @@ describe('ViewerPane export status badge', () => {
     await waitFor(() => expect(onReady).toHaveBeenCalled());
     const adapter = created[0] as ViewerAdapter;
     vi.spyOn(adapter, 'getLeafProperties').mockRejectedValue(new Error('boom'));
-    fireEvent.click(screen.getByRole('button', { name: 'Export to Excel' }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Export to Excel' }),
+    );
     const live = screen.getByRole('status');
     await waitFor(() => expect(live).toHaveTextContent('Export failed'));
     expect(live.querySelector('.badge')).toHaveAttribute(
@@ -376,11 +381,11 @@ describe('ViewerPane tool settings', () => {
     );
     await waitFor(() => expect(onReady).toHaveBeenCalled());
     expect(
+      await screen.findByRole('button', { name: 'Export to Excel' }),
+    ).toBeInTheDocument();
+    expect(
       screen.queryByRole('button', { name: 'Paint selection' }),
     ).toBeNull();
-    expect(
-      screen.getByRole('button', { name: 'Export to Excel' }),
-    ).toBeInTheDocument();
   });
 
   it('re-registers the tools on a setting change without reloading the model', async () => {
@@ -395,7 +400,7 @@ describe('ViewerPane tool settings', () => {
     );
     await waitFor(() => expect(onReady).toHaveBeenCalled());
     expect(
-      screen.getByRole('button', { name: 'Paint selection' }),
+      await screen.findByRole('button', { name: 'Paint selection' }),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'flip paint' }));
     await waitFor(() =>
@@ -404,7 +409,7 @@ describe('ViewerPane tool settings', () => {
       ).toBeNull(),
     );
     expect(
-      screen.getByRole('button', { name: 'Export to Excel' }),
+      await screen.findByRole('button', { name: 'Export to Excel' }),
     ).toBeInTheDocument();
     expect(created).toHaveLength(1);
     expect(onReady).toHaveBeenCalledTimes(1);

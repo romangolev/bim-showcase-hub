@@ -15,6 +15,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   window.localStorage.clear();
 });
 
@@ -57,7 +58,6 @@ describe('settings edge cases', () => {
       throw new Error('quota');
     });
     expect(() => writeSettings(DEFAULT_SETTINGS)).not.toThrow();
-    vi.restoreAllMocks();
   });
 });
 

@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import type { ModalDefinition } from '../modal/types.js';
 import { useTheme } from '../theme/ThemeContext.js';
 import { useSettings } from './SettingsContext.js';
@@ -31,12 +32,15 @@ interface SwitchRowProps {
 }
 
 function SwitchRow({ label, description, checked, onChange }: SwitchRowProps) {
+  const hintId = useId();
   return (
     <label className="switch-row">
       <span className="switch-row__text">
         <span className="switch-row__label">{label}</span>
         {description ? (
-          <span className="switch-row__hint">{description}</span>
+          <span id={hintId} className="switch-row__hint">
+            {description}
+          </span>
         ) : null}
       </span>
       <input
@@ -45,6 +49,7 @@ function SwitchRow({ label, description, checked, onChange }: SwitchRowProps) {
         checked={checked}
         aria-checked={checked}
         aria-label={label}
+        aria-describedby={description ? hintId : undefined}
         onChange={onChange}
       />
     </label>

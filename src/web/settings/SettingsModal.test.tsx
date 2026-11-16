@@ -49,10 +49,13 @@ describe('SettingsBody', () => {
       </SettingsProvider>,
     );
     const dark = screen.getByRole('switch', { name: 'Dark theme' });
-    const before = dark.getAttribute('aria-checked');
-    const theme = document.documentElement.dataset.theme;
+    const start = document.documentElement.dataset.theme;
+    const next = start === 'dark' ? 'light' : 'dark';
     fireEvent.click(dark);
-    expect(dark.getAttribute('aria-checked')).not.toBe(before);
-    expect(document.documentElement.dataset.theme).not.toBe(theme);
+    expect(document.documentElement.dataset.theme).toBe(next);
+    expect(dark.getAttribute('aria-checked')).toBe(String(next === 'dark'));
+    fireEvent.click(dark);
+    expect(document.documentElement.dataset.theme).toBe(start);
+    expect(dark.getAttribute('aria-checked')).toBe(String(start === 'dark'));
   });
 });

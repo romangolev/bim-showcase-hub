@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { StrictMode, useState } from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ModalProvider, useModal } from './index.js';
 import type { ModalDefinition } from './types.js';
 
@@ -77,6 +77,13 @@ describe('ModalProvider', () => {
   it('stays open through StrictMode remounts with an asynchronous close event', async () => {
     const proto = HTMLDialogElement.prototype;
     const originalClose = proto.close;
+    const originalShow = proto.showModal;
+    const showSpy = vi.fn();
+    proto.showModal = function showModal() {
+      showSpy();
+      this.setAttribute('open', '');
+      this.querySelector<HTMLElement>('button')?.focus();
+    };
     proto.close = function close() {
       this.removeAttribute('open');
       queueMicrotask(() => this.dispatchEvent(new Event('close')));
@@ -89,14 +96,20 @@ describe('ModalProvider', () => {
           </ModalProvider>
         </StrictMode>,
       );
-      fireEvent.click(screen.getByText('Open demo'));
+      const trigger = screen.getByText('Open demo');
+      trigger.focus();
+      fireEvent.click(trigger);
       expect(screen.getByRole('dialog', { name: 'Demo' })).toBeTruthy();
+      expect(showSpy).toHaveBeenCalledTimes(1);
       await act(async () => {
         await new Promise((resolve) => setTimeout(resolve, 0));
       });
       expect(screen.getByRole('dialog', { name: 'Demo' })).toBeTruthy();
+      fireEvent.click(screen.getByText('Done'));
+      expect(document.activeElement).toBe(trigger);
     } finally {
       proto.close = originalClose;
+      proto.showModal = originalShow;
     }
   });
 
