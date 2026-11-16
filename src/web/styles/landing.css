@@ -57,7 +57,7 @@
 
 .mockup__body {
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr) 280px;
+  grid-template-columns: 280px minmax(0, 1fr) 280px;
   min-height: 340px;
 }
 
@@ -186,7 +186,7 @@
 }
 
 .preview {
-  min-height: 380px;
+  min-height: 340px;
   padding: var(--space-4);
   border: var(--border-hairline);
   border-radius: var(--radius-container);
@@ -298,9 +298,14 @@
 
 .preview__export .bsh-table-wrap,
 .mockup__summary .bsh-table-wrap {
-  flex: none;
+  flex: 1 1 auto;
+  width: 100%;
   overflow-x: auto;
   overflow-y: visible;
+}
+
+.mockup__summary .bsh-table-wrap {
+  align-self: flex-start;
 }
 
 .preview__export-button {

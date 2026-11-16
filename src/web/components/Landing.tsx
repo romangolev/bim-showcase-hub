@@ -15,6 +15,7 @@ const SAMPLE_ENTRIES: SummaryEntry[] = [
   { property: 'Category', value: 'Windows', count: 188 },
   { property: 'Category', value: 'Doors', count: 96 },
   { property: 'Level', value: 'Level 02', count: 142 },
+  { property: 'Level', value: 'Level 03', count: 118 },
   { property: 'Assembly Code', value: 'B2010', count: 87 },
   { property: 'Classification Code', value: 'Uniformat 2.1', count: 64 },
 ];
@@ -92,33 +93,26 @@ function ProductPreview() {
           />
           <TreeRowView
             level={2}
-            kind="folder"
-            name="Project Files"
-            expandable
-            expanded
-          />
-          <TreeRowView
-            level={3}
             kind="item"
             name="Tower_Architecture.rvt"
             expandable
             expanded
           />
           <TreeRowView
-            level={4}
+            level={3}
             kind="version"
             name="v3: 2026-11-10 14:22 by Mara Quinn"
             viewable
             selected
           />
           <TreeRowView
-            level={4}
+            level={3}
             kind="version"
             name="v2: 2026-10-02 09:41 by Jonas Reid"
             viewable
           />
           <TreeRowView
-            level={4}
+            level={3}
             kind="version"
             name="v1: 2026-09-14 16:05 by Mara Quinn"
           />
@@ -240,7 +234,7 @@ function ExportPanel() {
         <span className="badge__dot" />
         Exported 1,284 elements
       </span>
-      <SummaryTable entries={SAMPLE_ENTRIES.slice(0, 3)} />
+      <SummaryTable entries={SAMPLE_ENTRIES.slice(0, 5)} />
     </div>
   );
 }
