@@ -1,9 +1,77 @@
-# bim-showcase-hub
+# BIM Showcase Hub
 
-Autodesk Platform Services Application
+A browser workspace for Autodesk Platform Services (APS) models. Sign in with an Autodesk account, browse hubs, projects, folders and versions, open a model in the Autodesk Viewer, and read its properties as a summary table and charts. Selected elements can be painted, and the property table can be exported to Excel.
 
-Single page app demonstrating different types of tools available using APS API.
+![Landing page](docs/images/landing.png)
 
-Fixes problems with downloading xlsx files with native autodesk app. Now it´s possible to export schedules from uploaded naviswork files.
+![Model page](docs/images/model.png)
 
-Better frontend design allows to hide-show project tree and expand-collapse dashboard for the opened model.
+The screenshots use the built-in mock data, not a real account.
+
+## Features
+
+- Autodesk three-legged sign-in with a cookie session. Tokens never reach the browser except a short-lived viewer token.
+- Lazy document tree for hubs, projects, folders, items and versions, with filtering, keyboard navigation, a resizable panel and a collapsible layout on narrow screens.
+- Autodesk Viewer for any viewable version, in the US or EU region.
+- Paint tools: color selected elements red, green or blue, or reset the appearance.
+- Model summary: element counts grouped by Assembly Code, Classification Code and Name.
+- Dashboard: bar chart and donut chart of elements by Category, Level, Assembly Code, Classification Code or Name.
+- Excel export: one sheet per Category with selected properties, built in the browser.
+- Mock mode with fixture hubs and a fake viewer, so the whole app runs without Autodesk credentials.
+
+## Quick start (mock mode)
+
+Requires Node 24.
+
+```bash
+npm install
+npm run dev:mock
+```
+
+Open http://localhost:5173. The app signs you in as a mock user and serves fixture data. Mock mode works only in development. A production build ignores `MOCK_APS`.
+
+## Real credentials
+
+Create an APS app, copy `.env.example` to `.env`, fill in the values and run `npm run dev`. See [docs/development.md](docs/development.md) for the variables and [docs/deployment.md](docs/deployment.md) for the APS app setup.
+
+## Scripts
+
+| Script               | What it does                                                                        |
+| -------------------- | ----------------------------------------------------------------------------------- |
+| `npm run dev`        | Express server with `tsx watch` plus Vite on port 5173                              |
+| `npm run dev:mock`   | Same, with mock data and the mock viewer                                            |
+| `npm run build`      | Type-check the web app, build it to `dist/web`, compile the server to `dist/server` |
+| `npm start`          | Run the compiled server, which also serves `dist/web`                               |
+| `npm run lint`       | Biome check                                                                         |
+| `npm run format`     | Biome check with fixes                                                              |
+| `npm run typecheck`  | TypeScript for the server and the web app                                           |
+| `npm test`           | Vitest                                                                              |
+| `npm run e2e:setup`  | Create the Camoufox Python environment for end-to-end tests                         |
+| `npm run e2e:signin` | Open a browser to sign in once for the real-app tests                               |
+| `npm run e2e:smoke`  | Run the smoke test against the real app                                             |
+
+## Project layout
+
+```
+api/            Vercel function entry (api/index.ts)
+docs/           Guides and screenshots
+e2e/            Camoufox end-to-end scripts (Python)
+public/         Static assets
+src/server/     Express app: config, auth, data mapping, routes, mock data
+src/shared/     Types shared by server and web
+src/web/        React app: routes, components, panels, viewer adapters, extensions, styles
+DESIGN.md       Design tokens and rules
+vercel.json     Vercel build output and rewrites
+```
+
+## Documentation
+
+- [Architecture](docs/architecture.md)
+- [Development](docs/development.md)
+- [Deployment](docs/deployment.md)
+- [Design system](docs/design-system.md)
+- [Viewer extensions](docs/extensions.md)
+
+## License
+
+MIT. See [LICENSE](LICENSE).
