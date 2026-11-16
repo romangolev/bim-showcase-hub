@@ -10,7 +10,6 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Icon } from '../components/icons.js';
 import { TopBar } from '../components/TopBar.js';
 import { TreeControlContext } from '../components/TreeControl.js';
 import { useMediaQuery } from '../components/useMediaQuery.js';
@@ -22,7 +21,7 @@ import {
   LayoutContext,
   type LayoutMode,
   MainContentContext,
-  useLayout,
+  type MoveTarget,
 } from './layoutContext.js';
 import {
   type LayoutModel,
@@ -31,6 +30,7 @@ import {
   type SerializedDock,
   writeLayout,
 } from './layoutState.js';
+import { LayoutMenu, PaneActions } from './PaneMenu.js';
 import {
   PANE_IDS,
   type PaneId,
@@ -44,6 +44,12 @@ const DockLayout = lazy(() =>
     default: module.DockLayout,
   })),
 );
+
+const MOVE_MESSAGES: Partial<Record<MoveTarget, string>> = {
+  left: 'moved to the left edge',
+  right: 'moved to the right edge',
+  below: 'moved to the bottom',
+};
 
 export const STACKED_MAX_WIDTH = 875;
 export const STACKED_QUERY = `(max-width: ${STACKED_MAX_WIDTH}px)`;
@@ -82,29 +88,6 @@ function focusTreeTarget() {
     target?.focus();
     target?.scrollIntoView({ block: 'nearest' });
   });
-}
-
-function CollapseAction({ pane }: { pane: PaneId }) {
-  const layout = useLayout();
-  const collapsed = layout.isCollapsed(pane);
-  const label = `${collapsed ? 'Expand' : 'Collapse'} ${paneById(pane).title}`;
-  return (
-    <button
-      type="button"
-      className="dock-action"
-      aria-expanded={!collapsed}
-      aria-label={label}
-      title={label}
-      onClick={() => layout.setCollapsed(pane, !collapsed)}
-    >
-      <Icon
-        name="chevron"
-        size={14}
-        className="dock-action__chevron"
-        data-expanded={!collapsed}
-      />
-    </button>
-  );
 }
 
 export interface LayoutProviderProps {
@@ -200,6 +183,13 @@ export function LayoutProvider({ main }: LayoutProviderProps) {
     controller.current = next;
   }, []);
 
+  const [announcement, setAnnouncement] = useState('');
+  const announce = useCallback((message: string) => {
+    setAnnouncement((current) =>
+      current === message ? `${message}\u00a0` : message,
+    );
+  }, []);
+
   const setCollapsed = useCallback((id: PaneId, collapsed: boolean) => {
     dispatch({ type: 'setCollapsed', id, collapsed });
   }, []);
@@ -240,7 +230,12 @@ export function LayoutProvider({ main }: LayoutProviderProps) {
       openPanes,
       isOpen: (id) => openPanes.includes(id),
       isCollapsed: (id) => model.collapsed.includes(id),
-      setCollapsed,
+      setCollapsed: (id, collapsed) => {
+        setCollapsed(id, collapsed);
+        announce(
+          `${paneById(id).title} ${collapsed ? 'collapsed' : 'expanded'}`,
+        );
+      },
       togglePane: (id) => {
         if (id === 'tree') {
           toggleTree();
@@ -252,10 +247,15 @@ export function LayoutProvider({ main }: LayoutProviderProps) {
       movePane: (id, target) => {
         setCollapsed(id, false);
         controller.current?.movePane(id, target);
+        const message = MOVE_MESSAGES[target];
+        if (message) announce(`${paneById(id).title} ${message}`);
+        requestAnimationFrame(() => controller.current?.focusPane(id));
       },
       resetLayout: () => {
         dispatch({ type: 'reset', height: window.innerHeight });
         controller.current?.reset(TREE_WIDTH_DEFAULT);
+        announce('Layout reset');
+        requestAnimationFrame(() => controller.current?.focusPane('viewer'));
       },
       focusPane: (id) => {
         if (id === 'tree') {
@@ -269,6 +269,7 @@ export function LayoutProvider({ main }: LayoutProviderProps) {
       closeTreeOverlay,
     }),
     [
+      announce,
       mode,
       openPanes,
       model.collapsed,
@@ -318,6 +319,7 @@ export function LayoutProvider({ main }: LayoutProviderProps) {
               treeOpen={treeOpen}
               onToggleTree={toggleTree}
               toggleRef={toggleRef}
+              actions={<LayoutMenu />}
             />
             {stacked ? (
               <ClassicLayout
@@ -346,12 +348,19 @@ export function LayoutProvider({ main }: LayoutProviderProps) {
                     onMoved={bump}
                     onChange={onDockChange}
                     onController={onController}
-                    headerActions={({ pane }) => <CollapseAction pane={pane} />}
+                    headerActions={({ pane }) => <PaneActions pane={pane} />}
                   />
                 </Suspense>
               </div>
             )}
             <PaneHosts hosts={hosts} panes={mounted} render={renderPane} />
+            <div
+              className="visually-hidden layout-announcer"
+              role="status"
+              aria-live="polite"
+            >
+              {announcement}
+            </div>
           </ViewerProvider>
         </TreeControlContext.Provider>
       </MainContentContext.Provider>

@@ -86,6 +86,32 @@ function PaneActions({ activePanel, group }: IDockviewHeaderActionsProps) {
 
 const COMPONENTS = { pane: PaneContent };
 
+export function cycleGroups(root: HTMLElement, event: KeyboardEvent) {
+  if (event.key !== 'F6' || event.altKey || event.ctrlKey || event.metaKey) {
+    return;
+  }
+  const groups = Array.from(
+    root.querySelectorAll<HTMLElement>('.dv-groupview'),
+  );
+  if (groups.length === 0) return;
+  event.preventDefault();
+  const current = groups.findIndex((group) =>
+    group.contains(document.activeElement),
+  );
+  const step = event.shiftKey ? -1 : 1;
+  const next =
+    current === -1
+      ? event.shiftKey
+        ? groups.length - 1
+        : 0
+      : (current + step + groups.length) % groups.length;
+  const group = groups[next];
+  const tab =
+    group?.querySelector<HTMLElement>('.dv-tab.dv-active-tab') ??
+    group?.querySelector<HTMLElement>('.dv-tab');
+  tab?.focus();
+}
+
 interface Bounds {
   minimumWidth: number;
   maximumWidth: number;
@@ -214,6 +240,7 @@ export function DockLayout(props: DockLayoutProps) {
   const kept = useRef<DockviewApi | null>(null);
   const live = useRef(false);
   const busy = useRef(0);
+  const quiet = useRef(0);
   const saved = useRef(new Map<string, number>());
   const disposers = useRef<(() => void)[]>([]);
 
@@ -399,11 +426,13 @@ export function DockLayout(props: DockLayoutProps) {
     const api = apiRef.current;
     if (!api) return;
     busy.current += 1;
+    quiet.current += 1;
     try {
       saved.current.clear();
       run(api);
     } finally {
       busy.current -= 1;
+      quiet.current -= 1;
     }
     emit();
   };
@@ -514,13 +543,24 @@ export function DockLayout(props: DockLayoutProps) {
     kept.current = api;
     apiRef.current = api;
     busy.current += 1;
+    quiet.current += 1;
     try {
       restore(api, latest.current.dock, latest.current.treeWidth);
     } finally {
       busy.current -= 1;
+      quiet.current -= 1;
     }
     attach(api);
   };
+
+  const rootRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const onKey = (event: KeyboardEvent) => cycleGroups(root, event);
+    root.addEventListener('keydown', onKey);
+    return () => root.removeEventListener('keydown', onKey);
+  }, []);
 
   const emitRef = useRef(emit);
   emitRef.current = emit;
@@ -548,7 +588,7 @@ export function DockLayout(props: DockLayoutProps) {
         headerActions: props.headerActions,
       }}
     >
-      <div className="dock-root">
+      <div className="dock-root" ref={rootRef}>
         <DockviewReact
           theme={DOCK_THEME}
           components={COMPONENTS}
@@ -558,6 +598,7 @@ export function DockLayout(props: DockLayoutProps) {
           dndStrategy="pointer"
           floatingGroupBounds="boundedWithinViewport"
           announcements
+          getAnnouncement={() => (quiet.current > 0 ? null : undefined)}
         />
       </div>
     </SlotContext.Provider>

@@ -59,7 +59,6 @@
   --dv-tab-margin: 0;
   --dv-tab-font-size: var(--text-13);
   --dv-tab-close-icon-size: 12px;
-  --dv-overlay-z-index: 30;
   --dv-transition-duration: 120ms;
   color: var(--color-chalk);
   font-family: var(--font-sans);
@@ -129,21 +128,49 @@
 .bsh-dock
   .dv-groupview[data-collapsed="width"]
   > .dv-tabs-and-actions-container {
-  flex-direction: column-reverse;
-  justify-content: flex-end;
+  flex-direction: column;
+  align-items: center;
   height: 100%;
+  padding: var(--space-1) 0;
   border-bottom: 0;
 }
 
 .bsh-dock
   .dv-groupview[data-collapsed="width"]
-  > .dv-tabs-and-actions-container
-  .dv-scrollable {
-  writing-mode: vertical-rl;
+  .dv-right-actions-container
+  > .dv-react-part {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
 }
 
 .bsh-dock .dv-groupview[data-collapsed="width"] .dv-right-actions-container {
-  padding: var(--space-1) 0;
+  order: -1;
+  padding: 0;
+}
+
+.bsh-dock .dv-groupview[data-collapsed="width"] .dv-scrollable {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  writing-mode: vertical-rl;
+}
+
+.bsh-dock .dv-groupview[data-collapsed="width"] .dv-tab {
+  padding: var(--space-3) 0;
+  box-shadow: none;
+}
+
+.bsh-dock .dv-groupview[data-collapsed="width"] .dv-default-tab-action,
+.bsh-dock .dv-groupview[data-collapsed="width"] .dv-scrollbar,
+.bsh-dock .dv-groupview[data-collapsed="width"] .dv-pre-actions-container,
+.bsh-dock .dv-groupview[data-collapsed="width"] .dv-left-actions-container {
+  display: none;
+}
+
+.bsh-dock .dv-groupview[data-collapsed="width"] .dv-void-container {
+  flex: 1;
 }
 
 .dock-action {
@@ -251,6 +278,12 @@
 
 .pane-slot--dock .bsh-charts {
   height: max(120px, 100%);
+}
+
+.bsh-dock
+  .dv-groupview[data-collapsed="width"]
+  .dock-action__chevron[data-expanded="false"] {
+  transform: rotate(180deg);
 }
 
 @media (prefers-reduced-motion: reduce) {
