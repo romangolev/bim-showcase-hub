@@ -306,6 +306,26 @@ describe('createViewStateChecker', () => {
     ).toBe('unknown');
   });
 
+  it('purges expired entries at most once per interval and on read', async () => {
+    let clock = 0;
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(reply(200, { status: 'inprogress' }));
+    const checker = createViewStateChecker({ fetchImpl, now: () => clock });
+    await checker.check('t', us('a'));
+    await checker.check('t', us('b'));
+    await checker.check('t', us('c'));
+    expect(checker.size?.()).toBe(3);
+    clock = 11_000;
+    await checker.check('t', us('d'));
+    expect(checker.size?.()).toBe(4);
+    await checker.check('t', us('a'));
+    expect(checker.size?.()).toBe(4);
+    clock = 31_000;
+    await checker.check('t', us('e'));
+    expect(checker.size?.()).toBe(1);
+  });
+
   it('aborts slow requests and reports unknown', async () => {
     const fetchImpl = vi.fn(
       (_url: string, init: { signal: AbortSignal }) =>

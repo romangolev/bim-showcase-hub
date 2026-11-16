@@ -9,6 +9,7 @@ const GEOMETRY_TYPES = new Set(['svf', 'svf2']);
 const SETTLED_TTL_MS = 60_000;
 const VOLATILE_TTL_MS = 10_000;
 const CACHE_LIMIT = 2000;
+export const PURGE_INTERVAL_MS = 30_000;
 
 type Fetch = (
   input: string,
@@ -30,6 +31,7 @@ export interface ViewStateCheckerOptions {
 export interface ViewStateChecker {
   check(token: string, urn: string): Promise<ViewState>;
   clear(): void;
+  size?(): number;
 }
 
 function statusOf(value: unknown): string {
@@ -177,11 +179,16 @@ export function createViewStateChecker(
     return other === MISSING ? 'not-translated' : other;
   }
 
+  let lastPurge = Number.NEGATIVE_INFINITY;
+
   function store(key: string, state: ViewState): void {
     const time = now();
-    for (const [existing, entry] of cache) {
-      if (entry.expires <= time) {
-        cache.delete(existing);
+    if (time - lastPurge >= PURGE_INTERVAL_MS) {
+      lastPurge = time;
+      for (const [existing, entry] of cache) {
+        if (entry.expires <= time) {
+          cache.delete(existing);
+        }
       }
     }
     if (!cache.has(key) && cache.size >= cacheLimit) {
@@ -217,6 +224,7 @@ export function createViewStateChecker(
       if (hit && hit.expires > now()) {
         return Promise.resolve(hit.state);
       }
+      if (hit) cache.delete(key);
       const pending = inflight.get(key);
       if (pending) {
         return pending;
@@ -227,6 +235,9 @@ export function createViewStateChecker(
     },
     clear() {
       cache.clear();
+    },
+    size() {
+      return cache.size;
     },
   };
 }
