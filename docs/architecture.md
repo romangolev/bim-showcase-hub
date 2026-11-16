@@ -45,13 +45,28 @@ The session is a signed cookie, not a server-side store, so tokens live in the c
 
 ## Data management mapping and opaque ids
 
-`apsDataService.ts` wraps `@aps_sdk/data-management` (hubs, hub projects, top folders, folder contents, item versions). `mapping.ts` converts API resources into one shape, `TreeNode` from `src/shared/types.ts`: `id`, `kind` (`hub`, `project`, `folder`, `item`, `version`), `name`, `hasChildren`, `viewable`, optional `urn` and `parentId`.
+`apsDataService.ts` wraps `@aps_sdk/data-management` (hubs, hub projects, top folders, folder contents, item versions). `mapping.ts` converts API resources into one shape, `TreeNode` from `src/shared/types.ts`: `id`, `kind` (`hub`, `project`, `folder`, `item`, `version`), `name`, `hasChildren`, `viewable`, optional `viewState` (versions only), optional `urn` and `parentId`.
 
 Rules in the mapping:
 
 - Resources without an id are skipped. Folder contents without a name, or of a type other than `folders` or `items`, are skipped.
-- A version is `viewable` when it has a derivative URN, and carries that URN.
+- A version carries its derivative URN. The mapping alone cannot tell whether the URN has geometry, so it starts as `unknown` (URN present) or `not-translated` (no URN).
 - A version name reads `v<number>: <YYYY-MM-DD HH:mm> by <user>`.
+
+### View state
+
+A derivative URN does not mean the model can be opened: a manifest can hold only a thumbnail, or not exist. When versions are listed (`listItemVersions`, which runs when the user expands a file, never for the whole tree), `data/viewState.ts` reads `GET /modelderivative/v2/designdata/{urn}/manifest` with the user's token and classifies each version into `TreeNode.viewState` (`src/shared/viewState.ts`):
+
+| State | Meaning | `viewable` |
+|---|---|---|
+| `ready` | An `svf` or `svf2` derivative has status `success` | true |
+| `processing` | Manifest `pending` or `inprogress`, or a geometry derivative still running | false |
+| `failed` | Manifest or geometry derivative `failed` or `timeout` | false |
+| `no-geometry` | Manifest `success` without an `svf` or `svf2` derivative (for example a thumbnail only) | false |
+| `not-translated` | No manifest (404 or an empty body), or no derivative URN | false |
+| `unknown` | The check could not run: 401, 403, 429, 5xx, a timeout or a network error | true |
+
+`viewable` stays as the derived boolean for existing consumers; `unknown` counts as viewable so a transient failure does not hide a model. The checker runs at most 4 manifest requests at once, aborts a request after 8 s, shares one request between concurrent checks of a URN and caches the result per process by URN: 60 s for `ready`, `no-geometry`, `failed` and `not-translated`, 10 s for `processing` and `unknown`. A failed check yields `unknown` and never fails the version list. Logs and errors carry neither the token nor the URN. The existing `data:read` scope covers the read; no new scope is needed.
 
 Autodesk ids contain characters such as `:`, `/` and `?`. `ids.ts` encodes every id with base64url before it leaves the server and decodes it on the way in. `decodeId` accepts only `[A-Za-z0-9_-]` up to 2048 characters and rejects anything that does not re-encode to the same string, so route parameters cannot carry arbitrary text to the APS SDK. Failures return 400 "Invalid id".
 
@@ -59,7 +74,7 @@ Upstream errors pass through `toHttpError`: 404 stays 404, 401 and 403 become 40
 
 ## Mock mode on the server
 
-With `config.mock`, `createMockDataService()` replaces the APS data service and the auth routes answer from fixtures: `/api/session` returns the mock user, `/api/auth/url` returns `/`, `/api/viewer/token` returns a fake token. The fixtures are in `src/server/mock/fixtures.ts` (two hubs, several projects, nested folders, items with versions).
+With `config.mock`, `createMockDataService()` replaces the APS data service and the auth routes answer from fixtures: `/api/session` returns the mock user, `/api/auth/url` returns `/`, `/api/viewer/token` returns a fake token. The fixtures are in `src/server/mock/fixtures.ts` (two hubs, several projects, nested folders, items with versions). The `View States` folder in the first project of the first hub holds one file per state (`STATE-ready.rvt`, `STATE-no-geometry.rvt`, `STATE-processing.rvt`, `STATE-not-translated.rvt`, `STATE-failed.rvt`).
 
 ## Client
 
@@ -74,7 +89,7 @@ With `config.mock`, `createMockDataService()` replaces the APS data service and 
 
 ### Tree
 
-`components/tree/DocumentTree.tsx` uses `@headless-tree/core` with the async data loader feature. Rows are loaded on expand through the children queries and rendered by `TreeRowView` with `role="treeitem"`, `aria-level`, `aria-expanded` and, for openable versions, `data-viewable`. `api/scope.ts` maps a node and its ancestors to the right endpoint (`childrenPath`). Only versions with a URN open the model route. `TreePanel` adds the filter box. It is the Documents pane of the layout: resized with the dock sash on wide screens and shown as an overlay below 876 px.
+`components/tree/DocumentTree.tsx` uses `@headless-tree/core` with the async data loader feature. Rows are loaded on expand through the children queries and rendered by `TreeRowView` with `role="treeitem"`, `aria-level`, `aria-expanded` and, for versions, `data-viewable` (true only for `ready` and `unknown`) and `data-view-state`. `api/scope.ts` maps a node and its ancestors to the right endpoint (`childrenPath`). Only versions whose state is `ready` or `unknown` open the model route. Selecting any other version, with the pointer or Enter, opens no tab and shows an explanation in an aria-live notice above the tree. `TreePanel` adds the filter box. It is the Documents pane of the layout: resized with the dock sash on wide screens and shown as an overlay below 876 px.
 
 ### Layout
 

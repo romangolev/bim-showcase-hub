@@ -132,6 +132,8 @@ It writes `01-home.png`, `02-model.png`, `03-after-export.png`, `05-viewer-chrom
 
 `smoke.py --multi` checks several models with the real viewer. It finds three different `.rvt` items through the API (by file name, no fixed ids) and opens each from the tree. For each it checks that a tab named after the file exists, the canvas matches its container within 4 px, the model is loaded, the URL holds its URN and the summary shows that model with its own rows. It then activates the first tab, drags the second tab to the right edge of the viewer group and checks both canvases follow their containers side by side, closes a tab and checks the others stay loaded, reopens it, reloads, and checks the tabs come back, the active model loads, hidden tabs fetch no manifest until activated, and no page errors. It writes `10-multi-*.png` to `13-multi-reloaded.png` and `multi-report.json`.
 
+`smoke.py --states` checks view states against the real account, without opening a model. It finds `rmebasicsampleproject.rvt` and `racbasicsampleproject.rvt` through the API by file name suffix (Test projects first, no fixed ids), asserts the versions API reports `no-geometry` and `ready`, expands each file in the tree and checks `data-view-state`, then selects the `no-geometry` version and asserts no model route opens and the explanation appears. It writes `states-report.json`.
+
 `smoke.py --layout` opens the same model and checks only the dock layout with the real Autodesk viewer: the viewer element is tagged, then moved through its pane menu (Move right, Float, Dock, Move below, Move left) and the layout is reset from the top bar Panes menu. After each step the render canvas must match its container within 4 px, the tagged viewer element must still be the same one, and `NOP_VIEWER.model` must still be loaded. It writes `06-layout-*.png`, `07-layout-reset.png` and `layout-report.json`.
 
 **mock_smoke.py** (run `e2e/.venv/bin/python e2e/mock_smoke.py`). Needs no sign-in. Start `npm run dev:mock` first (with `NODE_ENV=development` when `.env` sets production). It runs headless in a fresh, non-persistent session, launched with `os=HOST_OS` and `main_world_eval=True`, and checks:
@@ -142,6 +144,7 @@ It writes `01-home.png`, `02-model.png`, `03-after-export.png`, `05-viewer-chrom
 - clicking the version opens the model route
 - the document title names the model, the viewer tab shows the file name and version with the path and URN as its tooltip, the viewer pane has no header and the canvas fills its panel
 - the mock viewer is present
+- the `View States` folder shows the right badge and `data-view-state` for each state, selecting or pressing Enter on a version that is not ready opens no tab and shows the explanation, and the processing badge has a spinner
 - the summary has rows and counts never wrap
 - the export control, found by its accessible name or title (`/Export/i`) in the viewer toolbar, downloads a non-empty xlsx
 - the theme toggle flips `document.documentElement.dataset.theme` in both directions and the choice survives a reload
