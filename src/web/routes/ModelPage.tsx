@@ -1,36 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '../components/icons.js';
-
-export interface ModelSlotProps {
-  urn: string;
-}
-
-export function ViewerSlot({ urn }: ModelSlotProps) {
-  return (
-    <div className="slot slot--viewer" data-slot="viewer" data-urn={urn}>
-      <Icon name="model" size={32} />
-      <span>ViewerSlot</span>
-    </div>
-  );
-}
-
-export function DashboardSlot({ urn }: ModelSlotProps) {
-  return (
-    <div className="slot" data-slot="dashboard" data-urn={urn}>
-      <Icon name="chart" size={24} />
-      <span>DashboardSlot</span>
-    </div>
-  );
-}
-
-export function SummarySlot({ urn }: ModelSlotProps) {
-  return (
-    <div className="slot" data-slot="summary" data-urn={urn}>
-      <Icon name="table" size={24} />
-      <span>SummarySlot</span>
-    </div>
-  );
-}
+import {
+  DashboardPanel,
+  ExportButton,
+  ModelSummaryPanel,
+  PaintToolbar,
+} from '../panels/index.js';
+import { ViewerPane, ViewerProvider } from '../viewer/index.js';
 
 function CopyUrnButton({ urn }: { urn: string }) {
   const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle');
@@ -71,48 +47,37 @@ function CopyUrnButton({ urn }: { urn: string }) {
 }
 
 export function ModelPage({ urn }: { urn: string }) {
-  const [dashboardOpen, setDashboardOpen] = useState(true);
+  const [dashboardCollapsed, setDashboardCollapsed] = useState(false);
 
   return (
-    <div className="model-page">
-      <div className="model-bar">
-        <h1 className="model-bar__title">Model</h1>
-        <code className="model-bar__urn" title={urn}>
-          {urn}
-        </code>
-        <CopyUrnButton urn={urn} />
-      </div>
-      <div className="model-main">
-        <section className="model-viewer" aria-label="Viewer">
-          <ViewerSlot urn={urn} />
-        </section>
-        <aside className="model-summary" aria-label="Model summary">
-          <SummarySlot urn={urn} />
-        </aside>
-      </div>
-      <section
-        className="model-dashboard"
-        aria-label="Dashboard"
-        data-open={dashboardOpen}
-      >
-        <button
-          type="button"
-          className="model-dashboard__toggle"
-          aria-expanded={dashboardOpen}
-          aria-controls="model-dashboard-body"
-          onClick={() => setDashboardOpen((value) => !value)}
-        >
-          <Icon name="chevron" size={14} className="model-dashboard__chevron" />
-          Dashboard
-        </button>
-        <div
-          id="model-dashboard-body"
-          className="model-dashboard__body"
-          hidden={!dashboardOpen}
-        >
-          <DashboardSlot urn={urn} />
+    <ViewerProvider>
+      <div className="model-page">
+        <div className="model-bar">
+          <h1 className="model-bar__title">Model</h1>
+          <code className="model-bar__urn" title={urn}>
+            {urn}
+          </code>
+          <CopyUrnButton urn={urn} />
         </div>
-      </section>
-    </div>
+        <div className="model-toolbar">
+          <PaintToolbar />
+          <ExportButton />
+        </div>
+        <div className="model-main">
+          <section className="model-viewer" aria-label="Viewer">
+            <ViewerPane urn={urn} />
+          </section>
+          <aside className="model-summary" aria-label="Model summary">
+            <ModelSummaryPanel />
+          </aside>
+        </div>
+        <div className="model-dashboard" data-open={!dashboardCollapsed}>
+          <DashboardPanel
+            collapsed={dashboardCollapsed}
+            onCollapsedChange={setDashboardCollapsed}
+          />
+        </div>
+      </div>
+    </ViewerProvider>
   );
 }

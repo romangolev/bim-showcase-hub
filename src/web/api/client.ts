@@ -1,10 +1,7 @@
 import type { SessionUser, TreeNode } from '../../shared/types.js';
 import { childrenPath, type NodeScope } from './scope.js';
 
-export interface Session {
-  name: string;
-  picture: string | null;
-}
+export type Session = SessionUser;
 
 export class ApiError extends Error {
   readonly status: number;
@@ -45,8 +42,6 @@ async function request(path: string, init?: RequestInit): Promise<Response> {
   return res;
 }
 
-type SessionPayload = Partial<SessionUser> & { picture?: string | null };
-
 export async function fetchSession(
   signal?: AbortSignal,
 ): Promise<Session | null> {
@@ -61,11 +56,7 @@ export async function fetchSession(
   if (!res.ok) {
     throw new ApiError(res.status, await readError(res));
   }
-  const body = (await res.json()) as SessionPayload;
-  return {
-    name: body.name ?? 'Signed in',
-    picture: body.picture ?? body.avatarUrl ?? null,
-  };
+  return (await res.json()) as Session;
 }
 
 export async function fetchAuthUrl(): Promise<string> {

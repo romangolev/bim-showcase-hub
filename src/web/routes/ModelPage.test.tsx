@@ -7,7 +7,7 @@ afterEach(() => {
 });
 
 describe('ModelPage', () => {
-  it('renders the three slots with the urn', () => {
+  it('renders viewer, summary, dashboard and toolbar', () => {
     render(<ModelPage urn="abc123" />);
     expect(screen.getByRole('region', { name: 'Viewer' })).toBeInTheDocument();
     expect(
@@ -17,6 +17,10 @@ describe('ModelPage', () => {
       screen.getByRole('region', { name: 'Dashboard' }),
     ).toBeInTheDocument();
     expect(screen.getByText('abc123')).toBeInTheDocument();
+    expect(
+      screen.getByRole('group', { name: 'Paint tools' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /export/i })).toBeInTheDocument();
   });
 
   it('copies the urn to the clipboard', async () => {
@@ -31,10 +35,13 @@ describe('ModelPage', () => {
 
   it('collapses the dashboard region', () => {
     render(<ModelPage urn="abc123" />);
-    const toggle = screen.getByRole('button', { name: 'Dashboard' });
+    const toggle = screen.getByRole('button', { name: 'Collapse' });
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.getByText('DashboardSlot')).not.toBeVisible();
+    expect(toggle).toHaveTextContent('Expand');
+    expect(
+      document.getElementById(toggle.getAttribute('aria-controls') ?? ''),
+    ).not.toBeVisible();
   });
 });

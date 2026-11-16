@@ -153,8 +153,14 @@ describe('App shell', () => {
     await waitFor(() =>
       expect(appRouter.state.location.pathname).toBe('/model/dXJuOmFkc2s'),
     );
-    expect(await screen.findByText('ViewerSlot')).toBeInTheDocument();
-    expect(screen.getByText('DashboardSlot')).toBeInTheDocument();
-    expect(screen.getByText('SummarySlot')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('region', { name: 'Viewer' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('region', { name: 'Dashboard' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('complementary', { name: 'Model summary' }),
+    ).toBeInTheDocument();
   });
 });
