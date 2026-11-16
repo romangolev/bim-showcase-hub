@@ -497,6 +497,11 @@
   color: var(--color-arc-blue);
 }
 
+.menu__icon {
+  flex: none;
+  color: var(--color-fog);
+}
+
 .menu__separator {
   height: 0;
   margin: var(--space-1) 0;

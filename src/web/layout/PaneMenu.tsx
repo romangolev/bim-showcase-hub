@@ -111,6 +111,7 @@ export function layoutMenuEntries(layout: LayoutApi): MenuEntry[] {
     ...PANES.filter((pane) => pane.closable).map((pane) => ({
       id: pane.id,
       label: pane.title,
+      icon: pane.icon,
       checked: layout.isOpen(pane.id),
       onSelect: () => layout.togglePane(pane.id),
     })),

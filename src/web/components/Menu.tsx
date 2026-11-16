@@ -9,7 +9,7 @@ import {
   useState,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { Icon } from './icons.js';
+import { Icon, type IconName } from './icons.js';
 
 export type MenuEntry =
   | {
@@ -19,6 +19,7 @@ export type MenuEntry =
       onSelect: () => void;
       disabled?: boolean;
       checked?: boolean;
+      icon?: IconName;
     }
   | { kind: 'separator'; id: string };
 
@@ -253,6 +254,13 @@ export function Menu({
                     onClick={() => select(entry)}
                   >
                     <CheckMark checked={entry.checked} />
+                    {entry.icon ? (
+                      <Icon
+                        name={entry.icon}
+                        size={14}
+                        className="menu__icon"
+                      />
+                    ) : null}
                     {entry.label}
                   </button>
                 );
