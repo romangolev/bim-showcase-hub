@@ -72,7 +72,7 @@ export const PANES: readonly PaneDefinition[] = [
       kind: 'beside',
       reference: 'viewer',
       direction: 'right',
-      size: 320,
+      size: 340,
     },
     closable: true,
     canFloat: true,

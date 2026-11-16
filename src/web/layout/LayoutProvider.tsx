@@ -14,7 +14,6 @@ import { TopBar } from '../components/TopBar.js';
 import { TreeControlContext } from '../components/TreeControl.js';
 import { useMediaQuery } from '../components/useMediaQuery.js';
 import { isMockViewer, ViewerProvider } from '../viewer/index.js';
-import { ClassicLayout } from './ClassicLayout.js';
 import {
   type DockController,
   type LayoutApi,
@@ -37,6 +36,7 @@ import {
   paneById,
   TREE_WIDTH_DEFAULT,
 } from './paneRegistry.js';
+import { StackedLayout } from './StackedLayout.js';
 import { createHostStore, PaneHosts } from './ViewerHost.js';
 
 const DockLayout = lazy(() =>
@@ -322,13 +322,12 @@ export function LayoutProvider({ main }: LayoutProviderProps) {
               actions={<LayoutMenu />}
             />
             {stacked ? (
-              <ClassicLayout
+              <StackedLayout
                 hosts={hosts}
+                open={openPanes}
                 onAttach={onAttach}
-                treeOpen={overlayTreeOpen}
-                overlayOpen={overlayOpen}
+                treeOpen={overlayOpen}
                 onCloseTree={closeTree}
-                summaryCollapsed={model.collapsed.includes('summary')}
               />
             ) : (
               <div className="app-body app-body--dock">

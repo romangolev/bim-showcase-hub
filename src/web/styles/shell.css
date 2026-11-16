@@ -315,7 +315,6 @@
 .app-main {
   flex: 1;
   min-width: 0;
-  container: main / inline-size;
 }
 
 .app-shell[data-signed-in="true"] .app-main {
@@ -370,20 +369,18 @@
   }
 }
 
-@media (max-width: 875px) {
-  .tree-backdrop {
-    position: fixed;
-    inset: var(--nav-height) 0 0;
-    z-index: 39;
-    display: block;
-    border: 0;
-    background: var(--color-scrim);
-    cursor: pointer;
-  }
+.stack .tree-backdrop {
+  position: fixed;
+  inset: var(--nav-height) 0 0;
+  z-index: 39;
+  display: block;
+  border: 0;
+  background: var(--color-scrim);
+  cursor: pointer;
+}
 
-  .tree-backdrop[hidden] {
-    display: none;
-  }
+.stack .tree-backdrop[hidden] {
+  display: none;
 }
 
 @media (max-width: 700px) {
