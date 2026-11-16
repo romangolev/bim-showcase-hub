@@ -101,3 +101,4 @@ The source describes a marketing site. For the BIM Showcase Hub application:
 - Paint swatches are user data colors, not status. They use the same three chips (red, green, blue) in the toolbar and the landing mockup, and are the only sanctioned use of red, green and blue outside status and active states.
 - Feedback uses one shared state block with loading (skeleton rows), empty (specific copy and a next step) and error (icon, plain-language message, Retry) variants. Raw server strings appear only in a title attribute.
 - The document panel is 320px by default and resizable between 260 and 480px.
+- The "Viewable" status badge on tree rows is outlined in arc-blue, a deliberate departure from the mint status badge. Blue marks active and availability state for tree rows (selection, openable versions). Mint is reserved for success statuses such as export completion.
