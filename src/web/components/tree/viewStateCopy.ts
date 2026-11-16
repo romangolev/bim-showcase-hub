@@ -1,4 +1,3 @@
-import type { TreeNode } from '../../../shared/types.js';
 import { type ViewState, viewableFor } from '../../../shared/viewState.js';
 
 const ACTION =
@@ -34,21 +33,17 @@ export const VIEW_STATE_COPY: Record<ViewState, ViewStateCopy> = {
   },
 };
 
-export function viewStateOf(node: {
-  viewable: boolean;
+export function viewStateOf(node: { viewState?: ViewState }): ViewState {
+  return node.viewState ?? 'not-translated';
+}
+
+export function blockedNotice(node: {
+  kind: string;
   viewState?: ViewState;
-}): ViewState {
-  return node.viewState ?? (node.viewable ? 'ready' : 'not-translated');
-}
-
-export function isOpenableState(state: ViewState): boolean {
-  return viewableFor(state);
-}
-
-export function blockedNotice(node: TreeNode): string | null {
+}): string | null {
   if (node.kind !== 'version') {
     return null;
   }
   const state = viewStateOf(node);
-  return isOpenableState(state) ? null : VIEW_STATE_COPY[state].reason;
+  return viewableFor(state) ? null : VIEW_STATE_COPY[state].reason;
 }

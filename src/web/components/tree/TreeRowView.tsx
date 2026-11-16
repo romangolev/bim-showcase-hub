@@ -1,12 +1,8 @@
 import type { HTMLAttributes, ReactNode, Ref } from 'react';
 import type { TreeNodeKind } from '../../../shared/types.js';
-import type { ViewState } from '../../../shared/viewState.js';
+import { type ViewState, viewableFor } from '../../../shared/viewState.js';
 import { Icon, type IconName } from '../icons.js';
-import {
-  isOpenableState,
-  VIEW_STATE_COPY,
-  viewStateOf,
-} from './viewStateCopy.js';
+import { VIEW_STATE_COPY, viewStateOf } from './viewStateCopy.js';
 
 export const ROW_HEIGHT = 30;
 export const TWO_LINE_ROW_HEIGHT = 46;
@@ -121,7 +117,6 @@ export interface TreeRowViewProps {
   expanded?: boolean;
   selected?: boolean;
   focused?: boolean;
-  viewable?: boolean;
   viewState?: ViewState;
   busy?: boolean;
   caption?: string;
@@ -141,7 +136,6 @@ export function TreeRowView({
   expanded = false,
   selected = false,
   focused = false,
-  viewable = false,
   viewState,
   busy = false,
   caption,
@@ -150,9 +144,9 @@ export function TreeRowView({
   rowProps,
 }: TreeRowViewProps) {
   const isVersion = kind === 'version';
-  const state = viewStateOf({ viewable, viewState });
+  const state = viewStateOf({ viewState });
   const copy = VIEW_STATE_COPY[state];
-  const disabled = isVersion && !isOpenableState(state);
+  const disabled = isVersion && !viewableFor(state);
   const icon: IconName = disabled ? 'ban' : KIND_ICON[kind];
   const parts = isVersion && !secondary ? versionParts(name) : null;
   const primary = parts ? parts.label : name;

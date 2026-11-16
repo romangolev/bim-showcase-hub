@@ -325,9 +325,7 @@ export function buildMockData(): MockData {
           data.items.set(item.id, item);
           statesFolder.itemIds.push(item.id);
         });
-      }
 
-      if (hubIndex === 0 && projectIndex === 0) {
         const exportsFolder = addFolder(
           projectId,
           sharedFolder.id,

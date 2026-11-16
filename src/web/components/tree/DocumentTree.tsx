@@ -9,6 +9,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useVirtualizer, type Virtualizer } from '@tanstack/react-virtual';
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import type { TreeNode } from '../../../shared/types.js';
+import { viewableFor } from '../../../shared/viewState.js';
 import { friendlyError } from '../../api/friendlyError.js';
 import { childrenQueryOptions } from '../../api/hooks.js';
 import { type ModelContext, versionTag } from '../../api/modelContext.js';
@@ -62,7 +63,7 @@ const LOADING_NODE: TreeNode = {
 };
 
 function openableUrn(node: TreeNode): string | null {
-  if (node.kind === 'version' && node.viewable && node.urn) {
+  if (node.kind === 'version' && viewableFor(viewStateOf(node)) && node.urn) {
     return node.urn;
   }
   return null;
@@ -471,7 +472,6 @@ export function DocumentTree({
           busy={item.isLoading() && item.isExpanded()}
           selected={urn !== null && urn === selectedUrn}
           focused={item.isFocused()}
-          viewable={node.viewable}
           viewState={viewStateOf(node)}
           rowProps={{
             ...props,
@@ -501,7 +501,6 @@ export function DocumentTree({
           level={0}
           kind={row.node.kind}
           name={row.node.name}
-          viewable={row.node.viewable}
           viewState={viewStateOf(row.node)}
           caption={row.node.kind === 'version' ? undefined : row.node.kind}
           secondary={parentName(row.node)}
