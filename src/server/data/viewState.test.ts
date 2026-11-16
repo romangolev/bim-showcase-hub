@@ -158,6 +158,44 @@ describe('createViewStateChecker', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(3);
   });
 
+  it('keeps live entries when an expired key is rewritten and purges expired ones', async () => {
+    let clock = 0;
+    const fetchImpl = vi.fn(async (url: string) =>
+      reply(
+        200,
+        url.includes('/busy/')
+          ? { status: 'inprogress' }
+          : { status: 'success', derivatives: [geometry('svf', 'success')] },
+      ),
+    );
+    const checker = createViewStateChecker({
+      fetchImpl,
+      now: () => clock,
+      cacheLimit: 2,
+    });
+    await checker.check('t', 'stable');
+    await checker.check('t', 'busy');
+    clock += 11_000;
+    await checker.check('t', 'busy');
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    await checker.check('t', 'stable');
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+  });
+
+  it('evicts the oldest live entry only when inserting a new key at the limit', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(reply(404));
+    const checker = createViewStateChecker({ fetchImpl, cacheLimit: 2 });
+    await checker.check('t', 'a');
+    await checker.check('t', 'b');
+    await checker.check('t', 'c');
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    await checker.check('t', 'b');
+    await checker.check('t', 'c');
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    await checker.check('t', 'a');
+    expect(fetchImpl).toHaveBeenCalledTimes(4);
+  });
+
   it('shares one request between concurrent checks of the same urn', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(reply(404));
     const checker = createViewStateChecker({ fetchImpl });

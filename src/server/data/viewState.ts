@@ -22,6 +22,7 @@ export interface ViewStateCheckerOptions {
   concurrency?: number;
   timeoutMs?: number;
   now?: () => number;
+  cacheLimit?: number;
 }
 
 export interface ViewStateChecker {
@@ -91,6 +92,7 @@ export function createViewStateChecker(
   const limit = options.concurrency ?? 4;
   const timeoutMs = options.timeoutMs ?? 8000;
   const now = options.now ?? Date.now;
+  const cacheLimit = options.cacheLimit ?? CACHE_LIMIT;
   const cache = new Map<string, { state: ViewState; expires: number }>();
   const inflight = new Map<string, Promise<ViewState>>();
   const waiting: (() => void)[] = [];
@@ -144,18 +146,28 @@ export function createViewStateChecker(
     }
   }
 
+  function store(key: string, state: ViewState): void {
+    const time = now();
+    for (const [existing, entry] of cache) {
+      if (entry.expires <= time) {
+        cache.delete(existing);
+      }
+    }
+    if (!cache.has(key) && cache.size >= cacheLimit) {
+      const oldest = cache.keys().next().value;
+      if (oldest !== undefined) {
+        cache.delete(oldest);
+      }
+    }
+    cache.delete(key);
+    cache.set(key, { state, expires: time + ttlFor(state) });
+  }
+
   async function run(token: string, urn: string): Promise<ViewState> {
     await acquire();
     try {
       const state = await fetchState(token, urn);
-      if (cache.size >= CACHE_LIMIT) {
-        const oldest = cache.keys().next().value;
-        if (oldest !== undefined) {
-          cache.delete(oldest);
-        }
-      }
-      cache.delete(urn);
-      cache.set(urn, { state, expires: now() + ttlFor(state) });
+      store(urn, state);
       return state;
     } finally {
       release();
