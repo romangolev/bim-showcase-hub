@@ -60,6 +60,14 @@ export function ModelRouteSync() {
     );
   }, [state]);
 
+  const routeWith = context.with ?? '';
+  useEffect(() => {
+    if (!urn || state.active !== urn) return;
+    const entry = contextOf(state, urn);
+    if (!entry || (entry.with ?? '') === routeWith) return;
+    go.current(urn, entry);
+  }, [state, urn, routeWith]);
+
   const activeContext = state.active ? contextOf(state, state.active) : null;
   useDocumentTitle(
     state.active

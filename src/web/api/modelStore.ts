@@ -39,7 +39,8 @@ export function rememberModel(urn: string, context: ModelContext): void {
   if (!urn || !hasModelContext(context)) {
     return;
   }
-  const entry: StoredModel = { urn, ...parseModelContext(context) };
+  const { with: _with, ...single } = parseModelContext(context);
+  const entry: StoredModel = { urn, ...single };
   const next = [
     entry,
     ...readAll().filter((stored) => stored.urn !== urn),
@@ -56,6 +57,6 @@ export function recallModel(urn: string): ModelContext | null {
   if (!found) {
     return null;
   }
-  const { urn: _urn, ...context } = found;
+  const { urn: _urn, with: _with, ...context } = found;
   return context;
 }

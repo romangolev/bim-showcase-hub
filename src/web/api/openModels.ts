@@ -1,13 +1,18 @@
+import { MAX_COMBINED_MODELS } from '../viewer/modelSet.js';
 import {
+  joinWith,
   type ModelContext,
   parseModelContext,
+  parseWith,
   sameModelContext,
+  withUrns,
 } from './modelContext.js';
-import { hasModelContext, MODEL_STORE_KEY } from './modelStore.js';
+import { hasModelContext, MODEL_STORE_KEY, recallModel } from './modelStore.js';
 
 export const OPEN_MODELS_KEY = 'bsh.models.open';
 export const MODEL_OWNER_KEY = 'bsh.models.owner';
 export const MAX_LOADED_MODELS = 4;
+export { MAX_COMBINED_MODELS };
 
 export interface OpenModel {
   urn: string;
@@ -78,6 +83,13 @@ export function activateModel(
   return touchLive(next, urn, limit);
 }
 
+function entryContext(urn: string, context: ModelContext): ModelContext {
+  const parsed = parseModelContext(context);
+  const extra = joinWith(parseWith(parsed.with, urn));
+  const { with: _with, ...rest } = parsed;
+  return extra ? { ...rest, with: extra } : rest;
+}
+
 export function openModel(
   state: OpenModelsState,
   urn: string,
@@ -87,15 +99,22 @@ export function openModel(
   if (!urn) return state;
   const existing = state.models.find((model) => model.urn === urn);
   let models = state.models;
+  const incoming = entryContext(urn, context);
   if (!existing) {
-    models = [...models, { urn, context: parseModelContext(context) }];
-  } else if (
-    hasModelContext(context) &&
-    !sameModelContext(existing.context, context)
-  ) {
-    models = models.map((model) =>
-      model.urn === urn ? { urn, context: parseModelContext(context) } : model,
-    );
+    models = [...models, { urn, context: incoming }];
+  } else {
+    const merged: ModelContext = hasModelContext(incoming)
+      ? { ...incoming }
+      : { ...existing.context, ...incoming };
+    const extra =
+      context.with !== undefined ? incoming.with : existing.context.with;
+    if (extra) merged.with = extra;
+    else delete merged.with;
+    if (!sameModelContext(existing.context, merged)) {
+      models = models.map((model) =>
+        model.urn === urn ? { urn, context: merged } : model,
+      );
+    }
   }
   const next = models === state.models ? state : { ...state, models };
   return activateModel(next, urn, limit);
@@ -122,6 +141,87 @@ export function closeModel(
   return active && active !== state.active
     ? touchLive(next, active, limit)
     : next;
+}
+
+export function modelUrnsOf(state: OpenModelsState, urn: string): string[] {
+  const entry = state.models.find((model) => model.urn === urn);
+  return entry ? [urn, ...withUrns(entry.context)] : [];
+}
+
+export function tabHolding(state: OpenModelsState, urn: string): string | null {
+  for (const model of state.models) {
+    if (model.urn === urn || withUrns(model.context).includes(urn)) {
+      return model.urn;
+    }
+  }
+  return null;
+}
+
+export function addToModel(
+  state: OpenModelsState,
+  target: string,
+  urn: string,
+): OpenModelsState {
+  const entry = state.models.find((model) => model.urn === target);
+  if (!entry || !urn) return state;
+  const current = modelUrnsOf(state, target);
+  if (current.includes(urn) || current.length >= MAX_COMBINED_MODELS) {
+    return state;
+  }
+  const extra = joinWith([...withUrns(entry.context), urn]);
+  return {
+    ...state,
+    models: state.models.map((model) =>
+      model.urn === target
+        ? { urn: target, context: { ...entry.context, with: extra } }
+        : model,
+    ),
+  };
+}
+
+function rename(list: readonly string[], from: string, to: string): string[] {
+  return list.map((id) => (id === from ? to : id));
+}
+
+export function removeFromModel(
+  state: OpenModelsState,
+  target: string,
+  urn: string,
+  contextFor: (urn: string) => ModelContext = () => ({}),
+  limit = MAX_LOADED_MODELS,
+): OpenModelsState {
+  const entry = state.models.find((model) => model.urn === target);
+  if (!entry) return state;
+  const extras = withUrns(entry.context);
+  if (urn !== target) {
+    if (!extras.includes(urn)) return state;
+    const next = joinWith(extras.filter((id) => id !== urn));
+    const { with: _with, ...rest } = entry.context;
+    const context = next ? { ...rest, with: next } : rest;
+    return {
+      ...state,
+      models: state.models.map((model) =>
+        model.urn === target ? { urn: target, context } : model,
+      ),
+    };
+  }
+  const [primary, ...others] = extras;
+  if (!primary) return closeModel(state, target, limit);
+  if (state.models.some((model) => model.urn === primary)) {
+    return closeModel(state, target, limit);
+  }
+  const base = parseModelContext(contextFor(primary));
+  const { with: _with, ...single } = base;
+  const rest = joinWith(others);
+  const context: ModelContext = rest ? { ...single, with: rest } : single;
+  return {
+    models: state.models.map((model) =>
+      model.urn === target ? { urn: primary, context } : model,
+    ),
+    active: state.active === target ? primary : state.active,
+    live: rename(state.live, target, primary),
+    visible: rename(state.visible, target, primary),
+  };
 }
 
 export function keepOnlyModel(
@@ -217,6 +317,8 @@ export interface OpenModelsStore {
   setVisible: (urns: readonly string[]) => void;
   close: (urn: string) => void;
   keepOnly: (urn: string) => void;
+  addTo: (target: string, urn: string) => void;
+  removeFrom: (target: string, urn: string) => void;
   clear: () => void;
 }
 
@@ -231,6 +333,7 @@ function sessionStore(): Storage | null {
 export function createOpenModelsStore(
   storage: Storage | null = sessionStore(),
   limit = MAX_LOADED_MODELS,
+  contextFor: (urn: string) => ModelContext = (urn) => recallModel(urn) ?? {},
 ): OpenModelsStore {
   let raw: string | null = null;
   try {
@@ -271,6 +374,9 @@ export function createOpenModelsStore(
     setVisible: (urns) => apply(setVisible(state, urns)),
     close: (urn) => apply(closeModel(state, urn, limit)),
     keepOnly: (urn) => apply(keepOnlyModel(state, urn)),
+    addTo: (target, urn) => apply(addToModel(state, target, urn)),
+    removeFrom: (target, urn) =>
+      apply(removeFromModel(state, target, urn, contextFor, limit)),
     clear: () => {
       remove(storage, OPEN_MODELS_KEY);
       if (state.models.length === 0) return;

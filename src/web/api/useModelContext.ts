@@ -19,6 +19,8 @@ export function useModelContext(
     if (explicit || !urn) {
       return fromSearch;
     }
-    return recallModel(urn) ?? fromSearch;
+    const recalled = recallModel(urn);
+    if (!recalled) return fromSearch;
+    return fromSearch.with ? { ...recalled, with: fromSearch.with } : recalled;
   }, [urn, explicit, fromSearch]);
 }
