@@ -409,6 +409,27 @@ export function applyTitles(api: DockviewApi, titles: PaneTitles) {
   }
 }
 
+export interface TreeWidthSource {
+  getPanel(id: string):
+    | {
+        api: { location: { type: string } };
+        group: { width: number; element: HTMLElement };
+      }
+    | undefined;
+  groups: readonly { api: { location: { type: string } } }[];
+}
+
+export function measureTreeWidth(api: TreeWidthSource): number | null {
+  const tree = api.getPanel('tree');
+  if (tree?.api.location.type !== 'grid') return null;
+  if (tree.group.element.dataset.collapsed) return null;
+  const docked = api.groups.filter(
+    (group) => group.api.location.type === 'grid',
+  );
+  if (docked.length < 2 || tree.group.width <= 0) return null;
+  return Math.round(tree.group.width);
+}
+
 function openKinds(api: DockviewApi): PaneId[] {
   const kinds = new Set(api.panels.map((panel) => paneKind(panel.id)));
   return PANES.map((pane) => pane.id).filter((id) => kinds.has(id));
@@ -431,6 +452,7 @@ export interface DockLayoutProps {
   onVisibility: (id: PanelId, visible: boolean) => void;
   onMoved: (id: PanelId) => void;
   onChange: (dock: SerializedDock, open: PaneId[]) => void;
+  onTreeWidth: (width: number) => void;
   onController: (controller: DockController | null) => void;
   onActivateInstance: (id: PanelId) => void;
   onCloseInstance: (id: PanelId) => void;
@@ -633,6 +655,10 @@ export function DockLayout(props: DockLayoutProps) {
     if (!api || !live.current || busy.current > 0) return;
     applyTitles(api, latest.current.titles);
     applyCollapse();
+    const width = measureTreeWidth(api as unknown as TreeWidthSource);
+    if (width !== null && width !== latest.current.treeWidth) {
+      latest.current.onTreeWidth(width);
+    }
     const dock = api.toJSON() as unknown as SerializedDock;
     const open = openKinds(api);
     const key = `${open.join(' ')}\n${JSON.stringify(dock)}`;

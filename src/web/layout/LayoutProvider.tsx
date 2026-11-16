@@ -301,6 +301,10 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
     );
   }, []);
 
+  const onTreeWidth = useCallback((width: number) => {
+    dispatch({ type: 'treeWidth', width });
+  }, []);
+
   const onController = useCallback((next: DockController | null) => {
     controller.current = next;
   }, []);
@@ -542,6 +546,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
                       onVisibility={onVisibility}
                       onMoved={bump}
                       onChange={onDockChange}
+                      onTreeWidth={onTreeWidth}
                       onController={onController}
                       onActivateInstance={onActivateInstance}
                       onCloseInstance={onCloseInstance}

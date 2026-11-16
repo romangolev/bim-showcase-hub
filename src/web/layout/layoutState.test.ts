@@ -100,6 +100,17 @@ describe('layoutReducer', () => {
     expect(defaultModel(800).dismissed).toEqual([]);
   });
 
+  it('keeps the Documents width the user resized to, within limits', () => {
+    const start = defaultModel(1000);
+    const wider = layoutReducer(start, { type: 'treeWidth', width: 401.6 });
+    expect(wider.treeWidth).toBe(402);
+    expect(layoutReducer(wider, { type: 'treeWidth', width: 402 })).toBe(wider);
+    expect(
+      layoutReducer(wider, { type: 'treeWidth', width: 9000 }).treeWidth,
+    ).toBe(480);
+    expect(parseLayout(serializeLayout(wider))?.treeWidth).toBe(402);
+  });
+
   it('remembers panes the user closed without duplicates', () => {
     const start = defaultModel(1000);
     const once = layoutReducer(start, {

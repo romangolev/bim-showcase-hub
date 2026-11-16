@@ -66,6 +66,7 @@ export type LayoutAction =
   | { type: 'dock'; dock: SerializedDock }
   | { type: 'setCollapsed'; id: PaneId; collapsed: boolean }
   | { type: 'dismiss'; id: PaneId; dismissed: boolean }
+  | { type: 'treeWidth'; width: number }
   | { type: 'reset'; height: number };
 
 export function clampTreeWidth(value: number): number {
@@ -101,6 +102,10 @@ export function layoutReducer(
     case 'dismiss': {
       const dismissed = toggled(model.dismissed, action.id, action.dismissed);
       return dismissed === model.dismissed ? model : { ...model, dismissed };
+    }
+    case 'treeWidth': {
+      const treeWidth = clampTreeWidth(action.width);
+      return treeWidth === model.treeWidth ? model : { ...model, treeWidth };
     }
     case 'reset':
       return defaultModel(action.height);
