@@ -8,11 +8,13 @@ import {
   LAYOUT_KEY_V1,
   LEGACY_KEYS,
   layoutReducer,
+  loadWithFallback,
   migrateV1,
   PREVIOUS_VIEWER,
   parseLayout,
   readLayout,
   type SerializedDock,
+  type SerializedNode,
   sanitizeDock,
   serializeLayout,
   siblingCountOf,
@@ -194,7 +196,68 @@ describe('sanitizeDock', () => {
     branch.push(leaf('9', ['terminal']));
     dock.panels.terminal = { id: 'terminal', contentComponent: 'pane' };
     const result = sanitizeDock(dock);
-    expect(result?.dock).toEqual(sampleDock());
+    const sizes = (
+      (result?.dock.grid.root.data ?? []) as { size: number }[]
+    ).map((node) => node.size);
+    expect(sizes.reduce((sum, size) => sum + size, 0)).toBeCloseTo(1540);
+    expect(sizes[0]).toBeCloseTo((320 * 1540) / 1440);
+    expect(JSON.stringify(result?.dock)).not.toContain('terminal');
+  });
+
+  it('gives the space of a dropped pane to its siblings', () => {
+    const dock = sampleDock();
+    delete dock.panels.dashboard;
+    const result = sanitizeDock(dock);
+    const middle = ((result?.dock.grid.root.data ?? []) as SerializedNode[])[1];
+    expect(middle).toMatchObject({ type: 'leaf', size: 800 });
+    expect(JSON.stringify(middle?.data)).toContain('"views":["viewer:m1"]');
+  });
+
+  it('splices a branch left with one branch into its grandparent', () => {
+    const dock = sampleDock();
+    dock.grid.root.data = [
+      leaf('1', ['tree'], 300),
+      {
+        type: 'branch',
+        size: 900,
+        data: [
+          {
+            type: 'branch',
+            size: 600,
+            data: [leaf('2', ['viewer:m1'], 200), leaf('4', ['summary'], 400)],
+          },
+          leaf('3', ['ghost'], 300),
+        ],
+      },
+    ];
+    const result = sanitizeDock(dock);
+    const root = (result?.dock.grid.root.data ?? []) as SerializedNode[];
+    expect(root.map((node) => (node.data as { id?: string }).id)).toEqual([
+      '1',
+      '2',
+      '4',
+    ]);
+    expect(root.map((node) => node.size)).toEqual([300, 300, 600]);
+    expect(result?.dock.grid.orientation).toBe('HORIZONTAL');
+  });
+
+  it('flips the root orientation when only one branch is left under it', () => {
+    const dock = sampleDock();
+    dock.grid.root.data = [
+      leaf('9', ['ghost'], 400),
+      {
+        type: 'branch',
+        size: 1040,
+        data: [leaf('2', ['viewer:m1'], 600), leaf('3', ['dashboard'], 240)],
+      },
+    ];
+    const result = sanitizeDock(dock);
+    expect(result?.dock.grid.orientation).toBe('VERTICAL');
+    expect(
+      ((result?.dock.grid.root.data ?? []) as SerializedNode[]).map(
+        (node) => (node.data as { id: string }).id,
+      ),
+    ).toEqual(['2', '3']);
   });
 
   it('removes an unknown tab from a shared group and fixes the active tab', () => {
@@ -572,5 +635,36 @@ describe('remembered viewer arrangement', () => {
     expect(viewsOf(migrated?.lastViewerArrangement ?? undefined, '2')).toEqual([
       PREVIOUS_VIEWER,
     ]);
+  });
+});
+
+describe('loading a saved dock', () => {
+  it('drops only the panel the dock library rejects', () => {
+    const tried: string[][] = [];
+    const loaded = loadWithFallback(sampleDock(), (dock) => {
+      const ids = Object.keys(dock.panels);
+      tried.push(ids);
+      if (ids.includes('dashboard')) throw new Error('bad dashboard');
+    });
+    expect(Object.keys(loaded?.panels ?? {}).sort()).toEqual([
+      'summary',
+      'tree',
+      'viewer:m1',
+    ]);
+    expect(tried[0]).toContain('dashboard');
+  });
+
+  it('never drops a required panel and gives up when nothing loads', () => {
+    const tried: string[][] = [];
+    const loaded = loadWithFallback(
+      sampleDock(),
+      (dock) => {
+        tried.push(Object.keys(dock.panels));
+        throw new Error('broken');
+      },
+      (id) => id === 'tree',
+    );
+    expect(loaded).toBeNull();
+    expect(tried.every((ids) => ids.includes('tree'))).toBe(true);
   });
 });

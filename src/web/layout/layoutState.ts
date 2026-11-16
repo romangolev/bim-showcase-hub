@@ -165,13 +165,89 @@ function cleanNode(
     return { ...value, type: 'leaf', data: group };
   }
   if (value.type === 'branch' && Array.isArray(value.data)) {
-    const children = value.data
-      .map((child) => cleanNode(child, scope, groups))
-      .filter((child): child is SerializedNode => child !== null);
+    const children: SerializedNode[] = [];
+    for (const child of value.data) {
+      const clean = cleanNode(child, scope, groups);
+      if (clean) children.push(...hoist(clean));
+    }
     if (children.length === 0) return null;
-    return { ...value, type: 'branch', data: children };
+    const total = sizeSum(value.data);
+    return {
+      ...value,
+      type: 'branch',
+      data: total === null ? children : scaleTo(children, total),
+    };
   }
   return null;
+}
+
+function sizeOf(node: unknown): number | null {
+  if (!isRecord(node)) return null;
+  const size = Number(node.size);
+  return Number.isFinite(size) && size > 0 ? size : null;
+}
+
+function sizeSum(nodes: readonly unknown[]): number | null {
+  let total = 0;
+  for (const node of nodes) {
+    const size = sizeOf(node);
+    if (size === null) return null;
+    total += size;
+  }
+  return total;
+}
+
+function scaleTo(nodes: SerializedNode[], total: number): SerializedNode[] {
+  const current = sizeSum(nodes);
+  if (current === null || current === total) return nodes;
+  return nodes.map((node) => ({
+    ...node,
+    size: ((node.size as number) * total) / current,
+  }));
+}
+
+function hoist(node: SerializedNode): SerializedNode[] {
+  if (node.type !== 'branch') return [node];
+  const children = node.data as SerializedNode[];
+  if (children.length !== 1) return [node];
+  const only = children[0] as SerializedNode;
+  if (only.type === 'leaf') {
+    return [node.size === undefined ? only : { ...only, size: node.size }];
+  }
+  const grand = only.data as SerializedNode[];
+  const size = sizeOf(node);
+  return size === null ? grand : scaleTo(grand, size);
+}
+
+export function withoutPanel(
+  dock: SerializedDock,
+  id: PanelId,
+): SerializedDock | null {
+  const panels = { ...dock.panels };
+  delete panels[id];
+  return sanitizeDock({ ...dock, panels })?.dock ?? null;
+}
+
+export function loadWithFallback(
+  dock: SerializedDock,
+  load: (dock: SerializedDock) => void,
+  required: (id: PanelId) => boolean = () => false,
+): SerializedDock | null {
+  try {
+    load(dock);
+    return dock;
+  } catch {
+    for (const id of Object.keys(dock.panels)) {
+      if (required(id)) continue;
+      const smaller = withoutPanel(dock, id);
+      if (!smaller) continue;
+      try {
+        load(smaller);
+        return smaller;
+      } catch {}
+    }
+    return null;
+  }
 }
 
 export function sanitizeDock(
@@ -194,7 +270,15 @@ export function sanitizeDock(
   };
   const scope: CleanScope = { seen: new Set(), panels: input.panels, allowed };
   const groups = new Set<string>();
-  const root = cleanNode(grid.root, scope, groups);
+  let root = cleanNode(grid.root, scope, groups);
+  let orientation: 'HORIZONTAL' | 'VERTICAL' = grid.orientation;
+  const rootChildren =
+    root?.type === 'branch' ? (root.data as SerializedNode[]) : [];
+  const single = rootChildren.length === 1 ? rootChildren[0] : undefined;
+  if (root && single?.type === 'branch') {
+    root = { ...single, size: root.size };
+    orientation = orientation === 'HORIZONTAL' ? 'VERTICAL' : 'HORIZONTAL';
+  }
   if (root?.type !== 'branch') return null;
   const floatingGroups: SerializedFloatingGroup[] = [];
   if (Array.isArray(input.floatingGroups)) {
@@ -224,7 +308,7 @@ export function sanitizeDock(
       root,
       width: Number(grid.width) || 0,
       height: Number(grid.height) || 0,
-      orientation: grid.orientation,
+      orientation,
     },
     panels,
   };

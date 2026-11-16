@@ -27,6 +27,7 @@ import type {
 } from './layoutContext.js';
 import {
   adoptArrangement,
+  loadWithFallback,
   type SerializedDock,
   sanitizeDock,
   siblingCountOf,
@@ -39,6 +40,7 @@ import {
   isFollower,
   isPaneId,
   isPanelClosable,
+  isRequired,
   PANES,
   type PaneDefinition,
   type PaneId,
@@ -404,8 +406,19 @@ function restore(
     buildDefault(api, treeWidth, sync);
     return;
   }
+  const loaded = loadWithFallback(
+    clean.dock,
+    (dock) => api.fromJSON(dock as never),
+    (id) => {
+      const kind = paneKind(id);
+      return kind !== null && isRequired(kind);
+    },
+  );
+  if (!loaded) {
+    buildDefault(api, treeWidth, sync);
+    return;
+  }
   try {
-    api.fromJSON(clean.dock as never);
     for (const id of clean.missing) {
       addPane(api, id, placementOf(api, paneById(id)));
     }
