@@ -46,6 +46,7 @@ export const DOCK_THEME: DockviewTheme = {
 };
 
 export const HEADER_SIZE = 33;
+const FLOAT_MIN = { width: 360, height: 280 };
 const UNBOUNDED = Number.POSITIVE_INFINITY;
 
 interface SlotContextValue {
@@ -215,6 +216,26 @@ function restore(
   } catch {
     buildDefault(api, treeWidth);
   }
+}
+
+export function floatingBox(
+  api: { width: number; height: number },
+  group: { width: number; height: number },
+) {
+  const width = Math.round(
+    Math.min(Math.max(group.width, FLOAT_MIN.width), api.width * 0.6),
+  );
+  const height = Math.round(
+    Math.min(Math.max(group.height, FLOAT_MIN.height), api.height * 0.6),
+  );
+  return {
+    width,
+    height,
+    position: {
+      left: Math.max(0, Math.round((api.width - width) / 2)),
+      top: Math.max(0, Math.round((api.height - height) / 3)),
+    },
+  };
 }
 
 function openIds(api: DockviewApi): PaneId[] {
@@ -445,7 +466,7 @@ export function DockLayout(props: DockLayoutProps) {
       if (!paneById(id).canFloat || panel.api.location.type === 'floating') {
         return;
       }
-      api.addFloatingGroup(panel);
+      api.addFloatingGroup(panel, floatingBox(api, panel.group));
     } else {
       const direction =
         target === 'dock'

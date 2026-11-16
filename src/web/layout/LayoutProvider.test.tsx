@@ -249,6 +249,23 @@ describe('dock layout', () => {
     expect(load).toHaveBeenCalledTimes(1);
   });
 
+  it('restores a floating pane after a reload and never pops out', async () => {
+    const first = renderPath();
+    await dockReady();
+    act(() => handle().movePane('summary', 'float'));
+    await waitFor(() =>
+      expect(saved()?.dock?.floatingGroups?.[0]?.data.views).toEqual([
+        'summary',
+      ]),
+    );
+    expect(JSON.stringify(saved()?.dock)).not.toContain('popout');
+    first.unmount();
+    renderPath();
+    await dockReady();
+    await waitFor(() => expect(handle().location('summary')).toBe('floating'));
+    expect(document.querySelector('.dv-resize-container')).not.toBeNull();
+  });
+
   it('resets to the default layout', async () => {
     renderPath();
     await dockReady();
