@@ -264,6 +264,21 @@ def check_layout(page, checks, notes):
     checks.add("reset layout restores the default arrangement", default_arrangement(groups(page)), groups(page))
     checks.add("reset keeps the viewer", page.evaluate(VIEWER_KEPT))
 
+    before = groups(page)["Model summary"]
+    pane_menu(page, "Model summary", "Resize with arrow keys")
+    for _ in range(4):
+        page.keyboard.press("ArrowRight")
+    page.keyboard.press("Escape")
+    settle(page)
+    after = groups(page)["Model summary"]
+    grown = (after["right"] - after["left"]) - (before["right"] - before["left"])
+    checks.add("keyboard: arrow keys resize a pane from its menu", grown >= 40, f"{grown:.0f}px")
+    announced = page.locator(".layout-announcer").inner_text()
+    checks.add("keyboard: resize mode is announced", "resize finished" in announced, announced)
+    page.get_by_role("button", name="Panes").click()
+    page.get_by_role("menuitem", name="Reset layout").click()
+    settle(page)
+
     pane_menu(page, "Model summary", "Move left")
     page.set_viewport_size({"width": 800, "height": DESKTOP[1]})
     settle(page, 1000)

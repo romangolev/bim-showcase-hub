@@ -795,6 +795,39 @@ export function DockLayout(props: DockLayoutProps) {
         .querySelector<HTMLElement>('.dv-tab.dv-active-tab, .dv-tab')
         ?.focus();
     },
+    resizePane: (id, delta) => {
+      const api = apiRef.current;
+      const panel = api
+        ? resolvePanel(api, id, latest.current.activeInstance)
+        : undefined;
+      if (panel?.api.location.type !== 'grid') return null;
+      const group = panel.group;
+      const json = api?.toJSON() as unknown as SerializedDock;
+      const siblings = siblingCountOf(json, group.id) ?? 1;
+      const share = (GAP * (siblings - 1)) / siblings;
+      const axis = splitAxisOf(json, group.id);
+      const extra = (along: 'width' | 'height') => (axis === along ? share : 0);
+      busy.current += 1;
+      try {
+        if (delta.width) {
+          group.api.setSize({
+            width: Math.max(0, group.width + extra('width') + delta.width),
+          });
+        }
+        if (delta.height) {
+          group.api.setSize({
+            height: Math.max(0, group.height + extra('height') + delta.height),
+          });
+        }
+      } finally {
+        busy.current -= 1;
+      }
+      emit();
+      return {
+        width: Math.round(group.width),
+        height: Math.round(group.height),
+      };
+    },
     location: (id) => {
       const api = apiRef.current;
       const panel = api
@@ -868,6 +901,7 @@ export function DockLayout(props: DockLayoutProps) {
       reset: (treeWidth) => controllerRef.current.reset(treeWidth),
       focusPane: (id) => controllerRef.current.focusPane(id),
       location: (id) => controllerRef.current.location(id),
+      resizePane: (id, delta) => controllerRef.current.resizePane(id, delta),
     });
     reconcile();
     emit();

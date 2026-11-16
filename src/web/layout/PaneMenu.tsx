@@ -47,6 +47,11 @@ export function paneMenuEntries(layout: LayoutApi, pane: PanelId): MenuEntry[] {
   }
   if (!floating) {
     entries.push({
+      id: 'resize',
+      label: 'Resize with arrow keys',
+      onSelect: () => layout.startResize(pane),
+    });
+    entries.push({
       id: 'collapse',
       label: collapsed ? 'Expand' : 'Collapse',
       onSelect: () => layout.setCollapsed(kind, !collapsed),

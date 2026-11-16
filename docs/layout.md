@@ -98,7 +98,8 @@ Reset layout is in every pane menu and in the top bar Panes menu. It drops the s
 
 ## Keyboard and screen readers
 
-- Every pane header has a collapse button and a menu: Move left, Move right, Move below (to that edge of the dock), Float or Dock, Collapse or Expand, Close (closable panes only), Reset layout. Every drag has a menu path.
+- Every pane header has a collapse button and a menu: Move left, Move right, Move below (to that edge of the dock), Float or Dock, Resize with arrow keys, Collapse or Expand, Close (closable panes only), Reset layout. Every drag has a menu path.
+- Resize with arrow keys enters a resize mode for that pane: Left and Right change its width, Up and Down its height, by 16 px (64 px with Shift); Escape, Enter or Tab finish. The live region announces the mode, each new size and the end. Floating groups are resized with their own handles.
 - The Panes menu in the top bar lists the optional panes (Model summary, Dashboard) as checkbox items and resets the layout. Opening one without a model shows its "No model loaded yet" state. Documents is not listed because it cannot close, and model tabs open from Documents.
 - The top bar Documents button collapses or expands the Documents pane in the dock.
 - `F6` and `Shift+F6` move focus between pane groups from anywhere in the page, including the top bar, except while typing in a field or inside the viewer canvas. Tabs use dockview's `tablist` and roving `tabindex`.

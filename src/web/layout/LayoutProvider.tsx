@@ -76,6 +76,18 @@ const MOVE_MESSAGES: Partial<Record<MoveTarget, string>> = {
 export const STACKED_MAX_WIDTH = 875;
 export const STACKED_QUERY = `(max-width: ${STACKED_MAX_WIDTH}px)`;
 export const LAYOUT_WRITE_DELAY_MS = 300;
+export const RESIZE_STEP = 16;
+export const RESIZE_STEP_FAST = 64;
+
+const RESIZE_KEYS: Record<
+  string,
+  (step: number) => { width?: number; height?: number }
+> = {
+  ArrowRight: (step) => ({ width: step }),
+  ArrowLeft: (step) => ({ width: -step }),
+  ArrowDown: (step) => ({ height: step }),
+  ArrowUp: (step) => ({ height: -step }),
+};
 
 function storage(): Storage | null {
   try {
@@ -326,6 +338,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
     [modelStore],
   );
 
+  const [resizing, setResizing] = useState<PanelId | null>(null);
   const [announcement, setAnnouncement] = useState('');
   const announce = useCallback((message: string) => {
     setAnnouncement((current) =>
@@ -434,6 +447,15 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       },
       resizeSignal: (id) => signals[id] ?? 0,
       location: (id) => controller.current?.location(id) ?? null,
+      startResize: (id) => {
+        if (modeRef.current !== 'dock') return;
+        setResizing(id);
+        announce(
+          `Resizing ${paneTitle(id).label}. Arrow keys change its size, Shift moves faster, Escape finishes.`,
+        );
+        requestAnimationFrame(() => controller.current?.focusPane(id));
+      },
+      resizing,
       closeTreeOverlay,
       paneTitle,
     }),
@@ -449,8 +471,41 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       paneTitle,
       modelStore,
       closePane,
+      resizing,
     ],
   );
+
+  useEffect(() => {
+    if (!resizing) return;
+    if (mode !== 'dock') {
+      setResizing(null);
+      return;
+    }
+    const label = paneTitle(resizing).label;
+    const onKey = (event: KeyboardEvent) => {
+      const step = event.shiftKey ? RESIZE_STEP_FAST : RESIZE_STEP;
+      const delta = RESIZE_KEYS[event.key]?.(step);
+      if (delta) {
+        event.preventDefault();
+        event.stopPropagation();
+        const size = controller.current?.resizePane(resizing, delta);
+        if (size) announce(`${label} ${size.width} by ${size.height} pixels`);
+        return;
+      }
+      if (
+        event.key === 'Escape' ||
+        event.key === 'Enter' ||
+        event.key === 'Tab'
+      ) {
+        if (event.key !== 'Tab') event.preventDefault();
+        event.stopPropagation();
+        setResizing(null);
+        announce(`${label} resize finished`);
+      }
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
+  }, [resizing, mode, paneTitle, announce]);
 
   const modelRef = useRef(model);
   modelRef.current = model;

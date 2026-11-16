@@ -11,6 +11,10 @@ export interface DockController {
   reset: (treeWidth: number) => void;
   focusPane: (id: PanelId) => void;
   location: (id: PanelId) => 'grid' | 'floating' | null;
+  resizePane: (
+    id: PanelId,
+    delta: { width?: number; height?: number },
+  ) => { width: number; height: number } | null;
 }
 
 export interface LayoutApi {
@@ -25,6 +29,8 @@ export interface LayoutApi {
   focusPane: (id: PanelId) => void;
   resizeSignal: (id: PanelId) => number;
   location: (id: PanelId) => 'grid' | 'floating' | null;
+  startResize: (id: PanelId) => void;
+  resizing: PanelId | null;
   closeTreeOverlay: () => void;
   paneTitle: (id: PanelId) => PaneTitle;
 }

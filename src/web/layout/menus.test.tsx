@@ -151,6 +151,7 @@ describe('pane menus', () => {
       'Move right',
       'Move below',
       'Float',
+      'Resize with arrow keys',
       'Collapse',
       'Close',
       'Reset layout',
@@ -271,6 +272,25 @@ describe('panes menu in the top bar', () => {
 });
 
 describe('keyboard', () => {
+  it('resizes a pane with the arrow keys from its menu', async () => {
+    renderModel();
+    const menu = await openPaneMenu('Model summary');
+    fireEvent.click(
+      within(menu).getByRole('menuitem', { name: 'Resize with arrow keys' }),
+    );
+    const announcer = document.querySelector('.layout-announcer');
+    expect(announcer).toHaveTextContent('Resizing Model summary');
+    expect(
+      fireEvent.keyDown(document.body, { key: 'ArrowLeft', shiftKey: true }),
+    ).toBe(false);
+    expect(announcer?.textContent).toMatch(/^Model summary \d+ by \d+ pixels/);
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    expect(announcer).toHaveTextContent('Model summary resize finished');
+    const after = announcer?.textContent;
+    expect(fireEvent.keyDown(document.body, { key: 'ArrowLeft' })).toBe(true);
+    expect(announcer?.textContent).toBe(after);
+  });
+
   it('cycles focus between pane groups with F6 and Shift+F6', async () => {
     renderModel();
     const tab = await screen.findByRole('tab', { name: 'Untitled model' });
