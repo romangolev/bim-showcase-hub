@@ -29,7 +29,15 @@ export interface ModelDbId {
 
 export const VIEWER_CLOSED_MESSAGE = 'The viewer is closed';
 
-export type ModelSetErrorCode = 'limit' | 'duplicate' | 'empty' | 'closed';
+export const CANCELLED_MESSAGE =
+  'The model was removed or the viewer reloaded before it finished loading.';
+
+export type ModelSetErrorCode =
+  | 'limit'
+  | 'duplicate'
+  | 'empty'
+  | 'closed'
+  | 'cancelled';
 
 export class ModelSetError extends Error {
   constructor(

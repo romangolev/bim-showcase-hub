@@ -250,7 +250,11 @@ export function ViewerPane({
       adapter.addModel(member).then(
         () => setSetNotice(null),
         (err: unknown) => {
-          if (err instanceof ModelSetError && err.code !== 'closed') {
+          if (
+            err instanceof ModelSetError &&
+            err.code !== 'closed' &&
+            err.code !== 'cancelled'
+          ) {
             setSetNotice(err.message);
           }
         },

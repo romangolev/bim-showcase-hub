@@ -4,7 +4,12 @@ import {
   createMockViewerAdapter,
   MockViewerAdapter,
 } from './MockViewerAdapter.js';
-import { MODEL_LIMIT_MESSAGE, type ModelSource } from './modelSet.js';
+import {
+  CANCELLED_MESSAGE,
+  MODEL_LIMIT_MESSAGE,
+  ModelSetError,
+  type ModelSource,
+} from './modelSet.js';
 import type { ViewerAdapter, ViewerAdapterFactory } from './ViewerAdapter.js';
 import { ViewerPane } from './ViewerPane.js';
 
@@ -112,6 +117,25 @@ describe('ViewerPane with several models', () => {
     fireEvent.click(trigger);
     fireEvent.click(screen.getByRole('menuitem', { name: 'Add model...' }));
     expect(onAddModel).toHaveBeenCalledTimes(1);
+  });
+
+  it('stays quiet when an add is cancelled', async () => {
+    const created: MockViewerAdapter[] = [];
+    const factory: ViewerAdapterFactory = async (container) => {
+      const adapter = new MockViewerAdapter(container);
+      adapter.addModel = () =>
+        Promise.reject(new ModelSetError('cancelled', CANCELLED_MESSAGE));
+      created.push(adapter);
+      return adapter;
+    };
+    const { rerender } = render(
+      <ViewerPane urn="urn-a" members={[B]} factory={factory} />,
+    );
+    await screen.findByRole('button', { name: 'Models in this viewer (2)' });
+    rerender(<ViewerPane urn="urn-a" members={[B, C]} factory={factory} />);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(screen.queryByText(CANCELLED_MESSAGE)).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 
   it('explains the cap when a seventh model is added', async () => {

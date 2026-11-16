@@ -23,6 +23,7 @@ import {
 import { fullscreenElementOf, watchFullscreen } from './fullscreen.js';
 import { tagRows } from './modelScope.js';
 import {
+  CANCELLED_MESSAGE,
   checkCapacity,
   loadFailureMessage,
   type ModelDbId,
@@ -299,13 +300,20 @@ export class RealViewerAdapter implements ViewerAdapter {
     if (this.destroyed) {
       throw new ModelSetError('closed', VIEWER_CLOSED_MESSAGE);
     }
-    if (!viewer) return current();
+    const cancelled = () => new ModelSetError('cancelled', CANCELLED_MESSAGE);
+    if (!viewer) throw cancelled();
     const doc = this.fetchDocument(source.urn);
     await this.settling;
     if (this.viewer !== viewer || this.models.token(info.id) !== token) {
-      return current();
+      throw cancelled();
     }
     await this.loadOne(viewer, source, doc);
+    if (this.destroyed) {
+      throw new ModelSetError('closed', VIEWER_CLOSED_MESSAGE);
+    }
+    if (this.viewer !== viewer || this.models.token(info.id) !== token) {
+      throw cancelled();
+    }
     const loaded = current();
     if (loaded.status === 'ready') viewer.fitToView?.();
     return loaded;

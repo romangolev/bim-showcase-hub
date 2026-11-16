@@ -160,7 +160,7 @@ describe('federated loading', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     adapter.removeModel('slow');
     gate.release();
-    await adding;
+    await expect(adding).rejects.toMatchObject({ code: 'cancelled' });
     expect(viewer().models.map((m) => m.urn)).toEqual(['arch']);
     expect(viewer().unloaded.map((m) => m.urn)).toEqual(['slow']);
   });
@@ -175,7 +175,8 @@ describe('federated loading', () => {
     const second = adapter.addModel({ urn: 'slow' });
     await new Promise((resolve) => setTimeout(resolve, 0));
     gate.release();
-    await Promise.all([first, second]);
+    await expect(first).rejects.toMatchObject({ code: 'cancelled' });
+    expect((await second).status).toBe('ready');
     const slow = viewer().models.filter((m) => m.urn === 'slow');
     expect(slow).toHaveLength(1);
     expect(viewer().unloaded.map((m) => m.urn)).toEqual(['slow']);
