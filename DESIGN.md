@@ -98,3 +98,6 @@ The source describes a marketing site. For the BIM Showcase Hub application:
 - The project tree is a collapsible left panel styled as a graphite card, in place of "no sidebar".
 - The landing view uses the two-column hero, with the app shell below it after sign-in.
 - The Autodesk Viewer uses its dark theme plus CSS overrides to match these tokens.
+- Paint swatches are user data colors, not status. They use the same three chips (red, green, blue) in the toolbar and the landing mockup, and are the only sanctioned use of red, green and blue outside status and active states.
+- Feedback uses one shared state block with loading (skeleton rows), empty (specific copy and a next step) and error (icon, plain-language message, Retry) variants. Raw server strings appear only in a title attribute.
+- The document panel is 320px by default and resizable between 260 and 480px.
