@@ -554,7 +554,15 @@ describe('remembered viewer arrangement', () => {
       type: 'dock',
       dock: sampleDock(),
     });
-    expect(withModel.lastViewerArrangement).toEqual(sampleDock());
+    expect(withModel.lastViewerArrangement).toBeNull();
+    const moved = layoutReducer(withModel, {
+      type: 'dock',
+      dock: sampleDock(),
+    });
+    expect(moved.lastViewerArrangement).toBeNull();
+    expect(serializeLayout(moved).length).toBeLessThan(
+      JSON.stringify(sampleDock()).length * 1.5,
+    );
     const alone = sanitizeDock(sampleDock(), [])?.dock as SerializedDock;
     const closed = layoutReducer(withModel, { type: 'dock', dock: alone });
     expect(closed.dock).toEqual(alone);

@@ -101,8 +101,10 @@ export function layoutReducer(
 ): LayoutModel {
   switch (action.type) {
     case 'dock':
-      return hasViewerPanel(action.dock)
-        ? { ...model, dock: action.dock, lastViewerArrangement: action.dock }
+      return !hasViewerPanel(action.dock) &&
+        model.dock &&
+        hasViewerPanel(model.dock)
+        ? { ...model, dock: action.dock, lastViewerArrangement: model.dock }
         : { ...model, dock: action.dock };
     case 'setCollapsed': {
       const collapsed = toggled(model.collapsed, action.id, action.collapsed);
