@@ -7,7 +7,6 @@ import {
   type GuiViewer3D,
   getViewing,
   type InstanceTree,
-  type ViewerEvent,
   type ViewerModel,
   type ViewingDocument,
 } from './autodesk.js';
@@ -18,7 +17,6 @@ import {
   federatedLoadOptions,
   OTHER_REGION_MESSAGE,
   pickGeometryNode,
-  selectionIds,
 } from './federation.js';
 import { fullscreenElementOf, watchFullscreen } from './fullscreen.js';
 import { tagRows } from './modelScope.js';
