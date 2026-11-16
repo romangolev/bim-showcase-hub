@@ -83,6 +83,8 @@ export interface ViewingDocument {
 export interface GuiViewer3D {
   toolbar?: Toolbar;
   model?: ViewerModel;
+  canvas?: HTMLCanvasElement;
+  impl?: { resize?(width: number, height: number): void };
   start(): number | undefined;
   resize(): void;
   loadExtension(id: string, options?: unknown): Promise<unknown>;

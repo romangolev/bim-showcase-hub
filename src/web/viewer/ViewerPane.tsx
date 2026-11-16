@@ -34,6 +34,7 @@ type PaneState =
   | { status: 'error'; message: string };
 
 export const STATUS_DISMISS_MS = 4000;
+export const SETTLE_MS = 250;
 
 function isBusy(status: ExportStatus): boolean {
   return status.phase === 'reading' || status.phase === 'building';
@@ -98,7 +99,10 @@ export function ViewerPane({
     if (!host) return;
     let pending = false;
     let frame = 0;
+    let settle: ReturnType<typeof setTimeout> | undefined;
     const schedule = () => {
+      clearTimeout(settle);
+      settle = setTimeout(() => adapterRef.current?.resize(), SETTLE_MS);
       if (pending) return;
       pending = true;
       frame = requestAnimationFrame(() => {
@@ -116,6 +120,7 @@ export function ViewerPane({
     window.addEventListener('resize', schedule);
     return () => {
       if (pending) cancelAnimationFrame(frame);
+      clearTimeout(settle);
       observer?.disconnect();
       grid?.removeEventListener('transitionend', schedule);
       window.removeEventListener('resize', schedule);

@@ -125,6 +125,8 @@ class FakeViewer implements GuiViewer3D {
   };
   selection: number[] = [];
   resizeCalls = 0;
+  canvas?: HTMLCanvasElement;
+  impl?: { resize?(width: number, height: number): void };
   themed: { id: number; color: unknown }[] = [];
   clearThemingCalls = 0;
   extensions = new Map<string, ViewerExtension>();
@@ -449,6 +451,48 @@ describe('RealViewerAdapter tool group extension', () => {
     sized(container, 800, 600);
     adapter.resize();
     expect(viewer.resizeCalls).toBe(before + 1);
+  });
+
+  it('clears fixed pixel sizes on the viewer element before resizing', async () => {
+    makeAdapter();
+    await adapter.load('dXJu');
+    const viewer = viewers[0] as FakeViewer;
+    const inner = document.createElement('div');
+    inner.className = 'adsk-viewing-viewer';
+    inner.style.width = '663px';
+    inner.style.height = '569px';
+    container.appendChild(inner);
+    sized(container, 900, 569);
+    adapter.resize();
+    expect(inner.style.width).toBe('');
+    expect(inner.style.height).toBe('');
+    expect(viewer.resizeCalls).toBeGreaterThan(0);
+  });
+
+  it('forces the render canvas to the container size when viewer.resize leaves it stale', async () => {
+    makeAdapter();
+    await adapter.load('dXJu');
+    const viewer = viewers[0] as FakeViewer;
+    const canvas = document.createElement('canvas');
+    sized(canvas, 663, 569);
+    viewer.canvas = canvas;
+    viewer.impl = { resize: vi.fn() };
+    sized(container, 900, 569);
+    adapter.resize();
+    expect(viewer.impl.resize).toHaveBeenCalledWith(900, 569);
+  });
+
+  it('does not force the canvas when it already matches the container', async () => {
+    makeAdapter();
+    await adapter.load('dXJu');
+    const viewer = viewers[0] as FakeViewer;
+    const canvas = document.createElement('canvas');
+    sized(canvas, 900, 569);
+    viewer.canvas = canvas;
+    viewer.impl = { resize: vi.fn() };
+    sized(container, 900, 569);
+    adapter.resize();
+    expect(viewer.impl.resize).not.toHaveBeenCalled();
   });
 
   it('ignores resize before a viewer exists', () => {

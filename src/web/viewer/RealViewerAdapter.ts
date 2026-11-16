@@ -202,7 +202,23 @@ export class RealViewerAdapter implements ViewerAdapter {
     if (this.container.clientWidth === 0 || this.container.clientHeight === 0) {
       return;
     }
+    const width = this.container.clientWidth;
+    const height = this.container.clientHeight;
+    for (const el of this.container.querySelectorAll<HTMLElement>(
+      '.adsk-viewing-viewer',
+    )) {
+      if (el.parentElement !== this.container) continue;
+      if (el.style.width.endsWith('px')) el.style.width = '';
+      if (el.style.height.endsWith('px')) el.style.height = '';
+    }
     viewer.resize();
+    const canvas = viewer.canvas;
+    if (
+      canvas &&
+      (canvas.clientWidth !== width || canvas.clientHeight !== height)
+    ) {
+      viewer.impl?.resize?.(width, height);
+    }
   }
 
   unload(): void {

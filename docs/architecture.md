@@ -114,7 +114,7 @@ The real adapter mounts the tool group as an Autodesk Viewer extension, `BimShow
 
 ### Resize flow
 
-The viewer must follow its container when the document tree, dashboard or summary rail opens or closes. `ViewerPane` observes its host element with a `ResizeObserver`, and also listens to `transitionend` on the model page grid and to window `resize`. Events are coalesced with `requestAnimationFrame` and call `adapter.resize()`. The real adapter calls the Autodesk `viewer.resize()` only when the container has a non-zero size. The mock adapter refits its SVG view box. `ViewerPane` also calls `resize()` once after the model loads.
+The viewer must follow its container when the document tree, dashboard or summary rail opens or closes. `ViewerPane` observes its host element with a `ResizeObserver`, and also listens to `transitionend` on the model page grid and to window `resize`. Events are coalesced with `requestAnimationFrame` and call `adapter.resize()`. A trailing timer re-calls `resize()` 250 ms after the last event so the viewer sees the final layout once the CSS transition settles. The real adapter calls the Autodesk `viewer.resize()` only when the container has a non-zero size; it first clears any fixed pixel width or height on the viewer element, and if the render canvas still differs from the container afterwards it calls `viewer.impl.resize(width, height)` directly. The mock adapter refits its SVG view box. `ViewerPane` also calls `resize()` once after the model loads.
 
 ### Theme
 

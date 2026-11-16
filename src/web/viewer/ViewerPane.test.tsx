@@ -7,7 +7,7 @@ import { useTheme } from '../theme/ThemeContext.js';
 import { createMockViewerAdapter } from './MockViewerAdapter.js';
 import type { ViewerAdapter, ViewerAdapterFactory } from './ViewerAdapter.js';
 import { ViewerProvider } from './ViewerContext.js';
-import { ViewerPane } from './ViewerPane.js';
+import { SETTLE_MS, ViewerPane } from './ViewerPane.js';
 
 function trackedFactory() {
   const created: ViewerAdapter[] = [];
@@ -173,6 +173,23 @@ describe('ViewerPane resize wiring', () => {
     expect(spy).toHaveBeenCalledTimes(1);
     fireEvent(window, new Event('resize'));
     expect(spy).toHaveBeenCalledTimes(2);
+  });
+
+  it('re-calls resize once the layout has settled after the last event', async () => {
+    const { spy } = await mounted();
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const observer = FakeResizeObserver.instances[0];
+      spy.mockClear();
+      observer?.trigger();
+      expect(spy).toHaveBeenCalledTimes(1);
+      vi.advanceTimersByTime(SETTLE_MS - 1);
+      expect(spy).toHaveBeenCalledTimes(1);
+      vi.advanceTimersByTime(1);
+      expect(spy).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('cleans up the observer and listeners on unmount', async () => {
