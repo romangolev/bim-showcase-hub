@@ -37,7 +37,6 @@ export function createApp(
       maxAge: 60 * 60 * 1000,
       httpOnly: true,
       sameSite: 'lax',
-      secure: config.secureCookies,
     }),
   );
   app.use('/api', apiRouter(config, deps));

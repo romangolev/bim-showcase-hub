@@ -6,7 +6,6 @@ export interface ServerConfig {
   port: number;
   mock: boolean;
   production: boolean;
-  secureCookies: boolean;
   sessionSecret: string;
   staticDir: string | null;
   aps: {
@@ -41,7 +40,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     port: Number(env.PORT ?? 3000),
     mock,
     production,
-    secureCookies: production && callbackUrl.startsWith('https:'),
     sessionSecret,
     staticDir:
       production && env.STATIC_DIR ? path.resolve(env.STATIC_DIR) : null,
