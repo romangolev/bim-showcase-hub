@@ -4,11 +4,13 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import {
   fetchAuthUrl,
   fetchChildren,
   fetchSession,
   postSignOut,
+  subscribeUnauthorized,
 } from './client.js';
 import { type NodeScope, scopeKey } from './scope.js';
 
@@ -23,6 +25,17 @@ export const sessionQueryOptions = queryOptions({
 
 export function useSession() {
   return useQuery(sessionQueryOptions);
+}
+
+export function useSessionExpiry() {
+  const client = useQueryClient();
+  useEffect(
+    () =>
+      subscribeUnauthorized(() => {
+        client.setQueryData(sessionQueryKey, null);
+      }),
+    [client],
+  );
 }
 
 export function childrenQueryOptions(scope: NodeScope) {

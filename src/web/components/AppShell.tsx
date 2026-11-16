@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { useSession } from '../api/hooks.js';
+import { useSession, useSessionExpiry } from '../api/hooks.js';
 import { Landing } from './Landing.js';
 import { TopBar } from './TopBar.js';
 import { TreeControlContext } from './TreeControl.js';
@@ -19,6 +19,7 @@ export const OVERLAY_QUERY = '(max-width: 999px)';
 
 export function AppShell({ children }: { children: ReactNode }) {
   const session = useSession();
+  useSessionExpiry();
   const overlay = useMediaQuery(OVERLAY_QUERY);
   const [desktopOpen, setDesktopOpen] = useState(true);
   const [overlayTreeOpen, setOverlayTreeOpen] = useState(false);

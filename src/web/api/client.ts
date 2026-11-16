@@ -13,6 +13,19 @@ export class ApiError extends Error {
   }
 }
 
+const unauthorizedListeners = new Set<() => void>();
+
+export function subscribeUnauthorized(listener: () => void): () => void {
+  unauthorizedListeners.add(listener);
+  return () => {
+    unauthorizedListeners.delete(listener);
+  };
+}
+
+export function notifyUnauthorized(): void {
+  for (const listener of [...unauthorizedListeners]) listener();
+}
+
 async function readError(res: Response): Promise<string> {
   const fallback = res.statusText || `Request failed with status ${res.status}`;
   try {
@@ -36,6 +49,9 @@ async function request(path: string, init?: RequestInit): Promise<Response> {
     ...init,
     headers: { Accept: 'application/json', ...init?.headers },
   });
+  if (res.status === 401) {
+    notifyUnauthorized();
+  }
   if (!res.ok) {
     throw new ApiError(res.status, await readError(res));
   }

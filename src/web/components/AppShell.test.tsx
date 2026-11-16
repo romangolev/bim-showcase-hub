@@ -8,6 +8,7 @@ import {
 } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../App.js';
+import { notifyUnauthorized } from '../api/client.js';
 import { createAppRouter } from '../routes/router.js';
 import {
   createTestClient,
@@ -34,6 +35,21 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+});
+
+describe('AppShell session expiry', () => {
+  it('shows the signed-out state when any API call reports 401', async () => {
+    mockMatchMedia(1440);
+    renderApp();
+    await screen.findByRole('complementary', { name: 'Documents' });
+    act(() => notifyUnauthorized());
+    expect(
+      await screen.findByRole('button', { name: 'Sign in with Autodesk' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('complementary', { name: 'Documents' }),
+    ).not.toBeInTheDocument();
+  });
 });
 
 describe('AppShell responsive tree', () => {

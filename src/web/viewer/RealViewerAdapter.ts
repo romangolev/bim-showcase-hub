@@ -1,4 +1,5 @@
 import type { PropertyRow } from '../../shared/types.js';
+import { notifyUnauthorized } from '../api/client.js';
 import type { Theme } from '../theme/theme.js';
 import {
   autodeskWindow,
@@ -82,6 +83,7 @@ interface TokenResponse {
 
 async function fetchToken(): Promise<TokenResponse> {
   const res = await fetch('/api/viewer/token');
+  if (res.status === 401) notifyUnauthorized();
   if (!res.ok) throw new Error(`Token request failed (${res.status})`);
   return (await res.json()) as TokenResponse;
 }
