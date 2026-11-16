@@ -11,7 +11,9 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
+import { useSession } from '../api/hooks.js';
 import {
+  claimModels,
   createOpenModelsStore,
   type OpenModelsState,
   type OpenModelsStore,
@@ -161,7 +163,17 @@ export interface LayoutProviderProps {
 }
 
 export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
-  const [modelStore] = useState(() => openModels ?? createOpenModelsStore());
+  const owner = useSession().data?.name ?? '';
+  const [modelStore] = useState(() => {
+    if (owner) claimModels(owner);
+    return openModels ?? createOpenModelsStore();
+  });
+  const claimed = useRef(owner);
+  useEffect(() => {
+    if (!owner || owner === claimed.current) return;
+    claimed.current = owner;
+    if (claimModels(owner)) modelStore.clear();
+  }, [owner, modelStore]);
   const models = useSyncExternalStore(
     modelStore.subscribe,
     modelStore.getState,

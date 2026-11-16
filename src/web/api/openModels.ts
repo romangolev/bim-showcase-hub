@@ -3,9 +3,10 @@ import {
   parseModelContext,
   sameModelContext,
 } from './modelContext.js';
-import { hasModelContext } from './modelStore.js';
+import { hasModelContext, MODEL_STORE_KEY } from './modelStore.js';
 
 export const OPEN_MODELS_KEY = 'bsh.models.open';
+export const MODEL_OWNER_KEY = 'bsh.models.owner';
 export const MAX_LOADED_MODELS = 4;
 
 export interface OpenModel {
@@ -138,6 +139,46 @@ export function parseOpenModels(raw: string | null): OpenModelsState {
   return { models, active, live: [] };
 }
 
+function local(): Storage | null {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+function remove(storage: Storage | null, key: string) {
+  try {
+    storage?.removeItem(key);
+  } catch {
+    return;
+  }
+}
+
+export function forgetModels(): void {
+  remove(sessionStore(), OPEN_MODELS_KEY);
+  remove(local(), MODEL_STORE_KEY);
+  remove(local(), MODEL_OWNER_KEY);
+}
+
+export function claimModels(owner: string): boolean {
+  const storage = local();
+  let stored: string | null = null;
+  try {
+    stored = storage?.getItem(MODEL_OWNER_KEY) ?? null;
+  } catch {
+    stored = null;
+  }
+  const changed = stored !== null && stored !== owner;
+  if (changed) forgetModels();
+  try {
+    storage?.setItem(MODEL_OWNER_KEY, owner);
+  } catch {
+    return changed;
+  }
+  return changed;
+}
+
 export interface OpenModelsStore {
   getState: () => OpenModelsState;
   subscribe: (listener: () => void) => () => void;
@@ -145,6 +186,7 @@ export interface OpenModelsStore {
   activate: (urn: string) => void;
   show: (urn: string) => void;
   close: (urn: string) => void;
+  clear: () => void;
 }
 
 function sessionStore(): Storage | null {
@@ -196,5 +238,11 @@ export function createOpenModelsStore(
     activate: (urn) => apply(activateModel(state, urn, limit)),
     show: (urn) => apply(touchLive(state, urn, limit)),
     close: (urn) => apply(closeModel(state, urn)),
+    clear: () => {
+      remove(storage, OPEN_MODELS_KEY);
+      if (state.models.length === 0) return;
+      state = EMPTY_OPEN_MODELS;
+      for (const listener of [...listeners]) listener();
+    },
   };
 }

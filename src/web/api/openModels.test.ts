@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { installMemoryStorage } from '../test/mockApi.js';
+import { MODEL_STORE_KEY } from './modelStore.js';
 import {
   activateModel,
+  claimModels,
   closeModel,
   createOpenModelsStore,
   EMPTY_OPEN_MODELS,
+  forgetModels,
   MAX_LOADED_MODELS,
+  MODEL_OWNER_KEY,
   OPEN_MODELS_KEY,
   type OpenModelsState,
   openModel,
@@ -96,6 +100,53 @@ describe('open models', () => {
     expect(activateModel(state, 'x')).toBe(state);
     expect(touchLive(state, 'x')).toBe(state);
     expect(closeModel(state, 'x')).toBe(state);
+  });
+});
+
+describe('model stores per user', () => {
+  function seed(storage: Storage) {
+    storage.setItem(
+      MODEL_STORE_KEY,
+      JSON.stringify([{ urn: 'a', file: 'A.rvt' }]),
+    );
+    createOpenModelsStore(sessionStorage).open('a', { file: 'A.rvt' });
+  }
+
+  it('keeps the models of the same user', () => {
+    const storage = installMemoryStorage();
+    expect(claimModels('Ada')).toBe(false);
+    seed(storage);
+    expect(claimModels('Ada')).toBe(false);
+    expect(storage.getItem(MODEL_STORE_KEY)).not.toBeNull();
+    expect(
+      createOpenModelsStore(sessionStorage).getState().models,
+    ).toHaveLength(1);
+  });
+
+  it('forgets open and recent models when another user signs in', () => {
+    const storage = installMemoryStorage();
+    claimModels('Ada');
+    seed(storage);
+    expect(claimModels('Grace')).toBe(true);
+    expect(storage.getItem(MODEL_STORE_KEY)).toBeNull();
+    expect(sessionStorage.getItem(OPEN_MODELS_KEY)).toBeNull();
+    expect(createOpenModelsStore(sessionStorage).getState().models).toEqual([]);
+    expect(storage.getItem(MODEL_OWNER_KEY)).toBe('Grace');
+  });
+
+  it('clears a live store', () => {
+    installMemoryStorage();
+    const store = createOpenModelsStore(sessionStorage);
+    store.open('a');
+    let calls = 0;
+    store.subscribe(() => {
+      calls += 1;
+    });
+    store.clear();
+    expect(store.getState()).toEqual(EMPTY_OPEN_MODELS);
+    expect(sessionStorage.getItem(OPEN_MODELS_KEY)).toBeNull();
+    expect(calls).toBe(1);
+    forgetModels();
   });
 });
 
