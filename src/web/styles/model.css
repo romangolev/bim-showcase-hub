@@ -1,0 +1,122 @@
+.model-page {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  height: 100%;
+  min-height: 0;
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+
+.model-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.model-bar__title {
+  flex: none;
+  font-size: var(--text-18);
+}
+
+.model-bar__urn {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-hairline);
+  border-radius: var(--radius-button);
+  background: var(--color-graphite);
+  color: var(--color-ash);
+  font-size: var(--text-13);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: var(--space-3);
+  min-height: 0;
+}
+
+.model-viewer,
+.model-summary,
+.model-dashboard {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: var(--border-hairline);
+  border-radius: var(--radius-card);
+  background: var(--color-graphite);
+  box-shadow: var(--shadow-inset);
+}
+
+.model-viewer {
+  background: var(--color-void);
+}
+
+.model-summary {
+  overflow: auto;
+}
+
+.model-dashboard__toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-element);
+  width: 100%;
+  padding: var(--space-2) var(--space-4);
+  border: 0;
+  background: transparent;
+  color: var(--color-chalk);
+  font: inherit;
+  font-size: var(--text-13);
+  font-weight: var(--weight-label);
+  cursor: pointer;
+}
+
+.model-dashboard__toggle:hover {
+  color: var(--color-snow);
+}
+
+.model-dashboard__chevron {
+  transition: transform 120ms ease;
+}
+
+.model-dashboard[data-open="true"] .model-dashboard__chevron {
+  transform: rotate(90deg);
+}
+
+.model-dashboard__body {
+  height: 240px;
+  overflow: auto;
+  border-top: var(--border-hairline);
+}
+
+.model-dashboard__body[hidden] {
+  display: none;
+}
+
+.slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--gap-element);
+  height: 100%;
+  min-height: 120px;
+  color: var(--color-steel);
+  font-size: var(--text-13);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .model-dashboard__chevron {
+    transition: none;
+  }
+}
+
+@media (max-width: 1000px) {
+  .model-main {
+    grid-template-columns: minmax(0, 1fr) 240px;
+  }
+}
