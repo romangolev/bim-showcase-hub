@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { StateBlock } from '../components/StateBlock.js';
 import {
   DEFAULT_SUMMARY_PROPERTIES,
@@ -18,6 +18,7 @@ export interface ModelSummaryPanelProps {
 }
 
 const EMPTY: SummaryEntry[] = [];
+export const STACKED_ROW_LIMIT = 12;
 
 export function ModelSummaryPanel({
   adapter,
@@ -25,6 +26,7 @@ export function ModelSummaryPanel({
   title = 'Model summary',
   className,
 }: ModelSummaryPanelProps) {
+  const [showAll, setShowAll] = useState(false);
   const resolved = useResolvedAdapter(adapter);
   const state = usePropertyRows(resolved, propertyNames);
   const entries = useMemo(
@@ -37,6 +39,7 @@ export function ModelSummaryPanel({
     <section
       className={`bsh-card ${className ?? ''}`.trim()}
       aria-labelledby="bsh-summary-title"
+      data-rows-collapsed={!showAll && entries.length > STACKED_ROW_LIMIT}
     >
       <header className="bsh-card__header">
         <h2 id="bsh-summary-title" className="bsh-card__title">
@@ -82,6 +85,16 @@ export function ModelSummaryPanel({
         />
       )}
       {entries.length > 0 && <SummaryTable entries={entries} />}
+      {entries.length > STACKED_ROW_LIMIT && (
+        <button
+          type="button"
+          className="bsh-button summary-toggle"
+          aria-expanded={showAll}
+          onClick={() => setShowAll((value) => !value)}
+        >
+          {showAll ? 'Show fewer rows' : `Show all ${entries.length} rows`}
+        </button>
+      )}
     </section>
   );
 }

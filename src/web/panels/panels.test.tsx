@@ -54,6 +54,26 @@ describe('ModelSummaryPanel', () => {
     ).toBeInTheDocument();
   });
 
+  it('offers a toggle to show every row when there are more than twelve', async () => {
+    const adapter = await loaded();
+    const { container } = render(
+      <ModelSummaryPanel
+        adapter={adapter}
+        propertyNames={['Category', 'Name', 'Level', 'Assembly Code']}
+      />,
+    );
+    const toggle = await screen.findByRole('button', {
+      name: /^Show all \d+ rows$/,
+    });
+    const card = container.querySelector('section');
+    expect(card).toHaveAttribute('data-rows-collapsed', 'true');
+    fireEvent.click(toggle);
+    expect(card).toHaveAttribute('data-rows-collapsed', 'false');
+    expect(
+      screen.getByRole('button', { name: 'Show fewer rows' }),
+    ).toHaveAttribute('aria-expanded', 'true');
+  });
+
   it('prompts to load a model when there is no adapter', () => {
     render(<ModelSummaryPanel />);
     expect(screen.getByText(/No model loaded yet/)).toBeInTheDocument();
@@ -205,7 +225,7 @@ describe('ExportButton', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Export to Excel' }));
     await waitFor(() =>
       expect(screen.getByRole('status')).toHaveTextContent(
-        /^Exported \d+ elements/,
+        /^Exported \d+ rows/,
       ),
     );
     expect(

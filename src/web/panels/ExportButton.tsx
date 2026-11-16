@@ -30,8 +30,8 @@ function badgeVariant(status: ExportStatus): string {
 }
 
 function visibleText(status: ExportStatus): string {
-  if (status.phase === 'error') return 'Export failed. Try again.';
-  if (status.phase === 'done') return `Exported ${status.rowCount} elements`;
+  if (status.phase === 'error') return 'Export failed';
+  if (status.phase === 'done') return `Exported ${status.rowCount} rows`;
   return describeStatus(status);
 }
 

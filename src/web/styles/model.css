@@ -69,13 +69,10 @@
 }
 
 .model-title__name {
-  display: -webkit-box;
   min-width: 0;
   overflow: hidden;
-  overflow-wrap: anywhere;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .model-tag {
@@ -91,9 +88,32 @@
 }
 
 .model-hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
   margin: 0;
   color: var(--color-fog);
   font-size: var(--text-13);
+}
+
+.model-hint__action {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-arc-blue);
+  font: inherit;
+  cursor: pointer;
+}
+
+.model-hint__action:hover {
+  text-decoration: underline;
+}
+
+.model-locate {
+  flex: none;
+  width: 32px;
+  height: 32px;
 }
 
 .urn-control {
@@ -134,6 +154,7 @@
 }
 
 .model-toolbar {
+  container: toolbar / inline-size;
   position: relative;
   display: flex;
   grid-area: toolbar;
@@ -189,8 +210,8 @@
       "head"
       "toolbar"
       "viewer"
-      "summary"
-      "dashboard";
+      "dashboard"
+      "summary";
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto auto auto auto auto;
     height: auto;
@@ -198,15 +219,24 @@
   }
 
   .model-viewer {
-    height: clamp(260px, 44vh, 640px);
-  }
-
-  .model-summary {
-    max-height: 340px;
+    height: max(360px, 55vh);
   }
 
   .model-title {
     line-height: 1.2;
+  }
+
+  .model-summary .bsh-table-wrap {
+    flex: none;
+    overflow: visible;
+  }
+
+  .model-summary [data-rows-collapsed="true"] tbody tr:nth-child(n + 13) {
+    display: none;
+  }
+
+  .model-summary .summary-toggle {
+    display: inline-flex;
   }
 }
 
@@ -220,9 +250,24 @@
     gap: var(--space-2);
   }
 
+  .model-title {
+    flex-basis: 100%;
+  }
+
   .urn-control {
-    flex: 0 1 auto;
-    width: 100%;
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+
+@container toolbar (max-width: 640px) {
+  .model-toolbar .bsh-paint__label,
+  .model-toolbar .bsh-export__label {
+    display: none;
+  }
+
+  .model-toolbar .bsh-export__label-short {
+    display: inline;
   }
 }
 
@@ -243,11 +288,23 @@
     right: var(--space-2);
     z-index: 3;
     flex: none;
+    min-width: 0;
     max-width: calc(100% - var(--space-4));
     min-height: 0;
   }
 
   .model-toolbar .bsh-export__status .badge {
     background: var(--color-graphite);
+  }
+}
+
+@media (max-width: 999px) {
+  .model-title__name {
+    display: -webkit-box;
+    overflow-wrap: anywhere;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
   }
 }

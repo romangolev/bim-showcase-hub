@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useState } from 'react';
+import { Icon } from '../components/icons.js';
 import { StateBlock } from '../components/StateBlock.js';
 import {
   availableProperties,
@@ -82,6 +83,23 @@ export function DashboardPanel({
         <h2 id={`${uid}-title`} className="bsh-card__title">
           {title}
         </h2>
+        <button
+          type="button"
+          className="bsh-button"
+          aria-expanded={!isCollapsed}
+          aria-controls={bodyId}
+          onClick={toggle}
+        >
+          <Icon
+            name="chevron"
+            size={16}
+            className="bsh-drawer__toggle-icon"
+            data-expanded={!isCollapsed}
+          />
+          <span className="bsh-drawer__toggle-label">
+            {isCollapsed ? 'Expand' : 'Collapse'}
+          </span>
+        </button>
         {chart && options.length > 0 && !isCollapsed ? (
           <div className="bsh-field">
             <span aria-hidden="true">Group by</span>
@@ -102,15 +120,6 @@ export function DashboardPanel({
             </select>
           </div>
         ) : null}
-        <button
-          type="button"
-          className="bsh-button"
-          aria-expanded={!isCollapsed}
-          aria-controls={bodyId}
-          onClick={toggle}
-        >
-          {isCollapsed ? 'Expand' : 'Collapse'}
-        </button>
       </header>
       <div id={bodyId} className="bsh-drawer__body" hidden={isCollapsed}>
         {!resolved && (
