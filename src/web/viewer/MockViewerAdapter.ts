@@ -77,6 +77,8 @@ function setDisabled(
 
 export const MOCK_BROKEN_MARKER = 'broken';
 export const MOCK_LOAD_ERROR = 'Mock model failed to load';
+export const MOCK_NO_PROPERTIES_MARKER = 'noprops';
+export const MOCK_PROPERTIES_ERROR = 'Properties could not be read: mock';
 const MODEL_GAP = 48;
 
 interface Box {
@@ -289,9 +291,19 @@ export class MockViewerAdapter implements ViewerAdapter {
   async getLeafProperties(propertyNames: string[]): Promise<PropertyRow[]> {
     if (!this.loaded) return [];
     const bulk = import.meta.env.MODE === 'test' ? 0 : LARGE_FIXTURE_ROWS;
-    return this.models
-      .ready()
-      .flatMap(({ info }) => tagRows(buildMockRows(propertyNames, bulk), info));
+    const rows: PropertyRow[] = [];
+    let failed = false;
+    for (const { info } of this.models.shown()) {
+      if (info.urn.includes(MOCK_NO_PROPERTIES_MARKER)) {
+        failed = true;
+        this.models.setPropertiesError(info.id, MOCK_PROPERTIES_ERROR);
+        continue;
+      }
+      this.models.setPropertiesError(info.id);
+      rows.push(...tagRows(buildMockRows(propertyNames, bulk), info));
+    }
+    if (failed && rows.length === 0) throw new Error(MOCK_PROPERTIES_ERROR);
+    return rows;
   }
 
   registerToolGroup(spec: ToolGroupSpec): () => void {

@@ -19,6 +19,7 @@ export interface ModelInfo {
   visible: boolean;
   status: ModelStatus;
   error?: string;
+  propertiesError?: string;
 }
 
 export interface ModelDbId {
@@ -71,7 +72,7 @@ export function checkCapacity(
 
 export function readySignature(models: readonly ModelInfo[]): string {
   return models
-    .filter((model) => model.status === 'ready')
+    .filter((model) => model.status === 'ready' && model.visible)
     .map((model) => model.id)
     .join('\n');
 }
@@ -199,6 +200,18 @@ export class ModelSet<H> {
     if (this.entries.size === 0) this.serial = 0;
     this.emit();
     return { info: { ...entry.info }, handle: entry.handle };
+  }
+
+  shown(): { info: ModelInfo; handle: H }[] {
+    return this.ready().filter(({ info }) => info.visible);
+  }
+
+  setPropertiesError(id: string, message?: string): void {
+    const entry = this.entries.get(id);
+    if (!entry || entry.info.propertiesError === message) return;
+    const { propertiesError: _previous, ...rest } = entry.info;
+    entry.info = message ? { ...rest, propertiesError: message } : rest;
+    this.emit();
   }
 
   setVisible(id: string, visible: boolean): boolean {

@@ -8,7 +8,7 @@ import {
 } from './fakeFederatedViewer.js';
 import { MockViewerAdapter } from './MockViewerAdapter.js';
 import { buildMockElements } from './mockModel.js';
-import { ALL_MODELS, scopeRows } from './modelScope.js';
+import { ALL_MODELS, scopeRows, unavailableModels } from './modelScope.js';
 import { type ModelDbId, type ModelInfo, ModelSetError } from './modelSet.js';
 import { RealViewerAdapter } from './RealViewerAdapter.js';
 import { readLeafRows } from './sharedLeafRows.js';
@@ -60,6 +60,7 @@ const realFactory: HarnessFactory = {
   create: () => {
     env = installFakeFederation();
     env.specs.set('urn-bad', { fail: 'Not found' });
+    env.specs.set('urn-noprops', { propsFail: 'db' });
     const host = document.createElement('div');
     document.body.appendChild(host);
     const adapter = new RealViewerAdapter(host);
@@ -185,6 +186,36 @@ describe.each([mockFactory, realFactory])(
         'urn-3',
         'urn-4',
       ]);
+    });
+
+    it('reports a model whose properties cannot be read', async () => {
+      const { adapter } = setup();
+      await adapter.loadModels([{ urn: 'urn-a' }, { urn: 'urn-noprops' }]);
+      const rows = await adapter.getLeafProperties(['Category']);
+      expect(rows.length).toBeGreaterThan(0);
+      expect(rows.every((row) => row.modelId === 'urn-a')).toBe(true);
+      const unavailable = unavailableModels(adapter.getModels());
+      expect(unavailable.map((m) => m.id)).toEqual(['urn-noprops']);
+      expect(unavailable[0]?.propertiesError).toMatch(
+        /^Properties could not be read/,
+      );
+      expect(unavailable[0]?.status).toBe('ready');
+      adapter.removeModel('urn-a');
+      await expect(adapter.getLeafProperties(['Category'])).rejects.toThrow();
+    });
+
+    it('reads only visible models and re-reads when one is shown', async () => {
+      const { adapter } = setup();
+      await adapter.loadModels([{ urn: 'urn-a' }, { urn: 'urn-b' }]);
+      const both = await readLeafRows(adapter, ['Category']);
+      adapter.setModelVisible('urn-b', false);
+      const visible = await readLeafRows(adapter, ['Category']);
+      expect(visible).toHaveLength(both.length / 2);
+      expect(visible.every((row) => row.modelId === 'urn-a')).toBe(true);
+      adapter.setModelVisible('urn-b', true);
+      expect(await readLeafRows(adapter, ['Category'])).toHaveLength(
+        both.length,
+      );
     });
 
     it('rejects when every model fails', async () => {

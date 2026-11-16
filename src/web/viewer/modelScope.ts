@@ -47,6 +47,13 @@ export function distinctModelCount(rows: readonly PropertyRow[]): number {
   return ids.size;
 }
 
+export function unavailableModels(models: readonly ModelInfo[]): ModelInfo[] {
+  return models.filter(
+    (model) =>
+      model.status === 'ready' && model.visible && model.propertiesError,
+  );
+}
+
 export function tagRows(
   rows: readonly PropertyRow[],
   model: Pick<ModelInfo, 'id' | 'name'>,

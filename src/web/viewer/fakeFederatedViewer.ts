@@ -20,6 +20,7 @@ export interface FakeModelSpec {
   only2d?: boolean;
   categories?: string[];
   fail?: string;
+  propsFail?: string;
 }
 
 export class FakeModel implements ViewerModel {
@@ -59,8 +60,12 @@ export class FakeModel implements ViewerModel {
 
   getObjectTree(
     onSuccess: (tree: InstanceTree) => void,
-    _onError?: (err: unknown) => void,
+    onError?: (err: unknown) => void,
   ): void {
+    if (this.spec.propsFail) {
+      onError?.(new Error(this.spec.propsFail));
+      return;
+    }
     onSuccess({
       getRootId: () => 1,
       getChildCount: (dbId) => (dbId === 1 ? FAKE_LEAVES.length : 0),

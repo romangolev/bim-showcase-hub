@@ -160,6 +160,12 @@ function loadDocument(urn: string) {
   });
 }
 
+function propertiesMessage(err: unknown): string {
+  return err instanceof Error && err.message
+    ? `Properties could not be read: ${err.message}`
+    : 'Properties could not be read';
+}
+
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : 'The model could not be loaded';
 }
@@ -617,21 +623,26 @@ export class RealViewerAdapter implements ViewerAdapter {
   async getLeafProperties(propertyNames: string[]): Promise<PropertyRow[]> {
     const viewer = this.viewer;
     if (!viewer) return [];
-    const ready = this.models.ready();
+    const shown = this.models.shown();
     const results = await Promise.allSettled(
-      ready.map(async ({ info, handle }) =>
+      shown.map(async ({ info, handle }) =>
         tagRows(await this.readModelRows(viewer, handle, propertyNames), info),
       ),
     );
     const rows: PropertyRow[] = [];
     let failure: unknown = null;
-    for (const result of results) {
-      if (result.status === 'fulfilled') rows.push(...result.value);
-      else failure ??= result.reason;
-    }
-    if (failure !== null && rows.length === 0 && ready.length > 0) {
-      throw failure;
-    }
+    results.forEach((result, index) => {
+      const id = shown[index]?.info.id;
+      if (id === undefined) return;
+      if (result.status === 'fulfilled') {
+        rows.push(...result.value);
+        this.models.setPropertiesError(id);
+      } else {
+        failure ??= result.reason;
+        this.models.setPropertiesError(id, propertiesMessage(result.reason));
+      }
+    });
+    if (failure !== null && rows.length === 0) throw failure;
     return rows;
   }
 

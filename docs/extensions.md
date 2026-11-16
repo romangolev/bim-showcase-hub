@@ -10,7 +10,7 @@ An extension here is a small module in `src/web/extensions` that works against t
 - `src/web/panels/index.ts`: exports the panel. A pane entry in `src/web/layout/paneRegistry.ts` places it in the layout (see [layout.md](layout.md)).
 - `src/web/extensions/extensions.test.ts` and `panels/panels.test.tsx`: unit tests.
 
-Property rows have the shape `{ dbId, name, properties, modelId?, modelName? }`. `adapter.getLeafProperties(names)` returns one row per leaf element of every loaded model, with a value or `null` for each requested property name and the model it came from. In a combined view dbIds repeat across models, so never key data by `dbId` alone. Use `scopeRows(rows, scope)` from `viewer/modelScope.ts` to show one model or `ALL_MODELS`.
+Property rows have the shape `{ dbId, name, properties, modelId?, modelName? }`. `adapter.getLeafProperties(names)` returns one row per leaf element of every loaded model, with a value or `null` for each requested property name and the model it came from. In a combined view dbIds repeat across models, so never key data by `dbId` alone. Use `scopeRows(rows, scope)` from `viewer/modelScope.ts` to show one model or `ALL_MODELS`. Hidden models are not read. A model whose properties could not be read has `propertiesError` set; show `unavailableModels(adapter.getModels())` next to partial results.
 
 ## Existing extensions
 
