@@ -141,7 +141,7 @@ describe('AppShell responsive tree', () => {
     expect(
       await screen.findByRole('complementary', { name: 'Documents' }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('main')).toHaveAttribute('inert');
+    expect(screen.getByRole('main').closest('[inert]')).not.toBeNull();
 
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(

@@ -38,6 +38,7 @@ describe('ThemeToggle in the top bar', () => {
       ...treeRoutes,
     });
     renderApp();
+    await screen.findByRole('button', { name: /Ada/ });
     const toggle = await screen.findByRole('button', {
       name: 'Switch to light theme',
     });

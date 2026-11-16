@@ -1,16 +1,22 @@
-import type { Ref } from 'react';
+import type { ReactNode, Ref } from 'react';
 import { useSession, useSignIn } from '../api/hooks.js';
 import { ThemeToggle } from '../theme/ThemeToggle.js';
 import { Icon } from './icons.js';
 import { UserMenu } from './UserMenu.js';
 
 export interface TopBarProps {
-  treeOpen: boolean;
-  onToggleTree: () => void;
+  treeOpen?: boolean;
+  onToggleTree?: () => void;
   toggleRef?: Ref<HTMLButtonElement>;
+  actions?: ReactNode;
 }
 
-export function TopBar({ treeOpen, onToggleTree, toggleRef }: TopBarProps) {
+export function TopBar({
+  treeOpen = false,
+  onToggleTree,
+  toggleRef,
+  actions,
+}: TopBarProps) {
   const session = useSession();
   const signIn = useSignIn();
   const user = session.data ?? null;
@@ -18,7 +24,7 @@ export function TopBar({ treeOpen, onToggleTree, toggleRef }: TopBarProps) {
   return (
     <header className="topbar">
       <div className="topbar__inner">
-        {user ? (
+        {user && onToggleTree ? (
           <button
             ref={toggleRef}
             type="button"
@@ -45,6 +51,7 @@ export function TopBar({ treeOpen, onToggleTree, toggleRef }: TopBarProps) {
             Session unavailable
           </span>
         ) : null}
+        {user ? actions : null}
         <ThemeToggle />
         {user ? (
           <UserMenu user={user} />

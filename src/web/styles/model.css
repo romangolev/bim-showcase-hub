@@ -1,11 +1,10 @@
 .model-page {
   display: grid;
   grid-template-areas:
-    "head summary"
-    "viewer summary"
+    "main summary"
     "dashboard summary";
   grid-template-columns: minmax(560px, 1fr) minmax(280px, 340px);
-  grid-template-rows: auto minmax(280px, 1fr) auto;
+  grid-template-rows: minmax(340px, 1fr) auto;
   transition: grid-template-columns 160ms ease;
   gap: var(--space-2) var(--gutter);
   height: 100%;
@@ -17,9 +16,31 @@
   grid-template-columns: minmax(0, 1fr) 48px;
 }
 
+.pane-host,
+.pane-slot,
+.tree-slot {
+  display: contents;
+}
+
+.tree-slot[hidden] {
+  display: none;
+}
+
+.pane-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  min-height: 100%;
+}
+
+.model-page .pane-main {
+  grid-area: main;
+  min-height: 0;
+}
+
 .model-head {
   display: flex;
-  grid-area: head;
   flex-direction: column;
   gap: var(--space-1);
   min-width: 0;
@@ -189,7 +210,7 @@
 
 .model-viewer {
   position: relative;
-  grid-area: viewer;
+  flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
@@ -220,19 +241,23 @@
   min-height: 0;
 }
 
-.model-summary > .bsh-card {
+.model-summary .pane-summary,
+.model-summary .pane-summary > .bsh-card {
+  display: flex;
   flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
 }
 
 @container main (max-width: 875px) {
   .model-page {
     grid-template-areas:
-      "head"
-      "viewer"
+      "main"
       "dashboard"
       "summary";
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto auto auto;
+    grid-template-rows: auto auto auto;
     transition: none;
     height: auto;
     min-height: 100%;
@@ -243,6 +268,7 @@
   }
 
   .model-viewer {
+    flex: none;
     height: max(360px, 55vh);
     transition: height 160ms ease;
   }

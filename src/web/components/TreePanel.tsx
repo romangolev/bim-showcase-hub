@@ -14,11 +14,11 @@ import {
 } from './useTreeWidth.js';
 
 export interface TreePanelProps {
-  open: boolean;
+  resizable?: boolean;
   onNavigate?: () => void;
 }
 
-export function TreePanel({ open, onNavigate }: TreePanelProps) {
+export function TreePanel({ resizable = false, onNavigate }: TreePanelProps) {
   const navigate = useNavigate();
   const { urn } = useParams({ strict: false }) as { urn?: string };
   const search = useSearch({ strict: false }) as Record<string, unknown>;
@@ -71,9 +71,10 @@ export function TreePanel({ open, onNavigate }: TreePanelProps) {
       id="document-panel"
       className="tree-panel"
       aria-label="Documents"
-      data-open={open}
-      hidden={!open}
-      style={{ '--tree-width': `${width}px` } as CSSProperties}
+      data-resizable={resizable}
+      style={
+        resizable ? ({ '--tree-width': `${width}px` } as CSSProperties) : {}
+      }
     >
       <div className="tree-panel__head">
         <h2 className="tree-panel__title">Documents</h2>
@@ -90,21 +91,23 @@ export function TreePanel({ open, onNavigate }: TreePanelProps) {
           onNavigate?.();
         }}
       />
-      <hr
-        aria-orientation="vertical"
-        aria-label="Resize document panel"
-        aria-controls="document-panel"
-        aria-valuemin={TREE_WIDTH_MIN}
-        aria-valuemax={TREE_WIDTH_MAX}
-        aria-valuenow={width}
-        tabIndex={0}
-        className="tree-panel__resizer"
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-        onKeyDown={onKeyDown}
-      />
+      {resizable ? (
+        <hr
+          aria-orientation="vertical"
+          aria-label="Resize document panel"
+          aria-controls="document-panel"
+          aria-valuemin={TREE_WIDTH_MIN}
+          aria-valuemax={TREE_WIDTH_MAX}
+          aria-valuenow={width}
+          tabIndex={0}
+          className="tree-panel__resizer"
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+          onKeyDown={onKeyDown}
+        />
+      ) : null}
     </aside>
   );
 }
