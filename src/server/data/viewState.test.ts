@@ -90,6 +90,11 @@ describe('classifyManifest', () => {
   });
 });
 
+const encode = (raw: string) =>
+  btoa(raw).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const us = (name: string) => encode(`urn:adsk.wipprod:fs.file:vf.${name}`);
+const eu = (name: string) => encode(`urn:adsk.wipemea:fs.file:vf.${name}`);
+
 describe('createViewStateChecker', () => {
   it('maps http outcomes to states without throwing', async () => {
     const fetchImpl = vi
@@ -105,7 +110,7 @@ describe('createViewStateChecker', () => {
     const checker = createViewStateChecker({ fetchImpl });
     const states = [];
     for (const urn of ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']) {
-      states.push(await checker.check('tok', urn));
+      states.push(await checker.check('tok', us(urn)));
     }
     expect(states).toEqual([
       'not-translated',
@@ -185,14 +190,14 @@ describe('createViewStateChecker', () => {
   it('evicts the oldest live entry only when inserting a new key at the limit', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(reply(404));
     const checker = createViewStateChecker({ fetchImpl, cacheLimit: 2 });
-    await checker.check('t', 'a');
-    await checker.check('t', 'b');
-    await checker.check('t', 'c');
+    await checker.check('t', us('a'));
+    await checker.check('t', us('b'));
+    await checker.check('t', us('c'));
     expect(fetchImpl).toHaveBeenCalledTimes(3);
-    await checker.check('t', 'b');
-    await checker.check('t', 'c');
+    await checker.check('t', us('b'));
+    await checker.check('t', us('c'));
     expect(fetchImpl).toHaveBeenCalledTimes(3);
-    await checker.check('t', 'a');
+    await checker.check('t', us('a'));
     expect(fetchImpl).toHaveBeenCalledTimes(4);
   });
 
@@ -208,20 +213,23 @@ describe('createViewStateChecker', () => {
     );
     const checker = createViewStateChecker({ fetchImpl });
     const [alice, bob] = await Promise.all([
-      checker.check('alice', 'u'),
-      checker.check('bob', 'u'),
+      checker.check('alice', us('u')),
+      checker.check('bob', us('u')),
     ]);
     expect(alice).toBe('ready');
     expect(bob).toBe('not-translated');
-    expect(await checker.check('alice', 'u')).toBe('ready');
-    expect(await checker.check('bob', 'u')).toBe('not-translated');
+    expect(await checker.check('alice', us('u'))).toBe('ready');
+    expect(await checker.check('bob', us('u'))).toBe('not-translated');
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
   it('shares one request between concurrent checks of the same urn', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(reply(404));
     const checker = createViewStateChecker({ fetchImpl });
-    await Promise.all([checker.check('t', 'u'), checker.check('t', 'u')]);
+    await Promise.all([
+      checker.check('t', us('u')),
+      checker.check('t', us('u')),
+    ]);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
@@ -236,10 +244,66 @@ describe('createViewStateChecker', () => {
       return reply(404);
     });
     const checker = createViewStateChecker({ fetchImpl });
-    const urns = Array.from({ length: 12 }, (_, i) => `urn${i}`);
+    const urns = Array.from({ length: 12 }, (_, i) => us(`urn${i}`));
     await Promise.all(urns.map((urn) => checker.check('t', urn)));
     expect(fetchImpl).toHaveBeenCalledTimes(12);
     expect(peak).toBe(4);
+  });
+
+  it('asks the EMEA data centre for an EU urn', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      reply(200, {
+        status: 'success',
+        derivatives: [geometry('svf2', 'success')],
+      }),
+    );
+    const checker = createViewStateChecker({ fetchImpl });
+    expect(await checker.check('t', eu('a'))).toBe('ready');
+    const [, init] = fetchImpl.mock.calls[0] as [
+      string,
+      { headers: Record<string, string> },
+    ];
+    expect(init.headers.region).toBe('EMEA');
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses the US data centre for a US urn and trusts its 404', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(reply(404));
+    const checker = createViewStateChecker({ fetchImpl });
+    expect(await checker.check('t', us('a'))).toBe('not-translated');
+    const [, init] = fetchImpl.mock.calls[0] as [
+      string,
+      { headers: Record<string, string> },
+    ];
+    expect(init.headers.region).toBe('US');
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('tries the other data centre before calling an unclear urn not translated', async () => {
+    const fetchImpl = vi.fn(
+      async (_url: string, init: { headers: Record<string, string> }) =>
+        init.headers.region === 'EMEA'
+          ? reply(200, {
+              status: 'success',
+              derivatives: [geometry('svf', 'success')],
+            })
+          : reply(404),
+    );
+    const checker = createViewStateChecker({ fetchImpl });
+    expect(await checker.check('t', 'unclear')).toBe('ready');
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    const both404 = vi.fn().mockResolvedValue(reply(404));
+    expect(
+      await createViewStateChecker({ fetchImpl: both404 }).check('t', 'x'),
+    ).toBe('not-translated');
+    expect(both404).toHaveBeenCalledTimes(2);
+    const errorSecond = vi
+      .fn()
+      .mockResolvedValueOnce(reply(404))
+      .mockResolvedValueOnce(reply(503));
+    expect(
+      await createViewStateChecker({ fetchImpl: errorSecond }).check('t', 'y'),
+    ).toBe('unknown');
   });
 
   it('aborts slow requests and reports unknown', async () => {

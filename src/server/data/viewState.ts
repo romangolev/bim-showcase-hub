@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { regionOf, type ViewerRegion } from '../../shared/region.js';
 import type { TreeNode } from '../../shared/types.js';
 import { type ViewState, viewableFor } from '../../shared/viewState.js';
 
@@ -82,8 +83,16 @@ export function classifyManifest(body: unknown): ViewState {
 
 function keyFor(token: string, urn: string): string {
   const owner = createHash('sha256').update(token).digest('hex');
-  return `${owner}:${urn}`;
+  const { region, certain } = regionOf(urn);
+  return `${owner}:${certain ? region : 'any'}:${urn}`;
 }
+
+const MISSING = Symbol('missing');
+
+const REGION_HEADER: Record<ViewerRegion, string> = {
+  US: 'US',
+  EU: 'EMEA',
+};
 
 function ttlFor(state: ViewState): number {
   return state === 'processing' || state === 'unknown'
@@ -121,19 +130,26 @@ export function createViewStateChecker(
     }
   }
 
-  async function fetchState(token: string, urn: string): Promise<ViewState> {
+  async function fetchRegion(
+    token: string,
+    urn: string,
+    region: ViewerRegion,
+  ): Promise<ViewState | typeof MISSING> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const res = await fetchImpl(
         `${MANIFEST_BASE}/${encodeURIComponent(urn)}/manifest`,
         {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {
+            Authorization: `Bearer ${token}`,
+            region: REGION_HEADER[region],
+          },
           signal: controller.signal,
         },
       );
       if (res.status === 404) {
-        return 'not-translated';
+        return MISSING;
       }
       if (!res.ok) {
         return 'unknown';
@@ -150,6 +166,15 @@ export function createViewStateChecker(
     } finally {
       clearTimeout(timer);
     }
+  }
+
+  async function fetchState(token: string, urn: string): Promise<ViewState> {
+    const { region, certain } = regionOf(urn);
+    const first = await fetchRegion(token, urn, region);
+    if (first !== MISSING) return first;
+    if (certain) return 'not-translated';
+    const other = await fetchRegion(token, urn, region === 'US' ? 'EU' : 'US');
+    return other === MISSING ? 'not-translated' : other;
   }
 
   function store(key: string, state: ViewState): void {

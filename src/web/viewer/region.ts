@@ -1,13 +1,6 @@
-export type ViewerRegion = 'US' | 'EU';
+import { detectRegion, type ViewerRegion } from '../../shared/region.js';
 
-export function detectRegion(urn: string): ViewerRegion {
-  try {
-    const padded = urn.replace(/-/g, '+').replace(/_/g, '/');
-    return atob(padded).includes('emea') ? 'EU' : 'US';
-  } catch {
-    return 'US';
-  }
-}
+export { detectRegion, type ViewerRegion };
 
 export function apiForRegion(region: ViewerRegion): string {
   return region === 'EU' ? 'derivativeV2_EU' : 'derivativeV2';
