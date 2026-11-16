@@ -23,6 +23,7 @@ type Fetch = (
 export interface ViewStateCheckerOptions {
   fetchImpl?: Fetch;
   concurrency?: number;
+  perTokenConcurrency?: number;
   timeoutMs?: number;
   now?: () => number;
   cacheLimit?: number;
@@ -83,8 +84,11 @@ export function classifyManifest(body: unknown): ViewState {
   return manifest === 'ready' ? 'no-geometry' : manifest;
 }
 
-function keyFor(token: string, urn: string): string {
-  const owner = createHash('sha256').update(token).digest('hex');
+function ownerOf(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
+
+function keyFor(owner: string, urn: string): string {
   const { region, certain } = regionOf(urn);
   return `${owner}:${certain ? region : 'any'}:${urn}`;
 }
@@ -106,29 +110,52 @@ export function createViewStateChecker(
   options: ViewStateCheckerOptions = {},
 ): ViewStateChecker {
   const fetchImpl: Fetch = options.fetchImpl ?? (fetch as unknown as Fetch);
-  const limit = options.concurrency ?? 4;
+  const limit = options.concurrency ?? 8;
+  const perToken = options.perTokenConcurrency ?? 2;
   const timeoutMs = options.timeoutMs ?? 8000;
   const now = options.now ?? Date.now;
   const cacheLimit = options.cacheLimit ?? CACHE_LIMIT;
   const cache = new Map<string, { state: ViewState; expires: number }>();
   const inflight = new Map<string, Promise<ViewState>>();
-  const waiting: (() => void)[] = [];
+  const waiting: { owner: string; start: () => void }[] = [];
+  const running = new Map<string, number>();
   let active = 0;
 
-  async function acquire(): Promise<void> {
-    if (active < limit) {
-      active += 1;
-      return;
-    }
-    await new Promise<void>((resolve) => waiting.push(resolve));
+  function canStart(owner: string): boolean {
+    return active < limit && (running.get(owner) ?? 0) < perToken;
   }
 
-  function release(): void {
-    const next = waiting.shift();
-    if (next) {
-      next();
-    } else {
-      active -= 1;
+  function start(owner: string): void {
+    active += 1;
+    running.set(owner, (running.get(owner) ?? 0) + 1);
+  }
+
+  async function acquire(owner: string): Promise<void> {
+    if (canStart(owner)) {
+      start(owner);
+      return;
+    }
+    await new Promise<void>((resolve) =>
+      waiting.push({
+        owner,
+        start: () => {
+          start(owner);
+          resolve();
+        },
+      }),
+    );
+  }
+
+  function release(owner: string): void {
+    active -= 1;
+    const left = (running.get(owner) ?? 1) - 1;
+    if (left > 0) running.set(owner, left);
+    else running.delete(owner);
+    let index = waiting.findIndex((entry) => canStart(entry.owner));
+    while (index !== -1) {
+      const [next] = waiting.splice(index, 1);
+      next?.start();
+      index = waiting.findIndex((entry) => canStart(entry.owner));
     }
   }
 
@@ -203,23 +230,25 @@ export function createViewStateChecker(
 
   async function run(
     token: string,
+    owner: string,
     urn: string,
     key: string,
   ): Promise<ViewState> {
-    await acquire();
+    await acquire(owner);
     try {
       const state = await fetchState(token, urn);
       store(key, state);
       return state;
     } finally {
-      release();
+      release(owner);
       inflight.delete(key);
     }
   }
 
   return {
     check(token, urn) {
-      const key = keyFor(token, urn);
+      const owner = ownerOf(token);
+      const key = keyFor(owner, urn);
       const hit = cache.get(key);
       if (hit && hit.expires > now()) {
         return Promise.resolve(hit.state);
@@ -229,7 +258,7 @@ export function createViewStateChecker(
       if (pending) {
         return pending;
       }
-      const started = run(token, urn, key);
+      const started = run(token, owner, urn, key);
       inflight.set(key, started);
       return started;
     },

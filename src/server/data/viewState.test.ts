@@ -233,21 +233,86 @@ describe('createViewStateChecker', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
-  it('limits concurrent manifest requests to four', async () => {
+  it('runs at most two manifest requests per token and eight in all', async () => {
     let running = 0;
     let peak = 0;
-    const fetchImpl = vi.fn(async () => {
-      running += 1;
-      peak = Math.max(peak, running);
-      await new Promise((resolve) => setTimeout(resolve, 5));
-      running -= 1;
-      return reply(404);
-    });
+    const perToken = new Map<string, number>();
+    let tokenPeak = 0;
+    const fetchImpl = vi.fn(
+      async (_url: string, init: { headers: Record<string, string> }) => {
+        const who = init.headers.Authorization as string;
+        running += 1;
+        perToken.set(who, (perToken.get(who) ?? 0) + 1);
+        peak = Math.max(peak, running);
+        tokenPeak = Math.max(tokenPeak, perToken.get(who) ?? 0);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        running -= 1;
+        perToken.set(who, (perToken.get(who) ?? 1) - 1);
+        return reply(404);
+      },
+    );
     const checker = createViewStateChecker({ fetchImpl });
-    const urns = Array.from({ length: 12 }, (_, i) => us(`urn${i}`));
-    await Promise.all(urns.map((urn) => checker.check('t', urn)));
-    expect(fetchImpl).toHaveBeenCalledTimes(12);
-    expect(peak).toBe(4);
+    const checks = [];
+    for (let user = 0; user < 6; user++) {
+      for (let i = 0; i < 4; i++) {
+        checks.push(checker.check(`user${user}`, us(`urn${i}`)));
+      }
+    }
+    await Promise.all(checks);
+    expect(fetchImpl).toHaveBeenCalledTimes(24);
+    expect(tokenPeak).toBe(2);
+    expect(peak).toBe(8);
+  });
+
+  it('does not make one user wait behind another user’s queue', async () => {
+    const gates: (() => void)[] = [];
+    const fetchImpl = vi.fn(
+      (_url: string, init: { headers: Record<string, string> }) =>
+        init.headers.Authorization === 'Bearer busy'
+          ? new Promise<ReturnType<typeof reply>>((resolve) => {
+              gates.push(() => resolve(reply(404)));
+            })
+          : Promise.resolve(reply(404)),
+    );
+    const checker = createViewStateChecker({ fetchImpl, concurrency: 3 });
+    const busy = Array.from({ length: 10 }, (_, i) =>
+      checker.check('busy', us(`b${i}`)),
+    );
+    expect(await checker.check('calm', us('c'))).toBe('not-translated');
+    expect(gates).toHaveLength(2);
+    while (gates.length > 0) {
+      gates.shift()?.();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    await Promise.all(busy);
+  });
+
+  it('starts the request timeout only when the request leaves the queue', async () => {
+    const fetchImpl = vi.fn(
+      (_url: string, init: { signal: AbortSignal }) =>
+        new Promise<ReturnType<typeof reply>>((resolve, reject) => {
+          init.signal.addEventListener('abort', () => reject(new Error('x')));
+          setTimeout(
+            () =>
+              resolve(
+                reply(200, {
+                  status: 'success',
+                  derivatives: [geometry('svf', 'success')],
+                }),
+              ),
+            30,
+          );
+        }),
+    );
+    const checker = createViewStateChecker({
+      fetchImpl,
+      concurrency: 1,
+      timeoutMs: 50,
+    });
+    const states = await Promise.all(
+      ['a', 'b', 'c'].map((name) => checker.check('t', us(name))),
+    );
+    expect(states).toEqual(['ready', 'ready', 'ready']);
   });
 
   it('asks the EMEA data centre for an EU urn', async () => {
