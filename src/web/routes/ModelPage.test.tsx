@@ -1,6 +1,6 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TreeControlContext } from '../components/TreeControl.js';
+import { fireEvent, render, screen, waitFor } from '../test/render.js';
 import {
   DASHBOARD_STORAGE_KEY,
   ModelPage,
