@@ -315,7 +315,6 @@
 .app-main {
   flex: 1;
   min-width: 0;
-  container: main / inline-size;
 }
 
 .app-shell[data-signed-in="true"] .app-main {
@@ -370,20 +369,18 @@
   }
 }
 
-@media (max-width: 999px) {
-  .tree-backdrop {
-    position: fixed;
-    inset: var(--nav-height) 0 0;
-    z-index: 39;
-    display: block;
-    border: 0;
-    background: var(--color-scrim);
-    cursor: pointer;
-  }
+.stack .tree-backdrop {
+  position: fixed;
+  inset: var(--nav-height) 0 0;
+  z-index: 39;
+  display: block;
+  border: 0;
+  background: var(--color-scrim);
+  cursor: pointer;
+}
 
-  .tree-backdrop[hidden] {
-    display: none;
-  }
+.stack .tree-backdrop[hidden] {
+  display: none;
 }
 
 @media (max-width: 700px) {
@@ -433,4 +430,87 @@
 
 .not-found .state-block__message {
   font-size: var(--text-16);
+}
+
+.menu {
+  position: relative;
+  display: inline-flex;
+}
+
+.menu__popover {
+  position: fixed;
+  z-index: 1000;
+  min-width: 200px;
+  padding: var(--space-1);
+  border: var(--border-hairline);
+  border-radius: var(--radius-card);
+  background: var(--color-graphite);
+  box-shadow: var(--shadow-inset);
+  color: var(--color-chalk);
+  font-family: var(--font-sans);
+  font-size: var(--text-13);
+}
+
+.menu__popover:focus-visible {
+  outline: none;
+}
+
+.menu__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--hit-target);
+  padding: 0 var(--space-3) 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-tile);
+  background: transparent;
+  color: var(--color-chalk);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--transition-ui),
+    color var(--transition-ui);
+}
+
+.menu__item:hover:not(:disabled),
+.menu__item:focus-visible {
+  background: var(--color-ghost-fill-hover);
+  color: var(--color-snow);
+}
+
+.menu__item:focus-visible {
+  outline-offset: -2px;
+}
+
+.menu__item:disabled {
+  color: var(--color-ash);
+  cursor: not-allowed;
+}
+
+.menu__check {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 16px;
+  color: var(--color-arc-blue);
+}
+
+.menu__icon {
+  flex: none;
+  color: var(--color-fog);
+}
+
+.menu__separator {
+  height: 0;
+  margin: var(--space-1) 0;
+  border: 0;
+  border-top: var(--border-hairline);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu__item {
+    transition: none;
+  }
 }

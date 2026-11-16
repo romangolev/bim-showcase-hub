@@ -147,10 +147,10 @@ describe('App shell', () => {
     renderApp('/model/dXJuOmFkc2s');
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: /^Untitled model/ }),
+      await screen.findByRole('tab', { name: /^Untitled model/ }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole('navigation', { name: /^Breadcrumb/ }),
+      screen.queryByRole('heading', { level: 1, name: /Untitled model/ }),
     ).not.toBeInTheDocument();
     expect(await screen.findByText('Studio hub')).toBeInTheDocument();
   });
@@ -184,15 +184,14 @@ describe('App shell', () => {
     });
     renderApp('/model/dXJuOmFkc2s');
 
+    const tab = await screen.findByRole('tab', { name: /Tower\.rvt · v2/ });
+    expect(tab.querySelector('[title]')).toHaveAttribute(
+      'title',
+      expect.stringContaining('Studio hub / Riverside Tower / Project Files'),
+    );
     expect(
-      await screen.findByRole('heading', { level: 1, name: /Tower\.rvt/ }),
-    ).toHaveTextContent('v2');
-    expect(
-      screen.getByRole('navigation', { name: /Breadcrumb/ }),
-    ).toHaveTextContent('Riverside Tower');
-    expect(
-      screen.getByRole('button', { name: 'Show in documents' }),
-    ).toBeInTheDocument();
+      screen.queryByRole('button', { name: 'Show in documents' }),
+    ).not.toBeInTheDocument();
     const selected = await screen.findByRole(
       'treeitem',
       { name: 'v2: Coordination' },
@@ -201,7 +200,7 @@ describe('App shell', () => {
     expect(selected).toHaveAttribute('aria-selected', 'true');
   });
 
-  it('keeps the honest hint for an unknown urn', async () => {
+  it('falls back to a generic tab name for an unknown urn', async () => {
     mockFetch({
       '/api/session': { name: 'Ada', picture: null },
       ...treeRoutes,
@@ -210,11 +209,11 @@ describe('App shell', () => {
     renderApp('/model/dXJuOmFkc2s');
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: /Untitled model/ }),
+      await screen.findByRole('tab', { name: /Untitled model/ }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'Open documents' }),
-    ).toBeInTheDocument();
+      screen.queryByRole('button', { name: 'Open documents' }),
+    ).not.toBeInTheDocument();
   });
 
   it('remembers a model opened from the tree for later deep links', async () => {
@@ -225,7 +224,7 @@ describe('App shell', () => {
     renderApp(
       `/model/dXJuOmFkc2s?file=Tower.rvt&v=v2&crumbs=${encodeURIComponent(JSON.stringify(['Studio hub']))}`,
     );
-    await screen.findByRole('heading', { level: 1, name: /Tower\.rvt/ });
+    await screen.findByRole('tab', { name: /Tower\.rvt · v2/ });
     expect(recallModel('dXJuOmFkc2s')).toMatchObject({
       file: 'Tower.rvt',
       v: 'v2',
@@ -275,7 +274,7 @@ describe('App shell', () => {
       expect(appRouter.state.location.pathname).toBe('/model/dXJuOmFkc2s'),
     );
     expect(
-      await screen.findByRole('region', { name: 'Viewer' }),
+      await screen.findByRole('region', { name: 'Model viewer' }),
     ).toBeInTheDocument();
     expect(appRouter.state.location.search).toMatchObject({
       file: 'Tower.rvt',
@@ -284,13 +283,10 @@ describe('App shell', () => {
       crumbs: ['Studio hub', 'Riverside Tower', 'Project Files'],
     });
     expect(
-      await screen.findByRole('heading', { level: 1, name: /Tower\.rvt/ }),
-    ).toHaveTextContent('v2');
+      await screen.findByRole('tab', { name: /Tower\.rvt · v2/ }),
+    ).toBeInTheDocument();
     expect(
-      screen.getByRole('navigation', { name: /^Breadcrumb/ }),
-    ).toHaveTextContent('Riverside Tower');
-    expect(
-      screen.getByRole('region', { name: 'Dashboard' }),
+      screen.getAllByRole('region', { name: 'Dashboard' })[0],
     ).toBeInTheDocument();
     expect(
       screen.getByRole('complementary', { name: 'Model summary' }),

@@ -1,195 +1,18 @@
-.model-page {
-  display: grid;
-  grid-template-areas:
-    "head summary"
-    "viewer summary"
-    "dashboard summary";
-  grid-template-columns: minmax(560px, 1fr) minmax(280px, 340px);
-  grid-template-rows: auto minmax(280px, 1fr) auto;
-  transition: grid-template-columns 160ms ease;
-  gap: var(--space-2) var(--gutter);
-  height: 100%;
-  min-height: 560px;
-  padding: var(--gutter);
+.pane-host {
+  display: contents;
 }
 
-.model-page[data-summary-collapsed="true"] {
-  grid-template-columns: minmax(0, 1fr) 48px;
-}
-
-.model-head {
+.pane-main {
   display: flex;
-  grid-area: head;
   flex-direction: column;
-  gap: var(--space-1);
-  min-width: 0;
-}
-
-.crumbs__list {
-  display: flex;
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
-  color: var(--color-fog);
-  font-size: var(--text-13);
-  list-style: none;
-  white-space: nowrap;
-}
-
-.crumbs__item {
-  flex: 0 8 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.crumbs__item[data-position="last"] {
-  flex-shrink: 1;
-  color: var(--color-chalk);
-}
-
-.crumbs__list > li + li::before {
-  content: "/" / "";
-  margin: 0 var(--space-2);
-  color: var(--color-steel);
-}
-
-.crumbs__gap {
-  display: none;
-  flex: none;
-  color: var(--color-fog);
-}
-
-@container main (max-width: 700px) {
-  .crumbs__item[data-position="first"] {
-    flex: 0 1 auto;
-    max-width: 40%;
-  }
-
-  .crumbs__item[data-position="last"] {
-    flex: 1 0 auto;
-    min-width: 0;
-    max-width: 100%;
-  }
-
-  .crumbs__item[data-position="middle"] {
-    display: none;
-  }
-
-  .crumbs__list:has(.crumbs__gap) .crumbs__item[data-position="last"] {
-    flex: 0 1 auto;
-  }
-
-  .crumbs__gap {
-    display: block;
-  }
-
-  .crumbs__list > li + li::before {
-    content: "›" / "";
-  }
-}
-
-.model-head__row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  min-width: 0;
-}
-
-.model-title {
-  display: flex;
-  flex: 1 1 auto;
-  align-items: center;
-  gap: var(--space-3);
-  min-width: 0;
-  font-size: var(--text-24);
-  letter-spacing: var(--tracking-tight);
-  line-height: 1.15;
-}
-
-.model-title__name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.model-tag {
-  flex: none;
-  padding: 1px var(--space-2);
-  border: var(--border-hairline);
-  border-radius: var(--radius-badge);
-  color: var(--color-fog);
-  font-size: var(--text-13);
-  font-weight: var(--weight-label);
-  letter-spacing: var(--tracking-body);
-  line-height: 1.5;
-}
-
-.model-hint {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-1) var(--space-3);
-  margin: 0;
-  color: var(--color-fog);
-  font-size: var(--text-13);
-}
-
-.model-hint__action {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--color-arc-blue);
-  font: inherit;
-  cursor: pointer;
-}
-
-.model-hint__action:hover {
-  text-decoration: underline;
-}
-
-.model-locate {
-  flex: none;
-  width: var(--hit-target);
-  height: var(--hit-target);
-}
-
-.urn-control {
-  display: flex;
-  flex: 0 8 220px;
-  align-items: center;
   gap: var(--space-2);
-  min-width: 104px;
-}
-
-.urn-control__value {
-  flex: 1;
   min-width: 0;
-  color: var(--color-ash);
-  font-size: var(--text-13);
-}
-
-.mid {
-  display: flex;
-  min-width: 0;
-  white-space: nowrap;
-}
-
-.mid__head {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.mid__tail {
-  flex: none;
+  min-height: 100%;
 }
 
 .model-viewer {
   position: relative;
-  grid-area: viewer;
+  flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
@@ -208,100 +31,70 @@
   border-radius: 0;
 }
 
-.model-dashboard {
-  grid-area: dashboard;
-  min-width: 0;
+.stack {
+  position: relative;
 }
 
-.model-summary {
+.stack__column {
   display: flex;
-  grid-area: summary;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--gutter);
+  container: pane / inline-size;
+}
+
+.stack__pane {
   min-width: 0;
-  min-height: 0;
 }
 
-.model-summary > .bsh-card {
-  flex: 1;
+.stack__pane--viewer {
+  display: flex;
+  flex-direction: column;
 }
 
-@container main (max-width: 875px) {
-  .model-page {
-    grid-template-areas:
-      "head"
-      "viewer"
-      "dashboard"
-      "summary";
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto auto auto;
-    transition: none;
-    height: auto;
-    min-height: 100%;
-  }
-
-  .model-page[data-summary-collapsed="true"] {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .model-viewer {
-    height: max(360px, 55vh);
-    transition: height 160ms ease;
-  }
-
-  .model-page:has(.bsh-drawer[data-collapsed="true"]) .model-viewer {
-    height: max(360px, 62vh);
-  }
-
-  .model-title {
-    line-height: 1.2;
-  }
-
-  .model-summary .bsh-table-wrap {
-    flex: none;
-    overflow: visible;
-  }
-
-  .model-summary [data-rows-collapsed="true"] tbody tr:nth-child(n + 13) {
-    display: none;
-  }
-
-  .model-summary .summary-toggle {
-    display: inline-flex;
-  }
+.stack__label {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--color-chalk);
+  font-size: var(--text-13);
+  font-weight: var(--weight-label);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-@container main (max-width: 700px) {
-  .model-title {
-    font-size: var(--text-18);
-  }
-
-  .model-head__row {
-    flex-wrap: wrap;
-    gap: var(--space-2);
-  }
-
-  .model-title {
-    flex-basis: 100%;
-  }
-
-  .urn-control {
-    flex: 1 1 0;
-    min-width: 0;
-  }
+.stack__tree {
+  display: contents;
 }
 
-@media (max-width: 999px) {
-  .model-title__name {
-    display: -webkit-box;
-    overflow-wrap: anywhere;
-    white-space: normal;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-  }
+.stack__tree[hidden] {
+  display: none;
+}
+
+.stack .model-viewer {
+  flex: none;
+  height: max(360px, 55vh);
+  transition: height 160ms ease;
+}
+
+.stack:has(.bsh-drawer[data-collapsed="true"]) .model-viewer {
+  height: max(360px, 62vh);
+}
+
+.stack .bsh-table-wrap {
+  flex: none;
+  overflow: visible;
+}
+
+.stack [data-rows-collapsed="true"] tbody tr:nth-child(n + 13) {
+  display: none;
+}
+
+.stack .summary-toggle {
+  display: inline-flex;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .model-page,
   .model-viewer {
     transition: none;
   }

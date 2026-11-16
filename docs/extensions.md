@@ -7,7 +7,7 @@ An extension here is a small module in `src/web/extensions` that works against t
 - `src/web/extensions/<name>.ts`: pure logic. Takes an adapter or `PropertyRow[]` and returns data or performs an action.
 - `src/web/extensions/index.ts`: re-exports each module.
 - `src/web/panels/<Name>.tsx`: the UI. Gets the adapter from `useViewer()` (through `useResolvedAdapter`, which also accepts an `adapter` prop for tests) and reads properties with `usePropertyRows`.
-- `src/web/panels/index.ts`: exports the panel. `routes/ModelPage.tsx` places it on the page.
+- `src/web/panels/index.ts`: exports the panel. A pane entry in `src/web/layout/paneRegistry.ts` places it in the layout (see [layout.md](layout.md)).
 - `src/web/extensions/extensions.test.ts` and `panels/panels.test.tsx`: unit tests.
 
 Property rows have the shape `{ dbId, name, properties }`. `adapter.getLeafProperties(names)` returns one row per leaf element, with a value or `null` for each requested property name.
@@ -18,11 +18,11 @@ Property rows have the shape `{ dbId, name, properties }`. `adapter.getLeafPrope
 
 **Paint brushes** (`paintBrushes.ts`, `panels/PaintChip.tsx`). `PAINT_PRESETS` defines red, green and blue. `paintSelection` reads `adapter.getSelection()`, calls `setThemingColor` and clears the selection. `resetPaint` calls `clearThemingColors`. The viewer tool group uses these functions. `PaintChip` is the small swatch used in the UI.
 
-**Model summary** (`modelSummary.ts`, `panels/ModelSummaryPanel.tsx`, `panels/SummaryTable.tsx`). `summarize(rows, propertyNames)` counts values for each property (Assembly Code, Classification Code and Name by default), sorted by count and then by value. Empty values are labeled `(empty)`. The panel shows loading, empty and error states and a Refresh button. It can collapse to a rail (`bsh.summary.collapsed` in `localStorage`), and the count column does not wrap.
+**Model summary** (`modelSummary.ts`, `panels/ModelSummaryPanel.tsx`, `panels/SummaryTable.tsx`). `summarize(rows, propertyNames)` counts values for each property (Assembly Code, Classification Code and Name by default), sorted by count and then by value. Empty values are labeled `(empty)`. The panel shows loading, empty and error states and a Refresh button. It is the Model summary pane; its collapsed state is part of the saved layout (`bsh.layout.v1`), and the count column does not wrap.
 
 **Excel export** (`excelExport.ts`). `exportToXlsx(adapter, options)` reads the properties Category, Name, Assembly Code, Classification Code and Level, builds one sheet per Category value (sheet names are sanitized to Excel's rules and made unique), and writes the file with `write-excel-file`, loaded on demand. It reports progress through `ExportStatus` (`reading`, `building`, `done`, `empty`, `error`). The viewer shows the status as a badge for four seconds, with row counts formatted with separators. The default file name is `model-properties.xlsx`.
 
-**Dashboard** (`dashboardData.ts`, `panels/DashboardPanel.tsx`, `panels/ChartCanvas.tsx`). `shapeChartData(rows, property)` counts values, keeps the top 11 and merges the rest into "Other" when there are more than 12 categories. The panel draws a bar chart and a donut with Chart.js, and lets the user choose the property. Charts redraw with the theme colors when the theme changes. Its collapsed state is stored in `localStorage` under `bsh.dashboard.collapsed`.
+**Dashboard** (`dashboardData.ts`, `panels/DashboardPanel.tsx`, `panels/ChartCanvas.tsx`). `shapeChartData(rows, property)` counts values, keeps the top 11 and merges the rest into "Other" when there are more than 12 categories. The panel draws a bar chart and a donut with Chart.js, and lets the user choose the property. Charts redraw with the theme colors when the theme changes. It is the Dashboard pane; its collapsed state is part of the saved layout (`bsh.layout.v1`).
 
 ## Add an extension
 
@@ -30,6 +30,6 @@ Property rows have the shape `{ dbId, name, properties }`. `adapter.getLeafPrope
 2. Export it from `src/web/extensions/index.ts`.
 3. For viewer toolbar controls, extend `ToolGroupSpec` and `buildToolGroupSpec`, then implement the new control in both the Autodesk extension (`viewer/autodeskTools.ts`) and `MockViewerAdapter.buildToolGroup`. Registration goes through `adapter.registerToolGroup(spec)`, which returns a disposer to call on cleanup.
 4. For a panel, create `src/web/panels/<Name>.tsx` using `useResolvedAdapter` and `usePropertyRows`, use `StateBlock` for loading, empty and error states, and export it from `panels/index.ts`.
-5. Place the panel in `routes/ModelPage.tsx`.
+5. Add a pane for the panel to `PANES` in `src/web/layout/paneRegistry.ts` (see [layout.md](layout.md)).
 6. Add tests with the mock adapter: logic in `extensions.test.ts`, UI in `panels.test.tsx`.
 7. Run `npm run lint`, `npm run typecheck` and `npm test`, then check the page with `npm run dev:mock`.

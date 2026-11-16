@@ -39,9 +39,13 @@ Biome handles formatting, linting and import order: two-space indent, single quo
 
 The theme lives in `src/web/theme`. State is `document.documentElement.dataset.theme` (`dark` or `light`) and the `bsh-theme` key in `localStorage`. Add or change color values per theme in `src/web/styles/tokens.css` (the `:root[data-theme="dark"]` and `:root[data-theme="light"]` blocks) and document them in DESIGN.md. To try the other theme, click the toggle in the top bar or run `localStorage.removeItem('bsh-theme')` to go back to following the system. Tests that need `useTheme` import `render` from `src/web/test/render.tsx`.
 
+## Layout in development
+
+The layout is saved in `localStorage` under `bsh.layout.v1`. Run `localStorage.removeItem('bsh.layout.v1')` or use Reset layout in the top bar Panes menu to get the default back. In mock mode `window.__bshLayout` exposes the layout API (`movePane`, `togglePane`, `setCollapsed`, `resetLayout`, `openPanes`, `location`, `mode`, `read`); it does not exist in a production build. See [layout.md](layout.md).
+
 ## Vitest
 
-`vitest.config.ts` defines two projects. `server` runs `src/server/**/*.test.ts` and `src/shared/**/*.test.ts` in Node. `web` runs `src/web/**/*.test.{ts,tsx}` in jsdom with Testing Library. Server routes are tested with supertest. The viewer adapter contract is tested against the mock adapter.
+`vitest.config.ts` defines two projects. `server` runs `src/server/**/*.test.ts` and `src/shared/**/*.test.ts` in Node. `web` runs `src/web/**/*.test.{ts,tsx}` in jsdom with Testing Library. `vitest.setup.ts` installs a no-op `ResizeObserver` when jsdom has none, so the real dockview runs in layout tests. Server routes are tested with supertest. The viewer adapter contract is tested against the mock adapter.
 
 ## Environment variables
 
@@ -114,7 +118,7 @@ e2e/.venv/bin/python -m camoufox fetch
 - the tree lists hubs
 - clicking through the tree opens the model route
 - the document title names the file
-- the breadcrumb is shown
+- the viewer tab is named after the file and the pane has no breadcrumb header
 - the Autodesk viewer mounts and its toolbar is present
 - the summary has rows
 - summary counts never wrap
@@ -125,19 +129,28 @@ e2e/.venv/bin/python -m camoufox fetch
 
 It writes `01-home.png`, `02-model.png`, `03-after-export.png`, `05-viewer-chrome.png`, `export.xlsx` and `report.json` to `E2E_OUTPUT_DIR`.
 
-**mock_smoke.py** (run `e2e/.venv/bin/python e2e/mock_smoke.py`). Needs no sign-in. Start `npm run dev:mock` first. It runs headless in a fresh, non-persistent session and checks:
+`smoke.py --layout` opens the same model and checks only the dock layout with the real Autodesk viewer: the viewer element is tagged, then moved through its pane menu (Move right, Float, Dock, Move below, Move left) and the layout is reset from the top bar Panes menu. After each step the render canvas must match its container within 4 px, the tagged viewer element must still be the same one, and `NOP_VIEWER.model` must still be loaded. It writes `06-layout-*.png`, `07-layout-reset.png` and `layout-report.json`.
+
+**mock_smoke.py** (run `e2e/.venv/bin/python e2e/mock_smoke.py`). Needs no sign-in. Start `npm run dev:mock` first (with `NODE_ENV=development` when `.env` sets production). It runs headless in a fresh, non-persistent session, launched with `os=HOST_OS` and `main_world_eval=True`, and checks:
 
 - the session and health endpoints report the mock user and mock mode
 - the app shows the signed-in user
 - the tree expands hub by hub to a viewable version, selecting rows by `role=treeitem` and `aria-level`
 - clicking the version opens the model route
-- the title and breadcrumb are correct
+- the document title names the model, the viewer tab shows the file name and version with the path and URN as its tooltip, the viewer pane has no header and the canvas fills its panel
 - the mock viewer is present
 - the summary has rows and counts never wrap
 - the export control, found by its accessible name or title (`/Export/i`) in the viewer toolbar, downloads a non-empty xlsx
 - the theme toggle flips `document.documentElement.dataset.theme` in both directions and the choice survives a reload
-- the summary rail collapses and expands, and the viewer width grows and is restored
-- the viewer resizes after the document tree collapses
+- the dock shows the default layout (tree left, summary right, dashboard below the viewer)
+- the pane menu moves the dashboard to the right edge, floats the viewer and docks it again, and the mock viewer element (tagged with a data attribute) is never replaced
+- the layout is saved under `bsh.layout.v1` with `version: 1` and survives a reload
+- a real pointer drag of the Dashboard tab onto the left of the viewer docks it there (if the drag ever stops working, the check falls back to `window.__bshLayout.movePane` through `mw:` and records a note)
+- the keyboard path: Enter opens the pane menu, arrows pick Move below, focus lands on the moved tab, and `F6` moves focus to another pane; both live regions are present
+- Reset layout in the top bar Panes menu restores the default arrangement
+- at 800 px the stacked layout replaces the dock, the tree opens as an overlay and Escape closes it; back at 1440 px the saved dock arrangement returns and the viewer is still the same element
+- collapsing the summary from its pane header widens the viewer and expanding restores the width exactly
+- the viewer resizes after the document tree pane closes
 - no horizontal overflow at 1440x900 and 390x844
 - no uncaught page errors
 

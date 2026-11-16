@@ -51,9 +51,91 @@ CHROME_STATE_SCRIPT = """mw:() => {
     };
 }"""
 
+FULLSCREEN_BUTTON = "#toolbar-fullscreenTool"
+FULLSCREEN_TOLERANCE_PX = 2
+FULLSCREEN_TIMEOUT_MS = 8000
+FULLSCREEN_ATTEMPTS = 3
+
+FRAME_STATE_SCRIPT = """mw:() => {
+    const rect = (el) => {
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        return { left: r.left, top: r.top, width: r.width, height: r.height };
+    };
+    const full = document.fullscreenElement || document.webkitFullscreenElement || null;
+    const viewer = document.querySelector('.bsh-viewer-surface > .adsk-viewing-viewer');
+    const canvas = document.querySelector('.bsh-viewer-surface .canvas-wrap canvas');
+    const toolbar = viewer && viewer.querySelector('.adsk-toolbar');
+    return {
+        fullscreen: Boolean(full),
+        viewerIsFullscreen: Boolean(full && full === viewer),
+        frame: rect(full),
+        host: rect(document.querySelector('.bsh-viewer-surface')),
+        canvas: rect(canvas),
+        toolbar: rect(toolbar),
+        window: { width: window.innerWidth, height: window.innerHeight },
+    };
+}"""
+
 BUTTON_COLOR_SCRIPT = """mw:() => {
     const button = document.querySelector('.adsk-toolbar .adsk-button:hover');
     return button && getComputedStyle(button).color;
+}"""
+
+CONTEXT_MENU_SCRIPT = """mw:() => {
+    const menus = [...document.querySelectorAll('.adsk-viewing-viewer .menu.docking-panel')];
+    if (!menus.length) return null;
+    const channels = (value) => (value.match(/[\\d.]+/g) || []).slice(0, 3).map(Number);
+    const luminance = (value) => {
+        const [r, g, b] = channels(value).map((v) => {
+            const c = v / 255;
+            return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+        });
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const contrast = (a, b) => {
+        const la = luminance(a);
+        const lb = luminance(b);
+        return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+    };
+    const visible = (rect) => rect.width > 0 && rect.height > 0;
+    const items = [];
+    let inViewport = true;
+    const sizes = [];
+    menus.forEach((menu) => {
+        const menuRect = menu.getBoundingClientRect();
+        const background = getComputedStyle(menu).backgroundColor;
+        sizes.push([Math.round(menuRect.width), Math.round(menuRect.height)]);
+        inViewport = inViewport && menuRect.left >= 0 && menuRect.top >= 0
+            && menuRect.right <= window.innerWidth && menuRect.bottom <= window.innerHeight;
+        menu.querySelectorAll('.menu-item').forEach((item) => {
+            const text = item.querySelector('.menu-item-text');
+            const icon = item.querySelector('.menu-item-icon');
+            item.scrollIntoView({ block: 'nearest' });
+            const itemRect = item.getBoundingClientRect();
+            const textRect = text.getBoundingClientRect();
+            const iconRect = icon.getBoundingClientRect();
+            const color = getComputedStyle(text).color;
+            const probe = document.elementFromPoint(
+                textRect.left + textRect.width / 2,
+                textRect.top + textRect.height / 2,
+            );
+            const iconStyle = getComputedStyle(icon);
+            items.push({
+                label: text.textContent.trim(),
+                visible: visible(itemRect) && visible(textRect),
+                contrast: contrast(color, background),
+                iconOversized: visible(iconRect)
+                    && (iconRect.width > itemRect.width + 0.5 || iconRect.height > itemRect.height + 0.5),
+                iconCovers: !!probe && icon.contains(probe) && visible(iconRect),
+                iconPaintsBox: visible(iconRect)
+                    && iconStyle.backgroundColor !== 'rgba(0, 0, 0, 0)'
+                    && iconStyle.maskImage === 'none',
+                topmost: !!probe && item.contains(probe) && !icon.contains(probe),
+            });
+        });
+    });
+    return { items, inViewport, size: sizes, menus: menus.length };
 }"""
 
 
@@ -114,7 +196,7 @@ def open_in_tree(page, found):
     page.wait_for_url(re.compile(r"/model/"), timeout=15000)
 
 
-def run_model_checks(page, checks, found):
+def run_model_checks(page, checks, found, notes):
     try:
         open_in_tree(page, found)
         checks.add("tree click opens the model route", "/model/" in page.url)
@@ -123,7 +205,9 @@ def run_model_checks(page, checks, found):
         page.goto(f"{BASE_URL}/model/{found['urn']}", wait_until="domcontentloaded")
     page.wait_for_timeout(2000)
     checks.add("document title names the file", found["file"] in page.title(), page.title())
-    checks.add("breadcrumb is shown", page.locator("nav[aria-label^='Breadcrumb']").count() == 1)
+    tab_text = page.evaluate("() => document.querySelector('.model-viewer')?.closest('.dv-groupview')?.querySelector('.dv-tab.dv-active-tab')?.textContent?.trim() || ''")
+    checks.add("viewer tab is named after the file", found["file"] in tab_text, tab_text)
+    checks.add("viewer pane has no breadcrumb header", page.locator("nav[aria-label^='Breadcrumb'], .model-head").count() == 0)
     try:
         page.wait_for_selector(".adsk-viewing-viewer", timeout=VIEWER_TIMEOUT_MS)
         page.wait_for_timeout(VIEWER_SETTLE_MS)
@@ -146,7 +230,9 @@ def run_model_checks(page, checks, found):
         checks.add("excel export downloads an xlsx", False, f"{type(exc).__name__}: {str(exc)[:160]}")
     page.screenshot(path=str(OUTPUT_DIR / "03-after-export.png"))
     check_viewer_chrome(page, checks)
+    check_context_menu(page, checks)
     check_canvas_follows_summary(page, checks)
+    check_fullscreen(page, checks, notes)
 
 
 def check_viewer_chrome(page, checks):
@@ -207,8 +293,70 @@ def check_viewer_chrome(page, checks):
         checks.add("viewer chrome selectors still exist upstream", False, f"{type(exc).__name__}: {str(exc)[:160]}")
 
 
+def check_context_menu(page, checks):
+    try:
+        canvas = page.locator(".adsk-viewing-viewer canvas").first
+        box = canvas.bounding_box()
+        page.mouse.click(
+            box["x"] + box["width"] / 2,
+            box["y"] + box["height"] / 2,
+            button="right",
+        )
+        page.wait_for_selector(".adsk-viewing-viewer .menu.docking-panel", timeout=8000)
+        page.wait_for_timeout(300)
+        state = page.evaluate(CONTEXT_MENU_SCRIPT)
+        page.screenshot(path=str(OUTPUT_DIR / "10-context-menu.png"))
+        parent = page.locator(
+            ".adsk-viewing-viewer .menu.docking-panel .menu-item:has(.menu-item-expand[style*='opacity: 1'])"
+        ).first
+        if parent.count():
+            parent.hover(timeout=5000)
+            page.wait_for_timeout(500)
+            nested = page.evaluate(CONTEXT_MENU_SCRIPT)
+            page.screenshot(path=str(OUTPUT_DIR / "11-context-submenu.png"))
+            if nested and nested["menus"] > state["menus"]:
+                state = nested
+        items = state["items"]
+        checks.add("context menu has items", len(items) > 0, state["size"])
+        checks.add(
+            "context menu items are visible with text",
+            bool(items) and all(i["visible"] and i["label"] for i in items),
+            [i["label"] for i in items],
+        )
+        checks.add(
+            "context menu text has 4.5:1 contrast",
+            bool(items) and all(i["contrast"] >= 4.5 for i in items),
+            [round(i["contrast"], 2) for i in items],
+        )
+        checks.add(
+            "context menu icon slot is not larger than its item",
+            not any(i["iconOversized"] for i in items),
+        )
+        checks.add(
+            "context menu icon does not cover the label",
+            not any(i["iconCovers"] or i["iconPaintsBox"] or not i["topmost"] for i in items),
+        )
+        checks.add("context menu stays inside the viewport", state["inViewport"], state["size"])
+    except Exception as exc:
+        checks.add("context menu is readable", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+    try:
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(300)
+        if page.locator(".adsk-viewing-viewer .menu.docking-panel").count():
+            canvas = page.locator(".adsk-viewing-viewer canvas").first
+            box = canvas.bounding_box()
+            page.mouse.click(box["x"] + 20, box["y"] + 20)
+            page.wait_for_timeout(300)
+        checks.add(
+            "context menu closes",
+            page.locator(".adsk-viewing-viewer .menu.docking-panel").count() == 0,
+        )
+    except Exception as exc:
+        checks.add("context menu closes", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+
+
 def check_canvas_follows_summary(page, checks):
-    toggle = page.locator(".model-summary button.bsh-summary__toggle").first
+    toggle = page.get_by_role("button", name=re.compile(r"^(Collapse|Expand) Model summary$")).first
     page.bring_to_front()
     start_expanded = None
     first = None
@@ -253,7 +401,220 @@ def check_canvas_follows_summary(page, checks):
                 pass
 
 
+VIEWER_STATE_SCRIPT = """mw:() => {
+    const host = document.querySelector('.model-viewer');
+    const canvases = [...document.querySelectorAll('.adsk-viewing-viewer canvas')];
+    const canvas = canvases.sort((a, b) => b.getBoundingClientRect().width - a.getBoundingClientRect().width)[0];
+    const viewer = window.NOP_VIEWER;
+    const model = viewer && viewer.model;
+    const box = (el) => { if (!el) return null; const r = el.getBoundingClientRect(); return { width: r.width, height: r.height }; };
+    return {
+        host: box(host),
+        canvas: box(canvas),
+        kept: document.querySelector('.adsk-viewing-viewer')?.dataset.e2eTag === 'kept',
+        loaded: Boolean(model && (typeof model.isLoadDone !== 'function' || model.isLoadDone())),
+        ready: document.querySelector('.bsh-viewer-pane')?.dataset.state === 'ready',
+        floating: Boolean(document.querySelector('.dv-resize-container .model-viewer')),
+    };
+}"""
+TAG_VIEWER_SCRIPT = "() => { const el = document.querySelector('.adsk-viewing-viewer'); if (el) el.dataset.e2eTag = 'kept'; return Boolean(el); }"
+LAYOUT_MOVES = ("Move right", "Float", "Dock", "Move below", "Move left")
+
+
+def canvas_follows(state, tolerance=4):
+    host, canvas = state.get("host"), state.get("canvas")
+    if not host or not canvas or host["width"] == 0:
+        return False
+    return abs(host["width"] - canvas["width"]) <= tolerance and abs(host["height"] - canvas["height"]) <= tolerance
+
+
+def wait_for_viewer_state(page, predicate, timeout_ms=8000):
+    state = page.evaluate(VIEWER_STATE_SCRIPT)
+    for _ in range(timeout_ms // 200):
+        if predicate(state):
+            break
+        page.wait_for_timeout(200)
+        state = page.evaluate(VIEWER_STATE_SCRIPT)
+    return state
+
+
+def viewer_menu(page, item):
+    page.get_by_role("button", name="Viewer pane options").click(timeout=8000)
+    page.get_by_role("menuitem", name=item).click(timeout=8000)
+
+
+def check_layout(page, checks):
+    page.bring_to_front()
+    checks.add("viewer element can be tagged", page.evaluate(TAG_VIEWER_SCRIPT))
+    start = wait_for_viewer_state(page, canvas_follows)
+    checks.add("layout: canvas fills the viewer before moving", canvas_follows(start), start)
+    for move in LAYOUT_MOVES:
+        try:
+            viewer_menu(page, move)
+            state = wait_for_viewer_state(page, canvas_follows)
+            checks.add(f"layout: {move} keeps the canvas on its container", canvas_follows(state), state)
+            checks.add(f"layout: {move} keeps the same viewer", state["kept"], state)
+            checks.add(f"layout: {move} keeps the model loaded", state["loaded"] and state["ready"], state)
+            page.screenshot(path=str(OUTPUT_DIR / f"06-layout-{move.lower().replace(' ', '-')}.png"))
+        except Exception as exc:
+            checks.add(f"layout: {move}", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+    try:
+        page.get_by_role("button", name="Panes").click(timeout=8000)
+        page.get_by_role("menuitem", name="Reset layout").click(timeout=8000)
+        state = wait_for_viewer_state(page, canvas_follows)
+        checks.add("layout: reset keeps the canvas on its container", canvas_follows(state), state)
+        checks.add("layout: reset keeps the same viewer and model", state["kept"] and state["loaded"], state)
+        checks.add("layout: reset docks the viewer", not state["floating"], state)
+        page.screenshot(path=str(OUTPUT_DIR / "07-layout-reset.png"))
+    except Exception as exc:
+        checks.add("layout: reset", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+
+
+def open_model_for_layout(page, checks, found):
+    try:
+        open_in_tree(page, found)
+    except Exception:
+        page.goto(f"{BASE_URL}/model/{found['urn']}", wait_until="domcontentloaded")
+    try:
+        page.wait_for_selector(".adsk-viewing-viewer", timeout=VIEWER_TIMEOUT_MS)
+        page.wait_for_timeout(VIEWER_SETTLE_MS)
+        checks.add("autodesk viewer is mounted", True)
+        return True
+    except Exception:
+        checks.add("autodesk viewer is mounted", False, f"no viewer element within {VIEWER_TIMEOUT_MS // 1000}s")
+        return False
+
+
+def fits(inner, outer):
+    if not inner or not outer:
+        return False
+    return all(
+        abs(inner[key] - outer[key]) <= FULLSCREEN_TOLERANCE_PX
+        for key in ("left", "top", "width", "height")
+    )
+
+
+def size_text(state, key):
+    box = state.get(key) if state else None
+    return f"{box['width']:.0f}x{box['height']:.0f}" if box else "none"
+
+
+def wait_frame_state(page, predicate):
+    state = page.evaluate(FRAME_STATE_SCRIPT)
+    for _ in range(FULLSCREEN_TIMEOUT_MS // 100):
+        if predicate(state):
+            break
+        page.wait_for_timeout(100)
+        state = page.evaluate(FRAME_STATE_SCRIPT)
+    return state
+
+
+def entered(state):
+    return state["viewerIsFullscreen"] and fits(state["canvas"], state["frame"])
+
+
+def left(state):
+    return not state["fullscreen"] and fits(state["canvas"], state["host"])
+
+
+def enter_fullscreen(page, checks, label, shot):
+    attempts = 0
+    state = page.evaluate(FRAME_STATE_SCRIPT)
+    while not state["fullscreen"] and attempts < FULLSCREEN_ATTEMPTS:
+        attempts += 1
+        page.locator(FULLSCREEN_BUTTON).click(timeout=8000)
+        wait_frame_state(page, entered)
+        page.wait_for_timeout(800)
+        state = page.evaluate(FRAME_STATE_SCRIPT)
+    checks.add(
+        f"{label}: the viewer element is the fullscreen element",
+        state["viewerIsFullscreen"],
+        f"after {attempts} clicks: {state}",
+    )
+    checks.add(
+        f"{label}: canvas fills the fullscreen element",
+        fits(state["canvas"], state["frame"]),
+        f"canvas {size_text(state, 'canvas')} vs frame {size_text(state, 'frame')}",
+    )
+    checks.add(
+        f"{label}: fullscreen element fills the window",
+        bool(state["frame"])
+        and abs(state["frame"]["width"] - state["window"]["width"]) <= FULLSCREEN_TOLERANCE_PX
+        and abs(state["frame"]["height"] - state["window"]["height"]) <= FULLSCREEN_TOLERANCE_PX,
+        f"frame {size_text(state, 'frame')} vs window {state['window']}",
+    )
+    toolbar, frame = state["toolbar"], state["frame"]
+    checks.add(
+        f"{label}: toolbar sits inside the fullscreen element",
+        bool(toolbar and frame)
+        and toolbar["top"] + toolbar["height"] <= frame["top"] + frame["height"] + FULLSCREEN_TOLERANCE_PX
+        and toolbar["left"] >= frame["left"] - FULLSCREEN_TOLERANCE_PX
+        and toolbar["left"] + toolbar["width"] <= frame["left"] + frame["width"] + FULLSCREEN_TOLERANCE_PX,
+        f"toolbar {toolbar} frame {frame}",
+    )
+    page.screenshot(path=str(OUTPUT_DIR / shot))
+    return state
+
+
+def exit_checks(page, checks, label, before, shot):
+    state = wait_frame_state(page, left)
+    page.wait_for_timeout(800)
+    state = page.evaluate(FRAME_STATE_SCRIPT)
+    checks.add(f"{label}: fullscreen has ended", not state["fullscreen"], state)
+    checks.add(
+        f"{label}: canvas returns to the host size",
+        fits(state["canvas"], state["host"]),
+        f"canvas {size_text(state, 'canvas')} vs host {size_text(state, 'host')}",
+    )
+    checks.add(
+        f"{label}: host is the same size as before fullscreen",
+        fits(state["host"], before["host"]),
+        f"host {size_text(state, 'host')} vs before {size_text(before, 'host')}",
+    )
+    page.screenshot(path=str(OUTPUT_DIR / shot))
+    if state["fullscreen"]:
+        page.evaluate("mw:() => document.exitFullscreen && document.exitFullscreen()")
+        wait_frame_state(page, lambda s: not s["fullscreen"])
+
+
+def check_fullscreen(page, checks, notes):
+    page.bring_to_front()
+    errors_before = len(notes["page_errors"])
+    try:
+        if page.locator(FULLSCREEN_BUTTON).count() == 0:
+            checks.add("fullscreen button is in the native toolbar", False, FULLSCREEN_BUTTON)
+            return
+        checks.add("fullscreen button is in the native toolbar", True)
+        before = page.evaluate(FRAME_STATE_SCRIPT)
+        checks.add(
+            "before fullscreen: canvas fills the host",
+            fits(before["canvas"], before["host"]),
+            f"canvas {size_text(before, 'canvas')} vs host {size_text(before, 'host')}",
+        )
+        state = enter_fullscreen(page, checks, "fullscreen via button", "06-fullscreen.png")
+        if state["fullscreen"]:
+            page.keyboard.press("Escape")
+            exit_checks(page, checks, "exit via Escape", before, "07-fullscreen-escape.png")
+        else:
+            checks.add("exit via Escape", False, "skipped: fullscreen was not entered")
+        state = enter_fullscreen(page, checks, "fullscreen again", "08-fullscreen-again.png")
+        if state["fullscreen"]:
+            page.locator(FULLSCREEN_BUTTON).click(timeout=8000)
+            exit_checks(page, checks, "exit via the button", before, "09-fullscreen-button-exit.png")
+        else:
+            checks.add("exit via the button", False, "skipped: fullscreen was not entered")
+    except Exception as exc:
+        checks.add("fullscreen round trip", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+        try:
+            page.evaluate("mw:() => document.fullscreenElement && document.exitFullscreen()")
+        except Exception:
+            pass
+    new_errors = notes["page_errors"][errors_before:]
+    checks.add("no page errors during fullscreen", not new_errors, new_errors[:2])
+
+
 def main():
+    layout_only = "--layout" in sys.argv[1:]
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     checks = Checks()
     notes = new_notes()
@@ -286,11 +647,14 @@ def main():
         page.wait_for_timeout(1500)
         checks.add("tree lists hubs", page.locator("[role=treeitem]").count() >= 1)
         page.screenshot(path=str(OUTPUT_DIR / "01-home.png"))
-        if found:
-            run_model_checks(page, checks, found)
+        if found and layout_only:
+            if open_model_for_layout(page, checks, found):
+                check_layout(page, checks)
+        elif found:
+            run_model_checks(page, checks, found, notes)
         checks.add("no uncaught page errors", not notes["page_errors"], notes["page_errors"][:2])
         checks.add("no failed app requests", not notes["failed_requests"], notes["failed_requests"][:3])
-    return checks.finish(notes)
+    return checks.finish(notes, "layout-report.json" if layout_only else "report.json")
 
 
 if __name__ == "__main__":

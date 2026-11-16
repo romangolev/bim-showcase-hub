@@ -8,7 +8,7 @@
 
 The density values are an intentional adaptation of the Refero spec: radii, gutters, paddings and the top bar are tighter than the published values so the viewer gets more of the screen.
 
-Other stylesheets in `src/web/styles` (`global.css`, `shell.css`, `tree.css`, `landing.css`, `model.css`) and `src/web/panels/panels.css` read these variables. Component styles do not contain raw hex colors or pixel values that have a token.
+Other stylesheets in `src/web/styles` (`global.css`, `shell.css`, `tree.css`, `landing.css`, `model.css`), `src/web/panels/panels.css` and `src/web/layout/dockTheme.css` read these variables. Component styles do not contain raw hex colors or pixel values that have a token.
 
 ## Rules
 
@@ -20,9 +20,17 @@ Other stylesheets in `src/web/styles` (`global.css`, `shell.css`, `tree.css`, `l
 - Loading, empty and error feedback uses the shared `StateBlock` component, not ad hoc text.
 - Interactive controls need an accessible name (`aria-label` or visible text) and a visible focus ring.
 
-## Model page breakpoint
+## Layout breakpoint and pane containers
 
-The model page switches between two columns and one stacked column at a single `main` container width, because custom properties cannot be used in `@container` conditions. Two columns need the page padding (2 x `--gutter`, 24px), the minimum viewer column (560px), the column gap (`--gutter`, 12px) and the minimum summary column (280px): 24 + 560 + 12 + 280 = 876px. The stacked layout applies up to `max-width: 875px` and the two-column rules from `min-width: 876px`, in both `src/web/styles/model.css` and `src/web/panels/panels.css`. Change the number in all of them together when those minimums change.
+There is one layout breakpoint, `STACKED_QUERY` in `src/web/layout/LayoutProvider.tsx`: from 876 px wide the panes are docked, up to 875 px they are stacked in one column with the tree as an overlay. The value keeps the old reasoning (page padding 24 + minimum viewer 560 + gap 12 + minimum summary 280). Stacked-only rules are scoped to the `.stack` class rather than repeated in media queries.
+
+Each docked pane body sits in a `pane` size container (`.pane-slot--dock`), and the stacked column is a `pane` container too, so pane CSS uses `@container pane (...)` and responds to the pane's own width wherever it is placed. The tree keeps its own `tree` container.
+
+## Dock theme
+
+`src/web/layout/dockTheme.css` defines the `bsh-dock` dockview theme. It maps dockview's `--dv-*` variables to our tokens, so dark and light follow `data-theme` with no theme branch: groups are graphite cards with a 0.5 px hairline and the card radius, tabs are 32 px with 13 px labels, the active tab of the focused group has a thin signal-blue underline, sashes are invisible until hovered (smoke), drop targets use the match wash with a signal-blue hairline, and floating groups have a hairline border and no shadow. The gap between groups is the 12 px gutter. A collapsed group shows only its header: a 33 px strip, vertical for panes in a row. Inside the dock the panels drop their own card border and visible title, because the tab already names the pane.
+
+Menus (`src/web/components/Menu.tsx`, used by the pane menus, the top bar Panes menu) are graphite popovers with hairline borders, rendered in a fixed-position portal above floating groups.
 
 ## Themes
 
@@ -42,12 +50,14 @@ The Autodesk Viewer follows the app theme: `dark-theme` or `light-theme`, plus a
 
 `src/web/viewer/viewerChrome.css` themes the native Autodesk Viewer 7 UI with the same tokens as the app, so one rule set serves both themes: surfaces are `--color-graphite` and `--color-charcoal`, text `--color-chalk` and `--color-ash`, active state `--color-signal-blue` (`--color-arc-blue` for text), borders 0.5px hairlines, no gradients and no shadows, Inter instead of Artifakt.
 
-Themed: toolbar groups, buttons (idle, hover, active, disabled, `:focus-visible` ring), tooltips, the settings sub menu, docking panels (title, footer, buttons, text box, scrollbars), the Model Browser tree, Properties and Settings panels and their inputs, search and filter boxes, context menus, the loading spinner, the progress bar and the alert box. Image-based icons (panel close, resizer, tree arrows, visibility eye, search, filter, clear and menu expand) are redrawn as inline SVG masks filled with `currentColor`, so they follow the theme. The tool icons in `viewer.css` use the same pattern.
+Themed: toolbar groups, buttons (idle, hover, active, disabled, `:focus-visible` ring), tooltips, the settings sub menu, docking panels (title, footer, buttons, text box, scrollbars), the Model Browser tree, Properties and Settings panels and their inputs, search and filter boxes, context menus (surface, flex item rows, icon slot, text, shortcut, divider, submenu arrow, hover), the loading spinner, the progress bar and the alert box. Image-based icons (panel close, resizer, tree arrows, visibility eye, search, filter, clear and menu expand) are redrawn as inline SVG masks filled with `currentColor`, so they follow the theme. The tool icons in `viewer.css` use the same pattern.
 
 Deliberately native: the ViewCube faces (WebGL), the environment thumbnails in Settings, the alert illustrations, the Layers and animation icons, the experimental disclaimer in Settings and any CSS injected by extensions.
 
 Why the selectors look long: Autodesk injects its stylesheet at runtime, after ours, and hard-codes colors per theme in `.adsk-viewing-viewer.dark-theme` and `.light-theme` blocks. Every rule is prefixed with `html .bsh-viewer-surface .adsk-viewing-viewer`, which outranks those blocks when the tail selector is the same, so `!important` is used only where Autodesk uses it (tree selection and hover, Settings labels).
 
 To extend: find the selector in the Autodesk stylesheet, add a rule with the scope prefix and the same tail, then add the tail to `UPSTREAM_SELECTORS` in `e2e/viewer_selectors.py` (or to `OWN_SELECTORS` when it does not exist upstream, such as `:focus-visible`). Use tokens only. Check text contrast at 4.5:1 and UI contrast at 3:1 in both themes.
+
+Context menus: Autodesk lays items out as `display: table-row` with a floated `.menu-item-icon` sized `width: 100%; height: 100%`. The themed chrome replaces this with a flex column and flex rows so the icon slot can never grow past its item or sit over the label. Items without an icon class hide the slot. Autodesk has no disabled item state: unavailable actions are left out of the menu.
 
 Version drift: the viewer is loaded as `7.*`, so Autodesk can rename classes at any time. `python3 e2e/viewer_selectors.py` fetches the stylesheet the app loads and fails when a listed selector is gone or when the list and `viewerChrome.css` disagree. `e2e/smoke.py` runs the same check and also asserts computed styles on the live viewer. It accepts a local file path to check against a saved stylesheet.

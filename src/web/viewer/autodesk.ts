@@ -83,6 +83,7 @@ export interface ViewingDocument {
 export interface GuiViewer3D {
   toolbar?: Toolbar;
   model?: ViewerModel;
+  container?: HTMLElement;
   canvas?: HTMLCanvasElement;
   impl?: { resize?(width: number, height: number): void };
   start(): number | undefined;
@@ -141,6 +142,7 @@ export interface AutodeskViewing {
   };
   SELECTION_CHANGED_EVENT: string;
   TOOLBAR_CREATED_EVENT: string;
+  FULLSCREEN_MODE_EVENT?: string;
 }
 
 interface AutodeskWindow {

@@ -8,6 +8,7 @@
       "!.playwright-mcp",
       "!.vercel",
       "!e2e/output",
+      "!e2e/.venv",
       "!e2e/.profile",
       "!node_modules",
       "!docs",

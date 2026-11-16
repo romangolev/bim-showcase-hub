@@ -4,17 +4,11 @@
   flex: none;
   flex-direction: column;
   position: relative;
-  width: var(--tree-width, 320px);
   min-height: 0;
-  margin: var(--gutter) 0 var(--gutter) var(--gutter);
   border: var(--border-hairline);
   border-radius: var(--radius-card);
   background: var(--color-graphite);
   box-shadow: var(--shadow-inset);
-}
-
-.tree-panel[hidden] {
-  display: none;
 }
 
 .tree-panel__head {
@@ -74,45 +68,6 @@
 
 .doc-tree__canvas:focus-visible {
   outline-offset: -2px;
-}
-
-.tree-panel__resizer {
-  margin: 0;
-  padding: 0;
-  border: 0;
-  position: absolute;
-  top: 0;
-  right: -7px;
-  bottom: 0;
-  z-index: 2;
-  width: 14px;
-  cursor: col-resize;
-  touch-action: none;
-}
-
-.tree-panel__resizer::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 3px;
-  height: var(--hit-target);
-  border-radius: 2px;
-  background: var(--color-smoke);
-  opacity: 0;
-  transform: translate(-50%, -50%);
-  transition: opacity var(--transition-ui);
-}
-
-.tree-panel__resizer:hover::after,
-.tree-panel__resizer:focus-visible::after,
-.tree-panel__resizer:active::after {
-  background: var(--color-fog);
-  opacity: 1;
-}
-
-.tree-panel__resizer:focus-visible {
-  outline-offset: -4px;
 }
 
 .tree-row {
@@ -375,31 +330,17 @@
   background: var(--color-ghost-fill-active);
 }
 
-@media (pointer: coarse) {
-  .tree-panel__resizer {
-    right: calc(var(--hit-target) / -2);
-    width: var(--hit-target);
-  }
-}
-
-@media (max-width: 999px) {
-  .tree-panel__resizer {
-    display: none;
-  }
-
-  .tree-panel {
-    position: fixed;
-    top: var(--nav-height);
-    bottom: 0;
-    left: 0;
-    z-index: 40;
-    width: min(320px, 88vw);
-    margin: 0;
-    border-top: 0;
-    border-bottom: 0;
-    border-left: 0;
-    border-radius: 0 var(--radius-card) var(--radius-card) 0;
-  }
+.stack .tree-panel {
+  position: fixed;
+  top: var(--nav-height);
+  bottom: 0;
+  left: 0;
+  z-index: 40;
+  width: min(320px, 88vw);
+  border-top: 0;
+  border-bottom: 0;
+  border-left: 0;
+  border-radius: 0 var(--radius-card) var(--radius-card) 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
