@@ -3,7 +3,9 @@ import {
   tableFeatures,
   useTable,
 } from '@tanstack/react-table';
+import { useRef } from 'react';
 import type { SummaryEntry } from '../extensions/modelSummary.js';
+import { useScrollable } from './useScrollable.js';
 import './panels.css';
 
 const features = tableFeatures({});
@@ -20,11 +22,29 @@ const COLUMN_CLASS: Record<string, string> = {
   count: 'bsh-num',
 };
 
-export function SummaryTable({ entries }: { entries: SummaryEntry[] }) {
+export function SummaryTable({
+  entries,
+  decorative = false,
+}: {
+  entries: SummaryEntry[];
+  decorative?: boolean;
+}) {
   const table = useTable({ features, columns, data: entries });
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const scrollable = useScrollable(wrapRef);
 
   return (
-    <div className="bsh-table-wrap">
+    <div
+      ref={wrapRef}
+      className="bsh-table-wrap"
+      {...(scrollable && !decorative
+        ? {
+            role: 'region',
+            tabIndex: 0,
+            'aria-label': 'Summary table, scrollable',
+          }
+        : {})}
+    >
       <table className="bsh-table bsh-table--summary">
         <thead>
           {table.getHeaderGroups().map((group) => (
@@ -52,7 +72,9 @@ export function SummaryTable({ entries }: { entries: SummaryEntry[] }) {
                   className={COLUMN_CLASS[cell.column.id]}
                   title={String(cell.getValue() ?? '')}
                 >
-                  <table.FlexRender cell={cell} />
+                  <span className="bsh-clamp">
+                    <table.FlexRender cell={cell} />
+                  </span>
                 </td>
               ))}
             </tr>

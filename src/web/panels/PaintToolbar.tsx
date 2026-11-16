@@ -1,3 +1,4 @@
+import { Icon } from '../components/icons.js';
 import {
   PAINT_PRESETS,
   paintSelection,
@@ -5,6 +6,7 @@ import {
   resetPaint,
 } from '../extensions/paintBrushes.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
+import { PaintSwatch } from './PaintChip.js';
 import { useResolvedAdapter } from './usePropertyRows.js';
 import './panels.css';
 
@@ -26,25 +28,24 @@ export function PaintToolbar({ adapter, className }: PaintToolbarProps) {
         <button
           key={preset.id}
           type="button"
-          className="bsh-icon-button"
+          className="bsh-icon-button bsh-paint__chip"
           aria-label={preset.label}
           title={preset.label}
           disabled={disabled}
           onClick={() => resolved && paintSelection(resolved, preset.color)}
         >
-          <span
-            className="bsh-paint__swatch"
-            style={{ background: preset.swatch }}
-          />
+          <PaintSwatch preset={preset} />
         </button>
       ))}
       <button
         type="button"
-        className="bsh-button"
+        className="bsh-icon-button bsh-paint__reset"
+        aria-label={RESET_PAINT_LABEL}
+        title={RESET_PAINT_LABEL}
         disabled={disabled}
         onClick={() => resolved && resetPaint(resolved)}
       >
-        {RESET_PAINT_LABEL}
+        <Icon name="refresh" size={16} />
       </button>
     </fieldset>
   );

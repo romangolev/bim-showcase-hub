@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Icon } from '../components/icons.js';
 import {
   DEFAULT_EXPORT_PROPERTIES,
   DEFAULT_FILE_NAME,
@@ -26,6 +27,12 @@ function badgeVariant(status: ExportStatus): string {
   if (status.phase === 'error') return 'badge--error';
   if (status.phase === 'done') return '';
   return 'badge--busy';
+}
+
+function visibleText(status: ExportStatus): string {
+  if (status.phase === 'error') return 'Export failed. Try again.';
+  if (status.phase === 'done') return `Exported ${status.rowCount} elements`;
+  return describeStatus(status);
 }
 
 export function ExportButton({
@@ -73,23 +80,33 @@ export function ExportButton({
 
   return (
     <div className={`bsh-export ${className ?? ''}`.trim()}>
-      <button
-        type="button"
-        className="bsh-button"
-        disabled={!resolved || busy}
-        aria-busy={busy}
-        onClick={run}
-      >
-        {label}
-      </button>
       <div className="bsh-export__status" role="status" aria-live="polite">
         {status ? (
-          <span className={`badge ${badgeVariant(status)}`.trim()}>
+          <span
+            className={`badge ${badgeVariant(status)}`.trim()}
+            title={describeStatus(status)}
+          >
             <span className="badge__dot" aria-hidden="true" />
-            {describeStatus(status)}
+            <span className="bsh-export__status-text">
+              {visibleText(status)}
+            </span>
           </span>
         ) : null}
       </div>
+      <button
+        type="button"
+        className="bsh-button bsh-export__button"
+        disabled={!resolved || busy}
+        aria-busy={busy}
+        aria-label={label}
+        onClick={run}
+      >
+        <Icon name="table" size={16} />
+        <span className="bsh-export__label">{label}</span>
+        <span className="bsh-export__label-short" aria-hidden="true">
+          Export
+        </span>
+      </button>
     </div>
   );
 }

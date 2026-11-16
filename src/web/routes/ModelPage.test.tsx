@@ -84,8 +84,11 @@ describe('ModelPage', () => {
   it('falls back to a generic title with a short urn', () => {
     render(<ModelPage urn={LONG_URN} />);
     const heading = screen.getByRole('heading', { level: 1 });
-    expect(heading).toHaveTextContent(/^Model/);
-    expect(heading).toHaveTextContent(middleEllipsis(LONG_URN, 6, 4));
+    expect(heading).toHaveTextContent(/^Untitled model/);
+    expect(heading).toHaveTextContent('v2');
+    expect(
+      screen.getByText(/Open this model from the document tree/),
+    ).toBeVisible();
     expect(
       screen.queryByRole('navigation', { name: 'Breadcrumb' }),
     ).not.toBeInTheDocument();
@@ -94,8 +97,43 @@ describe('ModelPage', () => {
   it('truncates the urn in the middle and keeps the full value as title', () => {
     render(<ModelPage urn={LONG_URN} />);
     const code = screen.getByTitle(LONG_URN);
-    expect(code.textContent).toContain('…');
-    expect(code.textContent?.length).toBeLessThan(LONG_URN.length);
+    const parts = code.querySelectorAll('.mid__head, .mid__tail');
+    expect(parts).toHaveLength(2);
+    expect(`${parts[0]?.textContent}${parts[1]?.textContent}`).toBe(LONG_URN);
+    expect(parts[1]?.textContent).toBe(LONG_URN.slice(-6));
+  });
+
+  it('shows the urn once on an untitled deep link', () => {
+    render(<ModelPage urn={LONG_URN} />);
+    expect(screen.getAllByTitle(LONG_URN)).toHaveLength(1);
+    expect(screen.getByRole('heading', { level: 1 })).not.toHaveTextContent(
+      LONG_URN.slice(0, 6),
+    );
+  });
+
+  it('keeps the file title without a hint', () => {
+    render(<ModelPage urn={LONG_URN} file="Tower.rvt" version="v2" />);
+    expect(screen.queryByText(/Open this model from/)).toBeNull();
+  });
+
+  it('sets the document title per model and restores it on unmount', () => {
+    document.title = 'BIM Showcase Hub';
+    const { unmount, rerender } = render(
+      <ModelPage urn={LONG_URN} file="Tower.rvt" version="v2" />,
+    );
+    expect(document.title).toBe('Tower.rvt v2 · BIM Showcase Hub');
+    rerender(<ModelPage urn={LONG_URN} file="Core.rvt" />);
+    expect(document.title).toBe('Core.rvt · BIM Showcase Hub');
+    unmount();
+    expect(document.title).toBe('BIM Showcase Hub');
+  });
+
+  it('falls back to a generic document title', () => {
+    document.title = 'BIM Showcase Hub';
+    const { unmount } = render(<ModelPage urn="abc123" />);
+    expect(document.title).toBe('Model · BIM Showcase Hub');
+    unmount();
+    expect(document.title).toBe('BIM Showcase Hub');
   });
 
   it('copies the urn to the clipboard', async () => {

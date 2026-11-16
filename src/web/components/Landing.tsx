@@ -1,6 +1,8 @@
 import { type KeyboardEvent, useId, useRef, useState } from 'react';
 import { useSignIn } from '../api/hooks.js';
 import type { SummaryEntry } from '../extensions/modelSummary.js';
+import { PAINT_PRESETS } from '../extensions/paintBrushes.js';
+import { StaticPaintChip } from '../panels/PaintChip.js';
 import { SummaryTable } from '../panels/SummaryTable.js';
 import { Icon, type IconName } from './icons.js';
 import { TreeRowView } from './tree/TreeRowView.js';
@@ -105,23 +107,27 @@ function ProductPreview() {
           <TreeRowView
             level={4}
             kind="version"
-            name="v3: Issued for permit"
+            name="v3: 2026-11-10 14:22 by Mara Quinn"
             viewable
             selected
           />
           <TreeRowView
             level={4}
             kind="version"
-            name="v2: Coordination"
+            name="v2: 2026-10-02 09:41 by Jonas Reid"
             viewable
           />
-          <TreeRowView level={4} kind="version" name="v1: Concept" />
+          <TreeRowView
+            level={4}
+            kind="version"
+            name="v1: 2026-09-14 16:05 by Mara Quinn"
+          />
         </div>
         <div className="mockup__viewer">
           <FloorPlan />
         </div>
         <div className="mockup__summary">
-          <SummaryTable entries={SAMPLE_ENTRIES.slice(0, 4)} />
+          <SummaryTable entries={SAMPLE_ENTRIES.slice(0, 4)} decorative />
         </div>
       </div>
     </div>
@@ -214,26 +220,25 @@ function ExportPanel() {
     <div className="preview__export">
       <div className="preview__toolbar">
         <span className="preview__toolbar-label">Paint selection</span>
-        <span className="bsh-icon-button">
-          <span
-            className="bsh-paint__swatch"
-            style={{ background: 'var(--color-coral)' }}
-          />
+        {PAINT_PRESETS.map((preset) => (
+          <StaticPaintChip key={preset.id} preset={preset} />
+        ))}
+        <span
+          className="bsh-icon-button bsh-paint__reset"
+          role="img"
+          aria-label="Reset appearance"
+          title="Reset appearance"
+        >
+          <Icon name="refresh" size={16} />
         </span>
-        <span className="bsh-icon-button">
-          <span
-            className="bsh-paint__swatch"
-            style={{ background: 'var(--color-arc-blue)' }}
-          />
-        </span>
-        <span className="bsh-button">Reset appearance</span>
         <span className="bsh-button preview__export-button">
+          <Icon name="table" size={16} />
           Export to Excel
         </span>
       </div>
       <span className="badge">
         <span className="badge__dot" />
-        Exported 1,284 elements to model-properties.xlsx
+        Exported 1,284 elements
       </span>
       <SummaryTable entries={SAMPLE_ENTRIES.slice(0, 3)} />
     </div>

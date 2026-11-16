@@ -287,10 +287,30 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+
+.preview__toolbar .bsh-button,
+.preview__toolbar .bsh-icon-button {
+  cursor: default;
+}
+
+.preview__export .bsh-table-wrap,
+.mockup__summary .bsh-table-wrap {
+  flex: none;
+  overflow-x: auto;
+  overflow-y: visible;
 }
 
 .preview__export-button {
   margin-left: auto;
+}
+
+@media (max-width: 480px) {
+  .preview__toolbar-label {
+    display: none;
+  }
 }
 
 .landing-footer {

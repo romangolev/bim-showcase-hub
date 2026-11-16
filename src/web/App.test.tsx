@@ -144,7 +144,7 @@ describe('App shell', () => {
     renderApp('/model/dXJuOmFkc2s');
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: /^Model/ }),
+      await screen.findByRole('heading', { level: 1, name: /^Untitled model/ }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole('navigation', { name: 'Breadcrumb' }),

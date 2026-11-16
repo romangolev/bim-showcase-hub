@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
+import { describeModel } from '../api/modelContext.js';
 import { Icon } from '../components/icons.js';
+import {
+  composeTitle,
+  useDocumentTitle,
+} from '../components/useDocumentTitle.js';
 import {
   DashboardPanel,
   ExportButton,
@@ -41,6 +46,20 @@ function writeDashboardCollapsed(collapsed: boolean) {
   }
 }
 
+const URN_TAIL = 6;
+
+function MiddleEllipsis({ value }: { value: string }) {
+  if (value.length <= URN_TAIL * 2) {
+    return <span className="mid">{value}</span>;
+  }
+  return (
+    <span className="mid">
+      <span className="mid__head">{value.slice(0, -URN_TAIL)}</span>
+      <span className="mid__tail">{value.slice(-URN_TAIL)}</span>
+    </span>
+  );
+}
+
 function UrnControl({ urn }: { urn: string }) {
   const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle');
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -61,7 +80,7 @@ function UrnControl({ urn }: { urn: string }) {
   return (
     <div className="urn-control">
       <code className="urn-control__value mono" title={urn}>
-        {middleEllipsis(urn, 8, 6)}
+        <MiddleEllipsis value={urn} />
       </code>
       <button
         type="button"
@@ -95,6 +114,13 @@ export function ModelPage({ urn, file, version, crumbs }: ModelPageProps) {
     readDashboardCollapsed,
   );
 
+  const identity = describeModel(urn, file, version);
+  useDocumentTitle(
+    identity.hasFile
+      ? composeTitle(identity.title, identity.version)
+      : composeTitle('Model', identity.version),
+  );
+
   const updateCollapsed = (next: boolean) => {
     setDashboardCollapsed(next);
     writeDashboardCollapsed(next);
@@ -103,54 +129,51 @@ export function ModelPage({ urn, file, version, crumbs }: ModelPageProps) {
   return (
     <ViewerProvider>
       <div className="model-page">
-        <div className="model-stage">
-          <header className="model-head">
-            {crumbs && crumbs.length > 0 ? (
-              <nav aria-label="Breadcrumb" className="crumbs">
-                <ol className="crumbs__list">
-                  {crumbs.map((name, index) => {
-                    const path = crumbs.slice(0, index + 1).join('/');
-                    return (
-                      <li key={path} className="crumbs__item" title={name}>
-                        {name}
-                      </li>
-                    );
-                  })}
-                </ol>
-              </nav>
-            ) : null}
-            <div className="model-head__row">
-              <h1 className="model-title">
-                {file ? (
-                  <span className="model-title__name" title={file}>
-                    {file}
-                  </span>
-                ) : (
-                  <>
-                    <span className="model-title__name">Model</span>
-                    <span className="model-tag mono">
-                      {middleEllipsis(urn, 6, 4)}
-                    </span>
-                  </>
-                )}
-                {version ? <span className="model-tag">{version}</span> : null}
-              </h1>
-              <UrnControl urn={urn} />
-            </div>
-          </header>
-          <div className="model-toolbar">
-            <PaintToolbar />
-            <ExportButton />
+        <header className="model-head">
+          {crumbs && crumbs.length > 0 ? (
+            <nav aria-label="Breadcrumb" className="crumbs">
+              <ol className="crumbs__list">
+                {crumbs.map((name, index) => {
+                  const path = crumbs.slice(0, index + 1).join('/');
+                  return (
+                    <li key={path} className="crumbs__item" title={name}>
+                      {name}
+                    </li>
+                  );
+                })}
+              </ol>
+            </nav>
+          ) : null}
+          <div className="model-head__row">
+            <h1 className="model-title">
+              <span className="model-title__name" title={identity.title}>
+                {identity.title}
+              </span>
+              {identity.version ? (
+                <span className="model-tag">{identity.version}</span>
+              ) : null}
+            </h1>
+            <UrnControl urn={urn} />
           </div>
-          <section className="model-viewer" aria-label="Viewer">
-            <ViewerPane urn={urn} paintBrushes={false} />
-          </section>
-          <div className="model-dashboard" data-open={!dashboardCollapsed}>
-            <DashboardPanel
-              collapsed={dashboardCollapsed}
-              onCollapsedChange={updateCollapsed}
-            />
-          </div>
+          {identity.hasFile ? null : (
+            <p className="model-hint">
+              Open this model from the document tree to see its file name and
+              location.
+            </p>
+          )}
+        </header>
+        <div className="model-toolbar">
+          <PaintToolbar />
+          <ExportButton />
+        </div>
+        <section className="model-viewer" aria-label="Viewer">
+          <ViewerPane urn={urn} paintBrushes={false} />
+        </section>
+        <div className="model-dashboard" data-open={!dashboardCollapsed}>
+          <DashboardPanel
+            collapsed={dashboardCollapsed}
+            onCollapsedChange={updateCollapsed}
+          />
         </div>
         <aside className="model-summary" aria-label="Model summary">
           <ModelSummaryPanel />

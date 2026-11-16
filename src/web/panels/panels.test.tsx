@@ -5,6 +5,7 @@ import { DashboardPanel } from './DashboardPanel.js';
 import { ExportButton } from './ExportButton.js';
 import { ModelSummaryPanel } from './ModelSummaryPanel.js';
 import { PaintToolbar } from './PaintToolbar.js';
+import { SummaryTable } from './SummaryTable.js';
 
 vi.mock('chart.js', () => {
   class Chart {
@@ -55,7 +56,7 @@ describe('ModelSummaryPanel', () => {
 
   it('prompts to load a model when there is no adapter', () => {
     render(<ModelSummaryPanel />);
-    expect(screen.getByText(/Load a model/)).toBeInTheDocument();
+    expect(screen.getByText(/No model loaded yet/)).toBeInTheDocument();
   });
 });
 
@@ -109,6 +110,52 @@ describe('DashboardPanel', () => {
   });
 });
 
+describe('SummaryTable scroll region', () => {
+  const entries = [{ property: 'Category', value: 'Walls', count: 4 }];
+
+  function stubScroll(scrollHeight: number, clientHeight: number) {
+    Object.defineProperty(HTMLElement.prototype, 'scrollHeight', {
+      configurable: true,
+      value: scrollHeight,
+    });
+    Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
+      configurable: true,
+      value: clientHeight,
+    });
+  }
+
+  afterEach(() => {
+    Reflect.deleteProperty(HTMLElement.prototype, 'scrollHeight');
+    Reflect.deleteProperty(HTMLElement.prototype, 'clientHeight');
+  });
+
+  it('is not focusable when nothing scrolls', () => {
+    stubScroll(100, 100);
+    const { container } = render(<SummaryTable entries={entries} />);
+    const wrap = container.querySelector('.bsh-table-wrap');
+    expect(wrap).not.toHaveAttribute('tabindex');
+    expect(wrap).not.toHaveAttribute('aria-label');
+  });
+
+  it('is a labelled focusable region when content scrolls', () => {
+    stubScroll(300, 100);
+    render(<SummaryTable entries={entries} />);
+    const region = screen.getByRole('region', {
+      name: 'Summary table, scrollable',
+    });
+    expect(region).toHaveAttribute('tabindex', '0');
+  });
+
+  it('gives every cell a title and clamps long values', () => {
+    stubScroll(100, 100);
+    const { container } = render(<SummaryTable entries={entries} />);
+    for (const cell of container.querySelectorAll('tbody td')) {
+      expect(cell).toHaveAttribute('title');
+      expect(cell.querySelector('.bsh-clamp')).not.toBeNull();
+    }
+  });
+});
+
 describe('PaintToolbar', () => {
   it('paints the current selection', async () => {
     const adapter = await loaded();
@@ -119,6 +166,20 @@ describe('PaintToolbar', () => {
       screen.getByRole('button', { name: 'Paint selected items in red' }),
     );
     expect(spy).toHaveBeenCalledWith([101, 102], [1, 0, 0, 0.5]);
+  });
+
+  it('names every swatch by color and keeps reset as an icon button', () => {
+    render(<PaintToolbar />);
+    for (const color of ['red', 'green', 'blue']) {
+      const chip = screen.getByRole('button', {
+        name: `Paint selected items in ${color}`,
+      });
+      expect(chip).toHaveAttribute('title', `Paint selected items in ${color}`);
+      expect(chip.querySelector('.bsh-paint__swatch')).not.toBeNull();
+    }
+    const reset = screen.getByRole('button', { name: 'Reset appearance' });
+    expect(reset.querySelector('svg')).not.toBeNull();
+    expect(reset).toHaveAttribute('title', 'Reset appearance');
   });
 
   it('is disabled without an adapter', () => {
@@ -153,5 +214,48 @@ describe('ExportButton', () => {
     expect(timeout.mock.calls.some((call) => call[1] === 4000)).toBe(true);
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+  });
+});
+
+describe('Feedback states', () => {
+  it('shows skeleton rows while the summary reads properties', async () => {
+    const adapter = await loaded();
+    vi.spyOn(adapter, 'getLeafProperties').mockReturnValue(
+      new Promise(() => undefined),
+    );
+    const { container } = render(<ModelSummaryPanel adapter={adapter} />);
+    expect(container.querySelectorAll('.state-block__bar').length).toBe(5);
+  });
+
+  it('maps summary errors to friendly copy with retry and raw detail in a title', async () => {
+    const adapter = await loaded();
+    const read = vi
+      .spyOn(adapter, 'getLeafProperties')
+      .mockRejectedValueOnce(new Error('ECONNRESET at 10.0.0.4'));
+    render(<ModelSummaryPanel adapter={adapter} />);
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(
+      "We could not read this model's properties",
+    );
+    expect(alert).not.toHaveTextContent('ECONNRESET');
+    expect(alert).toHaveAttribute('title', 'ECONNRESET at 10.0.0.4');
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(read).toHaveBeenCalledTimes(2));
+  });
+
+  it('shows the dashboard empty state without a model', () => {
+    render(<DashboardPanel />);
+    expect(screen.getByText('No charts yet')).toBeInTheDocument();
+  });
+
+  it('maps dashboard errors to friendly copy', async () => {
+    const adapter = await loaded();
+    vi.spyOn(adapter, 'getLeafProperties').mockRejectedValue(
+      new Error('boom internals'),
+    );
+    render(<DashboardPanel adapter={adapter} />);
+    const alert = await screen.findByRole('alert');
+    expect(alert).not.toHaveTextContent('boom internals');
+    expect(alert).toHaveAttribute('title', 'boom internals');
   });
 });
