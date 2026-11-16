@@ -455,4 +455,20 @@ describe('RealViewerAdapter tool group extension', () => {
     makeAdapter();
     expect(() => adapter.resize()).not.toThrow();
   });
+
+  it('disables the swatches again after the model is replaced', async () => {
+    makeAdapter();
+    adapter.registerToolGroup(buildToolGroupSpec(adapter));
+    await adapter.load('dXJu');
+    const first = viewers[0] as FakeViewer;
+    first.select([11]);
+    for (const swatch of parts(first).swatches) {
+      expect(swatch.state).toBe(STATE.INACTIVE);
+    }
+    await adapter.load('dXJu');
+    const second = viewers[1] as FakeViewer;
+    for (const swatch of parts(second).swatches) {
+      expect(swatch.state).toBe(STATE.DISABLED);
+    }
+  });
 });

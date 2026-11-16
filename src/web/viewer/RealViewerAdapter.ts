@@ -204,7 +204,7 @@ export class RealViewerAdapter implements ViewerAdapter {
     }
     this.toolsMounted = false;
     this.modelLoaded = false;
-    this.controller?.clearPainted();
+    this.controller?.resetState();
     viewer.tearDown();
     viewer.finish();
     this.viewer = null;

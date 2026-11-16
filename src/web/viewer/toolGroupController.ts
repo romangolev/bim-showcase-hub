@@ -58,6 +58,10 @@ export class ToolGroupController {
     this.update({ painted: false });
   }
 
+  resetState(): void {
+    this.update({ hasSelection: false, painted: false });
+  }
+
   dispose(): void {
     this.unsubscribe();
     this.listeners.clear();
