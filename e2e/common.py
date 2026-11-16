@@ -115,9 +115,32 @@ def horizontal_overflow(page):
     return page.evaluate("document.documentElement.scrollWidth - window.innerWidth")
 
 
+def main_canvas_width(page):
+    return page.evaluate(
+        """() => {
+            const widths = [...document.querySelectorAll('.adsk-viewing-viewer canvas')]
+                .map((c) => c.getBoundingClientRect().width);
+            return widths.length ? Math.max(...widths) : 0;
+        }"""
+    )
+
+
+def wait_for_canvas_width(page, predicate, timeout_ms=5000):
+    deadline = timeout_ms // 100
+    width = main_canvas_width(page)
+    for _ in range(deadline):
+        if predicate(width):
+            break
+        page.wait_for_timeout(100)
+        width = main_canvas_width(page)
+    return width
+
+
 def download_export(page, target):
-    with page.expect_download(timeout=30000) as download_info:
-        page.get_by_role("button", name=EXPORT_NAME).first.click(timeout=8000)
+    toolbar_button = page.locator("#export-xlsx")
+    button = toolbar_button if toolbar_button.count() else page.get_by_role("button", name=EXPORT_NAME).first
+    with page.expect_download(timeout=60000) as download_info:
+        button.click(timeout=8000)
     download_info.value.save_as(str(target))
     return target.stat().st_size, target.read_bytes()[:2]
 

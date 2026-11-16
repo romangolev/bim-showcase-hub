@@ -14,7 +14,9 @@ from common import (
     app_reachable,
     download_export,
     horizontal_overflow,
+    main_canvas_width,
     new_notes,
+    wait_for_canvas_width,
     watch,
     wrapped_count_cells,
 )
@@ -99,6 +101,7 @@ def run_model_checks(page, checks, found):
     except Exception:
         checks.add("autodesk viewer is mounted", False, f"no viewer element within {VIEWER_TIMEOUT_MS // 1000}s")
     checks.add("viewer toolbar is present", page.locator(".adsk-toolbar").count() >= 1)
+    checks.add("tool group is in the native toolbar", page.locator(".adsk-toolbar #paint, .adsk-toolbar #export-xlsx").count() >= 2)
     page.screenshot(path=str(OUTPUT_DIR / "02-model.png"))
     rows = page.locator("table tbody tr").count()
     checks.add("summary has rows", rows > 0, rows)
@@ -112,6 +115,22 @@ def run_model_checks(page, checks, found):
     except Exception as exc:
         checks.add("excel export downloads an xlsx", False, f"{type(exc).__name__}: {str(exc)[:160]}")
     page.screenshot(path=str(OUTPUT_DIR / "03-after-export.png"))
+    check_canvas_follows_summary(page, checks)
+
+
+def check_canvas_follows_summary(page, checks):
+    toggle = page.locator(".model-summary button.bsh-summary__toggle").first
+    try:
+        before = main_canvas_width(page)
+        toggle.click(timeout=8000)
+        grown = wait_for_canvas_width(page, lambda w: w > before + 20)
+        checks.add("canvas grows when the summary collapses", grown > before + 20, f"{before:.0f} -> {grown:.0f}")
+        page.screenshot(path=str(OUTPUT_DIR / "04-summary-collapsed.png"))
+        toggle.click(timeout=8000)
+        shrunk = wait_for_canvas_width(page, lambda w: w < grown - 20)
+        checks.add("canvas shrinks when the summary reopens", shrunk < grown - 20, f"{grown:.0f} -> {shrunk:.0f}")
+    except Exception as exc:
+        checks.add("canvas follows the summary panel", False, f"{type(exc).__name__}: {str(exc)[:160]}")
 
 
 def main():
