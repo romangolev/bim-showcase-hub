@@ -47,6 +47,21 @@ function withView(
   return next;
 }
 
+function dropMember(
+  model: OpenModel,
+  dropped: string,
+  next: Pick<OpenModel, 'urn' | 'context'>,
+): OpenModel {
+  return withView(next, {
+    offsets: model.offsets
+      ? Object.fromEntries(
+          Object.entries(model.offsets).filter(([id]) => id !== dropped),
+        )
+      : null,
+    spread: model.spread ?? null,
+  });
+}
+
 export function setModelView(
   state: OpenModelsState,
   urn: string,
@@ -196,15 +211,6 @@ export function modelUrnsOf(state: OpenModelsState, urn: string): string[] {
   return entry ? [urn, ...withUrns(entry.context)] : [];
 }
 
-export function tabHolding(state: OpenModelsState, urn: string): string | null {
-  for (const model of state.models) {
-    if (model.urn === urn || withUrns(model.context).includes(urn)) {
-      return model.urn;
-    }
-  }
-  return null;
-}
-
 export function addToModel(
   state: OpenModelsState,
   target: string,
@@ -250,19 +256,7 @@ export function removeFromModel(
       ...state,
       models: state.models.map((model) =>
         model.urn === target
-          ? withView(
-              { urn: target, context },
-              {
-                offsets: model.offsets
-                  ? Object.fromEntries(
-                      Object.entries(model.offsets).filter(
-                        ([id]) => id !== urn,
-                      ),
-                    )
-                  : null,
-                spread: model.spread ?? null,
-              },
-            )
+          ? dropMember(model, urn, { urn: target, context })
           : model,
       ),
     };
@@ -301,19 +295,7 @@ export function removeFromModel(
   return {
     models: state.models.map((model) =>
       model.urn === target
-        ? withView(
-            { urn: primary, context },
-            {
-              offsets: model.offsets
-                ? Object.fromEntries(
-                    Object.entries(model.offsets).filter(
-                      ([id]) => id !== target,
-                    ),
-                  )
-                : null,
-              spread: model.spread ?? null,
-            },
-          )
+        ? dropMember(model, target, { urn: primary, context })
         : model,
     ),
     active: state.active === target ? primary : state.active,

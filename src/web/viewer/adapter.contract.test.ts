@@ -6,7 +6,7 @@ import {
   buildMockRows,
   LARGE_FIXTURE_ROWS,
 } from './mockModel.js';
-import { apiForRegion, detectRegion } from './RealViewerAdapter.js';
+import { apiForRegion, detectRegion } from './region.js';
 import type { ViewerAdapter } from './ViewerAdapter.js';
 
 let host: HTMLElement;

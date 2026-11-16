@@ -18,7 +18,6 @@ import {
   parseOpenModels,
   removeFromModel,
   serializeOpenModels,
-  tabHolding,
 } from './openModels.js';
 
 function memoryStorage(): Storage {
@@ -95,8 +94,7 @@ describe('combined entries in the open-models store', () => {
     state = open(state, 'a', { with: 'c' });
     expect(withUrns(state.models[0]?.context)).toEqual(['c']);
     expect(modelUrnsOf(state, 'a')).toEqual(['a', 'c']);
-    expect(tabHolding(state, 'c')).toBe('a');
-    expect(tabHolding(state, 'x')).toBeNull();
+    expect(modelUrnsOf(state, 'x')).toEqual([]);
   });
 
   it('adds members once and up to six models', () => {

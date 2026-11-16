@@ -1,4 +1,5 @@
 import { MAX_COMBINED_MODELS } from '../../shared/combined.js';
+import { decodeBase64Url } from '../../shared/urn.js';
 
 export interface ModelContext {
   file?: string;
@@ -90,13 +91,8 @@ export interface ModelIdentity {
 }
 
 export function decodeUrn(urn: string): string | null {
-  try {
-    const padded = urn.replace(/-/g, '+').replace(/_/g, '/');
-    const decoded = atob(padded + '='.repeat((4 - (padded.length % 4)) % 4));
-    return decoded.startsWith('urn:adsk') ? decoded : null;
-  } catch {
-    return null;
-  }
+  const decoded = decodeBase64Url(urn);
+  return decoded?.startsWith('urn:adsk') ? decoded : null;
 }
 
 export function describeModel(

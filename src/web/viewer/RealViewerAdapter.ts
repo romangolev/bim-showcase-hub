@@ -71,12 +71,6 @@ let initialization: {
   promise: Promise<void>;
 } | null = null;
 
-export {
-  apiForRegion,
-  detectRegion,
-  type ViewerRegion,
-} from './region.js';
-
 function injectStyle(href: string): void {
   if (document.querySelector(`link[href="${href}"]`)) return;
   const link = document.createElement('link');

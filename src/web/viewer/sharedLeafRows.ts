@@ -1,4 +1,5 @@
 import type { PropertyRow } from '../../shared/types.js';
+import { tagRows } from './modelScope.js';
 import type { ModelInfo } from './modelSet.js';
 import type { ViewerAdapter } from './ViewerAdapter.js';
 
@@ -141,14 +142,6 @@ function shownModels(adapter: ViewerAdapter): ModelInfo[] | null {
     .filter((model) => model.status === 'ready' && model.visible);
 }
 
-function tag(rows: PropertyRow[], model: ModelInfo): PropertyRow[] {
-  return rows.map((row) => ({
-    ...row,
-    modelId: model.id,
-    modelName: model.name,
-  }));
-}
-
 export async function readLeafRows(
   adapter: ViewerAdapter,
   propertyNames: readonly string[],
@@ -167,7 +160,7 @@ export async function readLeafRows(
   }
   const results = await Promise.allSettled(
     models.map(async (model) =>
-      tag(
+      tagRows(
         await readKey(adapter, entry, model.id, propertyNames, [model.id]),
         model,
       ),
