@@ -11,6 +11,7 @@ import {
 } from './autodesk.js';
 import { ensureToolsExtension, TOOLS_EXTENSION_ID } from './autodeskTools.js';
 import { fullscreenElementOf, watchFullscreen } from './fullscreen.js';
+import { apiForRegion, detectRegion } from './region.js';
 import { readSceneBackground } from './sceneBackground.js';
 import { ToolGroupController } from './toolGroupController.js';
 import type { Rgba, ToolGroupSpec, ViewerAdapter } from './ViewerAdapter.js';
@@ -33,20 +34,11 @@ let initialization: {
   promise: Promise<void>;
 } | null = null;
 
-export type ViewerRegion = 'US' | 'EU';
-
-export function detectRegion(urn: string): ViewerRegion {
-  try {
-    const padded = urn.replace(/-/g, '+').replace(/_/g, '/');
-    return atob(padded).includes('emea') ? 'EU' : 'US';
-  } catch {
-    return 'US';
-  }
-}
-
-export function apiForRegion(region: ViewerRegion): string {
-  return region === 'EU' ? 'derivativeV2_EU' : 'derivativeV2';
-}
+export {
+  apiForRegion,
+  detectRegion,
+  type ViewerRegion,
+} from './region.js';
 
 function injectStyle(href: string): void {
   if (document.querySelector(`link[href="${href}"]`)) return;

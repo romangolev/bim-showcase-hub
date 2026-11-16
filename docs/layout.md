@@ -117,7 +117,7 @@ Below 876px (`STACKED_QUERY`) the dock is not rendered. With no model open, `Sta
 - One layout per browser, not per model and not synced to the account.
 - No named presets.
 - At most 4 models are loaded at once (`MAX_LOADED_MODELS` in `api/openModels.ts`). Showing another pauses the least recently shown background model: its adapter is destroyed, its tab stays and offers Load model. This was chosen over a blocking prompt because opening never fails.
-- All open models must come from one Autodesk region: the viewer is initialized once per page.
+- All open models must come from one Autodesk region: the viewer is initialized once per page. The first model that starts loading claims the region (`viewer/region.ts`). A tab from the other region is detected from its URN before any viewer is created and shows "This model is in the EU region. The viewer supports one region per page." with Close other models and reload, which keeps only that tab and reloads; it never creates a viewer that would fail.
 - Window resizes are shared proportionally between groups. Opening, closing, collapsing and expanding keep the other groups' sizes and give the difference to the viewer.
 
 ## Testing

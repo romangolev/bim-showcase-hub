@@ -22,6 +22,7 @@ import {
   treeRoutes,
 } from '../test/mockApi.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
+import { page, resetRegion } from '../viewer/region.js';
 import type { MoveTarget } from './layoutContext.js';
 import { LAYOUT_KEY, parseLayout } from './layoutState.js';
 
@@ -554,5 +555,49 @@ describe('remembered arrangement', () => {
     expect(leafOrder()).toContain('viewer:bbb');
     expect(leafOrder()).toContain('dashboard');
     await waitFor(() => expect(sceneOf('bbb')?.isConnected).toBe(true));
+  });
+});
+
+describe('one Autodesk region per page', () => {
+  const EU = btoa('urn:adsk.wipemea:fs.file:vf.eu?version=1')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+
+  afterEach(() => {
+    resetRegion();
+  });
+
+  it('explains a model from the other region and offers to keep only it', async () => {
+    resetRegion();
+    const reload = vi.spyOn(page, 'reload').mockImplementation(() => {});
+    const load = vi.mocked(MockViewerAdapter.prototype.load);
+    const { appRouter } = renderPath('/model/aaa?file=A.rvt&v=v1');
+    await dockReady();
+    await waitFor(() => expect(sceneOf('aaa')).not.toBeNull());
+    await open(appRouter, EU, 'Europe.rvt');
+    const body = await waitFor(() => {
+      const found = modelBody(EU);
+      expect(found?.querySelector('[data-state="region"]')).not.toBeNull();
+      return found as HTMLElement;
+    });
+    expect(body).toHaveTextContent(
+      'This model is in the EU region. The viewer supports one region per page.',
+    );
+    expect(load.mock.calls.map(([urn]) => urn)).not.toContain(EU);
+    fireEvent.click(
+      within(body).getByRole('button', {
+        name: 'Close other models and reload',
+      }),
+    );
+    expect(reload).toHaveBeenCalledTimes(1);
+    expect(
+      handle()
+        .models()
+        .models.map((model) => model.urn),
+    ).toEqual([EU]);
+    expect(
+      JSON.parse(sessionStorage.getItem(OPEN_MODELS_KEY) ?? '{}').models,
+    ).toHaveLength(1);
   });
 });

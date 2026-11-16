@@ -8,6 +8,7 @@ import {
   createOpenModelsStore,
   EMPTY_OPEN_MODELS,
   forgetModels,
+  keepOnlyModel,
   MAX_LOADED_MODELS,
   MODEL_OWNER_KEY,
   OPEN_MODELS_KEY,
@@ -114,6 +115,17 @@ describe('open models', () => {
     state = closeModel(state, 'c', 1);
     expect(state.active).toBe('b');
     expect(state.live).toEqual(['b']);
+  });
+
+  it('keeps only one model, active and not yet loaded', () => {
+    const state = keepOnlyModel(openAll('a', 'b', 'c'), 'b');
+    expect(state).toEqual({
+      models: [{ urn: 'b', context: { file: 'b.rvt' } }],
+      active: 'b',
+      live: [],
+      visible: [],
+    });
+    expect(keepOnlyModel(state, 'zzz')).toBe(state);
   });
 
   it('ignores unknown urns', () => {

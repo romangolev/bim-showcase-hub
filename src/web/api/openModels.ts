@@ -124,6 +124,15 @@ export function closeModel(
     : next;
 }
 
+export function keepOnlyModel(
+  state: OpenModelsState,
+  urn: string,
+): OpenModelsState {
+  const model = state.models.find((entry) => entry.urn === urn);
+  if (!model) return state;
+  return { models: [model], active: urn, live: [], visible: [] };
+}
+
 export function serializeOpenModels(state: OpenModelsState): string {
   return JSON.stringify({ models: state.models, active: state.active });
 }
@@ -207,6 +216,7 @@ export interface OpenModelsStore {
   show: (urn: string) => void;
   setVisible: (urns: readonly string[]) => void;
   close: (urn: string) => void;
+  keepOnly: (urn: string) => void;
   clear: () => void;
 }
 
@@ -260,6 +270,7 @@ export function createOpenModelsStore(
     show: (urn) => apply(touchLive(state, urn, limit)),
     setVisible: (urns) => apply(setVisible(state, urns)),
     close: (urn) => apply(closeModel(state, urn, limit)),
+    keepOnly: (urn) => apply(keepOnlyModel(state, urn)),
     clear: () => {
       remove(storage, OPEN_MODELS_KEY);
       if (state.models.length === 0) return;

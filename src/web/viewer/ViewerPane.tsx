@@ -15,6 +15,12 @@ import { formatCount } from '../extensions/modelSummary.js';
 import { modelKey, registerViewerTools } from '../extensions/viewerTools.js';
 import { useTheme } from '../theme/ThemeContext.js';
 import { createViewerAdapter } from './createViewerAdapter.js';
+import {
+  claimRegion,
+  detectRegion,
+  regionConflictMessage,
+  type ViewerRegion,
+} from './region.js';
 import type { ViewerAdapter, ViewerAdapterFactory } from './ViewerAdapter.js';
 import { ActiveViewerContext, ModelViewerContext } from './ViewerContext.js';
 import './viewer.css';
@@ -27,13 +33,15 @@ export interface ViewerPaneProps {
   tools?: boolean;
   resizeSignal?: number;
   exportName?: string;
+  onKeepOnly?: () => void;
   children?: ReactNode;
 }
 
 type PaneState =
   | { status: 'loading' }
   | { status: 'ready' }
-  | { status: 'error'; message: string };
+  | { status: 'error'; message: string }
+  | { status: 'region'; region: ViewerRegion };
 
 export const STATUS_DISMISS_MS = 4000;
 export const SETTLE_MS = 250;
@@ -63,6 +71,7 @@ export function ViewerPane({
   tools = true,
   resizeSignal,
   exportName,
+  onKeepOnly,
   children,
 }: ViewerPaneProps) {
   const registry = useContext(ActiveViewerContext);
@@ -150,6 +159,11 @@ export function ViewerPane({
     let cancelled = false;
     let created: ViewerAdapter | null = null;
     let disposeExtensions: (() => void) | null = null;
+    const region = detectRegion(urn);
+    if (!claimRegion(region)) {
+      setState({ status: 'region', region });
+      return;
+    }
     setState({ status: 'loading' });
 
     (async () => {
@@ -204,6 +218,24 @@ export function ViewerPane({
               message="Loading model"
               rows={3}
               className="bsh-viewer-skeleton"
+            />
+          </div>
+        )}
+        {state.status === 'region' && (
+          <div className="bsh-viewer-overlay">
+            <StateBlock
+              variant="error"
+              title="Model in another region"
+              message={regionConflictMessage(state.region)}
+              action={
+                onKeepOnly
+                  ? {
+                      label: 'Close other models and reload',
+                      onClick: onKeepOnly,
+                    }
+                  : undefined
+              }
+              className="bsh-viewer-error"
             />
           </div>
         )}

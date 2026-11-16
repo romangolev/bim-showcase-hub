@@ -6,6 +6,7 @@ import { TreePanel } from '../components/TreePanel.js';
 import { exportFileName } from '../extensions/excelExport.js';
 import { DashboardPanel, ModelSummaryPanel } from '../panels/index.js';
 import { ViewerPane } from '../viewer/index.js';
+import { page } from '../viewer/region.js';
 import { useLayout, useMainContent } from './layoutContext.js';
 import { instancePanelId } from './panelIds.js';
 
@@ -69,6 +70,10 @@ export function ModelPaneBody({ instance }: { instance: string }) {
             urn={instance}
             resizeSignal={layout.resizeSignal(panel)}
             exportName={exportFileName(context?.file, context?.v)}
+            onKeepOnly={() => {
+              store?.keepOnly(instance);
+              page.reload();
+            }}
           />
         ) : (
           <div className="bsh-viewer-pane" data-state="paused">
