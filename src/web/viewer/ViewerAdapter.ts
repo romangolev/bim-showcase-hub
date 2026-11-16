@@ -39,6 +39,7 @@ export interface ViewerAdapter {
   load(urn: string): Promise<void>;
   unload(): void;
   resize(): void;
+  scheduleResize(settleMs: number): void;
   getSelection(): number[];
   clearSelection?(): void;
   setThemingColor(ids: number[], color: Rgba): void;

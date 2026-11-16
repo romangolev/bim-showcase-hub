@@ -113,19 +113,7 @@ export function ViewerPane({
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
-    let pending = false;
-    let frame = 0;
-    let settle: ReturnType<typeof setTimeout> | undefined;
-    const schedule = () => {
-      clearTimeout(settle);
-      settle = setTimeout(() => adapterRef.current?.resize(), SETTLE_MS);
-      if (pending) return;
-      pending = true;
-      frame = requestAnimationFrame(() => {
-        pending = false;
-        adapterRef.current?.resize();
-      });
-    };
+    const schedule = () => adapterRef.current?.scheduleResize(SETTLE_MS);
     const observer =
       typeof ResizeObserver === 'undefined'
         ? null
@@ -133,8 +121,6 @@ export function ViewerPane({
     observer?.observe(host);
     window.addEventListener('resize', schedule);
     return () => {
-      if (pending) cancelAnimationFrame(frame);
-      clearTimeout(settle);
       observer?.disconnect();
       window.removeEventListener('resize', schedule);
     };

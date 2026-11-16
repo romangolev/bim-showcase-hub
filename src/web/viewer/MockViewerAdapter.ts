@@ -13,6 +13,7 @@ import {
   type MockElement,
   type Point,
 } from './mockModel.js';
+import { createResizeScheduler } from './resizeScheduler.js';
 import {
   ToolGroupController,
   type ToolGroupState,
@@ -95,6 +96,7 @@ export class MockViewerAdapter implements ViewerAdapter {
   private loaded = false;
   private destroyed = false;
   private urn = '';
+  private readonly resizer = createResizeScheduler(() => this.resize());
 
   constructor(private readonly container: HTMLElement) {
     this.build();
@@ -123,6 +125,10 @@ export class MockViewerAdapter implements ViewerAdapter {
 
   resize(): void {
     this.fit();
+  }
+
+  scheduleResize(settleMs: number): void {
+    this.resizer.schedule(settleMs);
   }
 
   getSelection(): number[] {
@@ -207,6 +213,7 @@ export class MockViewerAdapter implements ViewerAdapter {
     this.disposeGroup = null;
     this.controller?.dispose();
     this.controller = null;
+    this.resizer.cancel();
     this.selection.clear();
     this.root?.remove();
     this.root = null;

@@ -639,6 +639,33 @@ describe('RealViewerAdapter fullscreen', () => {
     }
   });
 
+  it('coalesces layout and screen mode resizes into one scheduler', async () => {
+    const frames: FrameRequestCallback[] = [];
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+      frames.push(cb);
+      return frames.length;
+    });
+    vi.stubGlobal('cancelAnimationFrame', () => {});
+    const { viewer } = await loadWithFrame();
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      for (const pending of frames.splice(0)) pending(0);
+      vi.runOnlyPendingTimers();
+      const before = viewer.resizeCalls;
+      adapter.scheduleResize(250);
+      viewer.emit(SCREEN_MODE_EVENT);
+      adapter.scheduleResize(250);
+      expect(frames).toHaveLength(1);
+      frames[0]?.(0);
+      expect(viewer.resizeCalls).toBe(before + 1);
+      vi.advanceTimersByTime(SCREEN_MODE_SETTLE_MS);
+      expect(viewer.resizeCalls).toBe(before + 2);
+    } finally {
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('drops the fill-browser class and resizes when the fullscreen request fails', async () => {
     const { viewer, frame } = await loadWithFrame();
     frame.classList.add('viewer-fill-browser');

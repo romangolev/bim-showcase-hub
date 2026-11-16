@@ -12,6 +12,7 @@ import {
 import { ensureToolsExtension, TOOLS_EXTENSION_ID } from './autodeskTools.js';
 import { fullscreenElementOf, watchFullscreen } from './fullscreen.js';
 import { apiForRegion, detectRegion } from './region.js';
+import { createResizeScheduler } from './resizeScheduler.js';
 import { readSceneBackground } from './sceneBackground.js';
 import { ToolGroupController } from './toolGroupController.js';
 import type { Rgba, ToolGroupSpec, ViewerAdapter } from './ViewerAdapter.js';
@@ -163,9 +164,6 @@ export class RealViewerAdapter implements ViewerAdapter {
   private started = false;
   private stopFullscreen: (() => void) | null = null;
   private frameObserver: ResizeObserver | null = null;
-  private resizeFrame = 0;
-  private resizePending = false;
-  private settleTimer: ReturnType<typeof setTimeout> | undefined;
   private readonly onSelection = (ev: ViewerEvent) => {
     const ids = ev.dbIdArray ?? [];
     for (const cb of [...this.selectionListeners]) {
@@ -176,19 +174,13 @@ export class RealViewerAdapter implements ViewerAdapter {
       }
     }
   };
-  private readonly scheduleResize = () => {
-    clearTimeout(this.settleTimer);
-    this.settleTimer = setTimeout(() => this.resize(), SCREEN_MODE_SETTLE_MS);
-    if (this.resizePending) return;
-    this.resizePending = true;
-    this.resizeFrame = requestAnimationFrame(() => {
-      this.resizePending = false;
-      this.resize();
-    });
+  private readonly resizer = createResizeScheduler(() => this.resize());
+  private readonly onScreenChange = () => {
+    this.resizer.schedule(SCREEN_MODE_SETTLE_MS);
   };
   private readonly onFullscreenChange = () => {
     this.resize();
-    this.scheduleResize();
+    this.onScreenChange();
   };
   private readonly onFullscreenError = () => {
     const frame = this.viewer?.container;
@@ -272,7 +264,7 @@ export class RealViewerAdapter implements ViewerAdapter {
       if (viewing.FULLSCREEN_MODE_EVENT) {
         viewer.removeEventListener(
           viewing.FULLSCREEN_MODE_EVENT,
-          this.scheduleResize,
+          this.onScreenChange,
         );
       }
     }
@@ -412,14 +404,14 @@ export class RealViewerAdapter implements ViewerAdapter {
 
   private watchScreenMode(viewer: GuiViewer3D, modeEvent?: string): void {
     this.unwatchScreenMode();
-    if (modeEvent) viewer.addEventListener(modeEvent, this.scheduleResize);
+    if (modeEvent) viewer.addEventListener(modeEvent, this.onScreenChange);
     this.stopFullscreen = watchFullscreen(
       this.document(),
       this.onFullscreenChange,
       this.onFullscreenError,
     );
     if (viewer.container && typeof ResizeObserver !== 'undefined') {
-      this.frameObserver = new ResizeObserver(this.scheduleResize);
+      this.frameObserver = new ResizeObserver(this.onScreenChange);
       this.frameObserver.observe(viewer.container);
     }
   }
@@ -429,9 +421,11 @@ export class RealViewerAdapter implements ViewerAdapter {
     this.stopFullscreen = null;
     this.frameObserver?.disconnect();
     this.frameObserver = null;
-    if (this.resizePending) cancelAnimationFrame(this.resizeFrame);
-    this.resizePending = false;
-    clearTimeout(this.settleTimer);
+    this.resizer.cancel();
+  }
+
+  scheduleResize(settleMs: number): void {
+    this.resizer.schedule(settleMs);
   }
 
   private async mountTools(): Promise<void> {
