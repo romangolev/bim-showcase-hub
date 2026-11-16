@@ -361,6 +361,15 @@ function SettingsFlip() {
   );
 }
 
+function SettingsFlipExcel() {
+  const { setSetting } = useSettings();
+  return (
+    <button type="button" onClick={() => setSetting('excelExport', false)}>
+      flip excel
+    </button>
+  );
+}
+
 describe('ViewerPane tool settings', () => {
   afterEach(() => {
     window.localStorage.clear();
@@ -413,5 +422,36 @@ describe('ViewerPane tool settings', () => {
     ).toBeInTheDocument();
     expect(created).toHaveLength(1);
     expect(onReady).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears painted colours when paint brushes is switched off but not when only export changes', async () => {
+    installMemoryStorage();
+    const { factory, created } = trackedFactory();
+    const onReady = vi.fn();
+    render(
+      <SettingsProvider>
+        <SettingsFlip />
+        <SettingsFlipExcel />
+        <ViewerPane urn="abc" factory={factory} onReady={onReady} />
+      </SettingsProvider>,
+    );
+    await waitFor(() => expect(onReady).toHaveBeenCalled());
+    const adapter = created[0] as ViewerAdapter;
+    const dbId = Number(
+      document.querySelector('[data-dbid]')?.getAttribute('data-dbid'),
+    );
+    const modelId = adapter.getModels()[0]?.id ?? '';
+    adapter.setModelThemingColor([{ modelId, dbId }], [1, 0, 0, 1]);
+    const themed = () => document.querySelectorAll('.bsh-mock__el--themed');
+    expect(themed().length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole('button', { name: 'flip excel' }));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: 'Export to Excel' }),
+      ).toBeNull(),
+    );
+    expect(themed().length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole('button', { name: 'flip paint' }));
+    await waitFor(() => expect(themed()).toHaveLength(0));
   });
 });

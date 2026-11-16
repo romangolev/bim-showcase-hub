@@ -19,16 +19,24 @@ export function ModalHost({ definition, onClose }: ModalHostProps) {
 
   useEffect(() => {
     const dialog = dialogRef.current;
+    let pressedOnDialog = false;
+    const onPress = (event: MouseEvent) => {
+      pressedOnDialog = event.target === dialog;
+    };
     const onBackdropClick = (event: MouseEvent) => {
-      if (event.target === dialog) onCloseRef.current();
+      const closing = pressedOnDialog && event.target === dialog;
+      pressedOnDialog = false;
+      if (closing) onCloseRef.current();
     };
     const onNativeClose = () => {
       if (dialog && !dialog.open) onCloseRef.current();
     };
+    dialog?.addEventListener('mousedown', onPress);
     dialog?.addEventListener('click', onBackdropClick);
     dialog?.addEventListener('close', onNativeClose);
     if (dialog && !dialog.open) dialog.showModal();
     return () => {
+      dialog?.removeEventListener('mousedown', onPress);
       dialog?.removeEventListener('click', onBackdropClick);
       dialog?.removeEventListener('close', onNativeClose);
       opener?.focus();

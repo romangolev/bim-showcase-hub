@@ -703,7 +703,12 @@ export function DocumentTree({
   };
 
   const refreshAll = () => {
-    for (const id of [...registry.loaded]) {
+    const ids = new Set<string>([ROOT_ID, ...Object.keys(errors)]);
+    for (const item of tree.getItems()) {
+      if (item.isFolder() && item.isExpanded()) ids.add(item.getId());
+    }
+    for (const id of ids) {
+      forgetChecks(id);
       refresh(id);
     }
   };

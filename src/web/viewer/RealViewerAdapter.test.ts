@@ -471,6 +471,7 @@ describe('RealViewerAdapter tool group extension', () => {
     const viewer = viewers[0] as FakeViewer;
     expect(viewer.toolbar.groups).toHaveLength(1);
     dispose();
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(viewer.extensions.size).toBe(0);
     expect(viewer.toolbar.groups).toHaveLength(0);
     viewer.select([1]);
@@ -494,6 +495,66 @@ describe('RealViewerAdapter tool group extension', () => {
     adapter.registerToolGroup(buildToolGroupSpec(adapter));
     await vi.waitFor(() => expect(viewer.toolbar.groups).toHaveLength(1));
     expect(viewer.extensions.size).toBe(1);
+  });
+
+  describe('overlapping registrations while the extension loads', () => {
+    async function gatedViewer() {
+      makeAdapter();
+      await adapter.load('dXJu');
+      const viewer = viewers[0] as FakeViewer;
+      let release: () => void = () => {};
+      viewer.loadGate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const open = () => {
+        viewer.loadGate = null;
+        release();
+      };
+      return { viewer, open };
+    }
+
+    function specExporting(onExport: () => void) {
+      const base = fullSpec();
+      return { ...base, export: { ...base.export, onExport } };
+    }
+
+    const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+    it('ends with one group bound to the newest controller', async () => {
+      const { viewer, open } = await gatedViewer();
+      const first = vi.fn();
+      const second = vi.fn();
+      const disposeFirst = adapter.registerToolGroup(specExporting(first));
+      disposeFirst();
+      adapter.registerToolGroup(specExporting(second));
+      open();
+      await settle();
+      expect(viewer.toolbar.groups).toHaveLength(1);
+      expect(viewer.extensions.size).toBe(1);
+      parts(viewer).exportButton.click();
+      expect(second).toHaveBeenCalledTimes(1);
+      expect(first).not.toHaveBeenCalled();
+    });
+
+    it('ends with no group when the last registration is disposed while loading', async () => {
+      const { viewer, open } = await gatedViewer();
+      const dispose = adapter.registerToolGroup(buildToolGroupSpec(adapter));
+      dispose();
+      open();
+      await settle();
+      expect(viewer.toolbar.groups).toHaveLength(0);
+      expect(viewer.extensions.size).toBe(0);
+    });
+
+    it('ends with none after register, dispose, register, dispose in a row', async () => {
+      const { viewer, open } = await gatedViewer();
+      adapter.registerToolGroup(buildToolGroupSpec(adapter))();
+      adapter.registerToolGroup(buildToolGroupSpec(adapter))();
+      open();
+      await settle();
+      expect(viewer.toolbar.groups).toHaveLength(0);
+      expect(viewer.extensions.size).toBe(0);
+    });
   });
 
   it('removes the group when the adapter is destroyed', async () => {

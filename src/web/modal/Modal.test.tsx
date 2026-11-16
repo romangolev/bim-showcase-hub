@@ -118,8 +118,19 @@ describe('ModalProvider', () => {
     fireEvent.click(screen.getByText('Open demo'));
     fireEvent.click(screen.getByText('Demo'));
     expect(screen.getByRole('dialog')).toBeTruthy();
+    fireEvent.mouseDown(screen.getByRole('dialog'));
     fireEvent.click(screen.getByRole('dialog'));
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('does not close when the press started inside the panel and the click lands on the dialog', () => {
+    renderModal('demo');
+    fireEvent.click(screen.getByText('Open demo'));
+    fireEvent.mouseDown(screen.getByText('Demo'));
+    fireEvent.click(screen.getByRole('dialog'));
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    fireEvent.click(screen.getByRole('dialog'));
+    expect(screen.getByRole('dialog')).toBeTruthy();
   });
 
   it('stays open when the provider re-renders with a new definitions array', () => {

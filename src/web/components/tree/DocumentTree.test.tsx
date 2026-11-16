@@ -57,6 +57,56 @@ describe('DocumentTree', () => {
     );
   });
 
+  it('Refresh skips collapsed folders and refetches expanded ones', async () => {
+    const fetchMock = mockFetch(treeRoutes);
+    renderTree();
+    await expandTo('Studio hub');
+    await expandTo('Riverside Tower');
+    await screen.findByText('Project Files');
+    await expandTo('Riverside Tower');
+    await waitFor(() =>
+      expect(screen.queryByText('Project Files')).not.toBeInTheDocument(),
+    );
+    const count = (url: string) =>
+      fetchMock.mock.calls.filter((call) => String(call[0]) === url).length;
+    const projects = count('/api/hubs/h1/projects');
+    const folders = count('/api/hubs/h1/projects/p1/folders');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh documents' }));
+
+    await waitFor(() =>
+      expect(count('/api/hubs/h1/projects')).toBe(projects + 1),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(count('/api/hubs/h1/projects/p1/folders')).toBe(folders);
+  });
+
+  it('Refresh retries a folder that failed to load even when collapsed', async () => {
+    let fail = true;
+    const fetchMock = mockFetch({
+      ...treeRoutes,
+      '/api/hubs/h1/projects/p1/folders': () =>
+        fail
+          ? json({ error: 'Upstream unavailable' }, 502)
+          : json(treeRoutes['/api/hubs/h1/projects/p1/folders']),
+    });
+    renderTree();
+    await expandTo('Studio hub');
+    await expandTo('Riverside Tower');
+    await screen.findByRole('alert');
+    await expandTo('Riverside Tower');
+    const count = () =>
+      fetchMock.mock.calls.filter(
+        (call) => String(call[0]) === '/api/hubs/h1/projects/p1/folders',
+      ).length;
+    const before = count();
+    fail = false;
+
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh documents' }));
+
+    await waitFor(() => expect(count()).toBe(before + 1));
+  });
+
   it('lazy-loads children when a node is expanded', async () => {
     const fetchMock = mockFetch(treeRoutes);
     renderTree();
@@ -294,6 +344,24 @@ describe('DocumentTree', () => {
       const settled = calls();
       await new Promise((resolve) => setTimeout(resolve, 200));
       expect(calls()).toBe(settled);
+    });
+
+    it('Refresh rechecks the view state of an expanded version parent', async () => {
+      await openVersions(
+        [
+          ['processing', false],
+          ['ready', true],
+        ],
+        100000,
+      );
+      const row = () => screen.getByRole('treeitem', { name: /^v9:/ });
+      expect(row()).toHaveAttribute('data-view-state', 'processing');
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Refresh documents' }),
+      );
+      await waitFor(() =>
+        expect(row()).toHaveAttribute('data-view-state', 'ready'),
+      );
     });
 
     it('polls an unknown item again after it is collapsed and expanded', async () => {

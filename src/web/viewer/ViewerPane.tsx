@@ -13,6 +13,7 @@ import {
   type ExportStatus,
 } from '../extensions/excelExport.js';
 import { formatCount } from '../extensions/modelSummary.js';
+import { resetPaint } from '../extensions/paintBrushes.js';
 import { modelKey, registerViewerTools } from '../extensions/viewerTools.js';
 import { useSettings } from '../settings/SettingsContext.js';
 import { useTheme } from '../theme/ThemeContext.js';
@@ -266,6 +267,15 @@ export function ViewerPane({
     settings.excelExport,
     handleExportStatus,
   ]);
+
+  const paintWasOn = useRef(settings.paintBrushes);
+  useEffect(() => {
+    const wasOn = paintWasOn.current;
+    paintWasOn.current = settings.paintBrushes;
+    if (wasOn && !settings.paintBrushes && adapter && tools) {
+      resetPaint(adapter);
+    }
+  }, [adapter, tools, settings.paintBrushes]);
 
   const sourceFor = useCallback(
     (id: string): ModelSource => {
