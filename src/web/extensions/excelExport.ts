@@ -1,4 +1,5 @@
 import type { PropertyRow } from '../../shared/types.js';
+import { readLeafRows } from '../viewer/sharedLeafRows.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { formatValue } from './modelSummary.js';
 
@@ -127,7 +128,7 @@ export async function exportToXlsx(
   };
   try {
     emit({ phase: 'reading' });
-    const rows = await adapter.getLeafProperties([...propertyNames]);
+    const rows = await readLeafRows(adapter, propertyNames);
     const sheets = buildExportSheets(rows, propertyNames, groupBy);
     if (sheets.length === 0) return emit({ phase: 'empty' });
     emit({ phase: 'building' });

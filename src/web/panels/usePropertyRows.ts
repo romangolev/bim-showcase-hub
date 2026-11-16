@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { PropertyRow } from '../../shared/types.js';
+import { readLeafRows } from '../viewer/sharedLeafRows.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { useViewer } from '../viewer/ViewerContext.js';
 
@@ -37,7 +38,7 @@ export function usePropertyRows(
       rows: prev.rows,
       request: version,
     }));
-    adapter.getLeafProperties(names).then(
+    readLeafRows(adapter, names).then(
       (rows) => {
         if (!cancelled) setState({ status: 'ready', rows });
       },

@@ -125,6 +125,24 @@ describe('ModelSummaryPanel collapse and counts', () => {
   });
 });
 
+describe('shared property read', () => {
+  it('reads the union of both panels properties once', async () => {
+    const adapter = await loaded();
+    const spy = vi.spyOn(adapter, 'getLeafProperties');
+    render(
+      <>
+        <DashboardPanel adapter={adapter} />
+        <ModelSummaryPanel adapter={adapter} />
+      </>,
+    );
+    await screen.findByRole('img', {
+      name: 'Bar chart of element counts by Category',
+    });
+    await screen.findAllByText(/Assembly Code/);
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('DashboardPanel', () => {
   it('renders labelled charts and a data table fallback', async () => {
     const adapter = await loaded();
