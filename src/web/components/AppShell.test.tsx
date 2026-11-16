@@ -1,5 +1,11 @@
 import { createMemoryHistory } from '@tanstack/react-router';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../App.js';
 import { createAppRouter } from '../routes/router.js';
@@ -171,6 +177,7 @@ describe('AppShell responsive tree', () => {
     const filter = await screen.findByRole('searchbox', {
       name: 'Filter loaded nodes',
     });
+    await waitFor(() => expect(filter).toBeEnabled());
     filter.focus();
     expect(filter).toHaveFocus();
 
