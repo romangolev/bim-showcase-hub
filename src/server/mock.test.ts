@@ -174,6 +174,10 @@ describe('mock mode', () => {
       `/api/projects/${projectId}/items/${item?.id}/versions/${item?.id}/view-state`,
     );
     expect(missing.status).toBe(404);
+    const malformed = await request(app).get(
+      `/api/projects/${projectId}/items/${item?.id}/versions/!!/view-state`,
+    );
+    expect(malformed.status).toBe(400);
   });
 
   it('is deterministic across app instances', async () => {

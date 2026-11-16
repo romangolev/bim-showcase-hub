@@ -1,5 +1,4 @@
 import { type Request, type RequestHandler, Router } from 'express';
-import type { TreeNode } from '../../shared/types.js';
 import { getAccessToken } from '../auth/sessionTokens.js';
 import type { ApsAuth } from '../auth/types.js';
 import type { ServerConfig } from '../config.js';
@@ -23,12 +22,9 @@ export function dataRouter(
     return (await getAccessToken(sessionOf(req), auth)).accessToken;
   }
 
-  function route(
+  function route<T>(
     path: string,
-    load: (
-      token: string,
-      params: Record<string, string>,
-    ) => Promise<TreeNode[]>,
+    load: (token: string, params: Record<string, string>) => Promise<T>,
     paramNames: string[],
   ): void {
     const handler: RequestHandler = async (req, res) => {
@@ -71,20 +67,16 @@ export function dataRouter(
     ['projectId', 'itemId'],
   );
 
-  const viewState: RequestHandler = async (req, res) => {
-    const token = await tokenFor(req);
-    res.json(
-      await data.versionViewState(
-        token,
-        decodeId(String(req.params.projectId)),
-        decodeId(String(req.params.itemId)),
-        decodeId(String(req.params.versionId)),
-      ),
-    );
-  };
-  router.get(
+  route(
     '/projects/:projectId/items/:itemId/versions/:versionId/view-state',
-    viewState,
+    (token, p) =>
+      data.versionViewState(
+        token,
+        p.projectId as string,
+        p.itemId as string,
+        p.versionId as string,
+      ),
+    ['projectId', 'itemId', 'versionId'],
   );
 
   return router;
