@@ -26,6 +26,7 @@ export interface ViewerPaneProps {
   onReady?: (adapter: ViewerAdapter) => void;
   factory?: ViewerAdapterFactory;
   tools?: boolean;
+  resizeSignal?: number;
   children?: ReactNode;
 }
 
@@ -60,6 +61,7 @@ export function ViewerPane({
   onReady,
   factory = createViewerAdapter,
   tools = true,
+  resizeSignal,
   children,
 }: ViewerPaneProps) {
   const outer = useContext(ViewerContext);
@@ -116,17 +118,21 @@ export function ViewerPane({
         ? null
         : new ResizeObserver(schedule);
     observer?.observe(host);
-    const grid = host.closest('.model-page') ?? host.parentElement;
-    grid?.addEventListener('transitionend', schedule);
     window.addEventListener('resize', schedule);
     return () => {
       if (pending) cancelAnimationFrame(frame);
       clearTimeout(settle);
       observer?.disconnect();
-      grid?.removeEventListener('transitionend', schedule);
       window.removeEventListener('resize', schedule);
     };
   }, []);
+
+  const seenSignal = useRef(resizeSignal);
+  useEffect(() => {
+    if (seenSignal.current === resizeSignal) return;
+    seenSignal.current = resizeSignal;
+    adapterRef.current?.resize();
+  }, [resizeSignal]);
 
   useEffect(() => {
     themeRef.current = theme;

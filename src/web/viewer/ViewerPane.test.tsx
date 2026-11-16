@@ -167,12 +167,46 @@ describe('ViewerPane resize wiring', () => {
     expect(spy).toHaveBeenCalledTimes(1);
   });
 
-  it('also resizes on transitionend and window resize', async () => {
+  it('resizes on window resize but not on a parent transitionend', async () => {
     const { view, spy } = await mounted();
     fireEvent.transitionEnd(view.container.firstElementChild as Element);
-    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy).not.toHaveBeenCalled();
     fireEvent(window, new Event('resize'));
-    expect(spy).toHaveBeenCalledTimes(2);
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('resizes exactly once when the resize signal changes', async () => {
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+    const { factory, created } = trackedFactory();
+    const onReady = vi.fn();
+    const view = render(
+      <ViewerPane
+        urn="abc"
+        factory={factory}
+        onReady={onReady}
+        resizeSignal={0}
+      />,
+    );
+    await waitFor(() => expect(onReady).toHaveBeenCalled());
+    const spy = vi.spyOn(created[0] as ViewerAdapter, 'resize');
+    view.rerender(
+      <ViewerPane
+        urn="abc"
+        factory={factory}
+        onReady={onReady}
+        resizeSignal={0}
+      />,
+    );
+    expect(spy).not.toHaveBeenCalled();
+    view.rerender(
+      <ViewerPane
+        urn="abc"
+        factory={factory}
+        onReady={onReady}
+        resizeSignal={1}
+      />,
+    );
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 
   it('re-calls resize once the layout has settled after the last event', async () => {
