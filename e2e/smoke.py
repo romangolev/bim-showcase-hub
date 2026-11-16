@@ -51,6 +51,32 @@ CHROME_STATE_SCRIPT = """mw:() => {
     };
 }"""
 
+FULLSCREEN_BUTTON = "#toolbar-fullscreenTool"
+FULLSCREEN_TOLERANCE_PX = 2
+FULLSCREEN_TIMEOUT_MS = 8000
+FULLSCREEN_ATTEMPTS = 3
+
+FRAME_STATE_SCRIPT = """mw:() => {
+    const rect = (el) => {
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        return { left: r.left, top: r.top, width: r.width, height: r.height };
+    };
+    const full = document.fullscreenElement || document.webkitFullscreenElement || null;
+    const viewer = document.querySelector('.bsh-viewer-surface > .adsk-viewing-viewer');
+    const canvas = document.querySelector('.bsh-viewer-surface .canvas-wrap canvas');
+    const toolbar = viewer && viewer.querySelector('.adsk-toolbar');
+    return {
+        fullscreen: Boolean(full),
+        viewerIsFullscreen: Boolean(full && full === viewer),
+        frame: rect(full),
+        host: rect(document.querySelector('.bsh-viewer-surface')),
+        canvas: rect(canvas),
+        toolbar: rect(toolbar),
+        window: { width: window.innerWidth, height: window.innerHeight },
+    };
+}"""
+
 BUTTON_COLOR_SCRIPT = """mw:() => {
     const button = document.querySelector('.adsk-toolbar .adsk-button:hover');
     return button && getComputedStyle(button).color;
@@ -114,7 +140,7 @@ def open_in_tree(page, found):
     page.wait_for_url(re.compile(r"/model/"), timeout=15000)
 
 
-def run_model_checks(page, checks, found):
+def run_model_checks(page, checks, found, notes):
     try:
         open_in_tree(page, found)
         checks.add("tree click opens the model route", "/model/" in page.url)
@@ -147,6 +173,7 @@ def run_model_checks(page, checks, found):
     page.screenshot(path=str(OUTPUT_DIR / "03-after-export.png"))
     check_viewer_chrome(page, checks)
     check_canvas_follows_summary(page, checks)
+    check_fullscreen(page, checks, notes)
 
 
 def check_viewer_chrome(page, checks):
@@ -253,6 +280,134 @@ def check_canvas_follows_summary(page, checks):
                 pass
 
 
+def fits(inner, outer):
+    if not inner or not outer:
+        return False
+    return all(
+        abs(inner[key] - outer[key]) <= FULLSCREEN_TOLERANCE_PX
+        for key in ("left", "top", "width", "height")
+    )
+
+
+def size_text(state, key):
+    box = state.get(key) if state else None
+    return f"{box['width']:.0f}x{box['height']:.0f}" if box else "none"
+
+
+def wait_frame_state(page, predicate):
+    state = page.evaluate(FRAME_STATE_SCRIPT)
+    for _ in range(FULLSCREEN_TIMEOUT_MS // 100):
+        if predicate(state):
+            break
+        page.wait_for_timeout(100)
+        state = page.evaluate(FRAME_STATE_SCRIPT)
+    return state
+
+
+def entered(state):
+    return state["viewerIsFullscreen"] and fits(state["canvas"], state["frame"])
+
+
+def left(state):
+    return not state["fullscreen"] and fits(state["canvas"], state["host"])
+
+
+def enter_fullscreen(page, checks, label, shot):
+    attempts = 0
+    state = page.evaluate(FRAME_STATE_SCRIPT)
+    while not state["fullscreen"] and attempts < FULLSCREEN_ATTEMPTS:
+        attempts += 1
+        page.locator(FULLSCREEN_BUTTON).click(timeout=8000)
+        wait_frame_state(page, entered)
+        page.wait_for_timeout(800)
+        state = page.evaluate(FRAME_STATE_SCRIPT)
+    checks.add(
+        f"{label}: the viewer element is the fullscreen element",
+        state["viewerIsFullscreen"],
+        f"after {attempts} clicks: {state}",
+    )
+    checks.add(
+        f"{label}: canvas fills the fullscreen element",
+        fits(state["canvas"], state["frame"]),
+        f"canvas {size_text(state, 'canvas')} vs frame {size_text(state, 'frame')}",
+    )
+    checks.add(
+        f"{label}: fullscreen element fills the window",
+        bool(state["frame"])
+        and abs(state["frame"]["width"] - state["window"]["width"]) <= FULLSCREEN_TOLERANCE_PX
+        and abs(state["frame"]["height"] - state["window"]["height"]) <= FULLSCREEN_TOLERANCE_PX,
+        f"frame {size_text(state, 'frame')} vs window {state['window']}",
+    )
+    toolbar, frame = state["toolbar"], state["frame"]
+    checks.add(
+        f"{label}: toolbar sits inside the fullscreen element",
+        bool(toolbar and frame)
+        and toolbar["top"] + toolbar["height"] <= frame["top"] + frame["height"] + FULLSCREEN_TOLERANCE_PX
+        and toolbar["left"] >= frame["left"] - FULLSCREEN_TOLERANCE_PX
+        and toolbar["left"] + toolbar["width"] <= frame["left"] + frame["width"] + FULLSCREEN_TOLERANCE_PX,
+        f"toolbar {toolbar} frame {frame}",
+    )
+    page.screenshot(path=str(OUTPUT_DIR / shot))
+    return state
+
+
+def exit_checks(page, checks, label, before, shot):
+    state = wait_frame_state(page, left)
+    page.wait_for_timeout(800)
+    state = page.evaluate(FRAME_STATE_SCRIPT)
+    checks.add(f"{label}: fullscreen has ended", not state["fullscreen"], state)
+    checks.add(
+        f"{label}: canvas returns to the host size",
+        fits(state["canvas"], state["host"]),
+        f"canvas {size_text(state, 'canvas')} vs host {size_text(state, 'host')}",
+    )
+    checks.add(
+        f"{label}: host is the same size as before fullscreen",
+        fits(state["host"], before["host"]),
+        f"host {size_text(state, 'host')} vs before {size_text(before, 'host')}",
+    )
+    page.screenshot(path=str(OUTPUT_DIR / shot))
+    if state["fullscreen"]:
+        page.evaluate("mw:() => document.exitFullscreen && document.exitFullscreen()")
+        wait_frame_state(page, lambda s: not s["fullscreen"])
+
+
+def check_fullscreen(page, checks, notes):
+    page.bring_to_front()
+    errors_before = len(notes["page_errors"])
+    try:
+        if page.locator(FULLSCREEN_BUTTON).count() == 0:
+            checks.add("fullscreen button is in the native toolbar", False, FULLSCREEN_BUTTON)
+            return
+        checks.add("fullscreen button is in the native toolbar", True)
+        before = page.evaluate(FRAME_STATE_SCRIPT)
+        checks.add(
+            "before fullscreen: canvas fills the host",
+            fits(before["canvas"], before["host"]),
+            f"canvas {size_text(before, 'canvas')} vs host {size_text(before, 'host')}",
+        )
+        state = enter_fullscreen(page, checks, "fullscreen via button", "06-fullscreen.png")
+        if state["fullscreen"]:
+            page.keyboard.press("Escape")
+            exit_checks(page, checks, "exit via Escape", before, "07-fullscreen-escape.png")
+        else:
+            checks.add("exit via Escape", False, "skipped: fullscreen was not entered")
+        state = enter_fullscreen(page, checks, "fullscreen again", "08-fullscreen-again.png")
+        if state["fullscreen"]:
+            page.locator(FULLSCREEN_BUTTON).click(timeout=8000)
+            exit_checks(page, checks, "exit via the button", before, "09-fullscreen-button-exit.png")
+        else:
+            checks.add("exit via the button", False, "skipped: fullscreen was not entered")
+    except Exception as exc:
+        checks.add("fullscreen round trip", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+        try:
+            page.evaluate("mw:() => document.fullscreenElement && document.exitFullscreen()")
+        except Exception:
+            pass
+    new_errors = notes["page_errors"][errors_before:]
+    checks.add("no page errors during fullscreen", not new_errors, new_errors[:2])
+
+
 def main():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     checks = Checks()
@@ -287,7 +442,7 @@ def main():
         checks.add("tree lists hubs", page.locator("[role=treeitem]").count() >= 1)
         page.screenshot(path=str(OUTPUT_DIR / "01-home.png"))
         if found:
-            run_model_checks(page, checks, found)
+            run_model_checks(page, checks, found, notes)
         checks.add("no uncaught page errors", not notes["page_errors"], notes["page_errors"][:2])
         checks.add("no failed app requests", not notes["failed_requests"], notes["failed_requests"][:3])
     return checks.finish(notes)
