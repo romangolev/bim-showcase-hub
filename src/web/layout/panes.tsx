@@ -1,4 +1,4 @@
-import { useParams, useRouterState } from '@tanstack/react-router';
+import { useParams, useRouter, useRouterState } from '@tanstack/react-router';
 import { useMemo } from 'react';
 import { withUrns } from '../api/modelContext.js';
 import { recallModel } from '../api/modelStore.js';
@@ -58,6 +58,7 @@ export function ModelPaneBody({ instance }: { instance: string }) {
   const context = contextOf(state, instance);
   const title = layout.paneTitle(panel);
   const tree = useTreeControl();
+  const router = useRouter();
   const extras = withUrns(context);
   const memberKey = extras.join(',');
   const members = useMemo(
@@ -98,7 +99,13 @@ export function ModelPaneBody({ instance }: { instance: string }) {
             onAddModel={tree ? () => tree.reveal() : undefined}
             onKeepOnly={() => {
               store?.keepOnly(instance);
-              page.reload();
+              page.go(
+                router.buildLocation({
+                  to: '/model/$urn',
+                  params: { urn: instance },
+                  search: context ?? {},
+                }).href,
+              );
             }}
           />
         ) : (

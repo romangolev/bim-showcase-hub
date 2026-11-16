@@ -45,4 +45,5 @@ export class RegionConflictError extends Error {
 
 export const page = {
   reload: () => window.location.reload(),
+  go: (href: string) => window.location.assign(href),
 };

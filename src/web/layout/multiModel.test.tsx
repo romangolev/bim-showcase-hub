@@ -558,7 +558,41 @@ describe('remembered arrangement', () => {
   });
 });
 
+const EU_URN = btoa('urn:adsk.wipemea:fs.file:vf.eu?version=1')
+  .replace(/\+/g, '-')
+  .replace(/\//g, '_')
+  .replace(/=+$/, '');
+
 describe('one Autodesk region per page', () => {
+  it('keeps a model whose tab is not active and goes to its url', async () => {
+    resetRegion();
+    const go = vi.spyOn(page, 'go').mockImplementation(() => {});
+    const { appRouter } = renderPath('/model/aaa?file=A.rvt&v=v1');
+    await dockReady();
+    await waitFor(() => expect(sceneOf('aaa')).not.toBeNull());
+    await open(appRouter, EU_URN, 'Europe.rvt');
+    const body = await waitFor(() => {
+      const found = modelBody(EU_URN);
+      expect(found?.querySelector('[data-state="region"]')).not.toBeNull();
+      return found as HTMLElement;
+    });
+    act(() => handle().activateModel('aaa'));
+    await waitFor(() => expect(pathOf(appRouter)).toBe('/model/aaa'));
+    fireEvent.click(
+      within(body).getByRole('button', {
+        name: 'Close other models and reload',
+      }),
+    );
+    expect(
+      handle()
+        .models()
+        .models.map((model) => model.urn),
+    ).toEqual([EU_URN]);
+    expect(go).toHaveBeenCalledTimes(1);
+    expect(go.mock.calls[0]?.[0]).toContain(`/model/${EU_URN}`);
+    resetRegion();
+  });
+
   const EU = btoa('urn:adsk.wipemea:fs.file:vf.eu?version=1')
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
@@ -570,7 +604,7 @@ describe('one Autodesk region per page', () => {
 
   it('explains a model from the other region and offers to keep only it', async () => {
     resetRegion();
-    const reload = vi.spyOn(page, 'reload').mockImplementation(() => {});
+    const go = vi.spyOn(page, 'go').mockImplementation(() => {});
     const load = vi.mocked(MockViewerAdapter.prototype.load);
     const { appRouter } = renderPath('/model/aaa?file=A.rvt&v=v1');
     await dockReady();
@@ -590,7 +624,9 @@ describe('one Autodesk region per page', () => {
         name: 'Close other models and reload',
       }),
     );
-    expect(reload).toHaveBeenCalledTimes(1);
+    expect(go).toHaveBeenCalledTimes(1);
+    expect(go.mock.calls[0]?.[0]).toContain(`/model/${EU}`);
+    expect(go.mock.calls[0]?.[0]).toContain('Europe.rvt');
     expect(
       handle()
         .models()
