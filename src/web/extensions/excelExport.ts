@@ -15,6 +15,21 @@ export const DEFAULT_EXPORT_PROPERTIES: readonly string[] = [
 export const DEFAULT_GROUP_BY = 'Category';
 export const DEFAULT_FILE_NAME = 'model-properties.xlsx';
 export const MODEL_COLUMN = 'Model';
+
+export function exportFileName(file?: string, version?: string): string {
+  const base = (file ?? '').replace(/\.[A-Za-z0-9]{1,5}$/, '');
+  const parts = [base, version ?? '']
+    .map((part) =>
+      part
+        .normalize('NFKD')
+        .replace(/[^A-Za-z0-9._-]+/g, '-')
+        .replace(/-{2,}/g, '-')
+        .replace(/^[-.]+|[-.]+$/g, ''),
+    )
+    .filter(Boolean);
+  if (!base || parts.length === 0) return DEFAULT_FILE_NAME;
+  return `${parts.join('-').slice(0, 120)}-properties.xlsx`;
+}
 export const FALLBACK_SHEET_NAME = 'Elements';
 
 export type ExportCell = string | number | boolean;

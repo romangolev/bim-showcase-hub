@@ -26,6 +26,7 @@ import {
   uniqueSources,
   VIEWER_CLOSED_MESSAGE,
 } from './modelSet.js';
+import { createResizeScheduler } from './resizeScheduler.js';
 import {
   ToolGroupController,
   type ToolGroupState,
@@ -126,6 +127,12 @@ function statusText(ready: number): string {
   return 'Mock viewer';
 }
 
+export function mockRowVariant(urn: string): number {
+  let hash = 0;
+  for (const char of urn) hash = (hash * 31 + char.charCodeAt(0)) % 9973;
+  return hash % 997;
+}
+
 function rgbaCss([r, g, b, a]: Rgba): string {
   const to = (v: number) => Math.round(Math.min(1, Math.max(0, v)) * 255);
   return `rgba(${to(r)}, ${to(g)}, ${to(b)}, ${a})`;
@@ -152,6 +159,7 @@ export class MockViewerAdapter implements ViewerAdapter {
   private theme: Theme = 'dark';
   private loaded = false;
   private destroyed = false;
+  private readonly resizer = createResizeScheduler(() => this.resize());
 
   constructor(private readonly container: HTMLElement) {
     this.build();
@@ -251,6 +259,10 @@ export class MockViewerAdapter implements ViewerAdapter {
     this.fit();
   }
 
+  scheduleResize(settleMs: number): void {
+    this.resizer.schedule(settleMs);
+  }
+
   getSelection(): number[] {
     return this.getModelSelection().map((item) => item.dbId);
   }
@@ -301,7 +313,8 @@ export class MockViewerAdapter implements ViewerAdapter {
         continue;
       }
       this.models.setPropertiesError(info.id);
-      rows.push(...tagRows(buildMockRows(propertyNames, bulk), info));
+      const extra = bulk ? bulk + mockRowVariant(info.urn) : 0;
+      rows.push(...tagRows(buildMockRows(propertyNames, extra), info));
     }
     if (failed && rows.length === 0) throw new Error(MOCK_PROPERTIES_ERROR);
     return rows;
@@ -344,6 +357,7 @@ export class MockViewerAdapter implements ViewerAdapter {
     this.disposeGroup = null;
     this.controller?.dispose();
     this.controller = null;
+    this.resizer.cancel();
     this.selection.clear();
     this.root?.remove();
     this.root = null;
@@ -432,7 +446,7 @@ export class MockViewerAdapter implements ViewerAdapter {
       const button = this.createToolbarButton(
         swatch.id,
         swatch.label,
-        iconSpan(swatchIconClass(swatch.id)),
+        iconSpan(swatchIconClass(swatch.icon)),
       );
       button.addEventListener('click', () => {
         if (!controller.state.hasSelection) return;

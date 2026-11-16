@@ -34,6 +34,8 @@ import {
   uniqueSources,
   VIEWER_CLOSED_MESSAGE,
 } from './modelSet.js';
+import { apiForRegion, detectRegion } from './region.js';
+import { createResizeScheduler } from './resizeScheduler.js';
 import { readSceneBackground } from './sceneBackground.js';
 import { ToolGroupController } from './toolGroupController.js';
 import type { Rgba, ToolGroupSpec, ViewerAdapter } from './ViewerAdapter.js';
@@ -58,20 +60,11 @@ let initialization: {
   promise: Promise<void>;
 } | null = null;
 
-export type ViewerRegion = 'US' | 'EU';
-
-export function detectRegion(urn: string): ViewerRegion {
-  try {
-    const padded = urn.replace(/-/g, '+').replace(/_/g, '/');
-    return atob(padded).includes('emea') ? 'EU' : 'US';
-  } catch {
-    return 'US';
-  }
-}
-
-export function apiForRegion(region: ViewerRegion): string {
-  return region === 'EU' ? 'derivativeV2_EU' : 'derivativeV2';
-}
+export {
+  apiForRegion,
+  detectRegion,
+  type ViewerRegion,
+} from './region.js';
 
 function injectStyle(href: string): void {
   if (document.querySelector(`link[href="${href}"]`)) return;
@@ -211,11 +204,9 @@ export class RealViewerAdapter implements ViewerAdapter {
   private controller: ToolGroupController | null = null;
   private toolsMounted = false;
   private modelLoaded = false;
+  private started = false;
   private stopFullscreen: (() => void) | null = null;
   private frameObserver: ResizeObserver | null = null;
-  private resizeFrame = 0;
-  private resizePending = false;
-  private settleTimer: ReturnType<typeof setTimeout> | undefined;
   private readonly models = new ModelSet<ViewerModel>();
   private anchor: FederationAnchor | null = null;
   private api = '';
@@ -225,21 +216,21 @@ export class RealViewerAdapter implements ViewerAdapter {
   private epoch = 0;
   private readonly onSelection = (ev: ViewerEvent) => {
     const ids = selectionIds(ev);
-    for (const cb of this.selectionListeners) cb([...ids]);
+    for (const cb of [...this.selectionListeners]) {
+      try {
+        cb([...ids]);
+      } catch (err) {
+        console.error(err);
+      }
+    }
   };
-  private readonly scheduleResize = () => {
-    clearTimeout(this.settleTimer);
-    this.settleTimer = setTimeout(() => this.resize(), SCREEN_MODE_SETTLE_MS);
-    if (this.resizePending) return;
-    this.resizePending = true;
-    this.resizeFrame = requestAnimationFrame(() => {
-      this.resizePending = false;
-      this.resize();
-    });
+  private readonly resizer = createResizeScheduler(() => this.resize());
+  private readonly onScreenChange = () => {
+    this.resizer.schedule(SCREEN_MODE_SETTLE_MS);
   };
   private readonly onFullscreenChange = () => {
     this.resize();
-    this.scheduleResize();
+    this.onScreenChange();
   };
   private readonly onFullscreenError = () => {
     const frame = this.viewer?.container;
@@ -350,12 +341,19 @@ export class RealViewerAdapter implements ViewerAdapter {
       viewing.AGGREGATE_SELECTION_CHANGED_EVENT ??
       viewing.SELECTION_CHANGED_EVENT;
     viewer.addEventListener(this.selectionEvent, this.onSelection);
-    const startCode = viewer.start();
+    let startCode: number | undefined;
+    try {
+      startCode = viewer.start();
+    } catch (err) {
+      this.abandon(viewer);
+      throw err;
+    }
     if (startCode) {
-      viewer.removeEventListener(this.selectionEvent, this.onSelection);
+      this.abandon(viewer);
       throw new Error(`Viewer failed to start (${startCode})`);
     }
     this.viewer = viewer;
+    this.started = true;
     this.api = api;
     this.tagContainer(viewer);
     this.watchScreenMode(viewer, viewing.FULLSCREEN_MODE_EVENT);
@@ -566,7 +564,7 @@ export class RealViewerAdapter implements ViewerAdapter {
       if (viewing.FULLSCREEN_MODE_EVENT) {
         viewer.removeEventListener(
           viewing.FULLSCREEN_MODE_EVENT,
-          this.scheduleResize,
+          this.onScreenChange,
         );
       }
     }
@@ -575,9 +573,33 @@ export class RealViewerAdapter implements ViewerAdapter {
     this.toolsMounted = false;
     this.modelLoaded = false;
     this.controller?.resetState();
+    this.viewer = null;
+    if (!this.started) {
+      this.removeFrame(viewer);
+      return;
+    }
+    this.started = false;
     viewer.tearDown();
     viewer.finish();
-    this.viewer = null;
+  }
+
+  private abandon(viewer: GuiViewer3D): void {
+    const viewing = autodeskWindow().Autodesk?.Viewing;
+    if (viewing) {
+      viewer.removeEventListener(
+        this.selectionEvent || viewing.SELECTION_CHANGED_EVENT,
+        this.onSelection,
+      );
+    }
+    if (this.viewer === viewer) this.viewer = null;
+    this.removeFrame(viewer);
+  }
+
+  private removeFrame(viewer: GuiViewer3D): void {
+    const frame = viewer.container;
+    if (frame && frame !== this.container && frame.parentNode) {
+      frame.parentNode.removeChild(frame);
+    }
   }
 
   getSelection(): number[] {
@@ -719,14 +741,14 @@ export class RealViewerAdapter implements ViewerAdapter {
 
   private watchScreenMode(viewer: GuiViewer3D, modeEvent?: string): void {
     this.unwatchScreenMode();
-    if (modeEvent) viewer.addEventListener(modeEvent, this.scheduleResize);
+    if (modeEvent) viewer.addEventListener(modeEvent, this.onScreenChange);
     this.stopFullscreen = watchFullscreen(
       this.document(),
       this.onFullscreenChange,
       this.onFullscreenError,
     );
     if (viewer.container && typeof ResizeObserver !== 'undefined') {
-      this.frameObserver = new ResizeObserver(this.scheduleResize);
+      this.frameObserver = new ResizeObserver(this.onScreenChange);
       this.frameObserver.observe(viewer.container);
     }
   }
@@ -736,9 +758,11 @@ export class RealViewerAdapter implements ViewerAdapter {
     this.stopFullscreen = null;
     this.frameObserver?.disconnect();
     this.frameObserver = null;
-    if (this.resizePending) cancelAnimationFrame(this.resizeFrame);
-    this.resizePending = false;
-    clearTimeout(this.settleTimer);
+    this.resizer.cancel();
+  }
+
+  scheduleResize(settleMs: number): void {
+    this.resizer.schedule(settleMs);
   }
 
   private async mountTools(): Promise<void> {

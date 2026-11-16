@@ -6,6 +6,7 @@ export type Rgba = readonly [r: number, g: number, b: number, a: number];
 
 export interface PaintSwatchSpec {
   id: string;
+  icon: string;
   label: string;
   swatch: string;
   color: Rgba;
@@ -39,6 +40,7 @@ export interface ViewerAdapter {
   load(urn: string): Promise<void>;
   unload(): void;
   resize(): void;
+  scheduleResize(settleMs: number): void;
   getSelection(): number[];
   clearSelection?(): void;
   setThemingColor(ids: number[], color: Rgba): void;

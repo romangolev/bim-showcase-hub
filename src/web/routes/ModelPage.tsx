@@ -1,10 +1,6 @@
-import { useEffect } from 'react';
-import { describeModel } from '../api/modelContext.js';
-import {
-  composeTitle,
-  useDocumentTitle,
-} from '../components/useDocumentTitle.js';
-import { type PaneTitle, usePaneTitle } from '../layout/layoutContext.js';
+import { describeModel, type ModelContext } from '../api/modelContext.js';
+import { composeTitle } from '../components/useDocumentTitle.js';
+import type { PaneTitle } from '../layout/layoutContext.js';
 
 export function viewerTabTitle(
   urn: string,
@@ -20,29 +16,17 @@ export function viewerTabTitle(
   return { label, tooltip: `${path}\n${urn}` };
 }
 
-export interface ModelPageProps {
-  urn: string;
-  file?: string;
-  version?: string;
-  crumbs?: readonly string[];
+export function modelTabTitle(urn: string, context: ModelContext): PaneTitle {
+  return viewerTabTitle(urn, context.file, context.v, context.crumbs);
 }
 
-export function ModelPage({ urn, file, version, crumbs }: ModelPageProps) {
-  const setPaneTitle = usePaneTitle();
-
+export function modelDocumentTitle(
+  urn: string,
+  file?: string,
+  version?: string,
+): string {
   const identity = describeModel(urn, file, version);
-  useDocumentTitle(
-    identity.hasFile
-      ? composeTitle(identity.title, identity.version)
-      : composeTitle('Model', identity.version),
-  );
-
-  const crumbKey = crumbs?.join('\u0000') ?? '';
-  useEffect(() => {
-    const parts = crumbKey ? crumbKey.split('\u0000') : [];
-    setPaneTitle('viewer', viewerTabTitle(urn, file, version, parts));
-    return () => setPaneTitle('viewer', null);
-  }, [setPaneTitle, urn, file, version, crumbKey]);
-
-  return null;
+  return identity.hasFile
+    ? composeTitle(identity.title, identity.version)
+    : composeTitle('Model', identity.version);
 }

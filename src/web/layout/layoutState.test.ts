@@ -1,14 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { installMemoryStorage } from '../test/mockApi.js';
 import {
+  adoptArrangement,
   defaultModel,
   importLegacy,
   LAYOUT_KEY,
+  LAYOUT_KEY_V1,
   LEGACY_KEYS,
   layoutReducer,
+  loadWithFallback,
+  migrateV1,
+  PREVIOUS_VIEWER,
   parseLayout,
   readLayout,
   type SerializedDock,
+  type SerializedNode,
   sanitizeDock,
   serializeLayout,
   siblingCountOf,
@@ -30,7 +36,7 @@ function panels(ids: string[]) {
   );
 }
 
-function sampleDock(): SerializedDock {
+function sampleDock(viewer = 'viewer:m1'): SerializedDock {
   return {
     grid: {
       root: {
@@ -41,7 +47,7 @@ function sampleDock(): SerializedDock {
           {
             type: 'branch',
             size: 800,
-            data: [leaf('2', ['viewer'], 600), leaf('3', ['dashboard'], 220)],
+            data: [leaf('2', [viewer], 600), leaf('3', ['dashboard'], 220)],
           },
           leaf('4', ['summary'], 320),
         ],
@@ -50,7 +56,7 @@ function sampleDock(): SerializedDock {
       height: 844,
       orientation: 'HORIZONTAL',
     },
-    panels: panels(['tree', 'viewer', 'dashboard', 'summary']),
+    panels: panels(['tree', viewer, 'dashboard', 'summary']),
     activeGroup: '2',
   };
 }
@@ -70,30 +76,64 @@ describe('layoutReducer', () => {
       id: 'summary',
       collapsed: true,
     });
-    expect(again.collapsed).toEqual(['summary']);
+    expect(again.collapsed).toEqual(['dashboard', 'summary']);
     const expanded = layoutReducer(again, {
       type: 'setCollapsed',
       id: 'summary',
       collapsed: false,
     });
-    expect(expanded.collapsed).toEqual([]);
+    expect(expanded.collapsed).toEqual(['dashboard']);
   });
 
-  it('resets to the default model for the window height', () => {
+  it('resets to the default model and forgets closed panes', () => {
     const custom = {
       dock: sampleDock(),
       collapsed: ['summary' as const],
       treeWidth: 400,
+      dismissed: ['dashboard' as const],
+      lastViewerArrangement: sampleDock(),
     };
     expect(layoutReducer(custom, { type: 'reset', height: 800 })).toEqual(
       defaultModel(800),
     );
   });
 
-  it('collapses the dashboard by default only on short windows', () => {
-    expect(defaultModel(1000).collapsed).toEqual([]);
+  it('starts with the dashboard collapsed and nothing closed', () => {
+    expect(defaultModel(1000).collapsed).toEqual(['dashboard']);
     expect(defaultModel(800).collapsed).toEqual(['dashboard']);
     expect(defaultModel(800).dock).toBeNull();
+    expect(defaultModel(800).dismissed).toEqual([]);
+  });
+
+  it('keeps the Documents width the user resized to, within limits', () => {
+    const start = defaultModel(1000);
+    const wider = layoutReducer(start, { type: 'treeWidth', width: 401.6 });
+    expect(wider.treeWidth).toBe(402);
+    expect(layoutReducer(wider, { type: 'treeWidth', width: 402 })).toBe(wider);
+    expect(
+      layoutReducer(wider, { type: 'treeWidth', width: 9000 }).treeWidth,
+    ).toBe(480);
+    expect(parseLayout(serializeLayout(wider))?.treeWidth).toBe(402);
+  });
+
+  it('remembers panes the user closed without duplicates', () => {
+    const start = defaultModel(1000);
+    const once = layoutReducer(start, {
+      type: 'dismiss',
+      id: 'summary',
+      dismissed: true,
+    });
+    const twice = layoutReducer(once, {
+      type: 'dismiss',
+      id: 'summary',
+      dismissed: true,
+    });
+    expect(twice.dismissed).toEqual(['summary']);
+    expect(twice).toBe(once);
+    expect(
+      layoutReducer(twice, { type: 'dismiss', id: 'summary', dismissed: false })
+        .dismissed,
+    ).toEqual([]);
   });
 });
 
@@ -103,9 +143,11 @@ describe('serialize and parse', () => {
       dock: sampleDock(),
       collapsed: ['dashboard' as const],
       treeWidth: 360,
+      dismissed: ['summary' as const],
+      lastViewerArrangement: sampleDock(),
     };
     const raw = serializeLayout(model);
-    expect(JSON.parse(raw)).toMatchObject({ version: 1 });
+    expect(JSON.parse(raw)).toMatchObject({ version: 2 });
     expect(parseLayout(raw)).toEqual(model);
   });
 
@@ -113,25 +155,28 @@ describe('serialize and parse', () => {
     expect(parseLayout('{nope')).toBeNull();
     expect(parseLayout(null)).toBeNull();
     expect(parseLayout(JSON.stringify({ version: 0, layout: {} }))).toBeNull();
-    expect(parseLayout(JSON.stringify({ version: 2, layout: {} }))).toBeNull();
+    expect(parseLayout(JSON.stringify({ version: 1, layout: {} }))).toBeNull();
+    expect(parseLayout(JSON.stringify({ version: 3, layout: {} }))).toBeNull();
     expect(parseLayout(JSON.stringify([1, 2]))).toBeNull();
   });
 
   it('drops unknown collapsed ids and clamps the tree width', () => {
     const raw = JSON.stringify({
-      version: 1,
+      version: 2,
       layout: { dock: null, collapsed: ['summary', 'terminal'], treeWidth: 9 },
     });
     expect(parseLayout(raw)).toEqual({
       dock: null,
       collapsed: ['summary'],
       treeWidth: 260,
+      dismissed: [],
+      lastViewerArrangement: null,
     });
   });
 
   it('falls back to the default dock when the stored dock is unusable', () => {
     const raw = JSON.stringify({
-      version: 1,
+      version: 2,
       layout: { dock: { grid: 'x' }, collapsed: [], treeWidth: 320 },
     });
     expect(parseLayout(raw)?.dock).toBeNull();
@@ -151,7 +196,68 @@ describe('sanitizeDock', () => {
     branch.push(leaf('9', ['terminal']));
     dock.panels.terminal = { id: 'terminal', contentComponent: 'pane' };
     const result = sanitizeDock(dock);
-    expect(result?.dock).toEqual(sampleDock());
+    const sizes = (
+      (result?.dock.grid.root.data ?? []) as { size: number }[]
+    ).map((node) => node.size);
+    expect(sizes.reduce((sum, size) => sum + size, 0)).toBeCloseTo(1540);
+    expect(sizes[0]).toBeCloseTo((320 * 1540) / 1440);
+    expect(JSON.stringify(result?.dock)).not.toContain('terminal');
+  });
+
+  it('gives the space of a dropped pane to its siblings', () => {
+    const dock = sampleDock();
+    delete dock.panels.dashboard;
+    const result = sanitizeDock(dock);
+    const middle = ((result?.dock.grid.root.data ?? []) as SerializedNode[])[1];
+    expect(middle).toMatchObject({ type: 'leaf', size: 800 });
+    expect(JSON.stringify(middle?.data)).toContain('"views":["viewer:m1"]');
+  });
+
+  it('splices a branch left with one branch into its grandparent', () => {
+    const dock = sampleDock();
+    dock.grid.root.data = [
+      leaf('1', ['tree'], 300),
+      {
+        type: 'branch',
+        size: 900,
+        data: [
+          {
+            type: 'branch',
+            size: 600,
+            data: [leaf('2', ['viewer:m1'], 200), leaf('4', ['summary'], 400)],
+          },
+          leaf('3', ['ghost'], 300),
+        ],
+      },
+    ];
+    const result = sanitizeDock(dock);
+    const root = (result?.dock.grid.root.data ?? []) as SerializedNode[];
+    expect(root.map((node) => (node.data as { id?: string }).id)).toEqual([
+      '1',
+      '2',
+      '4',
+    ]);
+    expect(root.map((node) => node.size)).toEqual([300, 300, 600]);
+    expect(result?.dock.grid.orientation).toBe('HORIZONTAL');
+  });
+
+  it('flips the root orientation when only one branch is left under it', () => {
+    const dock = sampleDock();
+    dock.grid.root.data = [
+      leaf('9', ['ghost'], 400),
+      {
+        type: 'branch',
+        size: 1040,
+        data: [leaf('2', ['viewer:m1'], 600), leaf('3', ['dashboard'], 240)],
+      },
+    ];
+    const result = sanitizeDock(dock);
+    expect(result?.dock.grid.orientation).toBe('VERTICAL');
+    expect(
+      ((result?.dock.grid.root.data ?? []) as SerializedNode[]).map(
+        (node) => (node.data as { id: string }).id,
+      ),
+    ).toEqual(['2', '3']);
   });
 
   it('removes an unknown tab from a shared group and fixes the active tab', () => {
@@ -162,29 +268,39 @@ describe('sanitizeDock', () => {
         size: 900,
         data: {
           id: '1',
-          views: ['terminal', 'viewer'],
+          views: ['terminal', 'viewer:m1'],
           activeView: 'terminal',
         },
       },
     ];
-    dock.panels = panels(['terminal', 'viewer']);
+    dock.panels = panels(['terminal', 'viewer:m1']);
     const result = sanitizeDock(dock);
     const only = (
       (result?.dock.grid.root.data ?? []) as { data: unknown }[]
     )[0];
     expect(only?.data).toEqual({
       id: '1',
-      views: ['viewer'],
-      activeView: 'viewer',
+      views: ['viewer:m1'],
+      activeView: 'viewer:m1',
     });
-    expect(Object.keys(result?.dock.panels ?? {})).toEqual(['viewer']);
+    expect(Object.keys(result?.dock.panels ?? {})).toEqual(['viewer:m1']);
   });
 
-  it('reports required panes that are missing', () => {
+  it('reports Documents as missing and nothing else', () => {
     const dock = sampleDock();
+    dock.grid.root.data = [leaf('1', ['summary'], 900)];
+    dock.panels = panels(['summary']);
+    expect(sanitizeDock(dock)?.missing).toEqual(['tree']);
     dock.grid.root.data = [leaf('1', ['tree'], 900)];
     dock.panels = panels(['tree']);
-    expect(sanitizeDock(dock)?.missing).toEqual(['viewer']);
+    expect(sanitizeDock(dock)?.missing).toEqual([]);
+  });
+
+  it('drops the empty viewer of older layouts', () => {
+    const result = sanitizeDock(sampleDock('viewer'));
+    expect(viewsOf(result?.dock, '2')).toEqual([]);
+    expect(Object.keys(result?.dock.panels ?? {})).not.toContain('viewer');
+    expect(result?.missing).toEqual([]);
   });
 
   it('cleans floating groups, drops popout groups and duplicate panes', () => {
@@ -263,6 +379,8 @@ describe('storage', () => {
       dock: null,
       collapsed: ['summary'],
       treeWidth: 400,
+      dismissed: [],
+      lastViewerArrangement: null,
     });
     expect(storage.getItem(LEGACY_KEYS.treeWidth)).toBeNull();
     expect(storage.getItem(LEGACY_KEYS.summary)).toBeNull();
@@ -272,9 +390,11 @@ describe('storage', () => {
     expect(readLayout(storage, 800)).toEqual(model);
   });
 
-  it('uses the window height when no dashboard choice was stored', () => {
+  it('collapses the dashboard unless it was expanded before', () => {
     const storage = installMemoryStorage();
     expect(importLegacy(storage, 800).collapsed).toEqual(['dashboard']);
+    expect(importLegacy(storage, 1000).collapsed).toEqual(['dashboard']);
+    storage.setItem(LEGACY_KEYS.dashboard, '0');
     expect(importLegacy(storage, 1000).collapsed).toEqual([]);
   });
 
@@ -303,8 +423,248 @@ describe('storage', () => {
     const storage = installMemoryStorage();
     writeLayout(storage, defaultModel(1000));
     expect(JSON.parse(storage.getItem(LAYOUT_KEY) ?? '')).toEqual({
-      version: 1,
-      layout: { dock: null, collapsed: [], treeWidth: 320 },
+      version: 2,
+      layout: {
+        dock: null,
+        collapsed: ['dashboard'],
+        treeWidth: 320,
+        dismissed: [],
+        lastViewerArrangement: null,
+      },
     });
+  });
+});
+
+function modelDock(views: string[]): SerializedDock {
+  const dock = sampleDock();
+  const root = dock.grid.root.data as ReturnType<typeof leaf>[];
+  const middle = root[1] as unknown as { data: ReturnType<typeof leaf>[] };
+  middle.data[0] = leaf('2', views, 600);
+  return {
+    ...dock,
+    panels: panels(['tree', ...views, 'dashboard', 'summary']),
+  };
+}
+
+function viewsOf(dock: SerializedDock | undefined, group: string): string[] {
+  const found: string[][] = [];
+  const visit = (node: { type: string; data: unknown }) => {
+    if (node.type === 'leaf') {
+      const data = node.data as { id: string; views: string[] };
+      if (data.id === group) found.push(data.views);
+    } else {
+      for (const child of node.data as { type: string; data: unknown }[]) {
+        visit(child);
+      }
+    }
+  };
+  if (dock) visit(dock.grid.root);
+  return found[0] ?? [];
+}
+
+describe('model tabs in the dock', () => {
+  it('keeps model tabs that are open and drops the others', () => {
+    const dock = modelDock(['viewer:a', 'viewer:b', 'viewer:c']);
+    const result = sanitizeDock(dock, ['viewer:a', 'viewer:c']);
+    expect(viewsOf(result?.dock, '2')).toEqual(['viewer:a', 'viewer:c']);
+    expect(Object.keys(result?.dock.panels ?? {})).not.toContain('viewer:b');
+    expect(result?.missing).toEqual([]);
+  });
+
+  it('drops every model tab when no model is open and asks for nothing', () => {
+    const dock = modelDock(['viewer:a', 'viewer:b']);
+    const result = sanitizeDock(dock, []);
+    expect(viewsOf(result?.dock, '2')).toEqual([]);
+    expect(Object.keys(result?.dock.panels ?? {}).sort()).toEqual([
+      'dashboard',
+      'summary',
+      'tree',
+    ]);
+    expect(result?.missing).toEqual([]);
+  });
+
+  it('parses model tabs without knowing which models are open', () => {
+    const model = {
+      dock: modelDock(['viewer:a']),
+      collapsed: [],
+      treeWidth: 320,
+      dismissed: [],
+      lastViewerArrangement: null,
+    };
+    expect(
+      parseLayout(serializeLayout(model))?.dock?.panels['viewer:a'],
+    ).toBeDefined();
+  });
+});
+
+describe('migration from v1', () => {
+  function v1(dock: SerializedDock | null = sampleDock('viewer')) {
+    return JSON.stringify({
+      version: 1,
+      layout: { dock, collapsed: ['summary'], treeWidth: 360 },
+    });
+  }
+
+  it('keeps the arrangement and maps the viewer to the first open model', () => {
+    const migrated = migrateV1(v1(), ['viewer:a', 'viewer:b']);
+    expect(migrated?.collapsed).toEqual(['summary']);
+    expect(migrated?.treeWidth).toBe(360);
+    expect(viewsOf(migrated?.dock ?? undefined, '2')).toEqual(['viewer:a']);
+    expect(migrated?.dock?.panels['viewer:a']).toMatchObject({
+      id: 'viewer:a',
+    });
+    expect(migrated?.dock?.panels.viewer).toBeUndefined();
+    expect(migrated?.dock?.activeGroup).toBe('2');
+  });
+
+  it('drops the viewer and keeps the rest when no model is open', () => {
+    const migrated = migrateV1(v1(), []);
+    expect(viewsOf(migrated?.dock ?? undefined, '2')).toEqual([]);
+    expect(Object.keys(migrated?.dock?.panels ?? {}).sort()).toEqual([
+      'dashboard',
+      'summary',
+      'tree',
+    ]);
+    expect(migrated?.dismissed).toEqual([]);
+  });
+
+  it('rejects a corrupt v1 record', () => {
+    expect(migrateV1('{', ['viewer:a'])).toBeNull();
+  });
+
+  it('reads v1 once, writes v2 and deletes the old key', () => {
+    const storage = installMemoryStorage();
+    storage.setItem(LAYOUT_KEY_V1, v1());
+    const model = readLayout(storage, 1000, ['viewer:x']);
+    expect(viewsOf(model.dock ?? undefined, '2')).toEqual(['viewer:x']);
+    expect(storage.getItem(LAYOUT_KEY_V1)).toBeNull();
+    expect(JSON.parse(storage.getItem(LAYOUT_KEY) ?? '{}').version).toBe(2);
+    expect(parseLayout(storage.getItem(LAYOUT_KEY))).toEqual(model);
+  });
+
+  it('prefers an existing v2 record', () => {
+    const storage = installMemoryStorage();
+    storage.setItem(LAYOUT_KEY_V1, v1());
+    writeLayout(storage, defaultModel(1000));
+    expect(readLayout(storage, 1000, ['viewer:x'])).toEqual(defaultModel(1000));
+  });
+});
+
+describe('remembered viewer arrangement', () => {
+  it('remembers the last dock that had a model and keeps it when models close', () => {
+    const withModel = layoutReducer(defaultModel(1000), {
+      type: 'dock',
+      dock: sampleDock(),
+    });
+    expect(withModel.lastViewerArrangement).toEqual(sampleDock());
+    const alone = sanitizeDock(sampleDock(), [])?.dock as SerializedDock;
+    const closed = layoutReducer(withModel, { type: 'dock', dock: alone });
+    expect(closed.dock).toEqual(alone);
+    expect(closed.lastViewerArrangement).toEqual(sampleDock());
+    expect(parseLayout(serializeLayout(closed))?.lastViewerArrangement).toEqual(
+      sampleDock(),
+    );
+    expect(
+      layoutReducer(closed, { type: 'reset', height: 1000 })
+        .lastViewerArrangement,
+    ).toBeNull();
+  });
+
+  it('puts new models where the viewer was and keeps the companions placed', () => {
+    const adopted = adoptArrangement(
+      sampleDock(),
+      ['viewer:x', 'viewer:y'],
+      'viewer:y',
+      ['summary', 'dashboard'],
+      { 'viewer:x': { label: 'X.rvt' } },
+    );
+    expect(viewsOf(adopted ?? undefined, '2')).toEqual([
+      'viewer:x',
+      'viewer:y',
+    ]);
+    expect(viewsOf(adopted ?? undefined, '3')).toEqual(['dashboard']);
+    expect(viewsOf(adopted ?? undefined, '4')).toEqual(['summary']);
+    expect(adopted?.panels['viewer:x']).toMatchObject({
+      id: 'viewer:x',
+      title: 'X.rvt',
+    });
+    expect(adopted?.panels['viewer:m1']).toBeUndefined();
+    expect(JSON.stringify(adopted?.grid.root)).toContain(
+      '"id":"2","views":["viewer:x","viewer:y"],"activeView":"viewer:y"',
+    );
+  });
+
+  it('leaves out companions the user closed', () => {
+    const adopted = adoptArrangement(sampleDock(), ['viewer:x'], null, [
+      'dashboard',
+    ]);
+    expect(Object.keys(adopted?.panels ?? {}).sort()).toEqual([
+      'dashboard',
+      'tree',
+      'viewer:x',
+    ]);
+  });
+
+  it('returns nothing without models or without a viewer slot', () => {
+    expect(adoptArrangement(sampleDock(), [], null, [])).toBeNull();
+    const alone = sanitizeDock(sampleDock(), [])?.dock as SerializedDock;
+    expect(adoptArrangement(alone, ['viewer:x'], null, [])).toBeNull();
+  });
+
+  it('keeps the arrangement of older records that had the empty viewer', () => {
+    const raw = JSON.stringify({
+      version: 2,
+      layout: {
+        dock: sampleDock('viewer'),
+        collapsed: [],
+        treeWidth: 320,
+      },
+    });
+    const model = parseLayout(raw);
+    expect(Object.keys(model?.dock?.panels ?? {})).not.toContain('viewer');
+    expect(viewsOf(model?.lastViewerArrangement ?? undefined, '2')).toEqual([
+      PREVIOUS_VIEWER,
+    ]);
+    const migrated = migrateV1(
+      JSON.stringify({
+        version: 1,
+        layout: { dock: sampleDock('viewer'), collapsed: [], treeWidth: 320 },
+      }),
+      [],
+    );
+    expect(viewsOf(migrated?.lastViewerArrangement ?? undefined, '2')).toEqual([
+      PREVIOUS_VIEWER,
+    ]);
+  });
+});
+
+describe('loading a saved dock', () => {
+  it('drops only the panel the dock library rejects', () => {
+    const tried: string[][] = [];
+    const loaded = loadWithFallback(sampleDock(), (dock) => {
+      const ids = Object.keys(dock.panels);
+      tried.push(ids);
+      if (ids.includes('dashboard')) throw new Error('bad dashboard');
+    });
+    expect(Object.keys(loaded?.panels ?? {}).sort()).toEqual([
+      'summary',
+      'tree',
+      'viewer:m1',
+    ]);
+    expect(tried[0]).toContain('dashboard');
+  });
+
+  it('never drops a required panel and gives up when nothing loads', () => {
+    const tried: string[][] = [];
+    const loaded = loadWithFallback(
+      sampleDock(),
+      (dock) => {
+        tried.push(Object.keys(dock.panels));
+        throw new Error('broken');
+      },
+      (id) => id === 'tree',
+    );
+    expect(loaded).toBeNull();
+    expect(tried.every((ids) => ids.includes('tree'))).toBe(true);
   });
 });

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 
 export interface HostStore<Id extends string = string> {
   get(id: Id): HTMLElement;
+  release(id: Id): void;
 }
 
 export function createHostStore<Id extends string>(): HostStore<Id> {
@@ -17,6 +18,12 @@ export function createHostStore<Id extends string>(): HostStore<Id> {
         hosts.set(id, host);
       }
       return host;
+    },
+    release(id) {
+      const host = hosts.get(id);
+      if (!host) return;
+      host.remove();
+      hosts.delete(id);
     },
   };
 }
@@ -47,6 +54,8 @@ export interface PaneSlotProps<Id extends string> {
   hosts: HostStore<Id>;
   id: Id;
   onAttach?: (id: Id) => void;
+  onVisibility?: (id: Id, visible: boolean) => void;
+  visible?: boolean;
   className?: string;
 }
 
@@ -54,22 +63,31 @@ export function PaneSlot<Id extends string>({
   hosts,
   id,
   onAttach,
+  onVisibility,
+  visible = true,
   className,
 }: PaneSlotProps<Id>) {
   const ref = useRef<HTMLDivElement>(null);
   const onAttachRef = useRef(onAttach);
   onAttachRef.current = onAttach;
+  const onVisibilityRef = useRef(onVisibility);
+  onVisibilityRef.current = onVisibility;
 
   useLayoutEffect(() => {
     const slot = ref.current;
     if (!slot) return;
     const host = hosts.get(id);
     slot.appendChild(host);
-    onAttachRef.current?.(id);
     return () => {
       if (host.parentNode === slot) slot.removeChild(host);
     };
   }, [hosts, id]);
+
+  useLayoutEffect(() => {
+    if (visible) onAttachRef.current?.(id);
+    onVisibilityRef.current?.(id, visible);
+    return () => onVisibilityRef.current?.(id, false);
+  }, [id, visible]);
 
   return (
     <div

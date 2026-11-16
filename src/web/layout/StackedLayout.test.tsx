@@ -1,5 +1,12 @@
 import { createMemoryHistory } from '@tanstack/react-router';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../App.js';
 import { createAppRouter } from '../routes/router.js';
@@ -12,7 +19,7 @@ import {
   treeRoutes,
 } from '../test/mockApi.js';
 import { LAYOUT_KEY, parseLayout } from './layoutState.js';
-import { stackedPanes } from './StackedLayout.js';
+import { ModelSwitcher, stackedPanes } from './StackedLayout.js';
 
 function renderPath(path: string) {
   const appRouter = createAppRouter(
@@ -43,14 +50,80 @@ describe('stackedPanes', () => {
     ).toEqual(['viewer', 'dashboard', 'summary']);
   });
 
-  it('shows only main off the model route', () => {
+  it('shows no viewer section without a model', () => {
     expect(
       stackedPanes(['tree', 'viewer', 'summary', 'dashboard'], false),
-    ).toEqual(['viewer']);
+    ).toEqual([]);
   });
 
-  it('keeps panes closed in the dock closed and never drops the viewer', () => {
+  it('keeps closed companions closed and always shows the open model', () => {
     expect(stackedPanes(['tree'], true)).toEqual(['viewer']);
+  });
+});
+
+describe('model switcher keyboard', () => {
+  const state = {
+    models: [
+      { urn: 'a', context: {} },
+      { urn: 'b', context: {} },
+      { urn: 'c', context: {} },
+    ],
+    active: 'a',
+    live: [],
+    visible: [],
+  };
+  const titles = {
+    'viewer:a': { label: 'A', tooltip: '' },
+    'viewer:b': { label: 'B', tooltip: '' },
+    'viewer:c': { label: 'C', tooltip: '' },
+  };
+
+  function setup() {
+    const onSelect = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <ModelSwitcher
+        models={state}
+        titles={titles}
+        onSelect={onSelect}
+        onClose={onClose}
+      />,
+    );
+    return { onSelect, onClose };
+  }
+
+  it('keeps tabs as direct children of the tablist with one in the tab order', () => {
+    setup();
+    const list = screen.getByRole('tablist', { name: 'Open models' });
+    const tabs = within(list).getAllByRole('tab');
+    expect(tabs.map((tab) => tab.parentElement)).toEqual([list, list, list]);
+    expect(tabs.map((tab) => tab.tabIndex)).toEqual([0, -1, -1]);
+    expect(tabs[0]).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('moves with the arrow keys, Home and End, and wraps', () => {
+    const { onSelect } = setup();
+    const [a, b, c] = screen.getAllByRole('tab');
+    a?.focus();
+    fireEvent.keyDown(a as HTMLElement, { key: 'ArrowRight' });
+    expect(onSelect).toHaveBeenLastCalledWith('b');
+    expect(b).toHaveFocus();
+    fireEvent.keyDown(b as HTMLElement, { key: 'End' });
+    expect(onSelect).toHaveBeenLastCalledWith('c');
+    expect(c).toHaveFocus();
+    fireEvent.keyDown(c as HTMLElement, { key: 'ArrowRight' });
+    expect(onSelect).toHaveBeenLastCalledWith('a');
+    fireEvent.keyDown(a as HTMLElement, { key: 'ArrowLeft' });
+    expect(onSelect).toHaveBeenLastCalledWith('c');
+    fireEvent.keyDown(c as HTMLElement, { key: 'Home' });
+    expect(onSelect).toHaveBeenLastCalledWith('a');
+  });
+
+  it('closes the focused tab with Delete', () => {
+    const { onClose } = setup();
+    const [, b] = screen.getAllByRole('tab');
+    fireEvent.keyDown(b as HTMLElement, { key: 'Delete' });
+    expect(onClose).toHaveBeenCalledWith('b');
   });
 });
 
@@ -82,7 +155,7 @@ describe('stacked layout', () => {
     ).toBeNull();
     expect(storage.getItem(LAYOUT_KEY)).toBe(before);
     expect(
-      document.querySelectorAll('.stack__column > .pane-slot'),
+      document.querySelectorAll('.stack__column .stack__pane'),
     ).toHaveLength(3);
   });
 
@@ -92,33 +165,38 @@ describe('stacked layout', () => {
     expect(
       await screen.findByRole('button', { name: 'Collapse Model summary' }),
     ).toHaveClass('bsh-summary__toggle');
-    expect(screen.getByRole('button', { name: 'Collapse' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Expand' })).toHaveAttribute(
       'aria-expanded',
-      'true',
+      'false',
     );
   });
 
-  it('labels the viewer section with the model name and keeps the path in the tooltip', async () => {
+  it('names the open model above the viewer and keeps the path in the tooltip', async () => {
     mockMatchMedia(800);
     renderPath(
       `/model/abc123?file=Tower.rvt&v=v2&crumbs=${encodeURIComponent(JSON.stringify(['Hub', 'Docs']))}`,
     );
-    const label = await screen.findByRole('heading', {
-      level: 2,
+    const strip = await screen.findByRole('tablist', { name: 'Open models' });
+    const tab = await within(strip).findByRole('tab', {
       name: 'Tower.rvt · v2',
     });
-    expect(label).toHaveAttribute(
-      'title',
-      'Hub / Docs / Tower.rvt · v2\nabc123',
+    expect(tab).toHaveAttribute('title', 'Hub / Docs / Tower.rvt · v2\nabc123');
+    const panel = screen.getByRole('tabpanel', { name: 'Tower.rvt · v2' });
+    expect(tab).toHaveAttribute('aria-controls', panel.id);
+    expect(panel.querySelector('[data-slot]')?.getAttribute('data-slot')).toBe(
+      'viewer:abc123',
     );
-    expect(label.nextElementSibling?.getAttribute('data-slot')).toBe('viewer');
+    expect(within(strip).queryByRole('button')).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'Close Tower.rvt · v2' }),
+    ).toBeInTheDocument();
   });
 
-  it('shows no viewer label on the index route', async () => {
+  it('shows no model strip on the index route', async () => {
     mockMatchMedia(800);
     renderPath('/');
     await screen.findByRole('heading', { name: 'Pick a model to explore' });
-    expect(document.querySelector('.stack__label')).toBeNull();
+    expect(screen.queryByRole('tablist', { name: 'Open models' })).toBeNull();
   });
 
   it('shows only main on the index route', async () => {

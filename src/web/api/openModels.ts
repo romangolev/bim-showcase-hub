@@ -1,0 +1,281 @@
+import {
+  type ModelContext,
+  parseModelContext,
+  sameModelContext,
+} from './modelContext.js';
+import { hasModelContext, MODEL_STORE_KEY } from './modelStore.js';
+
+export const OPEN_MODELS_KEY = 'bsh.models.open';
+export const MODEL_OWNER_KEY = 'bsh.models.owner';
+export const MAX_LOADED_MODELS = 4;
+
+export interface OpenModel {
+  urn: string;
+  context: ModelContext;
+}
+
+export interface OpenModelsState {
+  models: readonly OpenModel[];
+  active: string | null;
+  live: readonly string[];
+  visible: readonly string[];
+}
+
+export const EMPTY_OPEN_MODELS: OpenModelsState = {
+  models: [],
+  active: null,
+  live: [],
+  visible: [],
+};
+
+export function isOpen(state: OpenModelsState, urn: string): boolean {
+  return state.models.some((model) => model.urn === urn);
+}
+
+export function contextOf(
+  state: OpenModelsState,
+  urn: string,
+): ModelContext | null {
+  return state.models.find((model) => model.urn === urn)?.context ?? null;
+}
+
+export function touchLive(
+  state: OpenModelsState,
+  urn: string,
+  limit = MAX_LOADED_MODELS,
+): OpenModelsState {
+  if (!isOpen(state, urn)) return state;
+  if (state.live[state.live.length - 1] === urn) return state;
+  const live = [...state.live.filter((id) => id !== urn), urn];
+  while (live.length > Math.max(1, limit)) {
+    const victim = live.findIndex(
+      (id) => id !== urn && id !== state.active && !state.visible.includes(id),
+    );
+    if (victim === -1) break;
+    live.splice(victim, 1);
+  }
+  return { ...state, live };
+}
+
+export function setVisible(
+  state: OpenModelsState,
+  urns: readonly string[],
+): OpenModelsState {
+  const visible = urns.filter((urn) => isOpen(state, urn));
+  const same =
+    visible.length === state.visible.length &&
+    visible.every((urn) => state.visible.includes(urn));
+  return same ? state : { ...state, visible };
+}
+
+export function activateModel(
+  state: OpenModelsState,
+  urn: string,
+  limit = MAX_LOADED_MODELS,
+): OpenModelsState {
+  if (!isOpen(state, urn)) return state;
+  const next = state.active === urn ? state : { ...state, active: urn };
+  return touchLive(next, urn, limit);
+}
+
+export function openModel(
+  state: OpenModelsState,
+  urn: string,
+  context: ModelContext = {},
+  limit = MAX_LOADED_MODELS,
+): OpenModelsState {
+  if (!urn) return state;
+  const existing = state.models.find((model) => model.urn === urn);
+  let models = state.models;
+  if (!existing) {
+    models = [...models, { urn, context: parseModelContext(context) }];
+  } else if (
+    hasModelContext(context) &&
+    !sameModelContext(existing.context, context)
+  ) {
+    models = models.map((model) =>
+      model.urn === urn ? { urn, context: parseModelContext(context) } : model,
+    );
+  }
+  const next = models === state.models ? state : { ...state, models };
+  return activateModel(next, urn, limit);
+}
+
+export function closeModel(
+  state: OpenModelsState,
+  urn: string,
+  limit = MAX_LOADED_MODELS,
+): OpenModelsState {
+  const index = state.models.findIndex((model) => model.urn === urn);
+  if (index === -1) return state;
+  const models = state.models.filter((model) => model.urn !== urn);
+  let active = state.active;
+  if (active === urn) {
+    active = (models[index] ?? models[index - 1])?.urn ?? null;
+  }
+  const next = {
+    models,
+    active,
+    live: state.live.filter((id) => id !== urn),
+    visible: state.visible.filter((id) => id !== urn),
+  };
+  return active && active !== state.active
+    ? touchLive(next, active, limit)
+    : next;
+}
+
+export function keepOnlyModel(
+  state: OpenModelsState,
+  urn: string,
+): OpenModelsState {
+  const model = state.models.find((entry) => entry.urn === urn);
+  if (!model) return state;
+  return { models: [model], active: urn, live: [], visible: [] };
+}
+
+export function serializeOpenModels(state: OpenModelsState): string {
+  return JSON.stringify({ models: state.models, active: state.active });
+}
+
+export function parseOpenModels(raw: string | null): OpenModelsState {
+  if (!raw) return EMPTY_OPEN_MODELS;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return EMPTY_OPEN_MODELS;
+  }
+  if (typeof parsed !== 'object' || parsed === null) return EMPTY_OPEN_MODELS;
+  const record = parsed as Record<string, unknown>;
+  const models: OpenModel[] = [];
+  if (Array.isArray(record.models)) {
+    for (const entry of record.models) {
+      if (typeof entry !== 'object' || entry === null) continue;
+      const { urn, context } = entry as Record<string, unknown>;
+      if (typeof urn !== 'string' || !urn) continue;
+      if (models.some((model) => model.urn === urn)) continue;
+      models.push({
+        urn,
+        context: parseModelContext(context),
+      });
+    }
+  }
+  const active =
+    typeof record.active === 'string' &&
+    models.some((model) => model.urn === record.active)
+      ? record.active
+      : (models[0]?.urn ?? null);
+  return { models, active, live: [], visible: [] };
+}
+
+function local(): Storage | null {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+function remove(storage: Storage | null, key: string) {
+  try {
+    storage?.removeItem(key);
+  } catch {
+    return;
+  }
+}
+
+export function forgetModels(): void {
+  remove(sessionStore(), OPEN_MODELS_KEY);
+  remove(local(), MODEL_STORE_KEY);
+  remove(local(), MODEL_OWNER_KEY);
+}
+
+export function claimModels(owner: string): boolean {
+  const storage = local();
+  let stored: string | null = null;
+  try {
+    stored = storage?.getItem(MODEL_OWNER_KEY) ?? null;
+  } catch {
+    stored = null;
+  }
+  const changed = stored !== null && stored !== owner;
+  if (changed) forgetModels();
+  try {
+    storage?.setItem(MODEL_OWNER_KEY, owner);
+  } catch {
+    return changed;
+  }
+  return changed;
+}
+
+export interface OpenModelsStore {
+  getState: () => OpenModelsState;
+  subscribe: (listener: () => void) => () => void;
+  open: (urn: string, context?: ModelContext) => void;
+  activate: (urn: string) => void;
+  show: (urn: string) => void;
+  setVisible: (urns: readonly string[]) => void;
+  close: (urn: string) => void;
+  keepOnly: (urn: string) => void;
+  clear: () => void;
+}
+
+function sessionStore(): Storage | null {
+  try {
+    return window.sessionStorage;
+  } catch {
+    return null;
+  }
+}
+
+export function createOpenModelsStore(
+  storage: Storage | null = sessionStore(),
+  limit = MAX_LOADED_MODELS,
+): OpenModelsStore {
+  let raw: string | null = null;
+  try {
+    raw = storage?.getItem(OPEN_MODELS_KEY) ?? null;
+  } catch {
+    raw = null;
+  }
+  let state = parseOpenModels(raw);
+  const listeners = new Set<() => void>();
+  const save = (previous: OpenModelsState) => {
+    if (previous.models === state.models && previous.active === state.active) {
+      return;
+    }
+    try {
+      storage?.setItem(OPEN_MODELS_KEY, serializeOpenModels(state));
+    } catch {
+      return;
+    }
+  };
+  const apply = (next: OpenModelsState) => {
+    if (next === state) return;
+    const previous = state;
+    state = next;
+    save(previous);
+    for (const listener of [...listeners]) listener();
+  };
+  return {
+    getState: () => state,
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    open: (urn, context) => apply(openModel(state, urn, context, limit)),
+    activate: (urn) => apply(activateModel(state, urn, limit)),
+    show: (urn) => apply(touchLive(state, urn, limit)),
+    setVisible: (urns) => apply(setVisible(state, urns)),
+    close: (urn) => apply(closeModel(state, urn, limit)),
+    keepOnly: (urn) => apply(keepOnlyModel(state, urn)),
+    clear: () => {
+      remove(storage, OPEN_MODELS_KEY);
+      if (state.models.length === 0) return;
+      state = EMPTY_OPEN_MODELS;
+      for (const listener of [...listeners]) listener();
+    },
+  };
+}

@@ -35,7 +35,7 @@ interface LayoutHandle {
   setCollapsed: (id: PaneId, collapsed: boolean) => void;
   resetLayout: () => void;
   openPanes: () => PaneId[];
-  location: (id: PaneId) => string | null;
+  location: (id: string) => string | null;
   read: () => LayoutModel;
 }
 
@@ -108,10 +108,10 @@ describe('dock layout', () => {
         'dashboard',
         'summary',
         'tree',
-        'viewer',
+        'viewer:abc123',
       ]),
     );
-    expect(JSON.parse(storage.getItem(LAYOUT_KEY) ?? '{}').version).toBe(1);
+    expect(JSON.parse(storage.getItem(LAYOUT_KEY) ?? '{}').version).toBe(2);
   });
 
   it('puts the paint and export tools inside the viewer toolbar', async () => {
@@ -133,7 +133,17 @@ describe('dock layout', () => {
     expect(
       screen.getAllByRole('button', { name: 'Expand Model summary' })[0],
     ).toHaveAttribute('aria-expanded', 'false');
-    await waitFor(() => expect(saved()?.collapsed).toEqual(['summary']));
+    await waitFor(() =>
+      expect(saved()?.collapsed).toEqual(['dashboard', 'summary']),
+    );
+  });
+
+  it('opens the dashboard collapsed next to the first model', async () => {
+    renderPath();
+    await dockReady();
+    expect(
+      await screen.findByRole('button', { name: 'Expand Dashboard' }),
+    ).toHaveAttribute('aria-expanded', 'false');
   });
 
   it('restores a saved layout and keeps closed panes closed', async () => {
@@ -155,10 +165,17 @@ describe('dock layout', () => {
     expect(handle().openPanes()).not.toContain('dashboard');
   });
 
-  it('names the viewer tab after the open model and falls back to Viewer', async () => {
+  it('starts with Documents alone and names each model tab after its file', async () => {
     const { appRouter } = renderPath('/');
     await dockReady();
-    expect(await screen.findByRole('tab', { name: 'Viewer' })).toBeVisible();
+    await waitFor(() => expect(handle().openPanes()).toEqual(['tree']));
+    expect(screen.queryByRole('tab', { name: 'Viewer' })).toBeNull();
+    expect(
+      screen.getByRole('heading', { name: 'Pick a model to explore' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Select a model version to open it in the viewer/),
+    ).toBeInTheDocument();
 
     await act(() =>
       appRouter.navigate({
@@ -179,34 +196,18 @@ describe('dock layout', () => {
       'Hub / Docs / FILI_20170810_01.nwd · v1\nabc123',
     );
     expect(screen.queryByRole('tab', { name: 'Viewer' })).toBeNull();
-
-    await act(() =>
-      appRouter.navigate({
-        to: '/model/$urn',
-        params: { urn: 'def456' },
-        search: { file: 'Other.rvt', v: 'v3' },
-      }),
-    );
-    expect(
-      await screen.findByRole('tab', { name: 'Other.rvt · v3' }),
-    ).toBeVisible();
-
-    await act(() => appRouter.navigate({ to: '/' }));
-    expect(await screen.findByRole('tab', { name: 'Viewer' })).toBeVisible();
     await waitFor(() =>
-      expect(
-        Object.values(saved()?.dock?.panels ?? {}).find(
-          (panel) => (panel as { id: string }).id === 'viewer',
-        ),
-      ).toMatchObject({ title: 'Viewer' }),
+      expect(saved()?.dock?.panels['viewer:abc123']).toMatchObject({
+        title: 'FILI_20170810_01.nwd · v1',
+      }),
     );
   });
 
-  it('re-adds the viewer when a saved layout lost it', async () => {
+  it('opens the viewer and its companions next to a saved Documents-only layout', async () => {
     storage.setItem(
       LAYOUT_KEY,
       JSON.stringify({
-        version: 1,
+        version: 2,
         layout: {
           collapsed: [],
           treeWidth: 320,
@@ -243,7 +244,14 @@ describe('dock layout', () => {
     expect(
       await screen.findByRole('region', { name: 'Model viewer' }),
     ).toBeInTheDocument();
-    expect(handle().openPanes().sort()).toEqual(['tree', 'viewer']);
+    await waitFor(() =>
+      expect(handle().openPanes().sort()).toEqual([
+        'dashboard',
+        'summary',
+        'tree',
+        'viewer',
+      ]),
+    );
   });
 
   it('imports the old keys on first run and deletes them', async () => {
@@ -331,6 +339,7 @@ describe('dock layout', () => {
       ]),
     );
     expect(handle().location('dashboard')).toBe('grid');
+    expect(handle().location('viewer:abc123')).toBe('grid');
   });
 
   it('keeps the dock controller alive under StrictMode', async () => {
@@ -351,8 +360,8 @@ describe('dock layout', () => {
     ).toHaveAttribute('aria-expanded', 'false');
     act(() => handle().movePane('summary', 'float'));
     expect(handle().location('summary')).toBe('floating');
-    fireEvent.click(screen.getByRole('button', { name: 'Collapse Dashboard' }));
-    await waitFor(() => expect(saved()?.collapsed).toContain('dashboard'));
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Dashboard' }));
+    await waitFor(() => expect(saved()?.collapsed).not.toContain('dashboard'));
   });
 
   it('shows the route content in main on other routes', async () => {

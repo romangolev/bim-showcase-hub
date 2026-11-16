@@ -2,7 +2,12 @@ import { createMemoryHistory } from '@tanstack/react-router';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App.js';
-import { recallModel, rememberModel } from './api/modelStore.js';
+import {
+  MODEL_STORE_KEY,
+  recallModel,
+  rememberModel,
+} from './api/modelStore.js';
+import { OPEN_MODELS_KEY } from './api/openModels.js';
 import { createAppRouter } from './routes/router.js';
 import {
   createTestClient,
@@ -90,13 +95,17 @@ describe('App shell', () => {
     ).toBeInTheDocument();
   });
 
-  it('signs out through the user menu', async () => {
+  it('signs out through the user menu and forgets the models', async () => {
     const fetchMock = mockFetch({
       '/api/session': { name: 'Ada Lovelace', picture: null },
       '/api/auth/signout': () => new Response(null, { status: 204 }),
       ...treeRoutes,
     });
-    renderApp();
+    renderApp('/model/abc123?file=Secret.rvt');
+    await waitFor(() =>
+      expect(sessionStorage.getItem(OPEN_MODELS_KEY)).toContain('Secret.rvt'),
+    );
+    expect(localStorage.getItem(MODEL_STORE_KEY)).toContain('Secret.rvt');
 
     fireEvent.click(
       await screen.findByRole('button', { name: /Ada Lovelace/ }),
@@ -113,6 +122,8 @@ describe('App shell', () => {
       (call) => String(call[0]) === '/api/auth/signout',
     );
     expect(signout?.[1]?.method).toBe('POST');
+    expect(sessionStorage.getItem(OPEN_MODELS_KEY)).toBeNull();
+    expect(localStorage.getItem(MODEL_STORE_KEY)).toBeNull();
   });
 
   it('opens the user menu with focus on the first item and closes on Escape', async () => {
@@ -244,8 +255,8 @@ describe('App shell', () => {
     });
     fireEvent.click(toggle);
     expect(
-      screen.queryByRole('complementary', { name: 'Documents' }),
-    ).not.toBeInTheDocument();
+      screen.getByRole('complementary', { name: 'Documents', hidden: true }),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Expand document tree' }),
     ).toHaveAttribute('aria-expanded', 'false');

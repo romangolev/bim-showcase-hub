@@ -10,8 +10,8 @@ export function EmptyState() {
         Pick a model to explore
       </h1>
       <p className="empty-state__copy">
-        Expand a hub in the document panel, open a project, and select a
-        viewable version. Its geometry, properties and charts load here.
+        Select a model version to open it in the viewer. Its geometry,
+        properties and charts open next to Documents.
       </p>
     </section>
   );
