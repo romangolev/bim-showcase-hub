@@ -7,6 +7,7 @@ import {
   waitFor,
   within,
 } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PropertyRow } from '../../shared/types.js';
 import { App } from '../App.js';
@@ -407,6 +408,34 @@ describe('several models on a narrow screen', () => {
     );
     expect(destroy).toHaveBeenCalledTimes(1);
     expect(sceneA?.isConnected).toBe(true);
+  });
+});
+
+describe('hosts under StrictMode', () => {
+  it('gives a reopened model a fresh host in its slot', async () => {
+    const appRouter = createAppRouter(
+      createMemoryHistory({ initialEntries: ['/model/aaa?file=A.rvt&v=v1'] }),
+    );
+    render(
+      <StrictMode>
+        <App appRouter={appRouter} client={createTestClient()} />
+      </StrictMode>,
+    );
+    await dockReady();
+    await waitFor(() => expect(sceneOf('aaa')).not.toBeNull());
+    const firstHost = sceneOf('aaa')?.closest('.pane-host');
+    act(() => handle().closeModel('aaa'));
+    await waitFor(() => expect(pathOf(appRouter)).toBe('/'));
+    await waitFor(() => expect(firstHost?.isConnected).toBe(false));
+    await open(appRouter, 'aaa', 'A.rvt');
+    await waitFor(() => expect(sceneOf('aaa')?.isConnected).toBe(true));
+    const hosts = document.querySelectorAll(
+      '.pane-host[data-pane="viewer:aaa"]',
+    );
+    expect(hosts).toHaveLength(1);
+    expect(hosts[0]).not.toBe(firstHost);
+    expect(hosts[0]?.parentElement?.classList.contains('pane-slot')).toBe(true);
+    expect(hosts[0]?.querySelectorAll('.bsh-mock')).toHaveLength(1);
   });
 });
 

@@ -209,16 +209,16 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
   useDebouncedWrite(model);
 
   const instanceKey = instances.join('\n');
+  const attachedRef = useRef(attached);
+  attachedRef.current = attached;
   useEffect(() => {
     const wanted = new Set(instanceKey ? instanceKey.split('\n') : []);
-    setAttached((list) => {
-      const gone = list.filter(
-        (id) => parsePanelId(id)?.instance && !wanted.has(id),
-      );
-      if (gone.length === 0) return list;
-      for (const id of gone) hosts.release(id);
-      return list.filter((id) => !gone.includes(id));
-    });
+    const gone = attachedRef.current.filter(
+      (id) => parsePanelId(id)?.instance && !wanted.has(id),
+    );
+    if (gone.length === 0) return;
+    for (const id of gone) hosts.release(id);
+    setAttached((list) => list.filter((id) => !gone.includes(id)));
   }, [instanceKey, hosts]);
 
   useLayoutEffect(() => {
