@@ -154,6 +154,77 @@ describe('DocumentTree', () => {
     });
   });
 
+  it('shows a badge per view state and explains why a version cannot open', async () => {
+    const version = (
+      id: string,
+      viewState: string,
+      viewable: boolean,
+      urn?: string,
+    ) => ({
+      id,
+      kind: 'version',
+      name: `${id}: 2026-01-01 10:00 by Sam`,
+      hasChildren: false,
+      viewable,
+      viewState,
+      parentId: 'i1',
+      ...(urn ? { urn } : {}),
+    });
+    mockFetch({
+      ...treeRoutes,
+      '/api/projects/p1/items/i1/versions': [
+        version('v1', 'ready', true, 'dXJuMQ'),
+        version('v2', 'processing', false, 'dXJuMg'),
+        version('v3', 'failed', false, 'dXJuMw'),
+        version('v4', 'no-geometry', false, 'dXJuNA'),
+        version('v5', 'not-translated', false, 'dXJuNQ'),
+        version('v6', 'unknown', true, 'dXJuNg'),
+      ],
+    });
+    const onOpenModel = renderTree();
+
+    await expandTo('Studio hub');
+    await expandTo('Riverside Tower');
+    await expandTo('Project Files');
+    await expandTo('Tower.rvt');
+    await screen.findByRole('treeitem', { name: /v1:/ });
+
+    const row = (id: string) =>
+      screen.getByRole('treeitem', { name: new RegExp(`^${id}:`) });
+    expect(row('v1')).toHaveAttribute('data-view-state', 'ready');
+    expect(row('v1')).toHaveAttribute('data-viewable', 'true');
+    expect(row('v1')).toHaveTextContent('Viewable');
+    expect(row('v2')).toHaveTextContent('Processing');
+    expect(row('v3')).toHaveTextContent('Translation failed');
+    expect(row('v4')).toHaveTextContent('No 3D or 2D view');
+    expect(row('v5')).toHaveTextContent('Not translated');
+    for (const id of ['v2', 'v3', 'v4', 'v5']) {
+      expect(row(id)).toHaveAttribute('data-viewable', 'false');
+      expect(row(id)).toHaveAttribute('aria-disabled', 'true');
+    }
+    expect(row('v6')).toHaveAttribute('data-viewable', 'true');
+    expect(row('v6')).toHaveAttribute('data-view-state', 'unknown');
+    expect(row('v6')).not.toHaveAttribute('aria-disabled');
+
+    fireEvent.click(row('v4'));
+    expect(onOpenModel).not.toHaveBeenCalled();
+    const live = screen.getByRole('status');
+    expect(live).toHaveAttribute('aria-live', 'polite');
+    expect(live).toHaveTextContent('v4 cannot be opened');
+    expect(live).toHaveTextContent('publish a 3D view, or re-translate');
+
+    fireEvent.click(row('v2'));
+    expect(onOpenModel).not.toHaveBeenCalled();
+    expect(screen.getByRole('status')).toHaveTextContent('still translating');
+
+    fireEvent.click(row('v6'));
+    expect(onOpenModel).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('status')).toBeEmptyDOMElement();
+
+    fireEvent.click(row('v1'));
+    expect(onOpenModel).toHaveBeenCalledTimes(2);
+  });
+
   it('reveals and selects the open version from a trail', async () => {
     mockFetch(treeRoutes);
     renderTree(vi.fn(), 'dXJuOmFkc2s', ['h1', 'p1', 'f1', 'i1']);

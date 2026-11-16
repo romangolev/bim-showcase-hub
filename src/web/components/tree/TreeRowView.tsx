@@ -1,6 +1,12 @@
 import type { HTMLAttributes, ReactNode, Ref } from 'react';
 import type { TreeNodeKind } from '../../../shared/types.js';
+import type { ViewState } from '../../../shared/viewState.js';
 import { Icon, type IconName } from '../icons.js';
+import {
+  isOpenableState,
+  VIEW_STATE_COPY,
+  viewStateOf,
+} from './viewStateCopy.js';
 
 export const ROW_HEIGHT = 30;
 export const TWO_LINE_ROW_HEIGHT = 46;
@@ -12,6 +18,15 @@ const KIND_ICON: Record<TreeNodeKind, IconName> = {
   folder: 'folder',
   item: 'item',
   version: 'version',
+};
+
+const BADGE_KIND: Record<ViewState, string> = {
+  ready: 'viewable',
+  unknown: 'viewable',
+  processing: 'processing',
+  failed: 'failed',
+  'no-geometry': 'muted',
+  'not-translated': 'muted',
 };
 
 const VERSION_PATTERN = /^(v\S+?):\s*(.*?)\s+by\s+(.+)$/;
@@ -107,6 +122,7 @@ export interface TreeRowViewProps {
   selected?: boolean;
   focused?: boolean;
   viewable?: boolean;
+  viewState?: ViewState;
   busy?: boolean;
   caption?: string;
   secondary?: string;
@@ -126,6 +142,7 @@ export function TreeRowView({
   selected = false,
   focused = false,
   viewable = false,
+  viewState,
   busy = false,
   caption,
   secondary,
@@ -133,7 +150,9 @@ export function TreeRowView({
   rowProps,
 }: TreeRowViewProps) {
   const isVersion = kind === 'version';
-  const disabled = isVersion && !viewable;
+  const state = viewStateOf({ viewable, viewState });
+  const copy = VIEW_STATE_COPY[state];
+  const disabled = isVersion && !isOpenableState(state);
   const icon: IconName = disabled ? 'ban' : KIND_ICON[kind];
   const parts = isVersion && !secondary ? versionParts(name) : null;
   const primary = parts ? parts.label : name;
@@ -149,7 +168,11 @@ export function TreeRowView({
       data-selected={selected}
       data-focused={focused}
       data-disabled={disabled}
-      data-viewable={isVersion && viewable}
+      data-viewable={isVersion && !disabled}
+      data-view-state={isVersion ? state : undefined}
+      aria-description={
+        isVersion && state !== 'ready' ? copy.reason : undefined
+      }
       data-two-line={Boolean(second)}
       style={{
         ...rowProps?.style,
@@ -180,14 +203,16 @@ export function TreeRowView({
               highlightMatch(primary, highlight)
             )}
           </span>
-          {isVersion && viewable ? (
-            <span className="tree-row__state" data-state="viewable">
-              Viewable
-            </span>
-          ) : null}
-          {disabled ? (
-            <span className="tree-row__state" data-state="blocked">
-              Not viewable
+          {isVersion ? (
+            <span
+              className="tree-row__state"
+              data-state={BADGE_KIND[state]}
+              title={copy.reason}
+            >
+              {state === 'processing' ? (
+                <Icon name="spinner" size={10} className="spin" />
+              ) : null}
+              {copy.label}
             </span>
           ) : null}
         </span>

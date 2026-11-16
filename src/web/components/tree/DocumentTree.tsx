@@ -28,6 +28,7 @@ import {
   rowHeightFor,
   TreeRowView,
 } from './TreeRowView.js';
+import { blockedNotice, viewStateOf } from './viewStateCopy.js';
 
 export interface DocumentTreeProps {
   selectedUrn?: string;
@@ -110,6 +111,10 @@ export function DocumentTree({
   const queryClient = useQueryClient();
   const [errors, setErrors] = useState<Record<string, NodeError>>({});
   const [filter, setFilter] = useState('');
+  const [notice, setNotice] = useState<{
+    title: string;
+    message: string;
+  } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const rowsRef = useRef<Row[]>([]);
   const virtualizerRef = useRef<Virtualizer<HTMLDivElement, Element> | null>(
@@ -155,6 +160,22 @@ export function DocumentTree({
     return context;
   };
 
+  const openNode = (node: TreeNode) => {
+    const urn = openableUrn(node);
+    if (urn) {
+      setNotice(null);
+      onOpenModel(urn, contextFor(node));
+      return;
+    }
+    const message = blockedNotice(node);
+    if (message) {
+      setNotice({
+        title: `${versionTag(node.name) ?? node.name} cannot be opened`,
+        message,
+      });
+    }
+  };
+
   const activate = (item: ItemInstance<TreeNode>) => {
     const node = item.getItemData();
     if (item.isFolder()) {
@@ -165,10 +186,7 @@ export function DocumentTree({
       }
       return;
     }
-    const urn = openableUrn(node);
-    if (urn) {
-      onOpenModel(urn, contextFor(node));
-    }
+    openNode(node);
   };
 
   const tree = useTree<TreeNode>({
@@ -415,10 +433,7 @@ export function DocumentTree({
   const onResultKeyDown = (event: KeyboardEvent, node: TreeNode) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
-      const urn = openableUrn(node);
-      if (urn) {
-        onOpenModel(urn, contextFor(node));
-      }
+      openNode(node);
     }
   };
 
@@ -457,6 +472,7 @@ export function DocumentTree({
           selected={urn !== null && urn === selectedUrn}
           focused={item.isFocused()}
           viewable={node.viewable}
+          viewState={viewStateOf(node)}
           rowProps={{
             ...props,
             'data-index': index,
@@ -466,9 +482,6 @@ export function DocumentTree({
             },
             'aria-selected': urn !== null && urn === selectedUrn,
             'aria-disabled': disabled || undefined,
-            ...(disabled
-              ? { title: `${node.name}: no viewable geometry` }
-              : {}),
             onClick: () => {
               item.setFocused();
               activate(item);
@@ -489,6 +502,7 @@ export function DocumentTree({
           kind={row.node.kind}
           name={row.node.name}
           viewable={row.node.viewable}
+          viewState={viewStateOf(row.node)}
           caption={row.node.kind === 'version' ? undefined : row.node.kind}
           secondary={parentName(row.node)}
           highlight={query}
@@ -500,11 +514,7 @@ export function DocumentTree({
             tabIndex: 0,
             'aria-selected': urn !== null && urn === selectedUrn,
             'aria-disabled': disabled || undefined,
-            onClick: () => {
-              if (urn) {
-                onOpenModel(urn, contextFor(row.node));
-              }
-            },
+            onClick: () => openNode(row.node),
             onKeyDown: (event) => onResultKeyDown(event, row.node),
             style: position,
           }}
@@ -590,6 +600,18 @@ export function DocumentTree({
           >
             <Icon name="close" size={14} />
           </button>
+        ) : null}
+      </div>
+      <div className="doc-tree__notice" role="status" aria-live="polite">
+        {notice ? (
+          <StateBlock
+            variant="empty"
+            compact
+            icon="alert"
+            title={notice.title}
+            message={notice.message}
+            action={{ label: 'Dismiss', onClick: () => setNotice(null) }}
+          />
         ) : null}
       </div>
       <div ref={scrollRef} className="doc-tree__scroll">
