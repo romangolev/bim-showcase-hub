@@ -149,7 +149,9 @@ def run_model_checks(page, checks, found, notes):
         page.goto(f"{BASE_URL}/model/{found['urn']}", wait_until="domcontentloaded")
     page.wait_for_timeout(2000)
     checks.add("document title names the file", found["file"] in page.title(), page.title())
-    checks.add("breadcrumb is shown", page.locator("nav[aria-label^='Breadcrumb']").count() == 1)
+    tab_text = page.evaluate("() => document.querySelector('.model-viewer')?.closest('.dv-groupview')?.querySelector('.dv-tab.dv-active-tab')?.textContent?.trim() || ''")
+    checks.add("viewer tab is named after the file", found["file"] in tab_text, tab_text)
+    checks.add("viewer pane has no breadcrumb header", page.locator("nav[aria-label^='Breadcrumb'], .model-head").count() == 0)
     try:
         page.wait_for_selector(".adsk-viewing-viewer", timeout=VIEWER_TIMEOUT_MS)
         page.wait_for_timeout(VIEWER_SETTLE_MS)

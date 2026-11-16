@@ -10,6 +10,7 @@ Everything lives in `src/web/layout`.
 |---|---|
 | `paneRegistry.ts` | The list of panes (`PANES`) and their rules |
 | `panes.tsx` | The pane bodies: tree, main (route content and viewer), summary, dashboard |
+| `layoutContext.ts` | `PaneTitleContext`: routes publish a pane title (`label`, `tooltip`) with `usePaneTitle()`. The dock applies it with `panel.api.setTitle` and shows the tooltip on the tab; the stack shows it as the viewer section label. Without a title the registry title (`Viewer`) is used |
 | `ViewerHost.tsx` | `PaneHosts` renders each open pane once into a detached host `div` with `createPortal`. `PaneSlot` attaches a host to a slot |
 | `LayoutProvider.tsx` | State, persistence, reset, the dock or stacked switch, the top bar, `useLayout()` |
 | `DockLayout.tsx` | The dockview adapter. The only file that imports `dockview-react`, loaded lazily |

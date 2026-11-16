@@ -164,10 +164,10 @@ describe('pane menus', () => {
 
   it('hides the tab close button only for the viewer', async () => {
     renderModel();
-    await screen.findByRole('tab', { name: 'Viewer' });
+    await screen.findByRole('tab', { name: 'Untitled model' });
     const tabs = screen.getAllByRole('tab');
     const viewer = tabs.find(
-      (tab) => tab.getAttribute('aria-label') === 'Viewer',
+      (tab) => tab.getAttribute('aria-label') === 'Untitled model',
     );
     const summary = tabs.find(
       (tab) => tab.getAttribute('aria-label') === 'Model summary',
@@ -185,7 +185,7 @@ describe('pane menus', () => {
     fireEvent.click(within(menu).getByRole('menuitem', { name: 'Float' }));
     expect(document.querySelector('.dv-resize-container')).not.toBeNull();
     expect(document.querySelector('.dv-live-region')).toHaveTextContent(
-      'Viewer floated',
+      'Untitled model floated',
     );
     menu = await openPaneMenu('Viewer');
     expect(itemNames(menu)).toContain('Dock');
@@ -270,7 +270,7 @@ describe('panes menu in the top bar', () => {
 describe('keyboard', () => {
   it('cycles focus between pane groups with F6 and Shift+F6', async () => {
     renderModel();
-    const tab = await screen.findByRole('tab', { name: 'Viewer' });
+    const tab = await screen.findByRole('tab', { name: 'Untitled model' });
     const root = tab.closest('.dock-root') as HTMLElement;
     tab.focus();
     fireEvent.keyDown(tab, { key: 'F6' });

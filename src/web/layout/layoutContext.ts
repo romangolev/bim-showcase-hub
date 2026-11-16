@@ -43,3 +43,20 @@ export const MainContentContext = createContext<ReactNode>(null);
 export function useMainContent(): ReactNode {
   return useContext(MainContentContext);
 }
+
+export interface PaneTitle {
+  label: string;
+  tooltip: string;
+}
+
+export type PaneTitles = Partial<Record<PaneId, PaneTitle>>;
+
+export type SetPaneTitle = (id: PaneId, title: PaneTitle | null) => void;
+
+const NOOP_TITLE: SetPaneTitle = () => {};
+
+export const PaneTitleContext = createContext<SetPaneTitle | null>(null);
+
+export function usePaneTitle(): SetPaneTitle {
+  return useContext(PaneTitleContext) ?? NOOP_TITLE;
+}

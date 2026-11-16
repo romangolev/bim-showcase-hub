@@ -118,7 +118,7 @@ e2e/.venv/bin/python -m camoufox fetch
 - the tree lists hubs
 - clicking through the tree opens the model route
 - the document title names the file
-- the breadcrumb is shown
+- the viewer tab is named after the file and the pane has no breadcrumb header
 - the Autodesk viewer mounts and its toolbar is present
 - the summary has rows
 - summary counts never wrap
@@ -137,7 +137,7 @@ It writes `01-home.png`, `02-model.png`, `03-after-export.png`, `05-viewer-chrom
 - the app shows the signed-in user
 - the tree expands hub by hub to a viewable version, selecting rows by `role=treeitem` and `aria-level`
 - clicking the version opens the model route
-- the title and breadcrumb are correct
+- the document title names the model, the viewer tab shows the file name and version with the path and URN as its tooltip, the viewer pane has no header and the canvas fills its panel
 - the mock viewer is present
 - the summary has rows and counts never wrap
 - the export control, found by its accessible name or title (`/Export/i`) in the viewer toolbar, downloads a non-empty xlsx

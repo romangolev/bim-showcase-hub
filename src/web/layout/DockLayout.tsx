@@ -18,7 +18,11 @@ import {
   useRef,
 } from 'react';
 import { defaultSteps, placementFor } from './defaultLayout.js';
-import type { DockController, MoveTarget } from './layoutContext.js';
+import type {
+  DockController,
+  MoveTarget,
+  PaneTitles,
+} from './layoutContext.js';
 import {
   type SerializedDock,
   sanitizeDock,
@@ -52,6 +56,7 @@ const UNBOUNDED = Number.POSITIVE_INFINITY;
 interface SlotContextValue {
   hosts: HostStore<PaneId>;
   onAttach: (id: PaneId) => void;
+  titles: PaneTitles;
   headerActions?: (props: {
     pane: PaneId;
     group: DockviewGroupPanel;
@@ -74,8 +79,13 @@ function PaneContent({ api }: IDockviewPanelProps) {
 }
 
 function PaneTab(props: IDockviewPanelHeaderProps) {
-  const closable = isPaneId(props.api.id) && paneById(props.api.id).closable;
-  return <DockviewDefaultTab {...props} hideClose={!closable} />;
+  const slot = useContext(SlotContext);
+  const id = props.api.id;
+  const closable = isPaneId(id) && paneById(id).closable;
+  const tooltip = isPaneId(id) ? slot?.titles[id]?.tooltip : undefined;
+  return (
+    <DockviewDefaultTab {...props} hideClose={!closable} title={tooltip} />
+  );
 }
 
 function PaneActions({ activePanel, group }: IDockviewHeaderActionsProps) {
@@ -238,6 +248,14 @@ export function floatingBox(
   };
 }
 
+export function applyTitles(api: DockviewApi, titles: PaneTitles) {
+  for (const panel of api.panels) {
+    if (!isPaneId(panel.id)) continue;
+    const label = titles[panel.id]?.label ?? paneById(panel.id).title;
+    if (panel.title !== label) panel.api.setTitle(label);
+  }
+}
+
 function openIds(api: DockviewApi): PaneId[] {
   return api.panels.map((panel) => panel.id).filter(isPaneId);
 }
@@ -247,6 +265,7 @@ export interface DockLayoutProps {
   dock: SerializedDock | null;
   treeWidth: number;
   collapsed: readonly PaneId[];
+  titles: PaneTitles;
   onAttach: (id: PaneId) => void;
   onMoved: (id: PaneId) => void;
   onChange: (dock: SerializedDock, open: PaneId[]) => void;
@@ -436,6 +455,7 @@ export function DockLayout(props: DockLayoutProps) {
   const emit = () => {
     const api = apiRef.current;
     if (!api || !live.current || busy.current > 0) return;
+    applyTitles(api, latest.current.titles);
     applyCollapse();
     latest.current.onChange(
       api.toJSON() as unknown as SerializedDock,
@@ -585,6 +605,9 @@ export function DockLayout(props: DockLayoutProps) {
 
   const emitRef = useRef(emit);
   emitRef.current = emit;
+  useLayoutEffect(() => {
+    if (apiRef.current) applyTitles(apiRef.current, props.titles);
+  }, [props.titles]);
   const collapsedKey = props.collapsed.join(' ');
   useLayoutEffect(() => {
     if (collapsedKey !== undefined) emitRef.current();
@@ -606,6 +629,7 @@ export function DockLayout(props: DockLayoutProps) {
       value={{
         hosts: props.hosts,
         onAttach: props.onAttach,
+        titles: props.titles,
         headerActions: props.headerActions,
       }}
     >
