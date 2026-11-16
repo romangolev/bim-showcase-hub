@@ -282,6 +282,24 @@ describe('DocumentTree', () => {
       expect(calls()).toBe(settled);
     });
 
+    it('polls an unknown item again after it is collapsed and expanded', async () => {
+      const { calls } = await openVersions([['unknown', true]], 25);
+      await waitFor(() => expect(calls()).toBe(4), { timeout: 2000 });
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      expect(calls()).toBe(4);
+      fireEvent.click(screen.getByText('Tower.rvt'));
+      await waitFor(() =>
+        expect(
+          screen.queryByRole('treeitem', { name: /^v9:/ }),
+        ).not.toBeInTheDocument(),
+      );
+      fireEvent.click(screen.getByText('Tower.rvt'));
+      await screen.findByRole('treeitem', { name: /^v9:/ });
+      await waitFor(() => expect(calls()).toBeGreaterThan(5), {
+        timeout: 2000,
+      });
+    });
+
     it('does not poll while the page is hidden', async () => {
       Object.defineProperty(document, 'visibilityState', {
         value: 'hidden',

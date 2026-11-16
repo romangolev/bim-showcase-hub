@@ -732,6 +732,16 @@ export function DocumentTree({
   const processingRef = useRef(processingParents);
   processingRef.current = processingParents;
   const attemptsRef = useRef(new Map<string, number>());
+  const expandedKey = (tree.getState().expandedItems ?? []).join(
+    TRAIL_SEPARATOR,
+  );
+
+  useEffect(() => {
+    const expanded = new Set(expandedKey.split(TRAIL_SEPARATOR));
+    for (const id of [...attemptsRef.current.keys()]) {
+      if (!expanded.has(id)) attemptsRef.current.delete(id);
+    }
+  }, [expandedKey]);
 
   useEffect(() => {
     if (!pendingKey) {
