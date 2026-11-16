@@ -217,6 +217,39 @@ describe('viewer startup', () => {
     ).toEqual(['arch', 'mep']);
   });
 
+  it('lets concurrent first adds wait for the anchor and share its offset', async () => {
+    const gate = deferred();
+    env.gate.set('arch', gate.promise);
+    env.specs.set('arch', { offset: OFFSET, unit: 'ft' });
+    env.specs.set('mep', { unit: 'mm' });
+    const arch = adapter.addModel({ urn: 'arch' });
+    const mep = adapter.addModel({ urn: 'mep' });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(viewer().models).toHaveLength(0);
+    gate.release();
+    await Promise.all([arch, mep]);
+    expect(viewer().modelOf('arch').options.globalOffset).toBeUndefined();
+    expect(viewer().modelOf('mep').options).toMatchObject({
+      globalOffset: OFFSET,
+      applyScaling: 'ft',
+    });
+  });
+
+  it('makes a waiting add the anchor when the anchor fails', async () => {
+    env.specs.set('arch', { noGeometry: true });
+    env.specs.set('mep', { offset: OFFSET });
+    const [arch, mep] = await Promise.all([
+      adapter.addModel({ urn: 'arch' }),
+      adapter.addModel({ urn: 'mep' }),
+    ]);
+    expect(arch.status).toBe('error');
+    expect(mep.status).toBe('ready');
+    expect(viewer().modelOf('mep').options.globalOffset).toBeUndefined();
+    const str = await adapter.addModel({ urn: 'str' });
+    expect(str.status).toBe('ready');
+    expect(viewer().modelOf('str').options.globalOffset).toEqual(OFFSET);
+  });
+
   it('reuses a live empty viewer', async () => {
     await adapter.loadModels([{ urn: 'arch' }]);
     adapter.removeModel('arch');

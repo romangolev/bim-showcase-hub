@@ -215,6 +215,7 @@ export class RealViewerAdapter implements ViewerAdapter {
   private settling: Promise<void> = Promise.resolve();
   private starting: Promise<GuiViewer3D | null> | null = null;
   private epoch = 0;
+  private anchoring: Promise<void> | null = null;
   private readonly onSelection = (ev: ViewerEvent) => {
     const ids = selectionIds(ev);
     for (const cb of [...this.selectionListeners]) {
@@ -479,12 +480,28 @@ export class RealViewerAdapter implements ViewerAdapter {
       this.viewer !== viewer ||
       token === undefined ||
       this.models.token(id) !== token;
+    let release: (() => void) | null = null;
     try {
       if (apiForRegion(detectRegion(source.urn)) !== this.api) {
         throw new Error(OTHER_REGION_MESSAGE);
       }
       const doc = await docPromise;
       if (stale()) return;
+      while (!this.anchor && this.anchoring) {
+        await this.anchoring;
+        if (stale()) return;
+      }
+      if (!this.anchor) {
+        let done = () => {};
+        const anchoring = new Promise<void>((resolve) => {
+          done = resolve;
+        });
+        this.anchoring = anchoring;
+        release = () => {
+          if (this.anchoring === anchoring) this.anchoring = null;
+          done();
+        };
+      }
       const node = pickGeometryNode(doc, this.anchor);
       const model = await viewer.loadDocumentNode(
         doc,
@@ -497,6 +514,8 @@ export class RealViewerAdapter implements ViewerAdapter {
         return;
       }
       if (!this.anchor) this.anchor = anchorOf(model);
+      release?.();
+      release = null;
       if (!this.models.get(id)?.visible) viewer.hideModel?.(model);
       if (!this.modelLoaded) {
         this.applyTheme(viewer);
@@ -507,6 +526,8 @@ export class RealViewerAdapter implements ViewerAdapter {
     } catch (err) {
       if (this.destroyed || this.viewer !== viewer) return;
       this.models.fail(id, errorMessage(err), token);
+    } finally {
+      release?.();
     }
   }
 
@@ -560,6 +581,7 @@ export class RealViewerAdapter implements ViewerAdapter {
     this.starting = null;
     this.models.clear();
     this.anchor = null;
+    this.anchoring = null;
     this.settling = Promise.resolve();
     const viewer = this.viewer;
     if (!viewer) return;
