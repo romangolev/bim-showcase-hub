@@ -480,6 +480,20 @@
   min-width: 0;
 }
 
+.bsh-summary__title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bsh-summary__model {
+  overflow: hidden;
+  color: var(--color-fog);
+  font-size: var(--text-13);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .bsh-summary__toggle {
   flex: none;
   color: var(--color-fog);

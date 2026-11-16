@@ -11,8 +11,14 @@ import { SummaryTable } from './SummaryTable.js';
 import { usePropertyRows, useResolvedAdapter } from './usePropertyRows.js';
 import './panels.css';
 
+export interface SummaryModel {
+  label: string;
+  tooltip: string;
+}
+
 export interface ModelSummaryPanelProps {
   adapter?: ViewerAdapter | null;
+  model?: SummaryModel | null;
   propertyNames?: readonly string[];
   title?: string;
   className?: string;
@@ -27,6 +33,7 @@ export const STACKED_ROW_LIMIT = 12;
 
 export function ModelSummaryPanel({
   adapter,
+  model,
   propertyNames = DEFAULT_SUMMARY_PROPERTIES,
   title = 'Model summary',
   className,
@@ -65,8 +72,14 @@ export function ModelSummaryPanel({
       data-rows-collapsed={!showAll && entries.length > STACKED_ROW_LIMIT}
     >
       <header className="bsh-card__header bsh-summary__header">
-        <h2 id={titleId} className="bsh-card__title">
+        <h2 id={titleId} className="bsh-card__title bsh-summary__title">
           {title}
+          {model ? (
+            <span className="bsh-summary__model" title={model.tooltip}>
+              <span className="bsh-sr-only">: </span>
+              {model.label}
+            </span>
+          ) : null}
         </h2>
         <button
           type="button"

@@ -4,8 +4,10 @@ import {
   defaultModel,
   importLegacy,
   LAYOUT_KEY,
+  LAYOUT_KEY_V1,
   LEGACY_KEYS,
   layoutReducer,
+  migrateV1,
   parseLayout,
   readLayout,
   type SerializedDock,
@@ -105,7 +107,7 @@ describe('serialize and parse', () => {
       treeWidth: 360,
     };
     const raw = serializeLayout(model);
-    expect(JSON.parse(raw)).toMatchObject({ version: 1 });
+    expect(JSON.parse(raw)).toMatchObject({ version: 2 });
     expect(parseLayout(raw)).toEqual(model);
   });
 
@@ -113,13 +115,14 @@ describe('serialize and parse', () => {
     expect(parseLayout('{nope')).toBeNull();
     expect(parseLayout(null)).toBeNull();
     expect(parseLayout(JSON.stringify({ version: 0, layout: {} }))).toBeNull();
-    expect(parseLayout(JSON.stringify({ version: 2, layout: {} }))).toBeNull();
+    expect(parseLayout(JSON.stringify({ version: 1, layout: {} }))).toBeNull();
+    expect(parseLayout(JSON.stringify({ version: 3, layout: {} }))).toBeNull();
     expect(parseLayout(JSON.stringify([1, 2]))).toBeNull();
   });
 
   it('drops unknown collapsed ids and clamps the tree width', () => {
     const raw = JSON.stringify({
-      version: 1,
+      version: 2,
       layout: { dock: null, collapsed: ['summary', 'terminal'], treeWidth: 9 },
     });
     expect(parseLayout(raw)).toEqual({
@@ -131,7 +134,7 @@ describe('serialize and parse', () => {
 
   it('falls back to the default dock when the stored dock is unusable', () => {
     const raw = JSON.stringify({
-      version: 1,
+      version: 2,
       layout: { dock: { grid: 'x' }, collapsed: [], treeWidth: 320 },
     });
     expect(parseLayout(raw)?.dock).toBeNull();
@@ -303,8 +306,135 @@ describe('storage', () => {
     const storage = installMemoryStorage();
     writeLayout(storage, defaultModel(1000));
     expect(JSON.parse(storage.getItem(LAYOUT_KEY) ?? '')).toEqual({
-      version: 1,
+      version: 2,
       layout: { dock: null, collapsed: [], treeWidth: 320 },
     });
+  });
+});
+
+function modelDock(views: string[]): SerializedDock {
+  const dock = sampleDock();
+  const root = dock.grid.root.data as ReturnType<typeof leaf>[];
+  const middle = root[1] as unknown as { data: ReturnType<typeof leaf>[] };
+  middle.data[0] = leaf('2', views, 600);
+  return {
+    ...dock,
+    panels: panels(['tree', ...views, 'dashboard', 'summary']),
+  };
+}
+
+function viewsOf(dock: SerializedDock | undefined, group: string): string[] {
+  const found: string[][] = [];
+  const visit = (node: { type: string; data: unknown }) => {
+    if (node.type === 'leaf') {
+      const data = node.data as { id: string; views: string[] };
+      if (data.id === group) found.push(data.views);
+    } else {
+      for (const child of node.data as { type: string; data: unknown }[]) {
+        visit(child);
+      }
+    }
+  };
+  if (dock) visit(dock.grid.root);
+  return found[0] ?? [];
+}
+
+describe('model tabs in the dock', () => {
+  it('keeps model tabs that are open and drops the others', () => {
+    const dock = modelDock(['viewer:a', 'viewer:b', 'viewer:c']);
+    const result = sanitizeDock(dock, ['viewer:a', 'viewer:c']);
+    expect(viewsOf(result?.dock, '2')).toEqual(['viewer:a', 'viewer:c']);
+    expect(Object.keys(result?.dock.panels ?? {})).not.toContain('viewer:b');
+    expect(result?.missing).toEqual([]);
+  });
+
+  it('turns the first stale model tab into the empty viewer when none is open', () => {
+    const dock = modelDock(['viewer:a', 'viewer:b']);
+    const result = sanitizeDock(dock, []);
+    expect(viewsOf(result?.dock, '2')).toEqual(['viewer']);
+    expect(result?.dock.panels.viewer).toMatchObject({
+      id: 'viewer',
+      title: 'Viewer',
+    });
+    expect(result?.missing).toEqual([]);
+  });
+
+  it('keeps the arrangement when open models are not in the dock yet', () => {
+    const result = sanitizeDock(sampleDock(), ['viewer:a']);
+    expect(viewsOf(result?.dock, '2')).toEqual(['viewer']);
+    expect(result?.missing).toEqual([]);
+  });
+
+  it('does not ask for the empty viewer while models are open', () => {
+    const dock = sampleDock();
+    const root = dock.grid.root.data as unknown[];
+    root.splice(1, 1);
+    const result = sanitizeDock(
+      { ...dock, panels: panels(['tree', 'summary']) },
+      ['viewer:a'],
+    );
+    expect(result?.missing).toEqual([]);
+    expect(
+      sanitizeDock({ ...dock, panels: panels(['tree', 'summary']) }, [])
+        ?.missing,
+    ).toEqual(['viewer']);
+  });
+
+  it('parses model tabs without knowing which models are open', () => {
+    const model = {
+      dock: modelDock(['viewer:a']),
+      collapsed: [],
+      treeWidth: 320,
+    };
+    expect(
+      parseLayout(serializeLayout(model))?.dock?.panels['viewer:a'],
+    ).toBeDefined();
+  });
+});
+
+describe('migration from v1', () => {
+  function v1(dock: SerializedDock | null = sampleDock()) {
+    return JSON.stringify({
+      version: 1,
+      layout: { dock, collapsed: ['summary'], treeWidth: 360 },
+    });
+  }
+
+  it('keeps the arrangement and maps the viewer to the first open model', () => {
+    const migrated = migrateV1(v1(), ['viewer:a', 'viewer:b']);
+    expect(migrated?.collapsed).toEqual(['summary']);
+    expect(migrated?.treeWidth).toBe(360);
+    expect(viewsOf(migrated?.dock ?? undefined, '2')).toEqual(['viewer:a']);
+    expect(migrated?.dock?.panels['viewer:a']).toMatchObject({
+      id: 'viewer:a',
+    });
+    expect(migrated?.dock?.panels.viewer).toBeUndefined();
+    expect(migrated?.dock?.activeGroup).toBe('2');
+  });
+
+  it('keeps the empty viewer when no model is open', () => {
+    const migrated = migrateV1(v1(), []);
+    expect(migrated?.dock).toEqual(sampleDock());
+  });
+
+  it('rejects a corrupt v1 record', () => {
+    expect(migrateV1('{', ['viewer:a'])).toBeNull();
+  });
+
+  it('reads v1 once, writes v2 and deletes the old key', () => {
+    const storage = installMemoryStorage();
+    storage.setItem(LAYOUT_KEY_V1, v1());
+    const model = readLayout(storage, 1000, ['viewer:x']);
+    expect(viewsOf(model.dock ?? undefined, '2')).toEqual(['viewer:x']);
+    expect(storage.getItem(LAYOUT_KEY_V1)).toBeNull();
+    expect(JSON.parse(storage.getItem(LAYOUT_KEY) ?? '{}').version).toBe(2);
+    expect(parseLayout(storage.getItem(LAYOUT_KEY))).toEqual(model);
+  });
+
+  it('prefers an existing v2 record', () => {
+    const storage = installMemoryStorage();
+    storage.setItem(LAYOUT_KEY_V1, v1());
+    writeLayout(storage, defaultModel(1000));
+    expect(readLayout(storage, 1000, ['viewer:x'])).toEqual(defaultModel(1000));
   });
 });

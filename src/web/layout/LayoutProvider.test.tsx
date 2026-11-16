@@ -35,7 +35,7 @@ interface LayoutHandle {
   setCollapsed: (id: PaneId, collapsed: boolean) => void;
   resetLayout: () => void;
   openPanes: () => PaneId[];
-  location: (id: PaneId) => string | null;
+  location: (id: string) => string | null;
   read: () => LayoutModel;
 }
 
@@ -108,10 +108,10 @@ describe('dock layout', () => {
         'dashboard',
         'summary',
         'tree',
-        'viewer',
+        'viewer:abc123',
       ]),
     );
-    expect(JSON.parse(storage.getItem(LAYOUT_KEY) ?? '{}').version).toBe(1);
+    expect(JSON.parse(storage.getItem(LAYOUT_KEY) ?? '{}').version).toBe(2);
   });
 
   it('puts the paint and export tools inside the viewer toolbar', async () => {
@@ -155,7 +155,7 @@ describe('dock layout', () => {
     expect(handle().openPanes()).not.toContain('dashboard');
   });
 
-  it('names the viewer tab after the open model and falls back to Viewer', async () => {
+  it('names each model tab after its file and falls back to Viewer', async () => {
     const { appRouter } = renderPath('/');
     await dockReady();
     expect(await screen.findByRole('tab', { name: 'Viewer' })).toBeVisible();
@@ -179,26 +179,10 @@ describe('dock layout', () => {
       'Hub / Docs / FILI_20170810_01.nwd · v1\nabc123',
     );
     expect(screen.queryByRole('tab', { name: 'Viewer' })).toBeNull();
-
-    await act(() =>
-      appRouter.navigate({
-        to: '/model/$urn',
-        params: { urn: 'def456' },
-        search: { file: 'Other.rvt', v: 'v3' },
-      }),
-    );
-    expect(
-      await screen.findByRole('tab', { name: 'Other.rvt · v3' }),
-    ).toBeVisible();
-
-    await act(() => appRouter.navigate({ to: '/' }));
-    expect(await screen.findByRole('tab', { name: 'Viewer' })).toBeVisible();
     await waitFor(() =>
-      expect(
-        Object.values(saved()?.dock?.panels ?? {}).find(
-          (panel) => (panel as { id: string }).id === 'viewer',
-        ),
-      ).toMatchObject({ title: 'Viewer' }),
+      expect(saved()?.dock?.panels['viewer:abc123']).toMatchObject({
+        title: 'FILI_20170810_01.nwd · v1',
+      }),
     );
   });
 
@@ -206,7 +190,7 @@ describe('dock layout', () => {
     storage.setItem(
       LAYOUT_KEY,
       JSON.stringify({
-        version: 1,
+        version: 2,
         layout: {
           collapsed: [],
           treeWidth: 320,
@@ -331,6 +315,7 @@ describe('dock layout', () => {
       ]),
     );
     expect(handle().location('dashboard')).toBe('grid');
+    expect(handle().location('viewer:abc123')).toBe('grid');
   });
 
   it('keeps the dock controller alive under StrictMode', async () => {

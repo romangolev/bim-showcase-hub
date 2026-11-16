@@ -1,5 +1,5 @@
 import { createMemoryHistory } from '@tanstack/react-router';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../App.js';
 import { createAppRouter } from '../routes/router.js';
@@ -98,27 +98,29 @@ describe('stacked layout', () => {
     );
   });
 
-  it('labels the viewer section with the model name and keeps the path in the tooltip', async () => {
+  it('names the open model above the viewer and keeps the path in the tooltip', async () => {
     mockMatchMedia(800);
     renderPath(
       `/model/abc123?file=Tower.rvt&v=v2&crumbs=${encodeURIComponent(JSON.stringify(['Hub', 'Docs']))}`,
     );
-    const label = await screen.findByRole('heading', {
-      level: 2,
+    const strip = await screen.findByRole('tablist', { name: 'Open models' });
+    const tab = await within(strip).findByRole('tab', {
       name: 'Tower.rvt · v2',
     });
-    expect(label).toHaveAttribute(
+    expect(tab.parentElement).toHaveAttribute(
       'title',
       'Hub / Docs / Tower.rvt · v2\nabc123',
     );
-    expect(label.nextElementSibling?.getAttribute('data-slot')).toBe('viewer');
+    expect(strip.nextElementSibling?.getAttribute('data-slot')).toBe(
+      'viewer:abc123',
+    );
   });
 
-  it('shows no viewer label on the index route', async () => {
+  it('shows no model strip on the index route', async () => {
     mockMatchMedia(800);
     renderPath('/');
     await screen.findByRole('heading', { name: 'Pick a model to explore' });
-    expect(document.querySelector('.stack__label')).toBeNull();
+    expect(screen.queryByRole('tablist', { name: 'Open models' })).toBeNull();
   });
 
   it('shows only main on the index route', async () => {

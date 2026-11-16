@@ -1,27 +1,72 @@
 import {
   createContext,
   type ReactNode,
+  useCallback,
   useContext,
   useMemo,
   useState,
 } from 'react';
 import type { ViewerAdapter } from './ViewerAdapter.js';
 
-export interface ViewerContextValue {
-  adapter: ViewerAdapter | null;
-  setAdapter: (adapter: ViewerAdapter | null) => void;
+export interface ViewerRegistry {
+  publish: (key: string, adapter: ViewerAdapter) => void;
+  withdraw: (key: string, adapter: ViewerAdapter) => void;
 }
 
-export const ViewerContext = createContext<ViewerContextValue | null>(null);
+export interface ActiveViewerValue extends ViewerRegistry {
+  adapter: ViewerAdapter | null;
+  activeKey: string | null;
+}
 
-export function ViewerProvider({ children }: { children: ReactNode }) {
-  const [adapter, setAdapter] = useState<ViewerAdapter | null>(null);
-  const value = useMemo(() => ({ adapter, setAdapter }), [adapter]);
+export const ActiveViewerContext = createContext<ActiveViewerValue | null>(
+  null,
+);
+
+export const ModelViewerContext = createContext<ViewerAdapter | null>(null);
+
+export interface ViewerProviderProps {
+  active?: string | null;
+  children: ReactNode;
+}
+
+export function ViewerProvider({
+  active = null,
+  children,
+}: ViewerProviderProps) {
+  const [adapters, setAdapters] = useState<
+    Readonly<Record<string, ViewerAdapter>>
+  >({});
+  const publish = useCallback((key: string, adapter: ViewerAdapter) => {
+    setAdapters((current) =>
+      current[key] === adapter ? current : { ...current, [key]: adapter },
+    );
+  }, []);
+  const withdraw = useCallback((key: string, adapter: ViewerAdapter) => {
+    setAdapters((current) => {
+      if (current[key] !== adapter) return current;
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+  }, []);
+  const adapter = active ? (adapters[active] ?? null) : null;
+  const value = useMemo(
+    () => ({ adapter, activeKey: active, publish, withdraw }),
+    [adapter, active, publish, withdraw],
+  );
   return (
-    <ViewerContext.Provider value={value}>{children}</ViewerContext.Provider>
+    <ActiveViewerContext.Provider value={value}>
+      {children}
+    </ActiveViewerContext.Provider>
   );
 }
 
+export function useActiveViewer(): ViewerAdapter | null {
+  return useContext(ActiveViewerContext)?.adapter ?? null;
+}
+
 export function useViewer(): ViewerAdapter | null {
-  return useContext(ViewerContext)?.adapter ?? null;
+  const own = useContext(ModelViewerContext);
+  const active = useActiveViewer();
+  return own ?? active;
 }

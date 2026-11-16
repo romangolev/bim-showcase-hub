@@ -14,8 +14,10 @@ import {
   createContext,
   type ReactNode,
   useContext,
+  useEffect,
   useLayoutEffect,
   useRef,
+  useState,
 } from 'react';
 import { defaultSteps, placementFor } from './defaultLayout.js';
 import type {
@@ -30,10 +32,17 @@ import {
   splitAxisOf,
 } from './layoutState.js';
 import {
+  definitionOf,
   isPaneId,
+  isPanelClosable,
+  PANES,
+  type PaneDefinition,
   type PaneId,
+  type PanelId,
   type Placement,
   paneById,
+  paneKind,
+  parsePanelId,
 } from './paneRegistry.js';
 import { type HostStore, PaneSlot } from './ViewerHost.js';
 import './dockTheme.css';
@@ -54,11 +63,12 @@ const FLOAT_MIN = { width: 360, height: 280 };
 const UNBOUNDED = Number.POSITIVE_INFINITY;
 
 interface SlotContextValue {
-  hosts: HostStore<PaneId>;
-  onAttach: (id: PaneId) => void;
+  hosts: HostStore<PanelId>;
+  onAttach: (id: PanelId) => void;
+  onCloseInstance: (id: PanelId) => void;
   titles: PaneTitles;
   headerActions?: (props: {
-    pane: PaneId;
+    pane: PanelId;
     group: DockviewGroupPanel;
   }) => ReactNode;
 }
@@ -67,12 +77,21 @@ const SlotContext = createContext<SlotContextValue | null>(null);
 
 function PaneContent({ api }: IDockviewPanelProps) {
   const slot = useContext(SlotContext);
-  if (!slot || !isPaneId(api.id)) return null;
+  const [visible, setVisible] = useState(api.isVisible);
+  useEffect(() => {
+    setVisible(api.isVisible);
+    const subscription = api.onDidVisibilityChange((event) =>
+      setVisible(event.isVisible),
+    );
+    return () => subscription.dispose();
+  }, [api]);
+  if (!slot || !paneKind(api.id)) return null;
   return (
     <PaneSlot
       hosts={slot.hosts}
       id={api.id}
       onAttach={slot.onAttach}
+      visible={visible}
       className="pane-slot--dock"
     />
   );
@@ -81,17 +100,23 @@ function PaneContent({ api }: IDockviewPanelProps) {
 function PaneTab(props: IDockviewPanelHeaderProps) {
   const slot = useContext(SlotContext);
   const id = props.api.id;
-  const closable = isPaneId(id) && paneById(id).closable;
-  const tooltip = isPaneId(id) ? slot?.titles[id]?.tooltip : undefined;
+  const instance = Boolean(parsePanelId(id)?.instance);
   return (
-    <DockviewDefaultTab {...props} hideClose={!closable} title={tooltip} />
+    <DockviewDefaultTab
+      {...props}
+      hideClose={!isPanelClosable(id)}
+      title={slot?.titles[id]?.tooltip}
+      closeActionOverride={
+        instance ? () => slot?.onCloseInstance(id) : undefined
+      }
+    />
   );
 }
 
 function PaneActions({ activePanel, group }: IDockviewHeaderActionsProps) {
   const slot = useContext(SlotContext);
   const id = activePanel?.id;
-  if (!slot?.headerActions || !id || !isPaneId(id)) return null;
+  if (!slot?.headerActions || !id || !paneKind(id)) return null;
   return <>{slot.headerActions({ pane: id, group })}</>;
 }
 
@@ -142,7 +167,7 @@ function constrain(group: DockviewGroupPanel, bounds: Bounds) {
   group.api.setConstraints(bounds);
 }
 
-function sizePane(api: DockviewApi, id: PaneId, placement: Placement) {
+function sizePane(api: DockviewApi, id: PanelId, placement: Placement) {
   if (placement.kind === 'root') return;
   api
     .getPanel(id)
@@ -153,78 +178,173 @@ function sizePane(api: DockviewApi, id: PaneId, placement: Placement) {
     );
 }
 
-function addPane(api: DockviewApi, id: PaneId, placement: Placement) {
-  const pane = paneById(id);
-  const base = {
+function kindPanels(api: DockviewApi, kind: PaneId) {
+  return api.panels.filter((panel) => paneKind(panel.id) === kind);
+}
+
+export function resolvePanel(
+  api: DockviewApi,
+  id: PanelId,
+  active?: PanelId | null,
+) {
+  const exact = api.getPanel(id);
+  if (exact || !isPaneId(id)) return exact;
+  const preferred =
+    active && paneKind(active) === id ? api.getPanel(active) : undefined;
+  return preferred ?? kindPanels(api, id)[0];
+}
+
+function panelBase(id: PanelId, title?: string) {
+  const pane = definitionOf(id);
+  return {
     id,
     component: 'pane',
-    title: pane.title,
+    title: title ?? pane.title,
     minimumWidth: pane.minSize.width,
     minimumHeight: pane.minSize.height,
   };
+}
+
+function addPane(
+  api: DockviewApi,
+  id: PanelId,
+  placement: Placement,
+  title?: string,
+) {
+  const base = panelBase(id, title);
   if (placement.kind === 'root') {
-    api.addPanel(base);
+    if (api.panels.length === 0) {
+      api.addPanel(base);
+      return;
+    }
+    const tree = api.getPanel('tree');
+    api.addPanel({
+      ...base,
+      position:
+        tree && tree.api.location.type === 'grid'
+          ? { referencePanel: tree, direction: 'right' }
+          : { direction: 'left' },
+    });
     return;
   }
   const sized =
     placement.direction === 'below'
       ? { initialHeight: placement.size }
       : { initialWidth: placement.size };
-  if (placement.kind === 'beside') {
-    api.addPanel({
-      ...base,
-      ...sized,
-      position: {
-        referencePanel: placement.reference,
-        direction: placement.direction,
-      },
-    });
-    sizePane(api, id, placement);
-    return;
-  }
+  const reference =
+    placement.kind === 'beside'
+      ? resolvePanel(api, placement.reference)
+      : undefined;
   api.addPanel({
     ...base,
     ...sized,
-    position: { direction: placement.direction },
+    position: reference
+      ? { referencePanel: reference, direction: placement.direction }
+      : { direction: placement.direction },
   });
   sizePane(api, id, placement);
 }
 
-function buildDefault(api: DockviewApi, treeWidth: number) {
+function placementOf(api: DockviewApi, pane: PaneDefinition): Placement {
+  return placementFor(pane.defaultPlacement, (other) =>
+    Boolean(resolvePanel(api, other)),
+  );
+}
+
+export interface InstanceSync {
+  instances: readonly PanelId[];
+  active: PanelId | null;
+  titles: PaneTitles;
+}
+
+function isInstance(id: PanelId): boolean {
+  return Boolean(parsePanelId(id)?.instance);
+}
+
+export function syncInstances(api: DockviewApi, sync: InstanceSync) {
+  const wanted = new Set(sync.instances);
+  for (const pane of PANES) {
+    if (!pane.instances) continue;
+    const want = sync.instances.filter((id) => paneKind(id) === pane.id);
+    const stale = kindPanels(api, pane.id).filter(
+      (panel) => isInstance(panel.id) && !wanted.has(panel.id),
+    );
+    for (const panel of stale) {
+      const others = kindPanels(api, pane.id).filter(
+        (other) => other !== panel && !stale.includes(other),
+      );
+      if (others.length === 0 && !pane.closable && want.length === 0) {
+        api.addPanel({
+          ...panelBase(pane.id),
+          position: { referenceGroup: panel.group },
+        });
+      }
+      panel.api.close();
+    }
+    for (const id of want) {
+      if (api.getPanel(id)) continue;
+      const anchor =
+        (sync.active && paneKind(sync.active) === pane.id
+          ? api.getPanel(sync.active)
+          : undefined) ?? kindPanels(api, pane.id)[0];
+      const title = sync.titles[id]?.label;
+      if (anchor) {
+        api.addPanel({
+          ...panelBase(id, title),
+          position: { referenceGroup: anchor.group },
+          inactive: id !== sync.active,
+        });
+      } else {
+        addPane(api, id, placementOf(api, pane), title);
+      }
+    }
+    if (want.length > 0) api.getPanel(pane.id)?.api.close();
+    if (kindPanels(api, pane.id).length === 0 && !pane.closable) {
+      addPane(api, pane.id, placementOf(api, pane));
+    }
+  }
+  const active = sync.active ? api.getPanel(sync.active) : undefined;
+  if (active && active.group.activePanel !== active) active.api.setActive();
+}
+
+function buildDefault(api: DockviewApi, treeWidth: number, sync: InstanceSync) {
   api.clear();
   const steps = defaultSteps(treeWidth);
   for (const step of steps) {
-    addPane(api, step.id, step.placement);
+    const first = paneById(step.id).instances
+      ? (sync.instances.find((id) => id === sync.active) ??
+        sync.instances.find((id) => paneKind(id) === step.id))
+      : undefined;
+    if (first) addPane(api, first, step.placement, sync.titles[first]?.label);
+    else addPane(api, step.id, step.placement);
   }
   for (const step of steps) {
-    sizePane(api, step.id, step.placement);
+    const target = resolvePanel(api, step.id, sync.active);
+    if (target) sizePane(api, target.id, step.placement);
   }
-  api.getPanel('viewer')?.api.setActive();
+  syncInstances(api, sync);
+  resolvePanel(api, 'viewer', sync.active)?.api.setActive();
 }
 
 function restore(
   api: DockviewApi,
   dock: SerializedDock | null,
   treeWidth: number,
+  sync: InstanceSync,
 ) {
-  const clean = dock ? sanitizeDock(dock) : null;
+  const clean = dock ? sanitizeDock(dock, sync.instances) : null;
   if (!clean) {
-    buildDefault(api, treeWidth);
+    buildDefault(api, treeWidth, sync);
     return;
   }
   try {
     api.fromJSON(clean.dock as never);
     for (const id of clean.missing) {
-      addPane(
-        api,
-        id,
-        placementFor(paneById(id).defaultPlacement, (other) =>
-          Boolean(api.getPanel(other)),
-        ),
-      );
+      addPane(api, id, placementOf(api, paneById(id)));
     }
+    syncInstances(api, sync);
   } catch {
-    buildDefault(api, treeWidth);
+    buildDefault(api, treeWidth, sync);
   }
 }
 
@@ -250,26 +370,36 @@ export function floatingBox(
 
 export function applyTitles(api: DockviewApi, titles: PaneTitles) {
   for (const panel of api.panels) {
-    if (!isPaneId(panel.id)) continue;
-    const label = titles[panel.id]?.label ?? paneById(panel.id).title;
+    const kind = paneKind(panel.id);
+    if (!kind) continue;
+    const label = titles[panel.id]?.label ?? paneById(kind).title;
     if (panel.title !== label) panel.api.setTitle(label);
   }
 }
 
-function openIds(api: DockviewApi): PaneId[] {
-  return api.panels.map((panel) => panel.id).filter(isPaneId);
+function openKinds(api: DockviewApi): PaneId[] {
+  const kinds = new Set(api.panels.map((panel) => paneKind(panel.id)));
+  return PANES.map((pane) => pane.id).filter((id) => kinds.has(id));
+}
+
+function activeKind(group: DockviewGroupPanel): PaneId | null {
+  return paneKind(group.activePanel?.id);
 }
 
 export interface DockLayoutProps {
-  hosts: HostStore<PaneId>;
+  hosts: HostStore<PanelId>;
   dock: SerializedDock | null;
   treeWidth: number;
   collapsed: readonly PaneId[];
   titles: PaneTitles;
-  onAttach: (id: PaneId) => void;
-  onMoved: (id: PaneId) => void;
+  instances: readonly PanelId[];
+  activeInstance: PanelId | null;
+  onAttach: (id: PanelId) => void;
+  onMoved: (id: PanelId) => void;
   onChange: (dock: SerializedDock, open: PaneId[]) => void;
   onController: (controller: DockController | null) => void;
+  onActivateInstance: (id: PanelId) => void;
+  onCloseInstance: (id: PanelId) => void;
   headerActions?: SlotContextValue['headerActions'];
 }
 
@@ -283,10 +413,17 @@ export function DockLayout(props: DockLayoutProps) {
   const quiet = useRef(0);
   const saved = useRef(new Map<string, number>());
   const disposers = useRef<(() => void)[]>([]);
+  const lastEmitted = useRef<string | null>(null);
+
+  const sync = (): InstanceSync => ({
+    instances: latest.current.instances,
+    active: latest.current.activeInstance,
+    titles: latest.current.titles,
+  });
 
   const relax = (group: DockviewGroupPanel) => {
-    const active = group.activePanel?.id;
-    if (!active || !isPaneId(active)) return;
+    const active = activeKind(group);
+    if (!active) return;
     const min = paneById(active).minSize;
     constrain(group, {
       minimumWidth: min.width,
@@ -302,10 +439,12 @@ export function DockLayout(props: DockLayoutProps) {
     for (const group of api.groups) {
       if (skip.has(group.id) || group.element.dataset.collapsed) continue;
       if (group.api.location.type !== 'grid') continue;
-      if (group.panels.some((panel) => panel.id === 'viewer')) continue;
-      const active = group.activePanel?.id;
+      if (group.panels.some((panel) => paneKind(panel.id) === 'viewer')) {
+        continue;
+      }
+      const active = activeKind(group);
       const axis = splitAxisOf(json, group.id);
-      if (!axis || !active || !isPaneId(active)) continue;
+      if (!axis || !active) continue;
       const min = paneById(active).minSize;
       const siblings = siblingCountOf(json, group.id) ?? 1;
       const share = (GAP * (siblings - 1)) / siblings;
@@ -374,8 +513,8 @@ export function DockLayout(props: DockLayoutProps) {
       collapse: boolean;
     }[] = [];
     for (const group of api.groups) {
-      const active = group.activePanel?.id;
-      if (!active || !isPaneId(active)) continue;
+      const active = activeKind(group);
+      if (!active) continue;
       const axis =
         group.api.location.type === 'grid' ? splitAxisOf(json, group.id) : null;
       const want = axis !== null && latest.current.collapsed.includes(active);
@@ -457,10 +596,12 @@ export function DockLayout(props: DockLayoutProps) {
     if (!api || !live.current || busy.current > 0) return;
     applyTitles(api, latest.current.titles);
     applyCollapse();
-    latest.current.onChange(
-      api.toJSON() as unknown as SerializedDock,
-      openIds(api),
-    );
+    const dock = api.toJSON() as unknown as SerializedDock;
+    const open = openKinds(api);
+    const key = `${open.join(' ')}\n${JSON.stringify(dock)}`;
+    if (key === lastEmitted.current) return;
+    lastEmitted.current = key;
+    latest.current.onChange(dock, open);
   };
 
   const rebuild = (run: (api: DockviewApi) => void) => {
@@ -478,56 +619,56 @@ export function DockLayout(props: DockLayoutProps) {
     emit();
   };
 
-  const move = (id: PaneId, target: MoveTarget) => {
+  const move = (id: PanelId, target: MoveTarget) => {
     const api = apiRef.current;
-    const panel = api?.getPanel(id);
+    const panel = api
+      ? resolvePanel(api, id, latest.current.activeInstance)
+      : undefined;
     if (!api || !panel) return;
+    const pane = definitionOf(panel.id);
     if (target === 'float') {
-      if (!paneById(id).canFloat || panel.api.location.type === 'floating') {
+      if (!pane.canFloat || panel.api.location.type === 'floating') {
         return;
       }
       api.addFloatingGroup(panel, floatingBox(api, panel.group));
     } else {
+      const placement = pane.defaultPlacement;
       const direction =
         target === 'dock'
-          ? (() => {
-              const placement = paneById(id).defaultPlacement;
-              return placement.kind === 'root' ? 'right' : placement.direction;
-            })()
+          ? placement.kind === 'root'
+            ? 'right'
+            : placement.direction
           : target;
       const group = api.addGroup({ direction });
       panel.api.moveTo({ group, position: 'center' });
     }
     panel.api.setActive();
-    latest.current.onMoved(id);
+    latest.current.onMoved(panel.id);
   };
 
   const controller: DockController = {
     movePane: move,
     openPane: (id) => {
-      const existing = apiRef.current?.getPanel(id);
+      const api = apiRef.current;
+      const existing = api ? resolvePanel(api, id) : undefined;
       if (existing) {
         existing.api.setActive();
         return;
       }
-      steady((api) =>
-        addPane(
-          api,
-          id,
-          placementFor(paneById(id).defaultPlacement, (other) =>
-            Boolean(api.getPanel(other)),
-          ),
-        ),
-      );
+      steady((api) => addPane(api, id, placementOf(api, paneById(id))));
     },
     closePane: (id) => {
       const panel = apiRef.current?.getPanel(id);
       if (!panel || !paneById(id).closable) return;
       steady(() => panel.api.close(), [panel.group.id]);
     },
-    reset: (treeWidth) => rebuild((api) => buildDefault(api, treeWidth)),
+    reset: (treeWidth) =>
+      rebuild((api) => buildDefault(api, treeWidth, sync())),
     focusPane: (id) => {
-      const panel = apiRef.current?.getPanel(id);
+      const api = apiRef.current;
+      const panel = api
+        ? resolvePanel(api, id, latest.current.activeInstance)
+        : undefined;
       if (!panel) return;
       panel.api.setActive();
       panel.group.element
@@ -535,7 +676,10 @@ export function DockLayout(props: DockLayoutProps) {
         ?.focus();
     },
     location: (id) => {
-      const panel = apiRef.current?.getPanel(id);
+      const api = apiRef.current;
+      const panel = api
+        ? resolvePanel(api, id, latest.current.activeInstance)
+        : undefined;
       if (!panel) return null;
       return panel.api.location.type === 'floating' ? 'floating' : 'grid';
     },
@@ -543,14 +687,35 @@ export function DockLayout(props: DockLayoutProps) {
   const controllerRef = useRef(controller);
   controllerRef.current = controller;
 
+  const reconcile = () => {
+    const api = apiRef.current;
+    if (!api || !live.current) return;
+    steady((api) => syncInstances(api, sync()));
+    emit();
+  };
+  const reconcileRef = useRef(reconcile);
+  reconcileRef.current = reconcile;
+
+  const onActivePanel = () => {
+    const api = apiRef.current;
+    if (!api || busy.current > 0) return;
+    const id = api.activePanel?.id;
+    if (id && isInstance(id) && id !== latest.current.activeInstance) {
+      latest.current.onActivateInstance(id);
+    }
+  };
+
   const attach = (api: DockviewApi) => {
     if (live.current) return;
     apiRef.current = api;
     const subscriptions = [
       api.onDidLayoutChange(emit),
-      api.onDidActivePanelChange(emit),
+      api.onDidActivePanelChange(() => {
+        onActivePanel();
+        emit();
+      }),
       api.onDidMovePanel((moved) => {
-        if (isPaneId(moved.panel.id)) latest.current.onMoved(moved.panel.id);
+        if (paneKind(moved.panel.id)) latest.current.onMoved(moved.panel.id);
       }),
     ];
     disposers.current.push(() => {
@@ -574,6 +739,7 @@ export function DockLayout(props: DockLayoutProps) {
       focusPane: (id) => controllerRef.current.focusPane(id),
       location: (id) => controllerRef.current.location(id),
     });
+    reconcile();
     emit();
   };
   const attachRef = useRef(attach);
@@ -586,7 +752,7 @@ export function DockLayout(props: DockLayoutProps) {
     busy.current += 1;
     quiet.current += 1;
     try {
-      restore(api, latest.current.dock, latest.current.treeWidth);
+      restore(api, latest.current.dock, latest.current.treeWidth, sync());
     } finally {
       busy.current -= 1;
       quiet.current -= 1;
@@ -612,6 +778,10 @@ export function DockLayout(props: DockLayoutProps) {
   useLayoutEffect(() => {
     if (collapsedKey !== undefined) emitRef.current();
   }, [collapsedKey]);
+  const instancesKey = `${props.activeInstance}\n${props.instances.join('\n')}`;
+  useLayoutEffect(() => {
+    if (instancesKey !== undefined) reconcileRef.current();
+  }, [instancesKey]);
 
   useLayoutEffect(() => {
     if (kept.current) attachRef.current(kept.current);
@@ -620,6 +790,7 @@ export function DockLayout(props: DockLayoutProps) {
       for (const dispose of disposers.current) dispose();
       disposers.current = [];
       apiRef.current = null;
+      lastEmitted.current = null;
       latest.current.onController(null);
     };
   }, []);
@@ -629,6 +800,7 @@ export function DockLayout(props: DockLayoutProps) {
       value={{
         hosts: props.hosts,
         onAttach: props.onAttach,
+        onCloseInstance: props.onCloseInstance,
         titles: props.titles,
         headerActions: props.headerActions,
       }}

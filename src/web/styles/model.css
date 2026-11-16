@@ -52,15 +52,63 @@
   flex-direction: column;
 }
 
-.stack__label {
+.stack__models {
+  display: flex;
+  gap: var(--space-1);
   min-width: 0;
-  margin: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.stack__model {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+  border: var(--border-hairline);
+  border-radius: var(--radius-card);
+}
+
+.stack__model[data-active="true"] {
+  border-color: var(--color-chalk);
+}
+
+.stack__model-tab {
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
   overflow: hidden;
-  color: var(--color-chalk);
+  border: 0;
+  background: none;
+  color: var(--color-fog);
+  font: inherit;
   font-size: var(--text-13);
-  font-weight: var(--weight-label);
   text-overflow: ellipsis;
   white-space: nowrap;
+  cursor: pointer;
+}
+
+.stack__model[data-active="true"] .stack__model-tab {
+  color: var(--color-chalk);
+  font-weight: var(--weight-label);
+}
+
+.stack__model-close {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  background: none;
+  color: var(--color-fog);
+  cursor: pointer;
+}
+
+.stack__model-tab:focus-visible,
+.stack__model-close:focus-visible {
+  outline-offset: calc(var(--ring-width) * -1);
 }
 
 .stack__tree {

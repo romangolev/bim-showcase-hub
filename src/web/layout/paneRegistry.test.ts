@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+  instancePanelId,
   isPaneId,
+  isPanelClosable,
   isRequired,
   PANE_IDS,
   PANES,
   paneById,
+  paneKind,
+  parsePanelId,
 } from './paneRegistry.js';
 
 describe('pane registry', () => {
@@ -50,5 +54,25 @@ describe('pane registry', () => {
     expect(isPaneId('terminal')).toBe(false);
     expect(isPaneId(3)).toBe(false);
     expect(() => paneById('terminal' as never)).toThrow();
+  });
+
+  it('maps model tab ids to the viewer pane kind', () => {
+    const id = instancePanelId('viewer', 'dXJuOmE_dmVyc2lvbj0y');
+    expect(id).toBe('viewer:dXJuOmE_dmVyc2lvbj0y');
+    expect(parsePanelId(id)).toEqual({
+      kind: 'viewer',
+      instance: 'dXJuOmE_dmVyc2lvbj0y',
+    });
+    expect(paneKind(id)).toBe('viewer');
+    expect(parsePanelId('viewer')).toEqual({ kind: 'viewer', instance: null });
+    expect(isPanelClosable(id)).toBe(true);
+    expect(isPanelClosable('viewer')).toBe(false);
+  });
+
+  it('rejects instances of panes without instances', () => {
+    expect(parsePanelId('summary:x')).toBeNull();
+    expect(parsePanelId('viewer:')).toBeNull();
+    expect(parsePanelId('terminal:x')).toBeNull();
+    expect(paneKind(42)).toBeNull();
   });
 });

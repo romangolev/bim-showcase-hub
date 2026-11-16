@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 
 export interface HostStore<Id extends string = string> {
   get(id: Id): HTMLElement;
+  release(id: Id): void;
 }
 
 export function createHostStore<Id extends string>(): HostStore<Id> {
@@ -17,6 +18,12 @@ export function createHostStore<Id extends string>(): HostStore<Id> {
         hosts.set(id, host);
       }
       return host;
+    },
+    release(id) {
+      const host = hosts.get(id);
+      if (!host) return;
+      host.remove();
+      hosts.delete(id);
     },
   };
 }
@@ -47,6 +54,7 @@ export interface PaneSlotProps<Id extends string> {
   hosts: HostStore<Id>;
   id: Id;
   onAttach?: (id: Id) => void;
+  visible?: boolean;
   className?: string;
 }
 
@@ -54,6 +62,7 @@ export function PaneSlot<Id extends string>({
   hosts,
   id,
   onAttach,
+  visible = true,
   className,
 }: PaneSlotProps<Id>) {
   const ref = useRef<HTMLDivElement>(null);
@@ -65,11 +74,14 @@ export function PaneSlot<Id extends string>({
     if (!slot) return;
     const host = hosts.get(id);
     slot.appendChild(host);
-    onAttachRef.current?.(id);
     return () => {
       if (host.parentNode === slot) slot.removeChild(host);
     };
   }, [hosts, id]);
+
+  useLayoutEffect(() => {
+    if (visible) onAttachRef.current?.(id);
+  }, [id, visible]);
 
   return (
     <div

@@ -149,6 +149,19 @@ export function mockMatchMedia(initialWidth: number) {
 }
 
 export function installMemoryStorage(): Storage {
+  Object.defineProperty(window, 'sessionStorage', {
+    configurable: true,
+    value: memoryStorage(),
+  });
+  const storage = memoryStorage();
+  Object.defineProperty(window, 'localStorage', {
+    configurable: true,
+    value: storage,
+  });
+  return storage;
+}
+
+export function memoryStorage(): Storage {
   const data = new Map<string, string>();
   const storage: Storage = {
     get length() {
@@ -164,9 +177,5 @@ export function installMemoryStorage(): Storage {
       data.set(key, value);
     },
   };
-  Object.defineProperty(window, 'localStorage', {
-    configurable: true,
-    value: storage,
-  });
   return storage;
 }

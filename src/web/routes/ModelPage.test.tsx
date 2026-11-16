@@ -1,26 +1,12 @@
-import type { ReactElement } from 'react';
 import { describe, expect, it } from 'vitest';
 import {
-  type PaneTitle,
-  PaneTitleContext,
-  type SetPaneTitle,
-} from '../layout/layoutContext.js';
-import { render } from '../test/render.js';
-import { ModelPage, viewerTabTitle } from './ModelPage.js';
+  modelDocumentTitle,
+  modelTabTitle,
+  viewerTabTitle,
+} from './ModelPage.js';
 
 const LONG_URN =
   'dXJuOmFkc2sud2lwcHJvZDpmcy5maWxlOnZmLmFCY0RlRmdIaUprTG1ObzE_dmVyc2lvbj0y';
-
-function renderWithTitles(ui: ReactElement) {
-  const calls: [string, PaneTitle | null][] = [];
-  const setter: SetPaneTitle = (id, title) => {
-    calls.push([id, title]);
-  };
-  const view = render(
-    <PaneTitleContext.Provider value={setter}>{ui}</PaneTitleContext.Provider>,
-  );
-  return { calls, ...view, setter };
-}
 
 describe('viewerTabTitle', () => {
   it('joins the file name and version', () => {
@@ -56,75 +42,26 @@ describe('viewerTabTitle', () => {
   });
 });
 
-describe('ModelPage', () => {
-  it('renders nothing in the viewer pane', () => {
-    const { container } = renderWithTitles(
-      <ModelPage urn={LONG_URN} file="Tower.rvt" version="v2" />,
-    );
-    expect(container).toBeEmptyDOMElement();
+describe('model titles', () => {
+  it('builds the tab title from a stored context', () => {
+    expect(
+      modelTabTitle(LONG_URN, { file: 'Tower.rvt', v: 'v2', crumbs: ['Hub'] }),
+    ).toEqual({
+      label: 'Tower.rvt · v2',
+      tooltip: `Hub / Tower.rvt · v2\n${LONG_URN}`,
+    });
   });
 
-  it('publishes the viewer title and clears it on unmount', () => {
-    const { calls, unmount } = renderWithTitles(
-      <ModelPage
-        urn={LONG_URN}
-        file="Tower.rvt"
-        version="v2"
-        crumbs={['Hub', 'Docs']}
-      />,
+  it('names the document after the model', () => {
+    expect(modelDocumentTitle(LONG_URN, 'Tower.rvt', 'v2')).toBe(
+      'Tower.rvt v2 · BIM Showcase Hub',
     );
-    expect(calls).toEqual([
-      [
-        'viewer',
-        {
-          label: 'Tower.rvt · v2',
-          tooltip: `Hub / Docs / Tower.rvt · v2\n${LONG_URN}`,
-        },
-      ],
-    ]);
-    unmount();
-    expect(calls.at(-1)).toEqual(['viewer', null]);
-  });
-
-  it('updates the title when the model changes', () => {
-    const { calls, rerender, setter } = renderWithTitles(
-      <ModelPage urn={LONG_URN} file="Tower.rvt" version="v2" />,
+    expect(modelDocumentTitle(LONG_URN, 'Core.rvt')).toBe(
+      'Core.rvt · BIM Showcase Hub',
     );
-    rerender(
-      <PaneTitleContext.Provider value={setter}>
-        <ModelPage urn="other" file="Core.rvt" version="v1" />
-      </PaneTitleContext.Provider>,
-    );
-    const published = calls.filter(([, title]) => title !== null);
-    expect(published.map(([, title]) => title?.label)).toEqual([
-      'Tower.rvt · v2',
-      'Core.rvt · v1',
-    ]);
-  });
-
-  it('renders without a layout provider', () => {
-    expect(() =>
-      render(<ModelPage urn={LONG_URN} file="Tower.rvt" />),
-    ).not.toThrow();
-  });
-
-  it('sets the document title per model and restores it on unmount', () => {
-    document.title = 'BIM Showcase Hub';
-    const { unmount, rerender } = render(
-      <ModelPage urn={LONG_URN} file="Tower.rvt" version="v2" />,
-    );
-    expect(document.title).toBe('Tower.rvt v2 · BIM Showcase Hub');
-    rerender(<ModelPage urn={LONG_URN} file="Core.rvt" />);
-    expect(document.title).toBe('Core.rvt · BIM Showcase Hub');
-    unmount();
-    expect(document.title).toBe('BIM Showcase Hub');
   });
 
   it('falls back to a generic document title', () => {
-    document.title = 'BIM Showcase Hub';
-    const { unmount } = render(<ModelPage urn="abc123" />);
-    expect(document.title).toBe('Model · BIM Showcase Hub');
-    unmount();
-    expect(document.title).toBe('BIM Showcase Hub');
+    expect(modelDocumentTitle('abc123')).toBe('Model · BIM Showcase Hub');
   });
 });

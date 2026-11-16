@@ -1,7 +1,9 @@
 import type { ComponentType } from 'react';
 import type { IconName } from '../components/icons.js';
+import { PANEL_SEPARATOR, type PanelId } from './panelIds.js';
 import {
   DashboardPane,
+  ModelPaneBody,
   SummaryPane,
   TreePane,
   ViewerPaneBody,
@@ -21,6 +23,11 @@ export type Placement =
       size: number;
     };
 
+export interface PaneInstances {
+  component: ComponentType<{ instance: string }>;
+  closable: boolean;
+}
+
 export interface PaneDefinition {
   id: PaneId;
   title: string;
@@ -31,6 +38,7 @@ export interface PaneDefinition {
   closable: boolean;
   canFloat: boolean;
   requires: 'viewer' | 'none';
+  instances?: PaneInstances;
 }
 
 export const TREE_WIDTH_DEFAULT = 320;
@@ -61,6 +69,7 @@ export const PANES: readonly PaneDefinition[] = [
     closable: false,
     canFloat: true,
     requires: 'none',
+    instances: { component: ModelPaneBody, closable: true },
   },
   {
     id: 'summary',
@@ -115,3 +124,48 @@ export function isRequired(id: PaneId): boolean {
 }
 
 export const PANE_IDS: readonly PaneId[] = PANES.map((pane) => pane.id);
+
+export { instancePanelId, type PanelId } from './panelIds.js';
+
+export interface ParsedPanel {
+  kind: PaneId;
+  instance: string | null;
+}
+
+export function parsePanelId(id: unknown): ParsedPanel | null {
+  if (typeof id !== 'string') return null;
+  if (isPaneId(id)) return { kind: id, instance: null };
+  const at = id.indexOf(PANEL_SEPARATOR);
+  if (at <= 0) return null;
+  const kind = id.slice(0, at);
+  const instance = id.slice(at + 1);
+  if (!isPaneId(kind) || !instance || !paneById(kind).instances) return null;
+  return { kind, instance };
+}
+
+export function paneKind(id: unknown): PaneId | null {
+  return parsePanelId(id)?.kind ?? null;
+}
+
+export function isPanelId(id: unknown): id is PanelId {
+  return parsePanelId(id) !== null;
+}
+
+export function isInstancePanel(id: unknown): boolean {
+  return Boolean(parsePanelId(id)?.instance);
+}
+
+export function definitionOf(id: PanelId): PaneDefinition {
+  const kind = paneKind(id);
+  if (!kind) throw new Error(`Unknown panel ${id}`);
+  return paneById(kind);
+}
+
+export function isPanelClosable(id: PanelId): boolean {
+  const parsed = parsePanelId(id);
+  if (!parsed) return false;
+  const definition = paneById(parsed.kind);
+  return parsed.instance
+    ? Boolean(definition.instances?.closable)
+    : definition.closable;
+}

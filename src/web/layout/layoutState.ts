@@ -2,12 +2,18 @@ import {
   isPaneId,
   isRequired,
   PANE_IDS,
+  PANES,
   type PaneId,
+  type PanelId,
+  paneById,
+  paneKind,
+  parsePanelId,
   TREE_WIDTH_DEFAULT,
 } from './paneRegistry.js';
 
-export const LAYOUT_KEY = 'bsh.layout.v1';
-export const LAYOUT_VERSION = 1;
+export const LAYOUT_KEY = 'bsh.layout.v2';
+export const LAYOUT_VERSION = 2;
+export const LAYOUT_KEY_V1 = 'bsh.layout.v1';
 export const LEGACY_KEYS = {
   treeWidth: 'bsh.tree.width',
   summary: 'bsh.summary.collapsed',
@@ -96,44 +102,52 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function cleanGroup(
-  value: unknown,
-  seen: Set<PaneId>,
-  panels: Record<string, unknown>,
-): SerializedGroup | null {
+interface CleanScope {
+  seen: Set<PanelId>;
+  panels: Record<string, unknown>;
+  allowed: (id: PanelId) => boolean;
+  rename: Map<string, PanelId>;
+  sources: Map<PanelId, string>;
+}
+
+function cleanGroup(value: unknown, scope: CleanScope): SerializedGroup | null {
   if (!isRecord(value) || typeof value.id !== 'string') return null;
   if (!Array.isArray(value.views)) return null;
-  const views: PaneId[] = [];
+  const views: PanelId[] = [];
+  let active: PanelId | undefined;
   for (const view of value.views) {
-    if (isPaneId(view) && !seen.has(view) && isRecord(panels[view])) {
-      seen.add(view);
-      views.push(view);
+    if (typeof view !== 'string') continue;
+    const id = scope.rename.get(view) ?? view;
+    if (
+      scope.allowed(id) &&
+      !scope.seen.has(id) &&
+      isRecord(scope.panels[view])
+    ) {
+      scope.seen.add(id);
+      scope.sources.set(id, view);
+      views.push(id);
+      if (view === value.activeView) active = id;
     }
   }
   if (views.length === 0) return null;
-  const group: SerializedGroup = { ...value, id: value.id, views };
-  if (!views.includes(group.activeView as PaneId)) {
-    group.activeView = views[0];
-  }
-  return group;
+  return { ...value, id: value.id, views, activeView: active ?? views[0] };
 }
 
 function cleanNode(
   value: unknown,
-  seen: Set<PaneId>,
-  panels: Record<string, unknown>,
+  scope: CleanScope,
   groups: Set<string>,
 ): SerializedNode | null {
   if (!isRecord(value)) return null;
   if (value.type === 'leaf') {
-    const group = cleanGroup(value.data, seen, panels);
+    const group = cleanGroup(value.data, scope);
     if (!group) return null;
     groups.add(group.id);
     return { ...value, type: 'leaf', data: group };
   }
   if (value.type === 'branch' && Array.isArray(value.data)) {
     const children = value.data
-      .map((child) => cleanNode(child, seen, panels, groups))
+      .map((child) => cleanNode(child, scope, groups))
       .filter((child): child is SerializedNode => child !== null);
     if (children.length === 0) return null;
     return { ...value, type: 'branch', data: children };
@@ -141,8 +155,46 @@ function cleanNode(
   return null;
 }
 
+function viewsIn(input: Record<string, unknown>): string[] {
+  const views: string[] = [];
+  const fromGroup = (group: unknown) => {
+    if (!isRecord(group) || !Array.isArray(group.views)) return;
+    for (const view of group.views)
+      if (typeof view === 'string') views.push(view);
+  };
+  const visit = (node: unknown) => {
+    if (!isRecord(node)) return;
+    if (node.type === 'leaf') fromGroup(node.data);
+    else if (Array.isArray(node.data))
+      for (const child of node.data) visit(child);
+  };
+  if (isRecord(input.grid)) visit(input.grid.root);
+  if (Array.isArray(input.floatingGroups)) {
+    for (const floating of input.floatingGroups) {
+      if (isRecord(floating)) fromGroup(floating.data);
+    }
+  }
+  return views;
+}
+
+function placeholderRenames(
+  views: readonly string[],
+  allowed: (id: PanelId) => boolean,
+): Map<string, PanelId> {
+  const rename = new Map<string, PanelId>();
+  for (const pane of PANES) {
+    if (!pane.instances || pane.closable) continue;
+    const ofKind = views.filter((view) => paneKind(view) === pane.id);
+    if (ofKind.some(allowed)) continue;
+    const stale = ofKind.find((view) => parsePanelId(view)?.instance);
+    if (stale) rename.set(stale, pane.id);
+  }
+  return rename;
+}
+
 export function sanitizeDock(
   input: unknown,
+  instances?: readonly PanelId[],
 ): { dock: SerializedDock; missing: PaneId[] } | null {
   if (!isRecord(input) || !isRecord(input.grid) || !isRecord(input.panels)) {
     return null;
@@ -151,16 +203,28 @@ export function sanitizeDock(
   if (grid.orientation !== 'HORIZONTAL' && grid.orientation !== 'VERTICAL') {
     return null;
   }
-  const seen = new Set<PaneId>();
+  const wanted = instances ? new Set(instances) : null;
+  const allowed = (id: PanelId) => {
+    const parsed = parsePanelId(id);
+    if (!parsed) return false;
+    if (!parsed.instance) return true;
+    return wanted ? wanted.has(id) : true;
+  };
+  const scope: CleanScope = {
+    seen: new Set(),
+    panels: input.panels,
+    allowed,
+    rename: wanted ? placeholderRenames(viewsIn(input), allowed) : new Map(),
+    sources: new Map(),
+  };
   const groups = new Set<string>();
-  const sourcePanels = input.panels;
-  const root = cleanNode(grid.root, seen, sourcePanels, groups);
+  const root = cleanNode(grid.root, scope, groups);
   if (root?.type !== 'branch') return null;
   const floatingGroups: SerializedFloatingGroup[] = [];
   if (Array.isArray(input.floatingGroups)) {
     for (const floating of input.floatingGroups) {
       if (!isRecord(floating)) continue;
-      const group = cleanGroup(floating.data, seen, sourcePanels);
+      const group = cleanGroup(floating.data, scope);
       if (!group) continue;
       groups.add(group.id);
       floatingGroups.push({
@@ -170,11 +234,16 @@ export function sanitizeDock(
       });
     }
   }
-  if (seen.size === 0) return null;
+  if (scope.seen.size === 0) return null;
   const panels: SerializedDock['panels'] = {};
-  for (const id of PANE_IDS) {
-    const panel = sourcePanels[id];
-    if (seen.has(id) && isRecord(panel)) panels[id] = { ...panel, id };
+  for (const id of scope.seen) {
+    const source = scope.sources.get(id) ?? id;
+    const panel = scope.panels[source];
+    if (!isRecord(panel)) continue;
+    panels[id] =
+      source === id
+        ? { ...panel, id }
+        : { ...panel, id, title: paneById(paneKind(id) as PaneId).title };
   }
   const { popoutGroups: _popouts, ...rest } = input;
   const dock: SerializedDock = {
@@ -192,8 +261,48 @@ export function sanitizeDock(
   if (typeof dock.activeGroup !== 'string' || !groups.has(dock.activeGroup)) {
     delete dock.activeGroup;
   }
-  const missing = PANE_IDS.filter((id) => isRequired(id) && !seen.has(id));
+  const kinds = new Set([...scope.seen].map(paneKind));
+  const missing = PANE_IDS.filter((id) => {
+    if (!isRequired(id) || kinds.has(id)) return false;
+    return !(paneById(id).instances && wanted?.size);
+  });
   return { dock, missing };
+}
+
+export function renamePanel(
+  dock: SerializedDock,
+  from: PanelId,
+  to: PanelId,
+): SerializedDock {
+  if (!(from in dock.panels) || to in dock.panels) return dock;
+  const swap = (group: SerializedGroup): SerializedGroup => ({
+    ...group,
+    views: group.views.map((view) => (view === from ? to : view)),
+    activeView: group.activeView === from ? to : group.activeView,
+  });
+  const visit = (node: SerializedNode): SerializedNode => {
+    if (node.type === 'leaf') {
+      return { ...node, data: swap(node.data as SerializedGroup) };
+    }
+    return { ...node, data: (node.data as SerializedNode[]).map(visit) };
+  };
+  const panels: SerializedDock['panels'] = {};
+  for (const [key, panel] of Object.entries(dock.panels)) {
+    panels[key === from ? to : key] =
+      key === from ? { ...panel, id: to } : panel;
+  }
+  const next: SerializedDock = {
+    ...dock,
+    grid: { ...dock.grid, root: visit(dock.grid.root) },
+    panels,
+  };
+  if (dock.floatingGroups) {
+    next.floatingGroups = dock.floatingGroups.map((floating) => ({
+      ...floating,
+      data: swap(floating.data),
+    }));
+  }
+  return next;
 }
 
 export function splitAxisOf(
@@ -251,7 +360,10 @@ export function serializeLayout(model: LayoutModel): string {
   return JSON.stringify({ version: LAYOUT_VERSION, layout: model });
 }
 
-export function parseLayout(raw: string | null): LayoutModel | null {
+export function parseLayout(
+  raw: string | null,
+  version: number = LAYOUT_VERSION,
+): LayoutModel | null {
   if (raw === null) return null;
   let parsed: unknown;
   try {
@@ -259,7 +371,7 @@ export function parseLayout(raw: string | null): LayoutModel | null {
   } catch {
     return null;
   }
-  if (!isRecord(parsed) || parsed.version !== LAYOUT_VERSION) return null;
+  if (!isRecord(parsed) || parsed.version !== version) return null;
   const layout = parsed.layout;
   if (!isRecord(layout)) return null;
   const collapsed = Array.isArray(layout.collapsed)
@@ -316,17 +428,37 @@ export function writeLayout(storage: Storage, model: LayoutModel) {
   }
 }
 
-export function readLayout(storage: Storage, height: number): LayoutModel {
+export function migrateV1(
+  raw: string | null,
+  openPanels: readonly PanelId[],
+): LayoutModel | null {
+  const model = parseLayout(raw, 1);
+  if (!model) return null;
+  const first = openPanels[0];
+  if (!model.dock || !first) return model;
+  return { ...model, dock: renamePanel(model.dock, 'viewer', first) };
+}
+
+export function readLayout(
+  storage: Storage,
+  height: number,
+  openPanels: readonly PanelId[] = [],
+): LayoutModel {
   let raw: string | null;
   try {
     raw = storage.getItem(LAYOUT_KEY);
   } catch {
     return defaultModel(height);
   }
-  if (raw === null) {
-    const imported = importLegacy(storage, height);
-    writeLayout(storage, imported);
-    return imported;
+  if (raw !== null) return parseLayout(raw) ?? defaultModel(height);
+  const old = safeGet(storage, LAYOUT_KEY_V1);
+  if (old !== null) {
+    const migrated = migrateV1(old, openPanels) ?? defaultModel(height);
+    safeRemove(storage, LAYOUT_KEY_V1);
+    writeLayout(storage, migrated);
+    return migrated;
   }
-  return parseLayout(raw) ?? defaultModel(height);
+  const imported = importLegacy(storage, height);
+  writeLayout(storage, imported);
+  return imported;
 }

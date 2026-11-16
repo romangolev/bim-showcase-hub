@@ -3,7 +3,6 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -17,7 +16,7 @@ import { registerViewerTools } from '../extensions/viewerTools.js';
 import { useTheme } from '../theme/ThemeContext.js';
 import { createViewerAdapter } from './createViewerAdapter.js';
 import type { ViewerAdapter, ViewerAdapterFactory } from './ViewerAdapter.js';
-import { ViewerContext } from './ViewerContext.js';
+import { ActiveViewerContext, ModelViewerContext } from './ViewerContext.js';
 import './viewer.css';
 import './viewerChrome.css';
 
@@ -64,8 +63,9 @@ export function ViewerPane({
   resizeSignal,
   children,
 }: ViewerPaneProps) {
-  const outer = useContext(ViewerContext);
-  const publish = outer?.setAdapter;
+  const registry = useContext(ActiveViewerContext);
+  const publish = registry?.publish;
+  const withdraw = registry?.withdraw;
   const hostRef = useRef<HTMLDivElement>(null);
   const adapterRef = useRef<ViewerAdapter | null>(null);
   const statusTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
@@ -168,7 +168,7 @@ export function ViewerPane({
         adapterRef.current = instance;
         instance.resize();
         setAdapter(instance);
-        publish?.(instance);
+        publish?.(urn, instance);
         setState({ status: 'ready' });
         onReadyRef.current?.(instance);
       } catch (err) {
@@ -183,17 +183,12 @@ export function ViewerPane({
       created?.destroy();
       if (instanceRef.current === created) instanceRef.current = null;
       setAdapter(null);
-      publish?.(null);
+      if (created) withdraw?.(urn, created);
     };
-  }, [urn, factory, tools, publish, attempt, handleExportStatus]);
-
-  const value = useMemo(
-    () => ({ adapter, setAdapter: publish ?? (() => {}) }),
-    [adapter, publish],
-  );
+  }, [urn, factory, tools, publish, withdraw, attempt, handleExportStatus]);
 
   return (
-    <ViewerContext.Provider value={value}>
+    <ModelViewerContext.Provider value={adapter}>
       <div className="bsh-viewer-pane" data-state={state.status}>
         <div ref={hostRef} className="bsh-viewer-surface" />
         {state.status === 'loading' && (
@@ -237,6 +232,6 @@ export function ViewerPane({
         </div>
         {children}
       </div>
-    </ViewerContext.Provider>
+    </ModelViewerContext.Provider>
   );
 }

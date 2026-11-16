@@ -143,15 +143,16 @@ describe('Menu', () => {
 });
 
 describe('pane menus', () => {
-  it('offers every move without dragging and no Close for the viewer', async () => {
+  it('offers every move without dragging and Close for a model tab', async () => {
     renderModel();
-    const menu = await openPaneMenu('Viewer');
+    const menu = await openPaneMenu('Untitled model');
     expect(itemNames(menu)).toEqual([
       'Move left',
       'Move right',
       'Move below',
       'Float',
       'Collapse',
+      'Close',
       'Reset layout',
     ]);
   });
@@ -162,7 +163,7 @@ describe('pane menus', () => {
     expect(itemNames(menu)).toContain('Close');
   });
 
-  it('hides the tab close button only for the viewer', async () => {
+  it('shows a close button on model tabs and closable panes', async () => {
     renderModel();
     await screen.findByRole('tab', { name: 'Untitled model' });
     const tabs = screen.getAllByRole('tab');
@@ -172,7 +173,7 @@ describe('pane menus', () => {
     const summary = tabs.find(
       (tab) => tab.getAttribute('aria-label') === 'Model summary',
     );
-    expect(viewer?.querySelector('.dv-default-tab-action')).toBeNull();
+    expect(viewer?.querySelector('.dv-default-tab-action')).not.toBeNull();
     expect(summary?.querySelector('.dv-default-tab-action')).not.toBeNull();
   });
 
@@ -181,18 +182,18 @@ describe('pane menus', () => {
     const load = vi.spyOn(MockViewerAdapter.prototype, 'load');
     renderModel();
     await screen.findByLabelText('Mock building model');
-    let menu = await openPaneMenu('Viewer');
+    let menu = await openPaneMenu('Untitled model');
     fireEvent.click(within(menu).getByRole('menuitem', { name: 'Float' }));
     expect(document.querySelector('.dv-resize-container')).not.toBeNull();
     expect(document.querySelector('.dv-live-region')).toHaveTextContent(
       'Untitled model floated',
     );
-    menu = await openPaneMenu('Viewer');
+    menu = await openPaneMenu('Untitled model');
     expect(itemNames(menu)).toContain('Dock');
     expect(itemNames(menu)).not.toContain('Collapse');
     fireEvent.click(within(menu).getByRole('menuitem', { name: 'Dock' }));
     expect(document.querySelector('.dv-resize-container')).toBeNull();
-    menu = await openPaneMenu('Viewer');
+    menu = await openPaneMenu('Untitled model');
     fireEvent.click(within(menu).getByRole('menuitem', { name: 'Move left' }));
     await waitFor(() => expect(load).toHaveBeenCalledTimes(1));
     expect(destroy).not.toHaveBeenCalled();

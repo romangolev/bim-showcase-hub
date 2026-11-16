@@ -1,12 +1,18 @@
 import { Icon } from '../components/icons.js';
 import { Menu, type MenuEntry } from '../components/Menu.js';
 import { type LayoutApi, useLayout } from './layoutContext.js';
-import { PANES, type PaneId, paneById } from './paneRegistry.js';
+import {
+  definitionOf,
+  isPanelClosable,
+  PANES,
+  type PanelId,
+} from './paneRegistry.js';
 
-export function paneMenuEntries(layout: LayoutApi, pane: PaneId): MenuEntry[] {
-  const definition = paneById(pane);
+export function paneMenuEntries(layout: LayoutApi, pane: PanelId): MenuEntry[] {
+  const definition = definitionOf(pane);
+  const kind = definition.id;
   const floating = layout.location(pane) === 'floating';
-  const collapsed = layout.isCollapsed(pane);
+  const collapsed = layout.isCollapsed(kind);
   const entries: MenuEntry[] = [
     {
       id: 'left',
@@ -43,10 +49,10 @@ export function paneMenuEntries(layout: LayoutApi, pane: PaneId): MenuEntry[] {
     entries.push({
       id: 'collapse',
       label: collapsed ? 'Expand' : 'Collapse',
-      onSelect: () => layout.setCollapsed(pane, !collapsed),
+      onSelect: () => layout.setCollapsed(kind, !collapsed),
     });
   }
-  if (definition.closable) {
+  if (isPanelClosable(pane)) {
     entries.push({
       id: 'close',
       label: 'Close',
@@ -60,9 +66,9 @@ export function paneMenuEntries(layout: LayoutApi, pane: PaneId): MenuEntry[] {
   return entries;
 }
 
-export function PaneMenu({ pane }: { pane: PaneId }) {
+export function PaneMenu({ pane }: { pane: PanelId }) {
   const layout = useLayout();
-  const title = paneById(pane).title;
+  const title = layout.paneTitle(pane).label;
   return (
     <Menu
       label={`${title} pane options`}
@@ -73,11 +79,12 @@ export function PaneMenu({ pane }: { pane: PaneId }) {
   );
 }
 
-export function CollapseAction({ pane }: { pane: PaneId }) {
+export function CollapseAction({ pane }: { pane: PanelId }) {
   const layout = useLayout();
   if (layout.location(pane) === 'floating') return null;
-  const collapsed = layout.isCollapsed(pane);
-  const label = `${collapsed ? 'Expand' : 'Collapse'} ${paneById(pane).title}`;
+  const kind = definitionOf(pane).id;
+  const collapsed = layout.isCollapsed(kind);
+  const label = `${collapsed ? 'Expand' : 'Collapse'} ${layout.paneTitle(pane).label}`;
   return (
     <button
       type="button"
@@ -85,7 +92,7 @@ export function CollapseAction({ pane }: { pane: PaneId }) {
       aria-expanded={!collapsed}
       aria-label={label}
       title={label}
-      onClick={() => layout.setCollapsed(pane, !collapsed)}
+      onClick={() => layout.setCollapsed(kind, !collapsed)}
     >
       <Icon
         name="chevron"
@@ -97,7 +104,7 @@ export function CollapseAction({ pane }: { pane: PaneId }) {
   );
 }
 
-export function PaneActions({ pane }: { pane: PaneId }) {
+export function PaneActions({ pane }: { pane: PanelId }) {
   return (
     <>
       <CollapseAction pane={pane} />
