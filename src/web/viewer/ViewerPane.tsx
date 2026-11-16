@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { StateBlock } from '../components/StateBlock.js';
 import { registerPaintBrushes } from '../extensions/paintBrushes.js';
 import { createViewerAdapter } from './createViewerAdapter.js';
 import type { ViewerAdapter, ViewerAdapterFactory } from './ViewerAdapter.js';
@@ -25,8 +26,11 @@ type PaneState =
   | { status: 'ready' }
   | { status: 'error'; message: string };
 
-function messageOf(err: unknown): string {
-  return err instanceof Error ? err.message : 'The model could not be loaded';
+const LOAD_ERROR_COPY =
+  'The model could not be loaded. It may still be processing, or you may not have access to it.';
+
+function detailOf(err: unknown): string {
+  return err instanceof Error ? err.message : '';
 }
 
 export function ViewerPane({
@@ -73,7 +77,7 @@ export function ViewerPane({
         setState({ status: 'ready' });
         onReadyRef.current?.(instance);
       } catch (err) {
-        if (!cancelled) setState({ status: 'error', message: messageOf(err) });
+        if (!cancelled) setState({ status: 'error', message: detailOf(err) });
       }
     })();
 
@@ -96,19 +100,28 @@ export function ViewerPane({
       <div className="bsh-viewer-pane" data-state={state.status}>
         <div ref={hostRef} className="bsh-viewer-surface" />
         {state.status === 'loading' && (
-          <div className="bsh-viewer-overlay" role="status">
-            Loading model
+          <div className="bsh-viewer-overlay">
+            <StateBlock
+              variant="loading"
+              message="Loading model"
+              rows={3}
+              className="bsh-viewer-skeleton"
+            />
           </div>
         )}
         {state.status === 'error' && (
-          <div
-            className="bsh-viewer-overlay bsh-viewer-overlay--error"
-            role="alert"
-          >
-            <span>{state.message}</span>
-            <button type="button" onClick={() => setAttempt((n) => n + 1)}>
-              Try again
-            </button>
+          <div className="bsh-viewer-overlay">
+            <StateBlock
+              variant="error"
+              title="Model unavailable"
+              message={LOAD_ERROR_COPY}
+              detail={state.message || undefined}
+              action={{
+                label: 'Try again',
+                onClick: () => setAttempt((n) => n + 1),
+              }}
+              className="bsh-viewer-error"
+            />
           </div>
         )}
         {children}

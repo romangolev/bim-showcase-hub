@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { StateBlock } from '../components/StateBlock.js';
 import {
   DEFAULT_SUMMARY_PROPERTIES,
   type SummaryEntry,
@@ -51,20 +52,34 @@ export function ModelSummaryPanel({
         </button>
       </header>
       {!resolved && (
-        <p className="bsh-muted">Load a model to see its summary.</p>
+        <StateBlock
+          variant="empty"
+          title="No model loaded yet"
+          message="Select a viewable version in the document tree and its element summary appears here."
+        />
       )}
       {resolved && state.status === 'loading' && (
-        <p className="bsh-muted" role="status">
-          Reading element properties
-        </p>
+        <StateBlock
+          variant="loading"
+          message="Reading element properties"
+          rows={5}
+        />
       )}
       {state.status === 'error' && (
-        <p className="bsh-error" role="alert">
-          {state.message}
-        </p>
+        <StateBlock
+          variant="error"
+          message="We could not read this model's properties. Try again."
+          detail={state.message}
+          action={{ label: 'Retry', onClick: state.reload }}
+        />
       )}
       {state.status === 'ready' && entries.length === 0 && (
-        <p className="bsh-muted">No elements found.</p>
+        <StateBlock
+          variant="empty"
+          title="No elements to summarize"
+          message="This version has no readable elements. Try another version."
+          action={{ label: 'Refresh', onClick: state.reload }}
+        />
       )}
       {entries.length > 0 && <SummaryTable entries={entries} />}
     </section>

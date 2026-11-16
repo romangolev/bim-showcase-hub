@@ -65,7 +65,8 @@ describe('ViewerPane', () => {
     };
     render(<ViewerPane urn="abc" factory={factory} />);
     const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent('token failed');
+    expect(alert).toHaveTextContent('could not be loaded');
+    expect(alert).toHaveAttribute('title', 'token failed');
     expect(
       screen.getByRole('button', { name: 'Try again' }),
     ).toBeInTheDocument();

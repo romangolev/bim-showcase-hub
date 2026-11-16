@@ -54,6 +54,7 @@ const PATHS = {
   spinner: ['M21 12a9 9 0 1 1-6.2-8.55'],
   layers: ['m12 2 10 5-10 5L2 7Z', 'm2 12 10 5 10-5', 'm2 17 10 5 10-5'],
   table: ['M3 5h18v14H3Z', 'M3 10h18', 'M9 10v9'],
+  close: ['M18 6 6 18', 'm6 6 12 12'],
 } as const;
 
 export type IconName = keyof typeof PATHS;

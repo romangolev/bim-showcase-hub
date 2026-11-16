@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useState } from 'react';
+import { StateBlock } from '../components/StateBlock.js';
 import {
   availableProperties,
   DEFAULT_DASHBOARD_PROPERTIES,
@@ -112,16 +113,30 @@ export function DashboardPanel({
         </button>
       </header>
       <div id={bodyId} className="bsh-drawer__body" hidden={isCollapsed}>
-        {!resolved && <p className="bsh-muted">Load a model to see charts.</p>}
+        {!resolved && (
+          <StateBlock
+            variant="empty"
+            compact
+            title="No charts yet"
+            message="Open a viewable version to chart its elements."
+          />
+        )}
         {resolved && state.status === 'loading' && (
-          <p className="bsh-muted" role="status">
-            Reading element properties
-          </p>
+          <StateBlock
+            variant="loading"
+            compact
+            message="Reading element properties"
+            rows={3}
+          />
         )}
         {state.status === 'error' && (
-          <p className="bsh-error" role="alert">
-            {state.message}
-          </p>
+          <StateBlock
+            variant="error"
+            compact
+            message="We could not read this model's properties. Try again."
+            detail={state.message}
+            action={{ label: 'Retry', onClick: state.reload }}
+          />
         )}
         {chart && options.length > 0 && (
           <>
@@ -164,7 +179,12 @@ export function DashboardPanel({
           </>
         )}
         {state.status === 'ready' && options.length === 0 && (
-          <p className="bsh-muted">No properties available to chart.</p>
+          <StateBlock
+            variant="empty"
+            compact
+            title="Nothing to chart"
+            message="This version has no properties to group elements by."
+          />
         )}
       </div>
     </section>

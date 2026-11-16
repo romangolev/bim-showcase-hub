@@ -30,30 +30,18 @@
   letter-spacing: var(--tracking-body);
 }
 
-.bsh-viewer-overlay--error {
-  color: var(--color-coral);
+.bsh-viewer-skeleton {
+  width: min(320px, 70%);
 }
 
-.bsh-viewer-overlay button {
-  padding: var(--space-2) var(--space-4);
-  background: var(--color-ghost-fill);
-  color: var(--color-snow);
+.bsh-viewer-error {
+  align-items: center;
+  max-width: min(440px, 88%);
+  padding: var(--space-6);
   border: var(--border-hairline);
-  border-radius: var(--radius-button);
-  font: inherit;
-  cursor: pointer;
-}
-
-.bsh-viewer-overlay button {
-  transition: background-color var(--transition-ui);
-}
-
-.bsh-viewer-overlay button:hover {
-  background: var(--color-ghost-fill-hover);
-}
-
-.bsh-viewer-overlay button:active {
-  background: var(--color-ghost-fill-active);
+  border-radius: var(--radius-card);
+  background: var(--color-graphite);
+  box-shadow: var(--shadow-inset);
 }
 
 .bsh-viewer-surface .adsk-viewing-viewer {
