@@ -37,6 +37,29 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function stateOfStatus(status: string): ViewState {
+  switch (status) {
+    case 'success':
+    case 'partialsuccess':
+      return 'ready';
+    case 'pending':
+    case 'inprogress':
+      return 'processing';
+    case 'failed':
+    case 'timeout':
+      return 'failed';
+    default:
+      return 'unknown';
+  }
+}
+
+const GEOMETRY_ORDER: ViewState[] = [
+  'ready',
+  'processing',
+  'failed',
+  'unknown',
+];
+
 export function classifyManifest(body: unknown): ViewState {
   if (!isRecord(body)) {
     return 'not-translated';
@@ -45,27 +68,14 @@ export function classifyManifest(body: unknown): ViewState {
   const geometry = derivatives
     .filter(isRecord)
     .filter((d) => GEOMETRY_TYPES.has(statusOf(d.outputType)))
-    .map((d) => statusOf(d.status));
-  if (geometry.includes('success')) {
-    return 'ready';
+    .map((d) => stateOfStatus(statusOf(d.status)));
+  for (const candidate of GEOMETRY_ORDER) {
+    if (geometry.includes(candidate)) {
+      return candidate;
+    }
   }
-  if (geometry.some((s) => s === 'inprogress' || s === 'pending')) {
-    return 'processing';
-  }
-  if (geometry.some((s) => s === 'failed' || s === 'timeout')) {
-    return 'failed';
-  }
-  const manifest = statusOf(body.status);
-  if (manifest === 'pending' || manifest === 'inprogress') {
-    return 'processing';
-  }
-  if (manifest === 'failed' || manifest === 'timeout') {
-    return 'failed';
-  }
-  if (manifest === 'success') {
-    return 'no-geometry';
-  }
-  return 'unknown';
+  const manifest = stateOfStatus(statusOf(body.status));
+  return manifest === 'ready' ? 'no-geometry' : manifest;
 }
 
 function ttlFor(state: ViewState): number {

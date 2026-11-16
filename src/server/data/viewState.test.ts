@@ -25,60 +25,68 @@ function reply(status: number, body?: unknown) {
 }
 
 describe('classifyManifest', () => {
-  it('is ready with a successful svf or svf2 derivative', () => {
+  const manifestStatuses = [
+    'success',
+    'partialsuccess',
+    'pending',
+    'inprogress',
+    'failed',
+    'timeout',
+    'weird',
+  ];
+  const derivativeStatuses = [...manifestStatuses];
+  const fromStatus: Record<string, string> = {
+    success: 'ready',
+    partialsuccess: 'ready',
+    pending: 'processing',
+    inprogress: 'processing',
+    failed: 'failed',
+    timeout: 'failed',
+    weird: 'unknown',
+  };
+
+  for (const manifest of manifestStatuses) {
+    for (const derivative of derivativeStatuses) {
+      it(`manifest ${manifest} with svf ${derivative}`, () => {
+        expect(
+          classifyManifest({
+            status: manifest,
+            derivatives: [
+              geometry('thumbnail', 'success'),
+              geometry('svf', derivative),
+            ],
+          }),
+        ).toBe(fromStatus[derivative]);
+      });
+    }
+    it(`manifest ${manifest} without geometry`, () => {
+      const expected =
+        fromStatus[manifest] === 'ready' ? 'no-geometry' : fromStatus[manifest];
+      expect(
+        classifyManifest({
+          status: manifest,
+          derivatives: [geometry('thumbnail', 'success')],
+        }),
+      ).toBe(expected);
+    });
+  }
+
+  it('accepts svf2 and prefers a usable derivative among several', () => {
     expect(
       classifyManifest({
-        status: 'success',
+        status: 'failed',
         derivatives: [
-          geometry('thumbnail', 'success'),
-          geometry('svf', 'success'),
+          geometry('svf', 'failed'),
+          geometry('svf2', 'partialsuccess'),
         ],
       }),
     ).toBe('ready');
-    expect(
-      classifyManifest({
-        status: 'success',
-        derivatives: [geometry('svf2', 'success')],
-      }),
-    ).toBe('ready');
   });
 
-  it('is no-geometry for a thumbnail-only success manifest', () => {
-    expect(
-      classifyManifest({
-        status: 'success',
-        derivatives: [geometry('thumbnail', 'success')],
-      }),
-    ).toBe('no-geometry');
-    expect(classifyManifest({ status: 'success' })).toBe('no-geometry');
-  });
-
-  it('is processing for pending, inprogress or a running geometry derivative', () => {
-    expect(classifyManifest({ status: 'pending' })).toBe('processing');
-    expect(classifyManifest({ status: 'inprogress' })).toBe('processing');
-    expect(
-      classifyManifest({
-        status: 'success',
-        derivatives: [geometry('svf', 'inprogress')],
-      }),
-    ).toBe('processing');
-  });
-
-  it('is failed for a failed manifest or geometry derivative', () => {
-    expect(classifyManifest({ status: 'failed' })).toBe('failed');
-    expect(classifyManifest({ status: 'timeout' })).toBe('failed');
-    expect(
-      classifyManifest({
-        status: 'success',
-        derivatives: [geometry('svf', 'failed')],
-      }),
-    ).toBe('failed');
-  });
-
-  it('is not-translated for an empty body and unknown for odd statuses', () => {
+  it('is not-translated for an empty body', () => {
     expect(classifyManifest(null)).toBe('not-translated');
     expect(classifyManifest('')).toBe('not-translated');
-    expect(classifyManifest({ status: 'weird' })).toBe('unknown');
+    expect(classifyManifest([])).toBe('not-translated');
   });
 });
 
