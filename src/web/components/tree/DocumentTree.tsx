@@ -507,7 +507,7 @@ export function DocumentTree({
       );
     }
 
-    const indent = `calc(var(--space-2) + ${row.level * 16 + 20}px)`;
+    const indent = `calc(var(--space-2) + ${row.level * 12 + 20}px)`;
     return (
       <div
         key={row.key}

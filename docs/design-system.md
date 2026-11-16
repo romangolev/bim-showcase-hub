@@ -4,7 +4,9 @@
 
 ## Tokens
 
-`src/web/styles/tokens.css` declares every token as a CSS custom property. Color tokens are declared per theme, on `:root, :root[data-theme="dark"]` and on `:root[data-theme="light"]`; everything else sits on `:root`. Tokens: colors (`--color-void`, `--color-graphite`, `--color-signal-blue` and the rest of the DESIGN.md palette), font (`--font-sans`, Inter variable), text sizes (`--text-13` and up), weights, tracking, spacing (`--space-1` to `--space-24`), radii (`--radius-button`, `--radius-card` and others), the hairline border and shadows.
+`src/web/styles/tokens.css` declares every token as a CSS custom property. Color tokens are declared per theme, on `:root, :root[data-theme="dark"]` and on `:root[data-theme="light"]`; everything else sits on `:root`. Tokens: colors (`--color-void`, `--color-graphite`, `--color-signal-blue` and the rest of the DESIGN.md palette), font (`--font-sans`, Inter variable), text sizes (`--text-13` and up), weights, tracking, spacing (`--space-1` to `--space-24`), radii (`--radius-button`, `--radius-card` and others), density tokens (`--gutter` 12px between panes, `--gutter-page` 16px, `--padding-card` 16px, `--padding-panel` 12px, `--row-padding`, `--nav-height` 56px, `--hit-target` 32px, 44px on touch or up to 700px wide), the hairline border and shadows.
+
+The density values are an intentional adaptation of the Refero spec: radii, gutters, paddings and the top bar are tighter than the published values so the viewer gets more of the screen.
 
 Other stylesheets in `src/web/styles` (`global.css`, `shell.css`, `tree.css`, `landing.css`, `model.css`) and `src/web/panels/panels.css` read these variables. Component styles do not contain raw hex colors or pixel values that have a token.
 

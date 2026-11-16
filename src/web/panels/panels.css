@@ -4,7 +4,7 @@
   gap: var(--space-3);
   min-width: 0;
   min-height: 0;
-  padding: var(--space-4);
+  padding: var(--padding-panel);
   background: var(--color-graphite);
   border: var(--border-hairline);
   border-radius: var(--radius-card);
@@ -45,7 +45,7 @@
 
 .bsh-button,
 .bsh-select {
-  min-height: 32px;
+  min-height: var(--hit-target);
   padding: 0 var(--space-3);
   background: var(--color-ghost-fill);
   color: var(--color-snow);
@@ -85,8 +85,8 @@
 .bsh-icon-button {
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: var(--hit-target);
+  height: var(--hit-target);
   padding: 0;
   background: var(--color-ghost-fill);
   border: var(--border-hairline);
@@ -157,7 +157,7 @@
   position: sticky;
   top: 0;
   z-index: 1;
-  padding: var(--space-2);
+  padding: var(--row-padding);
   background: var(--color-graphite);
   color: var(--color-fog);
   font-weight: var(--weight-label);
@@ -167,7 +167,7 @@
 }
 
 .bsh-table td {
-  padding: var(--space-2);
+  padding: var(--row-padding);
   color: var(--color-chalk);
   border-bottom: 0.5px solid var(--color-hairline-faint);
 }
@@ -230,8 +230,8 @@
   z-index: 2;
   flex-wrap: wrap;
   justify-content: flex-start;
-  min-height: 40px;
-  padding: var(--space-2) var(--space-4);
+  min-height: 36px;
+  padding: var(--space-2) var(--padding-panel);
   background: var(--color-graphite);
   border-radius: var(--radius-card) var(--radius-card) 0 0;
 }
@@ -266,7 +266,7 @@
 
 .bsh-drawer__body {
   height: var(--drawer-body);
-  padding: var(--space-2) var(--space-4);
+  padding: var(--space-2) var(--padding-panel);
   overflow: auto;
   border-top: var(--border-hairline);
 }

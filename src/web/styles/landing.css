@@ -5,7 +5,7 @@
 .landing {
   max-width: var(--content-max);
   margin: 0 auto;
-  padding: var(--section-gap) var(--gutter) var(--section-gap);
+  padding: var(--section-gap) var(--gutter-page) var(--section-gap);
 }
 
 .landing__auth-error {
@@ -335,7 +335,7 @@
   gap: var(--space-6);
   max-width: var(--content-max);
   margin: 0 auto;
-  padding: var(--space-12) var(--gutter);
+  padding: var(--space-12) var(--gutter-page);
 }
 
 .landing-footer__name {

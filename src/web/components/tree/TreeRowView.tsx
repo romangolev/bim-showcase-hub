@@ -4,7 +4,7 @@ import { Icon, type IconName } from '../icons.js';
 
 export const ROW_HEIGHT = 30;
 export const TWO_LINE_ROW_HEIGHT = 46;
-const INDENT = 16;
+const INDENT = 12;
 
 const KIND_ICON: Record<TreeNodeKind, IconName> = {
   hub: 'hub',

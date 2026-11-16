@@ -37,7 +37,7 @@
 .bsh-viewer-error {
   align-items: center;
   max-width: min(440px, 88%);
-  padding: var(--space-6);
+  padding: var(--space-4);
   border: var(--border-hairline);
   border-radius: var(--radius-card);
   background: var(--color-graphite);

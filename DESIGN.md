@@ -45,14 +45,17 @@ Green and red are reserved for success and destructive signals. Never decorative
 - Family: Inter variable, with `font-feature-settings: "ss01", "ss03"`.
 - Headlines: weight 400 at 32px and above. Display sizes 52 to 64px.
 - Body and UI: weights 420 to 480, sizes 13 to 18px. Weight 500 for small labels, 580 rarely.
-- Scale: 8, 13, 14, 16, 18, 32, 42, 52, 64px.
+- Scale: 8, 13, 14, 16, 18, 24, 32, 42, 52, 64px. The 24px step is the model page title.
 - Tracking: about -0.02 to -0.03em at body sizes, slightly looser at display sizes.
 
 ## Spacing and shape
 
 - Base unit 4px, compact density.
-- Max content width 1080px. 96px between sections. 28px card padding. 8px element gap.
-- Radii: buttons and pills 10px, cards 12px, icon tiles 9px, badges 5px, large containers up to 24px.
+- Max content width 1080px. 96px between sections. 16px card padding, 12px panel padding. 8px element gap.
+- App gutter between panes 12px, page gutter 16px. Summary table cells 6px by 8px.
+- Radii: buttons and pills 8px, cards 8px, icon tiles 6px, badges 4px, large containers 12px.
+- Hit targets are 32px on desktop and 44px on touch or at widths up to 700px.
+- Density adaptation: these values are tighter than the Refero spec (which has 28px cards, 10px and 12px radii, 24px containers and a 72px bar) on purpose, to give the viewer more screen. Keep new components on the tokens.
 
 ## Elevation
 
@@ -60,11 +63,11 @@ Depth comes from 0.5px translucent white hairline borders and 1px inset white hi
 
 ## Components
 
-- Primary button: bone fill, ink text, 10px radius, 14px text, light shadow. The only primary action style.
+- Primary button: bone fill, ink text, 8px radius, 14px text, light shadow. The only primary action style.
 - Secondary button: translucent white ghost fill, white text.
 - Text link: slightly transparent white, no padding or background.
 - Status badge: transparent background, thin mint border, mint text, small dot prefix.
-- Card: graphite background, 12px radius, 28px padding, 0.5px hairline border.
+- Card: graphite background, 8px radius, 16px padding, 0.5px hairline border.
 - Data table row: graphite background, faint row dividers, chalk cell text, small muted column headers.
 - Icon tile: translucent white fill, faint border, monochrome icon.
 - Feature card: graphite, blue icons, white active-tab indicator.
@@ -73,7 +76,7 @@ Depth comes from 0.5px translucent white hairline borders and 1px inset white hi
 
 - Hero: two columns, headline about 60% left, supporting copy and CTA about 40% right, product mockup full width below.
 - Feature sections: tab list about 30%, mockup about 70%.
-- Navigation: sticky 72px top bar, blurred translucent background on scroll.
+- Navigation: sticky 56px top bar, blurred translucent background on scroll.
 - No photography, no gradients. Visuals are dark product UI, data tables and icon tiles.
 
 ## Do
@@ -146,7 +149,7 @@ Paint swatches keep their fixed data colors in both themes. The mock viewer fill
 ### Light rules
 
 - Same character: 0.5px hairline borders, weight 400 headings, no gradients, blue only for active, links, icons and availability, mint and coral only for status.
-- Primary CTA is inverted: ink fill (bone token), white label (ink token), 10px radius, hover goes to snow.
+- Primary CTA is inverted: ink fill (bone token), white label (ink token), 8px radius, hover goes to snow.
 - Elevation: no inset highlight. The only cast shadow stays on the landing product mockups, `0 24px 48px rgb(15 23 42 / 0.10)` in light against `rgb(0 0 0 / 0.4)` in dark. The primary button shadow is `0 1px 2px rgb(15 23 42 / 0.16)`.
 - Selection text is white on signal-blue in both themes (`on-accent`).
 - Every text pair verified in dark passes WCAG AA in light: body 13.3 to 14.4, secondary fog 6.0 to 7.1, selected row fog 6.0, ash 4.8 to 5.8, Viewable badge 5.6 to 6.7, mint 4.6 to 5.0, coral 5.2 to 5.6, CTA label 17.9, selection 5.2. Focus ring and icon fills pass 3:1.
