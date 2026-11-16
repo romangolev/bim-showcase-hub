@@ -16,6 +16,7 @@ import {
   OPEN_MODELS_KEY,
   type OpenModelsState,
   openModel,
+  ownerKey,
   parseOpenModels,
   setVisible,
   touchLive,
@@ -190,9 +191,9 @@ describe('model stores per user', () => {
 
   it('keeps the models of the same user', () => {
     const storage = installMemoryStorage();
-    expect(claimModels('Ada')).toBe(false);
+    expect(claimModels({ id: 'u1', name: 'Ada' })).toBe(false);
     seed(storage);
-    expect(claimModels('Ada')).toBe(false);
+    expect(claimModels({ id: 'u1', name: 'Ada' })).toBe(false);
     expect(storage.getItem(MODEL_STORE_KEY)).not.toBeNull();
     expect(
       createOpenModelsStore(sessionStorage).getState().models,
@@ -201,13 +202,58 @@ describe('model stores per user', () => {
 
   it('forgets open and recent models when another user signs in', () => {
     const storage = installMemoryStorage();
-    claimModels('Ada');
+    claimModels({ id: 'u1', name: 'Ada' });
     seed(storage);
-    expect(claimModels('Grace')).toBe(true);
+    expect(claimModels({ id: 'u2', name: 'Grace' })).toBe(true);
     expect(storage.getItem(MODEL_STORE_KEY)).toBeNull();
     expect(sessionStorage.getItem(OPEN_MODELS_KEY)).toBeNull();
     expect(createOpenModelsStore(sessionStorage).getState().models).toEqual([]);
-    expect(storage.getItem(MODEL_OWNER_KEY)).toBe('Grace');
+    expect(storage.getItem(MODEL_OWNER_KEY)).toBe(
+      ownerKey({ id: 'u2', name: 'Grace' }),
+    );
+  });
+
+  it('does not share models between two users with the same name', () => {
+    const storage = installMemoryStorage();
+    claimModels({ id: 'u1', name: 'Sam' });
+    seed(storage);
+    expect(claimModels({ id: 'u2', name: 'Sam' })).toBe(true);
+    expect(storage.getItem(MODEL_STORE_KEY)).toBeNull();
+    expect(createOpenModelsStore(sessionStorage).getState().models).toEqual([]);
+  });
+
+  it('keeps the data of a name-keyed owner when the id first appears', () => {
+    const storage = installMemoryStorage();
+    storage.setItem(MODEL_OWNER_KEY, 'Ada');
+    seed(storage);
+    expect(claimModels({ id: 'u1', name: 'Ada' })).toBe(false);
+    expect(storage.getItem(MODEL_STORE_KEY)).not.toBeNull();
+    expect(storage.getItem(MODEL_OWNER_KEY)).toBe('id:u1');
+    expect(claimModels({ id: 'u1', name: 'Ada' })).toBe(false);
+    expect(
+      createOpenModelsStore(sessionStorage).getState().models,
+    ).toHaveLength(1);
+    storage.setItem(MODEL_OWNER_KEY, 'name:Ada');
+    expect(claimModels({ id: 'u9', name: 'Grace' })).toBe(true);
+  });
+
+  it('falls back to the name when the id is missing', () => {
+    const storage = installMemoryStorage();
+    claimModels({ name: 'Ada' });
+    seed(storage);
+    expect(claimModels({ name: 'Ada' })).toBe(false);
+    expect(storage.getItem(MODEL_OWNER_KEY)).toBe('name:Ada');
+    expect(claimModels({ name: 'Grace' })).toBe(true);
+  });
+
+  it('forgets the owner on sign-out', () => {
+    const storage = installMemoryStorage();
+    claimModels({ id: 'u1', name: 'Ada' });
+    seed(storage);
+    forgetModels();
+    expect(storage.getItem(MODEL_OWNER_KEY)).toBeNull();
+    expect(storage.getItem(MODEL_STORE_KEY)).toBeNull();
+    expect(sessionStorage.getItem(OPEN_MODELS_KEY)).toBeNull();
   });
 
   it('clears a live store', () => {

@@ -20,6 +20,7 @@ export interface VersionViewState {
 }
 
 export interface SessionUser {
+  id?: string;
   name: string;
   picture: string | null;
 }

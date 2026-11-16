@@ -410,7 +410,24 @@ export function forgetModels(): void {
   remove(local(), MODEL_OWNER_KEY);
 }
 
-export function claimModels(owner: string): boolean {
+export interface ModelOwner {
+  id?: string;
+  name: string;
+}
+
+export function ownerKey(owner: ModelOwner): string {
+  return owner.id ? `id:${owner.id}` : `name:${owner.name}`;
+}
+
+function sameOwner(stored: string, owner: ModelOwner): boolean {
+  const key = ownerKey(owner);
+  if (stored === key) return true;
+  if (stored.startsWith('id:')) return false;
+  const name = stored.startsWith('name:') ? stored.slice(5) : stored;
+  return name === owner.name;
+}
+
+export function claimModels(owner: ModelOwner): boolean {
   const storage = local();
   let stored: string | null = null;
   try {
@@ -418,10 +435,10 @@ export function claimModels(owner: string): boolean {
   } catch {
     stored = null;
   }
-  const changed = stored !== null && stored !== owner;
+  const changed = stored !== null && !sameOwner(stored, owner);
   if (changed) forgetModels();
   try {
-    storage?.setItem(MODEL_OWNER_KEY, owner);
+    storage?.setItem(MODEL_OWNER_KEY, ownerKey(owner));
   } catch {
     return changed;
   }

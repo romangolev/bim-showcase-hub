@@ -17,6 +17,7 @@ import {
   createOpenModelsStore,
   type OpenModelsState,
   type OpenModelsStore,
+  ownerKey,
 } from '../api/openModels.js';
 import { OpenModelsContext } from '../api/useOpenModels.js';
 import { TopBar } from '../components/TopBar.js';
@@ -175,17 +176,20 @@ export interface LayoutProviderProps {
 }
 
 export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
-  const owner = useSession().data?.name ?? '';
+  const user = useSession().data;
+  const ownerId = user?.id;
+  const ownerName = user?.name ?? '';
+  const owner = ownerName ? ownerKey({ id: ownerId, name: ownerName }) : '';
   const [modelStore] = useState(() => {
-    if (owner) claimModels(owner);
+    if (owner) claimModels({ id: ownerId, name: ownerName });
     return openModels ?? createOpenModelsStore();
   });
   const claimed = useRef(owner);
   useEffect(() => {
     if (!owner || owner === claimed.current) return;
     claimed.current = owner;
-    if (claimModels(owner)) modelStore.clear();
-  }, [owner, modelStore]);
+    if (claimModels({ id: ownerId, name: ownerName })) modelStore.clear();
+  }, [owner, ownerId, ownerName, modelStore]);
   const models = useSyncExternalStore(
     modelStore.subscribe,
     modelStore.getState,

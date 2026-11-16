@@ -36,7 +36,7 @@ Configuration lives in `src/server/config.ts` (`loadConfig`). Mock mode is `MOCK
 1. The client calls `GET /api/auth/url`. The server creates a random `state` (24 random bytes, base64url), stores it in the session as `oauthState`, and returns the Autodesk authorize URL built with `@aps_sdk/authentication`.
 2. The browser goes to Autodesk and returns to `APS_CALLBACK_URL` (`/api/auth/callback`).
 3. The callback removes `oauthState` from the session and compares it with the `state` query parameter using `timingSafeEqual`. Failures redirect to `/?auth_error=<code>` and the landing page shows a dismissible message: `invalid_state` for a state mismatch, `access_denied` for an `error` parameter, `missing_code` for a missing `code`, and `upstream_error` when the code exchange or user lookup fails.
-4. The server exchanges the code for tokens, fetches the user info, stores both in the cookie session (`sessionTokens.ts`) and redirects to `/`.
+4. The server exchanges the code for tokens, fetches the user info, stores both in the cookie session (`sessionTokens.ts`) and redirects to `/`. The user is `{ id, name, picture }`: `id` is a SHA-256 hash of the Autodesk userinfo `sub` (`userIdOf` in `apsAuth.ts`, never logged), so the raw subject never reaches the cookie or the browser; the client uses it as the owner key of the open and recent models.
 5. Data routes call `getAccessToken`. It returns the stored access token while more than 60 seconds remain, otherwise it refreshes with the refresh token and stores the result. If the refresh fails, the auth data is cleared and the route returns 401 "Session expired".
 
 The session is a signed cookie, not a server-side store, so tokens live in the cookie payload. Sign-out sets the session to null.

@@ -87,6 +87,24 @@ describe('session and auth', () => {
     expect((await agent.get('/api/hubs')).status).toBe(200);
   });
 
+  it('returns the stable user id with the session', async () => {
+    const auth = fakeAuth({
+      getUser: vi.fn().mockResolvedValue({
+        id: 'hashed-1',
+        name: 'Sam Smith',
+        picture: null,
+      }),
+    });
+    const agent = request.agent(realApp(auth));
+    await signIn(agent);
+    const session = await agent.get('/api/session');
+    expect(session.body).toEqual({
+      id: 'hashed-1',
+      name: 'Sam Smith',
+      picture: null,
+    });
+  });
+
   it('does not expose tokens in the session response or cookie value', async () => {
     const agent = request.agent(realApp());
     await signIn(agent);

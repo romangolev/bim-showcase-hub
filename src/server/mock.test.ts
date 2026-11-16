@@ -83,7 +83,11 @@ describe('mock mode', () => {
   it('serves a signed-in fake user without login', async () => {
     const res = await request(app).get('/api/session');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ name: 'Alex Rivera', picture: null });
+    expect(res.body).toEqual({
+      id: 'mock-user',
+      name: 'Alex Rivera',
+      picture: null,
+    });
   });
 
   it('serves a dummy viewer token', async () => {

@@ -1,9 +1,11 @@
+import { createHash } from 'node:crypto';
 import {
   AuthenticationClient,
   ResponseType,
   type Scopes,
   type ThreeLeggedToken,
 } from '@aps_sdk/authentication';
+import type { SessionUser } from '../../shared/types.js';
 import type { ServerConfig } from '../config.js';
 import { HttpError, toHttpError } from '../errors.js';
 import type { ApsAuth, TokenSet } from './types.js';
@@ -12,6 +14,13 @@ type Client = Pick<
   AuthenticationClient,
   'authorize' | 'getThreeLeggedToken' | 'refreshToken' | 'getUserInfo'
 >;
+
+export function userIdOf(subject: string): string {
+  return createHash('sha256')
+    .update(`bsh-user:${subject}`)
+    .digest('base64url')
+    .slice(0, 32);
+}
 
 function toTokenSet(token: ThreeLeggedToken): TokenSet {
   return {
@@ -77,7 +86,9 @@ export function createApsAuth(
           [info.given_name, info.family_name].filter(Boolean).join(' ') ||
           info.preferred_username ||
           'Autodesk user';
-        return { name, picture: info.picture ?? null };
+        const user: SessionUser = { name, picture: info.picture ?? null };
+        if (info.sub) user.id = userIdOf(info.sub);
+        return user;
       } catch (err) {
         throw toHttpError(err);
       }

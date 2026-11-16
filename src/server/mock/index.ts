@@ -6,7 +6,11 @@ import { HttpError } from '../errors.js';
 import { encodeId } from '../ids.js';
 import { buildMockData, type MockData, type MockFolder } from './fixtures.js';
 
-export const MOCK_USER: SessionUser = { name: 'Alex Rivera', picture: null };
+export const MOCK_USER: SessionUser = {
+  id: 'mock-user',
+  name: 'Alex Rivera',
+  picture: null,
+};
 
 export const MOCK_VIEWER_TOKEN: ViewerToken = {
   access_token: 'mock-viewer-token',

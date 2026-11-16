@@ -351,6 +351,28 @@ describe('several models', () => {
     expect(appRouter.state.location.search).toMatchObject({ file: 'A.rvt' });
   });
 
+  it('keys open tabs by the user id, not the display name', async () => {
+    mockFetch({
+      '/api/session': { id: 'u1', name: 'Sam', picture: null },
+      ...treeRoutes,
+    });
+    const tabs = JSON.stringify({
+      models: [{ urn: 'aaa', context: { file: 'A.rvt' } }],
+      active: 'aaa',
+    });
+    sessionStorage.setItem(OPEN_MODELS_KEY, tabs);
+    storage.setItem('bsh.models.owner', 'id:u1');
+    const first = renderPath('/');
+    await dockReady();
+    await screen.findByRole('tab', { name: 'A.rvt' });
+    first.unmount();
+    storage.setItem('bsh.models.owner', 'id:u2');
+    renderPath('/');
+    await dockReady();
+    await waitFor(() => expect(handle().models().models).toEqual([]));
+    expect(storage.getItem('bsh.models.owner')).toBe('id:u1');
+  });
+
   it('lets the user go home or to a missing page while models stay open', async () => {
     const { appRouter } = renderPath('/model/aaa?file=A.rvt&v=v1');
     await dockReady();

@@ -135,3 +135,13 @@ describe('sessionTokens', () => {
     expect(isSignedIn(session)).toBe(false);
   });
 });
+
+describe('session user', () => {
+  it('keeps the stable id with the user and leaves it out when missing', () => {
+    const session: Record<string, unknown> = {};
+    storeUser(session, { id: 'u1', name: 'Sam', picture: null });
+    expect(readUser(session)).toEqual({ id: 'u1', name: 'Sam', picture: null });
+    storeUser(session, { name: 'Sam', picture: null });
+    expect(readUser(session)).toEqual({ name: 'Sam', picture: null });
+  });
+});
