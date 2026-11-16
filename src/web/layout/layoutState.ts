@@ -73,14 +73,14 @@ export type LayoutAction =
   | { type: 'setCollapsed'; id: PaneId; collapsed: boolean }
   | { type: 'dismiss'; id: PaneId; dismissed: boolean }
   | { type: 'treeWidth'; width: number }
-  | { type: 'reset'; height: number };
+  | { type: 'reset' };
 
 export function clampTreeWidth(value: number): number {
   if (!Number.isFinite(value)) return TREE_WIDTH_DEFAULT;
   return Math.min(TREE_WIDTH_MAX, Math.max(TREE_WIDTH_MIN, Math.round(value)));
 }
 
-export function defaultModel(_height: number): LayoutModel {
+export function defaultModel(): LayoutModel {
   return {
     dock: null,
     collapsed: ['dashboard'],
@@ -117,7 +117,7 @@ export function layoutReducer(
       return treeWidth === model.treeWidth ? model : { ...model, treeWidth };
     }
     case 'reset':
-      return defaultModel(action.height);
+      return defaultModel();
   }
 }
 
@@ -561,8 +561,8 @@ function safeRemove(storage: Storage, key: string) {
   }
 }
 
-export function importLegacy(storage: Storage, height: number): LayoutModel {
-  const model = defaultModel(height);
+export function importLegacy(storage: Storage): LayoutModel {
+  const model = defaultModel();
   const width = safeGet(storage, LEGACY_KEYS.treeWidth);
   const summary = safeGet(storage, LEGACY_KEYS.summary);
   const dashboard = safeGet(storage, LEGACY_KEYS.dashboard);
@@ -601,24 +601,23 @@ export function migrateV1(
 
 export function readLayout(
   storage: Storage,
-  height: number,
   openPanels: readonly PanelId[] = [],
 ): LayoutModel {
   let raw: string | null;
   try {
     raw = storage.getItem(LAYOUT_KEY);
   } catch {
-    return defaultModel(height);
+    return defaultModel();
   }
-  if (raw !== null) return parseLayout(raw) ?? defaultModel(height);
+  if (raw !== null) return parseLayout(raw) ?? defaultModel();
   const old = safeGet(storage, LAYOUT_KEY_V1);
   if (old !== null) {
-    const migrated = migrateV1(old, openPanels) ?? defaultModel(height);
+    const migrated = migrateV1(old, openPanels) ?? defaultModel();
     safeRemove(storage, LAYOUT_KEY_V1);
     writeLayout(storage, migrated);
     return migrated;
   }
-  const imported = importLegacy(storage, height);
+  const imported = importLegacy(storage);
   writeLayout(storage, imported);
   return imported;
 }

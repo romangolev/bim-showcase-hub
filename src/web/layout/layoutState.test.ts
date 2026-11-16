@@ -63,7 +63,7 @@ function sampleDock(viewer = 'viewer:m1'): SerializedDock {
 
 describe('layoutReducer', () => {
   it('stores the dock and toggles collapse without duplicates', () => {
-    const start = defaultModel(1000);
+    const start = defaultModel();
     const docked = layoutReducer(start, { type: 'dock', dock: sampleDock() });
     expect(docked.dock).toEqual(sampleDock());
     const collapsed = layoutReducer(docked, {
@@ -93,20 +93,18 @@ describe('layoutReducer', () => {
       dismissed: ['dashboard' as const],
       lastViewerArrangement: sampleDock(),
     };
-    expect(layoutReducer(custom, { type: 'reset', height: 800 })).toEqual(
-      defaultModel(800),
-    );
+    expect(layoutReducer(custom, { type: 'reset' })).toEqual(defaultModel());
   });
 
   it('starts with the dashboard collapsed and nothing closed', () => {
-    expect(defaultModel(1000).collapsed).toEqual(['dashboard']);
-    expect(defaultModel(800).collapsed).toEqual(['dashboard']);
-    expect(defaultModel(800).dock).toBeNull();
-    expect(defaultModel(800).dismissed).toEqual([]);
+    expect(defaultModel().collapsed).toEqual(['dashboard']);
+    expect(defaultModel().collapsed).toEqual(['dashboard']);
+    expect(defaultModel().dock).toBeNull();
+    expect(defaultModel().dismissed).toEqual([]);
   });
 
   it('keeps the Documents width the user resized to, within limits', () => {
-    const start = defaultModel(1000);
+    const start = defaultModel();
     const wider = layoutReducer(start, { type: 'treeWidth', width: 401.6 });
     expect(wider.treeWidth).toBe(402);
     expect(layoutReducer(wider, { type: 'treeWidth', width: 402 })).toBe(wider);
@@ -117,7 +115,7 @@ describe('layoutReducer', () => {
   });
 
   it('remembers panes the user closed without duplicates', () => {
-    const start = defaultModel(1000);
+    const start = defaultModel();
     const once = layoutReducer(start, {
       type: 'dismiss',
       id: 'summary',
@@ -374,7 +372,7 @@ describe('storage', () => {
     storage.setItem(LEGACY_KEYS.treeWidth, '400');
     storage.setItem(LEGACY_KEYS.summary, '1');
     storage.setItem(LEGACY_KEYS.dashboard, '0');
-    const model = readLayout(storage, 800);
+    const model = readLayout(storage);
     expect(model).toEqual({
       dock: null,
       collapsed: ['summary'],
@@ -387,22 +385,22 @@ describe('storage', () => {
     expect(storage.getItem(LEGACY_KEYS.dashboard)).toBeNull();
     expect(parseLayout(storage.getItem(LAYOUT_KEY))).toEqual(model);
     storage.setItem(LEGACY_KEYS.summary, '0');
-    expect(readLayout(storage, 800)).toEqual(model);
+    expect(readLayout(storage)).toEqual(model);
   });
 
   it('collapses the dashboard unless it was expanded before', () => {
     const storage = installMemoryStorage();
-    expect(importLegacy(storage, 800).collapsed).toEqual(['dashboard']);
-    expect(importLegacy(storage, 1000).collapsed).toEqual(['dashboard']);
+    expect(importLegacy(storage).collapsed).toEqual(['dashboard']);
+    expect(importLegacy(storage).collapsed).toEqual(['dashboard']);
     storage.setItem(LEGACY_KEYS.dashboard, '0');
-    expect(importLegacy(storage, 1000).collapsed).toEqual([]);
+    expect(importLegacy(storage).collapsed).toEqual([]);
   });
 
   it('falls back to the default when the stored record is corrupt', () => {
     const storage = installMemoryStorage();
     storage.setItem(LAYOUT_KEY, '{broken');
     storage.setItem(LEGACY_KEYS.summary, '1');
-    expect(readLayout(storage, 1000)).toEqual(defaultModel(1000));
+    expect(readLayout(storage)).toEqual(defaultModel());
   });
 
   it('survives storage that throws', () => {
@@ -415,13 +413,13 @@ describe('storage', () => {
       setItem: blocked,
       removeItem: blocked,
     };
-    expect(readLayout(storage, 1000)).toEqual(defaultModel(1000));
-    expect(() => writeLayout(storage, defaultModel(1000))).not.toThrow();
+    expect(readLayout(storage)).toEqual(defaultModel());
+    expect(() => writeLayout(storage, defaultModel())).not.toThrow();
   });
 
   it('writes the record under the versioned key', () => {
     const storage = installMemoryStorage();
-    writeLayout(storage, defaultModel(1000));
+    writeLayout(storage, defaultModel());
     expect(JSON.parse(storage.getItem(LAYOUT_KEY) ?? '')).toEqual({
       version: 2,
       layout: {
@@ -535,7 +533,7 @@ describe('migration from v1', () => {
   it('reads v1 once, writes v2 and deletes the old key', () => {
     const storage = installMemoryStorage();
     storage.setItem(LAYOUT_KEY_V1, v1());
-    const model = readLayout(storage, 1000, ['viewer:x']);
+    const model = readLayout(storage, ['viewer:x']);
     expect(viewsOf(model.dock ?? undefined, '2')).toEqual(['viewer:x']);
     expect(storage.getItem(LAYOUT_KEY_V1)).toBeNull();
     expect(JSON.parse(storage.getItem(LAYOUT_KEY) ?? '{}').version).toBe(2);
@@ -545,14 +543,14 @@ describe('migration from v1', () => {
   it('prefers an existing v2 record', () => {
     const storage = installMemoryStorage();
     storage.setItem(LAYOUT_KEY_V1, v1());
-    writeLayout(storage, defaultModel(1000));
-    expect(readLayout(storage, 1000, ['viewer:x'])).toEqual(defaultModel(1000));
+    writeLayout(storage, defaultModel());
+    expect(readLayout(storage, ['viewer:x'])).toEqual(defaultModel());
   });
 });
 
 describe('remembered viewer arrangement', () => {
   it('remembers the last dock that had a model and keeps it when models close', () => {
-    const withModel = layoutReducer(defaultModel(1000), {
+    const withModel = layoutReducer(defaultModel(), {
       type: 'dock',
       dock: sampleDock(),
     });
@@ -565,8 +563,7 @@ describe('remembered viewer arrangement', () => {
       sampleDock(),
     );
     expect(
-      layoutReducer(closed, { type: 'reset', height: 1000 })
-        .lastViewerArrangement,
+      layoutReducer(closed, { type: 'reset' }).lastViewerArrangement,
     ).toBeNull();
   });
 

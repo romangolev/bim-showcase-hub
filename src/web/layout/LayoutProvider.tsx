@@ -99,8 +99,7 @@ function storage(): Storage | null {
 
 function initialModel(openPanels: readonly PanelId[]): LayoutModel {
   const store = storage();
-  const height = window.innerHeight;
-  return store ? readLayout(store, height, openPanels) : defaultModel(height);
+  return store ? readLayout(store, openPanels) : defaultModel();
 }
 
 function openFromDock(dock: SerializedDock | null): PaneId[] {
@@ -433,7 +432,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
         requestAnimationFrame(() => controller.current?.focusPane(id));
       },
       resetLayout: () => {
-        dispatch({ type: 'reset', height: window.innerHeight });
+        dispatch({ type: 'reset' });
         controller.current?.reset(TREE_WIDTH_DEFAULT);
         announce('Layout reset');
         requestAnimationFrame(() => controller.current?.focusPane('viewer'));
