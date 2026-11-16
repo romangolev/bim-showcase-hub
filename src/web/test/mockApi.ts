@@ -88,6 +88,7 @@ export const viewableVersion: TreeNode = {
   name: 'v2: Coordination',
   hasChildren: false,
   viewable: true,
+  viewState: 'ready',
   urn: 'dXJuOmFkc2s',
   parentId: 'i1',
 };
@@ -98,6 +99,7 @@ export const plainVersion: TreeNode = {
   name: 'v1: Concept',
   hasChildren: false,
   viewable: false,
+  viewState: 'not-translated',
   parentId: 'i1',
 };
 

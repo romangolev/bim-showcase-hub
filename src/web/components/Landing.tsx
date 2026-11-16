@@ -143,14 +143,14 @@ function ProductPreview() {
             level={3}
             kind="version"
             name="v3: 2026-11-10 14:22 by Mara Quinn"
-            viewable
+            viewState="ready"
             selected
           />
           <TreeRowView
             level={3}
             kind="version"
             name="v2: 2026-10-02 09:41 by Jonas Reid"
-            viewable
+            viewState="ready"
           />
           <TreeRowView
             level={3}
@@ -198,14 +198,14 @@ function BrowsePanel() {
         level={4}
         kind="version"
         name="v3: 2026-11-10 14:22 by Mara Quinn"
-        viewable
+        viewState="ready"
         selected
       />
       <TreeRowView
         level={4}
         kind="version"
         name="v2: 2026-10-02 09:41 by Jonas Reid"
-        viewable
+        viewState="ready"
       />
       <TreeRowView
         level={4}

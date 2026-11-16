@@ -17,6 +17,18 @@ Other stylesheets in `src/web/styles` (`global.css`, `shell.css`, `tree.css`, `l
 - Blue (`--color-signal-blue`, `--color-arc-blue`) marks active state, links, icons and openable tree versions. Green and red are for success and error only. The exception is the three paint swatches, which are user data colors.
 - Borders are 0.5px hairlines (`--border-hairline`). No gradients and no heavy shadows.
 - Headlines use weight 400. The primary button is the neutral bone fill.
+- Version badges in the tree show the view state. Blue marks availability, coral marks failure, everything else is neutral:
+
+| State | Badge | Style |
+|---|---|---|
+| `ready` | Viewable | arc-blue outline |
+| `unknown` | Unchecked | neutral (fog) text with an ash outline; the tooltip says the geometry could not be verified and it may still open |
+| `processing` | Processing | neutral (chalk) outline with a spinner that stops under reduced motion |
+| `no-geometry` | No 3D or 2D view | muted (ash) text, no outline |
+| `not-translated` | Not translated | muted (ash) text, no outline |
+| `failed` | Translation failed | coral outline |
+
+  All badges sit right-aligned in the row's trailing slot, share one size and truncate with an ellipsis (at most 60% of the row). Each badge has a tooltip with the reason and the action. Versions that cannot open explain themselves in an aria-live notice when selected.
 - Loading, empty and error feedback uses the shared `StateBlock` component, not ad hoc text.
 - Interactive controls need an accessible name (`aria-label` or visible text) and a visible focus ring.
 

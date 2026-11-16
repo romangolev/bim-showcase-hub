@@ -15,6 +15,7 @@ import {
   useState,
 } from 'react';
 import type { TreeNode } from '../../../shared/types.js';
+import { viewableFor } from '../../../shared/viewState.js';
 import { friendlyError } from '../../api/friendlyError.js';
 import { childrenQueryOptions } from '../../api/hooks.js';
 import { type ModelContext, versionTag } from '../../api/modelContext.js';
@@ -38,6 +39,7 @@ import {
   rowHeightFor,
   TreeRowView,
 } from './TreeRowView.js';
+import { blockedNotice, viewStateOf } from './viewStateCopy.js';
 
 export interface PickedModel {
   urn: string;
@@ -56,11 +58,15 @@ export interface DocumentTreeProps {
   onOpenModel: (urn: string, context: ModelContext) => void;
   onOpenTogether?: (models: PickedModel[]) => void;
   addTarget?: AddTarget | null;
+  pollMs?: number;
 }
 
 function pickLabel(model: PickedModel): string {
   return model.context.file ?? model.urn;
 }
+
+export const VERSION_POLL_MS = 15_000;
+const UNCHECKED_POLL_LIMIT = 3;
 
 type StatusVariant = 'loading' | 'error' | 'empty';
 
@@ -88,7 +94,7 @@ const LOADING_NODE: TreeNode = {
 };
 
 function openableUrn(node: TreeNode): string | null {
-  if (node.kind === 'version' && node.viewable && node.urn) {
+  if (node.kind === 'version' && viewableFor(viewStateOf(node)) && node.urn) {
     return node.urn;
   }
   return null;
@@ -135,12 +141,18 @@ export function DocumentTree({
   onOpenModel,
   onOpenTogether,
   addTarget,
+  pollMs = VERSION_POLL_MS,
 }: DocumentTreeProps) {
   const queryClient = useQueryClient();
   const [picked, setPicked] = useState<PickedModel[]>([]);
   const anchorRef = useRef<string | null>(null);
   const [errors, setErrors] = useState<Record<string, NodeError>>({});
   const [filter, setFilter] = useState('');
+  const [notice, setNotice] = useState<{
+    title: string;
+    message: string;
+    itemId?: string;
+  } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const rowsRef = useRef<Row[]>([]);
   const virtualizerRef = useRef<Virtualizer<HTMLDivElement, Element> | null>(
@@ -186,6 +198,23 @@ export function DocumentTree({
     return context;
   };
 
+  const openNode = (node: TreeNode) => {
+    const urn = openableUrn(node);
+    if (urn) {
+      setNotice(null);
+      onOpenModel(urn, contextFor(node));
+      return;
+    }
+    const message = blockedNotice(node);
+    if (message) {
+      setNotice({
+        title: `${versionTag(node.name) ?? node.name} cannot be opened`,
+        message,
+        itemId: node.parentId,
+      });
+    }
+  };
+
   const activate = (item: ItemInstance<TreeNode>) => {
     const node = item.getItemData();
     if (item.isFolder()) {
@@ -196,10 +225,7 @@ export function DocumentTree({
       }
       return;
     }
-    const urn = openableUrn(node);
-    if (urn) {
-      onOpenModel(urn, contextFor(node));
-    }
+    openNode(node);
   };
 
   const pickedUrns = new Set(picked.map((model) => model.urn));
@@ -528,6 +554,62 @@ export function DocumentTree({
     retry(id);
   };
 
+  const recheck = (id: string) => {
+    queryClient.removeQueries({
+      queryKey: scopeKey(registry.scopes.get(id) ?? ROOT_SCOPE),
+      exact: true,
+    });
+    void tree.getItemInstance(id).invalidateChildrenIds(true);
+  };
+
+  const pendingParents = new Set<string>();
+  const processingParents = new Set<string>();
+  for (const node of registry.nodes.values()) {
+    if (node.kind !== 'version' || !node.parentId) {
+      continue;
+    }
+    const state = viewStateOf(node);
+    if (state === 'processing') {
+      processingParents.add(node.parentId);
+      pendingParents.add(node.parentId);
+    } else if (state === 'unknown') {
+      pendingParents.add(node.parentId);
+    }
+  }
+  const pendingKey = [...pendingParents].sort().join(TRAIL_SEPARATOR);
+  const recheckRef = useRef(recheck);
+  recheckRef.current = recheck;
+  const processingRef = useRef(processingParents);
+  processingRef.current = processingParents;
+  const attemptsRef = useRef(new Map<string, number>());
+
+  useEffect(() => {
+    if (!pendingKey) {
+      return;
+    }
+    const ids = pendingKey.split(TRAIL_SEPARATOR);
+    const timer = setInterval(() => {
+      if (document.visibilityState === 'hidden') {
+        return;
+      }
+      for (const id of ids) {
+        if (!tree.getItemInstance(id).isExpanded()) {
+          continue;
+        }
+        const attempts = attemptsRef.current.get(id) ?? 0;
+        if (
+          !processingRef.current.has(id) &&
+          attempts >= UNCHECKED_POLL_LIMIT
+        ) {
+          continue;
+        }
+        attemptsRef.current.set(id, attempts + 1);
+        recheckRef.current(id);
+      }
+    }, pollMs);
+    return () => clearInterval(timer);
+  }, [pendingKey, pollMs, tree]);
+
   const filterDisabled = !query && !rows.some((row) => row.type === 'node');
 
   const containerProps: Record<string, unknown> = query
@@ -537,10 +619,7 @@ export function DocumentTree({
   const onResultKeyDown = (event: KeyboardEvent, node: TreeNode) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
-      const urn = openableUrn(node);
-      if (urn) {
-        onOpenModel(urn, contextFor(node));
-      }
+      openNode(node);
     }
   };
 
@@ -578,7 +657,7 @@ export function DocumentTree({
           busy={item.isLoading() && item.isExpanded()}
           selected={urn !== null && urn === selectedUrn}
           focused={item.isFocused()}
-          viewable={node.viewable}
+          viewState={viewStateOf(node)}
           picked={urn !== null && pickedUrns.has(urn)}
           action={rowAction(node)}
           rowProps={{
@@ -600,9 +679,6 @@ export function DocumentTree({
             },
             'aria-selected': urn !== null && urn === selectedUrn,
             'aria-disabled': disabled || undefined,
-            ...(disabled
-              ? { title: `${node.name}: no viewable geometry` }
-              : {}),
             onClick: (event: MouseEvent<HTMLDivElement>) => {
               item.setFocused();
               if (onOpenTogether && onPickClick(event, node)) return;
@@ -623,7 +699,7 @@ export function DocumentTree({
           level={0}
           kind={row.node.kind}
           name={row.node.name}
-          viewable={row.node.viewable}
+          viewState={viewStateOf(row.node)}
           caption={row.node.kind === 'version' ? undefined : row.node.kind}
           secondary={parentName(row.node)}
           highlight={query}
@@ -641,9 +717,7 @@ export function DocumentTree({
             'aria-disabled': disabled || undefined,
             onClick: (event: MouseEvent<HTMLDivElement>) => {
               if (onOpenTogether && onPickClick(event, row.node)) return;
-              if (urn) {
-                onOpenModel(urn, contextFor(row.node));
-              }
+              openNode(row.node);
             },
             onKeyDown: (event) => {
               if (onOpenTogether && onPickKey(event, row.node)) return;
@@ -746,6 +820,38 @@ export function DocumentTree({
           onClear={() => setPicked([])}
         />
       ) : null}
+      <div className="doc-tree__notice" role="status" aria-live="polite">
+        {notice ? (
+          <StateBlock
+            variant="empty"
+            compact
+            icon="alert"
+            title={notice.title}
+            message={notice.message}
+            action={
+              notice.itemId
+                ? {
+                    label: 'Check again',
+                    onClick: () => {
+                      recheck(notice.itemId as string);
+                      setNotice(null);
+                    },
+                  }
+                : { label: 'Dismiss', onClick: () => setNotice(null) }
+            }
+          >
+            {notice.itemId ? (
+              <button
+                type="button"
+                className="btn btn-small"
+                onClick={() => setNotice(null)}
+              >
+                Dismiss
+              </button>
+            ) : null}
+          </StateBlock>
+        ) : null}
+      </div>
       <div ref={scrollRef} className="doc-tree__scroll">
         <div
           {...containerProps}

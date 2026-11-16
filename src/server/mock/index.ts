@@ -1,4 +1,5 @@
 import type { SessionUser, TreeNode, ViewerToken } from '../../shared/types.js';
+import { viewableFor } from '../../shared/viewState.js';
 import { versionLabel } from '../data/mapping.js';
 import type { DataService } from '../data/types.js';
 import { HttpError } from '../errors.js';
@@ -116,10 +117,11 @@ export function createMockDataService(
           kind: 'version',
           name: versionLabel(version.number, version.modifiedAt, version.user),
           hasChildren: false,
-          viewable: version.viewable,
+          viewable: viewableFor(version.viewState),
+          viewState: version.viewState,
           parentId: encodeId(itemId),
         };
-        if (version.viewable) {
+        if (version.hasUrn) {
           node.urn = encodeId(`urn:adsk.mock:${version.id}`);
         }
         return node;

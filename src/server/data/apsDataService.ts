@@ -8,6 +8,11 @@ import {
   mapVersions,
 } from './mapping.js';
 import type { DataService } from './types.js';
+import {
+  createViewStateChecker,
+  type ViewStateChecker,
+  withViewStates,
+} from './viewState.js';
 
 type Client = Pick<
   DataManagementClient,
@@ -28,6 +33,7 @@ async function guarded<T>(call: () => Promise<T>): Promise<T> {
 
 export function createApsDataService(
   client: Client = new DataManagementClient(),
+  views: ViewStateChecker = createViewStateChecker(),
 ): DataService {
   return {
     listHubs: (token) =>
@@ -59,7 +65,11 @@ export function createApsDataService(
         const res = await client.getItemVersions(projectId, itemId, {
           accessToken: token,
         });
-        return mapVersions(res.data ?? [], itemId);
+        return withViewStates(
+          mapVersions(res.data ?? [], itemId),
+          token,
+          views,
+        );
       }),
   };
 }

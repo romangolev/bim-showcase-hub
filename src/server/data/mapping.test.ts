@@ -120,11 +120,13 @@ describe('versions', () => {
       kind: 'version',
       name: 'v2: 2025-03-04 10:20 by Sam',
       viewable: true,
+      viewState: 'unknown',
       urn: 'dXJuOmFiYw',
       hasChildren: false,
       parentId: encodeId('i'),
     });
     expect(nodes[1]?.viewable).toBe(false);
+    expect(nodes[1]?.viewState).toBe('not-translated');
     expect(nodes[1]?.urn).toBeUndefined();
   });
 });

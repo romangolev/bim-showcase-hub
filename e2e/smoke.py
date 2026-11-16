@@ -1,3 +1,4 @@
+import os
 import re
 import sys
 
@@ -717,7 +718,7 @@ def find_models(context, count=MULTI_COUNT, extensions=MULTI_EXTENSIONS, skip=()
     return found
 
 
-def open_version(page, found):
+def expand_to_file(page, found):
     previous = None
     for depth, name in enumerate(found["crumbs"] + [found["file"]], start=1):
         if previous is None:
@@ -730,6 +731,11 @@ def open_version(page, found):
             page.keyboard.press("ArrowRight")
         page.wait_for_timeout(1500)
         previous = row
+    return previous
+
+
+def open_version(page, found):
+    previous = expand_to_file(page, found)
     version_row = previous.locator("xpath=following-sibling::*[@data-viewable='true']").first
     version_row.wait_for(timeout=20000)
     version_row.click()
@@ -886,6 +892,111 @@ def check_multi_model(page, checks, revit, notes):
     checks.add("multi: no page errors", not new_errors, new_errors[:2])
 
 
+STATE_BUDGET = 150
+STATE_ITEM_LIMIT = 40
+BLOCKED_STATES = ("processing", "failed", "no-geometry", "not-translated")
+
+
+def parse_expectations():
+    expected = {}
+    for pair in os.environ.get("E2E_STATE_EXPECT", "").split(","):
+        name, _, state = pair.partition("=")
+        if name.strip() and state.strip():
+            expected[name.strip().lower()] = state.strip()
+    return expected
+
+
+def discover_items(context, budget=STATE_BUDGET, limit=STATE_ITEM_LIMIT):
+    calls = 0
+    items = []
+    hubs = list_of(context, "/api/hubs") or []
+    for hub in hubs:
+        projects = list_of(context, f"/api/hubs/{hub['id']}/projects") or []
+        calls += 1
+        projects.sort(key=lambda p: "test" not in p["name"].lower())
+        for project in projects:
+            top = list_of(context, f"/api/hubs/{hub['id']}/projects/{project['id']}/folders")
+            calls += 1
+            queue = [(project["id"], f["id"], [hub["name"], project["name"], f["name"]]) for f in top or []]
+            while queue and calls < budget and len(items) < limit:
+                pid, fid, crumbs = queue.pop(0)
+                contents = list_of(context, f"/api/projects/{pid}/folders/{fid}/contents")
+                calls += 1
+                if contents is None:
+                    continue
+                queue.extend((pid, n["id"], crumbs + [n["name"]]) for n in contents if n["kind"] == "folder")
+                for item in contents:
+                    if item["kind"] != "item" or len(items) >= limit or calls >= budget:
+                        continue
+                    versions = list_of(context, f"/api/projects/{pid}/items/{item['id']}/versions")
+                    calls += 1
+                    if versions:
+                        items.append({"file": item["name"], "crumbs": crumbs, "item": item["id"], "project": pid, "versions": versions})
+            if len(items) >= limit or calls >= budget:
+                return items
+    return items
+
+
+def version_rows(page, file_row):
+    rows = file_row.locator("xpath=following-sibling::*[@role='treeitem']")
+    found = {}
+    for index in range(rows.count()):
+        row = rows.nth(index)
+        if row.get_attribute("data-kind") != "version":
+            break
+        found[row.get_attribute("aria-label")] = row
+    return found
+
+
+def check_view_states(page, context, checks):
+    items = discover_items(context)
+    states = {}
+    for item in items:
+        for version in item["versions"]:
+            states.setdefault(version.get("viewState"), []).append((item, version))
+    checks.add("states: items discovered", True, f"{len(items)} items, states {{{', '.join(f'{k}: {len(v)}' for k, v in states.items())}}}")
+    checks.add("states: every version carries a viewState", all(v.get("viewState") for vs in states.values() for _, v in vs) and None not in states, sorted(map(str, states)))
+
+    expected = parse_expectations()
+    for suffix, state in expected.items():
+        match = next((i for i in items if i["file"].lower().endswith(suffix)), None)
+        checks.add(f"states: expected {suffix} is {state}", match is not None and match["versions"][0].get("viewState") == state, None if match is None else match["versions"][0].get("viewState"))
+
+    picked = []
+    for state in ("ready", "unknown", *BLOCKED_STATES):
+        for item, _ in states.get(state, [])[:1]:
+            if item["item"] not in [p["item"] for p in picked]:
+                picked.append(item)
+    for item in picked:
+        label = item["file"]
+        try:
+            page.goto(BASE_URL, wait_until="networkidle")
+            page.wait_for_timeout(1500)
+            file_row = expand_to_file(page, {"crumbs": item["crumbs"], "file": item["file"]})
+            page.wait_for_timeout(1500)
+            rows = version_rows(page, file_row)
+            for version in item["versions"]:
+                row = rows.get(version["name"])
+                if row is None:
+                    continue
+                checks.add(f"states: {label} {version['name'][:6]} row matches the api", row.get_attribute("data-view-state") == version.get("viewState"), f"row {row.get_attribute('data-view-state')} api {version.get('viewState')}")
+            blocked = next((v for v in item["versions"] if v.get("viewState") in BLOCKED_STATES and v["name"] in rows), None)
+            if blocked:
+                start = page.url
+                rows[blocked["name"]].click(force=True)
+                page.wait_for_timeout(1000)
+                notice = page.locator(".doc-tree__notice[role=status]").inner_text()
+                checks.add(f"states: {label} blocked version opens no tab", page.url == start, f"{start} -> {page.url}")
+                checks.add(f"states: {label} blocked version shows the notice", "cannot be opened" in notice, notice)
+            ready = next((v for v in item["versions"] if v.get("viewState") == "ready" and v["name"] in rows), None)
+            if ready:
+                rows[ready["name"]].click()
+                page.wait_for_url(re.compile(r"/model/"), timeout=15000)
+                checks.add(f"states: {label} ready version opens", "/model/" in page.url, page.url)
+        except Exception as exc:
+            checks.add(f"states: {label}", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+
+
 COMBINED_GOOD = ("snowdon towers sample architectural.rvt", "racbasicsampleproject.rvt")
 COMBINED_FILL = ("fili_20170810_01.nwd", "sgok_test.nwd")
 COMBINED_BAD = ("rmebasicsampleproject.rvt",)
@@ -954,9 +1065,9 @@ def find_named(context, wanted):
                         continue
                     versions = list_of(context, f"/api/projects/{pid}/items/{item['id']}/versions")
                     calls += 1
-                    version = next((v for v in versions or [] if v.get("viewable") and v.get("urn")), None)
+                    version = next((v for v in versions or [] if v.get("urn")), None)
                     if version:
-                        found[key] = {"urn": version["urn"], "file": item["name"], "crumbs": crumbs, "version": version.get("name", "")}
+                        found[key] = {"urn": version["urn"], "file": item["name"], "crumbs": crumbs, "version": version.get("name", ""), "viewState": version.get("viewState")}
             if len(found) >= len(wanted):
                 return found
     return found
@@ -1096,6 +1207,7 @@ def check_combined(page, context, checks, notes):
 def main():
     layout_only = "--layout" in sys.argv[1:]
     multi = "--multi" in sys.argv[1:]
+    states = "--states" in sys.argv[1:]
     combined = "--combined" in sys.argv[1:]
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     checks = Checks()
@@ -1120,8 +1232,8 @@ def main():
         checks.add("health reports real APS", status == 200 and isinstance(health, dict) and health.get("mock") is False, health)
         status, token = api_get(context, "/api/viewer/token")
         checks.add("viewer token issued", status == 200 and isinstance(token, dict) and bool(token.get("access_token")), f"status {status}")
-        found = None if multi or combined else find_viewable(context)
-        if not multi and not combined:
+        found = None if multi or states or combined else find_viewable(context)
+        if not multi and not states and not combined:
             checks.add("a viewable model exists", found is not None, "none found within the API call budget")
         revit = find_models(context) if multi else []
         if multi and len(revit) < MULTI_COUNT:
@@ -1137,6 +1249,8 @@ def main():
         page.screenshot(path=str(OUTPUT_DIR / "01-home.png"))
         if combined:
             check_combined(page, context, checks, notes)
+        elif states:
+            check_view_states(page, context, checks)
         elif multi and len(revit) >= 2:
             check_multi_model(page, checks, revit, notes)
         elif found and layout_only:
@@ -1146,7 +1260,7 @@ def main():
             run_model_checks(page, checks, found, notes)
         checks.add("no uncaught page errors", not notes["page_errors"], notes["page_errors"][:2])
         checks.add("no failed app requests", not notes["failed_requests"], notes["failed_requests"][:3])
-    report = "combined-report.json" if combined else "multi-report.json" if multi else "layout-report.json" if layout_only else "report.json"
+    report = "combined-report.json" if combined else "states-report.json" if states else "multi-report.json" if multi else "layout-report.json" if layout_only else "report.json"
     return checks.finish(notes, report)
 
 
