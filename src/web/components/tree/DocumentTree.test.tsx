@@ -372,16 +372,15 @@ describe('DocumentTree', () => {
     expect(
       screen.getByRole('searchbox', { name: 'Filter loaded nodes' }),
     ).toBeDisabled();
-    expect(await screen.findByText('No hubs found')).toBeInTheDocument();
     expect(
-      screen.getByText('Add your Autodesk account to a hub, then refresh.'),
+      await screen.findByText('No projects to show yet'),
     ).toBeInTheDocument();
     expect(
       screen.getByRole('searchbox', { name: 'Filter loaded nodes' }),
     ).toBeDisabled();
 
     hubs = treeRoutes['/api/hubs'];
-    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Check again' }));
     expect(await screen.findByText('Studio hub')).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(

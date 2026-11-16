@@ -554,3 +554,105 @@
   background: var(--color-ghost-fill-hover);
   color: var(--color-snow);
 }
+
+.no-hubs {
+  flex-wrap: wrap;
+}
+
+.no-hubs .state-block__body {
+  flex: 1 1 140px;
+  gap: var(--space-2);
+}
+
+.no-hubs__steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding-inline-start: var(--space-4);
+  color: var(--color-ash);
+}
+
+.no-hubs__client {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.no-hubs__client-label {
+  color: var(--color-ash);
+  font-size: var(--text-13);
+}
+
+.no-hubs__client-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.no-hubs__client-id {
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-hairline);
+  border-radius: var(--radius-button);
+  background: var(--color-ghost-fill);
+  color: var(--color-snow);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--text-13);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.no-hubs__copied {
+  color: var(--color-mint);
+  font-size: var(--text-13);
+}
+
+.no-hubs__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.no-hubs__link {
+  color: var(--color-arc-blue);
+  font-size: var(--text-13);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.no-hubs__link:hover {
+  color: var(--color-ring-blue);
+}
+
+.hub-notice {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 50%;
+  margin: 0 var(--space-3) var(--space-2);
+  padding: var(--space-3);
+  overflow-y: auto;
+  border: var(--border-hairline);
+  border-radius: var(--radius-card);
+  background: var(--color-ghost-fill);
+  color: var(--color-chalk);
+  font-size: var(--text-13);
+}
+
+.hub-notice__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.hub-notice__title {
+  margin: 0;
+  color: var(--color-snow);
+  font-size: var(--text-14);
+  font-weight: var(--weight-ui);
+}

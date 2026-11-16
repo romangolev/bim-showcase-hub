@@ -30,6 +30,7 @@ Other stylesheets in `src/web/styles` (`global.css`, `shell.css`, `tree.css`, `l
 
   All badges sit right-aligned in the row's trailing slot, share one size and truncate with an ellipsis (at most 60% of the row). Each badge has a tooltip with the reason and the action. Versions that cannot open explain themselves in an aria-live notice when selected.
 - Loading, empty and error feedback uses the shared `StateBlock` component, not ad hoc text.
+- The missing-hubs hint (`tree/NoHubsHint.tsx`) extends `StateBlock` with a numbered list, the Client ID with a Copy button and a help link: the full state when the hub list is empty, and a compact dismissible notice (stored in `localStorage` under `bsh.hint.hubs.dismissed.v1`, per user) above the filter when the user only has personal hubs. An unknown hub type never triggers it.
 - Interactive controls need an accessible name (`aria-label` or visible text) and a visible focus ring.
 
 ## Layout breakpoint and pane containers

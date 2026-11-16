@@ -20,12 +20,12 @@ Configuration lives in `src/server/config.ts` (`loadConfig`). Mock mode is `MOCK
 | Route | Purpose |
 |---|---|
 | `GET /api/health` | `{ status: "ok", mock }` |
-| `GET /api/session` | Signed-in user, or 401 |
+| `GET /api/session` | Signed-in user plus `appClientId` (the public APS Client ID, never a secret), or 401. The Documents pane shows the Client ID to hub admins who must add the app as a custom integration |
 | `GET /api/auth/url` | Authorization URL for Autodesk sign-in |
 | `GET /api/auth/callback` | OAuth redirect target |
 | `POST /api/auth/signout` | Clears the session, returns 204 |
 | `GET /api/viewer/token` | Short-lived access token for the viewer |
-| `GET /api/hubs` | Hubs |
+| `GET /api/hubs` | Hubs, each with a `hubType` (`personal`, `team`, `account` or `unknown`) mapped from the hub's `extension.type` (`hubs:autodesk.a360:PersonalHub`, `hubs:autodesk.core:Hub`, `hubs:autodesk.bim360:Account`) |
 | `GET /api/hubs/:hubId/projects` | Projects in a hub |
 | `GET /api/hubs/:hubId/projects/:projectId/folders` | Top folders of a project |
 | `GET /api/projects/:projectId/folders/:folderId/contents` | Folders and items in a folder |
@@ -74,7 +74,7 @@ Upstream errors pass through `toHttpError`: 404 stays 404, 401 and 403 become 40
 
 ## Mock mode on the server
 
-With `config.mock`, `createMockDataService()` replaces the APS data service and the auth routes answer from fixtures: `/api/session` returns the mock user, `/api/auth/url` returns `/`, `/api/viewer/token` returns a fake token. The fixtures are in `src/server/mock/fixtures.ts` (two hubs, several projects, nested folders, items with versions). The `View States` folder in the first project of the first hub holds one file per state (`STATE-ready.rvt`, `STATE-no-geometry.rvt`, `STATE-processing.rvt`, `STATE-not-translated.rvt`, `STATE-failed.rvt`).
+With `config.mock`, `createMockDataService()` replaces the APS data service and the auth routes answer from fixtures: `/api/session` returns the mock user with a placeholder `appClientId`, `/api/auth/url` returns `/`, `/api/viewer/token` returns a fake token. The fixtures are in `src/server/mock/fixtures.ts` (two hubs, several projects, nested folders, items with versions). The `View States` folder in the first project of the first hub holds one file per state (`STATE-ready.rvt`, `STATE-no-geometry.rvt`, `STATE-processing.rvt`, `STATE-not-translated.rvt`, `STATE-failed.rvt`).
 
 ## Client
 
