@@ -43,6 +43,19 @@ afterEach(() => {
 });
 
 describe('DocumentTree', () => {
+  it('Refresh documents refetches the loaded folders', async () => {
+    const fetchMock = mockFetch(treeRoutes);
+    renderTree();
+    await screen.findByText('Studio hub');
+    const before = fetchMock.mock.calls.length;
+
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh documents' }));
+
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.length).toBeGreaterThan(before),
+    );
+  });
+
   it('lazy-loads children when a node is expanded', async () => {
     const fetchMock = mockFetch(treeRoutes);
     renderTree();

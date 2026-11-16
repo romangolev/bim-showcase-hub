@@ -702,6 +702,12 @@ export function DocumentTree({
     retry(id);
   };
 
+  const refreshAll = () => {
+    for (const id of [...registry.loaded]) {
+      refresh(id);
+    }
+  };
+
   const recheck = (id: string) => {
     forgetChecks(id);
     queryClient.removeQueries({
@@ -977,6 +983,15 @@ export function DocumentTree({
             <Icon name="close" size={14} />
           </button>
         ) : null}
+        <button
+          type="button"
+          className="doc-tree__refresh"
+          aria-label="Refresh documents"
+          title="Refresh documents"
+          onClick={refreshAll}
+        >
+          <Icon name="refresh" size={14} />
+        </button>
       </div>
       {onOpenTogether ? (
         <PickBar
