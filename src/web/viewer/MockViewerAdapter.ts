@@ -6,6 +6,7 @@ import {
   RESET_ICON_CLASS,
   swatchIconClass,
 } from './autodeskTools.js';
+import { NO_GEOMETRY_MESSAGE } from './federation.js';
 import {
   buildMockElements,
   buildMockRows,
@@ -80,6 +81,7 @@ function setDisabled(
 export const MOCK_BROKEN_MARKER = 'broken';
 export const MOCK_LOAD_ERROR = 'Mock model failed to load';
 export const MOCK_NO_PROPERTIES_MARKER = 'noprops';
+export const MOCK_NO_GEOMETRY_MARKER = 'nogeom';
 export const MOCK_PROPERTIES_ERROR = 'Properties could not be read: mock';
 const MODEL_GAP = 48;
 
@@ -165,8 +167,8 @@ export class MockViewerAdapter implements ViewerAdapter {
     this.build();
   }
 
-  async load(urn: string): Promise<void> {
-    await this.loadModels([{ urn }]);
+  async load(urn: string, name?: string): Promise<void> {
+    await this.loadModels([name ? { urn, name } : { urn }]);
   }
 
   async loadModels(sources: readonly ModelSource[]): Promise<ModelInfo[]> {
@@ -547,6 +549,10 @@ export class MockViewerAdapter implements ViewerAdapter {
     const id = modelIdFor(source.urn);
     if (source.urn.includes(MOCK_BROKEN_MARKER)) {
       this.models.fail(id, MOCK_LOAD_ERROR);
+      return;
+    }
+    if (source.urn.includes(MOCK_NO_GEOMETRY_MARKER)) {
+      this.models.fail(id, NO_GEOMETRY_MESSAGE);
       return;
     }
     const scene = this.renderModel(id, buildMockElements());

@@ -37,7 +37,7 @@ export interface ToolGroupSpec {
 }
 
 export interface ViewerAdapter {
-  load(urn: string): Promise<void>;
+  load(urn: string, name?: string): Promise<void>;
   unload(): void;
   resize(): void;
   scheduleResize(settleMs: number): void;

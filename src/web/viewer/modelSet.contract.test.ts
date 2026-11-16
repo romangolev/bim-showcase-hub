@@ -6,6 +6,7 @@ import {
   type FakeFederatedViewer,
   installFakeFederation,
 } from './fakeFederatedViewer.js';
+import { NO_GEOMETRY_MESSAGE } from './federation.js';
 import { MockViewerAdapter } from './MockViewerAdapter.js';
 import { buildMockElements } from './mockModel.js';
 import { ALL_MODELS, scopeRows, unavailableModels } from './modelScope.js';
@@ -61,6 +62,7 @@ const realFactory: HarnessFactory = {
     env = installFakeFederation();
     env.specs.set('urn-bad', { fail: 'Not found' });
     env.specs.set('urn-noprops', { propsFail: 'db' });
+    env.specs.set('urn-nogeom', { noGeometry: true });
     const host = document.createElement('div');
     document.body.appendChild(host);
     const adapter = new RealViewerAdapter(host);
@@ -235,6 +237,21 @@ describe.each([mockFactory, realFactory])(
       expect(await adapter.loadModels([{ urn: 'urn-a' }])).toEqual([]);
       expect(adapter.getModels()).toEqual([]);
       expect(seen).not.toHaveBeenCalled();
+    });
+
+    it('explains a file without viewable geometry and keeps the rest', async () => {
+      const { adapter } = setup();
+      const models = await adapter.loadModels([
+        { urn: 'urn-a' },
+        { urn: 'urn-nogeom' },
+        { urn: 'urn-c' },
+      ]);
+      expect(models.map((m) => m.status)).toEqual(['ready', 'error', 'ready']);
+      expect(models[1]?.error).toBe(NO_GEOMETRY_MESSAGE);
+      const rows = await adapter.getLeafProperties(['Category']);
+      expect(new Set(rows.map((row) => row.modelId))).toEqual(
+        new Set(['urn-a', 'urn-c']),
+      );
     });
 
     it('rejects when every model fails', async () => {

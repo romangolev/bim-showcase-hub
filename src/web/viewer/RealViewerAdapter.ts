@@ -242,8 +242,8 @@ export class RealViewerAdapter implements ViewerAdapter {
 
   constructor(private readonly container: HTMLElement) {}
 
-  async load(urn: string): Promise<void> {
-    await this.loadModels([{ urn }]);
+  async load(urn: string, name?: string): Promise<void> {
+    await this.loadModels([name ? { urn, name } : { urn }]);
   }
 
   async loadModels(sources: readonly ModelSource[]): Promise<ModelInfo[]> {

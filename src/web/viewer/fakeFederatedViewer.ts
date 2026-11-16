@@ -21,6 +21,7 @@ export interface FakeModelSpec {
   categories?: string[];
   fail?: string;
   propsFail?: string;
+  noGeometry?: boolean;
 }
 
 let modelIds = 0;
@@ -328,9 +329,10 @@ export function installFakeFederation(): FakeEnvironment {
         const doc: FakeDocument = {
           urn,
           getRoot: () => ({
-            getDefaultGeometry: () => node(Boolean(spec.only2d)),
+            getDefaultGeometry: () =>
+              spec.noGeometry ? null : node(Boolean(spec.only2d)),
             search: (query) =>
-              spec.only2d && query.role === '3d'
+              spec.noGeometry || (spec.only2d && query.role === '3d')
                 ? []
                 : [node(query.role === '2d')],
           }),
