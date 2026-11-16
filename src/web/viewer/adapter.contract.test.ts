@@ -1,0 +1,165 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { isMockViewer } from './createViewerAdapter.js';
+import { MockViewerAdapter } from './MockViewerAdapter.js';
+import { buildMockElements } from './mockModel.js';
+import { apiForRegion, detectRegion } from './RealViewerAdapter.js';
+import type { ViewerAdapter } from './ViewerAdapter.js';
+
+let host: HTMLElement;
+let adapter: MockViewerAdapter;
+
+async function setup(): Promise<MockViewerAdapter> {
+  host = document.createElement('div');
+  document.body.appendChild(host);
+  adapter = new MockViewerAdapter(host);
+  await adapter.load('dXJuOmFkc2s');
+  return adapter;
+}
+
+afterEach(() => {
+  adapter?.destroy();
+  host?.remove();
+  vi.unstubAllGlobals();
+});
+
+function elementNode(id: number): SVGElement {
+  const node = host.querySelector<SVGElement>(`[data-dbid="${id}"]`);
+  if (!node) throw new Error(`missing element ${id}`);
+  return node;
+}
+
+describe('ViewerAdapter contract (mock)', () => {
+  it('renders a few hundred elements and a toolbar', async () => {
+    await setup();
+    const count = host.querySelectorAll('[data-dbid]').length;
+    expect(count).toBeGreaterThan(200);
+    expect(count).toBe(buildMockElements().length);
+    expect(host.querySelector('[role="toolbar"]')).not.toBeNull();
+  });
+
+  it('rejects an empty urn', async () => {
+    host = document.createElement('div');
+    adapter = new MockViewerAdapter(host);
+    await expect(adapter.load('')).rejects.toThrow();
+  });
+
+  it('fires onSelectionChange when an element is clicked', async () => {
+    await setup();
+    const seen: number[][] = [];
+    adapter.onSelectionChange((ids) => seen.push(ids));
+    const id = buildMockElements()[0]?.dbId ?? 0;
+    elementNode(id).dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(adapter.getSelection()).toEqual([id]);
+    expect(seen).toEqual([[id]]);
+    expect(elementNode(id).classList.contains('bsh-mock__el--selected')).toBe(
+      true,
+    );
+  });
+
+  it('supports multi select and background deselect', async () => {
+    await setup();
+    const [a, b] = buildMockElements();
+    const ids = [a?.dbId ?? 0, b?.dbId ?? 0];
+    elementNode(ids[0] ?? 0).dispatchEvent(
+      new MouseEvent('click', { bubbles: true }),
+    );
+    elementNode(ids[1] ?? 0).dispatchEvent(
+      new MouseEvent('click', { bubbles: true, shiftKey: true }),
+    );
+    expect(adapter.getSelection().sort()).toEqual([...ids].sort());
+    host
+      .querySelector('svg')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(adapter.getSelection()).toEqual([]);
+  });
+
+  it('stops notifying after unsubscribe', async () => {
+    await setup();
+    const cb = vi.fn();
+    const off = adapter.onSelectionChange(cb);
+    off();
+    adapter.selectIds([buildMockElements()[0]?.dbId ?? 0]);
+    expect(cb).not.toHaveBeenCalled();
+  });
+
+  it('applies and clears theming colours', async () => {
+    await setup();
+    const id = buildMockElements()[0]?.dbId ?? 0;
+    adapter.setThemingColor([id], [1, 0, 0, 0.5]);
+    expect(elementNode(id).style.fill).toContain('rgba(255, 0, 0');
+    adapter.clearThemingColors();
+    expect(elementNode(id).style.fill).toBe('');
+  });
+
+  it('returns deterministic leaf properties filtered by name', async () => {
+    await setup();
+    const names = ['Name', 'Assembly Code', 'Classification Code', 'Level'];
+    const first = await adapter.getLeafProperties(names);
+    const second = await adapter.getLeafProperties(names);
+    expect(first).toEqual(second);
+    expect(first.length).toBeGreaterThan(200);
+    expect(Object.keys(first[0]?.properties ?? {})).toEqual(names);
+    const categories = new Set(
+      (await adapter.getLeafProperties(['Category'])).map(
+        (r) => r.properties.Category,
+      ),
+    );
+    expect(categories).toEqual(
+      new Set(['Walls', 'Doors', 'Windows', 'Slabs', 'Columns']),
+    );
+  });
+
+  it('registers and unregisters toolbar buttons', async () => {
+    await setup();
+    const onClick = vi.fn();
+    const off = adapter.registerToolbarButton({
+      id: 'custom',
+      tooltip: 'Custom',
+      icon: '<svg></svg>',
+      onClick,
+    });
+    const button = host.querySelector<HTMLButtonElement>(
+      '[data-button-id="custom"]',
+    );
+    button?.click();
+    expect(onClick).toHaveBeenCalledTimes(1);
+    off();
+    expect(host.querySelector('[data-button-id="custom"]')).toBeNull();
+  });
+
+  it('clears the scene on unload and removes DOM on destroy', async () => {
+    await setup();
+    adapter.unload();
+    expect(host.querySelectorAll('[data-dbid]')).toHaveLength(0);
+    expect(await adapter.getLeafProperties(['Name'])).toEqual([]);
+    adapter.destroy();
+    expect(host.children).toHaveLength(0);
+    adapter.destroy();
+  });
+
+  it('satisfies the ViewerAdapter shape', async () => {
+    await setup();
+    const typed: ViewerAdapter = adapter;
+    expect(typeof typed.load).toBe('function');
+  });
+});
+
+describe('mock switch and region helpers', () => {
+  it('detects mock mode from the window flag', () => {
+    expect(isMockViewer()).toBe(false);
+    vi.stubGlobal('__MOCK_APS__', true);
+    expect(isMockViewer()).toBe(true);
+  });
+
+  it('detects the EU region from the urn', () => {
+    const eu = btoa('urn:adsk.wipemea:fs.file:abc')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_');
+    const us = btoa('urn:adsk.wipprod:fs.file:abc');
+    expect(detectRegion(eu)).toBe('EU');
+    expect(detectRegion(us)).toBe('US');
+    expect(detectRegion('%%%')).toBe('US');
+    expect(apiForRegion('EU')).toBe('derivativeV2_EU');
+    expect(apiForRegion('US')).toBe('derivativeV2');
+  });
+});
