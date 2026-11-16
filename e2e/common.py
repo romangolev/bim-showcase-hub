@@ -137,7 +137,7 @@ def wait_for_canvas_width(page, predicate, timeout_ms=5000):
 
 
 def download_export(page, target):
-    toolbar_button = page.locator(f"{ACTIVE_MODEL} [id^='export-xlsx-']")
+    toolbar_button = page.locator(f"{ACTIVE_MODEL} [id^='export-xlsx-']:not([id$='-tooltip'])")
     button = toolbar_button if toolbar_button.count() else page.get_by_role("button", name=EXPORT_NAME).first
     with page.expect_download(timeout=60000) as download_info:
         button.click(timeout=8000)

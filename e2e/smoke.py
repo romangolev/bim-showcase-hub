@@ -217,7 +217,7 @@ def run_model_checks(page, checks, found, notes):
     except Exception:
         checks.add("autodesk viewer is mounted", False, f"no viewer element within {VIEWER_TIMEOUT_MS // 1000}s")
     checks.add("viewer toolbar is present", page.locator(".adsk-toolbar").count() >= 1)
-    checks.add("tool group is in the native toolbar", page.locator(".adsk-toolbar [id^='paint-'], .adsk-toolbar [id^='export-xlsx-']").count() >= 2)
+    checks.add("tool group is in the native toolbar", page.locator(".adsk-toolbar [id^='paint-']:not([id$='-tooltip']), .adsk-toolbar [id^='export-xlsx-']:not([id$='-tooltip'])").count() >= 2)
     page.screenshot(path=str(OUTPUT_DIR / "02-model.png"))
     rows = page.locator("table tbody tr").count()
     checks.add("summary has rows", rows > 0, rows)
@@ -631,6 +631,8 @@ def check_fullscreen(page, checks, notes):
 MULTI_COUNT = 3
 MULTI_CALL_BUDGET = 90
 MULTI_EXTENSIONS = (".rvt",)
+MULTI_FILL_EXTENSIONS = (".nwd", ".nwc", ".dwg")
+GEOMETRY_OUTPUTS = ("svf", "svf2")
 
 MULTI_STATE_SCRIPT = """mw:() => [...document.querySelectorAll('.pane-model')].map((body) => {
     const box = (el) => { if (!el) return null; const r = el.getBoundingClientRect(); return { left: r.left, top: r.top, width: r.width, height: r.height }; };
@@ -655,9 +657,33 @@ SUMMARY_SCRIPT = """() => ({
 })"""
 
 
-def find_models(context, count=MULTI_COUNT, extensions=MULTI_EXTENSIONS):
+def has_geometry(context, urn):
+    status, token = api_get(context, "/api/viewer/token")
+    if status != 200 or not isinstance(token, dict) or not token.get("access_token"):
+        return True
+    response = context.request.get(
+        f"https://developer.api.autodesk.com/modelderivative/v2/designdata/{urn}/manifest",
+        headers={"Authorization": f"Bearer {token['access_token']}"},
+        timeout=30000,
+    )
+    if response.status in (401, 403):
+        return True
+    try:
+        manifest = response.json()
+    except Exception:
+        return False
+    derivatives = manifest.get("derivatives") if isinstance(manifest, dict) else None
+    if not isinstance(derivatives, list):
+        return False
+    return any(
+        isinstance(d, dict) and d.get("outputType") in GEOMETRY_OUTPUTS and d.get("status") == "success"
+        for d in derivatives
+    )
+
+
+def find_models(context, count=MULTI_COUNT, extensions=MULTI_EXTENSIONS, skip=()):
     found = []
-    seen = set()
+    seen = set(skip)
     calls = 0
     for hub in list_of(context, "/api/hubs") or []:
         projects = list_of(context, f"/api/hubs/{hub['id']}/projects")
@@ -683,7 +709,7 @@ def find_models(context, count=MULTI_COUNT, extensions=MULTI_EXTENSIONS):
                     versions = list_of(context, f"/api/projects/{pid}/items/{item['id']}/versions")
                     calls += 1
                     version = next((v for v in versions or [] if v.get("viewable") and v.get("urn")), None)
-                    if version:
+                    if version and has_geometry(context, version["urn"]):
                         seen.add(item["name"])
                         found.append({"urn": version["urn"], "file": item["name"], "crumbs": crumbs, "version": version.get("name", "")})
             if len(found) >= count:
@@ -791,7 +817,7 @@ def check_multi_model(page, checks, revit, notes):
             page.screenshot(path=str(OUTPUT_DIR / f"10-multi-{len(labels)}.png"))
         except Exception as exc:
             checks.add(f"multi: open {name}", False, f"{type(exc).__name__}: {str(exc)[:160]}")
-    tabs = page.locator(".dv-tab").filter(has_text=".rvt").count()
+    tabs = page.locator(".dv-tab").filter(has_text=" · v").count()
     checks.add("multi: one tab per opened model", tabs == len(labels), tabs)
     rows = [s["rows"] for s in summaries.values()]
     checks.add("multi: summary rows differ between models", len(set(rows)) == len(rows) and len(rows) >= 2, [len(r) for r in rows])
@@ -890,8 +916,10 @@ def main():
         if not multi:
             checks.add("a viewable model exists", found is not None, "none found within the API call budget")
         revit = find_models(context) if multi else []
+        if multi and len(revit) < MULTI_COUNT:
+            revit += find_models(context, MULTI_COUNT - len(revit), MULTI_FILL_EXTENSIONS, skip=[m["file"] for m in revit])
         if multi:
-            checks.add(f"{MULTI_COUNT} different Revit models exist", len(revit) >= MULTI_COUNT, [m["file"] for m in revit])
+            checks.add(f"{MULTI_COUNT} different viewable models exist (Revit first)", len(revit) >= MULTI_COUNT, [m["file"] for m in revit])
 
         page = context.pages[0] if context.pages else context.new_page()
         watch(page, notes)
