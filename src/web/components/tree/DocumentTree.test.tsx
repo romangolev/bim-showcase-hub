@@ -205,6 +205,8 @@ describe('DocumentTree', () => {
     expect(row('v6')).toHaveAttribute('data-viewable', 'true');
     expect(row('v6')).toHaveAttribute('data-view-state', 'unknown');
     expect(row('v6')).not.toHaveAttribute('aria-disabled');
+    expect(row('v6')).toHaveTextContent('Unchecked');
+    expect(row('v6')).not.toHaveTextContent('Viewable');
 
     fireEvent.click(row('v4'));
     expect(onOpenModel).not.toHaveBeenCalled();

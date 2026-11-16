@@ -11,8 +11,9 @@ export interface ViewStateCopy {
 export const VIEW_STATE_COPY: Record<ViewState, ViewStateCopy> = {
   ready: { label: 'Viewable', reason: 'This version has a 3D or 2D view.' },
   unknown: {
-    label: 'Viewable',
-    reason: 'The translation status could not be checked. Try opening it.',
+    label: 'Unchecked',
+    reason:
+      'Could not verify that this version has viewable geometry (access, rate limit or network). It may still open.',
   },
   processing: {
     label: 'Processing',

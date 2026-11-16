@@ -18,7 +18,7 @@ const KIND_ICON: Record<TreeNodeKind, IconName> = {
 
 const BADGE_KIND: Record<ViewState, string> = {
   ready: 'viewable',
-  unknown: 'viewable',
+  unknown: 'unchecked',
   processing: 'processing',
   failed: 'failed',
   'no-geometry': 'muted',

@@ -285,6 +285,13 @@
   font-weight: var(--weight-body);
 }
 
+.tree-row__state[data-state="unchecked"] {
+  padding: 0 6px;
+  border: 0.5px solid var(--color-ash);
+  border-radius: var(--radius-badge);
+  color: var(--color-fog);
+}
+
 .tree-row__state[data-state="processing"],
 .tree-row__state[data-state="failed"] {
   display: inline-flex;
