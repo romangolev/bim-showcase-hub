@@ -106,6 +106,21 @@ describe('ModelSet', () => {
     expect(set.get('a')).not.toHaveProperty('error');
   });
 
+  it('ignores a stale load after the urn was removed and added again', () => {
+    const set = new ModelSet<string>();
+    set.add({ urn: 'a' });
+    const stale = set.token('a');
+    set.remove('a');
+    set.add({ urn: 'a' });
+    const fresh = set.token('a');
+    expect(fresh).not.toBe(stale);
+    expect(set.resolve('a', 'old', stale)).toBe(false);
+    expect(set.fail('a', 'old error', stale)).toBe(false);
+    expect(set.get('a')?.status).toBe('loading');
+    expect(set.resolve('a', 'new', fresh)).toBe(true);
+    expect(set.handle('a')).toBe('new');
+  });
+
   it('does not resolve a model removed while loading', () => {
     const set = new ModelSet<string>();
     set.add({ urn: 'a' });

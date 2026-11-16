@@ -141,6 +141,30 @@ describe('federated loading', () => {
     expect(viewer().unloaded.map((m) => m.urn)).toEqual(['slow']);
   });
 
+  it('drops a stale load when the same urn is added again', async () => {
+    const gate = deferred();
+    env.gate.set('slow', gate.promise);
+    await adapter.loadModels([{ urn: 'arch' }]);
+    const first = adapter.addModel({ urn: 'slow' });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    adapter.removeModel('slow');
+    const second = adapter.addModel({ urn: 'slow' });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    gate.release();
+    await Promise.all([first, second]);
+    const slow = viewer().models.filter((m) => m.urn === 'slow');
+    expect(slow).toHaveLength(1);
+    expect(viewer().unloaded.map((m) => m.urn)).toEqual(['slow']);
+    expect(adapter.getModels().map((m) => [m.id, m.status])).toEqual([
+      ['arch', 'ready'],
+      ['slow', 'ready'],
+    ]);
+    viewer().selectIn('slow', [11]);
+    expect(adapter.getModelSelection()).toEqual([
+      { modelId: 'slow', dbId: 11 },
+    ]);
+  });
+
   it('hides a model that was hidden before it finished loading', async () => {
     const gate = deferred();
     env.gate.set('slow', gate.promise);

@@ -83,12 +83,14 @@ export function loadFailureMessage(models: readonly ModelInfo[]): string {
 interface Entry<H> {
   info: ModelInfo;
   handle?: H;
+  token: number;
 }
 
 export class ModelSet<H> {
   private readonly entries = new Map<string, Entry<H>>();
   private readonly listeners = new Set<(models: ModelInfo[]) => void>();
   private serial = 0;
+  private tokens = 0;
 
   constructor(private readonly cap = MAX_COMBINED_MODELS) {}
 
@@ -107,6 +109,10 @@ export class ModelSet<H> {
   get(id: string): ModelInfo | undefined {
     const entry = this.entries.get(id);
     return entry ? { ...entry.info } : undefined;
+  }
+
+  token(id: string): number | undefined {
+    return this.entries.get(id)?.token;
   }
 
   handle(id: string): H | undefined {
@@ -159,14 +165,15 @@ export class ModelSet<H> {
       visible: true,
       status: 'loading',
     };
-    this.entries.set(id, { info });
+    this.tokens += 1;
+    this.entries.set(id, { info, token: this.tokens });
     this.emit();
     return { ...info };
   }
 
-  resolve(id: string, handle: H): boolean {
+  resolve(id: string, handle: H, token?: number): boolean {
     const entry = this.entries.get(id);
-    if (!entry) return false;
+    if (!entry || (token !== undefined && entry.token !== token)) return false;
     const { id: modelId, urn, name, visible } = entry.info;
     entry.handle = handle;
     entry.info = { id: modelId, urn, name, visible, status: 'ready' };
@@ -174,12 +181,13 @@ export class ModelSet<H> {
     return true;
   }
 
-  fail(id: string, message: string): void {
+  fail(id: string, message: string, token?: number): boolean {
     const entry = this.entries.get(id);
-    if (!entry) return;
+    if (!entry || (token !== undefined && entry.token !== token)) return false;
     entry.handle = undefined;
     entry.info = { ...entry.info, status: 'error', error: message };
     this.emit();
+    return true;
   }
 
   remove(id: string): { info: ModelInfo; handle?: H } | undefined {

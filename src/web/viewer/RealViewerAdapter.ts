@@ -402,8 +402,12 @@ export class RealViewerAdapter implements ViewerAdapter {
     docPromise: Promise<ViewingDocument>,
   ): Promise<void> {
     const id = modelIdFor(source.urn);
+    const token = this.models.token(id);
     const stale = () =>
-      this.destroyed || this.viewer !== viewer || !this.models.has(id);
+      this.destroyed ||
+      this.viewer !== viewer ||
+      token === undefined ||
+      this.models.token(id) !== token;
     try {
       if (apiForRegion(detectRegion(source.urn)) !== this.api) {
         throw new Error(OTHER_REGION_MESSAGE);
@@ -417,7 +421,7 @@ export class RealViewerAdapter implements ViewerAdapter {
         federatedLoadOptions(this.anchor),
       );
       if (this.destroyed || this.viewer !== viewer) return;
-      if (!this.models.resolve(id, model)) {
+      if (!this.models.resolve(id, model, token)) {
         viewer.unloadModel?.(model);
         return;
       }
@@ -434,6 +438,7 @@ export class RealViewerAdapter implements ViewerAdapter {
       this.models.fail(
         id,
         err instanceof Error ? err.message : 'The model could not be loaded',
+        token,
       );
     }
   }
