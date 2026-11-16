@@ -281,3 +281,65 @@ describe('Feedback states', () => {
     expect(alert).toHaveAttribute('title', 'boom internals');
   });
 });
+
+describe('model scope in combined views', () => {
+  async function combined(): Promise<MockViewerAdapter> {
+    const adapter = new MockViewerAdapter(document.createElement('div'));
+    await adapter.loadModels([
+      { urn: 'urn-a', name: 'Arch' },
+      { urn: 'urn-b', name: 'MEP' },
+    ]);
+    adapters.push(adapter);
+    return adapter;
+  }
+
+  function wallsCount(): number {
+    const row = screen.getByRole('cell', { name: 'Walls' }).closest('tr');
+    return Number(row?.querySelectorAll('td')[2]?.textContent ?? '0');
+  }
+
+  it('sums counts over all models and narrows to one model', async () => {
+    const adapter = await combined();
+    render(
+      <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />,
+    );
+    await screen.findByRole('cell', { name: 'Walls' });
+    const scope = screen.getByRole('combobox', { name: 'Summarize models' });
+    expect(
+      [...(scope as HTMLSelectElement).options].map((o) => o.textContent),
+    ).toEqual(['All models', 'Arch', 'MEP']);
+    const all = wallsCount();
+    fireEvent.change(scope, { target: { value: 'urn-b' } });
+    await waitFor(() => expect(wallsCount()).toBe(all / 2));
+    adapter.removeModel('urn-b');
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('combobox', { name: 'Summarize models' }),
+      ).toBeNull(),
+    );
+    await waitFor(() => expect(wallsCount()).toBe(all / 2));
+  });
+
+  it('names a model whose properties cannot be read', async () => {
+    const adapter = new MockViewerAdapter(document.createElement('div'));
+    await adapter.loadModels([
+      { urn: 'urn-a', name: 'Arch' },
+      { urn: 'urn-noprops', name: 'Broken DB' },
+    ]);
+    adapters.push(adapter);
+    render(
+      <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />,
+    );
+    expect(
+      await screen.findByText(/Properties unavailable for Broken DB/),
+    ).toBeInTheDocument();
+  });
+
+  it('charts one model in the dashboard', async () => {
+    const adapter = await combined();
+    render(<DashboardPanel adapter={adapter} />);
+    const scope = await screen.findByRole('combobox', { name: 'Chart models' });
+    fireEvent.change(scope, { target: { value: 'urn-a' } });
+    expect((scope as HTMLSelectElement).value).toBe('urn-a');
+  });
+});
