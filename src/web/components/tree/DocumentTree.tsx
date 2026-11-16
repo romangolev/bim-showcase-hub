@@ -22,7 +22,12 @@ import {
 } from '../../api/scope.js';
 import { Icon } from '../icons.js';
 import { StateBlock } from '../StateBlock.js';
-import { ROW_HEIGHT, rowHeightFor, TreeRowView } from './TreeRowView.js';
+import {
+  INDENT,
+  ROW_HEIGHT,
+  rowHeightFor,
+  TreeRowView,
+} from './TreeRowView.js';
 
 export interface DocumentTreeProps {
   selectedUrn?: string;
@@ -507,7 +512,7 @@ export function DocumentTree({
       );
     }
 
-    const indent = `calc(var(--space-2) + ${row.level * 12 + 20}px)`;
+    const indent = `calc(var(--space-2) + ${row.level * INDENT + 20}px)`;
     return (
       <div
         key={row.key}
