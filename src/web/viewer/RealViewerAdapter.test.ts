@@ -15,11 +15,15 @@ import {
   type ViewerExtensionClass,
   type ViewerModel,
 } from './autodesk.js';
-import { RealViewerAdapter } from './RealViewerAdapter.js';
+import {
+  RealViewerAdapter,
+  SCREEN_MODE_SETTLE_MS,
+} from './RealViewerAdapter.js';
 import type { ToolGroupSpec } from './ViewerAdapter.js';
 
 const STATE: ButtonStates = { ACTIVE: 0, INACTIVE: 1, DISABLED: 2 };
 const SELECTION_EVENT = 'selection-changed';
+const SCREEN_MODE_EVENT = 'fullScreenMode';
 
 class FakeButton implements ControlButton {
   state = STATE.INACTIVE;
@@ -135,7 +139,7 @@ class FakeViewer implements GuiViewer3D {
     Set<(ev: ViewerEvent) => void>
   >();
 
-  constructor(readonly container: HTMLElement) {
+  constructor(public container: HTMLElement) {
     viewers.push(this);
   }
 
@@ -218,6 +222,10 @@ class FakeViewer implements GuiViewer3D {
       cb({ dbIdArray: ids });
     }
   }
+
+  emit(type: string): void {
+    for (const cb of this.listeners.get(type) ?? []) cb({});
+  }
 }
 
 function installFakeAutodesk(): void {
@@ -247,6 +255,7 @@ function installFakeAutodesk(): void {
     },
     SELECTION_CHANGED_EVENT: SELECTION_EVENT,
     TOOLBAR_CREATED_EVENT: 'toolbar-created',
+    FULLSCREEN_MODE_EVENT: SCREEN_MODE_EVENT,
   };
   autodeskWindow().Autodesk = { Viewing: viewing };
   autodeskWindow().THREE = {
@@ -272,6 +281,16 @@ function sized(el: HTMLElement, width: number, height: number): void {
   Object.defineProperty(el, 'clientHeight', {
     configurable: true,
     value: height,
+  });
+}
+
+let fullscreenElement: Element | null = null;
+
+function setFullscreenElement(el: Element | null): void {
+  fullscreenElement = el;
+  Object.defineProperty(document, 'fullscreenElement', {
+    configurable: true,
+    get: () => fullscreenElement,
   });
 }
 
@@ -310,6 +329,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  setFullscreenElement(null);
   adapter?.destroy();
   container?.remove();
   autodeskWindow().Autodesk = undefined;
@@ -514,6 +534,113 @@ describe('RealViewerAdapter tool group extension', () => {
     for (const swatch of parts(second).swatches) {
       expect(swatch.state).toBe(STATE.DISABLED);
     }
+  });
+});
+
+describe('RealViewerAdapter fullscreen', () => {
+  async function loadWithFrame() {
+    makeAdapter();
+    await adapter.load('dXJu');
+    const viewer = viewers[0] as FakeViewer;
+    const frame = document.createElement('div');
+    frame.className = 'adsk-viewing-viewer';
+    container.appendChild(frame);
+    viewer.container = frame;
+    const canvas = document.createElement('canvas');
+    viewer.canvas = canvas;
+    const implResize = vi.fn();
+    viewer.impl = { resize: implResize };
+    sized(container, 800, 600);
+    sized(frame, 800, 600);
+    return { viewer, frame, canvas, implResize };
+  }
+
+  it('keeps the canvas at the fullscreen size instead of forcing it back to the host size', async () => {
+    const { frame, canvas, implResize } = await loadWithFrame();
+    setFullscreenElement(frame);
+    sized(frame, 1440, 900);
+    sized(canvas, 1440, 900);
+    adapter.resize();
+    expect(implResize).not.toHaveBeenCalled();
+  });
+
+  it('forces a stale canvas to the fullscreen element size', async () => {
+    const { frame, canvas, implResize } = await loadWithFrame();
+    setFullscreenElement(frame);
+    sized(frame, 1440, 900);
+    sized(canvas, 800, 600);
+    adapter.resize();
+    expect(implResize).toHaveBeenCalledWith(1440, 900);
+  });
+
+  it('measures the host again once fullscreen ends', async () => {
+    const { frame, canvas, implResize } = await loadWithFrame();
+    setFullscreenElement(null);
+    sized(frame, 1440, 900);
+    sized(canvas, 1440, 900);
+    adapter.resize();
+    expect(implResize).toHaveBeenCalledWith(800, 600);
+  });
+
+  it('ignores a fullscreen element outside the viewer host', async () => {
+    const { canvas, implResize } = await loadWithFrame();
+    const other = document.createElement('div');
+    document.body.appendChild(other);
+    sized(other, 1440, 900);
+    setFullscreenElement(other);
+    sized(canvas, 800, 600);
+    adapter.resize();
+    expect(implResize).not.toHaveBeenCalled();
+    other.remove();
+  });
+
+  it.each(['fullscreenchange', 'webkitfullscreenchange'])(
+    'resizes on %s when entering and leaving fullscreen',
+    async (type) => {
+      const { viewer, frame, canvas, implResize } = await loadWithFrame();
+      setFullscreenElement(frame);
+      sized(frame, 1440, 900);
+      sized(canvas, 800, 600);
+      const before = viewer.resizeCalls;
+      document.dispatchEvent(new Event(type));
+      expect(viewer.resizeCalls).toBe(before + 1);
+      expect(implResize).toHaveBeenLastCalledWith(1440, 900);
+      setFullscreenElement(null);
+      sized(canvas, 1440, 900);
+      document.dispatchEvent(new Event(type));
+      expect(viewer.resizeCalls).toBe(before + 2);
+      expect(implResize).toHaveBeenLastCalledWith(800, 600);
+    },
+  );
+
+  it('resizes again after the screen mode change has settled', async () => {
+    const { viewer } = await loadWithFrame();
+    vi.useFakeTimers();
+    try {
+      viewer.emit(SCREEN_MODE_EVENT);
+      const before = viewer.resizeCalls;
+      vi.advanceTimersByTime(SCREEN_MODE_SETTLE_MS);
+      expect(viewer.resizeCalls).toBeGreaterThan(before);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('drops the fill-browser class and resizes when the fullscreen request fails', async () => {
+    const { viewer, frame } = await loadWithFrame();
+    frame.classList.add('viewer-fill-browser');
+    const before = viewer.resizeCalls;
+    document.dispatchEvent(new Event('fullscreenerror'));
+    expect(frame.classList.contains('viewer-fill-browser')).toBe(false);
+    expect(viewer.resizeCalls).toBe(before + 1);
+  });
+
+  it('stops listening for fullscreen changes after unload', async () => {
+    const { viewer } = await loadWithFrame();
+    adapter.unload();
+    const before = viewer.resizeCalls;
+    document.dispatchEvent(new Event('fullscreenchange'));
+    expect(viewer.resizeCalls).toBe(before);
   });
 });
 
