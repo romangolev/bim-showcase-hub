@@ -16,7 +16,12 @@ import { modelKey, registerViewerTools } from '../extensions/viewerTools.js';
 import { useTheme } from '../theme/ThemeContext.js';
 import { createViewerAdapter } from './createViewerAdapter.js';
 import { ModelsMenu } from './ModelsMenu.js';
-import { ModelSetError, type ModelSource } from './modelSet.js';
+import {
+  ModelSetError,
+  type ModelSource,
+  type ModelSpread,
+  type Vec3,
+} from './modelSet.js';
 import {
   detectRegion,
   RegionConflictError,
@@ -42,6 +47,9 @@ export interface ViewerPaneProps {
   members?: readonly ModelSource[];
   onRemoveModel?: (urn: string) => void;
   onAddModel?: () => void;
+  offsets?: Readonly<Record<string, Vec3>> | null;
+  onOffsetsChange?: (offsets: Record<string, Vec3> | null) => void;
+  onSpreadChange?: (distanceMeters: number | null) => void;
   children?: ReactNode;
 }
 
@@ -94,6 +102,9 @@ export function ViewerPane({
   members = NO_MEMBERS,
   onRemoveModel,
   onAddModel,
+  offsets = null,
+  onOffsetsChange,
+  onSpreadChange,
   children,
 }: ViewerPaneProps) {
   const membersRef = useRef(members);
@@ -270,6 +281,37 @@ export function ViewerPane({
 
   const models = useModels(adapter);
   const combined = members.length > 0 || models.length > 1;
+  const [spread, setSpread] = useState<ModelSpread | null>(null);
+  const onSpreadRef = useRef(onSpreadChange);
+  onSpreadRef.current = onSpreadChange;
+  useEffect(() => {
+    const next = adapter && models.length > 1 ? adapter.getSpread() : null;
+    setSpread(next);
+    onSpreadRef.current?.(next?.farApart ? next.distanceMeters : null);
+  }, [adapter, models]);
+
+  const [localOffsets, setLocalOffsets] = useState<Record<string, Vec3> | null>(
+    null,
+  );
+  const shownOffsets = onOffsetsChange ? offsets : localOffsets;
+  const offsetsKey =
+    shownOffsets && Object.keys(shownOffsets).length > 0
+      ? JSON.stringify(shownOffsets)
+      : '';
+  const changeOffsets = onOffsetsChange ?? setLocalOffsets;
+  const appliedOffsets = useRef('');
+  useEffect(() => {
+    if (!adapter) {
+      appliedOffsets.current = '';
+      return;
+    }
+    if (appliedOffsets.current === offsetsKey) return;
+    appliedOffsets.current = offsetsKey;
+    adapter.setModelOffsets(
+      offsetsKey ? (JSON.parse(offsetsKey) as Record<string, Vec3>) : null,
+    );
+  }, [adapter, offsetsKey]);
+  const together = Boolean(offsetsKey);
 
   return (
     <ModelViewerContext.Provider value={adapter}>
@@ -346,6 +388,10 @@ export function ViewerPane({
               else adapter.removeModel(id);
             }}
             onAdd={onAddModel}
+            spread={spread}
+            together={together}
+            onBringTogether={() => changeOffsets(adapter.getTogetherOffsets())}
+            onRestorePositions={() => changeOffsets(null)}
           />
         ) : null}
         {setNotice ? (

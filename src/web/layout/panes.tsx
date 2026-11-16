@@ -56,6 +56,7 @@ export function ModelPaneBody({ instance }: { instance: string }) {
   const active = state.active === instance;
   const live = state.live.includes(instance);
   const context = contextOf(state, instance);
+  const entry = state.models.find((model) => model.urn === instance);
   const title = layout.paneTitle(panel);
   const tree = useTreeControl();
   const router = useRouter();
@@ -96,6 +97,11 @@ export function ModelPaneBody({ instance }: { instance: string }) {
             name={memberLabel(instance, context)}
             members={members}
             onRemoveModel={(urn) => store?.removeFrom(instance, urn)}
+            offsets={entry?.offsets ?? null}
+            onOffsetsChange={(next) =>
+              store?.setView(instance, { offsets: next })
+            }
+            onSpreadChange={(spread) => store?.setView(instance, { spread })}
             onAddModel={tree ? () => tree.reveal() : undefined}
             onKeepOnly={() => {
               store?.keepOnly(instance);

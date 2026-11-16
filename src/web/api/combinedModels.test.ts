@@ -160,3 +160,48 @@ describe('combined tab title', () => {
     expect(modelTabTitle('a', { file: 'A.rvt' }).label).toBe('A.rvt');
   });
 });
+
+describe('positions of a combined tab', () => {
+  it('saves offsets and spread with the entry and restores them', () => {
+    const store = createOpenModelsStore(session);
+    store.open('a', { file: 'A.rvt', with: 'b,c' });
+    store.setView('a', { offsets: { b: [1, 2, 3] }, spread: 423_000 });
+    const restored = parseOpenModels(session.getItem('bsh.models.open'));
+    expect(restored.models[0]).toMatchObject({
+      urn: 'a',
+      offsets: { b: [1, 2, 3] },
+      spread: 423_000,
+    });
+    store.open('a', { file: 'A.rvt', v: 'v2' });
+    expect(store.getState().models[0]?.offsets).toEqual({ b: [1, 2, 3] });
+    store.addTo('a', 'd');
+    expect(store.getState().models[0]?.offsets).toEqual({ b: [1, 2, 3] });
+    store.removeFrom('a', 'b');
+    expect(store.getState().models[0]?.offsets).toBeUndefined();
+    store.setView('a', { offsets: { c: [4, 5, 6] } });
+    store.removeFrom('a', 'a');
+    expect(store.getState().models[0]).toMatchObject({ urn: 'c' });
+    expect(store.getState().models[0]?.offsets).toBeUndefined();
+  });
+
+  it('ignores malformed saved offsets', () => {
+    const state = parseOpenModels(
+      JSON.stringify({
+        models: [{ urn: 'a', context: {}, offsets: { b: [1, 'x', 3] } }],
+      }),
+    );
+    expect(state.models[0]?.offsets).toBeUndefined();
+  });
+
+  it('adds the far apart warning to the tab tooltip', () => {
+    const title = modelTabTitle(
+      'a',
+      { file: 'A.rvt', with: 'b' },
+      undefined,
+      423_672,
+    );
+    expect(title.tooltip).toContain(
+      'Some models are far apart in model space (about 424 km).',
+    );
+  });
+});

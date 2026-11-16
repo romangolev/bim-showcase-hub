@@ -1,12 +1,26 @@
 import { Icon } from '../components/icons.js';
 import { Menu, type MenuEntry } from '../components/Menu.js';
-import { MAX_COMBINED_MODELS, type ModelInfo } from './modelSet.js';
+import {
+  farApartMessage,
+  MAX_COMBINED_MODELS,
+  type ModelInfo,
+  type ModelSpread,
+} from './modelSet.js';
+
+export const BRING_TOGETHER_LABEL = 'Bring models together (view only)';
+export const RESTORE_POSITIONS_LABEL = 'Restore positions';
+export const VIEW_ONLY_NOTE =
+  'Moving models together changes this view only. The files and their coordinates stay as they are.';
 
 export interface ModelsMenuProps {
   models: readonly ModelInfo[];
   onToggle: (id: string, visible: boolean) => void;
   onRemove: (id: string) => void;
   onAdd?: () => void;
+  spread?: ModelSpread | null;
+  together?: boolean;
+  onBringTogether?: () => void;
+  onRestorePositions?: () => void;
 }
 
 function stateOf(model: ModelInfo): string {
@@ -20,8 +34,27 @@ export function modelsMenuEntries({
   onToggle,
   onRemove,
   onAdd,
+  spread,
+  together,
+  onBringTogether,
+  onRestorePositions,
 }: ModelsMenuProps): MenuEntry[] {
   const entries: MenuEntry[] = [];
+  if (together && onRestorePositions) {
+    entries.push({
+      id: 'restore-positions',
+      label: RESTORE_POSITIONS_LABEL,
+      onSelect: onRestorePositions,
+    });
+    entries.push({ kind: 'separator', id: 'positions-separator' });
+  } else if (spread?.farApart && onBringTogether) {
+    entries.push({
+      id: 'bring-together',
+      label: BRING_TOGETHER_LABEL,
+      onSelect: onBringTogether,
+    });
+    entries.push({ kind: 'separator', id: 'positions-separator' });
+  }
   for (const model of models) {
     entries.push({
       id: `show:${model.id}`,
@@ -72,6 +105,31 @@ export function ModelsMenu(props: ModelsMenuProps) {
         }
         items={() => modelsMenuEntries(props)}
       />
+      {props.spread?.farApart ? (
+        <div className="bsh-viewer-models__far" role="status">
+          <p className="bsh-viewer-models__far-text">
+            {farApartMessage(props.spread)}
+          </p>
+          <p className="bsh-viewer-models__far-note">{VIEW_ONLY_NOTE}</p>
+          {props.together && props.onRestorePositions ? (
+            <button
+              type="button"
+              className="bsh-viewer-models__far-action"
+              onClick={props.onRestorePositions}
+            >
+              {RESTORE_POSITIONS_LABEL}
+            </button>
+          ) : props.onBringTogether ? (
+            <button
+              type="button"
+              className="bsh-viewer-models__far-action"
+              onClick={props.onBringTogether}
+            >
+              {BRING_TOGETHER_LABEL}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       {failed.length > 0 ? (
         <ul
           className="bsh-viewer-models__errors"

@@ -1,4 +1,4 @@
-import { MAX_COMBINED_MODELS } from '../viewer/modelSet.js';
+import { MAX_COMBINED_MODELS, type Vec3 } from '../viewer/modelSet.js';
 import {
   joinWith,
   type ModelContext,
@@ -17,6 +17,55 @@ export { MAX_COMBINED_MODELS };
 export interface OpenModel {
   urn: string;
   context: ModelContext;
+  offsets?: Record<string, Vec3>;
+  spread?: number;
+}
+
+function parseOffsets(value: unknown): Record<string, Vec3> | undefined {
+  if (typeof value !== 'object' || value === null) return undefined;
+  const out: Record<string, Vec3> = {};
+  for (const [id, raw] of Object.entries(value as Record<string, unknown>)) {
+    if (
+      Array.isArray(raw) &&
+      raw.length === 3 &&
+      raw.every((n) => typeof n === 'number' && Number.isFinite(n))
+    ) {
+      out[id] = [raw[0], raw[1], raw[2]] as Vec3;
+    }
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+function withView(
+  model: OpenModel,
+  view: { offsets?: Record<string, Vec3> | null; spread?: number | null },
+): OpenModel {
+  const next: OpenModel = { urn: model.urn, context: model.context };
+  const offsets = view.offsets === undefined ? model.offsets : view.offsets;
+  const spread = view.spread === undefined ? model.spread : view.spread;
+  if (offsets && Object.keys(offsets).length > 0) next.offsets = offsets;
+  if (typeof spread === 'number') next.spread = spread;
+  return next;
+}
+
+export function setModelView(
+  state: OpenModelsState,
+  urn: string,
+  view: { offsets?: Record<string, Vec3> | null; spread?: number | null },
+): OpenModelsState {
+  const index = state.models.findIndex((model) => model.urn === urn);
+  const current = state.models[index];
+  if (!current) return state;
+  const next = withView(current, view);
+  if (
+    JSON.stringify(next.offsets) === JSON.stringify(current.offsets) &&
+    next.spread === current.spread
+  ) {
+    return state;
+  }
+  const models = [...state.models];
+  models[index] = next;
+  return { ...state, models };
 }
 
 export interface OpenModelsState {
@@ -112,7 +161,7 @@ export function openModel(
     else delete merged.with;
     if (!sameModelContext(existing.context, merged)) {
       models = models.map((model) =>
-        model.urn === urn ? { urn, context: merged } : model,
+        model.urn === urn ? { ...model, context: merged } : model,
       );
     }
   }
@@ -173,7 +222,7 @@ export function addToModel(
     ...state,
     models: state.models.map((model) =>
       model.urn === target
-        ? { urn: target, context: { ...entry.context, with: extra } }
+        ? { ...model, context: { ...entry.context, with: extra } }
         : model,
     ),
   };
@@ -201,7 +250,20 @@ export function removeFromModel(
     return {
       ...state,
       models: state.models.map((model) =>
-        model.urn === target ? { urn: target, context } : model,
+        model.urn === target
+          ? withView(
+              { urn: target, context },
+              {
+                offsets: model.offsets
+                  ? Object.fromEntries(
+                      Object.entries(model.offsets).filter(
+                        ([id]) => id !== urn,
+                      ),
+                    )
+                  : null,
+              },
+            )
+          : model,
       ),
     };
   }
@@ -251,13 +313,21 @@ export function parseOpenModels(raw: string | null): OpenModelsState {
   if (Array.isArray(record.models)) {
     for (const entry of record.models) {
       if (typeof entry !== 'object' || entry === null) continue;
-      const { urn, context } = entry as Record<string, unknown>;
+      const { urn, context, offsets, spread } = entry as Record<
+        string,
+        unknown
+      >;
       if (typeof urn !== 'string' || !urn) continue;
       if (models.some((model) => model.urn === urn)) continue;
-      models.push({
-        urn,
-        context: parseModelContext(context),
-      });
+      models.push(
+        withView(
+          { urn, context: parseModelContext(context) },
+          {
+            offsets: parseOffsets(offsets) ?? null,
+            spread: typeof spread === 'number' ? spread : null,
+          },
+        ),
+      );
     }
   }
   const active =
@@ -319,6 +389,10 @@ export interface OpenModelsStore {
   keepOnly: (urn: string) => void;
   addTo: (target: string, urn: string) => void;
   removeFrom: (target: string, urn: string) => void;
+  setView: (
+    urn: string,
+    view: { offsets?: Record<string, Vec3> | null; spread?: number | null },
+  ) => void;
   clear: () => void;
 }
 
@@ -377,6 +451,7 @@ export function createOpenModelsStore(
     addTo: (target, urn) => apply(addToModel(state, target, urn)),
     removeFrom: (target, urn) =>
       apply(removeFromModel(state, target, urn, contextFor, limit)),
+    setView: (urn, view) => apply(setModelView(state, urn, view)),
     clear: () => {
       remove(storage, OPEN_MODELS_KEY);
       if (state.models.length === 0) return;

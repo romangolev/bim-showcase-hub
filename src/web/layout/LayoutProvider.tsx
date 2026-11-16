@@ -127,8 +127,8 @@ function modelOf(id: PanelId): string | null {
 
 function titlesFor(models: OpenModelsState): PaneTitles {
   const titles: Record<PanelId, PaneTitle> = {};
-  for (const { urn, context } of models.models) {
-    titles[modelPanelId(urn)] = modelTabTitle(urn, context);
+  for (const { urn, context, spread } of models.models) {
+    titles[modelPanelId(urn)] = modelTabTitle(urn, context, undefined, spread);
   }
   const active = models.active ? titles[modelPanelId(models.active)] : null;
   if (active) {

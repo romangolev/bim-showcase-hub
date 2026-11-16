@@ -81,7 +81,7 @@ One layout per browser in `localStorage` under `bsh.layout.v2`:
 { "version": 2, "layout": { "dock": { "grid": {}, "panels": {} }, "collapsed": ["dashboard"], "treeWidth": 320, "dismissed": ["summary"], "lastViewerArrangement": { "grid": {}, "panels": {} } } }
 ```
 
-The open model tabs (with their `with` members) and the active one are in `sessionStorage` under `bsh.models.open`, so a reload restores them and a new browser tab starts with none. Sign-out clears them together with the recent-models store (`bsh.models.recent`, which holds file names); the signed-in user's name is kept in `bsh.models.owner` and a different user clears both on sign-in (the session has no stable user id). Restored tabs load lazily: only the tabs that are visible load at once, the others when they are first shown.
+The open model tabs (with their `with` members, any brought-together offsets and the far-apart distance) and the active one are in `sessionStorage` under `bsh.models.open`, so a reload restores them and a new browser tab starts with none. Sign-out clears them together with the recent-models store (`bsh.models.recent`, which holds file names); the signed-in user's name is kept in `bsh.models.owner` and a different user clears both on sign-in (the session has no stable user id). Restored tabs load lazily: only the tabs that are visible load at once, the others when they are first shown.
 
 - `dock` is dockview's `toJSON()` output, or `null` before the dock was first shown.
 - `collapsed` lists collapsed pane kinds. Collapsing a model tab collapses its group under the `viewer` kind.

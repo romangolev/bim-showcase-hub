@@ -6,6 +6,7 @@ import {
 import { recallModel } from '../api/modelStore.js';
 import { composeTitle } from '../components/useDocumentTitle.js';
 import type { PaneTitle } from '../layout/layoutContext.js';
+import { farApartMessage } from '../viewer/modelSet.js';
 
 export function viewerTabTitle(
   urn: string,
@@ -35,6 +36,18 @@ export function modelTabTitle(
   urn: string,
   context: ModelContext,
   recall: (urn: string) => ModelContext | null = recallModel,
+  spread?: number,
+): PaneTitle {
+  const title = baseTabTitle(urn, context, recall);
+  if (spread === undefined) return title;
+  const warning = farApartMessage({ distanceMeters: spread });
+  return { ...title, tooltip: `${title.tooltip}\n${warning}` };
+}
+
+function baseTabTitle(
+  urn: string,
+  context: ModelContext,
+  recall: (urn: string) => ModelContext | null,
 ): PaneTitle {
   const extras = withUrns(context);
   if (extras.length === 0) {

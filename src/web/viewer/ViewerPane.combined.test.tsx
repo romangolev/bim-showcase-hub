@@ -176,3 +176,51 @@ describe('ViewerPane with several models', () => {
     expect(groups()).toHaveLength(6);
   });
 });
+
+describe('ViewerPane with models far apart', () => {
+  const FAR: ModelSource = { urn: 'urn-far', name: 'Far.nwd' };
+  const offsetOf = () =>
+    document.querySelector<SVGGElement>('[data-model-id="urn-far"]')?.dataset
+      .offset;
+
+  it('warns, brings models together for viewing and restores them', async () => {
+    const { factory } = tracked();
+    const onSpreadChange = vi.fn();
+    render(
+      <ViewerPane
+        urn="urn-a"
+        members={[FAR]}
+        factory={factory}
+        onSpreadChange={onSpreadChange}
+      />,
+    );
+    const status = await screen.findByText(/Some models are far apart/);
+    expect(status).toHaveTextContent(/about 1,00\d km/);
+    const reported = onSpreadChange.mock.calls.at(-1)?.[0] as number;
+    expect(reported).toBeGreaterThan(1_000_000);
+    expect(reported).toBeLessThan(1_010_000);
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Bring models together (view only)' }),
+    );
+    await waitFor(() => expect(offsetOf()).toBe('moved'));
+    fireEvent.click(screen.getByRole('button', { name: 'Restore positions' }));
+    await waitFor(() => expect(offsetOf()).toBe('original'));
+  });
+
+  it('applies saved offsets and reports changes when controlled', async () => {
+    const { factory } = tracked();
+    const onOffsetsChange = vi.fn();
+    render(
+      <ViewerPane
+        urn="urn-a"
+        members={[FAR]}
+        factory={factory}
+        offsets={{ 'urn-far': [-1_000_000, 0, 0] }}
+        onOffsetsChange={onOffsetsChange}
+      />,
+    );
+    await waitFor(() => expect(offsetOf()).toBe('moved'));
+    fireEvent.click(screen.getByRole('button', { name: 'Restore positions' }));
+    expect(onOffsetsChange).toHaveBeenCalledWith(null);
+  });
+});

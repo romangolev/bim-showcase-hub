@@ -156,6 +156,32 @@ describe('combined viewer tab', () => {
     ).toBe('bbb,ccc');
   });
 
+  it('saves brought-together positions and restores them after a reload', async () => {
+    const first = renderPath('/model/aaa?file=A.rvt&with=bbb-far');
+    await dockReady();
+    await screen.findByText(/Some models are far apart/);
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Bring models together (view only)' }),
+    );
+    const moved = () =>
+      document.querySelector<SVGGElement>('[data-model-id="bbb-far"]')?.dataset
+        .offset;
+    await waitFor(() => expect(moved()).toBe('moved'));
+    const saved = JSON.parse(sessionStorage.getItem(OPEN_MODELS_KEY) ?? '{}');
+    expect(Object.keys(saved.models[0].offsets)).toEqual(['bbb-far']);
+    expect(saved.models[0].spread).toBeGreaterThan(1_000_000);
+    first.unmount();
+    renderPath('/');
+    await dockReady();
+    await waitFor(() => expect(moved()).toBe('moved'));
+    fireEvent.click(screen.getByRole('button', { name: 'Restore positions' }));
+    await waitFor(() => expect(moved()).toBe('original'));
+    expect(
+      JSON.parse(sessionStorage.getItem(OPEN_MODELS_KEY) ?? '{}').models[0]
+        .offsets,
+    ).toBeUndefined();
+  });
+
   it('restores a combined tab after a reload', async () => {
     const first = renderPath('/model/aaa?file=A.rvt&with=bbb,ccc');
     await dockReady();
