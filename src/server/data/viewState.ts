@@ -176,7 +176,7 @@ export function createViewStateChecker(
     if (first !== MISSING) return first;
     if (certain) return 'not-translated';
     const other = await fetchRegion(token, urn, region === 'US' ? 'EU' : 'US');
-    return other === MISSING ? 'not-translated' : other;
+    return other === MISSING ? 'unknown' : other;
   }
 
   let lastPurge = Number.NEGATIVE_INFINITY;

@@ -279,7 +279,7 @@ describe('createViewStateChecker', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
-  it('tries the other data centre before calling an unclear urn not translated', async () => {
+  it('tries the other data centre and keeps an unclear urn openable when both answer 404', async () => {
     const fetchImpl = vi.fn(
       async (_url: string, init: { headers: Record<string, string> }) =>
         init.headers.region === 'EMEA'
@@ -295,7 +295,7 @@ describe('createViewStateChecker', () => {
     const both404 = vi.fn().mockResolvedValue(reply(404));
     expect(
       await createViewStateChecker({ fetchImpl: both404 }).check('t', 'x'),
-    ).toBe('not-translated');
+    ).toBe('unknown');
     expect(both404).toHaveBeenCalledTimes(2);
     const errorSecond = vi
       .fn()
