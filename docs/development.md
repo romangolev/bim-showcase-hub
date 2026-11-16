@@ -67,7 +67,7 @@ Mock mode needs `MOCK_APS=1` and a non-production `NODE_ENV`. The server compute
 
 ## End-to-end tests
 
-The preferred way to test the real app is Camoufox, a Firefox build driven through Playwright's Python API. The owner signs in to Autodesk once, in a persistent browser profile. The scripts reuse that session. They never see or type credentials.
+Camoufox is the only browser used for end-to-end tests and visual QA in this repo. Do not use Playwright MCP or Chromium. The same rule is in `CLAUDE.md`. Camoufox runs `page.evaluate` in an isolated world, so reading page globals needs `main_world_eval=True` and the `mw:` prefix. The way to test the real app is Camoufox, a Firefox build driven through Playwright's Python API. The owner signs in to Autodesk once, in a persistent browser profile. The scripts reuse that session. They never see or type credentials.
 
 ### Setup
 
