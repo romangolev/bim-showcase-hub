@@ -6,6 +6,7 @@ export interface ServerConfig {
   port: number;
   mock: boolean;
   production: boolean;
+  secureCookies: boolean;
   sessionSecret: string;
   staticDir: string | null;
   aps: {
@@ -34,18 +35,20 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
   if (production && !mock && (!env.APS_CLIENT_ID || !env.APS_CLIENT_SECRET)) {
     throw new Error('APS_CLIENT_ID and APS_CLIENT_SECRET are required');
   }
+  const callbackUrl =
+    env.APS_CALLBACK_URL ?? 'http://localhost:3000/api/auth/callback';
   return {
     port: Number(env.PORT ?? 3000),
     mock,
     production,
+    secureCookies: production && callbackUrl.startsWith('https:'),
     sessionSecret,
     staticDir:
       production && env.STATIC_DIR ? path.resolve(env.STATIC_DIR) : null,
     aps: {
       clientId: env.APS_CLIENT_ID ?? '',
       clientSecret: env.APS_CLIENT_SECRET ?? '',
-      callbackUrl:
-        env.APS_CALLBACK_URL ?? 'http://localhost:3000/api/auth/callback',
+      callbackUrl,
       scopes: ['data:read', 'viewables:read'],
     },
   };

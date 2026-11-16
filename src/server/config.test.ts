@@ -75,4 +75,22 @@ describe('loadConfig', () => {
     expect(config.staticDir).toBe(path.resolve('dist/web'));
     expect(path.isAbsolute(config.staticDir ?? '')).toBe(true);
   });
+
+  it('marks cookies secure only for https callbacks in production', () => {
+    const base = {
+      NODE_ENV: 'production',
+      SESSION_SECRET: 'x'.repeat(32),
+      APS_CLIENT_ID: 'id',
+      APS_CLIENT_SECRET: 'secret',
+    };
+    expect(
+      loadConfig({ ...base, APS_CALLBACK_URL: 'https://app.example/cb' })
+        .secureCookies,
+    ).toBe(true);
+    expect(
+      loadConfig({ ...base, APS_CALLBACK_URL: 'http://localhost:3000/cb' })
+        .secureCookies,
+    ).toBe(false);
+    expect(loadConfig({}).secureCookies).toBe(false);
+  });
 });
