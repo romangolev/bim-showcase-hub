@@ -20,7 +20,10 @@ export interface VersionResource {
     lastModifiedTime?: string;
     lastModifiedUserName?: string;
   };
-  relationships?: { derivatives?: { data?: { id?: string } } };
+  relationships?: {
+    derivatives?: { data?: { id?: string } };
+    item?: { data?: { id?: string } };
+  };
 }
 
 function pickName(attributes: NamedResource['attributes']): string {

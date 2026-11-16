@@ -79,9 +79,12 @@ export function createApsDataService(
         const res = await client.getVersion(projectId, versionId, {
           accessToken: token,
         });
-        const version = res.data
-          ? mapVersions([res.data as VersionResource], itemId)[0]
-          : undefined;
+        const resource = res.data as VersionResource | undefined;
+        const owner = resource?.relationships?.item?.data?.id;
+        const version =
+          resource && (!owner || owner === itemId)
+            ? mapVersions([resource], itemId)[0]
+            : undefined;
         if (!version) throw new HttpError(404, 'Version not found');
         if (!version.urn) {
           return { viewState: 'not-translated', viewable: false };

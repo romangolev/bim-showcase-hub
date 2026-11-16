@@ -53,7 +53,10 @@ describe('createApsDataService', () => {
     const versions: Record<string, unknown> = {
       'v?version=2': {
         id: 'v?version=2',
-        relationships: { derivatives: { data: { id: 'urnA' } } },
+        relationships: {
+          derivatives: { data: { id: 'urnA' } },
+          item: { data: { id: 'i1' } },
+        },
       },
       'v?version=1': { id: 'v?version=1' },
     };
@@ -81,6 +84,28 @@ describe('createApsDataService', () => {
     ).rejects.toMatchObject({ status: 404 });
     expect(client.getItemVersions).not.toHaveBeenCalled();
     expect(client.getVersion).toHaveBeenCalledTimes(3);
+  });
+
+  it('answers 404 for a version that belongs to another item', async () => {
+    const client = fakeClient();
+    client.getVersion.mockResolvedValue({
+      data: {
+        id: 'v?version=3',
+        relationships: {
+          derivatives: { data: { id: 'urnB' } },
+          item: { data: { id: 'other-item' } },
+        },
+      },
+    });
+    const check = vi.fn().mockResolvedValue('ready');
+    const service = createApsDataService(client as never, {
+      check,
+      clear: () => undefined,
+    });
+    await expect(
+      service.versionViewState('tok', 'b.p', 'i1', 'v?version=3'),
+    ).rejects.toMatchObject({ status: 404 });
+    expect(check).not.toHaveBeenCalled();
   });
 
   it('attaches the checked view state to each version with a derivative', async () => {
