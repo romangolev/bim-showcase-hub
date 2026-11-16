@@ -169,6 +169,7 @@ export function mapVersions(
       ),
       hasChildren: false,
       viewable: Boolean(urn),
+      viewState: urn ? 'unknown' : 'not-translated',
       parentId: encodeId(itemId),
     };
     if (urn) {

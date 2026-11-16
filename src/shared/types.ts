@@ -1,3 +1,5 @@
+import type { ViewState } from './viewState.js';
+
 export type TreeNodeKind = 'hub' | 'project' | 'folder' | 'item' | 'version';
 
 export interface TreeNode {
@@ -6,6 +8,7 @@ export interface TreeNode {
   name: string;
   hasChildren: boolean;
   viewable: boolean;
+  viewState?: ViewState;
   urn?: string;
   parentId?: string;
 }

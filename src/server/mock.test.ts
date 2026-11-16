@@ -129,9 +129,22 @@ describe('mock mode', () => {
 
     expect(tree.versions.some((v) => v.viewable)).toBe(true);
     expect(tree.versions.some((v) => !v.viewable)).toBe(true);
-    expect(tree.versions.every((v) => v.viewable === Boolean(v.urn))).toBe(
-      true,
+    expect(
+      tree.versions.every((v) => v.viewable === (v.viewState === 'ready')),
+    ).toBe(true);
+    expect(new Set(tree.versions.map((v) => v.viewState))).toEqual(
+      new Set([
+        'ready',
+        'no-geometry',
+        'processing',
+        'not-translated',
+        'failed',
+      ]),
     );
+    for (const name of ['no-geometry', 'processing', 'not-translated']) {
+      const item = tree.items.find((i) => i.name === `STATE-${name}.rvt`);
+      expect(item, name).toBeDefined();
+    }
     expect(tree.versions.every((v) => /^v\d: .+ by .+$/.test(v.name))).toBe(
       true,
     );
