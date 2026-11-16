@@ -461,6 +461,58 @@ def check_multi_model(page, checks, notes):
     settle(page)
 
 
+def documents_alone(page):
+    found = groups(page)
+    return list(found) == ["Documents"]
+
+
+def check_documents_home(page, checks):
+    settle(page)
+    checks.add("default layout is Documents alone", documents_alone(page), groups(page))
+    hint = page.locator(".pane-docs__hint")
+    checks.add(
+        "Documents shows the open-a-model hint",
+        hint.count() == 1 and "Select a model version to open it in the viewer" in hint.inner_text(),
+    )
+    checks.add("Documents is the main landmark", page.locator("[role=main]#main #document-panel").count() == 1)
+    tab = page.locator(".dv-tab").filter(has_text="Documents").first
+    checks.add("Documents tab has no close button", tab.locator(".dv-default-tab-action").count() == 0)
+    page.get_by_role("button", name="Documents pane options").click()
+    items = page.get_by_role("menuitem").all_inner_texts()
+    page.keyboard.press("Escape")
+    checks.add("Documents pane menu has no Close", "Close" not in [item.strip() for item in items], items)
+
+
+def check_documents_return(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page)
+    rows = page.locator("[role=treeitem][data-viewable=true]")
+    if not models(page)["models"]:
+        rows.first.click()
+        wait_until(page, lambda: models(page)["active"])
+        settle(page, 1000)
+    checks.add("opening a model opens the viewer right of Documents", "Viewer" in groups(page) and groups(page)["Documents"]["right"] <= groups(page)["Viewer"]["left"], groups(page))
+    summary_tab = page.locator(".dv-tab").filter(has_text="Model summary").first
+    summary_tab.hover()
+    summary_tab.locator(".dv-default-tab-action").click()
+    settle(page)
+    checks.add("the summary closes from its tab", "Model summary" not in groups(page), groups(page))
+    page.get_by_role("button", name="Panes").click()
+    entry = page.get_by_role("menuitemcheckbox", name="Model summary")
+    checks.add("the Panes menu lists the closed summary", entry.get_attribute("aria-checked") == "false")
+    entry.click()
+    settle(page)
+    checks.add("the Panes menu re-opens the summary", "Model summary" in groups(page), groups(page))
+    for model in models(page)["models"]:
+        tab = page.locator(".dv-tab").filter(has_text="·").first
+        tab.hover()
+        tab.locator(".dv-default-tab-action").click()
+        settle(page, 600)
+    settle(page, 800)
+    checks.add("closing the last model tab leaves Documents alone", documents_alone(page), groups(page))
+    checks.add("closing the last model tab returns the url to /", page.url.rstrip("/") == BASE_URL, page.url)
+
+
 def run_interaction_checks(page, checks, notes):
     try:
         check_layout(page, checks, notes)
@@ -477,6 +529,11 @@ def run_interaction_checks(page, checks, notes):
     except Exception as exc:
         page.screenshot(path=str(OUTPUT_DIR / "mock-multi-failure.png"))
         checks.add("check_multi_model", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+    try:
+        check_documents_return(page, checks)
+    except Exception as exc:
+        page.screenshot(path=str(OUTPUT_DIR / "mock-documents-failure.png"))
+        checks.add("check_documents_return", False, f"{type(exc).__name__}: {str(exc)[:160]}")
 
 
 def run(context, checks, notes):
@@ -507,6 +564,10 @@ def run(context, checks, notes):
     except Exception:
         pass
     checks.add("tree lists hubs", hubs.count() >= 1)
+    try:
+        check_documents_home(page, checks)
+    except Exception as exc:
+        checks.add("check_documents_home", False, f"{type(exc).__name__}: {str(exc)[:160]}")
 
     try:
         version_row = expand_to_viewable(page)
