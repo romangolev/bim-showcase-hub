@@ -1,0 +1,1104 @@
+html .bsh-viewer-surface .adsk-viewing-viewer {
+  font-family: var(--font-sans);
+  font-feature-settings: var(--font-features);
+  font-size: var(--text-13);
+  color: var(--color-chalk);
+  background-color: var(--color-void);
+  --bsh-mask-close: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 11 11' fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 1l9 9M10 1l-9 9'/%3E%3C/svg%3E");
+  --bsh-mask-clear: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14' fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 3l8 8M11 3l-8 8'/%3E%3C/svg%3E");
+  --bsh-mask-resize: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 7' fill='none' stroke='black' stroke-width='1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M0.5 6.5L6.5 0.5M4.5 6.5L6.5 4.5'/%3E%3C/svg%3E");
+  --bsh-mask-right: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 6 10' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 1l4 4-4 4'/%3E%3C/svg%3E");
+  --bsh-mask-down: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
+  --bsh-mask-eye: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 17 10' fill='none' stroke='black' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 5C3 1.5 6 1 8.5 1s5.5.5 7.5 4c-2 3.5-5 4-7.5 4S3 8.5 1 5z'/%3E%3Ccircle cx='8.5' cy='5' r='2'/%3E%3C/svg%3E");
+  --bsh-mask-eyeoff: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 15' fill='none' stroke='black' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 7.5C3 4 6 3 8 3s5 1 7 4.5c-2 3.5-5 4.5-7 4.5S3 11 1 7.5z'/%3E%3Ccircle cx='8' cy='7.5' r='2'/%3E%3Cpath d='M2 2l12 11'/%3E%3C/svg%3E");
+  --bsh-mask-search: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 13 13' fill='none' stroke='black' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='5.5' cy='5.5' r='4.2'/%3E%3Cpath d='M8.8 8.8L12 12'/%3E%3C/svg%3E");
+  --bsh-mask-filter: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 7' fill='none' stroke='black' stroke-width='1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M0.5 0.5h9M2 3.5h6M3.5 6.5h3'/%3E%3C/svg%3E");
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer * {
+  font-family: var(--font-sans);
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .adsk-toolbar {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  pointer-events: none;
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .adsk-toolbar * {
+  pointer-events: auto;
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .adsk-control-group {
+  background-color: var(--color-graphite);
+  color: var(--color-chalk);
+  border: var(--border-hairline);
+  border-radius: var(--radius-button);
+  box-shadow: none;
+  pointer-events: auto;
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .adsk-button {
+  background-color: transparent;
+  color: var(--color-chalk);
+  border: 1px solid transparent;
+  border-radius: var(--radius-badge);
+  transition:
+    background-color var(--transition-ui),
+    color var(--transition-ui);
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .adsk-button:focus {
+  color: var(--color-chalk);
+  outline: none;
+  box-shadow: none;
+  border-radius: var(--radius-badge);
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .adsk-button:hover {
+  color: var(--color-snow);
+  background-color: var(--color-ghost-fill-hover);
+  border: 1px solid transparent;
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .adsk-button.active {
+  color: var(--color-signal-blue);
+  background-color: var(--color-ghost-fill);
+  outline: none;
+  box-shadow: none;
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .adsk-button.active:hover {
+  color: var(--color-arc-blue);
+  background-color: var(--color-ghost-fill-hover);
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .adsk-button:focus-visible {
+  outline: var(--ring-width) solid var(--color-ring-blue);
+  outline-offset: 1px;
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .adsk-button.disabled,
+html .bsh-viewer-surface .adsk-viewing-viewer .adsk-button.disabled:hover,
+html .bsh-viewer-surface .adsk-viewing-viewer .adsk-button.disabled:focus {
+  color: var(--color-steel);
+  background-color: transparent;
+  opacity: 1;
+  filter: none;
+  cursor: default;
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .adsk-label-button label {
+  background-color: var(--color-charcoal);
+  color: var(--color-chalk);
+  border-radius: var(--radius-badge);
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .adsk-label-button:hover label,
+html .bsh-viewer-surface .adsk-viewing-viewer .adsk-label-button:focus label,
+html .bsh-viewer-surface .adsk-viewing-viewer .adsk-label-button.active label {
+  background-color: var(--color-smoke);
+  color: var(--color-snow);
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .adsk-control-tooltip {
+  background-color: var(--color-charcoal);
+  color: var(--color-chalk);
+  border: var(--border-hairline);
+  border-radius: var(--radius-badge);
+  box-shadow: none;
+  padding: 4px 8px;
+  font-size: var(--text-13);
+  text-transform: none;
+  opacity: 1;
+  pointer-events: none;
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .toolbar-settings-sub-menu {
+  background-color: var(--color-graphite);
+  color: var(--color-chalk);
+  border: var(--border-hairline);
+  border-radius: var(--radius-card);
+  box-shadow: none;
+  font-size: var(--text-13);
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .toolbar-submenu
+  .toolbar-submenu-listitem:hover {
+  background-color: var(--color-ghost-fill-hover);
+  border-radius: var(--radius-badge);
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .toolbar-submenu
+  .toolbar-submenu-horizontal-divider {
+  border-top: var(--border-hairline);
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .toolbar-submenu
+  .toolbar-submenu-checkbox {
+  accent-color: var(--color-signal-blue);
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .docking-panel {
+  background-color: var(--color-graphite);
+  color: var(--color-chalk);
+  border: var(--border-hairline);
+  border-radius: var(--radius-card);
+  box-shadow: none;
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .docking-panel-delimiter-shadow {
+  box-shadow: none;
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .docking-panel-title {
+  color: var(--color-chalk);
+  background-color: var(--color-charcoal);
+  border-bottom: var(--border-hairline);
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
+  font-size: var(--text-14);
+  font-weight: var(--weight-label);
+  text-transform: none;
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .viewer-settings-panel
+  .docking-panel-title {
+  border-bottom: var(--border-hairline);
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .docking-panel-close,
+html .bsh-viewer-surface .adsk-viewing-viewer .docking-panel-close:hover {
+  background: currentColor;
+  color: var(--color-ash);
+  -webkit-mask: var(--bsh-mask-close) 0 19px / 11px 11px no-repeat;
+  mask: var(--bsh-mask-close) 0 19px / 11px 11px no-repeat;
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .docking-panel-close:hover {
+  color: var(--color-snow);
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .docking-panel-footer {
+  background-color: var(--color-graphite);
+  border-top: var(--border-hairline);
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .docking-panel-footer-resizer,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .docking-panel-footer-resizer:hover {
+  background: currentColor;
+  color: var(--color-ash);
+  -webkit-mask: var(--bsh-mask-resize) 9px 8px / 8px 7px no-repeat;
+  mask: var(--bsh-mask-resize) 9px 8px / 8px 7px no-repeat;
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .docking-panel-footer-resizer:hover {
+  color: var(--color-snow);
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .docking-panel-primary-button {
+  color: var(--color-ink);
+  background-color: var(--color-bone);
+  border-radius: var(--radius-badge);
+  font-weight: var(--weight-label);
+  letter-spacing: var(--tracking-body);
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .docking-panel-primary-button:hover,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .docking-panel-primary-button:focus,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .docking-panel-primary-button.active {
+  color: var(--color-ink);
+  background-color: var(--color-snow);
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .docking-panel-secondary-button {
+  color: var(--color-chalk);
+  background-color: var(--color-ghost-fill);
+  border-radius: var(--radius-badge);
+  font-weight: var(--weight-label);
+  letter-spacing: var(--tracking-body);
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .docking-panel-secondary-button:hover,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .docking-panel-secondary-button:focus,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .docking-panel-secondary-button.active {
+  color: var(--color-snow);
+  background-color: var(--color-ghost-fill-hover);
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .docking-panel-tertiary-button {
+  color: var(--color-chalk);
+  border: 0.5px solid var(--color-steel);
+  border-radius: var(--radius-badge);
+  font-weight: var(--weight-label);
+  letter-spacing: var(--tracking-body);
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .docking-panel-tertiary-button:hover,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .docking-panel-tertiary-button:focus,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .docking-panel-tertiary-button.active {
+  color: var(--color-snow);
+  background-color: var(--color-ghost-fill-hover);
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .viewer-settings-panel
+  .docking-panel-tertiary-button:active {
+  background-color: var(--color-ghost-fill-active);
+  border: 0.5px solid var(--color-steel);
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .docking-panel-container-solid-color-a,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .docking-panel-container-solid-color-b {
+  background-color: var(--color-graphite);
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .docking-panel-container-solid-color-c {
+  background-color: var(--color-charcoal);
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .docking-panel-container-gradient {
+  background: none;
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .docking-panel-textbox {
+  border: 0.5px solid var(--color-steel);
+  background-color: var(--color-void);
+  color: var(--color-chalk);
+  border-radius: var(--radius-badge);
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .docking-panel-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-steel) transparent;
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .docking-panel-scroll::-webkit-scrollbar-track {
+  background: none;
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .docking-panel-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-steel);
+  border-radius: 3px;
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .docking-panel-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--color-fog);
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .docking-panel-scroll::-webkit-resizer {
+  background-color: transparent;
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .docking-pane-scroll::-webkit-scrollbar-corner {
+  background-color: transparent;
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .treeview group,
+html .bsh-viewer-surface .adsk-viewing-viewer .treeview .group,
+html .bsh-viewer-surface .adsk-viewing-viewer .treeview leaf,
+html .bsh-viewer-surface .adsk-viewing-viewer .treeview .leaf {
+  color: var(--color-chalk);
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .treeview
+  leaf.selected-ex
+  > lmvheader
+  > label,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .treeview
+  group.selected-ex
+  > lmvheader
+  > label,
+html .bsh-viewer-surface .adsk-viewing-viewer .treeview group.selected label,
+html .bsh-viewer-surface .adsk-viewing-viewer .treeview .group.selected label,
+html .bsh-viewer-surface .adsk-viewing-viewer .treeview leaf.selected label,
+html .bsh-viewer-surface .adsk-viewing-viewer .treeview .leaf.selected label {
+  color: var(--color-arc-blue) !important;
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .treeview
+  group.selected
+  > lmvheader,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .treeview
+  .group.selected
+  > lmvheader,
+html .bsh-viewer-surface .adsk-viewing-viewer leaf.selected > lmvheader,
+html .bsh-viewer-surface .adsk-viewing-viewer .leaf.selected > lmvheader {
+  background-color: var(--color-match);
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .treeview group.selected > leaf,
+html .bsh-viewer-surface .adsk-viewing-viewer .treeview .group.selected .leaf {
+  background-color: transparent;
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .treeview
+  group.category
+  > lmvheader,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .treeview
+  .group.category
+  > lmvheader {
+  background-color: var(--color-charcoal);
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .treeview
+  leaf
+  > lmvheader
+  > label,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .treeview
+  group
+  > lmvheader
+  > label,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .treeview
+  .leaf
+  > lmvheader
+  > label,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .treeview
+  .group
+  > lmvheader
+  > label {
+  color: var(--color-chalk);
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .treeview leaf > lmvheader:hover,
+html .bsh-viewer-surface .adsk-viewing-viewer .treeview group > lmvheader:hover,
+html .bsh-viewer-surface .adsk-viewing-viewer .treeview .leaf > lmvheader:hover,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .treeview
+  .group
+  > lmvheader:hover {
+  background: var(--color-ghost-fill-hover) !important;
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .treeview
+  leaf.dim
+  > lmvheader
+  > label,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .treeview
+  group.dim
+  > lmvheader
+  > label,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .treeview
+  .leaf.dim
+  > lmvheader
+  > label,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .treeview
+  .group.dim
+  > lmvheader
+  > label {
+  color: var(--color-steel);
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .treeview div.visibility {
+  background: currentColor;
+  color: var(--color-ash);
+  opacity: 1;
+  -webkit-mask: var(--bsh-mask-eye) 6px 12px / 17px 10px no-repeat;
+  mask: var(--bsh-mask-eye) 6px 12px / 17px 10px no-repeat;
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .treeview div.visibility:hover {
+  color: var(--color-snow);
+  filter: none;
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .treeview .dim div.visibility {
+  background: currentColor;
+  color: var(--color-steel);
+  opacity: 1;
+  -webkit-mask: var(--bsh-mask-eyeoff) 6px 9px / 16px 15px no-repeat;
+  mask: var(--bsh-mask-eyeoff) 6px 9px / 16px 15px no-repeat;
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .treeview
+  .collapsed
+  > lmvheader
+  > icon,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .treeview
+  .collapsed.selected
+  > lmvheader
+  > icon {
+  background: currentColor;
+  color: var(--color-ash);
+  -webkit-mask: var(--bsh-mask-right) 0 0 / 6px 10px no-repeat;
+  mask: var(--bsh-mask-right) 0 0 / 6px 10px no-repeat;
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .treeview
+  .expanded
+  > lmvheader
+  > icon,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .treeview
+  .expanded.selected
+  > lmvheader
+  > icon {
+  background: currentColor;
+  color: var(--color-ash);
+  -webkit-mask: var(--bsh-mask-down) 0 0 / 10px 6px no-repeat;
+  mask: var(--bsh-mask-down) 0 0 / 10px 6px no-repeat;
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .property-panel .no-properties,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .model-structure-panel
+  .lmv-no-properties {
+  color: var(--color-ash);
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .property-panel .property-name {
+  color: var(--color-ash);
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .property-panel .property-value {
+  color: var(--color-chalk);
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .option-drop-down,
+html .bsh-viewer-surface .adsk-viewing-viewer .property-drop-down,
+html .bsh-viewer-surface .adsk-viewing-viewer .adsk-lmv-tftable input {
+  background-color: var(--color-void);
+  color: var(--color-chalk);
+  border: 0.5px solid var(--color-steel);
+  border-radius: var(--radius-badge);
+  accent-color: var(--color-signal-blue);
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .property-panel
+  .property-drop-down {
+  color: var(--color-chalk);
+  background-color: var(--color-void);
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .property-panel
+  .property-drop-down
+  > option {
+  background-color: var(--color-graphite);
+  color: var(--color-chalk);
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .adsk-lmv-tftable input:disabled,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .adsk-lmv-tftable
+  input[type="range"]:disabled {
+  color: var(--color-steel);
+  background-color: var(--color-charcoal);
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .option-drop-down:focus-visible,
+html .bsh-viewer-surface .adsk-viewing-viewer .property-drop-down:focus-visible,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .adsk-lmv-tftable
+  input:focus-visible {
+  outline: var(--ring-width) solid var(--color-ring-blue);
+  outline-offset: 1px;
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .adsk-lmv-tftable tr td div {
+  color: var(--color-chalk);
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .viewer-settings-panel
+  .adsk-lmv-tftable
+  tr
+  td:first-child
+  div {
+  color: var(--color-chalk) !important;
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .viewer-settings-panel
+  .adsk-lmv-tftable
+  tr
+  td:first-child
+  .switch-slider-row-beta-label {
+  color: var(--color-chalk) !important;
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .switch-slider-row-beta-label {
+  background-color: var(--color-charcoal);
+  color: var(--color-chalk);
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .adsk-lmv-tftable
+  tr.logical-group {
+  background-color: var(--color-charcoal);
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .adsk-lmv-tftable
+  tr.logical-group
+  td
+  div {
+  color: var(--color-snow);
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .viewer-settings-panel.docking-panel
+  .settings-tabs
+  span {
+  color: var(--color-chalk);
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .viewer-settings-panel.docking-panel
+  .settings-tabs
+  span:hover {
+  color: var(--color-arc-blue);
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .viewer-settings-panel.docking-panel
+  .settings-tabs
+  .tabselected
+  span {
+  color: var(--color-arc-blue);
+  border-color: var(--color-signal-blue);
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .settings-tabs ul {
+  box-shadow: none;
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .viewer-settings-panel
+  .settings-environment-cell,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .viewer-settings-panel
+  .settings-cell {
+  border: var(--border-hairline);
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .viewer-settings-panel
+  .settings-environment-cell:hover,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .viewer-settings-panel
+  .settings-cell:hover {
+  border: 0.5px solid var(--color-steel);
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .viewer-settings-panel
+  .settings-environment-cell.border-select,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .viewer-settings-panel
+  .settings-cell.border-select {
+  border: 0.5px solid var(--color-signal-blue);
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .viewer-settings-panel
+  .settings-environment-name,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .viewer-settings-panel
+  .settings-name,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .viewer-settings-panel
+  .settings-description {
+  color: var(--color-ash);
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .viewer-settings-panel
+  .settings-environment-image {
+  border: var(--border-hairline) !important;
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .switch .slider,
+html .bsh-viewer-surface .adsk-viewing-viewer .switch .slider:before {
+  background-color: var(--color-steel);
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .switch
+  input:checked
+  + .slider:before {
+  background-color: var(--color-signal-blue);
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .viewer-settings-panel
+  .option-drop-down,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .viewer-settings-panel
+  .env-select-trigger,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .viewer-settings-panel
+  .env-select-list {
+  background-color: var(--color-graphite);
+  color: var(--color-chalk);
+  border: 0.5px solid var(--color-steel);
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .viewer-settings-panel
+  .env-select-option:hover,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .viewer-settings-panel
+  .env-select-option.focused,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .viewer-settings-panel
+  .env-select-option.selected {
+  background-color: var(--color-ghost-fill-hover);
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .viewer-settings-panel
+  .experimental-overflow-menu {
+  background-color: var(--color-graphite);
+  border: var(--border-hairline);
+  box-shadow: none;
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .viewer-settings-panel
+  .experimental-overflow-item:hover {
+  background-color: var(--color-ghost-fill-hover);
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .adsk-filterbox input.filter-box,
+html .bsh-viewer-surface .adsk-viewing-viewer .adsk-searchbox input.search-box {
+  color: var(--color-chalk);
+  background-color: var(--color-charcoal);
+  border: var(--border-hairline);
+  border-radius: 0;
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .adsk-filterbox
+  input.filter-box:focus,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .adsk-searchbox
+  input.search-box:focus {
+  border-color: var(--color-signal-blue);
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .adsk-filterbox
+  input.filter-box::placeholder,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .adsk-searchbox
+  input.search-box::placeholder {
+  color: var(--color-ash);
+  opacity: 1;
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .adsk-searchbox .search-box-icon,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .adsk-searchbox
+  .search-box-icon.focused {
+  background: currentColor;
+  color: var(--color-ash);
+  -webkit-mask: var(--bsh-mask-search) center / 13px 13px no-repeat;
+  mask: var(--bsh-mask-search) center / 13px 13px no-repeat;
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .adsk-searchbox
+  .search-box-icon.focused {
+  color: var(--color-snow);
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .adsk-filterbox .filter-box-icon,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .adsk-filterbox
+  .filter-box-icon.focused {
+  background: currentColor;
+  color: var(--color-ash);
+  -webkit-mask: var(--bsh-mask-filter) center / 10px 7px no-repeat;
+  mask: var(--bsh-mask-filter) center / 10px 7px no-repeat;
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .adsk-filterbox
+  .filter-box-icon.focused {
+  color: var(--color-snow);
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .adsk-filterbox .filter-box-close,
+html .bsh-viewer-surface .adsk-viewing-viewer .adsk-searchbox .search-box-close,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .adsk-filterbox
+  .filter-box-close:hover,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .adsk-searchbox
+  .search-box-close:hover {
+  background: currentColor;
+  color: var(--color-ash);
+  -webkit-mask: var(--bsh-mask-clear) center / 14px 14px no-repeat;
+  mask: var(--bsh-mask-clear) center / 14px 14px no-repeat;
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .adsk-filterbox
+  .filter-box-close:hover,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .adsk-searchbox
+  .search-box-close:hover {
+  color: var(--color-snow);
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .propertysearch-icon {
+  background: currentColor;
+  color: var(--color-ash);
+  filter: none;
+  -webkit-mask: var(--bsh-mask-search) center / contain no-repeat;
+  mask: var(--bsh-mask-search) center / contain no-repeat;
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .adsk-search-results-scrolling-panel
+  .selected {
+  background-color: var(--color-match);
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .adsk-search-results-scrolling-panel
+  > div[lmv-nodeid]:hover {
+  background-color: var(--color-ghost-fill-hover);
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .adsk-search-results-scrolling-panel
+  .search-match {
+  color: var(--color-arc-blue);
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .adsk-search-results-scrolling-panel
+  .search-path,
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .adsk-search-results-scrolling-panel
+  .no-results-description {
+  color: var(--color-ash);
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .adsk-search-results-scrolling-panel
+  .no-results-title {
+  color: var(--color-chalk);
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .docking-panel.menu
+  .menu-item:hover {
+  background-color: var(--color-ghost-fill-hover);
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .docking-panel.menu
+  .menu-divider {
+  background-color: var(--color-hairline);
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .docking-panel.menu
+  .menu-item-expand {
+  background: currentColor;
+  color: var(--color-ash);
+  -webkit-mask: var(--bsh-mask-right) center / 6px 10px no-repeat;
+  mask: var(--bsh-mask-right) center / 6px 10px no-repeat;
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .hud-message {
+  color: var(--color-chalk);
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .loading-spinner path {
+  stroke: var(--color-signal-blue);
+}
+
+html
+  .bsh-viewer-surface
+  .adsk-viewing-viewer
+  .loading-spinner
+  path:first-child {
+  stroke: var(--color-smoke);
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .loading-spinner .message {
+  color: var(--color-ash);
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .progressbg {
+  background-color: var(--color-charcoal);
+  border-color: var(--color-hairline);
+  border-radius: var(--radius-badge);
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .progressfg {
+  background: var(--color-signal-blue);
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .progresslb {
+  color: var(--color-ash);
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .alert-box {
+  background-color: var(--color-graphite);
+  color: var(--color-chalk);
+  border-color: var(--color-hairline);
+  border-radius: var(--radius-card);
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .alert-box-msg {
+  color: var(--color-chalk);
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .alert-box-ok {
+  color: var(--color-chalk);
+  border-color: var(--color-steel);
+  border-radius: var(--radius-badge);
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .alert-box-ok:hover {
+  color: var(--color-snow);
+  background-color: var(--color-ghost-fill-hover);
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .hyperlink-container {
+  filter: none;
+}
+
+html .bsh-viewer-surface .adsk-viewing-viewer .hyperlink-container-triangle {
+  border-right-color: var(--color-graphite);
+}

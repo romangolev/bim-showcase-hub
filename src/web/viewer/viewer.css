@@ -44,38 +44,11 @@
   box-shadow: var(--shadow-inset);
 }
 
-.bsh-viewer-surface .adsk-viewing-viewer {
-  background: var(--color-void);
-}
-
-.bsh-viewer-surface .adsk-toolbar {
-  background: transparent;
-  border: 0;
-  box-shadow: none;
-  backdrop-filter: none;
-  pointer-events: none;
-}
-
-.bsh-viewer-surface .adsk-toolbar * {
-  pointer-events: auto;
-}
-
-.bsh-viewer-surface .adsk-toolbar .adsk-control-group {
-  background: var(--color-graphite);
-  border: var(--border-hairline);
-  border-radius: var(--radius-button);
-  pointer-events: auto;
-}
-
 .bsh-viewer-surface [class*="bsh-ico-"] {
-  background-color: var(--bsh-ico-color, #e5e5e5);
+  background-color: currentColor;
   background-image: none;
   -webkit-mask: var(--bsh-ico-mask) center / 22px 22px no-repeat;
   mask: var(--bsh-ico-mask) center / 22px 22px no-repeat;
-}
-
-.bsh-viewer-surface .light-theme [class*="bsh-ico-"] {
-  --bsh-ico-color: #3c3c3c;
 }
 
 .bsh-ico-paint {

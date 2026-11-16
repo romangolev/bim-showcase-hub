@@ -19,6 +19,7 @@ import { createViewerAdapter } from './createViewerAdapter.js';
 import type { ViewerAdapter, ViewerAdapterFactory } from './ViewerAdapter.js';
 import { ViewerContext } from './ViewerContext.js';
 import './viewer.css';
+import './viewerChrome.css';
 
 export interface ViewerPaneProps {
   urn: string;

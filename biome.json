@@ -18,5 +18,17 @@
   "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2 },
   "javascript": { "formatter": { "quoteStyle": "single" } },
   "linter": { "enabled": true },
+  "overrides": [
+    {
+      "includes": ["src/web/viewer/viewerChrome.css"],
+      "linter": {
+        "rules": {
+          "correctness": { "noUnknownTypeSelector": "off" },
+          "complexity": { "noImportantStyles": "off" },
+          "style": { "noDescendingSpecificity": "off" }
+        }
+      }
+    }
+  ],
   "assist": { "actions": { "source": { "organizeImports": "on" } } }
 }
