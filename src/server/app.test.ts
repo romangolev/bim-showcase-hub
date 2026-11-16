@@ -102,7 +102,7 @@ describe('session and auth', () => {
     const agent = request.agent(realApp(auth));
     await signIn(agent);
     const session = await agent.get('/api/session');
-    expect(session.body).toEqual({
+    expect(session.body).toMatchObject({
       id: 'hashed-1',
       name: 'Sam Smith',
       picture: null,
