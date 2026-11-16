@@ -39,7 +39,11 @@ import {
   rowHeightFor,
   TreeRowView,
 } from './TreeRowView.js';
-import { blockedNotice, viewStateOf } from './viewStateCopy.js';
+import {
+  blockedNotice,
+  VIEW_STATE_COPY,
+  viewStateOf,
+} from './viewStateCopy.js';
 
 export interface PickedModel {
   urn: string;
@@ -59,6 +63,19 @@ export interface DocumentTreeProps {
   onOpenTogether?: (models: PickedModel[]) => void;
   addTarget?: AddTarget | null;
   pollMs?: number;
+}
+
+export function skippedNotice(nodes: readonly TreeNode[]): {
+  title: string;
+  message: string;
+} {
+  const states = [...new Set(nodes.map((node) => viewStateOf(node)))];
+  const count = nodes.length;
+  const labels = states.map((state) => VIEW_STATE_COPY[state].label);
+  return {
+    title: `Skipped ${count} ${count === 1 ? 'version' : 'versions'} that cannot be opened: ${labels.join(', ')}`,
+    message: states.map((state) => VIEW_STATE_COPY[state].reason).join(' '),
+  };
 }
 
 function pickLabel(model: PickedModel): string {
@@ -230,10 +247,13 @@ export function DocumentTree({
 
   const pickedUrns = new Set(picked.map((model) => model.urn));
 
+  const isBlocked = (node: TreeNode) =>
+    node.kind === 'version' && openableUrn(node) === null;
+
   const togglePick = (node: TreeNode) => {
     const urn = openableUrn(node);
     if (!urn) return;
-    anchorRef.current = urn;
+    anchorRef.current = node.id;
     setPicked((current) =>
       current.some((model) => model.urn === urn)
         ? current.filter((model) => model.urn !== urn)
@@ -242,27 +262,25 @@ export function DocumentTree({
   };
 
   const pickRange = (node: TreeNode) => {
-    const urn = openableUrn(node);
-    if (!urn) return;
-    const visible = rowsRef.current.flatMap((row) => {
+    const versions = rowsRef.current.flatMap((row) => {
       const data =
         row.type === 'node'
           ? row.item.getItemData()
           : row.type === 'result'
             ? row.node
             : null;
-      return data && openableUrn(data) ? [data] : [];
+      return data?.kind === 'version' ? [data] : [];
     });
-    const from = visible.findIndex(
-      (entry) => openableUrn(entry) === anchorRef.current,
-    );
-    const to = visible.findIndex((entry) => openableUrn(entry) === urn);
+    const from = versions.findIndex((entry) => entry.id === anchorRef.current);
+    const to = versions.findIndex((entry) => entry.id === node.id);
     if (from === -1 || to === -1) {
-      togglePick(node);
+      if (isBlocked(node)) openNode(node);
+      else togglePick(node);
       return;
     }
     const [start, end] = from < to ? [from, to] : [to, from];
-    const range = visible.slice(start, end + 1);
+    const range = versions.slice(start, end + 1);
+    const skipped = range.filter(isBlocked);
     setPicked((current) => {
       const next = [...current];
       for (const entry of range) {
@@ -273,13 +291,16 @@ export function DocumentTree({
       }
       return next;
     });
+    if (skipped.length > 0) setNotice(skippedNotice(skipped));
+    else setNotice(null);
   };
 
   const onPickClick = (event: MouseEvent, node: TreeNode): boolean => {
-    if (!openableUrn(node)) return false;
+    if (node.kind !== 'version') return false;
     if (event.metaKey || event.ctrlKey) {
       event.preventDefault();
-      togglePick(node);
+      if (isBlocked(node)) openNode(node);
+      else togglePick(node);
       return true;
     }
     if (event.shiftKey) {
@@ -291,10 +312,11 @@ export function DocumentTree({
   };
 
   const onPickKey = (event: KeyboardEvent, node: TreeNode): boolean => {
-    if (event.key !== ' ' || !openableUrn(node)) return false;
+    if (event.key !== ' ' || node.kind !== 'version') return false;
     event.preventDefault();
     event.stopPropagation();
-    togglePick(node);
+    if (isBlocked(node)) openNode(node);
+    else togglePick(node);
     return true;
   };
 

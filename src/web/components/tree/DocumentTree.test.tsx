@@ -498,3 +498,94 @@ describe('DocumentTree multi-select', () => {
     ]);
   });
 });
+
+const MIXED = [
+  ['ready', 'urn-r1'],
+  ['no-geometry', 'urn-ng'],
+  ['ready', 'urn-r2'],
+  ['processing', 'urn-pr'],
+  ['ready', 'urn-r3'],
+] as const;
+
+async function openMixed(props = {}) {
+  mockFetch({
+    ...treeRoutes,
+    '/api/projects/p1/items/i1/versions': MIXED.map(([state, urn], index) => ({
+      id: `mx${index}`,
+      kind: 'version' as const,
+      name: `v${index + 1}: Issue ${index + 1}`,
+      hasChildren: false,
+      viewable: state === 'ready',
+      viewState: state,
+      urn,
+      parentId: 'i1',
+    })),
+  });
+  const onOpenModel = vi.fn();
+  const onOpenTogether = vi.fn();
+  const client = createTestClient();
+  render(
+    <QueryClientProvider client={client}>
+      <DocumentTree
+        onOpenModel={onOpenModel}
+        onOpenTogether={onOpenTogether}
+        pollMs={0}
+        {...props}
+      />
+    </QueryClientProvider>,
+  );
+  await expandTo('Studio hub');
+  await expandTo('Riverside Tower');
+  await expandTo('Project Files');
+  await expandTo('Tower.rvt');
+  await screen.findByRole('treeitem', { name: 'v1: Issue 1' });
+  return { onOpenModel, onOpenTogether };
+}
+
+const notice = () =>
+  document.querySelector('.doc-tree__notice')?.textContent ?? '';
+
+describe('DocumentTree picking skips blocked versions', () => {
+  it('does not pick a blocked version and explains it on Ctrl click and Space', async () => {
+    const { onOpenModel } = await openMixed();
+    expect(row(2)).not.toHaveAttribute('aria-checked');
+    fireEvent.click(row(2), { ctrlKey: true });
+    expect(notice()).toContain('cannot be opened');
+    expect(screen.queryByText(/selected$/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+    fireEvent.keyDown(row(4), { key: ' ' });
+    expect(notice()).toContain('cannot be opened');
+    expect(onOpenModel).not.toHaveBeenCalled();
+    expect(row(4)).not.toHaveAttribute('aria-checked');
+  });
+
+  it('skips blocked versions in a Shift range and says so', async () => {
+    const { onOpenTogether } = await openMixed();
+    fireEvent.click(row(1), { ctrlKey: true });
+    fireEvent.click(row(5), { shiftKey: true });
+    expect(screen.getByText('3 selected')).toBeInTheDocument();
+    expect(notice()).toContain(
+      'Skipped 2 versions that cannot be opened: No 3D or 2D view, Processing',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Open together' }));
+    const picked = onOpenTogether.mock.calls[0]?.[0] as { urn: string }[];
+    expect(picked.map((model) => model.urn)).toEqual([
+      'urn-r1',
+      'urn-r2',
+      'urn-r3',
+    ]);
+  });
+
+  it('offers no add button on blocked versions', async () => {
+    await openMixed({
+      addTarget: {
+        label: 'the open viewer',
+        canAdd: () => true,
+        onAdd: vi.fn(),
+      },
+    });
+    expect(row(1).querySelector('.tree-row__action')).not.toBeNull();
+    expect(row(2).querySelector('.tree-row__action')).toBeNull();
+    expect(row(4).querySelector('.tree-row__action')).toBeNull();
+  });
+});
