@@ -15,12 +15,15 @@ import { formatCount } from '../extensions/modelSummary.js';
 import { modelKey, registerViewerTools } from '../extensions/viewerTools.js';
 import { useTheme } from '../theme/ThemeContext.js';
 import { createViewerAdapter } from './createViewerAdapter.js';
+import { ModelsMenu } from './ModelsMenu.js';
+import { ModelSetError, type ModelSource } from './modelSet.js';
 import {
   claimRegion,
   detectRegion,
   regionConflictMessage,
   type ViewerRegion,
 } from './region.js';
+import { useModels } from './useModels.js';
 import type { ViewerAdapter, ViewerAdapterFactory } from './ViewerAdapter.js';
 import { ActiveViewerContext, ModelViewerContext } from './ViewerContext.js';
 import './viewer.css';
@@ -34,7 +37,17 @@ export interface ViewerPaneProps {
   resizeSignal?: number;
   exportName?: string;
   onKeepOnly?: () => void;
+  name?: string;
+  members?: readonly ModelSource[];
+  onRemoveModel?: (urn: string) => void;
+  onAddModel?: () => void;
   children?: ReactNode;
+}
+
+const NO_MEMBERS: readonly ModelSource[] = [];
+
+export function membersKey(members: readonly ModelSource[]): string {
+  return members.map((member) => member.urn).join(',');
 }
 
 type PaneState =
@@ -72,8 +85,17 @@ export function ViewerPane({
   resizeSignal,
   exportName,
   onKeepOnly,
+  name,
+  members = NO_MEMBERS,
+  onRemoveModel,
+  onAddModel,
   children,
 }: ViewerPaneProps) {
+  const membersRef = useRef(members);
+  membersRef.current = members;
+  const nameRef = useRef(name);
+  nameRef.current = name;
+  const [setNotice, setSetNotice] = useState<string | null>(null);
   const registry = useContext(ActiveViewerContext);
   const publish = registry?.publish;
   const withdraw = registry?.withdraw;
@@ -169,7 +191,18 @@ export function ViewerPane({
             fileName: () => exportNameRef.current ?? '',
           });
         }
-        await instance.load(urn);
+        const extra = membersRef.current;
+        const primaryName = nameRef.current;
+        if (extra.length > 0) {
+          await instance.loadModels([
+            primaryName ? { urn, name: primaryName } : { urn },
+            ...extra,
+          ]);
+        } else if (primaryName) {
+          await instance.load(urn, primaryName);
+        } else {
+          await instance.load(urn);
+        }
         if (cancelled) return;
         adapterRef.current = instance;
         instance.resize();
@@ -192,6 +225,37 @@ export function ViewerPane({
       if (created) withdraw?.(urn, created);
     };
   }, [urn, factory, tools, publish, withdraw, attempt, handleExportStatus]);
+
+  const memberKey = membersKey(members);
+  useEffect(() => {
+    if (!adapter) return;
+    const wanted = (memberKey ? memberKey.split(',') : []).map(
+      (member) =>
+        membersRef.current.find((source) => source.urn === member) ?? {
+          urn: member,
+        },
+    );
+    const current = adapter.getModels().filter((model) => model.id !== urn);
+    for (const model of current) {
+      if (!wanted.some((member) => member.urn === model.urn)) {
+        adapter.removeModel(model.id);
+      }
+    }
+    for (const member of wanted) {
+      if (current.some((model) => model.urn === member.urn)) continue;
+      adapter.addModel(member).then(
+        () => setSetNotice(null),
+        (err: unknown) => {
+          if (err instanceof ModelSetError && err.code !== 'closed') {
+            setSetNotice(err.message);
+          }
+        },
+      );
+    }
+  }, [adapter, urn, memberKey]);
+
+  const models = useModels(adapter);
+  const combined = members.length > 0 || models.length > 1;
 
   return (
     <ModelViewerContext.Provider value={adapter}>
@@ -254,6 +318,22 @@ export function ViewerPane({
             </span>
           ) : null}
         </div>
+        {adapter && combined ? (
+          <ModelsMenu
+            models={models}
+            onToggle={(id, visible) => adapter.setModelVisible(id, visible)}
+            onRemove={(id) => {
+              if (onRemoveModel) onRemoveModel(id);
+              else adapter.removeModel(id);
+            }}
+            onAdd={onAddModel}
+          />
+        ) : null}
+        {setNotice ? (
+          <p className="bsh-viewer-models__notice" role="alert">
+            {setNotice}
+          </p>
+        ) : null}
         {children}
       </div>
     </ModelViewerContext.Provider>

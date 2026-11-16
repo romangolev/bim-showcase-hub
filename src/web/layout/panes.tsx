@@ -1,10 +1,15 @@
 import { useParams, useRouterState } from '@tanstack/react-router';
+import { useMemo } from 'react';
+import { withUrns } from '../api/modelContext.js';
+import { recallModel } from '../api/modelStore.js';
 import { contextOf } from '../api/openModels.js';
 import { useOpenModels, useOpenModelsStore } from '../api/useOpenModels.js';
 import { StateBlock } from '../components/StateBlock.js';
+import { useTreeControl } from '../components/TreeControl.js';
 import { TreePanel } from '../components/TreePanel.js';
 import { exportFileName } from '../extensions/excelExport.js';
 import { DashboardPanel, ModelSummaryPanel } from '../panels/index.js';
+import { memberLabel } from '../routes/ModelPage.js';
 import { ViewerPane } from '../viewer/index.js';
 import { page } from '../viewer/region.js';
 import { useLayout, useMainContent } from './layoutContext.js';
@@ -52,6 +57,23 @@ export function ModelPaneBody({ instance }: { instance: string }) {
   const live = state.live.includes(instance);
   const context = contextOf(state, instance);
   const title = layout.paneTitle(panel);
+  const tree = useTreeControl();
+  const extras = withUrns(context);
+  const memberKey = extras.join(',');
+  const members = useMemo(
+    () =>
+      memberKey
+        ? memberKey.split(',').map((urn) => ({
+            urn,
+            name: memberLabel(urn, recallModel(urn)),
+          }))
+        : [],
+    [memberKey],
+  );
+  const exportName =
+    members.length > 0
+      ? exportFileName(`${members.length + 1} models`)
+      : exportFileName(context?.file, context?.v);
   return (
     <section
       id={active ? 'main' : undefined}
@@ -69,7 +91,11 @@ export function ModelPaneBody({ instance }: { instance: string }) {
           <ViewerPane
             urn={instance}
             resizeSignal={layout.resizeSignal(panel)}
-            exportName={exportFileName(context?.file, context?.v)}
+            exportName={exportName}
+            name={memberLabel(instance, context)}
+            members={members}
+            onRemoveModel={(urn) => store?.removeFrom(instance, urn)}
+            onAddModel={tree ? () => tree.reveal() : undefined}
             onKeepOnly={() => {
               store?.keepOnly(instance);
               page.reload();

@@ -305,3 +305,101 @@
     transition: none;
   }
 }
+
+.bsh-viewer-models {
+  position: absolute;
+  top: var(--space-3);
+  left: var(--space-3);
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  max-width: min(360px, calc(100% - var(--space-6)));
+}
+
+.bsh-viewer-models__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 var(--space-2);
+  border: var(--border-hairline);
+  border-radius: var(--radius-button);
+  background: var(--color-graphite);
+  color: var(--color-chalk);
+  font: inherit;
+  font-size: var(--text-13);
+  cursor: pointer;
+}
+
+.bsh-viewer-models__trigger:hover,
+.bsh-viewer-models__trigger[aria-expanded="true"] {
+  background: var(--color-charcoal);
+  color: var(--color-snow);
+}
+
+.bsh-viewer-models__errors {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bsh-viewer-models__error {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px var(--space-2);
+  padding: var(--space-2);
+  border: 0.5px solid var(--color-coral);
+  border-radius: var(--radius-button);
+  background: var(--color-graphite);
+  color: var(--color-chalk);
+  font-size: var(--text-13);
+}
+
+.bsh-viewer-models__error-name {
+  overflow: hidden;
+  color: var(--color-coral);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bsh-viewer-models__error-text {
+  grid-column: 1 / -1;
+  overflow-wrap: anywhere;
+}
+
+.bsh-viewer-models__remove {
+  grid-row: 1;
+  grid-column: 2;
+  padding: 0 var(--space-2);
+  border: var(--border-hairline);
+  border-radius: var(--radius-button);
+  background: transparent;
+  color: var(--color-chalk);
+  font: inherit;
+  font-size: var(--text-13);
+  cursor: pointer;
+}
+
+.bsh-viewer-models__notice {
+  position: absolute;
+  bottom: var(--space-8);
+  left: 50%;
+  z-index: 6;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 0.5px solid var(--color-coral);
+  border-radius: var(--radius-button);
+  background: var(--color-graphite);
+  color: var(--color-coral);
+  font-size: var(--text-13);
+  transform: translateX(-50%);
+}
+
+.bsh-viewer-pane:has(.bsh-viewer-models) .bsh-mock__status {
+  display: none;
+}
