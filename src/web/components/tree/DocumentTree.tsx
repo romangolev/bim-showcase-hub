@@ -35,7 +35,11 @@ export interface DocumentTreeProps {
   selectedUrn?: string;
   revealTrail?: readonly string[];
   onOpenModel: (urn: string, context: ModelContext) => void;
+  pollMs?: number;
 }
+
+export const VERSION_POLL_MS = 15_000;
+const UNCHECKED_POLL_LIMIT = 3;
 
 type StatusVariant = 'loading' | 'error' | 'empty';
 
@@ -108,6 +112,7 @@ export function DocumentTree({
   selectedUrn,
   revealTrail,
   onOpenModel,
+  pollMs = VERSION_POLL_MS,
 }: DocumentTreeProps) {
   const queryClient = useQueryClient();
   const [errors, setErrors] = useState<Record<string, NodeError>>({});
@@ -115,6 +120,7 @@ export function DocumentTree({
   const [notice, setNotice] = useState<{
     title: string;
     message: string;
+    itemId?: string;
   } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const rowsRef = useRef<Row[]>([]);
@@ -173,6 +179,7 @@ export function DocumentTree({
       setNotice({
         title: `${versionTag(node.name) ?? node.name} cannot be opened`,
         message,
+        itemId: node.parentId,
       });
     }
   };
@@ -425,6 +432,62 @@ export function DocumentTree({
     retry(id);
   };
 
+  const recheck = (id: string) => {
+    queryClient.removeQueries({
+      queryKey: scopeKey(registry.scopes.get(id) ?? ROOT_SCOPE),
+      exact: true,
+    });
+    void tree.getItemInstance(id).invalidateChildrenIds(true);
+  };
+
+  const pendingParents = new Set<string>();
+  const processingParents = new Set<string>();
+  for (const node of registry.nodes.values()) {
+    if (node.kind !== 'version' || !node.parentId) {
+      continue;
+    }
+    const state = viewStateOf(node);
+    if (state === 'processing') {
+      processingParents.add(node.parentId);
+      pendingParents.add(node.parentId);
+    } else if (state === 'unknown') {
+      pendingParents.add(node.parentId);
+    }
+  }
+  const pendingKey = [...pendingParents].sort().join(TRAIL_SEPARATOR);
+  const recheckRef = useRef(recheck);
+  recheckRef.current = recheck;
+  const processingRef = useRef(processingParents);
+  processingRef.current = processingParents;
+  const attemptsRef = useRef(new Map<string, number>());
+
+  useEffect(() => {
+    if (!pendingKey) {
+      return;
+    }
+    const ids = pendingKey.split(TRAIL_SEPARATOR);
+    const timer = setInterval(() => {
+      if (document.visibilityState === 'hidden') {
+        return;
+      }
+      for (const id of ids) {
+        if (!tree.getItemInstance(id).isExpanded()) {
+          continue;
+        }
+        const attempts = attemptsRef.current.get(id) ?? 0;
+        if (
+          !processingRef.current.has(id) &&
+          attempts >= UNCHECKED_POLL_LIMIT
+        ) {
+          continue;
+        }
+        attemptsRef.current.set(id, attempts + 1);
+        recheckRef.current(id);
+      }
+    }, pollMs);
+    return () => clearInterval(timer);
+  }, [pendingKey, pollMs, tree]);
+
   const filterDisabled = !query && !rows.some((row) => row.type === 'node');
 
   const containerProps: Record<string, unknown> = query
@@ -609,8 +672,28 @@ export function DocumentTree({
             icon="alert"
             title={notice.title}
             message={notice.message}
-            action={{ label: 'Dismiss', onClick: () => setNotice(null) }}
-          />
+            action={
+              notice.itemId
+                ? {
+                    label: 'Check again',
+                    onClick: () => {
+                      recheck(notice.itemId as string);
+                      setNotice(null);
+                    },
+                  }
+                : { label: 'Dismiss', onClick: () => setNotice(null) }
+            }
+          >
+            {notice.itemId ? (
+              <button
+                type="button"
+                className="btn btn-small"
+                onClick={() => setNotice(null)}
+              >
+                Dismiss
+              </button>
+            ) : null}
+          </StateBlock>
         ) : null}
       </div>
       <div ref={scrollRef} className="doc-tree__scroll">

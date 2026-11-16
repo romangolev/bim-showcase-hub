@@ -14,6 +14,7 @@ function renderTree(
   onOpenModel = vi.fn(),
   selectedUrn?: string,
   revealTrail?: string[],
+  pollMs?: number,
 ) {
   const client = createTestClient();
   render(
@@ -22,6 +23,7 @@ function renderTree(
         onOpenModel={onOpenModel}
         selectedUrn={selectedUrn}
         revealTrail={revealTrail}
+        pollMs={pollMs}
       />
     </QueryClientProvider>,
   );
@@ -225,6 +227,101 @@ describe('DocumentTree', () => {
 
     fireEvent.click(row('v1'));
     expect(onOpenModel).toHaveBeenCalledTimes(2);
+  });
+
+  describe('re-checking versions', () => {
+    const versionOf = (viewState: string, viewable: boolean) => ({
+      id: 'v9',
+      kind: 'version',
+      name: 'v9: 2026-01-01 10:00 by Sam',
+      hasChildren: false,
+      viewable,
+      viewState,
+      parentId: 'i1',
+      urn: 'dXJuOQ',
+    });
+
+    async function openVersions(states: [string, boolean][], pollMs?: number) {
+      let calls = 0;
+      const mock = mockFetch({
+        ...treeRoutes,
+        '/api/projects/p1/items/i1/versions': () => {
+          const [state, viewable] = states[
+            Math.min(calls, states.length - 1)
+          ] as [string, boolean];
+          calls += 1;
+          return json([versionOf(state, viewable)]);
+        },
+      });
+      const onOpenModel = renderTree(vi.fn(), undefined, undefined, pollMs);
+      await expandTo('Studio hub');
+      await expandTo('Riverside Tower');
+      await expandTo('Project Files');
+      await expandTo('Tower.rvt');
+      await screen.findByRole('treeitem', { name: /^v9:/ });
+      return { mock, onOpenModel, calls: () => calls };
+    }
+
+    it('polls a processing item until its version is ready', async () => {
+      const { calls } = await openVersions(
+        [
+          ['processing', false],
+          ['processing', false],
+          ['ready', true],
+        ],
+        40,
+      );
+      const row = () => screen.getByRole('treeitem', { name: /^v9:/ });
+      expect(row()).toHaveAttribute('data-view-state', 'processing');
+      await waitFor(
+        () => expect(row()).toHaveAttribute('data-view-state', 'ready'),
+        { timeout: 3000 },
+      );
+      const settled = calls();
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      expect(calls()).toBe(settled);
+    });
+
+    it('does not poll while the page is hidden', async () => {
+      Object.defineProperty(document, 'visibilityState', {
+        value: 'hidden',
+        configurable: true,
+      });
+      try {
+        const { calls } = await openVersions(
+          [
+            ['processing', false],
+            ['ready', true],
+          ],
+          30,
+        );
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        expect(calls()).toBe(1);
+        expect(screen.getByRole('treeitem', { name: /^v9:/ })).toHaveAttribute(
+          'data-view-state',
+          'processing',
+        );
+      } finally {
+        Reflect.deleteProperty(document, 'visibilityState');
+      }
+    });
+
+    it('Check again in the notice refetches the item versions', async () => {
+      const { calls, onOpenModel } = await openVersions([
+        ['failed', false],
+        ['ready', true],
+      ]);
+      fireEvent.click(screen.getByRole('treeitem', { name: /^v9:/ }));
+      fireEvent.click(screen.getByRole('button', { name: 'Check again' }));
+      await waitFor(() =>
+        expect(screen.getByRole('treeitem', { name: /^v9:/ })).toHaveAttribute(
+          'data-view-state',
+          'ready',
+        ),
+      );
+      expect(calls()).toBe(2);
+      expect(onOpenModel).not.toHaveBeenCalled();
+    });
   });
 
   it('reveals and selects the open version from a trail', async () => {
