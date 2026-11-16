@@ -7,15 +7,11 @@ import {
   composeTitle,
   useDocumentTitle,
 } from '../components/useDocumentTitle.js';
-import {
-  DashboardPanel,
-  ExportButton,
-  ModelSummaryPanel,
-  PaintToolbar,
-} from '../panels/index.js';
+import { DashboardPanel, ModelSummaryPanel } from '../panels/index.js';
 import { ViewerPane, ViewerProvider } from '../viewer/index.js';
 
 export const DASHBOARD_STORAGE_KEY = 'bsh.dashboard.collapsed';
+export const SUMMARY_STORAGE_KEY = 'bsh.summary.collapsed';
 export const DASHBOARD_AUTO_COLLAPSE_HEIGHT = 900;
 
 export function middleEllipsis(value: string, head: number, tail: number) {
@@ -43,6 +39,22 @@ function readDashboardCollapsed(): boolean {
 function writeDashboardCollapsed(collapsed: boolean) {
   try {
     window.localStorage.setItem(DASHBOARD_STORAGE_KEY, collapsed ? '1' : '0');
+  } catch {
+    return;
+  }
+}
+
+function readSummaryCollapsed(): boolean {
+  try {
+    return window.localStorage.getItem(SUMMARY_STORAGE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeSummaryCollapsed(collapsed: boolean) {
+  try {
+    window.localStorage.setItem(SUMMARY_STORAGE_KEY, collapsed ? '1' : '0');
   } catch {
     return;
   }
@@ -124,6 +136,9 @@ export function ModelPage({
     readDashboardCollapsed,
   );
 
+  const [summaryCollapsed, setSummaryCollapsed] =
+    useState(readSummaryCollapsed);
+
   const identity = describeModel(urn, file, version);
   useDocumentTitle(
     identity.hasFile
@@ -136,9 +151,14 @@ export function ModelPage({
     writeDashboardCollapsed(next);
   };
 
+  const updateSummaryCollapsed = (next: boolean) => {
+    setSummaryCollapsed(next);
+    writeSummaryCollapsed(next);
+  };
+
   return (
     <ViewerProvider>
-      <div className="model-page">
+      <div className="model-page" data-summary-collapsed={summaryCollapsed}>
         <header className="model-head">
           {crumbs && crumbs.length > 0 ? <Breadcrumb crumbs={crumbs} /> : null}
           <div className="model-head__row">
@@ -179,12 +199,8 @@ export function ModelPage({
             </p>
           )}
         </header>
-        <div className="model-toolbar">
-          <PaintToolbar />
-          <ExportButton />
-        </div>
         <section className="model-viewer" aria-label="Viewer">
-          <ViewerPane urn={urn} paintBrushes={false} />
+          <ViewerPane urn={urn} />
         </section>
         <div className="model-dashboard" data-open={!dashboardCollapsed}>
           <DashboardPanel
@@ -193,7 +209,10 @@ export function ModelPage({
           />
         </div>
         <aside className="model-summary" aria-label="Model summary">
-          <ModelSummaryPanel />
+          <ModelSummaryPanel
+            collapsed={summaryCollapsed}
+            onCollapsedChange={updateSummaryCollapsed}
+          />
         </aside>
       </div>
     </ViewerProvider>

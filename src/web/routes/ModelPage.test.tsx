@@ -1,10 +1,17 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TreeControlContext } from '../components/TreeControl.js';
 import {
   DASHBOARD_STORAGE_KEY,
   ModelPage,
   middleEllipsis,
+  SUMMARY_STORAGE_KEY,
 } from './ModelPage.js';
 
 const LONG_URN =
@@ -50,7 +57,7 @@ afterEach(() => {
 });
 
 describe('ModelPage', () => {
-  it('renders viewer, summary, dashboard and toolbar', () => {
+  it('renders viewer, summary and dashboard without a page toolbar row', () => {
     render(<ModelPage urn="abc123" />);
     expect(screen.getByRole('region', { name: 'Viewer' })).toBeInTheDocument();
     expect(
@@ -59,10 +66,73 @@ describe('ModelPage', () => {
     expect(
       screen.getByRole('region', { name: 'Dashboard' }),
     ).toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Paint tools' })).toBeNull();
+    expect(document.querySelector('.model-toolbar')).toBeNull();
+  });
+
+  it('puts the paint and export tools inside the viewer toolbar', async () => {
+    vi.stubGlobal('__MOCK_APS__', true);
+    render(<ModelPage urn="abc123" />);
+    const toolbar = await screen.findByRole('toolbar', {
+      name: 'Viewer toolbar',
+    });
     expect(
-      screen.getByRole('group', { name: 'Paint tools' }),
+      within(toolbar).getByRole('button', { name: 'Export to Excel' }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /export/i })).toBeInTheDocument();
+    expect(
+      within(toolbar).getByRole('button', { name: 'Paint selection' }),
+    ).toBeInTheDocument();
+  });
+
+  it('expands the summary by default and persists collapse under its own key', () => {
+    render(<ModelPage urn="abc123" />);
+    const toggle = screen.getByRole('button', {
+      name: 'Collapse Model summary',
+    });
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    const body = document.getElementById(
+      toggle.getAttribute('aria-controls') ?? '',
+    );
+    expect(body).not.toHaveAttribute('inert');
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(toggle).toHaveTextContent('Expand Model summary');
+    expect(body).toHaveAttribute('inert');
+    expect(body).toHaveAttribute('aria-hidden', 'true');
+    expect(window.localStorage.getItem(SUMMARY_STORAGE_KEY)).toBe('1');
+    expect(window.localStorage.getItem(DASHBOARD_STORAGE_KEY)).toBeNull();
+    expect(document.querySelector('.model-page')).toHaveAttribute(
+      'data-summary-collapsed',
+      'true',
+    );
+    fireEvent.click(toggle);
+    expect(window.localStorage.getItem(SUMMARY_STORAGE_KEY)).toBe('0');
+  });
+
+  it('restores a collapsed summary from storage', () => {
+    window.localStorage.setItem(SUMMARY_STORAGE_KEY, '1');
+    render(<ModelPage urn="abc123" />);
+    expect(
+      screen.getByRole('button', { name: 'Expand Model summary' }),
+    ).toHaveAttribute('aria-expanded', 'false');
+    expect(document.querySelector('.model-page')).toHaveAttribute(
+      'data-summary-collapsed',
+      'true',
+    );
+  });
+
+  it('keeps the summary expanded when storage is blocked', () => {
+    const blocked = () => {
+      throw new Error('blocked');
+    };
+    stubStorage({ ...memoryStorage(), getItem: blocked, setItem: blocked });
+    render(<ModelPage urn="abc123" />);
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Collapse Model summary' }),
+    );
+    expect(
+      screen.getByRole('button', { name: 'Expand Model summary' }),
+    ).toBeInTheDocument();
   });
 
   it('shows the file name with a version badge and breadcrumb', () => {

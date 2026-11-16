@@ -2,15 +2,19 @@
   display: grid;
   grid-template-areas:
     "head summary"
-    "toolbar summary"
     "viewer summary"
     "dashboard summary";
   grid-template-columns: minmax(560px, 1fr) minmax(280px, 360px);
-  grid-template-rows: auto auto minmax(280px, 1fr) auto;
+  grid-template-rows: auto minmax(280px, 1fr) auto;
+  transition: grid-template-columns 160ms ease;
   gap: var(--space-2) var(--gutter);
   height: 100%;
   min-height: 600px;
   padding: var(--gutter);
+}
+
+.model-page[data-summary-collapsed="true"] {
+  grid-template-columns: minmax(0, 1fr) 48px;
 }
 
 .model-head {
@@ -189,20 +193,6 @@
   flex: none;
 }
 
-.model-toolbar {
-  container: toolbar / inline-size;
-  position: relative;
-  display: flex;
-  grid-area: toolbar;
-  align-items: center;
-  gap: var(--space-4);
-  min-width: 0;
-}
-
-.model-toolbar .bsh-paint {
-  flex: none;
-}
-
 .model-viewer {
   position: relative;
   grid-area: viewer;
@@ -244,14 +234,18 @@
   .model-page {
     grid-template-areas:
       "head"
-      "toolbar"
       "viewer"
       "dashboard"
       "summary";
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto auto auto auto;
+    grid-template-rows: auto auto auto auto;
+    transition: none;
     height: auto;
     min-height: 100%;
+  }
+
+  .model-page[data-summary-collapsed="true"] {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .model-viewer {
@@ -301,44 +295,6 @@
   }
 }
 
-@container toolbar (max-width: 640px) {
-  .model-toolbar .bsh-paint__label,
-  .model-toolbar .bsh-export__label {
-    display: none;
-  }
-
-  .model-toolbar .bsh-export__label-short {
-    display: inline;
-  }
-}
-
-@container main (max-width: 520px) {
-  .model-toolbar {
-    gap: var(--space-2);
-  }
-
-  .model-toolbar .bsh-paint__label {
-    display: none;
-  }
-}
-
-@media (max-width: 700px) {
-  .model-toolbar .bsh-export__status {
-    position: absolute;
-    top: calc(100% + var(--space-2));
-    right: var(--space-2);
-    z-index: 3;
-    flex: none;
-    min-width: 0;
-    max-width: calc(100% - var(--space-4));
-    min-height: 0;
-  }
-
-  .model-toolbar .bsh-export__status .badge {
-    background: var(--color-graphite);
-  }
-}
-
 @media (max-width: 999px) {
   .model-title__name {
     display: -webkit-box;
@@ -351,6 +307,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .model-page,
   .model-viewer {
     transition: none;
   }
