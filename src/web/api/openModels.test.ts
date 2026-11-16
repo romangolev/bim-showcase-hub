@@ -14,6 +14,7 @@ import {
   type OpenModelsState,
   openModel,
   parseOpenModels,
+  setVisible,
   touchLive,
 } from './openModels.js';
 
@@ -70,7 +71,7 @@ describe('open models', () => {
 
   it('closing the last tab leaves nothing active', () => {
     const state = closeModel(openAll('a'), 'a');
-    expect(state).toEqual({ models: [], active: null, live: [] });
+    expect(state).toEqual(EMPTY_OPEN_MODELS);
   });
 
   it('suspends the least recently shown model above the cap', () => {
@@ -93,6 +94,26 @@ describe('open models', () => {
     state = touchLive(state, 'b', 2);
     expect(state.live).toEqual(['a', 'b']);
     expect(state.active).toBe('a');
+  });
+
+  it('never suspends a model that is visible in another group', () => {
+    let state = openAll('a', 'b', 'c');
+    state = setVisible(state, ['a', 'b']);
+    state = activateModel(state, 'c', 2);
+    expect(state.live).toEqual(expect.arrayContaining(['a', 'b', 'c']));
+    state = setVisible(state, ['c']);
+    state = activateModel(state, 'a', 2);
+    expect(state.live).toEqual(['c', 'a']);
+  });
+
+  it('loads the neighbour that becomes active when the active tab closes', () => {
+    let state: OpenModelsState = {
+      ...openAll('a', 'b', 'c'),
+      live: ['c'],
+    };
+    state = closeModel(state, 'c', 1);
+    expect(state.active).toBe('b');
+    expect(state.live).toEqual(['b']);
   });
 
   it('ignores unknown urns', () => {

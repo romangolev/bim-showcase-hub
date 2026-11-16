@@ -280,6 +280,18 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
     [bump, modelStore],
   );
 
+  const shown = useRef(new Set<PanelId>());
+  const onVisibility = useCallback(
+    (id: PanelId, visible: boolean) => {
+      const urn = modelOf(id);
+      if (!urn) return;
+      if (visible) shown.current.add(urn);
+      else shown.current.delete(urn);
+      modelStore.setVisible([...shown.current]);
+    },
+    [modelStore],
+  );
+
   const onDockChange = useCallback((dock: SerializedDock, open: PaneId[]) => {
     dispatch({ type: 'dock', dock });
     setOpenPanes((current) =>
@@ -504,6 +516,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
                   onSelectModel={modelStore.activate}
                   onCloseModel={modelStore.close}
                   onAttach={onAttach}
+                  onVisibility={onVisibility}
                   treeOpen={overlayOpen}
                   onCloseTree={closeTree}
                 />
@@ -526,6 +539,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
                       activeInstance={activeInstance}
                       companions={companions}
                       onAttach={onAttach}
+                      onVisibility={onVisibility}
                       onMoved={bump}
                       onChange={onDockChange}
                       onController={onController}

@@ -35,6 +35,7 @@ interface Handle {
     models: { urn: string }[];
     active: string | null;
     live: string[];
+    visible: string[];
   };
   activateModel: (urn: string) => void;
   closeModel: (urn: string) => void;
@@ -230,6 +231,9 @@ describe('several models', () => {
     expect(scene?.isConnected).toBe(true);
     act(() => handle().movePane('viewer:aaa', 'left'));
     await waitFor(() => expect(sceneOf('aaa')?.isConnected).toBe(true));
+    await waitFor(() =>
+      expect([...handle().models().visible].sort()).toEqual(['aaa', 'bbb']),
+    );
     expect(scene?.isConnected).toBe(true);
     act(() => handle().movePane('viewer:bbb', 'float'));
     expect(handle().location('viewer:bbb')).toBe('floating');

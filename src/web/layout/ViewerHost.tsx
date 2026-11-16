@@ -54,6 +54,7 @@ export interface PaneSlotProps<Id extends string> {
   hosts: HostStore<Id>;
   id: Id;
   onAttach?: (id: Id) => void;
+  onVisibility?: (id: Id, visible: boolean) => void;
   visible?: boolean;
   className?: string;
 }
@@ -62,12 +63,15 @@ export function PaneSlot<Id extends string>({
   hosts,
   id,
   onAttach,
+  onVisibility,
   visible = true,
   className,
 }: PaneSlotProps<Id>) {
   const ref = useRef<HTMLDivElement>(null);
   const onAttachRef = useRef(onAttach);
   onAttachRef.current = onAttach;
+  const onVisibilityRef = useRef(onVisibility);
+  onVisibilityRef.current = onVisibility;
 
   useLayoutEffect(() => {
     const slot = ref.current;
@@ -81,6 +85,8 @@ export function PaneSlot<Id extends string>({
 
   useLayoutEffect(() => {
     if (visible) onAttachRef.current?.(id);
+    onVisibilityRef.current?.(id, visible);
+    return () => onVisibilityRef.current?.(id, false);
   }, [id, visible]);
 
   return (

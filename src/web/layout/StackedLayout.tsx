@@ -19,6 +19,7 @@ export interface StackedLayoutProps {
   onSelectModel: (urn: string) => void;
   onCloseModel: (urn: string) => void;
   onAttach: (id: PanelId) => void;
+  onVisibility?: (id: PanelId, visible: boolean) => void;
   treeOpen: boolean;
   onCloseTree: () => void;
 }
@@ -98,6 +99,7 @@ export function StackedLayout({
   onSelectModel,
   onCloseModel,
   onAttach,
+  onVisibility,
   treeOpen,
   onCloseTree,
 }: StackedLayoutProps) {
@@ -146,6 +148,7 @@ export function StackedLayout({
               hosts={hosts}
               id={id === 'viewer' ? viewerSlot : id}
               onAttach={onAttach}
+              onVisibility={onVisibility}
               className={`stack__pane stack__pane--${id}`}
             />
           </Fragment>

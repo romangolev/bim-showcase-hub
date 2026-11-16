@@ -18,12 +18,14 @@ export interface OpenModelsState {
   models: readonly OpenModel[];
   active: string | null;
   live: readonly string[];
+  visible: readonly string[];
 }
 
 export const EMPTY_OPEN_MODELS: OpenModelsState = {
   models: [],
   active: null,
   live: [],
+  visible: [],
 };
 
 export function isOpen(state: OpenModelsState, urn: string): boolean {
@@ -46,11 +48,24 @@ export function touchLive(
   if (state.live[state.live.length - 1] === urn) return state;
   const live = [...state.live.filter((id) => id !== urn), urn];
   while (live.length > Math.max(1, limit)) {
-    const victim = live.findIndex((id) => id !== urn && id !== state.active);
+    const victim = live.findIndex(
+      (id) => id !== urn && id !== state.active && !state.visible.includes(id),
+    );
     if (victim === -1) break;
     live.splice(victim, 1);
   }
   return { ...state, live };
+}
+
+export function setVisible(
+  state: OpenModelsState,
+  urns: readonly string[],
+): OpenModelsState {
+  const visible = urns.filter((urn) => isOpen(state, urn));
+  const same =
+    visible.length === state.visible.length &&
+    visible.every((urn) => state.visible.includes(urn));
+  return same ? state : { ...state, visible };
 }
 
 export function activateModel(
@@ -89,6 +104,7 @@ export function openModel(
 export function closeModel(
   state: OpenModelsState,
   urn: string,
+  limit = MAX_LOADED_MODELS,
 ): OpenModelsState {
   const index = state.models.findIndex((model) => model.urn === urn);
   if (index === -1) return state;
@@ -97,11 +113,15 @@ export function closeModel(
   if (active === urn) {
     active = (models[index] ?? models[index - 1])?.urn ?? null;
   }
-  return {
+  const next = {
     models,
     active,
     live: state.live.filter((id) => id !== urn),
+    visible: state.visible.filter((id) => id !== urn),
   };
+  return active && active !== state.active
+    ? touchLive(next, active, limit)
+    : next;
 }
 
 export function serializeOpenModels(state: OpenModelsState): string {
@@ -136,7 +156,7 @@ export function parseOpenModels(raw: string | null): OpenModelsState {
     models.some((model) => model.urn === record.active)
       ? record.active
       : (models[0]?.urn ?? null);
-  return { models, active, live: [] };
+  return { models, active, live: [], visible: [] };
 }
 
 function local(): Storage | null {
@@ -185,6 +205,7 @@ export interface OpenModelsStore {
   open: (urn: string, context?: ModelContext) => void;
   activate: (urn: string) => void;
   show: (urn: string) => void;
+  setVisible: (urns: readonly string[]) => void;
   close: (urn: string) => void;
   clear: () => void;
 }
@@ -237,7 +258,8 @@ export function createOpenModelsStore(
     open: (urn, context) => apply(openModel(state, urn, context, limit)),
     activate: (urn) => apply(activateModel(state, urn, limit)),
     show: (urn) => apply(touchLive(state, urn, limit)),
-    close: (urn) => apply(closeModel(state, urn)),
+    setVisible: (urns) => apply(setVisible(state, urns)),
+    close: (urn) => apply(closeModel(state, urn, limit)),
     clear: () => {
       remove(storage, OPEN_MODELS_KEY);
       if (state.models.length === 0) return;

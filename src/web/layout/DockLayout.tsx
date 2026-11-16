@@ -68,6 +68,7 @@ const UNBOUNDED = Number.POSITIVE_INFINITY;
 interface SlotContextValue {
   hosts: HostStore<PanelId>;
   onAttach: (id: PanelId) => void;
+  onVisibility: (id: PanelId, visible: boolean) => void;
   onCloseInstance: (id: PanelId) => void;
   onClosePane: (id: PaneId) => void;
   titles: PaneTitles;
@@ -95,6 +96,7 @@ function PaneContent({ api }: IDockviewPanelProps) {
       hosts={slot.hosts}
       id={api.id}
       onAttach={slot.onAttach}
+      onVisibility={slot.onVisibility}
       visible={visible}
       className="pane-slot--dock"
     />
@@ -426,6 +428,7 @@ export interface DockLayoutProps {
   activeInstance: PanelId | null;
   companions: readonly PaneId[];
   onAttach: (id: PanelId) => void;
+  onVisibility: (id: PanelId, visible: boolean) => void;
   onMoved: (id: PanelId) => void;
   onChange: (dock: SerializedDock, open: PaneId[]) => void;
   onController: (controller: DockController | null) => void;
@@ -856,6 +859,7 @@ export function DockLayout(props: DockLayoutProps) {
       value={{
         hosts: props.hosts,
         onAttach: props.onAttach,
+        onVisibility: props.onVisibility,
         onCloseInstance: props.onCloseInstance,
         onClosePane: props.onClosePane,
         titles: props.titles,
