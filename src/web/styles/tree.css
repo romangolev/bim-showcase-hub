@@ -219,13 +219,38 @@
 
 .tree-row__secondary {
   overflow: hidden;
-  display: -webkit-box;
   color: var(--color-fog);
   font-size: var(--text-13);
-  overflow-wrap: anywhere;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-row[data-two-line="true"] .tree-row__label {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-row[data-two-line="true"] .tree-row__line {
+  min-width: 0;
+}
+
+.doc-tree__search input:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.tree-status .state-block {
+  flex-wrap: wrap;
+}
+
+.tree-status .state-block__body {
+  flex: 1 1 140px;
+}
+
+.tree-status .state-block__action {
+  margin-left: calc(14px + var(--space-2));
 }
 
 .tree-row__match {

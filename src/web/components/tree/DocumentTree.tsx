@@ -18,6 +18,7 @@ import {
   ROOT_ID,
   ROOT_NODE,
   ROOT_SCOPE,
+  scopeKey,
 } from '../../api/scope.js';
 import { Icon } from '../icons.js';
 import { StateBlock } from '../StateBlock.js';
@@ -330,7 +331,8 @@ export function DocumentTree({
           variant: 'empty',
           level: 0,
           parentId: ROOT_ID,
-          message: 'No hubs available for this account',
+          message:
+            'No hubs found for this account. Make sure your Autodesk account is added to a hub, then refresh.',
         });
       } else if (rootItem.isLoading() || !registry.loaded.has(ROOT_ID)) {
         rows.push({
@@ -382,6 +384,17 @@ export function DocumentTree({
     });
     void tree.getItemInstance(id).invalidateChildrenIds();
   };
+
+  const refresh = (id: string) => {
+    registry.loaded.delete(id);
+    queryClient.removeQueries({
+      queryKey: scopeKey(registry.scopes.get(id) ?? ROOT_SCOPE),
+      exact: true,
+    });
+    retry(id);
+  };
+
+  const filterDisabled = !query && !rows.some((row) => row.type === 'node');
 
   const containerProps: Record<string, unknown> = query
     ? { role: 'listbox', 'aria-label': 'Filter results' }
@@ -522,6 +535,11 @@ export function DocumentTree({
             compact
             icon="folder"
             message={row.message ?? STATUS_COPY.empty}
+            action={
+              row.parentId === ROOT_ID && !query
+                ? { label: 'Refresh', onClick: () => refresh(ROOT_ID) }
+                : undefined
+            }
           />
         )}
       </div>
@@ -542,6 +560,7 @@ export function DocumentTree({
               setFilter('');
             }
           }}
+          disabled={filterDisabled}
           placeholder="Filter loaded nodes"
           aria-label="Filter loaded nodes"
           autoComplete="off"

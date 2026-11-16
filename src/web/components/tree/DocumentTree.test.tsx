@@ -182,4 +182,32 @@ describe('DocumentTree', () => {
       expect(screen.queryByText('Riverside Tower')).not.toBeInTheDocument(),
     );
   });
+
+  it('explains an empty account, refetches on Refresh and disables the filter meanwhile', async () => {
+    let hubs: unknown[] = [];
+    const fetchMock = mockFetch({
+      '/api/hubs': () => json(hubs),
+    });
+    renderTree();
+
+    expect(
+      screen.getByRole('searchbox', { name: 'Filter loaded nodes' }),
+    ).toBeDisabled();
+    expect(
+      await screen.findByText(
+        'No hubs found for this account. Make sure your Autodesk account is added to a hub, then refresh.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('searchbox', { name: 'Filter loaded nodes' }),
+    ).toBeDisabled();
+
+    hubs = treeRoutes['/api/hubs'];
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+    expect(await screen.findByText('Studio hub')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(
+      screen.getByRole('searchbox', { name: 'Filter loaded nodes' }),
+    ).toBeEnabled();
+  });
 });
