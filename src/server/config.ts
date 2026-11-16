@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import path from 'node:path';
 import 'dotenv/config';
 
 export interface ServerConfig {
@@ -38,7 +39,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     mock,
     production,
     sessionSecret,
-    staticDir: production ? env.STATIC_DIR || null : null,
+    staticDir:
+      production && env.STATIC_DIR ? path.resolve(env.STATIC_DIR) : null,
     aps: {
       clientId: env.APS_CLIENT_ID ?? '',
       clientSecret: env.APS_CLIENT_SECRET ?? '',

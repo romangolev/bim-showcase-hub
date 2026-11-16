@@ -272,6 +272,22 @@ describe('production static serving', () => {
     expect(spa.text).toBe('<html>spa</html>');
   });
 
+  it('serves the spa fallback when STATIC_DIR is relative', async () => {
+    const relative = path.relative(process.cwd(), dir);
+    const relativeApp = createApp(
+      loadConfig({
+        NODE_ENV: 'production',
+        SESSION_SECRET: 's',
+        APS_CLIENT_ID: 'id',
+        APS_CLIENT_SECRET: 'secret',
+        STATIC_DIR: relative,
+      }),
+    );
+    const spa = await request(relativeApp).get('/viewer/deep');
+    expect(spa.status).toBe(200);
+    expect(spa.text).toBe('<html>spa</html>');
+  });
+
   it('keeps unknown api routes as json 404 rather than the spa shell', async () => {
     const res = await request(app).get('/api/unknown');
     expect(res.status).toBe(404);

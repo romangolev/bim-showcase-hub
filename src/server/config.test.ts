@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { loadConfig } from './config.js';
 
@@ -61,5 +62,17 @@ describe('loadConfig', () => {
     const config = loadConfig({ MOCK_APS: '1' });
     expect(config.mock).toBe(true);
     expect(config.aps.scopes).toEqual(['data:read', 'viewables:read']);
+  });
+
+  it('resolves a relative STATIC_DIR to an absolute path', () => {
+    const config = loadConfig({
+      NODE_ENV: 'production',
+      SESSION_SECRET: 's',
+      APS_CLIENT_ID: 'id',
+      APS_CLIENT_SECRET: 'secret',
+      STATIC_DIR: 'dist/web',
+    });
+    expect(config.staticDir).toBe(path.resolve('dist/web'));
+    expect(path.isAbsolute(config.staticDir ?? '')).toBe(true);
   });
 });
