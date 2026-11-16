@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { PropertyRow } from '../../shared/types.js';
-import { readLeafRows } from './sharedLeafRows.js';
+import { forgetLeafRows, readLeafRows } from './sharedLeafRows.js';
 import type { ViewerAdapter } from './ViewerAdapter.js';
 
 function fakeAdapter() {
@@ -45,11 +45,32 @@ describe('readLeafRows', () => {
     ]);
   });
 
-  it('reads again once the previous read has finished', async () => {
+  it('serves a finished read from the cache until it is forgotten', async () => {
     const { adapter, getLeafProperties } = fakeAdapter();
-    await readLeafRows(adapter, ['Name']);
-    await readLeafRows(adapter, ['Name']);
+    await readLeafRows(adapter, ['Name', 'Level']);
+    const cached = await readLeafRows(adapter, ['Level']);
+    expect(getLeafProperties).toHaveBeenCalledTimes(1);
+    expect(cached[0]?.properties).toEqual({ Level: 'Level-v' });
+    await readLeafRows(adapter, ['Category']);
     expect(getLeafProperties).toHaveBeenCalledTimes(2);
+    forgetLeafRows(adapter);
+    await readLeafRows(adapter, ['Category']);
+    expect(getLeafProperties).toHaveBeenCalledTimes(3);
+  });
+
+  it('keeps reads and caches separate per adapter', async () => {
+    const a = fakeAdapter();
+    const b = fakeAdapter();
+    await Promise.all([
+      readLeafRows(a.adapter, ['Name']),
+      readLeafRows(b.adapter, ['Name']),
+    ]);
+    await readLeafRows(a.adapter, ['Name']);
+    expect(a.getLeafProperties).toHaveBeenCalledTimes(1);
+    expect(b.getLeafProperties).toHaveBeenCalledTimes(1);
+    forgetLeafRows(a.adapter);
+    await readLeafRows(b.adapter, ['Name']);
+    expect(b.getLeafProperties).toHaveBeenCalledTimes(1);
   });
 
   it('shares an in-flight read with a covered request', async () => {

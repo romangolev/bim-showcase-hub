@@ -168,6 +168,7 @@ export class RealViewerAdapter implements ViewerAdapter {
   private controller: ToolGroupController | null = null;
   private toolsMounted = false;
   private modelLoaded = false;
+  private started = false;
   private stopFullscreen: (() => void) | null = null;
   private frameObserver: ResizeObserver | null = null;
   private resizeFrame = 0;
@@ -175,7 +176,13 @@ export class RealViewerAdapter implements ViewerAdapter {
   private settleTimer: ReturnType<typeof setTimeout> | undefined;
   private readonly onSelection = (ev: ViewerEvent) => {
     const ids = ev.dbIdArray ?? [];
-    for (const cb of this.selectionListeners) cb([...ids]);
+    for (const cb of [...this.selectionListeners]) {
+      try {
+        cb([...ids]);
+      } catch (err) {
+        console.error(err);
+      }
+    }
   };
   private readonly scheduleResize = () => {
     clearTimeout(this.settleTimer);
@@ -213,8 +220,18 @@ export class RealViewerAdapter implements ViewerAdapter {
     });
     this.viewer = viewer;
     viewer.addEventListener(viewing.SELECTION_CHANGED_EVENT, this.onSelection);
-    const startCode = viewer.start();
-    if (startCode) throw new Error(`Viewer failed to start (${startCode})`);
+    let startCode: number | undefined;
+    try {
+      startCode = viewer.start();
+    } catch (err) {
+      this.abandon(viewer);
+      throw err;
+    }
+    if (startCode) {
+      this.abandon(viewer);
+      throw new Error(`Viewer failed to start (${startCode})`);
+    }
+    this.started = true;
     this.watchScreenMode(viewer, viewing.FULLSCREEN_MODE_EVENT);
     this.applyTheme(viewer);
     const doc = await loadDocument(urn);
@@ -271,9 +288,33 @@ export class RealViewerAdapter implements ViewerAdapter {
     this.toolsMounted = false;
     this.modelLoaded = false;
     this.controller?.resetState();
+    this.viewer = null;
+    if (!this.started) {
+      this.removeFrame(viewer);
+      return;
+    }
+    this.started = false;
     viewer.tearDown();
     viewer.finish();
-    this.viewer = null;
+  }
+
+  private abandon(viewer: GuiViewer3D): void {
+    const viewing = autodeskWindow().Autodesk?.Viewing;
+    if (viewing) {
+      viewer.removeEventListener(
+        viewing.SELECTION_CHANGED_EVENT,
+        this.onSelection,
+      );
+    }
+    if (this.viewer === viewer) this.viewer = null;
+    this.removeFrame(viewer);
+  }
+
+  private removeFrame(viewer: GuiViewer3D): void {
+    const frame = viewer.container;
+    if (frame && frame !== this.container && frame.parentNode) {
+      frame.parentNode.removeChild(frame);
+    }
   }
 
   getSelection(): number[] {

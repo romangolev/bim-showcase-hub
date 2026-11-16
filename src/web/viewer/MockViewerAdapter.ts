@@ -63,6 +63,12 @@ function setDisabled(
   else button.removeAttribute('aria-disabled');
 }
 
+export function mockRowVariant(urn: string): number {
+  let hash = 0;
+  for (const char of urn) hash = (hash * 31 + char.charCodeAt(0)) % 9973;
+  return hash % 997;
+}
+
 function rgbaCss([r, g, b, a]: Rgba): string {
   const to = (v: number) => Math.round(Math.min(1, Math.max(0, v)) * 255);
   return `rgba(${to(r)}, ${to(g)}, ${to(b)}, ${a})`;
@@ -88,6 +94,7 @@ export class MockViewerAdapter implements ViewerAdapter {
   private theme: Theme = 'dark';
   private loaded = false;
   private destroyed = false;
+  private urn = '';
 
   constructor(private readonly container: HTMLElement) {
     this.build();
@@ -97,6 +104,7 @@ export class MockViewerAdapter implements ViewerAdapter {
     if (this.destroyed) return;
     if (!urn) throw new Error('A model URN is required');
     this.unload();
+    this.urn = urn;
     const elements = buildMockElements();
     this.renderScene(elements);
     this.loaded = true;
@@ -157,7 +165,9 @@ export class MockViewerAdapter implements ViewerAdapter {
     if (!this.loaded) return [];
     return buildMockRows(
       propertyNames,
-      import.meta.env.MODE === 'test' ? 0 : LARGE_FIXTURE_ROWS,
+      import.meta.env.MODE === 'test'
+        ? 0
+        : LARGE_FIXTURE_ROWS + mockRowVariant(this.urn),
     );
   }
 

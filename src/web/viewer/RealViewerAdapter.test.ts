@@ -121,6 +121,8 @@ class FakeExtension implements ViewerExtension {
 const registry = new Map<string, ViewerExtensionClass>();
 const registerSpy = vi.fn();
 const viewers: FakeViewer[] = [];
+const mainLoop: FakeViewer[] = [];
+const startPlan: { code?: number; error?: Error } = {};
 
 class FakeViewer implements GuiViewer3D {
   toolbar = new FakeToolbar();
@@ -143,7 +145,12 @@ class FakeViewer implements GuiViewer3D {
     viewers.push(this);
   }
 
+  finishCalls = 0;
+
   start(): number | undefined {
+    if (startPlan.error) throw startPlan.error;
+    if (startPlan.code) return startPlan.code;
+    mainLoop.push(this);
     return 0;
   }
 
@@ -214,7 +221,10 @@ class FakeViewer implements GuiViewer3D {
     for (const id of [...this.extensions.keys()]) this.unloadExtension(id);
   }
 
-  finish(): void {}
+  finish(): void {
+    this.finishCalls += 1;
+    mainLoop.splice(mainLoop.indexOf(this), 1);
+  }
 
   select(ids: number[]): void {
     this.selection = ids;
@@ -232,6 +242,9 @@ function installFakeAutodesk(): void {
   registry.clear();
   registerSpy.mockClear();
   viewers.length = 0;
+  mainLoop.length = 0;
+  delete startPlan.code;
+  delete startPlan.error;
   const manager = {
     registerExtension: (id: string, extension: ViewerExtensionClass) => {
       registerSpy(id);
@@ -672,5 +685,74 @@ describe('RealViewerAdapter initialization', () => {
     await adapter.load('dXJu');
     await expect(adapter.load(EU_URN)).rejects.toThrow(/another region/);
     expect(initializer).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('RealViewerAdapter with several viewers', () => {
+  function second(): RealViewerAdapter {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    return new RealViewerAdapter(host);
+  }
+
+  it('never unregisters another viewer when start fails', async () => {
+    const healthy = second();
+    await healthy.load('urn-b');
+    const failing = makeAdapter();
+    startPlan.code = 5;
+    await expect(failing.load('urn-a')).rejects.toThrow('failed to start');
+    failing.destroy();
+    failing.destroy();
+    expect(mainLoop).toEqual([viewers[0]]);
+    expect(viewers[1]?.finishCalls).toBe(0);
+    healthy.destroy();
+    expect(mainLoop).toEqual([]);
+  });
+
+  it('never unregisters another viewer when start throws', async () => {
+    const healthy = second();
+    await healthy.load('urn-b');
+    const failing = makeAdapter();
+    startPlan.error = new Error('no webgl');
+    await expect(failing.load('urn-a')).rejects.toThrow('no webgl');
+    failing.destroy();
+    expect(mainLoop).toEqual([viewers[0]]);
+  });
+
+  it('finishes a started viewer exactly once', async () => {
+    const one = makeAdapter();
+    await one.load('urn-a');
+    const viewer = viewers[0];
+    one.unload();
+    one.unload();
+    one.destroy();
+    expect(viewer?.finishCalls).toBe(1);
+  });
+
+  it('keeps the other viewer when one model fails to load', async () => {
+    const healthy = second();
+    await healthy.load('urn-b');
+    const viewing = autodeskWindow().Autodesk?.Viewing;
+    if (!viewing) throw new Error('viewing missing');
+    viewing.Document.load = (_urn, _ok, onError) => onError?.(4, 'missing');
+    const failing = makeAdapter();
+    await expect(failing.load('urn-a')).rejects.toThrow('Document load failed');
+    failing.destroy();
+    expect(mainLoop).toEqual([viewers[0]]);
+    expect(viewers[0]?.finishCalls).toBe(0);
+  });
+
+  it('keeps an exception in a selection listener out of the viewer', async () => {
+    const one = makeAdapter();
+    await one.load('urn-a');
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const later = vi.fn();
+    one.onSelectionChange(() => {
+      throw new Error('listener broke');
+    });
+    one.onSelectionChange(later);
+    expect(() => viewers[0]?.select([7])).not.toThrow();
+    expect(later).toHaveBeenCalledWith([7]);
+    expect(error).toHaveBeenCalled();
   });
 });

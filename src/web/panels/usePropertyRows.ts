@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { PropertyRow } from '../../shared/types.js';
-import { readLeafRows } from '../viewer/sharedLeafRows.js';
+import { forgetLeafRows, readLeafRows } from '../viewer/sharedLeafRows.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { useViewer } from '../viewer/ViewerContext.js';
 
@@ -25,7 +25,10 @@ export function usePropertyRows(
   const names = useMemo(() => (key ? key.split('\u0000') : []), [key]);
   const [state, setState] = useState<RowsState>({ status: 'idle', rows: [] });
   const [version, setVersion] = useState(0);
-  const reload = useCallback(() => setVersion((v) => v + 1), []);
+  const reload = useCallback(() => {
+    if (adapter) forgetLeafRows(adapter);
+    setVersion((v) => v + 1);
+  }, [adapter]);
 
   useEffect(() => {
     if (!adapter) {
