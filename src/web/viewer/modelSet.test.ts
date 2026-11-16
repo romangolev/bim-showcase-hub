@@ -13,13 +13,19 @@ import {
 import {
   checkCapacity,
   DUPLICATE_MODEL_MESSAGE,
+  farApartMessage,
+  formatKm,
   loadFailureMessage,
   MAX_COMBINED_MODELS,
   MODEL_LIMIT_MESSAGE,
+  type ModelBox,
   type ModelInfo,
   ModelSet,
   ModelSetError,
+  metersPerUnit,
   readySignature,
+  spreadOf,
+  togetherOffsets,
   uniqueSources,
 } from './modelSet.js';
 
@@ -281,5 +287,37 @@ describe('model scope', () => {
     expect(tagged).toEqual([
       { dbId: 7, name: 'n', properties: {}, modelId: 'a', modelName: 'Arch' },
     ]);
+  });
+});
+
+describe('model spread', () => {
+  const box = (id: string, x: number, size = 10): ModelBox => ({
+    id,
+    min: [x - size / 2, -size / 2, 0],
+    max: [x + size / 2, size / 2, 0],
+  });
+
+  it('flags models more than ten diagonals apart', () => {
+    expect(spreadOf([box('a', 0)])).toBeNull();
+    expect(spreadOf([box('a', 0), box('b', 50)])?.farApart).toBe(false);
+    const far = spreadOf([box('a', 0), box('b', 1_000_000)], 0.3048);
+    expect(far?.farApart).toBe(true);
+    expect(far?.distanceMeters).toBeCloseTo(304_800, 0);
+    expect(metersPerUnit('ft')).toBe(0.3048);
+    expect(metersPerUnit(undefined)).toBe(1);
+  });
+
+  it('centres every other model on the anchor', () => {
+    expect(
+      togetherOffsets([box('a', 10), box('b', 1_000), box('c', -20)], 'a'),
+    ).toEqual({ b: [-990, 0, 0], c: [30, 0, 0] });
+    expect(togetherOffsets([box('a', 0)], 'x')).toEqual({});
+  });
+
+  it('words the warning in kilometres', () => {
+    expect(farApartMessage({ distanceMeters: 423_672 })).toBe(
+      'Some models are far apart in model space (about 424 km). They are shown at their real positions.',
+    );
+    expect(formatKm(2_500)).toBe('2.5');
   });
 });

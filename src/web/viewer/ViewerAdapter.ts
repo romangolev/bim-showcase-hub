@@ -1,6 +1,12 @@
 import type { PropertyRow } from '../../shared/types.js';
 import type { Theme } from '../theme/theme.js';
-import type { ModelDbId, ModelInfo, ModelSource } from './modelSet.js';
+import type {
+  ModelDbId,
+  ModelInfo,
+  ModelSource,
+  ModelSpread,
+  Vec3,
+} from './modelSet.js';
 
 export type Rgba = readonly [r: number, g: number, b: number, a: number];
 
@@ -59,6 +65,9 @@ export interface ViewerAdapter {
   onModelsChange(cb: (models: ModelInfo[]) => void): () => void;
   getModelSelection(): ModelDbId[];
   setModelThemingColor(items: readonly ModelDbId[], color: Rgba): void;
+  getSpread(): ModelSpread | null;
+  getTogetherOffsets(): Record<string, Vec3>;
+  setModelOffsets(offsets: Readonly<Record<string, Vec3>> | null): void;
 }
 
 export type ViewerAdapterFactory = (

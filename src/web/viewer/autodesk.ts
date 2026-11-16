@@ -88,6 +88,18 @@ export interface ViewerModel {
   getUnitString?(): string | null | undefined;
   is2d?(): boolean;
   isLoadDone?(): boolean;
+  getBoundingBox?(): ViewerBox;
+  getPlacementTransform?(): PlacementMatrix;
+}
+
+export interface ViewerBox {
+  min: { x: number; y: number; z: number };
+  max: { x: number; y: number; z: number };
+}
+
+export interface PlacementMatrix {
+  elements: number[] | Float64Array | Float32Array;
+  clone(): PlacementMatrix;
 }
 
 export interface BubbleNode {
@@ -119,7 +131,11 @@ export interface GuiViewer3D {
   model?: ViewerModel;
   container?: HTMLElement;
   canvas?: HTMLCanvasElement;
-  impl?: { resize?(width: number, height: number): void };
+  impl?: {
+    resize?(width: number, height: number): void;
+    setPlacementTransform?(model: ViewerModel, matrix: PlacementMatrix): void;
+  };
+  navigation?: { fitBounds(immediate: boolean, bounds: ViewerBox): void };
   start(): number | undefined;
   resize(): void;
   loadExtension(id: string, options?: unknown): Promise<unknown>;

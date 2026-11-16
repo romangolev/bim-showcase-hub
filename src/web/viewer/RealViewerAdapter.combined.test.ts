@@ -461,3 +461,51 @@ describe('federation helpers', () => {
     expect(selectionIds({})).toEqual([]);
   });
 });
+
+describe('models far apart', () => {
+  beforeEach(() => {
+    env.specs.set('arch', { center: [0, 0, 0], size: 100, unit: 'ft' });
+    env.specs.set('far', { center: [1_000_000, 0, 0], size: 100 });
+  });
+
+  it('reports the spread and frames the anchor first', async () => {
+    await adapter.loadModels([{ urn: 'arch' }, { urn: 'far' }]);
+    const spread = adapter.getSpread();
+    expect(spread?.farApart).toBe(true);
+    expect(spread?.distanceMeters).toBeCloseTo(1_000_000 * 0.3048, 0);
+    expect(viewer().fitted).toHaveLength(1);
+    expect(viewer().fitted[0]?.min.x).toBe(-50);
+    expect(viewer().fits).toBe(0);
+  });
+
+  it('brings models together for viewing and restores them', async () => {
+    await adapter.loadModels([{ urn: 'arch' }, { urn: 'far' }]);
+    const offsets = adapter.getTogetherOffsets();
+    expect(offsets).toEqual({ far: [-1_000_000, 0, 0] });
+    adapter.setModelOffsets(offsets);
+    const far = viewer().modelOf('far');
+    expect(far.getBoundingBox().min.x).toBe(-50);
+    expect(viewer().fits).toBe(1);
+    expect(adapter.getSpread()?.farApart).toBe(true);
+    adapter.setModelVisible('far', false);
+    adapter.setModelVisible('far', true);
+    expect(far.getBoundingBox().min.x).toBe(-50);
+    adapter.setModelOffsets(null);
+    expect(far.getBoundingBox().min.x).toBe(1_000_000 - 50);
+    expect(viewer().fitted).toHaveLength(2);
+  });
+
+  it('applies a saved offset to a model that loads later', async () => {
+    await adapter.loadModels([{ urn: 'arch' }]);
+    adapter.setModelOffsets({ far: [-1_000_000, 0, 0] });
+    await adapter.addModel({ urn: 'far' });
+    expect(viewer().modelOf('far').getBoundingBox().min.x).toBe(-50);
+  });
+
+  it('does not warn for models that sit together', async () => {
+    env.specs.set('near', { center: [20, 0, 0], size: 100 });
+    await adapter.loadModels([{ urn: 'arch' }, { urn: 'near' }]);
+    expect(adapter.getSpread()?.farApart).toBe(false);
+    expect(viewer().fits).toBe(1);
+  });
+});

@@ -5,6 +5,8 @@ import {
   type DocumentNodeLoadOptions,
   type GuiViewer3D,
   type InstanceTree,
+  type PlacementMatrix,
+  type ViewerBox,
   type ViewerEvent,
   type ViewerModel,
   type ViewingDocument,
@@ -22,6 +24,8 @@ export interface FakeModelSpec {
   fail?: string;
   propsFail?: string;
   noGeometry?: boolean;
+  center?: [number, number, number];
+  size?: number;
 }
 
 let modelIds = 0;
@@ -91,6 +95,30 @@ export class FakeModel implements ViewerModel {
     return this.twoD;
   }
 
+  placement: number[] = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+
+  getPlacementTransform(): PlacementMatrix {
+    const matrix = (elements: number[]): PlacementMatrix => ({
+      elements,
+      clone: () => matrix([...elements]),
+    });
+    return matrix([...this.placement]);
+  }
+
+  getBoundingBox(): ViewerBox {
+    const [cx, cy, cz] = this.spec.center ?? [0, 0, 0];
+    const half = (this.spec.size ?? 10) / 2;
+    const [dx, dy, dz] = [
+      this.placement[12] ?? 0,
+      this.placement[13] ?? 0,
+      this.placement[14] ?? 0,
+    ];
+    return {
+      min: { x: cx - half + dx, y: cy - half + dy, z: cz - half + dz },
+      max: { x: cx + half + dx, y: cy + half + dy, z: cz + half + dz },
+    };
+  }
+
   isLoadDone(): boolean {
     return true;
   }
@@ -121,6 +149,20 @@ export class FakeFederatedViewer implements GuiViewer3D {
   themed: { model: ViewerModel | undefined; dbId: number }[] = [];
   cleared: (ViewerModel | undefined)[] = [];
   fits = 0;
+  fitted: ViewerBox[] = [];
+  placed: { urn: string; elements: number[] }[] = [];
+  impl = {
+    setPlacementTransform: (model: ViewerModel, matrix: PlacementMatrix) => {
+      const own = model as FakeModel;
+      own.placement = [...matrix.elements];
+      this.placed.push({ urn: own.urn, elements: [...matrix.elements] });
+    },
+  };
+  navigation = {
+    fitBounds: (_immediate: boolean, box: ViewerBox) => {
+      this.fitted.push(box);
+    },
+  };
   finished = false;
   private readonly listeners = new Map<
     string,

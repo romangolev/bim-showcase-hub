@@ -7,6 +7,7 @@ import {
   type GuiViewer3D,
   getViewing,
   type InstanceTree,
+  type PlacementMatrix,
   type ViewerModel,
   type ViewingDocument,
 } from './autodesk.js';
@@ -24,13 +25,19 @@ import {
   CANCELLED_MESSAGE,
   checkCapacity,
   loadFailureMessage,
+  type ModelBox,
   type ModelDbId,
   type ModelInfo,
   ModelSet,
   ModelSetError,
   type ModelSource,
+  type ModelSpread,
+  metersPerUnit,
   modelIdFor,
+  spreadOf,
+  togetherOffsets,
   uniqueSources,
+  type Vec3,
   VIEWER_CLOSED_MESSAGE,
 } from './modelSet.js';
 import {
@@ -216,6 +223,10 @@ export class RealViewerAdapter implements ViewerAdapter {
   private starting: Promise<GuiViewer3D | null> | null = null;
   private epoch = 0;
   private anchoring: Promise<void> | null = null;
+  private anchorId: string | null = null;
+  private readonly boxes = new Map<string, ModelBox>();
+  private readonly placements = new Map<ViewerModel, PlacementMatrix>();
+  private offsets: Record<string, Vec3> | null = null;
   private readonly onSelection = () => {
     this.emitSelection();
   };
@@ -309,7 +320,7 @@ export class RealViewerAdapter implements ViewerAdapter {
       throw cancelled();
     }
     const loaded = current();
-    if (loaded.status === 'ready') viewer.fitToView?.();
+    if (loaded.status === 'ready') this.frameModels(viewer);
     return loaded;
   }
 
@@ -372,8 +383,76 @@ export class RealViewerAdapter implements ViewerAdapter {
       viewer.clearThemingColors(model);
       viewer.unloadModel?.(model);
     }
-    if (this.models.size === 0) this.anchor = null;
+    this.boxes.delete(modelId);
+    if (model) this.placements.delete(model);
+    if (this.models.size === 0) {
+      this.anchor = null;
+      this.anchorId = null;
+    }
     this.emitSelection();
+  }
+
+  getSpread(): ModelSpread | null {
+    const ready = new Set(this.models.ready().map(({ info }) => info.id));
+    const boxes = [...this.boxes.values()].filter((box) => ready.has(box.id));
+    return spreadOf(boxes, metersPerUnit(this.anchor?.unit));
+  }
+
+  getTogetherOffsets(): Record<string, Vec3> {
+    const ready = new Set(this.models.ready().map(({ info }) => info.id));
+    const boxes = [...this.boxes.values()].filter((box) => ready.has(box.id));
+    const anchorId =
+      this.anchorId && ready.has(this.anchorId) ? this.anchorId : boxes[0]?.id;
+    return anchorId ? togetherOffsets(boxes, anchorId) : {};
+  }
+
+  setModelOffsets(offsets: Readonly<Record<string, Vec3>> | null): void {
+    this.offsets = offsets ? { ...offsets } : null;
+    const viewer = this.viewer;
+    if (!viewer) return;
+    for (const { info, handle } of this.models.ready()) {
+      this.place(viewer, handle, this.offsets?.[info.id]);
+    }
+    this.frameModels(viewer);
+  }
+
+  private place(
+    viewer: GuiViewer3D,
+    model: ViewerModel,
+    offset: Vec3 | undefined,
+  ): void {
+    const setPlacement = viewer.impl?.setPlacementTransform;
+    let original = this.placements.get(model);
+    if (!original) {
+      if (!offset) return;
+      original = model.getPlacementTransform?.()?.clone();
+      if (!original) return;
+      this.placements.set(model, original);
+    }
+    if (!setPlacement) return;
+    const target = original.clone();
+    if (offset) {
+      target.elements[12] = (target.elements[12] ?? 0) + offset[0];
+      target.elements[13] = (target.elements[13] ?? 0) + offset[1];
+      target.elements[14] = (target.elements[14] ?? 0) + offset[2];
+    }
+    setPlacement.call(viewer.impl, model, target);
+  }
+
+  private frameModels(viewer: GuiViewer3D): void {
+    const spread = this.getSpread();
+    const together = Boolean(
+      this.offsets && Object.keys(this.offsets).length > 0,
+    );
+    const anchor = this.anchorId
+      ? this.models.handle(this.anchorId)
+      : undefined;
+    const box = anchor?.getBoundingBox?.();
+    if (spread?.farApart && !together && box && viewer.navigation) {
+      viewer.navigation.fitBounds(false, box);
+      return;
+    }
+    viewer.fitToView?.();
   }
 
   getModels(): ModelInfo[] {
@@ -458,7 +537,7 @@ export class RealViewerAdapter implements ViewerAdapter {
       }),
     );
     if (this.destroyed || this.viewer !== viewer) return;
-    if (this.models.ready().length > 1) viewer.fitToView?.();
+    if (this.models.ready().length > 1) this.frameModels(viewer);
   }
 
   private async loadOne(
@@ -506,7 +585,20 @@ export class RealViewerAdapter implements ViewerAdapter {
         viewer.unloadModel?.(model);
         return;
       }
-      if (!this.anchor) this.anchor = anchorOf(model);
+      if (!this.anchor) {
+        this.anchor = anchorOf(model);
+        this.anchorId = id;
+      }
+      const box = model.getBoundingBox?.();
+      if (box) {
+        this.boxes.set(id, {
+          id,
+          min: [box.min.x, box.min.y, box.min.z],
+          max: [box.max.x, box.max.y, box.max.z],
+        });
+      }
+      const offset = this.offsets?.[id];
+      if (offset) this.place(viewer, model, offset);
       release?.();
       release = null;
       if (!this.models.get(id)?.visible) viewer.hideModel?.(model);
@@ -575,6 +667,10 @@ export class RealViewerAdapter implements ViewerAdapter {
     this.models.clear();
     this.anchor = null;
     this.anchoring = null;
+    this.anchorId = null;
+    this.boxes.clear();
+    this.placements.clear();
+    this.offsets = null;
     this.settling = Promise.resolve();
     const viewer = this.viewer;
     if (!viewer) return;

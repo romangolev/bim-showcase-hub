@@ -18,13 +18,18 @@ import { tagRows } from './modelScope.js';
 import {
   checkCapacity,
   loadFailureMessage,
+  type ModelBox,
   type ModelDbId,
   type ModelInfo,
   ModelSet,
   ModelSetError,
   type ModelSource,
+  type ModelSpread,
   modelIdFor,
+  spreadOf,
+  togetherOffsets,
   uniqueSources,
+  type Vec3,
   VIEWER_CLOSED_MESSAGE,
 } from './modelSet.js';
 import {
@@ -102,6 +107,27 @@ interface MockScene {
   group: SVGGElement;
   nodes: Map<number, SVGPolygonElement>;
   box: Box;
+  shift: number;
+  offset: Vec3;
+}
+
+export const MOCK_FAR_MARKER = 'far';
+export const MOCK_FAR_DISTANCE = 1_000_000;
+
+function placedBox(scene: MockScene): Box {
+  return {
+    ...scene.box,
+    x: scene.box.x + scene.offset[0],
+    y: scene.box.y + scene.offset[1],
+  };
+}
+
+function modelBoxOf(id: string, box: Box): ModelBox {
+  return {
+    id,
+    min: [box.x, box.y, 0],
+    max: [box.x + box.width, box.y + box.height, 0],
+  };
 }
 
 function selectionKey(modelId: string, dbId: number): string {
@@ -156,6 +182,7 @@ export class MockViewerAdapter implements ViewerAdapter {
   private readonly themed = new Map<string, Rgba>();
   private readonly listeners = new Set<(items: ModelDbId[]) => void>();
   private placed = 0;
+  private offsets: Record<string, Vec3> | null = null;
   private bounds: {
     x: number;
     y: number;
@@ -211,6 +238,42 @@ export class MockViewerAdapter implements ViewerAdapter {
     this.refresh();
   }
 
+  getSpread(): ModelSpread | null {
+    return spreadOf(
+      this.models
+        .ready()
+        .map(({ info, handle }) => modelBoxOf(info.id, handle.box)),
+    );
+  }
+
+  getTogetherOffsets(): Record<string, Vec3> {
+    const ready = this.models.ready();
+    const anchor = ready[0];
+    if (!anchor) return {};
+    return togetherOffsets(
+      ready.map(({ info, handle }) => modelBoxOf(info.id, handle.box)),
+      anchor.info.id,
+    );
+  }
+
+  setModelOffsets(offsets: Readonly<Record<string, Vec3>> | null): void {
+    this.offsets =
+      offsets && Object.keys(offsets).length > 0 ? { ...offsets } : null;
+    for (const { info, handle } of this.models.ready()) {
+      this.applyOffset(handle, this.offsets?.[info.id]);
+    }
+    this.refresh();
+  }
+
+  private applyOffset(scene: MockScene, offset: Vec3 | undefined): void {
+    scene.offset = offset ?? [0, 0, 0];
+    const x = scene.shift + scene.offset[0];
+    const y = scene.offset[1];
+    if (x || y) scene.group.setAttribute('transform', `translate(${x} ${y})`);
+    else scene.group.removeAttribute('transform');
+    scene.group.dataset.offset = offset ? 'moved' : 'original';
+  }
+
   getModels(): ModelInfo[] {
     return this.models.list();
   }
@@ -261,6 +324,7 @@ export class MockViewerAdapter implements ViewerAdapter {
     this.bounds = null;
     this.loaded = false;
     this.placed = 0;
+    this.offsets = null;
     this.setSelectionKeys([]);
     this.controller?.clearPainted();
     this.refresh();
@@ -564,6 +628,8 @@ export class MockViewerAdapter implements ViewerAdapter {
       scene.group.remove();
       return;
     }
+    const offset = this.offsets?.[id];
+    if (offset) this.applyOffset(scene, offset);
     if (!this.models.get(id)?.visible) {
       scene.group.setAttribute('display', 'none');
     }
@@ -577,7 +643,9 @@ export class MockViewerAdapter implements ViewerAdapter {
     const svg = this.svg;
     if (!svg) return null;
     const box = boxOf(elements);
-    const shift = this.placed * (box.width + MODEL_GAP);
+    const shift =
+      this.placed * (box.width + MODEL_GAP) +
+      (modelId.includes(MOCK_FAR_MARKER) ? MOCK_FAR_DISTANCE : 0);
     this.placed += 1;
     const group = document.createElementNS(SVG_NS, 'g');
     group.setAttribute('class', 'bsh-mock__model');
@@ -599,7 +667,13 @@ export class MockViewerAdapter implements ViewerAdapter {
       nodes.set(element.dbId, polygon);
     }
     svg.appendChild(group);
-    return { group, nodes, box: { ...box, x: box.x + shift } };
+    return {
+      group,
+      nodes,
+      box: { ...box, x: box.x + shift },
+      shift,
+      offset: [0, 0, 0],
+    };
   }
 
   private refresh(): void {
@@ -612,7 +686,13 @@ export class MockViewerAdapter implements ViewerAdapter {
       this.bounds = null;
       return;
     }
-    const boxes = visible.map(({ handle }) => handle.box);
+    const spread = this.getSpread();
+    const anchor = ready[0];
+    const framed =
+      spread?.farApart && !this.offsets && anchor?.info.visible
+        ? [anchor]
+        : visible;
+    const boxes = framed.map(({ handle }) => placedBox(handle));
     const minX = Math.min(...boxes.map((b) => b.x));
     const minY = Math.min(...boxes.map((b) => b.y));
     const maxX = Math.max(...boxes.map((b) => b.x + b.width));

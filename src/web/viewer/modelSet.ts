@@ -264,3 +264,105 @@ export class ModelSet<H> {
     }
   }
 }
+
+export type Vec3 = readonly [number, number, number];
+
+export interface ModelBox {
+  id: string;
+  min: Vec3;
+  max: Vec3;
+}
+
+export interface ModelSpread {
+  farApart: boolean;
+  distanceMeters: number;
+  largestDiagonalMeters: number;
+}
+
+export const FAR_APART_FACTOR = 10;
+
+const UNIT_METERS: Record<string, number> = {
+  m: 1,
+  meter: 1,
+  meters: 1,
+  ft: 0.3048,
+  'ft-us': 0.3048006096,
+  sft: 0.3048006096,
+  in: 0.0254,
+  cm: 0.01,
+  mm: 0.001,
+  km: 1000,
+};
+
+export function metersPerUnit(unit: string | null | undefined): number {
+  return UNIT_METERS[(unit ?? 'm').toLowerCase()] ?? 1;
+}
+
+export function centerOf(box: Pick<ModelBox, 'min' | 'max'>): Vec3 {
+  return [
+    (box.min[0] + box.max[0]) / 2,
+    (box.min[1] + box.max[1]) / 2,
+    (box.min[2] + box.max[2]) / 2,
+  ];
+}
+
+function distance(a: Vec3, b: Vec3): number {
+  return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+}
+
+function diagonal(box: Pick<ModelBox, 'min' | 'max'>): number {
+  return distance(box.min, box.max);
+}
+
+export function spreadOf(
+  boxes: readonly ModelBox[],
+  unitMeters = 1,
+): ModelSpread | null {
+  if (boxes.length < 2) return null;
+  const centers = boxes.map(centerOf);
+  let far = 0;
+  for (let i = 0; i < centers.length; i++) {
+    for (let j = i + 1; j < centers.length; j++) {
+      far = Math.max(far, distance(centers[i] as Vec3, centers[j] as Vec3));
+    }
+  }
+  const largest = Math.max(...boxes.map(diagonal));
+  return {
+    farApart: far > largest * FAR_APART_FACTOR,
+    distanceMeters: far * unitMeters,
+    largestDiagonalMeters: largest * unitMeters,
+  };
+}
+
+export function togetherOffsets(
+  boxes: readonly ModelBox[],
+  anchorId: string,
+): Record<string, Vec3> {
+  const anchor = boxes.find((box) => box.id === anchorId);
+  if (!anchor) return {};
+  const target = centerOf(anchor);
+  const offsets: Record<string, Vec3> = {};
+  for (const box of boxes) {
+    if (box.id === anchorId) continue;
+    const center = centerOf(box);
+    offsets[box.id] = [
+      target[0] - center[0],
+      target[1] - center[1],
+      target[2] - center[2],
+    ];
+  }
+  return offsets;
+}
+
+export function formatKm(meters: number): string {
+  const km = meters / 1000;
+  if (km >= 10) return Math.round(km).toLocaleString('en-US');
+  if (km >= 1) return km.toFixed(1);
+  return km.toFixed(2);
+}
+
+export function farApartMessage(
+  spread: Pick<ModelSpread, 'distanceMeters'>,
+): string {
+  return `Some models are far apart in model space (about ${formatKm(spread.distanceMeters)} km). They are shown at their real positions.`;
+}

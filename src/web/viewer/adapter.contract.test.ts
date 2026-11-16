@@ -179,3 +179,23 @@ describe('mock switch and region helpers', () => {
     expect(apiForRegion('US')).toBe('derivativeV2');
   });
 });
+
+describe('mock models far apart', () => {
+  it('places a far model away, brings it together and restores it', async () => {
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    adapter = new MockViewerAdapter(host);
+    await adapter.loadModels([{ urn: 'urn-a' }, { urn: 'urn-far' }]);
+    expect(adapter.getSpread()?.farApart).toBe(true);
+    const group = () =>
+      host.querySelector<SVGGElement>('[data-model-id="urn-far"]');
+    expect(group()?.getAttribute('transform')).toContain('1000');
+    adapter.setModelOffsets(adapter.getTogetherOffsets());
+    expect(group()?.dataset.offset).toBe('moved');
+    adapter.setModelVisible('urn-far', false);
+    adapter.setModelVisible('urn-far', true);
+    expect(group()?.dataset.offset).toBe('moved');
+    adapter.setModelOffsets(null);
+    expect(group()?.dataset.offset).toBe('original');
+  });
+});
