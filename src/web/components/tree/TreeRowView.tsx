@@ -111,6 +111,8 @@ export interface TreeRowViewProps {
   caption?: string;
   secondary?: string;
   highlight?: string;
+  picked?: boolean;
+  action?: ReactNode;
   rowProps?: HTMLAttributes<HTMLDivElement> & {
     ref?: Ref<HTMLDivElement>;
     'data-index'?: number;
@@ -130,6 +132,8 @@ export function TreeRowView({
   caption,
   secondary,
   highlight,
+  picked,
+  action,
   rowProps,
 }: TreeRowViewProps) {
   const isVersion = kind === 'version';
@@ -151,6 +155,7 @@ export function TreeRowView({
       data-disabled={disabled}
       data-viewable={isVersion && viewable}
       data-two-line={Boolean(second)}
+      data-picked={picked || undefined}
       style={{
         ...rowProps?.style,
         minHeight,
@@ -169,7 +174,7 @@ export function TreeRowView({
         )}
       </span>
       <span className="tree-row__icon">
-        <Icon name={icon} size={15} />
+        <Icon name={picked ? 'check' : icon} size={15} />
       </span>
       <span className="tree-row__text">
         <span className="tree-row__line">
@@ -208,6 +213,7 @@ export function TreeRowView({
         ) : null}
       </span>
       {caption ? <span className="tree-row__caption">{caption}</span> : null}
+      {action}
     </div>
   );
 }

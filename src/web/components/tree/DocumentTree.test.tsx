@@ -219,3 +219,111 @@ describe('DocumentTree', () => {
     ).toBeEnabled();
   });
 });
+
+function versionsRoute(count: number) {
+  return Array.from({ length: count }, (_, index) => ({
+    id: `vv${index}`,
+    kind: 'version' as const,
+    name: `v${index + 1}: Issue ${index + 1}`,
+    hasChildren: false,
+    viewable: true,
+    urn: `urn-${index}`,
+    parentId: 'i1',
+  }));
+}
+
+async function openVersions(count: number, props = {}) {
+  mockFetch({
+    ...treeRoutes,
+    '/api/projects/p1/items/i1/versions': versionsRoute(count),
+  });
+  const onOpenModel = vi.fn();
+  const onOpenTogether = vi.fn();
+  const client = createTestClient();
+  render(
+    <QueryClientProvider client={client}>
+      <DocumentTree
+        onOpenModel={onOpenModel}
+        onOpenTogether={onOpenTogether}
+        {...props}
+      />
+    </QueryClientProvider>,
+  );
+  await expandTo('Studio hub');
+  await expandTo('Riverside Tower');
+  await expandTo('Project Files');
+  await expandTo('Tower.rvt');
+  await screen.findByRole('treeitem', { name: 'v1: Issue 1' });
+  return { onOpenModel, onOpenTogether };
+}
+
+const row = (n: number) =>
+  screen.getByRole('treeitem', { name: `v${n}: Issue ${n}` });
+
+describe('DocumentTree multi-select', () => {
+  it('picks with Ctrl or Cmd click and Space and opens them together', async () => {
+    const { onOpenModel, onOpenTogether } = await openVersions(3);
+    expect(row(1)).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(row(1), { ctrlKey: true });
+    fireEvent.click(row(3), { metaKey: true });
+    fireEvent.keyDown(row(2), { key: ' ' });
+    expect(onOpenModel).not.toHaveBeenCalled();
+    expect(row(1)).toHaveAttribute('aria-checked', 'true');
+    expect(row(2)).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByText('3 selected')).toBeInTheDocument();
+    fireEvent.keyDown(row(2), { key: ' ' });
+    expect(row(2)).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(screen.getByRole('button', { name: 'Open together' }));
+    expect(onOpenTogether).toHaveBeenCalledTimes(1);
+    const picked = onOpenTogether.mock.calls[0]?.[0] as {
+      urn: string;
+      context: { file?: string; v?: string };
+    }[];
+    expect(picked.map((model) => model.urn)).toEqual(['urn-0', 'urn-2']);
+    expect(picked[1]?.context).toMatchObject({ file: 'Tower.rvt', v: 'v3' });
+    expect(row(1)).toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('picks a range with Shift click', async () => {
+    await openVersions(4);
+    fireEvent.click(row(1), { ctrlKey: true });
+    fireEvent.click(row(3), { shiftKey: true });
+    expect(screen.getByText('3 selected')).toBeInTheDocument();
+    expect(row(4)).toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('refuses to open more than six together', async () => {
+    await openVersions(7);
+    fireEvent.click(row(1), { ctrlKey: true });
+    fireEvent.click(row(7), { shiftKey: true });
+    expect(screen.getByText('7 selected')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'A combined view holds up to 6 models',
+    );
+    expect(
+      screen.getByRole('button', { name: 'Open together' }),
+    ).toBeDisabled();
+  });
+
+  it('adds a version to the open viewer from its row', async () => {
+    const onAdd = vi.fn();
+    await openVersions(2, {
+      addTarget: {
+        label: 'the open viewer',
+        canAdd: (urn: string) => urn !== 'urn-0',
+        onAdd,
+      },
+    });
+    expect(
+      screen.queryByRole('button', {
+        name: 'Add Tower.rvt to the open viewer',
+      }),
+    ).not.toBeNull();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Add Tower.rvt to the open viewer' }),
+    );
+    expect(onAdd).toHaveBeenCalledWith([
+      expect.objectContaining({ urn: 'urn-1' }),
+    ]);
+  });
+});

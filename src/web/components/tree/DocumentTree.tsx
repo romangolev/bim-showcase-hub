@@ -7,7 +7,13 @@ import {
 import { useTree } from '@headless-tree/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useVirtualizer, type Virtualizer } from '@tanstack/react-virtual';
-import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
+import {
+  type KeyboardEvent,
+  type MouseEvent,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import type { TreeNode } from '../../../shared/types.js';
 import { friendlyError } from '../../api/friendlyError.js';
 import { childrenQueryOptions } from '../../api/hooks.js';
@@ -20,6 +26,10 @@ import {
   ROOT_SCOPE,
   scopeKey,
 } from '../../api/scope.js';
+import {
+  MAX_COMBINED_MODELS,
+  MODEL_LIMIT_MESSAGE,
+} from '../../viewer/modelSet.js';
 import { Icon } from '../icons.js';
 import { StateBlock } from '../StateBlock.js';
 import {
@@ -29,10 +39,27 @@ import {
   TreeRowView,
 } from './TreeRowView.js';
 
+export interface PickedModel {
+  urn: string;
+  context: ModelContext;
+}
+
+export interface AddTarget {
+  label: string;
+  canAdd: (urn: string) => boolean;
+  onAdd: (models: PickedModel[]) => void;
+}
+
 export interface DocumentTreeProps {
   selectedUrn?: string;
   revealTrail?: readonly string[];
   onOpenModel: (urn: string, context: ModelContext) => void;
+  onOpenTogether?: (models: PickedModel[]) => void;
+  addTarget?: AddTarget | null;
+}
+
+function pickLabel(model: PickedModel): string {
+  return model.context.file ?? model.urn;
 }
 
 type StatusVariant = 'loading' | 'error' | 'empty';
@@ -106,8 +133,12 @@ export function DocumentTree({
   selectedUrn,
   revealTrail,
   onOpenModel,
+  onOpenTogether,
+  addTarget,
 }: DocumentTreeProps) {
   const queryClient = useQueryClient();
+  const [picked, setPicked] = useState<PickedModel[]>([]);
+  const anchorRef = useRef<string | null>(null);
   const [errors, setErrors] = useState<Record<string, NodeError>>({});
   const [filter, setFilter] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -169,6 +200,97 @@ export function DocumentTree({
     if (urn) {
       onOpenModel(urn, contextFor(node));
     }
+  };
+
+  const pickedUrns = new Set(picked.map((model) => model.urn));
+
+  const togglePick = (node: TreeNode) => {
+    const urn = openableUrn(node);
+    if (!urn) return;
+    anchorRef.current = urn;
+    setPicked((current) =>
+      current.some((model) => model.urn === urn)
+        ? current.filter((model) => model.urn !== urn)
+        : [...current, { urn, context: contextFor(node) }],
+    );
+  };
+
+  const pickRange = (node: TreeNode) => {
+    const urn = openableUrn(node);
+    if (!urn) return;
+    const visible = rowsRef.current.flatMap((row) => {
+      const data =
+        row.type === 'node'
+          ? row.item.getItemData()
+          : row.type === 'result'
+            ? row.node
+            : null;
+      return data && openableUrn(data) ? [data] : [];
+    });
+    const from = visible.findIndex(
+      (entry) => openableUrn(entry) === anchorRef.current,
+    );
+    const to = visible.findIndex((entry) => openableUrn(entry) === urn);
+    if (from === -1 || to === -1) {
+      togglePick(node);
+      return;
+    }
+    const [start, end] = from < to ? [from, to] : [to, from];
+    const range = visible.slice(start, end + 1);
+    setPicked((current) => {
+      const next = [...current];
+      for (const entry of range) {
+        const id = openableUrn(entry);
+        if (id && !next.some((model) => model.urn === id)) {
+          next.push({ urn: id, context: contextFor(entry) });
+        }
+      }
+      return next;
+    });
+  };
+
+  const onPickClick = (event: MouseEvent, node: TreeNode): boolean => {
+    if (!openableUrn(node)) return false;
+    if (event.metaKey || event.ctrlKey) {
+      event.preventDefault();
+      togglePick(node);
+      return true;
+    }
+    if (event.shiftKey) {
+      event.preventDefault();
+      pickRange(node);
+      return true;
+    }
+    return false;
+  };
+
+  const onPickKey = (event: KeyboardEvent, node: TreeNode): boolean => {
+    if (event.key !== ' ' || !openableUrn(node)) return false;
+    event.preventDefault();
+    event.stopPropagation();
+    togglePick(node);
+    return true;
+  };
+
+  const rowAction = (node: TreeNode) => {
+    const urn = openableUrn(node);
+    if (!urn || !addTarget?.canAdd(urn)) return null;
+    const label = `Add ${contextFor(node).file ?? node.name} to ${addTarget.label}`;
+    return (
+      <button
+        type="button"
+        className="tree-row__action"
+        tabIndex={-1}
+        aria-label={label}
+        title={label}
+        onClick={(event) => {
+          event.stopPropagation();
+          addTarget.onAdd([{ urn, context: contextFor(node) }]);
+        }}
+      >
+        <Icon name="plus" size={13} />
+      </button>
+    );
   };
 
   const tree = useTree<TreeNode>({
@@ -457,9 +579,21 @@ export function DocumentTree({
           selected={urn !== null && urn === selectedUrn}
           focused={item.isFocused()}
           viewable={node.viewable}
+          picked={urn !== null && pickedUrns.has(urn)}
+          action={rowAction(node)}
           rowProps={{
             ...props,
             'data-index': index,
+            'aria-checked':
+              urn !== null && onOpenTogether ? pickedUrns.has(urn) : undefined,
+            onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => {
+              if (onOpenTogether && onPickKey(event, node)) return;
+              (
+                props as {
+                  onKeyDown?: (event: KeyboardEvent<HTMLDivElement>) => void;
+                }
+              ).onKeyDown?.(event);
+            },
             ref: (element: HTMLDivElement | null) => {
               item.registerElement(element);
               virtualizer.measureElement(element);
@@ -469,8 +603,9 @@ export function DocumentTree({
             ...(disabled
               ? { title: `${node.name}: no viewable geometry` }
               : {}),
-            onClick: () => {
+            onClick: (event: MouseEvent<HTMLDivElement>) => {
               item.setFocused();
+              if (onOpenTogether && onPickClick(event, node)) return;
               activate(item);
             },
             style: position,
@@ -493,19 +628,27 @@ export function DocumentTree({
           secondary={parentName(row.node)}
           highlight={query}
           selected={urn !== null && urn === selectedUrn}
+          picked={urn !== null && pickedUrns.has(urn)}
+          action={rowAction(row.node)}
           rowProps={{
             role: 'option',
+            'aria-checked':
+              urn !== null && onOpenTogether ? pickedUrns.has(urn) : undefined,
             'data-index': index,
             ref: virtualizer.measureElement,
             tabIndex: 0,
             'aria-selected': urn !== null && urn === selectedUrn,
             'aria-disabled': disabled || undefined,
-            onClick: () => {
+            onClick: (event: MouseEvent<HTMLDivElement>) => {
+              if (onOpenTogether && onPickClick(event, row.node)) return;
               if (urn) {
                 onOpenModel(urn, contextFor(row.node));
               }
             },
-            onKeyDown: (event) => onResultKeyDown(event, row.node),
+            onKeyDown: (event) => {
+              if (onOpenTogether && onPickKey(event, row.node)) return;
+              onResultKeyDown(event, row.node);
+            },
             style: position,
           }}
         />
@@ -592,6 +735,17 @@ export function DocumentTree({
           </button>
         ) : null}
       </div>
+      {onOpenTogether ? (
+        <PickBar
+          picked={picked}
+          addTarget={addTarget ?? null}
+          onOpenTogether={(models) => {
+            onOpenTogether(models);
+            setPicked([]);
+          }}
+          onClear={() => setPicked([])}
+        />
+      ) : null}
       <div ref={scrollRef} className="doc-tree__scroll">
         <div
           {...containerProps}
@@ -606,5 +760,73 @@ export function DocumentTree({
         </div>
       </div>
     </div>
+  );
+}
+
+function PickBar({
+  picked,
+  addTarget,
+  onOpenTogether,
+  onClear,
+}: {
+  picked: PickedModel[];
+  addTarget: AddTarget | null;
+  onOpenTogether: (models: PickedModel[]) => void;
+  onClear: () => void;
+}) {
+  const tooMany = picked.length > MAX_COMBINED_MODELS;
+  const addable = addTarget
+    ? picked.filter((model) => addTarget.canAdd(model.urn))
+    : [];
+  return (
+    <section
+      className="doc-tree__picks"
+      data-empty={picked.length === 0}
+      aria-label="Selected versions"
+    >
+      <span className="doc-tree__picks-count" aria-live="polite">
+        {picked.length === 0
+          ? 'Ctrl or Cmd click, Shift click or Space selects versions to open together'
+          : `${picked.length} selected`}
+      </span>
+      {picked.length > 0 ? (
+        <>
+          <button
+            type="button"
+            className="bsh-button doc-tree__pick-action"
+            disabled={picked.length < 2 || tooMany}
+            title={picked.map(pickLabel).join('\n')}
+            onClick={() => onOpenTogether(picked)}
+          >
+            Open together
+          </button>
+          {addTarget ? (
+            <button
+              type="button"
+              className="bsh-button doc-tree__pick-action"
+              disabled={addable.length === 0}
+              onClick={() => {
+                addTarget.onAdd(addable);
+                onClear();
+              }}
+            >
+              Add to {addTarget.label}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="bsh-button doc-tree__pick-action"
+            onClick={onClear}
+          >
+            Clear
+          </button>
+          {tooMany ? (
+            <span className="doc-tree__picks-limit" role="alert">
+              {MODEL_LIMIT_MESSAGE}
+            </span>
+          ) : null}
+        </>
+      ) : null}
+    </section>
   );
 }
