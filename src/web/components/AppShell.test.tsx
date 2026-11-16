@@ -1,0 +1,121 @@
+import { createMemoryHistory } from '@tanstack/react-router';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { App } from '../App.js';
+import { createAppRouter } from '../routes/router.js';
+import {
+  createTestClient,
+  mockFetch,
+  mockMatchMedia,
+  stubLayout,
+  treeRoutes,
+} from '../test/mockApi.js';
+
+function renderApp() {
+  const appRouter = createAppRouter(
+    createMemoryHistory({ initialEntries: ['/'] }),
+  );
+  render(<App appRouter={appRouter} client={createTestClient()} />);
+}
+
+beforeEach(() => {
+  stubLayout();
+  mockFetch({
+    '/api/session': { name: 'Ada', picture: null },
+    ...treeRoutes,
+  });
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+describe('AppShell responsive tree', () => {
+  it('starts docked and open on wide viewports', async () => {
+    mockMatchMedia(1440);
+    renderApp();
+    expect(
+      await screen.findByRole('complementary', { name: 'Documents' }),
+    ).toBeVisible();
+    expect(screen.getByRole('main')).not.toHaveAttribute('inert');
+  });
+
+  it('closes the docked tree when resized narrow and restores it when wide again', async () => {
+    const media = mockMatchMedia(1440);
+    renderApp();
+    await screen.findByRole('complementary', { name: 'Documents' });
+
+    act(() => media.setWidth(900));
+    expect(
+      screen.queryByRole('complementary', { name: 'Documents' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Expand document tree' }),
+    ).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('main')).not.toHaveAttribute('inert');
+
+    act(() => media.setWidth(1440));
+    expect(
+      await screen.findByRole('complementary', { name: 'Documents' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Collapse document tree' }),
+    ).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('makes main inert while the overlay is open and closes on Escape returning focus', async () => {
+    mockMatchMedia(800);
+    renderApp();
+    const opener = await screen.findByRole('button', {
+      name: 'Expand document tree',
+    });
+    fireEvent.click(opener);
+    expect(
+      await screen.findByRole('complementary', { name: 'Documents' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('main')).toHaveAttribute('inert');
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(
+      screen.queryByRole('complementary', { name: 'Documents' }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('main')).not.toHaveAttribute('inert');
+    expect(
+      screen.getByRole('button', { name: 'Expand document tree' }),
+    ).toHaveFocus();
+  });
+
+  it('closes the overlay from the scrim and returns focus to the opener', async () => {
+    mockMatchMedia(800);
+    renderApp();
+    const opener = await screen.findByRole('button', {
+      name: 'Expand document tree',
+    });
+    fireEvent.click(opener);
+    await screen.findByRole('complementary', { name: 'Documents' });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Close document tree',
+        hidden: true,
+      }),
+    );
+    expect(
+      screen.queryByRole('complementary', { name: 'Documents' }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('main')).not.toHaveAttribute('inert');
+    expect(
+      screen.getByRole('button', { name: 'Expand document tree' }),
+    ).toHaveFocus();
+  });
+
+  it('keeps Escape inert when the tree is docked', async () => {
+    mockMatchMedia(1440);
+    renderApp();
+    await screen.findByRole('complementary', { name: 'Documents' });
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(
+      screen.getByRole('complementary', { name: 'Documents' }),
+    ).toBeInTheDocument();
+  });
+});

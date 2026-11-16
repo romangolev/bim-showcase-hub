@@ -1,3 +1,4 @@
+import type { Ref } from 'react';
 import { useSession, useSignIn } from '../api/hooks.js';
 import { Icon } from './icons.js';
 import { UserMenu } from './UserMenu.js';
@@ -5,9 +6,10 @@ import { UserMenu } from './UserMenu.js';
 export interface TopBarProps {
   treeOpen: boolean;
   onToggleTree: () => void;
+  toggleRef?: Ref<HTMLButtonElement>;
 }
 
-export function TopBar({ treeOpen, onToggleTree }: TopBarProps) {
+export function TopBar({ treeOpen, onToggleTree, toggleRef }: TopBarProps) {
   const session = useSession();
   const signIn = useSignIn();
   const user = session.data ?? null;
@@ -17,6 +19,7 @@ export function TopBar({ treeOpen, onToggleTree }: TopBarProps) {
       <div className="topbar__inner">
         {user ? (
           <button
+            ref={toggleRef}
             type="button"
             className="icon-button"
             aria-label={

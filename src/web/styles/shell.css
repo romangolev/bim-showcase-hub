@@ -147,7 +147,11 @@
 .app-shell {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  min-height: 100dvh;
+}
+
+.app-shell[data-signed-in="true"] {
+  height: 100dvh;
 }
 
 .topbar {
@@ -311,15 +315,15 @@
 .app-main {
   flex: 1;
   min-width: 0;
+  container: main / inline-size;
+}
+
+.app-shell[data-signed-in="true"] .app-main {
   overflow: auto;
 }
 
 .app-main:focus-visible {
   outline-offset: -2px;
-}
-
-.app-main[data-route="model"] {
-  overflow: hidden;
 }
 
 .tree-backdrop {
@@ -363,12 +367,6 @@
   .user-menu__trigger,
   .user-menu__item {
     transition: none;
-  }
-}
-
-@media (max-width: 1099px) {
-  .app-main[data-route="model"] {
-    overflow: auto;
   }
 }
 

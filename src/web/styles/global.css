@@ -4,10 +4,50 @@
   box-sizing: border-box;
 }
 
+html {
+  color-scheme: dark;
+  scrollbar-color: var(--color-smoke) transparent;
+  scrollbar-width: thin;
+}
+
 html,
 body,
 #root {
-  height: 100%;
+  min-height: 100%;
+}
+
+* {
+  scrollbar-color: var(--color-smoke) transparent;
+  scrollbar-width: thin;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 5px;
+  background: var(--color-smoke);
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-steel);
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  letter-spacing: inherit;
 }
 
 body {

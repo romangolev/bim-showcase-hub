@@ -108,3 +108,42 @@ export const treeRoutes = {
   '/api/projects/p1/folders/f1/contents': [item],
   '/api/projects/p1/items/i1/versions': [viewableVersion, plainVersion],
 };
+
+export function mockMatchMedia(initialWidth: number) {
+  let width = initialWidth;
+  const lists = new Set<{
+    query: string;
+    listeners: Set<() => void>;
+  }>();
+  const evaluate = (query: string) => {
+    const max = /max-width:\s*(\d+)px/.exec(query);
+    return max ? width <= Number(max[1]) : false;
+  };
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn((query: string) => {
+      const entry = { query, listeners: new Set<() => void>() };
+      lists.add(entry);
+      return {
+        get matches() {
+          return evaluate(query);
+        },
+        media: query,
+        addEventListener: (_: string, listener: () => void) =>
+          entry.listeners.add(listener),
+        removeEventListener: (_: string, listener: () => void) =>
+          entry.listeners.delete(listener),
+      };
+    }),
+  );
+  return {
+    setWidth(next: number) {
+      width = next;
+      for (const entry of lists) {
+        for (const listener of entry.listeners) {
+          listener();
+        }
+      }
+    },
+  };
+}
