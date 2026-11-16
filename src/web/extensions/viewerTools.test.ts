@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 
 const exportToXlsx = vi.fn(async () => undefined);
@@ -9,13 +10,18 @@ vi.mock('./excelExport.js', async (original) => ({
 }));
 
 const { DEFAULT_FILE_NAME, exportFileName } = await import('./excelExport.js');
-const { buildToolGroupSpec, modelKey, TOOL_GROUP_ID } = await import(
-  './viewerTools.js'
-);
+const { buildToolGroupSpec, modelKey, registerViewerTools, TOOL_GROUP_ID } =
+  await import('./viewerTools.js');
 
 const adapter = {} as ViewerAdapter;
 
-function ids(spec: ReturnType<typeof buildToolGroupSpec>): string[] {
+function full(options: Parameters<typeof buildToolGroupSpec>[1] = {}) {
+  const spec = buildToolGroupSpec(adapter, options);
+  if (!spec.paint || !spec.export) throw new Error('tool spec incomplete');
+  return { ...spec, paint: spec.paint, export: spec.export };
+}
+
+function ids(spec: ReturnType<typeof full>): string[] {
   return [
     spec.id,
     spec.paint.id,
@@ -37,8 +43,8 @@ describe('tool group ids per viewer', () => {
   });
 
   it('gives two viewers disjoint control ids and keeps the icons', () => {
-    const a = buildToolGroupSpec(adapter, { key: modelKey('urn-a') });
-    const b = buildToolGroupSpec(adapter, { key: modelKey('urn-b') });
+    const a = full({ key: modelKey('urn-a') });
+    const b = full({ key: modelKey('urn-b') });
     expect(ids(a).filter((id) => ids(b).includes(id))).toEqual([]);
     expect(a.id.startsWith(`${TOOL_GROUP_ID}-`)).toBe(true);
     expect(a.paint.swatches.map((swatch) => swatch.icon)).toEqual(
@@ -47,13 +53,13 @@ describe('tool group ids per viewer', () => {
   });
 
   it('keeps the plain ids without a key', () => {
-    const spec = buildToolGroupSpec(adapter);
+    const spec = full();
     expect(spec.export.id).toBe('export-xlsx');
     expect(spec.paint.id).toBe('paint');
   });
 
   it('exports under the model name and version', () => {
-    const spec = buildToolGroupSpec(adapter, {
+    const spec = full({
       fileName: () => exportFileName('Snowdon Towers Sample.rvt', 'v3'),
     });
     spec.export.onExport();
@@ -78,5 +84,33 @@ describe('exportFileName', () => {
     expect(exportFileName()).toBe(DEFAULT_FILE_NAME);
     expect(exportFileName('', 'v2')).toBe(DEFAULT_FILE_NAME);
     expect(exportFileName('***.rvt')).toBe(DEFAULT_FILE_NAME);
+  });
+});
+
+describe('tool features', () => {
+  it('omits disabled features from the tool group spec', () => {
+    const mock = new MockViewerAdapter(document.createElement('div'));
+    const both = buildToolGroupSpec(mock);
+    expect(both.paint).toBeDefined();
+    expect(both.export).toBeDefined();
+
+    const paintOnly = buildToolGroupSpec(mock, {
+      features: { paint: true, export: false },
+    });
+    expect(paintOnly.paint).toBeDefined();
+    expect(paintOnly.export).toBeUndefined();
+
+    const exportOnly = buildToolGroupSpec(mock, {
+      features: { paint: false, export: true },
+    });
+    expect(exportOnly.paint).toBeUndefined();
+    expect(exportOnly.export).toBeDefined();
+  });
+
+  it('registers nothing when every feature is off', () => {
+    const mock = new MockViewerAdapter(document.createElement('div'));
+    const spy = vi.spyOn(mock, 'registerToolGroup');
+    registerViewerTools(mock, { features: { paint: false, export: false } })();
+    expect(spy).not.toHaveBeenCalled();
   });
 });

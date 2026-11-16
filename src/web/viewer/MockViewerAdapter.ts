@@ -43,7 +43,12 @@ import {
   ToolGroupController,
   type ToolGroupState,
 } from './toolGroupController.js';
-import type { Rgba, ToolGroupSpec, ViewerAdapter } from './ViewerAdapter.js';
+import type {
+  PaintSwatchSpec,
+  Rgba,
+  ToolGroupSpec,
+  ViewerAdapter,
+} from './ViewerAdapter.js';
 import './viewer.css';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -493,98 +498,117 @@ export class MockViewerAdapter implements ViewerAdapter {
     const separator = document.createElement('span');
     separator.className = 'bsh-mock__separator';
 
-    const combo = document.createElement('div');
-    combo.className = 'bsh-mock__combo';
-    const trigger = this.createToolbarButton(
-      spec.paint.id,
-      spec.paint.tooltip,
-      iconSpan(PAINT_ICON_CLASS),
-    );
-    trigger.setAttribute('aria-haspopup', 'true');
-    trigger.setAttribute('aria-expanded', 'false');
-    const flyout = document.createElement('div');
-    flyout.className = 'bsh-mock__flyout';
-    flyout.hidden = true;
-    flyout.setAttribute('role', 'group');
-    flyout.setAttribute('aria-label', spec.paint.tooltip);
+    const swatches: { swatch: PaintSwatchSpec; button: HTMLButtonElement }[] =
+      [];
+    let reset: HTMLButtonElement | null = null;
+    let closePaint = () => {};
+    const parts: HTMLElement[] = [];
 
-    const swatches = spec.paint.swatches.map((swatch) => {
-      const button = this.createToolbarButton(
-        swatch.id,
-        swatch.label,
-        iconSpan(swatchIconClass(swatch.icon)),
+    const paintSpec = spec.paint;
+    if (paintSpec) {
+      const comboEl = document.createElement('div');
+      comboEl.className = 'bsh-mock__combo';
+      const trigger = this.createToolbarButton(
+        paintSpec.id,
+        paintSpec.tooltip,
+        iconSpan(PAINT_ICON_CLASS),
       );
-      button.addEventListener('click', () => {
-        if (!controller.state.hasSelection) return;
-        controller.paint(swatch.color);
+      trigger.setAttribute('aria-haspopup', 'true');
+      trigger.setAttribute('aria-expanded', 'false');
+      const flyout = document.createElement('div');
+      flyout.className = 'bsh-mock__flyout';
+      flyout.hidden = true;
+      flyout.setAttribute('role', 'group');
+      flyout.setAttribute('aria-label', paintSpec.tooltip);
+
+      for (const swatch of paintSpec.swatches) {
+        const button = this.createToolbarButton(
+          swatch.id,
+          swatch.label,
+          iconSpan(swatchIconClass(swatch.icon)),
+        );
+        button.addEventListener('click', () => {
+          if (!controller.state.hasSelection) return;
+          controller.paint(swatch.color);
+          setOpen(false);
+        });
+        flyout.appendChild(button);
+        swatches.push({ swatch, button });
+      }
+      const resetButton = this.createToolbarButton(
+        paintSpec.reset.id,
+        paintSpec.reset.label,
+        iconSpan(RESET_ICON_CLASS),
+      );
+      resetButton.addEventListener('click', () => {
+        if (!controller.state.painted) return;
+        controller.reset();
         setOpen(false);
       });
-      flyout.appendChild(button);
-      return { swatch, button };
-    });
-    const reset = this.createToolbarButton(
-      spec.paint.reset.id,
-      spec.paint.reset.label,
-      iconSpan(RESET_ICON_CLASS),
-    );
-    reset.addEventListener('click', () => {
-      if (!controller.state.painted) return;
-      controller.reset();
-      setOpen(false);
-    });
-    flyout.appendChild(reset);
-    combo.append(trigger, flyout);
+      flyout.appendChild(resetButton);
+      reset = resetButton;
+      comboEl.append(trigger, flyout);
 
-    const exportButton = this.createToolbarButton(
-      spec.export.id,
-      spec.export.tooltip,
-      iconSpan(EXPORT_ICON_CLASS),
-    );
-    exportButton.addEventListener('click', () => controller.export());
+      const onOutside = (event: Event) => {
+        if (!comboEl.contains(event.target as Node)) setOpen(false);
+      };
+      const onKey = (event: KeyboardEvent) => {
+        if (event.key !== 'Escape') return;
+        setOpen(false);
+        trigger.focus();
+      };
+      const setOpen = (open: boolean) => {
+        flyout.hidden = !open;
+        trigger.setAttribute('aria-expanded', String(open));
+        if (open) {
+          document.addEventListener('pointerdown', onOutside);
+          document.addEventListener('keydown', onKey);
+        } else {
+          document.removeEventListener('pointerdown', onOutside);
+          document.removeEventListener('keydown', onKey);
+        }
+      };
+      closePaint = () => setOpen(false);
+      trigger.addEventListener('click', () => setOpen(Boolean(flyout.hidden)));
+      parts.push(comboEl);
+    }
 
-    const onOutside = (event: Event) => {
-      if (!combo.contains(event.target as Node)) setOpen(false);
-    };
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
-      setOpen(false);
-      trigger.focus();
-    };
-    const setOpen = (open: boolean) => {
-      flyout.hidden = !open;
-      trigger.setAttribute('aria-expanded', String(open));
-      if (open) {
-        document.addEventListener('pointerdown', onOutside);
-        document.addEventListener('keydown', onKey);
-      } else {
-        document.removeEventListener('pointerdown', onOutside);
-        document.removeEventListener('keydown', onKey);
-      }
-    };
-    trigger.addEventListener('click', () => setOpen(Boolean(flyout.hidden)));
+    const exportSpec = spec.export;
+    if (exportSpec) {
+      const exportButton = this.createToolbarButton(
+        exportSpec.id,
+        exportSpec.tooltip,
+        iconSpan(EXPORT_ICON_CLASS),
+      );
+      exportButton.addEventListener('click', () => controller.export());
+      parts.push(exportButton);
+    }
 
     const apply = (state: ToolGroupState) => {
+      if (!paintSpec) return;
       for (const { swatch, button } of swatches) {
         setDisabled(
           button,
           !state.hasSelection,
-          state.hasSelection ? swatch.label : spec.paint.selectHint,
+          state.hasSelection ? swatch.label : paintSpec.selectHint,
         );
       }
-      setDisabled(
-        reset,
-        !state.painted,
-        state.painted ? spec.paint.reset.label : spec.paint.resetHint,
-      );
+      if (reset) {
+        setDisabled(
+          reset,
+          !state.painted,
+          state.painted ? paintSpec.reset.label : paintSpec.resetHint,
+        );
+      }
     };
     apply(controller.state);
     const stop = controller.subscribe(apply);
-    group.append(separator, combo, exportButton);
+    group.append(separator, ...parts);
     return {
       element: group,
       dispose: () => {
         stop();
-        setOpen(false);
+        closePaint();
         group.remove();
       },
     };

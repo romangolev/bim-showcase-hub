@@ -120,7 +120,7 @@ describe('dock layout', () => {
       name: 'Viewer toolbar',
     });
     expect(
-      within(toolbar).getByRole('button', { name: 'Export to Excel' }),
+      await within(toolbar).findByRole('button', { name: 'Export to Excel' }),
     ).toBeInTheDocument();
   });
 

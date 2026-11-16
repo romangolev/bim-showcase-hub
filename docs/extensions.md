@@ -24,6 +24,12 @@ Property rows have the shape `{ dbId, name, properties, modelId?, modelName? }`.
 
 **Dashboard** (`dashboardData.ts`, `panels/DashboardPanel.tsx`, `panels/ChartCanvas.tsx`). `shapeChartData(rows, property)` counts values, keeps the top 11 and merges the rest into "Other" when there are more than 12 categories. The panel draws a bar chart and a donut with Chart.js, and lets the user choose the property. Charts redraw with the theme colors when the theme changes. It is the Dashboard pane; its collapsed state is part of the saved layout (`bsh.layout.v1`).
 
+## Settings and modals
+
+- Add a modal: write a `ModalDefinition` and add one line for it in `src/web/modal/registry.ts`.
+- Add a setting: extend `Settings`, `DEFAULT_SETTINGS`, `readSettings` and `EXPERIMENTAL_FEATURES` in `src/web/settings`.
+- Tool group controls are optional per feature: `ToolGroupSpec.paint` and `.export` may be omitted, and `registerViewerTools` takes `features` to choose which to build. `ViewerPane` registers the group after the model loads and again when a setting changes, without reloading the model.
+
 ## Add an extension
 
 1. Write the logic in `src/web/extensions/<name>.ts`. Accept a `ViewerAdapter` or `PropertyRow[]`. If it needs a viewer capability that the interface lacks, add the method to `ViewerAdapter`, implement it in both `RealViewerAdapter` and `MockViewerAdapter`, and extend `adapter.contract.test.ts`.

@@ -38,8 +38,8 @@ export interface ExportToolSpec {
 export interface ToolGroupSpec {
   id: string;
   title: string;
-  paint: PaintToolSpec;
-  export: ExportToolSpec;
+  paint?: PaintToolSpec;
+  export?: ExportToolSpec;
 }
 
 export interface ViewerAdapter {

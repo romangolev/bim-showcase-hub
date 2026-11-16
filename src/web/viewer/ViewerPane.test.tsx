@@ -1,6 +1,11 @@
 import { StrictMode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ModelSummaryPanel } from '../panels/ModelSummaryPanel.js';
+import {
+  SETTINGS_STORAGE_KEY,
+  SettingsProvider,
+  useSettings,
+} from '../settings/index.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { act, fireEvent, render, screen, waitFor } from '../test/render.js';
 import { useTheme } from '../theme/ThemeContext.js';
@@ -339,5 +344,69 @@ describe('ViewerPane theme propagation', () => {
     await waitFor(() =>
       expect(adapter?.setTheme).toHaveBeenLastCalledWith('dark'),
     );
+  });
+});
+
+function SettingsFlip() {
+  const { setSetting } = useSettings();
+  return (
+    <button type="button" onClick={() => setSetting('paintBrushes', false)}>
+      flip paint
+    </button>
+  );
+}
+
+describe('ViewerPane tool settings', () => {
+  afterEach(() => {
+    window.localStorage.clear();
+  });
+
+  it('omits the paint tool when paint brushes are off and keeps export', async () => {
+    installMemoryStorage();
+    window.localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({ paintBrushes: false, excelExport: true }),
+    );
+    const { factory } = trackedFactory();
+    const onReady = vi.fn();
+    render(
+      <SettingsProvider>
+        <ViewerPane urn="abc" factory={factory} onReady={onReady} />
+      </SettingsProvider>,
+    );
+    await waitFor(() => expect(onReady).toHaveBeenCalled());
+    expect(
+      screen.queryByRole('button', { name: 'Paint selection' }),
+    ).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'Export to Excel' }),
+    ).toBeInTheDocument();
+  });
+
+  it('re-registers the tools on a setting change without reloading the model', async () => {
+    installMemoryStorage();
+    const { factory, created } = trackedFactory();
+    const onReady = vi.fn();
+    render(
+      <SettingsProvider>
+        <SettingsFlip />
+        <ViewerPane urn="abc" factory={factory} onReady={onReady} />
+      </SettingsProvider>,
+    );
+    await waitFor(() => expect(onReady).toHaveBeenCalled());
+    expect(
+      screen.getByRole('button', { name: 'Paint selection' }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'flip paint' }));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: 'Paint selection' }),
+      ).toBeNull(),
+    );
+    expect(
+      screen.getByRole('button', { name: 'Export to Excel' }),
+    ).toBeInTheDocument();
+    expect(created).toHaveLength(1);
+    expect(onReady).toHaveBeenCalledTimes(1);
   });
 });

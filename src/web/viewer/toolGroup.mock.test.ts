@@ -142,6 +142,34 @@ describe('mock toolbar tool group', () => {
     expect(host.querySelector('[data-group-id]')).toBeNull();
   });
 
+  it('renders only the features present in the spec', async () => {
+    await setup();
+    const dispose = adapter.registerToolGroup(
+      buildToolGroupSpec(adapter, { features: { paint: false, export: true } }),
+    );
+    expect(host.querySelector('[data-button-id="paint"]')).toBeNull();
+    expect(host.querySelector('[data-button-id="paint-red"]')).toBeNull();
+    expect(button('export-xlsx')).not.toBeNull();
+    dispose();
+    adapter.registerToolGroup(
+      buildToolGroupSpec(adapter, { features: { paint: true, export: false } }),
+    );
+    expect(host.querySelector('[data-button-id="export-xlsx"]')).toBeNull();
+    expect(button('paint')).not.toBeNull();
+  });
+
+  it('leaves exactly one group after dispose then register', async () => {
+    await setup();
+    const dispose = adapter.registerToolGroup(buildToolGroupSpec(adapter));
+    dispose();
+    adapter.registerToolGroup(buildToolGroupSpec(adapter));
+    expect(host.querySelectorAll('[data-group-id]')).toHaveLength(1);
+    expect(host.querySelectorAll('[data-button-id="paint"]')).toHaveLength(1);
+    expect(
+      host.querySelectorAll('[data-button-id="export-xlsx"]'),
+    ).toHaveLength(1);
+  });
+
   it('runs the export through the toolbar button and reports status', async () => {
     await setup();
     const phases: ExportStatus['phase'][] = [];

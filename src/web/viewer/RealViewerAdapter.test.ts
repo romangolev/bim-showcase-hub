@@ -315,8 +315,16 @@ function makeAdapter(): RealViewerAdapter {
   return adapter;
 }
 
-function specWith(overrides: Partial<ToolGroupSpec['paint']> = {}) {
+function fullSpec() {
   const base = buildToolGroupSpec(adapter);
+  if (!base.paint || !base.export) throw new Error('tool spec incomplete');
+  return { ...base, paint: base.paint, export: base.export };
+}
+
+function specWith(
+  overrides: Partial<NonNullable<ToolGroupSpec['paint']>> = {},
+) {
+  const base = fullSpec();
   return {
     ...base,
     paint: { ...base.paint, ...overrides },
@@ -437,7 +445,7 @@ describe('RealViewerAdapter tool group extension', () => {
   it('resets through the adapter and invokes export from the toolbar button', async () => {
     makeAdapter();
     const onExport = vi.fn();
-    const base = buildToolGroupSpec(adapter);
+    const base = fullSpec();
     adapter.registerToolGroup({
       ...base,
       export: { ...base.export, onExport },
