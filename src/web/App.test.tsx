@@ -112,6 +112,62 @@ describe('App shell', () => {
     expect(signout?.[1]?.method).toBe('POST');
   });
 
+  it('opens the user menu with focus on the first item and closes on Escape', async () => {
+    mockFetch({
+      '/api/session': { name: 'Ada Lovelace', picture: null },
+      ...treeRoutes,
+    });
+    renderApp();
+
+    const trigger = await screen.findByRole('button', {
+      name: /Ada Lovelace/,
+    });
+    fireEvent.click(trigger);
+    const item = screen.getByRole('menuitem', { name: 'Sign out' });
+    await waitFor(() => expect(item).toHaveFocus());
+
+    fireEvent.keyDown(item, { key: 'ArrowDown' });
+    expect(item).toHaveFocus();
+    fireEvent.keyDown(item, { key: 'End' });
+    expect(item).toHaveFocus();
+
+    fireEvent.keyDown(item, { key: 'Escape' });
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
+
+  it('opens a deep link without search params using a fallback title', async () => {
+    mockFetch({
+      '/api/session': { name: 'Ada', picture: null },
+      ...treeRoutes,
+    });
+    renderApp('/model/dXJuOmFkc2s');
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: /^Model/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('navigation', { name: 'Breadcrumb' }),
+    ).not.toBeInTheDocument();
+    expect(await screen.findByText('Studio hub')).toBeInTheDocument();
+  });
+
+  it('reveals the open version in the tree when a trail is present', async () => {
+    mockFetch({
+      '/api/session': { name: 'Ada', picture: null },
+      ...treeRoutes,
+    });
+    const trail = encodeURIComponent(JSON.stringify(['h1', 'p1', 'f1', 'i1']));
+    renderApp(`/model/dXJuOmFkc2s?file=Tower.rvt&v=v2&trail=${trail}`);
+
+    const selected = await screen.findByRole(
+      'treeitem',
+      { name: 'v2: Coordination' },
+      { timeout: 4000 },
+    );
+    expect(selected).toHaveAttribute('aria-selected', 'true');
+  });
+
   it('collapses the tree panel from the top bar', async () => {
     mockFetch({
       '/api/session': { name: 'Ada', picture: null },
@@ -156,6 +212,18 @@ describe('App shell', () => {
     expect(
       await screen.findByRole('region', { name: 'Viewer' }),
     ).toBeInTheDocument();
+    expect(appRouter.state.location.search).toMatchObject({
+      file: 'Tower.rvt',
+      v: 'v2',
+      trail: ['h1', 'p1', 'f1', 'i1'],
+      crumbs: ['Studio hub', 'Riverside Tower', 'Project Files'],
+    });
+    expect(
+      await screen.findByRole('heading', { level: 1, name: /Tower\.rvt/ }),
+    ).toHaveTextContent('v2');
+    expect(
+      screen.getByRole('navigation', { name: 'Breadcrumb' }),
+    ).toHaveTextContent('Riverside Tower');
     expect(
       screen.getByRole('region', { name: 'Dashboard' }),
     ).toBeInTheDocument();

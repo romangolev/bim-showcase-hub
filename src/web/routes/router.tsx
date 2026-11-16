@@ -4,9 +4,14 @@ import {
   createRouter,
   Outlet,
 } from '@tanstack/react-router';
+import { lazy, Suspense } from 'react';
+import { type ModelContext, parseModelContext } from '../api/modelContext.js';
 import { AppShell } from '../components/AppShell.js';
 import { EmptyState } from '../components/EmptyState.js';
-import { ModelPage } from './ModelPage.js';
+
+const ModelPage = lazy(() =>
+  import('./ModelPage.js').then((module) => ({ default: module.ModelPage })),
+);
 
 const rootRoute = createRootRoute({
   component: () => (
@@ -25,9 +30,27 @@ const indexRoute = createRoute({
 const modelRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/model/$urn',
+  validateSearch: (search: Record<string, unknown>): ModelContext =>
+    parseModelContext(search),
   component: function ModelRoute() {
     const { urn } = modelRoute.useParams();
-    return <ModelPage urn={urn} />;
+    const search = modelRoute.useSearch();
+    return (
+      <Suspense
+        fallback={
+          <p className="app-loading" role="status">
+            Loading model
+          </p>
+        }
+      >
+        <ModelPage
+          urn={urn}
+          file={search.file}
+          version={search.v}
+          crumbs={search.crumbs}
+        />
+      </Suspense>
+    );
   },
 });
 
