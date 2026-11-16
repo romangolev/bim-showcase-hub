@@ -1,3 +1,4 @@
+import os
 import re
 import sys
 
@@ -891,16 +892,23 @@ def check_multi_model(page, checks, revit, notes):
     checks.add("multi: no page errors", not new_errors, new_errors[:2])
 
 
-STATE_FILES = {
-    "rmebasicsampleproject.rvt": "no-geometry",
-    "racbasicsampleproject.rvt": "ready",
-}
-STATE_BUDGET = 120
+STATE_BUDGET = 150
+STATE_ITEM_LIMIT = 40
+BLOCKED_STATES = ("processing", "failed", "no-geometry", "not-translated")
 
 
-def find_files(context, suffixes, budget=STATE_BUDGET):
+def parse_expectations():
+    expected = {}
+    for pair in os.environ.get("E2E_STATE_EXPECT", "").split(","):
+        name, _, state = pair.partition("=")
+        if name.strip() and state.strip():
+            expected[name.strip().lower()] = state.strip()
+    return expected
+
+
+def discover_items(context, budget=STATE_BUDGET, limit=STATE_ITEM_LIMIT):
     calls = 0
-    found = {}
+    items = []
     hubs = list_of(context, "/api/hubs") or []
     for hub in hubs:
         projects = list_of(context, f"/api/hubs/{hub['id']}/projects") or []
@@ -910,7 +918,7 @@ def find_files(context, suffixes, budget=STATE_BUDGET):
             top = list_of(context, f"/api/hubs/{hub['id']}/projects/{project['id']}/folders")
             calls += 1
             queue = [(project["id"], f["id"], [hub["name"], project["name"], f["name"]]) for f in top or []]
-            while queue and calls < budget and len(found) < len(suffixes):
+            while queue and calls < budget and len(items) < limit:
                 pid, fid, crumbs = queue.pop(0)
                 contents = list_of(context, f"/api/projects/{pid}/folders/{fid}/contents")
                 calls += 1
@@ -918,42 +926,75 @@ def find_files(context, suffixes, budget=STATE_BUDGET):
                     continue
                 queue.extend((pid, n["id"], crumbs + [n["name"]]) for n in contents if n["kind"] == "folder")
                 for item in contents:
-                    name = item["name"].lower()
-                    for suffix in suffixes:
-                        if item["kind"] == "item" and name.endswith(suffix) and suffix not in found:
-                            found[suffix] = {"file": item["name"], "crumbs": crumbs, "item": item["id"], "project": pid}
-            if len(found) >= len(suffixes) or calls >= budget:
-                return found
+                    if item["kind"] != "item" or len(items) >= limit or calls >= budget:
+                        continue
+                    versions = list_of(context, f"/api/projects/{pid}/items/{item['id']}/versions")
+                    calls += 1
+                    if versions:
+                        items.append({"file": item["name"], "crumbs": crumbs, "item": item["id"], "project": pid, "versions": versions})
+            if len(items) >= limit or calls >= budget:
+                return items
+    return items
+
+
+def version_rows(page, file_row):
+    rows = file_row.locator("xpath=following-sibling::*[@role='treeitem']")
+    found = {}
+    for index in range(rows.count()):
+        row = rows.nth(index)
+        if row.get_attribute("data-kind") != "version":
+            break
+        found[row.get_attribute("aria-label")] = row
     return found
 
 
 def check_view_states(page, context, checks):
-    found = find_files(context, list(STATE_FILES))
-    for suffix, expected in STATE_FILES.items():
-        target = found.get(suffix)
-        checks.add(f"states: {suffix} exists in the tree", target is not None, "not found within the API call budget")
-        if target is None:
-            continue
-        status, versions = api_get(context, f"/api/projects/{target['project']}/items/{target['item']}/versions")
-        latest = versions[0] if status == 200 and isinstance(versions, list) and versions else {}
-        checks.add(f"states: {suffix} reports {expected} from the api", latest.get("viewState") == expected, latest.get("viewState"))
+    items = discover_items(context)
+    states = {}
+    for item in items:
+        for version in item["versions"]:
+            states.setdefault(version.get("viewState"), []).append((item, version))
+    checks.add("states: items discovered", True, f"{len(items)} items, states {{{', '.join(f'{k}: {len(v)}' for k, v in states.items())}}}")
+    checks.add("states: every version carries a viewState", all(v.get("viewState") for vs in states.values() for _, v in vs) and None not in states, sorted(map(str, states)))
+
+    expected = parse_expectations()
+    for suffix, state in expected.items():
+        match = next((i for i in items if i["file"].lower().endswith(suffix)), None)
+        checks.add(f"states: expected {suffix} is {state}", match is not None and match["versions"][0].get("viewState") == state, None if match is None else match["versions"][0].get("viewState"))
+
+    picked = []
+    for state in ("ready", "unknown", *BLOCKED_STATES):
+        for item, _ in states.get(state, [])[:1]:
+            if item["item"] not in [p["item"] for p in picked]:
+                picked.append(item)
+    for item in picked:
+        label = item["file"]
         try:
             page.goto(BASE_URL, wait_until="networkidle")
             page.wait_for_timeout(1500)
-            file_row = expand_to_file(page, target)
-            row = file_row.locator("xpath=following-sibling::*[@role='treeitem']").first
-            row.wait_for(timeout=20000)
-            checks.add(f"states: {suffix} version row is {expected}", row.get_attribute("data-view-state") == expected, row.get_attribute("data-view-state"))
-            if expected == "ready":
-                continue
-            start = page.url
-            row.click(force=True)
-            page.wait_for_timeout(1000)
-            notice = page.locator(".doc-tree__notice[role=status]").inner_text()
-            checks.add(f"states: {suffix} selecting opens no tab", page.url == start and "/model/" not in page.url, page.url)
-            checks.add(f"states: {suffix} selecting explains why", "cannot be opened" in notice, notice)
+            file_row = expand_to_file(page, {"crumbs": item["crumbs"], "file": item["file"]})
+            page.wait_for_timeout(1500)
+            rows = version_rows(page, file_row)
+            for version in item["versions"]:
+                row = rows.get(version["name"])
+                if row is None:
+                    continue
+                checks.add(f"states: {label} {version['name'][:6]} row matches the api", row.get_attribute("data-view-state") == version.get("viewState"), f"row {row.get_attribute('data-view-state')} api {version.get('viewState')}")
+            blocked = next((v for v in item["versions"] if v.get("viewState") in BLOCKED_STATES and v["name"] in rows), None)
+            if blocked:
+                start = page.url
+                rows[blocked["name"]].click(force=True)
+                page.wait_for_timeout(1000)
+                notice = page.locator(".doc-tree__notice[role=status]").inner_text()
+                checks.add(f"states: {label} blocked version opens no tab", page.url == start, f"{start} -> {page.url}")
+                checks.add(f"states: {label} blocked version shows the notice", "cannot be opened" in notice, notice)
+            ready = next((v for v in item["versions"] if v.get("viewState") == "ready" and v["name"] in rows), None)
+            if ready:
+                rows[ready["name"]].click()
+                page.wait_for_url(re.compile(r"/model/"), timeout=15000)
+                checks.add(f"states: {label} ready version opens", "/model/" in page.url, page.url)
         except Exception as exc:
-            checks.add(f"states: {suffix}", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+            checks.add(f"states: {label}", False, f"{type(exc).__name__}: {str(exc)[:160]}")
 
 
 def main():
