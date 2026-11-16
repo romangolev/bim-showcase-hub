@@ -600,13 +600,13 @@ def check_combined(page, checks, notes):
     checks.add("combined: removing a member leaves a single-model tab", len(combined_groups(page)) == 1 and "with=" not in page.url and models_trigger(page).count() == 0, page.url)
 
     ensure_viewables(page)
-    addable = page.locator("[role=treeitem][data-viewable=true] .tree-row__action")
+    addable = page.locator("[role=treeitem][data-viewable=true] .tree-row__action").count()
     target = page.locator("[role=treeitem][data-viewable=true]").filter(has=page.locator(".tree-row__action")).first
     if target.count():
         target.hover()
         target.locator(".tree-row__action").click()
         wait_until(page, lambda: len(combined_groups(page)) == 2)
-    checks.add("combined: Add to open viewer adds a version to the active tab", addable.count() >= 1 and len(combined_groups(page)) == 2 and len(models(page)["models"]) == 1, combined_groups(page))
+    checks.add("combined: Add to open viewer adds a version to the active tab", addable >= 1 and len(combined_groups(page)) == 2 and len(models(page)["models"]) == 1, combined_groups(page))
 
     six = ",".join(f"{urn}-extra{index}" for index in range(5))
     page.goto(f"{BASE_URL}/model/{urn}?with={six}", wait_until="networkidle")
@@ -663,6 +663,53 @@ def check_badge_layout(page, checks, label):
     checks.add(f"badges ({label}): none clipped or outside the row", all(r["inside"] and not r["clipped"] for r in rects), rects)
     gaps = {r["gap"] for r in rects}
     checks.add(f"badges ({label}): share the right edge", max(gaps) - min(gaps) <= 1, sorted(gaps))
+
+
+def state_versions(page, file_name):
+    first = expand_state_rows(page, file_name)
+    first.wait_for(timeout=15000)
+    file_row = first.locator("xpath=preceding-sibling::*[@role='treeitem'][1]")
+    rows = file_row.locator("xpath=following-sibling::*[@role='treeitem']")
+    found = []
+    for index in range(rows.count()):
+        row = rows.nth(index)
+        if row.get_attribute("data-kind") != "version":
+            break
+        found.append(row)
+    return found
+
+
+def check_blocked_picks(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    close_all_models(page)
+    page.goto(BASE_URL, wait_until="networkidle")
+    blocked = state_versions(page, "STATE-no-geometry.rvt")
+    ready = state_versions(page, "STATE-ready.rvt")
+    checks.add("blocked picks: fixture rows are listed", bool(blocked) and bool(ready), f"{len(blocked)} blocked, {len(ready)} ready")
+    notice = page.locator(".doc-tree__notice[role=status][aria-live=polite]")
+    blocked[0].click(modifiers=["ControlOrMeta"], force=True)
+    page.wait_for_timeout(400)
+    checks.add("blocked picks: Ctrl or Cmd click on a blocked version is not picked", page.locator("[role=treeitem][aria-checked='true']").count() == 0 and blocked[0].get_attribute("aria-checked") is None)
+    checks.add("blocked picks: Ctrl or Cmd click explains why", "cannot be opened" in notice.inner_text(), notice.inner_text()[:160])
+    blocked[0].focus()
+    page.keyboard.press("Space")
+    page.wait_for_timeout(300)
+    checks.add("blocked picks: Space on a blocked version shows the notice and picks nothing", "cannot be opened" in notice.inner_text() and page.locator("[role=treeitem][aria-checked='true']").count() == 0)
+    ready[0].click(modifiers=["ControlOrMeta"])
+    blocked[0].click(modifiers=["Shift"], force=True)
+    page.wait_for_timeout(400)
+    picked = page.locator("[role=treeitem][aria-checked='true']").count()
+    blocked_picked = sum(1 for row in blocked if row.get_attribute("aria-checked") == "true")
+    text = notice.inner_text()
+    checks.add("blocked picks: a Shift range skips blocked versions", picked >= 1 and blocked_picked == 0, f"{picked} picked, {blocked_picked} blocked picked")
+    checks.add("blocked picks: the skip is announced", "Skipped" in text and "cannot be opened" in text, text[:160])
+    page.get_by_role("button", name="Clear").click()
+    ready[0].click()
+    wait_until(page, lambda: models(page)["active"])
+    settle(page, 800)
+    blocked_buttons = sum(row.locator(".tree-row__action").count() for row in blocked)
+    checks.add("blocked picks: blocked versions get no add-to-viewer button", blocked_buttons == 0, blocked_buttons)
+    close_all_models(page)
 
 
 def check_view_states(page, checks):
@@ -772,6 +819,11 @@ def run_interaction_checks(page, checks, notes):
     except Exception as exc:
         page.screenshot(path=str(OUTPUT_DIR / "mock-combined-failure.png"))
         checks.add("check_combined", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+    try:
+        check_blocked_picks(page, checks)
+    except Exception as exc:
+        page.screenshot(path=str(OUTPUT_DIR / "mock-blocked-picks-failure.png"))
+        checks.add("check_blocked_picks", False, f"{type(exc).__name__}: {str(exc)[:160]}")
     try:
         check_documents_return(page, checks)
     except Exception as exc:
