@@ -4,6 +4,7 @@ import type { TreeNode } from '../shared/types.js';
 import { loadConfig } from './config.js';
 import { decodeId } from './ids.js';
 import { createApp } from './index.js';
+import { createMockDataService, MOCK_APP_CLIENT_ID } from './mock/index.js';
 
 const app = createApp(loadConfig({ MOCK_APS: '1' }));
 
@@ -80,6 +81,15 @@ async function walk(): Promise<Walk> {
 }
 
 describe('mock mode', () => {
+  it('returns no hubs when the empty-hubs switch is on', async () => {
+    const empty = createApp(loadConfig({ MOCK_APS: '1' }), {
+      auth: {} as never,
+      data: createMockDataService(undefined, { emptyHubs: true }),
+    });
+    const res = await request(empty).get('/api/hubs');
+    expect(res.body).toEqual([]);
+  });
+
   it('serves a signed-in fake user without login', async () => {
     const res = await request(app).get('/api/session');
     expect(res.status).toBe(200);
@@ -87,6 +97,7 @@ describe('mock mode', () => {
       id: 'mock-user',
       name: 'Alex Rivera',
       picture: null,
+      appClientId: MOCK_APP_CLIENT_ID,
     });
   });
 

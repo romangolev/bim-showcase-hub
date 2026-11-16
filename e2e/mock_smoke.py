@@ -1,3 +1,4 @@
+import os
 import re
 import sys
 
@@ -868,6 +869,72 @@ def run_interaction_checks(page, checks, notes):
         checks.add("check_documents_return", False, f"{type(exc).__name__}: {str(exc)[:160]}")
 
 
+HINT_TITLE = "No projects to show yet"
+NOTICE_TITLE = "Looking for projects from ACC, BIM 360 or Forma?"
+MOCK_CLIENT_ID = "MOCK-CLIENT-ID-NOT-A-REAL-KEY"
+VARIANT = os.environ.get("E2E_MOCK_VARIANT", "").strip().lower()
+
+
+def hint_count(page):
+    return page.get_by_text(HINT_TITLE).count() + page.get_by_text(NOTICE_TITLE).count()
+
+
+def check_no_hint(page, checks):
+    checks.add("default mock data shows no missing-hubs hint", hint_count(page) == 0)
+
+
+def shoot_hint(page, name):
+    for label, (width, height) in (("desktop", DESKTOP), ("mobile", MOBILE)):
+        page.set_viewport_size({"width": width, "height": height})
+        settle(page)
+        overflow = horizontal_overflow(page)
+        checks_overflow = overflow <= 0
+        page.screenshot(path=str(OUTPUT_DIR / f"mock-{name}-{label}-{page.evaluate(ROOT_THEME)}.png"))
+        yield label, checks_overflow
+
+
+def run_variant(context, checks, notes):
+    page = context.new_page()
+    watch(page, notes)
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    page.goto(BASE_URL, wait_until="networkidle")
+    settle(page, 1200)
+    if VARIANT == "empty":
+        checks.add("empty hub list shows the full hint", page.get_by_role("heading", name=HINT_TITLE).count() == 1)
+        checks.add("hint shows the placeholder client id", page.get_by_text(MOCK_CLIENT_ID).count() == 1)
+        link = page.get_by_role("link", name=re.compile("How to add a custom integration"))
+        checks.add(
+            "help link opens safely in a new tab",
+            link.get_attribute("target") == "_blank" and link.get_attribute("rel") == "noopener noreferrer",
+        )
+        checks.add("no hub rows in the empty state", page.locator("[role=treeitem]").count() == 0)
+        checks.add("Check again button is present", page.get_by_role("button", name="Check again").count() == 1)
+    else:
+        checks.add("personal-only shows the notice", page.get_by_role("heading", name=NOTICE_TITLE).count() == 1)
+        checks.add("tree still lists the personal hub", page.locator("[role=treeitem][aria-level='1']").count() == 1)
+        notice_box = page.locator(".hub-notice").bounding_box()
+        search_box = page.locator(".doc-tree__search").bounding_box()
+        checks.add(
+            "notice sits above the filter box",
+            bool(notice_box and search_box and notice_box["y"] + notice_box["height"] <= search_box["y"] + 1),
+        )
+    for _ in range(2):
+        for label, ok in shoot_hint(page, VARIANT):
+            checks.add(f"no horizontal overflow with the hint ({label}, {page.evaluate(ROOT_THEME)})", ok)
+        page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+        page.get_by_role("button", name=THEME_TOGGLE).first.click()
+        settle(page, 300)
+    if VARIANT == "personal":
+        page.get_by_role("button", name="Dismiss").click()
+        settle(page, 300)
+        checks.add("dismissing hides the notice", page.get_by_text(NOTICE_TITLE).count() == 0)
+        page.reload(wait_until="networkidle")
+        settle(page, 1200)
+        checks.add("dismissal survives a reload", page.get_by_text(NOTICE_TITLE).count() == 0)
+        checks.add("tree is still visible after dismissing", page.locator("[role=treeitem][aria-level='1']").count() == 1)
+    checks.add("no uncaught page errors", not notes["page_errors"], notes["page_errors"][:2])
+
+
 def run(context, checks, notes):
     page = context.new_page()
     watch(page, notes)
@@ -896,6 +963,7 @@ def run(context, checks, notes):
     except Exception:
         pass
     checks.add("tree lists hubs", hubs.count() >= 1)
+    check_no_hint(page, checks)
     try:
         check_documents_home(page, checks)
     except Exception as exc:
@@ -977,7 +1045,10 @@ def main():
         if not app_reachable(context):
             checks.add("app is reachable", False, f"{BASE_URL}/api/health did not return 200; start npm run dev:mock")
             return checks.finish(notes, "mock-report.json")
-        run(context, checks, notes)
+        if VARIANT in ("empty", "personal"):
+            run_variant(context, checks, notes)
+        else:
+            run(context, checks, notes)
         context.close()
     return checks.finish(notes, "mock-report.json")
 

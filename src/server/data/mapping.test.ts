@@ -38,7 +38,31 @@ describe('mapHubs', () => {
         name: 'Acme',
         hasChildren: true,
         viewable: false,
+        hubType: 'unknown',
       },
+    ]);
+  });
+
+  it('maps the extension type to a hub type', () => {
+    const types = [
+      'hubs:autodesk.a360:PersonalHub',
+      'hubs:autodesk.core:Hub',
+      'hubs:autodesk.bim360:Account',
+      'hubs:autodesk.other:Thing',
+    ];
+    const nodes = mapHubs([
+      ...types.map((type, index) => ({
+        id: `h${index}`,
+        attributes: { name: type, extension: { type } },
+      })),
+      { id: 'none', attributes: { name: 'none' } },
+    ]);
+    expect(nodes.map((node) => node.hubType)).toEqual([
+      'personal',
+      'team',
+      'account',
+      'unknown',
+      'unknown',
     ]);
   });
 });

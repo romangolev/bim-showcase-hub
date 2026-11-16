@@ -12,7 +12,12 @@ import { type AppDeps, apiRouter } from './routes/index.js';
 function defaultDeps(config: ServerConfig): AppDeps {
   return {
     auth: createApsAuth(config),
-    data: config.mock ? createMockDataService() : createApsDataService(),
+    data: config.mock
+      ? createMockDataService(undefined, {
+          emptyHubs: process.env.MOCK_EMPTY_HUBS === '1',
+          personalOnly: process.env.MOCK_PERSONAL_ONLY === '1',
+        })
+      : createApsDataService(),
   };
 }
 

@@ -34,7 +34,7 @@ npm install
 npm run dev:mock
 ```
 
-Open http://localhost:5173. The app signs you in as a mock user and serves fixture data. Mock mode works only in development. A production build ignores `MOCK_APS`.
+Open http://localhost:5173. The app signs you in as a mock user and serves fixture data. Mock mode works only in development. `MOCK_EMPTY_HUBS=1` and `MOCK_PERSONAL_ONLY=1` show the missing-hubs hint. A production build ignores `MOCK_APS`.
 
 ## Real credentials
 

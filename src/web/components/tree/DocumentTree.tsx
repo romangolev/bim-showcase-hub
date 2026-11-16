@@ -32,6 +32,7 @@ import {
 import { MODEL_LIMIT_MESSAGE } from '../../viewer/modelSet.js';
 import { Icon } from '../icons.js';
 import { StateBlock } from '../StateBlock.js';
+import { NoHubsHint, PersonalHubNotice } from './NoHubsHint.js';
 import {
   INDENT,
   ROW_HEIGHT,
@@ -100,6 +101,7 @@ type Row =
       message?: string;
       detail?: string;
       clearFilter?: boolean;
+      noHubs?: boolean;
     };
 
 const LOADING_NODE: TreeNode = {
@@ -638,6 +640,7 @@ export function DocumentTree({
           parentId: ROOT_ID,
           title: 'No hubs found',
           message: 'Add your Autodesk account to a hub, then refresh.',
+          noHubs: true,
         });
       } else if (rootItem.isLoading() || !registry.loaded.has(ROOT_ID)) {
         rows.push({
@@ -922,6 +925,8 @@ export function DocumentTree({
             compact
             rows={row.parentId === ROOT_ID ? 4 : 2}
           />
+        ) : row.noHubs ? (
+          <NoHubsHint onCheckAgain={() => refresh(row.parentId)} />
         ) : (
           <StateBlock
             variant="empty"
@@ -942,6 +947,7 @@ export function DocumentTree({
 
   return (
     <div className="doc-tree">
+      <PersonalHubNotice onCheckAgain={() => refresh(ROOT_ID)} />
       <div className="doc-tree__search">
         <Icon name="search" size={14} />
         <input

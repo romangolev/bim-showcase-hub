@@ -12,6 +12,8 @@ export const MOCK_USER: SessionUser = {
   picture: null,
 };
 
+export const MOCK_APP_CLIENT_ID = 'MOCK-CLIENT-ID-NOT-A-REAL-KEY';
+
 export const MOCK_VIEWER_TOKEN: ViewerToken = {
   access_token: 'mock-viewer-token',
   expires_in: 3600,
@@ -34,15 +36,22 @@ function folderNode(folder: MockFolder): TreeNode {
 
 export function createMockDataService(
   data: MockData = buildMockData(),
+  options: { emptyHubs?: boolean; personalOnly?: boolean } = {},
 ): DataService {
   return {
     async listHubs() {
-      return [...data.hubs.values()].map((hub) => ({
+      if (options.emptyHubs) {
+        return [];
+      }
+      const hubs = [...data.hubs.values()];
+      const shown = options.personalOnly ? hubs.slice(0, 1) : hubs;
+      return shown.map((hub) => ({
         id: encodeId(hub.id),
         kind: 'hub',
         name: hub.name,
         hasChildren: hub.projectIds.length > 0,
         viewable: false,
+        hubType: options.personalOnly ? 'personal' : hub.hubType,
       }));
     },
 
