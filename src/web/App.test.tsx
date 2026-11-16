@@ -2,9 +2,11 @@ import { createMemoryHistory } from '@tanstack/react-router';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App.js';
+import { recallModel, rememberModel } from './api/modelStore.js';
 import { createAppRouter } from './routes/router.js';
 import {
   createTestClient,
+  installMemoryStorage,
   json,
   mockFetch,
   stubLayout,
@@ -21,6 +23,7 @@ function renderApp(path = '/') {
 
 beforeEach(() => {
   stubLayout();
+  installMemoryStorage();
 });
 
 afterEach(() => {
@@ -147,7 +150,7 @@ describe('App shell', () => {
       await screen.findByRole('heading', { level: 1, name: /^Untitled model/ }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole('navigation', { name: 'Breadcrumb' }),
+      screen.queryByRole('navigation', { name: /^Breadcrumb/ }),
     ).not.toBeInTheDocument();
     expect(await screen.findByText('Studio hub')).toBeInTheDocument();
   });
@@ -166,6 +169,68 @@ describe('App shell', () => {
       { timeout: 4000 },
     );
     expect(selected).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('resolves title, version and breadcrumb from the store on a bare deep link', async () => {
+    mockFetch({
+      '/api/session': { name: 'Ada', picture: null },
+      ...treeRoutes,
+    });
+    rememberModel('dXJuOmFkc2s', {
+      file: 'Tower.rvt',
+      v: 'v2',
+      crumbs: ['Studio hub', 'Riverside Tower', 'Project Files'],
+      trail: ['h1', 'p1', 'f1', 'i1'],
+    });
+    renderApp('/model/dXJuOmFkc2s');
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: /Tower\.rvt/ }),
+    ).toHaveTextContent('v2');
+    expect(
+      screen.getByRole('navigation', { name: /Breadcrumb/ }),
+    ).toHaveTextContent('Riverside Tower');
+    expect(
+      screen.getByRole('button', { name: 'Show in documents' }),
+    ).toBeInTheDocument();
+    const selected = await screen.findByRole(
+      'treeitem',
+      { name: 'v2: Coordination' },
+      { timeout: 4000 },
+    );
+    expect(selected).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('keeps the honest hint for an unknown urn', async () => {
+    mockFetch({
+      '/api/session': { name: 'Ada', picture: null },
+      ...treeRoutes,
+    });
+    rememberModel('other', { file: 'Other.rvt' });
+    renderApp('/model/dXJuOmFkc2s');
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: /Untitled model/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Open documents' }),
+    ).toBeInTheDocument();
+  });
+
+  it('remembers a model opened from the tree for later deep links', async () => {
+    mockFetch({
+      '/api/session': { name: 'Ada', picture: null },
+      ...treeRoutes,
+    });
+    renderApp(
+      `/model/dXJuOmFkc2s?file=Tower.rvt&v=v2&crumbs=${encodeURIComponent(JSON.stringify(['Studio hub']))}`,
+    );
+    await screen.findByRole('heading', { level: 1, name: /Tower\.rvt/ });
+    expect(recallModel('dXJuOmFkc2s')).toMatchObject({
+      file: 'Tower.rvt',
+      v: 'v2',
+      crumbs: ['Studio hub'],
+    });
   });
 
   it('collapses the tree panel from the top bar', async () => {
@@ -222,7 +287,7 @@ describe('App shell', () => {
       await screen.findByRole('heading', { level: 1, name: /Tower\.rvt/ }),
     ).toHaveTextContent('v2');
     expect(
-      screen.getByRole('navigation', { name: 'Breadcrumb' }),
+      screen.getByRole('navigation', { name: /^Breadcrumb/ }),
     ).toHaveTextContent('Riverside Tower');
     expect(
       screen.getByRole('region', { name: 'Dashboard' }),

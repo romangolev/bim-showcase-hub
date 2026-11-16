@@ -5,7 +5,7 @@ import {
   type PointerEvent,
   useRef,
 } from 'react';
-import { parseModelContext } from '../api/modelContext.js';
+import { useModelContext } from '../api/useModelContext.js';
 import { DocumentTree } from './tree/DocumentTree.js';
 import {
   TREE_WIDTH_MAX,
@@ -22,7 +22,7 @@ export function TreePanel({ open, onNavigate }: TreePanelProps) {
   const navigate = useNavigate();
   const { urn } = useParams({ strict: false }) as { urn?: string };
   const search = useSearch({ strict: false }) as Record<string, unknown>;
-  const { trail } = parseModelContext(search);
+  const { trail } = useModelContext(urn, search);
   const { width, preview, commit } = useTreeWidth();
   const panelRef = useRef<HTMLElement>(null);
   const dragging = useRef(false);

@@ -6,6 +6,7 @@ import {
 } from '@tanstack/react-router';
 import { lazy, Suspense } from 'react';
 import { type ModelContext, parseModelContext } from '../api/modelContext.js';
+import { useModelContext } from '../api/useModelContext.js';
 import { AppShell } from '../components/AppShell.js';
 import { EmptyState } from '../components/EmptyState.js';
 import { NotFound } from '../components/NotFound.js';
@@ -37,6 +38,7 @@ const modelRoute = createRoute({
   component: function ModelRoute() {
     const { urn } = modelRoute.useParams();
     const search = modelRoute.useSearch();
+    const context = useModelContext(urn, search);
     return (
       <Suspense
         fallback={
@@ -47,10 +49,10 @@ const modelRoute = createRoute({
       >
         <ModelPage
           urn={urn}
-          file={search.file}
-          version={search.v}
-          crumbs={search.crumbs}
-          hasTrail={Boolean(search.trail?.length)}
+          file={context.file}
+          version={context.v}
+          crumbs={context.crumbs}
+          hasTrail={Boolean(context.trail?.length)}
         />
       </Suspense>
     );
