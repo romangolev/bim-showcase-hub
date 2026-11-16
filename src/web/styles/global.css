@@ -1,0 +1,53 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-void);
+  color: var(--color-chalk);
+  font-family: var(--font-sans);
+  font-feature-settings: var(--font-features);
+  font-size: var(--text-14);
+  font-weight: var(--weight-body);
+  letter-spacing: var(--tracking-body);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  color-scheme: dark;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  color: var(--color-snow);
+  font-weight: var(--weight-light);
+}
+
+a {
+  color: var(--color-snow);
+  text-decoration: none;
+  opacity: 0.85;
+}
+
+a:hover {
+  opacity: 1;
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
+}
+
+::selection {
+  background: var(--color-signal-blue);
+  color: var(--color-snow);
+}
