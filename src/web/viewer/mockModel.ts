@@ -271,14 +271,29 @@ export function elementProperties(
   };
 }
 
-export function buildMockRows(propertyNames: string[]): PropertyRow[] {
-  return buildMockElements()
+export const LARGE_FIXTURE_ROWS = 104_000;
+
+export function buildMockRows(
+  propertyNames: string[],
+  bulkRows = 0,
+): PropertyRow[] {
+  const elements = buildMockElements()
     .slice()
-    .sort((a, b) => a.dbId - b.dbId)
-    .map((element) => {
-      const all = elementProperties(element);
-      const properties: PropertyRow['properties'] = {};
-      for (const name of propertyNames) properties[name] = all[name] ?? null;
-      return { dbId: element.dbId, name: element.name, properties };
-    });
+    .sort((a, b) => a.dbId - b.dbId);
+  const rows = elements.map((element) => {
+    const all = elementProperties(element);
+    const properties: PropertyRow['properties'] = {};
+    for (const name of propertyNames) properties[name] = all[name] ?? null;
+    return { dbId: element.dbId, name: element.name, properties };
+  });
+  const template = elements.find((element) => element.category === 'Walls');
+  if (bulkRows <= 0 || !template) return rows;
+  const base = elementProperties(template);
+  const lastId = elements.reduce((max, el) => Math.max(max, el.dbId), 0);
+  for (let n = 1; n <= bulkRows; n++) {
+    const properties: PropertyRow['properties'] = {};
+    for (const name of propertyNames) properties[name] = base[name] ?? null;
+    rows.push({ dbId: lastId + n, name: template.name, properties });
+  }
+  return rows;
 }

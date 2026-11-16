@@ -14,6 +14,10 @@ export interface SummaryEntry {
   count: number;
 }
 
+export function formatCount(count: number): string {
+  return count.toLocaleString('en-US');
+}
+
 export function formatValue(
   value: string | number | boolean | null | undefined,
 ): string {

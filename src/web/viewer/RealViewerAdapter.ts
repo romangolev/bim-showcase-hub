@@ -2,22 +2,17 @@ import type { PropertyRow } from '../../shared/types.js';
 import {
   autodeskWindow,
   type BulkPropertyItem,
-  type ControlButton,
-  type ControlGroup,
   type GuiViewer3D,
   getViewing,
   type InstanceTree,
   type ViewerEvent,
 } from './autodesk.js';
-import type {
-  Rgba,
-  ToolbarButtonSpec,
-  ViewerAdapter,
-} from './ViewerAdapter.js';
+import { ensureToolsExtension, TOOLS_EXTENSION_ID } from './autodeskTools.js';
+import { ToolGroupController } from './toolGroupController.js';
+import type { Rgba, ToolGroupSpec, ViewerAdapter } from './ViewerAdapter.js';
 
 const VIEWER_VERSION = '7.*';
 const VIEWER_BASE = `https://developer.api.autodesk.com/modelderivative/v2/viewers/${VIEWER_VERSION}`;
-const TOOLBAR_GROUP_ID = 'bim-showcase-hub-toolbar';
 
 let assetsPromise: Promise<void> | null = null;
 let initializedApi: string | null = null;
@@ -143,16 +138,13 @@ export class RealViewerAdapter implements ViewerAdapter {
   private viewer: GuiViewer3D | null = null;
   private destroyed = false;
   private readonly selectionListeners = new Set<(ids: number[]) => void>();
-  private readonly pendingButtons = new Map<string, ToolbarButtonSpec>();
-  private readonly mountedButtons = new Map<
-    string,
-    { group: ControlGroup; button: ControlButton }
-  >();
+  private controller: ToolGroupController | null = null;
+  private toolsMounted = false;
+  private modelLoaded = false;
   private readonly onSelection = (ev: ViewerEvent) => {
     const ids = ev.dbIdArray ?? [];
     for (const cb of this.selectionListeners) cb([...ids]);
   };
-  private readonly onToolbar = () => this.mountPending();
 
   constructor(private readonly container: HTMLElement) {}
 
@@ -168,14 +160,25 @@ export class RealViewerAdapter implements ViewerAdapter {
     });
     this.viewer = viewer;
     viewer.addEventListener(viewing.SELECTION_CHANGED_EVENT, this.onSelection);
-    viewer.addEventListener(viewing.TOOLBAR_CREATED_EVENT, this.onToolbar);
     const startCode = viewer.start();
     if (startCode) throw new Error(`Viewer failed to start (${startCode})`);
     viewer.setTheme('dark-theme');
-    this.mountPending();
     const doc = await loadDocument(urn);
     if (this.destroyed || this.viewer !== viewer) return;
     await viewer.loadDocumentNode(doc, doc.getRoot().getDefaultGeometry());
+    if (this.destroyed || this.viewer !== viewer) return;
+    this.modelLoaded = true;
+    await this.mountTools();
+    this.resize();
+  }
+
+  resize(): void {
+    const viewer = this.viewer;
+    if (!viewer) return;
+    if (this.container.clientWidth === 0 || this.container.clientHeight === 0) {
+      return;
+    }
+    viewer.resize();
   }
 
   unload(): void {
@@ -187,9 +190,10 @@ export class RealViewerAdapter implements ViewerAdapter {
         viewing.SELECTION_CHANGED_EVENT,
         this.onSelection,
       );
-      viewer.removeEventListener(viewing.TOOLBAR_CREATED_EVENT, this.onToolbar);
     }
-    this.mountedButtons.clear();
+    this.toolsMounted = false;
+    this.modelLoaded = false;
+    this.controller?.clearPainted();
     viewer.tearDown();
     viewer.finish();
     this.viewer = null;
@@ -241,16 +245,16 @@ export class RealViewerAdapter implements ViewerAdapter {
     });
   }
 
-  registerToolbarButton(spec: ToolbarButtonSpec): () => void {
-    this.pendingButtons.set(spec.id, spec);
-    this.mountPending();
+  registerToolGroup(spec: ToolGroupSpec): () => void {
+    this.controller?.dispose();
+    const controller = new ToolGroupController(spec, this);
+    this.controller = controller;
+    void this.mountTools();
     return () => {
-      this.pendingButtons.delete(spec.id);
-      const mounted = this.mountedButtons.get(spec.id);
-      if (mounted) {
-        mounted.group.removeControl(mounted.button);
-        this.mountedButtons.delete(spec.id);
-      }
+      if (this.controller !== controller) return;
+      this.unmountTools();
+      controller.dispose();
+      this.controller = null;
     };
   }
 
@@ -265,32 +269,30 @@ export class RealViewerAdapter implements ViewerAdapter {
     if (this.destroyed) return;
     this.destroyed = true;
     this.unload();
+    this.controller?.dispose();
+    this.controller = null;
     this.selectionListeners.clear();
-    this.pendingButtons.clear();
   }
 
-  private createButton(spec: ToolbarButtonSpec): ControlButton {
-    const button = new (getViewing().UI.Button)(spec.id);
-    button.onClick = () => spec.onClick();
-    button.setToolTip(spec.tooltip);
-    if (button.icon) button.icon.innerHTML = spec.icon;
-    return button;
+  private async mountTools(): Promise<void> {
+    const viewer = this.viewer;
+    const controller = this.controller;
+    if (!viewer || !controller || !this.modelLoaded || this.toolsMounted) {
+      return;
+    }
+    ensureToolsExtension();
+    this.toolsMounted = true;
+    try {
+      await viewer.loadExtension(TOOLS_EXTENSION_ID, { controller });
+    } catch {
+      this.toolsMounted = false;
+    }
   }
 
-  private mountPending(): void {
-    const toolbar = this.viewer?.toolbar;
-    if (!toolbar) return;
-    let group = toolbar.getControl(TOOLBAR_GROUP_ID);
-    if (!group) {
-      group = new (getViewing().UI.ControlGroup)(TOOLBAR_GROUP_ID);
-      toolbar.addControl(group);
-    }
-    for (const [id, spec] of this.pendingButtons) {
-      if (this.mountedButtons.has(id)) continue;
-      const button = this.createButton(spec);
-      group.addControl(button);
-      this.mountedButtons.set(id, { group, button });
-    }
+  private unmountTools(): void {
+    if (!this.toolsMounted) return;
+    this.toolsMounted = false;
+    this.viewer?.unloadExtension(TOOLS_EXTENSION_ID);
   }
 }
 

@@ -2,22 +2,47 @@ import type { PropertyRow } from '../../shared/types.js';
 
 export type Rgba = readonly [r: number, g: number, b: number, a: number];
 
-export interface ToolbarButtonSpec {
+export interface PaintSwatchSpec {
+  id: string;
+  label: string;
+  swatch: string;
+  color: Rgba;
+}
+
+export interface PaintToolSpec {
   id: string;
   tooltip: string;
-  icon: string;
-  onClick: () => void;
+  swatches: readonly PaintSwatchSpec[];
+  reset: { id: string; label: string };
+  selectHint: string;
+  resetHint: string;
+  onPaint: (color: Rgba) => boolean;
+  onReset: () => void;
+}
+
+export interface ExportToolSpec {
+  id: string;
+  tooltip: string;
+  onExport: () => void;
+}
+
+export interface ToolGroupSpec {
+  id: string;
+  title: string;
+  paint: PaintToolSpec;
+  export: ExportToolSpec;
 }
 
 export interface ViewerAdapter {
   load(urn: string): Promise<void>;
   unload(): void;
+  resize(): void;
   getSelection(): number[];
   clearSelection?(): void;
   setThemingColor(ids: number[], color: Rgba): void;
   clearThemingColors(): void;
   getLeafProperties(propertyNames: string[]): Promise<PropertyRow[]>;
-  registerToolbarButton(spec: ToolbarButtonSpec): () => void;
+  registerToolGroup(spec: ToolGroupSpec): () => void;
   onSelectionChange(cb: (ids: number[]) => void): () => void;
   destroy(): void;
 }
