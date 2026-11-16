@@ -1,6 +1,6 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { createTestClient } from '../test/mockApi.js';
 import { Landing } from './Landing.js';
 
@@ -12,7 +12,34 @@ function renderLanding() {
   );
 }
 
+afterEach(() => {
+  window.history.replaceState(null, '', '/');
+});
+
 describe('Landing', () => {
+  it('shows a dismissible message for an auth_error and clears the param', () => {
+    window.history.replaceState(null, '', '/?auth_error=access_denied');
+    renderLanding();
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent('Sign-in was cancelled');
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(window.location.search).toBe('');
+  });
+
+  it('falls back to a generic message for unknown auth_error codes', () => {
+    window.history.replaceState(null, '', '/?auth_error=weird');
+    renderLanding();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Sign-in did not complete',
+    );
+  });
+
+  it('shows no alert without an auth_error', () => {
+    renderLanding();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
   it('exposes the feature tabs with roving keyboard focus', () => {
     renderLanding();
     const tabs = screen.getAllByRole('tab');

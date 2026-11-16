@@ -8,6 +8,14 @@
   padding: var(--section-gap) var(--gutter) var(--section-gap);
 }
 
+.landing__auth-error {
+  margin-bottom: var(--space-6);
+  padding: 0 var(--space-4);
+  border: var(--border-hairline);
+  border-radius: var(--radius-container);
+  background: var(--color-graphite);
+}
+
 .hero {
   display: grid;
   grid-template-columns: 3fr 2fr;

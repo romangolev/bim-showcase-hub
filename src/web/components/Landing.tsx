@@ -5,6 +5,7 @@ import { PAINT_PRESETS } from '../extensions/paintBrushes.js';
 import { StaticPaintChip } from '../panels/PaintChip.js';
 import { SummaryTable } from '../panels/SummaryTable.js';
 import { Icon, type IconName } from './icons.js';
+import { StateBlock } from './StateBlock.js';
 import { TreeRowView } from './tree/TreeRowView.js';
 
 const APS_URL = 'https://aps.autodesk.com';
@@ -54,6 +55,46 @@ const TABS: FeatureTab[] = [
     copy: 'Send the property table to an Excel file, or paint selected elements to mark them.',
   },
 ];
+
+const AUTH_ERROR_MESSAGES: Record<string, string> = {
+  access_denied: 'Sign-in was cancelled. You can try again when you are ready.',
+  invalid_state: 'The sign-in session expired. Start the sign-in again.',
+  missing_code: 'Autodesk did not return a sign-in code. Try again.',
+  upstream_error: 'Autodesk could not complete the sign-in. Try again.',
+};
+
+const GENERIC_AUTH_ERROR = 'Sign-in did not complete. Try again.';
+
+function readAuthError(): string | null {
+  const code = new URLSearchParams(window.location.search).get('auth_error');
+  if (!code) {
+    return null;
+  }
+  return AUTH_ERROR_MESSAGES[code] ?? GENERIC_AUTH_ERROR;
+}
+
+function AuthErrorBanner() {
+  const [message, setMessage] = useState(readAuthError);
+  if (!message) {
+    return null;
+  }
+  const dismiss = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('auth_error');
+    window.history.replaceState(window.history.state, '', url);
+    setMessage(null);
+  };
+  return (
+    <div className="landing__auth-error">
+      <StateBlock
+        variant="error"
+        title="Could not sign in"
+        message={message}
+        action={{ label: 'Dismiss', onClick: dismiss }}
+      />
+    </div>
+  );
+}
 
 function FloorPlan() {
   return (
@@ -334,6 +375,7 @@ export function Landing() {
   return (
     <div className="landing-page">
       <div className="landing">
+        <AuthErrorBanner />
         <section className="hero" aria-labelledby="hero-title">
           <h1 id="hero-title" className="hero__title">
             Explore your Autodesk models in the browser
