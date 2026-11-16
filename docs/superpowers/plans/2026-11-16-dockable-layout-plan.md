@@ -31,6 +31,16 @@
 - **Closable panes:** tree, summary and dashboard. Required: viewer. The top bar tree button opens or closes the tree pane in the dock and the overlay in the stack.
 - **Mock layout API.** `window.__bshLayout` (move, float, reset, read) is exposed only when `isMockViewer()` is true, which requires `import.meta.env.DEV`, so it is not in the production bundle.
 
+### Decisions taken during implementation
+
+- **Panel collapse in the dock.** Dockview's group `collapse()` only works for edge groups, so collapse pins the group to its header with explicit group constraints (33 px, along the split axis computed from the serialized grid). The pane header has a collapse button next to the menu, because collapsed content is hidden. Inside the dock the panels' own collapse toggles are hidden; in the stack they are used.
+- **The viewer absorbs structural changes.** Opening, closing, collapsing and expanding pin every other grid group along its split axis (content size plus dockview's margin share) for the duration of the change, so the viewer takes the difference and sizes round-trip exactly. Window resizes stay proportional.
+- **Tree resizer removed in phase 2.** The dock sash replaces it and the stacked overlay never showed it, so `useTreeWidth` and the resizer were deleted with the phase that replaced them.
+- **Group landmarks.** Dockview labels each group `role="region"` with the active pane title, so the viewer section inside the main pane is labelled "Model viewer".
+- **Summary default width** is 340 px, the old rail maximum.
+- **StrictMode.** Dockview keeps its instance across StrictMode's effect replay, so the adapter re-attaches its listeners and controller in a layout effect instead of only in `onReady`.
+- **Menus** render in a fixed portal above floating groups and move focus only after they are positioned (Firefox does not focus a hidden popover); Enter and Space are handled on keydown so one key press never activates twice.
+
 ## File structure
 
 | File | Responsibility |
@@ -41,7 +51,7 @@
 | `src/web/layout/layoutContext.ts` | `LayoutContext`, `useLayout()`, `LayoutApi` type |
 | `src/web/layout/layoutState.ts` | Reducer, `serializeLayout`, `restoreLayout`, `sanitizeDock`, `importLegacy`, `splitAxisOf` |
 | `src/web/layout/defaultLayout.ts` | `defaultSteps(treeWidth)` the ordered placements of the default arrangement |
-| `src/web/layout/LayoutProvider.tsx` | State, persistence, reset, mode switch, hosts, lazy `DockLayout` |
+| `src/web/layout/LayoutProvider.tsx` | State, persistence, reset, mode switch, hosts, lazy `DockLayout`, top bar |
 | `src/web/layout/DockLayout.tsx` | The dockview adapter: build, restore, save, menus in headers, collapse, F6 |
 | `src/web/layout/StackedLayout.tsx` | Fixed stack and tree overlay below 876px |
 | `src/web/layout/PaneMenu.tsx`, `LayoutMenu.tsx`, `src/web/components/Menu.tsx` | Pane header menu, top bar Panes menu, shared menu button |

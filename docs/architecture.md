@@ -67,18 +67,24 @@ With `config.mock`, `createMockDataService()` replaces the APS data service and 
 
 ### TanStack usage
 
-- **Router** (`routes/router.tsx`): a root route renders `AppShell`, an index route renders `EmptyState`, and `/model/$urn` renders the lazily loaded `ModelPage`. Search parameters (`file`, `v`, `crumbs`, `trail`) are validated by `parseModelContext`. They carry the file name, version label and tree path from the tree to the page.
+- **Router** (`routes/router.tsx`): a root route renders `AppShell`, an index route renders `EmptyState`, and `/model/$urn` renders the lazily loaded `ModelPage` (the model header). Search parameters (`file`, `v`, `crumbs`, `trail`) are validated by `parseModelContext`. They carry the file name, version label and tree path from the tree to the page.
 - **Query** (`api/hooks.ts`, `queryClient.ts`): the session query (`['session']`, no retry) decides between the landing page and the app. Each tree node's children are a query keyed by `scopeKey`, with a 5 minute stale time. Sign-out removes the children queries and clears the session. Sign-in fetches the authorize URL and assigns `window.location`.
 - **Table** (`panels/SummaryTable.tsx`): renders the model summary.
 - **Virtual** (`components/tree/DocumentTree.tsx`): virtualizes tree rows.
 
 ### Tree
 
-`components/tree/DocumentTree.tsx` uses `@headless-tree/core` with the async data loader feature. Rows are loaded on expand through the children queries and rendered by `TreeRowView` with `role="treeitem"`, `aria-level`, `aria-expanded` and, for openable versions, `data-viewable`. `api/scope.ts` maps a node and its ancestors to the right endpoint (`childrenPath`). Only versions with a URN open the model route. `TreePanel` adds the filter box and the resizable width (260 to 480 px, 320 by default, stored in `localStorage` under `bsh.tree.width`). Below 1000 px the panel becomes an overlay.
+`components/tree/DocumentTree.tsx` uses `@headless-tree/core` with the async data loader feature. Rows are loaded on expand through the children queries and rendered by `TreeRowView` with `role="treeitem"`, `aria-level`, `aria-expanded` and, for openable versions, `data-viewable`. `api/scope.ts` maps a node and its ancestors to the right endpoint (`childrenPath`). Only versions with a URN open the model route. `TreePanel` adds the filter box. It is the Documents pane of the layout: resized with the dock sash on wide screens and shown as an overlay below 876 px.
+
+### Layout
+
+`AppShell` handles the session and the skip link. When signed in it lazily loads `LayoutProvider` (`src/web/layout`), which renders the top bar and the panes. Each pane comes from the registry in `paneRegistry.ts` (Documents, Viewer, Model summary, Dashboard) and is rendered once into a detached host element through a React portal; a layout only attaches those hosts to its slots. From 876 px wide the dock (`DockLayout.tsx`, built on `dockview-react`, lazy loaded) arranges the panes and lets the user move, tab, float, collapse and close them; below that `StackedLayout.tsx` shows a fixed column with the tree as an overlay. The arrangement is saved in `localStorage` under `bsh.layout.v1`. See [layout.md](layout.md).
+
+`ViewerProvider` sits in `LayoutProvider`, so every pane can reach the adapter through `useViewer()`.
 
 ### Model page
 
-`ModelPage` wraps a `ViewerProvider` and shows the header (breadcrumb, title, URN), the viewer, the dashboard and the model summary. Paint and export are not in the page toolbar: they live in the viewer toolbar as a tool group. The summary is a rail beside the viewer that collapses to a narrow strip; its state is stored in `localStorage` under `bsh.summary.collapsed`, and the dashboard's under `bsh.dashboard.collapsed`. Panels read the active adapter from the viewer context and fetch property rows through `usePropertyRows`.
+The Viewer pane is the main pane: `<main id="main">` holds the route content (the model header from `ModelPage`, the empty state or not found) and, on `/model/$urn`, the `ViewerPane` for the URN read from the router. `ModelPage` shows the header (breadcrumb, title, URN) and sets the document title. Paint and export are not in a page toolbar: they live in the viewer toolbar as a tool group. The summary and the dashboard are their own panes. Panes read the active adapter from the viewer context and fetch property rows through `usePropertyRows`. Collapse state lives in the layout record (`collapsed`); in the dock it shrinks the pane's group to its header, in the stack the panels' own toggles show it.
 
 ## ViewerAdapter contract
 
@@ -114,7 +120,9 @@ The real adapter mounts the tool group as an Autodesk Viewer extension, `BimShow
 
 ### Resize flow
 
-The viewer must follow its container when the document tree, dashboard or summary rail opens or closes. `ViewerPane` observes its host element with a `ResizeObserver`, and also listens to `transitionend` on the model page grid and to window `resize`. Events are coalesced with `requestAnimationFrame` and call `adapter.resize()`. A trailing timer re-calls `resize()` 250 ms after the last event so the viewer sees the final layout once the CSS transition settles. The real adapter calls the Autodesk `viewer.resize()` only when the container has a non-zero size; it first clears any fixed pixel width or height on the viewer element, and if the render canvas still differs from the container afterwards it calls `viewer.impl.resize(width, height)` directly. The mock adapter refits its SVG view box. `ViewerPane` also calls `resize()` once after the model loads.
+The viewer must follow its container when panes move, open, close, collapse or float, and when the window crosses the breakpoint. `ViewerPane` observes its host element with a `ResizeObserver` and listens to window `resize`. Events are coalesced with `requestAnimationFrame` and call `adapter.resize()`. A trailing timer re-calls `resize()` 250 ms after the last event so the viewer sees the final layout. The layout also bumps a `resizeSignal` prop whenever the viewer's host is attached to a new slot or dockview moves the viewer pane, and `ViewerPane` then calls `adapter.resize()` once. The real adapter calls the Autodesk `viewer.resize()` only when the container has a non-zero size; it first clears any fixed pixel width or height on the viewer element, and if the render canvas still differs from the container afterwards it calls `viewer.impl.resize(width, height)` directly. The mock adapter refits its SVG view box. `ViewerPane` also calls `resize()` once after the model loads.
+
+Moving the viewer never recreates it: the layout moves the host element, not the React tree, so the adapter and its WebGL canvas survive moves, tabs, floating groups and the breakpoint switch.
 
 ### Theme
 

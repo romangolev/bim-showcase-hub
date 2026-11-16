@@ -158,11 +158,12 @@ Paint swatches keep their fixed data colors in both themes. The mock viewer fill
 
 The source describes a marketing site. For the BIM Showcase Hub application:
 
-- The project tree is a collapsible left panel styled as a graphite card, in place of "no sidebar".
+- The project tree is the Documents pane, docked left by default and styled as a graphite card, in place of "no sidebar".
 - The landing view uses the two-column hero, with the app shell below it after sign-in.
 - The Autodesk Viewer follows the page theme through `setTheme` (`dark-theme` or `light-theme`), and the scene background is set from the graphite and void tokens on start, model load and every theme change. CSS overrides match these tokens.
 - The app has dark and light themes (see Light theme). The dark sections above remain the reference palette.
 - Paint swatches are user data colors, not status. They use the same three chips (red, green, blue) in the toolbar and the landing mockup, and are the only sanctioned use of red, green and blue outside status and active states.
 - Feedback uses one shared state block with loading (skeleton rows), empty (specific copy and a next step) and error (icon, plain-language message, Retry) variants. Raw server strings appear only in a title attribute.
-- The document panel is 320px by default and resizable between 260 and 480px.
+- The app is a dock of panes (Documents, Viewer, Model summary, Dashboard). Panes are graphite cards with hairline borders, 32px tab headers and the 12px gutter between them, and can be moved, resized, tabbed, collapsed to their header and floated inside the page. Floating panes keep the hairline border and get no cast shadow. Below 876px the panes stack and the document panel becomes an overlay.
+- The document panel is 320px by default.
 - The "Viewable" status badge on tree rows is outlined in arc-blue, a deliberate departure from the mint status badge. Blue marks active and availability state for tree rows (selection, openable versions). Mint is reserved for success statuses such as export completion.

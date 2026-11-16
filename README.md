@@ -13,13 +13,14 @@ The screenshots use the built-in mock data, not a real account.
 ## Features
 
 - Autodesk three-legged sign-in with a cookie session. Tokens never reach the browser except a short-lived viewer token.
-- Lazy document tree for hubs, projects, folders, items and versions, with filtering, keyboard navigation, a resizable panel and a collapsible layout on narrow screens.
+- Dockable workspace: move, resize, tab, collapse and float the document tree, the viewer, the summary and the dashboard inside the page, with a menu and keyboard path for every move, a Panes menu to reopen closed panes, Reset layout, and the arrangement saved per browser. Below 876px the panes stack and the tree becomes an overlay.
+- Lazy document tree for hubs, projects, folders, items and versions, with filtering and keyboard navigation.
 - Autodesk Viewer for any viewable version, in the US or EU region.
 - Tool group inside the viewer toolbar: paint selected elements red, green or blue (or reset), and export to Excel, with an in-viewer status badge for the export.
 - Dark and light themes with a top bar toggle. The choice is remembered, the viewer, including its native toolbar and panels, and the charts follow it.
-- Model summary: element counts grouped by Assembly Code, Classification Code and Name, in a rail that collapses to give the viewer more room.
+- Model summary: element counts grouped by Assembly Code, Classification Code and Name, in a pane that collapses to give the viewer more room.
 - Dashboard: bar chart and donut chart of elements by Category, Level, Assembly Code, Classification Code or Name.
-- Excel export: one sheet per Category with selected properties, built in the browser. The viewer resizes when the tree, dashboard or summary rail opens or closes.
+- Excel export: one sheet per Category with selected properties, built in the browser. The viewer keeps its model and resizes when panes move, float, open, close or collapse.
 - Mock mode with fixture hubs and a fake viewer, so the whole app runs without Autodesk credentials.
 
 ## Quick start (mock mode)
@@ -73,6 +74,7 @@ vercel.json     Vercel build output and rewrites
 - [Development](docs/development.md)
 - [Deployment](docs/deployment.md)
 - [Design system](docs/design-system.md)
+- [Layout](docs/layout.md)
 - [Viewer extensions](docs/extensions.md)
 
 ## License
