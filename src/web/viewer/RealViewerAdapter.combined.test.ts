@@ -177,6 +177,88 @@ describe('federated loading', () => {
   });
 });
 
+describe('viewer startup', () => {
+  it('starts one viewer for concurrent adds', async () => {
+    const [a, b] = await Promise.all([
+      adapter.addModel({ urn: 'arch' }),
+      adapter.addModel({ urn: 'mep' }),
+    ]);
+    expect(env.viewers).toHaveLength(1);
+    expect([a.status, b.status]).toEqual(['ready', 'ready']);
+    expect(
+      viewer()
+        .models.map((m) => m.urn)
+        .sort(),
+    ).toEqual(['arch', 'mep']);
+  });
+
+  it('reuses a live empty viewer', async () => {
+    await adapter.loadModels([{ urn: 'arch' }]);
+    adapter.removeModel('arch');
+    const info = await adapter.addModel({ urn: 'mep' });
+    expect(info.status).toBe('ready');
+    expect(env.viewers).toHaveLength(1);
+    expect(viewer().finished).toBe(false);
+  });
+
+  it('records a start failure on the model with the real message', async () => {
+    env.startCode = 7;
+    const seen: string[][] = [];
+    adapter.onModelsChange((models) =>
+      seen.push(models.map((m) => `${m.id}:${m.status}:${m.error ?? ''}`)),
+    );
+    const info = await adapter.addModel({ urn: 'arch', name: 'Arch.rvt' });
+    expect(info).toMatchObject({
+      id: 'arch',
+      name: 'Arch.rvt',
+      status: 'error',
+      error: 'Viewer failed to start (7)',
+    });
+    expect(adapter.getModels()).toEqual([info]);
+    expect(seen.at(-1)).toEqual(['arch:error:Viewer failed to start (7)']);
+    env.startCode = 0;
+    const retried = await adapter.addModel({ urn: 'arch' });
+    expect(retried.status).toBe('ready');
+  });
+
+  it('marks every model when loadModels cannot start the viewer', async () => {
+    env.startCode = 3;
+    await expect(
+      adapter.loadModels([{ urn: 'arch' }, { urn: 'mep' }]),
+    ).rejects.toThrow('Viewer failed to start (3)');
+    expect(adapter.getModels().map((m) => [m.id, m.error])).toEqual([
+      ['arch', 'Viewer failed to start (3)'],
+      ['mep', 'Viewer failed to start (3)'],
+    ]);
+  });
+
+  it('reports a region clash from the Autodesk initializer', async () => {
+    const other = new RealViewerAdapter(document.createElement('div'));
+    await other.loadModels([{ urn: 'arch' }]);
+    const eu = btoa('urn:adsk.wipemea:fs.file:abc');
+    const info = await adapter.addModel({ urn: eu });
+    expect(info.status).toBe('error');
+    expect(info.error).toMatch(/already initialized for another region/);
+    other.destroy();
+  });
+
+  it('reports no error for a model of a destroyed adapter', async () => {
+    const seen: string[] = [];
+    adapter.onModelsChange((models) =>
+      seen.push(...models.map((m) => m.status)),
+    );
+    const adding = adapter.addModel({ urn: 'arch' });
+    adapter.destroy();
+    await expect(adding).rejects.toMatchObject({ code: 'closed' });
+    await expect(adapter.addModel({ urn: 'arch' })).rejects.toMatchObject({
+      code: 'closed',
+    });
+    expect(seen).not.toContain('error');
+    expect(adapter.getModels()).toEqual([]);
+    expect(env.viewers).toHaveLength(0);
+  });
+});
+
 describe('federated selection, paint and properties', () => {
   it('listens to the aggregate selection event only', async () => {
     await adapter.loadModels([{ urn: 'a' }, { urn: 'b' }]);

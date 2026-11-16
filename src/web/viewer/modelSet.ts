@@ -26,7 +26,9 @@ export interface ModelDbId {
   dbId: number;
 }
 
-export type ModelSetErrorCode = 'limit' | 'duplicate' | 'empty';
+export const VIEWER_CLOSED_MESSAGE = 'The viewer is closed';
+
+export type ModelSetErrorCode = 'limit' | 'duplicate' | 'empty' | 'closed';
 
 export class ModelSetError extends Error {
   constructor(

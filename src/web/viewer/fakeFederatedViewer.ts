@@ -99,6 +99,7 @@ export interface FakeEnvironment {
   viewers: FakeFederatedViewer[];
   specs: Map<string, FakeModelSpec>;
   gate: Map<string, Promise<void>>;
+  startCode?: number;
 }
 
 export class FakeFederatedViewer implements GuiViewer3D {
@@ -129,7 +130,7 @@ export class FakeFederatedViewer implements GuiViewer3D {
   }
 
   start(): number {
-    return 0;
+    return this.env.startCode ?? 0;
   }
 
   resize(): void {}

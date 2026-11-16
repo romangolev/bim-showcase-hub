@@ -32,6 +32,7 @@ import {
   type ModelSource,
   modelIdFor,
   uniqueSources,
+  VIEWER_CLOSED_MESSAGE,
 } from './modelSet.js';
 import { readSceneBackground } from './sceneBackground.js';
 import { ToolGroupController } from './toolGroupController.js';
@@ -159,6 +160,10 @@ function loadDocument(urn: string) {
   });
 }
 
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : 'The model could not be loaded';
+}
+
 function readTree(
   viewer: GuiViewer3D,
   model: ViewerModel,
@@ -210,6 +215,8 @@ export class RealViewerAdapter implements ViewerAdapter {
   private api = '';
   private selectionEvent = '';
   private settling: Promise<void> = Promise.resolve();
+  private starting: Promise<GuiViewer3D | null> | null = null;
+  private epoch = 0;
   private readonly onSelection = (ev: ViewerEvent) => {
     const ids = selectionIds(ev);
     for (const cb of this.selectionListeners) cb([...ids]);
@@ -245,29 +252,25 @@ export class RealViewerAdapter implements ViewerAdapter {
   async loadModels(sources: readonly ModelSource[]): Promise<ModelInfo[]> {
     const unique = uniqueSources(sources);
     checkCapacity(0, unique.length);
-    const first = unique[0]?.urn ?? '';
-    const api = apiForRegion(detectRegion(first));
-    await loadViewerAssets();
-    if (this.destroyed) return [];
-    await initializeViewing(api);
     if (this.destroyed) return [];
     this.unload();
-    const viewing = getViewing();
-    const viewer = new viewing.GuiViewer3D(this.container, {
-      extensions: ['Autodesk.DocumentBrowser', 'Autodesk.VisualClusters'],
+    const api = apiForRegion(detectRegion(unique[0]?.urn ?? ''));
+    const entries = unique.map((source) => {
+      const info = this.models.add(source);
+      return { id: info.id, token: this.models.token(info.id) };
     });
-    this.viewer = viewer;
-    this.api = api;
-    this.selectionEvent =
-      viewing.AGGREGATE_SELECTION_CHANGED_EVENT ??
-      viewing.SELECTION_CHANGED_EVENT;
-    viewer.addEventListener(this.selectionEvent, this.onSelection);
-    const startCode = viewer.start();
-    if (startCode) throw new Error(`Viewer failed to start (${startCode})`);
-    this.tagContainer(viewer);
-    this.watchScreenMode(viewer, viewing.FULLSCREEN_MODE_EVENT);
-    this.applyTheme(viewer);
-    for (const source of unique) this.models.add(source);
+    let viewer: GuiViewer3D | null;
+    try {
+      viewer = await this.ensureViewer(api);
+    } catch (err) {
+      if (!this.destroyed) {
+        for (const { id, token } of entries) {
+          this.models.fail(id, errorMessage(err), token);
+        }
+      }
+      throw err;
+    }
+    if (!viewer) return [];
     const settling = this.loadSet(viewer, unique);
     this.settling = settling.catch(() => {});
     await settling;
@@ -280,22 +283,77 @@ export class RealViewerAdapter implements ViewerAdapter {
   }
 
   async addModel(source: ModelSource): Promise<ModelInfo> {
-    const viewer = this.viewer;
-    if (!viewer || this.models.size === 0) {
-      try {
-        await this.loadModels([source]);
-      } catch (err) {
-        if (err instanceof ModelSetError) throw err;
-      }
-      return this.models.get(modelIdFor(source.urn)) ?? this.failedInfo(source);
+    if (this.destroyed) {
+      throw new ModelSetError('closed', VIEWER_CLOSED_MESSAGE);
     }
     const info = this.models.add(source);
+    const token = this.models.token(info.id);
+    const current = () => this.models.get(info.id) ?? info;
+    let viewer: GuiViewer3D | null;
+    try {
+      viewer = await this.ensureViewer(apiForRegion(detectRegion(source.urn)));
+    } catch (err) {
+      if (this.destroyed) {
+        throw new ModelSetError('closed', VIEWER_CLOSED_MESSAGE);
+      }
+      this.models.fail(info.id, errorMessage(err), token);
+      return current();
+    }
+    if (this.destroyed) {
+      throw new ModelSetError('closed', VIEWER_CLOSED_MESSAGE);
+    }
+    if (!viewer) return current();
     await this.settling;
-    if (this.viewer !== viewer) return this.models.get(info.id) ?? info;
+    if (this.viewer !== viewer || this.models.token(info.id) !== token) {
+      return current();
+    }
     await this.loadOne(viewer, source, this.fetchDocument(source.urn));
-    const current = this.models.get(info.id) ?? info;
-    if (current.status === 'ready') viewer.fitToView?.();
-    return current;
+    const loaded = current();
+    if (loaded.status === 'ready') viewer.fitToView?.();
+    return loaded;
+  }
+
+  private ensureViewer(api: string): Promise<GuiViewer3D | null> {
+    if (this.viewer) return Promise.resolve(this.viewer);
+    if (!this.starting) {
+      const starting = this.startViewer(api, this.epoch);
+      this.starting = starting;
+      const clear = () => {
+        if (this.starting === starting) this.starting = null;
+      };
+      starting.then(clear, clear);
+    }
+    return this.starting;
+  }
+
+  private async startViewer(
+    api: string,
+    epoch: number,
+  ): Promise<GuiViewer3D | null> {
+    const superseded = () => this.destroyed || epoch !== this.epoch;
+    await loadViewerAssets();
+    if (superseded()) return null;
+    await initializeViewing(api);
+    if (superseded()) return null;
+    const viewing = getViewing();
+    const viewer = new viewing.GuiViewer3D(this.container, {
+      extensions: ['Autodesk.DocumentBrowser', 'Autodesk.VisualClusters'],
+    });
+    this.selectionEvent =
+      viewing.AGGREGATE_SELECTION_CHANGED_EVENT ??
+      viewing.SELECTION_CHANGED_EVENT;
+    viewer.addEventListener(this.selectionEvent, this.onSelection);
+    const startCode = viewer.start();
+    if (startCode) {
+      viewer.removeEventListener(this.selectionEvent, this.onSelection);
+      throw new Error(`Viewer failed to start (${startCode})`);
+    }
+    this.viewer = viewer;
+    this.api = api;
+    this.tagContainer(viewer);
+    this.watchScreenMode(viewer, viewing.FULLSCREEN_MODE_EVENT);
+    this.applyTheme(viewer);
+    return viewer;
   }
 
   removeModel(modelId: string): void {
@@ -352,17 +410,6 @@ export class RealViewerAdapter implements ViewerAdapter {
       const model = this.models.handle(modelId);
       if (model) viewer.setThemingColor(dbId, vector, model);
     }
-  }
-
-  private failedInfo(source: ModelSource): ModelInfo {
-    return {
-      id: modelIdFor(source.urn),
-      urn: source.urn,
-      name: source.name ?? source.urn,
-      visible: true,
-      status: 'error',
-      error: 'The viewer could not start',
-    };
   }
 
   private fetchDocument(urn: string): Promise<ViewingDocument> {
@@ -435,11 +482,7 @@ export class RealViewerAdapter implements ViewerAdapter {
       }
     } catch (err) {
       if (this.destroyed || this.viewer !== viewer) return;
-      this.models.fail(
-        id,
-        err instanceof Error ? err.message : 'The model could not be loaded',
-        token,
-      );
+      this.models.fail(id, errorMessage(err), token);
     }
   }
 
@@ -489,6 +532,11 @@ export class RealViewerAdapter implements ViewerAdapter {
   }
 
   unload(): void {
+    this.epoch += 1;
+    this.starting = null;
+    this.models.clear();
+    this.anchor = null;
+    this.settling = Promise.resolve();
     const viewer = this.viewer;
     if (!viewer) return;
     const viewing = autodeskWindow().Autodesk?.Viewing;
@@ -506,9 +554,6 @@ export class RealViewerAdapter implements ViewerAdapter {
     }
     this.unwatchScreenMode();
     this.untagContainer();
-    this.models.clear();
-    this.anchor = null;
-    this.settling = Promise.resolve();
     this.toolsMounted = false;
     this.modelLoaded = false;
     this.controller?.resetState();
