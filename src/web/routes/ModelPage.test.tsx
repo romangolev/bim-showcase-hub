@@ -77,9 +77,34 @@ describe('ModelPage', () => {
     const heading = screen.getByRole('heading', { level: 1 });
     expect(heading).toHaveTextContent('Tower.rvt');
     expect(heading).toHaveTextContent('v2');
-    const trail = screen.getByRole('navigation', { name: 'Breadcrumb' });
+    const trail = screen.getByRole('navigation', { name: /^Breadcrumb/ });
     expect(trail).toHaveTextContent('Studio hub');
     expect(trail).toHaveTextContent('Project Files');
+    expect(trail).toHaveAttribute(
+      'aria-label',
+      'Breadcrumb: Studio hub / Riverside Tower / Project Files',
+    );
+    const gap = trail.querySelector('.crumbs__gap');
+    expect(gap).toHaveAttribute(
+      'title',
+      'Studio hub / Riverside Tower / Project Files',
+    );
+    expect(gap).toHaveAttribute('aria-hidden', 'true');
+    expect(trail.querySelector('[data-position="middle"]')).toHaveTextContent(
+      'Riverside Tower',
+    );
+    expect(trail.querySelector('[data-position="last"]')).toHaveTextContent(
+      'Project Files',
+    );
+  });
+
+  it('shows two crumbs without a collapsed gap', () => {
+    render(
+      <ModelPage urn={LONG_URN} file="Tower.rvt" crumbs={['Hub', 'Docs']} />,
+    );
+    const trail = screen.getByRole('navigation', { name: /^Breadcrumb/ });
+    expect(trail.querySelector('.crumbs__gap')).toBeNull();
+    expect(trail.querySelectorAll('.crumbs__item')).toHaveLength(2);
   });
 
   it('falls back to a generic title with a short urn', () => {
@@ -99,7 +124,7 @@ describe('ModelPage', () => {
       screen.queryByRole('button', { name: 'Show in documents' }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole('navigation', { name: 'Breadcrumb' }),
+      screen.queryByRole('navigation', { name: /^Breadcrumb/ }),
     ).not.toBeInTheDocument();
   });
 
@@ -164,7 +189,7 @@ describe('ModelPage', () => {
     expect(toggle).toHaveTextContent('Expand');
     expect(
       document.getElementById(toggle.getAttribute('aria-controls') ?? ''),
-    ).not.toBeVisible();
+    ).toHaveAttribute('inert');
     expect(window.localStorage.getItem(DASHBOARD_STORAGE_KEY)).toBe('1');
   });
 

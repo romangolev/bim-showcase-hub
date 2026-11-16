@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { describeModel } from '../api/modelContext.js';
+import { Breadcrumb } from '../components/Breadcrumb.js';
 import { Icon } from '../components/icons.js';
 import { useTreeControl } from '../components/TreeControl.js';
 import {
@@ -139,20 +140,7 @@ export function ModelPage({
     <ViewerProvider>
       <div className="model-page">
         <header className="model-head">
-          {crumbs && crumbs.length > 0 ? (
-            <nav aria-label="Breadcrumb" className="crumbs">
-              <ol className="crumbs__list">
-                {crumbs.map((name, index) => {
-                  const path = crumbs.slice(0, index + 1).join('/');
-                  return (
-                    <li key={path} className="crumbs__item" title={name}>
-                      {name}
-                    </li>
-                  );
-                })}
-              </ol>
-            </nav>
-          ) : null}
+          {crumbs && crumbs.length > 0 ? <Breadcrumb crumbs={crumbs} /> : null}
           <div className="model-head__row">
             <h1 className="model-title">
               <span className="model-title__name" title={identity.title}>
