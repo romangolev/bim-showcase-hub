@@ -191,6 +191,26 @@ def check_layout(page, checks, notes):
         )
     checks.add("viewer survives the drag", page.evaluate(VIEWER_KEPT))
 
+    page.get_by_role("button", name="Dashboard pane options").focus()
+    page.keyboard.press("Enter")
+    page.keyboard.press("ArrowDown")
+    page.keyboard.press("ArrowDown")
+    page.keyboard.press("Enter")
+    settle(page)
+    found = groups(page)
+    checks.add(
+        "keyboard: pane menu moves the dashboard below",
+        found["Dashboard"]["top"] >= max(g["bottom"] for name, g in found.items() if name != "Dashboard") - 2,
+        found,
+    )
+    focused = page.evaluate("() => [document.activeElement.getAttribute('role'), document.activeElement.getAttribute('aria-label')]")
+    checks.add("keyboard: focus lands on the moved pane tab", focused == ["tab", "Dashboard"], focused)
+    page.keyboard.press("F6")
+    after_f6 = page.evaluate("() => [document.activeElement.getAttribute('role'), document.activeElement.getAttribute('aria-label')]")
+    checks.add("keyboard: F6 moves focus to another pane", after_f6[0] == "tab" and after_f6[1] != "Dashboard", after_f6)
+    regions = page.evaluate("() => [...document.querySelectorAll('[aria-live]')].map((el) => el.className)")
+    checks.add("dockview and layout live regions are present", any("dv-live-region" in r for r in regions) and any("layout-announcer" in r for r in regions), regions)
+
     page.get_by_role("button", name="Panes").click()
     page.get_by_role("menuitem", name="Reset layout").click()
     settle(page)
@@ -250,6 +270,10 @@ def run(context, checks, notes):
 
     page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
     page.goto(BASE_URL, wait_until="networkidle")
+    try:
+        page.get_by_role("button", name=re.compile(MOCK_USER_NAME)).first.wait_for(timeout=15000)
+    except Exception:
+        pass
     checks.add(
         "app shows the signed-in user",
         page.get_by_role("button", name=re.compile(MOCK_USER_NAME)).count() == 1,
