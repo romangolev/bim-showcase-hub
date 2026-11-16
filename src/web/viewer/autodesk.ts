@@ -142,6 +142,7 @@ export interface GuiViewer3D {
   hideModel?(model: ViewerModel): boolean;
   showModel?(model: ViewerModel, preserveTools?: boolean): boolean;
   getAllModels?(): ViewerModel[];
+  select?(ids: number[], model?: ViewerModel): void;
   getAggregateSelection?(): AggregateSelection[];
   fitToView?(): void;
   getObjectTree(

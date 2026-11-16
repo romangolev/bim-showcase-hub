@@ -169,8 +169,12 @@ export class FakeFederatedViewer implements GuiViewer3D {
 
   hideModel(model: ViewerModel): boolean {
     this.hidden.add(model as FakeModel);
-    this.selections.delete(model as FakeModel);
     return true;
+  }
+
+  select(ids: number[], model: ViewerModel): void {
+    this.selections.set(model as FakeModel, [...ids]);
+    this.fire();
   }
 
   showModel(model: ViewerModel): boolean {

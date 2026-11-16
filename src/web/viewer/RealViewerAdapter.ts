@@ -379,8 +379,12 @@ export class RealViewerAdapter implements ViewerAdapter {
     const viewer = this.viewer;
     const model = this.models.handle(modelId);
     if (!viewer || !model) return;
-    if (visible) viewer.showModel?.(model, true);
-    else viewer.hideModel?.(model);
+    if (visible) {
+      viewer.showModel?.(model, true);
+    } else {
+      viewer.select?.([], model);
+      viewer.hideModel?.(model);
+    }
     this.emitSelection();
   }
 
@@ -391,14 +395,18 @@ export class RealViewerAdapter implements ViewerAdapter {
   getModelSelection(): ModelDbId[] {
     const viewer = this.viewer;
     if (!viewer) return [];
+    const shown = (modelId: string | undefined): modelId is string =>
+      modelId !== undefined && this.models.get(modelId)?.visible === true;
     if (viewer.getAggregateSelection) {
       return viewer.getAggregateSelection().flatMap(({ model, selection }) => {
         const modelId = this.models.idOf(model);
-        return modelId ? selection.map((dbId) => ({ modelId, dbId })) : [];
+        return shown(modelId)
+          ? selection.map((dbId) => ({ modelId, dbId }))
+          : [];
       });
     }
     const primary = this.models.primaryId();
-    if (!primary) return [];
+    if (!shown(primary)) return [];
     return viewer.getSelection().map((dbId) => ({ modelId: primary, dbId }));
   }
 
@@ -569,12 +577,8 @@ export class RealViewerAdapter implements ViewerAdapter {
   getSelection(): number[] {
     const viewer = this.viewer;
     if (!viewer) return [];
-    if (viewer.getAggregateSelection) {
-      return viewer
-        .getAggregateSelection()
-        .flatMap(({ selection }) => [...selection]);
-    }
-    return [...viewer.getSelection()];
+    if (this.models.size === 0) return [...viewer.getSelection()];
+    return this.getModelSelection().map((item) => item.dbId);
   }
 
   clearSelection(): void {

@@ -308,12 +308,24 @@ describe.each([mockFactory, realFactory])(
       const { adapter, dbIds, select } = setup();
       await adapter.loadModels([{ urn: 'urn-a' }, { urn: 'urn-b' }]);
       const [first] = dbIds();
-      select([{ modelId: 'urn-b', dbId: first ?? 0 }]);
+      select([
+        { modelId: 'urn-a', dbId: first ?? 0 },
+        { modelId: 'urn-b', dbId: first ?? 0 },
+      ]);
+      const seen: number[][] = [];
+      adapter.onSelectionChange((ids) => seen.push(ids));
       adapter.setModelVisible('urn-b', false);
       expect(adapter.getModels().map((m) => m.visible)).toEqual([true, false]);
-      expect(adapter.getModelSelection()).toEqual([]);
+      expect(adapter.getModelSelection()).toEqual([
+        { modelId: 'urn-a', dbId: first },
+      ]);
+      expect(adapter.getSelection()).toEqual([first]);
+      expect(seen.at(-1)).toEqual([first]);
       adapter.setModelVisible('urn-b', true);
       expect(adapter.getModels().map((m) => m.visible)).toEqual([true, true]);
+      expect(adapter.getModelSelection()).toEqual([
+        { modelId: 'urn-a', dbId: first },
+      ]);
     });
 
     it('stops notifying model listeners after unsubscribe and destroy', async () => {
