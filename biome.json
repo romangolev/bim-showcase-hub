@@ -7,6 +7,8 @@
       "!.claude",
       "!.playwright-mcp",
       "!.vercel",
+      "!e2e/output",
+      "!e2e/.profile",
       "!node_modules",
       "!docs",
       "!package-lock.json",
