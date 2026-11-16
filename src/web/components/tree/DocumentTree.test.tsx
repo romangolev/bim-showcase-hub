@@ -10,11 +10,19 @@ import {
 } from '../../test/mockApi.js';
 import { DocumentTree } from './DocumentTree.js';
 
-function renderTree(onOpenModel = vi.fn(), selectedUrn?: string) {
+function renderTree(
+  onOpenModel = vi.fn(),
+  selectedUrn?: string,
+  revealTrail?: string[],
+) {
   const client = createTestClient();
   render(
     <QueryClientProvider client={client}>
-      <DocumentTree onOpenModel={onOpenModel} selectedUrn={selectedUrn} />
+      <DocumentTree
+        onOpenModel={onOpenModel}
+        selectedUrn={selectedUrn}
+        revealTrail={revealTrail}
+      />
     </QueryClientProvider>,
   );
   return onOpenModel;
@@ -95,8 +103,10 @@ describe('DocumentTree', () => {
       name: 'Filter loaded nodes',
     });
     fireEvent.change(input, { target: { value: 'river' } });
-    expect(screen.getByText('Riverside Tower')).toBeInTheDocument();
-    expect(screen.queryByText('Studio hub')).not.toBeInTheDocument();
+    const result = screen.getByRole('option', { name: /Riverside Tower/ });
+    expect(result.querySelector('mark')).toHaveTextContent('River');
+    expect(result).toHaveTextContent('Studio hub');
+    expect(screen.queryByRole('option', { name: /^Studio hub/ })).toBeNull();
 
     fireEvent.change(input, { target: { value: 'zzz' } });
     expect(screen.getByText('No loaded nodes match')).toBeInTheDocument();
@@ -125,7 +135,33 @@ describe('DocumentTree', () => {
     expect(onOpenModel).not.toHaveBeenCalled();
 
     fireEvent.click(viewable);
-    expect(onOpenModel).toHaveBeenCalledWith('dXJuOmFkc2s');
+    expect(onOpenModel).toHaveBeenCalledWith('dXJuOmFkc2s', {
+      file: 'Tower.rvt',
+      v: 'v2',
+      trail: ['h1', 'p1', 'f1', 'i1'],
+      crumbs: ['Studio hub', 'Riverside Tower', 'Project Files'],
+    });
+  });
+
+  it('reveals and selects the open version from a trail', async () => {
+    mockFetch(treeRoutes);
+    renderTree(vi.fn(), 'dXJuOmFkc2s', ['h1', 'p1', 'f1', 'i1']);
+
+    const selected = await screen.findByRole(
+      'treeitem',
+      { name: 'v2: Coordination' },
+      { timeout: 4000 },
+    );
+    expect(selected).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByText('Tower.rvt')).toBeInTheDocument();
+  });
+
+  it('ignores an unknown trail without failing', async () => {
+    mockFetch(treeRoutes);
+    renderTree(vi.fn(), 'dXJuOmFkc2s', ['nope']);
+
+    expect(await screen.findByText('Studio hub')).toBeInTheDocument();
+    expect(screen.queryByText('Riverside Tower')).not.toBeInTheDocument();
   });
 
   it('expands and collapses with arrow keys', async () => {

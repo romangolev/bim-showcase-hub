@@ -7,9 +7,10 @@ import {
 import { useTree } from '@headless-tree/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useVirtualizer, type Virtualizer } from '@tanstack/react-virtual';
-import { type KeyboardEvent, useRef, useState } from 'react';
+import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import type { TreeNode } from '../../../shared/types.js';
 import { childrenQueryOptions } from '../../api/hooks.js';
+import { type ModelContext, versionTag } from '../../api/modelContext.js';
 import {
   childScope,
   type NodeScope,
@@ -18,11 +19,12 @@ import {
   ROOT_SCOPE,
 } from '../../api/scope.js';
 import { Icon } from '../icons.js';
-import { ROW_HEIGHT, TreeRowView } from './TreeRowView.js';
+import { ROW_HEIGHT, rowHeightFor, TreeRowView } from './TreeRowView.js';
 
 export interface DocumentTreeProps {
   selectedUrn?: string;
-  onOpenModel: (urn: string) => void;
+  revealTrail?: readonly string[];
+  onOpenModel: (urn: string, context: ModelContext) => void;
 }
 
 type StatusVariant = 'loading' | 'error' | 'empty';
@@ -64,7 +66,29 @@ const STATUS_COPY: Record<StatusVariant, string> = {
   empty: 'Nothing here yet',
 };
 
-export function DocumentTree({ selectedUrn, onOpenModel }: DocumentTreeProps) {
+const TRAIL_SEPARATOR = '|';
+const REVEAL_TIMEOUT_MS = 5000;
+
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
+async function until(check: () => boolean, timeoutMs: number) {
+  const deadline = Date.now() + timeoutMs;
+  while (!check()) {
+    if (Date.now() > deadline) {
+      return false;
+    }
+    await sleep(40);
+  }
+  return true;
+}
+
+export function DocumentTree({
+  selectedUrn,
+  revealTrail,
+  onOpenModel,
+}: DocumentTreeProps) {
   const queryClient = useQueryClient();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [filter, setFilter] = useState('');
@@ -79,6 +103,40 @@ export function DocumentTree({ selectedUrn, onOpenModel }: DocumentTreeProps) {
     loaded: new Set<string>(),
   }).current;
 
+  const selectedUrnRef = useRef(selectedUrn);
+  selectedUrnRef.current = selectedUrn;
+
+  const parentName = (node: TreeNode): string | undefined =>
+    node.parentId ? registry.nodes.get(node.parentId)?.name : undefined;
+
+  const contextFor = (node: TreeNode): ModelContext => {
+    const ancestors: TreeNode[] = [];
+    let parentId = node.parentId;
+    while (parentId && ancestors.length < 64) {
+      const parent = registry.nodes.get(parentId);
+      if (!parent) {
+        break;
+      }
+      ancestors.unshift(parent);
+      parentId = parent.parentId;
+    }
+    const owner = ancestors[ancestors.length - 1];
+    const container =
+      owner?.kind === 'item' ? ancestors.slice(0, -1) : ancestors;
+    const context: ModelContext = {
+      trail: ancestors.map((ancestor) => ancestor.id),
+      crumbs: container.map((ancestor) => ancestor.name),
+    };
+    if (owner?.kind === 'item') {
+      context.file = owner.name;
+    }
+    const tag = versionTag(node.name);
+    if (tag) {
+      context.v = tag;
+    }
+    return context;
+  };
+
   const activate = (item: ItemInstance<TreeNode>) => {
     const node = item.getItemData();
     if (item.isFolder()) {
@@ -91,7 +149,7 @@ export function DocumentTree({ selectedUrn, onOpenModel }: DocumentTreeProps) {
     }
     const urn = openableUrn(node);
     if (urn) {
-      onOpenModel(urn);
+      onOpenModel(urn, contextFor(node));
     }
   };
 
@@ -142,6 +200,50 @@ export function DocumentTree({ selectedUrn, onOpenModel }: DocumentTreeProps) {
     },
     features: [asyncDataLoaderFeature, selectionFeature, hotkeysCoreFeature],
   });
+
+  const revealKey = revealTrail?.join(TRAIL_SEPARATOR) ?? '';
+  useEffect(() => {
+    if (!revealKey) {
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        for (const id of revealKey.split(TRAIL_SEPARATOR)) {
+          if (!(await until(() => registry.nodes.has(id), REVEAL_TIMEOUT_MS))) {
+            return;
+          }
+          if (cancelled) {
+            return;
+          }
+          const item = tree.getItemInstance(id);
+          if (!item.isExpanded()) {
+            item.expand();
+          }
+          if (
+            !(await until(() => registry.loaded.has(id), REVEAL_TIMEOUT_MS))
+          ) {
+            return;
+          }
+        }
+        await sleep(80);
+        const target = selectedUrnRef.current;
+        const index = rowsRef.current.findIndex(
+          (row) =>
+            row.type === 'node' &&
+            openableUrn(row.item.getItemData()) === target,
+        );
+        if (!cancelled && index >= 0) {
+          virtualizerRef.current?.scrollToIndex(index, { align: 'center' });
+        }
+      } catch {
+        return;
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [revealKey, registry, tree]);
 
   const query = filter.trim().toLowerCase();
 
@@ -234,7 +336,17 @@ export function DocumentTree({ selectedUrn, onOpenModel }: DocumentTreeProps) {
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => ROW_HEIGHT,
+    estimateSize: (index) => {
+      const row = rows[index];
+      if (row?.type === 'node') {
+        const node = row.item.getItemData();
+        return rowHeightFor(node.kind, node.name);
+      }
+      if (row?.type === 'result') {
+        return rowHeightFor(row.node.kind, row.node.name, parentName(row.node));
+      }
+      return ROW_HEIGHT;
+    },
     overscan: 8,
     getItemKey: (index) => rows[index]?.key ?? index,
   });
@@ -258,7 +370,7 @@ export function DocumentTree({ selectedUrn, onOpenModel }: DocumentTreeProps) {
       event.preventDefault();
       const urn = openableUrn(node);
       if (urn) {
-        onOpenModel(urn);
+        onOpenModel(urn, contextFor(node));
       }
     }
   };
@@ -303,9 +415,9 @@ export function DocumentTree({ selectedUrn, onOpenModel }: DocumentTreeProps) {
             ref: item.registerElement,
             'aria-selected': urn !== null && urn === selectedUrn,
             'aria-disabled': disabled || undefined,
-            title: disabled
-              ? 'This version has no viewable geometry'
-              : undefined,
+            ...(disabled
+              ? { title: `${node.name}: no viewable geometry` }
+              : {}),
             onClick: () => {
               item.setFocused();
               activate(item);
@@ -327,6 +439,8 @@ export function DocumentTree({ selectedUrn, onOpenModel }: DocumentTreeProps) {
           name={row.node.name}
           viewable={row.node.viewable}
           caption={row.node.kind === 'version' ? undefined : row.node.kind}
+          secondary={parentName(row.node)}
+          highlight={query}
           selected={urn !== null && urn === selectedUrn}
           rowProps={{
             role: 'option',
@@ -335,7 +449,7 @@ export function DocumentTree({ selectedUrn, onOpenModel }: DocumentTreeProps) {
             'aria-disabled': disabled || undefined,
             onClick: () => {
               if (urn) {
-                onOpenModel(urn);
+                onOpenModel(urn, contextFor(row.node));
               }
             },
             onKeyDown: (event) => onResultKeyDown(event, row.node),

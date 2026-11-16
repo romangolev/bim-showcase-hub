@@ -2,9 +2,9 @@
   display: flex;
   flex: none;
   flex-direction: column;
-  width: 320px;
+  width: 280px;
   min-height: 0;
-  margin: var(--space-3) 0 var(--space-3) var(--space-3);
+  margin: var(--gutter) 0 var(--gutter) var(--gutter);
   border: var(--border-hairline);
   border-radius: var(--radius-card);
   background: var(--color-graphite);
@@ -24,7 +24,6 @@
   font-size: var(--text-13);
   font-weight: var(--weight-label);
   letter-spacing: var(--tracking-body);
-  text-transform: none;
 }
 
 .doc-tree {
@@ -35,27 +34,26 @@
 }
 
 .doc-tree__search {
-  display: flex;
-  align-items: center;
-  gap: var(--gap-element);
+  position: relative;
   margin: 0 var(--space-3) var(--space-2);
-  padding: 0 var(--space-3);
-  border: var(--border-hairline);
-  border-radius: var(--radius-button);
-  background: var(--color-charcoal);
   color: var(--color-ash);
 }
 
-.doc-tree__search:focus-within {
-  box-shadow: var(--ring-focus);
+.doc-tree__search svg {
+  position: absolute;
+  top: 50%;
+  left: var(--space-3);
+  transform: translateY(-50%);
+  pointer-events: none;
 }
 
 .doc-tree__search input {
-  flex: 1;
-  min-width: 0;
-  height: 32px;
-  border: 0;
-  background: transparent;
+  width: 100%;
+  height: 34px;
+  padding: 0 var(--space-3) 0 34px;
+  border: var(--border-hairline);
+  border-radius: var(--radius-button);
+  background: var(--color-charcoal);
   color: var(--color-snow);
   font: inherit;
   font-size: var(--text-13);
@@ -63,10 +61,6 @@
 
 .doc-tree__search input::placeholder {
   color: var(--color-ash);
-}
-
-.doc-tree__search input:focus-visible {
-  box-shadow: none;
 }
 
 .doc-tree__scroll {
@@ -77,7 +71,7 @@
 }
 
 .doc-tree__canvas:focus-visible {
-  box-shadow: none;
+  outline-offset: -2px;
 }
 
 .tree-row {
@@ -89,16 +83,20 @@
   font-size: var(--text-13);
   cursor: pointer;
   user-select: none;
+  transition: background-color var(--transition-ui);
 }
 
 .tree-row:hover {
-  background: var(--color-ghost-fill);
+  background: var(--color-ghost-fill-hover);
 }
 
-.tree-row[data-focused="true"]:focus-visible,
-.tree-row:focus-visible {
-  background: var(--color-ghost-fill);
-  box-shadow: inset 0 0 0 1.5px var(--color-ring-blue);
+.tree-row:active {
+  background: var(--color-ghost-fill-active);
+}
+
+.tree-row:focus-visible,
+.tree-row[data-focused="true"]:focus-visible {
+  outline-offset: -2px;
 }
 
 .tree-row[data-selected="true"] {
@@ -110,10 +108,10 @@
 .tree-row[data-disabled="true"] {
   color: var(--color-ash);
   cursor: not-allowed;
-  opacity: 0.6;
 }
 
-.tree-row[data-disabled="true"]:hover {
+.tree-row[data-disabled="true"]:hover,
+.tree-row[data-disabled="true"]:active {
   background: transparent;
 }
 
@@ -139,12 +137,30 @@
   color: var(--color-fog);
 }
 
-.tree-row__label {
+.tree-row__text {
+  display: flex;
   flex: 1;
+  flex-direction: column;
   min-width: 0;
+  line-height: 1.3;
+}
+
+.tree-row__label,
+.tree-row__secondary {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.tree-row__secondary {
+  color: var(--color-fog);
+  font-size: 12px;
+}
+
+.tree-row__match {
+  border-radius: 2px;
+  background: rgb(59 130 246 / 0.3);
+  color: var(--color-snow);
 }
 
 .tree-row[data-viewable="true"] .tree-row__icon {
@@ -167,8 +183,8 @@
 
 .tree-row__caption {
   flex: none;
-  color: var(--color-steel);
-  font-size: 11px;
+  color: var(--color-ash);
+  font-size: 12px;
 }
 
 .tree-status {
@@ -201,12 +217,37 @@
   cursor: pointer;
 }
 
-.tree-status__retry:hover {
-  background: var(--color-ghost-fill);
+.tree-status__retry {
+  transition: background-color var(--transition-ui);
 }
 
-@media (max-width: 1000px) {
+.tree-status__retry:hover {
+  background: var(--color-ghost-fill-hover);
+}
+
+.tree-status__retry:active {
+  background: var(--color-ghost-fill-active);
+}
+
+@media (max-width: 999px) {
   .tree-panel {
-    width: 260px;
+    position: fixed;
+    top: var(--nav-height);
+    bottom: 0;
+    left: 0;
+    z-index: 40;
+    width: min(320px, 88vw);
+    margin: 0;
+    border-top: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 0 var(--radius-card) var(--radius-card) 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tree-row,
+  .tree-status__retry {
+    transition: none;
   }
 }
