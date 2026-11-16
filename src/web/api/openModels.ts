@@ -1,4 +1,4 @@
-import { MAX_COMBINED_MODELS, type Vec3 } from '../viewer/modelSet.js';
+import { MAX_COMBINED_MODELS, type Vec3 } from '../../shared/combined.js';
 import {
   joinWith,
   type ModelContext,
@@ -12,7 +12,6 @@ import { hasModelContext, MODEL_STORE_KEY, recallModel } from './modelStore.js';
 export const OPEN_MODELS_KEY = 'bsh.models.open';
 export const MODEL_OWNER_KEY = 'bsh.models.owner';
 export const MAX_LOADED_MODELS = 4;
-export { MAX_COMBINED_MODELS };
 
 export interface OpenModel {
   urn: string;

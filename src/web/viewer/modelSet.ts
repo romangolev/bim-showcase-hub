@@ -1,4 +1,6 @@
-export const MAX_COMBINED_MODELS = 6;
+import { MAX_COMBINED_MODELS, type Vec3 } from '../../shared/combined.js';
+
+export type { Vec3 };
 
 export const MODEL_LIMIT_MESSAGE = `A combined view holds up to ${MAX_COMBINED_MODELS} models. Remove one to add another.`;
 export const DUPLICATE_MODEL_MESSAGE =
@@ -264,8 +266,6 @@ export class ModelSet<H> {
     }
   }
 }
-
-export type Vec3 = readonly [number, number, number];
 
 export interface ModelBox {
   id: string;

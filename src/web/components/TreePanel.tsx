@@ -1,11 +1,11 @@
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
+import { MAX_COMBINED_MODELS } from '../../shared/combined.js';
 import { joinWith } from '../api/modelContext.js';
 import { rememberModel } from '../api/modelStore.js';
 import { contextOf, modelUrnsOf } from '../api/openModels.js';
 import { useModelContext } from '../api/useModelContext.js';
 import { useOpenModels, useOpenModelsStore } from '../api/useOpenModels.js';
 import { modelTabTitle } from '../routes/ModelPage.js';
-import { MAX_COMBINED_MODELS } from '../viewer/modelSet.js';
 import {
   type AddTarget,
   DocumentTree,

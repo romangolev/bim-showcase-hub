@@ -14,6 +14,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { MAX_COMBINED_MODELS } from '../../../shared/combined.js';
 import type { TreeNode, VersionViewState } from '../../../shared/types.js';
 import { viewableFor } from '../../../shared/viewState.js';
 import { fetchVersionViewState } from '../../api/client.js';
@@ -28,10 +29,7 @@ import {
   ROOT_SCOPE,
   scopeKey,
 } from '../../api/scope.js';
-import {
-  MAX_COMBINED_MODELS,
-  MODEL_LIMIT_MESSAGE,
-} from '../../viewer/modelSet.js';
+import { MODEL_LIMIT_MESSAGE } from '../../viewer/modelSet.js';
 import { Icon } from '../icons.js';
 import { StateBlock } from '../StateBlock.js';
 import {

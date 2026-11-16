@@ -1,8 +1,8 @@
+import { MAX_COMBINED_MODELS } from '../../shared/combined.js';
 import { Icon } from '../components/icons.js';
 import { Menu, type MenuEntry } from '../components/Menu.js';
 import {
   farApartMessage,
-  MAX_COMBINED_MODELS,
   type ModelInfo,
   type ModelSpread,
 } from './modelSet.js';

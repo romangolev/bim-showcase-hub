@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { MAX_COMBINED_MODELS } from '../../shared/combined.js';
 import type { PropertyRow } from '../../shared/types.js';
 import { shapeChartData } from '../extensions/dashboardData.js';
 import { summarize } from '../extensions/modelSummary.js';
@@ -16,7 +17,6 @@ import {
   farApartMessage,
   formatKm,
   loadFailureMessage,
-  MAX_COMBINED_MODELS,
   MODEL_LIMIT_MESSAGE,
   type ModelBox,
   type ModelInfo,

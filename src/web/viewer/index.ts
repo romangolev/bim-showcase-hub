@@ -1,3 +1,4 @@
+export { MAX_COMBINED_MODELS } from '../../shared/combined.js';
 export {
   createViewerAdapter,
   isMockViewer,
@@ -12,7 +13,6 @@ export {
   scopeRows,
 } from './modelScope.js';
 export {
-  MAX_COMBINED_MODELS,
   MODEL_LIMIT_MESSAGE,
   type ModelDbId,
   type ModelInfo,

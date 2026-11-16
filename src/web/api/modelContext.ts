@@ -1,4 +1,4 @@
-import { MAX_COMBINED_MODELS } from '../viewer/modelSet.js';
+import { MAX_COMBINED_MODELS } from '../../shared/combined.js';
 
 export interface ModelContext {
   file?: string;
