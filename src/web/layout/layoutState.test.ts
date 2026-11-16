@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { installMemoryStorage } from '../test/mockApi.js';
 import {
+  adoptArrangement,
   defaultModel,
   importLegacy,
   LAYOUT_KEY,
@@ -8,6 +9,7 @@ import {
   LEGACY_KEYS,
   layoutReducer,
   migrateV1,
+  PREVIOUS_VIEWER,
   parseLayout,
   readLayout,
   type SerializedDock,
@@ -87,6 +89,7 @@ describe('layoutReducer', () => {
       collapsed: ['summary' as const],
       treeWidth: 400,
       dismissed: ['dashboard' as const],
+      lastViewer: sampleDock(),
     };
     expect(layoutReducer(custom, { type: 'reset', height: 800 })).toEqual(
       defaultModel(800),
@@ -139,6 +142,7 @@ describe('serialize and parse', () => {
       collapsed: ['dashboard' as const],
       treeWidth: 360,
       dismissed: ['summary' as const],
+      lastViewer: sampleDock(),
     };
     const raw = serializeLayout(model);
     expect(JSON.parse(raw)).toMatchObject({ version: 2 });
@@ -164,6 +168,7 @@ describe('serialize and parse', () => {
       collapsed: ['summary'],
       treeWidth: 260,
       dismissed: [],
+      lastViewer: null,
     });
   });
 
@@ -312,6 +317,7 @@ describe('storage', () => {
       collapsed: ['summary'],
       treeWidth: 400,
       dismissed: [],
+      lastViewer: null,
     });
     expect(storage.getItem(LEGACY_KEYS.treeWidth)).toBeNull();
     expect(storage.getItem(LEGACY_KEYS.summary)).toBeNull();
@@ -360,6 +366,7 @@ describe('storage', () => {
         collapsed: ['dashboard'],
         treeWidth: 320,
         dismissed: [],
+        lastViewer: null,
       },
     });
   });
@@ -419,6 +426,7 @@ describe('model tabs in the dock', () => {
       collapsed: [],
       treeWidth: 320,
       dismissed: [],
+      lastViewer: null,
     };
     expect(
       parseLayout(serializeLayout(model))?.dock?.panels['viewer:a'],
@@ -476,5 +484,92 @@ describe('migration from v1', () => {
     storage.setItem(LAYOUT_KEY_V1, v1());
     writeLayout(storage, defaultModel(1000));
     expect(readLayout(storage, 1000, ['viewer:x'])).toEqual(defaultModel(1000));
+  });
+});
+
+describe('remembered viewer arrangement', () => {
+  it('remembers the last dock that had a model and keeps it when models close', () => {
+    const withModel = layoutReducer(defaultModel(1000), {
+      type: 'dock',
+      dock: sampleDock(),
+    });
+    expect(withModel.lastViewer).toEqual(sampleDock());
+    const alone = sanitizeDock(sampleDock(), [])?.dock as SerializedDock;
+    const closed = layoutReducer(withModel, { type: 'dock', dock: alone });
+    expect(closed.dock).toEqual(alone);
+    expect(closed.lastViewer).toEqual(sampleDock());
+    expect(parseLayout(serializeLayout(closed))?.lastViewer).toEqual(
+      sampleDock(),
+    );
+    expect(
+      layoutReducer(closed, { type: 'reset', height: 1000 }).lastViewer,
+    ).toBeNull();
+  });
+
+  it('puts new models where the viewer was and keeps the companions placed', () => {
+    const adopted = adoptArrangement(
+      sampleDock(),
+      ['viewer:x', 'viewer:y'],
+      'viewer:y',
+      ['summary', 'dashboard'],
+      { 'viewer:x': { label: 'X.rvt' } },
+    );
+    expect(viewsOf(adopted ?? undefined, '2')).toEqual([
+      'viewer:x',
+      'viewer:y',
+    ]);
+    expect(viewsOf(adopted ?? undefined, '3')).toEqual(['dashboard']);
+    expect(viewsOf(adopted ?? undefined, '4')).toEqual(['summary']);
+    expect(adopted?.panels['viewer:x']).toMatchObject({
+      id: 'viewer:x',
+      title: 'X.rvt',
+    });
+    expect(adopted?.panels['viewer:m1']).toBeUndefined();
+    expect(JSON.stringify(adopted?.grid.root)).toContain(
+      '"id":"2","views":["viewer:x","viewer:y"],"activeView":"viewer:y"',
+    );
+  });
+
+  it('leaves out companions the user closed', () => {
+    const adopted = adoptArrangement(sampleDock(), ['viewer:x'], null, [
+      'dashboard',
+    ]);
+    expect(Object.keys(adopted?.panels ?? {}).sort()).toEqual([
+      'dashboard',
+      'tree',
+      'viewer:x',
+    ]);
+  });
+
+  it('returns nothing without models or without a viewer slot', () => {
+    expect(adoptArrangement(sampleDock(), [], null, [])).toBeNull();
+    const alone = sanitizeDock(sampleDock(), [])?.dock as SerializedDock;
+    expect(adoptArrangement(alone, ['viewer:x'], null, [])).toBeNull();
+  });
+
+  it('keeps the arrangement of older records that had the empty viewer', () => {
+    const raw = JSON.stringify({
+      version: 2,
+      layout: {
+        dock: sampleDock('viewer'),
+        collapsed: [],
+        treeWidth: 320,
+      },
+    });
+    const model = parseLayout(raw);
+    expect(Object.keys(model?.dock?.panels ?? {})).not.toContain('viewer');
+    expect(viewsOf(model?.lastViewer ?? undefined, '2')).toEqual([
+      PREVIOUS_VIEWER,
+    ]);
+    const migrated = migrateV1(
+      JSON.stringify({
+        version: 1,
+        layout: { dock: sampleDock('viewer'), collapsed: [], treeWidth: 320 },
+      }),
+      [],
+    );
+    expect(viewsOf(migrated?.lastViewer ?? undefined, '2')).toEqual([
+      PREVIOUS_VIEWER,
+    ]);
   });
 });

@@ -26,6 +26,7 @@ import type {
   PaneTitles,
 } from './layoutContext.js';
 import {
+  adoptArrangement,
   type SerializedDock,
   sanitizeDock,
   siblingCountOf,
@@ -265,6 +266,28 @@ export interface InstanceSync {
   titles: PaneTitles;
   companions: readonly PaneId[];
   treeWidth: number;
+  arrangement?: SerializedDock | null;
+}
+
+function adopt(api: DockviewApi, sync: InstanceSync, want: PanelId[]) {
+  if (!sync.arrangement) return false;
+  const snapshot = adoptArrangement(
+    sync.arrangement,
+    want,
+    sync.active,
+    sync.companions,
+    sync.titles,
+  );
+  if (!snapshot) return false;
+  try {
+    api.fromJSON(snapshot as never);
+  } catch {
+    return false;
+  }
+  if (!api.getPanel('tree')) {
+    addPane(api, 'tree', placementOf(api, paneById('tree')));
+  }
+  return true;
 }
 
 function isInstance(id: PanelId): boolean {
@@ -297,6 +320,7 @@ export function syncInstances(api: DockviewApi, sync: InstanceSync) {
     if (!pane.instances) continue;
     const want = wantedOf(sync, pane.id);
     const before = kindPanels(api, pane.id).length;
+    const adopted = before === 0 && want.length > 0 && adopt(api, sync, want);
     for (const panel of kindPanels(api, pane.id)) {
       if (isInstance(panel.id) && !wanted.has(panel.id)) panel.api.close();
     }
@@ -321,7 +345,7 @@ export function syncInstances(api: DockviewApi, sync: InstanceSync) {
     if (want.length === 0) {
       for (const follower of followers) api.getPanel(follower)?.api.close();
     } else if (before === 0) {
-      sizeTree(api, sync.treeWidth);
+      if (!adopted) sizeTree(api, sync.treeWidth);
       for (const follower of followers) {
         if (!sync.companions.includes(follower)) continue;
         if (api.getPanel(follower)) continue;
@@ -448,6 +472,7 @@ export interface DockLayoutProps {
   instances: readonly PanelId[];
   activeInstance: PanelId | null;
   companions: readonly PaneId[];
+  arrangement: SerializedDock | null;
   onAttach: (id: PanelId) => void;
   onVisibility: (id: PanelId, visible: boolean) => void;
   onMoved: (id: PanelId) => void;
@@ -478,6 +503,7 @@ export function DockLayout(props: DockLayoutProps) {
     titles: latest.current.titles,
     companions: latest.current.companions,
     treeWidth: latest.current.treeWidth,
+    arrangement: latest.current.arrangement,
   });
 
   const relax = (group: DockviewGroupPanel) => {
@@ -731,6 +757,7 @@ export function DockLayout(props: DockLayoutProps) {
           ...sync(),
           companions: FOLLOWERS,
           treeWidth,
+          arrangement: null,
         }),
       ),
     focusPane: (id) => {

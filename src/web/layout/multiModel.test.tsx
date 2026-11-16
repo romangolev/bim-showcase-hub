@@ -523,3 +523,37 @@ describe('Documents first', () => {
     expect(screen.queryByRole('tablist', { name: 'Open models' })).toBeNull();
   });
 });
+
+describe('remembered arrangement', () => {
+  function leafOrder(): string[] {
+    const dock = parseLayout(storage.getItem(LAYOUT_KEY))?.dock;
+    const order: string[] = [];
+    const visit = (node: { type: string; data: unknown }) => {
+      if (node.type === 'leaf') {
+        order.push(...(node.data as { views: string[] }).views);
+      } else {
+        for (const child of node.data as { type: string; data: unknown }[]) {
+          visit(child);
+        }
+      }
+    };
+    if (dock) visit(dock.grid.root);
+    return order;
+  }
+
+  it('reopens the viewer and its companions where the user left them', async () => {
+    const { appRouter } = renderPath('/model/aaa?file=A.rvt&v=v1');
+    await dockReady();
+    await screen.findByRole('tab', { name: 'Model summary' });
+    act(() => handle().movePane('summary', 'left'));
+    await waitFor(() => expect(leafOrder()[0]).toBe('summary'));
+    act(() => handle().closeModel('aaa'));
+    await waitFor(() => expect(leafOrder()).toEqual(['tree']));
+    await open(appRouter, 'bbb', 'B.rvt');
+    await screen.findByRole('tab', { name: 'B.rvt · v1' });
+    await waitFor(() => expect(leafOrder()[0]).toBe('summary'));
+    expect(leafOrder()).toContain('viewer:bbb');
+    expect(leafOrder()).toContain('dashboard');
+    await waitFor(() => expect(sceneOf('bbb')?.isConnected).toBe(true));
+  });
+});

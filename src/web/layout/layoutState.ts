@@ -1,10 +1,13 @@
 import {
   hasPlainPanel,
+  isFollower,
+  isInstancePanel,
   isPaneId,
   isRequired,
   PANE_IDS,
   type PaneId,
   type PanelId,
+  paneById,
   paneKind,
   parsePanelId,
   TREE_WIDTH_DEFAULT,
@@ -60,7 +63,10 @@ export interface LayoutModel {
   collapsed: PaneId[];
   treeWidth: number;
   dismissed: PaneId[];
+  lastViewer: SerializedDock | null;
 }
+
+export const PREVIOUS_VIEWER = 'viewer:previous';
 
 export type LayoutAction =
   | { type: 'dock'; dock: SerializedDock }
@@ -80,6 +86,7 @@ export function defaultModel(_height: number): LayoutModel {
     collapsed: ['dashboard'],
     treeWidth: TREE_WIDTH_DEFAULT,
     dismissed: [],
+    lastViewer: null,
   };
 }
 
@@ -94,7 +101,9 @@ export function layoutReducer(
 ): LayoutModel {
   switch (action.type) {
     case 'dock':
-      return { ...model, dock: action.dock };
+      return hasViewerPanel(action.dock)
+        ? { ...model, dock: action.dock, lastViewer: action.dock }
+        : { ...model, dock: action.dock };
     case 'setCollapsed': {
       const collapsed = toggled(model.collapsed, action.id, action.collapsed);
       return collapsed === model.collapsed ? model : { ...model, collapsed };
@@ -345,12 +354,110 @@ export function parseLayout(
     ? prepare(layout.dock as SerializedDock)
     : layout.dock;
   const dock = source === null ? null : (sanitizeDock(source)?.dock ?? null);
+  const remembered = sanitizeDock(
+    isRecord(layout.lastViewer)
+      ? layout.lastViewer
+      : withPreviousViewer(source),
+  )?.dock;
   return {
     dock,
     collapsed: [...new Set(collapsed)],
     treeWidth,
     dismissed: [...new Set(dismissed)],
+    lastViewer: remembered && hasViewerPanel(remembered) ? remembered : null,
   };
+}
+
+function withPreviousViewer(dock: unknown): unknown {
+  if (!isRecord(dock) || !isRecord(dock.panels) || !isRecord(dock.grid)) {
+    return dock;
+  }
+  return 'viewer' in dock.panels
+    ? renamePanel(dock as SerializedDock, 'viewer', PREVIOUS_VIEWER)
+    : dock;
+}
+
+export function hasViewerPanel(dock: SerializedDock | null): boolean {
+  if (!dock) return false;
+  return Object.keys(dock.panels).some(
+    (id) => parsePanelId(id)?.kind === 'viewer' && isInstancePanel(id),
+  );
+}
+
+function mapGroups(
+  dock: SerializedDock,
+  map: (group: SerializedGroup) => SerializedGroup,
+): SerializedDock {
+  const visit = (node: SerializedNode): SerializedNode =>
+    node.type === 'leaf'
+      ? { ...node, data: map(node.data as SerializedGroup) }
+      : { ...node, data: (node.data as SerializedNode[]).map(visit) };
+  const next: SerializedDock = {
+    ...dock,
+    grid: { ...dock.grid, root: visit(dock.grid.root) },
+  };
+  if (dock.floatingGroups) {
+    next.floatingGroups = dock.floatingGroups.map((floating) => ({
+      ...floating,
+      data: map(floating.data),
+    }));
+  }
+  return next;
+}
+
+export function adoptArrangement(
+  snapshot: SerializedDock,
+  instances: readonly PanelId[],
+  active: PanelId | null,
+  companions: readonly PaneId[],
+  titles: Readonly<Record<PanelId, { label: string }>> = {},
+): SerializedDock | null {
+  if (instances.length === 0) return null;
+  const isViewer = (id: string) => paneKind(id) === 'viewer';
+  const keep = (id: string) => {
+    const kind = paneKind(id);
+    if (!kind || kind === 'viewer') return false;
+    return !isFollower(kind) || companions.includes(kind);
+  };
+  const template = Object.entries(snapshot.panels).find(([id]) =>
+    isViewer(id),
+  )?.[1];
+  let placed = false;
+  const mapped = mapGroups(snapshot, (group) => {
+    const views: string[] = group.views.filter(keep);
+    const hadViewer = group.views.some(isViewer);
+    if (hadViewer && !placed) {
+      placed = true;
+      views.unshift(...instances);
+      return {
+        ...group,
+        views,
+        activeView:
+          active && instances.includes(active) ? active : instances[0],
+      };
+    }
+    return {
+      ...group,
+      views,
+      activeView: views.includes(group.activeView as string)
+        ? group.activeView
+        : views[0],
+    };
+  });
+  if (!placed) return null;
+  const panels: SerializedDock['panels'] = {};
+  for (const [id, panel] of Object.entries(snapshot.panels)) {
+    if (keep(id)) panels[id] = panel;
+  }
+  for (const id of instances) {
+    panels[id] = {
+      ...template,
+      id,
+      contentComponent: 'pane',
+      title: titles[id]?.label ?? paneById('viewer').title,
+    };
+  }
+  return sanitizeDock({ ...mapped, panels }, instances)?.dock ?? null;
 }
 
 function safeGet(storage: Storage, key: string): string | null {
