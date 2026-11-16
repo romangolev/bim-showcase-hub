@@ -84,7 +84,7 @@ export function buildExportSheets(
     else groups.set(key, [row]);
   }
   return [...groups.entries()]
-    .filter(([key]) => !key.startsWith('<'))
+    .filter(([key]) => !key.includes('<'))
     .map(([key, bucket]) => ({
       name: sheetNameFor(key, used),
       ...buildExportRows(bucket, propertyNames),
@@ -142,7 +142,11 @@ export async function exportToXlsx(
       })),
     ).toBlob();
     save(blob, fileName);
-    return emit({ phase: 'done', fileName, rowCount: rows.length });
+    const rowCount = sheets.reduce(
+      (total, sheet) => total + sheet.rows.length,
+      0,
+    );
+    return emit({ phase: 'done', fileName, rowCount });
   } catch (err) {
     return emit({
       phase: 'error',

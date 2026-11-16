@@ -129,6 +129,46 @@ describe('export rows', () => {
     adapter.destroy();
   });
 
+  it('counts only the rows written and skips keys containing "<"', async () => {
+    const data = [
+      row(1, { Category: 'Walls' }),
+      row(2, { Category: 'Walls' }),
+      row(3, { Category: 'Model <Sketch>' }),
+      row(4, { Category: null }),
+    ];
+    const adapter = {
+      getLeafProperties: () => Promise.resolve(data),
+    } as unknown as MockViewerAdapter;
+    const sheets = buildExportSheets(data, ['Category'], 'Category');
+    expect(sheets.map((sheet) => sheet.name)).toEqual([
+      'Walls',
+      EMPTY_VALUE_LABEL,
+    ]);
+    const status = await exportToXlsx(adapter, {
+      propertyNames: ['Category'],
+      save: vi.fn(),
+    });
+    expect(status).toEqual({
+      phase: 'done',
+      fileName: 'model-properties.xlsx',
+      rowCount: 3,
+    });
+  });
+
+  it('reports empty when every group is skipped', async () => {
+    const data = [row(1, { Category: '<none>' }), row(2, { Category: 'A<B' })];
+    const adapter = {
+      getLeafProperties: () => Promise.resolve(data),
+    } as unknown as MockViewerAdapter;
+    const save = vi.fn();
+    const status = await exportToXlsx(adapter, {
+      propertyNames: ['Category'],
+      save,
+    });
+    expect(status).toEqual({ phase: 'empty' });
+    expect(save).not.toHaveBeenCalled();
+  });
+
   it('reports empty and error outcomes', async () => {
     const adapter = new MockViewerAdapter(document.createElement('div'));
     expect((await exportToXlsx(adapter)).phase).toBe('empty');
