@@ -91,4 +91,23 @@ describe('createApsAuth', () => {
     const auth = createApsAuth(config, client as never);
     await expect(auth.exchangeCode('c')).rejects.toMatchObject({ status: 502 });
   });
+
+  it('maps refresh rejections to 401 and other failures to 502', async () => {
+    for (const [code, expected] of [
+      [400, 401],
+      [401, 401],
+      [403, 401],
+      [429, 502],
+      [500, 502],
+    ] as const) {
+      const client = fakeClient();
+      client.refreshToken.mockRejectedValue(
+        Object.assign(new Error('x'), { httpStatusCode: () => code }),
+      );
+      const auth = createApsAuth(config, client as never);
+      await expect(auth.refresh('r')).rejects.toMatchObject({
+        status: expected,
+      });
+    }
+  });
 });

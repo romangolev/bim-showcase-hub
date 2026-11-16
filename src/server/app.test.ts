@@ -159,13 +159,29 @@ describe('session and auth', () => {
         refreshToken: 'r',
         expiresIn: 0,
       }),
-      refresh: vi.fn().mockRejectedValue(new Error('revoked')),
+      refresh: vi.fn().mockRejectedValue(new HttpError(401, 'Session expired')),
     });
     const agent = request.agent(realApp(auth));
     await signIn(agent);
     const res = await agent.get('/api/viewer/token');
     expect(res.status).toBe(401);
     expect((await agent.get('/api/session')).status).toBe(401);
+  });
+
+  it('answers 502 and keeps the session when refresh is transiently down', async () => {
+    const auth = fakeAuth({
+      exchangeCode: vi.fn().mockResolvedValue({
+        accessToken: 'a',
+        refreshToken: 'r',
+        expiresIn: 0,
+      }),
+      refresh: vi.fn().mockRejectedValue(new Error('network')),
+    });
+    const agent = request.agent(realApp(auth));
+    await signIn(agent);
+    const res = await agent.get('/api/viewer/token');
+    expect(res.status).toBe(502);
+    expect((await agent.get('/api/session')).status).toBe(200);
   });
 
   it('refreshes an expired token for the viewer', async () => {

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { HttpError } from '../errors.js';
 import {
   clearAuth,
   getAccessToken,
@@ -64,7 +65,7 @@ describe('sessionTokens', () => {
     );
     storeUser(session, { name: 'Sam', picture: null });
     const auth = fakeAuth({
-      refresh: vi.fn().mockRejectedValue(new Error('boom')),
+      refresh: vi.fn().mockRejectedValue(new HttpError(401, 'Session expired')),
     });
     await expect(
       getAccessToken(session, auth, NOW + 10_000),
@@ -73,6 +74,50 @@ describe('sessionTokens', () => {
     });
     expect(isSignedIn(session)).toBe(false);
     expect(readUser(session)).toBeNull();
+  });
+
+  it('keeps the session and reports 502 on transient refresh failures', async () => {
+    for (const failure of [
+      new Error('network down'),
+      new HttpError(502, 'Upstream service error'),
+      Object.assign(new Error('rate'), { httpStatusCode: () => 429 }),
+    ]) {
+      const session: Record<string, unknown> = {};
+      storeTokens(
+        session,
+        { accessToken: 'a', refreshToken: 'r-transient', expiresIn: 1 },
+        NOW,
+      );
+      storeUser(session, { name: 'Sam', picture: null });
+      const auth = fakeAuth({ refresh: vi.fn().mockRejectedValue(failure) });
+      await expect(
+        getAccessToken(session, auth, NOW + 10_000),
+      ).rejects.toMatchObject({ status: 502 });
+      expect(isSignedIn(session)).toBe(true);
+      expect(readUser(session)).not.toBeNull();
+    }
+  });
+
+  it('shares one refresh between concurrent callers', async () => {
+    const sessions = [{}, {}].map(() => {
+      const session: Record<string, unknown> = {};
+      storeTokens(
+        session,
+        { accessToken: 'a', refreshToken: 'r-shared', expiresIn: 1 },
+        NOW,
+      );
+      return session;
+    });
+    const auth = fakeAuth();
+    const results = await Promise.all(
+      sessions.map((s) => getAccessToken(s, auth, NOW + 10_000)),
+    );
+    expect(auth.refresh).toHaveBeenCalledTimes(1);
+    expect(results.map((r) => r.accessToken)).toEqual([
+      'new-access',
+      'new-access',
+    ]);
+    for (const session of sessions) expect(isSignedIn(session)).toBe(true);
   });
 
   it('reports 401 when signed out', async () => {

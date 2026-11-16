@@ -5,7 +5,7 @@ import {
   type ThreeLeggedToken,
 } from '@aps_sdk/authentication';
 import type { ServerConfig } from '../config.js';
-import { toHttpError } from '../errors.js';
+import { HttpError, toHttpError } from '../errors.js';
 import type { ApsAuth, TokenSet } from './types.js';
 
 type Client = Pick<
@@ -19,6 +19,18 @@ function toTokenSet(token: ThreeLeggedToken): TokenSet {
     refreshToken: token.refresh_token,
     expiresIn: token.expires_in,
   };
+}
+
+const REFRESH_REJECTION_STATUSES = [400, 401, 403];
+
+function isRefreshRejection(err: unknown): boolean {
+  if (typeof err !== 'object' || err === null) return false;
+  const candidate = err as { httpStatusCode?: unknown };
+  if (typeof candidate.httpStatusCode !== 'function') return false;
+  const status = (candidate.httpStatusCode as () => unknown)();
+  return (
+    typeof status === 'number' && REFRESH_REJECTION_STATUSES.includes(status)
+  );
 }
 
 export function createApsAuth(
@@ -52,7 +64,9 @@ export function createApsAuth(
           }),
         );
       } catch (err) {
-        throw toHttpError(err);
+        throw isRefreshRejection(err)
+          ? new HttpError(401, 'Session expired')
+          : toHttpError(err);
       }
     },
     getUser: async (accessToken) => {

@@ -1,5 +1,5 @@
 import type { SessionUser } from '../../shared/types.js';
-import { HttpError } from '../errors.js';
+import { HttpError, toHttpError } from '../errors.js';
 import type { ApsAuth, TokenSet } from './types.js';
 
 export type SessionStore = Record<string, unknown>;
@@ -63,6 +63,18 @@ export interface AccessToken {
   expiresIn: number;
 }
 
+const inflightRefreshes = new Map<string, Promise<TokenSet>>();
+
+function refreshOnce(auth: ApsAuth, refreshToken: string): Promise<TokenSet> {
+  const existing = inflightRefreshes.get(refreshToken);
+  if (existing) return existing;
+  const pending = auth.refresh(refreshToken).finally(() => {
+    inflightRefreshes.delete(refreshToken);
+  });
+  inflightRefreshes.set(refreshToken, pending);
+  return pending;
+}
+
 export async function getAccessToken(
   session: SessionStore,
   auth: ApsAuth,
@@ -79,14 +91,18 @@ export async function getAccessToken(
     };
   }
   try {
-    const refreshed = await auth.refresh(tokens.refreshToken);
+    const refreshed = await refreshOnce(auth, tokens.refreshToken);
     storeTokens(session, refreshed, now);
     return {
       accessToken: refreshed.accessToken,
       expiresIn: refreshed.expiresIn,
     };
-  } catch {
-    clearAuth(session);
-    throw new HttpError(401, 'Session expired');
+  } catch (err) {
+    const failure = toHttpError(err);
+    if (failure.status === 401) {
+      clearAuth(session);
+      throw new HttpError(401, 'Session expired');
+    }
+    throw new HttpError(502, 'Upstream service error');
   }
 }
