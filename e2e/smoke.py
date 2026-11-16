@@ -208,7 +208,7 @@ def check_viewer_chrome(page, checks):
 
 
 def check_canvas_follows_summary(page, checks):
-    toggle = page.locator(".model-summary button.bsh-summary__toggle").first
+    toggle = page.get_by_role("button", name=re.compile(r"^(Collapse|Expand) Model summary$")).first
     page.bring_to_front()
     start_expanded = None
     first = None
@@ -253,7 +253,92 @@ def check_canvas_follows_summary(page, checks):
                 pass
 
 
+VIEWER_STATE_SCRIPT = """mw:() => {
+    const host = document.querySelector('.model-viewer');
+    const canvases = [...document.querySelectorAll('.adsk-viewing-viewer canvas')];
+    const canvas = canvases.sort((a, b) => b.getBoundingClientRect().width - a.getBoundingClientRect().width)[0];
+    const viewer = window.NOP_VIEWER;
+    const model = viewer && viewer.model;
+    const box = (el) => { if (!el) return null; const r = el.getBoundingClientRect(); return { width: r.width, height: r.height }; };
+    return {
+        host: box(host),
+        canvas: box(canvas),
+        kept: document.querySelector('.adsk-viewing-viewer')?.dataset.e2eTag === 'kept',
+        loaded: Boolean(model && (typeof model.isLoadDone !== 'function' || model.isLoadDone())),
+        ready: document.querySelector('.bsh-viewer-pane')?.dataset.state === 'ready',
+        floating: Boolean(document.querySelector('.dv-resize-container .model-viewer')),
+    };
+}"""
+TAG_VIEWER_SCRIPT = "() => { const el = document.querySelector('.adsk-viewing-viewer'); if (el) el.dataset.e2eTag = 'kept'; return Boolean(el); }"
+LAYOUT_MOVES = ("Move right", "Float", "Dock", "Move below", "Move left")
+
+
+def canvas_follows(state, tolerance=4):
+    host, canvas = state.get("host"), state.get("canvas")
+    if not host or not canvas or host["width"] == 0:
+        return False
+    return abs(host["width"] - canvas["width"]) <= tolerance and abs(host["height"] - canvas["height"]) <= tolerance
+
+
+def wait_for_viewer_state(page, predicate, timeout_ms=8000):
+    state = page.evaluate(VIEWER_STATE_SCRIPT)
+    for _ in range(timeout_ms // 200):
+        if predicate(state):
+            break
+        page.wait_for_timeout(200)
+        state = page.evaluate(VIEWER_STATE_SCRIPT)
+    return state
+
+
+def viewer_menu(page, item):
+    page.get_by_role("button", name="Viewer pane options").click(timeout=8000)
+    page.get_by_role("menuitem", name=item).click(timeout=8000)
+
+
+def check_layout(page, checks):
+    page.bring_to_front()
+    checks.add("viewer element can be tagged", page.evaluate(TAG_VIEWER_SCRIPT))
+    start = wait_for_viewer_state(page, canvas_follows)
+    checks.add("layout: canvas fills the viewer before moving", canvas_follows(start), start)
+    for move in LAYOUT_MOVES:
+        try:
+            viewer_menu(page, move)
+            state = wait_for_viewer_state(page, canvas_follows)
+            checks.add(f"layout: {move} keeps the canvas on its container", canvas_follows(state), state)
+            checks.add(f"layout: {move} keeps the same viewer", state["kept"], state)
+            checks.add(f"layout: {move} keeps the model loaded", state["loaded"] and state["ready"], state)
+            page.screenshot(path=str(OUTPUT_DIR / f"06-layout-{move.lower().replace(' ', '-')}.png"))
+        except Exception as exc:
+            checks.add(f"layout: {move}", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+    try:
+        page.get_by_role("button", name="Panes").click(timeout=8000)
+        page.get_by_role("menuitem", name="Reset layout").click(timeout=8000)
+        state = wait_for_viewer_state(page, canvas_follows)
+        checks.add("layout: reset keeps the canvas on its container", canvas_follows(state), state)
+        checks.add("layout: reset keeps the same viewer and model", state["kept"] and state["loaded"], state)
+        checks.add("layout: reset docks the viewer", not state["floating"], state)
+        page.screenshot(path=str(OUTPUT_DIR / "07-layout-reset.png"))
+    except Exception as exc:
+        checks.add("layout: reset", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+
+
+def open_model_for_layout(page, checks, found):
+    try:
+        open_in_tree(page, found)
+    except Exception:
+        page.goto(f"{BASE_URL}/model/{found['urn']}", wait_until="domcontentloaded")
+    try:
+        page.wait_for_selector(".adsk-viewing-viewer", timeout=VIEWER_TIMEOUT_MS)
+        page.wait_for_timeout(VIEWER_SETTLE_MS)
+        checks.add("autodesk viewer is mounted", True)
+        return True
+    except Exception:
+        checks.add("autodesk viewer is mounted", False, f"no viewer element within {VIEWER_TIMEOUT_MS // 1000}s")
+        return False
+
+
 def main():
+    layout_only = "--layout" in sys.argv[1:]
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     checks = Checks()
     notes = new_notes()
@@ -286,11 +371,14 @@ def main():
         page.wait_for_timeout(1500)
         checks.add("tree lists hubs", page.locator("[role=treeitem]").count() >= 1)
         page.screenshot(path=str(OUTPUT_DIR / "01-home.png"))
-        if found:
+        if found and layout_only:
+            if open_model_for_layout(page, checks, found):
+                check_layout(page, checks)
+        elif found:
             run_model_checks(page, checks, found)
         checks.add("no uncaught page errors", not notes["page_errors"], notes["page_errors"][:2])
         checks.add("no failed app requests", not notes["failed_requests"], notes["failed_requests"][:3])
-    return checks.finish(notes)
+    return checks.finish(notes, "layout-report.json" if layout_only else "report.json")
 
 
 if __name__ == "__main__":
