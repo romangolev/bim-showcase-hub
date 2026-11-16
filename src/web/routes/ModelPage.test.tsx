@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TreeControlContext } from '../components/TreeControl.js';
-import { fireEvent, render, screen, waitFor, within } from '../test/render.js';
+import { fireEvent, render, screen, within } from '../test/render.js';
 import {
   DASHBOARD_STORAGE_KEY,
   ModelPage,
@@ -232,16 +232,6 @@ describe('ModelPage', () => {
     expect(document.title).toBe('Model · BIM Showcase Hub');
     unmount();
     expect(document.title).toBe('BIM Showcase Hub');
-  });
-
-  it('copies the urn to the clipboard', async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
-    render(<ModelPage urn="abc123" />);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Copy URN' }));
-    await waitFor(() => expect(writeText).toHaveBeenCalledWith('abc123'));
-    expect(await screen.findByText('URN copied')).toBeInTheDocument();
   });
 
   it('collapses the dashboard region and remembers the choice', () => {

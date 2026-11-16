@@ -164,12 +164,6 @@
   min-width: 104px;
 }
 
-.urn-control .icon-button {
-  flex: none;
-  width: 32px;
-  height: 32px;
-}
-
 .urn-control__value {
   flex: 1;
   min-width: 0;

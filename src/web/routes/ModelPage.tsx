@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { describeModel } from '../api/modelContext.js';
 import { Breadcrumb } from '../components/Breadcrumb.js';
 import { Icon } from '../components/icons.js';
@@ -75,43 +75,11 @@ function MiddleEllipsis({ value }: { value: string }) {
 }
 
 function UrnControl({ urn }: { urn: string }) {
-  const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle');
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-
-  useEffect(() => () => clearTimeout(timer.current), []);
-
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(urn);
-      setState('copied');
-    } catch {
-      setState('failed');
-    }
-    clearTimeout(timer.current);
-    timer.current = setTimeout(() => setState('idle'), 2000);
-  };
-
   return (
     <div className="urn-control">
       <code className="urn-control__value mono" title={urn}>
         <MiddleEllipsis value={urn} />
       </code>
-      <button
-        type="button"
-        className="icon-button"
-        aria-label="Copy URN"
-        title="Copy URN"
-        onClick={() => void copy()}
-      >
-        <Icon name={state === 'copied' ? 'check' : 'copy'} size={14} />
-      </button>
-      <span className="visually-hidden" role="status">
-        {state === 'copied'
-          ? 'URN copied'
-          : state === 'failed'
-            ? 'Copy failed'
-            : ''}
-      </span>
     </div>
   );
 }

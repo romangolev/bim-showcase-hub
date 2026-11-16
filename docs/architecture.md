@@ -78,7 +78,7 @@ With `config.mock`, `createMockDataService()` replaces the APS data service and 
 
 ### Model page
 
-`ModelPage` wraps a `ViewerProvider` and shows the header (breadcrumb, title, URN copy), the viewer, the dashboard and the model summary. Paint and export are not in the page toolbar: they live in the viewer toolbar as a tool group. The summary is a rail beside the viewer that collapses to a narrow strip; its state is stored in `localStorage` under `bsh.summary.collapsed`, and the dashboard's under `bsh.dashboard.collapsed`. Panels read the active adapter from the viewer context and fetch property rows through `usePropertyRows`.
+`ModelPage` wraps a `ViewerProvider` and shows the header (breadcrumb, title, URN), the viewer, the dashboard and the model summary. Paint and export are not in the page toolbar: they live in the viewer toolbar as a tool group. The summary is a rail beside the viewer that collapses to a narrow strip; its state is stored in `localStorage` under `bsh.summary.collapsed`, and the dashboard's under `bsh.dashboard.collapsed`. Panels read the active adapter from the viewer context and fetch property rows through `usePropertyRows`.
 
 ## ViewerAdapter contract
 
