@@ -481,6 +481,55 @@ def documents_alone(page):
     return list(found) == ["Documents"]
 
 
+STATE_BADGES = {
+    "ready": "Viewable",
+    "no-geometry": "No 3D or 2D view",
+    "processing": "Processing",
+    "not-translated": "Not translated",
+    "failed": "Translation failed",
+}
+STATE_TRAIL = ["Northwind Architects", "Riverside Tower", "Project Files", "View States"]
+
+
+def expand_state_rows(page, file_name):
+    for depth, name in enumerate(STATE_TRAIL + [file_name], start=1):
+        row = page.locator(f"[role=treeitem][aria-level='{depth}']", has_text=name).first
+        row.wait_for(timeout=15000)
+        if row.get_attribute("aria-expanded") != "true":
+            row.click()
+            page.keyboard.press("ArrowRight")
+        page.wait_for_timeout(600)
+    return row.locator("xpath=following-sibling::*[@role='treeitem'][1]")
+
+
+def check_view_states(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    start_url = page.url
+    for state, badge in STATE_BADGES.items():
+        file_name = f"STATE-{state}.rvt"
+        row = expand_state_rows(page, file_name)
+        row.wait_for(timeout=15000)
+        checks.add(f"{state}: version row carries data-view-state", row.get_attribute("data-view-state") == state, row.get_attribute("data-view-state"))
+        checks.add(f"{state}: badge reads {badge}", badge in row.inner_text(), row.inner_text())
+        openable = state == "ready"
+        checks.add(f"{state}: data-viewable matches", row.get_attribute("data-viewable") == ("true" if openable else "false"))
+        if state == "ready":
+            continue
+        row.click(force=True)
+        page.wait_for_timeout(600)
+        notice = page.locator(".doc-tree__notice[role=status][aria-live=polite]")
+        checks.add(f"{state}: selecting shows an explanation", "cannot be opened" in notice.inner_text(), notice.inner_text())
+        checks.add(f"{state}: no tab or route opens", page.url == start_url and not models(page)["models"], page.url)
+        row.focus()
+        page.keyboard.press("Enter")
+        page.wait_for_timeout(400)
+        checks.add(f"{state}: Enter opens no tab", page.url == start_url and not models(page)["models"], page.url)
+        if state == "processing":
+            checks.add("processing: badge has a spinner", row.locator(".tree-row__state svg.spin").count() == 1)
+    page.screenshot(path=str(OUTPUT_DIR / "mock-view-states.png"))
+    page.goto(BASE_URL, wait_until="networkidle")
+
+
 def check_documents_home(page, checks):
     settle(page)
     checks.add("default layout is Documents alone", documents_alone(page), groups(page))
@@ -583,6 +632,11 @@ def run(context, checks, notes):
         check_documents_home(page, checks)
     except Exception as exc:
         checks.add("check_documents_home", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+
+    try:
+        check_view_states(page, checks)
+    except Exception as exc:
+        checks.add("check_view_states", False, f"{type(exc).__name__}: {str(exc)[:160]}")
 
     try:
         version_row = expand_to_viewable(page)

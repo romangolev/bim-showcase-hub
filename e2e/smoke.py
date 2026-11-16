@@ -717,7 +717,7 @@ def find_models(context, count=MULTI_COUNT, extensions=MULTI_EXTENSIONS, skip=()
     return found
 
 
-def open_version(page, found):
+def expand_to_file(page, found):
     previous = None
     for depth, name in enumerate(found["crumbs"] + [found["file"]], start=1):
         if previous is None:
@@ -730,6 +730,11 @@ def open_version(page, found):
             page.keyboard.press("ArrowRight")
         page.wait_for_timeout(1500)
         previous = row
+    return previous
+
+
+def open_version(page, found):
+    previous = expand_to_file(page, found)
     version_row = previous.locator("xpath=following-sibling::*[@data-viewable='true']").first
     version_row.wait_for(timeout=20000)
     version_row.click()
@@ -886,9 +891,75 @@ def check_multi_model(page, checks, revit, notes):
     checks.add("multi: no page errors", not new_errors, new_errors[:2])
 
 
+STATE_FILES = {
+    "rmebasicsampleproject.rvt": "no-geometry",
+    "racbasicsampleproject.rvt": "ready",
+}
+STATE_BUDGET = 120
+
+
+def find_files(context, suffixes, budget=STATE_BUDGET):
+    calls = 0
+    found = {}
+    hubs = list_of(context, "/api/hubs") or []
+    for hub in hubs:
+        projects = list_of(context, f"/api/hubs/{hub['id']}/projects") or []
+        calls += 1
+        projects.sort(key=lambda p: "test" not in p["name"].lower())
+        for project in projects:
+            top = list_of(context, f"/api/hubs/{hub['id']}/projects/{project['id']}/folders")
+            calls += 1
+            queue = [(project["id"], f["id"], [hub["name"], project["name"], f["name"]]) for f in top or []]
+            while queue and calls < budget and len(found) < len(suffixes):
+                pid, fid, crumbs = queue.pop(0)
+                contents = list_of(context, f"/api/projects/{pid}/folders/{fid}/contents")
+                calls += 1
+                if contents is None:
+                    continue
+                queue.extend((pid, n["id"], crumbs + [n["name"]]) for n in contents if n["kind"] == "folder")
+                for item in contents:
+                    name = item["name"].lower()
+                    for suffix in suffixes:
+                        if item["kind"] == "item" and name.endswith(suffix) and suffix not in found:
+                            found[suffix] = {"file": item["name"], "crumbs": crumbs, "item": item["id"], "project": pid}
+            if len(found) >= len(suffixes) or calls >= budget:
+                return found
+    return found
+
+
+def check_view_states(page, context, checks):
+    found = find_files(context, list(STATE_FILES))
+    for suffix, expected in STATE_FILES.items():
+        target = found.get(suffix)
+        checks.add(f"states: {suffix} exists in the tree", target is not None, "not found within the API call budget")
+        if target is None:
+            continue
+        status, versions = api_get(context, f"/api/projects/{target['project']}/items/{target['item']}/versions")
+        latest = versions[0] if status == 200 and isinstance(versions, list) and versions else {}
+        checks.add(f"states: {suffix} reports {expected} from the api", latest.get("viewState") == expected, latest.get("viewState"))
+        try:
+            page.goto(BASE_URL, wait_until="networkidle")
+            page.wait_for_timeout(1500)
+            file_row = expand_to_file(page, target)
+            row = file_row.locator("xpath=following-sibling::*[@role='treeitem']").first
+            row.wait_for(timeout=20000)
+            checks.add(f"states: {suffix} version row is {expected}", row.get_attribute("data-view-state") == expected, row.get_attribute("data-view-state"))
+            if expected == "ready":
+                continue
+            start = page.url
+            row.click(force=True)
+            page.wait_for_timeout(1000)
+            notice = page.locator(".doc-tree__notice[role=status]").inner_text()
+            checks.add(f"states: {suffix} selecting opens no tab", page.url == start and "/model/" not in page.url, page.url)
+            checks.add(f"states: {suffix} selecting explains why", "cannot be opened" in notice, notice)
+        except Exception as exc:
+            checks.add(f"states: {suffix}", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+
+
 def main():
     layout_only = "--layout" in sys.argv[1:]
     multi = "--multi" in sys.argv[1:]
+    states = "--states" in sys.argv[1:]
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     checks = Checks()
     notes = new_notes()
@@ -912,8 +983,8 @@ def main():
         checks.add("health reports real APS", status == 200 and isinstance(health, dict) and health.get("mock") is False, health)
         status, token = api_get(context, "/api/viewer/token")
         checks.add("viewer token issued", status == 200 and isinstance(token, dict) and bool(token.get("access_token")), f"status {status}")
-        found = None if multi else find_viewable(context)
-        if not multi:
+        found = None if multi or states else find_viewable(context)
+        if not multi and not states:
             checks.add("a viewable model exists", found is not None, "none found within the API call budget")
         revit = find_models(context) if multi else []
         if multi and len(revit) < MULTI_COUNT:
@@ -927,7 +998,9 @@ def main():
         page.wait_for_timeout(1500)
         checks.add("tree lists hubs", page.locator("[role=treeitem]").count() >= 1)
         page.screenshot(path=str(OUTPUT_DIR / "01-home.png"))
-        if multi and len(revit) >= 2:
+        if states:
+            check_view_states(page, context, checks)
+        elif multi and len(revit) >= 2:
             check_multi_model(page, checks, revit, notes)
         elif found and layout_only:
             if open_model_for_layout(page, checks, found):
@@ -936,7 +1009,7 @@ def main():
             run_model_checks(page, checks, found, notes)
         checks.add("no uncaught page errors", not notes["page_errors"], notes["page_errors"][:2])
         checks.add("no failed app requests", not notes["failed_requests"], notes["failed_requests"][:3])
-    report = "multi-report.json" if multi else "layout-report.json" if layout_only else "report.json"
+    report = "states-report.json" if states else "multi-report.json" if multi else "layout-report.json" if layout_only else "report.json"
     return checks.finish(notes, report)
 
 
