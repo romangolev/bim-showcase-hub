@@ -185,6 +185,14 @@ def find_viewable(context):
     return None
 
 
+def wait_children(page, row, depth, timeout=20000):
+    row.locator(f"xpath=self::*[@aria-expanded='true']").wait_for(timeout=timeout)
+    child = row.locator(
+        f"xpath=following-sibling::*[1][@aria-level='{depth + 1}' or (contains(@class,'tree-status') and @data-variant!='loading')]"
+    )
+    child.wait_for(timeout=timeout)
+
+
 def open_in_tree(page, found):
     for depth, name in enumerate(found["crumbs"] + [found["file"]], start=1):
         row = page.locator(f"[role=treeitem][aria-level='{depth}']", has_text=name).first
@@ -192,7 +200,7 @@ def open_in_tree(page, found):
         if row.get_attribute("aria-expanded") != "true":
             row.click()
             page.keyboard.press("ArrowRight")
-        page.wait_for_timeout(1500)
+        wait_children(page, row, depth, 15000)
     version_row = page.locator("[role=treeitem][data-viewable=true]").first
     version_row.wait_for(timeout=15000)
     version_row.click()
@@ -493,7 +501,7 @@ def open_model_for_layout(page, checks, found):
         page.goto(f"{BASE_URL}/model/{found['urn']}", wait_until="domcontentloaded")
     try:
         page.wait_for_selector(".adsk-viewing-viewer", timeout=VIEWER_TIMEOUT_MS)
-        page.wait_for_timeout(VIEWER_SETTLE_MS)
+        page.locator(".pane-model[data-active='true'] .bsh-viewer-pane[data-state='ready']").first.wait_for(timeout=VIEWER_TIMEOUT_MS)
         checks.add("autodesk viewer is mounted", True)
         return True
     except Exception:
@@ -729,7 +737,7 @@ def expand_to_file(page, found):
         if row.get_attribute("aria-expanded") != "true":
             row.click()
             page.keyboard.press("ArrowRight")
-        page.wait_for_timeout(1500)
+        wait_children(page, row, depth)
         previous = row
     return previous
 
@@ -852,7 +860,7 @@ def check_multi_model(page, checks, revit, notes):
             tab = tab_of(page, labels[first_urn])
             tab.hover()
             tab.locator(".dv-default-tab-action").click(timeout=8000)
-            page.wait_for_timeout(2000)
+            tab.wait_for(state="detached", timeout=10000)
             remaining = wait_models(page, lambda vs: vs and all(loaded(v) for v in vs))
             checks.add("multi: closing a tab removes it", tab_of(page, labels[first_urn]).count() == 0 and closing is not None)
             checks.add("multi: the other models stay loaded after a close", bool(remaining) and all(loaded(v) for v in remaining), remaining)
@@ -872,7 +880,7 @@ def check_multi_model(page, checks, revit, notes):
         page.on("request", lambda request: manifests.append(request.url))
         page.reload(wait_until="domcontentloaded")
         views = wait_models(page, lambda vs: any(v["active"] and loaded(v) for v in vs))
-        page.wait_for_timeout(3000)
+        page.locator(".pane-model[data-active='true'][data-live='true'] .bsh-viewer-pane[data-state='ready']").first.wait_for(timeout=VIEWER_TIMEOUT_MS)
         restored = [label for label in open_tabs if tab_of(page, label).count()]
         checks.add("multi: reload restores the tabs", restored == open_tabs, f"{restored} vs {open_tabs}")
         checks.add("multi: reload loads the active model", any(v["active"] and loaded(v) for v in views) and active_tab_label(page) == active_label, views)
@@ -971,9 +979,8 @@ def check_view_states(page, context, checks):
         label = item["file"]
         try:
             page.goto(BASE_URL, wait_until="networkidle")
-            page.wait_for_timeout(1500)
+            page.locator("[role=treeitem]").first.wait_for(timeout=20000)
             file_row = expand_to_file(page, {"crumbs": item["crumbs"], "file": item["file"]})
-            page.wait_for_timeout(1500)
             rows = version_rows(page, file_row)
             for version in item["versions"]:
                 row = rows.get(version["name"])
@@ -984,7 +991,10 @@ def check_view_states(page, context, checks):
             if blocked:
                 start = page.url
                 rows[blocked["name"]].click(force=True)
-                page.wait_for_timeout(1000)
+                try:
+                    page.locator(".doc-tree__notice[role=status]", has_text="cannot be opened").wait_for(timeout=10000)
+                except Exception:
+                    checks.add(f"states: {label} blocked version notice appears", False, "timed out after 10s")
                 notice = page.locator(".doc-tree__notice[role=status]").inner_text()
                 checks.add(f"states: {label} blocked version opens no tab", page.url == start, f"{start} -> {page.url}")
                 checks.add(f"states: {label} blocked version shows the notice", "cannot be opened" in notice, notice)
@@ -1121,8 +1131,10 @@ def check_far_apart_live(page, checks, notes, count):
     try:
         warning.wait_for(timeout=VIEWER_TIMEOUT_MS)
     except Exception:
-        pass
-    text = warning.inner_text() if warning.count() else ""
+        notes["combined_far_warning"] = ""
+        checks.add("combined: the far apart warning appears", False, f"timed out after {VIEWER_TIMEOUT_MS // 1000}s")
+        return
+    text = warning.inner_text()
     notes["combined_far_warning"] = text[:200]
     checks.add("combined: the far apart warning appears", "far apart in model space" in text, text[:160] or "no warning")
     if not text:
@@ -1139,7 +1151,7 @@ def check_far_apart_live(page, checks, notes, count):
     checks.add("combined: every model stays loaded after moving", bool(together) and len(together["models"]) == count and all(m["done"] for m in together["models"]), together and len(together["models"]))
     page.screenshot(path=str(OUTPUT_DIR / "combined-03-together.png"))
     page.get_by_role("button", name="Restore positions").first.click()
-    page.wait_for_timeout(1500)
+    page.get_by_role("button", name="Bring models together (view only)").first.wait_for(timeout=VIEWER_TIMEOUT_MS)
     after = combined_state(page)
     restored = {m["id"]: center(m["box"]) for m in after["models"] if m["box"]}
     worst = max(
@@ -1202,7 +1214,7 @@ def check_combined(page, context, checks, notes):
         try:
             rows.first.wait_for(timeout=VIEWER_TIMEOUT_MS)
         except Exception:
-            pass
+            checks.add(f"combined: summary rows appear for {options[index]}", False, f"timed out after {VIEWER_TIMEOUT_MS // 1000}s")
         per_model[f"{index}:{options[index]}"] = rows.count()
     scope.select_option(index=0)
     checks.add("combined: summary rows include data from every model", all(count > 0 for count in per_model.values()), per_model)
@@ -1216,9 +1228,12 @@ def check_combined(page, context, checks, notes):
     after = wait_combined(page, lambda s: len(s["models"]) == len(good) - 1)
     remaining = after["models"] if after else []
     checks.add("combined: removing one model leaves the others rendered", len(remaining) == len(good) - 1 and all(m["done"] for m in remaining), f"{removed_label}: {len(remaining)} left")
-    page.wait_for_timeout(1500)
-    after = combined_state(page)
-    follows_container = bool(after and after["canvas"]) and abs(after["canvas"]["width"] - after["host"]["width"]) <= 4 and abs(after["canvas"]["height"] - after["host"]["height"]) <= 4
+
+    def canvas_on_host(state):
+        return bool(state and state["canvas"]) and abs(state["canvas"]["width"] - state["host"]["width"]) <= 4 and abs(state["canvas"]["height"] - state["host"]["height"]) <= 4
+
+    after = wait_combined(page, canvas_on_host, timeout_ms=10000)
+    follows_container = canvas_on_host(after)
     checks.add("combined: canvas follows its container", follows_container, after and (after["canvas"], after["host"]))
 
     bad = named.get(COMBINED_BAD[0])
@@ -1229,7 +1244,7 @@ def check_combined(page, context, checks, notes):
         try:
             failed.wait_for(timeout=VIEWER_TIMEOUT_MS)
         except Exception:
-            pass
+            checks.add("combined: the failed member list appears", False, f"timed out after {VIEWER_TIMEOUT_MS // 1000}s")
         text = failed.inner_text() if failed.count() else ""
         notes["combined_bad_member"] = text[:200]
         checks.add("combined: a member without geometry explains why", NO_GEOMETRY_TEXT in text or "Document load failed" in text, text[:160])
@@ -1285,7 +1300,10 @@ def main():
         page = context.pages[0] if context.pages else context.new_page()
         watch(page, notes)
         page.goto(BASE_URL, wait_until="networkidle")
-        page.wait_for_timeout(1500)
+        try:
+            page.locator("[role=treeitem]").first.wait_for(timeout=20000)
+        except Exception:
+            pass
         checks.add("tree lists hubs", page.locator("[role=treeitem]").count() >= 1)
         page.screenshot(path=str(OUTPUT_DIR / "01-home.png"))
         if combined:
