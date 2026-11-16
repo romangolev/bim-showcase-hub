@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { PropertyRow } from '../../shared/types.js';
 import { MockViewerAdapter } from './MockViewerAdapter.js';
+import type { ModelInfo } from './modelSet.js';
 import { forgetLeafRows, readLeafRows } from './sharedLeafRows.js';
 import type { ViewerAdapter } from './ViewerAdapter.js';
 
@@ -130,6 +131,45 @@ describe('readLeafRows with a model set', () => {
     expect(callsFor(spy, 'urn-noprops')).toBe(2);
     expect(callsFor(spy, 'urn-a')).toBe(1);
     adapter.destroy();
+  });
+
+  it('does not cache an empty read and reads again after a model reloads', async () => {
+    let models: ModelInfo[] = [
+      { id: 'm1', urn: 'm1', name: 'M1', visible: true, status: 'ready' },
+    ];
+    let listener: (next: ModelInfo[]) => void = () => {};
+    let rows: PropertyRow[] = [];
+    const getLeafProperties = vi.fn(async () => rows);
+    const adapter = {
+      getLeafProperties,
+      getModels: () => models,
+      onModelsChange: (cb: (next: ModelInfo[]) => void) => {
+        listener = cb;
+        return () => {};
+      },
+    } as unknown as ViewerAdapter;
+    expect(await readLeafRows(adapter, ['Name'])).toEqual([]);
+    rows = [{ dbId: 1, name: 'El', properties: { Name: 'first' } }];
+    expect(await readLeafRows(adapter, ['Name'])).toHaveLength(1);
+    expect(getLeafProperties).toHaveBeenCalledTimes(2);
+    await readLeafRows(adapter, ['Name']);
+    expect(getLeafProperties).toHaveBeenCalledTimes(2);
+    const set = (status: ModelInfo['status']) => {
+      models = models.map((model) => ({ ...model, status }));
+      listener(models);
+    };
+    set('loading');
+    set('ready');
+    rows = [{ dbId: 1, name: 'El', properties: { Name: 'second' } }];
+    const fresh = await readLeafRows(adapter, ['Name']);
+    expect(getLeafProperties).toHaveBeenCalledTimes(3);
+    expect(fresh[0]?.properties.Name).toBe('second');
+    models = models.map((model) => ({ ...model, visible: false }));
+    listener(models);
+    models = models.map((model) => ({ ...model, visible: true }));
+    listener(models);
+    await readLeafRows(adapter, ['Name']);
+    expect(getLeafProperties).toHaveBeenCalledTimes(3);
   });
 
   it('reuses the rows of the same version and leaves out removed models', async () => {

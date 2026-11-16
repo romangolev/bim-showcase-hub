@@ -24,8 +24,35 @@ const reads = new WeakMap<ViewerAdapter, AdapterReads>();
 function readsFor(adapter: ViewerAdapter): AdapterReads {
   let entry = reads.get(adapter);
   if (!entry) {
-    entry = { generation: 0, keys: new Map() };
-    reads.set(adapter, entry);
+    const created: AdapterReads = { generation: 0, keys: new Map() };
+    entry = created;
+    reads.set(adapter, created);
+    if (typeof adapter.onModelsChange === 'function') {
+      const ready = new Set(
+        adapter
+          .getModels()
+          .filter((model) => model.status === 'ready')
+          .map((model) => model.id),
+      );
+      adapter.onModelsChange((models) => {
+        const now = new Set<string>();
+        for (const model of models) {
+          if (model.status !== 'ready') {
+            created.keys.delete(model.id);
+            continue;
+          }
+          now.add(model.id);
+          if (!ready.has(model.id)) created.keys.delete(model.id);
+        }
+        for (const id of [...created.keys.keys()]) {
+          if (id !== WHOLE && !models.some((model) => model.id === id)) {
+            created.keys.delete(id);
+          }
+        }
+        ready.clear();
+        for (const id of now) ready.add(id);
+      });
+    }
   }
   return entry;
 }
@@ -79,7 +106,9 @@ function startBatch(
     };
     read.then((rows) => {
       release();
-      if (entry.generation === generation) key.settled = { names: union, rows };
+      if (entry.generation === generation && rows.length > 0) {
+        key.settled = { names: union, rows };
+      }
     }, release);
     return read;
   });
