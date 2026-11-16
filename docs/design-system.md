@@ -21,13 +21,14 @@ Other stylesheets in `src/web/styles` (`global.css`, `shell.css`, `tree.css`, `l
 
 | State | Badge | Style |
 |---|---|---|
-| `ready`, `unknown` | Viewable | arc-blue outline |
+| `ready` | Viewable | arc-blue outline |
+| `unknown` | Unchecked | neutral (fog) text with an ash outline; the tooltip says the geometry could not be verified and it may still open |
 | `processing` | Processing | neutral (chalk) outline with a spinner that stops under reduced motion |
 | `no-geometry` | No 3D or 2D view | muted (ash) text, no outline |
 | `not-translated` | Not translated | muted (ash) text, no outline |
 | `failed` | Translation failed | coral outline |
 
-  Each badge has a tooltip with the reason and the action. Versions that cannot open explain themselves in an aria-live notice when selected.
+  All badges sit right-aligned in the row's trailing slot, share one size and truncate with an ellipsis (at most 60% of the row). Each badge has a tooltip with the reason and the action. Versions that cannot open explain themselves in an aria-live notice when selected.
 - Loading, empty and error feedback uses the shared `StateBlock` component, not ad hoc text.
 - Interactive controls need an accessible name (`aria-label` or visible text) and a visible focus ring.
 
