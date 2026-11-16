@@ -130,6 +130,20 @@ describe('export rows', () => {
     ]);
   });
 
+  it('names the models whose properties are missing from an export', async () => {
+    const adapter = new MockViewerAdapter(document.createElement('div'));
+    await adapter.loadModels([
+      { urn: 'urn-a', name: 'Arch' },
+      { urn: 'urn-noprops', name: 'Broken DB' },
+    ]);
+    const status = await exportToXlsx(adapter, { save: vi.fn() });
+    expect(status).toMatchObject({ phase: 'done', missing: ['Broken DB'] });
+    expect(describeStatus(status)).toContain(
+      'Missing Broken DB: properties could not be read',
+    );
+    adapter.destroy();
+  });
+
   it('returns no sheets for no rows', () => {
     expect(buildExportSheets([], ['Name'])).toEqual([]);
   });

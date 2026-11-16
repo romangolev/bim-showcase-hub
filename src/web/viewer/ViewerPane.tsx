@@ -65,8 +65,12 @@ function isBusy(status: ExportStatus): boolean {
 
 function badgeText(status: ExportStatus): string {
   if (status.phase === 'error') return 'Export failed';
-  if (status.phase === 'done')
-    return `Exported ${formatCount(status.rowCount)} rows`;
+  if (status.phase === 'done') {
+    const rows = `Exported ${formatCount(status.rowCount)} rows`;
+    return status.missing?.length
+      ? `${rows}, missing ${status.missing.join(', ')}`
+      : rows;
+  }
   return describeStatus(status);
 }
 
@@ -308,7 +312,12 @@ export function ViewerPane({
           {exportStatus ? (
             <span
               className="badge bsh-viewer-badge"
-              data-variant={exportStatus.phase === 'error' ? 'error' : 'ok'}
+              data-variant={
+                exportStatus.phase === 'error' ||
+                (exportStatus.phase === 'done' && exportStatus.missing?.length)
+                  ? 'error'
+                  : 'ok'
+              }
               title={describeStatus(exportStatus)}
             >
               <span className="badge__dot" aria-hidden="true" />

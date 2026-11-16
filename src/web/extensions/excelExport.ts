@@ -1,5 +1,5 @@
 import type { PropertyRow } from '../../shared/types.js';
-import { distinctModelCount } from '../viewer/modelScope.js';
+import { distinctModelCount, unavailableModels } from '../viewer/modelScope.js';
 import { readLeafRows } from '../viewer/sharedLeafRows.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { formatValue } from './modelSummary.js';
@@ -34,6 +34,11 @@ export const FALLBACK_SHEET_NAME = 'Elements';
 
 export type ExportCell = string | number | boolean;
 
+function missingModels(adapter: ViewerAdapter): string[] {
+  if (typeof adapter.getModels !== 'function') return [];
+  return unavailableModels(adapter.getModels()).map((model) => model.name);
+}
+
 export interface ExportSheet {
   name: string;
   header: string[];
@@ -43,7 +48,7 @@ export interface ExportSheet {
 export type ExportStatus =
   | { phase: 'reading' }
   | { phase: 'building' }
-  | { phase: 'done'; fileName: string; rowCount: number }
+  | { phase: 'done'; fileName: string; rowCount: number; missing?: string[] }
   | { phase: 'empty' }
   | { phase: 'error'; message: string };
 
@@ -173,7 +178,12 @@ export async function exportToXlsx(
       (total, sheet) => total + sheet.rows.length,
       0,
     );
-    return emit({ phase: 'done', fileName, rowCount });
+    const missing = missingModels(adapter);
+    return emit(
+      missing.length > 0
+        ? { phase: 'done', fileName, rowCount, missing }
+        : { phase: 'done', fileName, rowCount },
+    );
   } catch (err) {
     return emit({
       phase: 'error',
@@ -189,7 +199,9 @@ export function describeStatus(status: ExportStatus): string {
     case 'building':
       return 'Building the Excel file';
     case 'done':
-      return `Exported ${status.rowCount} elements to ${status.fileName}`;
+      return status.missing?.length
+        ? `Exported ${status.rowCount} elements to ${status.fileName}. Missing ${status.missing.join(', ')}: properties could not be read`
+        : `Exported ${status.rowCount} elements to ${status.fileName}`;
     case 'empty':
       return 'No elements to export';
     case 'error':
