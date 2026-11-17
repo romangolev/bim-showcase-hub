@@ -10,6 +10,5 @@ export interface ModalDefinition {
   id: string;
   title: string;
   size: ModalSize;
-  placement?: 'center' | 'top';
   Body: ComponentType<ModalBodyProps>;
 }

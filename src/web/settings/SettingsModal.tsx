@@ -189,6 +189,5 @@ export const SETTINGS_MODAL: ModalDefinition = {
   id: 'settings',
   title: 'Settings',
   size: 'lg',
-  placement: 'top',
   Body: SettingsBody,
 };

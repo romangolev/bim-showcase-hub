@@ -151,6 +151,5 @@ export const DASHBOARD_SETTINGS_MODAL: ModalDefinition = {
   id: DASHBOARD_SETTINGS_ID,
   title: 'Dashboard settings',
   size: 'lg',
-  placement: 'top',
   Body: DashboardSettingsBody,
 };

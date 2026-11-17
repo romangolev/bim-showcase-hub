@@ -125,6 +125,5 @@ export const SUMMARY_SETTINGS_MODAL: ModalDefinition = {
   id: SUMMARY_SETTINGS_ID,
   title: 'Summary settings',
   size: 'lg',
-  placement: 'top',
   Body: SummarySettingsBody,
 };
