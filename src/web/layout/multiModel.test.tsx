@@ -539,7 +539,6 @@ describe('Documents first', () => {
     );
     await waitFor(() =>
       expect(parseLayout(storage.getItem(LAYOUT_KEY))?.dismissed).toEqual([
-        'models',
         'summary',
       ]),
     );
@@ -548,23 +547,24 @@ describe('Documents first', () => {
     await open(appRouter, 'bbb', 'B.rvt');
     await screen.findByRole('tab', { name: 'B.rvt · v1' });
     await waitFor(() =>
-      expect(handle().openPanes()).toEqual(['tree', 'viewer', 'dashboard']),
+      expect(handle().openPanes().sort()).toEqual([
+        'dashboard',
+        'models',
+        'tree',
+        'viewer',
+      ]),
     );
     act(() => handle().togglePane('summary'));
     await screen.findByRole('tab', { name: 'Model summary' });
     await waitFor(() =>
-      expect(parseLayout(storage.getItem(LAYOUT_KEY))?.dismissed).toEqual([
-        'models',
-      ]),
+      expect(parseLayout(storage.getItem(LAYOUT_KEY))?.dismissed).toEqual([]),
     );
     act(() => handle().togglePane('summary'));
     await waitFor(() => expect(handle().openPanes()).not.toContain('summary'));
     act(() => handle().resetLayout());
     await waitFor(() => expect(handle().openPanes()).toContain('summary'));
     await waitFor(() =>
-      expect(parseLayout(storage.getItem(LAYOUT_KEY))?.dismissed).toEqual([
-        'models',
-      ]),
+      expect(parseLayout(storage.getItem(LAYOUT_KEY))?.dismissed).toEqual([]),
     );
   });
 

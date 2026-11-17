@@ -16,6 +16,7 @@ export type PlacementDirection = 'left' | 'right' | 'below';
 export type Placement =
   | { kind: 'root' }
   | { kind: 'edge'; direction: PlacementDirection; size: number }
+  | { kind: 'tab'; reference: PaneId }
   | {
       kind: 'beside';
       reference: PaneId;
@@ -110,16 +111,10 @@ export const PANES: readonly PaneDefinition[] = [
     icon: 'layers',
     component: ModelsPane,
     minSize: { width: 240, height: 160 },
-    defaultPlacement: {
-      kind: 'beside',
-      reference: 'viewer',
-      direction: 'left',
-      size: 280,
-    },
+    defaultPlacement: { kind: 'tab', reference: 'tree' },
     closable: true,
     canFloat: true,
     requires: 'viewer',
-    startsDismissed: true,
   },
 ];
 

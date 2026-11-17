@@ -100,7 +100,7 @@ describe('layoutReducer', () => {
     expect(defaultModel().collapsed).toEqual(['dashboard']);
     expect(defaultModel().collapsed).toEqual(['dashboard']);
     expect(defaultModel().dock).toBeNull();
-    expect(defaultModel().dismissed).toEqual(['models']);
+    expect(defaultModel().dismissed).toEqual([]);
   });
 
   it('keeps the Documents width the user resized to, within limits', () => {
@@ -126,12 +126,12 @@ describe('layoutReducer', () => {
       id: 'summary',
       dismissed: true,
     });
-    expect(twice.dismissed).toEqual(['models', 'summary']);
+    expect(twice.dismissed).toEqual(['summary']);
     expect(twice).toBe(once);
     expect(
       layoutReducer(twice, { type: 'dismiss', id: 'summary', dismissed: false })
         .dismissed,
-    ).toEqual(['models']);
+    ).toEqual([]);
   });
 });
 
@@ -149,12 +149,15 @@ describe('serialize and parse', () => {
     expect(parseLayout(raw)).toEqual(model);
   });
 
-  it('keeps panes that start closed dismissed for layouts saved before them', () => {
-    const raw = JSON.stringify({
+  it('keeps a saved dismissal of Models and leaves other saved layouts open to it', () => {
+    const base = { dock: sampleDock(), collapsed: [], treeWidth: 320 };
+    const closed = JSON.stringify({
       version: 2,
-      layout: { dock: sampleDock(), collapsed: [], treeWidth: 320 },
+      layout: { ...base, dismissed: ['models'] },
     });
-    expect(parseLayout(raw)?.dismissed).toEqual(['models']);
+    expect(parseLayout(closed)?.dismissed).toEqual(['models']);
+    const older = JSON.stringify({ version: 2, layout: base });
+    expect(parseLayout(older)?.dismissed).toEqual([]);
   });
 
   it('rejects corrupt json, other versions and wrong shapes', () => {
@@ -175,7 +178,7 @@ describe('serialize and parse', () => {
       dock: null,
       collapsed: ['summary'],
       treeWidth: 260,
-      dismissed: ['models'],
+      dismissed: [],
       lastViewerArrangement: null,
     });
   });
@@ -385,7 +388,7 @@ describe('storage', () => {
       dock: null,
       collapsed: ['summary'],
       treeWidth: 400,
-      dismissed: ['models'],
+      dismissed: [],
       lastViewerArrangement: null,
     });
     expect(storage.getItem(LEGACY_KEYS.treeWidth)).toBeNull();
@@ -434,7 +437,7 @@ describe('storage', () => {
         dock: null,
         collapsed: ['dashboard'],
         treeWidth: 320,
-        dismissed: ['models'],
+        dismissed: [],
         lastViewerArrangement: null,
       },
     });
@@ -531,7 +534,7 @@ describe('migration from v1', () => {
       'summary',
       'tree',
     ]);
-    expect(migrated?.dismissed).toEqual(['models']);
+    expect(migrated?.dismissed).toEqual([]);
   });
 
   it('rejects a corrupt v1 record', () => {

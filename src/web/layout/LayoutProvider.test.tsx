@@ -106,6 +106,7 @@ describe('dock layout', () => {
     await waitFor(() =>
       expect(Object.keys(saved()?.dock?.panels ?? {}).sort()).toEqual([
         'dashboard',
+        'models',
         'summary',
         'tree',
         'viewer:abc123',
@@ -247,6 +248,7 @@ describe('dock layout', () => {
     await waitFor(() =>
       expect(handle().openPanes().sort()).toEqual([
         'dashboard',
+        'models',
         'summary',
         'tree',
         'viewer',
@@ -307,15 +309,20 @@ describe('dock layout', () => {
     expect(load).toHaveBeenCalledTimes(1);
   });
 
-  it('opens the Models pane on demand and lists the models', async () => {
+  it('opens the Models pane as a tab beside Documents and lists the models', async () => {
     renderPath();
     await dockReady();
-    expect(handle().openPanes()).not.toContain('models');
-    act(() => handle().togglePane('models'));
-    await screen.findByRole('tab', { name: 'Models' });
-    expect(await screen.findByText(/of 6 models/)).toBeInTheDocument();
+    await waitFor(() => expect(handle().openPanes()).toContain('models'));
+    const models = await screen.findByRole('tab', { name: 'Models' });
+    const documents = screen.getByRole('tab', { name: 'Documents' });
+    expect(models.closest('.dv-groupview')).toBe(
+      documents.closest('.dv-groupview'),
+    );
+    expect(documents).toHaveAttribute('aria-selected', 'true');
     act(() => handle().togglePane('models'));
     await waitFor(() => expect(handle().openPanes()).not.toContain('models'));
+    act(() => handle().togglePane('models'));
+    await waitFor(() => expect(handle().openPanes()).toContain('models'));
   });
 
   it('restores a floating pane after a reload and never pops out', async () => {
@@ -344,6 +351,7 @@ describe('dock layout', () => {
     await waitFor(() =>
       expect(handle().openPanes().sort()).toEqual([
         'dashboard',
+        'models',
         'summary',
         'tree',
         'viewer',

@@ -194,7 +194,7 @@ function constrain(group: DockviewGroupPanel, bounds: Bounds) {
 }
 
 function sizePane(api: DockviewApi, id: PanelId, placement: Placement) {
-  if (placement.kind === 'root') return;
+  if (placement.kind === 'root' || placement.kind === 'tab') return;
   api
     .getPanel(id)
     ?.group.api.setSize(
@@ -250,6 +250,15 @@ function addPane(
         tree && tree.api.location.type === 'grid'
           ? { referencePanel: tree, direction: 'right' }
           : { direction: 'left' },
+    });
+    return;
+  }
+  if (placement.kind === 'tab') {
+    const host = resolvePanel(api, placement.reference);
+    api.addPanel({
+      ...base,
+      position: host ? { referenceGroup: host.group } : { direction: 'left' },
+      inactive: Boolean(host),
     });
     return;
   }
@@ -631,7 +640,9 @@ export function DockLayout(props: DockLayoutProps) {
     const floor = axis === 'width' ? min.width : min.height;
     if (previous !== undefined && previous >= floor) return previous;
     const placement = paneById(pane).defaultPlacement;
-    return placement.kind === 'root' ? floor : Math.max(placement.size, floor);
+    return placement.kind === 'root' || placement.kind === 'tab'
+      ? floor
+      : Math.max(placement.size, floor);
   };
 
   const applyCollapse = () => {
@@ -776,7 +787,7 @@ export function DockLayout(props: DockLayoutProps) {
       const placement = pane.defaultPlacement;
       const direction =
         target === 'dock'
-          ? placement.kind === 'root'
+          ? placement.kind === 'root' || placement.kind === 'tab'
             ? 'right'
             : placement.direction
           : target;

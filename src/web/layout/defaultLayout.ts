@@ -9,6 +9,7 @@ const RANK: Record<Placement['kind'], number> = {
   root: 0,
   beside: 1,
   edge: 2,
+  tab: 3,
 };
 
 export function defaultSteps(treeWidth: number): LayoutStep[] {
