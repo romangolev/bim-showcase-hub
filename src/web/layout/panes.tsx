@@ -18,6 +18,7 @@ import { useTreeControl } from '../components/TreeControl.js';
 import { TreePanel } from '../components/TreePanel.js';
 import { exportFileName } from '../extensions/excelExport.js';
 import { useModal } from '../modal/ModalContext.js';
+import { DASHBOARD_SETTINGS_ID } from '../panels/DashboardSettings.js';
 import {
   DashboardPanel,
   ModelSummaryPanel,
@@ -213,9 +214,11 @@ export function SummaryPane() {
 
 export function DashboardPane() {
   const layout = useLayout();
+  const modal = useModal();
   return (
     <div className="pane-dashboard">
       <DashboardPanel
+        onOpenSettings={() => modal.open(DASHBOARD_SETTINGS_ID)}
         collapsed={layout.mode === 'stacked' && layout.isCollapsed('dashboard')}
         toggleable={layout.mode === 'stacked'}
         onCollapsedChange={(next) => layout.setCollapsed('dashboard', next)}

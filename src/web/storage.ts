@@ -11,6 +11,7 @@ export const BSH_KEYS = {
     summaryView: 'bsh.summary.view.v1',
     summaryAction: 'bsh.summary.action.v1',
     dashboardAction: 'bsh.dashboard.action.v1',
+    dashboardView: 'bsh.dashboard.view.v1',
   },
   preference: {
     theme: 'bsh-theme',

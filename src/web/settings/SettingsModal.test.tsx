@@ -78,4 +78,18 @@ describe('SettingsBody', () => {
     ).toBeInTheDocument();
     expect(screen.getByLabelText('Density')).toBeInTheDocument();
   });
+
+  it('shows the dashboard settings section', () => {
+    render(
+      <SettingsProvider>
+        <ThemeProvider>
+          <SettingsBody />
+        </ThemeProvider>
+      </SettingsProvider>,
+    );
+    expect(
+      screen.getByRole('heading', { name: 'Dashboard' }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText('Maximum categories')).toBeInTheDocument();
+  });
 });

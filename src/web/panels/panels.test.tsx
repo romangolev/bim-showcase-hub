@@ -3,6 +3,7 @@ import { installMemoryStorage } from '../test/mockApi.js';
 import { act, fireEvent, render, screen, waitFor } from '../test/render.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
 import { DashboardPanel } from './DashboardPanel.js';
+import { DashboardSettingsBody } from './DashboardSettings.js';
 import { ModelSummaryPanel } from './ModelSummaryPanel.js';
 import { SummarySettingsBody } from './SummarySettings.js';
 import { SummaryTable } from './SummaryTable.js';
@@ -156,6 +157,10 @@ describe('shared property read', () => {
 });
 
 describe('DashboardPanel', () => {
+  beforeEach(() => {
+    installMemoryStorage();
+  });
+
   it('renders labelled charts and a data table fallback', async () => {
     const adapter = await loaded();
     render(<DashboardPanel adapter={adapter} />);
@@ -175,17 +180,25 @@ describe('DashboardPanel', () => {
     expect(screen.getByText('Data table')).toBeInTheDocument();
   });
 
-  it('switches property and collapses', async () => {
+  it('switches property from the settings body and collapses', async () => {
     const adapter = await loaded();
     const onCollapsedChange = vi.fn();
     render(
-      <DashboardPanel
-        adapter={adapter}
-        onCollapsedChange={onCollapsedChange}
-      />,
+      <>
+        <DashboardPanel
+          adapter={adapter}
+          onCollapsedChange={onCollapsedChange}
+        />
+        <DashboardSettingsBody />
+      </>,
     );
-    const select = await screen.findByLabelText('Group elements by');
-    fireEvent.change(select, { target: { value: 'Level' } });
+    await screen.findByRole('img', {
+      name: 'Bar chart of element counts by Category',
+    });
+    expect(screen.queryByLabelText('Group elements by')).toBeNull();
+    fireEvent.change(screen.getByLabelText('Group by'), {
+      target: { value: 'Level' },
+    });
     expect(
       await screen.findByRole('img', {
         name: 'Bar chart of element counts by Level',
@@ -475,6 +488,89 @@ describe('summary view, copy and row actions', () => {
   });
 });
 
+describe('dashboard settings', () => {
+  beforeEach(() => {
+    installMemoryStorage();
+    made.configs.length = 0;
+  });
+
+  it('opens from the panel gear button only when handled', () => {
+    const onOpenSettings = vi.fn();
+    const { unmount } = render(
+      <DashboardPanel onOpenSettings={onOpenSettings} />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Dashboard settings' }));
+    expect(onOpenSettings).toHaveBeenCalledOnce();
+    unmount();
+    render(<DashboardPanel />);
+    expect(
+      screen.queryByRole('button', { name: 'Dashboard settings' }),
+    ).toBeNull();
+  });
+
+  it('keeps the pane to charts and a chart type switch', async () => {
+    const adapter = await loaded();
+    render(<DashboardPanel adapter={adapter} />);
+    await screen.findByRole('img', {
+      name: 'Bar chart of element counts by Category',
+    });
+    expect(screen.queryByRole('button', { name: 'Model health' })).toBeNull();
+    expect(screen.queryByLabelText('Chart click action')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Doughnut' }));
+    expect(
+      screen.queryByRole('img', {
+        name: 'Bar chart of element counts by Category',
+      }),
+    ).toBeNull();
+    expect(
+      screen.getByRole('img', {
+        name: 'Doughnut chart of element share by Category',
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps two bodies and the panel in sync', async () => {
+    const adapter = await loaded();
+    render(
+      <>
+        <DashboardPanel adapter={adapter} />
+        <DashboardSettingsBody />
+        <DashboardSettingsBody />
+      </>,
+    );
+    await screen.findByRole('img', {
+      name: 'Bar chart of element counts by Category',
+    });
+    const [first, second] = screen.getAllByLabelText('Chart type');
+    fireEvent.change(first as HTMLElement, { target: { value: 'bar' } });
+    await waitFor(() =>
+      expect((second as HTMLSelectElement).value).toBe('bar'),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('img', {
+          name: 'Doughnut chart of element share by Category',
+        }),
+      ).toBeNull(),
+    );
+    fireEvent.click(
+      screen.getAllByRole('button', { name: 'Model health' })[0] as HTMLElement,
+    );
+    await screen.findByRole('img', {
+      name: 'Bar chart of element counts by Level',
+    });
+  });
+
+  it('limits the categories and resets', async () => {
+    render(<DashboardSettingsBody />);
+    const max = screen.getByLabelText('Maximum categories');
+    fireEvent.change(max, { target: { value: '99' } });
+    await waitFor(() => expect((max as HTMLInputElement).value).toBe('30'));
+    fireEvent.click(screen.getByRole('button', { name: 'Reset dashboard' }));
+    await waitFor(() => expect((max as HTMLInputElement).value).toBe('12'));
+  });
+});
+
 describe('dashboard presets and cross-filter', () => {
   beforeEach(() => {
     installMemoryStorage();
@@ -483,7 +579,12 @@ describe('dashboard presets and cross-filter', () => {
 
   it('shows one chart per available property of a preset', async () => {
     const adapter = await loaded();
-    render(<DashboardPanel adapter={adapter} />);
+    render(
+      <>
+        <DashboardPanel adapter={adapter} />
+        <DashboardSettingsBody />
+      </>,
+    );
     fireEvent.click(
       await screen.findByRole('button', { name: 'Model health' }),
     );

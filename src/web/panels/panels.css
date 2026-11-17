@@ -785,3 +785,19 @@
   align-items: center;
   gap: var(--space-2);
 }
+
+.bsh-kinds {
+  display: inline-flex;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.bsh-kinds .bsh-button[aria-pressed="true"] {
+  border-color: var(--color-ring-blue);
+}
+
+.bsh-charts[data-single] {
+  grid-template-columns: minmax(0, 1fr);
+}

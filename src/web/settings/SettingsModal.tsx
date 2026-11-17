@@ -1,5 +1,6 @@
 import { useId } from 'react';
 import type { ModalDefinition } from '../modal/types.js';
+import { DashboardSettingsBody } from '../panels/DashboardSettings.js';
 import { SummarySettingsBody } from '../panels/SummarySettings.js';
 import { useTheme } from '../theme/ThemeContext.js';
 import { ExcelSettingsSection } from './ExcelSettingsSection.js';
@@ -167,6 +168,15 @@ export function SettingsBody() {
           Model summary
         </h3>
         <SummarySettingsBody />
+      </section>
+      <section
+        className="settings__section"
+        aria-labelledby="settings-dashboard"
+      >
+        <h3 id="settings-dashboard" className="settings__heading">
+          Dashboard
+        </h3>
+        <DashboardSettingsBody />
       </section>
       <PaintSettingsSection />
       <ExcelSettingsSection />
