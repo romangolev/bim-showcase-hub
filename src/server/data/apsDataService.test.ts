@@ -51,6 +51,25 @@ describe('createApsDataService', () => {
     expect(versions[0]?.kind).toBe('version');
   });
 
+  it('reads hubs and top folders once even when links.next is present', async () => {
+    const client = fakeClient();
+    client.getHubs.mockResolvedValue({
+      data: [{ id: 'b.1', attributes: { name: 'Hub' } }],
+      links: { next: { href: 'x' } },
+    });
+    client.getProjectTopFolders.mockResolvedValue({
+      data: [{ id: 'f1', attributes: { displayName: 'Files' } }],
+      links: { next: { href: 'x' } },
+    });
+    const service = createApsDataService(client as never);
+    await expect(service.listHubs('t')).resolves.toHaveLength(1);
+    await expect(
+      service.listTopFolders('t', 'b.1', 'b.p'),
+    ).resolves.toHaveLength(1);
+    expect(client.getHubs).toHaveBeenCalledTimes(1);
+    expect(client.getProjectTopFolders).toHaveBeenCalledTimes(1);
+  });
+
   it('follows pages until links.next is absent', async () => {
     const client = fakeClient();
     client.getFolderContents

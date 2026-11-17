@@ -40,13 +40,14 @@ async function allPages<T>(
   fetchPage: (
     pageNumber: number,
   ) => Promise<{ data?: T[]; links?: unknown } | undefined>,
+  paged = true,
 ): Promise<T[]> {
   const all: T[] = [];
   for (let page = 0; page < MAX_PAGES; page++) {
     const res = await fetchPage(page);
     all.push(...(res?.data ?? []));
     const next = (res?.links as { next?: unknown } | undefined)?.next;
-    if (!next) break;
+    if (!next || !paged) break;
   }
   return all;
 }
@@ -58,8 +59,9 @@ export function createApsDataService(
   return {
     listHubs: (token) =>
       guarded(async () => {
-        const data = await allPages(() =>
-          client.getHubs({ accessToken: token }),
+        const data = await allPages(
+          () => client.getHubs({ accessToken: token }),
+          false,
         );
         return mapHubs(data);
       }),
@@ -72,10 +74,12 @@ export function createApsDataService(
       }),
     listTopFolders: (token, hubId, projectId) =>
       guarded(async () => {
-        const data = await allPages(() =>
-          client.getProjectTopFolders(hubId, projectId, {
-            accessToken: token,
-          }),
+        const data = await allPages(
+          () =>
+            client.getProjectTopFolders(hubId, projectId, {
+              accessToken: token,
+            }),
+          false,
         );
         return mapTopFolders(data, projectId);
       }),
