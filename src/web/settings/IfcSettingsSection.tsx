@@ -82,24 +82,27 @@ function OverrideEditor({
   };
   return (
     <div className="settings__overrides">
-      <ul className="settings__override-list">
-        {Object.entries(overrides).map(([name, target]) => (
-          <li key={name} className="settings__override">
-            <span>{name}</span>
-            <span>{target}</span>
-            <button
-              type="button"
-              aria-label={`Remove ${name}`}
-              onClick={() => {
-                const { [name]: _removed, ...rest } = overrides;
-                onChange(rest);
-              }}
-            >
-              Remove
-            </button>
-          </li>
-        ))}
-      </ul>
+      {Object.keys(overrides).length > 0 ? (
+        <ul className="settings__override-list">
+          {Object.entries(overrides).map(([name, target]) => (
+            <li key={name} className="settings__override">
+              <span>{name}</span>
+              <span>{target}</span>
+              <button
+                type="button"
+                className="btn btn-small"
+                aria-label={`Remove ${name}`}
+                onClick={() => {
+                  const { [name]: _removed, ...rest } = overrides;
+                  onChange(rest);
+                }}
+              >
+                Remove
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
       <div className="settings__field">
         <label htmlFor={categoryId}>Category</label>
         <input
@@ -123,7 +126,7 @@ function OverrideEditor({
           ))}
         </select>
       </div>
-      <button type="button" onClick={add}>
+      <button type="button" className="btn" onClick={add}>
         Add override
       </button>
     </div>

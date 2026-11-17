@@ -67,6 +67,7 @@ describe('IfcSettingsSection', () => {
   it('ignores an empty category when adding', () => {
     renderSection();
     fireEvent.click(screen.getByRole('button', { name: 'Add override' }));
+    expect(screen.queryAllByRole('listitem')).toHaveLength(0);
     expect(stored().ifc?.classOverrides ?? {}).toEqual({});
   });
 });
