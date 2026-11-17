@@ -17,6 +17,7 @@ export interface SourceModelMeta {
 
 const CHUNK = 1000;
 const OTHER_GROUP = 'Other';
+const CATEGORY_GROUP = '__category__';
 
 function propertyValue(value: unknown): PropertyValue | null {
   if (value === null || value === undefined) return null;
@@ -28,8 +29,11 @@ function propertyValue(value: unknown): PropertyValue | null {
 function groupsOf(item: BulkPropertyItem): PropertyGroups {
   const groups: PropertyGroups = {};
   for (const property of item.properties) {
-    const group = property.displayCategory?.trim() || OTHER_GROUP;
-    if (group.startsWith('__')) continue;
+    const raw = property.displayCategory?.trim() || OTHER_GROUP;
+    const isCategory =
+      raw === CATEGORY_GROUP && property.displayName === 'Category';
+    if (raw.startsWith('__') && !isCategory) continue;
+    const group = isCategory ? OTHER_GROUP : raw;
     const value = propertyValue(property.displayValue);
     if (value === null) continue;
     const target = groups[group] ?? {};
@@ -96,10 +100,13 @@ async function readModel(
       items.set(item.dbId, item);
     }
   }
-  const externalIds = await externalIdsOf(model);
+  const needsMapping = ids.some((dbId) => !items.get(dbId)?.externalId);
+  const externalIds = needsMapping
+    ? await externalIdsOf(model)
+    : new Map<number, string>();
   const elements: SourceElement[] = ids.map((dbId) => {
     const item = items.get(dbId);
-    const externalId = externalIds.get(dbId);
+    const externalId = item?.externalId || externalIds.get(dbId);
     return {
       dbId,
       ...(externalId ? { externalId } : {}),

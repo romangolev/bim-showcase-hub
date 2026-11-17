@@ -69,6 +69,7 @@ export interface InstanceTree {
 
 export interface BulkPropertyItem {
   dbId: number;
+  externalId?: string;
   name: string;
   properties: {
     displayName: string;

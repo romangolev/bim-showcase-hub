@@ -1,7 +1,9 @@
 import { exportGeometryToGlb } from '../../src/web/extensions/glbExport.js';
+import { exportToIfc } from '../../src/web/extensions/ifcExport.js';
 import type { GuiViewer3D } from '../../src/web/viewer/autodesk.js';
 import type { ViewerAdapter } from '../../src/web/viewer/ViewerAdapter.js';
 import { readViewerGeometry } from '../../src/web/viewer/viewerGeometry.js';
+import { readViewerSource } from '../../src/web/viewer/viewerSource.js';
 
 declare global {
   interface Window {
@@ -9,6 +11,8 @@ declare global {
     __bshViewerReady?: boolean;
     __bshStatus?: unknown;
     __bshExportGlb?: (fileName?: string) => Promise<unknown>;
+    __bshExportIfc?: (fileName?: string) => Promise<unknown>;
+    __bshIfcStatus?: unknown;
   }
 }
 
@@ -20,6 +24,14 @@ function adapter(): ViewerAdapter {
       const viewer = window.viewer;
       if (!viewer) throw new Error('The viewer is not ready');
       return readViewerGeometry(viewer);
+    },
+    getIfcSource: async () => {
+      const viewer = window.viewer;
+      if (!viewer?.model) throw new Error('The viewer is not ready');
+      return readViewerSource(
+        viewer,
+        new Map([[viewer.model, { id: 'revit', name, urn: 'revit' }]]),
+      );
     },
     getModels: () => [
       {
@@ -45,6 +57,22 @@ if (button) {
     button.setAttribute('aria-busy', 'true');
     void window.__bshExportGlb?.().finally(() => {
       button.setAttribute('aria-busy', 'false');
+    });
+  });
+}
+
+window.__bshExportIfc = async (fileName = 'revit-sample.ifc') => {
+  const status = await exportToIfc(adapter(), { fileName });
+  window.__bshIfcStatus = status;
+  return status;
+};
+
+const ifcButton = document.getElementById('export-ifc');
+if (ifcButton) {
+  ifcButton.addEventListener('click', () => {
+    ifcButton.setAttribute('aria-busy', 'true');
+    void window.__bshExportIfc?.().finally(() => {
+      ifcButton.setAttribute('aria-busy', 'false');
     });
   });
 }

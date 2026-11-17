@@ -23,6 +23,7 @@ IGNORED_FAILURES = ("favicon", "cdn.derivative.autodesk.com")
 
 EXPORT_NAME = re.compile(r"Export", re.I)
 GEOMETRY_EXPORT_NAME = re.compile(r"Export geometry", re.I)
+IFC_EXPORT_NAME = re.compile(r"Export IFC", re.I)
 XLSX_MAGIC = b"PK"
 GLB_MAGIC = b"glTF"
 GLB_JSON_CHUNK = 0x4E4F534A
@@ -159,6 +160,15 @@ def download_glb(page, target, timeout_ms=180000):
     return target.stat().st_size, target.read_bytes()[:4]
 
 
+def download_ifc(page, target, timeout_ms=180000):
+    toolbar_button = page.locator(f"{ACTIVE_MODEL} [id^='export-ifc-']:not([id$='-tooltip'])")
+    button = toolbar_button if toolbar_button.count() else page.get_by_role("button", name=IFC_EXPORT_NAME).first
+    with page.expect_download(timeout=timeout_ms) as download_info:
+        button.click(timeout=8000)
+    download_info.value.save_as(str(target))
+    return target.stat().st_size, target.read_bytes()[:13]
+
+
 def require(condition, message):
     if not condition:
         raise ValueError(message)
@@ -280,6 +290,90 @@ def glb_check(checks, path, label="GLB"):
             f"{label} has non-zero bounds",
             all(value > 0 for value in size),
             f"size {size}",
+        )
+    return info
+
+
+def ifc_summary(path):
+    import ifcopenshell
+    import ifcopenshell.geom
+    import ifcopenshell.validate
+
+    model = ifcopenshell.open(str(path))
+    elements = model.by_type("IfcElement")
+    guids = [e.GlobalId for e in elements]
+    logger = ifcopenshell.validate.json_logger()
+    ifcopenshell.validate.validate(model, logger)
+    errors = [s["message"] for s in logger.statements if str(s.get("level", "")).lower() == "error"]
+    with_geometry = [e for e in elements if e.Representation is not None]
+    settings = ifcopenshell.geom.settings()
+    settings.set("use-world-coords", True)
+    step = max(1, len(with_geometry) // 200)
+    sample = with_geometry[::step][:200]
+    low, high, shaped = [None] * 3, [None] * 3, 0
+    for element in sample:
+        try:
+            shape = ifcopenshell.geom.create_shape(settings, element)
+        except Exception:
+            continue
+        verts = shape.geometry.verts
+        if not verts:
+            continue
+        shaped += 1
+        for axis in range(3):
+            values = verts[axis::3]
+            lo, hi = min(values), max(values)
+            low[axis] = lo if low[axis] is None else min(low[axis], lo)
+            high[axis] = hi if high[axis] is None else max(high[axis], hi)
+    return {
+        "bytes": Path(path).stat().st_size,
+        "schema": model.schema,
+        "elements": len(elements),
+        "storeys": len(model.by_type("IfcBuildingStorey")),
+        "buildings": len(model.by_type("IfcBuilding")),
+        "unique_guids": len(set(guids)) == len(guids) and all(len(g) == 22 for g in guids),
+        "with_geometry": len(with_geometry),
+        "sampled": len(sample),
+        "shaped": shaped,
+        "size": [round(high[i] - low[i], 3) for i in range(3)] if shaped else None,
+        "validation_errors": errors[:5],
+        "validation_error_count": len(errors),
+    }
+
+
+def ifc_check(checks, path, label="IFC", expected_elements=None):
+    try:
+        info = ifc_summary(path)
+    except Exception as exc:
+        checks.add(f"{label} parses with IfcOpenShell", False, f"{type(exc).__name__}: {str(exc)[:200]}")
+        return None
+    checks.add(f"{label} schema is IFC4", info["schema"] == "IFC4", info["schema"])
+    checks.add(
+        f"{label} has a building and storeys",
+        info["buildings"] >= 1 and info["storeys"] >= 1,
+        f"{info['buildings']} buildings, {info['storeys']} storeys",
+    )
+    checks.add(
+        f"{label} GlobalIds are unique and 22 characters",
+        info["unique_guids"],
+        f"{info['elements']} elements",
+    )
+    checks.add(
+        f"{label} elements carry geometry",
+        info["elements"] > 0 and info["with_geometry"] >= 0.9 * info["elements"],
+        f"{info['with_geometry']} of {info['elements']}; {info['shaped']}/{info['sampled']} sampled shapes tessellate",
+    )
+    checks.add(
+        f"{label} passes IfcOpenShell validation",
+        info["validation_error_count"] == 0,
+        info["validation_errors"] or "no errors",
+    )
+    if expected_elements:
+        drift = abs(info["elements"] - expected_elements) / expected_elements
+        checks.add(
+            f"{label} element count matches the viewer",
+            drift <= 0.01,
+            f"{info['elements']} in the file, {expected_elements} in the viewer",
         )
     return info
 

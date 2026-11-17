@@ -35,6 +35,8 @@ interface FakeOptions {
   dbIds: (number | number[])[];
   loaded?: boolean;
   externalIds?: Record<string, number>;
+  bulkExternalIds?: Record<number, string>;
+  mappingCalls?: number[];
   chunks?: number[][];
 }
 
@@ -44,13 +46,19 @@ function model(options: FakeOptions): ViewerModel {
     getUnitScale: () => 1,
     isLoadDone: () => options.loaded ?? true,
     getExternalIdMapping: options.externalIds
-      ? (ok) => ok(options.externalIds as Record<string, number>)
+      ? (ok) => {
+          options.mappingCalls?.push(1);
+          ok(options.externalIds as Record<string, number>);
+        }
       : undefined,
     getBulkProperties: (ids, _opts, ok) => {
       options.chunks?.push([...ids]);
       const items: BulkPropertyItem[] = ids.map((dbId) => ({
         dbId,
         name: `Element ${dbId}`,
+        ...(options.bulkExternalIds?.[dbId]
+          ? { externalId: options.bulkExternalIds[dbId] }
+          : {}),
         properties: [
           {
             displayName: 'Category',
@@ -110,6 +118,68 @@ describe('readViewerSource', () => {
       Identity: { Category: 'Revit Walls' },
       Dimensions: { Height: 2.5 },
       Other: { Flag: true, Odd: '[object Object]' },
+    });
+  });
+
+  it('reads the external id from the bulk item without loading the mapping', async () => {
+    const mappingCalls: number[] = [];
+    const m = model({
+      dbIds: [5, 6],
+      bulkExternalIds: { 5: 'bulk-5', 6: 'bulk-6' },
+      externalIds: { 'map-5': 5 },
+      mappingCalls,
+    });
+    const result = await readViewerSource(viewerOf([m]), new Map([[m, META]]));
+    expect(result.models[0]?.elements.map((e) => e.externalId)).toEqual([
+      'bulk-5',
+      'bulk-6',
+    ]);
+    expect(mappingCalls).toHaveLength(0);
+  });
+
+  it('falls back to the mapping for items without an external id', async () => {
+    const m = model({
+      dbIds: [5, 6],
+      bulkExternalIds: { 5: 'bulk-5' },
+      externalIds: { 'map-6': 6 },
+    });
+    const result = await readViewerSource(viewerOf([m]), new Map([[m, META]]));
+    expect(result.models[0]?.elements.map((e) => e.externalId)).toEqual([
+      'bulk-5',
+      'map-6',
+    ]);
+  });
+
+  it('keeps the Revit category that the viewer stores in a hidden group', async () => {
+    const m = model({ dbIds: [5] });
+    const inner = m.getBulkProperties.bind(m);
+    m.getBulkProperties = (ids, opts, ok, fail) =>
+      inner(
+        ids,
+        opts,
+        (items) =>
+          ok(
+            items.map((item) => ({
+              ...item,
+              properties: [
+                {
+                  displayName: 'Category',
+                  displayValue: 'Revit Doors',
+                  displayCategory: '__category__',
+                },
+                {
+                  displayName: 'CategoryId',
+                  displayValue: -2000023,
+                  displayCategory: '__categoryId__',
+                },
+              ],
+            })),
+          ),
+        fail,
+      );
+    const result = await readViewerSource(viewerOf([m]), new Map([[m, META]]));
+    expect(result.models[0]?.elements[0]?.properties).toEqual({
+      Other: { Category: 'Revit Doors' },
     });
   });
 
