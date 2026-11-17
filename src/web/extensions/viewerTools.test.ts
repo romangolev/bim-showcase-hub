@@ -157,6 +157,21 @@ describe('running exports across re-registration', () => {
   });
 });
 
+describe('a failed export start', () => {
+  it('releases the export so it can run again', () => {
+    exportToIfc.mockClear();
+    const own = {} as ViewerAdapter;
+    const throwing = buildToolGroupSpec(own, {
+      fileName: () => {
+        throw new Error('boom');
+      },
+    });
+    expect(() => throwing.ifc?.onExport()).toThrow('boom');
+    buildToolGroupSpec(own).ifc?.onExport();
+    expect(exportToIfc).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('ifcFileNameFrom', () => {
   it('swaps the extension and drops the properties suffix', () => {
     expect(ifcFileNameFrom('Tower-v2-properties.xlsx')).toBe('Tower-v2.ifc');

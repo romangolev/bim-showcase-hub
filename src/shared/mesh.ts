@@ -7,7 +7,8 @@ export function triangleVertexCount(
   if (vertices < 3) return null;
   if (indices.length < 3 || indices.length % 3 !== 0) return null;
   for (let i = 0; i < indices.length; i += 1) {
-    if ((indices[i] ?? 0) >= vertices) return null;
+    const index = indices[i] ?? 0;
+    if (!Number.isInteger(index) || index < 0 || index >= vertices) return null;
   }
   return vertices;
 }

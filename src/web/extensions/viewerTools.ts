@@ -107,9 +107,14 @@ function runOnce(
   if (kinds.has(kind)) return;
   const active = kinds;
   active.add(kind);
-  void start().finally(() => {
+  try {
+    void start().finally(() => {
+      active.delete(kind);
+    });
+  } catch (error) {
     active.delete(kind);
-  });
+    throw error;
+  }
 }
 
 function keyed(id: string, key?: string): string {

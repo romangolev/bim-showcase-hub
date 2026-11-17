@@ -21,5 +21,8 @@ describe('triangleVertexCount', () => {
     expect(triangleVertexCount(TRI, [0, 1, 2, 0])).toBeNull();
     expect(triangleVertexCount(TRI, [0, 1, 3])).toBeNull();
     expect(triangleVertexCount([], [])).toBeNull();
+    for (const bad of [-1, Number.NaN, 1.5, Number.POSITIVE_INFINITY]) {
+      expect(triangleVertexCount(TRI, [0, 1, bad])).toBeNull();
+    }
   });
 });
