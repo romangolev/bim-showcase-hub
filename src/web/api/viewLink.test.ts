@@ -55,8 +55,16 @@ describe('view link', () => {
     expect(parseView(undefined, ids)).toBeNull();
   });
 
+  it('rejects degenerate cameras', () => {
+    expect(parseView('1~1,2,3~1,2,3~0,0,1~p~', ids)).toBeNull();
+    expect(parseView('1~0,0,0~1,0,0~0,0,0~p~', ids)).toBeNull();
+    expect(parseView('1~20000000,0,0~0,0,0~0,0,1~p~', ids)).toBeNull();
+    expect(parseView('1~0,0,0~0,-20000000,0~0,0,1~p~', ids)).toBeNull();
+    expect(parseView('1~10000000,0,0~0,0,0~0,0,1~p~', ids)).not.toBeNull();
+  });
+
   it('rejects groups whose model index is empty or not an integer', () => {
-    const head = '1~0,0,0~0,0,0~0,0,1~p~';
+    const head = '1~0,0,0~1,0,0~0,0,1~p~';
     expect(parseView(`${head}:5`, ids)?.selection).toEqual([]);
     expect(parseView(`${head}1.5:5;x:5; :5`, ids)?.selection).toEqual([]);
     expect(parseView(`${head}0:5`, ids)?.selection).toEqual([
@@ -66,7 +74,7 @@ describe('view link', () => {
 
   it('drops selection for unknown models and bad ids', () => {
     expect(
-      parseView('1~0,0,0~0,0,0~0,0,1~p~7:1;0:x,3,-1', ids)?.selection,
+      parseView('1~0,0,0~1,0,0~0,0,1~p~7:1;0:x,3,-1', ids)?.selection,
     ).toEqual([{ modelId: 'a', dbId: 3 }]);
   });
 

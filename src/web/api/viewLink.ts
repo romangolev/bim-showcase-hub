@@ -16,6 +16,7 @@ export const VIEW_VERSION = '1';
 export const VIEW_SELECTION_CAP = 200;
 
 const SEPARATOR = '~';
+const MAX_COORDINATE = 1e7;
 
 function round(value: number): number {
   return Math.round(value * 1000) / 1000;
@@ -31,7 +32,11 @@ function parseVec(raw: string | undefined): [number, number, number] | null {
   const numbers = parts.map((part) =>
     part === '' ? Number.NaN : Number(part),
   );
-  if (!numbers.every(Number.isFinite)) return null;
+  if (
+    !numbers.every((n) => Number.isFinite(n) && Math.abs(n) <= MAX_COORDINATE)
+  ) {
+    return null;
+  }
   return numbers as [number, number, number];
 }
 
@@ -72,6 +77,9 @@ export function parseView(
   if (version !== VIEW_VERSION) return null;
   const camera = [parseVec(eye), parseVec(target), parseVec(up)];
   if (camera.some((entry) => entry === null)) return null;
+  const [eyeVec, targetVec, upVec] = camera as [number, number, number][];
+  if (eyeVec?.every((value, i) => value === targetVec?.[i])) return null;
+  if (upVec?.every((value) => value === 0)) return null;
   if (projection !== 'o' && projection !== 'p') return null;
   const items: ModelDbId[] = [];
   for (const group of selection ? selection.split(';') : []) {
