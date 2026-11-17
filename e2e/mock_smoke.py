@@ -575,7 +575,7 @@ def combined_groups(page):
 
 
 def models_trigger(page):
-    return page.locator("[data-active='true'] .bsh-viewer-models__trigger")
+    return page.locator("[data-active='true'] .bsh-viewer-models .bsh-viewer-models__trigger")
 
 
 def xlsx_has_model_column(path):
@@ -669,7 +669,7 @@ def check_combined(page, checks, notes):
     failed = page.get_by_role("list", name="Models that failed")
     wait_until(page, lambda: failed.count() == 1)
     text = failed.inner_text() if failed.count() else ""
-    checks.add("combined: a file without geometry explains itself", "No viewable geometry" in text, text[:160])
+    checks.add("combined: a file without geometry explains itself", "Nothing to show" in text, text[:160])
     checks.add("combined: the failed model leaves the others rendered", len([g for g in combined_groups(page) if g["shapes"] > 0]) == 2, combined_groups(page))
     page.screenshot(path=str(OUTPUT_DIR / "mock-combined.png"))
 
@@ -698,6 +698,120 @@ def check_combined(page, checks, notes):
     add = page.get_by_role("menuitem", name=re.compile(r"^Add model"))
     checks.add("combined: the menu explains the cap of six", add.count() == 1 and "limit of 6" in add.inner_text() and add.is_disabled(), add.inner_text() if add.count() else "")
     page.keyboard.press("Escape")
+    close_all_models(page)
+
+
+ACTIVE_VIEWER = "[data-active='true']"
+STUB_CLIPBOARD = """mw:() => {
+    window.__copied = null;
+    window.__images = 0;
+    navigator.clipboard.writeText = (text) => { window.__copied = text; return Promise.resolve(); };
+    return true;
+}"""
+COPIED = "mw:() => window.__copied"
+CAMERA = "() => document.querySelector(\"[data-active='true'] .bsh-mock\")?.dataset.camera || ''"
+SELECTED = "() => document.querySelectorAll(\"[data-active='true'] .bsh-mock__el--selected\").length"
+PNG_MAGIC = b"\x89PNG"
+
+
+def share_menu(page, item):
+    page.locator(f"{ACTIVE_VIEWER} .bsh-viewer-share button").click()
+    page.get_by_role("menuitem", name=item).click()
+
+
+def check_viewer_links(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    close_all_models(page)
+    page.goto(BASE_URL, wait_until="networkidle")
+    expand_to_viewable(page).click()
+    page.wait_for_url(re.compile(r"/model/"), timeout=15000)
+    urn = models(page)["active"]
+    second = f"{urn}-second"
+    page.goto(f"{BASE_URL}/model/{urn}?with={second}", wait_until="networkidle")
+    settle(page, 1500)
+    wait_until(page, lambda: len(combined_groups(page)) == 2)
+    page.evaluate(STUB_CLIPBOARD)
+
+    page.locator(f"{ACTIVE_VIEWER} [data-model-id='{urn}'] polygon").nth(3).dispatch_event("click")
+    share_menu(page, "Copy link to this view")
+    wait_until(page, lambda: page.evaluate(COPIED))
+    link = page.evaluate(COPIED) or ""
+    checks.add("share: the view link carries view and the model set", "view=" in link and "with=" in link, link[-160:])
+    checks.add("share: the badge confirms the copy", page.get_by_text("Link copied").count() == 1)
+
+    share_menu(page, "Copy link to these models")
+    wait_until(page, lambda: page.evaluate(COPIED) != link)
+    plain = page.evaluate(COPIED) or ""
+    checks.add("share: the model link keeps with and drops view", "with=" in plain and "view=" not in plain, plain[-160:])
+
+    page.goto(link, wait_until="networkidle")
+    settle(page, 2000)
+    wait_until(page, lambda: len(combined_groups(page)) == 2)
+    wait_until(page, lambda: page.evaluate(CAMERA))
+    checks.add("share: opening the link restores the camera", bool(page.evaluate(CAMERA)), page.evaluate(CAMERA))
+    checks.add("share: opening the link restores the selection", page.evaluate(SELECTED) == 1, page.evaluate(SELECTED))
+
+    with page.expect_download(timeout=30000) as download_info:
+        share_menu(page, "Save image (PNG)")
+    target = OUTPUT_DIR / "snapshot.png"
+    download_info.value.save_as(str(target))
+    checks.add("snapshot: Save image downloads a PNG", target.read_bytes()[:4] == PNG_MAGIC and target.stat().st_size > 200, target.stat().st_size)
+
+    meter = page.locator(f"{ACTIVE_VIEWER} .bsh-viewer-cost")
+    text = meter.inner_text() if meter.count() else ""
+    checks.add("meter: shows how many of six models are open", "2 of 6 models" in text and "parts (estimate)" in text, text)
+
+    page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
+    settle(page, 600)
+    share = page.locator(f"{ACTIVE_VIEWER} .bsh-viewer-share button").bounding_box()
+    trigger = page.locator(f"{ACTIVE_VIEWER} .bsh-viewer-models .bsh-viewer-models__trigger").first.bounding_box()
+    fits = bool(share and trigger) and share["x"] + share["width"] <= MOBILE[0] and (trigger["x"] + trigger["width"] <= share["x"])
+    checks.add("narrow: Share and Models controls fit side by side", fits, f"{share} {trigger}")
+    checks.add("narrow: no horizontal overflow with the meter and share", horizontal_overflow(page) <= 0, horizontal_overflow(page))
+    page.screenshot(path=str(OUTPUT_DIR / "mock-share-narrow.png"))
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+
+    five = ",".join(f"{urn}-m{index}" for index in range(4))
+    page.goto(f"{BASE_URL}/model/{urn}?with={five}", wait_until="networkidle")
+    settle(page, 2000)
+    text = page.locator(f"{ACTIVE_VIEWER} .bsh-viewer-cost").inner_text()
+    checks.add("meter: warns before the sixth model", "One more model fits" in text, text)
+
+    page.goto(f"{BASE_URL}/model/{urn}?with={urn}-processing,{urn}-nogeom", wait_until="networkidle")
+    settle(page, 2000)
+    failed = page.get_by_role("list", name="Models that failed")
+    wait_until(page, lambda: failed.count() == 1)
+    text = failed.inner_text() if failed.count() else ""
+    checks.add("failures: processing and empty files get plain reasons", "Still processing" in text and "Nothing to show" in text, text[:200])
+    checks.add("failures: only the retryable file offers Retry", failed.get_by_role("button", name=re.compile(r"^Retry")).count() == 1)
+
+    page.goto(f"{BASE_URL}/model/{urn}-noaccess", wait_until="networkidle")
+    settle(page, 1500)
+    alert = page.get_by_role("alert").filter(has_text="No access")
+    checks.add("failures: a model without access says so", alert.count() >= 1)
+    page.screenshot(path=str(OUTPUT_DIR / "mock-no-access.png"))
+
+    page.goto(f"{BASE_URL}/model/{urn}?with={second}", wait_until="networkidle")
+    settle(page, 2000)
+    page.get_by_role("button", name="Panes").click()
+    page.get_by_role("menuitemcheckbox", name="Models").click()
+    pane = page.locator(".pane-models")
+    wait_until(page, lambda: pane.count() == 1 and pane.locator(".bsh-models__row").count() == 2)
+    rows = pane.locator(".bsh-models__row")
+    checks.add("models pane: lists both models with a status", rows.count() == 2 and pane.locator("[data-status='ready']").count() >= 2, rows.count())
+    pane.get_by_role("button", name=re.compile(r"^Hide ")).first.click()
+    settle(page, 400)
+    checks.add("models pane: the eye hides a model", [g["hidden"] for g in combined_groups(page)].count(True) == 1, combined_groups(page))
+    pane.get_by_role("button", name=re.compile(r"^Show ")).first.click()
+    pane.get_by_role("button", name=re.compile(r"^Isolate ")).first.click()
+    settle(page, 400)
+    checks.add("models pane: Isolate hides the others", [g["hidden"] for g in combined_groups(page)].count(True) == 1, combined_groups(page))
+    page.screenshot(path=str(OUTPUT_DIR / "mock-models-pane.png"))
+    pane.get_by_role("button", name=re.compile(r"^Remove ")).last.click()
+    settle(page, 800)
+    checks.add("models pane: Remove drops the model from the url", "with=" not in page.url, page.url)
+    page.get_by_role("button", name="Panes").click()
+    page.get_by_role("menuitemcheckbox", name="Models").click()
     close_all_models(page)
 
 
@@ -939,6 +1053,11 @@ def run_interaction_checks(page, checks, notes):
     except Exception as exc:
         page.screenshot(path=str(OUTPUT_DIR / "mock-far-apart-failure.png"))
         checks.add("check_far_apart", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+    try:
+        check_viewer_links(page, checks)
+    except Exception as exc:
+        page.screenshot(path=str(OUTPUT_DIR / "mock-viewer-links-failure.png"))
+        checks.add("check_viewer_links", False, f"{type(exc).__name__}: {str(exc)[:160]}")
     try:
         check_blocked_picks(page, checks)
     except Exception as exc:
