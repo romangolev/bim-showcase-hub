@@ -22,7 +22,15 @@ import {
   formatCount,
   summarize,
 } from './modelSummary.js';
-import { PAINT_PRESETS, paintSelection } from './paintBrushes.js';
+import {
+  DEFAULT_PAINT_PALETTE,
+  PAINT_PRESETS,
+  paintSelection,
+  paletteToPresets,
+  sanitizeIntensity,
+  sanitizePalette,
+} from './paintBrushes.js';
+import { buildToolGroupSpec } from './viewerTools.js';
 
 function row(
   dbId: number,
@@ -267,6 +275,52 @@ describe('dashboard data', () => {
     expect(new Set(colors).size).toBe(4);
     expect(colors[3]).not.toBe(colors[2]);
     expect(seriesColors(theme, ['only'])).toEqual(['rgb(59, 130, 246)']);
+  });
+});
+
+describe('paint palette', () => {
+  it('keeps valid unique hex colours, caps at 8 and falls back to the defaults', () => {
+    expect(sanitizePalette(['#FF0000', '#ff0000', 'red', '#00ff00'])).toEqual([
+      '#ff0000',
+      '#00ff00',
+    ]);
+    expect(sanitizePalette([])).toEqual([...DEFAULT_PAINT_PALETTE]);
+    expect(sanitizePalette(undefined)).toEqual([...DEFAULT_PAINT_PALETTE]);
+    const many = Array.from(
+      { length: 12 },
+      (_, i) => `#${(i + 1).toString(16).padStart(6, '0')}`,
+    );
+    expect(sanitizePalette(many)).toHaveLength(8);
+  });
+
+  it('clamps and rounds intensity', () => {
+    expect(sanitizeIntensity(5)).toBe(1);
+    expect(sanitizeIntensity(0)).toBe(0.1);
+    expect(sanitizeIntensity(0.52)).toBe(0.5);
+    expect(sanitizeIntensity('x')).toBe(0.5);
+  });
+
+  it('builds presets with the intensity as alpha', () => {
+    const [preset] = paletteToPresets(['#ff8000'], 0.75);
+    expect(preset?.id).toBe('paint-ff8000');
+    expect(preset?.color[0]).toBe(1);
+    expect(preset?.color[1]).toBeCloseTo(128 / 255);
+    expect(preset?.color[3]).toBe(0.75);
+  });
+
+  it('makes the tool group swatches follow the palette', () => {
+    const host = document.createElement('div');
+    const adapter = new MockViewerAdapter(host);
+    const spec = buildToolGroupSpec(adapter, {
+      paintPalette: ['#112233', '#445566'],
+      paintIntensity: 0.8,
+    });
+    expect(spec.paint?.swatches.map((item) => item.swatch)).toEqual([
+      '#112233',
+      '#445566',
+    ]);
+    expect(spec.paint?.swatches[0]?.color[3]).toBe(0.8);
+    adapter.destroy();
   });
 });
 

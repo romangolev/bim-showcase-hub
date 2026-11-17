@@ -460,6 +460,41 @@ def check_session_banner(page, checks):
     checks.add("banner is gone after the session is healthy again", page.locator(".session-banner").count() == 0)
 
 
+def open_settings(page):
+    page.get_by_role("button", name=re.compile(MOCK_USER_NAME)).first.click()
+    page.get_by_role("menuitem", name="Settings").click()
+    settle(page, 300)
+
+
+def check_paint_palette(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page)
+    open_settings(page)
+    checks.add("settings lists the three default swatches", page.get_by_label(re.compile(r"^Swatch \d$")).count() == 3)
+    checks.add("settings labels the slider as intensity", page.get_by_label(re.compile(r"^Intensity \d+%")).count() == 1)
+    page.get_by_label("Swatch 1", exact=True).fill("#112233")
+    page.get_by_role("button", name="Add swatch").click()
+    checks.add("add swatch makes four", page.get_by_label(re.compile(r"^Swatch \d$")).count() == 4)
+    page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
+    settle(page, 400)
+    checks.add("palette settings have no overflow at 390 wide", horizontal_overflow(page) <= 0)
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    page.keyboard.press("Escape")
+    settle(page, 400)
+    page.locator("button[title='Paint selection']").first.click()
+    swatches = page.locator(".bsh-mock__flyout:visible button:not([data-button-id^='paint-reset'])")
+    ids = swatches.evaluate_all("els => els.map(el => el.dataset.buttonId)")
+    colour = swatches.first.locator(".bsh-mock__icon").evaluate("el => getComputedStyle(el).backgroundColor")
+    checks.add("toolbar swatches follow the palette", len(ids) == 4 and ids[0].startswith("paint-112233"), ids)
+    checks.add("first swatch uses the custom colour", colour == "rgb(17, 34, 51)", colour)
+    page.keyboard.press("Escape")
+    open_settings(page)
+    page.get_by_role("button", name="Reset palette").click()
+    checks.add("reset palette restores three swatches", page.get_by_label(re.compile(r"^Swatch \d$")).count() == 3)
+    page.keyboard.press("Escape")
+    settle(page, 400)
+
+
 def models(page):
     return page.evaluate(MODELS)
 
@@ -1111,7 +1146,7 @@ def run_interaction_checks(page, checks, notes):
     except Exception as exc:
         page.screenshot(path=str(OUTPUT_DIR / "mock-layout-failure.png"))
         checks.add("check_layout", False, f"{type(exc).__name__}: {str(exc)[:160]}")
-    for check in (check_lock_maximize, check_session_banner, check_theme, check_summary_rail, check_summary_tools, check_dashboard_tools, check_tree_resize):
+    for check in (check_lock_maximize, check_session_banner, check_paint_palette, check_theme, check_summary_rail, check_summary_tools, check_dashboard_tools, check_tree_resize):
         try:
             check(page, checks)
         except Exception as exc:

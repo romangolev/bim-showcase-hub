@@ -729,6 +729,8 @@ export class MockViewerAdapter implements ViewerAdapter {
           controller.paint(swatch.color);
           setOpen(false);
         });
+        const swatchIcon = button.querySelector<HTMLElement>('.bsh-mock__icon');
+        if (swatchIcon) swatchIcon.style.backgroundColor = swatch.swatch;
         flyout.appendChild(button);
         swatches.push({ swatch, button });
       }

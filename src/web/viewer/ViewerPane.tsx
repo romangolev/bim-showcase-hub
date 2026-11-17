@@ -356,6 +356,8 @@ export function ViewerPane({
       ifcSettings: () => readIfcSettings(ifcSettingsRef.current),
       excelSettings: () => readExcelSettings(excelSettingsRef.current),
       key: modelKey(urn),
+      paintPalette: settings.paintPalette,
+      paintIntensity: settings.paintIntensity,
       fileName: () => exportNameRef.current ?? '',
       features: {
         paint: settings.paintBrushes,
@@ -369,6 +371,8 @@ export function ViewerPane({
     tools,
     urn,
     settings.paintBrushes,
+    settings.paintPalette,
+    settings.paintIntensity,
     settings.excelExport,
     settings.glbExport,
     settings.ifcExport,

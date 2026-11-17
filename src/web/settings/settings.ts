@@ -4,6 +4,12 @@ import {
   type ExportFormat,
   type ExportScope,
 } from '../extensions/exportFormats.js';
+import {
+  DEFAULT_PAINT_INTENSITY,
+  DEFAULT_PAINT_PALETTE,
+  sanitizeIntensity,
+  sanitizePalette,
+} from '../extensions/paintBrushes.js';
 import { ALLOWED_CLASSES } from '../ifc/classTable.js';
 import type { IfcSettings } from '../ifc/types.js';
 
@@ -13,6 +19,8 @@ export interface Settings {
   glbExport: boolean;
   ifcExport: boolean;
   sessionWarnMinutes: number;
+  paintPalette: string[];
+  paintIntensity: number;
   ifc: IfcSettings;
   excel: ExcelSettings;
 }
@@ -37,6 +45,8 @@ export const DEFAULT_SETTINGS: Settings = {
   glbExport: true,
   ifcExport: true,
   sessionWarnMinutes: 10,
+  paintPalette: [...DEFAULT_PAINT_PALETTE],
+  paintIntensity: DEFAULT_PAINT_INTENSITY,
   ifc: DEFAULT_IFC_SETTINGS,
   excel: DEFAULT_EXCEL_SETTINGS,
 };
@@ -147,6 +157,8 @@ export function readSettings(): Settings {
         source.sessionWarnMinutes,
         DEFAULT_SETTINGS.sessionWarnMinutes,
       ),
+      paintPalette: sanitizePalette(source.paintPalette),
+      paintIntensity: sanitizeIntensity(source.paintIntensity),
       ifc: readIfcSettings(source.ifc),
       excel: readExcelSettings(source.excel),
     };

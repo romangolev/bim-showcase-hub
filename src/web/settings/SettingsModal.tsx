@@ -3,6 +3,7 @@ import type { ModalDefinition } from '../modal/types.js';
 import { useTheme } from '../theme/ThemeContext.js';
 import { ExcelSettingsSection } from './ExcelSettingsSection.js';
 import { IfcSettingsSection } from './IfcSettingsSection.js';
+import { PaintSettingsSection } from './PaintSettingsSection.js';
 import { useSettings } from './SettingsContext.js';
 
 interface ExperimentalFeature {
@@ -129,6 +130,7 @@ export function SettingsBody() {
           <span className="settings__hint">0 turns the notice off.</span>
         </div>
       </section>
+      <PaintSettingsSection />
       <ExcelSettingsSection />
       <IfcSettingsSection />
     </div>

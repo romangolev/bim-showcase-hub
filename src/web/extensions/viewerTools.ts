@@ -28,7 +28,10 @@ import {
 } from './ifcExport.js';
 import {
   PAINT_PRESETS,
+  PALETTE_ICON,
+  type PaintPreset,
   paintSelection,
+  paletteToPresets,
   RESET_PAINT_LABEL,
   resetPaint,
 } from './paintBrushes.js';
@@ -58,6 +61,8 @@ export const ALL_TOOL_FEATURES: ToolFeatures = {
 
 export interface ViewerToolsOptions {
   features?: ToolFeatures;
+  paintPalette?: readonly string[];
+  paintIntensity?: number;
   onStatus?: (status: ExportStatus) => void;
   onGeometryStatus?: (status: GlbExportStatus) => void;
   onIfcStatus?: (status: IfcExportStatus) => void;
@@ -159,6 +164,9 @@ export function buildToolGroupSpec(
 ): ToolGroupSpec {
   const { key } = options;
   const features = options.features ?? ALL_TOOL_FEATURES;
+  const presets: readonly PaintPreset[] = options.paintPalette
+    ? paletteToPresets(options.paintPalette, options.paintIntensity ?? 0.5)
+    : PAINT_PRESETS;
   return {
     id: keyed(TOOL_GROUP_ID, key),
     title: TOOL_GROUP_TITLE,
@@ -167,9 +175,9 @@ export function buildToolGroupSpec(
           paint: {
             id: keyed('paint', key),
             tooltip: PAINT_TOOLTIP,
-            swatches: PAINT_PRESETS.map((preset) => ({
+            swatches: presets.map((preset) => ({
               id: keyed(preset.id, key),
-              icon: preset.id,
+              icon: options.paintPalette ? PALETTE_ICON : preset.id,
               label: preset.label,
               swatch: preset.swatch,
               color: preset.color,
