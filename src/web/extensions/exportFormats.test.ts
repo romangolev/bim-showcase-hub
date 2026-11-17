@@ -83,6 +83,9 @@ describe('scope and file name', () => {
     expect(applyNamePattern('{model}_{date}', 'House 1', 'csv', date)).toBe(
       'House-1_2026-11-17.csv',
     );
+    expect(applyNamePattern('{model}', 'Tower $& Annex', 'csv')).toBe(
+      'Tower-Annex.csv',
+    );
     expect(applyNamePattern(' ', 'x', 'json')).toMatch(/^x-properties\.json$/);
     expect(applyNamePattern('{model}', 'Дом-1.rvt', 'csv')).toBe(
       'Дом-1.rvt.csv',

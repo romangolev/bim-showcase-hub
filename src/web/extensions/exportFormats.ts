@@ -107,8 +107,8 @@ export function applyNamePattern(
   const stamp = date.toISOString().slice(0, 10);
   const name = safeName(
     (pattern.trim() || DEFAULT_NAME_PATTERN)
-      .replace(/\{model\}/g, model)
-      .replace(/\{date\}/g, stamp),
+      .replace(/\{model\}/g, () => model)
+      .replace(/\{date\}/g, () => stamp),
   ).slice(0, 120);
   return `${name || 'model-properties'}.${extension}`;
 }
