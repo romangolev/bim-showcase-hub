@@ -54,6 +54,22 @@ describe('ModelsPanel', () => {
         true,
       ]),
     );
+    fireEvent.click(screen.getByRole('button', { name: 'Isolate urn-a' }));
+    const flipped = await screen.findByRole('button', {
+      name: 'Show all models',
+    });
+    expect(flipped).toHaveAttribute('aria-pressed', 'true');
+    expect(flipped).toHaveTextContent('Show all');
+    fireEvent.click(flipped);
+    await waitFor(() =>
+      expect(adapter.getModels().map((m) => m.visible)).toEqual([
+        true,
+        true,
+        true,
+      ]),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Isolate urn-b' }));
+    await screen.findByRole('button', { name: 'Show all models' });
     fireEvent.click(screen.getByRole('button', { name: 'Remove urn-b' }));
     expect(onRemove).toHaveBeenCalledWith('urn-b');
   });

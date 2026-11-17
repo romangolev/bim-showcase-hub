@@ -98,7 +98,11 @@ export function ModelsPanel({ adapter, onRemove, onAdd }: ModelsPanelProps) {
                     <button
                       type="button"
                       className="bsh-button"
-                      aria-label={`Isolate ${model.name}`}
+                      aria-label={
+                        isolated === model.id
+                          ? 'Show all models'
+                          : `Isolate ${model.name}`
+                      }
                       aria-pressed={isolated === model.id}
                       onClick={() => {
                         for (const [id, visible] of Object.entries(
@@ -108,7 +112,7 @@ export function ModelsPanel({ adapter, onRemove, onAdd }: ModelsPanelProps) {
                         }
                       }}
                     >
-                      Isolate
+                      {isolated === model.id ? 'Show all' : 'Isolate'}
                     </button>
                   ) : null}
                   <button

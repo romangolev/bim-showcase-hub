@@ -765,6 +765,10 @@
   background: var(--color-coral);
 }
 
+.bsh-models__row .bsh-button[aria-pressed="true"] {
+  border-color: var(--color-ring-blue);
+}
+
 .bsh-models__row[data-status="loading"] {
   opacity: 0.7;
 }

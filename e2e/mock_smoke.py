@@ -49,6 +49,10 @@ GROUPS = """() => Object.fromEntries([...document.querySelectorAll('.dv-groupvie
         floating: Boolean(group.closest('.dv-resize-container')),
     }];
 }))"""
+SAME_GROUP = """(names) => {
+    const groups = names.map((name) => [...document.querySelectorAll('.dv-tab')].find((tab) => tab.textContent.trim() === name)?.closest('.dv-groupview'));
+    return Boolean(groups[0]) && groups[0] === groups[1];
+}"""
 TAG_VIEWER = "() => { const el = document.querySelector(\"[data-active='true'] .bsh-mock\"); if (el) el.dataset.e2eTag = 'kept'; return Boolean(el); }"
 VIEWER_KEPT = "() => document.querySelector(\"[data-active='true'] .bsh-mock\")?.dataset.e2eTag === 'kept'"
 VIEWER_FITS = """() => {
@@ -452,7 +456,7 @@ def check_session_banner(page, checks):
     settle(page, 1500)
     ended = page.locator(".session-banner[data-state='ended']")
     checks.add("expired session shows a sign-in banner", ended.count() == 1 and ended.get_by_role("button", name="Sign in again").count() == 1)
-    checks.add("expired session keeps the layout", page.locator(".dv-dockview").count() == 1 and page.get_by_role("tab", name="Documents").count() == 1)
+    checks.add("expired session keeps the layout", page.locator(".dv-dockview").count() == 1 and page.get_by_role("tab", name="Documents", exact=True).count() == 1)
     page.screenshot(path=str(OUTPUT_DIR / "mock-session-ended.png"))
     page.unroute("**/api/session")
     page.reload(wait_until="networkidle")
@@ -1015,8 +1019,11 @@ def check_viewer_links(page, checks):
 
     page.goto(f"{BASE_URL}/model/{urn}?with={second}", wait_until="networkidle")
     settle(page, 2000)
-    page.get_by_role("button", name="Panes").click()
-    page.get_by_role("menuitemcheckbox", name="Models").click()
+    docs_tab = page.get_by_role("tab", name="Documents", exact=True)
+    models_tab = page.get_by_role("tab", name="Models", exact=True)
+    checks.add("models pane: open by default as a tab beside Documents", models_tab.count() == 1 and page.evaluate(SAME_GROUP, ["Documents", "Models"]), models_tab.count())
+    checks.add("models pane: Documents stays the active tab", docs_tab.get_attribute("aria-selected") == "true")
+    models_tab.click()
     pane = page.locator(".pane-models")
     wait_until(page, lambda: pane.count() == 1 and pane.locator(".bsh-models__row").count() == 2)
     rows = pane.locator(".bsh-models__row")
@@ -1028,12 +1035,31 @@ def check_viewer_links(page, checks):
     pane.get_by_role("button", name=re.compile(r"^Isolate ")).first.click()
     settle(page, 400)
     checks.add("models pane: Isolate hides the others", [g["hidden"] for g in combined_groups(page)].count(True) == 1, combined_groups(page))
+    flipped = pane.get_by_role("button", name="Show all models")
+    checks.add("models pane: the isolated row flips to Show all and is pressed", flipped.count() == 1 and flipped.get_attribute("aria-pressed") == "true", flipped.count())
     page.screenshot(path=str(OUTPUT_DIR / "mock-models-pane.png"))
+    hidden_before = [g["hidden"] for g in combined_groups(page)]
+    page.reload(wait_until="networkidle")
+    settle(page, 2000)
+    page.get_by_role("tab", name="Models", exact=True).click()
+    pane = page.locator(".pane-models")
+    wait_until(page, lambda: pane.get_by_role("button", name="Show all models").count() == 1)
+    checks.add("models pane: reload restores the isolation", [g["hidden"] for g in combined_groups(page)] == hidden_before and pane.get_by_role("button", name="Show all models").count() == 1, combined_groups(page))
+    page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
+    settle(page, 800)
+    checks.add("models pane: narrow screen keeps the isolation and shows no Models tab", [g["hidden"] for g in combined_groups(page)] == hidden_before and page.get_by_role("tab", name="Models", exact=True).count() == 0, combined_groups(page))
+    page.screenshot(path=str(OUTPUT_DIR / "mock-models-pane-narrow.png"))
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page, 800)
+    page.get_by_role("tab", name="Models", exact=True).click()
+    pane = page.locator(".pane-models")
+    pane.get_by_role("button", name="Show all models").click()
+    settle(page, 400)
+    checks.add("models pane: Show all brings every model back", [g["hidden"] for g in combined_groups(page)].count(True) == 0, combined_groups(page))
     pane.get_by_role("button", name=re.compile(r"^Remove ")).last.click()
     settle(page, 800)
     checks.add("models pane: Remove drops the model from the url", "with=" not in page.url, page.url)
-    page.get_by_role("button", name="Panes").click()
-    page.get_by_role("menuitemcheckbox", name="Models").click()
+    page.get_by_role("tab", name="Documents", exact=True).click()
     close_all_models(page)
 
 

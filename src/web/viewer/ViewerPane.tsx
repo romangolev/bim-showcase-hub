@@ -50,6 +50,7 @@ import {
 } from './region.js';
 import { ShareMenu } from './ShareMenu.js';
 import { useModels } from './useModels.js';
+import { useModelVisibilityMemory } from './useModelVisibilityMemory.js';
 import type {
   LoadStage,
   ViewerAdapter,
@@ -448,6 +449,7 @@ export function ViewerPane({
   }, [adapter, sourceFor, addMember]);
 
   const loaded = useModels(adapter);
+  useModelVisibilityMemory(adapter, loaded);
   const labelKey = JSON.stringify([
     name ? [urn, name] : null,
     ...members.map((member) =>
