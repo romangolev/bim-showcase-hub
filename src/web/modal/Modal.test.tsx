@@ -160,18 +160,25 @@ describe('ModalProvider', () => {
   });
 });
 
+const PlacementBody: ModalDefinition['Body'] = ({ close }) => (
+  <button type="button" onClick={close}>
+    Done
+  </button>
+);
+
 describe('modal placement', () => {
   it('adds the top class only for a top placement', () => {
-    const Body: ModalDefinition['Body'] = ({ close }) => (
-      <button type="button" onClick={close}>
-        Done
-      </button>
-    );
     render(
       <ModalProvider
         definitions={[
-          { id: 'plain', title: 'Plain', size: 'sm', Body },
-          { id: 'high', title: 'High', size: 'sm', placement: 'top', Body },
+          { id: 'plain', title: 'Plain', size: 'sm', Body: PlacementBody },
+          {
+            id: 'high',
+            title: 'High',
+            size: 'sm',
+            placement: 'top',
+            Body: PlacementBody,
+          },
         ]}
       >
         <Trigger id="plain" />
