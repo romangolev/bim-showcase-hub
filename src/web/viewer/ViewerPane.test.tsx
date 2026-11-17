@@ -295,6 +295,54 @@ describe('ViewerPane export status badge', () => {
   });
 });
 
+describe('ViewerPane geometry export badge', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('shows the latest export, whichever kind it is, and warns about skipped fragments', async () => {
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    vi.stubGlobal('URL', {
+      ...URL,
+      createObjectURL: () => 'blob:x',
+      revokeObjectURL: () => {},
+    });
+    const { factory, created } = trackedFactory();
+    const onReady = vi.fn();
+    render(<ViewerPane urn="abc" factory={factory} onReady={onReady} />);
+    await waitFor(() => expect(onReady).toHaveBeenCalled());
+    const live = screen.getByRole('status');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Export geometry (GLB)' }),
+    );
+    await waitFor(() => expect(live).toHaveTextContent(/^Exported .* meshes/));
+    expect(live.querySelector('.badge')).toHaveAttribute('data-variant', 'ok');
+    fireEvent.click(screen.getByRole('button', { name: 'Export to Excel' }));
+    await waitFor(() => expect(live).toHaveTextContent(/^Exported \d+ rows/));
+
+    const adapter = created[0] as ViewerAdapter;
+    vi.spyOn(adapter, 'getGeometryParts').mockResolvedValue({
+      parts: [
+        {
+          name: '1',
+          positions: new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]),
+          indices: new Uint16Array([0, 1, 2]),
+        },
+      ],
+      skipped: 4,
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Export geometry (GLB)' }),
+    );
+    await waitFor(() => expect(live).toHaveTextContent('4 fragments skipped'));
+    expect(live.querySelector('.badge')).toHaveAttribute(
+      'data-variant',
+      'error',
+    );
+  });
+});
+
 function ThemeSwitch() {
   const { toggleTheme } = useTheme();
   return (

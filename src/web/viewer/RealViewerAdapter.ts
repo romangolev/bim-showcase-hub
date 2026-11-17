@@ -20,6 +20,7 @@ import {
   pickGeometryNode,
 } from './federation.js';
 import { fullscreenElementOf, watchFullscreen } from './fullscreen.js';
+import type { GeometryRead } from './geometryTypes.js';
 import { tagRows } from './modelScope.js';
 import {
   CANCELLED_MESSAGE,
@@ -51,6 +52,7 @@ import { createResizeScheduler } from './resizeScheduler.js';
 import { readSceneBackground } from './sceneBackground.js';
 import { ToolGroupController } from './toolGroupController.js';
 import type { Rgba, ToolGroupSpec, ViewerAdapter } from './ViewerAdapter.js';
+import { readViewerGeometry } from './viewerGeometry.js';
 
 const VIEWER_VERSION = '7.*';
 const VIEWER_BASE = `https://developer.api.autodesk.com/modelderivative/v2/viewers/${VIEWER_VERSION}`;
@@ -469,6 +471,16 @@ export class RealViewerAdapter implements ViewerAdapter {
 
   getModels(): ModelInfo[] {
     return this.models.list();
+  }
+
+  async getGeometryParts(): Promise<GeometryRead> {
+    const viewer = this.viewer;
+    if (!viewer || this.destroyed) throw new Error(VIEWER_CLOSED_MESSAGE);
+    const names = new Map<ViewerModel, string>();
+    for (const { info, handle } of this.models.ready()) {
+      if (info.visible) names.set(handle, info.name);
+    }
+    return readViewerGeometry(viewer, names);
   }
 
   setModelVisible(modelId: string, visible: boolean): void {

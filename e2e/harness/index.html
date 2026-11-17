@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>GLB export harness</title>
+    <link
+      rel="stylesheet"
+      href="https://developer.api.autodesk.com/modelderivative/v2/viewers/7.*/style.min.css"
+    />
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #1d1f21;
+        font: 14px/1.4 Inter, system-ui, sans-serif;
+      }
+      #viewer {
+        position: absolute;
+        inset: 0 0 56px 0;
+      }
+      #bar {
+        position: absolute;
+        inset: auto 0 0 0;
+        height: 56px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 0 16px;
+        background: #26292b;
+        color: #f3f4f6;
+      }
+      button {
+        padding: 8px 14px;
+        border: 0;
+        border-radius: 8px;
+        background: #3b82f6;
+        color: white;
+        font: inherit;
+        cursor: pointer;
+      }
+      button[aria-busy="true"] {
+        opacity: 0.6;
+        cursor: progress;
+      }
+      #status {
+        color: #9ca3af;
+      }
+      #error {
+        color: #f87171;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="viewer"></div>
+    <div id="bar">
+      <button id="export" type="button">Export GLB</button>
+      <span id="status">Loading the Revit model…</span>
+      <span id="error"></span>
+    </div>
+    <script src="https://developer.api.autodesk.com/modelderivative/v2/viewers/7.*/viewer3D.min.js"></script>
+    <script>
+      window.__bshState = { stage: 'boot', errors: [] };
+      const state = window.__bshState;
+      const mark = (stage) => {
+        state.stage = stage;
+        console.log('[glb-harness] ' + stage);
+      };
+      const fail = (message) => {
+        state.errors.push(String(message));
+        document.getElementById('error').textContent = String(message);
+        mark('error');
+      };
+      async function getToken(callback) {
+        try {
+          const response = await fetch('/token');
+          const body = await response.json();
+          callback(body.access_token, body.expires_in);
+        } catch (error) {
+          fail('token: ' + error);
+        }
+      }
+      Autodesk.Viewing.Initializer(
+        {
+          env: 'AutodeskProduction2',
+          api: 'streamingV2',
+          getAccessToken: getToken,
+        },
+        () => {
+          mark('initialized');
+          const viewer = new Autodesk.Viewing.GuiViewer3D(
+            document.getElementById('viewer'),
+          );
+          window.viewer = viewer;
+          viewer.start();
+          Autodesk.Viewing.Document.load(
+            'urn:' + new URLSearchParams(location.search).get('urn'),
+            (doc) => {
+              mark('document-loaded');
+              viewer
+                .loadDocumentNode(doc, doc.getRoot().getDefaultGeometry())
+                .then(() => {
+                  mark('model-loaded');
+                  const wait = () => {
+                    const model = viewer.model;
+                    if (!model || !model.isLoadDone()) {
+                      setTimeout(wait, 500);
+                      return;
+                    }
+                    const count = model.getFragmentList().getCount();
+                    window.__bshViewerReady = true;
+                    document.getElementById('status').textContent =
+                      count + ' fragments loaded';
+                    mark('ready:' + count);
+                  };
+                  wait();
+                })
+                .catch((error) => {
+                  fail('loadDocumentNode: ' + error);
+                });
+            },
+            (code, message) => {
+              fail('Document.load ' + code + ': ' + message);
+            },
+          );
+        },
+      );
+    </script>
+    <script src="./bundle.js"></script>
+  </body>
+</html>

@@ -2,16 +2,21 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 
 const exportToXlsx = vi.fn(async () => undefined);
+const exportGeometryToGlb = vi.fn(async () => undefined);
 
 vi.mock('./excelExport.js', async (original) => ({
   ...(await original<typeof import('./excelExport.js')>()),
   exportToXlsx,
 }));
 
+vi.mock('./glbExport.js', async (original) => ({
+  ...(await original<typeof import('./glbExport.js')>()),
+  exportGeometryToGlb,
+}));
+
 const { DEFAULT_FILE_NAME, exportFileName } = await import('./excelExport.js');
-const { buildToolGroupSpec, modelKey, TOOL_GROUP_ID } = await import(
-  './viewerTools.js'
-);
+const { buildToolGroupSpec, glbFileNameFrom, modelKey, TOOL_GROUP_ID } =
+  await import('./viewerTools.js');
 
 const adapter = {} as ViewerAdapter;
 
@@ -21,12 +26,14 @@ function ids(spec: ReturnType<typeof buildToolGroupSpec>): string[] {
     spec.paint.id,
     spec.paint.reset.id,
     spec.export.id,
+    spec.geometry.id,
     ...spec.paint.swatches.map((swatch) => swatch.id),
   ];
 }
 
 afterEach(() => {
   exportToXlsx.mockClear();
+  exportGeometryToGlb.mockClear();
 });
 
 describe('tool group ids per viewer', () => {
@@ -49,6 +56,7 @@ describe('tool group ids per viewer', () => {
   it('keeps the plain ids without a key', () => {
     const spec = buildToolGroupSpec(adapter);
     expect(spec.export.id).toBe('export-xlsx');
+    expect(spec.geometry.id).toBe('export-glb');
     expect(spec.paint.id).toBe('paint');
   });
 
@@ -63,6 +71,34 @@ describe('tool group ids per viewer', () => {
         fileName: 'Snowdon-Towers-Sample-v3-properties.xlsx',
       }),
     );
+  });
+
+  it('exports geometry under the model name and version', () => {
+    const spec = buildToolGroupSpec(adapter, {
+      fileName: () => exportFileName('Snowdon Towers Sample.rvt', 'v3'),
+    });
+    spec.geometry.onExport();
+    expect(exportGeometryToGlb).toHaveBeenCalledWith(
+      adapter,
+      expect.objectContaining({
+        fileName: 'Snowdon-Towers-Sample-v3-geometry.glb',
+      }),
+    );
+  });
+});
+
+describe('glbFileNameFrom', () => {
+  it('replaces the properties suffix with a geometry suffix', () => {
+    expect(glbFileNameFrom('Tower-v2-properties.xlsx')).toBe(
+      'Tower-v2-geometry.glb',
+    );
+    expect(glbFileNameFrom('Tower.glb')).toBe('Tower-geometry.glb');
+    expect(glbFileNameFrom('Tower')).toBe('Tower-geometry.glb');
+  });
+
+  it('falls back without a file name', () => {
+    expect(glbFileNameFrom()).toBe('model-geometry.glb');
+    expect(glbFileNameFrom('   ')).toBe('model-geometry.glb');
   });
 });
 

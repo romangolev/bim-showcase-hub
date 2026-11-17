@@ -55,6 +55,10 @@ export class ToolGroupController {
     this.spec.export.onExport();
   }
 
+  exportGeometry(): void {
+    this.spec.geometry.onExport();
+  }
+
   clearPainted(): void {
     this.update({ painted: false });
   }

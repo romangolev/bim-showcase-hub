@@ -55,6 +55,8 @@ describe('mock toolbar tool group', () => {
     expect(
       button('export-xlsx').querySelector('.bsh-ico-export'),
     ).not.toBeNull();
+    expect(button('export-glb').title).toBe('Export geometry (GLB)');
+    expect(button('export-glb').querySelector('.bsh-ico-glb')).not.toBeNull();
   });
 
   it('sits after the fake native tools in the toolbar', async () => {
@@ -158,6 +160,31 @@ describe('mock toolbar tool group', () => {
     button('export-xlsx').click();
     await vi.waitFor(() => expect(phases).toContain('done'));
     expect(phases).toEqual(['reading', 'building', 'done']);
+  });
+
+  it('runs the GLB export through the toolbar button and reports status', async () => {
+    await setup();
+    const phases: string[] = [];
+    const saved: string[] = [];
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    vi.stubGlobal('URL', {
+      ...URL,
+      createObjectURL: () => 'blob:glb',
+      revokeObjectURL: () => {},
+    });
+    adapter.registerToolGroup(
+      buildToolGroupSpec(adapter, {
+        onGeometryStatus: (status) => {
+          phases.push(status.phase);
+          if (status.phase === 'done') saved.push(status.fileName);
+        },
+      }),
+    );
+    button('export-glb').click();
+    button('export-glb').click();
+    await vi.waitFor(() => expect(phases).toContain('done'));
+    expect(phases).toEqual(['reading', 'building', 'done']);
+    expect(saved).toEqual(['model-geometry.glb']);
   });
 });
 

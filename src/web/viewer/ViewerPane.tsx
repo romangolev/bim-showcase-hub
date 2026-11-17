@@ -12,6 +12,11 @@ import {
   describeStatus,
   type ExportStatus,
 } from '../extensions/excelExport.js';
+import {
+  describeGlbStatus,
+  type GlbExportStatus,
+  glbHasWarning,
+} from '../extensions/glbExport.js';
 import { formatCount } from '../extensions/modelSummary.js';
 import { modelKey, registerViewerTools } from '../extensions/viewerTools.js';
 import { useTheme } from '../theme/ThemeContext.js';
@@ -72,7 +77,7 @@ export const NOTICE_DISMISS_MS = 8000;
 export const ADD_FAILED_MESSAGE = 'Could not add the model';
 export const SETTLE_MS = 250;
 
-function isBusy(status: ExportStatus): boolean {
+function isBusy(status: { phase: string }): boolean {
   return status.phase === 'reading' || status.phase === 'building';
 }
 
@@ -85,6 +90,36 @@ function badgeText(status: ExportStatus): string {
       : rows;
   }
   return describeStatus(status);
+}
+
+function glbBadgeText(status: GlbExportStatus): string {
+  return status.phase === 'error'
+    ? 'GLB export failed'
+    : describeGlbStatus(status);
+}
+
+interface StatusBadge {
+  text: string;
+  detail: string;
+  error: boolean;
+}
+
+function excelBadge(status: ExportStatus): StatusBadge {
+  return {
+    text: badgeText(status),
+    detail: describeStatus(status),
+    error:
+      status.phase === 'error' ||
+      (status.phase === 'done' && Boolean(status.missing?.length)),
+  };
+}
+
+function glbBadge(status: GlbExportStatus): StatusBadge {
+  return {
+    text: glbBadgeText(status),
+    detail: describeGlbStatus(status),
+    error: glbHasWarning(status),
+  };
 }
 
 const LOAD_ERROR_COPY =
@@ -124,7 +159,7 @@ export function ViewerPane({
   const statusTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
-  const [exportStatus, setExportStatus] = useState<ExportStatus | null>(null);
+  const [statusBadge, setStatusBadge] = useState<StatusBadge | null>(null);
   const onReadyRef = useRef(onReady);
   const exportNameRef = useRef(exportName);
   exportNameRef.current = exportName;
@@ -139,16 +174,26 @@ export function ViewerPane({
     onReadyRef.current = onReady;
   }, [onReady]);
 
-  const handleExportStatus = useCallback((next: ExportStatus) => {
+  const showBadge = useCallback((badge: StatusBadge, busy: boolean) => {
     clearTimeout(statusTimer.current);
-    setExportStatus(next);
-    if (!isBusy(next)) {
+    setStatusBadge(badge);
+    if (!busy) {
       statusTimer.current = setTimeout(
-        () => setExportStatus(null),
+        () => setStatusBadge(null),
         STATUS_DISMISS_MS,
       );
     }
   }, []);
+
+  const handleExportStatus = useCallback(
+    (next: ExportStatus) => showBadge(excelBadge(next), isBusy(next)),
+    [showBadge],
+  );
+
+  const handleGeometryStatus = useCallback(
+    (next: GlbExportStatus) => showBadge(glbBadge(next), isBusy(next)),
+    [showBadge],
+  );
 
   useEffect(() => () => clearTimeout(statusTimer.current), []);
 
@@ -213,6 +258,7 @@ export function ViewerPane({
         if (tools) {
           disposeExtensions = registerViewerTools(instance, {
             onStatus: handleExportStatus,
+            onGeometryStatus: handleGeometryStatus,
             key: modelKey(urn),
             fileName: () => exportNameRef.current ?? '',
           });
@@ -255,7 +301,16 @@ export function ViewerPane({
       setAdapter(null);
       if (created) withdraw?.(urn, created);
     };
-  }, [urn, factory, tools, publish, withdraw, attempt, handleExportStatus]);
+  }, [
+    urn,
+    factory,
+    tools,
+    publish,
+    withdraw,
+    attempt,
+    handleExportStatus,
+    handleGeometryStatus,
+  ]);
 
   const sourceFor = useCallback(
     (id: string): ModelSource => {
@@ -363,7 +418,6 @@ export function ViewerPane({
     );
   }, [adapter, offsetsKey]);
   const together = Boolean(offsetsKey);
-
   return (
     <ModelViewerContext.Provider value={adapter}>
       <div className="bsh-viewer-pane" data-state={state.status}>
@@ -412,21 +466,14 @@ export function ViewerPane({
           </div>
         )}
         <div className="bsh-viewer-status" role="status" aria-live="polite">
-          {exportStatus ? (
+          {statusBadge ? (
             <span
               className="badge bsh-viewer-badge"
-              data-variant={
-                exportStatus.phase === 'error' ||
-                (exportStatus.phase === 'done' && exportStatus.missing?.length)
-                  ? 'error'
-                  : 'ok'
-              }
-              title={describeStatus(exportStatus)}
+              data-variant={statusBadge.error ? 'error' : 'ok'}
+              title={statusBadge.detail}
             >
               <span className="badge__dot" aria-hidden="true" />
-              <span className="bsh-viewer-badge__text">
-                {badgeText(exportStatus)}
-              </span>
+              <span className="bsh-viewer-badge__text">{statusBadge.text}</span>
             </span>
           ) : null}
         </div>

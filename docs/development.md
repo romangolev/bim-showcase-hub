@@ -30,6 +30,7 @@ npm run dev:mock
 | `npm run e2e:setup` | Create `e2e/.venv`, install Camoufox, download the browser |
 | `npm run e2e:signin` | Open a window to sign in once |
 | `npm run e2e:smoke` | Smoke test against the real app |
+| `npm run e2e:glb` | Open a real Revit model and verify the GLB export (two-legged token, no sign-in) |
 
 ## Biome
 
@@ -150,6 +151,7 @@ It writes `01-home.png`, `02-model.png`, `03-after-export.png`, `05-viewer-chrom
 - the `View States` folder shows the right badge and `data-view-state` for each state, selecting or pressing Enter on a version that is not ready opens no tab and shows the explanation, and the processing badge has a spinner, and all badges share the right edge without clipping on desktop, in the toggled theme and in the narrow layout
 - the summary has rows and counts never wrap
 - the export control, found by its accessible name or title (`/Export/i`) in the viewer toolbar, downloads a non-empty xlsx
+- the geometry export downloads a valid binary glTF: `glTF` magic, 4-byte aligned chunks, the required glTF fields and cross-references (scene, nodes, meshes, materials, accessors, bufferViews), POSITION accessors with bounds, indices inside their vertex range, nodes with `extras.dbId`, and non-zero triangles, vertices and meshes; the combined viewer exports one GLB for all models
 - the theme toggle flips `document.documentElement.dataset.theme` in both directions and the choice survives a reload
 - the dock shows the default layout (tree left, summary right, dashboard below the viewer)
 - the pane menu moves the dashboard to the right edge, floats the viewer and docks it again, and the mock viewer element (tagged with a data attribute) is never replaced
@@ -170,6 +172,8 @@ It writes `01-home.png`, `02-model.png`, `03-after-export.png`, `05-viewer-chrom
 - no uncaught page errors
 
 It writes screenshots, `export.xlsx` and `mock-report.json` to `E2E_OUTPUT_DIR`.
+
+**glb_revit.py** (`npm run e2e:glb`). Opens a real Revit model in Camoufox and exports it to GLB without a user sign-in. It requests a two-legged token from `.env`, checks the model's Model Derivative manifest, builds the exporter into `e2e/output/glb-harness/bundle.js` with esbuild, and serves `e2e/harness/index.html` plus a local `/token` endpoint. The harness loads the same Viewer build the app uses, waits for `isLoadDone()`, and calls the app's `exportGeometryToGlb` through a real toolbar button. The check verifies every fragment has geometry, the model has real bounds, the download is at least 1 MB with the `glTF` magic, every bufferView and accessor is valid, and the GLB holds more than 100k triangles in at least three meshes. It writes `revit-01-loaded.png`, `revit-02-exported.png`, `revit.glb` and `glb-revit-report.json`. Set `E2E_REVIT_URN` to use another model; the default is a sample Revit file translated to SVF2 in the app's APS bucket. The default model lives in the maintainer's APS bucket, so another APS app must set `E2E_REVIT_URN`. The script needs `data:read` and `viewables:read` only. See [research/2026-11-17-svf-to-glb-export.md](research/2026-11-17-svf-to-glb-export.md) for the extraction details.
 
 ### How counts are checked
 

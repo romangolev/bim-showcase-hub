@@ -6,6 +6,11 @@ import {
   exportToXlsx,
 } from './excelExport.js';
 import {
+  DEFAULT_GLB_FILE_NAME,
+  exportGeometryToGlb,
+  type GlbExportStatus,
+} from './glbExport.js';
+import {
   PAINT_PRESETS,
   paintSelection,
   RESET_PAINT_LABEL,
@@ -18,11 +23,22 @@ export const PAINT_TOOLTIP = 'Paint selection';
 export const PAINT_SELECT_HINT = 'Select elements to paint';
 export const PAINT_RESET_HINT = 'Nothing painted yet';
 export const EXPORT_TOOLTIP = 'Export to Excel';
+export const GEOMETRY_TOOLTIP = 'Export geometry (GLB)';
 
 export interface ViewerToolsOptions {
   onStatus?: (status: ExportStatus) => void;
+  onGeometryStatus?: (status: GlbExportStatus) => void;
   key?: string;
   fileName?: () => string;
+}
+
+export function glbFileNameFrom(fileName?: string): string {
+  const name = (fileName ?? '').trim();
+  if (!name) return DEFAULT_GLB_FILE_NAME;
+  const base = name.replace(/\.(xlsx|glb|gltf)$/i, '');
+  const model = base.replace(/-properties$/i, '');
+  if (!model) return DEFAULT_GLB_FILE_NAME;
+  return `${model}-geometry.glb`;
 }
 
 export function modelKey(urn: string): string {
@@ -43,6 +59,7 @@ export function buildToolGroupSpec(
   options: ViewerToolsOptions = {},
 ): ToolGroupSpec {
   let busy = false;
+  let geometryBusy = false;
   const { key } = options;
   return {
     id: keyed(TOOL_GROUP_ID, key),
@@ -75,6 +92,20 @@ export function buildToolGroupSpec(
           onStatus: options.onStatus,
         }).finally(() => {
           busy = false;
+        });
+      },
+    },
+    geometry: {
+      id: keyed('export-glb', key),
+      tooltip: GEOMETRY_TOOLTIP,
+      onExport: () => {
+        if (geometryBusy) return;
+        geometryBusy = true;
+        void exportGeometryToGlb(adapter, {
+          fileName: glbFileNameFrom(options.fileName?.()),
+          onStatus: options.onGeometryStatus,
+        }).finally(() => {
+          geometryBusy = false;
         });
       },
     },

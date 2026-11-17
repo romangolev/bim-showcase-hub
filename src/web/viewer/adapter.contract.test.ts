@@ -41,6 +41,18 @@ describe('ViewerAdapter contract (mock)', () => {
     expect(host.querySelector('[role="toolbar"]')).not.toBeNull();
   });
 
+  it('returns triangle parts for the GLB export', async () => {
+    await setup();
+    const { parts } = await adapter.getGeometryParts();
+    expect(parts.length).toBeGreaterThan(0);
+    for (const part of parts) {
+      expect(part.positions.length).toBeGreaterThan(0);
+      expect(part.positions.length % 3).toBe(0);
+      expect(part.indices.length % 3).toBe(0);
+      expect(part.indices.length).toBeGreaterThanOrEqual(3);
+    }
+  });
+
   it('rejects an empty urn', async () => {
     host = document.createElement('div');
     adapter = new MockViewerAdapter(host);

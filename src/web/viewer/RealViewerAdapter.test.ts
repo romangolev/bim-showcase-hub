@@ -333,9 +333,10 @@ function parts(viewer: FakeViewer) {
   const group = currentGroup(viewer);
   const combo = group.controls[0] as FakeCombo;
   const exportButton = group.controls[1] as FakeButton;
+  const geometryButton = group.controls[2] as FakeButton;
   const reset = combo.controls[combo.controls.length - 1] as FakeButton;
   const swatches = combo.controls.slice(0, -1) as FakeButton[];
-  return { group, combo, exportButton, reset, swatches };
+  return { group, combo, exportButton, geometryButton, reset, swatches };
 }
 
 beforeEach(() => {
@@ -361,9 +362,10 @@ describe('RealViewerAdapter tool group extension', () => {
     expect(registerSpy).toHaveBeenCalledWith('BimShowcaseHub.Tools');
     expect(viewer.extensions.has('BimShowcaseHub.Tools')).toBe(true);
     expect(viewer.toolbar.groups).toHaveLength(1);
-    const { group, combo, exportButton, reset, swatches } = parts(viewer);
+    const { group, combo, exportButton, geometryButton, reset, swatches } =
+      parts(viewer);
     expect(group.id).toBe('bim-showcase-hub-tools');
-    expect(group.controls).toHaveLength(2);
+    expect(group.controls).toHaveLength(3);
     expect(combo).toBeInstanceOf(FakeCombo);
     expect(combo.tooltip).toBe('Paint selection');
     expect(combo.iconClass).toBe('bsh-ico-paint');
@@ -380,6 +382,8 @@ describe('RealViewerAdapter tool group extension', () => {
     expect(reset.iconClass).toBe('bsh-ico-reset');
     expect(exportButton.tooltip).toBe('Export to Excel');
     expect(exportButton.iconClass).toBe('bsh-ico-export');
+    expect(geometryButton.tooltip).toBe('Export geometry (GLB)');
+    expect(geometryButton.iconClass).toBe('bsh-ico-glb');
   });
 
   it('mounts immediately when registered after the model is loaded', async () => {
@@ -785,5 +789,40 @@ describe('RealViewerAdapter with several viewers', () => {
     expect(() => viewers[0]?.select([7])).not.toThrow();
     expect(later).toHaveBeenCalledWith([{ modelId: 'urn-a', dbId: 7 }]);
     expect(error).toHaveBeenCalled();
+  });
+});
+
+describe('RealViewerAdapter geometry export', () => {
+  it('reads fragments with the world matrix and unit scale', async () => {
+    const one = makeAdapter();
+    await one.load('urn-a');
+    const model = (viewers[0] as FakeViewer).model;
+    model.getUnitScale = () => 0.5;
+    model.getFragmentList = () => ({
+      getCount: () => 2,
+      getDbIds: (fragId) => fragId + 1,
+      getVizmesh: () => ({
+        geometry: {
+          vb: new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]),
+          vbstride: 3,
+          ib: new Uint16Array([0, 1, 2]),
+          attributes: { position: { offset: 0 } },
+        },
+        matrixWorld: {
+          elements: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 10, 0, 0, 1],
+        },
+        material: { color: { r: 1, g: 0, b: 0 } },
+      }),
+      isLine: () => false,
+      isPoint: () => false,
+      isNotLoaded: () => false,
+    });
+    const { parts } = await one.getGeometryParts();
+    expect(parts).toHaveLength(2);
+    expect(parts[0]?.dbId).toBe(1);
+    expect([...(parts[0]?.positions ?? [])]).toEqual([
+      5, 0, 0, 5.5, 0, 0, 5, 0.5, 0,
+    ]);
+    expect(parts[0]?.color).toEqual([1, 0, 0, 1]);
   });
 });

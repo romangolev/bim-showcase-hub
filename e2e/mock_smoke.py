@@ -10,11 +10,14 @@ from common import (
     HOST_OS,
     MOBILE,
     OUTPUT_DIR,
+    GLB_MAGIC,
     XLSX_MAGIC,
     Checks,
     api_get,
     app_reachable,
     download_export,
+    download_glb,
+    glb_check,
     expand_to_viewable,
     horizontal_overflow,
     new_notes,
@@ -566,6 +569,14 @@ def check_combined(page, checks, notes):
     except Exception as exc:
         checks.add("combined: export has a Model column", False, f"{type(exc).__name__}: {str(exc)[:160]}")
 
+    try:
+        glb_path = OUTPUT_DIR / "combined-export.glb"
+        size, magic = download_glb(page, glb_path)
+        checks.add("combined: geometry export downloads a GLB", size > 1000 and magic == GLB_MAGIC, f"{size} bytes")
+        glb_check(checks, glb_path, "combined GLB")
+    except Exception as exc:
+        checks.add("combined: geometry export downloads a GLB", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+
     models_trigger(page).click()
     page.get_by_role("menuitemcheckbox").nth(1).click()
     settle(page, 400)
@@ -1023,6 +1034,16 @@ def run(context, checks, notes):
         checks.add("export downloads a non-empty xlsx", size > 1000 and magic == XLSX_MAGIC, f"{size} bytes")
     except Exception as exc:
         checks.add("export downloads a non-empty xlsx", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+
+    try:
+        glb_path = OUTPUT_DIR / "export.glb"
+        size, magic = download_glb(page, glb_path)
+        checks.add("geometry export downloads a GLB", size > 1000 and magic == GLB_MAGIC, f"{size} bytes")
+        info = glb_check(checks, glb_path, "mock GLB")
+        if info:
+            notes["mock_glb"] = info
+    except Exception as exc:
+        checks.add("geometry export downloads a GLB", False, f"{type(exc).__name__}: {str(exc)[:160]}")
 
     run_interaction_checks(page, checks, notes)
 

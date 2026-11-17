@@ -16,6 +16,7 @@ export const TOOLS_EXTENSION_ID = 'BimShowcaseHub.Tools';
 export const PAINT_ICON_CLASS = 'bsh-ico-paint';
 export const RESET_ICON_CLASS = 'bsh-ico-reset';
 export const EXPORT_ICON_CLASS = 'bsh-ico-export';
+export const GLB_ICON_CLASS = 'bsh-ico-glb';
 
 export interface ToolsExtensionOptions {
   controller: ToolGroupController;
@@ -74,6 +75,11 @@ function createToolsExtension(viewing: AutodeskViewing): ViewerExtensionClass {
       exportButton.setToolTip(spec.export.tooltip);
       exportButton.onClick = () => controller.export();
 
+      const geometryButton: ControlButton = new UI.Button(spec.geometry.id);
+      geometryButton.setIcon(GLB_ICON_CLASS);
+      geometryButton.setToolTip(spec.geometry.tooltip);
+      geometryButton.onClick = () => controller.exportGeometry();
+
       const apply = (state: ToolGroupState) => {
         for (const { swatch, button } of swatches) {
           button.setState(state.hasSelection ? enabled : disabled);
@@ -89,6 +95,7 @@ function createToolsExtension(viewing: AutodeskViewing): ViewerExtensionClass {
 
       group.addControl(combo);
       group.addControl(exportButton);
+      group.addControl(geometryButton);
       toolbar.addControl(group);
       apply(controller.state);
       this.stop = controller.subscribe(apply);

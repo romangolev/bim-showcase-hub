@@ -2,11 +2,13 @@ import type { PropertyRow } from '../../shared/types.js';
 import type { Theme } from '../theme/theme.js';
 import {
   EXPORT_ICON_CLASS,
+  GLB_ICON_CLASS,
   PAINT_ICON_CLASS,
   RESET_ICON_CLASS,
   swatchIconClass,
 } from './autodeskTools.js';
 import { NO_GEOMETRY_MESSAGE } from './federation.js';
+import type { GeometryPart, GeometryRead } from './geometryTypes.js';
 import {
   buildMockElements,
   buildMockRows,
@@ -127,6 +129,61 @@ function modelBoxOf(id: string, box: Box): ModelBox {
     id,
     min: [box.x, box.y, 0],
     max: [box.x + box.width, box.y + box.height, 0],
+  };
+}
+
+const MOCK_GLB_COLORS = [
+  [0.52, 0.65, 0.78, 1],
+  [0.78, 0.62, 0.48, 1],
+  [0.56, 0.72, 0.56, 1],
+  [0.72, 0.56, 0.72, 1],
+] as const;
+
+function mockGeometryPart(
+  info: ModelInfo,
+  scene: MockScene,
+  index: number,
+): GeometryPart {
+  const { x, y, width, height } = scene.box;
+  const depth = Math.max(width, height) * 0.6;
+  const half = depth / 2;
+  const positions = new Float32Array([
+    x,
+    y,
+    -half,
+    x + width,
+    y,
+    -half,
+    x + width,
+    y + height,
+    -half,
+    x,
+    y + height,
+    -half,
+    x,
+    y,
+    half,
+    x + width,
+    y,
+    half,
+    x + width,
+    y + height,
+    half,
+    x,
+    y + height,
+    half,
+  ]);
+  const indices = new Uint16Array([
+    0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7, 0, 1, 5, 0, 5, 4, 3, 2, 6, 3, 6, 7, 0,
+    3, 7, 0, 7, 4, 1, 2, 6, 1, 6, 5,
+  ]);
+  return {
+    name: info.name || info.id,
+    model: info.name || info.id,
+    positions,
+    indices,
+    dbId: index + 1,
+    color: MOCK_GLB_COLORS[index % MOCK_GLB_COLORS.length],
   };
 }
 
@@ -276,6 +333,17 @@ export class MockViewerAdapter implements ViewerAdapter {
 
   getModels(): ModelInfo[] {
     return this.models.list();
+  }
+
+  async getGeometryParts(): Promise<GeometryRead> {
+    const ready = this.models.ready();
+    if (ready.length === 0) throw new Error('No geometry to export');
+    return {
+      parts: ready.map(({ info, handle }, index) =>
+        mockGeometryPart(info, handle, index),
+      ),
+      skipped: 0,
+    };
   }
 
   setModelVisible(modelId: string, visible: boolean): void {
@@ -542,6 +610,13 @@ export class MockViewerAdapter implements ViewerAdapter {
     );
     exportButton.addEventListener('click', () => controller.export());
 
+    const geometryButton = this.createToolbarButton(
+      spec.geometry.id,
+      spec.geometry.tooltip,
+      iconSpan(GLB_ICON_CLASS),
+    );
+    geometryButton.addEventListener('click', () => controller.exportGeometry());
+
     const onOutside = (event: Event) => {
       if (!combo.contains(event.target as Node)) setOpen(false);
     };
@@ -579,7 +654,7 @@ export class MockViewerAdapter implements ViewerAdapter {
     };
     apply(controller.state);
     const stop = controller.subscribe(apply);
-    group.append(separator, combo, exportButton);
+    group.append(separator, combo, exportButton, geometryButton);
     return {
       element: group,
       dispose: () => {
