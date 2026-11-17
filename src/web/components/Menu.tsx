@@ -32,6 +32,8 @@ export interface MenuProps {
   className?: string;
   triggerClassName?: string;
   align?: 'start' | 'end';
+  anchor?: { x: number; y: number } | null;
+  onClose?: (restoreFocus: boolean) => void;
 }
 
 interface Position {
@@ -57,6 +59,8 @@ export function Menu({
   className,
   triggerClassName = 'icon-button',
   align = 'end',
+  anchor,
+  onClose,
 }: MenuProps) {
   const [open, setOpen] = useState<null | 'first' | 'last'>(null);
   const [entries, setEntries] = useState<MenuEntry[]>([]);
@@ -64,6 +68,10 @@ export function Menu({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
 
   const focusables = useCallback(
     () =>
@@ -83,10 +91,13 @@ export function Menu({
   const close = useCallback((restore: boolean) => {
     setOpen(null);
     if (restore) triggerRef.current?.focus();
+    onCloseRef.current?.(restore);
   }, []);
 
   const place = useCallback(() => {
-    const rect = triggerRef.current?.getBoundingClientRect();
+    const rect = anchor
+      ? { left: anchor.x, right: anchor.x, top: anchor.y, bottom: anchor.y }
+      : triggerRef.current?.getBoundingClientRect();
     const menu = menuRef.current;
     if (!rect || !menu) return;
     const width = menu.offsetWidth;
@@ -94,17 +105,23 @@ export function Menu({
     const left = Math.max(
       GAP,
       Math.min(
-        align === 'start' ? rect.left : rect.right - width,
+        anchor || align === 'start' ? rect.left : rect.right - width,
         window.innerWidth - width - GAP,
       ),
     );
-    const below = rect.bottom + GAP;
+    const below = rect.bottom + (anchor ? 0 : GAP);
     const top =
       below + height > window.innerHeight
         ? Math.max(GAP, rect.top - height - GAP)
         : below;
     setPosition({ top, left });
-  }, [align]);
+  }, [align, anchor]);
+
+  useEffect(() => {
+    if (!anchor) return;
+    setEntries(itemsRef.current());
+    setOpen('first');
+  }, [anchor]);
 
   const pendingFocus = useRef<null | 'first' | 'last'>(null);
 
@@ -190,33 +207,35 @@ export function Menu({
 
   return (
     <div className={className ? `menu ${className}` : 'menu'}>
-      <button
-        ref={triggerRef}
-        type="button"
-        className={triggerClassName}
-        aria-label={label}
-        title={title ?? label}
-        aria-haspopup="menu"
-        aria-expanded={open !== null}
-        aria-controls={open ? menuId : undefined}
-        onClick={() => (open ? close(false) : show('first'))}
-        onKeyDown={(event) => {
-          if (open) return;
-          if (
-            event.key === 'ArrowDown' ||
-            event.key === 'Enter' ||
-            event.key === ' '
-          ) {
-            event.preventDefault();
-            show('first');
-          } else if (event.key === 'ArrowUp') {
-            event.preventDefault();
-            show('last');
-          }
-        }}
-      >
-        {trigger}
-      </button>
+      {anchor === undefined ? (
+        <button
+          ref={triggerRef}
+          type="button"
+          className={triggerClassName}
+          aria-label={label}
+          title={title ?? label}
+          aria-haspopup="menu"
+          aria-expanded={open !== null}
+          aria-controls={open ? menuId : undefined}
+          onClick={() => (open ? close(false) : show('first'))}
+          onKeyDown={(event) => {
+            if (open) return;
+            if (
+              event.key === 'ArrowDown' ||
+              event.key === 'Enter' ||
+              event.key === ' '
+            ) {
+              event.preventDefault();
+              show('first');
+            } else if (event.key === 'ArrowUp') {
+              event.preventDefault();
+              show('last');
+            }
+          }}
+        >
+          {trigger}
+        </button>
+      ) : null}
       {open
         ? createPortal(
             <div

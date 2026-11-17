@@ -37,6 +37,7 @@ export interface LayoutApi {
   startResize: (id: PanelId) => void;
   resizing: PanelId | null;
   closeTreeOverlay: () => void;
+  floatNext: (urn: string) => void;
   paneTitle: (id: PanelId) => PaneTitle;
 }
 

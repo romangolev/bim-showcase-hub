@@ -288,7 +288,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
   useEffect(() => {
     if (!overlayOpen) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') closeTree();
+      if (event.key === 'Escape' && !event.defaultPrevented) closeTree();
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
@@ -298,11 +298,26 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
     setSignals((current) => ({ ...current, [id]: (current[id] ?? 0) + 1 }));
   }, []);
 
+  const floatPending = useRef<string | null>(null);
+  const floatNext = useCallback((urn: string) => {
+    if (lockedRef.current || modeRef.current === 'stacked') return;
+    const id = modelPanelId(urn);
+    if (attachedRef.current.includes(id)) {
+      controller.current?.movePane(id, 'float');
+      return;
+    }
+    floatPending.current = urn;
+  }, []);
+
   const onAttach = useCallback(
     (id: PanelId) => {
       setAttached((list) => (list.includes(id) ? list : [...list, id]));
       bump(id);
       const urn = modelOf(id);
+      if (urn && floatPending.current === urn) {
+        floatPending.current = null;
+        requestAnimationFrame(() => controller.current?.movePane(id, 'float'));
+      }
       if (urn) modelStore.show(urn);
     },
     [bump, modelStore],
@@ -495,6 +510,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       },
       resizing,
       closeTreeOverlay,
+      floatNext,
       paneTitle,
     }),
     [
@@ -510,6 +526,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       treeControl,
       signals,
       closeTreeOverlay,
+      floatNext,
       paneTitle,
       modelStore,
       closePane,
