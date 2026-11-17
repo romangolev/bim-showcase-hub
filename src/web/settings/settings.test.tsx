@@ -35,10 +35,52 @@ describe('readSettings', () => {
       JSON.stringify({ paintBrushes: false, excelExport: 'yes' }),
     );
     expect(readSettings()).toEqual({
+      ...DEFAULT_SETTINGS,
       paintBrushes: false,
-      excelExport: true,
-      glbExport: true,
     });
+  });
+
+  it('validates the nested IFC settings field by field', () => {
+    window.localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        ifcExport: false,
+        ifc: {
+          classOverrides: {
+            Walls: 'IfcCovering',
+            Bad: 'IfcNonsense',
+            ' ': 'IfcWall',
+          },
+          psetExclude: [' Dimensions ', '', 7],
+          psetInclude: 'nope',
+          levelProperty: '',
+          fallbackStorey: 'Ground',
+          projectName: 'P',
+          lengthUnit: 'km',
+        },
+      }),
+    );
+    const { ifc, ifcExport } = readSettings();
+    expect(ifcExport).toBe(false);
+    expect(ifc.classOverrides).toEqual({ Walls: 'IfcCovering' });
+    expect(ifc.psetExclude).toEqual(['Dimensions']);
+    expect(ifc.psetInclude).toEqual([]);
+    expect(ifc.levelProperty).toBe('Level');
+    expect(ifc.fallbackStorey).toBe('Ground');
+    expect(ifc.projectName).toBe('P');
+    expect(ifc.lengthUnit).toBe('m');
+  });
+
+  it('loads a record stored before the IFC settings existed', () => {
+    window.localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        paintBrushes: true,
+        excelExport: true,
+        glbExport: false,
+      }),
+    );
+    expect(readSettings()).toEqual({ ...DEFAULT_SETTINGS, glbExport: false });
   });
 });
 

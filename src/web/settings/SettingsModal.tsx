@@ -2,10 +2,9 @@ import { useId } from 'react';
 import type { ModalDefinition } from '../modal/types.js';
 import { useTheme } from '../theme/ThemeContext.js';
 import { useSettings } from './SettingsContext.js';
-import type { Settings } from './settings.js';
 
 interface ExperimentalFeature {
-  key: keyof Settings;
+  key: 'paintBrushes' | 'excelExport' | 'glbExport';
   label: string;
   description: string;
 }
