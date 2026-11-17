@@ -30,11 +30,14 @@ import { useSettings } from '../settings/SettingsContext.js';
 import { readExcelSettings, readIfcSettings } from '../settings/settings.js';
 import { useTheme } from '../theme/ThemeContext.js';
 import { createViewerAdapter } from './createViewerAdapter.js';
+import { explainFailure } from './failureExplainer.js';
 import { ModelsMenu } from './ModelsMenu.js';
 import {
+  type FailureReason,
   ModelSetError,
   type ModelSource,
   type ModelSpread,
+  reasonOf,
   type Vec3,
 } from './modelSet.js';
 import {
@@ -47,7 +50,11 @@ import {
 } from './region.js';
 import { ShareMenu } from './ShareMenu.js';
 import { useModels } from './useModels.js';
-import type { ViewerAdapter, ViewerAdapterFactory } from './ViewerAdapter.js';
+import type {
+  LoadStage,
+  ViewerAdapter,
+  ViewerAdapterFactory,
+} from './ViewerAdapter.js';
 import { ActiveViewerContext, ModelViewerContext } from './ViewerContext.js';
 import './viewer.css';
 import './viewerChrome.css';
@@ -81,7 +88,7 @@ export function membersKey(members: readonly ModelSource[]): string {
 type PaneState =
   | { status: 'loading' }
   | { status: 'ready' }
-  | { status: 'error'; message: string }
+  | { status: 'error'; message: string; reason: FailureReason }
   | { status: 'region'; region: ViewerRegion };
 
 export const STATUS_DISMISS_MS = 4000;
@@ -145,8 +152,11 @@ function ifcBadge(status: IfcExportStatus): StatusBadge {
   };
 }
 
-const LOAD_ERROR_COPY =
-  'The model could not be loaded. It may still be processing, or you may not have access to it.';
+export const STAGE_TEXT: Record<LoadStage, string> = {
+  starting: 'Starting the viewer',
+  manifest: 'Reading the model manifest',
+  geometry: 'Loading geometry',
+};
 
 function detailOf(err: unknown): string {
   return err instanceof Error ? err.message : '';
@@ -191,6 +201,7 @@ export function ViewerPane({
   const [adapter, setAdapter] = useState<ViewerAdapter | null>(null);
   const [state, setState] = useState<PaneState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
+  const [stage, setStage] = useState<LoadStage>('starting');
   const { theme } = useTheme();
   const { settings } = useSettings();
   const ifcSettingsRef = useRef(settings.ifc);
@@ -278,6 +289,8 @@ export function ViewerPane({
       return;
     }
     setState({ status: 'loading' });
+    setStage('starting');
+    let stopStage: (() => void) | undefined;
 
     (async () => {
       try {
@@ -285,6 +298,7 @@ export function ViewerPane({
         created = instance;
         instanceRef.current = instance;
         instance.setTheme(themeRef.current);
+        stopStage = instance.onLoadStage?.(setStage);
         if (cancelled) {
           instance.destroy();
           return;
@@ -314,12 +328,17 @@ export function ViewerPane({
           setState({ status: 'region', region: err.region });
           return;
         }
-        setState({ status: 'error', message: detailOf(err) });
+        setState({
+          status: 'error',
+          message: detailOf(err),
+          reason: reasonOf(err),
+        });
       }
     })();
 
     return () => {
       cancelled = true;
+      stopStage?.();
       adapterRef.current = null;
       created?.destroy();
       if (instanceRef.current === created) instanceRef.current = null;
@@ -503,6 +522,9 @@ export function ViewerPane({
               rows={3}
               className="bsh-viewer-skeleton"
             />
+            <p className="bsh-viewer-stage" role="status">
+              {STAGE_TEXT[stage]}
+            </p>
           </div>
         )}
         {state.status === 'region' && (
@@ -527,13 +549,17 @@ export function ViewerPane({
           <div className="bsh-viewer-overlay">
             <StateBlock
               variant="error"
-              title="Model unavailable"
-              message={LOAD_ERROR_COPY}
+              title={explainFailure(state.reason).title}
+              message={explainFailure(state.reason).text}
               detail={state.message || undefined}
-              action={{
-                label: 'Try again',
-                onClick: () => setAttempt((n) => n + 1),
-              }}
+              action={
+                explainFailure(state.reason).retry
+                  ? {
+                      label: 'Try again',
+                      onClick: () => setAttempt((n) => n + 1),
+                    }
+                  : undefined
+              }
               className="bsh-viewer-error"
             />
           </div>
@@ -563,6 +589,7 @@ export function ViewerPane({
         ) : null}
         {adapter && combined ? (
           <ModelsMenu
+            adapter={adapter}
             models={models}
             onToggle={(id, visible) => adapter.setModelVisible(id, visible)}
             onRemove={(id) => {

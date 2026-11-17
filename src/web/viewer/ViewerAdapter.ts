@@ -46,6 +46,8 @@ export interface ToolGroupSpec {
   ifc?: ExportToolSpec;
 }
 
+export type LoadStage = 'starting' | 'manifest' | 'geometry';
+
 export interface CameraState {
   eye: Vec3;
   target: Vec3;
@@ -73,8 +75,10 @@ export interface ViewerAdapter {
   removeModel(modelId: string): void;
   getModels(): ModelInfo[];
   setModelVisible(modelId: string, visible: boolean): void;
+  onLoadStage?(cb: (stage: LoadStage) => void): () => void;
   onModelsChange(cb: (models: ModelInfo[]) => void): () => void;
   getModelSelection(): ModelDbId[];
+  getModelWeight?(modelId: string): number | null;
   getIsolated?(): ModelDbId[];
   selectModelIds?(items: readonly ModelDbId[]): void;
   isolateModelIds?(items: readonly ModelDbId[]): void;

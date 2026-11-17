@@ -161,6 +161,7 @@ export interface BubbleNode {
 
 export interface ViewingDocument {
   getRoot(): {
+    data?: { status?: string };
     getDefaultGeometry(): unknown;
     search?(query: { type: string; role?: string }): unknown[];
   };

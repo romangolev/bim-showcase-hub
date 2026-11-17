@@ -14,6 +14,29 @@ export interface ModelSource {
   name?: string;
 }
 
+export type FailureReason =
+  | 'processing'
+  | 'access'
+  | 'missing'
+  | 'dimension'
+  | 'region'
+  | 'no-viewable'
+  | 'unknown';
+
+export class ModelLoadError extends Error {
+  constructor(
+    readonly reason: FailureReason,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'ModelLoadError';
+  }
+}
+
+export function reasonOf(err: unknown): FailureReason {
+  return err instanceof ModelLoadError ? err.reason : 'unknown';
+}
+
 export interface ModelInfo {
   id: string;
   urn: string;
@@ -21,6 +44,7 @@ export interface ModelInfo {
   visible: boolean;
   status: ModelStatus;
   error?: string;
+  reason?: FailureReason;
   propertiesError?: string;
 }
 
@@ -85,6 +109,11 @@ export function readySignature(models: readonly ModelInfo[]): string {
     .filter((model) => model.status === 'ready' && model.visible)
     .map((model) => model.id)
     .join('\n');
+}
+
+export function loadFailure(models: readonly ModelInfo[]): ModelLoadError {
+  const reason = models.find((model) => model.error)?.reason ?? 'unknown';
+  return new ModelLoadError(reason, loadFailureMessage(models));
 }
 
 export function loadFailureMessage(models: readonly ModelInfo[]): string {
@@ -194,11 +223,16 @@ export class ModelSet<H> {
     return true;
   }
 
-  fail(id: string, message: string, token?: number): boolean {
+  fail(
+    id: string,
+    message: string,
+    token?: number,
+    reason: FailureReason = 'unknown',
+  ): boolean {
     const entry = this.entries.get(id);
     if (!entry || (token !== undefined && entry.token !== token)) return false;
     entry.handle = undefined;
-    entry.info = { ...entry.info, status: 'error', error: message };
+    entry.info = { ...entry.info, status: 'error', error: message, reason };
     this.emit();
     return true;
   }

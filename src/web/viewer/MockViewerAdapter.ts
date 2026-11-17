@@ -9,7 +9,7 @@ import {
   RESET_ICON_CLASS,
   swatchIconClass,
 } from './autodeskTools.js';
-import { NO_GEOMETRY_MESSAGE } from './federation.js';
+import { NO_GEOMETRY_MESSAGE, STILL_PROCESSING_MESSAGE } from './federation.js';
 import type { GeometryPart, GeometryRead } from './geometryTypes.js';
 import {
   buildMockElements,
@@ -21,7 +21,7 @@ import {
 import { tagRows } from './modelScope.js';
 import {
   checkCapacity,
-  loadFailureMessage,
+  loadFailure,
   type ModelBox,
   type ModelDbId,
   type ModelInfo,
@@ -49,6 +49,7 @@ import {
 } from './toolGroupController.js';
 import type {
   CameraState,
+  LoadStage,
   PaintSwatchSpec,
   Rgba,
   ToolGroupSpec,
@@ -103,6 +104,9 @@ export const MOCK_BROKEN_MARKER = 'broken';
 export const MOCK_LOAD_ERROR = 'Mock model failed to load';
 export const MOCK_NO_PROPERTIES_MARKER = 'noprops';
 export const MOCK_NO_GEOMETRY_MARKER = 'nogeom';
+export const MOCK_PROCESSING_MARKER = 'processing';
+export const MOCK_NO_ACCESS_MARKER = 'noaccess';
+export const MOCK_NO_ACCESS_ERROR = 'Document load failed (4): mock';
 export const MOCK_PROPERTIES_ERROR = 'Properties could not be read: mock';
 const MODEL_GAP = 48;
 
@@ -272,6 +276,15 @@ export class MockViewerAdapter implements ViewerAdapter {
     this.build();
   }
 
+  private readonly stageListeners = new Set<(stage: LoadStage) => void>();
+
+  onLoadStage(cb: (stage: LoadStage) => void): () => void {
+    this.stageListeners.add(cb);
+    return () => {
+      this.stageListeners.delete(cb);
+    };
+  }
+
   async load(urn: string, name?: string): Promise<void> {
     await this.loadModels([name ? { urn, name } : { urn }]);
   }
@@ -283,12 +296,15 @@ export class MockViewerAdapter implements ViewerAdapter {
     const region = detectRegion(unique[0]?.urn ?? '');
     if (!regionAvailable(region)) throw new RegionConflictError(region);
     this.unload();
+    for (const stage of ['starting', 'manifest', 'geometry'] as const) {
+      for (const cb of [...this.stageListeners]) cb(stage);
+    }
     for (const source of unique) this.models.add(source);
     for (const source of unique) this.loadOne(source);
     const models = this.models.list();
     if (models.some((model) => model.status === 'ready')) claimRegion(region);
     if (!models.some((model) => model.status === 'ready')) {
-      throw new Error(loadFailureMessage(models));
+      throw loadFailure(models);
     }
     return models;
   }
@@ -419,6 +435,10 @@ export class MockViewerAdapter implements ViewerAdapter {
         .filter((item) => this.nodeOf(item.modelId, item.dbId))
         .map((item) => selectionKey(item.modelId, item.dbId)),
     );
+  }
+
+  getModelWeight(modelId: string): number | null {
+    return this.models.handle(modelId)?.nodes.size ?? null;
   }
 
   getCamera(): CameraState | null {
@@ -804,7 +824,15 @@ export class MockViewerAdapter implements ViewerAdapter {
       return;
     }
     if (source.urn.includes(MOCK_NO_GEOMETRY_MARKER)) {
-      this.models.fail(id, NO_GEOMETRY_MESSAGE);
+      this.models.fail(id, NO_GEOMETRY_MESSAGE, undefined, 'no-viewable');
+      return;
+    }
+    if (source.urn.includes(MOCK_PROCESSING_MARKER)) {
+      this.models.fail(id, STILL_PROCESSING_MESSAGE, undefined, 'processing');
+      return;
+    }
+    if (source.urn.includes(MOCK_NO_ACCESS_MARKER)) {
+      this.models.fail(id, MOCK_NO_ACCESS_ERROR, undefined, 'access');
       return;
     }
     const scene = this.renderModel(id, buildMockElements());

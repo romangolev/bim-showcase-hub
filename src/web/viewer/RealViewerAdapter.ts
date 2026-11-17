@@ -15,6 +15,7 @@ import {
 import { ensureToolsExtension, TOOLS_EXTENSION_ID } from './autodeskTools.js';
 import {
   anchorOf,
+  documentLoadError,
   type FederationAnchor,
   federatedLoadOptions,
   OTHER_REGION_MESSAGE,
@@ -26,16 +27,18 @@ import { tagRows } from './modelScope.js';
 import {
   CANCELLED_MESSAGE,
   checkCapacity,
-  loadFailureMessage,
+  loadFailure,
   type ModelBox,
   type ModelDbId,
   type ModelInfo,
+  ModelLoadError,
   ModelSet,
   ModelSetError,
   type ModelSource,
   type ModelSpread,
   metersPerUnit,
   modelIdFor,
+  reasonOf,
   spreadOf,
   togetherOffsets,
   uniqueSources,
@@ -54,6 +57,7 @@ import { readSceneBackground } from './sceneBackground.js';
 import { ToolGroupController } from './toolGroupController.js';
 import type {
   CameraState,
+  LoadStage,
   Rgba,
   ToolGroupSpec,
   ViewerAdapter,
@@ -159,7 +163,7 @@ function initializeViewing(region: ViewerRegion): Promise<void> {
 function loadDocument(urn: string) {
   return new Promise<ViewingDocument>((resolve, reject) => {
     getViewing().Document.load(`urn:${urn}`, resolve, (code, message) =>
-      reject(new Error(`Document load failed (${code}): ${message}`)),
+      reject(documentLoadError(code, message)),
     );
   });
 }
@@ -221,6 +225,7 @@ export class RealViewerAdapter implements ViewerAdapter {
   private viewer: GuiViewer3D | null = null;
   private destroyed = false;
   private theme: Theme = 'dark';
+  private readonly stageListeners = new Set<(stage: LoadStage) => void>();
   private readonly selectionListeners = new Set<(items: ModelDbId[]) => void>();
   private controller: ToolGroupController | null = null;
   private mountedController: ToolGroupController | null = null;
@@ -262,6 +267,17 @@ export class RealViewerAdapter implements ViewerAdapter {
 
   constructor(private readonly container: HTMLElement) {}
 
+  onLoadStage(cb: (stage: LoadStage) => void): () => void {
+    this.stageListeners.add(cb);
+    return () => {
+      this.stageListeners.delete(cb);
+    };
+  }
+
+  private emitStage(stage: LoadStage): void {
+    for (const cb of [...this.stageListeners]) cb(stage);
+  }
+
   async load(urn: string, name?: string): Promise<void> {
     await this.loadModels([name ? { urn, name } : { urn }]);
   }
@@ -277,12 +293,13 @@ export class RealViewerAdapter implements ViewerAdapter {
       return { id: info.id, token: this.models.token(info.id) };
     });
     let viewer: GuiViewer3D | null;
+    this.emitStage('starting');
     try {
       viewer = await this.ensureViewer(region);
     } catch (err) {
       if (!this.destroyed) {
         for (const { id, token } of entries) {
-          this.models.fail(id, errorMessage(err), token);
+          this.models.fail(id, errorMessage(err), token, reasonOf(err));
         }
       }
       throw err;
@@ -294,7 +311,7 @@ export class RealViewerAdapter implements ViewerAdapter {
     if (this.destroyed || this.viewer !== viewer) return [];
     const models = this.models.list();
     if (!models.some((model) => model.status === 'ready')) {
-      throw new Error(loadFailureMessage(models));
+      throw loadFailure(models);
     }
     return models;
   }
@@ -313,7 +330,7 @@ export class RealViewerAdapter implements ViewerAdapter {
       if (this.destroyed) {
         throw new ModelSetError('closed', VIEWER_CLOSED_MESSAGE);
       }
-      this.models.fail(info.id, errorMessage(err), token);
+      this.models.fail(info.id, errorMessage(err), token, reasonOf(err));
       return current();
     }
     if (this.destroyed) {
@@ -547,6 +564,10 @@ export class RealViewerAdapter implements ViewerAdapter {
     return viewer.getSelection().map((dbId) => ({ modelId: primary, dbId }));
   }
 
+  getModelWeight(modelId: string): number | null {
+    return this.models.handle(modelId)?.getFragmentList?.().getCount() ?? null;
+  }
+
   getIsolated(): ModelDbId[] {
     const viewer = this.viewer;
     if (!viewer?.getIsolatedNodes) return [];
@@ -631,7 +652,7 @@ export class RealViewerAdapter implements ViewerAdapter {
     const promise =
       apiForRegion(detectRegion(urn)) === this.api
         ? loadDocument(urn)
-        : Promise.reject(new Error(OTHER_REGION_MESSAGE));
+        : Promise.reject(new ModelLoadError('region', OTHER_REGION_MESSAGE));
     promise.catch(() => {});
     return promise;
   }
@@ -676,8 +697,9 @@ export class RealViewerAdapter implements ViewerAdapter {
     let release: (() => void) | null = null;
     try {
       if (apiForRegion(detectRegion(source.urn)) !== this.api) {
-        throw new Error(OTHER_REGION_MESSAGE);
+        throw new ModelLoadError('region', OTHER_REGION_MESSAGE);
       }
+      this.emitStage('manifest');
       const doc = await docPromise;
       if (stale()) return;
       while (!this.anchor && this.anchoring) {
@@ -696,6 +718,7 @@ export class RealViewerAdapter implements ViewerAdapter {
         };
       }
       const node = pickGeometryNode(doc, this.anchor);
+      this.emitStage('geometry');
       const model = await viewer.loadDocumentNode(
         doc,
         node,
@@ -733,7 +756,7 @@ export class RealViewerAdapter implements ViewerAdapter {
       }
     } catch (err) {
       if (this.destroyed || this.viewer !== viewer) return;
-      this.models.fail(id, errorMessage(err), token);
+      this.models.fail(id, errorMessage(err), token, reasonOf(err));
     } finally {
       release?.();
     }
