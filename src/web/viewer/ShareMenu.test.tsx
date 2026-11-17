@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import * as excel from '../extensions/excelExport.js';
 import { fireEvent, render, screen, waitFor } from '../test/render.js';
 import { createMockViewerAdapter } from './MockViewerAdapter.js';
+import { snapshotName } from './ShareMenu.js';
 import type { ViewerAdapter, ViewerAdapterFactory } from './ViewerAdapter.js';
 import { ViewerPane } from './ViewerPane.js';
 
@@ -76,5 +78,68 @@ describe('Share menu', () => {
     expect(adapter()?.getModelSelection()).toEqual([
       { modelId: 'urn-a', dbId: 101 },
     ]);
+  });
+});
+
+describe('Share menu snapshots', () => {
+  it('names the file after the model', () => {
+    expect(snapshotName('Tower-v2-properties.xlsx')).toBe(
+      'Tower-v2-snapshot.png',
+    );
+    expect(snapshotName('model-properties.xlsx')).toBe('model-snapshot.png');
+    expect(snapshotName()).toBe('model-snapshot.png');
+  });
+
+  it('copies and saves the image the adapter returns', async () => {
+    const blob = new Blob(['png'], { type: 'image/png' });
+    const items: unknown[] = [];
+    class Item {
+      constructor(readonly data: unknown) {
+        items.push(data);
+      }
+    }
+    vi.stubGlobal('ClipboardItem', Item);
+    const write = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { write } });
+    const save = vi.spyOn(excel, 'saveBlob').mockImplementation(() => {});
+    const { factory, adapter } = setup();
+    render(
+      <ViewerPane
+        urn="urn-a"
+        factory={factory}
+        exportName="Tower-properties.xlsx"
+      />,
+    );
+    await screen.findByRole('button', { name: 'Share' });
+    const current = adapter();
+    if (current) current.getScreenshot = async () => blob;
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Copy image' }));
+    await waitFor(() => expect(write).toHaveBeenCalled());
+    expect(await screen.findByText('Image copied')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Save image (PNG)' }));
+    await waitFor(() =>
+      expect(save).toHaveBeenCalledWith(blob, 'Tower-snapshot.png'),
+    );
+    vi.unstubAllGlobals();
+  });
+
+  it('reports a failed snapshot', async () => {
+    Object.assign(navigator, { clipboard: { write: vi.fn() } });
+    const { factory, adapter } = setup();
+    render(<ViewerPane urn="urn-a" factory={factory} />);
+    await screen.findByRole('button', { name: 'Share' });
+    const current = adapter();
+    if (current) {
+      current.getScreenshot = async () => {
+        throw new Error('no');
+      };
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Save image (PNG)' }));
+    expect(
+      await screen.findByText('Could not take the snapshot'),
+    ).toBeInTheDocument();
   });
 });

@@ -581,6 +581,7 @@ export function ViewerPane({
             adapter={adapter}
             modelIds={orderKey.split('\n')}
             baseHref={shareHref}
+            fileName={exportName}
             combined={combined}
             onResult={(text, error) =>
               showBadge({ text, detail: text, error }, false)

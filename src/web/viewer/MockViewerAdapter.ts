@@ -441,6 +441,41 @@ export class MockViewerAdapter implements ViewerAdapter {
     return this.models.handle(modelId)?.nodes.size ?? null;
   }
 
+  async getScreenshot(): Promise<Blob> {
+    const svg = this.svg;
+    if (!svg) throw new Error('The viewer cannot take a snapshot');
+    const { width, height } = svg.getBoundingClientRect();
+    const copy = svg.cloneNode(true) as SVGSVGElement;
+    copy.setAttribute('xmlns', SVG_NS);
+    copy.setAttribute('width', String(Math.max(1, Math.round(width))));
+    copy.setAttribute('height', String(Math.max(1, Math.round(height))));
+    const image = new Image();
+    const loaded = new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve();
+      image.onerror = () =>
+        reject(new Error('The snapshot could not be drawn'));
+    });
+    image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
+      new XMLSerializer().serializeToString(copy),
+    )}`;
+    await loaded;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(width));
+    canvas.height = Math.max(1, Math.round(height));
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('The snapshot could not be drawn');
+    context.fillStyle = '#0b0b0c';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    return new Promise<Blob>((resolve, reject) =>
+      canvas.toBlob(
+        (blob) =>
+          blob ? resolve(blob) : reject(new Error('The snapshot failed')),
+        'image/png',
+      ),
+    );
+  }
+
   getCamera(): CameraState | null {
     return this.camera;
   }

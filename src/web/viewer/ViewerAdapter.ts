@@ -83,6 +83,7 @@ export interface ViewerAdapter {
   selectModelIds?(items: readonly ModelDbId[]): void;
   isolateModelIds?(items: readonly ModelDbId[]): void;
   fitToSelection?(): void;
+  getScreenshot?(): Promise<Blob>;
   getCamera?(): CameraState | null;
   setCamera?(camera: CameraState): void;
   setModelThemingColor(items: readonly ModelDbId[], color: Rgba): void;

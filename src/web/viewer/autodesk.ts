@@ -225,6 +225,11 @@ export interface GuiViewer3D {
   getIsolatedNodes?(model?: ViewerModel): number[];
   isolate?(ids: number[], model?: ViewerModel): void;
   fitToView?(): void;
+  getScreenShot?(
+    width: number,
+    height: number,
+    onDone: (url: string) => void,
+  ): void;
   getState?(filter?: { viewport?: boolean }): { viewport?: ViewportState };
   restoreState?(
     state: { viewport: ViewportState },

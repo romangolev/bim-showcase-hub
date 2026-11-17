@@ -604,6 +604,21 @@ export class RealViewerAdapter implements ViewerAdapter {
     this.viewer?.fitToView?.();
   }
 
+  getScreenshot(): Promise<Blob> {
+    const viewer = this.viewer;
+    const frame = viewer?.container;
+    if (!viewer?.getScreenShot || !frame) {
+      return Promise.reject(new Error('The viewer cannot take a snapshot'));
+    }
+    return new Promise<Blob>((resolve, reject) => {
+      viewer.getScreenShot?.(frame.clientWidth, frame.clientHeight, (url) => {
+        fetch(url)
+          .then((response) => response.blob())
+          .then(resolve, reject);
+      });
+    });
+  }
+
   getCamera(): CameraState | null {
     const viewport = this.viewer?.getState?.({ viewport: true }).viewport;
     if (!viewport) return null;

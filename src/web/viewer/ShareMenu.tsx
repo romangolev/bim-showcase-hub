@@ -1,11 +1,22 @@
 import { encodeView, withViewParam } from '../api/viewLink.js';
 import { Menu, type MenuEntry } from '../components/Menu.js';
+import { saveBlob } from '../extensions/excelExport.js';
 import type { ViewerAdapter } from './ViewerAdapter.js';
 
 export const COPIED_LINK_TEXT = 'Link copied';
 export const COPY_FAILED_TEXT = 'Could not copy the link';
 
+export const COPIED_IMAGE_TEXT = 'Image copied';
+export const SAVED_IMAGE_TEXT = 'Image saved';
+export const IMAGE_FAILED_TEXT = 'Could not take the snapshot';
+
+export function snapshotName(exportName?: string): string {
+  const base = (exportName ?? '').replace(/(-properties)?\.xlsx$/, '');
+  return `${base && base !== 'model' ? base : 'model'}-snapshot.png`;
+}
+
 export interface ShareMenuProps {
+  fileName?: string;
   adapter: ViewerAdapter;
   modelIds: readonly string[];
   baseHref?: string;
@@ -33,7 +44,25 @@ export function ShareMenu({
   baseHref,
   combined,
   onResult,
+  fileName,
 }: ShareMenuProps) {
+  const snapshot = async (mode: 'copy' | 'save') => {
+    try {
+      const image = adapter.getScreenshot?.();
+      if (!image) return;
+      if (mode === 'copy') {
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': image }),
+        ]);
+        onResult(COPIED_IMAGE_TEXT, false);
+      } else {
+        saveBlob(await image, snapshotName(fileName));
+        onResult(SAVED_IMAGE_TEXT, false);
+      }
+    } catch {
+      onResult(IMAGE_FAILED_TEXT, true);
+    }
+  };
   const copy = async (withView: boolean) => {
     const href = shareHref(
       adapter,
@@ -62,6 +91,21 @@ export function ShareMenu({
       label: combined ? 'Copy link to these models' : 'Copy link to this model',
       onSelect: () => void copy(false),
     });
+    if (adapter.getScreenshot) {
+      entries.push(
+        { kind: 'separator', id: 'image-separator' },
+        {
+          id: 'copy-image',
+          label: 'Copy image',
+          onSelect: () => void snapshot('copy'),
+        },
+        {
+          id: 'save-image',
+          label: 'Save image (PNG)',
+          onSelect: () => void snapshot('save'),
+        },
+      );
+    }
     return entries;
   };
   return (
