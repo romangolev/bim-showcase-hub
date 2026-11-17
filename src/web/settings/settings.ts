@@ -1,3 +1,9 @@
+import {
+  DEFAULT_EXCEL_SETTINGS,
+  type ExcelSettings,
+  type ExportFormat,
+  type ExportScope,
+} from '../extensions/exportFormats.js';
 import { ALLOWED_CLASSES } from '../ifc/classTable.js';
 import type { IfcSettings } from '../ifc/types.js';
 
@@ -7,6 +13,7 @@ export interface Settings {
   glbExport: boolean;
   ifcExport: boolean;
   ifc: IfcSettings;
+  excel: ExcelSettings;
 }
 
 export const DEFAULT_IFC_SETTINGS: IfcSettings = {
@@ -29,6 +36,7 @@ export const DEFAULT_SETTINGS: Settings = {
   glbExport: true,
   ifcExport: true,
   ifc: DEFAULT_IFC_SETTINGS,
+  excel: DEFAULT_EXCEL_SETTINGS,
 };
 
 export const SETTINGS_STORAGE_KEY = 'bsh-settings-v1';
@@ -93,6 +101,26 @@ export function readIfcSettings(value: unknown): IfcSettings {
   };
 }
 
+export function readExcelSettings(value: unknown): ExcelSettings {
+  const source =
+    typeof value === 'object' && value !== null
+      ? (value as Record<string, unknown>)
+      : {};
+  const d = DEFAULT_EXCEL_SETTINGS;
+  const format = (['xlsx', 'csv', 'json', 'copy'] as ExportFormat[]).find(
+    (item) => item === source.format,
+  );
+  const scope = (['all', 'selected', 'isolated'] as ExportScope[]).find(
+    (item) => item === source.scope,
+  );
+  return {
+    format: format ?? d.format,
+    scope: scope ?? d.scope,
+    metadata: flag(source.metadata, d.metadata),
+    namePattern: required(source.namePattern, d.namePattern),
+  };
+}
+
 export function readSettings(): Settings {
   try {
     const raw = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
@@ -108,6 +136,7 @@ export function readSettings(): Settings {
       glbExport: flag(source.glbExport, DEFAULT_SETTINGS.glbExport),
       ifcExport: flag(source.ifcExport, DEFAULT_SETTINGS.ifcExport),
       ifc: readIfcSettings(source.ifc),
+      excel: readExcelSettings(source.excel),
     };
   } catch {
     return DEFAULT_SETTINGS;

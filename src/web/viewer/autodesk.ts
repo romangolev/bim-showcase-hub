@@ -212,6 +212,7 @@ export interface GuiViewer3D {
   getAllModels?(): ViewerModel[];
   select?(ids: number[], model?: ViewerModel): void;
   getAggregateSelection?(): AggregateSelection[];
+  getIsolatedNodes?(model?: ViewerModel): number[];
   fitToView?(): void;
   getObjectTree(
     onSuccess: (tree: InstanceTree) => void,

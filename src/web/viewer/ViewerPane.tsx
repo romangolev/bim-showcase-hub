@@ -26,7 +26,7 @@ import { formatCount } from '../extensions/modelSummary.js';
 import { resetPaint } from '../extensions/paintBrushes.js';
 import { modelKey, registerViewerTools } from '../extensions/viewerTools.js';
 import { useSettings } from '../settings/SettingsContext.js';
-import { readIfcSettings } from '../settings/settings.js';
+import { readExcelSettings, readIfcSettings } from '../settings/settings.js';
 import { useTheme } from '../theme/ThemeContext.js';
 import { createViewerAdapter } from './createViewerAdapter.js';
 import { ModelsMenu } from './ModelsMenu.js';
@@ -189,6 +189,8 @@ export function ViewerPane({
   const { settings } = useSettings();
   const ifcSettingsRef = useRef(settings.ifc);
   ifcSettingsRef.current = settings.ifc;
+  const excelSettingsRef = useRef(settings.excel);
+  excelSettingsRef.current = settings.excel;
   const themeRef = useRef(theme);
   const instanceRef = useRef<ViewerAdapter | null>(null);
 
@@ -327,6 +329,7 @@ export function ViewerPane({
       onGeometryStatus: handleGeometryStatus,
       onIfcStatus: handleIfcStatus,
       ifcSettings: () => readIfcSettings(ifcSettingsRef.current),
+      excelSettings: () => readExcelSettings(excelSettingsRef.current),
       key: modelKey(urn),
       fileName: () => exportNameRef.current ?? '',
       features: {

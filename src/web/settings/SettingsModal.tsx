@@ -1,6 +1,7 @@
 import { useId } from 'react';
 import type { ModalDefinition } from '../modal/types.js';
 import { useTheme } from '../theme/ThemeContext.js';
+import { ExcelSettingsSection } from './ExcelSettingsSection.js';
 import { IfcSettingsSection } from './IfcSettingsSection.js';
 import { useSettings } from './SettingsContext.js';
 
@@ -103,6 +104,7 @@ export function SettingsBody() {
           />
         ))}
       </section>
+      <ExcelSettingsSection />
       <IfcSettingsSection />
     </div>
   );

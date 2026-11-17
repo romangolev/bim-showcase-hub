@@ -532,6 +532,19 @@ export class RealViewerAdapter implements ViewerAdapter {
     return viewer.getSelection().map((dbId) => ({ modelId: primary, dbId }));
   }
 
+  getIsolated(): ModelDbId[] {
+    const viewer = this.viewer;
+    if (!viewer?.getIsolatedNodes) return [];
+    return this.models
+      .shown()
+      .flatMap(
+        ({ info, handle }) =>
+          viewer
+            .getIsolatedNodes?.(handle)
+            .map((dbId) => ({ modelId: info.id, dbId })) ?? [],
+      );
+  }
+
   setModelThemingColor(items: readonly ModelDbId[], color: Rgba): void {
     const viewer = this.viewer;
     const THREE = autodeskWindow().THREE;

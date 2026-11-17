@@ -6,10 +6,15 @@ import type {
 } from '../viewer/ViewerAdapter.js';
 import {
   DEFAULT_EXPORT_PROPERTIES,
-  DEFAULT_FILE_NAME,
   type ExportStatus,
   exportToXlsx,
 } from './excelExport.js';
+import {
+  applyNamePattern,
+  CONFIRM_ABOVE,
+  DEFAULT_EXCEL_SETTINGS,
+  type ExcelSettings,
+} from './exportFormats.js';
 import {
   DEFAULT_GLB_FILE_NAME,
   exportGeometryToGlb,
@@ -56,6 +61,7 @@ export interface ViewerToolsOptions {
   onGeometryStatus?: (status: GlbExportStatus) => void;
   onIfcStatus?: (status: IfcExportStatus) => void;
   ifcSettings?: () => IfcSettings;
+  excelSettings?: () => ExcelSettings;
   key?: string;
   fileName?: () => string;
 }
@@ -71,6 +77,24 @@ function exportFileName(
     .replace(/\.(xlsx|glb|gltf|ifc)$/i, '')
     .replace(/-properties$/i, '');
   return model ? `${model}${suffix}.${extension}` : fallback;
+}
+
+export function excelFileNameFrom(
+  fileName: string | undefined,
+  settings: ExcelSettings,
+): string {
+  const model = exportFileName(fileName, '', '', 'x').slice(0, -2) || 'model';
+  const extension = settings.format === 'copy' ? 'xlsx' : settings.format;
+  return applyNamePattern(settings.namePattern, model, extension);
+}
+
+export function confirmLargeExport(rowCount: number): boolean {
+  return (
+    rowCount <= CONFIRM_ABOVE ||
+    window.confirm(
+      `Export ${rowCount.toLocaleString('en-US')} elements? This can take a while.`,
+    )
+  );
 }
 
 export function glbFileNameFrom(fileName?: string): string {
@@ -158,10 +182,16 @@ export function buildToolGroupSpec(
             id: keyed('export-xlsx', key),
             tooltip: EXPORT_TOOLTIP,
             onExport: () => {
+              const settings =
+                options.excelSettings?.() ?? DEFAULT_EXCEL_SETTINGS;
               runOnce(adapter, 'xlsx', () =>
                 exportToXlsx(adapter, {
                   propertyNames: DEFAULT_EXPORT_PROPERTIES,
-                  fileName: options.fileName?.() || DEFAULT_FILE_NAME,
+                  fileName: excelFileNameFrom(options.fileName?.(), settings),
+                  format: settings.format,
+                  scope: settings.scope,
+                  metadata: settings.metadata,
+                  confirm: confirmLargeExport,
                   onStatus: options.onStatus,
                 }),
               );

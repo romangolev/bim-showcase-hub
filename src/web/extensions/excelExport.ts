@@ -2,6 +2,17 @@ import type { PropertyRow } from '../../shared/types.js';
 import { distinctModelCount, unavailableModels } from '../viewer/modelScope.js';
 import { readLeafRows } from '../viewer/sharedLeafRows.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
+import {
+  type AboutInfo,
+  aboutRows,
+  type ExportFormat,
+  type ExportScope,
+  filterByScope,
+  guardCell,
+  guardRows,
+  toDelimited,
+  toJsonRecords,
+} from './exportFormats.js';
 import { formatValue } from './modelSummary.js';
 
 export const DEFAULT_EXPORT_PROPERTIES: readonly string[] = [
@@ -34,6 +45,20 @@ export const FALLBACK_SHEET_NAME = 'Elements';
 
 export type ExportCell = string | number | boolean;
 
+function shownModels(adapter: ViewerAdapter): { name: string; urn: string }[] {
+  if (typeof adapter.getModels !== 'function') return [];
+  return adapter
+    .getModels()
+    .filter((model) => model.status === 'ready' && model.visible)
+    .map(({ name, urn }) => ({ name, urn }));
+}
+
+function scopeItems(adapter: ViewerAdapter, scope: ExportScope) {
+  if (scope === 'selected') return adapter.getModelSelection();
+  if (scope === 'isolated') return adapter.getIsolated?.() ?? [];
+  return [];
+}
+
 function unavailableModelNames(adapter: ViewerAdapter): string[] {
   if (typeof adapter.getModels !== 'function') return [];
   return unavailableModels(adapter.getModels()).map((model) => model.name);
@@ -50,6 +75,7 @@ export type ExportStatus =
   | { phase: 'building' }
   | { phase: 'done'; fileName: string; rowCount: number; missing?: string[] }
   | { phase: 'empty' }
+  | { phase: 'cancelled' }
   | { phase: 'error'; message: string };
 
 const FORBIDDEN_SHEET_CHARS = /[\\/?*[\]:]/g;
@@ -127,6 +153,11 @@ export interface ExportOptions {
   propertyNames?: readonly string[];
   groupBy?: string | null;
   fileName?: string;
+  format?: ExportFormat;
+  scope?: ExportScope;
+  metadata?: boolean;
+  confirm?: (rowCount: number) => boolean;
+  copy?: (text: string) => Promise<void>;
   onStatus?: (status: ExportStatus) => void;
   save?: (blob: Blob, fileName: string) => void;
 }
@@ -150,6 +181,11 @@ export async function exportToXlsx(
     propertyNames = DEFAULT_EXPORT_PROPERTIES,
     groupBy = DEFAULT_GROUP_BY,
     fileName = DEFAULT_FILE_NAME,
+    format = 'xlsx',
+    scope = 'all',
+    metadata = false,
+    confirm,
+    copy = (text) => navigator.clipboard.writeText(text),
     onStatus,
     save = saveBlob,
   } = options;
@@ -159,30 +195,90 @@ export async function exportToXlsx(
   };
   try {
     emit({ phase: 'reading' });
-    const rows = await readLeafRows(adapter, propertyNames);
-    const sheets = buildExportSheets(rows, propertyNames, groupBy);
-    if (sheets.length === 0) return emit({ phase: 'empty' });
+    const all = await readLeafRows(adapter, propertyNames);
+    const rows = filterByScope(all, scope, scopeItems(adapter, scope));
+    if (rows.length === 0) return emit({ phase: 'empty' });
+    if (confirm && !confirm(rows.length)) return emit({ phase: 'cancelled' });
     emit({ phase: 'building' });
-    const { default: writeXlsxFile } = await import('write-excel-file/browser');
-    const blob = await writeXlsxFile(
-      sheets.map((sheet) => ({
-        sheet: sheet.name,
-        data: [
-          sheet.header.map((value) => ({ value, fontWeight: 'bold' as const })),
-          ...sheet.rows,
-        ],
-      })),
-    ).toBlob();
-    save(blob, fileName);
-    const rowCount = sheets.reduce(
-      (total, sheet) => total + sheet.rows.length,
-      0,
-    );
+    let rowCount = rows.length;
+    const about = (): AboutInfo => ({
+      models: shownModels(adapter),
+      scope,
+      rowCount,
+    });
+    let delivered = fileName;
+    if (format === 'xlsx') {
+      const sheets = buildExportSheets(rows, propertyNames, groupBy);
+      if (sheets.length === 0) return emit({ phase: 'empty' });
+      rowCount = sheets.reduce((total, sheet) => total + sheet.rows.length, 0);
+      const { default: writeXlsxFile } = await import(
+        'write-excel-file/browser'
+      );
+      const aboutSheet = metadata
+        ? [
+            {
+              sheet: sheetNameFor(
+                'About',
+                new Set(sheets.map((sheet) => sheet.name.toLowerCase())),
+              ),
+              data: aboutRows(about()).map(([key, value]) => [
+                { value: key, fontWeight: 'bold' as const },
+                guardCell(value),
+              ]),
+            },
+          ]
+        : [];
+      const blob = await writeXlsxFile([
+        ...sheets.map((sheet) => ({
+          sheet: sheet.name,
+          data: [
+            sheet.header.map((value) => ({
+              value: String(guardCell(value)),
+              fontWeight: 'bold' as const,
+            })),
+            ...guardRows(sheet.rows),
+          ],
+        })),
+        ...aboutSheet,
+      ]).toBlob();
+      save(blob, fileName);
+    } else {
+      const flat = buildExportRows(
+        rows,
+        propertyNames,
+        distinctModelCount(rows) > 1,
+      );
+      if (format === 'copy') {
+        await copy(toDelimited(flat.header, flat.rows, '\t'));
+        delivered = 'the clipboard';
+      } else if (format === 'csv') {
+        save(
+          new Blob(['\uFEFF', toDelimited(flat.header, flat.rows, ',')], {
+            type: 'text/csv;charset=utf-8',
+          }),
+          fileName,
+        );
+      } else {
+        const elements = toJsonRecords(flat.header, flat.rows);
+        const body = metadata
+          ? {
+              about: Object.fromEntries(aboutRows(about())),
+              elements,
+            }
+          : elements;
+        save(
+          new Blob([JSON.stringify(body, null, 2)], {
+            type: 'application/json',
+          }),
+          fileName,
+        );
+      }
+    }
     const missing = unavailableModelNames(adapter);
     return emit(
       missing.length > 0
-        ? { phase: 'done', fileName, rowCount, missing }
-        : { phase: 'done', fileName, rowCount },
+        ? { phase: 'done', fileName: delivered, rowCount, missing }
+        : { phase: 'done', fileName: delivered, rowCount },
     );
   } catch (err) {
     return emit({
@@ -204,6 +300,8 @@ export function describeStatus(status: ExportStatus): string {
         : `Exported ${status.rowCount} elements to ${status.fileName}`;
     case 'empty':
       return 'No elements to export';
+    case 'cancelled':
+      return 'Export cancelled';
     case 'error':
       return `Export failed: ${status.message}`;
   }
