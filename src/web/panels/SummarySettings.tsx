@@ -12,18 +12,19 @@ import {
   sanitizeView,
 } from '../extensions/modelSummary.js';
 import type { ModalDefinition } from '../modal/types.js';
+import { BSH_KEYS } from '../storage.js';
 import { usePersistedState } from './usePersistedState.js';
 
 export const SUMMARY_SETTINGS_ID = 'summary-settings';
 
 export function SummarySettingsBody() {
   const [view, setView, resetView] = usePersistedState<SummaryView>(
-    'bsh.summary.view.v1',
+    BSH_KEYS.personal.summaryView,
     DEFAULT_SUMMARY_VIEW,
     sanitizeView,
   );
   const [action, setAction] = usePersistedState<ElementAction>(
-    'bsh.summary.action.v1',
+    BSH_KEYS.personal.summaryAction,
     'select',
     sanitizeAction,
   );

@@ -1,3 +1,4 @@
+import { flag } from '../../shared/guards.js';
 import {
   DEFAULT_EXCEL_SETTINGS,
   type ExcelSettings,
@@ -12,6 +13,7 @@ import {
 } from '../extensions/paintBrushes.js';
 import { ALLOWED_CLASSES } from '../ifc/classTable.js';
 import type { IfcSettings } from '../ifc/types.js';
+import { BSH_KEYS, readJson, writeJson } from '../storage.js';
 
 export interface Settings {
   paintBrushes: boolean;
@@ -53,11 +55,7 @@ export const DEFAULT_SETTINGS: Settings = {
   excel: DEFAULT_EXCEL_SETTINGS,
 };
 
-export const SETTINGS_STORAGE_KEY = 'bsh-settings-v1';
-
-function flag(value: unknown, fallback: boolean): boolean {
-  return typeof value === 'boolean' ? value : fallback;
-}
+export const SETTINGS_STORAGE_KEY = BSH_KEYS.preference.settings;
 
 function minutes(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value)
@@ -142,40 +140,31 @@ export function readExcelSettings(value: unknown): ExcelSettings {
 }
 
 export function readSettings(): Settings {
-  try {
-    const raw = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
-    if (!raw) return DEFAULT_SETTINGS;
-    const parsed: unknown = JSON.parse(raw);
-    const source =
-      typeof parsed === 'object' && parsed !== null
-        ? (parsed as Record<string, unknown>)
-        : {};
-    return {
-      paintBrushes: flag(source.paintBrushes, DEFAULT_SETTINGS.paintBrushes),
-      excelExport: flag(source.excelExport, DEFAULT_SETTINGS.excelExport),
-      glbExport: flag(source.glbExport, DEFAULT_SETTINGS.glbExport),
-      ifcExport: flag(source.ifcExport, DEFAULT_SETTINGS.ifcExport),
-      sessionWarnMinutes: minutes(
-        source.sessionWarnMinutes,
-        DEFAULT_SETTINGS.sessionWarnMinutes,
-      ),
-      recentsLength: Math.round(
-        minutes(source.recentsLength, DEFAULT_SETTINGS.recentsLength),
-      ),
-      paintPalette: sanitizePalette(source.paintPalette),
-      paintIntensity: sanitizeIntensity(source.paintIntensity),
-      ifc: readIfcSettings(source.ifc),
-      excel: readExcelSettings(source.excel),
-    };
-  } catch {
-    return DEFAULT_SETTINGS;
-  }
+  const parsed = readJson<unknown>(SETTINGS_STORAGE_KEY, undefined);
+  if (parsed === undefined) return DEFAULT_SETTINGS;
+  const source =
+    typeof parsed === 'object' && parsed !== null
+      ? (parsed as Record<string, unknown>)
+      : {};
+  return {
+    paintBrushes: flag(source.paintBrushes, DEFAULT_SETTINGS.paintBrushes),
+    excelExport: flag(source.excelExport, DEFAULT_SETTINGS.excelExport),
+    glbExport: flag(source.glbExport, DEFAULT_SETTINGS.glbExport),
+    ifcExport: flag(source.ifcExport, DEFAULT_SETTINGS.ifcExport),
+    sessionWarnMinutes: minutes(
+      source.sessionWarnMinutes,
+      DEFAULT_SETTINGS.sessionWarnMinutes,
+    ),
+    recentsLength: Math.round(
+      minutes(source.recentsLength, DEFAULT_SETTINGS.recentsLength),
+    ),
+    paintPalette: sanitizePalette(source.paintPalette),
+    paintIntensity: sanitizeIntensity(source.paintIntensity),
+    ifc: readIfcSettings(source.ifc),
+    excel: readExcelSettings(source.excel),
+  };
 }
 
 export function writeSettings(settings: Settings): void {
-  try {
-    window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-  } catch {
-    return;
-  }
+  writeJson(SETTINGS_STORAGE_KEY, settings);
 }

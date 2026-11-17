@@ -22,6 +22,7 @@ import {
   runElementAction,
   sanitizeAction,
 } from '../extensions/elementActions.js';
+import { BSH_KEYS } from '../storage.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { ChartCanvas } from './ChartCanvas.js';
 import {
@@ -103,7 +104,7 @@ export function DashboardPanel({
   );
 
   const [action, setAction] = usePersistedState<ElementAction>(
-    'bsh.dashboard.action.v1',
+    BSH_KEYS.personal.dashboardAction,
     'select',
     sanitizeAction,
   );

@@ -1,4 +1,6 @@
+import { flag } from '../../../shared/guards.js';
 import type { TreeNode } from '../../../shared/types.js';
+import { BSH_KEYS } from '../../storage.js';
 
 export type TreeSort = 'name' | 'modified';
 
@@ -9,7 +11,7 @@ export interface TreeView {
   size: boolean;
 }
 
-export const TREE_VIEW_KEY = 'bsh.tree.view';
+export const TREE_VIEW_KEY = BSH_KEYS.preference.treeView;
 
 export const DEFAULT_TREE_VIEW: TreeView = {
   sort: 'name',
@@ -23,8 +25,6 @@ export function sanitizeTreeView(raw: unknown): TreeView {
     typeof raw === 'object' && raw !== null
       ? (raw as Record<string, unknown>)
       : {};
-  const flag = (value: unknown, fallback: boolean) =>
-    typeof value === 'boolean' ? value : fallback;
   return {
     sort: source.sort === 'modified' ? 'modified' : 'name',
     modified: flag(source.modified, DEFAULT_TREE_VIEW.modified),

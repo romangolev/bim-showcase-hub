@@ -3,9 +3,11 @@ import {
   type ReactNode,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from 'react';
+import { FORGET_EVENT } from '../storage.js';
 import {
   DEFAULT_SETTINGS,
   readSettings,
@@ -27,6 +29,11 @@ const SettingsContext = createContext<SettingsApi>(FALLBACK);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<Settings>(readSettings);
+  useEffect(() => {
+    const reload = () => setSettings(readSettings());
+    window.addEventListener(FORGET_EVENT, reload);
+    return () => window.removeEventListener(FORGET_EVENT, reload);
+  }, []);
   const setSetting = useCallback(
     <K extends keyof Settings>(key: K, value: Settings[K]) => {
       setSettings((current) => {

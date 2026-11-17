@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { isRecord } from '../../shared/guards.js';
 import { regionOf, type ViewerRegion } from '../../shared/region.js';
 import type { TreeNode } from '../../shared/types.js';
 import { type ViewState, viewableFor } from '../../shared/viewState.js';
@@ -37,10 +38,6 @@ export interface ViewStateChecker {
 
 function statusOf(value: unknown): string {
   return typeof value === 'string' ? value.toLowerCase() : '';
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function stateOfStatus(status: string): ViewState {

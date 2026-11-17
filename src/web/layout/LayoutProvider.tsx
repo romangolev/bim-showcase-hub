@@ -26,6 +26,7 @@ import { useMediaQuery } from '../components/useMediaQuery.js';
 import { usePersistedState } from '../panels/usePersistedState.js';
 import { modelTabTitle } from '../routes/ModelPage.js';
 import { ModelRouteSync } from '../routes/ModelRouteSync.js';
+import { BSH_KEYS, FORGET_EVENT } from '../storage.js';
 import { isMockViewer, ViewerProvider } from '../viewer/index.js';
 import {
   type DockController,
@@ -78,7 +79,7 @@ const MOVE_MESSAGES: Partial<Record<MoveTarget, string>> = {
 export const STACKED_MAX_WIDTH = 875;
 export const STACKED_QUERY = `(max-width: ${STACKED_MAX_WIDTH}px)`;
 export const LAYOUT_WRITE_DELAY_MS = 300;
-export const LOCK_KEY = 'bsh.layout.locked';
+export const LOCK_KEY = BSH_KEYS.preference.layoutLocked;
 export const RESIZE_STEP = 16;
 export const RESIZE_STEP_FAST = 64;
 
@@ -142,7 +143,7 @@ function titlesFor(models: OpenModelsState): PaneTitles {
   return titles;
 }
 
-function useDebouncedWrite(model: LayoutModel) {
+export function useDebouncedWrite(model: LayoutModel) {
   const pending = useRef<LayoutModel | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const flush = useCallback(() => {
@@ -152,6 +153,15 @@ function useDebouncedWrite(model: LayoutModel) {
     pending.current = null;
     const store = storage();
     if (next && store) writeLayout(store, next);
+  }, []);
+  useEffect(() => {
+    const drop = () => {
+      clearTimeout(timer.current);
+      timer.current = undefined;
+      pending.current = null;
+    };
+    window.addEventListener(FORGET_EVENT, drop);
+    return () => window.removeEventListener(FORGET_EVENT, drop);
   }, []);
   const first = useRef(true);
   useEffect(() => {

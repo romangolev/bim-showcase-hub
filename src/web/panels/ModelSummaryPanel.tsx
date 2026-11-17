@@ -21,6 +21,7 @@ import {
   summaryTable,
   viewEntries,
 } from '../extensions/modelSummary.js';
+import { BSH_KEYS } from '../storage.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import {
   ModelScopeSelect,
@@ -84,12 +85,12 @@ export function ModelSummaryPanel({
   );
 
   const [view, setView] = usePersistedState<SummaryView>(
-    'bsh.summary.view.v1',
+    BSH_KEYS.personal.summaryView,
     DEFAULT_SUMMARY_VIEW,
     sanitizeView,
   );
   const [action] = usePersistedState<ElementAction>(
-    'bsh.summary.action.v1',
+    BSH_KEYS.personal.summaryAction,
     'select',
     sanitizeAction,
   );

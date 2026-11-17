@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react';
+import { BSH_KEYS } from '../storage.js';
 import type { ModelInfo } from './modelSet.js';
 import type { ViewerAdapter } from './ViewerAdapter.js';
 
-export const MODEL_VISIBILITY_KEY = 'bsh.models.hidden';
+export const MODEL_VISIBILITY_KEY = BSH_KEYS.personal.hiddenModels;
 const MAX_SETS = 20;
 
 type Memory = Record<string, string[]>;
