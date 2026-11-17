@@ -195,4 +195,43 @@ describe('buildIfc', () => {
     expect(first.length).toBeGreaterThan(2);
     expect(first.join('')).toBe([...buildIfc(many)].join(''));
   });
+
+  it('writes integers outside the 32-bit range as reals', () => {
+    const text = render(
+      model({
+        buildings: [
+          {
+            guid: 'B000000000000000000001',
+            name: 'Tower.rvt',
+            storeys: [
+              {
+                name: 'Level 1',
+                elements: [
+                  element({
+                    psets: [
+                      {
+                        name: 'Numbers',
+                        props: [
+                          { name: 'Big', value: 5000000000 },
+                          { name: 'Huge', value: 1e21 },
+                          { name: 'Small', value: 42 },
+                        ],
+                      },
+                    ],
+                  }),
+                ],
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(text).toContain(
+      "IFCPROPERTYSINGLEVALUE('Big',$,IFCREAL(5000000000.),$)",
+    );
+    expect(text).toMatch(/IFCPROPERTYSINGLEVALUE\('Huge',\$,IFCREAL\(/);
+    expect(text).toContain(
+      "IFCPROPERTYSINGLEVALUE('Small',$,IFCINTEGER(42),$)",
+    );
+  });
 });

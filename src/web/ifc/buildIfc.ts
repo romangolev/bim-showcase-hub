@@ -56,7 +56,7 @@ function nominal(value: PropertyValue): string {
     return `IFCBOOLEAN(${value ? '.T.' : '.F.'})`;
   }
   if (typeof value === 'number' && Number.isFinite(value)) {
-    return Number.isInteger(value)
+    return Number.isInteger(value) && Math.abs(value) <= 2147483647
       ? `IFCINTEGER(${value})`
       : `IFCREAL(${stepReal(value)})`;
   }
