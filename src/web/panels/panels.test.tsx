@@ -6,11 +6,21 @@ import { DashboardPanel } from './DashboardPanel.js';
 import { ModelSummaryPanel } from './ModelSummaryPanel.js';
 import { SummaryTable } from './SummaryTable.js';
 
+const made = vi.hoisted(() => ({
+  configs: [] as {
+    data: { labels: string[] };
+    options: { onClick: (e: unknown, els: { index: number }[]) => void };
+  }[],
+}));
+
 vi.mock('chart.js', () => {
   class Chart {
     static register = vi.fn();
     static defaults = { font: {}, color: '' };
     destroy = vi.fn();
+    constructor(_canvas: unknown, config: (typeof made.configs)[number]) {
+      made.configs.push(config);
+    }
   }
   const stub = {};
   return {
@@ -444,5 +454,49 @@ describe('summary view, copy and row actions', () => {
     expect(adapter.getIsolated().length).not.toBe(walls.length);
     fireEvent.click(screen.getByRole('button', { name: 'Show all elements' }));
     expect(adapter.getIsolated()).toEqual([]);
+  });
+});
+
+describe('dashboard presets and cross-filter', () => {
+  beforeEach(() => {
+    installMemoryStorage();
+    made.configs.length = 0;
+  });
+
+  it('shows one chart per available property of a preset', async () => {
+    const adapter = await loaded();
+    render(<DashboardPanel adapter={adapter} />);
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Model health' }),
+    );
+    expect(
+      screen.getByRole('img', { name: 'Bar chart of element counts by Level' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', {
+        name: 'Bar chart of element counts by Category',
+      }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'By discipline' }));
+    expect(
+      screen.queryByRole('img', {
+        name: 'Bar chart of element counts by Discipline',
+      }),
+    ).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Single chart' }));
+    expect(screen.getByRole('list', { name: /Legend/ })).toBeInTheDocument();
+  });
+
+  it('selects the elements of a clicked bar', async () => {
+    const adapter = await loaded();
+    render(<DashboardPanel adapter={adapter} />);
+    await screen.findByRole('img', {
+      name: 'Bar chart of element counts by Category',
+    });
+    const config = made.configs.at(-2);
+    const index = config?.data.labels.indexOf('Walls') ?? -1;
+    expect(index).toBeGreaterThanOrEqual(0);
+    act(() => config?.options.onClick({}, [{ index }]));
+    expect(adapter.getModelSelection().length).toBeGreaterThan(1);
   });
 });

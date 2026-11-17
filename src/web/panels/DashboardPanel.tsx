@@ -3,10 +3,25 @@ import { Icon } from '../components/icons.js';
 import { StateBlock } from '../components/StateBlock.js';
 import {
   availableProperties,
+  bucketLabels,
+  type ChartData,
   DEFAULT_DASHBOARD_PROPERTIES,
   DEFAULT_MAX_CATEGORIES,
   shapeChartData,
 } from '../extensions/dashboardData.js';
+import {
+  DASHBOARD_PRESETS,
+  PRESET_PROPERTIES,
+  presetCharts,
+} from '../extensions/dashboardPresets.js';
+import {
+  ACTION_LABELS,
+  ELEMENT_ACTIONS,
+  type ElementAction,
+  itemsWithValues,
+  runElementAction,
+  sanitizeAction,
+} from '../extensions/elementActions.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { ChartCanvas } from './ChartCanvas.js';
 import {
@@ -14,6 +29,7 @@ import {
   UnavailableModels,
   useModelScope,
 } from './ModelScope.js';
+import { usePersistedState } from './usePersistedState.js';
 import {
   HIDDEN_MESSAGE,
   HIDDEN_TITLE,
@@ -21,6 +37,10 @@ import {
   useResolvedAdapter,
 } from './usePropertyRows.js';
 import './panels.css';
+
+const DASHBOARD_PROPERTIES: readonly string[] = [
+  ...new Set([...DEFAULT_DASHBOARD_PROPERTIES, ...PRESET_PROPERTIES]),
+];
 
 export interface DashboardPanelProps {
   adapter?: ViewerAdapter | null;
@@ -37,7 +57,7 @@ export interface DashboardPanelProps {
 
 export function DashboardPanel({
   adapter,
-  propertyNames = DEFAULT_DASHBOARD_PROPERTIES,
+  propertyNames = DASHBOARD_PROPERTIES,
   defaultProperty,
   maxCategories = DEFAULT_MAX_CATEGORIES,
   collapsed,
@@ -76,6 +96,36 @@ export function DashboardPanel({
         : null,
     [state.status, scope.rows, selected, maxCategories],
   );
+
+  const [preset, setPreset] = useState<string | null>(null);
+  const [action, setAction] = usePersistedState<ElementAction>(
+    'bsh.dashboard.action.v1',
+    'select',
+    sanitizeAction,
+  );
+  const activePreset = DASHBOARD_PRESETS.find((p) => p.id === preset);
+  const board = useMemo(
+    () =>
+      state.status === 'ready' && activePreset
+        ? presetCharts(activePreset, scope.rows).map((property) =>
+            shapeChartData(scope.rows, property, maxCategories),
+          )
+        : [],
+    [state.status, activePreset, scope.rows, maxCategories],
+  );
+  const exportName = resolved?.getModels()[0]?.name ?? 'model';
+  const crossFilter = (chartData: ChartData) => (label: string) => {
+    if (!resolved) return;
+    runElementAction(
+      resolved,
+      action,
+      itemsWithValues(
+        scope.rows,
+        chartData.property,
+        bucketLabels(scope.rows, chartData, label),
+      ),
+    );
+  };
 
   const toggle = () => {
     const next = !isCollapsed;
@@ -118,7 +168,7 @@ export function DashboardPanel({
         {!isCollapsed ? (
           <ModelScopeSelect state={scope} label="Chart models" />
         ) : null}
-        {chart && options.length > 0 && !isCollapsed ? (
+        {chart && options.length > 0 && !isCollapsed && !activePreset ? (
           <div className="bsh-field">
             <span aria-hidden="true">Group by</span>
             <label htmlFor={selectId} className="bsh-sr-only">
@@ -137,6 +187,23 @@ export function DashboardPanel({
               ))}
             </select>
           </div>
+        ) : null}
+        {!isCollapsed && state.status === 'ready' ? (
+          <label className="bsh-field">
+            <span aria-hidden="true">Chart click</span>
+            <span className="bsh-sr-only">Chart click action</span>
+            <select
+              className="bsh-select"
+              value={action}
+              onChange={(e) => setAction(sanitizeAction(e.target.value))}
+            >
+              {ELEMENT_ACTIONS.map((name) => (
+                <option key={name} value={name}>
+                  {ACTION_LABELS[name]}
+                </option>
+              ))}
+            </select>
+          </label>
         ) : null}
       </header>
       <div
@@ -181,18 +248,67 @@ export function DashboardPanel({
         {state.status === 'ready' ? (
           <UnavailableModels models={scope.unavailable} />
         ) : null}
-        {chart && options.length > 0 && (
+        {state.status === 'ready' && options.length > 0 && (
+          <div className="bsh-presets">
+            <button
+              type="button"
+              className="bsh-button"
+              aria-pressed={!activePreset}
+              onClick={() => setPreset(null)}
+            >
+              Single chart
+            </button>
+            {DASHBOARD_PRESETS.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className="bsh-button"
+                aria-pressed={preset === item.id}
+                onClick={() => setPreset(item.id)}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        )}
+        {activePreset && board.length === 0 && state.status === 'ready' && (
+          <StateBlock
+            variant="empty"
+            compact
+            title="Nothing to chart here"
+            message={`This model has none of the properties ${activePreset.label} uses.`}
+          />
+        )}
+        {activePreset && board.length > 0 && (
+          <div className="bsh-boards">
+            {board.map((item) => (
+              <ChartCanvas
+                key={item.property}
+                kind="bar"
+                chart={item}
+                label={`Bar chart of element counts by ${item.property}`}
+                exportName={exportName}
+                onSelectLabel={crossFilter(item)}
+              />
+            ))}
+          </div>
+        )}
+        {!activePreset && chart && options.length > 0 && (
           <>
             <div className="bsh-charts">
               <ChartCanvas
                 kind="bar"
                 chart={chart}
                 label={`Bar chart of element counts by ${chart.property}`}
+                exportName={exportName}
+                onSelectLabel={crossFilter(chart)}
               />
               <ChartCanvas
                 kind="doughnut"
                 chart={chart}
                 label={`Doughnut chart of element share by ${chart.property}`}
+                exportName={exportName}
+                onSelectLabel={crossFilter(chart)}
               />
             </div>
             <details className="bsh-details">

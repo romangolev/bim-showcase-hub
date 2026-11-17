@@ -10,6 +10,11 @@ import {
 } from 'chart.js';
 import { useEffect, useRef, useState } from 'react';
 import {
+  chartDelimited,
+  saveChartCsv,
+  saveChartPng,
+} from '../extensions/chartExport.js';
+import {
   type ChartData,
   readChartTheme,
   seriesColors,
@@ -35,6 +40,8 @@ export interface ChartCanvasProps {
   kind: ChartKind;
   chart: ChartData;
   label: string;
+  exportName?: string;
+  onSelectLabel?: (label: string) => void;
 }
 
 function shorten(text: string): string {
@@ -43,8 +50,17 @@ function shorten(text: string): string {
     : text;
 }
 
-export function ChartCanvas({ kind, chart, label }: ChartCanvasProps) {
+export function ChartCanvas({
+  kind,
+  chart,
+  label,
+  exportName = 'model',
+  onSelectLabel,
+}: ChartCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const selectRef = useRef(onSelectLabel);
+  selectRef.current = onSelectLabel;
+  const [notice, setNotice] = useState('');
   const { theme: pageTheme } = useTheme();
   const [colors, setColors] = useState<string[]>([]);
 
@@ -82,6 +98,11 @@ export function ChartCanvas({ kind, chart, label }: ChartCanvasProps) {
         responsive: true,
         maintainAspectRatio: false,
         animation: false,
+        onClick: (_event, elements) => {
+          const index = elements[0]?.index;
+          const picked = index === undefined ? undefined : labels[index];
+          if (picked !== undefined) selectRef.current?.(picked);
+        },
         ...(kind === 'doughnut' ? { cutout: '64%' } : {}),
         plugins: {
           legend: { display: false },
@@ -117,35 +138,78 @@ export function ChartCanvas({ kind, chart, label }: ChartCanvasProps) {
     return () => instance.destroy();
   }, [kind, chart, pageTheme]);
 
+  const exportPng = async () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const done = await saveChartPng(
+      canvas,
+      readChartTheme().surface,
+      chart.property,
+      exportName,
+    );
+    setNotice(done ? '' : 'Could not draw the image');
+  };
+  const copyChart = async () => {
+    try {
+      await navigator.clipboard.writeText(chartDelimited(chart, '\t'));
+      setNotice('Copied');
+    } catch {
+      setNotice('Could not copy to the clipboard');
+    }
+  };
+
   const legend = chart.data.slice(0, LEGEND_LIMIT);
   const hidden = chart.data.length - legend.length;
 
   return (
-    <div className={`bsh-chart bsh-chart--${kind}`}>
-      <div className="bsh-chart__plot">
-        <canvas ref={canvasRef} role="img" aria-label={label} />
+    <div className="bsh-chart-frame">
+      <fieldset className="bsh-chart__tools" aria-label={`Export ${label}`}>
+        <button type="button" className="bsh-button" onClick={exportPng}>
+          PNG
+        </button>
+        <button
+          type="button"
+          className="bsh-button"
+          onClick={() => saveChartCsv(chart, exportName)}
+        >
+          CSV
+        </button>
+        <button type="button" className="bsh-button" onClick={copyChart}>
+          Copy
+        </button>
+        <span role="status" className="bsh-summary__notice">
+          {notice}
+        </span>
+      </fieldset>
+      <div className={`bsh-chart bsh-chart--${kind}`}>
+        <div className="bsh-chart__plot">
+          <canvas ref={canvasRef} role="img" aria-label={label} />
+        </div>
+        {kind === 'doughnut' ? (
+          <ul
+            className="bsh-legend"
+            aria-label={`Legend for ${chart.property}`}
+          >
+            {legend.map((d, index) => (
+              <li key={d.label} className="bsh-legend__item">
+                <span
+                  className="bsh-legend__swatch"
+                  style={{ background: colors[index] ?? 'transparent' }}
+                  aria-hidden="true"
+                />
+                <span className="bsh-legend__label" title={d.label}>
+                  {d.label}
+                </span>
+              </li>
+            ))}
+            {hidden > 0 ? (
+              <li className="bsh-legend__item bsh-legend__more">
+                {hidden} more in the data table
+              </li>
+            ) : null}
+          </ul>
+        ) : null}
       </div>
-      {kind === 'doughnut' ? (
-        <ul className="bsh-legend" aria-label={`Legend for ${chart.property}`}>
-          {legend.map((d, index) => (
-            <li key={d.label} className="bsh-legend__item">
-              <span
-                className="bsh-legend__swatch"
-                style={{ background: colors[index] ?? 'transparent' }}
-                aria-hidden="true"
-              />
-              <span className="bsh-legend__label" title={d.label}>
-                {d.label}
-              </span>
-            </li>
-          ))}
-          {hidden > 0 ? (
-            <li className="bsh-legend__item bsh-legend__more">
-              {hidden} more in the data table
-            </li>
-          ) : null}
-        </ul>
-      ) : null}
     </div>
   );
 }

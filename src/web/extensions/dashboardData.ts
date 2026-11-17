@@ -55,6 +55,19 @@ export function shapeChartData(
   };
 }
 
+export function bucketLabels(
+  rows: readonly PropertyRow[],
+  chart: ChartData,
+  label: string,
+): Set<string> {
+  const all = countByProperty(rows, chart.property);
+  if (label !== OTHER_LABEL || all.length === chart.data.length) {
+    return new Set([label]);
+  }
+  const shown = new Set(chart.data.map((d) => d.label));
+  return new Set(all.map((d) => d.label).filter((name) => !shown.has(name)));
+}
+
 export function availableProperties(
   rows: readonly PropertyRow[],
   candidates: readonly string[],

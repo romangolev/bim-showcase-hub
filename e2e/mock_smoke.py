@@ -172,6 +172,39 @@ def check_summary_tools(page, checks):
     pane.get_by_role("button", name="Reset view").click()
 
 
+def check_dashboard_tools(page, checks):
+    expand = page.get_by_role("button", name="Expand Dashboard")
+    if expand.count():
+        expand.first.click()
+        settle(page, 600)
+    pane = page.locator(".pane-dashboard").first
+    pane.locator("canvas").first.wait_for(timeout=8000)
+    with page.expect_download(timeout=8000) as info:
+        pane.get_by_role("button", name="PNG").first.click()
+    png = OUTPUT_DIR / "chart.png"
+    info.value.save_as(str(png))
+    checks.add("chart exports a PNG", png.read_bytes()[:4] == b"\x89PNG", png.stat().st_size)
+    with page.expect_download(timeout=8000) as info:
+        pane.get_by_role("button", name="CSV").first.click()
+    checks.add("chart exports a CSV", info.value.suggested_filename.endswith(".csv"), info.value.suggested_filename)
+    pane.get_by_role("button", name="Copy").first.click()
+    settle(page, 200)
+    checks.add("chart copy reports a result", bool(pane.locator("[role=status]").first.inner_text().strip()))
+    plot = pane.locator(".bsh-chart--doughnut canvas").first.bounding_box()
+    page.mouse.click(plot["x"] + plot["width"] / 2 + 0.4 * min(plot["width"], plot["height"]), plot["y"] + plot["height"] / 2)
+    settle(page, 300)
+    selected = page.locator(".bsh-mock__el--selected").count()
+    checks.add("clicking a chart slice selects elements in the viewer", selected >= 1, selected)
+    pane.get_by_role("button", name="Model health").click()
+    settle(page, 300)
+    boards = pane.locator(".bsh-boards canvas").count()
+    checks.add("a dashboard preset shows several charts", boards >= 2, boards)
+    page.screenshot(path=str(OUTPUT_DIR / "mock-dashboard-preset.png"))
+    pane.get_by_role("button", name="Single chart").click()
+    page.get_by_role("button", name="Collapse Dashboard").first.click()
+    settle(page, 600)
+
+
 def check_tree_resize(page, checks):
     toggle = page.get_by_role("button", name=TREE_TOGGLE).first
     before = viewer_width(page)
@@ -886,7 +919,7 @@ def run_interaction_checks(page, checks, notes):
     except Exception as exc:
         page.screenshot(path=str(OUTPUT_DIR / "mock-layout-failure.png"))
         checks.add("check_layout", False, f"{type(exc).__name__}: {str(exc)[:160]}")
-    for check in (check_theme, check_summary_rail, check_summary_tools, check_tree_resize):
+    for check in (check_theme, check_summary_rail, check_summary_tools, check_dashboard_tools, check_tree_resize):
         try:
             check(page, checks)
         except Exception as exc:
