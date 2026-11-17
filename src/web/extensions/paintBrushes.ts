@@ -71,13 +71,17 @@ export function paletteToPresets(
   palette: readonly string[],
   intensity: number,
 ): PaintPreset[] {
-  return palette.map((hex) => ({
-    id: `paint-${hex.slice(1)}`,
-    colorName: hex.toUpperCase(),
-    label: `Paint selected items in ${hex.toUpperCase()}`,
-    color: hexToRgba(hex, intensity),
-    swatch: hex,
-  }));
+  return palette.map((hex) => {
+    const known = PAINT_PRESETS.find((preset) => preset.swatch === hex);
+    const colorName = known?.colorName ?? hex.toUpperCase();
+    return {
+      id: `paint-${hex.slice(1)}`,
+      colorName,
+      label: `Paint selected items in ${known ? colorName.toLowerCase() : colorName}`,
+      color: hexToRgba(hex, intensity),
+      swatch: hex,
+    };
+  });
 }
 
 export const RESET_PAINT_LABEL = 'Reset appearance';
