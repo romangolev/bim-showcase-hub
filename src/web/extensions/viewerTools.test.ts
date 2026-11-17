@@ -172,6 +172,22 @@ describe('a failed export start', () => {
   });
 });
 
+describe('an export that rejects', () => {
+  it('leaves no unhandled rejection and can run again', async () => {
+    exportToIfc.mockClear();
+    const unhandled = vi.fn();
+    process.on('unhandledRejection', unhandled);
+    exportToIfc.mockImplementationOnce(() => Promise.reject(new Error('boom')));
+    const own = {} as ViewerAdapter;
+    buildToolGroupSpec(own).ifc?.onExport();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    process.off('unhandledRejection', unhandled);
+    expect(unhandled).not.toHaveBeenCalled();
+    buildToolGroupSpec(own).ifc?.onExport();
+    expect(exportToIfc).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe('ifcFileNameFrom', () => {
   it('swaps the extension and drops the properties suffix', () => {
     expect(ifcFileNameFrom('Tower-v2-properties.xlsx')).toBe('Tower-v2.ifc');

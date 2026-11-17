@@ -108,9 +108,11 @@ function runOnce(
   const active = kinds;
   active.add(kind);
   try {
-    void start().finally(() => {
-      active.delete(kind);
-    });
+    void start()
+      .finally(() => {
+        active.delete(kind);
+      })
+      .catch(() => undefined);
   } catch (error) {
     active.delete(kind);
     throw error;

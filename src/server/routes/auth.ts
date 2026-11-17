@@ -109,7 +109,9 @@ export function authRouter(
       if (sessionCookieBytes(session) > MAX_COOKIE_BYTES) {
         throw new Error('session too large');
       }
-    } catch {
+    } catch (error) {
+      const label = error instanceof Error ? error.message : typeof error;
+      console.error(`sign-in failed: ${label}`);
       clearAuth(session);
       res.redirect(authErrorUrl('upstream_error'));
       return;
