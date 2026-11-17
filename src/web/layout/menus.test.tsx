@@ -182,6 +182,24 @@ describe('Menu alignment', () => {
   });
 });
 
+describe('Menu anchored mode', () => {
+  it('keeps focus when the parent re-renders with an equal anchor', () => {
+    const items = () => [
+      { id: 'a', label: 'Alpha', onSelect: vi.fn() },
+      { id: 'b', label: 'Beta', onSelect: vi.fn() },
+      { id: 'c', label: 'Gamma', onSelect: vi.fn() },
+    ];
+    const { rerender } = render(<Menu anchor={{ x: 5, y: 5 }} items={items} />);
+    const entries = screen.getAllByRole('menuitem');
+    expect(document.activeElement).toBe(entries[0]);
+    act(() => entries[2]?.focus());
+    rerender(<Menu anchor={{ x: 5, y: 5 }} items={items} />);
+    expect(document.activeElement).toBe(screen.getAllByRole('menuitem')[2]);
+    rerender(<Menu anchor={{ x: 9, y: 9 }} items={items} />);
+    expect(document.activeElement).toBe(screen.getAllByRole('menuitem')[0]);
+  });
+});
+
 describe('pane menus', () => {
   it('offers every move without dragging and Close for a model tab', async () => {
     renderModel();

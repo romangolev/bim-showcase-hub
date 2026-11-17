@@ -141,7 +141,6 @@ export function useRowMenu() {
   const menu = opened ? (
     <Menu
       label="Model actions"
-      trigger={null}
       anchor={{ x: opened.x, y: opened.y }}
       items={() => opened.entries}
       onClose={(restore) => {

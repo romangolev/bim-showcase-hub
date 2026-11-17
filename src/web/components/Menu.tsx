@@ -24,17 +24,24 @@ export type MenuEntry =
     }
   | { kind: 'separator'; id: string };
 
-export interface MenuProps {
-  label: string;
+interface MenuBaseProps {
   title?: string;
-  trigger: ReactNode;
   items: () => MenuEntry[];
   className?: string;
   triggerClassName?: string;
   align?: 'start' | 'end';
-  anchor?: { x: number; y: number } | null;
   onClose?: (restoreFocus: boolean) => void;
 }
+
+export type MenuProps = MenuBaseProps &
+  (
+    | { label: string; trigger: ReactNode; anchor?: undefined }
+    | {
+        label?: string;
+        trigger?: undefined;
+        anchor: { x: number; y: number } | null;
+      }
+  );
 
 interface Position {
   top: number;
@@ -94,10 +101,14 @@ export function Menu({
     onCloseRef.current?.(restore);
   }, []);
 
+  const anchorX = anchor?.x;
+  const anchorY = anchor?.y;
+  const anchorKey = anchor ? `${anchor.x},${anchor.y}` : null;
   const place = useCallback(() => {
-    const rect = anchor
-      ? { left: anchor.x, right: anchor.x, top: anchor.y, bottom: anchor.y }
-      : triggerRef.current?.getBoundingClientRect();
+    const rect =
+      anchorX !== undefined && anchorY !== undefined
+        ? { left: anchorX, right: anchorX, top: anchorY, bottom: anchorY }
+        : triggerRef.current?.getBoundingClientRect();
     const menu = menuRef.current;
     if (!rect || !menu) return;
     const width = menu.offsetWidth;
@@ -105,23 +116,25 @@ export function Menu({
     const left = Math.max(
       GAP,
       Math.min(
-        anchor || align === 'start' ? rect.left : rect.right - width,
+        anchorX !== undefined || align === 'start'
+          ? rect.left
+          : rect.right - width,
         window.innerWidth - width - GAP,
       ),
     );
-    const below = rect.bottom + (anchor ? 0 : GAP);
+    const below = rect.bottom + (anchorX !== undefined ? 0 : GAP);
     const top =
       below + height > window.innerHeight
         ? Math.max(GAP, rect.top - height - GAP)
         : below;
     setPosition({ top, left });
-  }, [align, anchor]);
+  }, [align, anchorX, anchorY]);
 
   useEffect(() => {
-    if (!anchor) return;
+    if (anchorKey === null) return;
     setEntries(itemsRef.current());
     setOpen('first');
-  }, [anchor]);
+  }, [anchorKey]);
 
   const pendingFocus = useRef<null | 'first' | 'last'>(null);
 
