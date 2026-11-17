@@ -81,8 +81,7 @@ export function availableProperties(
 }
 
 export interface ChartTheme {
-  accent: string;
-  muted: string;
+  scheme: 'light' | 'dark';
   text: string;
   label: string;
   grid: string;
@@ -106,8 +105,7 @@ export function readChartTheme(
 ): ChartTheme {
   const style = getComputedStyle(root);
   return {
-    accent: readToken(style, '--color-signal-blue', '#3b82f6'),
-    muted: readToken(style, '--color-ash', '#9d9e9f'),
+    scheme: root.getAttribute('data-theme') === 'light' ? 'light' : 'dark',
     text: readToken(style, '--color-fog', '#858687'),
     label: readToken(style, '--color-chalk', '#cececf'),
     grid: readToken(style, '--color-hairline-faint', 'rgba(255,255,255,0.06)'),
@@ -139,26 +137,56 @@ export function mixColors(from: string, to: string, weight: number): string {
   return `rgb(${mixed.join(', ')})`;
 }
 
-const RAMP_MAX_WEIGHT = 1;
-const RAMP_MIN_WEIGHT = 0.32;
-const MUTED_WEIGHT = 0.5;
+export const CHART_PALETTES: Record<ChartTheme['scheme'], readonly string[]> = {
+  dark: [
+    '#E69F00',
+    '#56B4E9',
+    '#00A077',
+    '#F0E442',
+    '#3A86D8',
+    '#D55E00',
+    '#CC79A7',
+    '#9A8AE0',
+  ],
+  light: [
+    '#C27800',
+    '#2F95CF',
+    '#00875F',
+    '#A89700',
+    '#0B5FB8',
+    '#D55E00',
+    '#B5588C',
+    '#7A62C8',
+  ],
+};
+
+export const OTHER_COLOR = '#8A8F98';
+const REPEAT_WEIGHT = 0.6;
+
+function hashLabel(label: string): number {
+  let hash = 2166136261;
+  for (let i = 0; i < label.length; i += 1) {
+    hash = Math.imul(hash ^ label.charCodeAt(i), 16777619);
+  }
+  return hash >>> 0;
+}
 
 export function seriesColors(
   theme: ChartTheme,
   labels: readonly string[],
 ): string[] {
-  const steps = labels.filter((label) => label !== OTHER_LABEL).length;
-  let index = 0;
+  const palette = CHART_PALETTES[theme.scheme];
+  const cycles: Set<number>[] = [];
   return labels.map((label) => {
-    if (label === OTHER_LABEL) {
-      return mixColors(theme.muted, theme.surface, MUTED_WEIGHT);
-    }
-    const t = steps <= 1 ? 0 : index / (steps - 1);
-    index += 1;
-    return mixColors(
-      theme.accent,
-      theme.surface,
-      RAMP_MAX_WEIGHT - t * (RAMP_MAX_WEIGHT - RAMP_MIN_WEIGHT),
-    );
+    if (label === OTHER_LABEL) return OTHER_COLOR;
+    let cycle = 0;
+    while (cycles[cycle]?.size === palette.length) cycle += 1;
+    const taken = cycles[cycle] ?? new Set<number>();
+    cycles[cycle] = taken;
+    let slot = hashLabel(label) % palette.length;
+    while (taken.has(slot)) slot = (slot + 1) % palette.length;
+    taken.add(slot);
+    const base = palette[slot] ?? OTHER_COLOR;
+    return cycle === 0 ? base : mixColors(base, theme.surface, REPEAT_WEIGHT);
   });
 }
