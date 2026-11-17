@@ -8,8 +8,7 @@ import {
   type ExportFormat,
   type ExportScope,
   filterByScope,
-  guardCell,
-  guardRows,
+  safeName,
   toDelimited,
   toJsonRecords,
 } from './exportFormats.js';
@@ -29,15 +28,7 @@ export const MODEL_COLUMN = 'Model';
 
 export function exportFileName(file?: string, version?: string): string {
   const base = (file ?? '').replace(/\.[A-Za-z0-9]{1,5}$/, '');
-  const parts = [base, version ?? '']
-    .map((part) =>
-      part
-        .normalize('NFKD')
-        .replace(/[^A-Za-z0-9._-]+/g, '-')
-        .replace(/-{2,}/g, '-')
-        .replace(/^[-.]+|[-.]+$/g, ''),
-    )
-    .filter(Boolean);
+  const parts = [base, version ?? ''].map(safeName).filter(Boolean);
   if (!base || parts.length === 0) return DEFAULT_FILE_NAME;
   return `${parts.join('-').slice(0, 120)}-properties.xlsx`;
 }
@@ -157,7 +148,7 @@ export interface ExportOptions {
   scope?: ExportScope;
   metadata?: boolean;
   confirm?: (rowCount: number) => boolean;
-  copy?: (text: string) => Promise<void>;
+  copy?: (text: Promise<string>) => Promise<void>;
   onStatus?: (status: ExportStatus) => void;
   save?: (blob: Blob, fileName: string) => void;
 }
@@ -185,7 +176,14 @@ export async function exportToXlsx(
     scope = 'all',
     metadata = false,
     confirm,
-    copy = (text) => navigator.clipboard.writeText(text),
+    copy = (text) =>
+      navigator.clipboard.write([
+        new ClipboardItem({
+          'text/plain': text.then(
+            (value) => new Blob([value], { type: 'text/plain' }),
+          ),
+        }),
+      ]),
     onStatus,
     save = saveBlob,
   } = options;
@@ -193,12 +191,38 @@ export async function exportToXlsx(
     onStatus?.(status);
     return status;
   };
+  const copyText = {
+    resolve: (_text: string): void => undefined,
+    reject: (): void => undefined,
+  };
+  let copied: Promise<void> | undefined;
+  if (format === 'copy') {
+    const pending = new Promise<string>((resolve, reject) => {
+      copyText.resolve = resolve;
+      copyText.reject = () => reject(new Error('Export stopped'));
+    });
+    copied = copy(pending);
+    copied.catch(() => undefined);
+  }
   try {
     emit({ phase: 'reading' });
     const all = await readLeafRows(adapter, propertyNames);
-    const rows = filterByScope(all, scope, scopeItems(adapter, scope));
-    if (rows.length === 0) return emit({ phase: 'empty' });
-    if (confirm && !confirm(rows.length)) return emit({ phase: 'cancelled' });
+    const rows = filterByScope(
+      all,
+      scope,
+      scopeItems(adapter, scope),
+      typeof adapter.getModels === 'function'
+        ? adapter.getModels()[0]?.id
+        : undefined,
+    );
+    if (rows.length === 0) {
+      copyText.reject();
+      return emit({ phase: 'empty' });
+    }
+    if (confirm && !confirm(rows.length)) {
+      copyText.reject();
+      return emit({ phase: 'cancelled' });
+    }
     emit({ phase: 'building' });
     let rowCount = rows.length;
     const about = (): AboutInfo => ({
@@ -223,7 +247,7 @@ export async function exportToXlsx(
               ),
               data: aboutRows(about()).map(([key, value]) => [
                 { value: key, fontWeight: 'bold' as const },
-                guardCell(value),
+                value,
               ]),
             },
           ]
@@ -233,10 +257,10 @@ export async function exportToXlsx(
           sheet: sheet.name,
           data: [
             sheet.header.map((value) => ({
-              value: String(guardCell(value)),
+              value,
               fontWeight: 'bold' as const,
             })),
-            ...guardRows(sheet.rows),
+            ...sheet.rows,
           ],
         })),
         ...aboutSheet,
@@ -249,7 +273,8 @@ export async function exportToXlsx(
         distinctModelCount(rows) > 1,
       );
       if (format === 'copy') {
-        await copy(toDelimited(flat.header, flat.rows, '\t'));
+        copyText.resolve(toDelimited(flat.header, flat.rows, '\t'));
+        await copied;
         delivered = 'the clipboard';
       } else if (format === 'csv') {
         save(
@@ -281,6 +306,7 @@ export async function exportToXlsx(
         : { phase: 'done', fileName: delivered, rowCount },
     );
   } catch (err) {
+    copyText.reject();
     return emit({
       phase: 'error',
       message: err instanceof Error ? err.message : 'Export failed',

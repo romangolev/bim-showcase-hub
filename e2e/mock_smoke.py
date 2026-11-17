@@ -1021,6 +1021,7 @@ def run_variant(context, checks, notes):
 def run(context, checks, notes):
     page = context.new_page()
     watch(page, notes)
+    page.on("dialog", lambda dialog: dialog.accept())
     status, session = api_get(context, "/api/session")
     checks.add(
         "session is the mock user",

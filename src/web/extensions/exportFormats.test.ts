@@ -30,13 +30,18 @@ function savedBlob(save: ReturnType<typeof vi.fn>): Blob {
 }
 
 describe('guardCell', () => {
-  it.each(['=1+1', '+SUM(A1)', '-2+3', '@A1', '\tx'])('prefixes %j', (v) => {
-    expect(guardCell(v)).toBe(`'${v}`);
-  });
+  it.each(['=1+1', '=SUM(A1)', '+cmd|x', '-2+3', '@x', '\tx', '\rx'])(
+    'prefixes %j',
+    (v) => {
+      expect(guardCell(v)).toBe(`'${v}`);
+    },
+  );
 
   it('leaves safe text, plain numbers and non-strings alone', () => {
     expect(guardCell('Wall')).toBe('Wall');
-    expect(guardCell('-5.5')).toBe('-5.5');
+    for (const v of ['-5', '+5', '-1.5e3', '-.5', '-5.5', '-']) {
+      expect(guardCell(v)).toBe(v);
+    }
     expect(guardCell(-5)).toBe(-5);
     expect(guardCell(true)).toBe(true);
   });
@@ -67,6 +72,10 @@ describe('scope and file name', () => {
       ]).map((r) => r.name),
     ).toEqual(['b', 'c']);
     expect(filterByScope(rows, 'isolated', [])).toEqual([]);
+    const bare = { dbId: 7, name: 'z' };
+    expect(
+      filterByScope([bare], 'selected', [{ modelId: 'm', dbId: 7 }], 'm'),
+    ).toEqual([bare]);
   });
 
   it('fills the pattern and sanitises the result', () => {
@@ -75,6 +84,17 @@ describe('scope and file name', () => {
       'House-1_2026-11-17.csv',
     );
     expect(applyNamePattern(' ', 'x', 'json')).toMatch(/^x-properties\.json$/);
+    expect(applyNamePattern('{model}', 'Дом-1.rvt', 'csv')).toBe(
+      'Дом-1.rvt.csv',
+    );
+    expect(
+      excelFileNameFrom('House-properties-v2', {
+        format: 'csv',
+        scope: 'all',
+        metadata: false,
+        namePattern: '{model}-properties',
+      }),
+    ).toBe('House-properties-v2.csv');
     expect(
       excelFileNameFrom('House-v2-properties.xlsx', {
         format: 'csv',
@@ -127,7 +147,9 @@ describe('exportToXlsx formats', () => {
       copy,
       save: vi.fn(),
     });
-    expect(copy).toHaveBeenCalledWith("dbId\tName\r\n1\t'=cmd\r\n2\tDoor");
+    expect(await copy.mock.calls[0]?.[0]).toBe(
+      "dbId\tName\r\n1\t'=cmd\r\n2\tDoor",
+    );
     expect(status).toMatchObject({ phase: 'done', rowCount: 2 });
   });
 

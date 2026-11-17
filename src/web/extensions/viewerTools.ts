@@ -13,6 +13,7 @@ import {
   applyNamePattern,
   CONFIRM_ABOVE,
   DEFAULT_EXCEL_SETTINGS,
+  DEFAULT_NAME_PATTERN,
   type ExcelSettings,
 } from './exportFormats.js';
 import {
@@ -85,7 +86,12 @@ export function excelFileNameFrom(
 ): string {
   const model = exportFileName(fileName, '', '', 'x').slice(0, -2) || 'model';
   const extension = settings.format === 'copy' ? 'xlsx' : settings.format;
-  return applyNamePattern(settings.namePattern, model, extension);
+  const pattern =
+    settings.namePattern.trim() === DEFAULT_NAME_PATTERN &&
+    /-properties(-|$)/i.test(model)
+      ? '{model}'
+      : settings.namePattern;
+  return applyNamePattern(pattern, model, extension);
 }
 
 export function confirmLargeExport(rowCount: number): boolean {

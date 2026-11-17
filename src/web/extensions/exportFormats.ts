@@ -36,16 +36,24 @@ export const SCOPE_LABELS: Record<ExportScope, string> = {
 export const CONFIRM_ABOVE = 20000;
 
 const FORMULA_START = /^[=+\-@\t\r]/;
-const PLAIN_NUMBER = /^-?\d+(\.\d+)?$/;
+const PLAIN_NUMBER = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
 
 export function guardCell(value: ExportCell): ExportCell {
   if (typeof value !== 'string') return value;
-  if (!FORMULA_START.test(value) || PLAIN_NUMBER.test(value)) return value;
+  if (!FORMULA_START.test(value) || value === '-' || PLAIN_NUMBER.test(value)) {
+    return value;
+  }
   return `'${value}`;
 }
 
-export function guardRows(rows: readonly ExportCell[][]): ExportCell[][] {
-  return rows.map((row) => row.map(guardCell));
+export function safeName(text: string): string {
+  return text
+    .normalize('NFKD')
+    .replace(/\p{M}+/gu, '')
+    .replace(/[^\p{L}\p{N}._-]+/gu, '-')
+    .replace(/-{2,}/g, '-')
+    .replace(/^[-.]+|[-.]+$/g, '')
+    .normalize('NFC');
 }
 
 function field(value: ExportCell, delimiter: string): string {
@@ -77,10 +85,17 @@ export function toJsonRecords(
 
 export function filterByScope<
   T extends { modelId?: string | undefined; dbId: number },
->(rows: readonly T[], scope: ExportScope, items: readonly ModelDbId[]): T[] {
+>(
+  rows: readonly T[],
+  scope: ExportScope,
+  items: readonly ModelDbId[],
+  primaryId?: string,
+): T[] {
   if (scope === 'all') return [...rows];
   const keep = new Set(items.map((item) => `${item.modelId}:${item.dbId}`));
-  return rows.filter((row) => keep.has(`${row.modelId}:${row.dbId}`));
+  return rows.filter((row) =>
+    keep.has(`${row.modelId ?? primaryId}:${row.dbId}`),
+  );
 }
 
 export function applyNamePattern(
@@ -90,14 +105,11 @@ export function applyNamePattern(
   date: Date = new Date(),
 ): string {
   const stamp = date.toISOString().slice(0, 10);
-  const name = (pattern.trim() || DEFAULT_NAME_PATTERN)
-    .replace(/\{model\}/g, model)
-    .replace(/\{date\}/g, stamp)
-    .normalize('NFKD')
-    .replace(/[^A-Za-z0-9._-]+/g, '-')
-    .replace(/-{2,}/g, '-')
-    .replace(/^[-.]+|[-.]+$/g, '')
-    .slice(0, 120);
+  const name = safeName(
+    (pattern.trim() || DEFAULT_NAME_PATTERN)
+      .replace(/\{model\}/g, model)
+      .replace(/\{date\}/g, stamp),
+  ).slice(0, 120);
   return `${name || 'model-properties'}.${extension}`;
 }
 

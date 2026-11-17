@@ -89,7 +89,8 @@ export function ExcelSettingsSection() {
             checked={excel.metadata}
             onChange={(event) => update({ metadata: event.target.checked })}
           />{' '}
-          Add an About sheet (Excel) or about block (JSON)
+          Add an About sheet (XLSX) or about block (JSON). Not used for CSV or
+          copy
         </label>
       </div>
     </section>
