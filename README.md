@@ -18,7 +18,7 @@ The screenshots use the built-in mock data, not a real account.
 - Lazy document tree for hubs, projects, folders, items and versions, with filtering and keyboard navigation.
 - Autodesk Viewer for any viewable version, in the US or EU region. Several models open at once, each in its own viewer tab: compare two side by side by dragging a tab, and the summary, dashboard and URL follow the active one. Open tabs come back after a reload and load when first shown.
 - Combined viewer: pick several versions in Documents (Ctrl or Cmd click, Shift click or Space) and open them together in one viewer and one scene, aligned by shared coordinates, up to six models. Add a version to the open viewer from its row, hide or remove models from the Models menu, and switch the summary and dashboard between all models and one model. A model that fails to load says why and leaves the others in place.
-- Tool group inside the viewer toolbar: paint selected elements red, green or blue (or reset), export properties to Excel, and export the loaded geometry as binary glTF (`.glb`) for Blender, Windows 3D Viewer or any glTF viewer, with an in-viewer status badge for each export.
+- Tool group inside the viewer toolbar: paint selected elements red, green or blue (or reset), export properties to Excel, and export the loaded geometry as binary glTF (`.glb`) for Blender, Windows 3D Viewer or any glTF viewer, export the model as an IFC4 file (mesh-based coordination view, not a Revit IFC export), with an in-viewer status badge for each export.
 - Dark and light themes with a top bar toggle. The choice is remembered, the viewer, including its native toolbar and panels, and the charts follow it.
 - Model summary: element counts grouped by Assembly Code, Classification Code and Name, in a pane that collapses to give the viewer more room.
 - Dashboard: bar chart and donut chart of elements by Category, Level, Assembly Code, Classification Code or Name.
@@ -56,6 +56,7 @@ Create an APS app, copy `.env.example` to `.env`, fill in the values and run `np
 | `npm run e2e:signin` | Open a browser to sign in once for the real-app tests                                         |
 | `npm run e2e:smoke`  | Run the smoke test against the real app                                                       |
 | `npm run e2e:glb`    | Open a real Revit model in Camoufox and check the exported GLB (two-legged token, no sign-in) |
+| `npm run e2e:ifc`    | Open a real Revit model in Camoufox and validate the exported IFC with IfcOpenShell           |
 
 ## Project layout
 

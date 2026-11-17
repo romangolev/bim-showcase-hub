@@ -69,11 +69,20 @@ export interface InstanceTree {
 
 export interface BulkPropertyItem {
   dbId: number;
+  externalId?: string;
   name: string;
-  properties: { displayName: string; displayValue: unknown }[];
+  properties: {
+    displayName: string;
+    displayValue: unknown;
+    displayCategory?: string;
+  }[];
 }
 
 export interface ViewerModel {
+  getExternalIdMapping?(
+    onSuccess: (map: Record<string, number>) => void,
+    onError?: (err: unknown) => void,
+  ): void;
   getBulkProperties(
     dbIds: number[],
     options: { propFilter?: string[] },

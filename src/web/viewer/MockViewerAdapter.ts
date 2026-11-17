@@ -1,8 +1,10 @@
 import type { PropertyRow } from '../../shared/types.js';
+import type { IfcSourceRead } from '../ifc/types.js';
 import type { Theme } from '../theme/theme.js';
 import {
   EXPORT_ICON_CLASS,
   GLB_ICON_CLASS,
+  IFC_ICON_CLASS,
   PAINT_ICON_CLASS,
   RESET_ICON_CLASS,
   swatchIconClass,
@@ -351,6 +353,37 @@ export class MockViewerAdapter implements ViewerAdapter {
     };
   }
 
+  async getIfcSource(): Promise<IfcSourceRead> {
+    const ready = this.models.ready();
+    if (ready.length === 0) throw new Error('No geometry to export');
+    return {
+      skipped: 0,
+      models: ready.map(({ info, handle }, index) => {
+        const name = info.name || info.id;
+        const part = mockGeometryPart(info, handle, index);
+        return {
+          id: info.id,
+          name,
+          urn: info.urn,
+          elements: [
+            {
+              dbId: index + 1,
+              name: `${name} wall`,
+              properties: {
+                'Identity Data': {
+                  Category: 'Revit Walls',
+                  'Type Name': 'Basic Wall',
+                },
+                Constraints: { Level: 'Level 1' },
+              },
+              parts: [part],
+            },
+          ],
+        };
+      }),
+    };
+  }
+
   setModelVisible(modelId: string, visible: boolean): void {
     if (!this.models.setVisible(modelId, visible)) return;
     const scene = this.models.handle(modelId);
@@ -662,6 +695,16 @@ export class MockViewerAdapter implements ViewerAdapter {
         controller.exportGeometry(),
       );
       parts.push(geometryButton);
+    }
+    const ifcSpec = spec.ifc;
+    if (ifcSpec) {
+      const ifcButton = this.createToolbarButton(
+        ifcSpec.id,
+        ifcSpec.tooltip,
+        iconSpan(IFC_ICON_CLASS),
+      );
+      ifcButton.addEventListener('click', () => controller.exportIfc());
+      parts.push(ifcButton);
     }
 
     const apply = (state: ToolGroupState) => {

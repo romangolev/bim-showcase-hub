@@ -4,6 +4,7 @@ import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 
 const exportToXlsx = vi.fn(async () => undefined);
 const exportGeometryToGlb = vi.fn(async () => undefined);
+const exportToIfc = vi.fn(async () => undefined);
 
 vi.mock('./excelExport.js', async (original) => ({
   ...(await original<typeof import('./excelExport.js')>()),
@@ -15,10 +16,16 @@ vi.mock('./glbExport.js', async (original) => ({
   exportGeometryToGlb,
 }));
 
+vi.mock('./ifcExport.js', async (original) => ({
+  ...(await original<typeof import('./ifcExport.js')>()),
+  exportToIfc,
+}));
+
 const { DEFAULT_FILE_NAME, exportFileName } = await import('./excelExport.js');
 const {
   buildToolGroupSpec,
   glbFileNameFrom,
+  ifcFileNameFrom,
   modelKey,
   registerViewerTools,
   TOOL_GROUP_ID,
@@ -28,7 +35,7 @@ const adapter = {} as ViewerAdapter;
 
 function full(options: Parameters<typeof buildToolGroupSpec>[1] = {}) {
   const spec = buildToolGroupSpec(adapter, options);
-  if (!spec.paint || !spec.export || !spec.geometry) {
+  if (!spec.paint || !spec.export || !spec.geometry || !spec.ifc) {
     throw new Error('tool spec incomplete');
   }
   return {
@@ -36,6 +43,7 @@ function full(options: Parameters<typeof buildToolGroupSpec>[1] = {}) {
     paint: spec.paint,
     export: spec.export,
     geometry: spec.geometry,
+    ifc: spec.ifc,
   };
 }
 
@@ -46,6 +54,7 @@ function ids(spec: ReturnType<typeof full>): string[] {
     spec.paint.reset.id,
     spec.export.id,
     spec.geometry.id,
+    spec.ifc.id,
     ...spec.paint.swatches.map((swatch) => swatch.id),
   ];
 }
@@ -53,6 +62,7 @@ function ids(spec: ReturnType<typeof full>): string[] {
 afterEach(() => {
   exportToXlsx.mockClear();
   exportGeometryToGlb.mockClear();
+  exportToIfc.mockClear();
 });
 
 describe('tool group ids per viewer', () => {
@@ -76,6 +86,7 @@ describe('tool group ids per viewer', () => {
     const spec = full();
     expect(spec.export.id).toBe('export-xlsx');
     expect(spec.geometry.id).toBe('export-glb');
+    expect(spec.ifc.id).toBe('export-ifc');
     expect(spec.paint.id).toBe('paint');
   });
 
@@ -103,6 +114,34 @@ describe('tool group ids per viewer', () => {
         fileName: 'Snowdon-Towers-Sample-v3-geometry.glb',
       }),
     );
+  });
+
+  it('exports IFC under the model name and the current settings getter', () => {
+    const ifcSettings = vi.fn();
+    const spec = buildToolGroupSpec(adapter, {
+      fileName: () => exportFileName('Snowdon Towers Sample.rvt', 'v3'),
+      ifcSettings,
+    });
+    spec.ifc?.onExport();
+    expect(exportToIfc).toHaveBeenCalledWith(
+      adapter,
+      expect.objectContaining({
+        fileName: 'Snowdon-Towers-Sample-v3.ifc',
+        settings: ifcSettings,
+      }),
+    );
+  });
+});
+
+describe('ifcFileNameFrom', () => {
+  it('swaps the extension and drops the properties suffix', () => {
+    expect(ifcFileNameFrom('Tower-v2-properties.xlsx')).toBe('Tower-v2.ifc');
+    expect(ifcFileNameFrom('Tower.ifc')).toBe('Tower.ifc');
+  });
+
+  it('falls back without a file name', () => {
+    expect(ifcFileNameFrom('')).toBe('model.ifc');
+    expect(ifcFileNameFrom()).toBe('model.ifc');
   });
 });
 
@@ -143,33 +182,43 @@ describe('tool features', () => {
     expect(all.paint).toBeDefined();
     expect(all.export).toBeDefined();
     expect(all.geometry).toBeDefined();
+    expect(all.ifc).toBeDefined();
 
     const paintOnly = buildToolGroupSpec(mock, {
-      features: { paint: true, export: false, geometry: false },
+      features: { paint: true, export: false, geometry: false, ifc: false },
     });
     expect(paintOnly.paint).toBeDefined();
     expect(paintOnly.export).toBeUndefined();
 
     const exportOnly = buildToolGroupSpec(mock, {
-      features: { paint: false, export: true, geometry: false },
+      features: { paint: false, export: true, geometry: false, ifc: false },
     });
     expect(exportOnly.paint).toBeUndefined();
     expect(exportOnly.export).toBeDefined();
     expect(exportOnly.geometry).toBeUndefined();
 
     const geometryOnly = buildToolGroupSpec(mock, {
-      features: { paint: false, export: false, geometry: true },
+      features: { paint: false, export: false, geometry: true, ifc: false },
     });
     expect(geometryOnly.paint).toBeUndefined();
     expect(geometryOnly.export).toBeUndefined();
     expect(geometryOnly.geometry).toBeDefined();
+    expect(geometryOnly.ifc).toBeUndefined();
+
+    const ifcOnly = buildToolGroupSpec(mock, {
+      features: { paint: false, export: false, geometry: false, ifc: true },
+    });
+    expect(ifcOnly.paint).toBeUndefined();
+    expect(ifcOnly.export).toBeUndefined();
+    expect(ifcOnly.geometry).toBeUndefined();
+    expect(ifcOnly.ifc).toBeDefined();
   });
 
   it('registers nothing when every feature is off', () => {
     const mock = new MockViewerAdapter(document.createElement('div'));
     const spy = vi.spyOn(mock, 'registerToolGroup');
     registerViewerTools(mock, {
-      features: { paint: false, export: false, geometry: false },
+      features: { paint: false, export: false, geometry: false, ifc: false },
     })();
     expect(spy).not.toHaveBeenCalled();
   });

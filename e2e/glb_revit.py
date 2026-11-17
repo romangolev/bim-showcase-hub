@@ -93,7 +93,7 @@ def bundle():
     subprocess.run(
         [
             str(ROOT / "node_modules" / ".bin" / "esbuild"),
-            str(HARNESS / "glb_harness.ts"),
+            str(HARNESS / "export_harness.ts"),
             "--bundle",
             "--format=iife",
             "--platform=browser",

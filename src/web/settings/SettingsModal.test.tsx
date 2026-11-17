@@ -32,6 +32,7 @@ describe('SettingsBody', () => {
       'Paint brushes',
       'Excel export',
       'Geometry export',
+      'IFC export',
     ]);
     const paint = screen.getByRole('switch', { name: 'Paint brushes' });
     expect(

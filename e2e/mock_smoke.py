@@ -1,3 +1,4 @@
+import importlib.util
 import os
 import re
 import sys
@@ -17,7 +18,9 @@ from common import (
     app_reachable,
     download_export,
     download_glb,
+    download_ifc,
     glb_check,
+    ifc_check,
     expand_to_viewable,
     horizontal_overflow,
     new_notes,
@@ -1044,6 +1047,22 @@ def run(context, checks, notes):
             notes["mock_glb"] = info
     except Exception as exc:
         checks.add("geometry export downloads a GLB", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+
+    try:
+        ifc_path = OUTPUT_DIR / "export.ifc"
+        size, head = download_ifc(page, ifc_path)
+        text = ifc_path.read_text(errors="replace")
+        checks.add(
+            "IFC export downloads a STEP file with walls and storeys",
+            head.startswith(b"ISO-10303-21;") and "IFCWALL(" in text and "IFCBUILDINGSTOREY(" in text,
+            f"{size} bytes",
+        )
+        if importlib.util.find_spec("ifcopenshell"):
+            info = ifc_check(checks, ifc_path, "mock IFC")
+            if info:
+                notes["mock_ifc"] = info
+    except Exception as exc:
+        checks.add("IFC export downloads a STEP file with walls and storeys", False, f"{type(exc).__name__}: {str(exc)[:160]}")
 
     run_interaction_checks(page, checks, notes)
 

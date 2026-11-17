@@ -80,3 +80,42 @@
   color: var(--color-ash);
   font-size: var(--text-13);
 }
+
+.settings__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.settings__field label {
+  font-size: var(--text-13);
+  color: var(--color-ash);
+}
+
+.settings__field input,
+.settings__field select {
+  min-height: var(--hit-target);
+  padding: 0 var(--space-2);
+}
+
+.settings__overrides {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.settings__override-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.settings__override {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}

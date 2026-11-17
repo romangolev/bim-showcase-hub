@@ -1,11 +1,11 @@
 import { useId } from 'react';
 import type { ModalDefinition } from '../modal/types.js';
 import { useTheme } from '../theme/ThemeContext.js';
+import { IfcSettingsSection } from './IfcSettingsSection.js';
 import { useSettings } from './SettingsContext.js';
-import type { Settings } from './settings.js';
 
 interface ExperimentalFeature {
-  key: keyof Settings;
+  key: 'paintBrushes' | 'excelExport' | 'glbExport' | 'ifcExport';
   label: string;
   description: string;
 }
@@ -27,6 +27,12 @@ export const EXPERIMENTAL_FEATURES: readonly ExperimentalFeature[] = [
     label: 'Geometry export',
     description:
       'Export the model geometry to a .glb file from the viewer toolbar.',
+  },
+  {
+    key: 'ifcExport',
+    label: 'IFC export',
+    description:
+      'Export the model to an .ifc file from the viewer toolbar, using the IFC export settings below.',
   },
 ];
 
@@ -97,6 +103,7 @@ export function SettingsBody() {
           />
         ))}
       </section>
+      <IfcSettingsSection />
     </div>
   );
 }
@@ -104,6 +111,6 @@ export function SettingsBody() {
 export const SETTINGS_MODAL: ModalDefinition = {
   id: 'settings',
   title: 'Settings',
-  size: 'md',
+  size: 'lg',
   Body: SettingsBody,
 };
