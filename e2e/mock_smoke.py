@@ -427,6 +427,39 @@ def check_lock_maximize(page, checks):
     checks.add("unlocked tabs have close buttons again", page.locator(".dv-default-tab-action").count() > 0)
 
 
+def check_session_banner(page, checks):
+    import json
+    import time
+
+    def serve(offset_ms):
+        body = json.dumps({"name": MOCK_USER_NAME, "picture": None, "expiresAt": int(time.time() * 1000) + offset_ms})
+        page.route("**/api/session", lambda route: route.fulfill(status=200, content_type="application/json", body=body))
+
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    serve(4 * 60_000)
+    page.reload(wait_until="networkidle")
+    settle(page, 1500)
+    warning = page.locator(".session-banner[data-state='soon']")
+    checks.add("session banner warns before the session ends", warning.count() == 1 and "ends in" in warning.inner_text(), warning.count())
+    checks.add("warning keeps the dock mounted", page.locator(".dv-dockview").count() == 1)
+    page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
+    settle(page, 600)
+    checks.add("warning has no horizontal overflow at 390 wide", horizontal_overflow(page) <= 0)
+    page.unroute("**/api/session")
+    serve(-1000)
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    page.reload(wait_until="networkidle")
+    settle(page, 1500)
+    ended = page.locator(".session-banner[data-state='ended']")
+    checks.add("expired session shows a sign-in banner", ended.count() == 1 and ended.get_by_role("button", name="Sign in again").count() == 1)
+    checks.add("expired session keeps the layout", page.locator(".dv-dockview").count() == 1 and page.get_by_role("tab", name="Documents").count() == 1)
+    page.screenshot(path=str(OUTPUT_DIR / "mock-session-ended.png"))
+    page.unroute("**/api/session")
+    page.reload(wait_until="networkidle")
+    settle(page, 1000)
+    checks.add("banner is gone after the session is healthy again", page.locator(".session-banner").count() == 0)
+
+
 def models(page):
     return page.evaluate(MODELS)
 
@@ -1078,7 +1111,7 @@ def run_interaction_checks(page, checks, notes):
     except Exception as exc:
         page.screenshot(path=str(OUTPUT_DIR / "mock-layout-failure.png"))
         checks.add("check_layout", False, f"{type(exc).__name__}: {str(exc)[:160]}")
-    for check in (check_lock_maximize, check_theme, check_summary_rail, check_summary_tools, check_dashboard_tools, check_tree_resize):
+    for check in (check_lock_maximize, check_session_banner, check_theme, check_summary_rail, check_summary_tools, check_dashboard_tools, check_tree_resize):
         try:
             check(page, checks)
         except Exception as exc:

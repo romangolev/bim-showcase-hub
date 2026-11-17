@@ -199,7 +199,7 @@ The checks ignore failed requests to `cdn.derivative.autodesk.com` (404 for opti
 
 ### Session lifetime and the profile
 
-The session cookie (`bim-hub-session`, `cookie-session`) is set with `maxAge` of one hour (`src/server/index.ts`). It does not roll: the cookie is only sent again when the session content changes, which happens at sign-in and when the server refreshes the Autodesk access token (when it is within 60 seconds of expiry, see `sessionTokens.ts`). Each such write sets a new one-hour cookie. Plain page loads and API calls do not extend it, and a failed refresh clears the session. So an idle profile is signed out about an hour after the last sign-in or token refresh, and `smoke.py` then exits 2. Run `npm run e2e:signin` again.
+The session cookie (`bim-hub-session`, `cookie-session`) has `maxAge` of 12 hours (`SESSION_MAX_AGE_MS`), and the sealed token carries the same absolute cap from sign-in, so the cookie does not roll: extending it would not extend the session. `/api/session` returns `expiresAt` (sign-in plus 12 hours). The app warns shortly before it (Settings, Session, default 10 minutes, 0 turns it off) and, when any request answers 401, keeps the layout and open models mounted and shows a "Sign in again" banner instead of the landing page. Sign-in again is a full redirect, so queries and the viewer token reload with the page. Run `npm run e2e:signin` again when `smoke.py` exits 2.
 
 `e2e/.profile` contains cookies that are equivalent to your Autodesk login for the app. It is gitignored along with `e2e/.venv` and `e2e/output`. Never commit, copy or share it. Do not point `E2E_PROFILE_DIR` at a folder inside a synced or shared location.
 
