@@ -25,10 +25,12 @@ export function sanitizePins(raw: unknown): Pin[] {
   return [...pins.values()].slice(0, MAX_PINS);
 }
 
+const NO_PINS: Pin[] = [];
+
 export function usePins() {
   const [pins, setPins] = usePersistedState<Pin[]>(
     PINNED_KEY,
-    [],
+    NO_PINS,
     sanitizePins,
   );
   const toggle = (urn: string, context: ModelContext) =>

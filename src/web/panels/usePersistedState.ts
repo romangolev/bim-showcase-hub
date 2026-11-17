@@ -8,10 +8,15 @@ export function usePersistedState<T>(
   initial: T,
   sanitize: (raw: unknown) => T,
 ): [T, (next: T | ((prev: T) => T)) => void, () => void] {
-  const [value, setValue] = useState<T>(() => {
+  const [value, setState] = useState<T>(() => {
     const raw = readJson<unknown>(key, undefined);
     return raw === undefined ? initial : sanitize(raw);
   });
+  const valueRef = useRef(value);
+  const setValue = useCallback((next: T) => {
+    valueRef.current = next;
+    setState(next);
+  }, []);
   const sanitizeRef = useRef(sanitize);
   sanitizeRef.current = sanitize;
   useEffect(() => {
@@ -37,22 +42,22 @@ export function usePersistedState<T>(
       window.removeEventListener('storage', onStorage);
       window.removeEventListener(FORGET_EVENT, onForget);
     };
-  }, [key, initial]);
+  }, [key, initial, setValue]);
   const update = useCallback(
     (next: T | ((prev: T) => T)) => {
-      setValue((prev) => {
-        const resolved =
-          typeof next === 'function' ? (next as (p: T) => T)(prev) : next;
-        if (!writeJson(key, resolved)) return resolved;
-        queueMicrotask(() =>
-          window.dispatchEvent(
-            new CustomEvent(SYNC_EVENT, { detail: { key, value: resolved } }),
-          ),
-        );
-        return resolved;
-      });
+      const resolved =
+        typeof next === 'function'
+          ? (next as (p: T) => T)(valueRef.current)
+          : next;
+      setValue(resolved);
+      writeJson(key, resolved);
+      queueMicrotask(() =>
+        window.dispatchEvent(
+          new CustomEvent(SYNC_EVENT, { detail: { key, value: resolved } }),
+        ),
+      );
     },
-    [key],
+    [key, setValue],
   );
   const reset = useCallback(() => update(initial), [update, initial]);
   return [value, update, reset];
