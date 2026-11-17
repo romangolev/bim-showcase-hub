@@ -29,6 +29,7 @@ A panel's portal is rendered only after its host was attached to a visible slot 
 
 The Viewer pane has instances: `instances` in its registry entry gives the body (`ModelPaneBody`) and makes them closable. Each open model is a panel `viewer:<urn>` with its own host, `ViewerPane` and adapter. The Viewer has no plain panel (`component: null`): with no model open there is no viewer group at all.
 
+- The active group (dockview's `dv-active-group`) gets a 1px inset accent ring drawn by `.dv-active-group::after` in `dockTheme.css`, so nothing shifts. The stacked layout has no active pane, so it has no ring.
 - Selecting a viewable version in Documents, a deep link or Back opens the model in a new tab in the active model's group, or activates its tab when it is already open.
 - The first model creates the viewer group at its default slot, right of Documents (Documents goes back to its tree width). Summary and dashboard open with it, summary on the right and dashboard below, collapsed, and the Models pane opens as a tab in the Documents group (placement `{ kind: 'tab', reference: 'tree' }`, added inactive so Documents stays the active tab), unless the user closed them before.
 - Closing the last model tab closes the viewer group and its companions (summary and dashboard), so Documents is alone again, and the URL returns to `/`.

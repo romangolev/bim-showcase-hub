@@ -104,6 +104,17 @@
   box-shadow: inset 0 -1px 0 var(--color-signal-blue);
 }
 
+.bsh-dock .dv-groupview.dv-active-group::after {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--color-signal-blue) 55%, transparent);
+  content: "";
+  pointer-events: none;
+}
+
 .bsh-dock .dv-tab:focus-visible,
 .bsh-dock .dv-groupview:focus-visible {
   outline: var(--ring-width) solid var(--color-ring-blue);

@@ -128,6 +128,41 @@ def check_theme(page, checks):
     checks.add("original theme persists across reload", page.evaluate(ROOT_THEME) == start, page.evaluate(ROOT_THEME))
 
 
+ACTIVE_OUTLINE = """() => [...document.querySelectorAll('.dv-groupview')].map((group) => {
+    const style = getComputedStyle(group, '::after');
+    return {
+        active: group.classList.contains('dv-active-group'),
+        outline: style.content !== 'none' && style.boxShadow !== 'none' && style.position === 'absolute',
+        tab: group.querySelector('.dv-tab')?.textContent.trim(),
+    };
+})"""
+
+
+def check_active_pane(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page, 300)
+    original = page.evaluate(ROOT_THEME)
+    for theme in ("dark", "light"):
+        if page.evaluate(ROOT_THEME) != theme:
+            page.get_by_role("button", name=THEME_TOGGLE).first.click()
+            settle(page, 300)
+        page.get_by_role("tab", name="Model summary").click()
+        settle(page, 300)
+        state = page.evaluate(ACTIVE_OUTLINE)
+        active = [g for g in state if g["active"]]
+        checks.add(f"{theme}: exactly one group is active", len(active) == 1, state)
+        checks.add(f"{theme}: the active group carries the accent outline", bool(active) and active[0]["outline"] and active[0]["tab"] == "Model summary", active)
+        checks.add(f"{theme}: other groups have no outline", all(not g["outline"] for g in state if not g["active"]), state)
+        page.screenshot(path=str(OUTPUT_DIR / f"mock-active-pane-{theme}.png"))
+    page.get_by_role("tab", name="Dashboard").click()
+    settle(page, 300)
+    active = [g for g in page.evaluate(ACTIVE_OUTLINE) if g["active"]]
+    checks.add("the accent follows the clicked pane", len(active) == 1 and active[0]["tab"] == "Dashboard", active)
+    if page.evaluate(ROOT_THEME) != original:
+        page.get_by_role("button", name=THEME_TOGGLE).first.click()
+        settle(page, 300)
+
+
 def check_summary_rail(page, checks):
     toggle = page.get_by_role("button", name=SUMMARY_TOGGLE).first
     before = viewer_width(page)
@@ -1335,7 +1370,7 @@ def run_interaction_checks(page, checks, notes):
     except Exception as exc:
         page.screenshot(path=str(OUTPUT_DIR / "mock-layout-failure.png"))
         checks.add("check_layout", False, f"{type(exc).__name__}: {str(exc)[:160]}")
-    for check in (check_lock_maximize, check_session_banner, check_paint_palette, check_recents, check_tree_metadata, check_theme, check_summary_rail, check_summary_tools, check_dashboard_tools, check_tree_resize):
+    for check in (check_lock_maximize, check_active_pane, check_session_banner, check_paint_palette, check_recents, check_tree_metadata, check_theme, check_summary_rail, check_summary_tools, check_dashboard_tools, check_tree_resize):
         try:
             check(page, checks)
         except Exception as exc:

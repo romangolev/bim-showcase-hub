@@ -390,3 +390,24 @@ describe('keyboard', () => {
     expect(filter).toHaveFocus();
   });
 });
+
+describe('active pane', () => {
+  it('marks one group active and moves it with the tab', async () => {
+    renderModel();
+    await screen.findByRole('button', { name: 'Dashboard pane options' });
+    await waitFor(() =>
+      expect(
+        document.querySelectorAll('.dv-groupview.dv-active-group'),
+      ).toHaveLength(1),
+    );
+    const tab = screen.getByRole('tab', { name: /Model summary/ });
+    fireEvent.pointerDown(tab);
+    fireEvent.mouseDown(tab);
+    fireEvent.click(tab);
+    await waitFor(() => {
+      const active = document.querySelectorAll('.dv-groupview.dv-active-group');
+      expect(active).toHaveLength(1);
+      expect(active[0]?.contains(tab)).toBe(true);
+    });
+  });
+});
