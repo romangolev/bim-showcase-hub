@@ -50,6 +50,7 @@ import {
   paneById,
   paneKind,
   parsePanelId,
+  TREE_WIDTH_DEFAULT,
 } from './paneRegistry.js';
 import { type HostStore, PaneSlot } from './ViewerHost.js';
 import './dockTheme.css';
@@ -257,8 +258,12 @@ function addPane(
     const host = resolvePanel(api, placement.reference);
     api.addPanel({
       ...base,
-      position: host ? { referenceGroup: host.group } : { direction: 'left' },
-      inactive: Boolean(host),
+      ...(host
+        ? { position: { referenceGroup: host.group }, inactive: true }
+        : {
+            position: { direction: 'left' as const },
+            initialWidth: TREE_WIDTH_DEFAULT,
+          }),
     });
     return;
   }
@@ -807,7 +812,10 @@ export function DockLayout(props: DockLayoutProps) {
         existing.api.setActive();
         return;
       }
-      steady((api) => addPane(api, id, placementOf(api, paneById(id))));
+      steady((api) => {
+        addPane(api, id, placementOf(api, paneById(id)));
+        api.getPanel(id)?.api.setActive();
+      });
     },
     closePane: (id) => {
       const panel = apiRef.current?.getPanel(id);

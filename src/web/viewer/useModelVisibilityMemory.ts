@@ -1,78 +1,73 @@
 import { useEffect, useRef } from 'react';
-import { BSH_KEYS } from '../storage.js';
+import { BSH_KEYS, FORGET_EVENT, readJson, writeJson } from '../storage.js';
 import type { ModelInfo } from './modelSet.js';
 import type { ViewerAdapter } from './ViewerAdapter.js';
 
 export const MODEL_VISIBILITY_KEY = BSH_KEYS.personal.hiddenModels;
-const MAX_SETS = 20;
+export const MAX_HIDDEN_URNS = 200;
 
-type Memory = Record<string, string[]>;
-
-function read(): Memory {
-  try {
-    const raw = JSON.parse(
-      window.localStorage.getItem(MODEL_VISIBILITY_KEY) ?? '{}',
-    );
-    if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
-      return {};
-    }
-    return Object.fromEntries(
-      Object.entries(raw).filter(
-        (entry): entry is [string, string[]] =>
-          Array.isArray(entry[1]) &&
-          entry[1].every((value) => typeof value === 'string'),
-      ),
-    );
-  } catch {
-    return {};
-  }
-}
-
-function write(key: string, hidden: string[]): void {
-  const memory = read();
-  if (JSON.stringify(memory[key] ?? []) === JSON.stringify(hidden)) return;
-  delete memory[key];
-  if (hidden.length > 0) memory[key] = hidden;
-  const kept = Object.fromEntries(Object.entries(memory).slice(-MAX_SETS));
-  try {
-    window.localStorage.setItem(MODEL_VISIBILITY_KEY, JSON.stringify(kept));
-  } catch {
-    return;
-  }
+function read(): string[] {
+  const raw = readJson<unknown>(MODEL_VISIBILITY_KEY, []);
+  return Array.isArray(raw)
+    ? raw.filter((urn): urn is string => typeof urn === 'string')
+    : [];
 }
 
 export function useModelVisibilityMemory(
   adapter: ViewerAdapter | null,
   models: readonly ModelInfo[],
 ): void {
-  const restored = useRef<{ adapter: ViewerAdapter; key: string } | null>(null);
+  const applied = useRef<{ adapter: ViewerAdapter; urns: Set<string> } | null>(
+    null,
+  );
+  const memory = useRef<string[] | null>(null);
   useEffect(() => {
-    if (!adapter || models.length < 2) return;
+    const forget = () => {
+      memory.current = null;
+    };
+    window.addEventListener(FORGET_EVENT, forget);
+    return () => window.removeEventListener(FORGET_EVENT, forget);
+  }, []);
+  useEffect(() => {
+    if (!adapter || models.length < 2) {
+      applied.current = null;
+      return;
+    }
+    if (applied.current?.adapter !== adapter) {
+      applied.current = { adapter, urns: new Set() };
+    }
+    const open = new Set(models.map((model) => model.urn));
+    for (const urn of applied.current.urns) {
+      if (!open.has(urn)) applied.current.urns.delete(urn);
+    }
     if (models.some((model) => model.status === 'loading')) return;
-    if (!models.some((model) => model.status === 'ready')) return;
-    const key = models
-      .map((model) => model.urn)
-      .sort()
-      .join('\n');
-    const done = restored.current;
-    if (!done || done.adapter !== adapter || done.key !== key) {
-      restored.current = { adapter, key };
-      const hidden = new Set(read()[key] ?? []);
-      for (const model of models) {
-        if (
-          model.status === 'ready' &&
-          model.visible === hidden.has(model.urn)
-        ) {
-          adapter.setModelVisible(model.id, !hidden.has(model.urn));
+    const ready = models.filter((model) => model.status === 'ready');
+    if (ready.length === 0) return;
+    const done = applied.current.urns;
+    const stored = memory.current ?? read();
+    memory.current = stored;
+    const fresh = ready.filter((model) => !done.has(model.urn));
+    if (fresh.length > 0) {
+      for (const model of fresh) {
+        done.add(model.urn);
+        if (model.visible === stored.includes(model.urn)) {
+          adapter.setModelVisible(model.id, !stored.includes(model.urn));
         }
       }
       return;
     }
-    write(
-      key,
-      models
-        .filter((model) => model.status === 'ready' && !model.visible)
-        .map((model) => model.urn),
-    );
+    const hidden = [
+      ...new Set(
+        ready.filter((model) => !model.visible).map((model) => model.urn),
+      ),
+    ];
+    const present = new Set(ready.map((model) => model.urn));
+    const next = [
+      ...stored.filter((urn) => !present.has(urn)),
+      ...hidden,
+    ].slice(-MAX_HIDDEN_URNS);
+    if (JSON.stringify(next) === JSON.stringify(stored)) return;
+    memory.current = next;
+    writeJson(MODEL_VISIBILITY_KEY, next);
   }, [adapter, models]);
 }

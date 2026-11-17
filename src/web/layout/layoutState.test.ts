@@ -378,6 +378,26 @@ describe('siblingCountOf', () => {
 });
 
 describe('storage', () => {
+  it('keeps Models closed in a layout saved before it opened by default', () => {
+    const storage = installMemoryStorage();
+    storage.setItem(
+      LAYOUT_KEY,
+      JSON.stringify({
+        version: 2,
+        layout: {
+          dock: sampleDock(),
+          collapsed: [],
+          treeWidth: 320,
+          dismissed: ['models'],
+        },
+      }),
+    );
+    const model = readLayout(storage);
+    expect(model.dismissed).toEqual(['models']);
+    writeLayout(storage, model);
+    expect(readLayout(storage).dismissed).toEqual(['models']);
+  });
+
   it('imports the old keys once, deletes them and saves the new record', () => {
     const storage = installMemoryStorage();
     storage.setItem(LEGACY_KEYS.treeWidth, '400');

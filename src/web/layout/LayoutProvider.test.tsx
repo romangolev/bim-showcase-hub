@@ -323,6 +323,12 @@ describe('dock layout', () => {
     await waitFor(() => expect(handle().openPanes()).not.toContain('models'));
     act(() => handle().togglePane('models'));
     await waitFor(() => expect(handle().openPanes()).toContain('models'));
+    await waitFor(() =>
+      expect(screen.getByRole('tab', { name: 'Models' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      ),
+    );
   });
 
   it('restores a floating pane after a reload and never pops out', async () => {
