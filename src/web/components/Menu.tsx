@@ -31,6 +31,7 @@ export interface MenuProps {
   items: () => MenuEntry[];
   className?: string;
   triggerClassName?: string;
+  align?: 'start' | 'end';
 }
 
 interface Position {
@@ -55,6 +56,7 @@ export function Menu({
   items,
   className,
   triggerClassName = 'icon-button',
+  align = 'end',
 }: MenuProps) {
   const [open, setOpen] = useState<null | 'first' | 'last'>(null);
   const [entries, setEntries] = useState<MenuEntry[]>([]);
@@ -91,7 +93,10 @@ export function Menu({
     const height = menu.offsetHeight;
     const left = Math.max(
       GAP,
-      Math.min(rect.right - width, window.innerWidth - width - GAP),
+      Math.min(
+        align === 'start' ? rect.left : rect.right - width,
+        window.innerWidth - width - GAP,
+      ),
     );
     const below = rect.bottom + GAP;
     const top =
@@ -99,7 +104,7 @@ export function Menu({
         ? Math.max(GAP, rect.top - height - GAP)
         : below;
     setPosition({ top, left });
-  }, []);
+  }, [align]);
 
   const pendingFocus = useRef<null | 'first' | 'last'>(null);
 

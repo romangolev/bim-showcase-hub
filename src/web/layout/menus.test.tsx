@@ -142,6 +142,46 @@ describe('Menu', () => {
   });
 });
 
+describe('Menu alignment', () => {
+  function openedLeft(align?: 'start' | 'end') {
+    vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(200);
+    render(
+      <Menu
+        label="Things"
+        trigger="Open"
+        align={align}
+        items={() => [{ id: 'a', label: 'Alpha', onSelect: vi.fn() }]}
+      />,
+    );
+    const trigger = screen.getByRole('button', { name: 'Things' });
+    vi.spyOn(trigger, 'getBoundingClientRect').mockReturnValue({
+      left: 300,
+      right: 400,
+      top: 10,
+      bottom: 30,
+      width: 100,
+      height: 20,
+      x: 300,
+      y: 10,
+      toJSON: () => ({}),
+    });
+    fireEvent.click(trigger);
+    return screen.getByRole('menu').style.left;
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('opens leftwards from the trigger edge by default', () => {
+    expect(openedLeft()).toBe('200px');
+  });
+
+  it('opens rightwards from the trigger edge with align start', () => {
+    expect(openedLeft('start')).toBe('300px');
+  });
+});
+
 describe('pane menus', () => {
   it('offers every move without dragging and Close for a model tab', async () => {
     renderModel();

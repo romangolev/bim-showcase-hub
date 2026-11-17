@@ -121,6 +121,7 @@ export function ModelsMenu(props: ModelsMenuProps) {
       <Menu
         label={label}
         title={label}
+        align="start"
         triggerClassName="bsh-viewer-models__trigger"
         trigger={
           <>
