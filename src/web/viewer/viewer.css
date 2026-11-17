@@ -201,6 +201,10 @@
   fill: var(--color-mock-selected);
 }
 
+.bsh-mock__el--dim {
+  opacity: 0.12;
+}
+
 .bsh-mock__el--themed {
   stroke: var(--color-snow);
 }

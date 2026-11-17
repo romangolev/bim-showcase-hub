@@ -137,6 +137,41 @@ def check_summary_rail(page, checks):
     checks.add("expanding the summary restores the viewer width", abs(restored - before) <= 2, f"{before} -> {restored}")
 
 
+def check_summary_tools(page, checks):
+    pane = page.locator(".pane-summary").first
+    pane.locator("tbody tr").first.wait_for(timeout=8000)
+    rows = pane.locator("tbody tr").count()
+    pane.get_by_label("Filter summary rows").fill("zzz-no-match")
+    settle(page, 200)
+    checks.add("summary filter hides non-matching rows", pane.locator("tbody tr").count() == 0, pane.locator("tbody tr").count())
+    pane.get_by_label("Filter summary rows").fill("")
+    settle(page, 200)
+    checks.add("clearing the filter restores the rows", pane.locator("tbody tr").count() == rows, pane.locator("tbody tr").count())
+    pane.locator("summary", has_text="View options").click()
+    pane.get_by_label("Density").select_option("compact")
+    checks.add("density is compact", pane.locator("section[data-density='compact']").count() == 1)
+    pane.get_by_label("Density").select_option("comfortable")
+    first = pane.locator("tbody .bsh-row-pick").first
+    first.click()
+    settle(page, 300)
+    selected = page.locator(".bsh-mock__el--selected").count()
+    checks.add("clicking a summary value selects elements in the viewer", selected >= 1, selected)
+    pane.get_by_label("Row click").select_option("isolate")
+    pane.locator("tbody .bsh-row-pick").first.click()
+    settle(page, 300)
+    dim = page.locator(".bsh-mock__el--dim").count()
+    checks.add("isolating dims the other elements", dim >= 1, dim)
+    pane.get_by_role("button", name="Show all elements").click()
+    settle(page, 200)
+    checks.add("show all restores the elements", page.locator(".bsh-mock__el--dim").count() == 0)
+    pane.get_by_label("Row click").select_option("select")
+    with page.expect_download(timeout=8000) as info:
+        pane.get_by_role("button", name="Download CSV").click()
+    name = info.value.suggested_filename
+    checks.add("summary CSV downloads", name.endswith("-summary.csv"), name)
+    pane.get_by_role("button", name="Reset view").click()
+
+
 def check_tree_resize(page, checks):
     toggle = page.get_by_role("button", name=TREE_TOGGLE).first
     before = viewer_width(page)
@@ -851,7 +886,7 @@ def run_interaction_checks(page, checks, notes):
     except Exception as exc:
         page.screenshot(path=str(OUTPUT_DIR / "mock-layout-failure.png"))
         checks.add("check_layout", False, f"{type(exc).__name__}: {str(exc)[:160]}")
-    for check in (check_theme, check_summary_rail, check_tree_resize):
+    for check in (check_theme, check_summary_rail, check_summary_tools, check_tree_resize):
         try:
             check(page, checks)
         except Exception as exc:
@@ -910,6 +945,7 @@ def shoot_hint(page, name):
 def run_variant(context, checks, notes):
     page = context.new_page()
     watch(page, notes)
+    page.on("dialog", lambda dialog: dialog.accept())
     page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
     page.goto(BASE_URL, wait_until="networkidle")
     settle(page, 1200)

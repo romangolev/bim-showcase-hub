@@ -149,6 +149,7 @@ export class FakeFederatedViewer implements GuiViewer3D {
   themed: { model: ViewerModel | undefined; dbId: number }[] = [];
   cleared: (ViewerModel | undefined)[] = [];
   fits = 0;
+  isolated = new Map<FakeModel, number[]>();
   fitted: ViewerBox[] = [];
   placed: { urn: string; elements: number[] }[] = [];
   impl = {
@@ -239,6 +240,10 @@ export class FakeFederatedViewer implements GuiViewer3D {
   select(ids: number[], model: ViewerModel): void {
     this.selections.set(this.own(model), [...ids]);
     this.fire();
+  }
+
+  isolate(ids: number[], model: ViewerModel): void {
+    this.isolated.set(this.own(model), [...ids]);
   }
 
   showModel(model: ViewerModel | number): boolean {

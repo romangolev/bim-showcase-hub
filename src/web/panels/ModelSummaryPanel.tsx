@@ -2,9 +2,28 @@ import { useId, useMemo, useState } from 'react';
 import { Icon } from '../components/icons.js';
 import { StateBlock } from '../components/StateBlock.js';
 import {
+  ACTION_LABELS,
+  ELEMENT_ACTIONS,
+  type ElementAction,
+  itemsWithValues,
+  runElementAction,
+  sanitizeAction,
+  showAllElements,
+} from '../extensions/elementActions.js';
+import { saveBlob } from '../extensions/excelExport.js';
+import { applyNamePattern, toDelimited } from '../extensions/exportFormats.js';
+import {
   DEFAULT_SUMMARY_PROPERTIES,
+  DEFAULT_SUMMARY_VIEW,
+  emptyShares,
+  SUMMARY_COLUMNS,
+  type SummaryColumn,
   type SummaryEntry,
+  type SummaryView,
+  sanitizeView,
   summarize,
+  summaryTable,
+  viewEntries,
 } from '../extensions/modelSummary.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import {
@@ -12,7 +31,8 @@ import {
   UnavailableModels,
   useModelScope,
 } from './ModelScope.js';
-import { SummaryTable } from './SummaryTable.js';
+import { entryKey, SummaryTable } from './SummaryTable.js';
+import { usePersistedState } from './usePersistedState.js';
 import {
   HIDDEN_MESSAGE,
   HIDDEN_TITLE,
@@ -65,6 +85,62 @@ export function ModelSummaryPanel({
     [state.status, scope.rows, propertyNames],
   );
 
+  const [view, setView, resetView] = usePersistedState<SummaryView>(
+    'bsh.summary.view.v1',
+    DEFAULT_SUMMARY_VIEW,
+    sanitizeView,
+  );
+  const [action, setAction] = usePersistedState<ElementAction>(
+    'bsh.summary.action.v1',
+    'select',
+    sanitizeAction,
+  );
+  const [active, setActive] = useState<string | null>(null);
+  const [notice, setNotice] = useState('');
+  const shown = useMemo(() => viewEntries(entries, view), [entries, view]);
+  const shares = useMemo(
+    () => emptyShares(entries).filter((share) => share.percent > 0),
+    [entries],
+  );
+  const patch = (next: Partial<SummaryView>) =>
+    setView((prev) => ({ ...prev, ...next }));
+  const toggleColumn = (column: SummaryColumn) =>
+    patch({
+      hiddenColumns: view.hiddenColumns.includes(column)
+        ? view.hiddenColumns.filter((c) => c !== column)
+        : [...view.hiddenColumns, column],
+    });
+
+  const pick = (entry: SummaryEntry) => {
+    if (!resolved) return;
+    runElementAction(
+      resolved,
+      action,
+      itemsWithValues(scope.rows, entry.property, new Set([entry.value])),
+    );
+    setActive(entryKey(entry));
+  };
+
+  const table = () => summaryTable(shown, view.hiddenColumns);
+  const copyTable = async () => {
+    const { header, rows } = table();
+    try {
+      await navigator.clipboard.writeText(toDelimited(header, rows, '\t'));
+      setNotice(`Copied ${rows.length} rows`);
+    } catch {
+      setNotice('Could not copy to the clipboard');
+    }
+  };
+  const downloadCsv = () => {
+    const { header, rows } = table();
+    saveBlob(
+      new Blob(['\uFEFF', toDelimited(header, rows, ',')], {
+        type: 'text/csv;charset=utf-8',
+      }),
+      applyNamePattern('{model}-summary', model?.label ?? 'model', 'csv'),
+    );
+  };
+
   const toggle = () => {
     const next = !isCollapsed;
     if (collapsed === undefined) setInnerCollapsed(next);
@@ -80,7 +156,8 @@ export function ModelSummaryPanel({
       className={`bsh-card bsh-summary ${className ?? ''}`.trim()}
       aria-labelledby={titleId}
       data-collapsed={isCollapsed}
-      data-rows-collapsed={!showAll && entries.length > STACKED_ROW_LIMIT}
+      data-density={view.density}
+      data-rows-collapsed={!showAll && shown.length > STACKED_ROW_LIMIT}
     >
       <header className="bsh-card__header bsh-summary__header">
         <h2 id={titleId} className="bsh-card__title bsh-summary__title">
@@ -166,15 +243,163 @@ export function ModelSummaryPanel({
               action={{ label: 'Refresh', onClick: state.reload }}
             />
           )}
-          {entries.length > 0 && <SummaryTable entries={entries} />}
-          {entries.length > STACKED_ROW_LIMIT && (
+          {entries.length > 0 && (
+            <div className="bsh-summary__tools">
+              <input
+                type="search"
+                className="bsh-input"
+                aria-label="Filter summary rows"
+                placeholder="Filter"
+                value={view.text}
+                onChange={(e) => patch({ text: e.target.value })}
+              />
+              <button type="button" className="bsh-button" onClick={copyTable}>
+                Copy table
+              </button>
+              <button
+                type="button"
+                className="bsh-button"
+                onClick={downloadCsv}
+              >
+                Download CSV
+              </button>
+              <span role="status" className="bsh-summary__notice">
+                {notice}
+              </span>
+              <details className="bsh-details bsh-summary__options">
+                <summary>View options</summary>
+                <label className="bsh-field">
+                  <input
+                    type="checkbox"
+                    checked={view.hideEmpty}
+                    onChange={(e) => patch({ hideEmpty: e.target.checked })}
+                  />
+                  Hide (empty)
+                </label>
+                <label className="bsh-field">
+                  Minimum count
+                  <input
+                    type="number"
+                    min={1}
+                    className="bsh-input bsh-input--narrow"
+                    value={view.minCount}
+                    onChange={(e) =>
+                      patch({
+                        minCount: Math.max(1, Math.floor(+e.target.value || 1)),
+                      })
+                    }
+                  />
+                </label>
+                <label className="bsh-field">
+                  Sort by
+                  <select
+                    className="bsh-select"
+                    value={view.sort}
+                    onChange={(e) =>
+                      patch({
+                        sort: e.target.value === 'value' ? 'value' : 'count',
+                      })
+                    }
+                  >
+                    <option value="count">Count</option>
+                    <option value="value">Value</option>
+                  </select>
+                </label>
+                <label className="bsh-field">
+                  Density
+                  <select
+                    className="bsh-select"
+                    value={view.density}
+                    onChange={(e) =>
+                      patch({
+                        density:
+                          e.target.value === 'compact'
+                            ? 'compact'
+                            : 'comfortable',
+                      })
+                    }
+                  >
+                    <option value="comfortable">Comfortable</option>
+                    <option value="compact">Compact</option>
+                  </select>
+                </label>
+                <label className="bsh-field">
+                  Row click
+                  <select
+                    className="bsh-select"
+                    value={action}
+                    onChange={(e) => setAction(sanitizeAction(e.target.value))}
+                  >
+                    {ELEMENT_ACTIONS.map((name) => (
+                      <option key={name} value={name}>
+                        {ACTION_LABELS[name]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <fieldset className="bsh-fieldset">
+                  <legend>Columns</legend>
+                  {SUMMARY_COLUMNS.map((column) => (
+                    <label key={column} className="bsh-field">
+                      <input
+                        type="checkbox"
+                        checked={!view.hiddenColumns.includes(column)}
+                        onChange={() => toggleColumn(column)}
+                      />
+                      {column}
+                    </label>
+                  ))}
+                </fieldset>
+                <button
+                  type="button"
+                  className="bsh-button"
+                  onClick={() => resolved && showAllElements(resolved)}
+                >
+                  Show all elements
+                </button>
+                <button
+                  type="button"
+                  className="bsh-button"
+                  onClick={resetView}
+                >
+                  Reset view
+                </button>
+              </details>
+              {shares.length > 0 && (
+                <ul className="bsh-summary__shares" aria-label="Empty values">
+                  {shares.map((share) => (
+                    <li key={share.property} className="bsh-badge">
+                      {share.property}: {share.percent}% empty
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+          {entries.length > 0 && shown.length === 0 && (
+            <StateBlock
+              variant="empty"
+              compact
+              title="No rows match"
+              message="Change the filter, or reset the view in View options."
+            />
+          )}
+          {shown.length > 0 && (
+            <SummaryTable
+              entries={shown}
+              hiddenColumns={view.hiddenColumns}
+              activeKey={active}
+              onPick={pick}
+            />
+          )}
+          {shown.length > STACKED_ROW_LIMIT && (
             <button
               type="button"
               className="bsh-button summary-toggle"
               aria-expanded={showAll}
               onClick={() => setShowAll((value) => !value)}
             >
-              {showAll ? 'Show fewer rows' : `Show all ${entries.length} rows`}
+              {showAll ? 'Show fewer rows' : `Show all ${shown.length} rows`}
             </button>
           )}
         </div>

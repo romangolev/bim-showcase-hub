@@ -69,6 +69,9 @@ export interface ViewerAdapter {
   onModelsChange(cb: (models: ModelInfo[]) => void): () => void;
   getModelSelection(): ModelDbId[];
   getIsolated?(): ModelDbId[];
+  selectModelIds?(items: readonly ModelDbId[]): void;
+  isolateModelIds?(items: readonly ModelDbId[]): void;
+  fitToSelection?(): void;
   setModelThemingColor(items: readonly ModelDbId[], color: Rgba): void;
   getSpread(): ModelSpread | null;
   getTogetherOffsets(): Record<string, Vec3>;

@@ -202,6 +202,16 @@ function toPropertyValue(value: unknown): string | number | boolean | null {
   return String(value);
 }
 
+function groupByModel(items: readonly ModelDbId[]): Map<string, number[]> {
+  const byModel = new Map<string, number[]>();
+  for (const { modelId, dbId } of items) {
+    const ids = byModel.get(modelId);
+    if (ids) ids.push(dbId);
+    else byModel.set(modelId, [dbId]);
+  }
+  return byModel;
+}
+
 export class RealViewerAdapter implements ViewerAdapter {
   private viewer: GuiViewer3D | null = null;
   private destroyed = false;
@@ -543,6 +553,29 @@ export class RealViewerAdapter implements ViewerAdapter {
             .getIsolatedNodes?.(handle)
             .map((dbId) => ({ modelId: info.id, dbId })) ?? [],
       );
+  }
+
+  selectModelIds(items: readonly ModelDbId[]): void {
+    const viewer = this.viewer;
+    if (!viewer?.select) return;
+    const byModel = groupByModel(items);
+    for (const { info, handle } of this.models.shown()) {
+      viewer.select(byModel.get(info.id) ?? [], handle);
+    }
+  }
+
+  isolateModelIds(items: readonly ModelDbId[]): void {
+    const viewer = this.viewer;
+    if (!viewer?.isolate) return;
+    const byModel = groupByModel(items);
+    for (const { info, handle } of this.models.shown()) {
+      const ids = byModel.get(info.id);
+      if (ids || items.length === 0) viewer.isolate(ids ?? [], handle);
+    }
+  }
+
+  fitToSelection(): void {
+    this.viewer?.fitToView?.();
   }
 
   setModelThemingColor(items: readonly ModelDbId[], color: Rgba): void {

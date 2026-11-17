@@ -536,3 +536,36 @@ describe('models far apart', () => {
     expect(viewer().fits).toBe(1);
   });
 });
+
+describe('selecting and isolating by model', () => {
+  it('selects per model and isolates only models with matches', async () => {
+    await adapter.loadModels([{ urn: 'arch' }, { urn: 'str' }]);
+    adapter.selectModelIds([
+      { modelId: 'arch', dbId: 3 },
+      { modelId: 'arch', dbId: 4 },
+      { modelId: 'str', dbId: 9 },
+    ]);
+    expect(adapter.getModelSelection()).toEqual([
+      { modelId: 'arch', dbId: 3 },
+      { modelId: 'arch', dbId: 4 },
+      { modelId: 'str', dbId: 9 },
+    ]);
+    adapter.selectModelIds([{ modelId: 'str', dbId: 9 }]);
+    expect(adapter.getModelSelection()).toEqual([{ modelId: 'str', dbId: 9 }]);
+    adapter.isolateModelIds([{ modelId: 'arch', dbId: 3 }]);
+    const arch = viewer().modelOf('arch');
+    const str = viewer().modelOf('str');
+    expect(viewer().isolated.get(arch)).toEqual([3]);
+    expect(viewer().isolated.has(str)).toBe(false);
+    adapter.isolateModelIds([]);
+    expect(viewer().isolated.get(arch)).toEqual([]);
+    expect(viewer().isolated.get(str)).toEqual([]);
+  });
+
+  it('fits the view to the selection', async () => {
+    await adapter.loadModels([{ urn: 'arch' }]);
+    const before = viewer().fits;
+    adapter.fitToSelection();
+    expect(viewer().fits).toBe(before + 1);
+  });
+});

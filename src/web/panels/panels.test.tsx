@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { installMemoryStorage } from '../test/mockApi.js';
 import { act, fireEvent, render, screen, waitFor } from '../test/render.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
 import { DashboardPanel } from './DashboardPanel.js';
@@ -365,5 +366,83 @@ describe('every model hidden', () => {
     act(() => adapter.setModelVisible('urn-b', true));
     await screen.findAllByRole('cell', { name: 'Walls' });
     expect(screen.queryByText('All models are hidden')).toBeNull();
+  });
+});
+
+describe('summary view, copy and row actions', () => {
+  beforeEach(() => {
+    installMemoryStorage();
+  });
+
+  it('filters rows by text and resets', async () => {
+    const adapter = await loaded();
+    render(
+      <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />,
+    );
+    await screen.findByRole('cell', { name: 'Walls' });
+    fireEvent.change(screen.getByLabelText('Filter summary rows'), {
+      target: { value: 'door' },
+    });
+    expect(screen.queryByRole('cell', { name: 'Walls' })).toBeNull();
+    expect(screen.getByRole('cell', { name: 'Doors' })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Filter summary rows'), {
+      target: { value: 'zzz' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Reset view' }));
+    expect(screen.getByRole('cell', { name: 'Walls' })).toBeInTheDocument();
+  });
+
+  it('persists density and hides a column', async () => {
+    const adapter = await loaded();
+    const { container } = render(
+      <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />,
+    );
+    await screen.findByRole('cell', { name: 'Walls' });
+    fireEvent.change(screen.getByLabelText('Density'), {
+      target: { value: 'compact' },
+    });
+    fireEvent.click(screen.getByLabelText('property'));
+    expect(container.querySelector('section')).toHaveAttribute(
+      'data-density',
+      'compact',
+    );
+    expect(screen.queryByRole('columnheader', { name: 'Property' })).toBeNull();
+    expect(
+      JSON.parse(window.localStorage.getItem('bsh.summary.view.v1') ?? '{}'),
+    ).toMatchObject({ density: 'compact', hiddenColumns: ['property'] });
+  });
+
+  it('copies the visible rows as tab separated text', async () => {
+    const adapter = await loaded();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', { clipboard: { writeText } });
+    render(
+      <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />,
+    );
+    await screen.findByRole('cell', { name: 'Walls' });
+    fireEvent.click(screen.getByRole('button', { name: 'Copy table' }));
+    await waitFor(() => expect(writeText).toHaveBeenCalled());
+    expect(writeText.mock.calls[0]?.[0]).toMatch(
+      /^Property\tValue\tCount\r\nCategory\tWalls\t\d+/,
+    );
+    vi.unstubAllGlobals();
+  });
+
+  it('selects and isolates the elements of a clicked value', async () => {
+    const adapter = await loaded();
+    render(
+      <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Walls' }));
+    const walls = adapter.getModelSelection();
+    expect(walls.length).toBeGreaterThan(1);
+    fireEvent.change(screen.getByLabelText('Row click'), {
+      target: { value: 'isolate' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Doors' }));
+    expect(adapter.getIsolated().length).toBeGreaterThan(0);
+    expect(adapter.getIsolated().length).not.toBe(walls.length);
+    fireEvent.click(screen.getByRole('button', { name: 'Show all elements' }));
+    expect(adapter.getIsolated()).toEqual([]);
   });
 });

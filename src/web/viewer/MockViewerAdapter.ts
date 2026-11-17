@@ -242,6 +242,7 @@ export class MockViewerAdapter implements ViewerAdapter {
   private toolbar: HTMLDivElement | null = null;
   private status: HTMLDivElement | null = null;
   private selection = new Set<string>();
+  private isolated: Set<string> | null = null;
   private readonly models = new ModelSet<MockScene>();
   private readonly themed = new Map<string, Rgba>();
   private readonly listeners = new Set<(items: ModelDbId[]) => void>();
@@ -413,6 +414,29 @@ export class MockViewerAdapter implements ViewerAdapter {
     );
   }
 
+  getIsolated(): ModelDbId[] {
+    return this.isolated ? [...this.isolated].map(parseKey) : [];
+  }
+
+  isolateModelIds(items: readonly ModelDbId[]): void {
+    const keys = items
+      .filter((item) => this.nodeOf(item.modelId, item.dbId))
+      .map((item) => selectionKey(item.modelId, item.dbId));
+    this.isolated = keys.length > 0 ? new Set(keys) : null;
+    this.applyIsolation();
+  }
+
+  private applyIsolation(): void {
+    for (const { info, handle } of this.models.ready()) {
+      for (const [dbId, node] of handle.nodes) {
+        const dim =
+          this.isolated !== null &&
+          !this.isolated.has(selectionKey(info.id, dbId));
+        node.classList.toggle('bsh-mock__el--dim', dim);
+      }
+    }
+  }
+
   setModelThemingColor(items: readonly ModelDbId[], color: Rgba): void {
     for (const { modelId, dbId } of items) {
       const node = this.nodeOf(modelId, dbId);
@@ -427,6 +451,7 @@ export class MockViewerAdapter implements ViewerAdapter {
     for (const scene of this.models.clear()) scene.group.remove();
     this.svg?.replaceChildren();
     this.themed.clear();
+    this.isolated = null;
     this.bounds = null;
     this.loaded = false;
     this.placed = 0;
