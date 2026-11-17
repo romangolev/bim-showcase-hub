@@ -62,7 +62,7 @@ describe('AppShell session expiry', () => {
       '/api/session': {
         name: 'Ada',
         picture: null,
-        expiresAt: Date.now() + 4 * 60_000,
+        expiresInMs: 4 * 60_000,
       },
       ...treeRoutes,
     });

@@ -69,6 +69,7 @@ export function authRouter(
       ...user,
       appClientId: config.aps.clientId,
       expiresAt,
+      expiresInMs: Math.max(0, expiresAt - Date.now()),
     } satisfies SessionUser);
   });
 

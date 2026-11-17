@@ -91,6 +91,19 @@ describe('createApsDataService', () => {
     });
   });
 
+  it('fails with a 502 when a list never ends', async () => {
+    const client = fakeClient();
+    client.getFolderContents.mockResolvedValue({
+      data: [],
+      links: { next: { href: 'x' } },
+    });
+    const service = createApsDataService(client as never);
+    await expect(
+      service.listFolderContents('tok', 'b.p', 'f1'),
+    ).rejects.toMatchObject({ status: 502, message: 'list too large' });
+    expect(client.getFolderContents).toHaveBeenCalledTimes(200);
+  });
+
   it('checks one version on demand without listing the item', async () => {
     const client = fakeClient();
     const versions: Record<string, unknown> = {

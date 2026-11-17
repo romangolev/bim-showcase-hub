@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { BSH_KEYS, FORGET_EVENT, readJson, writeJson } from '../storage.js';
 
 const SYNC_EVENT = 'bsh:persisted-state';
@@ -12,6 +12,8 @@ export function usePersistedState<T>(
     const raw = readJson<unknown>(key, undefined);
     return raw === undefined ? initial : sanitize(raw);
   });
+  const sanitizeRef = useRef(sanitize);
+  sanitizeRef.current = sanitize;
   useEffect(() => {
     const onSync = (event: Event) => {
       const detail = (event as CustomEvent<{ key: string; value: T }>).detail;
@@ -22,10 +24,17 @@ export function usePersistedState<T>(
         setValue(initial);
       }
     };
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== key) return;
+      const raw = readJson<unknown>(key, undefined);
+      setValue(raw === undefined ? initial : sanitizeRef.current(raw));
+    };
     window.addEventListener(SYNC_EVENT, onSync);
+    window.addEventListener('storage', onStorage);
     window.addEventListener(FORGET_EVENT, onForget);
     return () => {
       window.removeEventListener(SYNC_EVENT, onSync);
+      window.removeEventListener('storage', onStorage);
       window.removeEventListener(FORGET_EVENT, onForget);
     };
   }, [key, initial]);

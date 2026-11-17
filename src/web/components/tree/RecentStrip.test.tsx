@@ -6,7 +6,7 @@ import {
   SettingsProvider,
 } from '../../settings/index.js';
 import { installMemoryStorage } from '../../test/mockApi.js';
-import { RecentStrip, sanitizePins } from './RecentStrip.js';
+import { MAX_PINS, RecentStrip, sanitizePins } from './RecentStrip.js';
 
 beforeEach(() => {
   installMemoryStorage();
@@ -102,5 +102,14 @@ describe('RecentStrip', () => {
       { urn: 'b', file: 'B' },
     ]);
     expect(sanitizePins('x')).toEqual([]);
+  });
+});
+
+describe('sanitizePins cap', () => {
+  it('keeps at most the pin limit', () => {
+    const raw = Array.from({ length: MAX_PINS + 10 }, (_, i) => `urn-${i}`);
+    const pins = sanitizePins(raw);
+    expect(pins).toHaveLength(MAX_PINS);
+    expect(pins[0]?.urn).toBe('urn-0');
   });
 });

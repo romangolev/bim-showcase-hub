@@ -31,6 +31,7 @@ export interface SessionUser {
   picture: string | null;
   appClientId?: string;
   expiresAt?: number;
+  expiresInMs?: number;
 }
 
 export interface ViewerToken {

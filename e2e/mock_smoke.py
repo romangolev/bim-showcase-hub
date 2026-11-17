@@ -459,10 +459,9 @@ def check_lock_maximize(page, checks):
 
 def check_session_banner(page, checks):
     import json
-    import time
 
     def serve(offset_ms):
-        body = json.dumps({"name": MOCK_USER_NAME, "picture": None, "expiresAt": int(time.time() * 1000) + offset_ms})
+        body = json.dumps({"name": MOCK_USER_NAME, "picture": None, "expiresInMs": offset_ms})
         page.route("**/api/session", lambda route: route.fulfill(status=200, content_type="application/json", body=body))
 
     page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})

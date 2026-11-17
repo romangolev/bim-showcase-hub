@@ -47,9 +47,9 @@ async function allPages<T>(
     const res = await fetchPage(page);
     all.push(...(res?.data ?? []));
     const next = (res?.links as { next?: unknown } | undefined)?.next;
-    if (!next || !paged) break;
+    if (!next || !paged) return all;
   }
-  return all;
+  throw new HttpError(502, 'list too large');
 }
 
 export function createApsDataService(

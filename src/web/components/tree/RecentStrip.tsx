@@ -18,6 +18,8 @@ export interface Pin extends ModelContext {
   urn: string;
 }
 
+export const MAX_PINS = 50;
+
 export function sanitizePins(raw: unknown): Pin[] {
   if (!Array.isArray(raw)) return [];
   const pins = new Map<string, Pin>();
@@ -29,7 +31,7 @@ export function sanitizePins(raw: unknown): Pin[] {
     );
     pins.set(urn, { urn, ...context });
   }
-  return [...pins.values()];
+  return [...pins.values()].slice(0, MAX_PINS);
 }
 
 export interface RecentStripProps {
@@ -112,7 +114,7 @@ export function RecentStrip({ selectedUrn, onOpen }: RecentStripProps) {
     setPins((current) =>
       current.some((pin) => pin.urn === entry.urn)
         ? current.filter((pin) => pin.urn !== entry.urn)
-        : [{ urn: entry.urn, ...entry.context }, ...current],
+        : [{ urn: entry.urn, ...entry.context }, ...current].slice(0, MAX_PINS),
     );
   if (pinned.length === 0 && recent.length === 0) return null;
   const section = (heading: string, entries: Entry[]) =>

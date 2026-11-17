@@ -18,7 +18,9 @@ export function SessionBanner() {
     const id = window.setInterval(() => setNow(Date.now()), TICK_MS);
     return () => window.clearInterval(id);
   }, []);
-  const expiresAt = session.data?.expiresAt;
+  const expiresInMs = session.data?.expiresInMs;
+  const expiresAt =
+    expiresInMs === undefined ? undefined : session.dataUpdatedAt + expiresInMs;
   const expired = ended || (expiresAt !== undefined && expiresAt <= now);
   const warn = settings.sessionWarnMinutes;
   const soon =
