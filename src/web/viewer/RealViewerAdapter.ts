@@ -979,7 +979,9 @@ export class RealViewerAdapter implements ViewerAdapter {
       const properties: PropertyRow['properties'] = {};
       for (const name of propertyNames) properties[name] = null;
       for (const prop of item.properties) {
-        properties[prop.displayName] = toPropertyValue(prop.displayValue);
+        if (properties[prop.displayName] === null) {
+          properties[prop.displayName] = toPropertyValue(prop.displayValue);
+        }
       }
       return { dbId: item.dbId, name: item.name, properties };
     });

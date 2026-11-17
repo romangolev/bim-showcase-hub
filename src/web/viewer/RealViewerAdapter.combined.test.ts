@@ -397,6 +397,34 @@ describe('federated selection, paint and properties', () => {
     await expect(adapter.getLeafProperties(['Category'])).rejects.toThrow('db');
   });
 
+  it('keeps the first value when two categories share a property name', async () => {
+    env.specs.set('a', { categories: ['Walls'] });
+    await adapter.loadModels([{ urn: 'a', name: 'Arch' }]);
+    vi.spyOn(viewer().modelOf('a'), 'getBulkProperties').mockImplementation(
+      (ids, _opts, ok) =>
+        ok(
+          ids.map((dbId) => ({
+            dbId,
+            name: 'x',
+            properties: [
+              {
+                displayName: 'Level',
+                displayValue: 'L1',
+                displayCategory: 'A',
+              },
+              {
+                displayName: 'Level',
+                displayValue: 'L2',
+                displayCategory: 'B',
+              },
+            ],
+          })),
+        ),
+    );
+    const rows = await adapter.getLeafProperties(['Level']);
+    expect(rows.every((row) => row.properties.Level === 'L1')).toBe(true);
+  });
+
   it('tags its container so scripts find this viewer', async () => {
     await adapter.loadModels([{ urn: 'a' }]);
     const tagged = host as HTMLElement & { bshViewer?: unknown };
