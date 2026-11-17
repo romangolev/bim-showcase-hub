@@ -153,11 +153,15 @@ async function readModel(
       items.set(item.dbId, item);
     }
   }
+  const groups = new Map<number, PropertyGroups>();
   const references = new Map<number, number>();
   for (const dbId of ids) {
     const item = items.get(dbId);
-    const ref = item ? levelReference(item) : null;
-    if (item && ref !== null && !hasPlainLevel(groupsOf(item))) {
+    if (!item) continue;
+    const itemGroups = groupsOf(item);
+    groups.set(dbId, itemGroups);
+    const ref = levelReference(item);
+    if (ref !== null && !hasPlainLevel(itemGroups)) {
       references.set(dbId, ref);
     }
   }
@@ -175,9 +179,10 @@ async function readModel(
       dbId,
       ...(externalId ? { externalId } : {}),
       name: item?.name ?? '',
-      properties: item
-        ? withLevel(groupsOf(item), levelNames.get(references.get(dbId) ?? -1))
-        : {},
+      properties: withLevel(
+        groups.get(dbId) ?? {},
+        levelNames.get(references.get(dbId) ?? -1),
+      ),
       parts: byDbId.get(dbId) ?? [],
     };
   });

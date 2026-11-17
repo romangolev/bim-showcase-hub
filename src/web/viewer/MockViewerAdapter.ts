@@ -343,7 +343,7 @@ export class MockViewerAdapter implements ViewerAdapter {
   }
 
   async getGeometryParts(): Promise<GeometryRead> {
-    const ready = this.models.ready();
+    const ready = this.models.shown();
     if (ready.length === 0) throw new Error('No geometry to export');
     return {
       parts: ready.map(({ info, handle }, index) =>
@@ -354,7 +354,7 @@ export class MockViewerAdapter implements ViewerAdapter {
   }
 
   async getIfcSource(): Promise<IfcSourceRead> {
-    const ready = this.models.ready();
+    const ready = this.models.shown();
     if (ready.length === 0) throw new Error('No geometry to export');
     return {
       skipped: 0,

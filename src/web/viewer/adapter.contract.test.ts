@@ -221,3 +221,18 @@ describe('mock models far apart', () => {
     expect(group()?.dataset.offset).toBe('original');
   });
 });
+
+describe('mock exports skip hidden models', () => {
+  it('leaves a hidden model out of the GLB and IFC sources', async () => {
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    adapter = new MockViewerAdapter(host);
+    await adapter.loadModels([{ urn: 'urn-a' }, { urn: 'urn-b' }]);
+    expect((await adapter.getGeometryParts()).parts).toHaveLength(2);
+    expect((await adapter.getIfcSource()).models).toHaveLength(2);
+    adapter.setModelVisible('urn-b', false);
+    expect((await adapter.getGeometryParts()).parts).toHaveLength(1);
+    const { models } = await adapter.getIfcSource();
+    expect(models.map((model) => model.urn)).toEqual(['urn-a']);
+  });
+});

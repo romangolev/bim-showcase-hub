@@ -10,6 +10,11 @@ describe('stepString', () => {
     expect(stepString('a\\b')).toBe("'a\\\\b'");
   });
 
+  it('encodes characters outside the BMP as X4', () => {
+    expect(stepString('a😀b')).toBe("'a\\X4\\0001F600\\X0\\b'");
+    expect(stepString('é😀')).toBe("'\\X2\\00E9\\X0\\\\X4\\0001F600\\X0\\'");
+  });
+
   it('encodes non-ASCII as X2 runs', () => {
     expect(stepString('Café')).toBe("'Caf\\X2\\00E9\\X0\\'");
     expect(stepString('Ё1')).toBe("'\\X2\\0401\\X0\\1'");

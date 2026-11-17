@@ -49,7 +49,7 @@ function findProperty(
 
 function validMesh(mesh: IfcMesh): boolean {
   const vertices = mesh.positions.length / 3;
-  if (!Number.isInteger(vertices) || vertices === 0) return false;
+  if (!Number.isInteger(vertices) || vertices < 3) return false;
   if (mesh.indices.length < 3 || mesh.indices.length % 3 !== 0) return false;
   for (const index of mesh.indices) if (index >= vertices) return false;
   return true;

@@ -7,12 +7,14 @@ export function stepString(value: string): string {
       run = '';
     }
   };
-  for (let i = 0; i < value.length; i += 1) {
-    const code = value.charCodeAt(i);
+  for (const char of value) {
+    const code = char.codePointAt(0) as number;
     if (code >= 32 && code <= 126) {
       flush();
-      const char = value[i] as string;
       out += char === "'" ? "''" : char === '\\' ? '\\\\' : char;
+    } else if (code > 0xffff) {
+      flush();
+      out += `\\X4\\${code.toString(16).toUpperCase().padStart(8, '0')}\\X0\\`;
     } else {
       run += code.toString(16).toUpperCase().padStart(4, '0');
     }

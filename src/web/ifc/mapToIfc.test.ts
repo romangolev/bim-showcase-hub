@@ -297,6 +297,21 @@ describe('mapToIfc', () => {
     expect(elements?.[1]?.meshes).toHaveLength(1);
   });
 
+  it('drops a mesh with fewer than three vertices', () => {
+    const tiny = el({
+      dbId: 2,
+      parts: [
+        {
+          positions: new Float32Array([0, 0, 0, 1, 0, 0]),
+          indices: new Uint16Array([0, 1, 1]),
+        },
+      ],
+    });
+    const model = map(source([el(), tiny]));
+    const elements = model.buildings[0]?.storeys.flatMap((s) => s.elements);
+    expect(elements).toHaveLength(1);
+  });
+
   it('is deterministic', () => {
     expect(JSON.stringify(map(source([el()])))).toBe(
       JSON.stringify(map(source([el()]))),
