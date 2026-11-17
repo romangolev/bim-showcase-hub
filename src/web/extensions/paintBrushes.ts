@@ -71,11 +71,15 @@ export function paletteToPresets(
   palette: readonly string[],
   intensity: number,
 ): PaintPreset[] {
-  return palette.map((hex) => {
+  const seen = new Set<string>();
+  return palette.map((hex, index) => {
+    const base = `paint-${hex.slice(1)}`;
+    const id = seen.has(base) ? `${base}-${index}` : base;
+    seen.add(id);
     const known = PAINT_PRESETS.find((preset) => preset.swatch === hex);
     const colorName = known?.colorName ?? hex.toUpperCase();
     return {
-      id: `paint-${hex.slice(1)}`,
+      id,
       colorName,
       label: `Paint selected items in ${known ? colorName.toLowerCase() : colorName}`,
       color: hexToRgba(hex, intensity),

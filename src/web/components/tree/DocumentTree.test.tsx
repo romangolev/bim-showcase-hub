@@ -100,6 +100,51 @@ describe('DocumentTree metadata', () => {
   });
 });
 
+describe('DocumentTree sort', () => {
+  it('re-sorts a loaded folder that was collapsed when the sort changed', async () => {
+    installMemoryStorage();
+    const files = [
+      {
+        ...item,
+        id: 'i-b',
+        name: 'b.rvt',
+        modifiedAt: '2025-05-01T00:00:00.000Z',
+      },
+      {
+        ...item,
+        id: 'i-a',
+        name: 'a.rvt',
+        modifiedAt: '2025-03-04T00:00:00.000Z',
+      },
+    ];
+    mockFetch({
+      ...treeRoutes,
+      '/api/projects/p1/folders/f1/contents': () => json(files),
+    });
+    render(
+      <QueryClientProvider client={createTestClient()}>
+        <DocumentTree onOpenModel={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    await expandTo('Studio hub');
+    await expandTo('Riverside Tower');
+    await expandTo('Project Files');
+    await screen.findByText('a.rvt');
+    await expandTo('Project Files');
+    await waitFor(() =>
+      expect(screen.queryByText('a.rvt')).not.toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Documents view' }));
+    fireEvent.click(await screen.findByText('Sort by modified'));
+    await expandTo('Project Files');
+    await screen.findByText('a.rvt');
+    const rows = screen.getAllByRole('treeitem').map((row) => row.textContent);
+    expect(rows.findIndex((t) => t?.includes('b.rvt'))).toBeLessThan(
+      rows.findIndex((t) => t?.includes('a.rvt')),
+    );
+  });
+});
+
 describe('DocumentTree', () => {
   it('Refresh documents refetches the loaded folders', async () => {
     const fetchMock = mockFetch(treeRoutes);

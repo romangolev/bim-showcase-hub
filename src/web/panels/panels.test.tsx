@@ -163,7 +163,9 @@ describe('DashboardPanel', () => {
         name: 'Bar chart of element counts by Category',
       }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('list', { name: /Legend/ })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('list', { name: /Legend/ }),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('img', {
         name: 'Doughnut chart of element share by Category',
@@ -470,7 +472,9 @@ describe('dashboard presets and cross-filter', () => {
       await screen.findByRole('button', { name: 'Model health' }),
     );
     expect(
-      screen.getByRole('img', { name: 'Bar chart of element counts by Level' }),
+      await screen.findByRole('img', {
+        name: 'Bar chart of element counts by Level',
+      }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole('img', {
@@ -478,13 +482,16 @@ describe('dashboard presets and cross-filter', () => {
       }),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'By discipline' }));
+    await screen.findByRole('button', { name: 'Single chart' });
     expect(
       screen.queryByRole('img', {
         name: 'Bar chart of element counts by Discipline',
       }),
     ).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Single chart' }));
-    expect(screen.getByRole('list', { name: /Legend/ })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('list', { name: /Legend/ }),
+    ).toBeInTheDocument();
   });
 
   it('selects the elements of a clicked bar', async () => {

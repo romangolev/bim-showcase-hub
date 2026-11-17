@@ -560,11 +560,11 @@ export function DocumentTree({
     if (seenSort.current === view.sort) return;
     seenSort.current = view.sort;
     for (const item of tree.getItems()) {
-      if (item.isFolder() && item.isExpanded()) {
+      if (item.isFolder() && registry.loaded.has(item.getId())) {
         void item.invalidateChildrenIds();
       }
     }
-  }, [view.sort, tree]);
+  }, [view.sort, tree, registry]);
 
   const revealKey = revealTrail?.join(TRAIL_SEPARATOR) ?? '';
   useEffect(() => {

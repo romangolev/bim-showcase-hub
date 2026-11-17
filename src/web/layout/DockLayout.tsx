@@ -917,6 +917,10 @@ export function DockLayout(props: DockLayoutProps) {
       api.onDidLayoutChange(emit),
       api.onDidActivePanelChange(() => {
         onActivePanel();
+        const active = api.activePanel;
+        if (active?.group.api.isMaximized()) {
+          latest.current.onMaximized(active.id);
+        }
         emit();
       }),
       api.onDidMaximizedGroupChange((event) => {

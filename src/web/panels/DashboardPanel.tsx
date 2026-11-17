@@ -38,10 +38,6 @@ import {
 } from './usePropertyRows.js';
 import './panels.css';
 
-const DASHBOARD_PROPERTIES: readonly string[] = [
-  ...new Set([...DEFAULT_DASHBOARD_PROPERTIES, ...PRESET_PROPERTIES]),
-];
-
 export interface DashboardPanelProps {
   adapter?: ViewerAdapter | null;
   propertyNames?: readonly string[];
@@ -57,7 +53,7 @@ export interface DashboardPanelProps {
 
 export function DashboardPanel({
   adapter,
-  propertyNames = DASHBOARD_PROPERTIES,
+  propertyNames = DEFAULT_DASHBOARD_PROPERTIES,
   defaultProperty,
   maxCategories = DEFAULT_MAX_CATEGORIES,
   collapsed,
@@ -69,7 +65,16 @@ export function DashboardPanel({
 }: DashboardPanelProps) {
   const uid = useId();
   const resolved = useResolvedAdapter(adapter);
-  const state = usePropertyRows(resolved, propertyNames);
+  const [preset, setPreset] = useState<string | null>(null);
+  const activePreset = DASHBOARD_PRESETS.find((p) => p.id === preset);
+  const readNames = useMemo(
+    () =>
+      activePreset
+        ? [...new Set([...propertyNames, ...PRESET_PROPERTIES])]
+        : propertyNames,
+    [activePreset, propertyNames],
+  );
+  const state = usePropertyRows(resolved, readNames);
   const scope = useModelScope(resolved, state.rows);
   const [innerCollapsed, setInnerCollapsed] = useState(defaultCollapsed);
   const isCollapsed = collapsed ?? innerCollapsed;
@@ -97,13 +102,11 @@ export function DashboardPanel({
     [state.status, scope.rows, selected, maxCategories],
   );
 
-  const [preset, setPreset] = useState<string | null>(null);
   const [action, setAction] = usePersistedState<ElementAction>(
     'bsh.dashboard.action.v1',
     'select',
     sanitizeAction,
   );
-  const activePreset = DASHBOARD_PRESETS.find((p) => p.id === preset);
   const board = useMemo(
     () =>
       state.status === 'ready' && activePreset

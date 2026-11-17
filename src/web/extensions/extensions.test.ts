@@ -308,6 +308,14 @@ describe('paint palette', () => {
     expect(preset?.color[3]).toBe(0.75);
   });
 
+  it('keeps preset ids unique when a colour repeats', () => {
+    const ids = paletteToPresets(['#ff8000', '#112233', '#ff8000'], 0.5).map(
+      (preset) => preset.id,
+    );
+    expect(new Set(ids).size).toBe(3);
+    expect(ids[0]).toBe('paint-ff8000');
+  });
+
   it('makes the tool group swatches follow the palette', () => {
     const host = document.createElement('div');
     const adapter = new MockViewerAdapter(host);

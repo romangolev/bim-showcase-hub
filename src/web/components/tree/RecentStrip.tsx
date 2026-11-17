@@ -1,5 +1,8 @@
 import { useMemo, useSyncExternalStore } from 'react';
-import type { ModelContext } from '../../api/modelContext.js';
+import {
+  type ModelContext,
+  parseModelContext,
+} from '../../api/modelContext.js';
 import {
   listRecentModels,
   modelStoreVersion,
@@ -11,13 +14,22 @@ import { modelTabTitle } from '../../routes/ModelPage.js';
 import { useSettings } from '../../settings/SettingsContext.js';
 import { Icon } from '../icons.js';
 
-export function sanitizePins(raw: unknown): string[] {
+export interface Pin extends ModelContext {
+  urn: string;
+}
+
+export function sanitizePins(raw: unknown): Pin[] {
   if (!Array.isArray(raw)) return [];
-  return [
-    ...new Set(
-      raw.filter((u): u is string => typeof u === 'string' && u !== ''),
-    ),
-  ];
+  const pins = new Map<string, Pin>();
+  for (const item of raw) {
+    const urn = typeof item === 'string' ? item : (item as Pin | null)?.urn;
+    if (typeof urn !== 'string' || urn === '' || pins.has(urn)) continue;
+    const { with: _with, ...context } = parseModelContext(
+      typeof item === 'string' ? {} : item,
+    );
+    pins.set(urn, { urn, ...context });
+  }
+  return [...pins.values()];
 }
 
 export interface RecentStripProps {
@@ -41,7 +53,7 @@ function Row({
   pinned: boolean;
   selected: boolean;
   onOpen: RecentStripProps['onOpen'];
-  onTogglePin: (urn: string) => void;
+  onTogglePin: (entry: Entry) => void;
 }) {
   const title = modelTabTitle(entry.urn, entry.context);
   return (
@@ -60,7 +72,7 @@ function Row({
         className="recent-strip__pin"
         aria-pressed={pinned}
         aria-label={`${pinned ? 'Unpin' : 'Pin'} ${title.label}`}
-        onClick={() => onTogglePin(entry.urn)}
+        onClick={() => onTogglePin(entry)}
       >
         <Icon name="star" size={14} />
       </button>
@@ -75,7 +87,7 @@ export function RecentStrip({ selectedUrn, onOpen }: RecentStripProps) {
     modelStoreVersion,
     modelStoreVersion,
   );
-  const [pins, setPins] = usePersistedState<string[]>(
+  const [pins, setPins] = usePersistedState<Pin[]>(
     PINNED_KEY,
     [],
     sanitizePins,
@@ -84,22 +96,23 @@ export function RecentStrip({ selectedUrn, onOpen }: RecentStripProps) {
     void version;
     return listRecentModels();
   }, [version]);
-  const known = (urn: string): Entry => {
+  const known = (urn: string, fallback: ModelContext = {}): Entry => {
     const found = stored.find((item) => item.urn === urn);
-    if (!found) return { urn, context: {} };
+    if (!found) return { urn, context: fallback };
     const { urn: _urn, with: _with, ...context } = found;
     return { urn, context };
   };
-  const pinned = pins.map(known);
+  const pinnedUrns = pins.map((pin) => pin.urn);
+  const pinned = pins.map(({ urn, ...context }) => known(urn, context));
   const recent = stored
-    .filter((item) => !pins.includes(item.urn))
+    .filter((item) => !pinnedUrns.includes(item.urn))
     .slice(0, settings.recentsLength)
     .map((item) => known(item.urn));
-  const toggle = (urn: string) =>
+  const toggle = (entry: Entry) =>
     setPins((current) =>
-      current.includes(urn)
-        ? current.filter((item) => item !== urn)
-        : [urn, ...current],
+      current.some((pin) => pin.urn === entry.urn)
+        ? current.filter((pin) => pin.urn !== entry.urn)
+        : [{ urn: entry.urn, ...entry.context }, ...current],
     );
   if (pinned.length === 0 && recent.length === 0) return null;
   const section = (heading: string, entries: Entry[]) =>
@@ -111,7 +124,7 @@ export function RecentStrip({ selectedUrn, onOpen }: RecentStripProps) {
             <Row
               key={entry.urn}
               entry={entry}
-              pinned={pins.includes(entry.urn)}
+              pinned={pinnedUrns.includes(entry.urn)}
               selected={entry.urn === selectedUrn}
               onOpen={onOpen}
               onTogglePin={toggle}

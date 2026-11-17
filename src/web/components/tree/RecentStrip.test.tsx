@@ -56,7 +56,7 @@ describe('RecentStrip', () => {
       ),
     ).toBeNull();
     expect(JSON.parse(window.localStorage.getItem(PINNED_KEY) ?? '[]')).toEqual(
-      ['urn-a'],
+      [expect.objectContaining({ urn: 'urn-a', file: 'A.rvt', v: '1' })],
     );
   });
 
@@ -68,6 +68,19 @@ describe('RecentStrip', () => {
         'button',
       ),
     ).toHaveLength(2);
+  });
+
+  it('opens a pin that left the recents with the context stored in the pin', () => {
+    window.localStorage.setItem(
+      PINNED_KEY,
+      JSON.stringify([{ urn: 'urn-gone', file: 'Gone.rvt', v: '3' }]),
+    );
+    const onOpen = renderStrip();
+    fireEvent.click(screen.getByRole('button', { name: 'Gone.rvt · 3' }));
+    expect(onOpen).toHaveBeenCalledWith(
+      'urn-gone',
+      expect.objectContaining({ file: 'Gone.rvt', v: '3' }),
+    );
   });
 
   it('honours the recents length setting', () => {
@@ -84,7 +97,10 @@ describe('RecentStrip', () => {
   });
 
   it('drops junk pins', () => {
-    expect(sanitizePins(['a', 'a', 3, ''])).toEqual(['a']);
+    expect(sanitizePins(['a', 'a', 3, '', { urn: 'b', file: 'B' }])).toEqual([
+      { urn: 'a' },
+      { urn: 'b', file: 'B' },
+    ]);
     expect(sanitizePins('x')).toEqual([]);
   });
 });
