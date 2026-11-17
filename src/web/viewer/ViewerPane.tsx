@@ -12,8 +12,21 @@ import {
   describeStatus,
   type ExportStatus,
 } from '../extensions/excelExport.js';
+import {
+  describeGlbStatus,
+  type GlbExportStatus,
+  glbHasWarning,
+} from '../extensions/glbExport.js';
+import {
+  describeIfcStatus,
+  type IfcExportStatus,
+  ifcHasWarning,
+} from '../extensions/ifcExport.js';
 import { formatCount } from '../extensions/modelSummary.js';
+import { resetPaint } from '../extensions/paintBrushes.js';
 import { modelKey, registerViewerTools } from '../extensions/viewerTools.js';
+import { useSettings } from '../settings/SettingsContext.js';
+import { readIfcSettings } from '../settings/settings.js';
 import { useTheme } from '../theme/ThemeContext.js';
 import { createViewerAdapter } from './createViewerAdapter.js';
 import { ModelsMenu } from './ModelsMenu.js';
@@ -72,7 +85,7 @@ export const NOTICE_DISMISS_MS = 8000;
 export const ADD_FAILED_MESSAGE = 'Could not add the model';
 export const SETTLE_MS = 250;
 
-function isBusy(status: ExportStatus): boolean {
+function isBusy(status: { phase: string }): boolean {
   return status.phase === 'reading' || status.phase === 'building';
 }
 
@@ -85,6 +98,47 @@ function badgeText(status: ExportStatus): string {
       : rows;
   }
   return describeStatus(status);
+}
+
+function glbBadgeText(status: GlbExportStatus): string {
+  return status.phase === 'error'
+    ? 'GLB export failed'
+    : describeGlbStatus(status);
+}
+
+interface StatusBadge {
+  text: string;
+  detail: string;
+  error: boolean;
+}
+
+function excelBadge(status: ExportStatus): StatusBadge {
+  return {
+    text: badgeText(status),
+    detail: describeStatus(status),
+    error:
+      status.phase === 'error' ||
+      (status.phase === 'done' && Boolean(status.missing?.length)),
+  };
+}
+
+function glbBadge(status: GlbExportStatus): StatusBadge {
+  return {
+    text: glbBadgeText(status),
+    detail: describeGlbStatus(status),
+    error: glbHasWarning(status),
+  };
+}
+
+function ifcBadge(status: IfcExportStatus): StatusBadge {
+  return {
+    text:
+      status.phase === 'error'
+        ? 'IFC export failed'
+        : describeIfcStatus(status),
+    detail: describeIfcStatus(status),
+    error: ifcHasWarning(status),
+  };
 }
 
 const LOAD_ERROR_COPY =
@@ -124,7 +178,7 @@ export function ViewerPane({
   const statusTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
-  const [exportStatus, setExportStatus] = useState<ExportStatus | null>(null);
+  const [statusBadge, setStatusBadge] = useState<StatusBadge | null>(null);
   const onReadyRef = useRef(onReady);
   const exportNameRef = useRef(exportName);
   exportNameRef.current = exportName;
@@ -132,6 +186,9 @@ export function ViewerPane({
   const [state, setState] = useState<PaneState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
   const { theme } = useTheme();
+  const { settings } = useSettings();
+  const ifcSettingsRef = useRef(settings.ifc);
+  ifcSettingsRef.current = settings.ifc;
   const themeRef = useRef(theme);
   const instanceRef = useRef<ViewerAdapter | null>(null);
 
@@ -139,16 +196,31 @@ export function ViewerPane({
     onReadyRef.current = onReady;
   }, [onReady]);
 
-  const handleExportStatus = useCallback((next: ExportStatus) => {
+  const showBadge = useCallback((badge: StatusBadge, busy: boolean) => {
     clearTimeout(statusTimer.current);
-    setExportStatus(next);
-    if (!isBusy(next)) {
+    setStatusBadge(badge);
+    if (!busy) {
       statusTimer.current = setTimeout(
-        () => setExportStatus(null),
+        () => setStatusBadge(null),
         STATUS_DISMISS_MS,
       );
     }
   }, []);
+
+  const handleExportStatus = useCallback(
+    (next: ExportStatus) => showBadge(excelBadge(next), isBusy(next)),
+    [showBadge],
+  );
+
+  const handleGeometryStatus = useCallback(
+    (next: GlbExportStatus) => showBadge(glbBadge(next), isBusy(next)),
+    [showBadge],
+  );
+
+  const handleIfcStatus = useCallback(
+    (next: IfcExportStatus) => showBadge(ifcBadge(next), isBusy(next)),
+    [showBadge],
+  );
 
   useEffect(() => () => clearTimeout(statusTimer.current), []);
 
@@ -192,7 +264,6 @@ export function ViewerPane({
     host.dataset.attempt = String(attempt);
     let cancelled = false;
     let created: ViewerAdapter | null = null;
-    let disposeExtensions: (() => void) | null = null;
     const region = detectRegion(urn);
     if (!regionAvailable(region)) {
       setState({ status: 'region', region });
@@ -209,13 +280,6 @@ export function ViewerPane({
         if (cancelled) {
           instance.destroy();
           return;
-        }
-        if (tools) {
-          disposeExtensions = registerViewerTools(instance, {
-            onStatus: handleExportStatus,
-            key: modelKey(urn),
-            fileName: () => exportNameRef.current ?? '',
-          });
         }
         const extra = membersRef.current;
         const primaryName = nameRef.current;
@@ -249,13 +313,50 @@ export function ViewerPane({
     return () => {
       cancelled = true;
       adapterRef.current = null;
-      disposeExtensions?.();
       created?.destroy();
       if (instanceRef.current === created) instanceRef.current = null;
       setAdapter(null);
       if (created) withdraw?.(urn, created);
     };
-  }, [urn, factory, tools, publish, withdraw, attempt, handleExportStatus]);
+  }, [urn, factory, publish, withdraw, attempt]);
+
+  useEffect(() => {
+    if (!adapter || !tools) return;
+    return registerViewerTools(adapter, {
+      onStatus: handleExportStatus,
+      onGeometryStatus: handleGeometryStatus,
+      onIfcStatus: handleIfcStatus,
+      ifcSettings: () => readIfcSettings(ifcSettingsRef.current),
+      key: modelKey(urn),
+      fileName: () => exportNameRef.current ?? '',
+      features: {
+        paint: settings.paintBrushes,
+        export: settings.excelExport,
+        geometry: settings.glbExport,
+        ifc: settings.ifcExport,
+      },
+    });
+  }, [
+    adapter,
+    tools,
+    urn,
+    settings.paintBrushes,
+    settings.excelExport,
+    settings.glbExport,
+    settings.ifcExport,
+    handleExportStatus,
+    handleGeometryStatus,
+    handleIfcStatus,
+  ]);
+
+  const paintWasOn = useRef(settings.paintBrushes);
+  useEffect(() => {
+    const wasOn = paintWasOn.current;
+    paintWasOn.current = settings.paintBrushes;
+    if (wasOn && !settings.paintBrushes && adapter && tools) {
+      resetPaint(adapter);
+    }
+  }, [adapter, tools, settings.paintBrushes]);
 
   const sourceFor = useCallback(
     (id: string): ModelSource => {
@@ -363,7 +464,6 @@ export function ViewerPane({
     );
   }, [adapter, offsetsKey]);
   const together = Boolean(offsetsKey);
-
   return (
     <ModelViewerContext.Provider value={adapter}>
       <div className="bsh-viewer-pane" data-state={state.status}>
@@ -412,21 +512,14 @@ export function ViewerPane({
           </div>
         )}
         <div className="bsh-viewer-status" role="status" aria-live="polite">
-          {exportStatus ? (
+          {statusBadge ? (
             <span
               className="badge bsh-viewer-badge"
-              data-variant={
-                exportStatus.phase === 'error' ||
-                (exportStatus.phase === 'done' && exportStatus.missing?.length)
-                  ? 'error'
-                  : 'ok'
-              }
-              title={describeStatus(exportStatus)}
+              data-variant={statusBadge.error ? 'error' : 'ok'}
+              title={statusBadge.detail}
             >
               <span className="badge__dot" aria-hidden="true" />
-              <span className="bsh-viewer-badge__text">
-                {badgeText(exportStatus)}
-              </span>
+              <span className="bsh-viewer-badge__text">{statusBadge.text}</span>
             </span>
           ) : null}
         </div>

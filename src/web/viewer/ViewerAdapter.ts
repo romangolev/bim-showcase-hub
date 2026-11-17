@@ -1,5 +1,7 @@
 import type { PropertyRow } from '../../shared/types.js';
+import type { IfcSourceRead } from '../ifc/types.js';
 import type { Theme } from '../theme/theme.js';
+import type { GeometryRead } from './geometryTypes.js';
 import type {
   ModelDbId,
   ModelInfo,
@@ -38,8 +40,10 @@ export interface ExportToolSpec {
 export interface ToolGroupSpec {
   id: string;
   title: string;
-  paint: PaintToolSpec;
-  export: ExportToolSpec;
+  paint?: PaintToolSpec;
+  export?: ExportToolSpec;
+  geometry?: ExportToolSpec;
+  ifc?: ExportToolSpec;
 }
 
 export interface ViewerAdapter {
@@ -68,6 +72,8 @@ export interface ViewerAdapter {
   getSpread(): ModelSpread | null;
   getTogetherOffsets(): Record<string, Vec3>;
   setModelOffsets(offsets: Readonly<Record<string, Vec3>> | null): void;
+  getGeometryParts?(): Promise<GeometryRead>;
+  getIfcSource?(): Promise<IfcSourceRead>;
 }
 
 export type ViewerAdapterFactory = (

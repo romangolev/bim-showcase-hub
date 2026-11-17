@@ -53,7 +53,7 @@
 .doc-tree__search input {
   width: 100%;
   height: var(--hit-target);
-  padding: 0 34px 0 34px;
+  padding: 0 calc(2 * var(--hit-target) + var(--space-2)) 0 34px;
   border: var(--border-hairline);
   border-radius: var(--radius-button);
   background: var(--color-charcoal);
@@ -337,7 +337,8 @@
   appearance: none;
 }
 
-.doc-tree__clear {
+.doc-tree__clear,
+.doc-tree__refresh {
   position: absolute;
   top: 50%;
   right: var(--space-1);
@@ -356,12 +357,18 @@
   transition: background-color var(--transition-ui);
 }
 
-.doc-tree__clear:hover {
+.doc-tree__clear {
+  right: calc(var(--hit-target) + var(--space-1));
+}
+
+.doc-tree__clear:hover,
+.doc-tree__refresh:hover {
   background: var(--color-ghost-fill-hover);
   color: var(--color-snow);
 }
 
-.doc-tree__clear:active {
+.doc-tree__clear:active,
+.doc-tree__refresh:active {
   background: var(--color-ghost-fill-active);
 }
 
@@ -380,7 +387,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .tree-row,
-  .doc-tree__clear {
+  .doc-tree__clear,
+  .doc-tree__refresh {
     transition: none;
   }
 }

@@ -1,6 +1,11 @@
 import { StrictMode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ModelSummaryPanel } from '../panels/ModelSummaryPanel.js';
+import {
+  SETTINGS_STORAGE_KEY,
+  SettingsProvider,
+  useSettings,
+} from '../settings/index.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { act, fireEvent, render, screen, waitFor } from '../test/render.js';
 import { useTheme } from '../theme/ThemeContext.js';
@@ -262,8 +267,11 @@ describe('ViewerPane export status badge', () => {
     const live = screen.getByRole('status');
     expect(live).toHaveAttribute('aria-live', 'polite');
     expect(live).toBeEmptyDOMElement();
+    const exportButton = await screen.findByRole('button', {
+      name: 'Export to Excel',
+    });
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    fireEvent.click(screen.getByRole('button', { name: 'Export to Excel' }));
+    fireEvent.click(exportButton);
     await waitFor(() => expect(live).toHaveTextContent(/^Exported \d+ rows/));
     expect(live.querySelector('.badge .badge__dot')).not.toBeNull();
     expect(live.querySelector('.badge')).toHaveAttribute('data-variant', 'ok');
@@ -285,13 +293,133 @@ describe('ViewerPane export status badge', () => {
     await waitFor(() => expect(onReady).toHaveBeenCalled());
     const adapter = created[0] as ViewerAdapter;
     vi.spyOn(adapter, 'getLeafProperties').mockRejectedValue(new Error('boom'));
-    fireEvent.click(screen.getByRole('button', { name: 'Export to Excel' }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Export to Excel' }),
+    );
     const live = screen.getByRole('status');
     await waitFor(() => expect(live).toHaveTextContent('Export failed'));
     expect(live.querySelector('.badge')).toHaveAttribute(
       'data-variant',
       'error',
     );
+  });
+});
+
+describe('ViewerPane geometry export badge', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('shows the latest export, whichever kind it is, and warns about skipped fragments', async () => {
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    vi.stubGlobal('URL', {
+      ...URL,
+      createObjectURL: () => 'blob:x',
+      revokeObjectURL: () => {},
+    });
+    const { factory, created } = trackedFactory();
+    const onReady = vi.fn();
+    render(<ViewerPane urn="abc" factory={factory} onReady={onReady} />);
+    await waitFor(() => expect(onReady).toHaveBeenCalled());
+    const live = screen.getByRole('status');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Export geometry (GLB)' }),
+    );
+    await waitFor(() => expect(live).toHaveTextContent(/^Exported .* meshes/));
+    expect(live.querySelector('.badge')).toHaveAttribute('data-variant', 'ok');
+    fireEvent.click(screen.getByRole('button', { name: 'Export to Excel' }));
+    await waitFor(() => expect(live).toHaveTextContent(/^Exported \d+ rows/));
+
+    const adapter = created[0] as ViewerAdapter;
+    vi.spyOn(adapter, 'getGeometryParts').mockResolvedValue({
+      parts: [
+        {
+          name: '1',
+          positions: new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]),
+          indices: new Uint16Array([0, 1, 2]),
+        },
+      ],
+      skipped: 4,
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Export geometry (GLB)' }),
+    );
+    await waitFor(() => expect(live).toHaveTextContent('4 fragments skipped'));
+    expect(live.querySelector('.badge')).toHaveAttribute(
+      'data-variant',
+      'error',
+    );
+  });
+});
+
+describe('ViewerPane IFC export badge', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  function stubDownload() {
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    vi.stubGlobal('URL', {
+      ...URL,
+      createObjectURL: () => 'blob:x',
+      revokeObjectURL: () => {},
+    });
+  }
+
+  it('shows an Exported badge after clicking Export IFC', async () => {
+    stubDownload();
+    const { factory } = trackedFactory();
+    const onReady = vi.fn();
+    render(<ViewerPane urn="abc" factory={factory} onReady={onReady} />);
+    await waitFor(() => expect(onReady).toHaveBeenCalled());
+    const live = screen.getByRole('status');
+    fireEvent.click(screen.getByRole('button', { name: 'Export IFC' }));
+    await waitFor(() =>
+      expect(live).toHaveTextContent(/^Exported .* elements/),
+    );
+    expect(live.querySelector('.badge')).toHaveAttribute('data-variant', 'ok');
+  });
+
+  it('shows the latest export when an IFC export follows an Excel export', async () => {
+    stubDownload();
+    const { factory } = trackedFactory();
+    const onReady = vi.fn();
+    render(<ViewerPane urn="abc" factory={factory} onReady={onReady} />);
+    await waitFor(() => expect(onReady).toHaveBeenCalled());
+    const live = screen.getByRole('status');
+    fireEvent.click(screen.getByRole('button', { name: 'Export to Excel' }));
+    await waitFor(() => expect(live).toHaveTextContent(/^Exported \d+ rows/));
+    fireEvent.click(screen.getByRole('button', { name: 'Export IFC' }));
+    await waitFor(() =>
+      expect(live).toHaveTextContent(/^Exported .* elements/),
+    );
+  });
+
+  it('removes the IFC button when the ifcExport setting is off', async () => {
+    installMemoryStorage();
+    window.localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        paintBrushes: true,
+        excelExport: true,
+        glbExport: true,
+        ifcExport: false,
+      }),
+    );
+    const { factory } = trackedFactory();
+    const onReady = vi.fn();
+    render(
+      <SettingsProvider>
+        <ViewerPane urn="abc" factory={factory} onReady={onReady} />
+      </SettingsProvider>,
+    );
+    await waitFor(() => expect(onReady).toHaveBeenCalled());
+    expect(
+      await screen.findByRole('button', { name: 'Export to Excel' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Export IFC' })).toBeNull();
   });
 });
 
@@ -339,5 +467,154 @@ describe('ViewerPane theme propagation', () => {
     await waitFor(() =>
       expect(adapter?.setTheme).toHaveBeenLastCalledWith('dark'),
     );
+  });
+});
+
+function SettingsFlip() {
+  const { setSetting } = useSettings();
+  return (
+    <button type="button" onClick={() => setSetting('paintBrushes', false)}>
+      flip paint
+    </button>
+  );
+}
+
+function SettingsFlipExcel() {
+  const { setSetting } = useSettings();
+  return (
+    <button type="button" onClick={() => setSetting('excelExport', false)}>
+      flip excel
+    </button>
+  );
+}
+
+function IfcProbes() {
+  const { settings, setSetting } = useSettings();
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() =>
+          setSetting('ifc', { ...settings.ifc, projectName: 'Changed' })
+        }
+      >
+        change ifc settings
+      </button>
+      <button type="button" onClick={() => setSetting('ifcExport', false)}>
+        flip ifc
+      </button>
+    </>
+  );
+}
+
+describe('ViewerPane tool settings', () => {
+  afterEach(() => {
+    window.localStorage.clear();
+  });
+
+  it('omits the paint tool when paint brushes are off and keeps export', async () => {
+    installMemoryStorage();
+    window.localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({ paintBrushes: false, excelExport: true }),
+    );
+    const { factory } = trackedFactory();
+    const onReady = vi.fn();
+    render(
+      <SettingsProvider>
+        <ViewerPane urn="abc" factory={factory} onReady={onReady} />
+      </SettingsProvider>,
+    );
+    await waitFor(() => expect(onReady).toHaveBeenCalled());
+    expect(
+      await screen.findByRole('button', { name: 'Export to Excel' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Paint selection' }),
+    ).toBeNull();
+  });
+
+  it('re-registers the tools on a setting change without reloading the model', async () => {
+    installMemoryStorage();
+    const { factory, created } = trackedFactory();
+    const onReady = vi.fn();
+    render(
+      <SettingsProvider>
+        <SettingsFlip />
+        <ViewerPane urn="abc" factory={factory} onReady={onReady} />
+      </SettingsProvider>,
+    );
+    await waitFor(() => expect(onReady).toHaveBeenCalled());
+    expect(
+      await screen.findByRole('button', { name: 'Paint selection' }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'flip paint' }));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: 'Paint selection' }),
+      ).toBeNull(),
+    );
+    expect(
+      await screen.findByRole('button', { name: 'Export to Excel' }),
+    ).toBeInTheDocument();
+    expect(created).toHaveLength(1);
+    expect(onReady).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears painted colours when paint brushes is switched off but not when only export changes', async () => {
+    installMemoryStorage();
+    const { factory, created } = trackedFactory();
+    const onReady = vi.fn();
+    render(
+      <SettingsProvider>
+        <SettingsFlip />
+        <SettingsFlipExcel />
+        <ViewerPane urn="abc" factory={factory} onReady={onReady} />
+      </SettingsProvider>,
+    );
+    await waitFor(() => expect(onReady).toHaveBeenCalled());
+    const adapter = created[0] as ViewerAdapter;
+    const dbId = Number(
+      document.querySelector('[data-dbid]')?.getAttribute('data-dbid'),
+    );
+    const modelId = adapter.getModels()[0]?.id ?? '';
+    adapter.setModelThemingColor([{ modelId, dbId }], [1, 0, 0, 1]);
+    const themed = () => document.querySelectorAll('.bsh-mock__el--themed');
+    expect(themed().length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole('button', { name: 'flip excel' }));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: 'Export to Excel' }),
+      ).toBeNull(),
+    );
+    expect(themed().length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole('button', { name: 'flip paint' }));
+    await waitFor(() => expect(themed()).toHaveLength(0));
+  });
+
+  it('does not re-register the tool group when IFC settings change', async () => {
+    installMemoryStorage();
+    const { factory, created } = trackedFactory();
+    const onReady = vi.fn();
+    render(
+      <SettingsProvider>
+        <IfcProbes />
+        <ViewerPane urn="abc" factory={factory} onReady={onReady} />
+      </SettingsProvider>,
+    );
+    await waitFor(() => expect(onReady).toHaveBeenCalled());
+    expect(
+      await screen.findByRole('button', { name: 'Export IFC' }),
+    ).toBeInTheDocument();
+    const spy = vi.spyOn(created[0] as ViewerAdapter, 'registerToolGroup');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'change ifc settings' }),
+    );
+    expect(spy).toHaveBeenCalledTimes(0);
+    fireEvent.click(screen.getByRole('button', { name: 'flip ifc' }));
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Export IFC' })).toBeNull(),
+    );
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 });

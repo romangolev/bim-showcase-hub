@@ -1,5 +1,6 @@
 import type { PropertyRow } from '../../shared/types.js';
 import { notifyUnauthorized } from '../api/client.js';
+import type { IfcSourceRead } from '../ifc/types.js';
 import type { Theme } from '../theme/theme.js';
 import {
   autodeskWindow,
@@ -20,6 +21,7 @@ import {
   pickGeometryNode,
 } from './federation.js';
 import { fullscreenElementOf, watchFullscreen } from './fullscreen.js';
+import type { GeometryRead } from './geometryTypes.js';
 import { tagRows } from './modelScope.js';
 import {
   CANCELLED_MESSAGE,
@@ -51,6 +53,8 @@ import { createResizeScheduler } from './resizeScheduler.js';
 import { readSceneBackground } from './sceneBackground.js';
 import { ToolGroupController } from './toolGroupController.js';
 import type { Rgba, ToolGroupSpec, ViewerAdapter } from './ViewerAdapter.js';
+import { readViewerGeometry } from './viewerGeometry.js';
+import { readViewerSource, type SourceModelMeta } from './viewerSource.js';
 
 const VIEWER_VERSION = '7.*';
 const VIEWER_BASE = `https://developer.api.autodesk.com/modelderivative/v2/viewers/${VIEWER_VERSION}`;
@@ -204,7 +208,8 @@ export class RealViewerAdapter implements ViewerAdapter {
   private theme: Theme = 'dark';
   private readonly selectionListeners = new Set<(items: ModelDbId[]) => void>();
   private controller: ToolGroupController | null = null;
-  private toolsMounted = false;
+  private mountedController: ToolGroupController | null = null;
+  private toolsChain: Promise<void> = Promise.resolve();
   private modelLoaded = false;
   private started = false;
   private stopFullscreen: (() => void) | null = null;
@@ -471,6 +476,26 @@ export class RealViewerAdapter implements ViewerAdapter {
     return this.models.list();
   }
 
+  async getGeometryParts(): Promise<GeometryRead> {
+    const viewer = this.viewer;
+    if (!viewer || this.destroyed) throw new Error(VIEWER_CLOSED_MESSAGE);
+    const names = new Map<ViewerModel, string>();
+    for (const { info, handle } of this.models.ready()) {
+      if (info.visible) names.set(handle, info.name);
+    }
+    return readViewerGeometry(viewer, names);
+  }
+
+  async getIfcSource(): Promise<IfcSourceRead> {
+    const viewer = this.viewer;
+    if (!viewer || this.destroyed) throw new Error(VIEWER_CLOSED_MESSAGE);
+    const shown = new Map<ViewerModel, SourceModelMeta>();
+    for (const { info, handle } of this.models.shown()) {
+      shown.set(handle, { id: info.id, name: info.name, urn: info.urn });
+    }
+    return readViewerSource(viewer, shown);
+  }
+
   setModelVisible(modelId: string, visible: boolean): void {
     if (!this.models.setVisible(modelId, visible)) return;
     const viewer = this.viewer;
@@ -619,7 +644,7 @@ export class RealViewerAdapter implements ViewerAdapter {
       if (!this.modelLoaded) {
         this.applyTheme(viewer);
         this.modelLoaded = true;
-        await this.mountTools();
+        await this.syncTools();
         this.resize();
       }
     } catch (err) {
@@ -703,7 +728,7 @@ export class RealViewerAdapter implements ViewerAdapter {
     }
     this.unwatchScreenMode();
     this.untagContainer();
-    this.toolsMounted = false;
+    this.mountedController = null;
     this.modelLoaded = false;
     this.controller?.resetState();
     this.viewer = null;
@@ -820,12 +845,12 @@ export class RealViewerAdapter implements ViewerAdapter {
     this.controller?.dispose();
     const controller = new ToolGroupController(spec, this);
     this.controller = controller;
-    void this.mountTools();
+    void this.syncTools().catch(() => undefined);
     return () => {
       if (this.controller !== controller) return;
-      this.unmountTools();
       controller.dispose();
       this.controller = null;
+      void this.syncTools().catch(() => undefined);
     };
   }
 
@@ -888,25 +913,28 @@ export class RealViewerAdapter implements ViewerAdapter {
     this.resizer.schedule(settleMs);
   }
 
-  private async mountTools(): Promise<void> {
-    const viewer = this.viewer;
-    const controller = this.controller;
-    if (!viewer || !controller || !this.modelLoaded || this.toolsMounted) {
-      return;
-    }
-    ensureToolsExtension();
-    this.toolsMounted = true;
-    try {
-      await viewer.loadExtension(TOOLS_EXTENSION_ID, { controller });
-    } catch {
-      this.toolsMounted = false;
-    }
+  private syncTools(): Promise<void> {
+    const run = this.toolsChain.then(() => this.reconcileTools());
+    this.toolsChain = run.catch(() => undefined);
+    return run;
   }
 
-  private unmountTools(): void {
-    if (!this.toolsMounted) return;
-    this.toolsMounted = false;
-    this.viewer?.unloadExtension(TOOLS_EXTENSION_ID);
+  private async reconcileTools(): Promise<void> {
+    const viewer = this.viewer;
+    const wanted = viewer && this.modelLoaded ? this.controller : null;
+    if (this.mountedController === wanted) return;
+    if (this.mountedController) {
+      this.mountedController = null;
+      viewer?.unloadExtension(TOOLS_EXTENSION_ID);
+    }
+    if (!viewer || !wanted) return;
+    ensureToolsExtension();
+    this.mountedController = wanted;
+    try {
+      await viewer.loadExtension(TOOLS_EXTENSION_ID, { controller: wanted });
+    } catch {
+      if (this.mountedController === wanted) this.mountedController = null;
+    }
   }
 }
 

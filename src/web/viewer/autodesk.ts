@@ -69,11 +69,20 @@ export interface InstanceTree {
 
 export interface BulkPropertyItem {
   dbId: number;
+  externalId?: string;
   name: string;
-  properties: { displayName: string; displayValue: unknown }[];
+  properties: {
+    displayName: string;
+    displayValue: unknown;
+    displayCategory?: string;
+  }[];
 }
 
 export interface ViewerModel {
+  getExternalIdMapping?(
+    onSuccess: (map: Record<string, number>) => void,
+    onError?: (err: unknown) => void,
+  ): void;
   getBulkProperties(
     dbIds: number[],
     options: { propFilter?: string[] },
@@ -86,10 +95,53 @@ export interface ViewerModel {
   ): void;
   getData?(): { globalOffset?: unknown } | undefined;
   getUnitString?(): string | null | undefined;
+  getUnitScale?(): number | null | undefined;
   is2d?(): boolean;
   isLoadDone?(): boolean;
   getBoundingBox?(): ViewerBox;
   getPlacementTransform?(): PlacementMatrix;
+  getFragmentList?(): FragmentList;
+}
+
+export interface ViewerGeometry {
+  vb?: Float32Array;
+  vbstride?: number;
+  ib?: Uint16Array | Uint32Array;
+  polyCount?: number;
+  attributes?: Record<
+    string,
+    { offset?: number; itemOffset?: number; itemSize?: number }
+  >;
+  offsets?: { start: number; count: number; index: number }[];
+}
+
+export interface ViewerMaterial {
+  color?: {
+    r?: number;
+    g?: number;
+    b?: number;
+    getHexString?(): string;
+  };
+  opacity?: number;
+  transparent?: boolean;
+  name?: string;
+}
+
+export interface ViewerMesh {
+  geometry?: ViewerGeometry | null;
+  material?: ViewerMaterial;
+  matrixWorld?: { elements: ArrayLike<number> };
+  dbId?: number | number[];
+}
+
+export interface FragmentList {
+  getCount(): number;
+  getDbIds?(fragId: number): number | number[];
+  getGeometry?(fragId: number): ViewerGeometry | null;
+  getVizmesh?(fragId: number): ViewerMesh;
+  isLine?(fragId: number): boolean;
+  isPoint?(fragId: number): boolean;
+  isNotLoaded?(fragId: number): boolean;
 }
 
 export interface ViewerBox {

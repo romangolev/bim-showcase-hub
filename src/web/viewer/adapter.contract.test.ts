@@ -41,6 +41,28 @@ describe('ViewerAdapter contract (mock)', () => {
     expect(host.querySelector('[role="toolbar"]')).not.toBeNull();
   });
 
+  it('returns triangle parts for the GLB export', async () => {
+    await setup();
+    const { parts } = await adapter.getGeometryParts();
+    expect(parts.length).toBeGreaterThan(0);
+    for (const part of parts) {
+      expect(part.positions.length).toBeGreaterThan(0);
+      expect(part.positions.length % 3).toBe(0);
+      expect(part.indices.length % 3).toBe(0);
+      expect(part.indices.length).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it('returns elements with properties for the IFC export', async () => {
+    await setup();
+    const { models } = await adapter.getIfcSource();
+    expect(models.length).toBeGreaterThan(0);
+    const element = models[0]?.elements[0];
+    expect(element?.dbId).toBeGreaterThan(0);
+    expect(element?.parts.length).toBeGreaterThan(0);
+    expect(element?.properties['Identity Data']?.Category).toBe('Revit Walls');
+  });
+
   it('rejects an empty urn', async () => {
     host = document.createElement('div');
     adapter = new MockViewerAdapter(host);
@@ -197,5 +219,20 @@ describe('mock models far apart', () => {
     expect(group()?.dataset.offset).toBe('moved');
     adapter.setModelOffsets(null);
     expect(group()?.dataset.offset).toBe('original');
+  });
+});
+
+describe('mock exports skip hidden models', () => {
+  it('leaves a hidden model out of the GLB and IFC sources', async () => {
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    adapter = new MockViewerAdapter(host);
+    await adapter.loadModels([{ urn: 'urn-a' }, { urn: 'urn-b' }]);
+    expect((await adapter.getGeometryParts()).parts).toHaveLength(2);
+    expect((await adapter.getIfcSource()).models).toHaveLength(2);
+    adapter.setModelVisible('urn-b', false);
+    expect((await adapter.getGeometryParts()).parts).toHaveLength(1);
+    const { models } = await adapter.getIfcSource();
+    expect(models.map((model) => model.urn)).toEqual(['urn-a']);
   });
 });

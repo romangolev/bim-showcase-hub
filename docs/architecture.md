@@ -177,4 +177,6 @@ Full screen. The native toolbar button (`#toolbar-fullscreenTool`) calls `viewer
 
 ## Extensions
 
+Modals live in `src/web/modal` and user settings in `src/web/settings`; see [extensions.md](extensions.md#settings-and-modals).
+
 Behavior built on the adapter lives in `src/web/extensions` and `src/web/panels`. See [extensions.md](extensions.md).

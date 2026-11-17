@@ -55,6 +55,10 @@ describe('mock toolbar tool group', () => {
     expect(
       button('export-xlsx').querySelector('.bsh-ico-export'),
     ).not.toBeNull();
+    expect(button('export-glb').title).toBe('Export geometry (GLB)');
+    expect(button('export-glb').querySelector('.bsh-ico-glb')).not.toBeNull();
+    expect(button('export-ifc').title).toBe('Export IFC');
+    expect(button('export-ifc').querySelector('.bsh-ico-ifc')).not.toBeNull();
   });
 
   it('sits after the fake native tools in the toolbar', async () => {
@@ -142,6 +146,38 @@ describe('mock toolbar tool group', () => {
     expect(host.querySelector('[data-group-id]')).toBeNull();
   });
 
+  it('renders only the features present in the spec', async () => {
+    await setup();
+    const dispose = adapter.registerToolGroup(
+      buildToolGroupSpec(adapter, {
+        features: { paint: false, export: true, geometry: false, ifc: false },
+      }),
+    );
+    expect(host.querySelector('[data-button-id="paint"]')).toBeNull();
+    expect(host.querySelector('[data-button-id="paint-red"]')).toBeNull();
+    expect(button('export-xlsx')).not.toBeNull();
+    dispose();
+    adapter.registerToolGroup(
+      buildToolGroupSpec(adapter, {
+        features: { paint: true, export: false, geometry: false, ifc: false },
+      }),
+    );
+    expect(host.querySelector('[data-button-id="export-xlsx"]')).toBeNull();
+    expect(button('paint')).not.toBeNull();
+  });
+
+  it('leaves exactly one group after dispose then register', async () => {
+    await setup();
+    const dispose = adapter.registerToolGroup(buildToolGroupSpec(adapter));
+    dispose();
+    adapter.registerToolGroup(buildToolGroupSpec(adapter));
+    expect(host.querySelectorAll('[data-group-id]')).toHaveLength(1);
+    expect(host.querySelectorAll('[data-button-id="paint"]')).toHaveLength(1);
+    expect(
+      host.querySelectorAll('[data-button-id="export-xlsx"]'),
+    ).toHaveLength(1);
+  });
+
   it('runs the export through the toolbar button and reports status', async () => {
     await setup();
     const phases: ExportStatus['phase'][] = [];
@@ -158,6 +194,56 @@ describe('mock toolbar tool group', () => {
     button('export-xlsx').click();
     await vi.waitFor(() => expect(phases).toContain('done'));
     expect(phases).toEqual(['reading', 'building', 'done']);
+  });
+
+  it('runs the GLB export through the toolbar button and reports status', async () => {
+    await setup();
+    const phases: string[] = [];
+    const saved: string[] = [];
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    vi.stubGlobal('URL', {
+      ...URL,
+      createObjectURL: () => 'blob:glb',
+      revokeObjectURL: () => {},
+    });
+    adapter.registerToolGroup(
+      buildToolGroupSpec(adapter, {
+        onGeometryStatus: (status) => {
+          phases.push(status.phase);
+          if (status.phase === 'done') saved.push(status.fileName);
+        },
+      }),
+    );
+    button('export-glb').click();
+    button('export-glb').click();
+    await vi.waitFor(() => expect(phases).toContain('done'));
+    expect(phases).toEqual(['reading', 'building', 'done']);
+    expect(saved).toEqual(['model-geometry.glb']);
+  });
+
+  it('runs the IFC export through the toolbar button and reports status', async () => {
+    await setup();
+    const phases: string[] = [];
+    const saved: string[] = [];
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    vi.stubGlobal('URL', {
+      ...URL,
+      createObjectURL: () => 'blob:ifc',
+      revokeObjectURL: () => {},
+    });
+    adapter.registerToolGroup(
+      buildToolGroupSpec(adapter, {
+        onIfcStatus: (status) => {
+          phases.push(status.phase);
+          if (status.phase === 'done') saved.push(status.fileName);
+        },
+      }),
+    );
+    button('export-ifc').click();
+    button('export-ifc').click();
+    await vi.waitFor(() => expect(phases).toContain('done'));
+    expect(phases).toEqual(['reading', 'building', 'done']);
+    expect(saved).toEqual(['model.ifc']);
   });
 });
 

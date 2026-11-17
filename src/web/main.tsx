@@ -7,6 +7,7 @@ import './styles/shell.css';
 import './styles/tree.css';
 import './styles/landing.css';
 import './styles/model.css';
+import './styles/modal.css';
 import { App } from './App.js';
 
 const container = document.getElementById('root');
