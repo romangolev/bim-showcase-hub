@@ -5,6 +5,9 @@ export function triangleVertexCount(
   if (positions.length % 3 !== 0) return null;
   const vertices = positions.length / 3;
   if (vertices < 3) return null;
+  for (let i = 0; i < positions.length; i += 1) {
+    if (!Number.isFinite(positions[i])) return null;
+  }
   if (indices.length < 3 || indices.length % 3 !== 0) return null;
   for (let i = 0; i < indices.length; i += 1) {
     const index = indices[i] ?? 0;

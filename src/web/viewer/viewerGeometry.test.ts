@@ -1,10 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type {
   FragmentList,
   GuiViewer3D,
   ViewerGeometry,
   ViewerModel,
 } from './autodesk.js';
+
+const ticks = vi.hoisted(() => vi.fn(async () => {}));
+vi.mock('../extensions/exportCommon.js', () => ({ tick: ticks }));
+
 import {
   NO_MESH_MESSAGE,
   readViewerGeometry,
@@ -75,7 +79,7 @@ function modelOf(
 }
 
 describe('readViewerGeometry', () => {
-  it('reads interleaved positions, applies the world matrix, unit scale and colour', () => {
+  it('reads interleaved positions, applies the world matrix, unit scale and colour', async () => {
     const list = fragments([
       {
         geometry: geometry([1, 2, 3, 1, 4, 5, 6, 1, 7, 8, 9, 1]),
@@ -84,7 +88,7 @@ describe('readViewerGeometry', () => {
       },
     ]);
     const model = modelOf(list, 0.5);
-    const { parts } = readViewerGeometry(
+    const { parts } = await readViewerGeometry(
       viewerOf(model),
       new Map([[model, 'Tower']]),
     );
@@ -97,7 +101,7 @@ describe('readViewerGeometry', () => {
     expect(parts[0]?.name).toBe('Tower 10');
   });
 
-  it('skips lines and points, and counts unloaded and empty fragments', () => {
+  it('skips lines and points, and counts unloaded and empty fragments', async () => {
     const list = fragments([
       { geometry: geometry([0, 0, 0, 1, 0, 0, 0, 1, 0]) },
       { geometry: geometry([0, 0, 0, 1, 0, 0, 0, 1, 0]), line: true },
@@ -106,13 +110,15 @@ describe('readViewerGeometry', () => {
       { geometry: null },
       { geometry: geometry([0, 0, 0, 1, 0, 0, 0, 1, 0]) },
     ]);
-    const { parts, skipped } = readViewerGeometry(viewerOf(modelOf(list)));
+    const { parts, skipped } = await readViewerGeometry(
+      viewerOf(modelOf(list)),
+    );
     expect(parts.map((part) => part.dbId)).toEqual([10, 15]);
     expect(parts[0]?.name).toBe('10');
     expect(skipped).toBe(2);
   });
 
-  it('honours the position offset in an interleaved buffer', () => {
+  it('honours the position offset in an interleaved buffer', async () => {
     const list = fragments([
       {
         geometry: {
@@ -123,13 +129,13 @@ describe('readViewerGeometry', () => {
         },
       },
     ]);
-    const { parts } = readViewerGeometry(viewerOf(modelOf(list)));
+    const { parts } = await readViewerGeometry(viewerOf(modelOf(list)));
     expect([...(parts[0]?.positions ?? [])]).toEqual([
       1, 2, 3, 4, 5, 6, 7, 8, 9,
     ]);
   });
 
-  it('applies draw-call offsets to the indices', () => {
+  it('applies draw-call offsets to the indices', async () => {
     const list = fragments([
       {
         geometry: {
@@ -143,11 +149,11 @@ describe('readViewerGeometry', () => {
         },
       },
     ]);
-    const { parts } = readViewerGeometry(viewerOf(modelOf(list)));
+    const { parts } = await readViewerGeometry(viewerOf(modelOf(list)));
     expect([...(parts[0]?.indices ?? [])]).toEqual([0, 1, 2, 3, 4, 5]);
   });
 
-  it('counts fragments without a world matrix instead of placing them at the origin', () => {
+  it('counts fragments without a world matrix instead of placing them at the origin', async () => {
     const list = fragments([
       { geometry: geometry([0, 0, 0, 1, 0, 0, 0, 1, 0]) },
     ]);
@@ -155,32 +161,32 @@ describe('readViewerGeometry', () => {
       ...list,
       getVizmesh: () => ({ geometry: geometry([0, 0, 0, 1, 0, 0, 0, 1, 0]) }),
     };
-    expect(readViewerGeometry(viewerOf(modelOf(list))).skipped).toBe(0);
-    expect(() => readViewerGeometry(viewerOf(modelOf(bare)))).toThrow(
+    expect((await readViewerGeometry(viewerOf(modelOf(list)))).skipped).toBe(0);
+    await expect(readViewerGeometry(viewerOf(modelOf(bare)))).rejects.toThrow(
       NO_MESH_MESSAGE,
     );
   });
 
-  it('does not use the fragment id as a dbId when the fragment has many', () => {
+  it('does not use the fragment id as a dbId when the fragment has many', async () => {
     const list = {
       ...fragments([{ geometry: geometry([0, 0, 0, 1, 0, 0, 0, 1, 0]) }]),
       getDbIds: () => [4, 5],
     };
-    const { parts } = readViewerGeometry(viewerOf(modelOf(list)));
+    const { parts } = await readViewerGeometry(viewerOf(modelOf(list)));
     expect(parts[0]?.dbId).toBeUndefined();
     expect(parts[0]?.name).toBe('fragment 0');
   });
 
-  it('refuses to export while a model is still loading', () => {
+  it('refuses to export while a model is still loading', async () => {
     const list = fragments([
       { geometry: geometry([0, 0, 0, 1, 0, 0, 0, 1, 0]) },
     ]);
-    expect(() => readViewerGeometry(viewerOf(modelOf(list, 1, false)))).toThrow(
-      STILL_LOADING_MESSAGE,
-    );
+    await expect(
+      readViewerGeometry(viewerOf(modelOf(list, 1, false))),
+    ).rejects.toThrow(STILL_LOADING_MESSAGE);
   });
 
-  it('reads only the models it is given names for', () => {
+  it('reads only the models it is given names for', async () => {
     const list = fragments([
       { geometry: geometry([0, 0, 0, 1, 0, 0, 0, 1, 0]) },
     ]);
@@ -189,16 +195,27 @@ describe('readViewerGeometry', () => {
     const viewer = {
       getAllModels: () => [shown, hidden],
     } as unknown as GuiViewer3D;
-    const { parts } = readViewerGeometry(viewer, new Map([[shown, 'A']]));
+    const { parts } = await readViewerGeometry(viewer, new Map([[shown, 'A']]));
     expect(parts).toHaveLength(1);
   });
 
-  it('skips 2D models and throws when nothing is left', () => {
+  it('skips 2D models and throws when nothing is left', async () => {
     const list = fragments([
       { geometry: geometry([0, 0, 0, 1, 0, 0, 0, 1, 0]) },
     ]);
     const model = modelOf(list);
     (model as { is2d?: () => boolean }).is2d = () => true;
-    expect(() => readViewerGeometry(viewerOf(model))).toThrow(NO_MESH_MESSAGE);
+    await expect(readViewerGeometry(viewerOf(model))).rejects.toThrow(
+      NO_MESH_MESSAGE,
+    );
+  });
+
+  it('yields to the event loop while reading many fragments', async () => {
+    const one = { geometry: geometry([0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0]) };
+    const list = fragments(Array.from({ length: 700 }, () => one));
+    ticks.mockClear();
+    const { parts } = await readViewerGeometry(viewerOf(modelOf(list)));
+    expect(parts).toHaveLength(700);
+    expect(ticks).toHaveBeenCalledTimes(2);
   });
 });
