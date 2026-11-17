@@ -125,6 +125,7 @@ export interface TreeRowViewProps {
   secondary?: string;
   highlight?: string;
   picked?: boolean;
+  added?: boolean;
   action?: ReactNode;
   rowProps?: HTMLAttributes<HTMLDivElement> & {
     ref?: Ref<HTMLDivElement>;
@@ -148,6 +149,7 @@ export function TreeRowView({
   secondary,
   highlight,
   picked,
+  added,
   action,
   rowProps,
 }: TreeRowViewProps) {
@@ -183,6 +185,7 @@ export function TreeRowView({
         : {})}
       data-two-line={Boolean(second)}
       data-picked={picked || undefined}
+      data-added={added || undefined}
       style={{
         ...rowProps?.style,
         minHeight,

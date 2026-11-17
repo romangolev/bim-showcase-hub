@@ -36,6 +36,7 @@ MOCK_VIEWER_LABEL = "Mock building model"
 THEME_TOGGLE = re.compile(r"Switch to (light|dark) theme", re.I)
 SUMMARY_TOGGLE = re.compile(r"(Collapse|Expand) .*summary", re.I)
 TREE_TOGGLE = re.compile(r"(Collapse|Expand) document tree", re.I)
+STRIP_TOGGLE = re.compile(r"^Pinned and Recent")
 VIEWER_WIDTH = "() => document.querySelector(\"[data-active='true'] .model-viewer\").getBoundingClientRect().width"
 SCENE_FIT_WIDTH = "() => Number(document.querySelector(\"[data-active='true'] .bsh-mock__scene\")?.dataset.fitWidth || 0)"
 ROOT_THEME = "() => document.documentElement.dataset.theme"
@@ -596,6 +597,8 @@ def check_paint_palette(page, checks):
 def check_recents(page, checks):
     page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
     settle(page)
+    page.get_by_role("button", name=STRIP_TOGGLE).click()
+    settle(page, 200)
     recent = page.get_by_role("region", name="Recent")
     checks.add("recent strip lists the opened model above the tree", recent.count() == 1 and recent.get_by_role("listitem").count() >= 1)
     above = page.evaluate("() => { const strip = document.querySelector('.recent-strip'); const tree = document.querySelector('.doc-tree'); return strip && tree ? strip.getBoundingClientRect().bottom <= tree.getBoundingClientRect().top + 1 : false; }")
@@ -607,6 +610,8 @@ def check_recents(page, checks):
     checks.add("pinning moves the model to Pinned", pinned.count() == 1 and pinned.get_by_role("listitem").count() == 1)
     page.reload(wait_until="networkidle")
     settle(page, 1500)
+    page.get_by_role("button", name=STRIP_TOGGLE).click()
+    settle(page, 200)
     checks.add("pin survives a reload", page.get_by_role("region", name="Pinned").count() == 1)
     url_before = page.url
     page.get_by_role("region", name="Pinned").get_by_role("button", name=re.compile(r"^(?!Unpin)")).first.click()
@@ -614,12 +619,94 @@ def check_recents(page, checks):
     checks.add("clicking a pinned model opens it", "/model/" in page.url, page.url)
     page.get_by_role("region", name="Pinned").get_by_role("button", name=re.compile(r"^Unpin ")).first.click()
     checks.add("unpinning removes the Pinned section", page.get_by_role("region", name="Pinned").count() == 0)
+    page.mouse.move(DESKTOP[0] - 10, DESKTOP[1] - 10)
     page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
     settle(page, 600)
     page.get_by_role("button", name=TREE_TOGGLE).first.click()
     settle(page, 500)
     checks.add("recent strip is inside the narrow tree overlay with no overflow", page.locator(".stack__tree:not([hidden]) .recent-strip").count() == 1 and horizontal_overflow(page) <= 0)
     page.screenshot(path=str(OUTPUT_DIR / "mock-recents-narrow.png"))
+    page.keyboard.press("Escape")
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page, 800)
+
+
+def strip_expanded(page):
+    return page.locator(".recent-strip__toggle").get_attribute("aria-expanded") == "true"
+
+
+def strip_geometry(page):
+    return page.evaluate("() => { const t = document.querySelector('.recent-strip__toggle').getBoundingClientRect(); const d = document.querySelector('.doc-tree').getBoundingClientRect(); return { header: t.height, treeTop: d.top }; }")
+
+
+def check_strip(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page)
+    page.mouse.move(DESKTOP[0] - 10, DESKTOP[1] - 10)
+    page.wait_for_timeout(400)
+    toggle = page.locator(".recent-strip__toggle")
+    checks.add("recent strip starts collapsed with a counted header", not strip_expanded(page) and re.search(r"\(\d+\)", toggle.inner_text()) is not None, toggle.inner_text())
+    closed = strip_geometry(page)
+    toggle.hover()
+    page.wait_for_timeout(300)
+    checks.add("hovering the strip header expands it", strip_expanded(page) and page.locator(".recent-strip__panel").is_visible())
+    open_ = strip_geometry(page)
+    checks.add("the expanded strip overlays the tree without reflow", abs(open_["header"] - closed["header"]) < 1 and abs(open_["treeTop"] - closed["treeTop"]) < 1, f"{closed} {open_}")
+    page.screenshot(path=str(OUTPUT_DIR / "mock-strip-expanded.png"))
+    page.mouse.move(DESKTOP[0] - 10, DESKTOP[1] - 10)
+    page.wait_for_timeout(500)
+    checks.add("leaving the strip collapses it again", not strip_expanded(page))
+
+    rows = ensure_viewables(page)
+    target = unselected_version(rows)
+    first_urn = models(page)["active"]
+    target.click(button="right")
+    menu = page.get_by_role("menu")
+    checks.add("right click on a version opens the model menu", menu.count() == 1 and menu.get_by_role("menuitem", name="Open as modal").count() == 1)
+    page.screenshot(path=str(OUTPUT_DIR / "mock-row-menu.png"))
+    menu.get_by_role("menuitem", name="Add to open model").click()
+    settle(page, 800)
+    checks.add("Add to open model puts the version into the url with=", "with=" in page.url, page.url)
+    target.hover()
+    remove = target.locator(".tree-row__action--remove")
+    checks.add("an added version shows a remove button on hover", remove.count() == 1 and remove.is_visible())
+    target.click(button="right")
+    menu = page.get_by_role("menu")
+    checks.add("the menu offers Remove once the version is added", menu.get_by_role("menuitem", name="Remove from open model").count() == 1 and menu.get_by_role("menuitem", name="Add to open model").count() == 0)
+    menu.get_by_role("menuitem", name="Remove from open model").click()
+    settle(page, 800)
+    checks.add("Remove from open model clears with= again", "with=" not in page.url, page.url)
+
+    target.click(button="right")
+    page.get_by_role("menu").get_by_role("menuitem", name="Open as modal").click()
+    settle(page, 1500)
+    state = models(page)
+    modal_urn = state["active"]
+    floating = wait_until(page, lambda: page.evaluate(f"mw:() => window.__bshLayout.location('viewer:{modal_urn}')") == "floating")
+    checks.add("Open as modal floats the model in its own pane", modal_urn != first_urn and bool(floating), modal_urn)
+    page.screenshot(path=str(OUTPUT_DIR / "mock-open-as-modal.png"))
+    page.evaluate(f"mw:() => window.__bshLayout.closeModel('{modal_urn}')")
+    settle(page, 800)
+
+    page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
+    settle(page, 600)
+    page.get_by_role("button", name=TREE_TOGGLE).first.click()
+    settle(page, 500)
+    toggle = page.locator(".stack__tree:not([hidden]) .recent-strip__toggle")
+    page.screenshot(path=str(OUTPUT_DIR / "mock-strip-narrow-collapsed.png"))
+    checks.add("narrow strip is collapsed until tapped", toggle.get_attribute("aria-expanded") == "false")
+    toggle.click()
+    settle(page, 300)
+    checks.add("tapping the header expands the strip", toggle.get_attribute("aria-expanded") == "true")
+    page.locator(".stack__tree:not([hidden]) .recent-strip__more").first.click()
+    settle(page, 300)
+    checks.add("the kebab button opens the menu on touch width", page.get_by_role("menu").count() == 1)
+    page.screenshot(path=str(OUTPUT_DIR / "mock-strip-narrow-menu.png"))
+    page.keyboard.press("Escape")
+    checks.add("Escape closes the menu", page.get_by_role("menu").count() == 0)
+    toggle.click()
+    settle(page, 300)
+    checks.add("tapping the header again collapses the strip", toggle.get_attribute("aria-expanded") == "false")
     page.keyboard.press("Escape")
     page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
     settle(page, 800)
@@ -998,11 +1085,11 @@ def check_combined(page, checks, notes):
     checks.add("combined: removing a member leaves a single-model tab", len(combined_groups(page)) == 1 and "with=" not in page.url and models_trigger(page).count() == 0, page.url)
 
     ensure_viewables(page)
-    addable = page.locator("[role=treeitem][data-viewable=true] .tree-row__action").count()
-    target = page.locator("[role=treeitem][data-viewable=true]").filter(has=page.locator(".tree-row__action")).first
+    addable = page.locator("[role=treeitem][data-viewable=true] .tree-row__action:not(.tree-row__action--remove)").count()
+    target = page.locator("[role=treeitem][data-viewable=true]").filter(has=page.locator(".tree-row__action:not(.tree-row__action--remove)")).first
     if target.count():
         target.hover()
-        target.locator(".tree-row__action").click()
+        target.locator(".tree-row__action:not(.tree-row__action--remove)").click()
         wait_until(page, lambda: len(combined_groups(page)) == 2)
     checks.add("combined: Add to open viewer adds a version to the active tab", addable >= 1 and len(combined_groups(page)) == 2 and len(models(page)["models"]) == 1, combined_groups(page))
 
@@ -1370,7 +1457,7 @@ def run_interaction_checks(page, checks, notes):
     except Exception as exc:
         page.screenshot(path=str(OUTPUT_DIR / "mock-layout-failure.png"))
         checks.add("check_layout", False, f"{type(exc).__name__}: {str(exc)[:160]}")
-    for check in (check_lock_maximize, check_active_pane, check_session_banner, check_paint_palette, check_recents, check_tree_metadata, check_theme, check_summary_rail, check_summary_tools, check_dashboard_tools, check_tree_resize):
+    for check in (check_lock_maximize, check_active_pane, check_session_banner, check_paint_palette, check_recents, check_strip, check_tree_metadata, check_theme, check_summary_rail, check_summary_tools, check_dashboard_tools, check_tree_resize):
         try:
             check(page, checks)
         except Exception as exc:

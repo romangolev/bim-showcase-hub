@@ -1,10 +1,12 @@
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
+import { useContext } from 'react';
 import { MAX_COMBINED_MODELS } from '../../shared/combined.js';
-import { joinWith } from '../api/modelContext.js';
+import { joinWith, type ModelContext } from '../api/modelContext.js';
 import { rememberModel } from '../api/modelStore.js';
 import { contextOf, modelUrnsOf } from '../api/openModels.js';
 import { useModelContext } from '../api/useModelContext.js';
 import { useOpenModels, useOpenModelsStore } from '../api/useOpenModels.js';
+import { LayoutContext } from '../layout/layoutContext.js';
 import { modelTabTitle } from '../routes/ModelPage.js';
 import {
   type AddTarget,
@@ -25,6 +27,7 @@ export function TreePanel({ onNavigate }: TreePanelProps) {
   const store = useOpenModelsStore();
   const state = useOpenModels();
   const active = state.active;
+  const layout = useContext(LayoutContext);
 
   const openTogether = (models: PickedModel[]) => {
     const [first, ...rest] = models.slice(0, MAX_COMBINED_MODELS);
@@ -45,6 +48,8 @@ export function TreePanel({ onNavigate }: TreePanelProps) {
     const context = contextOf(state, active) ?? {};
     addTarget = {
       label: `the open viewer (${modelTabTitle(active, context).label})`,
+      has: (candidate) => members.includes(candidate),
+      onRemove: (candidate) => store.removeFrom(active, candidate),
       canAdd: (candidate) =>
         !members.includes(candidate) && members.length < MAX_COMBINED_MODELS,
       onAdd: (models) => {
@@ -60,6 +65,20 @@ export function TreePanel({ onNavigate }: TreePanelProps) {
     };
   }
 
+  const open = (next: string, context: ModelContext) => {
+    void navigate({
+      to: '/model/$urn',
+      params: { urn: next },
+      search: context,
+    });
+    onNavigate?.();
+  };
+
+  const openModal = (next: string, context: ModelContext) => {
+    layout?.floatNext(next);
+    open(next, context);
+  };
+
   return (
     <aside id="document-panel" className="tree-panel" aria-label="Documents">
       <div className="tree-panel__head">
@@ -67,26 +86,15 @@ export function TreePanel({ onNavigate }: TreePanelProps) {
       </div>
       <RecentStrip
         selectedUrn={urn}
-        onOpen={(next, context) => {
-          void navigate({
-            to: '/model/$urn',
-            params: { urn: next },
-            search: context,
-          });
-          onNavigate?.();
-        }}
+        onOpen={open}
+        onOpenModal={openModal}
+        addTarget={addTarget}
       />
       <DocumentTree
         selectedUrn={urn}
         revealTrail={trail}
-        onOpenModel={(next, context) => {
-          void navigate({
-            to: '/model/$urn',
-            params: { urn: next },
-            search: context,
-          });
-          onNavigate?.();
-        }}
+        onOpenModel={open}
+        onOpenModal={openModal}
         onOpenTogether={openTogether}
         addTarget={addTarget}
       />

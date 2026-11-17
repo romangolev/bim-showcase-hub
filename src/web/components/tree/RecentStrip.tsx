@@ -1,42 +1,34 @@
-import { useMemo, useSyncExternalStore } from 'react';
 import {
-  type ModelContext,
-  parseModelContext,
-} from '../../api/modelContext.js';
+  type PointerEvent as ReactPointerEvent,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
+import type { ModelContext } from '../../api/modelContext.js';
 import {
   listRecentModels,
   modelStoreVersion,
-  PINNED_KEY,
   subscribeModelStore,
 } from '../../api/modelStore.js';
-import { usePersistedState } from '../../panels/usePersistedState.js';
 import { modelTabTitle } from '../../routes/ModelPage.js';
 import { useSettings } from '../../settings/SettingsContext.js';
 import { Icon } from '../icons.js';
+import type { AddTarget } from './DocumentTree.js';
+import { MAX_PINS, type Pin, sanitizePins, usePins } from './pins.js';
+import { modelMenuEntries, useRowMenu } from './rowMenu.js';
 
-export interface Pin extends ModelContext {
-  urn: string;
-}
+export { MAX_PINS, type Pin, sanitizePins };
 
-export const MAX_PINS = 50;
-
-export function sanitizePins(raw: unknown): Pin[] {
-  if (!Array.isArray(raw)) return [];
-  const pins = new Map<string, Pin>();
-  for (const item of raw) {
-    const urn = typeof item === 'string' ? item : (item as Pin | null)?.urn;
-    if (typeof urn !== 'string' || urn === '' || pins.has(urn)) continue;
-    const { with: _with, ...context } = parseModelContext(
-      typeof item === 'string' ? {} : item,
-    );
-    pins.set(urn, { urn, ...context });
-  }
-  return [...pins.values()].slice(0, MAX_PINS);
-}
+export const COLLAPSE_DELAY_MS = 150;
 
 export interface RecentStripProps {
   selectedUrn?: string;
   onOpen: (urn: string, context: ModelContext) => void;
+  onOpenModal?: (urn: string, context: ModelContext) => void;
+  addTarget?: AddTarget | null;
 }
 
 interface Entry {
@@ -44,56 +36,20 @@ interface Entry {
   context: ModelContext;
 }
 
-function Row({
-  entry,
-  pinned,
-  selected,
+export function RecentStrip({
+  selectedUrn,
   onOpen,
-  onTogglePin,
-}: {
-  entry: Entry;
-  pinned: boolean;
-  selected: boolean;
-  onOpen: RecentStripProps['onOpen'];
-  onTogglePin: (entry: Entry) => void;
-}) {
-  const title = modelTabTitle(entry.urn, entry.context);
-  return (
-    <li className="recent-strip__row" data-selected={selected}>
-      <button
-        type="button"
-        className="recent-strip__open"
-        title={title.tooltip}
-        aria-current={selected ? 'true' : undefined}
-        onClick={() => onOpen(entry.urn, entry.context)}
-      >
-        {title.label}
-      </button>
-      <button
-        type="button"
-        className="recent-strip__pin"
-        aria-pressed={pinned}
-        aria-label={`${pinned ? 'Unpin' : 'Pin'} ${title.label}`}
-        onClick={() => onTogglePin(entry)}
-      >
-        <Icon name="star" size={14} />
-      </button>
-    </li>
-  );
-}
-
-export function RecentStrip({ selectedUrn, onOpen }: RecentStripProps) {
+  onOpenModal,
+  addTarget,
+}: RecentStripProps) {
   const { settings } = useSettings();
   const version = useSyncExternalStore(
     subscribeModelStore,
     modelStoreVersion,
     modelStoreVersion,
   );
-  const [pins, setPins] = usePersistedState<Pin[]>(
-    PINNED_KEY,
-    [],
-    sanitizePins,
-  );
+  const { pins, toggle } = usePins();
+  const rowMenu = useRowMenu();
   const stored = useMemo(() => {
     void version;
     return listRecentModels();
@@ -110,35 +66,191 @@ export function RecentStrip({ selectedUrn, onOpen }: RecentStripProps) {
     .filter((item) => !pinnedUrns.includes(item.urn))
     .slice(0, settings.recentsLength)
     .map((item) => known(item.urn));
-  const toggle = (entry: Entry) =>
-    setPins((current) =>
-      current.some((pin) => pin.urn === entry.urn)
-        ? current.filter((pin) => pin.urn !== entry.urn)
-        : [{ urn: entry.urn, ...entry.context }, ...current].slice(0, MAX_PINS),
-    );
+
+  const [expanded, setExpanded] = useState(false);
+  const [sticky, setSticky] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const hovered = useRef(false);
+  const fromPointer = useRef(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const panelId = useId();
+  const open = expanded || sticky || rowMenu.active;
+
+  const clearTimer = () => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+  };
+  const collapseSoon = () => {
+    clearTimer();
+    timer.current = setTimeout(() => {
+      timer.current = null;
+      if (hovered.current || rowMenu.active) return;
+      if (root.current?.contains(document.activeElement)) return;
+      setExpanded(false);
+    }, COLLAPSE_DELAY_MS);
+  };
+  const expand = () => {
+    clearTimer();
+    setExpanded(true);
+  };
+
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    [],
+  );
+
+  const wasMenuActive = useRef(false);
+  useEffect(() => {
+    if (wasMenuActive.current && !rowMenu.active) collapseSoon();
+    wasMenuActive.current = rowMenu.active;
+  });
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointer = (event: PointerEvent) => {
+      if (root.current?.contains(event.target as Node)) return;
+      setExpanded(false);
+      setSticky(false);
+    };
+    document.addEventListener('pointerdown', onPointer);
+    return () => document.removeEventListener('pointerdown', onPointer);
+  }, [open]);
+
   if (pinned.length === 0 && recent.length === 0) return null;
+
+  const row = (entry: Entry) => {
+    const title = modelTabTitle(entry.urn, entry.context);
+    const isPinned = pinnedUrns.includes(entry.urn);
+    const added = addTarget?.has(entry.urn) ?? false;
+    const entries = () =>
+      modelMenuEntries({
+        urn: entry.urn,
+        context: entry.context,
+        addTarget,
+        pinned: isPinned,
+        onOpen: () => onOpen(entry.urn, entry.context),
+        onOpenModal: onOpenModal
+          ? () => onOpenModal(entry.urn, entry.context)
+          : undefined,
+        onTogglePin: () => toggle(entry.urn, entry.context),
+      });
+    return (
+      <li
+        key={entry.urn}
+        className="recent-strip__row"
+        data-selected={entry.urn === selectedUrn}
+        data-added={added || undefined}
+        {...rowMenu.bind(entries, '.recent-strip__open')}
+      >
+        <button
+          type="button"
+          className="recent-strip__open"
+          title={title.tooltip}
+          aria-current={entry.urn === selectedUrn ? 'true' : undefined}
+          onClick={() => onOpen(entry.urn, entry.context)}
+        >
+          {title.label}
+        </button>
+        {added && addTarget ? (
+          <button
+            type="button"
+            className="recent-strip__remove"
+            aria-label={`Remove ${title.label} from the open viewer`}
+            title="Remove from the open viewer"
+            onClick={() => addTarget.onRemove(entry.urn)}
+          >
+            <Icon name="close" size={13} />
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className="recent-strip__pin"
+          aria-pressed={isPinned}
+          aria-label={`${isPinned ? 'Unpin' : 'Pin'} ${title.label}`}
+          onClick={() => toggle(entry.urn, entry.context)}
+        >
+          <Icon name="star" size={14} />
+        </button>
+        <button
+          type="button"
+          className="recent-strip__more"
+          aria-haspopup="menu"
+          aria-label={`Actions for ${title.label}`}
+          onClick={(event) => rowMenu.showAt(entries(), event.currentTarget)}
+        >
+          <Icon name="more" size={14} />
+        </button>
+      </li>
+    );
+  };
+
   const section = (heading: string, entries: Entry[]) =>
     entries.length > 0 ? (
       <section aria-label={heading} className="recent-strip__section">
         <h3 className="recent-strip__heading">{heading}</h3>
-        <ul className="recent-strip__list">
-          {entries.map((entry) => (
-            <Row
-              key={entry.urn}
-              entry={entry}
-              pinned={pinnedUrns.includes(entry.urn)}
-              selected={entry.urn === selectedUrn}
-              onOpen={onOpen}
-              onTogglePin={toggle}
-            />
-          ))}
-        </ul>
+        <ul className="recent-strip__list">{entries.map(row)}</ul>
       </section>
     ) : null;
+
+  const mouse = (event: ReactPointerEvent) => event.pointerType === 'mouse';
+
   return (
-    <div className="recent-strip">
-      {section('Pinned', pinned)}
-      {section('Recent', recent)}
+    // biome-ignore lint/a11y/noStaticElementInteractions: hover and focus tracking only, the toggle button is the control
+    <div
+      ref={root}
+      className="recent-strip"
+      data-open={open}
+      onPointerDownCapture={() => {
+        fromPointer.current = true;
+      }}
+      onPointerEnter={(event) => {
+        if (!mouse(event)) return;
+        hovered.current = true;
+        expand();
+      }}
+      onPointerLeave={(event) => {
+        if (!mouse(event)) return;
+        hovered.current = false;
+        collapseSoon();
+      }}
+      onFocus={() => {
+        if (fromPointer.current) {
+          fromPointer.current = false;
+          return;
+        }
+        expand();
+      }}
+      onBlur={(event) => {
+        if (!root.current?.contains(event.relatedTarget as Node | null)) {
+          collapseSoon();
+        }
+      }}
+    >
+      <button
+        type="button"
+        className="recent-strip__toggle"
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={() => {
+          clearTimer();
+          if (sticky) {
+            setSticky(false);
+            setExpanded(false);
+          } else {
+            setSticky(true);
+          }
+        }}
+      >
+        <span>Pinned and Recent ({pinned.length + recent.length})</span>
+        <Icon name="chevron" size={12} />
+      </button>
+      <div id={panelId} className="recent-strip__panel" hidden={!open}>
+        {section('Pinned', pinned)}
+        {section('Recent', recent)}
+      </div>
+      {rowMenu.menu}
     </div>
   );
 }

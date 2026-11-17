@@ -10,6 +10,7 @@ import {
 import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../App.js';
+import { rememberModel } from '../api/modelStore.js';
 import { createAppRouter } from '../routes/router.js';
 import {
   createTestClient,
@@ -92,6 +93,26 @@ afterEach(() => {
 });
 
 describe('dock layout', () => {
+  it('floats an open model from the recent strip menu', async () => {
+    rememberModel('abc123', { file: 'Tower.rvt', v: '1' });
+    renderPath();
+    await dockReady();
+    fireEvent.click(
+      await screen.findByRole('button', { name: /^Pinned and Recent/ }),
+    );
+    fireEvent.click(
+      screen.getAllByRole('button', {
+        name: /^Actions for /,
+      })[0] as HTMLElement,
+    );
+    fireEvent.click(
+      within(screen.getByRole('menu')).getByText('Open as modal'),
+    );
+    await waitFor(() =>
+      expect(handle().location('viewer:abc123')).toBe('floating'),
+    );
+  });
+
   it('builds the default layout and saves it under the versioned key', async () => {
     renderPath();
     await dockReady();

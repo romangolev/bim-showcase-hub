@@ -1,5 +1,11 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createTestClient,
@@ -751,6 +757,8 @@ describe('DocumentTree multi-select', () => {
       addTarget: {
         label: 'the open viewer',
         canAdd: (urn: string) => urn !== 'urn-0',
+        has: () => false,
+        onRemove: vi.fn(),
         onAdd,
       },
     });
@@ -772,6 +780,67 @@ describe('DocumentTree multi-select', () => {
         expect.objectContaining({ urn: 'urn-1' }),
       ]),
     );
+  });
+
+  it('swaps the add button for a remove button on added versions', async () => {
+    const onRemove = vi.fn();
+    await openVersions(2, {
+      addTarget: {
+        label: 'the open viewer',
+        canAdd: () => false,
+        has: (urn: string) => urn === 'urn-1',
+        onAdd: vi.fn(),
+        onRemove,
+      },
+    });
+    expect(row(2)).toHaveAttribute('data-added', 'true');
+    expect(row(1)).not.toHaveAttribute('data-added');
+    const remove = screen.getByRole('button', {
+      name: 'Remove Tower.rvt from the open viewer',
+    });
+    expect(remove).toHaveAttribute('title', 'Remove from the open viewer');
+    fireEvent.click(remove);
+    expect(onRemove).toHaveBeenCalledWith('urn-1');
+    expect(screen.queryByRole('button', { name: /^Add Tower/ })).toBeNull();
+  });
+
+  it('opens a context menu on version rows with add, remove and modal', async () => {
+    const onAdd = vi.fn();
+    const onRemove = vi.fn();
+    const onOpenModal = vi.fn();
+    await openVersions(2, {
+      onOpenModal,
+      addTarget: {
+        label: 'the open viewer',
+        canAdd: () => true,
+        has: (urn: string) => urn === 'urn-1',
+        onAdd,
+        onRemove,
+      },
+    });
+    fireEvent.contextMenu(row(1));
+    const first = screen.getByRole('menu');
+    expect(
+      within(first)
+        .getAllByRole('menuitem')
+        .map((item) => item.textContent),
+    ).toEqual(['Open', 'Open as modal', 'Add to open model', 'Pin']);
+    fireEvent.click(within(first).getByText('Open as modal'));
+    expect(onOpenModal).toHaveBeenCalledWith(
+      'urn-0',
+      expect.objectContaining({ file: 'Tower.rvt' }),
+    );
+    fireEvent.keyDown(row(2), { key: 'F10', shiftKey: true });
+    fireEvent.click(
+      within(screen.getByRole('menu')).getByText('Remove from open model'),
+    );
+    expect(onRemove).toHaveBeenCalledWith('urn-1');
+  });
+
+  it('gives folders no context menu', async () => {
+    await openVersions(1);
+    fireEvent.contextMenu(screen.getByRole('treeitem', { name: /Tower\.rvt/ }));
+    expect(screen.queryByRole('menu')).toBeNull();
   });
 });
 
@@ -857,6 +926,8 @@ describe('DocumentTree picking skips blocked versions', () => {
       addTarget: {
         label: 'the open viewer',
         canAdd: () => true,
+        has: () => false,
+        onRemove: vi.fn(),
         onAdd: vi.fn(),
       },
     });
@@ -963,6 +1034,8 @@ describe('DocumentTree versions that were never checked', () => {
         addTarget: {
           label: 'the open viewer',
           canAdd: () => true,
+          has: () => false,
+          onRemove: vi.fn(),
           onAdd,
         },
       },

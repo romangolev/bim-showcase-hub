@@ -42,7 +42,9 @@ The Viewer pane has instances: `instances` in its registry entry gives the body 
 
 ## Pinned and Recent
 
-Above the tree, `RecentStrip` lists Pinned models and the most recent ones from `bsh.models.recent` (Settings, Documents sets how many, default 5, 0 hides them). The star on a row pins or unpins a model; pins are model URNs in `bsh.docs.pinned`, shown with the stored file name and version, or "Untitled model" when the recents no longer hold the model. Clicking a row opens the model with its stored breadcrumb context. Folders cannot be pinned and pins are not reorderable yet.
+Above the tree, `RecentStrip` lists Pinned models and the most recent ones from `bsh.models.recent` (Settings, Documents sets how many, default 5, 0 hides them). It is collapsed to a one-line header, "Pinned and Recent (N)", and expands as an overlay on the tree (no reflow) on mouse hover, when focus enters it, or when the header button is clicked or tapped (`aria-expanded`); it collapses about 150 ms after the pointer or focus leaves. Touch has no hover, so the header button is the way in there. The star on a row pins or unpins a model; pins are model URNs in `bsh.docs.pinned`, shown with the stored file name and version, or "Untitled model" when the recents no longer hold the model. Clicking a row opens the model with its stored breadcrumb context. Folders cannot be pinned and pins are not reorderable yet.
+
+Rows in the strip and version rows in the Documents tree have a context menu: Open, Open as modal (opens the model and floats its pane), Add to open model or Remove from open model (the item follows whether the model is in the active viewer tab; at 6 models Add is disabled with the reason), and Pin or Unpin. It opens on right click, Shift+F10 or the ContextMenu key, a 500 ms touch long press, and the kebab button on strip rows; Escape returns focus to the row. A row already in the open viewer shows a small dot and, on hover or focus, an x button that removes it. Folders have no menu.
 
 ## Tree metadata and sort
 
