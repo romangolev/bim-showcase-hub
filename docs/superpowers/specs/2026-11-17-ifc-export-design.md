@@ -32,7 +32,7 @@ Rules:
 
 - `ifc/` imports nothing from `viewer/`, `extensions/` or React. `buildIfc` and `mapToIfc` are testable with plain fixtures.
 - `ViewerAdapter` gets one optional method, `getIfcSource?(): Promise<IfcSourceRead>`, implemented by `RealViewerAdapter` and `MockViewerAdapter`, like `getGeometryParts`. `IfcSourceRead` is `{ models: SourceModel[]; skipped: number }`.
-- `SourceModel` is `{ id, name, urn, unitScale, offset: Vec3, elements: SourceElement[] }`. `SourceElement` is `{ dbId, externalId?, name, properties: Record<group, Record<name, value>>, parts: GeometryPart[] }`. Geometry is already in metres, in viewer space, with the model offset not yet applied.
+- `SourceModel` is `{ id, name, urn, unitScale, offset: Vec3, elements: SourceElement[] }`. `SourceElement` is `{ dbId, externalId?, name, properties: Record<group, Record<name, value>>, parts: GeometryPart[] }`. Geometry is already in metres, in viewer world space.
 - `exportToIfc` follows `exportGeometryToGlb`: `reading`, `building`, `done`, `empty`, `error` statuses, `missing` models, `skipped` fragments, a `save` hook, and the same badge in `ViewerPane` (the latest export wins).
 - The toolbar gets a fourth control, `ToolGroupSpec.ifc`, gated by `ToolFeatures.ifc` and the setting `ifcExport` (default on), the same way `geometry` is.
 
@@ -56,7 +56,7 @@ All inputs come from `IfcSettings` (section 5).
 - **GlobalId** (`globalId.ts`): if `externalId` contains a 36-character GUID, compress those 128 bits to the 22-character IFC form. Otherwise hash `urn + externalId` (or `urn + dbId` without an external id) to 128 bits and compress the same way. The same input always gives the same id. The spec makes no claim of parity with Revit's own exporter ids.
 - **Colour**: the part colour becomes an `IfcSurfaceStyle` with a rendering, shared by colour. Transparency maps to the rendering's transparency.
 - **Units**: geometry arrives in metres. For the `mm` setting, coordinates are multiplied by 1000 and the project unit is `MILLIMETRE`; for `m` it is `METRE`. Areas and volumes are not written, so only the length unit is declared.
-- **Offsets**: each building's placement is the model offset from the combined viewer, converted to the chosen unit. Geometry stays in model space.
+- **Placement**: geometry is read in the viewer's world space, which already contains the combined-view placement, so every building has an identity placement and no offset is written.
 
 ## 4. Writing (`buildIfc.ts`)
 
@@ -99,7 +99,7 @@ ifc: {
 - No geometry, model still loading, or a closed viewer: the same messages as the GLB export.
 - A model with no properties: elements are still written, as proxies with no property sets.
 - Missing models (not ready) are reported as in the GLB status. Hidden models are not exported.
-- Duplicate `GlobalId` (the same `externalId` on two elements): the second gets a suffix hash from its `dbId`, and the export counts a warning.
+- Duplicate `GlobalId` (the same `externalId` on two elements): the second gets a deterministic hash from its `dbId`, with no warning.
 - Very large models: the status shows the element and triangle counts while building. There is no size cap in this phase. If the tab runs out of memory the export fails with the standard error badge.
 
 ## 7. Testing
