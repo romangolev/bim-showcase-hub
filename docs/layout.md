@@ -101,7 +101,9 @@ Reset layout is in every pane menu and in the top bar Panes menu; its tooltip sa
 
 ## Keyboard and screen readers
 
-- Every pane header has a collapse button and a menu: Move left, Move right, Move below (to that edge of the dock), Float or Dock, Resize with arrow keys, Collapse or Expand, Close (closable panes only), Reset layout. Every drag has a menu path.
+- Every pane header has a collapse button and a menu: Move left, Move right, Move below (to that edge of the dock), Float or Dock, Maximize or Restore, Resize with arrow keys, Collapse or Expand, Close (closable panes only), Lock or Unlock layout, Reset layout. Every drag has a menu path.
+- Maximize (also a double-click on a tab) makes the pane's group fill the dock; Escape or Restore brings the arrangement back. The maximized state is not saved.
+- Lock layout (also in the Panes menu, stored in `localStorage` as `bsh.layout.locked`) turns off dragging and floating, hides tab close buttons and leaves only Maximize and Unlock in the pane menu; Panes toggles, Reset layout and keyboard resize are disabled. It does not apply to the stacked layout.
 - Resize with arrow keys enters a resize mode for that pane: Left and Right change its width, Up and Down its height, by 16 px (64 px with Shift); Escape, Enter or Tab finish. The live region announces the mode, each new size and the end. Floating groups are resized with their own handles.
 - The Panes menu in the top bar lists the optional panes (Model summary, Dashboard) as checkbox items and resets the layout. Opening one without a model shows its "No model loaded yet" state. Documents is not listed because it cannot close, and model tabs open from Documents.
 - The top bar Documents button collapses or expands the Documents pane in the dock.

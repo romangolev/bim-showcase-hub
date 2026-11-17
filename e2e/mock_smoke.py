@@ -382,6 +382,51 @@ def check_layout(page, checks, notes):
     settle(page)
 
 
+def check_lock_maximize(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page)
+    page.evaluate(TAG_VIEWER)
+    before = groups(page)["Model summary"]
+    pane_menu(page, "Model summary", "Maximize")
+    found = groups(page)
+    shown = {name: g for name, g in found.items() if g["right"] > g["left"] and g["bottom"] > g["top"]}
+    checks.add("maximize shows one pane filling the dock", "Model summary" in found and (found["Model summary"]["right"] - found["Model summary"]["left"]) > before["right"] - before["left"] + 200, shown)
+    page.keyboard.press("Escape")
+    settle(page)
+    restored = groups(page)["Model summary"]
+    checks.add("Escape restores the maximized pane", abs((restored["right"] - restored["left"]) - (before["right"] - before["left"])) <= 2, restored)
+    pane_menu(page, viewer_title(page), "Maximize")
+    checks.add("maximized viewer fits its container", page.evaluate(VIEWER_FITS) <= 2, page.evaluate(VIEWER_FITS))
+    page.get_by_role("tab").filter(has_text=viewer_title(page)).first.dblclick()
+    settle(page)
+    checks.add("double-click on the tab restores", default_arrangement(groups(page)), groups(page))
+    checks.add("maximize keeps the viewer element", page.evaluate(VIEWER_KEPT))
+
+    page.get_by_role("button", name="Panes").click()
+    page.get_by_role("menuitemcheckbox", name="Lock layout").click()
+    settle(page)
+    checks.add("locked layout is stored", page.evaluate("() => localStorage.getItem('bsh.layout.locked')") == "true")
+    checks.add("locked layout hides tab close buttons", page.locator(".dv-default-tab-action").count() == 0, page.locator(".dv-default-tab-action").count())
+    tab_box = page.get_by_role("tab", name="Dashboard").bounding_box()
+    viewer_box = page.locator(".dv-groupview:has([data-active='true'] .model-viewer) .dv-content-container").bounding_box()
+    pointer_drag(page, page.get_by_role("tab", name="Dashboard"), viewer_box["x"] + 24, viewer_box["y"] + viewer_box["height"] / 2)
+    checks.add("locked layout ignores a tab drag", default_arrangement(groups(page)), groups(page))
+    page.get_by_role("button", name="Dashboard pane options").click()
+    names = page.get_by_role("menuitem").all_inner_texts()
+    checks.add("locked pane menu offers only Maximize and Unlock", [n.strip() for n in names] == ["Maximize", "Unlock layout"], names)
+    page.keyboard.press("Escape")
+    page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
+    settle(page, 800)
+    checks.add("locked layout has no overflow at 390 wide", horizontal_overflow(page) <= 0)
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page, 1200)
+    page.get_by_role("button", name="Panes").click()
+    page.get_by_role("menuitemcheckbox", name="Lock layout").click()
+    settle(page)
+    checks.add("unlock stores false", page.evaluate("() => localStorage.getItem('bsh.layout.locked')") == "false")
+    checks.add("unlocked tabs have close buttons again", page.locator(".dv-default-tab-action").count() > 0)
+
+
 def models(page):
     return page.evaluate(MODELS)
 
@@ -1033,7 +1078,7 @@ def run_interaction_checks(page, checks, notes):
     except Exception as exc:
         page.screenshot(path=str(OUTPUT_DIR / "mock-layout-failure.png"))
         checks.add("check_layout", False, f"{type(exc).__name__}: {str(exc)[:160]}")
-    for check in (check_theme, check_summary_rail, check_summary_tools, check_dashboard_tools, check_tree_resize):
+    for check in (check_lock_maximize, check_theme, check_summary_rail, check_summary_tools, check_dashboard_tools, check_tree_resize):
         try:
             check(page, checks)
         except Exception as exc:

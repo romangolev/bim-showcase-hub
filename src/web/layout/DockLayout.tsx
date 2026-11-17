@@ -75,6 +75,8 @@ interface SlotContextValue {
   onVisibility: (id: PanelId, visible: boolean) => void;
   onCloseInstance: (id: PanelId) => void;
   onClosePane: (id: PaneId) => void;
+  onToggleMaximize: (id: PanelId) => void;
+  locked: boolean;
   titles: PaneTitles;
   headerActions?: (props: {
     pane: PanelId;
@@ -118,8 +120,9 @@ function PaneTab(props: IDockviewPanelHeaderProps) {
   return (
     <DockviewDefaultTab
       {...props}
-      hideClose={!isPanelClosable(id)}
+      hideClose={!isPanelClosable(id) || slot?.locked}
       title={slot?.titles[id]?.tooltip}
+      onDoubleClick={() => slot?.onToggleMaximize(id)}
       closeActionOverride={close}
     />
   );
@@ -523,6 +526,9 @@ export interface DockLayoutProps {
   onActivateInstance: (id: PanelId) => void;
   onCloseInstance: (id: PanelId) => void;
   onClosePane: (id: PaneId) => void;
+  locked: boolean;
+  onToggleMaximize: (id: PanelId) => void;
+  onMaximized: (id: PanelId | null) => void;
   headerActions?: SlotContextValue['headerActions'];
 }
 
@@ -726,7 +732,12 @@ export function DockLayout(props: DockLayoutProps) {
     if (width !== null && width !== latest.current.treeWidth) {
       latest.current.onTreeWidth(width);
     }
-    const dock = api.toJSON() as unknown as SerializedDock;
+    const raw = api.toJSON() as unknown as SerializedDock;
+    const { maximizedNode: _maximized, ...grid } = raw.grid;
+    const dock: SerializedDock = {
+      ...raw,
+      grid: grid as SerializedDock['grid'],
+    };
     const open = openKinds(api);
     const key = `${open.join(' ')}\n${JSON.stringify(dock)}`;
     if (key === lastEmitted.current) return;
@@ -801,6 +812,20 @@ export function DockLayout(props: DockLayoutProps) {
           arrangement: null,
         }),
       ),
+    toggleMaximize: (id) => {
+      const api = apiRef.current;
+      const panel = api
+        ? resolvePanel(api, id, latest.current.activeInstance)
+        : undefined;
+      if (!panel) return false;
+      if (panel.api.isMaximized()) {
+        panel.api.exitMaximized();
+        return false;
+      }
+      if (panel.api.location.type !== 'grid') return false;
+      panel.api.maximize();
+      return true;
+    },
     focusPane: (id) => {
       const api = apiRef.current;
       const panel = api
@@ -894,6 +919,11 @@ export function DockLayout(props: DockLayoutProps) {
         onActivePanel();
         emit();
       }),
+      api.onDidMaximizedGroupChange((event) => {
+        latest.current.onMaximized(
+          event.isMaximized ? (event.group.activePanel?.id ?? null) : null,
+        );
+      }),
       api.onDidMovePanel((moved) => {
         if (paneKind(moved.panel.id)) latest.current.onMoved(moved.panel.id);
       }),
@@ -917,6 +947,7 @@ export function DockLayout(props: DockLayoutProps) {
       },
       reset: (treeWidth) => controllerRef.current.reset(treeWidth),
       focusPane: (id) => controllerRef.current.focusPane(id),
+      toggleMaximize: (id) => controllerRef.current.toggleMaximize(id),
       location: (id) => controllerRef.current.location(id),
       resizePane: (id, delta) => controllerRef.current.resizePane(id, delta),
     });
@@ -991,6 +1022,8 @@ export function DockLayout(props: DockLayoutProps) {
         onVisibility: props.onVisibility,
         onCloseInstance: props.onCloseInstance,
         onClosePane: props.onClosePane,
+        onToggleMaximize: props.onToggleMaximize,
+        locked: props.locked,
         titles: props.titles,
         headerActions: props.headerActions,
       }}
@@ -1003,6 +1036,8 @@ export function DockLayout(props: DockLayoutProps) {
           rightHeaderActionsComponent={PaneActions}
           onReady={onReady}
           dndStrategy="pointer"
+          disableDnd={props.locked}
+          disableFloatingGroups={props.locked}
           floatingGroupBounds="boundedWithinViewport"
           announcements
           getAnnouncement={() => (quiet.current > 0 ? null : undefined)}

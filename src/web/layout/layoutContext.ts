@@ -10,6 +10,7 @@ export interface DockController {
   closePane: (id: PaneId) => void;
   reset: (treeWidth: number) => void;
   focusPane: (id: PanelId) => void;
+  toggleMaximize: (id: PanelId) => boolean;
   location: (id: PanelId) => 'grid' | 'floating' | null;
   resizePane: (
     id: PanelId,
@@ -26,6 +27,10 @@ export interface LayoutApi {
   togglePane: (id: PanelId) => void;
   movePane: (id: PanelId, target: MoveTarget) => void;
   resetLayout: () => void;
+  locked: boolean;
+  setLocked: (locked: boolean) => void;
+  maximized: PanelId | null;
+  toggleMaximize: (id: PanelId) => void;
   focusPane: (id: PanelId) => void;
   resizeSignal: (id: PanelId) => number;
   location: (id: PanelId) => 'grid' | 'floating' | null;

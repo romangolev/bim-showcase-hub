@@ -150,12 +150,28 @@ describe('pane menus', () => {
       'Move left',
       'Move right',
       'Move below',
+      'Maximize',
       'Float',
       'Resize with arrow keys',
       'Collapse',
       'Close',
+      'Lock layout',
       'Reset layout',
     ]);
+  });
+
+  it('offers only Maximize and Unlock once the layout is locked', async () => {
+    renderModel();
+    let menu = await openPaneMenu('Untitled model');
+    fireEvent.click(
+      within(menu).getByRole('menuitem', { name: 'Lock layout' }),
+    );
+    await waitFor(() =>
+      expect(window.localStorage.getItem('bsh.layout.locked')).toBe('true'),
+    );
+    menu = await openPaneMenu('Untitled model');
+    expect(itemNames(menu)).toEqual(['Maximize', 'Unlock layout']);
+    expect(screen.queryByRole('button', { name: /^Close / })).toBeNull();
   });
 
   it('offers Close for closable panes', async () => {
@@ -233,7 +249,7 @@ describe('panes menu in the top bar', () => {
       within(menu)
         .getAllByRole('menuitemcheckbox')
         .map((item) => item.textContent),
-    ).toEqual(['Model summary', 'Dashboard', 'Models']);
+    ).toEqual(['Model summary', 'Dashboard', 'Models', 'Lock layout']);
     const dashboard = within(menu).getByRole('menuitemcheckbox', {
       name: 'Dashboard',
     });
