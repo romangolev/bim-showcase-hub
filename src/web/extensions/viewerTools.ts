@@ -1,3 +1,4 @@
+import type { IfcSettings } from '../ifc/types.js';
 import type {
   Rgba,
   ToolGroupSpec,
@@ -15,6 +16,11 @@ import {
   type GlbExportStatus,
 } from './glbExport.js';
 import {
+  DEFAULT_IFC_FILE_NAME,
+  exportToIfc,
+  type IfcExportStatus,
+} from './ifcExport.js';
+import {
   PAINT_PRESETS,
   paintSelection,
   RESET_PAINT_LABEL,
@@ -28,23 +34,28 @@ export const PAINT_SELECT_HINT = 'Select elements to paint';
 export const PAINT_RESET_HINT = 'Nothing painted yet';
 export const EXPORT_TOOLTIP = 'Export to Excel';
 export const GEOMETRY_TOOLTIP = 'Export geometry (GLB)';
+export const IFC_TOOLTIP = 'Export IFC';
 
 export interface ToolFeatures {
   paint: boolean;
   export: boolean;
   geometry: boolean;
+  ifc: boolean;
 }
 
 export const ALL_TOOL_FEATURES: ToolFeatures = {
   paint: true,
   export: true,
   geometry: true,
+  ifc: true,
 };
 
 export interface ViewerToolsOptions {
   features?: ToolFeatures;
   onStatus?: (status: ExportStatus) => void;
   onGeometryStatus?: (status: GlbExportStatus) => void;
+  onIfcStatus?: (status: IfcExportStatus) => void;
+  ifcSettings?: () => IfcSettings;
   key?: string;
   fileName?: () => string;
 }
@@ -56,6 +67,14 @@ export function glbFileNameFrom(fileName?: string): string {
   const model = base.replace(/-properties$/i, '');
   if (!model) return DEFAULT_GLB_FILE_NAME;
   return `${model}-geometry.glb`;
+}
+
+export function ifcFileNameFrom(fileName?: string): string {
+  const name = (fileName ?? '').trim();
+  if (!name) return DEFAULT_IFC_FILE_NAME;
+  const base = name.replace(/\.(xlsx|glb|gltf|ifc)$/i, '');
+  const model = base.replace(/-properties$/i, '');
+  return model ? `${model}.ifc` : DEFAULT_IFC_FILE_NAME;
 }
 
 export function modelKey(urn: string): string {
@@ -77,6 +96,7 @@ export function buildToolGroupSpec(
 ): ToolGroupSpec {
   let busy = false;
   let geometryBusy = false;
+  let ifcBusy = false;
   const { key } = options;
   const features = options.features ?? ALL_TOOL_FEATURES;
   return {
@@ -139,6 +159,25 @@ export function buildToolGroupSpec(
           },
         }
       : {}),
+    ...(features.ifc
+      ? {
+          ifc: {
+            id: keyed('export-ifc', key),
+            tooltip: IFC_TOOLTIP,
+            onExport: () => {
+              if (ifcBusy) return;
+              ifcBusy = true;
+              void exportToIfc(adapter, {
+                fileName: ifcFileNameFrom(options.fileName?.()),
+                settings: options.ifcSettings,
+                onStatus: options.onIfcStatus,
+              }).finally(() => {
+                ifcBusy = false;
+              });
+            },
+          },
+        }
+      : {}),
   };
 }
 
@@ -147,7 +186,12 @@ export function registerViewerTools(
   options: ViewerToolsOptions = {},
 ): () => void {
   const features = options.features ?? ALL_TOOL_FEATURES;
-  if (!features.paint && !features.export && !features.geometry) {
+  if (
+    !features.paint &&
+    !features.export &&
+    !features.geometry &&
+    !features.ifc
+  ) {
     return () => undefined;
   }
   return adapter.registerToolGroup(buildToolGroupSpec(adapter, options));

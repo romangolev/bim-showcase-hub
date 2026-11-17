@@ -17,6 +17,11 @@ import {
   type GlbExportStatus,
   glbHasWarning,
 } from '../extensions/glbExport.js';
+import {
+  describeIfcStatus,
+  type IfcExportStatus,
+  ifcHasWarning,
+} from '../extensions/ifcExport.js';
 import { formatCount } from '../extensions/modelSummary.js';
 import { resetPaint } from '../extensions/paintBrushes.js';
 import { modelKey, registerViewerTools } from '../extensions/viewerTools.js';
@@ -124,6 +129,17 @@ function glbBadge(status: GlbExportStatus): StatusBadge {
   };
 }
 
+function ifcBadge(status: IfcExportStatus): StatusBadge {
+  return {
+    text:
+      status.phase === 'error'
+        ? 'IFC export failed'
+        : describeIfcStatus(status),
+    detail: describeIfcStatus(status),
+    error: ifcHasWarning(status),
+  };
+}
+
 const LOAD_ERROR_COPY =
   'The model could not be loaded. It may still be processing, or you may not have access to it.';
 
@@ -170,6 +186,8 @@ export function ViewerPane({
   const [attempt, setAttempt] = useState(0);
   const { theme } = useTheme();
   const { settings } = useSettings();
+  const ifcSettingsRef = useRef(settings.ifc);
+  ifcSettingsRef.current = settings.ifc;
   const themeRef = useRef(theme);
   const instanceRef = useRef<ViewerAdapter | null>(null);
 
@@ -195,6 +213,11 @@ export function ViewerPane({
 
   const handleGeometryStatus = useCallback(
     (next: GlbExportStatus) => showBadge(glbBadge(next), isBusy(next)),
+    [showBadge],
+  );
+
+  const handleIfcStatus = useCallback(
+    (next: IfcExportStatus) => showBadge(ifcBadge(next), isBusy(next)),
     [showBadge],
   );
 
@@ -301,12 +324,15 @@ export function ViewerPane({
     return registerViewerTools(adapter, {
       onStatus: handleExportStatus,
       onGeometryStatus: handleGeometryStatus,
+      onIfcStatus: handleIfcStatus,
+      ifcSettings: () => ifcSettingsRef.current,
       key: modelKey(urn),
       fileName: () => exportNameRef.current ?? '',
       features: {
         paint: settings.paintBrushes,
         export: settings.excelExport,
         geometry: settings.glbExport,
+        ifc: settings.ifcExport,
       },
     });
   }, [
@@ -316,8 +342,10 @@ export function ViewerPane({
     settings.paintBrushes,
     settings.excelExport,
     settings.glbExport,
+    settings.ifcExport,
     handleExportStatus,
     handleGeometryStatus,
+    handleIfcStatus,
   ]);
 
   const paintWasOn = useRef(settings.paintBrushes);

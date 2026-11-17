@@ -347,9 +347,18 @@ function parts(viewer: FakeViewer) {
   const combo = group.controls[0] as FakeCombo;
   const exportButton = group.controls[1] as FakeButton;
   const geometryButton = group.controls[2] as FakeButton;
+  const ifcButton = group.controls[3] as FakeButton;
   const reset = combo.controls[combo.controls.length - 1] as FakeButton;
   const swatches = combo.controls.slice(0, -1) as FakeButton[];
-  return { group, combo, exportButton, geometryButton, reset, swatches };
+  return {
+    group,
+    combo,
+    exportButton,
+    geometryButton,
+    ifcButton,
+    reset,
+    swatches,
+  };
 }
 
 beforeEach(() => {
@@ -375,10 +384,17 @@ describe('RealViewerAdapter tool group extension', () => {
     expect(registerSpy).toHaveBeenCalledWith('BimShowcaseHub.Tools');
     expect(viewer.extensions.has('BimShowcaseHub.Tools')).toBe(true);
     expect(viewer.toolbar.groups).toHaveLength(1);
-    const { group, combo, exportButton, geometryButton, reset, swatches } =
-      parts(viewer);
+    const {
+      group,
+      combo,
+      exportButton,
+      geometryButton,
+      ifcButton,
+      reset,
+      swatches,
+    } = parts(viewer);
     expect(group.id).toBe('bim-showcase-hub-tools');
-    expect(group.controls).toHaveLength(3);
+    expect(group.controls).toHaveLength(4);
     expect(combo).toBeInstanceOf(FakeCombo);
     expect(combo.tooltip).toBe('Paint selection');
     expect(combo.iconClass).toBe('bsh-ico-paint');
@@ -397,6 +413,8 @@ describe('RealViewerAdapter tool group extension', () => {
     expect(exportButton.iconClass).toBe('bsh-ico-export');
     expect(geometryButton.tooltip).toBe('Export geometry (GLB)');
     expect(geometryButton.iconClass).toBe('bsh-ico-glb');
+    expect(ifcButton.tooltip).toBe('Export IFC');
+    expect(ifcButton.iconClass).toBe('bsh-ico-ifc');
   });
 
   it('mounts immediately when registered after the model is loaded', async () => {

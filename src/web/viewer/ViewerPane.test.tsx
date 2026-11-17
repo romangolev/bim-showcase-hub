@@ -353,6 +353,76 @@ describe('ViewerPane geometry export badge', () => {
   });
 });
 
+describe('ViewerPane IFC export badge', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  function stubDownload() {
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    vi.stubGlobal('URL', {
+      ...URL,
+      createObjectURL: () => 'blob:x',
+      revokeObjectURL: () => {},
+    });
+  }
+
+  it('shows an Exported badge after clicking Export IFC', async () => {
+    stubDownload();
+    const { factory } = trackedFactory();
+    const onReady = vi.fn();
+    render(<ViewerPane urn="abc" factory={factory} onReady={onReady} />);
+    await waitFor(() => expect(onReady).toHaveBeenCalled());
+    const live = screen.getByRole('status');
+    fireEvent.click(screen.getByRole('button', { name: 'Export IFC' }));
+    await waitFor(() =>
+      expect(live).toHaveTextContent(/^Exported .* elements/),
+    );
+    expect(live.querySelector('.badge')).toHaveAttribute('data-variant', 'ok');
+  });
+
+  it('shows the latest export when an IFC export follows an Excel export', async () => {
+    stubDownload();
+    const { factory } = trackedFactory();
+    const onReady = vi.fn();
+    render(<ViewerPane urn="abc" factory={factory} onReady={onReady} />);
+    await waitFor(() => expect(onReady).toHaveBeenCalled());
+    const live = screen.getByRole('status');
+    fireEvent.click(screen.getByRole('button', { name: 'Export to Excel' }));
+    await waitFor(() => expect(live).toHaveTextContent(/^Exported \d+ rows/));
+    fireEvent.click(screen.getByRole('button', { name: 'Export IFC' }));
+    await waitFor(() =>
+      expect(live).toHaveTextContent(/^Exported .* elements/),
+    );
+  });
+
+  it('removes the IFC button when the ifcExport setting is off', async () => {
+    installMemoryStorage();
+    window.localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        paintBrushes: true,
+        excelExport: true,
+        glbExport: true,
+        ifcExport: false,
+      }),
+    );
+    const { factory } = trackedFactory();
+    const onReady = vi.fn();
+    render(
+      <SettingsProvider>
+        <ViewerPane urn="abc" factory={factory} onReady={onReady} />
+      </SettingsProvider>,
+    );
+    await waitFor(() => expect(onReady).toHaveBeenCalled());
+    expect(
+      await screen.findByRole('button', { name: 'Export to Excel' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Export IFC' })).toBeNull();
+  });
+});
+
 function ThemeSwitch() {
   const { toggleTheme } = useTheme();
   return (

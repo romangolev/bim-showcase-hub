@@ -43,6 +43,7 @@ export interface ToolGroupSpec {
   paint?: PaintToolSpec;
   export?: ExportToolSpec;
   geometry?: ExportToolSpec;
+  ifc?: ExportToolSpec;
 }
 
 export interface ViewerAdapter {

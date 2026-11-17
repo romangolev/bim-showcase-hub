@@ -57,6 +57,8 @@ describe('mock toolbar tool group', () => {
     ).not.toBeNull();
     expect(button('export-glb').title).toBe('Export geometry (GLB)');
     expect(button('export-glb').querySelector('.bsh-ico-glb')).not.toBeNull();
+    expect(button('export-ifc').title).toBe('Export IFC');
+    expect(button('export-ifc').querySelector('.bsh-ico-ifc')).not.toBeNull();
   });
 
   it('sits after the fake native tools in the toolbar', async () => {
@@ -148,7 +150,7 @@ describe('mock toolbar tool group', () => {
     await setup();
     const dispose = adapter.registerToolGroup(
       buildToolGroupSpec(adapter, {
-        features: { paint: false, export: true, geometry: false },
+        features: { paint: false, export: true, geometry: false, ifc: false },
       }),
     );
     expect(host.querySelector('[data-button-id="paint"]')).toBeNull();
@@ -157,7 +159,7 @@ describe('mock toolbar tool group', () => {
     dispose();
     adapter.registerToolGroup(
       buildToolGroupSpec(adapter, {
-        features: { paint: true, export: false, geometry: false },
+        features: { paint: true, export: false, geometry: false, ifc: false },
       }),
     );
     expect(host.querySelector('[data-button-id="export-xlsx"]')).toBeNull();
@@ -217,6 +219,31 @@ describe('mock toolbar tool group', () => {
     await vi.waitFor(() => expect(phases).toContain('done'));
     expect(phases).toEqual(['reading', 'building', 'done']);
     expect(saved).toEqual(['model-geometry.glb']);
+  });
+
+  it('runs the IFC export through the toolbar button and reports status', async () => {
+    await setup();
+    const phases: string[] = [];
+    const saved: string[] = [];
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    vi.stubGlobal('URL', {
+      ...URL,
+      createObjectURL: () => 'blob:ifc',
+      revokeObjectURL: () => {},
+    });
+    adapter.registerToolGroup(
+      buildToolGroupSpec(adapter, {
+        onIfcStatus: (status) => {
+          phases.push(status.phase);
+          if (status.phase === 'done') saved.push(status.fileName);
+        },
+      }),
+    );
+    button('export-ifc').click();
+    button('export-ifc').click();
+    await vi.waitFor(() => expect(phases).toContain('done'));
+    expect(phases).toEqual(['reading', 'building', 'done']);
+    expect(saved).toEqual(['model.ifc']);
   });
 });
 

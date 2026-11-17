@@ -18,6 +18,7 @@ export const PAINT_ICON_CLASS = 'bsh-ico-paint';
 export const RESET_ICON_CLASS = 'bsh-ico-reset';
 export const EXPORT_ICON_CLASS = 'bsh-ico-export';
 export const GLB_ICON_CLASS = 'bsh-ico-glb';
+export const IFC_ICON_CLASS = 'bsh-ico-ifc';
 
 export interface ToolsExtensionOptions {
   controller: ToolGroupController;
@@ -93,6 +94,14 @@ function createToolsExtension(viewing: AutodeskViewing): ViewerExtensionClass {
         geometryButton.setToolTip(spec.geometry.tooltip);
         geometryButton.onClick = () => controller.exportGeometry();
         group.addControl(geometryButton);
+      }
+
+      if (spec.ifc) {
+        const ifcButton: ControlButton = new UI.Button(spec.ifc.id);
+        ifcButton.setIcon(IFC_ICON_CLASS);
+        ifcButton.setToolTip(spec.ifc.tooltip);
+        ifcButton.onClick = () => controller.exportIfc();
+        group.addControl(ifcButton);
       }
 
       const apply = (state: ToolGroupState) => {

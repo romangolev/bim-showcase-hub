@@ -4,7 +4,7 @@ import { useTheme } from '../theme/ThemeContext.js';
 import { useSettings } from './SettingsContext.js';
 
 interface ExperimentalFeature {
-  key: 'paintBrushes' | 'excelExport' | 'glbExport';
+  key: 'paintBrushes' | 'excelExport' | 'glbExport' | 'ifcExport';
   label: string;
   description: string;
 }
@@ -26,6 +26,12 @@ export const EXPERIMENTAL_FEATURES: readonly ExperimentalFeature[] = [
     label: 'Geometry export',
     description:
       'Export the model geometry to a .glb file from the viewer toolbar.',
+  },
+  {
+    key: 'ifcExport',
+    label: 'IFC export',
+    description:
+      'Export the model to an .ifc file from the viewer toolbar, using the IFC export settings below.',
   },
 ];
 

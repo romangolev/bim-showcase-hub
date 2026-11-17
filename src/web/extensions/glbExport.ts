@@ -1,6 +1,7 @@
 import type { GeometryPart } from '../viewer/geometryTypes.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { saveBlob } from './excelExport.js';
+import { formatCount, missingModels } from './exportCommon.js';
 
 export interface GlbBuildOptions {
   generator?: string;
@@ -338,18 +339,6 @@ function doneText(status: Extract<GlbExportStatus, { phase: 'done' }>): string {
     notes.push(`${formatCount(status.skipped)} fragments skipped`);
   }
   return notes.length ? `${base}, ${notes.join(', ')}` : base;
-}
-
-function formatCount(value: number): string {
-  return new Intl.NumberFormat('en-US').format(Math.round(value));
-}
-
-function missingModels(adapter: ViewerAdapter): string[] {
-  if (typeof adapter.getModels !== 'function') return [];
-  return adapter
-    .getModels()
-    .filter((model) => model.status !== 'ready')
-    .map((model) => model.name);
 }
 
 export async function exportGeometryToGlb(
