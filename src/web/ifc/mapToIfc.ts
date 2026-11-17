@@ -29,7 +29,16 @@ function findProperty(
   groups: PropertyGroups,
   name: string,
 ): string | undefined {
-  for (const props of Object.values(groups)) {
+  const ordered =
+    name === 'Category' && groups.Other
+      ? [
+          groups.Other,
+          ...Object.entries(groups)
+            .filter(([key]) => key !== 'Other')
+            .map(([, props]) => props),
+        ]
+      : Object.values(groups);
+  for (const props of ordered) {
     const value = props[name];
     if (value !== undefined && String(value).trim() !== '') {
       return String(value).trim();

@@ -235,3 +235,72 @@ describe('buildIfc', () => {
     );
   });
 });
+
+function guidsOf(text: string, names: string[]): string[] {
+  const out: string[] = [];
+  for (const line of text.split('\n')) {
+    const match = /^#\d+=([A-Z0-9]+)\('([0-9A-Za-z_$]{22})'/.exec(line);
+    if (match && names.includes(match[1] as string)) {
+      out.push(match[2] as string);
+    }
+  }
+  return out;
+}
+
+const DERIVED = [
+  'IFCPROPERTYSET',
+  'IFCRELDEFINESBYPROPERTIES',
+  'IFCRELDEFINESBYTYPE',
+  'IFCRELCONTAINEDINSPATIALSTRUCTURE',
+  'IFCBUILDINGSTOREY',
+  'IFCRELAGGREGATES',
+  'IFCWALLTYPE',
+  'IFCDOORTYPE',
+];
+
+describe('stable GlobalIds', () => {
+  const text = (m: IfcExportModel) => [...buildIfc(m)].join('');
+
+  it('writes identical output for the same model', () => {
+    expect(text(model())).toBe(text(model()));
+  });
+
+  it('keeps existing derived ids when an element is added', () => {
+    const base = model();
+    const extended = model();
+    const first = extended.buildings[0]?.storeys[0];
+    first?.elements.push(
+      element({
+        guid: '0123456789012345678999',
+        name: 'Wall 9',
+        typeName: 'Other',
+      }),
+    );
+    const before = guidsOf(text(base), DERIVED);
+    const after = new Set(guidsOf(text(extended), DERIVED));
+    expect(before.filter((id) => !after.has(id))).toEqual([]);
+  });
+
+  it('shares no derived id between different models and project names', () => {
+    const a = model();
+    const b = model({ projectName: 'Other' });
+    const other = b.buildings[0];
+    if (other) {
+      other.guid = 'B000000000000000000002';
+      other.storeys.forEach((storey, row) => {
+        storey.elements.forEach((item, col) => {
+          item.guid = `X${row}${col}`.padEnd(22, '0');
+        });
+      });
+    }
+    const first = new Set(guidsOf(text(a), DERIVED));
+    const second = guidsOf(text(b), DERIVED);
+    expect(second.filter((id) => first.has(id))).toEqual([]);
+  });
+
+  it('does not depend on the project name', () => {
+    const a = guidsOf(text(model()), DERIVED);
+    const b = guidsOf(text(model({ projectName: 'Renamed' })), DERIVED);
+    expect(b).toEqual(a);
+  });
+});

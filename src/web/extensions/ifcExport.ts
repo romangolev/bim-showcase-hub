@@ -91,18 +91,20 @@ export async function exportToIfc(
     }
     emit({ phase: 'reading' });
     const read = await adapter.getIfcSource();
-    const elementCount = read.models.reduce(
+    const sourceCount = read.models.reduce(
       (sum, model) => sum + model.elements.length,
       0,
     );
-    if (elementCount === 0) return emit({ phase: 'empty' });
+    if (sourceCount === 0) return emit({ phase: 'empty' });
     emit({ phase: 'building' });
     await tick();
     const defaultName = fileName.replace(/\.ifc$/i, '') || 'Model';
     const model = mapToIfc(read, settings(), { defaultName, now });
     let triangleCount = 0;
+    let elementCount = 0;
     for (const building of model.buildings) {
       for (const storey of building.storeys) {
+        elementCount += storey.elements.length;
         for (const element of storey.elements) {
           for (const mesh of element.meshes) {
             triangleCount += Math.floor(mesh.indices.length / 3);
@@ -110,6 +112,7 @@ export async function exportToIfc(
         }
       }
     }
+    if (elementCount === 0) return emit({ phase: 'empty' });
     const chunks: string[] = [];
     for (const chunk of buildIfc(model)) {
       chunks.push(chunk);

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { readIfcSettings } from '../settings/settings.js';
 import { mapToIfc } from './mapToIfc.js';
 import type { IfcSettings, IfcSourceRead, SourceElement } from './types.js';
 
@@ -161,6 +162,34 @@ describe('mapToIfc', () => {
       'Level 2',
       'Ground',
     ]);
+  });
+
+  it('matches a level property that was saved with trailing spaces', () => {
+    const settings = readIfcSettings({
+      ...SETTINGS,
+      levelProperty: 'Category ',
+    });
+    const model = mapToIfc(source([el()]), settings, {
+      defaultName: 'T',
+      now: NOW,
+    });
+    expect(model.buildings[0]?.storeys[0]?.name).toBe('Revit Walls');
+  });
+
+  it('prefers the Other group for Category over a family parameter', () => {
+    const model = map(
+      source([
+        el({
+          properties: {
+            Identity: { Category: 'Family param' },
+            Other: { Category: 'Revit Doors' },
+          },
+        }),
+      ]),
+    );
+    expect(model.buildings[0]?.storeys[0]?.elements[0]?.ifcClass).toBe(
+      'IfcDoor',
+    );
   });
 
   it('reads the level from the configured property', () => {

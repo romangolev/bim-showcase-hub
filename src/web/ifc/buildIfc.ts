@@ -86,7 +86,8 @@ function faceList(mesh: IfcMesh): string {
 export function* buildIfc(model: IfcExportModel): Generator<string> {
   const out = new Out();
   const scale = model.unit === 'mm' ? 1000 : 1;
-  const guid = (seed: string) => hashGlobalId(`${model.projectName}|${seed}`);
+  const guid = (seed: string) => hashGlobalId(seed);
+  const root = model.buildings.map((building) => building.guid).join(',');
   const styles = new Map<string, number>();
 
   yield header(model);
@@ -107,14 +108,14 @@ export function* buildIfc(model: IfcExportModel): Generator<string> {
   const angleUnit = out.add('IFCSIUNIT(*,.PLANEANGLEUNIT.,$,.RADIAN.)');
   const units = out.add(`IFCUNITASSIGNMENT((#${lengthUnit},#${angleUnit}))`);
   const project = out.add(
-    `IFCPROJECT('${guid('project')}',$,${stepString(model.projectName)},$,$,$,$,(#${context}),#${units})`,
+    `IFCPROJECT('${guid(`project:${root}`)}',$,${stepString(model.projectName)},$,$,$,$,(#${context}),#${units})`,
   );
   const sitePlacement = out.add(`IFCLOCALPLACEMENT($,#${axis})`);
   const site = out.add(
-    `IFCSITE('${guid('site')}',$,${stepString(model.siteName)},$,$,#${sitePlacement},$,$,.ELEMENT.,$,$,$,$,$)`,
+    `IFCSITE('${guid(`site:${root}`)}',$,${stepString(model.siteName)},$,$,#${sitePlacement},$,$,.ELEMENT.,$,$,$,$,$)`,
   );
   out.add(
-    `IFCRELAGGREGATES('${guid('project-site')}',$,$,$,#${project},(#${site}))`,
+    `IFCRELAGGREGATES('${guid(`project-site:${root}`)}',$,$,$,#${project},(#${site}))`,
   );
 
   const style = (color: readonly number[]): number => {
@@ -163,10 +164,10 @@ export function* buildIfc(model: IfcExportModel): Generator<string> {
           `#${out.add(`IFCPROPERTYSINGLEVALUE(${stepString(name)},$,${nominal(value)},$)`)}`,
       );
       const setId = out.add(
-        `IFCPROPERTYSET('${guid(`pset:${out.nextId}`)}',$,${stepString(pset.name)},$,(${props.join(',')}))`,
+        `IFCPROPERTYSET('${guid(`pset:${element.guid}:${pset.name}`)}',$,${stepString(pset.name)},$,(${props.join(',')}))`,
       );
       out.add(
-        `IFCRELDEFINESBYPROPERTIES('${guid(`rel:${out.nextId}`)}',$,$,$,(#${elementId}),#${setId})`,
+        `IFCRELDEFINESBYPROPERTIES('${guid(`rel:${element.guid}:${pset.name}`)}',$,$,$,(#${elementId}),#${setId})`,
       );
     }
   };
@@ -189,7 +190,7 @@ export function* buildIfc(model: IfcExportModel): Generator<string> {
         `IFCLOCALPLACEMENT(#${placement},#${axis})`,
       );
       const storeyId = out.add(
-        `IFCBUILDINGSTOREY('${guid(`storey:${building.guid}:${storey.name}:${out.nextId}`)}',$,${stepString(storey.name)},$,$,#${storeyPlacement},$,$,.ELEMENT.,$)`,
+        `IFCBUILDINGSTOREY('${guid(`storey:${building.guid}:${storey.name}`)}',$,${stepString(storey.name)},$,$,#${storeyPlacement},$,$,.ELEMENT.,$)`,
       );
       storeyIds.push(storeyId);
       const contained: number[] = [];
@@ -221,7 +222,7 @@ export function* buildIfc(model: IfcExportModel): Generator<string> {
       }
       if (contained.length > 0) {
         out.add(
-          `IFCRELCONTAINEDINSPATIALSTRUCTURE('${guid(`contain:${out.nextId}`)}',$,$,$,(${contained.map((id) => `#${id}`).join(',')}),#${storeyId})`,
+          `IFCRELCONTAINEDINSPATIALSTRUCTURE('${guid(`contain:${building.guid}:${storey.name}`)}',$,$,$,(${contained.map((id) => `#${id}`).join(',')}),#${storeyId})`,
         );
       }
     }
@@ -238,7 +239,7 @@ export function* buildIfc(model: IfcExportModel): Generator<string> {
         `${group.cls.toUpperCase()}TYPE('${guid(`type:${building.guid}:${group.cls}:${group.name}`)}',$,${stepString(group.name)},$,$,$,$,$,$,${spec?.typeTail ?? '.NOTDEFINED.'})`,
       );
       out.add(
-        `IFCRELDEFINESBYTYPE('${guid(`bytype:${out.nextId}`)}',$,$,$,(${group.ids.map((id) => `#${id}`).join(',')}),#${typeId})`,
+        `IFCRELDEFINESBYTYPE('${guid(`bytype:${building.guid}:${group.cls}:${group.name}`)}',$,$,$,(${group.ids.map((id) => `#${id}`).join(',')}),#${typeId})`,
       );
     }
     yield out.take();
@@ -246,7 +247,7 @@ export function* buildIfc(model: IfcExportModel): Generator<string> {
 
   if (buildingIds.length > 0) {
     out.add(
-      `IFCRELAGGREGATES('${guid('site-buildings')}',$,$,$,#${site},(${buildingIds.map((id) => `#${id}`).join(',')}))`,
+      `IFCRELAGGREGATES('${guid(`site-buildings:${root}`)}',$,$,$,#${site},(${buildingIds.map((id) => `#${id}`).join(',')}))`,
     );
   }
   yield `${out.take()}ENDSEC;\nEND-ISO-10303-21;\n`;

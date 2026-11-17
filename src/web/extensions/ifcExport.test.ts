@@ -74,6 +74,18 @@ describe('exportToIfc', () => {
     expect(text).toContain('IFCWALL(');
   });
 
+  it('counts the exported elements, not the source elements', async () => {
+    const read = source(0, 3);
+    const first = read.models[0]?.elements[1];
+    if (first) first.parts = [];
+    const save = vi.fn();
+    const status = await exportToIfc(adapterWith(read), {
+      settings: () => SETTINGS,
+      save,
+    });
+    expect(status).toMatchObject({ phase: 'done', elementCount: 2 });
+  });
+
   it('reads the settings at export time', async () => {
     const save = vi.fn();
     let unit: 'm' | 'mm' = 'm';

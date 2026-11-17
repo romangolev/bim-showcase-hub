@@ -11,6 +11,11 @@ const OPENING: ClassSpec = {
   typeTail: '.NOTDEFINED.,.NOTDEFINED.,$,$',
 };
 
+const FURNITURE: ClassSpec = {
+  elementTail: '$',
+  typeTail: '.NOTDEFINED.,.NOTDEFINED.',
+};
+
 export const CLASS_SPECS: Readonly<Record<string, ClassSpec>> = {
   IfcBeam: PLAIN,
   IfcBuildingElementProxy: PLAIN,
@@ -19,7 +24,7 @@ export const CLASS_SPECS: Readonly<Record<string, ClassSpec>> = {
   IfcDoor: OPENING,
   IfcDuctSegment: PLAIN,
   IfcFooting: PLAIN,
-  IfcFurniture: PLAIN,
+  IfcFurniture: FURNITURE,
   IfcMember: PLAIN,
   IfcPipeSegment: PLAIN,
   IfcPlate: PLAIN,

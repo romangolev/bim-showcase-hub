@@ -26,6 +26,7 @@ import { formatCount } from '../extensions/modelSummary.js';
 import { resetPaint } from '../extensions/paintBrushes.js';
 import { modelKey, registerViewerTools } from '../extensions/viewerTools.js';
 import { useSettings } from '../settings/SettingsContext.js';
+import { readIfcSettings } from '../settings/settings.js';
 import { useTheme } from '../theme/ThemeContext.js';
 import { createViewerAdapter } from './createViewerAdapter.js';
 import { ModelsMenu } from './ModelsMenu.js';
@@ -325,7 +326,7 @@ export function ViewerPane({
       onStatus: handleExportStatus,
       onGeometryStatus: handleGeometryStatus,
       onIfcStatus: handleIfcStatus,
-      ifcSettings: () => ifcSettingsRef.current,
+      ifcSettings: () => readIfcSettings(ifcSettingsRef.current),
       key: modelKey(urn),
       fileName: () => exportNameRef.current ?? '',
       features: {

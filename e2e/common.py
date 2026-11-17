@@ -294,6 +294,48 @@ def glb_check(checks, path, label="GLB"):
     return info
 
 
+STEP_LINE = re.compile(r"^#\d+=([A-Z0-9_]+)\((.*)\);$")
+STEP_STRING = re.compile(r"'(?:[^']|'')*'")
+
+
+def step_argument_count(text):
+    text = STEP_STRING.sub("''", text)
+    depth, count = 0, 1 if text else 0
+    for ch in text:
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+        elif ch == "," and depth == 0:
+            count += 1
+    return count
+
+
+def ifc_attribute_mismatches(path, schema_name="IFC4", per_type=200):
+    import ifcopenshell.ifcopenshell_wrapper as wrapper
+
+    schema = wrapper.schema_by_name(schema_name)
+    seen, mismatches = {}, []
+    with open(path, encoding="utf-8", errors="replace") as handle:
+        for line in handle:
+            match = STEP_LINE.match(line.rstrip("\n"))
+            if not match:
+                continue
+            name = match.group(1)
+            if seen.get(name, 0) >= per_type:
+                continue
+            seen[name] = seen.get(name, 0) + 1
+            try:
+                expected = schema.declaration_by_name(name).as_entity().attribute_count()
+            except Exception:
+                mismatches.append(f"{name}: not an IFC4 entity")
+                continue
+            found = step_argument_count(match.group(2))
+            if found != expected:
+                mismatches.append(f"{name}: {found} attributes in the file, {expected} in IFC4")
+    return sorted(set(mismatches))
+
+
 def ifc_summary(path):
     import ifcopenshell
     import ifcopenshell.geom
@@ -301,10 +343,11 @@ def ifc_summary(path):
 
     model = ifcopenshell.open(str(path))
     elements = model.by_type("IfcElement")
-    guids = [e.GlobalId for e in elements]
+    guids = [e.GlobalId for e in model.by_type("IfcRoot")]
     logger = ifcopenshell.validate.json_logger()
     ifcopenshell.validate.validate(model, logger)
     errors = [s["message"] for s in logger.statements if str(s.get("level", "")).lower() == "error"]
+    errors += ifc_attribute_mismatches(path)
     with_geometry = [e for e in elements if e.Representation is not None]
     settings = ifcopenshell.geom.settings()
     settings.set("use-world-coords", True)
