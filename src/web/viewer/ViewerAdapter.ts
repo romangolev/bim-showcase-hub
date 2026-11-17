@@ -1,4 +1,5 @@
 import type { PropertyRow } from '../../shared/types.js';
+import type { IfcSourceRead } from '../ifc/types.js';
 import type { Theme } from '../theme/theme.js';
 import type { GeometryRead } from './geometryTypes.js';
 import type {
@@ -71,6 +72,7 @@ export interface ViewerAdapter {
   getTogetherOffsets(): Record<string, Vec3>;
   setModelOffsets(offsets: Readonly<Record<string, Vec3>> | null): void;
   getGeometryParts?(): Promise<GeometryRead>;
+  getIfcSource?(): Promise<IfcSourceRead>;
 }
 
 export type ViewerAdapterFactory = (

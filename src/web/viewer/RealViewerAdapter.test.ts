@@ -148,6 +148,8 @@ class FakeViewer implements GuiViewer3D {
 
   finishCalls = 0;
 
+  getAllModels?: () => ViewerModel[];
+
   start(): number | undefined {
     if (startPlan.error) throw startPlan.error;
     if (startPlan.code) return startPlan.code;
@@ -940,5 +942,81 @@ describe('RealViewerAdapter geometry export', () => {
       5, 0, 0, 5.5, 0, 0, 5, 0.5, 0,
     ]);
     expect(parts[0]?.color).toEqual([1, 0, 0, 1]);
+  });
+
+  function fakeSourceModel(name: string): ViewerModel {
+    const model: Partial<ViewerModel> = {
+      getUnitScale: () => 1,
+      getFragmentList: () => ({
+        getCount: () => 1,
+        getDbIds: () => 1,
+        getVizmesh: () => ({
+          geometry: {
+            vb: new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]),
+            vbstride: 3,
+            ib: new Uint16Array([0, 1, 2]),
+            attributes: { position: { offset: 0 } },
+          },
+          matrixWorld: {
+            elements: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+          },
+          material: { color: { r: 1, g: 0, b: 0 } },
+        }),
+        isLine: () => false,
+        isPoint: () => false,
+        isNotLoaded: () => false,
+      }),
+      getExternalIdMapping: (ok) => ok({ [`guid-${name}`]: 1 }),
+      getBulkProperties: (ids, _opts, ok) =>
+        ok(
+          ids.map((dbId) => ({
+            dbId,
+            name: `Element ${name}`,
+            properties: [
+              {
+                displayName: 'Category',
+                displayValue: 'Revit Walls',
+                displayCategory: 'Identity',
+              },
+            ],
+          })),
+        ),
+    };
+    return model as ViewerModel;
+  }
+
+  it('reads properties and external ids as an IFC source', async () => {
+    const one = makeAdapter();
+    await one.load('urn-a', 'Tower.rvt');
+    Object.assign((viewers[0] as FakeViewer).model, fakeSourceModel('a'));
+    const info = one.getModels()[0];
+    const result = await one.getIfcSource();
+    expect(result.models).toHaveLength(1);
+    expect(result.models[0]?.id).toBe(info?.id);
+    expect(result.models[0]?.name).toBe(info?.name);
+    expect(result.models[0]?.elements).toHaveLength(1);
+    const element = result.models[0]?.elements[0];
+    expect(element?.dbId).toBe(1);
+    expect(element?.externalId).toBe('guid-a');
+    expect(element?.name).toBe('Element a');
+    expect(element?.properties).toEqual({
+      Identity: { Category: 'Revit Walls' },
+    });
+  });
+
+  it('leaves hidden models out of the IFC source', async () => {
+    const one = makeAdapter();
+    const viewer = () => viewers[0] as FakeViewer;
+    await one.load('urn-a', 'A.rvt');
+    const a = viewer().model;
+    Object.assign(a, fakeSourceModel('a'));
+    const b = fakeSourceModel('b');
+    viewer().loadDocumentNode = async () => b;
+    viewer().getAllModels = () => [a, b];
+    await one.addModel({ urn: 'urn-b', name: 'B.rvt' });
+    const [infoA, infoB] = one.getModels();
+    one.setModelVisible(infoB?.id as string, false);
+    const result = await one.getIfcSource();
+    expect(result.models.map((m) => m.id)).toEqual([infoA?.id]);
   });
 });

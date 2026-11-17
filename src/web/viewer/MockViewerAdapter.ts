@@ -1,4 +1,5 @@
 import type { PropertyRow } from '../../shared/types.js';
+import type { IfcSourceRead } from '../ifc/types.js';
 import type { Theme } from '../theme/theme.js';
 import {
   EXPORT_ICON_CLASS,
@@ -348,6 +349,37 @@ export class MockViewerAdapter implements ViewerAdapter {
         mockGeometryPart(info, handle, index),
       ),
       skipped: 0,
+    };
+  }
+
+  async getIfcSource(): Promise<IfcSourceRead> {
+    const ready = this.models.ready();
+    if (ready.length === 0) throw new Error('No geometry to export');
+    return {
+      skipped: 0,
+      models: ready.map(({ info, handle }, index) => {
+        const name = info.name || info.id;
+        const part = mockGeometryPart(info, handle, index);
+        return {
+          id: info.id,
+          name,
+          urn: info.urn,
+          elements: [
+            {
+              dbId: index + 1,
+              name: `${name} wall`,
+              properties: {
+                'Identity Data': {
+                  Category: 'Revit Walls',
+                  'Type Name': 'Basic Wall',
+                },
+                Constraints: { Level: 'Level 1' },
+              },
+              parts: [part],
+            },
+          ],
+        };
+      }),
     };
   }
 

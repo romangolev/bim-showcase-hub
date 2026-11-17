@@ -1,5 +1,6 @@
 import type { PropertyRow } from '../../shared/types.js';
 import { notifyUnauthorized } from '../api/client.js';
+import type { IfcSourceRead } from '../ifc/types.js';
 import type { Theme } from '../theme/theme.js';
 import {
   autodeskWindow,
@@ -53,6 +54,7 @@ import { readSceneBackground } from './sceneBackground.js';
 import { ToolGroupController } from './toolGroupController.js';
 import type { Rgba, ToolGroupSpec, ViewerAdapter } from './ViewerAdapter.js';
 import { readViewerGeometry } from './viewerGeometry.js';
+import { readViewerSource, type SourceModelMeta } from './viewerSource.js';
 
 const VIEWER_VERSION = '7.*';
 const VIEWER_BASE = `https://developer.api.autodesk.com/modelderivative/v2/viewers/${VIEWER_VERSION}`;
@@ -482,6 +484,16 @@ export class RealViewerAdapter implements ViewerAdapter {
       if (info.visible) names.set(handle, info.name);
     }
     return readViewerGeometry(viewer, names);
+  }
+
+  async getIfcSource(): Promise<IfcSourceRead> {
+    const viewer = this.viewer;
+    if (!viewer || this.destroyed) throw new Error(VIEWER_CLOSED_MESSAGE);
+    const shown = new Map<ViewerModel, SourceModelMeta>();
+    for (const { info, handle } of this.models.shown()) {
+      shown.set(handle, { id: info.id, name: info.name, urn: info.urn });
+    }
+    return readViewerSource(viewer, shown);
   }
 
   setModelVisible(modelId: string, visible: boolean): void {

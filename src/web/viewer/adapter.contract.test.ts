@@ -53,6 +53,16 @@ describe('ViewerAdapter contract (mock)', () => {
     }
   });
 
+  it('returns elements with properties for the IFC export', async () => {
+    await setup();
+    const { models } = await adapter.getIfcSource();
+    expect(models.length).toBeGreaterThan(0);
+    const element = models[0]?.elements[0];
+    expect(element?.dbId).toBeGreaterThan(0);
+    expect(element?.parts.length).toBeGreaterThan(0);
+    expect(element?.properties['Identity Data']?.Category).toBe('Revit Walls');
+  });
+
   it('rejects an empty urn', async () => {
     host = document.createElement('div');
     adapter = new MockViewerAdapter(host);
