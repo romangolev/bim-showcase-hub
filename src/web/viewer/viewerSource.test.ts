@@ -209,6 +209,34 @@ describe('readViewerSource', () => {
     });
   });
 
+  it('counts failed level reads and generated ids for the export note', async () => {
+    const m = model({
+      dbIds: [5, 6],
+      levelRefs: { 5: 2, 6: 2 },
+      nodes: { 2: 'G' },
+    });
+    const read = m.getBulkProperties.bind(m);
+    let calls = 0;
+    m.getBulkProperties = (ids, opts, ok, fail) => {
+      calls += 1;
+      if (calls > 1) fail?.({ errorCode: 1, errorMsg: 'no' });
+      else read(ids, opts, ok, fail);
+    };
+    const result = await readViewerSource(viewerOf([m]), new Map([[m, META]]));
+    expect(result.levelsUnavailable).toBe(1);
+    expect(result.generatedIds).toBe(2);
+    const clean = model({
+      dbIds: [5],
+      bulkExternalIds: { 5: 'guid' },
+    });
+    const ok = await readViewerSource(
+      viewerOf([clean]),
+      new Map([[clean, META]]),
+    );
+    expect(ok.levelsUnavailable).toBeUndefined();
+    expect(ok.generatedIds).toBeUndefined();
+  });
+
   describe('level references', () => {
     async function levelsOf(options: FakeOptions) {
       const m = model(options);

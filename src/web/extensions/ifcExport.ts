@@ -4,7 +4,12 @@ import type { IfcSettings } from '../ifc/types.js';
 import { DEFAULT_IFC_SETTINGS } from '../settings/settings.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { saveBlob } from './excelExport.js';
-import { formatCount, missingModels } from './exportCommon.js';
+import {
+  formatCount,
+  missingModels,
+  tick,
+  tooLargeReason,
+} from './exportCommon.js';
 
 export const DEFAULT_IFC_FILE_NAME = 'model.ifc';
 export const MAX_IFC_BYTES = 512 * 1024 * 1024;
@@ -20,6 +25,8 @@ export type IfcExportStatus =
       byteLength: number;
       missing?: string[];
       skipped?: number;
+      levelsUnavailable?: number;
+      generatedIds?: number;
     }
   | { phase: 'empty' }
   | { phase: 'error'; message: string };
@@ -33,26 +40,16 @@ export interface IfcExportOptions {
   maxBytes?: number;
 }
 
-function tick(): Promise<void> {
-  if (typeof MessageChannel === 'undefined') {
-    return new Promise((resolve) => setTimeout(resolve, 0));
-  }
-  return new Promise((resolve) => {
-    const channel = new MessageChannel();
-    channel.port1.onmessage = () => {
-      channel.port1.close();
-      channel.port2.close();
-      resolve();
-    };
-    channel.port2.postMessage(null);
-  });
-}
-
 export function ifcHasWarning(status: IfcExportStatus): boolean {
   return (
     status.phase === 'error' ||
     (status.phase === 'done' &&
-      Boolean(status.missing?.length || status.skipped))
+      Boolean(
+        status.missing?.length ||
+          status.skipped ||
+          status.levelsUnavailable ||
+          status.generatedIds,
+      ))
   );
 }
 
@@ -70,6 +67,10 @@ export function describeIfcStatus(status: IfcExportStatus): string {
       }
       if (status.skipped) {
         notes.push(`${formatCount(status.skipped)} fragments skipped`);
+      }
+      if (status.levelsUnavailable) notes.push('levels unavailable');
+      if (status.generatedIds) {
+        notes.push(`${formatCount(status.generatedIds)} ids generated`);
       }
       return notes.length ? `${base}, ${notes.join(', ')}` : base;
     }
@@ -135,7 +136,7 @@ export async function exportToIfc(
       if (size > maxBytes) {
         return emit({
           phase: 'error',
-          message: `Export failed: the file would be larger than ${Math.round(maxBytes / (1024 * 1024))} MB`,
+          message: `Export failed: ${tooLargeReason(maxBytes)}`,
         });
       }
       parts.push(part);
@@ -153,6 +154,10 @@ export async function exportToIfc(
       byteLength: blob.size,
       ...(missing.length ? { missing } : {}),
       ...(skipped ? { skipped } : {}),
+      ...(read.levelsUnavailable
+        ? { levelsUnavailable: read.levelsUnavailable }
+        : {}),
+      ...(read.generatedIds ? { generatedIds: read.generatedIds } : {}),
     });
   } catch (err) {
     return emit({

@@ -28,6 +28,8 @@ export interface SourceModel {
 export interface IfcSourceRead {
   models: SourceModel[];
   skipped: number;
+  levelsUnavailable?: number;
+  generatedIds?: number;
 }
 
 export interface IfcSettings {

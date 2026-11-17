@@ -142,6 +142,21 @@ describe('exportToIfc', () => {
     expect(describeIfcStatus(status)).toContain('missing Annex.rvt');
   });
 
+  it('notes unavailable levels and generated ids', async () => {
+    const adapter = {
+      getIfcSource: async () => ({
+        ...source(),
+        levelsUnavailable: 1,
+        generatedIds: 4,
+      }),
+      getModels: () => [],
+    } as unknown as ViewerAdapter;
+    const status = await exportToIfc(adapter, { save: vi.fn() });
+    expect(ifcHasWarning(status)).toBe(true);
+    expect(describeIfcStatus(status)).toContain('levels unavailable');
+    expect(describeIfcStatus(status)).toContain('4 ids generated');
+  });
+
   it('reports an empty source without saving', async () => {
     const save = vi.fn();
     const status = await exportToIfc(adapterWith({ models: [], skipped: 0 }), {
