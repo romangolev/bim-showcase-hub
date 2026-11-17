@@ -46,7 +46,7 @@ export function ModalHost({ definition, onClose }: ModalHostProps) {
   return (
     <dialog
       ref={dialogRef}
-      className={`modal modal--${definition.size}`}
+      className={`modal modal--${definition.size}${definition.placement === 'top' ? ' modal--top' : ''}`}
       aria-labelledby={titleId}
     >
       <div className="modal__panel">

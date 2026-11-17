@@ -17,6 +17,10 @@
   width: min(100vw - 32px, 720px);
 }
 
+.modal--top {
+  margin: var(--space-4) auto auto;
+}
+
 .modal::backdrop {
   background: var(--color-scrim);
 }

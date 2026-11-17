@@ -159,3 +159,29 @@ describe('ModalProvider', () => {
     expect(() => render(<Trigger id="demo" />)).toThrow();
   });
 });
+
+describe('modal placement', () => {
+  it('adds the top class only for a top placement', () => {
+    const Body: ModalDefinition['Body'] = ({ close }) => (
+      <button type="button" onClick={close}>
+        Done
+      </button>
+    );
+    render(
+      <ModalProvider
+        definitions={[
+          { id: 'plain', title: 'Plain', size: 'sm', Body },
+          { id: 'high', title: 'High', size: 'sm', placement: 'top', Body },
+        ]}
+      >
+        <Trigger id="plain" />
+        <Trigger id="high" />
+      </ModalProvider>,
+    );
+    fireEvent.click(screen.getByText('Open plain'));
+    expect(document.querySelector('dialog')?.className).not.toContain('top');
+    fireEvent.click(screen.getByText('Done'));
+    fireEvent.click(screen.getByText('Open high'));
+    expect(document.querySelector('dialog')?.className).toContain('modal--top');
+  });
+});
