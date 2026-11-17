@@ -92,8 +92,8 @@ export function mapToIfc(
         meshes,
       };
       const storeyName =
-        findProperty(element.properties, settings.levelProperty) ??
-        settings.fallbackStorey;
+        findProperty(element.properties, settings.levelProperty || 'Level') ??
+        (settings.fallbackStorey || 'Unassigned');
       let storey = storeys.get(storeyName);
       if (!storey) {
         storey = { name: storeyName, elements: [] };
@@ -111,7 +111,7 @@ export function mapToIfc(
   });
   return {
     projectName: settings.projectName || options.defaultName,
-    siteName: settings.siteName,
+    siteName: settings.siteName || 'Site',
     author: settings.author,
     organisation: settings.organisation,
     unit: settings.lengthUnit,

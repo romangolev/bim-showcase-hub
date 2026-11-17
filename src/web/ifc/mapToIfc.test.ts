@@ -93,6 +93,23 @@ describe('mapToIfc', () => {
     expect(element?.guid).toMatch(/^[0-9A-Za-z_$]{22}$/);
   });
 
+  it('falls back to the default names when the settings are empty', () => {
+    const model = map(source([el()]), {
+      siteName: '',
+      levelProperty: '',
+      fallbackStorey: '',
+    });
+    expect(model.siteName).toBe('Site');
+    expect(model.buildings[0]?.storeys.map((s) => s.name)).toEqual(['Level 1']);
+    const bare = map(source([el({ properties: {} })]), {
+      levelProperty: '',
+      fallbackStorey: '',
+    });
+    expect(bare.buildings[0]?.storeys.map((s) => s.name)).toEqual([
+      'Unassigned',
+    ]);
+  });
+
   it('uses settings names where given', () => {
     const model = map(source([el()]), {
       projectName: 'My project',

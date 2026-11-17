@@ -488,6 +488,25 @@ function SettingsFlipExcel() {
   );
 }
 
+function IfcProbes() {
+  const { settings, setSetting } = useSettings();
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() =>
+          setSetting('ifc', { ...settings.ifc, projectName: 'Changed' })
+        }
+      >
+        change ifc settings
+      </button>
+      <button type="button" onClick={() => setSetting('ifcExport', false)}>
+        flip ifc
+      </button>
+    </>
+  );
+}
+
 describe('ViewerPane tool settings', () => {
   afterEach(() => {
     window.localStorage.clear();
@@ -571,5 +590,31 @@ describe('ViewerPane tool settings', () => {
     expect(themed().length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole('button', { name: 'flip paint' }));
     await waitFor(() => expect(themed()).toHaveLength(0));
+  });
+
+  it('does not re-register the tool group when IFC settings change', async () => {
+    installMemoryStorage();
+    const { factory, created } = trackedFactory();
+    const onReady = vi.fn();
+    render(
+      <SettingsProvider>
+        <IfcProbes />
+        <ViewerPane urn="abc" factory={factory} onReady={onReady} />
+      </SettingsProvider>,
+    );
+    await waitFor(() => expect(onReady).toHaveBeenCalled());
+    expect(
+      await screen.findByRole('button', { name: 'Export IFC' }),
+    ).toBeInTheDocument();
+    const spy = vi.spyOn(created[0] as ViewerAdapter, 'registerToolGroup');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'change ifc settings' }),
+    );
+    expect(spy).toHaveBeenCalledTimes(0);
+    fireEvent.click(screen.getByRole('button', { name: 'flip ifc' }));
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Export IFC' })).toBeNull(),
+    );
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 });

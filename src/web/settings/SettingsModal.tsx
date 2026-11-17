@@ -1,6 +1,7 @@
 import { useId } from 'react';
 import type { ModalDefinition } from '../modal/types.js';
 import { useTheme } from '../theme/ThemeContext.js';
+import { IfcSettingsSection } from './IfcSettingsSection.js';
 import { useSettings } from './SettingsContext.js';
 
 interface ExperimentalFeature {
@@ -102,6 +103,7 @@ export function SettingsBody() {
           />
         ))}
       </section>
+      <IfcSettingsSection />
     </div>
   );
 }
@@ -109,6 +111,6 @@ export function SettingsBody() {
 export const SETTINGS_MODAL: ModalDefinition = {
   id: 'settings',
   title: 'Settings',
-  size: 'md',
+  size: 'lg',
   Body: SettingsBody,
 };
