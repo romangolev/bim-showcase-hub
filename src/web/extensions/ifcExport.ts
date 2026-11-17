@@ -7,6 +7,7 @@ import { saveBlob } from './excelExport.js';
 import { formatCount, missingModels } from './exportCommon.js';
 
 export const DEFAULT_IFC_FILE_NAME = 'model.ifc';
+export const MAX_IFC_BYTES = 512 * 1024 * 1024;
 
 export type IfcExportStatus =
   | { phase: 'reading' }
@@ -29,6 +30,7 @@ export interface IfcExportOptions {
   onStatus?: (status: IfcExportStatus) => void;
   save?: (blob: Blob, fileName: string) => void;
   now?: Date;
+  maxBytes?: number;
 }
 
 function tick(): Promise<void> {
@@ -88,6 +90,7 @@ export async function exportToIfc(
     onStatus,
     save = saveBlob,
     now,
+    maxBytes = MAX_IFC_BYTES,
   } = options;
   const emit = (status: IfcExportStatus): IfcExportStatus => {
     onStatus?.(status);
@@ -124,12 +127,21 @@ export async function exportToIfc(
       }
     }
     if (elementCount === 0) return emit({ phase: 'empty' });
-    const chunks: string[] = [];
+    const parts: Blob[] = [];
+    let size = 0;
     for (const chunk of buildIfc(model)) {
-      chunks.push(chunk);
+      const part = new Blob([chunk]);
+      size += part.size;
+      if (size > maxBytes) {
+        return emit({
+          phase: 'error',
+          message: `Export failed: the file would be larger than ${Math.round(maxBytes / (1024 * 1024))} MB`,
+        });
+      }
+      parts.push(part);
       await tick();
     }
-    const blob = new Blob(chunks, { type: 'application/x-step' });
+    const blob = new Blob(parts, { type: 'application/x-step' });
     save(blob, fileName);
     const missing = missingModels(adapter);
     const skipped = read.skipped;

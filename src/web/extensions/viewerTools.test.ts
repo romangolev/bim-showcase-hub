@@ -133,6 +133,30 @@ describe('tool group ids per viewer', () => {
   });
 });
 
+describe('running exports across re-registration', () => {
+  it('keeps the busy state when the spec is rebuilt', async () => {
+    exportToIfc.mockClear();
+    let finish: () => void = () => undefined;
+    exportToIfc.mockImplementationOnce(
+      () =>
+        new Promise<undefined>((resolve) => {
+          finish = () => resolve(undefined);
+        }),
+    );
+    const own = {} as ViewerAdapter;
+    const first = buildToolGroupSpec(own);
+    first.ifc?.onExport();
+    const second = buildToolGroupSpec(own);
+    second.ifc?.onExport();
+    expect(exportToIfc).toHaveBeenCalledTimes(1);
+    finish();
+    await Promise.resolve();
+    await Promise.resolve();
+    second.ifc?.onExport();
+    expect(exportToIfc).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe('ifcFileNameFrom', () => {
   it('swaps the extension and drops the properties suffix', () => {
     expect(ifcFileNameFrom('Tower-v2-properties.xlsx')).toBe('Tower-v2.ifc');

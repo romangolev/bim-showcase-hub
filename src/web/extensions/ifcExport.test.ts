@@ -74,6 +74,22 @@ describe('exportToIfc', () => {
     expect(text).toContain('IFCWALL(');
   });
 
+  it('stops with a clear error when the file passes the size limit', async () => {
+    const save = vi.fn();
+    const status = await exportToIfc(adapterWith(source(0, 2)), {
+      settings: () => SETTINGS,
+      save,
+      maxBytes: 100,
+    });
+    expect(status).toMatchObject({
+      phase: 'error',
+      message: expect.stringMatching(
+        /^Export failed: the file would be larger than \d+ MB$/,
+      ),
+    });
+    expect(save).not.toHaveBeenCalled();
+  });
+
   it('counts the exported elements, not the source elements', async () => {
     const read = source(0, 3);
     const first = read.models[0]?.elements[1];

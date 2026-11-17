@@ -60,21 +60,25 @@ export interface ViewerToolsOptions {
   fileName?: () => string;
 }
 
+function exportFileName(
+  fileName: string | undefined,
+  fallback: string,
+  suffix: string,
+  extension: string,
+): string {
+  const model = (fileName ?? '')
+    .trim()
+    .replace(/\.(xlsx|glb|gltf|ifc)$/i, '')
+    .replace(/-properties$/i, '');
+  return model ? `${model}${suffix}.${extension}` : fallback;
+}
+
 export function glbFileNameFrom(fileName?: string): string {
-  const name = (fileName ?? '').trim();
-  if (!name) return DEFAULT_GLB_FILE_NAME;
-  const base = name.replace(/\.(xlsx|glb|gltf)$/i, '');
-  const model = base.replace(/-properties$/i, '');
-  if (!model) return DEFAULT_GLB_FILE_NAME;
-  return `${model}-geometry.glb`;
+  return exportFileName(fileName, DEFAULT_GLB_FILE_NAME, '-geometry', 'glb');
 }
 
 export function ifcFileNameFrom(fileName?: string): string {
-  const name = (fileName ?? '').trim();
-  if (!name) return DEFAULT_IFC_FILE_NAME;
-  const base = name.replace(/\.(xlsx|glb|gltf|ifc)$/i, '');
-  const model = base.replace(/-properties$/i, '');
-  return model ? `${model}.ifc` : DEFAULT_IFC_FILE_NAME;
+  return exportFileName(fileName, DEFAULT_IFC_FILE_NAME, '', 'ifc');
 }
 
 export function modelKey(urn: string): string {
@@ -86,6 +90,28 @@ export function modelKey(urn: string): string {
   return hash.toString(36);
 }
 
+type ExportKind = 'xlsx' | 'glb' | 'ifc';
+
+const running = new WeakMap<ViewerAdapter, Set<ExportKind>>();
+
+function runOnce(
+  adapter: ViewerAdapter,
+  kind: ExportKind,
+  start: () => Promise<unknown>,
+): void {
+  let kinds = running.get(adapter);
+  if (!kinds) {
+    kinds = new Set();
+    running.set(adapter, kinds);
+  }
+  if (kinds.has(kind)) return;
+  const active = kinds;
+  active.add(kind);
+  void start().finally(() => {
+    active.delete(kind);
+  });
+}
+
 function keyed(id: string, key?: string): string {
   return key ? `${id}-${key}` : id;
 }
@@ -94,9 +120,6 @@ export function buildToolGroupSpec(
   adapter: ViewerAdapter,
   options: ViewerToolsOptions = {},
 ): ToolGroupSpec {
-  let busy = false;
-  let geometryBusy = false;
-  let ifcBusy = false;
   const { key } = options;
   const features = options.features ?? ALL_TOOL_FEATURES;
   return {
@@ -128,15 +151,13 @@ export function buildToolGroupSpec(
             id: keyed('export-xlsx', key),
             tooltip: EXPORT_TOOLTIP,
             onExport: () => {
-              if (busy) return;
-              busy = true;
-              void exportToXlsx(adapter, {
-                propertyNames: DEFAULT_EXPORT_PROPERTIES,
-                fileName: options.fileName?.() || DEFAULT_FILE_NAME,
-                onStatus: options.onStatus,
-              }).finally(() => {
-                busy = false;
-              });
+              runOnce(adapter, 'xlsx', () =>
+                exportToXlsx(adapter, {
+                  propertyNames: DEFAULT_EXPORT_PROPERTIES,
+                  fileName: options.fileName?.() || DEFAULT_FILE_NAME,
+                  onStatus: options.onStatus,
+                }),
+              );
             },
           },
         }
@@ -147,14 +168,12 @@ export function buildToolGroupSpec(
             id: keyed('export-glb', key),
             tooltip: GEOMETRY_TOOLTIP,
             onExport: () => {
-              if (geometryBusy) return;
-              geometryBusy = true;
-              void exportGeometryToGlb(adapter, {
-                fileName: glbFileNameFrom(options.fileName?.()),
-                onStatus: options.onGeometryStatus,
-              }).finally(() => {
-                geometryBusy = false;
-              });
+              runOnce(adapter, 'glb', () =>
+                exportGeometryToGlb(adapter, {
+                  fileName: glbFileNameFrom(options.fileName?.()),
+                  onStatus: options.onGeometryStatus,
+                }),
+              );
             },
           },
         }
@@ -165,15 +184,13 @@ export function buildToolGroupSpec(
             id: keyed('export-ifc', key),
             tooltip: IFC_TOOLTIP,
             onExport: () => {
-              if (ifcBusy) return;
-              ifcBusy = true;
-              void exportToIfc(adapter, {
-                fileName: ifcFileNameFrom(options.fileName?.()),
-                settings: options.ifcSettings,
-                onStatus: options.onIfcStatus,
-              }).finally(() => {
-                ifcBusy = false;
-              });
+              runOnce(adapter, 'ifc', () =>
+                exportToIfc(adapter, {
+                  fileName: ifcFileNameFrom(options.fileName?.()),
+                  settings: options.ifcSettings,
+                  onStatus: options.onIfcStatus,
+                }),
+              );
             },
           },
         }

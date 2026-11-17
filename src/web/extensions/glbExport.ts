@@ -1,3 +1,4 @@
+import { triangleVertexCount } from '../../shared/mesh.js';
 import type { GeometryPart } from '../viewer/geometryTypes.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { saveBlob } from './excelExport.js';
@@ -82,13 +83,10 @@ interface Element {
 }
 
 function usable(part: GeometryPart): Item | null {
-  const vertices = part.positions.length / 3;
-  const { indices } = part;
-  if (!Number.isInteger(vertices) || vertices === 0) return null;
-  if (indices.length < 3 || indices.length % 3 !== 0) return null;
+  const vertices = triangleVertexCount(part.positions, part.indices);
+  if (vertices === null) return null;
   let max = 0;
-  for (const index of indices) if (index > max) max = index;
-  if (max >= vertices) return null;
+  for (const index of part.indices) if (index > max) max = index;
   return { part, vertices, wide: max >= 65536 };
 }
 

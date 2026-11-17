@@ -1,5 +1,7 @@
 import type { PropertyRow } from '../../shared/types.js';
 
+export { formatCount } from './exportCommon.js';
+
 export const DEFAULT_SUMMARY_PROPERTIES: readonly string[] = [
   'Assembly Code',
   'Classification Code',
@@ -12,10 +14,6 @@ export interface SummaryEntry {
   property: string;
   value: string;
   count: number;
-}
-
-export function formatCount(count: number): string {
-  return count.toLocaleString('en-US');
 }
 
 export function formatValue(
