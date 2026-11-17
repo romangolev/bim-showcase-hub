@@ -93,6 +93,15 @@ function readTokens(
   return tokens;
 }
 
+export function sessionExpiresAt(
+  session: SessionStore,
+  codec: SessionCodec,
+  now: number = Date.now(),
+): number | null {
+  const tokens = readTokens(session, codec, now);
+  return tokens ? tokens.issuedAt + SESSION_MAX_AGE_MS : null;
+}
+
 export function storeTokens(
   session: SessionStore,
   tokens: TokenSet,

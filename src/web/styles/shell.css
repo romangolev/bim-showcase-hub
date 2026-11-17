@@ -154,6 +154,23 @@
   height: 100dvh;
 }
 
+.session-banner {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--gutter-page);
+  border-bottom: var(--border-hairline);
+  background: var(--color-graphite);
+  font-size: 0.875rem;
+}
+
+.session-banner[data-state="ended"] {
+  border-bottom-color: var(--color-coral);
+}
+
 .topbar {
   position: sticky;
   top: 0;

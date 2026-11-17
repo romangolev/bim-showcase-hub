@@ -72,6 +72,7 @@ function SwitchRow({ label, description, checked, onChange }: SwitchRowProps) {
 export function SettingsBody() {
   const { theme, toggleTheme } = useTheme();
   const { settings, setSetting } = useSettings();
+  const warnId = useId();
   return (
     <div className="settings">
       <section
@@ -103,6 +104,30 @@ export function SettingsBody() {
             onChange={() => setSetting(feature.key, !settings[feature.key])}
           />
         ))}
+      </section>
+      <section className="settings__section" aria-labelledby="settings-session">
+        <h3 id="settings-session" className="settings__heading">
+          Session
+        </h3>
+        <div className="settings__field">
+          <label htmlFor={warnId}>
+            Warn me before the session ends (minutes)
+          </label>
+          <input
+            id={warnId}
+            type="number"
+            min={0}
+            max={120}
+            value={settings.sessionWarnMinutes}
+            onChange={(event) =>
+              setSetting(
+                'sessionWarnMinutes',
+                Math.min(120, Math.max(0, Number(event.target.value) || 0)),
+              )
+            }
+          />
+          <span className="settings__hint">0 turns the notice off.</span>
+        </div>
       </section>
       <ExcelSettingsSection />
       <IfcSettingsSection />

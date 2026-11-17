@@ -12,6 +12,7 @@ export interface Settings {
   excelExport: boolean;
   glbExport: boolean;
   ifcExport: boolean;
+  sessionWarnMinutes: number;
   ifc: IfcSettings;
   excel: ExcelSettings;
 }
@@ -35,6 +36,7 @@ export const DEFAULT_SETTINGS: Settings = {
   excelExport: true,
   glbExport: true,
   ifcExport: true,
+  sessionWarnMinutes: 10,
   ifc: DEFAULT_IFC_SETTINGS,
   excel: DEFAULT_EXCEL_SETTINGS,
 };
@@ -43,6 +45,12 @@ export const SETTINGS_STORAGE_KEY = 'bsh-settings-v1';
 
 function flag(value: unknown, fallback: boolean): boolean {
   return typeof value === 'boolean' ? value : fallback;
+}
+
+function minutes(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.min(120, Math.max(0, Math.round(value)))
+    : fallback;
 }
 
 function text(value: unknown, fallback: string): string {
@@ -135,6 +143,10 @@ export function readSettings(): Settings {
       excelExport: flag(source.excelExport, DEFAULT_SETTINGS.excelExport),
       glbExport: flag(source.glbExport, DEFAULT_SETTINGS.glbExport),
       ifcExport: flag(source.ifcExport, DEFAULT_SETTINGS.ifcExport),
+      sessionWarnMinutes: minutes(
+        source.sessionWarnMinutes,
+        DEFAULT_SETTINGS.sessionWarnMinutes,
+      ),
       ifc: readIfcSettings(source.ifc),
       excel: readExcelSettings(source.excel),
     };

@@ -4,11 +4,11 @@ import type { SessionUser, ViewerToken } from '../../shared/types.js';
 import {
   clearAuth,
   getAccessToken,
-  isSignedIn,
   MAX_COOKIE_BYTES,
   readUser,
   type SessionCodec,
   sessionCookieBytes,
+  sessionExpiresAt,
   storeTokens,
   storeUser,
 } from '../auth/sessionTokens.js';
@@ -61,12 +61,14 @@ export function authRouter(
     }
     const session = sessionOf(req);
     const user = readUser(session);
-    if (!user || !isSignedIn(session, codec)) {
+    const expiresAt = sessionExpiresAt(session, codec);
+    if (!user || expiresAt === null) {
       throw new HttpError(401, 'Not signed in');
     }
     res.json({
       ...user,
       appClientId: config.aps.clientId,
+      expiresAt,
     } satisfies SessionUser);
   });
 

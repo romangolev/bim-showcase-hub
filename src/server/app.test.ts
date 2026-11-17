@@ -81,7 +81,11 @@ describe('session and auth', () => {
       name: 'Sam Smith',
       picture: null,
       appClientId: realConfig.aps.clientId,
+      expiresAt: expect.any(Number),
     });
+    expect(session.body.expiresAt - Date.now()).toBeLessThanOrEqual(
+      12 * 60 * 60 * 1000,
+    );
 
     const token = await agent.get('/api/viewer/token');
     expect(token.status).toBe(200);
