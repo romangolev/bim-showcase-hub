@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import cookieSession from 'cookie-session';
 import express, { type Express } from 'express';
 import { createApsAuth } from './auth/apsAuth.js';
+import { SESSION_MAX_AGE_MS } from './auth/sessionTokens.js';
 import { loadConfig, type ServerConfig } from './config.js';
 import { REPORT_ONLY_CSP } from './csp.js';
 import { createApsDataService } from './data/apsDataService.js';
@@ -35,12 +36,11 @@ export function createApp(
   if (config.production) {
     app.set('trust proxy', 1);
   }
-  app.use(express.json());
   app.use(
     cookieSession({
       name: 'bim-hub-session',
       keys: [config.sessionSecret],
-      maxAge: 60 * 60 * 1000,
+      maxAge: SESSION_MAX_AGE_MS,
       httpOnly: true,
       sameSite: 'lax',
     }),

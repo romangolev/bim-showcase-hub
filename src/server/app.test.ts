@@ -226,6 +226,21 @@ describe('session and auth', () => {
     expect((await agent.get('/api/hubs')).status).toBe(401);
   });
 
+  it('keeps a session older than an hour but younger than 12 hours', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      const auth = fakeAuth();
+      const agent = request.agent(realApp(auth));
+      await signIn(agent);
+      vi.setSystemTime(Date.now() + 2 * 60 * 60 * 1000);
+      expect((await agent.get('/api/session')).status).toBe(200);
+      vi.setSystemTime(Date.now() + 11 * 60 * 60 * 1000);
+      expect((await agent.get('/api/session')).status).toBe(401);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('signout is fine when never signed in', async () => {
     const res = await request(realApp()).post('/api/auth/signout');
     expect(res.status).toBe(204);
@@ -347,14 +362,6 @@ describe('error handler', () => {
     const res = await request(app).get('/api/hubs');
     expect(res.status).toBe(404);
     expect(res.body).toEqual({ error: 'Gone' });
-  });
-
-  it('answers 400 for malformed json bodies', async () => {
-    const res = await request(realApp())
-      .post('/api/auth/signout')
-      .set('Content-Type', 'application/json')
-      .send('{bad json');
-    expect(res.status).toBe(400);
   });
 });
 

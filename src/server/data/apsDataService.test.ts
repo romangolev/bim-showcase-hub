@@ -35,17 +35,41 @@ describe('createApsDataService', () => {
     expect(client.getHubs).toHaveBeenCalledWith({ accessToken: 'tok' });
     expect(client.getHubProjects).toHaveBeenCalledWith('b.1', {
       accessToken: 'tok',
+      pageNumber: 0,
     });
     expect(client.getProjectTopFolders).toHaveBeenCalledWith('b.1', 'b.p', {
       accessToken: 'tok',
     });
     expect(client.getFolderContents).toHaveBeenCalledWith('b.p', 'f1', {
       accessToken: 'tok',
+      pageNumber: 0,
     });
     expect(client.getItemVersions).toHaveBeenCalledWith('b.p', 'i1', {
       accessToken: 'tok',
+      pageNumber: 0,
     });
     expect(versions[0]?.kind).toBe('version');
+  });
+
+  it('follows pages until links.next is absent', async () => {
+    const client = fakeClient();
+    client.getFolderContents
+      .mockResolvedValueOnce({
+        data: [{ type: 'items', id: 'i1', attributes: { name: 'a.rvt' } }],
+        links: { next: { href: 'x' } },
+      })
+      .mockResolvedValueOnce({
+        data: [{ type: 'items', id: 'i2', attributes: { name: 'b.rvt' } }],
+        links: {},
+      });
+    const service = createApsDataService(client as never);
+    const items = await service.listFolderContents('tok', 'b.p', 'f1');
+    expect(items.map((i) => i.name)).toEqual(['a.rvt', 'b.rvt']);
+    expect(client.getFolderContents).toHaveBeenCalledTimes(2);
+    expect(client.getFolderContents).toHaveBeenLastCalledWith('b.p', 'f1', {
+      accessToken: 'tok',
+      pageNumber: 1,
+    });
   });
 
   it('checks one version on demand without listing the item', async () => {

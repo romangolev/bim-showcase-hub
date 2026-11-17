@@ -34,6 +34,23 @@ async function guarded<T>(call: () => Promise<T>): Promise<T> {
   }
 }
 
+const MAX_PAGES = 200;
+
+async function allPages<T>(
+  fetchPage: (
+    pageNumber: number,
+  ) => Promise<{ data?: T[]; links?: unknown } | undefined>,
+): Promise<T[]> {
+  const all: T[] = [];
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const res = await fetchPage(page);
+    all.push(...(res?.data ?? []));
+    const next = (res?.links as { next?: unknown } | undefined)?.next;
+    if (!next) break;
+  }
+  return all;
+}
+
 export function createApsDataService(
   client: Client = new DataManagementClient(),
   views: ViewStateChecker = createViewStateChecker(),
@@ -41,38 +58,46 @@ export function createApsDataService(
   return {
     listHubs: (token) =>
       guarded(async () => {
-        const res = await client.getHubs({ accessToken: token });
-        return mapHubs(res.data ?? []);
+        const data = await allPages(() =>
+          client.getHubs({ accessToken: token }),
+        );
+        return mapHubs(data);
       }),
     listProjects: (token, hubId) =>
       guarded(async () => {
-        const res = await client.getHubProjects(hubId, { accessToken: token });
-        return mapProjects(res.data ?? [], hubId);
+        const data = await allPages((pageNumber) =>
+          client.getHubProjects(hubId, { accessToken: token, pageNumber }),
+        );
+        return mapProjects(data, hubId);
       }),
     listTopFolders: (token, hubId, projectId) =>
       guarded(async () => {
-        const res = await client.getProjectTopFolders(hubId, projectId, {
-          accessToken: token,
-        });
-        return mapTopFolders(res.data ?? [], projectId);
+        const data = await allPages(() =>
+          client.getProjectTopFolders(hubId, projectId, {
+            accessToken: token,
+          }),
+        );
+        return mapTopFolders(data, projectId);
       }),
     listFolderContents: (token, projectId, folderId) =>
       guarded(async () => {
-        const res = await client.getFolderContents(projectId, folderId, {
-          accessToken: token,
-        });
-        return mapFolderContents(res.data ?? [], folderId);
+        const data = await allPages((pageNumber) =>
+          client.getFolderContents(projectId, folderId, {
+            accessToken: token,
+            pageNumber,
+          }),
+        );
+        return mapFolderContents(data, folderId);
       }),
     listItemVersions: (token, projectId, itemId) =>
       guarded(async () => {
-        const res = await client.getItemVersions(projectId, itemId, {
-          accessToken: token,
-        });
-        return withViewStates(
-          mapVersions(res.data ?? [], itemId),
-          token,
-          views,
+        const data = await allPages((pageNumber) =>
+          client.getItemVersions(projectId, itemId, {
+            accessToken: token,
+            pageNumber,
+          }),
         );
+        return withViewStates(mapVersions(data, itemId), token, views);
       }),
     versionViewState: (token, projectId, itemId, versionId) =>
       guarded(async () => {
