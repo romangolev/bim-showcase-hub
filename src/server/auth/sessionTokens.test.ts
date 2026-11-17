@@ -65,6 +65,31 @@ describe('sessionTokens', () => {
     expect(auth.refresh).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps the old session when the refreshed one would overflow the cookie', async () => {
+    const session: Record<string, unknown> = {};
+    storeTokens(
+      session,
+      { accessToken: 'a', refreshToken: 'r-big', expiresIn: 3600 },
+      codec,
+      NOW,
+    );
+    storeUser(session, {
+      name: 'Sam',
+      picture: `https://example.test/${'x'.repeat(2000)}`,
+    });
+    const before = session.aps;
+    const auth = fakeAuth({
+      refresh: vi.fn().mockResolvedValue({
+        accessToken: 'z'.repeat(1500),
+        refreshToken: 'r2',
+        expiresIn: 3600,
+      }),
+    });
+    const token = await getAccessToken(session, auth, codec, NOW + 3_590_000);
+    expect(token.accessToken).toBe('z'.repeat(1500));
+    expect(session.aps).toBe(before);
+  });
+
   it('reports 401 but keeps the session when refresh is rejected', async () => {
     const session: Record<string, unknown> = {};
     storeTokens(

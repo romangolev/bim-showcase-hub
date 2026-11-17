@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { loadConfig } from './config.js';
-import { REPORT_ONLY_CSP } from './csp.js';
+import { FRAME_OPTIONS, REPORT_ONLY_CSP } from './csp.js';
 import { createApp } from './index.js';
 import { createMockDataService } from './mock/index.js';
 
@@ -92,6 +92,7 @@ describe('production static serving', () => {
       REPORT_ONLY_CSP,
     );
     expect(res.headers['content-security-policy']).toBeUndefined();
+    expect(res.headers['x-frame-options']).toBe(FRAME_OPTIONS);
   });
 
   it('keeps vercel.json and the express csp identical', () => {
@@ -102,5 +103,9 @@ describe('production static serving', () => {
         (h: { key: string }) => h.key === 'Content-Security-Policy-Report-Only',
       );
     expect(header.value).toBe(REPORT_ONLY_CSP);
+    const frame = config.headers
+      .flatMap((h: { headers: { key: string; value: string }[] }) => h.headers)
+      .find((h: { key: string }) => h.key === 'X-Frame-Options');
+    expect(frame.value).toBe(FRAME_OPTIONS);
   });
 });

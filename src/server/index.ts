@@ -5,7 +5,7 @@ import express, { type Express } from 'express';
 import { createApsAuth } from './auth/apsAuth.js';
 import { SESSION_MAX_AGE_MS } from './auth/sessionTokens.js';
 import { loadConfig, type ServerConfig } from './config.js';
-import { REPORT_ONLY_CSP } from './csp.js';
+import { FRAME_OPTIONS, REPORT_ONLY_CSP } from './csp.js';
 import { createApsDataService } from './data/apsDataService.js';
 import { errorHandler } from './errors.js';
 import { createMockDataService } from './mock/index.js';
@@ -50,6 +50,7 @@ export function createApp(
     const staticDir = config.staticDir ?? defaultStaticDir();
     app.use((_req, res, next) => {
       res.set('Content-Security-Policy-Report-Only', REPORT_ONLY_CSP);
+      res.set('X-Frame-Options', FRAME_OPTIONS);
       next();
     });
     app.use(express.static(staticDir));

@@ -189,7 +189,9 @@ export async function getAccessToken(
   }
   try {
     const refreshed = await refreshOnce(auth, tokens.refreshToken);
+    const previous = session.aps;
     storeTokens(session, refreshed, codec, now, tokens.issuedAt);
+    if (sessionCookieBytes(session) > MAX_COOKIE_BYTES) session.aps = previous;
     return {
       accessToken: refreshed.accessToken,
       expiresIn: refreshed.expiresIn,
