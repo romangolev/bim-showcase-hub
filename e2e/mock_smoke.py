@@ -536,9 +536,35 @@ def tree_item_dates(page):
     return page.evaluate("() => [...document.querySelectorAll(\".tree-row[data-kind='item'] .tree-row__meta\")].map((el) => el.textContent)")
 
 
+VIEW_BUTTON_OFFSET = """() => {
+    const button = document.querySelector("button[aria-label='Documents view']");
+    const icon = button.querySelector("svg").getBoundingClientRect();
+    const box = button.getBoundingClientRect();
+    const refresh = document.querySelector("button[aria-label='Refresh documents']").getBoundingClientRect();
+    return {
+        dx: icon.x + icon.width / 2 - (box.x + box.width / 2),
+        dy: icon.y + icon.height / 2 - (box.y + box.height / 2),
+        rowDy: box.y + box.height / 2 - (refresh.y + refresh.height / 2),
+        sizeDiff: Math.abs(box.width - refresh.width) + Math.abs(box.height - refresh.height),
+    };
+}"""
+
+
+def check_view_button(page, checks, label):
+    off = page.evaluate(VIEW_BUTTON_OFFSET)
+    checks.add(f"view button icon is centred ({label})", abs(off["dx"]) <= 1 and abs(off["dy"]) <= 1, off)
+    checks.add(f"view button aligns with refresh ({label})", abs(off["rowDy"]) <= 1 and off["sizeDiff"] <= 1, off)
+
+
 def check_tree_metadata(page, checks):
     page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
     settle(page)
+    check_view_button(page, checks, "desktop")
+    page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
+    settle(page, 400)
+    check_view_button(page, checks, "390 wide")
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page, 400)
     dates = tree_item_dates(page)
     checks.add("file rows show their modified date", len(dates) >= 2 and all(re.fullmatch(r"\d{4}-\d{2}-\d{2}", d) for d in dates), dates)
     page.get_by_role("button", name="Documents view").click()

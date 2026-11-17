@@ -146,6 +146,16 @@ describe('DocumentTree sort', () => {
 });
 
 describe('DocumentTree', () => {
+  it('shows a filter icon on the Documents view button', async () => {
+    mockFetch(treeRoutes);
+    renderTree();
+    await expandTo('Studio hub');
+    const button = screen.getByRole('button', { name: 'Documents view' });
+    expect(button.querySelector('svg path')?.getAttribute('d')).toBe(
+      'M22 3H2l8 9.46V19l4 2v-8.54Z',
+    );
+  });
+
   it('Refresh documents refetches the loaded folders', async () => {
     const fetchMock = mockFetch(treeRoutes);
     renderTree();

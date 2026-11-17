@@ -337,6 +337,10 @@
   appearance: none;
 }
 
+.doc-tree__search > .menu {
+  position: static;
+}
+
 .doc-tree__clear,
 .doc-tree__refresh,
 .doc-tree__view {

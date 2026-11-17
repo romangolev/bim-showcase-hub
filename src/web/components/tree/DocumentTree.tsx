@@ -1058,7 +1058,7 @@ export function DocumentTree({
         <Menu
           label="Documents view"
           title="Sort and columns"
-          trigger={<Icon name="settings" size={14} />}
+          trigger={<Icon name="filter" size={14} />}
           triggerClassName="doc-tree__view"
           items={viewEntries}
         />
