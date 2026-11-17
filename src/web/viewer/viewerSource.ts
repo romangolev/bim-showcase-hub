@@ -18,6 +18,8 @@ export interface SourceModelMeta {
 const CHUNK = 1000;
 const OTHER_GROUP = 'Other';
 const CATEGORY_GROUP = '__category__';
+const REFERENCE_GROUP = '__internalref__';
+const LEVEL_GROUP = 'Constraints';
 
 function propertyValue(value: unknown): PropertyValue | null {
   if (value === null || value === undefined) return null;
@@ -43,6 +45,15 @@ function groupsOf(item: BulkPropertyItem): PropertyGroups {
   return groups;
 }
 
+function hasPlainLevel(groups: PropertyGroups): boolean {
+  return Object.values(groups).some((props) => props.Level !== undefined);
+}
+
+function withLevel(groups: PropertyGroups, level: string | undefined) {
+  if (!level) return groups;
+  return { ...groups, [LEVEL_GROUP]: { ...groups[LEVEL_GROUP], Level: level } };
+}
+
 function bulkProperties(
   model: ViewerModel,
   ids: number[],
@@ -50,6 +61,48 @@ function bulkProperties(
   return new Promise((resolve, reject) =>
     model.getBulkProperties(ids, {}, resolve, reject),
   );
+}
+
+function levelReference(item: BulkPropertyItem): number | null {
+  for (const property of item.properties) {
+    if (
+      property.displayCategory?.trim() !== REFERENCE_GROUP ||
+      property.displayName !== 'Level'
+    ) {
+      continue;
+    }
+    const value = property.displayValue;
+    const id =
+      typeof value === 'number'
+        ? value
+        : typeof value === 'string' && /^\d+$/.test(value.trim())
+          ? Number(value.trim())
+          : Number.NaN;
+    return Number.isInteger(id) ? id : null;
+  }
+  return null;
+}
+
+async function levelNamesOf(
+  model: ViewerModel,
+  ids: number[],
+): Promise<Map<number, string>> {
+  const out = new Map<number, string>();
+  try {
+    for (let start = 0; start < ids.length; start += CHUNK) {
+      const chunk = ids.slice(start, start + CHUNK);
+      for (const item of await bulkProperties(model, chunk)) {
+        const named = item.properties.find((p) => p.displayName === 'Name');
+        const name =
+          item.name?.trim() || propertyValue(named?.displayValue)?.toString();
+        const clean = name?.replace(/\s*\[\d+\]\s*$/, '').trim();
+        if (clean) out.set(item.dbId, clean);
+      }
+    }
+  } catch {
+    return out;
+  }
+  return out;
 }
 
 async function externalIdsOf(model: ViewerModel): Promise<Map<number, string>> {
@@ -100,6 +153,17 @@ async function readModel(
       items.set(item.dbId, item);
     }
   }
+  const references = new Map<number, number>();
+  for (const dbId of ids) {
+    const item = items.get(dbId);
+    const ref = item ? levelReference(item) : null;
+    if (item && ref !== null && !hasPlainLevel(groupsOf(item))) {
+      references.set(dbId, ref);
+    }
+  }
+  const levelNames = await levelNamesOf(model, [
+    ...new Set(references.values()),
+  ]);
   const needsMapping = ids.some((dbId) => !items.get(dbId)?.externalId);
   const externalIds = needsMapping
     ? await externalIdsOf(model)
@@ -111,7 +175,9 @@ async function readModel(
       dbId,
       ...(externalId ? { externalId } : {}),
       name: item?.name ?? '',
-      properties: item ? groupsOf(item) : {},
+      properties: item
+        ? withLevel(groupsOf(item), levelNames.get(references.get(dbId) ?? -1))
+        : {},
       parts: byDbId.get(dbId) ?? [],
     };
   });

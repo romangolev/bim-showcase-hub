@@ -37,6 +37,9 @@ interface FakeOptions {
   externalIds?: Record<string, number>;
   bulkExternalIds?: Record<number, string>;
   mappingCalls?: number[];
+  levelRefs?: Record<number, unknown>;
+  plainLevels?: number[];
+  nodes?: Record<number, string>;
   chunks?: number[][];
 }
 
@@ -53,13 +56,36 @@ function model(options: FakeOptions): ViewerModel {
       : undefined,
     getBulkProperties: (ids, _opts, ok) => {
       options.chunks?.push([...ids]);
-      const items: BulkPropertyItem[] = ids.map((dbId) => ({
+      const elementIds = new Set(options.dbIds.flat());
+      const nodes = options.nodes;
+      const known = nodes
+        ? ids.filter((id) => elementIds.has(id) || id in nodes)
+        : ids;
+      const items: BulkPropertyItem[] = known.map((dbId) => ({
         dbId,
-        name: `Element ${dbId}`,
+        name: options.nodes?.[dbId] ?? `Element ${dbId}`,
         ...(options.bulkExternalIds?.[dbId]
           ? { externalId: options.bulkExternalIds[dbId] }
           : {}),
         properties: [
+          ...(options.levelRefs?.[dbId] !== undefined
+            ? [
+                {
+                  displayName: 'Level',
+                  displayValue: options.levelRefs[dbId],
+                  displayCategory: '__internalref__',
+                },
+              ]
+            : []),
+          ...(options.plainLevels?.includes(dbId)
+            ? [
+                {
+                  displayName: 'Level',
+                  displayValue: 'Plain',
+                  displayCategory: 'Constraints',
+                },
+              ]
+            : []),
           {
             displayName: 'Category',
             displayValue: 'Revit Walls',
@@ -180,6 +206,76 @@ describe('readViewerSource', () => {
     const result = await readViewerSource(viewerOf([m]), new Map([[m, META]]));
     expect(result.models[0]?.elements[0]?.properties).toEqual({
       Other: { Category: 'Revit Doors' },
+    });
+  });
+
+  describe('level references', () => {
+    async function levelsOf(options: FakeOptions) {
+      const m = model(options);
+      const result = await readViewerSource(
+        viewerOf([m]),
+        new Map([[m, META]]),
+      );
+      return result.models[0]?.elements.map((e) => e.properties);
+    }
+
+    it('resolves an internal level reference to the node name', async () => {
+      const props = await levelsOf({
+        dbIds: [5, 6],
+        levelRefs: { 5: 2, 6: '3' },
+        nodes: { 2: 'Ground [311]', 3: 'First' },
+      });
+      expect(props?.[0]?.Constraints).toEqual({ Level: 'Ground' });
+      expect(props?.[1]?.Constraints).toEqual({ Level: 'First' });
+      expect(JSON.stringify(props)).not.toContain('__internalref__');
+    });
+
+    it('keeps a plain Level over the reference', async () => {
+      const props = await levelsOf({
+        dbIds: [5],
+        levelRefs: { 5: 2 },
+        plainLevels: [5],
+        nodes: { 2: 'Ground' },
+      });
+      expect(props?.[0]?.Constraints).toEqual({ Level: 'Plain' });
+    });
+
+    it('leaves elements alone when the id cannot be resolved', async () => {
+      const props = await levelsOf({
+        dbIds: [5, 6, 7],
+        levelRefs: { 5: 99, 6: 2, 7: 'abc' },
+        nodes: { 2: '' },
+      });
+      for (const p of props ?? []) expect(p.Constraints).toBeUndefined();
+    });
+
+    it('reads shared level ids once and in chunks', async () => {
+      const chunks: number[][] = [];
+      const dbIds = Array.from({ length: 5 }, (_, i) => 10 + i);
+      const levelRefs: Record<number, number> = {};
+      const nodes: Record<number, string> = {};
+      for (const id of dbIds) levelRefs[id] = id % 2 === 0 ? 2 : 3;
+      nodes[2] = 'A';
+      nodes[3] = 'B';
+      await levelsOf({ dbIds, levelRefs, nodes, chunks });
+      const levelReads = chunks.slice(1);
+      expect(levelReads).toEqual([[2, 3]]);
+
+      const many: number[][] = [];
+      const ids = Array.from({ length: 1500 }, (_, i) => 5000 + i);
+      const refs: Record<number, number> = {};
+      const names: Record<number, string> = {};
+      ids.forEach((id, i) => {
+        refs[id] = i;
+        names[i] = `L${i}`;
+      });
+      await levelsOf({
+        dbIds: ids.slice(0, 1500),
+        levelRefs: refs,
+        nodes: names,
+        chunks: many,
+      });
+      expect(many.slice(2).map((c) => c.length)).toEqual([1000, 500]);
     });
   });
 

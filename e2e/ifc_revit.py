@@ -25,7 +25,7 @@ from glb_revit import (
 )
 
 REPORT = "ifc-revit-report.json"
-STOREY_SHARE_FLOOR = 0.08
+STOREY_SHARE_FLOOR = 0.95
 VIEWER_ELEMENTS = """mw: () => {
     const fragments = window.viewer.model.getFragmentList();
     const ids = new Set();
