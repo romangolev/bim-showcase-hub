@@ -1,4 +1,9 @@
-import { useParams, useRouter, useRouterState } from '@tanstack/react-router';
+import {
+  useParams,
+  useRouter,
+  useRouterState,
+  useSearch,
+} from '@tanstack/react-router';
 import { useMemo, useSyncExternalStore } from 'react';
 import { withUrns } from '../api/modelContext.js';
 import {
@@ -83,6 +88,7 @@ export function ModelPaneBody({ instance }: { instance: string }) {
   const title = layout.paneTitle(panel);
   const tree = useTreeControl();
   const router = useRouter();
+  const routeView = (useSearch({ strict: false }) as { view?: unknown }).view;
   const extras = withUrns(context);
   const memberKey = extras.join(',');
   const recalled = useSyncExternalStore(
@@ -130,6 +136,19 @@ export function ModelPaneBody({ instance }: { instance: string }) {
               store?.setView(instance, { offsets: next })
             }
             onSpreadChange={(spread) => store?.setView(instance, { spread })}
+            initialView={
+              active && typeof routeView === 'string' ? routeView : null
+            }
+            shareHref={
+              new URL(
+                router.buildLocation({
+                  to: '/model/$urn',
+                  params: { urn: instance },
+                  search: context ?? {},
+                }).href,
+                window.location.origin,
+              ).href
+            }
             onAddModel={tree ? () => tree.reveal() : undefined}
             onKeepOnly={() => {
               store?.keepOnly(instance);

@@ -173,6 +173,15 @@ export interface DocumentNodeLoadOptions {
   applyScaling?: string;
 }
 
+export interface ViewportState {
+  eye: number[];
+  target: number[];
+  up: number[];
+  isOrthographic?: boolean;
+  projection?: string;
+  [key: string]: unknown;
+}
+
 export interface AggregateSelection {
   model: ViewerModel;
   selection: number[];
@@ -215,6 +224,12 @@ export interface GuiViewer3D {
   getIsolatedNodes?(model?: ViewerModel): number[];
   isolate?(ids: number[], model?: ViewerModel): void;
   fitToView?(): void;
+  getState?(filter?: { viewport?: boolean }): { viewport?: ViewportState };
+  restoreState?(
+    state: { viewport: ViewportState },
+    filter?: unknown,
+    immediate?: boolean,
+  ): boolean;
   getObjectTree(
     onSuccess: (tree: InstanceTree) => void,
     onError?: (err: unknown) => void,

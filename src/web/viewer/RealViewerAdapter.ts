@@ -52,7 +52,12 @@ import {
 import { createResizeScheduler } from './resizeScheduler.js';
 import { readSceneBackground } from './sceneBackground.js';
 import { ToolGroupController } from './toolGroupController.js';
-import type { Rgba, ToolGroupSpec, ViewerAdapter } from './ViewerAdapter.js';
+import type {
+  CameraState,
+  Rgba,
+  ToolGroupSpec,
+  ViewerAdapter,
+} from './ViewerAdapter.js';
 import { readViewerGeometry } from './viewerGeometry.js';
 import { readViewerSource, type SourceModelMeta } from './viewerSource.js';
 
@@ -576,6 +581,39 @@ export class RealViewerAdapter implements ViewerAdapter {
 
   fitToSelection(): void {
     this.viewer?.fitToView?.();
+  }
+
+  getCamera(): CameraState | null {
+    const viewport = this.viewer?.getState?.({ viewport: true }).viewport;
+    if (!viewport) return null;
+    const { eye, target, up } = viewport;
+    if (![eye, target, up].every((vec) => vec?.length === 3)) return null;
+    return {
+      eye: eye as unknown as Vec3,
+      target: target as unknown as Vec3,
+      up: up as unknown as Vec3,
+      ortho: Boolean(viewport.isOrthographic),
+    };
+  }
+
+  setCamera(camera: CameraState): void {
+    const viewer = this.viewer;
+    const current = viewer?.getState?.({ viewport: true }).viewport;
+    if (!viewer?.restoreState || !current) return;
+    viewer.restoreState(
+      {
+        viewport: {
+          ...current,
+          eye: [...camera.eye],
+          target: [...camera.target],
+          up: [...camera.up],
+          isOrthographic: camera.ortho,
+          projection: camera.ortho ? 'orthographic' : 'perspective',
+        },
+      },
+      undefined,
+      true,
+    );
   }
 
   setModelThemingColor(items: readonly ModelDbId[], color: Rgba): void {

@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { parseView } from '../api/viewLink.js';
 import { StateBlock } from '../components/StateBlock.js';
 import {
   describeStatus,
@@ -44,6 +45,7 @@ import {
   regionConflictMessage,
   type ViewerRegion,
 } from './region.js';
+import { ShareMenu } from './ShareMenu.js';
 import { useModels } from './useModels.js';
 import type { ViewerAdapter, ViewerAdapterFactory } from './ViewerAdapter.js';
 import { ActiveViewerContext, ModelViewerContext } from './ViewerContext.js';
@@ -65,6 +67,8 @@ export interface ViewerPaneProps {
   offsets?: Readonly<Record<string, Vec3>> | null;
   onOffsetsChange?: (offsets: Record<string, Vec3> | null) => void;
   onSpreadChange?: (distanceMeters: number | null) => void;
+  initialView?: string | null;
+  shareHref?: string;
   children?: ReactNode;
 }
 
@@ -163,6 +167,8 @@ export function ViewerPane({
   offsets = null,
   onOffsetsChange,
   onSpreadChange,
+  initialView = null,
+  shareHref,
   children,
 }: ViewerPaneProps) {
   const membersRef = useRef(members);
@@ -436,6 +442,24 @@ export function ViewerPane({
     });
   }, [loaded, labelKey]);
   const combined = members.length > 0 || models.length > 1;
+  const orderKey = [urn, ...members.map((member) => member.urn)].join('\n');
+  const pendingView = useRef<string | null>(null);
+  const appliedView = useRef<string | null>(null);
+  if (initialView && initialView !== appliedView.current) {
+    pendingView.current = initialView;
+  }
+  useEffect(() => {
+    const raw = pendingView.current;
+    if (!adapter || !raw) return;
+    if (loaded.some((model) => model.status === 'loading')) return;
+    if (!loaded.some((model) => model.status === 'ready')) return;
+    pendingView.current = null;
+    appliedView.current = raw;
+    const link = parseView(raw, orderKey.split('\n'));
+    if (!link) return;
+    adapter.setCamera?.(link.camera);
+    if (link.selection.length > 0) adapter.selectModelIds?.(link.selection);
+  }, [adapter, loaded, orderKey]);
   const [spread, setSpread] = useState<ModelSpread | null>(null);
   const onSpreadRef = useRef(onSpreadChange);
   onSpreadRef.current = onSpreadChange;
@@ -526,6 +550,17 @@ export function ViewerPane({
             </span>
           ) : null}
         </div>
+        {adapter ? (
+          <ShareMenu
+            adapter={adapter}
+            modelIds={orderKey.split('\n')}
+            baseHref={shareHref}
+            combined={combined}
+            onResult={(text, error) =>
+              showBadge({ text, detail: text, error }, false)
+            }
+          />
+        ) : null}
         {adapter && combined ? (
           <ModelsMenu
             models={models}

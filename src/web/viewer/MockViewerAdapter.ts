@@ -48,6 +48,7 @@ import {
   type ToolGroupState,
 } from './toolGroupController.js';
 import type {
+  CameraState,
   PaintSwatchSpec,
   Rgba,
   ToolGroupSpec,
@@ -257,6 +258,12 @@ export class MockViewerAdapter implements ViewerAdapter {
   private controller: ToolGroupController | null = null;
   private disposeGroup: (() => void) | null = null;
   private theme: Theme = 'dark';
+  private camera: CameraState | null = {
+    eye: [0, 0, 10],
+    target: [0, 0, 0],
+    up: [0, 1, 0],
+    ortho: false,
+  };
   private loaded = false;
   private destroyed = false;
   private readonly resizer = createResizeScheduler(() => this.resize());
@@ -412,6 +419,15 @@ export class MockViewerAdapter implements ViewerAdapter {
         .filter((item) => this.nodeOf(item.modelId, item.dbId))
         .map((item) => selectionKey(item.modelId, item.dbId)),
     );
+  }
+
+  getCamera(): CameraState | null {
+    return this.camera;
+  }
+
+  setCamera(camera: CameraState): void {
+    this.camera = camera;
+    if (this.root) this.root.dataset.camera = JSON.stringify(camera);
   }
 
   getIsolated(): ModelDbId[] {

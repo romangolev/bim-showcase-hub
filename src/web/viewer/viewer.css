@@ -330,6 +330,13 @@
   max-width: min(360px, calc(100% - var(--space-6)));
 }
 
+.bsh-viewer-share {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: 6;
+}
+
 .bsh-viewer-models__trigger {
   display: inline-flex;
   align-items: center;

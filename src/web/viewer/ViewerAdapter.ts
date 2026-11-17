@@ -46,6 +46,13 @@ export interface ToolGroupSpec {
   ifc?: ExportToolSpec;
 }
 
+export interface CameraState {
+  eye: Vec3;
+  target: Vec3;
+  up: Vec3;
+  ortho: boolean;
+}
+
 export interface ViewerAdapter {
   load(urn: string, name?: string): Promise<void>;
   unload(): void;
@@ -72,6 +79,8 @@ export interface ViewerAdapter {
   selectModelIds?(items: readonly ModelDbId[]): void;
   isolateModelIds?(items: readonly ModelDbId[]): void;
   fitToSelection?(): void;
+  getCamera?(): CameraState | null;
+  setCamera?(camera: CameraState): void;
   setModelThemingColor(items: readonly ModelDbId[], color: Rgba): void;
   getSpread(): ModelSpread | null;
   getTogetherOffsets(): Record<string, Vec3>;

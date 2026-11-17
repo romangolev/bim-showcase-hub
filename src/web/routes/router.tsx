@@ -27,8 +27,14 @@ const indexRoute = createRoute({
 const modelRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/model/$urn',
-  validateSearch: (search: Record<string, unknown>): ModelContext =>
-    parseModelContext(search),
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): ModelContext & { view?: string } => {
+    const context = parseModelContext(search);
+    return typeof search.view === 'string' && search.view
+      ? { ...context, view: search.view }
+      : context;
+  },
   component: () => null,
 });
 
