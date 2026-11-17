@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { HttpError } from '../errors.js';
 import {
@@ -223,25 +224,35 @@ describe('session robustness', () => {
     expect(isSignedIn(session, codec, NOW - CLOCK_SKEW_MS - 1)).toBe(false);
   });
 
-  it('keeps a realistic session cookie under the size limit', () => {
-    const session: Record<string, unknown> = {};
-    storeTokens(
-      session,
-      {
-        accessToken: 'a'.repeat(1500),
-        refreshToken: 'r'.repeat(100),
-        expiresIn: 3600,
-      },
-      codec,
-      NOW,
-    );
-    storeUser(session, {
-      id: 'u'.repeat(30),
-      name: 'Sam Smith',
-      picture: `https://example.test/${'p'.repeat(180)}`,
-    });
-    expect(sessionCookieBytes(session)).toBeLessThan(MAX_COOKIE_BYTES);
-  });
+  it.each([
+    [800, 800],
+    [1500, 0],
+  ])(
+    'keeps a %i char token cookie %i bytes under the limit',
+    (length, headroom) => {
+      const random = (n: number) =>
+        randomBytes(n).toString('base64url').slice(0, n);
+      const session: Record<string, unknown> = {};
+      storeTokens(
+        session,
+        {
+          accessToken: random(length),
+          refreshToken: random(100),
+          expiresIn: 3600,
+        },
+        codec,
+        NOW,
+      );
+      storeUser(session, {
+        id: random(30),
+        name: 'Sam Smith',
+        picture: `https://example.test/${random(180)}`,
+      });
+      expect(sessionCookieBytes(session)).toBeLessThan(
+        MAX_COOKIE_BYTES - headroom,
+      );
+    },
+  );
 
   it('clears only when the retry flag is set on a rejection', async () => {
     for (const [flag, signedIn] of [
