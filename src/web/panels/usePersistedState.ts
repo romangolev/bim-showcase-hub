@@ -1,4 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+
+const SYNC_EVENT = 'bsh:persisted-state';
 
 export function usePersistedState<T>(
   key: string,
@@ -13,6 +15,14 @@ export function usePersistedState<T>(
       return initial;
     }
   });
+  useEffect(() => {
+    const onSync = (event: Event) => {
+      const detail = (event as CustomEvent<{ key: string; value: T }>).detail;
+      if (detail.key === key) setValue(detail.value);
+    };
+    window.addEventListener(SYNC_EVENT, onSync);
+    return () => window.removeEventListener(SYNC_EVENT, onSync);
+  }, [key]);
   const update = useCallback(
     (next: T | ((prev: T) => T)) => {
       setValue((prev) => {
@@ -23,6 +33,11 @@ export function usePersistedState<T>(
         } catch {
           return resolved;
         }
+        queueMicrotask(() =>
+          window.dispatchEvent(
+            new CustomEvent(SYNC_EVENT, { detail: { key, value: resolved } }),
+          ),
+        );
         return resolved;
       });
     },

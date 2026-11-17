@@ -2,8 +2,6 @@ import { useId, useMemo, useState } from 'react';
 import { Icon } from '../components/icons.js';
 import { StateBlock } from '../components/StateBlock.js';
 import {
-  ACTION_LABELS,
-  ELEMENT_ACTIONS,
   type ElementAction,
   itemsWithValues,
   runElementAction,
@@ -16,8 +14,6 @@ import {
   DEFAULT_SUMMARY_PROPERTIES,
   DEFAULT_SUMMARY_VIEW,
   emptyShares,
-  SUMMARY_COLUMNS,
-  type SummaryColumn,
   type SummaryEntry,
   type SummaryView,
   sanitizeView,
@@ -56,6 +52,7 @@ export interface ModelSummaryPanelProps {
   defaultCollapsed?: boolean;
   onCollapsedChange?: (collapsed: boolean) => void;
   toggleable?: boolean;
+  onOpenSettings?: () => void;
 }
 
 const EMPTY: SummaryEntry[] = [];
@@ -71,6 +68,7 @@ export function ModelSummaryPanel({
   defaultCollapsed = false,
   onCollapsedChange,
   toggleable = true,
+  onOpenSettings,
 }: ModelSummaryPanelProps) {
   const uid = useId();
   const [innerCollapsed, setInnerCollapsed] = useState(defaultCollapsed);
@@ -85,12 +83,12 @@ export function ModelSummaryPanel({
     [state.status, scope.rows, propertyNames],
   );
 
-  const [view, setView, resetView] = usePersistedState<SummaryView>(
+  const [view, setView] = usePersistedState<SummaryView>(
     'bsh.summary.view.v1',
     DEFAULT_SUMMARY_VIEW,
     sanitizeView,
   );
-  const [action, setAction] = usePersistedState<ElementAction>(
+  const [action] = usePersistedState<ElementAction>(
     'bsh.summary.action.v1',
     'select',
     sanitizeAction,
@@ -104,12 +102,6 @@ export function ModelSummaryPanel({
   );
   const patch = (next: Partial<SummaryView>) =>
     setView((prev) => ({ ...prev, ...next }));
-  const toggleColumn = (column: SummaryColumn) =>
-    patch({
-      hiddenColumns: view.hiddenColumns.includes(column)
-        ? view.hiddenColumns.filter((c) => c !== column)
-        : [...view.hiddenColumns, column],
-    });
 
   const pick = (entry: SummaryEntry) => {
     if (!resolved) return;
@@ -178,6 +170,16 @@ export function ModelSummaryPanel({
         >
           Refresh
         </button>
+        {onOpenSettings ? (
+          <button
+            type="button"
+            className="bsh-icon-button"
+            onClick={onOpenSettings}
+          >
+            <Icon name="settings" size={16} />
+            <span className="bsh-sr-only">Summary settings</span>
+          </button>
+        ) : null}
         {toggleable ? (
           <button
             type="button"
@@ -266,105 +268,13 @@ export function ModelSummaryPanel({
               <span role="status" className="bsh-summary__notice">
                 {notice}
               </span>
-              <details className="bsh-details bsh-summary__options">
-                <summary>View options</summary>
-                <label className="bsh-field">
-                  <input
-                    type="checkbox"
-                    checked={view.hideEmpty}
-                    onChange={(e) => patch({ hideEmpty: e.target.checked })}
-                  />
-                  Hide (empty)
-                </label>
-                <label className="bsh-field">
-                  Minimum count
-                  <input
-                    type="number"
-                    min={1}
-                    className="bsh-input bsh-input--narrow"
-                    value={view.minCount}
-                    onChange={(e) =>
-                      patch({
-                        minCount: Math.max(1, Math.floor(+e.target.value || 1)),
-                      })
-                    }
-                  />
-                </label>
-                <label className="bsh-field">
-                  Sort by
-                  <select
-                    className="bsh-select"
-                    value={view.sort}
-                    onChange={(e) =>
-                      patch({
-                        sort: e.target.value === 'value' ? 'value' : 'count',
-                      })
-                    }
-                  >
-                    <option value="count">Count</option>
-                    <option value="value">Value</option>
-                  </select>
-                </label>
-                <label className="bsh-field">
-                  Density
-                  <select
-                    className="bsh-select"
-                    value={view.density}
-                    onChange={(e) =>
-                      patch({
-                        density:
-                          e.target.value === 'compact'
-                            ? 'compact'
-                            : 'comfortable',
-                      })
-                    }
-                  >
-                    <option value="comfortable">Comfortable</option>
-                    <option value="compact">Compact</option>
-                  </select>
-                </label>
-                <label className="bsh-field">
-                  Row click
-                  <select
-                    className="bsh-select"
-                    value={action}
-                    onChange={(e) => setAction(sanitizeAction(e.target.value))}
-                  >
-                    {ELEMENT_ACTIONS.map((name) => (
-                      <option key={name} value={name}>
-                        {ACTION_LABELS[name]}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <fieldset className="bsh-fieldset">
-                  <legend>Columns</legend>
-                  {SUMMARY_COLUMNS.map((column) => (
-                    <label key={column} className="bsh-field">
-                      <input
-                        type="checkbox"
-                        checked={!view.hiddenColumns.includes(column)}
-                        onChange={() => toggleColumn(column)}
-                      />
-                      {column}
-                    </label>
-                  ))}
-                </fieldset>
-                <button
-                  type="button"
-                  className="bsh-button"
-                  onClick={() => resolved && showAllElements(resolved)}
-                >
-                  Show all elements
-                </button>
-                <button
-                  type="button"
-                  className="bsh-button"
-                  onClick={resetView}
-                >
-                  Reset view
-                </button>
-              </details>
+              <button
+                type="button"
+                className="bsh-button"
+                onClick={() => resolved && showAllElements(resolved)}
+              >
+                Show all elements
+              </button>
               {shares.length > 0 && (
                 <ul className="bsh-summary__shares" aria-label="Empty values">
                   {shares.map((share) => (
@@ -381,7 +291,7 @@ export function ModelSummaryPanel({
               variant="empty"
               compact
               title="No rows match"
-              message="Change the filter, or reset the view in View options."
+              message="Change the filter, or reset the view in Summary settings."
             />
           )}
           {shown.length > 0 && (

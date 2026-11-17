@@ -4,6 +4,7 @@ import { act, fireEvent, render, screen, waitFor } from '../test/render.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
 import { DashboardPanel } from './DashboardPanel.js';
 import { ModelSummaryPanel } from './ModelSummaryPanel.js';
+import { SummarySettingsBody } from './SummarySettings.js';
 import { SummaryTable } from './SummaryTable.js';
 
 const made = vi.hoisted(() => ({
@@ -400,25 +401,36 @@ describe('summary view, copy and row actions', () => {
     fireEvent.change(screen.getByLabelText('Filter summary rows'), {
       target: { value: 'zzz' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Reset view' }));
+    fireEvent.change(screen.getByLabelText('Filter summary rows'), {
+      target: { value: '' },
+    });
     expect(screen.getByRole('cell', { name: 'Walls' })).toBeInTheDocument();
   });
 
   it('persists density and hides a column', async () => {
     const adapter = await loaded();
     const { container } = render(
-      <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />,
+      <>
+        <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />
+        <SummarySettingsBody />
+      </>,
     );
     await screen.findByRole('cell', { name: 'Walls' });
     fireEvent.change(screen.getByLabelText('Density'), {
       target: { value: 'compact' },
     });
     fireEvent.click(screen.getByLabelText('property'));
-    expect(container.querySelector('section')).toHaveAttribute(
-      'data-density',
-      'compact',
+    await waitFor(() =>
+      expect(container.querySelector('section')).toHaveAttribute(
+        'data-density',
+        'compact',
+      ),
     );
-    expect(screen.queryByRole('columnheader', { name: 'Property' })).toBeNull();
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('columnheader', { name: 'Property' }),
+      ).toBeNull(),
+    );
     expect(
       JSON.parse(window.localStorage.getItem('bsh.summary.view.v1') ?? '{}'),
     ).toMatchObject({ density: 'compact', hiddenColumns: ['property'] });
@@ -443,7 +455,10 @@ describe('summary view, copy and row actions', () => {
   it('selects and isolates the elements of a clicked value', async () => {
     const adapter = await loaded();
     render(
-      <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />,
+      <>
+        <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />
+        <SummarySettingsBody />
+      </>,
     );
     fireEvent.click(await screen.findByRole('button', { name: 'Walls' }));
     const walls = adapter.getModelSelection();
@@ -451,6 +466,7 @@ describe('summary view, copy and row actions', () => {
     fireEvent.change(screen.getByLabelText('Row click'), {
       target: { value: 'isolate' },
     });
+    await new Promise((resolve) => setTimeout(resolve, 0));
     fireEvent.click(screen.getByRole('button', { name: 'Doors' }));
     expect(adapter.getIsolated().length).toBeGreaterThan(0);
     expect(adapter.getIsolated().length).not.toBe(walls.length);
@@ -505,5 +521,59 @@ describe('dashboard presets and cross-filter', () => {
     expect(index).toBeGreaterThanOrEqual(0);
     act(() => config?.options.onClick({}, [{ index }]));
     expect(adapter.getModelSelection().length).toBeGreaterThan(1);
+  });
+});
+
+describe('summary settings entry points', () => {
+  beforeEach(() => {
+    installMemoryStorage();
+  });
+
+  it('opens from the panel gear button', () => {
+    const onOpenSettings = vi.fn();
+    render(<ModelSummaryPanel onOpenSettings={onOpenSettings} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Summary settings' }));
+    expect(onOpenSettings).toHaveBeenCalledOnce();
+  });
+
+  it('has no gear button without a handler', () => {
+    render(<ModelSummaryPanel />);
+    expect(
+      screen.queryByRole('button', { name: 'Summary settings' }),
+    ).toBeNull();
+  });
+
+  it('keeps two settings bodies and the panel in sync', async () => {
+    const adapter = await loaded();
+    const { container } = render(
+      <>
+        <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />
+        <SummarySettingsBody />
+        <SummarySettingsBody />
+      </>,
+    );
+    await screen.findByRole('cell', { name: 'Walls' });
+    const [first, second] = screen.getAllByLabelText('Density');
+    fireEvent.change(first as HTMLElement, { target: { value: 'compact' } });
+    await waitFor(() =>
+      expect((second as HTMLSelectElement).value).toBe('compact'),
+    );
+    expect(container.querySelector('section')).toHaveAttribute(
+      'data-density',
+      'compact',
+    );
+  });
+
+  it('resets the view from the settings body', async () => {
+    render(<SummarySettingsBody />);
+    fireEvent.change(screen.getByLabelText('Density'), {
+      target: { value: 'compact' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Reset view' }));
+    await waitFor(() =>
+      expect(
+        (screen.getByLabelText('Density') as HTMLSelectElement).value,
+      ).toBe('comfortable'),
+    );
   });
 });

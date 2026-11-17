@@ -1,5 +1,6 @@
 import { useId } from 'react';
 import type { ModalDefinition } from '../modal/types.js';
+import { SummarySettingsBody } from '../panels/SummarySettings.js';
 import { useTheme } from '../theme/ThemeContext.js';
 import { ExcelSettingsSection } from './ExcelSettingsSection.js';
 import { IfcSettingsSection } from './IfcSettingsSection.js';
@@ -160,6 +161,12 @@ export function SettingsBody() {
             Pinned models are always listed. 0 hides the recent list.
           </span>
         </div>
+      </section>
+      <section className="settings__section" aria-labelledby="settings-summary">
+        <h3 id="settings-summary" className="settings__heading">
+          Model summary
+        </h3>
+        <SummarySettingsBody />
       </section>
       <PaintSettingsSection />
       <ExcelSettingsSection />

@@ -17,11 +17,13 @@ import { StateBlock } from '../components/StateBlock.js';
 import { useTreeControl } from '../components/TreeControl.js';
 import { TreePanel } from '../components/TreePanel.js';
 import { exportFileName } from '../extensions/excelExport.js';
+import { useModal } from '../modal/ModalContext.js';
 import {
   DashboardPanel,
   ModelSummaryPanel,
   ModelsPanel,
 } from '../panels/index.js';
+import { SUMMARY_SETTINGS_ID } from '../panels/SummarySettings.js';
 import { memberLabel } from '../routes/ModelPage.js';
 import { ViewerPane } from '../viewer/index.js';
 import { page } from '../viewer/region.js';
@@ -195,10 +197,12 @@ function useActiveModelTitle() {
 export function SummaryPane() {
   const layout = useLayout();
   const model = useActiveModelTitle();
+  const modal = useModal();
   return (
     <aside className="pane-summary" aria-label="Model summary">
       <ModelSummaryPanel
         model={model}
+        onOpenSettings={() => modal.open(SUMMARY_SETTINGS_ID)}
         collapsed={layout.mode === 'stacked' && layout.isCollapsed('summary')}
         toggleable={layout.mode === 'stacked'}
         onCollapsedChange={(next) => layout.setCollapsed('summary', next)}

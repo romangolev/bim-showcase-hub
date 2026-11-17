@@ -64,4 +64,18 @@ describe('SettingsBody', () => {
     expect(document.documentElement.dataset.theme).toBe(start);
     expect(dark.getAttribute('aria-checked')).toBe(String(start === 'dark'));
   });
+
+  it('shows the model summary settings section', () => {
+    render(
+      <SettingsProvider>
+        <ThemeProvider>
+          <SettingsBody />
+        </ThemeProvider>
+      </SettingsProvider>,
+    );
+    expect(
+      screen.getByRole('heading', { name: 'Model summary' }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText('Density')).toBeInTheDocument();
+  });
 });
