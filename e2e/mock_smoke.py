@@ -495,6 +495,38 @@ def check_paint_palette(page, checks):
     settle(page, 400)
 
 
+def check_recents(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page)
+    recent = page.get_by_role("region", name="Recent")
+    checks.add("recent strip lists the opened model above the tree", recent.count() == 1 and recent.get_by_role("listitem").count() >= 1)
+    above = page.evaluate("() => { const strip = document.querySelector('.recent-strip'); const tree = document.querySelector('.doc-tree'); return strip && tree ? strip.getBoundingClientRect().bottom <= tree.getBoundingClientRect().top + 1 : false; }")
+    checks.add("recent strip sits above the tree", above)
+    pin = recent.get_by_role("button", name=re.compile(r"^Pin ")).first
+    pin.click()
+    settle(page, 200)
+    pinned = page.get_by_role("region", name="Pinned")
+    checks.add("pinning moves the model to Pinned", pinned.count() == 1 and pinned.get_by_role("listitem").count() == 1)
+    page.reload(wait_until="networkidle")
+    settle(page, 1500)
+    checks.add("pin survives a reload", page.get_by_role("region", name="Pinned").count() == 1)
+    url_before = page.url
+    page.get_by_role("region", name="Pinned").get_by_role("button", name=re.compile(r"^(?!Unpin)")).first.click()
+    settle(page, 500)
+    checks.add("clicking a pinned model opens it", "/model/" in page.url, page.url)
+    page.get_by_role("region", name="Pinned").get_by_role("button", name=re.compile(r"^Unpin ")).first.click()
+    checks.add("unpinning removes the Pinned section", page.get_by_role("region", name="Pinned").count() == 0)
+    page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
+    settle(page, 600)
+    page.get_by_role("button", name=TREE_TOGGLE).first.click()
+    settle(page, 500)
+    checks.add("recent strip is inside the narrow tree overlay with no overflow", page.locator(".stack__tree:not([hidden]) .recent-strip").count() == 1 and horizontal_overflow(page) <= 0)
+    page.screenshot(path=str(OUTPUT_DIR / "mock-recents-narrow.png"))
+    page.keyboard.press("Escape")
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page, 800)
+
+
 def models(page):
     return page.evaluate(MODELS)
 
@@ -1146,7 +1178,7 @@ def run_interaction_checks(page, checks, notes):
     except Exception as exc:
         page.screenshot(path=str(OUTPUT_DIR / "mock-layout-failure.png"))
         checks.add("check_layout", False, f"{type(exc).__name__}: {str(exc)[:160]}")
-    for check in (check_lock_maximize, check_session_banner, check_paint_palette, check_theme, check_summary_rail, check_summary_tools, check_dashboard_tools, check_tree_resize):
+    for check in (check_lock_maximize, check_session_banner, check_paint_palette, check_recents, check_theme, check_summary_rail, check_summary_tools, check_dashboard_tools, check_tree_resize):
         try:
             check(page, checks)
         except Exception as exc:

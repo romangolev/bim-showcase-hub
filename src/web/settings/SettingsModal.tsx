@@ -74,6 +74,7 @@ export function SettingsBody() {
   const { theme, toggleTheme } = useTheme();
   const { settings, setSetting } = useSettings();
   const warnId = useId();
+  const recentsId = useId();
   return (
     <div className="settings">
       <section
@@ -128,6 +129,36 @@ export function SettingsBody() {
             }
           />
           <span className="settings__hint">0 turns the notice off.</span>
+        </div>
+      </section>
+      <section
+        className="settings__section"
+        aria-labelledby="settings-documents"
+      >
+        <h3 id="settings-documents" className="settings__heading">
+          Documents
+        </h3>
+        <div className="settings__field">
+          <label htmlFor={recentsId}>Recent models to list</label>
+          <input
+            id={recentsId}
+            type="number"
+            min={0}
+            max={20}
+            value={settings.recentsLength}
+            onChange={(event) =>
+              setSetting(
+                'recentsLength',
+                Math.min(
+                  20,
+                  Math.max(0, Math.round(Number(event.target.value) || 0)),
+                ),
+              )
+            }
+          />
+          <span className="settings__hint">
+            Pinned models are always listed. 0 hides the recent list.
+          </span>
         </div>
       </section>
       <PaintSettingsSection />

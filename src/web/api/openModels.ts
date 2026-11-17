@@ -11,7 +11,12 @@ import {
   sameModelContext,
   withUrns,
 } from './modelContext.js';
-import { hasModelContext, MODEL_STORE_KEY, recallModel } from './modelStore.js';
+import {
+  hasModelContext,
+  MODEL_STORE_KEY,
+  PINNED_KEY,
+  recallModel,
+} from './modelStore.js';
 
 export const OPEN_MODELS_KEY = 'bsh.models.open';
 export const MODEL_OWNER_KEY = 'bsh.models.owner';
@@ -407,6 +412,7 @@ function remove(storage: Storage | null, key: string) {
 export function forgetModels(): void {
   remove(sessionStore(), OPEN_MODELS_KEY);
   remove(local(), MODEL_STORE_KEY);
+  remove(local(), PINNED_KEY);
   remove(local(), MODEL_OWNER_KEY);
 }
 

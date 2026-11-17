@@ -250,7 +250,9 @@ describe('model stores per user', () => {
     const storage = installMemoryStorage();
     claimModels({ id: 'u1', name: 'Ada' });
     seed(storage);
+    storage.setItem('bsh.docs.pinned', '["a"]');
     forgetModels();
+    expect(storage.getItem('bsh.docs.pinned')).toBeNull();
     expect(storage.getItem(MODEL_OWNER_KEY)).toBeNull();
     expect(storage.getItem(MODEL_STORE_KEY)).toBeNull();
     expect(sessionStorage.getItem(OPEN_MODELS_KEY)).toBeNull();

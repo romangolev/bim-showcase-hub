@@ -11,6 +11,7 @@ import {
   DocumentTree,
   type PickedModel,
 } from './tree/DocumentTree.js';
+import { RecentStrip } from './tree/RecentStrip.js';
 
 export interface TreePanelProps {
   onNavigate?: () => void;
@@ -64,6 +65,17 @@ export function TreePanel({ onNavigate }: TreePanelProps) {
       <div className="tree-panel__head">
         <h2 className="tree-panel__title">Documents</h2>
       </div>
+      <RecentStrip
+        selectedUrn={urn}
+        onOpen={(next, context) => {
+          void navigate({
+            to: '/model/$urn',
+            params: { urn: next },
+            search: context,
+          });
+          onNavigate?.();
+        }}
+      />
       <DocumentTree
         selectedUrn={urn}
         revealTrail={trail}

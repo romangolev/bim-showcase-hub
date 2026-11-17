@@ -2,6 +2,7 @@ import { type ModelContext, parseModelContext } from './modelContext.js';
 
 export const MODEL_STORE_KEY = 'bsh.models.recent';
 export const MODEL_STORE_LIMIT = 50;
+export const PINNED_KEY = 'bsh.docs.pinned';
 
 interface StoredModel extends ModelContext {
   urn: string;
@@ -80,6 +81,10 @@ export function rememberModel(urn: string, context: ModelContext): void {
     return;
   }
   notifyStore();
+}
+
+export function listRecentModels(): StoredModel[] {
+  return readAll();
 }
 
 export function recallModel(urn: string): ModelContext | null {

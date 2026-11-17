@@ -19,6 +19,7 @@ export interface Settings {
   glbExport: boolean;
   ifcExport: boolean;
   sessionWarnMinutes: number;
+  recentsLength: number;
   paintPalette: string[];
   paintIntensity: number;
   ifc: IfcSettings;
@@ -45,6 +46,7 @@ export const DEFAULT_SETTINGS: Settings = {
   glbExport: true,
   ifcExport: true,
   sessionWarnMinutes: 10,
+  recentsLength: 5,
   paintPalette: [...DEFAULT_PAINT_PALETTE],
   paintIntensity: DEFAULT_PAINT_INTENSITY,
   ifc: DEFAULT_IFC_SETTINGS,
@@ -156,6 +158,9 @@ export function readSettings(): Settings {
       sessionWarnMinutes: minutes(
         source.sessionWarnMinutes,
         DEFAULT_SETTINGS.sessionWarnMinutes,
+      ),
+      recentsLength: Math.round(
+        minutes(source.recentsLength, DEFAULT_SETTINGS.recentsLength),
       ),
       paintPalette: sanitizePalette(source.paintPalette),
       paintIntensity: sanitizeIntensity(source.paintIntensity),
