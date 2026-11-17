@@ -13,6 +13,13 @@ import type {
   SourceElement,
 } from './types.js';
 
+export const LEVEL_FALLBACKS: readonly string[] = [
+  'Level',
+  'Base Level',
+  'Reference Level',
+  'Schedule Level',
+];
+
 export interface MapOptions {
   defaultName: string;
   now?: Date;
@@ -64,6 +71,9 @@ export function mapToIfc(
   options: MapOptions,
 ): IfcExportModel {
   const single = source.models.length === 1;
+  const levelNames = [
+    ...new Set([settings.levelProperty, ...LEVEL_FALLBACKS].filter(Boolean)),
+  ];
   const seen = new Set<string>();
   const buildings: IfcBuildingModel[] = source.models.map((model) => {
     const storeys = new Map<string, IfcStorey>();
@@ -91,9 +101,12 @@ export function mapToIfc(
         psets: psetsOf(element.properties, settings),
         meshes,
       };
-      const storeyName =
-        findProperty(element.properties, settings.levelProperty || 'Level') ??
-        (settings.fallbackStorey || 'Unassigned');
+      let storeyName: string | undefined;
+      for (const name of levelNames) {
+        storeyName = findProperty(element.properties, name);
+        if (storeyName) break;
+      }
+      storeyName ??= settings.fallbackStorey || 'Unassigned';
       let storey = storeys.get(storeyName);
       if (!storey) {
         storey = { name: storeyName, elements: [] };

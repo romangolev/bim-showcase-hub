@@ -319,12 +319,21 @@ def ifc_summary(path):
         verts = shape.geometry.verts
         if not verts:
             continue
+        extents = [max(verts[axis::3]) - min(verts[axis::3]) for axis in range(3)]
+        if max(extents) <= 0:
+            continue
         shaped += 1
         for axis in range(3):
             values = verts[axis::3]
             lo, hi = min(values), max(values)
             low[axis] = lo if low[axis] is None else min(low[axis], lo)
             high[axis] = hi if high[axis] is None else max(high[axis], hi)
+    assigned = sum(
+        len(rel.RelatedElements)
+        for storey in model.by_type("IfcBuildingStorey")
+        if storey.Name != "Unassigned"
+        for rel in storey.ContainsElements
+    )
     return {
         "bytes": Path(path).stat().st_size,
         "schema": model.schema,
@@ -333,6 +342,7 @@ def ifc_summary(path):
         "buildings": len(model.by_type("IfcBuilding")),
         "unique_guids": len(set(guids)) == len(guids) and all(len(g) == 22 for g in guids),
         "with_geometry": len(with_geometry),
+        "in_real_storeys": assigned,
         "sampled": len(sample),
         "shaped": shaped,
         "size": [round(high[i] - low[i], 3) for i in range(3)] if shaped else None,
@@ -341,7 +351,7 @@ def ifc_summary(path):
     }
 
 
-def ifc_check(checks, path, label="IFC", expected_elements=None):
+def ifc_check(checks, path, label="IFC", expected_elements=None, min_storey_share=None):
     try:
         info = ifc_summary(path)
     except Exception as exc:
@@ -361,18 +371,30 @@ def ifc_check(checks, path, label="IFC", expected_elements=None):
     checks.add(
         f"{label} elements carry geometry",
         info["elements"] > 0 and info["with_geometry"] >= 0.9 * info["elements"],
-        f"{info['with_geometry']} of {info['elements']}; {info['shaped']}/{info['sampled']} sampled shapes tessellate",
+        f"{info['with_geometry']} of {info['elements']}",
     )
+    checks.add(
+        f"{label} sampled shapes tessellate with a bounding box",
+        info["sampled"] > 0 and info["shaped"] >= 0.9 * info["sampled"],
+        f"{info['shaped']} of {info['sampled']}",
+    )
+    if min_storey_share is not None:
+        share = info["in_real_storeys"] / info["elements"] if info["elements"] else 0
+        checks.add(
+            f"{label} assigns elements to real storeys",
+            share >= min_storey_share,
+            f"{info['in_real_storeys']} of {info['elements']} ({share:.1%}), floor {min_storey_share:.0%}",
+        )
     checks.add(
         f"{label} passes IfcOpenShell validation",
         info["validation_error_count"] == 0,
         info["validation_errors"] or "no errors",
     )
-    if expected_elements:
-        drift = abs(info["elements"] - expected_elements) / expected_elements
+    if expected_elements is not None:
+        drift = abs(info["elements"] - expected_elements) / expected_elements if expected_elements else 1
         checks.add(
             f"{label} element count matches the viewer",
-            drift <= 0.01,
+            bool(expected_elements) and drift <= 0.01,
             f"{info['elements']} in the file, {expected_elements} in the viewer",
         )
     return info

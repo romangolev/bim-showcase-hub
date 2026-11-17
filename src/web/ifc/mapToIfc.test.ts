@@ -168,6 +168,38 @@ describe('mapToIfc', () => {
     expect(model.buildings[0]?.storeys[0]?.name).toBe('Revit Walls');
   });
 
+  it.each(['Base Level', 'Reference Level', 'Schedule Level'])(
+    'falls back to %s when there is no Level',
+    (name) => {
+      const model = map(
+        source([
+          el({
+            properties: {
+              Identity: { Category: 'Revit Walls' },
+              Other: { [name]: 'Roof' },
+            },
+          }),
+        ]),
+      );
+      expect(model.buildings[0]?.storeys[0]?.name).toBe('Roof');
+    },
+  );
+
+  it('prefers the configured property over the fallbacks', () => {
+    const model = map(
+      source([
+        el({
+          properties: {
+            Identity: { Category: 'Revit Walls' },
+            Constraints: { Level: 'Level 1', 'Base Level': 'Roof', Zone: 'Z9' },
+          },
+        }),
+      ]),
+      { levelProperty: 'Zone' },
+    );
+    expect(model.buildings[0]?.storeys[0]?.name).toBe('Z9');
+  });
+
   it('honours the property group include and exclude lists', () => {
     const excluded = map(source([el()]), { psetExclude: ['Dimensions'] });
     expect(

@@ -25,6 +25,7 @@ from glb_revit import (
 )
 
 REPORT = "ifc-revit-report.json"
+STOREY_SHARE_FLOOR = 0.08
 VIEWER_ELEMENTS = """mw: () => {
     const fragments = window.viewer.model.getFragmentList();
     const ids = new Set();
@@ -103,7 +104,7 @@ def main():
                     size > 1_000_000 and head == b"ISO-10303-21;",
                     f"{size} bytes",
                 )
-                info = ifc_check(checks, ifc_path, "Revit IFC", expected_elements=expected)
+                info = ifc_check(checks, ifc_path, "Revit IFC", expected_elements=expected or 0, min_storey_share=STOREY_SHARE_FLOOR)
                 if info:
                     notes["ifc"] = info
                     checks.add(
