@@ -1,10 +1,10 @@
 import { type Request, type RequestHandler, Router } from 'express';
-import { createSessionCodec, getAccessToken } from '../auth/sessionTokens.js';
+import { getAccessToken, type SessionCodec } from '../auth/sessionTokens.js';
 import type { ApsAuth } from '../auth/types.js';
 import type { ServerConfig } from '../config.js';
 import type { DataService } from '../data/types.js';
 import { decodeId } from '../ids.js';
-import { sessionOf } from './session.js';
+import { clearOnRejection, sessionOf } from './session.js';
 
 const MOCK_TOKEN = 'mock-token';
 
@@ -12,15 +12,23 @@ export function dataRouter(
   config: ServerConfig,
   auth: ApsAuth,
   data: DataService,
+  codec: SessionCodec,
 ): Router {
   const router = Router();
-  const codec = createSessionCodec(config.sessionSecret);
 
   async function tokenFor(req: Request): Promise<string> {
     if (config.mock) {
       return MOCK_TOKEN;
     }
-    return (await getAccessToken(sessionOf(req), auth, codec)).accessToken;
+    return (
+      await getAccessToken(
+        sessionOf(req),
+        auth,
+        codec,
+        Date.now(),
+        clearOnRejection(req),
+      )
+    ).accessToken;
   }
 
   function route<T>(

@@ -247,6 +247,34 @@ describe('session and auth', () => {
     expect((await agent.get('/api/session')).status).toBe(200);
   });
 
+  it('clears the session when a retried request meets a refresh rejection', async () => {
+    const auth = fakeAuth({
+      exchangeCode: vi.fn().mockResolvedValue({
+        accessToken: 'a',
+        refreshToken: 'r',
+        expiresIn: 0,
+      }),
+      refresh: vi.fn().mockRejectedValue(new HttpError(401, 'Session expired')),
+    });
+    const agent = request.agent(realApp(auth));
+    await signIn(agent);
+    const res = await agent.get('/api/viewer/token').set('X-Auth-Retry', '1');
+    expect(res.status).toBe(401);
+    expect((await agent.get('/api/session')).status).toBe(401);
+  });
+
+  it('redirects with upstream_error when the session would be too large', async () => {
+    const auth = fakeAuth({
+      exchangeCode: vi.fn().mockResolvedValue({
+        accessToken: 'a'.repeat(4000),
+        refreshToken: 'r',
+        expiresIn: 3600,
+      }),
+    });
+    const res = await signIn(request.agent(realApp(auth)));
+    expect(res.headers.location).toBe('/?auth_error=upstream_error');
+  });
+
   it('answers 502 and keeps the session when refresh is transiently down', async () => {
     const auth = fakeAuth({
       exchangeCode: vi.fn().mockResolvedValue({

@@ -26,7 +26,10 @@ export function subscribeUnauthorized(listener: () => void): () => void {
   };
 }
 
+let knownSignedOut = false;
+
 export function notifyUnauthorized(): void {
+  knownSignedOut = true;
   for (const listener of [...unauthorizedListeners]) listener();
 }
 
@@ -51,19 +54,27 @@ const SESSION_PATH = '/api/session';
 export const UNAUTHORIZED_RETRY_DELAY_MS = 300;
 
 async function request(path: string, init?: RequestInit): Promise<Response> {
-  const send = () =>
+  const send = (extra?: Record<string, string>) =>
     fetch(path, {
       credentials: 'same-origin',
       ...init,
-      headers: { Accept: 'application/json', ...init?.headers },
+      headers: { Accept: 'application/json', ...init?.headers, ...extra },
     });
   let res = await send();
-  if (res.status === 401 && path !== SESSION_PATH) {
+  const method = (init?.method ?? 'GET').toUpperCase();
+  if (
+    res.status === 401 &&
+    path !== SESSION_PATH &&
+    method === 'GET' &&
+    !init?.body &&
+    !knownSignedOut
+  ) {
     await new Promise((resolve) =>
       setTimeout(resolve, UNAUTHORIZED_RETRY_DELAY_MS),
     );
-    res = await send();
+    res = await send({ 'X-Auth-Retry': '1' });
   }
+  if (res.ok) knownSignedOut = false;
   if (res.status === 401) {
     notifyUnauthorized();
   }

@@ -24,6 +24,8 @@ export interface SessionCodec {
 
 const EXPIRY_SKEW_MS = 60_000;
 export const SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+export const CLOCK_SKEW_MS = 5 * 60 * 1000;
+export const MAX_COOKIE_BYTES = 3800;
 const IV_BYTES = 12;
 const TAG_BYTES = 16;
 
@@ -82,7 +84,10 @@ function readTokens(
 ): StoredTokens | null {
   const tokens = codec.open(session.aps);
   if (!tokens) return null;
-  if (now - tokens.issuedAt >= SESSION_MAX_AGE_MS || tokens.issuedAt > now) {
+  if (
+    now - tokens.issuedAt >= SESSION_MAX_AGE_MS ||
+    tokens.issuedAt - now > CLOCK_SKEW_MS
+  ) {
     return null;
   }
   return tokens;
@@ -101,6 +106,10 @@ export function storeTokens(
     expiresAt: now + tokens.expiresIn * 1000,
     issuedAt,
   });
+}
+
+export function sessionCookieBytes(session: SessionStore): number {
+  return Buffer.from(JSON.stringify(session)).toString('base64').length;
 }
 
 export function storeUser(session: SessionStore, user: SessionUser): void {
@@ -157,6 +166,7 @@ export async function getAccessToken(
   auth: ApsAuth,
   codec: SessionCodec,
   now: number = Date.now(),
+  options: { clearOnRejection?: boolean } = {},
 ): Promise<AccessToken> {
   const tokens = readTokens(session, codec, now);
   if (!tokens) {
@@ -178,6 +188,7 @@ export async function getAccessToken(
   } catch (err) {
     const failure = toHttpError(err);
     if (failure.status === 401) {
+      if (options.clearOnRejection) clearAuth(session);
       throw new HttpError(401, 'Session expired');
     }
     throw new HttpError(502, 'Upstream service error');
