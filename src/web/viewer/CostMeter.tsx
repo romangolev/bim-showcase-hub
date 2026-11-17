@@ -2,6 +2,7 @@ import { MAX_COMBINED_MODELS } from '../../shared/combined.js';
 import { formatParts, summarizeCost } from './costSummary.js';
 import type { ModelInfo } from './modelSet.js';
 import type { ViewerAdapter } from './ViewerAdapter.js';
+import './viewer.css';
 
 export interface CostMeterProps {
   adapter: ViewerAdapter | null;

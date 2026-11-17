@@ -17,7 +17,11 @@ import { StateBlock } from '../components/StateBlock.js';
 import { useTreeControl } from '../components/TreeControl.js';
 import { TreePanel } from '../components/TreePanel.js';
 import { exportFileName } from '../extensions/excelExport.js';
-import { DashboardPanel, ModelSummaryPanel } from '../panels/index.js';
+import {
+  DashboardPanel,
+  ModelSummaryPanel,
+  ModelsPanel,
+} from '../panels/index.js';
 import { memberLabel } from '../routes/ModelPage.js';
 import { ViewerPane } from '../viewer/index.js';
 import { page } from '../viewer/region.js';
@@ -211,6 +215,22 @@ export function DashboardPane() {
         collapsed={layout.mode === 'stacked' && layout.isCollapsed('dashboard')}
         toggleable={layout.mode === 'stacked'}
         onCollapsedChange={(next) => layout.setCollapsed('dashboard', next)}
+      />
+    </div>
+  );
+}
+
+export function ModelsPane() {
+  const { active } = useOpenModels();
+  const store = useOpenModelsStore();
+  const tree = useTreeControl();
+  return (
+    <div className="pane-models">
+      <ModelsPanel
+        onRemove={
+          store && active ? (urn) => store.removeFrom(active, urn) : undefined
+        }
+        onAdd={tree ? () => tree.reveal() : undefined}
       />
     </div>
   );

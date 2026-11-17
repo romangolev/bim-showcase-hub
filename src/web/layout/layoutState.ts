@@ -1,4 +1,5 @@
 import {
+  DEFAULT_DISMISSED,
   hasPlainPanel,
   isFollower,
   isInstancePanel,
@@ -85,7 +86,7 @@ export function defaultModel(): LayoutModel {
     dock: null,
     collapsed: ['dashboard'],
     treeWidth: TREE_WIDTH_DEFAULT,
-    dismissed: [],
+    dismissed: [...DEFAULT_DISMISSED],
     lastViewerArrangement: null,
   };
 }
@@ -449,7 +450,18 @@ export function parseLayout(
     dock,
     collapsed: [...new Set(collapsed)],
     treeWidth,
-    dismissed: [...new Set(dismissed)],
+    dismissed: [
+      ...new Set([
+        ...dismissed,
+        ...DEFAULT_DISMISSED.filter(
+          (id) =>
+            !isRecord(layout.dock) ||
+            !Object.keys((layout.dock as SerializedDock).panels ?? {}).some(
+              (panel) => paneKind(panel) === id,
+            ),
+        ),
+      ]),
+    ],
     lastViewerArrangement:
       remembered && hasViewerPanel(remembered) ? remembered : null,
   };

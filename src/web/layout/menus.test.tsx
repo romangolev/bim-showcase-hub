@@ -233,7 +233,7 @@ describe('panes menu in the top bar', () => {
       within(menu)
         .getAllByRole('menuitemcheckbox')
         .map((item) => item.textContent),
-    ).toEqual(['Model summary', 'Dashboard']);
+    ).toEqual(['Model summary', 'Dashboard', 'Models']);
     const dashboard = within(menu).getByRole('menuitemcheckbox', {
       name: 'Dashboard',
     });

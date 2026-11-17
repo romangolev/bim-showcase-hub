@@ -7,6 +7,7 @@ describe('default layout', () => {
       'viewer',
       'summary',
       'dashboard',
+      'models',
       'tree',
     ]);
   });

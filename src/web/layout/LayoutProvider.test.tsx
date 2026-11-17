@@ -307,6 +307,17 @@ describe('dock layout', () => {
     expect(load).toHaveBeenCalledTimes(1);
   });
 
+  it('opens the Models pane on demand and lists the models', async () => {
+    renderPath();
+    await dockReady();
+    expect(handle().openPanes()).not.toContain('models');
+    act(() => handle().togglePane('models'));
+    await screen.findByRole('tab', { name: 'Models' });
+    expect(await screen.findByText(/of 6 models/)).toBeInTheDocument();
+    act(() => handle().togglePane('models'));
+    await waitFor(() => expect(handle().openPanes()).not.toContain('models'));
+  });
+
   it('restores a floating pane after a reload and never pops out', async () => {
     const first = renderPath();
     await dockReady();

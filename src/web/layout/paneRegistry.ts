@@ -4,11 +4,12 @@ import { PANEL_SEPARATOR, type PanelId } from './panelIds.js';
 import {
   DashboardPane,
   ModelPaneBody,
+  ModelsPane,
   SummaryPane,
   TreePane,
 } from './panes.js';
 
-export type PaneId = 'tree' | 'viewer' | 'summary' | 'dashboard';
+export type PaneId = 'tree' | 'viewer' | 'summary' | 'dashboard' | 'models';
 
 export type PlacementDirection = 'left' | 'right' | 'below';
 
@@ -37,6 +38,7 @@ export interface PaneDefinition {
   closable: boolean;
   canFloat: boolean;
   requires: 'viewer' | 'none';
+  startsDismissed?: boolean;
   instances?: PaneInstances;
 }
 
@@ -101,6 +103,23 @@ export const PANES: readonly PaneDefinition[] = [
     closable: true,
     canFloat: true,
     requires: 'viewer',
+  },
+  {
+    id: 'models',
+    title: 'Models',
+    icon: 'layers',
+    component: ModelsPane,
+    minSize: { width: 240, height: 160 },
+    defaultPlacement: {
+      kind: 'beside',
+      reference: 'viewer',
+      direction: 'left',
+      size: 280,
+    },
+    closable: true,
+    canFloat: true,
+    requires: 'viewer',
+    startsDismissed: true,
   },
 ];
 
@@ -167,6 +186,10 @@ export function followersOf(kind: PaneId): PaneId[] {
 export function isFollower(id: PaneId): boolean {
   return paneById(id).requires !== 'none';
 }
+
+export const DEFAULT_DISMISSED: readonly PaneId[] = PANES.filter(
+  (pane) => pane.startsDismissed,
+).map((pane) => pane.id);
 
 export const FOLLOWERS: readonly PaneId[] = PANE_IDS.filter(isFollower);
 
