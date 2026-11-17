@@ -4,7 +4,24 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist/web",
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/api/(.*)",
+      "destination": "/api"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy-Report-Only",
+          "value": "default-src 'self'; script-src 'self' https://developer.api.autodesk.com blob: 'unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://developer.api.autodesk.com; img-src 'self' data: blob: https:; font-src 'self' data: https://developer.api.autodesk.com; connect-src 'self' https://*.autodesk.com https://*.autodesk.com:443 blob: data:; frame-ancestors 'none'"
+        }
+      ]
+    }
   ]
 }

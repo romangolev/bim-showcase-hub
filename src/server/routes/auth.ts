@@ -3,6 +3,7 @@ import { Router } from 'express';
 import type { SessionUser, ViewerToken } from '../../shared/types.js';
 import {
   clearAuth,
+  createSessionCodec,
   getAccessToken,
   isSignedIn,
   readUser,
@@ -38,6 +39,12 @@ function authErrorUrl(code: string): string {
 
 export function authRouter(config: ServerConfig, auth: ApsAuth): Router {
   const router = Router();
+  const codec = createSessionCodec(config.sessionSecret);
+
+  router.use(['/session', '/viewer/token'], (_req, res, next) => {
+    res.set('Cache-Control', 'no-store');
+    next();
+  });
 
   router.get('/session', (req, res) => {
     if (config.mock) {
@@ -49,7 +56,7 @@ export function authRouter(config: ServerConfig, auth: ApsAuth): Router {
     }
     const session = sessionOf(req);
     const user = readUser(session);
-    if (!user || !isSignedIn(session)) {
+    if (!user || !isSignedIn(session, codec)) {
       throw new HttpError(401, 'Not signed in');
     }
     res.json({
@@ -92,7 +99,7 @@ export function authRouter(config: ServerConfig, auth: ApsAuth): Router {
     try {
       const tokens = await auth.exchangeCode(code);
       const user = await auth.getUser(tokens.accessToken);
-      storeTokens(session, tokens);
+      storeTokens(session, tokens, codec);
       storeUser(session, user);
     } catch {
       res.redirect(authErrorUrl('upstream_error'));
@@ -114,7 +121,7 @@ export function authRouter(config: ServerConfig, auth: ApsAuth): Router {
       res.json(MOCK_VIEWER_TOKEN satisfies ViewerToken);
       return;
     }
-    const token = await getAccessToken(sessionOf(req), auth);
+    const token = await getAccessToken(sessionOf(req), auth, codec);
     const body: ViewerToken = {
       access_token: token.accessToken,
       expires_in: token.expiresIn,

@@ -109,9 +109,29 @@ describe('session and auth', () => {
     });
   });
 
-  it('does not expose tokens in the session response or cookie value', async () => {
+  it('sends no-store on session and token responses', async () => {
     const agent = request.agent(realApp());
     await signIn(agent);
+    for (const url of ['/api/session', '/api/viewer/token']) {
+      const res = await agent.get(url);
+      expect(res.headers['cache-control'], url).toBe('no-store');
+    }
+    const signedOut = await request(realApp()).get('/api/session');
+    expect(signedOut.headers['cache-control']).toBe('no-store');
+  });
+
+  it('does not expose tokens in the session response or cookie value', async () => {
+    const agent = request.agent(realApp());
+    const callback = await signIn(agent);
+    const cookies = ([] as string[]).concat(
+      callback.headers['set-cookie'] ?? [],
+    );
+    for (const c of cookies) {
+      const value = decodeURIComponent(c.split(';')[0].split('=')[1]);
+      const decoded = Buffer.from(value, 'base64').toString();
+      expect(decoded).not.toContain('access-1');
+      expect(decoded).not.toContain('refresh-1');
+    }
     const session = await agent.get('/api/session');
     expect(JSON.stringify(session.body)).not.toContain('access-1');
   });
@@ -211,7 +231,7 @@ describe('session and auth', () => {
     expect(res.status).toBe(204);
   });
 
-  it('answers 401 and drops the session when refresh fails', async () => {
+  it('answers 401 and keeps the cookie when refresh is rejected', async () => {
     const auth = fakeAuth({
       exchangeCode: vi.fn().mockResolvedValue({
         accessToken: 'a',
@@ -224,7 +244,7 @@ describe('session and auth', () => {
     await signIn(agent);
     const res = await agent.get('/api/viewer/token');
     expect(res.status).toBe(401);
-    expect((await agent.get('/api/session')).status).toBe(401);
+    expect((await agent.get('/api/session')).status).toBe(200);
   });
 
   it('answers 502 and keeps the session when refresh is transiently down', async () => {

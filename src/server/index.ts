@@ -4,6 +4,7 @@ import cookieSession from 'cookie-session';
 import express, { type Express } from 'express';
 import { createApsAuth } from './auth/apsAuth.js';
 import { loadConfig, type ServerConfig } from './config.js';
+import { REPORT_ONLY_CSP } from './csp.js';
 import { createApsDataService } from './data/apsDataService.js';
 import { errorHandler } from './errors.js';
 import { createMockDataService } from './mock/index.js';
@@ -47,6 +48,10 @@ export function createApp(
   app.use('/api', apiRouter(config, deps));
   if (config.production) {
     const staticDir = config.staticDir ?? defaultStaticDir();
+    app.use((_req, res, next) => {
+      res.set('Content-Security-Policy-Report-Only', REPORT_ONLY_CSP);
+      next();
+    });
     app.use(express.static(staticDir));
     app.get('/{*splat}', (_req, res) => {
       res.sendFile(path.join(staticDir, 'index.html'));

@@ -1,5 +1,5 @@
 import { type Request, type RequestHandler, Router } from 'express';
-import { getAccessToken } from '../auth/sessionTokens.js';
+import { createSessionCodec, getAccessToken } from '../auth/sessionTokens.js';
 import type { ApsAuth } from '../auth/types.js';
 import type { ServerConfig } from '../config.js';
 import type { DataService } from '../data/types.js';
@@ -14,12 +14,13 @@ export function dataRouter(
   data: DataService,
 ): Router {
   const router = Router();
+  const codec = createSessionCodec(config.sessionSecret);
 
   async function tokenFor(req: Request): Promise<string> {
     if (config.mock) {
       return MOCK_TOKEN;
     }
-    return (await getAccessToken(sessionOf(req), auth)).accessToken;
+    return (await getAccessToken(sessionOf(req), auth, codec)).accessToken;
   }
 
   function route<T>(

@@ -1,0 +1,2 @@
+export const REPORT_ONLY_CSP =
+  "default-src 'self'; script-src 'self' https://developer.api.autodesk.com blob: 'unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://developer.api.autodesk.com; img-src 'self' data: blob: https:; font-src 'self' data: https://developer.api.autodesk.com; connect-src 'self' https://*.autodesk.com https://*.autodesk.com:443 blob: data:; frame-ancestors 'none'";

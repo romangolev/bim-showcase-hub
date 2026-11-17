@@ -47,12 +47,23 @@ async function readError(res: Response): Promise<string> {
   return fallback;
 }
 
+const SESSION_PATH = '/api/session';
+export const UNAUTHORIZED_RETRY_DELAY_MS = 300;
+
 async function request(path: string, init?: RequestInit): Promise<Response> {
-  const res = await fetch(path, {
-    credentials: 'same-origin',
-    ...init,
-    headers: { Accept: 'application/json', ...init?.headers },
-  });
+  const send = () =>
+    fetch(path, {
+      credentials: 'same-origin',
+      ...init,
+      headers: { Accept: 'application/json', ...init?.headers },
+    });
+  let res = await send();
+  if (res.status === 401 && path !== SESSION_PATH) {
+    await new Promise((resolve) =>
+      setTimeout(resolve, UNAUTHORIZED_RETRY_DELAY_MS),
+    );
+    res = await send();
+  }
   if (res.status === 401) {
     notifyUnauthorized();
   }
