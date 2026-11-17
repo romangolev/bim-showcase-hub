@@ -76,6 +76,7 @@ export function parseView(
   const items: ModelDbId[] = [];
   for (const group of selection ? selection.split(';') : []) {
     const [indexRaw, idsRaw = ''] = group.split(':');
+    if (!/^\d+$/.test(indexRaw ?? '')) continue;
     const modelId = modelIds[Number(indexRaw)];
     if (modelId === undefined) continue;
     for (const part of idsRaw.split(',')) {

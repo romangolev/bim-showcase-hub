@@ -221,6 +221,9 @@ function groupByModel(items: readonly ModelDbId[]): Map<string, number[]> {
   return byModel;
 }
 
+const HIDE_ALL_NODE = -1;
+const SCREENSHOT_TIMEOUT_MS = 10_000;
+
 export class RealViewerAdapter implements ViewerAdapter {
   private viewer: GuiViewer3D | null = null;
   private destroyed = false;
@@ -585,6 +588,19 @@ export class RealViewerAdapter implements ViewerAdapter {
     const viewer = this.viewer;
     if (!viewer?.select) return;
     const byModel = groupByModel(items);
+    const entries = this.models
+      .shown()
+      .filter(({ info }) => byModel.has(info.id))
+      .map(({ info, handle }) => ({
+        model: handle,
+        ids: byModel.get(info.id) ?? [],
+      }));
+    const selector = viewer.impl?.selector;
+    if (selector?.setAggregateSelection) {
+      if (entries.length === 0) viewer.clearSelection();
+      else selector.setAggregateSelection(entries);
+      return;
+    }
     for (const { info, handle } of this.models.shown()) {
       viewer.select(byModel.get(info.id) ?? [], handle);
     }
@@ -596,7 +612,8 @@ export class RealViewerAdapter implements ViewerAdapter {
     const byModel = groupByModel(items);
     for (const { info, handle } of this.models.shown()) {
       const ids = byModel.get(info.id);
-      if (ids || items.length === 0) viewer.isolate(ids ?? [], handle);
+      if (ids) viewer.isolate(ids, handle);
+      else viewer.isolate(items.length === 0 ? [] : [HIDE_ALL_NODE], handle);
     }
   }
 
@@ -611,7 +628,12 @@ export class RealViewerAdapter implements ViewerAdapter {
       return Promise.reject(new Error('The viewer cannot take a snapshot'));
     }
     return new Promise<Blob>((resolve, reject) => {
+      const timer = setTimeout(
+        () => reject(new Error('The snapshot timed out')),
+        SCREENSHOT_TIMEOUT_MS,
+      );
       viewer.getScreenShot?.(frame.clientWidth, frame.clientHeight, (url) => {
+        clearTimeout(timer);
         fetch(url)
           .then((response) => response.blob())
           .then(resolve, reject);

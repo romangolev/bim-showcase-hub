@@ -55,6 +55,15 @@ describe('view link', () => {
     expect(parseView(undefined, ids)).toBeNull();
   });
 
+  it('rejects groups whose model index is empty or not an integer', () => {
+    const head = '1~0,0,0~0,0,0~0,0,1~p~';
+    expect(parseView(`${head}:5`, ids)?.selection).toEqual([]);
+    expect(parseView(`${head}1.5:5;x:5; :5`, ids)?.selection).toEqual([]);
+    expect(parseView(`${head}0:5`, ids)?.selection).toEqual([
+      { modelId: 'a', dbId: 5 },
+    ]);
+  });
+
   it('drops selection for unknown models and bad ids', () => {
     expect(
       parseView('1~0,0,0~0,0,0~0,0,1~p~7:1;0:x,3,-1', ids)?.selection,

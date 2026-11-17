@@ -196,6 +196,11 @@ export interface GuiViewer3D {
   impl?: {
     resize?(width: number, height: number): void;
     setPlacementTransform?(model: ViewerModel, matrix: PlacementMatrix): void;
+    selector?: {
+      setAggregateSelection?(
+        entries: { model: ViewerModel; ids: number[] }[],
+      ): void;
+    };
   };
   navigation?: { fitBounds(immediate: boolean, bounds: ViewerBox): void };
   start(): number | undefined;

@@ -670,6 +670,22 @@ describe('RealViewerAdapter tool group extension', () => {
     expect(viewer.impl.resize).not.toHaveBeenCalled();
   });
 
+  it('rejects a snapshot when the viewer never calls back', async () => {
+    vi.useFakeTimers();
+    try {
+      makeAdapter();
+      await adapter.load('dXJu');
+      const viewer = viewers[0] as FakeViewer & { getScreenShot?: () => void };
+      viewer.getScreenShot = () => {};
+      const result = adapter.getScreenshot?.();
+      const assertion = expect(result).rejects.toThrow('timed out');
+      await vi.advanceTimersByTimeAsync(10_000);
+      await assertion;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('ignores resize before a viewer exists', () => {
     makeAdapter();
     expect(() => adapter.resize()).not.toThrow();

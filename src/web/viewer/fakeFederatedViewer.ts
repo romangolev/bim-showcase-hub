@@ -158,6 +158,17 @@ export class FakeFederatedViewer implements GuiViewer3D {
       own.placement = [...matrix.elements];
       this.placed.push({ urn: own.urn, elements: [...matrix.elements] });
     },
+    selector: {
+      setAggregateSelection: (
+        entries: { model: ViewerModel; ids: number[] }[],
+      ) => {
+        this.selections.clear();
+        for (const { model, ids } of entries) {
+          this.selections.set(this.own(model), [...ids]);
+        }
+        this.fire();
+      },
+    },
   };
   navigation = {
     fitBounds: (_immediate: boolean, box: ViewerBox) => {

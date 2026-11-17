@@ -556,7 +556,7 @@ describe('selecting and isolating by model', () => {
     const arch = viewer().modelOf('arch');
     const str = viewer().modelOf('str');
     expect(viewer().isolated.get(arch)).toEqual([3]);
-    expect(viewer().isolated.has(str)).toBe(false);
+    expect(viewer().isolated.get(str)).toEqual([-1]);
     adapter.isolateModelIds([]);
     expect(viewer().isolated.get(arch)).toEqual([]);
     expect(viewer().isolated.get(str)).toEqual([]);
