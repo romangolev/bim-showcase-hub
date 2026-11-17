@@ -16,6 +16,7 @@ import {
   useContext,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -312,6 +313,7 @@ function adopt(api: DockviewApi, sync: InstanceSync, want: PanelId[]) {
   try {
     api.fromJSON(snapshot as never);
   } catch {
+    buildDefault(api, sync.treeWidth, sync);
     return false;
   }
   if (!api.getPanel('tree')) {
@@ -717,11 +719,7 @@ export function DockLayout(props: DockLayoutProps) {
             } else {
               delete group.element.dataset.collapsed;
               relax(group);
-              const siblings =
-                siblingCountOf(
-                  api.toJSON() as unknown as SerializedDock,
-                  group.id,
-                ) ?? 1;
+              const siblings = siblingCountOf(json, group.id) ?? 1;
               const size =
                 restoredSize(group, pane, axis) +
                 (GAP * (siblings - 1)) / siblings;
@@ -1036,20 +1034,44 @@ export function DockLayout(props: DockLayoutProps) {
     };
   }, []);
 
+  const {
+    hosts,
+    onAttach,
+    onVisibility,
+    onCloseInstance,
+    onClosePane,
+    onToggleMaximize,
+    locked,
+    titles,
+    headerActions,
+  } = props;
+  const slotValue = useMemo(
+    () => ({
+      hosts,
+      onAttach,
+      onVisibility,
+      onCloseInstance,
+      onClosePane,
+      onToggleMaximize,
+      locked,
+      titles,
+      headerActions,
+    }),
+    [
+      hosts,
+      onAttach,
+      onVisibility,
+      onCloseInstance,
+      onClosePane,
+      onToggleMaximize,
+      locked,
+      titles,
+      headerActions,
+    ],
+  );
+
   return (
-    <SlotContext.Provider
-      value={{
-        hosts: props.hosts,
-        onAttach: props.onAttach,
-        onVisibility: props.onVisibility,
-        onCloseInstance: props.onCloseInstance,
-        onClosePane: props.onClosePane,
-        onToggleMaximize: props.onToggleMaximize,
-        locked: props.locked,
-        titles: props.titles,
-        headerActions: props.headerActions,
-      }}
-    >
+    <SlotContext.Provider value={slotValue}>
       <div className="dock-root" ref={rootRef}>
         <DockviewReact
           theme={DOCK_THEME}
