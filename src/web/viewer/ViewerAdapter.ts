@@ -39,9 +39,9 @@ export interface ExportToolSpec {
 export interface ToolGroupSpec {
   id: string;
   title: string;
-  paint: PaintToolSpec;
-  export: ExportToolSpec;
-  geometry: ExportToolSpec;
+  paint?: PaintToolSpec;
+  export?: ExportToolSpec;
+  geometry?: ExportToolSpec;
 }
 
 export interface ViewerAdapter {

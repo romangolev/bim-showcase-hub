@@ -10,8 +10,8 @@ Out of scope: coordination tree node, IFC, BCF, saved data. Each has its own res
 ## 1. Refresh button
 
 - An icon button "Refresh documents" in the filter row of `DocumentTree`, which owns the loaded-node registry.
-- It runs the existing per-node `refresh(id)` for every node currently in `registry.loaded` (root included). Expansion state is kept and unloaded folders stay untouched. Rows show their own loading and error states, so the button has no spinner.
-- Tests: refetches loaded nodes.
+- It runs the existing per-node `refresh(id)` for the root, every currently expanded folder and every folder in an error state, and forgets the cached view-state checks of those parents so versions show their new state. Other loaded folders are marked stale and are not fetched while collapsed or hidden; they refetch the moment they become visibly expanded again. Expansion state is kept. Rows show their own loading and error states, so the button has no spinner.
+- Tests: refetches the root and expanded folders, skips collapsed folders, retries errored folders and rechecks version view state.
 
 ## 2. Modal scaffolding
 

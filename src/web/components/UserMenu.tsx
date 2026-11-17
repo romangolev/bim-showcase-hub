@@ -7,6 +7,7 @@ import {
 } from 'react';
 import type { Session } from '../api/client.js';
 import { useSignOut } from '../api/hooks.js';
+import { useModal } from '../modal/index.js';
 import { Icon } from './icons.js';
 
 export function UserMenu({ user }: { user: Session }) {
@@ -15,6 +16,7 @@ export function UserMenu({ user }: { user: Session }) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const signOut = useSignOut();
+  const modal = useModal();
 
   const items = useCallback(
     () =>
@@ -124,6 +126,18 @@ export function UserMenu({ user }: { user: Session }) {
           <div className="user-menu__who" role="presentation">
             {user.name}
           </div>
+          <button
+            type="button"
+            role="menuitem"
+            className="user-menu__item"
+            onClick={() => {
+              close(true);
+              modal.open('settings');
+            }}
+          >
+            <Icon name="settings" size={14} />
+            Settings
+          </button>
           <button
             type="button"
             role="menuitem"

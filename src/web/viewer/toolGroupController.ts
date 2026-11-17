@@ -42,21 +42,21 @@ export class ToolGroupController {
 
   paint(color: Rgba): void {
     if (!this.current.hasSelection) return;
-    if (this.spec.paint.onPaint(color)) this.update({ painted: true });
+    if (this.spec.paint?.onPaint(color)) this.update({ painted: true });
   }
 
   reset(): void {
     if (!this.current.painted) return;
-    this.spec.paint.onReset();
+    this.spec.paint?.onReset();
     this.update({ painted: false });
   }
 
   export(): void {
-    this.spec.export.onExport();
+    this.spec.export?.onExport();
   }
 
   exportGeometry(): void {
-    this.spec.geometry.onExport();
+    this.spec.geometry?.onExport();
   }
 
   clearPainted(): void {

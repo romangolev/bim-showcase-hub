@@ -11,6 +11,7 @@ import type {
   ToolGroupController,
   ToolGroupState,
 } from './toolGroupController.js';
+import type { PaintSwatchSpec } from './ViewerAdapter.js';
 
 export const TOOLS_EXTENSION_ID = 'BimShowcaseHub.Tools';
 export const PAINT_ICON_CLASS = 'bsh-ico-paint';
@@ -53,49 +54,62 @@ function createToolsExtension(viewing: AutodeskViewing): ViewerExtensionClass {
       const disabled = UI.Button.State.DISABLED;
 
       const group = new UI.ControlGroup(spec.id);
-      const combo: ComboButton = new UI.ComboButton(spec.paint.id);
-      combo.setToolTip(spec.paint.tooltip);
-      combo.setIcon(PAINT_ICON_CLASS);
+      const swatches: { swatch: PaintSwatchSpec; button: ControlButton }[] = [];
+      let reset: ControlButton | null = null;
 
-      const swatches = spec.paint.swatches.map((swatch) => {
-        const button: ControlButton = new UI.Button(swatch.id);
-        button.setIcon(swatchIconClass(swatch.icon));
-        button.onClick = () => controller.paint(swatch.color);
-        combo.addControl(button);
-        return { swatch, button };
-      });
+      if (spec.paint) {
+        const paintSpec = spec.paint;
+        const combo: ComboButton = new UI.ComboButton(paintSpec.id);
+        combo.setToolTip(paintSpec.tooltip);
+        combo.setIcon(PAINT_ICON_CLASS);
 
-      const reset: ControlButton = new UI.Button(spec.paint.reset.id);
-      reset.setIcon(RESET_ICON_CLASS);
-      reset.onClick = () => controller.reset();
-      combo.addControl(reset);
+        for (const swatch of paintSpec.swatches) {
+          const button: ControlButton = new UI.Button(swatch.id);
+          button.setIcon(swatchIconClass(swatch.icon));
+          button.onClick = () => controller.paint(swatch.color);
+          combo.addControl(button);
+          swatches.push({ swatch, button });
+        }
 
-      const exportButton: ControlButton = new UI.Button(spec.export.id);
-      exportButton.setIcon(EXPORT_ICON_CLASS);
-      exportButton.setToolTip(spec.export.tooltip);
-      exportButton.onClick = () => controller.export();
+        const resetButton: ControlButton = new UI.Button(paintSpec.reset.id);
+        resetButton.setIcon(RESET_ICON_CLASS);
+        resetButton.onClick = () => controller.reset();
+        combo.addControl(resetButton);
+        reset = resetButton;
+        group.addControl(combo);
+      }
 
-      const geometryButton: ControlButton = new UI.Button(spec.geometry.id);
-      geometryButton.setIcon(GLB_ICON_CLASS);
-      geometryButton.setToolTip(spec.geometry.tooltip);
-      geometryButton.onClick = () => controller.exportGeometry();
+      if (spec.export) {
+        const exportButton: ControlButton = new UI.Button(spec.export.id);
+        exportButton.setIcon(EXPORT_ICON_CLASS);
+        exportButton.setToolTip(spec.export.tooltip);
+        exportButton.onClick = () => controller.export();
+        group.addControl(exportButton);
+      }
+
+      if (spec.geometry) {
+        const geometryButton: ControlButton = new UI.Button(spec.geometry.id);
+        geometryButton.setIcon(GLB_ICON_CLASS);
+        geometryButton.setToolTip(spec.geometry.tooltip);
+        geometryButton.onClick = () => controller.exportGeometry();
+        group.addControl(geometryButton);
+      }
 
       const apply = (state: ToolGroupState) => {
+        const paintSpec = spec.paint;
+        if (!paintSpec) return;
         for (const { swatch, button } of swatches) {
           button.setState(state.hasSelection ? enabled : disabled);
           button.setToolTip(
-            state.hasSelection ? swatch.label : spec.paint.selectHint,
+            state.hasSelection ? swatch.label : paintSpec.selectHint,
           );
         }
-        reset.setState(state.painted ? enabled : disabled);
-        reset.setToolTip(
-          state.painted ? spec.paint.reset.label : spec.paint.resetHint,
+        reset?.setState(state.painted ? enabled : disabled);
+        reset?.setToolTip(
+          state.painted ? paintSpec.reset.label : paintSpec.resetHint,
         );
       };
 
-      group.addControl(combo);
-      group.addControl(exportButton);
-      group.addControl(geometryButton);
       toolbar.addControl(group);
       apply(controller.state);
       this.stop = controller.subscribe(apply);

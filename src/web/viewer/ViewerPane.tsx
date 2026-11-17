@@ -18,7 +18,9 @@ import {
   glbHasWarning,
 } from '../extensions/glbExport.js';
 import { formatCount } from '../extensions/modelSummary.js';
+import { resetPaint } from '../extensions/paintBrushes.js';
 import { modelKey, registerViewerTools } from '../extensions/viewerTools.js';
+import { useSettings } from '../settings/SettingsContext.js';
 import { useTheme } from '../theme/ThemeContext.js';
 import { createViewerAdapter } from './createViewerAdapter.js';
 import { ModelsMenu } from './ModelsMenu.js';
@@ -167,6 +169,7 @@ export function ViewerPane({
   const [state, setState] = useState<PaneState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
   const { theme } = useTheme();
+  const { settings } = useSettings();
   const themeRef = useRef(theme);
   const instanceRef = useRef<ViewerAdapter | null>(null);
 
@@ -237,7 +240,6 @@ export function ViewerPane({
     host.dataset.attempt = String(attempt);
     let cancelled = false;
     let created: ViewerAdapter | null = null;
-    let disposeExtensions: (() => void) | null = null;
     const region = detectRegion(urn);
     if (!regionAvailable(region)) {
       setState({ status: 'region', region });
@@ -254,14 +256,6 @@ export function ViewerPane({
         if (cancelled) {
           instance.destroy();
           return;
-        }
-        if (tools) {
-          disposeExtensions = registerViewerTools(instance, {
-            onStatus: handleExportStatus,
-            onGeometryStatus: handleGeometryStatus,
-            key: modelKey(urn),
-            fileName: () => exportNameRef.current ?? '',
-          });
         }
         const extra = membersRef.current;
         const primaryName = nameRef.current;
@@ -295,22 +289,45 @@ export function ViewerPane({
     return () => {
       cancelled = true;
       adapterRef.current = null;
-      disposeExtensions?.();
       created?.destroy();
       if (instanceRef.current === created) instanceRef.current = null;
       setAdapter(null);
       if (created) withdraw?.(urn, created);
     };
+  }, [urn, factory, publish, withdraw, attempt]);
+
+  useEffect(() => {
+    if (!adapter || !tools) return;
+    return registerViewerTools(adapter, {
+      onStatus: handleExportStatus,
+      onGeometryStatus: handleGeometryStatus,
+      key: modelKey(urn),
+      fileName: () => exportNameRef.current ?? '',
+      features: {
+        paint: settings.paintBrushes,
+        export: settings.excelExport,
+        geometry: settings.glbExport,
+      },
+    });
   }, [
-    urn,
-    factory,
+    adapter,
     tools,
-    publish,
-    withdraw,
-    attempt,
+    urn,
+    settings.paintBrushes,
+    settings.excelExport,
+    settings.glbExport,
     handleExportStatus,
     handleGeometryStatus,
   ]);
+
+  const paintWasOn = useRef(settings.paintBrushes);
+  useEffect(() => {
+    const wasOn = paintWasOn.current;
+    paintWasOn.current = settings.paintBrushes;
+    if (wasOn && !settings.paintBrushes && adapter && tools) {
+      resetPaint(adapter);
+    }
+  }, [adapter, tools, settings.paintBrushes]);
 
   const sourceFor = useCallback(
     (id: string): ModelSource => {
