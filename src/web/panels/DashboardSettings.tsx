@@ -1,7 +1,5 @@
-import {
-  DEFAULT_DASHBOARD_PROPERTIES,
-  DEFAULT_MAX_CATEGORIES,
-} from '../extensions/dashboardData.js';
+import { NumberField } from '../components/NumberField.js';
+import { DEFAULT_DASHBOARD_PROPERTIES } from '../extensions/dashboardData.js';
 import {
   CHART_KINDS,
   DASHBOARD_PRESETS,
@@ -86,23 +84,12 @@ export function DashboardSettingsBody() {
       </label>
       <label className="bsh-field">
         Maximum categories
-        <input
-          type="number"
+        <NumberField
           min={MIN_CATEGORIES}
           max={MAX_CATEGORIES}
           className="bsh-input bsh-input--narrow"
           value={view.maxCategories}
-          onChange={(e) =>
-            patch({
-              maxCategories: Math.min(
-                MAX_CATEGORIES,
-                Math.max(
-                  MIN_CATEGORIES,
-                  Math.floor(+e.target.value || DEFAULT_MAX_CATEGORIES),
-                ),
-              ),
-            })
-          }
+          onCommit={(maxCategories) => patch({ maxCategories })}
         />
       </label>
       <label className="bsh-field">

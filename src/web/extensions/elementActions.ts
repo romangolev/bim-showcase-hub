@@ -41,6 +41,7 @@ export function runElementAction(
   action: ElementAction,
   items: readonly ModelDbId[],
 ): void {
+  if (items.length === 0) return;
   if (action === 'isolate') {
     adapter.isolateModelIds?.(items);
     return;

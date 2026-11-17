@@ -18,7 +18,17 @@
   },
   "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2 },
   "javascript": { "formatter": { "quoteStyle": "single" } },
-  "linter": { "enabled": true },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "a11y": {
+        "noLabelWithoutControl": {
+          "level": "error",
+          "options": { "inputComponents": ["NumberField"] }
+        }
+      }
+    }
+  },
   "overrides": [
     {
       "includes": ["src/web/viewer/viewerChrome.css"],

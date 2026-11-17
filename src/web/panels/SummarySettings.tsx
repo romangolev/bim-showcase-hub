@@ -1,3 +1,4 @@
+import { NumberField } from '../components/NumberField.js';
 import {
   ACTION_LABELS,
   ELEMENT_ACTIONS,
@@ -49,14 +50,11 @@ export function SummarySettingsBody() {
       </label>
       <label className="bsh-field">
         Minimum count
-        <input
-          type="number"
+        <NumberField
           min={1}
           className="bsh-input bsh-input--narrow"
           value={view.minCount}
-          onChange={(e) =>
-            patch({ minCount: Math.max(1, Math.floor(+e.target.value || 1)) })
-          }
+          onCommit={(minCount) => patch({ minCount })}
         />
       </label>
       <label className="bsh-field">

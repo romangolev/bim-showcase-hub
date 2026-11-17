@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { BSH_KEYS } from '../storage.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { act, fireEvent, render, screen, waitFor } from '../test/render.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
@@ -208,6 +209,20 @@ describe('DashboardPanel', () => {
     fireEvent.click(toggle);
     expect(onCollapsedChange).toHaveBeenCalledWith(true);
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('says so when the saved property is not in the model', async () => {
+    window.localStorage.setItem(
+      BSH_KEYS.personal.dashboardView,
+      JSON.stringify({ property: 'Level' }),
+    );
+    const adapter = await loaded();
+    render(<DashboardPanel adapter={adapter} propertyNames={['Category']} />);
+    expect(
+      await screen.findByText(
+        'This model has no Level values, so the chart groups by Category.',
+      ),
+    ).toBeInTheDocument();
   });
 
   it('honours the controlled collapsed prop', async () => {
@@ -564,7 +579,14 @@ describe('dashboard settings', () => {
   it('limits the categories and resets', async () => {
     render(<DashboardSettingsBody />);
     const max = screen.getByLabelText('Maximum categories');
+    fireEvent.change(max, { target: { value: '1' } });
+    expect((max as HTMLInputElement).value).toBe('1');
+    fireEvent.change(max, { target: { value: '10' } });
+    expect((max as HTMLInputElement).value).toBe('10');
+    fireEvent.change(max, { target: { value: '' } });
+    expect((max as HTMLInputElement).value).toBe('');
     fireEvent.change(max, { target: { value: '99' } });
+    fireEvent.keyDown(max, { key: 'Enter' });
     await waitFor(() => expect((max as HTMLInputElement).value).toBe('30'));
     fireEvent.click(screen.getByRole('button', { name: 'Reset dashboard' }));
     await waitFor(() => expect((max as HTMLInputElement).value).toBe('12'));

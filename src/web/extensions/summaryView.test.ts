@@ -109,4 +109,18 @@ describe('element actions', () => {
     expect(adapter.isolateModelIds).toHaveBeenCalledWith(items);
     expect(sanitizeAction('nope')).toBe('select');
   });
+
+  it('does nothing when no element matches', () => {
+    const adapter = {
+      selectModelIds: vi.fn(),
+      isolateModelIds: vi.fn(),
+      fitToSelection: vi.fn(),
+    } as unknown as ViewerAdapter;
+    for (const action of ['select', 'isolate', 'zoom'] as const) {
+      runElementAction(adapter, action, []);
+    }
+    expect(adapter.selectModelIds).not.toHaveBeenCalled();
+    expect(adapter.isolateModelIds).not.toHaveBeenCalled();
+    expect(adapter.fitToSelection).not.toHaveBeenCalled();
+  });
 });

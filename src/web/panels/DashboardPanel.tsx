@@ -258,6 +258,12 @@ export function DashboardPanel({
         )}
         {!activePreset && chart && options.length > 0 && (
           <>
+            {selected !== view.property ? (
+              <p className="bsh-muted">
+                This model has no {view.property} values, so the chart groups by{' '}
+                {selected}.
+              </p>
+            ) : null}
             <div
               className="bsh-charts"
               data-single={view.kind !== 'both' || undefined}
