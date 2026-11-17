@@ -6,6 +6,7 @@ export interface MockVersion {
   number: number;
   modifiedAt: string;
   user: string;
+  size: number;
   viewState: ViewState;
   hasUrn: boolean;
 }
@@ -166,6 +167,7 @@ export function buildMockData(): MockData {
           BASE_DATE + (itemCounter * 3 + n * 11) * DAY_MS,
         ).toISOString(),
         user: USERS[(itemCounter + n) % USERS.length] as string,
+        size: (itemCounter * 37 + n * 11) * 150_000,
         viewState: unviewable ? 'not-translated' : 'ready',
         hasUrn: !unviewable,
       });
@@ -322,6 +324,7 @@ export function buildMockData(): MockData {
                 number: 1,
                 modifiedAt: new Date(BASE_DATE).toISOString(),
                 user: USERS[0] as string,
+                size: 2_400_000,
                 viewState: fixture.viewState,
                 hasUrn: true,
               },

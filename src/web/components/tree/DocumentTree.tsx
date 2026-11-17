@@ -29,8 +29,10 @@ import {
   ROOT_SCOPE,
   scopeKey,
 } from '../../api/scope.js';
+import { usePersistedState } from '../../panels/usePersistedState.js';
 import { MODEL_LIMIT_MESSAGE } from '../../viewer/modelSet.js';
 import { Icon } from '../icons.js';
+import { Menu, type MenuEntry } from '../Menu.js';
 import { StateBlock } from '../StateBlock.js';
 import { NoHubsHint, PersonalHubNotice } from './NoHubsHint.js';
 import {
@@ -39,6 +41,14 @@ import {
   rowHeightFor,
   TreeRowView,
 } from './TreeRowView.js';
+import {
+  DEFAULT_TREE_VIEW,
+  metaText,
+  sanitizeTreeView,
+  sortChildren,
+  TREE_VIEW_KEY,
+  type TreeView,
+} from './treeView.js';
 import {
   blockedNotice,
   VIEW_STATE_COPY,
@@ -183,6 +193,36 @@ export function DocumentTree({
     loaded: new Set<string>(),
     stale: new Set<string>(),
   }).current;
+
+  const [view, setView] = usePersistedState<TreeView>(
+    TREE_VIEW_KEY,
+    DEFAULT_TREE_VIEW,
+    sanitizeTreeView,
+  );
+  const viewEntries = (): MenuEntry[] => [
+    {
+      id: 'sort-name',
+      label: 'Sort by name',
+      checked: view.sort === 'name',
+      onSelect: () => setView({ ...view, sort: 'name' }),
+    },
+    {
+      id: 'sort-modified',
+      label: 'Sort by modified',
+      checked: view.sort === 'modified',
+      onSelect: () => setView({ ...view, sort: 'modified' }),
+    },
+    { kind: 'separator', id: 'sep' },
+    ...(['modified', 'author', 'size'] as const).map((column) => ({
+      id: `col-${column}`,
+      label: `Show ${column}`,
+      checked: view[column],
+      onSelect: () => setView({ ...view, [column]: !view[column] }),
+    })),
+  ];
+
+  const viewRef = useRef(view);
+  viewRef.current = view;
 
   const selectedUrnRef = useRef(selectedUrn);
   selectedUrnRef.current = selectedUrn;
@@ -501,7 +541,7 @@ export function DocumentTree({
             delete next[id];
             return next;
           });
-          return nodes.map((node) => {
+          return sortChildren(nodes, viewRef.current.sort).map((node) => {
             registry.nodes.set(node.id, node);
             registry.scopes.set(node.id, childScope(scope, node));
             return { id: node.id, data: node };
@@ -514,6 +554,17 @@ export function DocumentTree({
     },
     features: [asyncDataLoaderFeature, selectionFeature, hotkeysCoreFeature],
   });
+
+  const seenSort = useRef(view.sort);
+  useEffect(() => {
+    if (seenSort.current === view.sort) return;
+    seenSort.current = view.sort;
+    for (const item of tree.getItems()) {
+      if (item.isFolder() && item.isExpanded()) {
+        void item.invalidateChildrenIds();
+      }
+    }
+  }, [view.sort, tree]);
 
   const revealKey = revealTrail?.join(TRAIL_SEPARATOR) ?? '';
   useEffect(() => {
@@ -848,6 +899,7 @@ export function DocumentTree({
           focused={item.isFocused()}
           viewState={viewStateOf(node)}
           checked={node.checked}
+          meta={metaText(node, view)}
           picked={urn !== null && pickedUrns.has(urn)}
           action={rowAction(node)}
           rowProps={{
@@ -1003,6 +1055,13 @@ export function DocumentTree({
             <Icon name="close" size={14} />
           </button>
         ) : null}
+        <Menu
+          label="Documents view"
+          title="Sort and columns"
+          trigger={<Icon name="settings" size={14} />}
+          triggerClassName="doc-tree__view"
+          items={viewEntries}
+        />
         <button
           type="button"
           className="doc-tree__refresh"

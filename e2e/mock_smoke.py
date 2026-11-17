@@ -527,6 +527,52 @@ def check_recents(page, checks):
     settle(page, 800)
 
 
+def tree_item_dates(page):
+    return page.evaluate("() => [...document.querySelectorAll(\".tree-row[data-kind='item'] .tree-row__meta\")].map((el) => el.textContent)")
+
+
+def check_tree_metadata(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page)
+    dates = tree_item_dates(page)
+    checks.add("file rows show their modified date", len(dates) >= 2 and all(re.fullmatch(r"\d{4}-\d{2}-\d{2}", d) for d in dates), dates)
+    page.get_by_role("button", name="Documents view").click()
+    page.get_by_role("menuitemcheckbox", name="Sort by modified").click()
+    settle(page, 800)
+    groups_sorted = page.evaluate("""() => {
+        const rows = [...document.querySelectorAll('.tree-row')];
+        const runs = [];
+        let run = [];
+        for (const row of rows) {
+            if (row.dataset.kind === 'item') run.push(row.querySelector('.tree-row__meta')?.textContent || '');
+            else if (run.length) { runs.push(run); run = []; }
+        }
+        if (run.length) runs.push(run);
+        return runs.filter((r) => r.length > 1).map((r) => r.every((d, i) => i === 0 || r[i - 1] >= d));
+    }""")
+    checks.add("sort by modified lists the newest file first in each folder", len(groups_sorted) >= 1 and all(groups_sorted), groups_sorted)
+    page.get_by_role("button", name="Documents view").click()
+    page.get_by_role("menuitemcheckbox", name="Show author").click()
+    settle(page, 300)
+    checks.add("author column adds the modifier", all(" · " in d for d in tree_item_dates(page)), tree_item_dates(page))
+    checks.add("tree view choice is stored", "modified" in page.evaluate("() => localStorage.getItem('bsh.tree.view')"))
+    page.evaluate("() => { document.querySelector('.tree-panel').style.width = '260px'; }")
+    settle(page, 300)
+    hidden = page.evaluate("() => [...document.querySelectorAll('.tree-row__meta')].every((el) => getComputedStyle(el).display === 'none')")
+    checks.add("narrow tree hides the metadata columns", hidden)
+    page.evaluate("() => { document.querySelector('.tree-panel').style.width = ''; }")
+    page.get_by_role("button", name="Documents view").click()
+    page.get_by_role("menuitemcheckbox", name="Show author").click()
+    page.get_by_role("button", name="Documents view").click()
+    page.get_by_role("menuitemcheckbox", name="Sort by name").click()
+    settle(page, 500)
+    page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
+    settle(page, 600)
+    checks.add("tree metadata has no overflow at 390 wide", horizontal_overflow(page) <= 0)
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page, 800)
+
+
 def models(page):
     return page.evaluate(MODELS)
 
@@ -1178,7 +1224,7 @@ def run_interaction_checks(page, checks, notes):
     except Exception as exc:
         page.screenshot(path=str(OUTPUT_DIR / "mock-layout-failure.png"))
         checks.add("check_layout", False, f"{type(exc).__name__}: {str(exc)[:160]}")
-    for check in (check_lock_maximize, check_session_banner, check_paint_palette, check_recents, check_theme, check_summary_rail, check_summary_tools, check_dashboard_tools, check_tree_resize):
+    for check in (check_lock_maximize, check_session_banner, check_paint_palette, check_recents, check_tree_metadata, check_theme, check_summary_rail, check_summary_tools, check_dashboard_tools, check_tree_resize):
         try:
             check(page, checks)
         except Exception as exc:

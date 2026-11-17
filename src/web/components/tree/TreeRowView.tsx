@@ -121,6 +121,7 @@ export interface TreeRowViewProps {
   checked?: boolean;
   busy?: boolean;
   caption?: string;
+  meta?: string;
   secondary?: string;
   highlight?: string;
   picked?: boolean;
@@ -143,6 +144,7 @@ export function TreeRowView({
   checked,
   busy = false,
   caption,
+  meta,
   secondary,
   highlight,
   picked,
@@ -244,6 +246,11 @@ export function TreeRowView({
           </span>
         ) : null}
       </span>
+      {meta ? (
+        <span className="tree-row__meta" title={meta}>
+          {meta}
+        </span>
+      ) : null}
       {caption ? <span className="tree-row__caption">{caption}</span> : null}
       {action}
     </div>

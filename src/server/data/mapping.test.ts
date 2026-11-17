@@ -109,6 +109,58 @@ describe('mapFolderContents', () => {
   });
 });
 
+describe('metadata', () => {
+  it('maps modified time, author and size onto folder contents and versions', () => {
+    const [item] = mapFolderContents(
+      [
+        {
+          type: 'items',
+          id: 'i1',
+          attributes: {
+            displayName: 'a.rvt',
+            lastModifiedTime: '2025-03-04T10:20:30.000Z',
+            lastModifiedUserName: 'Sam',
+          },
+        },
+      ],
+      'f1',
+    );
+    expect(item).toMatchObject({
+      modifiedAt: '2025-03-04T10:20:30.000Z',
+      modifiedBy: 'Sam',
+    });
+    const [version] = mapVersions(
+      [
+        {
+          id: 'urn:i?version=1',
+          attributes: {
+            versionNumber: 1,
+            lastModifiedTime: '2025-03-04T10:20:30.000Z',
+            storageSize: 1234,
+          },
+        },
+      ],
+      'i',
+    );
+    expect(version).toMatchObject({ size: 1234 });
+    expect(version?.modifiedBy).toBeUndefined();
+  });
+
+  it('omits unusable values', () => {
+    const [item] = mapFolderContents(
+      [
+        {
+          type: 'items',
+          id: 'i1',
+          attributes: { name: 'a', lastModifiedTime: 'nonsense' },
+        },
+      ],
+      'f1',
+    );
+    expect(item).not.toHaveProperty('modifiedAt');
+  });
+});
+
 describe('versions', () => {
   it('formats dates deterministically', () => {
     expect(formatVersionDate('2025-03-04T10:20:30.000Z')).toBe(

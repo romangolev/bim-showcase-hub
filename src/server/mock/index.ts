@@ -4,7 +4,12 @@ import { versionLabel } from '../data/mapping.js';
 import type { DataService } from '../data/types.js';
 import { HttpError } from '../errors.js';
 import { encodeId } from '../ids.js';
-import { buildMockData, type MockData, type MockFolder } from './fixtures.js';
+import {
+  buildMockData,
+  type MockData,
+  type MockFolder,
+  type MockItem,
+} from './fixtures.js';
 
 export const MOCK_USER: SessionUser = {
   id: 'mock-user',
@@ -21,6 +26,15 @@ export const MOCK_VIEWER_TOKEN: ViewerToken = {
 
 function notFound(what: string): HttpError {
   return new HttpError(404, `${what} not found`);
+}
+
+function latestMeta(
+  item: MockItem,
+): Pick<TreeNode, 'modifiedAt' | 'modifiedBy'> {
+  const latest = item.versions[item.versions.length - 1];
+  return latest
+    ? { modifiedAt: latest.modifiedAt, modifiedBy: latest.user }
+    : {};
 }
 
 function folderNode(folder: MockFolder): TreeNode {
@@ -114,6 +128,7 @@ export function createMockDataService(
           hasChildren: item.versions.length > 0,
           viewable: false,
           parentId: encodeId(folderId),
+          ...latestMeta(item),
         };
       });
       return [...folders, ...items];
@@ -133,6 +148,9 @@ export function createMockDataService(
           viewable: viewableFor(version.viewState),
           viewState: version.viewState,
           parentId: encodeId(itemId),
+          modifiedAt: version.modifiedAt,
+          modifiedBy: version.user,
+          size: version.size,
         };
         if (version.hasUrn) {
           node.urn = encodeId(`urn:adsk.mock:${version.id}`);

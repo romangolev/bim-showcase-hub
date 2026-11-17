@@ -43,6 +43,10 @@ The Viewer pane has instances: `instances` in its registry entry gives the body 
 
 Above the tree, `RecentStrip` lists Pinned models and the most recent ones from `bsh.models.recent` (Settings, Documents sets how many, default 5, 0 hides them). The star on a row pins or unpins a model; pins are model URNs in `bsh.docs.pinned`, shown with the stored file name and version, or "Untitled model" when the recents no longer hold the model. Clicking a row opens the model with its stored breadcrumb context. Folders cannot be pinned and pins are not reorderable yet.
 
+## Tree metadata and sort
+
+`TreeNode` has optional `modifiedAt`, `modifiedBy` and `size`. The server maps them from the Data Management attributes `lastModifiedTime`, `lastModifiedUserName` (folders, items and versions) and `storageSize` (versions); a value that is missing or unusable is left out. The search row of Documents has a view menu: sort by name (natural order, folders first) or by modified (newest first, undated last), and Show modified, author and size. The choice is stored in `bsh.tree.view` and applies to folder contents; hubs, projects and versions keep the server order. Rows show the enabled columns as one trailing line, hidden when the tree is narrower than 300px. Versions already show date and author, so for them only size is added. These attribute names come from the Data Management reference and have not been checked against a real account here.
+
 ## Add a pane
 
 1. Write the body in `panes.tsx` (or its own file). Use `useLayout()` for collapse state and `useViewer()` for the adapter. Give the body one root element; the slot around it is a `pane` size container, so use `@container pane (...)` for responsive rules.

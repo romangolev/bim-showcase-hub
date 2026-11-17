@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createTestClient,
   folder,
+  installMemoryStorage,
   item,
   json,
   mockFetch,
@@ -11,6 +12,7 @@ import {
   treeRoutes,
 } from '../../test/mockApi.js';
 import { DocumentTree } from './DocumentTree.js';
+import { TREE_VIEW_KEY, type TreeView } from './treeView.js';
 
 function renderTree(
   onOpenModel = vi.fn(),
@@ -42,6 +44,60 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+});
+
+describe('DocumentTree metadata', () => {
+  const dated = (name: string, id: string, modifiedAt: string) => ({
+    ...item,
+    id,
+    name,
+    modifiedAt,
+    modifiedBy: 'Sam',
+  });
+  const contents = [
+    dated('b.rvt', 'i-b', '2025-05-01T00:00:00.000Z'),
+    dated('a.rvt', 'i-a', '2025-03-04T00:00:00.000Z'),
+  ];
+
+  async function open(view?: TreeView) {
+    installMemoryStorage();
+    if (view) {
+      window.localStorage.setItem(TREE_VIEW_KEY, JSON.stringify(view));
+    }
+    mockFetch({
+      ...treeRoutes,
+      '/api/projects/p1/folders/f1/contents': () => json(contents),
+    });
+    render(
+      <QueryClientProvider client={createTestClient()}>
+        <DocumentTree onOpenModel={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    await expandTo('Studio hub');
+    await expandTo('Riverside Tower');
+    await expandTo('Project Files');
+    await screen.findByText('a.rvt');
+  }
+
+  it('lists files by name and shows the modified date', async () => {
+    await open();
+    const names = screen
+      .getAllByRole('treeitem')
+      .map((row) => row.textContent ?? '');
+    expect(names.findIndex((t) => t.includes('a.rvt'))).toBeLessThan(
+      names.findIndex((t) => t.includes('b.rvt')),
+    );
+    expect(screen.getByText('2025-03-04')).toBeInTheDocument();
+  });
+
+  it('sorts by modified date and shows the author when asked', async () => {
+    await open({ sort: 'modified', modified: true, author: true, size: false });
+    expect(screen.getByText('2025-03-04 · Sam')).toBeInTheDocument();
+    const rows = screen.getAllByRole('treeitem').map((row) => row.textContent);
+    expect(rows.findIndex((t) => t?.includes('b.rvt'))).toBeLessThan(
+      rows.findIndex((t) => t?.includes('a.rvt')),
+    );
+  });
 });
 
 describe('DocumentTree', () => {

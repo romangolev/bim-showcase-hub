@@ -53,7 +53,7 @@
 .doc-tree__search input {
   width: 100%;
   height: var(--hit-target);
-  padding: 0 calc(2 * var(--hit-target) + var(--space-2)) 0 34px;
+  padding: 0 calc(3 * var(--hit-target) + var(--space-2)) 0 34px;
   border: var(--border-hairline);
   border-radius: var(--radius-button);
   background: var(--color-charcoal);
@@ -338,7 +338,8 @@
 }
 
 .doc-tree__clear,
-.doc-tree__refresh {
+.doc-tree__refresh,
+.doc-tree__view {
   position: absolute;
   top: 50%;
   right: var(--space-1);
@@ -357,18 +358,24 @@
   transition: background-color var(--transition-ui);
 }
 
-.doc-tree__clear {
+.doc-tree__refresh {
   right: calc(var(--hit-target) + var(--space-1));
 }
 
+.doc-tree__clear {
+  right: calc(2 * var(--hit-target) + var(--space-1));
+}
+
 .doc-tree__clear:hover,
-.doc-tree__refresh:hover {
+.doc-tree__refresh:hover,
+.doc-tree__view:hover {
   background: var(--color-ghost-fill-hover);
   color: var(--color-snow);
 }
 
 .doc-tree__clear:active,
-.doc-tree__refresh:active {
+.doc-tree__refresh:active,
+.doc-tree__view:active {
   background: var(--color-ghost-fill-active);
 }
 
@@ -739,4 +746,22 @@
 
 .recent-strip__pin[aria-pressed="true"] svg {
   fill: currentColor;
+}
+
+.tree-row__meta {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 55%;
+  margin-inline-start: var(--space-2);
+  overflow: hidden;
+  color: var(--color-fog);
+  font-size: var(--text-13);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@container tree (max-width: 299px) {
+  .tree-row__meta {
+    display: none;
+  }
 }
