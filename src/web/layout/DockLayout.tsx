@@ -34,7 +34,6 @@ import {
   splitAxisOf,
 } from './layoutState.js';
 import {
-  DEFAULT_DISMISSED,
   definitionOf,
   FOLLOWERS,
   followersOf,
@@ -826,7 +825,7 @@ export function DockLayout(props: DockLayoutProps) {
       rebuild((api) =>
         buildDefault(api, treeWidth, {
           ...sync(),
-          companions: FOLLOWERS.filter((id) => !DEFAULT_DISMISSED.includes(id)),
+          companions: FOLLOWERS,
           treeWidth,
           arrangement: null,
         }),

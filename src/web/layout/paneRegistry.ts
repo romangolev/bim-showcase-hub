@@ -39,7 +39,6 @@ export interface PaneDefinition {
   closable: boolean;
   canFloat: boolean;
   requires: 'viewer' | 'none';
-  startsDismissed?: boolean;
   instances?: PaneInstances;
 }
 
@@ -181,10 +180,6 @@ export function followersOf(kind: PaneId): PaneId[] {
 export function isFollower(id: PaneId): boolean {
   return paneById(id).requires !== 'none';
 }
-
-export const DEFAULT_DISMISSED: readonly PaneId[] = PANES.filter(
-  (pane) => pane.startsDismissed,
-).map((pane) => pane.id);
 
 export const FOLLOWERS: readonly PaneId[] = PANE_IDS.filter(isFollower);
 
