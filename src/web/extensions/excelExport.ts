@@ -34,7 +34,7 @@ export const FALLBACK_SHEET_NAME = 'Elements';
 
 export type ExportCell = string | number | boolean;
 
-function missingModels(adapter: ViewerAdapter): string[] {
+function unavailableModelNames(adapter: ViewerAdapter): string[] {
   if (typeof adapter.getModels !== 'function') return [];
   return unavailableModels(adapter.getModels()).map((model) => model.name);
 }
@@ -178,7 +178,7 @@ export async function exportToXlsx(
       (total, sheet) => total + sheet.rows.length,
       0,
     );
-    const missing = missingModels(adapter);
+    const missing = unavailableModelNames(adapter);
     return emit(
       missing.length > 0
         ? { phase: 'done', fileName, rowCount, missing }
