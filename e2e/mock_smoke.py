@@ -469,6 +469,11 @@ def open_settings(page):
 def check_paint_palette(page, checks):
     page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
     settle(page)
+    page.get_by_role("button", name="Settings", exact=True).click()
+    settle(page, 300)
+    checks.add("top bar gear opens settings", page.get_by_role("dialog", name="Settings").count() == 1)
+    page.keyboard.press("Escape")
+    settle(page, 300)
     open_settings(page)
     checks.add("settings lists the three default swatches", page.get_by_label(re.compile(r"^Swatch \d$")).count() == 3)
     checks.add("settings labels the slider as intensity", page.get_by_label(re.compile(r"^Intensity \d+%")).count() == 1)

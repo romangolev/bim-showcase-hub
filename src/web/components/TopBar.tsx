@@ -1,5 +1,6 @@
 import type { ReactNode, Ref } from 'react';
 import { useSession, useSignIn } from '../api/hooks.js';
+import { useModal } from '../modal/index.js';
 import { ThemeToggle } from '../theme/ThemeToggle.js';
 import { Icon } from './icons.js';
 import { UserMenu } from './UserMenu.js';
@@ -20,6 +21,7 @@ export function TopBar({
   const session = useSession();
   const signIn = useSignIn();
   const user = session.data ?? null;
+  const modal = useModal();
 
   return (
     <header className="topbar">
@@ -52,6 +54,17 @@ export function TopBar({
           </span>
         ) : null}
         {user ? actions : null}
+        {user ? (
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Settings"
+            title="Settings"
+            onClick={() => modal.open('settings')}
+          >
+            <Icon name="settings" size={18} />
+          </button>
+        ) : null}
         <ThemeToggle />
         {user ? (
           <UserMenu user={user} />
