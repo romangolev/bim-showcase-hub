@@ -38,7 +38,7 @@ export function viewerCommands(adapter: ViewerAdapter | null): Command[] {
       viewer.clearSelection(),
     ),
     make('fit', 'Zoom to selection', needsSelection, (viewer) =>
-      viewer.fitToSelection(),
+      viewer.fitToView(),
     ),
     make('resetPaint', 'Reset appearance', noModel, (viewer) =>
       viewer.clearThemingColors(),

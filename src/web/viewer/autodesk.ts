@@ -232,16 +232,23 @@ export interface GuiViewer3D {
   isolate?(ids: number[], model?: ViewerModel): void;
   hide?(ids: number[], model?: ViewerModel): void;
   show?(ids: number[], model?: ViewerModel): void;
-  fitToView?(): void;
+  fitToView?(
+    objectIds?: number[] | null,
+    model?: ViewerModel | null,
+    immediate?: boolean,
+  ): void;
   getScreenShot?(
     width: number,
     height: number,
     onDone: (url: string) => void,
   ): void;
-  getState?(filter?: { viewport?: boolean }): { viewport?: ViewportState };
+  getState?(filter?: { viewport?: boolean; cutplanes?: boolean }): {
+    viewport?: ViewportState;
+    cutplanes?: number[][];
+  };
   restoreState?(
-    state: { viewport: ViewportState },
-    filter?: unknown,
+    state: { viewport?: ViewportState; cutplanes?: number[][] },
+    filter?: { viewport?: boolean; cutplanes?: boolean },
     immediate?: boolean,
   ): boolean;
   getObjectTree(

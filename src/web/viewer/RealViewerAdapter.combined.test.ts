@@ -635,7 +635,7 @@ describe('selecting and isolating by model', () => {
   it('fits the view to the selection', async () => {
     await adapter.loadModels([{ urn: 'arch' }]);
     const before = viewer().fits;
-    adapter.fitToSelection();
+    adapter.fitToView();
     expect(viewer().fits).toBe(before + 1);
   });
 });

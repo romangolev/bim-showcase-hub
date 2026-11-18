@@ -47,7 +47,7 @@ export function runElementAction(
     return;
   }
   adapter.selectModelIds(items);
-  if (action === 'zoom') adapter.fitToSelection();
+  if (action === 'zoom') adapter.fitToView(items);
 }
 
 export function showAllElements(adapter: ViewerAdapter): void {
