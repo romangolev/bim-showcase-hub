@@ -1,0 +1,65 @@
+import { describe, expect, it } from 'vitest';
+import { MockViewerAdapter } from './MockViewerAdapter.js';
+import { filterByElementScope, readProperties } from './propertyScope.js';
+
+async function combined() {
+  const adapter = new MockViewerAdapter(document.createElement('div'));
+  await adapter.loadModels([{ urn: 'urn-a' }, { urn: 'urn-b' }]);
+  return adapter;
+}
+
+describe('filterByElementScope', () => {
+  const rows = [
+    { modelId: 'a', dbId: 1 },
+    { modelId: 'b', dbId: 1 },
+    { dbId: 2 },
+  ];
+
+  it('keeps everything for all and nothing for an empty item list', () => {
+    expect(filterByElementScope(rows, 'all', [])).toHaveLength(3);
+    expect(filterByElementScope(rows, 'isolated', [])).toEqual([]);
+  });
+
+  it('matches model and element, falling back to the primary model', () => {
+    const items = [
+      { modelId: 'b', dbId: 1 },
+      { modelId: 'a', dbId: 2 },
+    ];
+    expect(filterByElementScope(rows, 'selected', items, 'a')).toEqual([
+      { modelId: 'b', dbId: 1 },
+      { dbId: 2 },
+    ]);
+  });
+});
+
+describe('readProperties', () => {
+  it('reads every model by default and narrows to one model', async () => {
+    const adapter = await combined();
+    const all = await readProperties(adapter, { names: ['Category'] });
+    const one = await readProperties(adapter, {
+      names: ['Category'],
+      scope: { models: 'urn-a' },
+    });
+    expect(new Set(all.map((row) => row.modelId))).toEqual(
+      new Set(['urn-a', 'urn-b']),
+    );
+    expect(one.length).toBe(all.length / 2);
+    expect(one.every((row) => row.modelId === 'urn-a')).toBe(true);
+    adapter.destroy();
+  });
+
+  it('keeps only selected elements', async () => {
+    const adapter = await combined();
+    const all = await readProperties(adapter, { names: ['Category'] });
+    const first = all[0];
+    if (!first?.modelId) throw new Error('no rows');
+    adapter.selectModelIds([{ modelId: first.modelId, dbId: first.dbId }]);
+    const picked = await readProperties(adapter, {
+      names: ['Category'],
+      scope: { elements: 'selected' },
+    });
+    expect(picked).toHaveLength(1);
+    expect(picked[0]?.dbId).toBe(first.dbId);
+    adapter.destroy();
+  });
+});

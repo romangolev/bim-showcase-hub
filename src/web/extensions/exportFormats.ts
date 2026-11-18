@@ -1,9 +1,11 @@
 import { flag, isRecord } from '../../shared/guards.js';
-import type { ModelDbId } from '../viewer/modelSet.js';
+import type { ElementScope } from '../viewer/propertyScope.js';
 import type { ExportCell } from './excelExport.js';
 
+export { filterByElementScope as filterByScope } from '../viewer/propertyScope.js';
+
 export type ExportFormat = 'xlsx' | 'csv' | 'json' | 'copy';
-export type ExportScope = 'all' | 'selected' | 'isolated' | 'visible';
+export type ExportScope = ElementScope;
 
 export type CsvDelimiter = ',' | ';' | '\t';
 export type DecimalMark = '.' | ',';
@@ -157,21 +159,6 @@ export function toJsonRecords(
 ): Record<string, ExportCell>[] {
   return rows.map((row) =>
     Object.fromEntries(header.map((name, index) => [name, row[index] ?? ''])),
-  );
-}
-
-export function filterByScope<
-  T extends { modelId?: string | undefined; dbId: number },
->(
-  rows: readonly T[],
-  scope: ExportScope,
-  items: readonly ModelDbId[],
-  primaryId?: string,
-): T[] {
-  if (scope === 'all') return [...rows];
-  const keep = new Set(items.map((item) => `${item.modelId}:${item.dbId}`));
-  return rows.filter((row) =>
-    keep.has(`${row.modelId ?? primaryId}:${row.dbId}`),
   );
 }
 

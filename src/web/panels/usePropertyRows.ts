@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { PropertyRow } from '../../shared/types.js';
 import { readySignature } from '../viewer/modelSet.js';
+import type { ReadProgress } from '../viewer/propertyReads.js';
 import { forgetLeafRows, readLeafRows } from '../viewer/sharedLeafRows.js';
 import { useModels } from '../viewer/useModels.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
@@ -13,7 +14,12 @@ export const HIDDEN_MESSAGE =
 export type RowsState =
   | { status: 'idle'; rows: PropertyRow[] }
   | { status: 'hidden'; rows: PropertyRow[] }
-  | { status: 'loading'; rows: PropertyRow[]; request: number }
+  | {
+      status: 'loading';
+      rows: PropertyRow[];
+      request: number;
+      progress: ReadProgress | null;
+    }
   | { status: 'ready'; rows: PropertyRow[] }
   | { status: 'error'; rows: PropertyRow[]; message: string };
 
@@ -51,8 +57,19 @@ export function usePropertyRows(
       status: 'loading',
       rows: prev.rows,
       request: version,
+      progress: null,
     }));
-    readLeafRows(adapter, names).then(
+    const controller = new AbortController();
+    const onProgress = (progress: ReadProgress) => {
+      if (cancelled) return;
+      setState((prev) =>
+        prev.status === 'loading' ? { ...prev, progress } : prev,
+      );
+    };
+    readLeafRows(adapter, names, {
+      signal: controller.signal,
+      onProgress,
+    }).then(
       (rows) => {
         if (!cancelled) setState({ status: 'ready', rows });
       },
@@ -68,6 +85,7 @@ export function usePropertyRows(
     );
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [adapter, names, models, version, hidden]);
 

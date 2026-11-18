@@ -145,6 +145,19 @@ describe('ViewerAdapter contract (mock)', () => {
     );
   });
 
+  it('discovers the property names of the loaded model', async () => {
+    await setup();
+    const found = await adapter.discoverProperties();
+    expect(found.map((info) => info.name).sort()).toEqual([
+      'Assembly Code',
+      'Category',
+      'Classification Code',
+      'Level',
+      'Name',
+    ]);
+    expect(found.every((info) => info.category.length > 0)).toBe(true);
+  });
+
   it('clears the scene on unload and removes DOM on destroy', async () => {
     await setup();
     adapter.unload();

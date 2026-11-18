@@ -397,6 +397,46 @@ describe('federated selection, paint and properties', () => {
     await expect(adapter.getLeafProperties(['Category'])).rejects.toThrow('db');
   });
 
+  it('discovers distinct properties with their categories across models', async () => {
+    await adapter.loadModels([
+      { urn: 'a', name: 'Arch' },
+      { urn: 'b', name: 'MEP' },
+    ]);
+    const answer =
+      (extra: string) =>
+      (ids: number[], _opts: unknown, ok: (items: never[]) => void) =>
+        ok(
+          ids.map((dbId) => ({
+            dbId,
+            name: 'n',
+            properties: [
+              {
+                displayName: 'Level',
+                displayValue: 'L1',
+                displayCategory: 'Constraints',
+              },
+              { displayName: extra, displayValue: 1 },
+            ],
+          })) as never[],
+        );
+    vi.spyOn(viewer().modelOf('a'), 'getBulkProperties').mockImplementation(
+      answer('Width') as never,
+    );
+    vi.spyOn(viewer().modelOf('b'), 'getBulkProperties').mockImplementation(
+      answer('Flow') as never,
+    );
+    expect(await adapter.discoverProperties()).toEqual([
+      { name: 'Level', category: 'Constraints' },
+      { name: 'Flow', category: 'Other' },
+      { name: 'Width', category: 'Other' },
+    ]);
+    const controller = new AbortController();
+    controller.abort();
+    await expect(
+      adapter.discoverProperties(undefined, { signal: controller.signal }),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
   it('keeps the first value when two categories share a property name', async () => {
     env.specs.set('a', { categories: ['Walls'] });
     await adapter.loadModels([{ urn: 'a', name: 'Arch' }]);

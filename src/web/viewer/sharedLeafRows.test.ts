@@ -2,7 +2,11 @@ import { describe, expect, it, vi } from 'vitest';
 import type { PropertyRow } from '../../shared/types.js';
 import { MockViewerAdapter } from './MockViewerAdapter.js';
 import type { ModelInfo } from './modelSet.js';
-import { forgetLeafRows, readLeafRows } from './sharedLeafRows.js';
+import {
+  discoverLeafProperties,
+  forgetLeafRows,
+  readLeafRows,
+} from './sharedLeafRows.js';
 import type { ViewerAdapter } from './ViewerAdapter.js';
 
 const getModels = () => [
@@ -190,5 +194,147 @@ describe('readLeafRows with a model set', () => {
     expect(callsFor(spy, 'urn-b')).toBe(2);
     expect(back.some((row) => row.modelName === 'Renamed')).toBe(true);
     adapter.destroy();
+  });
+});
+
+describe('readLeafRows cancel and progress', () => {
+  type Progress = { done: number; total: number };
+  function gated() {
+    const signals: AbortSignal[] = [];
+    let release: (rows: PropertyRow[]) => void = () => {};
+    let progress: (p: Progress) => void = () => {};
+    const getLeafProperties = vi.fn(
+      (
+        _names: string[],
+        _ids?: readonly string[],
+        options?: { signal?: AbortSignal; onProgress?: (p: Progress) => void },
+      ) => {
+        if (options?.signal) signals.push(options.signal);
+        if (options?.onProgress) progress = options.onProgress;
+        return new Promise<PropertyRow[]>((resolve, reject) => {
+          release = resolve;
+          options?.signal?.addEventListener('abort', () =>
+            reject(new DOMException('stopped', 'AbortError')),
+          );
+        });
+      },
+    );
+    const adapter = {
+      getLeafProperties,
+      getModels,
+    } as unknown as ViewerAdapter;
+    return {
+      adapter,
+      signals,
+      getLeafProperties,
+      release: (rows: PropertyRow[]) => release(rows),
+      report: (p: Progress) => progress(p),
+    };
+  }
+
+  const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+  const row: PropertyRow = { dbId: 1, name: 'El', properties: { Name: 'n' } };
+
+  it('rejects an aborted read and aborts the underlying read', async () => {
+    const g = gated();
+    const controller = new AbortController();
+    const read = readLeafRows(g.adapter, ['Name'], {
+      signal: controller.signal,
+    });
+    await tick();
+    controller.abort();
+    await expect(read).rejects.toMatchObject({ name: 'AbortError' });
+    expect(g.signals[0]?.aborted).toBe(true);
+    g.release([row]);
+    await tick();
+    const again = readLeafRows(g.adapter, ['Name']);
+    await tick();
+    g.release([row]);
+    expect(await again).toHaveLength(1);
+    expect(g.getLeafProperties).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps the shared read alive while another waiter remains', async () => {
+    const g = gated();
+    const first = new AbortController();
+    const a = readLeafRows(g.adapter, ['Name'], { signal: first.signal });
+    const b = readLeafRows(g.adapter, ['Name']);
+    await tick();
+    first.abort();
+    await expect(a).rejects.toMatchObject({ name: 'AbortError' });
+    expect(g.signals[0]?.aborted).toBe(false);
+    g.release([row]);
+    expect(await b).toHaveLength(1);
+    expect(g.getLeafProperties).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports progress to every waiter', async () => {
+    const g = gated();
+    const seen: number[] = [];
+    const a = readLeafRows(g.adapter, ['Name'], {
+      onProgress: (p) => seen.push(p.done / p.total),
+    });
+    await tick();
+    g.report({ done: 1, total: 4 });
+    const late: number[] = [];
+    const b = readLeafRows(g.adapter, ['Name'], {
+      onProgress: (p) => late.push(p.done / p.total),
+    });
+    g.report({ done: 4, total: 4 });
+    g.release([row]);
+    await Promise.all([a, b]);
+    expect(seen).toEqual([0.25, 1]);
+    expect(late).toEqual([0.25, 1]);
+  });
+});
+
+describe('discoverLeafProperties', () => {
+  function discovering() {
+    const discoverProperties = vi.fn(async () => [
+      { name: 'Level', category: 'Constraints' },
+    ]);
+    return {
+      adapter: { discoverProperties, getModels } as unknown as ViewerAdapter,
+      discoverProperties,
+    };
+  }
+
+  it('caches per model until the cache is forgotten', async () => {
+    const { adapter, discoverProperties } = discovering();
+    const [a, b] = await Promise.all([
+      discoverLeafProperties(adapter),
+      discoverLeafProperties(adapter),
+    ]);
+    expect(a).toEqual(b);
+    await discoverLeafProperties(adapter);
+    expect(discoverProperties).toHaveBeenCalledTimes(1);
+    forgetLeafRows(adapter);
+    await discoverLeafProperties(adapter);
+    expect(discoverProperties).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not cache a failed discovery', async () => {
+    const discoverProperties = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('db'))
+      .mockResolvedValue([{ name: 'Level', category: 'Constraints' }]);
+    const adapter = {
+      discoverProperties,
+      getModels,
+    } as unknown as ViewerAdapter;
+    await expect(discoverLeafProperties(adapter)).rejects.toThrow('db');
+    expect(await discoverLeafProperties(adapter)).toHaveLength(1);
+    expect(discoverProperties).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects a cancelled waiter without poisoning the cache', async () => {
+    const { adapter, discoverProperties } = discovering();
+    const controller = new AbortController();
+    controller.abort();
+    await expect(
+      discoverLeafProperties(adapter, { signal: controller.signal }),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+    expect(await discoverLeafProperties(adapter)).toHaveLength(1);
+    expect(discoverProperties).toHaveBeenCalledTimes(1);
   });
 });
