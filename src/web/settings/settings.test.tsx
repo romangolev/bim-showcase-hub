@@ -20,6 +20,21 @@ afterEach(() => {
 });
 
 describe('app settings', () => {
+  it('keep unmigrated tool fields when an app setting changes', () => {
+    window.localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({ recentsLength: 3, ifc: { schema: 'IFC4' } }),
+    );
+    writeSettings({ ...DEFAULT_SETTINGS, recentsLength: 9 });
+    expect(
+      JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? ''),
+    ).toEqual({
+      sessionWarnMinutes: 10,
+      recentsLength: 9,
+      ifc: { schema: 'IFC4' },
+    });
+  });
+
   it('hold only app-level fields', () => {
     expect(Object.keys(DEFAULT_SETTINGS).sort()).toEqual([
       'recentsLength',

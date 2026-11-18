@@ -36,5 +36,9 @@ export function readSettings(): Settings {
 }
 
 export function writeSettings(settings: Settings): void {
-  writeJson(SETTINGS_STORAGE_KEY, settings);
+  const stored = readJson<unknown>(SETTINGS_STORAGE_KEY, undefined);
+  writeJson(SETTINGS_STORAGE_KEY, {
+    ...(isRecord(stored) ? stored : {}),
+    ...settings,
+  });
 }
