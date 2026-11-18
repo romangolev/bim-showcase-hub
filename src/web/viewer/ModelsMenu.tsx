@@ -1,7 +1,7 @@
 import { MAX_COMBINED_MODELS } from '../../shared/combined.js';
 import { Icon } from '../components/icons.js';
 import { Menu, type MenuEntry } from '../components/Menu.js';
-import { CostMeter } from './CostMeter.js';
+import { CostMeter, partsDetail } from './CostMeter.js';
 import { explainFailure } from './failureExplainer.js';
 import {
   farApartMessage,
@@ -116,11 +116,12 @@ export function modelsMenuEntries({
 export function ModelsMenu(props: ModelsMenuProps) {
   const failed = props.models.filter((model) => model.status === 'error');
   const label = `Models in this viewer (${props.models.length})`;
+  const parts = partsDetail(props.adapter ?? null, props.models);
   return (
     <div className="bsh-viewer-models">
       <Menu
         label={label}
-        title={label}
+        title={parts ? `${label}, ${parts}` : label}
         align="start"
         triggerClassName="bsh-viewer-models__trigger"
         trigger={
@@ -133,7 +134,11 @@ export function ModelsMenu(props: ModelsMenuProps) {
         }
         items={() => modelsMenuEntries(props)}
       />
-      <CostMeter adapter={props.adapter ?? null} models={props.models} />
+      <CostMeter
+        adapter={props.adapter ?? null}
+        models={props.models}
+        warningOnly
+      />
       {props.spread?.farApart ? (
         <div className="bsh-viewer-models__far" role="status">
           <p className="bsh-viewer-models__far-text">

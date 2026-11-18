@@ -239,22 +239,69 @@ def check_summary_tools(page, checks):
     checks.add("summary CSV downloads", name.endswith("-summary.csv"), name)
 
 
+COLLAPSED_RING = """() => [...document.querySelectorAll('.dv-groupview[data-collapsed]')].map((group) => ({
+    active: group.classList.contains('dv-active-group'),
+    content: getComputedStyle(group, '::after').content,
+}))"""
+LEGEND_BOXES = """() => {
+    const box = (el) => el && el.getBoundingClientRect().toJSON();
+    const frame = document.querySelector('.pane-dashboard .bsh-chart--doughnut');
+    const body = document.querySelector('.pane-dashboard .bsh-drawer__body');
+    const legend = frame?.querySelector('.bsh-legend');
+    body.scrollTop = body.scrollHeight;
+    return {
+        plot: box(frame.querySelector('.bsh-chart__plot')),
+        legend: box(legend),
+        body: box(body),
+        legendClipped: legend.scrollHeight > legend.clientHeight + 1 && legend.scrollWidth <= legend.clientWidth + 1,
+    };
+}"""
+
+
+def check_collapsed_ring(page, checks):
+    stubs = page.evaluate(COLLAPSED_RING)
+    checks.add("a collapsed pane stub is present", len(stubs) >= 1, stubs)
+    checks.add("no collapsed pane stub draws the active ring", all(stub["content"] in ("none", "normal") for stub in stubs), stubs)
+
+
+def boxes_overlap(a, b):
+    return a["x"] < b["x"] + b["width"] and b["x"] < a["x"] + a["width"] and a["y"] < b["y"] + b["height"] and b["y"] < a["y"] + a["height"]
+
+
 def check_dashboard_tools(page, checks):
+    check_collapsed_ring(page, checks)
     expand = page.get_by_role("button", name="Expand Dashboard")
     if expand.count():
         expand.first.click()
         settle(page, 600)
     pane = page.locator(".pane-dashboard").first
     pane.locator("canvas").first.wait_for(timeout=8000)
+    trigger = pane.get_by_role("button", name=re.compile(r"^Export ")).first
+    trigger_box = trigger.bounding_box()
+    checks.add("chart export trigger is at least 24px", trigger_box["width"] >= 24 and trigger_box["height"] >= 24, trigger_box)
+    checks.add("chart export row is compact", pane.locator(".bsh-chart__tools").first.bounding_box()["height"] <= 32)
+    layout = page.evaluate(LEGEND_BOXES)
+    checks.add("doughnut legend does not overlap the plot", not boxes_overlap(layout["plot"], layout["legend"]), layout)
+    checks.add(
+        "doughnut legend sits inside the pane",
+        layout["legend"]["x"] >= layout["body"]["x"] - 1
+        and layout["legend"]["x"] + layout["legend"]["width"] <= layout["body"]["x"] + layout["body"]["width"] + 1
+        and layout["legend"]["y"] + layout["legend"]["height"] <= layout["body"]["y"] + layout["body"]["height"] + 1,
+        layout,
+    )
+    page.screenshot(path=str(OUTPUT_DIR / "mock-dashboard.png"))
+    trigger.click()
     with page.expect_download(timeout=8000) as info:
-        pane.get_by_role("button", name="PNG").first.click()
+        page.get_by_role("menuitem", name="Download PNG").click()
     png = OUTPUT_DIR / "chart.png"
     info.value.save_as(str(png))
     checks.add("chart exports a PNG", png.read_bytes()[:4] == b"\x89PNG", png.stat().st_size)
+    trigger.click()
     with page.expect_download(timeout=8000) as info:
-        pane.get_by_role("button", name="CSV").first.click()
+        page.get_by_role("menuitem", name="Download CSV").click()
     checks.add("chart exports a CSV", info.value.suggested_filename.endswith(".csv"), info.value.suggested_filename)
-    pane.get_by_role("button", name="Copy").first.click()
+    trigger.click()
+    page.get_by_role("menuitem", name="Copy data").click()
     settle(page, 200)
     checks.add("chart copy reports a result", bool(pane.locator("[role=status]").first.inner_text().strip()))
     plot = pane.locator(".bsh-chart--doughnut canvas").first.bounding_box()
@@ -533,10 +580,14 @@ def check_session_banner(page, checks):
     settle(page, 1500)
     warning = page.locator(".session-banner[data-state='soon']")
     checks.add("session banner warns before the session ends", warning.count() == 1 and "ends in" in warning.inner_text(), warning.count())
+    soon_background = warning.evaluate("e => getComputedStyle(e).backgroundColor")
     checks.add("warning keeps the dock mounted", page.locator(".dv-dockview").count() == 1)
     page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
     settle(page, 600)
     checks.add("warning has no horizontal overflow at 390 wide", horizontal_overflow(page) <= 0)
+    brand = page.locator(".brand__name").bounding_box()
+    checks.add("the app title stays on one line at 390 wide", brand["height"] <= 24, brand)
+    checks.add("the soon banner has a leading icon", warning.locator("svg").count() == 1)
     page.unroute("**/api/session")
     serve(-1000)
     page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
@@ -544,6 +595,7 @@ def check_session_banner(page, checks):
     settle(page, 1500)
     ended = page.locator(".session-banner[data-state='ended']")
     checks.add("expired session shows a sign-in banner", ended.count() == 1 and ended.get_by_role("button", name="Sign in again").count() == 1)
+    checks.add("ended and soon banners are coloured differently", ended.evaluate("e => getComputedStyle(e).backgroundColor") != soon_background)
     checks.add("expired session keeps the layout", page.locator(".dv-dockview").count() == 1 and page.get_by_role("tab", name="Documents", exact=True).count() == 1)
     page.screenshot(path=str(OUTPUT_DIR / "mock-session-ended.png"))
     page.unroute("**/api/session")
@@ -654,6 +706,8 @@ def check_strip(page, checks):
     toggle.hover()
     page.wait_for_timeout(300)
     checks.add("hovering the strip header expands it", strip_expanded(page) and page.locator(".recent-strip__panel").is_visible())
+    small = page.evaluate("() => [...document.querySelectorAll('.recent-strip__pin, .recent-strip__more')].map((e) => { const b = e.getBoundingClientRect(); return Math.min(b.width, b.height); })")
+    checks.add("strip pin and more buttons are at least 24px", bool(small) and min(small) >= 24, small)
     open_ = strip_geometry(page)
     checks.add("the expanded strip overlays the tree without reflow", abs(open_["header"] - closed["header"]) < 1 and abs(open_["treeTop"] - closed["treeTop"]) < 1, f"{closed} {open_}")
     page.screenshot(path=str(OUTPUT_DIR / "mock-strip-expanded.png"))
@@ -674,6 +728,17 @@ def check_strip(page, checks):
     target.hover()
     remove = target.locator(".tree-row__action--remove")
     checks.add("an added version shows a remove button on hover", remove.count() == 1 and remove.is_visible())
+    remove_box = remove.bounding_box()
+    checks.add("the tree row remove button is at least 24px", remove_box["width"] >= 24 and remove_box["height"] >= 24, remove_box)
+    page.get_by_role("tab", name="Models", exact=True).click()
+    settle(page, 400)
+    row = page.locator(".bsh-models__row").first
+    name_box = row.locator(".bsh-models__name").bounding_box()
+    remove_button = row.get_by_role("button", name=re.compile(r"^Remove ")).bounding_box()
+    checks.add("the Models row keeps Remove on the name line", abs((remove_button["y"] + remove_button["height"] / 2) - (name_box["y"] + name_box["height"] / 2)) <= 12, f"{name_box} {remove_button}")
+    page.screenshot(path=str(OUTPUT_DIR / "mock-models-tab.png"))
+    page.get_by_role("tab", name="Documents", exact=True).click()
+    settle(page, 400)
     target.click(button="right")
     menu = page.get_by_role("menu")
     checks.add("the menu offers Remove once the version is added", menu.get_by_role("menuitem", name="Remove from open model").count() == 1 and menu.get_by_role("menuitem", name="Add to open model").count() == 0)
@@ -1163,9 +1228,10 @@ def check_viewer_links(page, checks):
     download_info.value.save_as(str(target))
     checks.add("snapshot: Save image downloads a PNG", target.read_bytes()[:4] == PNG_MAGIC and target.stat().st_size > 200, target.stat().st_size)
 
-    meter = page.locator(f"{ACTIVE_VIEWER} .bsh-viewer-cost")
-    text = meter.inner_text() if meter.count() else ""
-    checks.add("meter: shows how many of six models are open", "2 of 6 models" in text and "parts (estimate)" in text, text)
+    chip = page.locator(f"{ACTIVE_VIEWER} .bsh-viewer-models .bsh-viewer-models__trigger").first
+    text = (chip.inner_text() if chip.count() else "") + " | " + (chip.get_attribute("title") or "")
+    checks.add("meter: the chip shows how many of six models are open and its tooltip the parts estimate", "2 of 6 models" in text and "parts (estimate)" in text, text)
+    checks.add("meter: no plain summary text sits over the 3D scene", page.locator(f"{ACTIVE_VIEWER} .bsh-viewer-cost__count, {ACTIVE_VIEWER} .bsh-viewer-cost__parts").count() == 0)
 
     page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
     settle(page, 600)

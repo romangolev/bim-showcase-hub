@@ -383,12 +383,12 @@ describe('ViewerPane cost meter', () => {
     const { factory } = tracked();
     const five = ['b', 'c', 'd', 'e'].map((id) => ({ urn: `urn-${id}` }));
     render(<ViewerPane urn="urn-a" members={five} factory={factory} />);
-    expect(
-      await screen.findByText('5 of 6 models', {
-        selector: '.bsh-viewer-cost__count',
-      }),
-    ).toBeTruthy();
+    const chip = await screen.findByRole('button', {
+      name: /Models in this viewer \(5\)/,
+    });
+    expect(chip.textContent).toContain('5 of 6 models');
+    expect(chip.getAttribute('title')).toMatch(/parts \(estimate\)/);
     expect(screen.getByText(/One more model fits/)).toBeTruthy();
-    expect(screen.getByText(/parts \(estimate\)/)).toBeTruthy();
+    expect(screen.queryByText(/parts \(estimate\)/)).toBeNull();
   });
 });

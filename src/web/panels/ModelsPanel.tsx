@@ -72,7 +72,7 @@ export function ModelsPanel({ adapter, onRemove, onAdd }: ModelsPanelProps) {
                         role="img"
                         aria-label={statusLabel(model)}
                       />
-                      {model.name}
+                      <span className="bsh-models__label">{model.name}</span>
                     </span>
                     {failure ? (
                       <span className="bsh-error" title={model.error}>
@@ -80,53 +80,55 @@ export function ModelsPanel({ adapter, onRemove, onAdd }: ModelsPanelProps) {
                       </span>
                     ) : null}
                   </span>
-                  {failure?.retry ? (
-                    <button
-                      type="button"
-                      className="bsh-button"
-                      aria-label={`Retry ${model.name}`}
-                      onClick={() =>
-                        void resolved
-                          .addModel({ urn: model.urn, name: model.name })
-                          .catch(() => {})
-                      }
-                    >
-                      Retry
-                    </button>
-                  ) : null}
-                  {model.status === 'ready' && models.length > 1 ? (
-                    <button
-                      type="button"
-                      className="bsh-button"
-                      aria-label={
-                        isolated === model.id
-                          ? 'Show all models'
-                          : `Isolate ${model.name}`
-                      }
-                      aria-pressed={isolated === model.id}
-                      onClick={() => {
-                        for (const [id, visible] of Object.entries(
-                          isolateVisibility(models, model.id),
-                        )) {
-                          resolved.setModelVisible(id, visible);
+                  <span className="bsh-models__actions">
+                    {failure?.retry ? (
+                      <button
+                        type="button"
+                        className="bsh-button"
+                        aria-label={`Retry ${model.name}`}
+                        onClick={() =>
+                          void resolved
+                            .addModel({ urn: model.urn, name: model.name })
+                            .catch(() => {})
                         }
-                      }}
+                      >
+                        Retry
+                      </button>
+                    ) : null}
+                    {model.status === 'ready' && models.length > 1 ? (
+                      <button
+                        type="button"
+                        className="bsh-button"
+                        aria-label={
+                          isolated === model.id
+                            ? 'Show all models'
+                            : `Isolate ${model.name}`
+                        }
+                        aria-pressed={isolated === model.id}
+                        onClick={() => {
+                          for (const [id, visible] of Object.entries(
+                            isolateVisibility(models, model.id),
+                          )) {
+                            resolved.setModelVisible(id, visible);
+                          }
+                        }}
+                      >
+                        {isolated === model.id ? 'Show all' : 'Isolate'}
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="bsh-button"
+                      aria-label={`Remove ${model.name}`}
+                      onClick={() =>
+                        onRemove
+                          ? onRemove(model.id)
+                          : resolved.removeModel(model.id)
+                      }
                     >
-                      {isolated === model.id ? 'Show all' : 'Isolate'}
+                      Remove
                     </button>
-                  ) : null}
-                  <button
-                    type="button"
-                    className="bsh-button"
-                    aria-label={`Remove ${model.name}`}
-                    onClick={() =>
-                      onRemove
-                        ? onRemove(model.id)
-                        : resolved.removeModel(model.id)
-                    }
-                  >
-                    Remove
-                  </button>
+                  </span>
                 </li>
               );
             })}
