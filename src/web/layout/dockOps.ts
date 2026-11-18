@@ -190,7 +190,8 @@ export interface InstanceSync {
 }
 
 function adopt(api: DockviewApi, sync: InstanceSync, want: PanelId[]) {
-  if (!sync.arrangement) return false;
+  if (!sync.arrangement || api.panels.some((panel) => isUserInstance(panel.id)))
+    return false;
   const snapshot = adoptArrangement(
     sync.arrangement,
     want,

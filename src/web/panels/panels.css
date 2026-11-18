@@ -944,4 +944,87 @@
   border-color: var(--color-iris);
   background: var(--color-iris);
   color: var(--color-on-accent);
+
+.bsh-props__tools {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.bsh-props__tools .bsh-input {
+  flex: 1;
+  min-width: 8rem;
+}
+
+.bsh-props__notice {
+  color: var(--color-ash);
+  font-size: var(--text-13);
+}
+
+.bsh-props__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.bsh-props__name {
+  margin: var(--space-3) 0 var(--space-1);
+  color: var(--color-snow);
+  font-size: var(--text-14);
+  font-weight: var(--weight-ui);
+}
+
+.bsh-props__category {
+  padding: var(--space-2) 0;
+  color: var(--color-ash);
+  font-size: var(--text-13);
+  font-weight: var(--weight-ui);
+  cursor: pointer;
+}
+
+.bsh-props__list {
+  margin: 0;
+}
+
+.bsh-props__row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) auto;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  border-bottom: var(--border-hairline);
+  font-size: var(--text-13);
+}
+
+.bsh-props__row dt {
+  color: var(--color-ash);
+  overflow-wrap: anywhere;
+}
+
+.bsh-props__row dd {
+  margin: 0;
+  color: var(--color-chalk);
+  overflow-wrap: anywhere;
+}
+
+.bsh-props__copy {
+  min-height: var(--hit-target);
+  padding: 0 var(--space-2);
+  background: none;
+  color: var(--color-ash);
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.bsh-props__row:hover .bsh-props__copy,
+.bsh-props__copy:focus-visible {
+  opacity: 1;
+}
+
+.bsh-props__copy:hover {
+  color: var(--color-snow);
 }

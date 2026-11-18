@@ -87,3 +87,15 @@ export function mergeInfos(
       a.category.localeCompare(b.category) || a.name.localeCompare(b.name),
   );
 }
+
+export interface ElementProperty {
+  category: string;
+  name: string;
+  value: string | number | boolean | null;
+}
+
+export interface ElementProperties {
+  dbId: number;
+  name: string;
+  properties: ElementProperty[];
+}

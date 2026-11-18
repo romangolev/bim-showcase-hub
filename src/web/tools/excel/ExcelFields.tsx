@@ -9,8 +9,12 @@ import {
   FORMAT_LABELS,
   SCOPE_LABELS,
 } from '../../extensions/exportFormats.js';
+import { SelectionSets } from '../../panels/SelectionSets.js';
 import { usePersisted } from '../../storage.js';
+import { usePublishedAdapter } from '../../viewer/activeAdapterStore.js';
 import { modelScopeOptions, resolveScope } from '../../viewer/modelScope.js';
+import { useScopeCount } from '../../viewer/scopeCount.js';
+import { useSelectionSets, withSetLabels } from '../../viewer/selectionSets.js';
 import { useModels } from '../../viewer/useModels.js';
 import { useActiveViewer } from '../../viewer/ViewerContext.js';
 import { EXCEL_SETTINGS, type ExcelToolSettings } from './excelSettings.js';
@@ -49,8 +53,20 @@ function SelectField<T extends string>({
 
 export function ExcelFields() {
   const [excel, setExcel] = usePersisted(EXCEL_SETTINGS);
-  const models = useModels(useActiveViewer());
+  const active = useActiveViewer();
+  const published = usePublishedAdapter();
+  const viewer = active ?? published;
+  const models = useModels(viewer);
   const modelOptions = modelScopeOptions(models);
+  const scopeLabels = withSetLabels(
+    SCOPE_LABELS,
+    excel.scope,
+    useSelectionSets(),
+  );
+  const count = useScopeCount(viewer, {
+    models: resolveScope(excel.modelScope, models),
+    elements: excel.scope,
+  });
   const patternId = useId();
   const metadataId = useId();
   const headerId = useId();
@@ -77,9 +93,16 @@ export function ExcelFields() {
       <SelectField<ExportScope>
         label="Rows"
         value={excel.scope}
-        labels={SCOPE_LABELS}
+        labels={scopeLabels}
         onChange={(scope) => update({ scope })}
       />
+      {viewer ? (
+        <p className="settings__hint" role="status">
+          {count === null
+            ? 'Rows to export: counting…'
+            : `Rows to export: ${count.toLocaleString('en-US')}`}
+        </p>
+      ) : null}
       {modelOptions.length > 0 ? (
         <SelectField<string>
           label="Models"
@@ -161,6 +184,7 @@ export function ExcelFields() {
           copy
         </label>
       </div>
+      <SelectionSets adapter={viewer} />
     </section>
   );
 }

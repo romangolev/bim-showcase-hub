@@ -11,6 +11,7 @@ import type { GeometryPart, GeometryRead } from './geometryTypes.js';
 import {
   buildMockElements,
   buildMockRows,
+  elementProperties,
   LARGE_FIXTURE_ROWS,
   MOCK_PROPERTY_INFOS,
   type MockElement,
@@ -35,6 +36,7 @@ import {
 import { Placement } from './placement.js';
 import { PropertyReader } from './propertyReader.js';
 import {
+  type ElementProperties,
   type PropertyInfo,
   type ReadOptions,
   throwIfAborted,
@@ -58,7 +60,9 @@ import type {
   Rgba,
   ToolGroupSpec,
   ViewerAdapter,
+  ViewerState,
 } from './ViewerAdapter.js';
+import { sanitizeViewerState } from './viewerState.js';
 import './viewer.css';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -421,6 +425,25 @@ export class MockViewerAdapter implements ViewerAdapter {
     };
   }
 
+  async getElementProperties({
+    modelId,
+    dbId,
+  }: ModelDbId): Promise<ElementProperties | null> {
+    if (!this.nodeOf(modelId, dbId)) return null;
+    const element = buildMockElements().find((entry) => entry.dbId === dbId);
+    if (!element) return null;
+    const values = elementProperties(element);
+    return {
+      dbId,
+      name: element.name,
+      properties: MOCK_PROPERTY_INFOS.map(({ category, name }) => ({
+        category,
+        name,
+        value: values[name] ?? null,
+      })),
+    };
+  }
+
   setModelVisible(modelId: string, visible: boolean): void {
     if (!this.models.setVisible(modelId, visible)) return;
     const scene = this.models.handle(modelId);
@@ -498,7 +521,53 @@ export class MockViewerAdapter implements ViewerAdapter {
     if (this.root) this.root.dataset.camera = JSON.stringify(camera);
   }
 
-  fitToSelection(): void {}
+  fitToView(items?: readonly ModelDbId[]): void {
+    if (this.root) this.root.dataset.fit = JSON.stringify(items ?? null);
+  }
+
+  getState(): ViewerState {
+    const state: ViewerState = {
+      version: 1,
+      camera: this.camera ? { ...this.camera } : null,
+      cutplanes: [],
+      models: {},
+    };
+    for (const { info } of this.models.shown()) {
+      state.models[info.id] = { isolated: [], hidden: [], selection: [] };
+    }
+    const add = (
+      keys: Iterable<string>,
+      field: 'isolated' | 'hidden' | 'selection',
+    ) => {
+      for (const key of keys) {
+        const { modelId, dbId } = parseKey(key);
+        state.models[modelId]?.[field].push(dbId);
+      }
+    };
+    add(this.isolated ?? [], 'isolated');
+    add(this.hiddenKeys, 'hidden');
+    add(this.selection, 'selection');
+    return state;
+  }
+
+  async restoreState(raw: ViewerState): Promise<void> {
+    const state = sanitizeViewerState(raw);
+    if (!state) return;
+    const keys = (field: 'isolated' | 'hidden' | 'selection') =>
+      Object.entries(state.models)
+        .filter(([modelId]) => this.models.get(modelId)?.visible)
+        .flatMap(([modelId, entry]) =>
+          entry[field]
+            .filter((dbId) => this.nodeOf(modelId, dbId))
+            .map((dbId) => selectionKey(modelId, dbId)),
+        );
+    const isolated = keys('isolated');
+    this.isolated = isolated.length > 0 ? new Set(isolated) : null;
+    this.hiddenKeys = new Set(keys('hidden'));
+    this.applyIsolation();
+    this.setSelectionKeys(keys('selection'));
+    if (state.camera) this.setCamera(state.camera);
+  }
 
   getIsolated(): ModelDbId[] {
     return this.isolated ? [...this.isolated].map(parseKey) : [];

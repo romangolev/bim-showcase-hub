@@ -78,7 +78,7 @@ function sanitizeItems(raw: unknown): SavedItem[] {
   return items;
 }
 
-const SAVED = defineRecord<SavedItem[]>({
+export const SAVED = defineRecord<SavedItem[]>({
   key: SAVED_KEY,
   initial: [],
   sanitize: (raw) => sanitizeItems(isRecord(raw) ? raw.items : undefined),

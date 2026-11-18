@@ -31,6 +31,7 @@ npm run dev:mock
 | `npm run e2e:signin` | Open a window to sign in once |
 | `npm run e2e:smoke` | Smoke test against the real app (accepts browser dialogs) |
 | `npm run e2e:glb` | Open a real Revit model and verify the GLB export (two-legged token, no sign-in) |
+| `npm run e2e:state` | Open a real Revit model and check viewer state capture and restore, hide, isolate, show all and fit (two-legged token, no sign-in) |
 | `npm run e2e:ifc` | Open a real Revit model and verify the IFC export with IfcOpenShell (two-legged token, no sign-in) |
 
 ## Biome
@@ -184,6 +185,8 @@ It writes `01-home.png`, `02-model.png`, `03-after-export.png`, `05-viewer-chrom
 - pane families: New chart twice and New model summary from the Panes menu, specs saved per instance under `bsh.pane.chart.<n>.v1` and `bsh.pane.modelSummary.<n>.v1`, a summary pane pinned to the model it was made for, panes and specs surviving a reload (also with no model open, with their empty states), and closing a pane removing its spec
 
 It writes screenshots, `export.xlsx` and `mock-report.json` to `E2E_OUTPUT_DIR`.
+
+**state_revit.py** (`npm run e2e:state`). Same plumbing again with `harness/state_harness.ts`, which bundles `viewer/viewerState.ts`, the code `RealViewerAdapter.getState` and `restoreState` run, and drives it through `window.__bshViewerState` against the real viewer. It checks the `getState` filter keys, hide, isolate, show all, fit, camera (including orthographic zoom), cutplanes, a capture then restore of camera, hidden, isolated and selected nodes, the hide-everything isolation, and that unknown ids and models restore without throwing. The adapter's own wiring (model ids, aggregate selection, visibility) is covered only by the fake federated viewer in `RealViewerAdapter.state.test.ts`.
 
 **ifc_revit.py** (`npm run e2e:ifc`). Same plumbing as `glb_revit.py` (token, manifest, `export_harness.ts` bundle, local harness page, Camoufox), but it clicks `#export-ifc` and validates the download with IfcOpenShell. The checks: the file is over 1 MB with the `ISO-10303-21;` header, the schema is `IFC4`, there is at least one building and storey, every `IfcElement` has a unique 22-character GlobalId, at least 90 percent of elements carry geometry (a sample of 200 is tessellated to get a world bounding box), `ifcopenshell.validate` reports no errors, the element count is within 1 percent of the distinct `dbId` values the viewer holds, and the file has at least 100 elements in at least 3 storeys. It writes `revit.ifc` and `ifc-revit-report.json` to `e2e/output/`. `ifc_summary` and `ifc_check` live in `common.py`. IfcOpenShell (LGPL) is in `e2e/requirements.txt` only: it is a test tool and must never be added to `package.json`.
 

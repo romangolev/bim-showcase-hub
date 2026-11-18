@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import {
   type FormDefinition,
   SettingsForm,
@@ -9,6 +10,7 @@ import {
   sanitizeAction,
 } from '../extensions/elementActions.js';
 import {
+  DEFAULT_SUMMARY_VIEW,
   SUMMARY_COLUMNS,
   type SummaryColumn,
   type SummaryView,
@@ -107,11 +109,21 @@ function InstanceProperties({
   );
 }
 
-export function SummarySettingsBody() {
-  const [view, setView, resetView] = usePaneSetting(PANE_SETTINGS.summary.view);
-  const target = useSummarySettingsTarget();
-  const adapter = useResolvedAdapter(usePublishedAdapter());
-  const [action, setAction] = usePaneSetting(PANE_SETTINGS.summary.action);
+function SummaryFields({
+  view,
+  action,
+  onView,
+  onAction,
+  onReset,
+  properties,
+}: {
+  view: SummaryView;
+  action: ElementAction;
+  onView: (view: SummaryView) => void;
+  onAction: (action: ElementAction) => void;
+  onReset: () => void;
+  properties: ReactNode;
+}) {
   const value: SummaryForm = {
     hideEmpty: view.hideEmpty,
     minCount: view.minCount,
@@ -122,7 +134,7 @@ export function SummarySettingsBody() {
   };
   const onChange = (patch: Partial<SummaryForm>) => {
     const { action: nextAction, columns, sort, density, ...rest } = patch;
-    if (nextAction !== undefined) setAction(sanitizeAction(nextAction));
+    if (nextAction !== undefined) onAction(sanitizeAction(nextAction));
     const next: Partial<SummaryView> = { ...rest };
     if (sort !== undefined) next.sort = sort === 'value' ? 'value' : 'count';
     if (density !== undefined) {
@@ -131,24 +143,75 @@ export function SummarySettingsBody() {
     if (columns) {
       next.hiddenColumns = SUMMARY_COLUMNS.filter((c) => !columns.includes(c));
     }
-    if (Object.keys(next).length) setView((prev) => ({ ...prev, ...next }));
+    if (Object.keys(next).length) onView({ ...view, ...next });
   };
-
   return (
     <div className="bsh-summary-settings">
       <fieldset className="bsh-fieldset">
         <legend>Properties</legend>
-        {target ? (
-          <InstanceProperties target={target} adapter={adapter} />
-        ) : (
-          <GlobalProperties adapter={adapter} />
-        )}
+        {properties}
       </fieldset>
       <SettingsForm form={SUMMARY_FORM} value={value} onChange={onChange} />
-      <button type="button" className="bsh-button" onClick={resetView}>
+      <button type="button" className="bsh-button" onClick={onReset}>
         Reset view
       </button>
     </div>
+  );
+}
+
+function GlobalSummarySettings({ adapter }: { adapter: ViewerAdapter | null }) {
+  const [view, setView, resetView] = usePaneSetting(PANE_SETTINGS.summary.view);
+  const [action, setAction, resetAction] = usePaneSetting(
+    PANE_SETTINGS.summary.action,
+  );
+  return (
+    <SummaryFields
+      view={view}
+      action={action}
+      onView={setView}
+      onAction={setAction}
+      onReset={() => {
+        resetView();
+        resetAction();
+      }}
+      properties={<GlobalProperties adapter={adapter} />}
+    />
+  );
+}
+
+function InstanceSummarySettings({
+  target,
+  adapter,
+}: {
+  target: PanelId;
+  adapter: ViewerAdapter | null;
+}) {
+  const [spec, setSpec] = usePaneSetting(summarySetting(target));
+  return (
+    <SummaryFields
+      view={spec.view}
+      action={spec.action}
+      onView={(view) => setSpec((prev) => ({ ...prev, view }))}
+      onAction={(action) => setSpec((prev) => ({ ...prev, action }))}
+      onReset={() =>
+        setSpec((prev) => ({
+          ...prev,
+          view: DEFAULT_SUMMARY_VIEW,
+          action: 'select',
+        }))
+      }
+      properties={<InstanceProperties target={target} adapter={adapter} />}
+    />
+  );
+}
+
+export function SummarySettingsBody() {
+  const target = useSummarySettingsTarget();
+  const adapter = useResolvedAdapter(usePublishedAdapter());
+  return target ? (
+    <InstanceSummarySettings target={target} adapter={adapter} />
+  ) : (
+    <GlobalSummarySettings adapter={adapter} />
   );
 }
 

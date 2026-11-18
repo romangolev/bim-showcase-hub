@@ -269,6 +269,7 @@
 
 .pane-slot--dock .pane-summary,
 .pane-slot--dock .pane-models,
+.pane-slot--dock .pane-properties,
 .pane-slot--dock .pane-dashboard {
   display: flex;
   flex: 1;

@@ -10,6 +10,7 @@ import {
   type ViewerEvent,
   type ViewerModel,
   type ViewingDocument,
+  type ViewportState,
 } from './autodesk.js';
 
 export const FAKE_AGGREGATE_EVENT = 'aggregate-selection-changed';
@@ -152,12 +153,33 @@ export class FakeFederatedViewer implements GuiViewer3D {
   isolated = new Map<FakeModel, number[]>();
   hiddenNodes = new Map<FakeModel, number[]>();
   fitted: ViewerBox[] = [];
+  fitCalls: {
+    ids: number[] | null;
+    model: FakeModel | null;
+    immediate: boolean | undefined;
+  }[] = [];
+  viewport: ViewportState = {
+    eye: [10, 10, 10],
+    target: [0, 0, 0],
+    up: [0, 0, 1],
+    isOrthographic: false,
+    projection: 'perspective',
+  };
+  cutplanes: number[][] = [];
+  restored: {
+    state: unknown;
+    filter: unknown;
+    immediate: boolean | undefined;
+  }[] = [];
   placed: { urn: string; elements: number[] }[] = [];
   impl = {
     setPlacementTransform: (model: ViewerModel, matrix: PlacementMatrix) => {
       const own = model as FakeModel;
       own.placement = [...matrix.elements];
       this.placed.push({ urn: own.urn, elements: [...matrix.elements] });
+    },
+    setCutPlanes: (planes: unknown[]) => {
+      if (planes.length === 0) this.cutplanes = [];
     },
     selector: {
       setAggregateSelection: (
@@ -290,8 +312,57 @@ export class FakeFederatedViewer implements GuiViewer3D {
       .map(([model, selection]) => ({ model, selection: [...selection] }));
   }
 
-  fitToView(): void {
+  fitToView(
+    objectIds?: number[] | null,
+    model?: ViewerModel | null,
+    immediate?: boolean,
+  ): void {
     this.fits += 1;
+    this.fitCalls.push({
+      ids: objectIds ? [...objectIds] : null,
+      model: model ? this.own(model) : null,
+      immediate,
+    });
+  }
+
+  getCutPlanes() {
+    return this.cutplanes.map(([x = 0, y = 0, z = 0, w = 0]) => ({
+      x,
+      y,
+      z,
+      w,
+    }));
+  }
+
+  getIsolatedNodes(model: ViewerModel): number[] {
+    return [...(this.isolated.get(this.own(model)) ?? [])];
+  }
+
+  getState(filter?: { viewport?: boolean; cutplanes?: boolean }) {
+    const state: {
+      viewport?: ViewportState;
+      cutplanes?: number[][];
+    } = {};
+    if (!filter || filter.viewport) state.viewport = { ...this.viewport };
+    if (!filter || filter.cutplanes) {
+      state.cutplanes = this.cutplanes.map((plane) => [...plane]);
+    }
+    return state;
+  }
+
+  restoreState(
+    state: { viewport?: ViewportState; cutplanes?: number[][] },
+    filter?: { viewport?: boolean; cutplanes?: boolean },
+    immediate?: boolean,
+  ): boolean {
+    this.restored.push({ state, filter, immediate });
+    if (state.viewport && (!filter || filter.viewport)) {
+      this.viewport = { ...state.viewport };
+    }
+    if (state.cutplanes?.length && (!filter || filter.cutplanes)) {
+      this.cutplanes = state.cutplanes.map((plane) => [...plane]);
+    }
+    return true;
   }
 
   getObjectTree(

@@ -100,31 +100,39 @@ describe('element actions', () => {
     const adapter = {
       selectModelIds: vi.fn(),
       isolateModelIds: vi.fn(),
-      fitToSelection: vi.fn(),
+      hideModelIds: vi.fn(),
+      fitToView: vi.fn(),
     } as unknown as ViewerAdapter;
     const items = [{ modelId: 'm1', dbId: 1 }];
+    runElementAction(adapter, 'hide', items);
+    expect(adapter.hideModelIds).toHaveBeenCalledWith(items);
+    expect(adapter.selectModelIds).not.toHaveBeenCalled();
     runElementAction(adapter, 'select', items);
     runElementAction(adapter, 'isolate', items);
     expect(adapter.selectModelIds).toHaveBeenCalledTimes(1);
-    expect(adapter.fitToSelection).not.toHaveBeenCalled();
+    expect(adapter.fitToView).not.toHaveBeenCalled();
     runElementAction(adapter, 'zoom', items);
-    expect(adapter.fitToSelection).toHaveBeenCalledTimes(1);
+    expect(adapter.fitToView).toHaveBeenCalledWith(items);
     expect(adapter.isolateModelIds).toHaveBeenCalledWith(items);
     expect(sanitizeAction('nope')).toBe('select');
+    expect(sanitizeAction('hide')).toBe('hide');
+    expect(sanitizeAction(undefined)).toBe('select');
   });
 
   it('does nothing when no element matches', () => {
     const adapter = {
       selectModelIds: vi.fn(),
       isolateModelIds: vi.fn(),
-      fitToSelection: vi.fn(),
+      hideModelIds: vi.fn(),
+      fitToView: vi.fn(),
     } as unknown as ViewerAdapter;
-    for (const action of ['select', 'isolate', 'zoom'] as const) {
+    for (const action of ['select', 'isolate', 'hide', 'zoom'] as const) {
       runElementAction(adapter, action, []);
     }
     expect(adapter.selectModelIds).not.toHaveBeenCalled();
     expect(adapter.isolateModelIds).not.toHaveBeenCalled();
-    expect(adapter.fitToSelection).not.toHaveBeenCalled();
+    expect(adapter.hideModelIds).not.toHaveBeenCalled();
+    expect(adapter.fitToView).not.toHaveBeenCalled();
   });
 });
 

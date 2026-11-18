@@ -276,6 +276,52 @@ LEGEND_BOXES = """() => {
 }"""
 
 
+def check_selection_sets(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    pane = page.get_by_role("region", name=re.compile("Model summary"))
+    pane.locator("tbody .bsh-row-pick").first.click()
+    settle(page, 300)
+    picked = page.locator(".bsh-mock__el--selected").count()
+    checks.add("sets: a summary value selects elements to capture", picked >= 1, picked)
+    open_tool_settings(page, "Excel export")
+    dialog = page.get_by_role("dialog", name="Excel export settings")
+    dialog.get_by_label("Rows", exact=True).select_option("all")
+    count = dialog.get_by_role("status").filter(has_text="Rows to export")
+    wait_until(page, lambda: "counting" not in count.inner_text())
+    total = int(count.inner_text().split(":")[1].strip().replace(",", ""))
+    checks.add("sets: the live count shows every element for all", total >= picked, count.inner_text())
+    dialog.get_by_label("Selection set name").fill("Smoke set")
+    dialog.get_by_role("button", name="Save selection as set").click()
+    settle(page, 300)
+    checks.add("sets: the captured set is listed with its size", dialog.get_by_text(f"{picked} elements").count() >= 1, picked)
+    dialog.get_by_label("Rows", exact=True).select_option(label="Set: Smoke set")
+    wait_until(page, lambda: count.inner_text() == f"Rows to export: {picked}")
+    checks.add("sets: the live count follows the set scope", count.inner_text() == f"Rows to export: {picked}", count.inner_text())
+    page.keyboard.press("Escape")
+    settle(page, 300)
+    size, magic = download_export(page, OUTPUT_DIR / "set-export.xlsx")
+    checks.add("sets: export with the set scope downloads an xlsx", size > 500 and magic == XLSX_MAGIC, f"{size} bytes")
+    open_tool_settings(page, "Excel export")
+    dialog = page.get_by_role("dialog", name="Excel export settings")
+    dialog.get_by_role("button", name="Delete Smoke set").click()
+    settle(page, 300)
+    rows_select = dialog.get_by_label("Rows", exact=True)
+    checks.add("sets: a deleted set shows a visible fallback", "Deleted set" in rows_select.evaluate("el => el.selectedOptions[0].textContent"))
+    wait_until(page, lambda: count.inner_text() == f"Rows to export: {total:,}")
+    checks.add("sets: the count falls back to all elements", count.inner_text() == f"Rows to export: {total:,}", count.inner_text())
+    page.keyboard.press("Escape")
+    settle(page, 300)
+    download_export(page, OUTPUT_DIR / "set-export-stale.xlsx")
+    page.get_by_role("button", name=re.compile(r"^Tasks")).click()
+    text = page.get_by_role("region", name="Tasks").inner_text()
+    checks.add("sets: the stale-set export finishes with a notice", "no longer exists" in text, text[:200])
+    page.keyboard.press("Escape")
+    open_tool_settings(page, "Excel export")
+    page.get_by_role("dialog", name="Excel export settings").get_by_label("Rows", exact=True).select_option("all")
+    page.keyboard.press("Escape")
+    settle(page, 300)
+
+
 def check_collapsed_ring(page, checks):
     stubs = page.evaluate(COLLAPSED_RING)
     checks.add("a collapsed pane stub is present", len(stubs) >= 1, stubs)
@@ -1737,6 +1783,26 @@ def check_pane_families(page, checks):
     summaries = lambda: page.locator(".dv-tab").filter(has_text=re.compile(r"^Model summary \d$"))
     checks.add("New model summary opens a pane", summaries().count() == 1, summaries().count())
     checks.add("the summary pane is pinned to the model it was made for", (stored("bsh.pane.modelSummary.1.v1") or {}).get("scope") == models(page)["active"], stored("bsh.pane.modelSummary.1.v1"))
+    page.get_by_role("button", name="Panes").click()
+    page.get_by_role("menuitem", name="New model summary").click()
+    settle(page, 500)
+    checks.add("a second summary pane opens", summaries().count() == 2, summaries().count())
+    first_summary = page.locator(".pane-summary").filter(has=page.get_by_role("heading", name=re.compile(r"^Model summary 1"))).first
+    first_summary.get_by_role("button", name="Summary settings").click()
+    dialog = page.get_by_role("dialog", name="Summary settings")
+    dialog.get_by_label("Density").select_option("compact")
+    dialog.get_by_label("Sort by").select_option("value")
+    settle(page, 300)
+    page.keyboard.press("Escape")
+    settle(page, 400)
+    spec_one = stored("bsh.pane.modelSummary.1.v1") or {}
+    spec_two = stored("bsh.pane.modelSummary.2.v1") or {}
+    checks.add("one summary instance keeps its own density and sort", (spec_one.get("view") or {}).get("density") == "compact" and (spec_one.get("view") or {}).get("sort") == "value", spec_one)
+    checks.add("another summary instance and the main pane are unchanged", (spec_two.get("view") or {}).get("density") == "comfortable" and (spec_two.get("view") or {}).get("sort") == "count" and (stored("bsh.summary.view.v1") or {}).get("density", "comfortable") == "comfortable", [spec_two, stored("bsh.summary.view.v1")])
+    tab = summaries().nth(1)
+    tab.hover()
+    tab.locator(".dv-default-tab-action").click()
+    settle(page, 500)
     page.reload()
     settle(page, 1500)
     checks.add("chart panes survive a reload", charts().count() == 2, charts().count())
@@ -1755,10 +1821,25 @@ def check_pane_families(page, checks):
     settle(page, 1500)
     checks.add("user panes are restored with no model open", charts().count() == 2 and summaries().count() == 1, [charts().count(), summaries().count()])
     checks.add("user panes show an empty state with no model open", page.get_by_text("No charts yet").count() >= 1 and page.get_by_text("No model loaded yet").count() == 1, [page.get_by_text("No charts yet").count(), page.get_by_text("No model loaded yet").count()])
+    page.evaluate("mw:() => window.__bshLayout.movePane('chart:1', 'left')")
+    settle(page, 500)
+    home_side = tab_side(page, "Chart 1")
+    checks.add("a user pane placed at home sits left of Documents", home_side == "left", home_side)
     expand_to_viewable(page).click()
     wait_until(page, lambda: models(page)["active"])
     settle(page, 1000)
     checks.add("user panes stay when a model opens again", charts().count() == 2 and summaries().count() == 1, [charts().count(), summaries().count()])
+    checks.add("a user pane keeps its home placement when the first model opens", tab_side(page, "Chart 1") == "left", tab_side(page, "Chart 1"))
+    page.reload()
+    settle(page, 1500)
+    checks.add("a user pane keeps its placement after a reload", tab_side(page, "Chart 1") == "left", tab_side(page, "Chart 1"))
+    for urn in [model["urn"] for model in models(page)["models"]]:
+        page.evaluate(f"mw:() => window.__bshLayout.closeModel('{urn}')")
+    wait_until(page, lambda: not models(page)["models"])
+    expand_to_viewable(page).click()
+    wait_until(page, lambda: models(page)["active"])
+    settle(page, 1000)
+    checks.add("a user pane keeps its placement after closing all models and reopening", tab_side(page, "Chart 1") == "left", tab_side(page, "Chart 1"))
     tab = summaries().first
     tab.hover()
     tab.locator(".dv-default-tab-action").click()
@@ -1774,6 +1855,55 @@ def check_pane_families(page, checks):
     tab.locator(".dv-default-tab-action").click()
     settle(page, 500)
     checks.add("closing the last chart pane removes the family", charts().count() == 0, charts().count())
+
+
+def tab_side(page, text):
+    return page.evaluate(
+        """(text) => {
+            const tab = [...document.querySelectorAll('.dv-tab')].find((el) => el.textContent.trim() === text);
+            const docs = [...document.querySelectorAll('.dv-tab')].find((el) => el.textContent.trim() === 'Documents');
+            const a = tab?.closest('.dv-groupview')?.getBoundingClientRect();
+            const b = docs?.closest('.dv-groupview')?.getBoundingClientRect();
+            return a && b ? (a.left < b.left ? 'left' : 'right') : null;
+        }""",
+        text,
+    )
+
+
+def check_properties_pane(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page)
+    if not models(page)["models"]:
+        expand_to_viewable(page).click()
+        wait_until(page, lambda: models(page)["active"])
+        settle(page, 1000)
+    page.get_by_role("button", name="Panes").click()
+    page.get_by_role("menuitem", name="New properties").click()
+    settle(page, 600)
+    tab = page.locator(".dv-tab").filter(has_text=re.compile(r"^Properties \d$"))
+    checks.add("New properties opens a pane", tab.count() == 1, tab.count())
+    stored = page.evaluate("() => JSON.parse(localStorage.getItem('bsh.pane.properties.1.v1') || 'null')")
+    checks.add("the properties pane is bound to the active model", (stored or {}).get("scope") == models(page)["active"], stored)
+    checks.add("the properties pane asks for a selection", page.get_by_text("Select an element").count() == 1, page.get_by_text("Select an element").count())
+    page.locator("[data-active='true'] [data-dbid]").first.click(force=True)
+    settle(page, 800)
+    checks.add("selecting an element lists its properties by category", page.locator(".bsh-props").get_by_text("Identity Data", exact=True).count() == 1 and page.locator(".bsh-props").get_by_text("Assembly Code", exact=True).count() == 1, page.locator(".bsh-props").inner_text())
+    page.get_by_label("Filter properties").fill("level")
+    settle(page, 300)
+    props = page.locator(".bsh-props")
+    checks.add("the properties filter narrows the list", props.get_by_text("Assembly Code", exact=True).count() == 0 and props.get_by_text("Level", exact=True).count() == 1, props.inner_text())
+    page.get_by_label("Filter properties").fill("")
+    page.evaluate("mw:() => window.__bshLayout.movePane('properties:1', 'float')")
+    settle(page, 500)
+    checks.add("a properties pane floats", page.evaluate("mw:() => window.__bshLayout.location('properties:1')") == "floating", "")
+    page.reload()
+    settle(page, 1500)
+    checks.add("a floating properties pane survives a reload", page.locator(".dv-tab").filter(has_text=re.compile(r"^Properties \d$")).count() == 1 and page.evaluate("mw:() => window.__bshLayout.location('properties:1')") == "floating", "")
+    tab = page.locator(".dv-tab").filter(has_text=re.compile(r"^Properties \d$")).first
+    tab.hover()
+    tab.locator(".dv-default-tab-action").click()
+    settle(page, 500)
+    checks.add("closing the properties pane clears its spec", page.locator(".dv-tab").filter(has_text=re.compile(r"^Properties \d$")).count() == 0 and page.evaluate("() => localStorage.getItem('bsh.pane.properties.1.v1')") is None, "")
 
 
 def palette(page):
@@ -1841,7 +1971,7 @@ def run_interaction_checks(page, checks, notes):
     except Exception as exc:
         page.screenshot(path=str(OUTPUT_DIR / "mock-layout-failure.png"))
         checks.add("check_layout", False, f"{type(exc).__name__}: {str(exc)[:160]}")
-    for check in (check_lock_maximize, check_active_pane, check_session_banner, check_saved_items, check_paint_palette, check_recents, check_strip, check_tree_metadata, check_theme, check_summary_rail, check_summary_tools, check_dashboard_tools, check_tree_resize):
+    for check in (check_lock_maximize, check_active_pane, check_session_banner, check_saved_items, check_paint_palette, check_recents, check_strip, check_tree_metadata, check_theme, check_summary_rail, check_summary_tools, check_selection_sets, check_dashboard_tools, check_tree_resize):
         try:
             check(page, checks)
         except Exception as exc:
@@ -1876,7 +2006,7 @@ def run_interaction_checks(page, checks, notes):
     except Exception as exc:
         page.screenshot(path=str(OUTPUT_DIR / "mock-blocked-picks-failure.png"))
         checks.add("check_blocked_picks", False, f"{type(exc).__name__}: {str(exc)[:160]}")
-    for check in (check_task_center, check_export_tasks, check_pane_families):
+    for check in (check_task_center, check_export_tasks, check_pane_families, check_properties_pane):
         try:
             check(page, checks)
         except Exception as exc:
