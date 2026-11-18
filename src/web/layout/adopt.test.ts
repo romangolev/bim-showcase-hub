@@ -1,6 +1,6 @@
 import type { DockviewApi } from 'dockview';
 import { describe, expect, it } from 'vitest';
-import { syncInstances } from './DockLayout.js';
+import { syncInstances } from './dockOps.js';
 import type { SerializedDock } from './layoutState.js';
 
 function leaf(id: string, views: string[], size = 100) {

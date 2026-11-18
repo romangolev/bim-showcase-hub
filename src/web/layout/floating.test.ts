@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { floatingBox } from './DockLayout.js';
+import { floatingBox } from './dockOps.js';
 
 describe('floatingBox', () => {
   it('keeps the size of the group it came from when it fits', () => {
