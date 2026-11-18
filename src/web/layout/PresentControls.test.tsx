@@ -45,7 +45,8 @@ describe('PresentControls', () => {
     expect(screen.queryByText(/\//)).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Exit presentation' }));
     expect(onExit).toHaveBeenCalled();
-    fireEvent.keyDown(document.body, { key: 'ArrowRight' });
+    expect(fireEvent.keyDown(document.body, { key: 'ArrowRight' })).toBe(true);
+    expect(fireEvent.keyDown(document.body, { key: ' ' })).toBe(true);
   });
 
   it('cycles with the arrow keys and space and announces the position', async () => {
