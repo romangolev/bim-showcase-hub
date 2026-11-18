@@ -18,13 +18,10 @@ import {
   presetCharts,
 } from '../extensions/dashboardPresets.js';
 import {
-  type ElementAction,
   itemsWithValues,
   runElementAction,
-  sanitizeAction,
 } from '../extensions/elementActions.js';
-import { BSH_KEYS } from '../storage.js';
-import { usePersistedState } from '../usePersistedState.js';
+import { PANE_SETTINGS, usePaneSetting } from '../settings/paneSettings.js';
 import type { ModelDbId } from '../viewer/modelSet.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { ChartCanvas } from './ChartCanvas.js';
@@ -100,11 +97,7 @@ export function DashboardPanel({
     [state.status, scope.rows, selected, maxCategories],
   );
 
-  const [action] = usePersistedState<ElementAction>(
-    BSH_KEYS.personal.dashboardAction,
-    'select',
-    sanitizeAction,
-  );
+  const [action] = usePaneSetting(PANE_SETTINGS.dashboard.action);
   const board = useMemo(
     () =>
       state.status === 'ready' && activePreset

@@ -2,27 +2,22 @@ import { useId, useMemo, useState } from 'react';
 import { Icon } from '../components/icons.js';
 import { StateBlock } from '../components/StateBlock.js';
 import {
-  type ElementAction,
   itemsWithValues,
   runElementAction,
-  sanitizeAction,
   showAllElements,
 } from '../extensions/elementActions.js';
 import { saveBlob } from '../extensions/excelExport.js';
 import { applyNamePattern, toDelimited } from '../extensions/exportFormats.js';
 import {
   DEFAULT_SUMMARY_PROPERTIES,
-  DEFAULT_SUMMARY_VIEW,
   emptyShares,
   type SummaryEntry,
   type SummaryView,
-  sanitizeView,
   summarize,
   summaryTable,
   viewEntries,
 } from '../extensions/modelSummary.js';
-import { BSH_KEYS } from '../storage.js';
-import { usePersistedState } from '../usePersistedState.js';
+import { PANE_SETTINGS, usePaneSetting } from '../settings/paneSettings.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import {
   ModelScopeSelect,
@@ -84,16 +79,8 @@ export function ModelSummaryPanel({
     [state.status, scope.rows, propertyNames],
   );
 
-  const [view, setView] = usePersistedState<SummaryView>(
-    BSH_KEYS.personal.summaryView,
-    DEFAULT_SUMMARY_VIEW,
-    sanitizeView,
-  );
-  const [action] = usePersistedState<ElementAction>(
-    BSH_KEYS.personal.summaryAction,
-    'select',
-    sanitizeAction,
-  );
+  const [view, setView] = usePaneSetting(PANE_SETTINGS.summary.view);
+  const [action] = usePaneSetting(PANE_SETTINGS.summary.action);
   const [active, setActive] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
   const shown = useMemo(() => viewEntries(entries, view), [entries, view]);
