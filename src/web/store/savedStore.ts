@@ -132,7 +132,7 @@ export function importSaved(text: string): ImportResult {
     return fail('Not a saved-items file.');
   }
   if (typeof parsed.version !== 'number' || parsed.version > SAVED_VERSION) {
-    return fail('Unsupported version.');
+    return fail('This file was saved by a newer version of the app.');
   }
   const incoming = sanitizeItems(parsed.items);
   const byId = new Map(current.map((item) => [item.id, item]));
