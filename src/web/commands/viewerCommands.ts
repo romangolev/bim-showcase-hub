@@ -1,3 +1,8 @@
+import {
+  listSets,
+  saveSelectionSet,
+  selectSet,
+} from '../viewer/selectionSets.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import type { Command } from './types.js';
 
@@ -39,6 +44,22 @@ export function viewerCommands(adapter: ViewerAdapter | null): Command[] {
     ),
     make('fit', 'Zoom to selection', needsSelection, (viewer) =>
       viewer.fitToSelection(),
+    ),
+    make('saveSet', 'Save selection as set', needsSelection, (viewer) => {
+      saveSelectionSet(
+        `Selection ${listSets().length + 1}`,
+        viewer.getModelSelection(),
+      );
+    }),
+    ...listSets().map((set) =>
+      make(
+        `selectSet.${set.id}`,
+        `Select set ${set.name}`,
+        noModel,
+        (viewer) => {
+          selectSet(viewer, set.id);
+        },
+      ),
     ),
     make('resetPaint', 'Reset appearance', noModel, (viewer) =>
       viewer.clearThemingColors(),
