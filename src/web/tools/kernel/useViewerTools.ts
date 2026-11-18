@@ -79,11 +79,11 @@ export function useViewerTools(
 
   const wasEnabled = useRef<Record<string, boolean>>({});
   useEffect(() => {
+    if (!adapter || !active) return;
     const before = wasEnabled.current;
     wasEnabled.current = Object.fromEntries(
       Object.entries(snapshot).map(([id, value]) => [id, value.enabled]),
     );
-    if (!adapter || !active) return;
     for (const tool of registry.all()) {
       if (before[tool.id] && !snapshot[tool.id]?.enabled) {
         tool.onDisabled(adapter);

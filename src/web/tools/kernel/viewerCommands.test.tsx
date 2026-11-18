@@ -1,4 +1,4 @@
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { COMMANDS } from '../../commands/registry.js';
@@ -117,5 +117,23 @@ describe('viewer command contribution', () => {
       wrapper: wrapperFor(fakeAdapter()),
     });
     expect(COMMANDS.list()).toHaveLength(0);
+  });
+
+  it('applies a disable that happened while the viewer was inactive once it is active', async () => {
+    const adapter = fakeAdapter();
+    const tool = new ExportingTool();
+    const onDisabled = vi.spyOn(tool, 'onDisabled');
+    const registry = new ToolRegistry().register(tool);
+    const view = renderHook(
+      ({ active }) => useViewerTools(registry, { ...options, adapter, active }),
+      { wrapper: wrapperFor(adapter), initialProps: { active: true } },
+    );
+    view.rerender({ active: false });
+    await act(async () => {
+      tool.settings.write({ enabled: false });
+    });
+    expect(onDisabled).not.toHaveBeenCalled();
+    view.rerender({ active: true });
+    expect(onDisabled).toHaveBeenCalledWith(adapter);
   });
 });
