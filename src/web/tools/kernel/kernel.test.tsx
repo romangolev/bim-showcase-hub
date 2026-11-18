@@ -182,7 +182,7 @@ describe('ToolRegistry', () => {
 describe('ViewerTool settings window', () => {
   it('shows the enable switch and the tool fields and persists a toggle', () => {
     const tool = new FakeTool('a', 'Alpha tool');
-    render(<>{tool.renderSettings()}</>);
+    render(tool.renderSettings());
     expect(screen.getByText('fields of a')).toBeTruthy();
     const toggle = screen.getByRole('switch', { name: 'Alpha tool' });
     expect((toggle as HTMLInputElement).checked).toBe(true);
@@ -200,7 +200,7 @@ describe('ViewerTool settings window', () => {
         return {};
       }
     }
-    render(<>{new Bare().renderSettings()}</>);
+    render(new Bare().renderSettings());
     expect(screen.getAllByRole('switch')).toHaveLength(1);
   });
 });
