@@ -4,7 +4,7 @@ import type { ModalDefinition } from '../modal/types.js';
 import { useTheme } from '../theme/ThemeContext.js';
 import { useSettings } from './SettingsContext.js';
 import { SettingsEntries } from './SettingsEntries.js';
-import { DENSITIES, LANGUAGES, type Settings, TEXT_SIZES } from './settings.js';
+import { DENSITIES, type Settings, TEXT_SIZES } from './settings.js';
 
 const DENSITY_LABELS: Record<Settings['density'], string> = {
   comfortable: 'Comfortable',
@@ -17,10 +17,6 @@ const TEXT_SIZE_LABELS: Record<Settings['textSize'], string> = {
   large: 'Large',
 };
 
-const LANGUAGE_LABELS: Record<Settings['language'], string> = {
-  en: 'English',
-};
-
 export function SettingsBody() {
   const { theme, toggleTheme } = useTheme();
   const { settings, setSetting } = useSettings();
@@ -29,7 +25,6 @@ export function SettingsBody() {
   const densityId = useId();
   const textSizeId = useId();
   const motionId = useId();
-  const languageId = useId();
   return (
     <div className="settings">
       <section
@@ -92,24 +87,9 @@ export function SettingsBody() {
             Reduce motion
           </label>
           <span className="settings__hint">
-            Stops decorative animation on top of your system setting.
+            Stops decorative animation in this app, in addition to your system
+            setting.
           </span>
-        </div>
-        <div className="settings__field">
-          <label htmlFor={languageId}>Language</label>
-          <select
-            id={languageId}
-            value={settings.language}
-            onChange={(event) =>
-              setSetting('language', event.target.value as Settings['language'])
-            }
-          >
-            {LANGUAGES.map((language) => (
-              <option key={language} value={language}>
-                {LANGUAGE_LABELS[language]}
-              </option>
-            ))}
-          </select>
         </div>
       </section>
       <section className="settings__section" aria-labelledby="settings-session">

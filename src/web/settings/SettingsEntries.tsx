@@ -1,5 +1,6 @@
 import { useModal } from '../modal/ModalContext.js';
 import { usePersisted } from '../storage.js';
+import { NotificationSettingsSection } from '../tasks/NotificationSettingsSection.js';
 import { TOOLS } from '../tools/index.js';
 import type { AnyViewerTool } from '../tools/kernel/ToolRegistry.js';
 import {
@@ -58,16 +59,7 @@ function ToolEntry({ tool }: { tool: AnyViewerTool }) {
   );
 }
 
-const PANE_ENTRIES = PANE_SETTINGS_ORDER.flatMap((id) => {
-  const schema = PANE_SETTINGS_SCHEMA[id];
-  return schema ? [{ id, schema }] : [];
-});
-
 function PaneEntry({ schema }: { schema: PaneSettingsSchema }) {
-  if (schema.Body) {
-    const Body = schema.Body;
-    return <Body />;
-  }
   if (!schema.modalId) return null;
   return (
     <EntryRow
@@ -78,6 +70,15 @@ function PaneEntry({ schema }: { schema: PaneSettingsSchema }) {
     />
   );
 }
+
+const PANE_ENTRIES = PANE_SETTINGS_ORDER.flatMap((id) => {
+  const schema = PANE_SETTINGS_SCHEMA[id];
+  return schema ? [{ id, schema }] : [];
+});
+
+const PANE_FORMS = PANE_ENTRIES.flatMap(({ id, schema }) =>
+  schema.Body ? [{ id, Body: schema.Body }] : [],
+);
 
 export function SettingsEntries() {
   return (
@@ -98,6 +99,10 @@ export function SettingsEntries() {
           <PaneEntry key={id} schema={schema} />
         ))}
       </section>
+      {PANE_FORMS.map(({ id, Body }) => (
+        <Body key={id} />
+      ))}
+      <NotificationSettingsSection />
       <SnapshotSettings />
       <SavedItemsSettings />
     </>

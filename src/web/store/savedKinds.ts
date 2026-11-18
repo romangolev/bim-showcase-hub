@@ -104,6 +104,7 @@ export function defineSavedKind<T extends SavedData>(
 export function useSavedKindItems<T extends SavedData>(
   handle: SavedKindHandle<T>,
 ): SavedKindItem<T>[] {
-  const saved = useSavedItems(handle.kind);
+  const { kind } = handle;
+  const saved = useSavedItems(kind);
   return useMemo(() => saved.flatMap((item) => toItem<T>(item) ?? []), [saved]);
 }

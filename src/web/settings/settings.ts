@@ -74,12 +74,26 @@ export function readSettings(): Settings {
   };
 }
 
-export function writeSettings(settings: Settings): void {
+export function writeSettings(settings: Settings): boolean {
   const stored = APP_SETTINGS_BLOB.read();
-  APP_SETTINGS_BLOB.write({
+  if (storedFromNewerBuild()) return false;
+  return APP_SETTINGS_BLOB.write({
     ...(isRecord(stored) ? stored : {}),
     ...settings,
   });
+}
+
+function storedFromNewerBuild(): boolean {
+  const text = getStorageAdapter().get('local', SETTINGS_STORAGE_KEY);
+  if (text === null) return false;
+  try {
+    const parsed = JSON.parse(text) as { version?: unknown };
+    return (
+      typeof parsed.version === 'number' && parsed.version > SETTINGS_VERSION
+    );
+  } catch {
+    return false;
+  }
 }
 
 export function applyAppSettings(settings: Settings, root: HTMLElement): void {

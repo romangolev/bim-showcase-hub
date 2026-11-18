@@ -5,6 +5,7 @@ import {
   DEFAULT_SETTINGS,
   readSettings,
   SETTINGS_STORAGE_KEY,
+  SETTINGS_VERSION,
   SettingsProvider,
   scrubAppSettings,
   useSettings,
@@ -52,6 +53,19 @@ describe('app settings', () => {
 describe('readSettings', () => {
   it('returns defaults when nothing is stored', () => {
     expect(readSettings()).toEqual(DEFAULT_SETTINGS);
+  });
+
+  it('does not rewrite a blob from a newer build', () => {
+    window.localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({ version: SETTINGS_VERSION + 1, recentsLength: 3 }),
+    );
+    expect(writeSettings({ ...DEFAULT_SETTINGS, recentsLength: 9 })).toBe(
+      false,
+    );
+    expect(
+      JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? ''),
+    ).toEqual({ version: SETTINGS_VERSION + 1, recentsLength: 3 });
   });
 
   it('falls back to defaults for corrupt storage', () => {
