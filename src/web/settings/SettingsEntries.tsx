@@ -5,6 +5,7 @@ import { usePersisted } from '../storage.js';
 import { TOOLS } from '../tools/index.js';
 import type { AnyViewerTool } from '../tools/kernel/ToolRegistry.js';
 import { SavedItemsSettings } from './SavedItemsSettings.js';
+import { SnapshotSettings } from './SnapshotSettings.js';
 
 interface EntryRowProps {
   title: string;
@@ -82,6 +83,7 @@ export function SettingsEntries() {
           windowTitle={DASHBOARD_SETTINGS_MODAL.title}
         />
       </section>
+      <SnapshotSettings />
       <SavedItemsSettings />
     </>
   );

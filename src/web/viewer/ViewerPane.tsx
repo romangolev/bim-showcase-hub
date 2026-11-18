@@ -63,6 +63,8 @@ export interface ViewerPaneProps {
   onSpreadChange?: (distanceMeters: number | null) => void;
   initialView?: string | null;
   shareHref?: string;
+  onManageViewpoints?: () => void;
+  onPresent?: () => void;
   children?: ReactNode;
 }
 
@@ -117,6 +119,8 @@ export function ViewerPane({
   onSpreadChange,
   initialView = null,
   shareHref,
+  onManageViewpoints,
+  onPresent,
   children,
 }: ViewerPaneProps) {
   const membersRef = useRef(members);
@@ -492,6 +496,20 @@ export function ViewerPane({
             baseHref={shareHref}
             fileName={exportName}
             combined={combined}
+            onManageViewpoints={onManageViewpoints}
+            onPresent={onPresent}
+            frameSize={() => {
+              const host = hostRef.current;
+              return host
+                ? { width: host.clientWidth, height: host.clientHeight }
+                : null;
+            }}
+            caption={{
+              name: combined
+                ? `${name ?? 'Model'} and ${models.length - 1} more`
+                : (name ?? exportName?.replace(/\.xlsx$/, '') ?? 'Model'),
+              ...(meta?.version ? { version: meta.version } : {}),
+            }}
             onResult={(text, error) => showBadge({ text, detail: text, error })}
           />
         ) : null}

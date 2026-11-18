@@ -52,6 +52,7 @@ import {
   writeLayout,
 } from './layoutState.js';
 import { LayoutMenu, PaneActions } from './PaneMenu.js';
+import { PresentControls } from './PresentControls.js';
 import { createPaneLifecycle } from './paneLifecycle.js';
 import {
   definitionOf,
@@ -542,13 +543,9 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
                 </div>
               )}
               {presenting ? (
-                <button
-                  type="button"
-                  className="present-exit"
-                  onClick={() => lifecycle.setPresenting(false)}
-                >
-                  Exit presentation
-                </button>
+                <PresentControls
+                  onExit={() => lifecycle.setPresenting(false)}
+                />
               ) : null}
               <PaneHosts
                 hosts={hosts}

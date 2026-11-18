@@ -33,6 +33,7 @@ export const BSH_KEYS = {
     treeWidth: 'bsh.tree.width',
     summaryCollapsed: 'bsh.summary.collapsed',
     dashboardCollapsed: 'bsh.dashboard.collapsed',
+    snapshot: 'bsh.snapshot.v1',
   },
 } as const;
 

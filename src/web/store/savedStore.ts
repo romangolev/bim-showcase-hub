@@ -112,6 +112,21 @@ export function removeSaved(id: string): boolean {
   return persist(readSaved().filter((item) => item.id !== id));
 }
 
+export function moveSaved(id: string, delta: -1 | 1): boolean {
+  const items = readSaved();
+  const index = items.findIndex((item) => item.id === id);
+  const kind = items[index]?.kind;
+  if (index < 0 || kind === undefined) return false;
+  let target = index + delta;
+  while (items[target] && items[target]?.kind !== kind) target += delta;
+  const swap = items[target];
+  const item = items[index];
+  if (!swap || !item) return false;
+  items[target] = item;
+  items[index] = swap;
+  return persist(items);
+}
+
 export function exportSaved(kind?: string): string {
   return JSON.stringify(
     { format: SAVED_FORMAT, version: SAVED_VERSION, items: readSaved(kind) },

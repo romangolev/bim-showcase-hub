@@ -687,6 +687,18 @@ describe('RealViewerAdapter tool group extension', () => {
     }
   });
 
+  it('passes the requested size to the viewer screenshot', async () => {
+    makeAdapter();
+    await adapter.load('dXJu');
+    const viewer = viewers[0] as FakeViewer & {
+      getScreenShot?: (w: number, h: number, cb: (url: string) => void) => void;
+    };
+    const shot = vi.fn();
+    viewer.getScreenShot = shot;
+    adapter.getScreenshot?.(1600, 900).catch(() => undefined);
+    expect(shot).toHaveBeenCalledWith(1600, 900, expect.any(Function));
+  });
+
   it('ignores resize before a viewer exists', () => {
     makeAdapter();
     expect(() => adapter.resize()).not.toThrow();

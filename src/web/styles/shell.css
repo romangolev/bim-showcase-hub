@@ -593,11 +593,48 @@ html[data-presenting] .bsh-viewer-surface .adsk-viewing-viewer .adsk-toolbar {
   display: none;
 }
 
-.present-exit {
+.present-bar {
   position: fixed;
   top: var(--space-2);
   right: var(--space-2);
   z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.present-position {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-card);
+  background: var(--color-graphite);
+  color: var(--color-fog);
+  font-size: var(--text-13);
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+}
+
+.present-bar:hover .present-position,
+.present-bar:focus-within .present-position {
+  opacity: 1;
+}
+
+html[data-presenting] .stack__models,
+html[data-presenting] .stack__tree,
+html[data-presenting] .stack__pane:not(.stack__pane--viewer),
+html[data-presenting] .tree-backdrop {
+  display: none;
+}
+
+html[data-presenting] .stack__column {
+  gap: 0;
+  padding: 0;
+}
+
+html[data-presenting] .stack .stack__pane--viewer .model-viewer {
+  height: 100dvh;
+}
+
+.present-exit {
   padding: var(--space-1) var(--space-2);
   border: var(--border-hairline);
   border-radius: var(--radius-card);

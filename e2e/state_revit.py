@@ -1,3 +1,4 @@
+import json
 import sys
 import time
 
@@ -176,6 +177,45 @@ def main():
             nodes = call("nodes")
             checks.add("restoreState brings back the isolated nodes", sorted(nodes["isolated"]) == isolated_ids, nodes["isolated"])
             page.screenshot(path=str(OUTPUT_DIR / "state-02-restored-isolated.png"))
+
+            call("showAll")
+            call("restore", state_a)
+            page.wait_for_timeout(300)
+            point_a = json.loads(json.dumps(call("capture")))
+            call("showAll")
+            call("restore", state_b)
+            page.wait_for_timeout(300)
+            point_b = json.loads(json.dumps(call("capture")))
+            call("showAll")
+            call("restore", point_a)
+            page.wait_for_timeout(300)
+            at_a = (sorted(call("nodes")["hidden"]) == hidden_ids, same_camera(call("camera"), point_a["camera"]))
+            call("restore", point_b)
+            page.wait_for_timeout(300)
+            at_b = (sorted(call("nodes")["isolated"]) == isolated_ids, same_camera(call("camera"), point_b["camera"]))
+            call("restore", point_a)
+            page.wait_for_timeout(300)
+            back_a = (sorted(call("nodes")["hidden"]) == hidden_ids, same_camera(call("camera"), point_a["camera"]))
+            checks.add(
+                "two viewpoints stored as JSON restore in turn on the real viewer",
+                all(at_a) and all(at_b) and all(back_a),
+                {"a": at_a, "b": at_b, "back": back_a},
+            )
+
+            frame = call("frame")
+            plain = call("screenshot", frame["width"], frame["height"])
+            double = call("screenshot", frame["width"] * 2, frame["height"] * 2)
+            notes["screenshot"] = {"frame": frame, "1x": plain, "2x": double}
+            checks.add(
+                "getScreenShot at the pane size returns that size",
+                abs(plain["width"] - frame["width"]) <= 2 and abs(plain["height"] - frame["height"]) <= 2,
+                notes["screenshot"],
+            )
+            checks.add(
+                "getScreenShot at double the pane size returns a larger image",
+                abs(double["width"] - frame["width"] * 2) <= 2 and abs(double["height"] - frame["height"] * 2) <= 2,
+                notes["screenshot"],
+            )
 
             hide_all = call("hideNodeId")
             call("showAll")

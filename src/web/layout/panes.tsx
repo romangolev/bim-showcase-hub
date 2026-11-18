@@ -26,6 +26,7 @@ import {
   PropertiesPanel,
 } from '../panels/index.js';
 import { SUMMARY_SETTINGS_ID } from '../panels/SummarySettings.js';
+import { VIEWPOINTS_MODAL_ID } from '../panels/Viewpoints.js';
 import { memberLabel, memberMeta } from '../routes/ModelPage.js';
 import { usePaneSetting } from '../settings/paneSettings.js';
 import { exportFileName, exportStem } from '../tools/kernel/exportKit.js';
@@ -94,6 +95,7 @@ export function TreePane() {
 
 export function ModelPaneBody({ instance }: { instance: string }) {
   const layout = useLayout();
+  const modal = useModal();
   const state = useOpenModels();
   const store = useOpenModelsStore();
   const panel = modelPanelId(instance);
@@ -167,6 +169,8 @@ export function ModelPaneBody({ instance }: { instance: string }) {
             initialView={
               active && typeof routeView === 'string' ? routeView : null
             }
+            onManageViewpoints={() => modal.open(VIEWPOINTS_MODAL_ID)}
+            onPresent={() => layout.setPresenting(true)}
             shareHref={
               new URL(
                 router.buildLocation({

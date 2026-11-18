@@ -66,6 +66,7 @@ describe('storage keys', () => {
         treeWidth: 'bsh.tree.width',
         summaryCollapsed: 'bsh.summary.collapsed',
         dashboardCollapsed: 'bsh.dashboard.collapsed',
+        snapshot: 'bsh.snapshot.v1',
       },
     });
     expect(BSH_PERSONAL_PREFIXES).toEqual(['bsh.pane.']);
