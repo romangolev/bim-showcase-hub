@@ -83,8 +83,10 @@ export class ToolRegistry {
 
   scrubPersonal(): void {
     for (const tool of this.tools) {
-      if (tool.settings.has())
-        tool.settings.write(tool.scrub(tool.settings.read()));
+      if (!tool.settings.has()) continue;
+      if (!tool.settings.write(tool.scrub(tool.settings.read()))) {
+        tool.settings.remove();
+      }
     }
   }
 }

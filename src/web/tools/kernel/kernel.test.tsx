@@ -173,6 +173,16 @@ describe('ToolRegistry', () => {
     expect(readJson('test.a', null)).toEqual({ enabled: false, label: '' });
     expect(window.localStorage.getItem('test.b')).toBeNull();
   });
+
+  it('removes a stored tool record when the scrubbed write fails', () => {
+    const registry = new ToolRegistry().register(new FakeTool('a'));
+    writeJson('test.a', { enabled: false, label: 'secret' });
+    vi.spyOn(window.localStorage, 'setItem').mockImplementation(() => {
+      throw new Error('quota');
+    });
+    registry.scrubPersonal();
+    expect(window.localStorage.getItem('test.a')).toBeNull();
+  });
 });
 
 describe('ViewerTool settings window', () => {
