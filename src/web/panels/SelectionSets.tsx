@@ -31,6 +31,17 @@ export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
     } else setProblem(SET_MESSAGES[result]);
   };
 
+  const select = (adapter: ViewerAdapter, id: string, total: number) => {
+    const count = selectSet(adapter, id);
+    if (count === 0 && total > 0) {
+      setProblem("None of this set's models are open.");
+    } else if (count < total) {
+      setProblem(
+        `Selected ${count.toLocaleString('en-US')} of ${total.toLocaleString('en-US')} elements. The rest belong to models that are not open.`,
+      );
+    } else setProblem(null);
+  };
+
   return (
     <fieldset className="bsh-fieldset">
       <legend>Selection sets</legend>
@@ -86,7 +97,9 @@ export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
                 className="bsh-button"
                 aria-label={`Select ${set.name}`}
                 disabled={!adapter}
-                onClick={() => adapter && selectSet(adapter, set.id)}
+                onClick={() =>
+                  adapter && select(adapter, set.id, set.items.length)
+                }
               >
                 Select
               </button>

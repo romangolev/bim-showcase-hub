@@ -4,7 +4,7 @@ import { viewerCommands } from '../commands/viewerCommands.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
 import { readScopedRows } from '../viewer/propertyScope.js';
-import { listSets } from '../viewer/selectionSets.js';
+import { listSets, saveSelectionSet } from '../viewer/selectionSets.js';
 import { SelectionSets } from './SelectionSets.js';
 
 beforeEach(() => {
@@ -78,5 +78,22 @@ describe('set commands', () => {
     await select?.run({ openModal: () => undefined });
     expect(adapter.getModelSelection()).toEqual([first]);
     adapter.destroy();
+  });
+
+  it('says so when the set belongs to closed models', async () => {
+    const both = await loaded();
+    const items = await pick(both);
+    saveSelectionSet('Walls', items);
+    const onlyA = new MockViewerAdapter(document.createElement('div'));
+    await onlyA.loadModels([{ urn: 'urn-a' }]);
+    const view = render(<SelectionSets adapter={onlyA} />);
+    fireEvent.click(await screen.findByLabelText('Select Walls'));
+    expect(screen.getByRole('alert').textContent).toMatch(/of 2 elements/);
+    view.unmount();
+    const other = new MockViewerAdapter(document.createElement('div'));
+    await other.loadModels([{ urn: 'urn-z' }]);
+    render(<SelectionSets adapter={other} />);
+    fireEvent.click(await screen.findByLabelText('Select Walls'));
+    expect(screen.getByRole('alert').textContent).toMatch(/None of this set/);
   });
 });

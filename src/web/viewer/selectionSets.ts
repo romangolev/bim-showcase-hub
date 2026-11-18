@@ -1,12 +1,14 @@
 import { useMemo } from 'react';
 import { isRecord } from '../../shared/guards.js';
-import { usePersisted } from '../storage.js';
 import {
   MAX_NAME_LENGTH,
+  newSavedId,
+  readSaved,
   removeSaved,
-  SAVED,
+  renameSaved,
   type SavedItem,
   upsertSaved,
+  useSavedItems,
 } from '../store/savedStore.js';
 import type { ModelDbId } from './modelSet.js';
 import type { ViewerAdapter } from './ViewerAdapter.js';
@@ -66,9 +68,7 @@ function dataOf(items: readonly ModelDbId[]): Record<string, unknown> {
 }
 
 export function listSets(): SelectionSet[] {
-  return SAVED.read()
-    .filter((item) => item.kind === SELECTION_SET_KIND)
-    .map(toSet);
+  return readSaved(SELECTION_SET_KIND).map(toSet);
 }
 
 export function getSet(id: string): SelectionSet | undefined {
@@ -76,15 +76,8 @@ export function getSet(id: string): SelectionSet | undefined {
 }
 
 export function useSelectionSets(): SelectionSet[] {
-  const [saved] = usePersisted(SAVED);
-  return useMemo(
-    () => saved.filter((item) => item.kind === SELECTION_SET_KIND).map(toSet),
-    [saved],
-  );
-}
-
-function newId(): string {
-  return `ss-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  const saved = useSavedItems(SELECTION_SET_KIND);
+  return useMemo(() => saved.map(toSet), [saved]);
 }
 
 export function saveSelectionSet(
@@ -101,7 +94,7 @@ export function saveSelectionSet(
   const trimmed = name.trim().slice(0, MAX_NAME_LENGTH);
   if (!trimmed) return 'failed';
   const ok = upsertSaved({
-    id: newId(),
+    id: newSavedId('ss'),
     kind: SELECTION_SET_KIND,
     name: trimmed,
     version: 1,
@@ -112,12 +105,7 @@ export function saveSelectionSet(
 }
 
 export function renameSet(id: string, name: string): boolean {
-  const item = SAVED.read().find(
-    (entry) => entry.id === id && entry.kind === SELECTION_SET_KIND,
-  );
-  const trimmed = name.trim();
-  if (!item || !trimmed) return false;
-  return upsertSaved({ ...item, name: trimmed, updatedAt: Date.now() });
+  return renameSaved(SELECTION_SET_KIND, id, name);
 }
 
 export function deleteSet(id: string): boolean {
