@@ -13,6 +13,7 @@ export const BSH_KEYS = {
     dashboardAction: 'bsh.dashboard.action.v1',
     dashboardView: 'bsh.dashboard.view.v1',
     saved: 'bsh.saved.v1',
+    recentCommands: 'bsh.commands.recent.v1',
   },
   preference: {
     theme: 'bsh-theme',
