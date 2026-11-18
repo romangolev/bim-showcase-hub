@@ -199,4 +199,35 @@ describe('Share menu snapshots', () => {
     expect(getScreenshot).not.toHaveBeenCalled();
     SNAPSHOT.remove();
   });
+
+  it('saves a viewpoint and lists it, with manage and present entries', async () => {
+    const onPresent = vi.fn();
+    const onManage = vi.fn();
+    const onResult = vi.fn();
+    const { factory } = setup();
+    const live = await factory(document.createElement('div'));
+    render(
+      <ShareMenu
+        adapter={live}
+        modelIds={['urn-a']}
+        combined={false}
+        onManageViewpoints={onManage}
+        onPresent={onPresent}
+        onResult={onResult}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Save viewpoint' }));
+    expect(onResult).toHaveBeenCalledWith('Viewpoint saved', false);
+    fireEvent.click(await screen.findByRole('button', { name: 'Share' }));
+    fireEvent.click(
+      await screen.findByRole('menuitem', { name: 'Go to Viewpoint 1' }),
+    );
+    await waitFor(() =>
+      expect(onResult).toHaveBeenCalledWith('Viewpoint 1', false),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Present' }));
+    expect(onPresent).toHaveBeenCalled();
+  });
 });

@@ -4,6 +4,12 @@ import {
   selectSet,
 } from '../viewer/selectionSets.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
+import {
+  goToViewpoint,
+  listViewpoints,
+  nextViewpointName,
+  saveViewpoint,
+} from '../viewer/viewpoints.js';
 import type { Command } from './types.js';
 
 export const NO_MODEL_REASON = 'Open a model first';
@@ -51,6 +57,19 @@ export function viewerCommands(adapter: ViewerAdapter | null): Command[] {
         viewer.getModelSelection(),
       );
     }),
+    make('saveViewpoint', 'Save viewpoint', noModel, (viewer) => {
+      saveViewpoint(nextViewpointName(), viewer.getState());
+    }),
+    ...listViewpoints().map((point) =>
+      make(
+        `viewpoint.${point.id}`,
+        `Go to viewpoint ${point.name}`,
+        noModel,
+        async (viewer) => {
+          await goToViewpoint(viewer, point.id);
+        },
+      ),
+    ),
     ...listSets().map((set) =>
       make(
         `selectSet.${set.id}`,
