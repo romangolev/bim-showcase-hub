@@ -19,6 +19,12 @@ import {
 import { PANE_SETTINGS, usePaneSetting } from '../settings/paneSettings.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import {
+  ELEMENT_SCOPE_LABELS,
+  ElementScopeSelect,
+  elementScopeLabel,
+  useElementScope,
+} from './ElementScope.js';
+import {
   ModelScopeSelect,
   UnavailableModels,
   useModelScope,
@@ -74,11 +80,27 @@ export function ModelSummaryPanel({
   const propertyNames = propertyNamesOverride ?? savedProperties;
   const state = usePropertyRows(resolved, propertyNames);
   const scope = useModelScope(resolved, state.rows);
+  const [elementsScope, setElementsScope] = usePaneSetting(
+    PANE_SETTINGS.summary.scope,
+  );
+  const [refreshTick, setRefreshTick] = useState(0);
+  const elements = useElementScope(
+    resolved,
+    elementsScope,
+    scope.rows,
+    refreshTick,
+  );
   const entries = useMemo(
     () =>
-      state.status === 'ready' ? summarize(scope.rows, propertyNames) : EMPTY,
-    [state.status, scope.rows, propertyNames],
+      state.status === 'ready'
+        ? summarize(elements.rows, propertyNames)
+        : EMPTY,
+    [state.status, elements.rows, propertyNames],
   );
+  const reload = () => {
+    setRefreshTick((tick) => tick + 1);
+    state.reload();
+  };
 
   const [view, setView] = usePaneSetting(PANE_SETTINGS.summary.view);
   const [action] = usePaneSetting(PANE_SETTINGS.summary.action);
@@ -97,7 +119,7 @@ export function ModelSummaryPanel({
     runElementAction(
       resolved,
       action,
-      itemsWithValues(scope.rows, entry.property, new Set([entry.value])),
+      itemsWithValues(elements.rows, entry.property, new Set([entry.value])),
     );
     setActive(entryKey(entry));
   };
@@ -151,10 +173,11 @@ export function ModelSummaryPanel({
           ) : null}
         </h2>
         <ModelScopeSelect state={scope} label="Summarize models" />
+        <ElementScopeSelect value={elementsScope} onChange={setElementsScope} />
         <button
           type="button"
           className="bsh-button bsh-summary__refresh"
-          onClick={state.reload}
+          onClick={reload}
           disabled={!resolved}
         >
           Refresh
@@ -197,6 +220,11 @@ export function ModelSummaryPanel({
           {state.status === 'ready' ? (
             <UnavailableModels models={scope.unavailable} />
           ) : null}
+          {state.status === 'ready' && elements.elements !== 'all' ? (
+            <p className="bsh-scope__notice" role="status">
+              {elementScopeLabel(elements)}
+            </p>
+          ) : null}
           {!resolved && (
             <StateBlock
               variant="empty"
@@ -226,14 +254,24 @@ export function ModelSummaryPanel({
               action={{ label: 'Retry', onClick: state.reload }}
             />
           )}
-          {state.status === 'ready' && entries.length === 0 && (
-            <StateBlock
-              variant="empty"
-              title="No elements to summarize"
-              message="This version has no readable elements. Try another version."
-              action={{ label: 'Refresh', onClick: state.reload }}
-            />
-          )}
+          {state.status === 'ready' &&
+            entries.length === 0 &&
+            !elements.pending && (
+              <StateBlock
+                variant="empty"
+                title={
+                  elements.elements === 'all'
+                    ? 'No elements to summarize'
+                    : `No ${ELEMENT_SCOPE_LABELS[elements.elements].toLowerCase()} elements`
+                }
+                message={
+                  elements.elements === 'all'
+                    ? 'This version has no readable elements. Try another version.'
+                    : 'Change the element scope, or pick elements in the viewer.'
+                }
+                action={{ label: 'Refresh', onClick: reload }}
+              />
+            )}
           {entries.length > 0 && (
             <div className="bsh-summary__tools">
               <input
