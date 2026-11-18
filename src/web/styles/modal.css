@@ -96,6 +96,23 @@
   font-size: var(--text-13);
 }
 
+.settings__entry {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.settings__entry-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.settings__entry-state {
+  color: var(--color-ash);
+  font-size: var(--text-13);
+}
+
 .settings__field {
   display: flex;
   flex-direction: column;

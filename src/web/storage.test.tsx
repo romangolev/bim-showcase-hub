@@ -8,6 +8,8 @@ import {
 import { defaultModel, LAYOUT_KEY } from './layout/layoutState.js';
 import { readSettings, SETTINGS_STORAGE_KEY } from './settings/settings.js';
 import { BSH_KEYS, readJson, writeJson } from './storage.js';
+import { IFC_SETTINGS_KEY } from './tools/ifc/ifcSettings.js';
+import './tools/index.js';
 import { installMemoryStorage } from './test/mockApi.js';
 
 beforeEach(() => {
@@ -49,16 +51,23 @@ describe('sign-out', () => {
   });
 
   it('blanks the IFC author and organisation but keeps other settings', () => {
-    writeJson(SETTINGS_STORAGE_KEY, {
-      recentsLength: 9,
-      ifc: { author: 'Ada', organisation: 'Acme', projectName: 'Tower' },
+    writeJson(SETTINGS_STORAGE_KEY, { recentsLength: 9 });
+    writeJson(IFC_SETTINGS_KEY, {
+      author: 'Ada',
+      organisation: 'Acme',
+      projectName: 'Tower',
+      enabled: false,
     });
     forgetModels();
-    const settings = readSettings();
-    expect(settings.ifc.author).toBe('');
-    expect(settings.ifc.organisation).toBe('');
-    expect(settings.ifc.projectName).toBe('Tower');
-    expect(settings.recentsLength).toBe(9);
+    expect(readSettings().recentsLength).toBe(9);
+    expect(
+      readJson<Record<string, unknown>>(IFC_SETTINGS_KEY, {}),
+    ).toMatchObject({
+      author: '',
+      organisation: '',
+      projectName: 'Tower',
+      enabled: false,
+    });
   });
 
   it('does not resurrect the layout from a pending write', () => {

@@ -72,10 +72,14 @@ export abstract class ViewerTool<S extends ToolSettings = ToolSettings> {
     );
   }
 
+  get modalId(): string {
+    return `tool-${this.id}-settings`;
+  }
+
   settingsModal(): ModalDefinition {
     const render = () => this.renderSettings();
     return {
-      id: `tool-${this.id}-settings`,
+      id: this.modalId,
       title: `${this.title} settings`,
       size: 'lg',
       Body: () => <>{render()}</>,

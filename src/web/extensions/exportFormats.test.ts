@@ -1,16 +1,21 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { PropertyRow } from '../../shared/types.js';
-import { exportToXlsx } from './excelExport.js';
+import { excelFileNameFrom } from '../tools/excel/ExcelExportTool.js';
+import {
+  DEFAULT_FILE_NAME,
+  exportFileName,
+  exportToXlsx,
+} from './excelExport.js';
 import {
   aboutRows,
   applyNamePattern,
   DEFAULT_EXCEL_SETTINGS,
   filterByScope,
   guardCell,
+  readExcelSettings,
   toDelimited,
   toJsonRecords,
 } from './exportFormats.js';
-import { excelFileNameFrom } from './viewerTools.js';
 
 function row(dbId: number, name: string, modelId = 'm'): PropertyRow {
   return { dbId, name, modelId, properties: { Name: name, Category: 'Walls' } };
@@ -326,5 +331,66 @@ describe('exportToXlsx formats', () => {
     });
     expect(status).toEqual({ phase: 'cancelled' });
     expect(save).not.toHaveBeenCalled();
+  });
+});
+
+describe('readExcelSettings', () => {
+  it('returns the defaults for anything that is not a record', () => {
+    expect(readExcelSettings(undefined)).toEqual(DEFAULT_EXCEL_SETTINGS);
+    expect(readExcelSettings('x')).toEqual(DEFAULT_EXCEL_SETTINGS);
+    expect(readExcelSettings([])).toEqual(DEFAULT_EXCEL_SETTINGS);
+  });
+
+  it('keeps valid choices and defaults the rest', () => {
+    expect(
+      readExcelSettings({
+        format: 'csv',
+        scope: 'nope',
+        metadata: true,
+        namePattern: '',
+      }),
+    ).toEqual({ ...DEFAULT_EXCEL_SETTINGS, format: 'csv', metadata: true });
+  });
+
+  it('accepts the visible scope and a model choice', () => {
+    expect(
+      readExcelSettings({ scope: 'visible', modelScope: 'urn-b' }),
+    ).toMatchObject({ scope: 'visible', modelScope: 'urn-b' });
+  });
+
+  it('keeps valid values and falls back on bad ones', () => {
+    expect(
+      readExcelSettings({
+        csvDelimiter: ';',
+        decimalMark: ',',
+        includeHeader: false,
+        exporterName: false,
+        summarySheet: true,
+      }),
+    ).toMatchObject({
+      csvDelimiter: ';',
+      decimalMark: ',',
+      includeHeader: false,
+      exporterName: false,
+      summarySheet: true,
+    });
+    expect(
+      readExcelSettings({ csvDelimiter: '|', decimalMark: 'x' }),
+    ).toMatchObject({ csvDelimiter: ',', decimalMark: '.' });
+  });
+});
+
+describe('exportFileName', () => {
+  it('sanitizes the model name and version', () => {
+    expect(exportFileName('Tower: Phase/2*.rvt', 'v12')).toBe(
+      'Tower-Phase-2-v12-properties.xlsx',
+    );
+    expect(exportFileName('Café plan.nwd')).toBe('Cafe-plan-properties.xlsx');
+  });
+
+  it('falls back without a file name', () => {
+    expect(exportFileName()).toBe(DEFAULT_FILE_NAME);
+    expect(exportFileName('', 'v2')).toBe(DEFAULT_FILE_NAME);
+    expect(exportFileName('***.rvt')).toBe(DEFAULT_FILE_NAME);
   });
 });

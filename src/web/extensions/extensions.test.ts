@@ -33,7 +33,6 @@ import {
   sanitizeIntensity,
   sanitizePalette,
 } from './paintBrushes.js';
-import { buildToolGroupSpec } from './viewerTools.js';
 
 function row(
   dbId: number,
@@ -382,21 +381,6 @@ describe('paint palette', () => {
     );
     expect(new Set(ids).size).toBe(3);
     expect(ids[0]).toBe('paint-ff8000');
-  });
-
-  it('makes the tool group swatches follow the palette', () => {
-    const host = document.createElement('div');
-    const adapter = new MockViewerAdapter(host);
-    const spec = buildToolGroupSpec(adapter, {
-      paintPalette: ['#112233', '#445566'],
-      paintIntensity: 0.8,
-    });
-    expect(spec.paint?.swatches.map((item) => item.swatch)).toEqual([
-      '#112233',
-      '#445566',
-    ]);
-    expect(spec.paint?.swatches[0]?.color[3]).toBe(0.8);
-    adapter.destroy();
   });
 });
 

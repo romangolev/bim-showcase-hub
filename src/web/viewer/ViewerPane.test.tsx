@@ -1,14 +1,17 @@
 import { StrictMode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ModelSummaryPanel } from '../panels/ModelSummaryPanel.js';
-import {
-  SETTINGS_STORAGE_KEY,
-  SettingsProvider,
-  useSettings,
-} from '../settings/index.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { act, fireEvent, render, screen, waitFor } from '../test/render.js';
 import { useTheme } from '../theme/ThemeContext.js';
+import { EXCEL_SETTINGS } from '../tools/excel/excelSettings.js';
+import { GLB_SETTINGS } from '../tools/glb/GlbExportTool.js';
+import { IFC_SETTINGS } from '../tools/ifc/ifcSettings.js';
+import {
+  type PersistedSetting,
+  usePersistedSetting,
+} from '../tools/kernel/persistedSetting.js';
+import { PAINT_SETTINGS } from '../tools/paint/paintSettings.js';
 import { createMockViewerAdapter } from './MockViewerAdapter.js';
 import type { ViewerAdapter, ViewerAdapterFactory } from './ViewerAdapter.js';
 import { ViewerProvider } from './ViewerContext.js';
@@ -397,24 +400,15 @@ describe('ViewerPane IFC export badge', () => {
     );
   });
 
-  it('removes the IFC button when the ifcExport setting is off', async () => {
+  it('removes the IFC button when the IFC tool is switched off', async () => {
     installMemoryStorage();
     window.localStorage.setItem(
-      SETTINGS_STORAGE_KEY,
-      JSON.stringify({
-        paintBrushes: true,
-        excelExport: true,
-        glbExport: true,
-        ifcExport: false,
-      }),
+      IFC_SETTINGS.key,
+      JSON.stringify({ enabled: false }),
     );
     const { factory } = trackedFactory();
     const onReady = vi.fn();
-    render(
-      <SettingsProvider>
-        <ViewerPane urn="abc" factory={factory} onReady={onReady} />
-      </SettingsProvider>,
-    );
+    render(<ViewerPane urn="abc" factory={factory} onReady={onReady} />);
     await waitFor(() => expect(onReady).toHaveBeenCalled());
     expect(
       await screen.findByRole('button', { name: 'Export to Excel' }),
@@ -470,39 +464,56 @@ describe('ViewerPane theme propagation', () => {
   });
 });
 
-function SettingsFlip() {
-  const { setSetting } = useSettings();
+function Patch<T extends object>({
+  label,
+  setting,
+  patch,
+}: {
+  label: string;
+  setting: PersistedSetting<T>;
+  patch: Partial<T>;
+}) {
+  const [, set] = usePersistedSetting(setting);
   return (
-    <button type="button" onClick={() => setSetting('paintBrushes', false)}>
-      flip paint
+    <button type="button" onClick={() => set((c) => ({ ...c, ...patch }))}>
+      {label}
     </button>
+  );
+}
+
+function SettingsFlip() {
+  return (
+    <Patch
+      label="flip paint"
+      setting={PAINT_SETTINGS}
+      patch={{ enabled: false }}
+    />
   );
 }
 
 function SettingsFlipExcel() {
-  const { setSetting } = useSettings();
   return (
-    <button type="button" onClick={() => setSetting('excelExport', false)}>
-      flip excel
-    </button>
+    <Patch
+      label="flip excel"
+      setting={EXCEL_SETTINGS}
+      patch={{ enabled: false }}
+    />
   );
 }
 
 function IfcProbes() {
-  const { settings, setSetting } = useSettings();
   return (
     <>
-      <button
-        type="button"
-        onClick={() =>
-          setSetting('ifc', { ...settings.ifc, projectName: 'Changed' })
-        }
-      >
-        change ifc settings
-      </button>
-      <button type="button" onClick={() => setSetting('ifcExport', false)}>
-        flip ifc
-      </button>
+      <Patch
+        label="change ifc settings"
+        setting={IFC_SETTINGS}
+        patch={{ projectName: 'Changed' }}
+      />
+      <Patch
+        label="flip ifc"
+        setting={IFC_SETTINGS}
+        patch={{ enabled: false }}
+      />
     </>
   );
 }
@@ -515,16 +526,12 @@ describe('ViewerPane tool settings', () => {
   it('omits the paint tool when paint brushes are off and keeps export', async () => {
     installMemoryStorage();
     window.localStorage.setItem(
-      SETTINGS_STORAGE_KEY,
-      JSON.stringify({ paintBrushes: false, excelExport: true }),
+      PAINT_SETTINGS.key,
+      JSON.stringify({ enabled: false }),
     );
     const { factory } = trackedFactory();
     const onReady = vi.fn();
-    render(
-      <SettingsProvider>
-        <ViewerPane urn="abc" factory={factory} onReady={onReady} />
-      </SettingsProvider>,
-    );
+    render(<ViewerPane urn="abc" factory={factory} onReady={onReady} />);
     await waitFor(() => expect(onReady).toHaveBeenCalled());
     expect(
       await screen.findByRole('button', { name: 'Export to Excel' }),
@@ -534,15 +541,33 @@ describe('ViewerPane tool settings', () => {
     ).toBeNull();
   });
 
+  it('removes the geometry export when its tool is switched off', async () => {
+    installMemoryStorage();
+    window.localStorage.setItem(
+      GLB_SETTINGS.key,
+      JSON.stringify({ enabled: false }),
+    );
+    const { factory } = trackedFactory();
+    const onReady = vi.fn();
+    render(<ViewerPane urn="abc" factory={factory} onReady={onReady} />);
+    await waitFor(() => expect(onReady).toHaveBeenCalled());
+    expect(
+      await screen.findByRole('button', { name: 'Export to Excel' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Export geometry (GLB)' }),
+    ).toBeNull();
+  });
+
   it('re-registers the tools on a setting change without reloading the model', async () => {
     installMemoryStorage();
     const { factory, created } = trackedFactory();
     const onReady = vi.fn();
     render(
-      <SettingsProvider>
+      <>
         <SettingsFlip />
         <ViewerPane urn="abc" factory={factory} onReady={onReady} />
-      </SettingsProvider>,
+      </>,
     );
     await waitFor(() => expect(onReady).toHaveBeenCalled());
     expect(
@@ -566,11 +591,11 @@ describe('ViewerPane tool settings', () => {
     const { factory, created } = trackedFactory();
     const onReady = vi.fn();
     render(
-      <SettingsProvider>
+      <>
         <SettingsFlip />
         <SettingsFlipExcel />
         <ViewerPane urn="abc" factory={factory} onReady={onReady} />
-      </SettingsProvider>,
+      </>,
     );
     await waitFor(() => expect(onReady).toHaveBeenCalled());
     const adapter = created[0] as ViewerAdapter;
@@ -597,10 +622,10 @@ describe('ViewerPane tool settings', () => {
     const { factory, created } = trackedFactory();
     const onReady = vi.fn();
     render(
-      <SettingsProvider>
+      <>
         <IfcProbes />
         <ViewerPane urn="abc" factory={factory} onReady={onReady} />
-      </SettingsProvider>,
+      </>,
     );
     await waitFor(() => expect(onReady).toHaveBeenCalled());
     expect(

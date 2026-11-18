@@ -9,26 +9,9 @@ import {
 } from 'react';
 import { parseView } from '../api/viewLink.js';
 import { StateBlock } from '../components/StateBlock.js';
-import {
-  describeStatus,
-  type ExportStatus,
-} from '../extensions/excelExport.js';
-import {
-  describeGlbStatus,
-  type GlbExportStatus,
-  glbHasWarning,
-} from '../extensions/glbExport.js';
-import {
-  describeIfcStatus,
-  type IfcExportStatus,
-  ifcHasWarning,
-} from '../extensions/ifcExport.js';
-import { formatCount } from '../extensions/modelSummary.js';
-import { resetPaint } from '../extensions/paintBrushes.js';
-import { modelKey, registerViewerTools } from '../extensions/viewerTools.js';
-import { useSettings } from '../settings/SettingsContext.js';
-import { readExcelSettings, readIfcSettings } from '../settings/settings.js';
 import { useTheme } from '../theme/ThemeContext.js';
+import { TOOLS, useViewerTools } from '../tools/index.js';
+import { modelKey } from '../tools/kernel/modelKey.js';
 import { createViewerAdapter } from './createViewerAdapter.js';
 import { explainFailure } from './failureExplainer.js';
 import { ModelsMenu } from './ModelsMenu.js';
@@ -99,60 +82,10 @@ export const NOTICE_DISMISS_MS = 8000;
 export const ADD_FAILED_MESSAGE = 'Could not add the model';
 export const SETTLE_MS = 250;
 
-function isBusy(status: { phase: string }): boolean {
-  return status.phase === 'reading' || status.phase === 'building';
-}
-
-function badgeText(status: ExportStatus): string {
-  if (status.phase === 'error') return 'Export failed';
-  if (status.phase === 'done') {
-    const rows = `Exported ${formatCount(status.rowCount)} rows`;
-    return status.missing?.length
-      ? `${rows}, missing ${status.missing.join(', ')}`
-      : rows;
-  }
-  return describeStatus(status);
-}
-
-function glbBadgeText(status: GlbExportStatus): string {
-  return status.phase === 'error'
-    ? 'GLB export failed'
-    : describeGlbStatus(status);
-}
-
 interface StatusBadge {
   text: string;
   detail: string;
   error: boolean;
-}
-
-function excelBadge(status: ExportStatus): StatusBadge {
-  return {
-    text: badgeText(status),
-    detail: describeStatus(status),
-    error:
-      status.phase === 'error' ||
-      (status.phase === 'done' && Boolean(status.missing?.length)),
-  };
-}
-
-function glbBadge(status: GlbExportStatus): StatusBadge {
-  return {
-    text: glbBadgeText(status),
-    detail: describeGlbStatus(status),
-    error: glbHasWarning(status),
-  };
-}
-
-function ifcBadge(status: IfcExportStatus): StatusBadge {
-  return {
-    text:
-      status.phase === 'error'
-        ? 'IFC export failed'
-        : describeIfcStatus(status),
-    detail: describeIfcStatus(status),
-    error: ifcHasWarning(status),
-  };
 }
 
 export const STAGE_TEXT: Record<LoadStage, string> = {
@@ -209,11 +142,6 @@ export function ViewerPane({
   const [attempt, setAttempt] = useState(0);
   const [stage, setStage] = useState<LoadStage>('starting');
   const { theme } = useTheme();
-  const { settings } = useSettings();
-  const ifcSettingsRef = useRef(settings.ifc);
-  ifcSettingsRef.current = settings.ifc;
-  const excelSettingsRef = useRef(settings.excel);
-  excelSettingsRef.current = settings.excel;
   const themeRef = useRef(theme);
   const instanceRef = useRef<ViewerAdapter | null>(null);
 
@@ -231,21 +159,6 @@ export function ViewerPane({
       );
     }
   }, []);
-
-  const handleExportStatus = useCallback(
-    (next: ExportStatus) => showBadge(excelBadge(next), isBusy(next)),
-    [showBadge],
-  );
-
-  const handleGeometryStatus = useCallback(
-    (next: GlbExportStatus) => showBadge(glbBadge(next), isBusy(next)),
-    [showBadge],
-  );
-
-  const handleIfcStatus = useCallback(
-    (next: IfcExportStatus) => showBadge(ifcBadge(next), isBusy(next)),
-    [showBadge],
-  );
 
   useEffect(() => () => clearTimeout(statusTimer.current), []);
 
@@ -360,48 +273,13 @@ export function ViewerPane({
     };
   }, [urn, factory, publish, withdraw, attempt]);
 
-  useEffect(() => {
-    if (!adapter || !tools) return;
-    return registerViewerTools(adapter, {
-      onStatus: handleExportStatus,
-      onGeometryStatus: handleGeometryStatus,
-      onIfcStatus: handleIfcStatus,
-      ifcSettings: () => readIfcSettings(ifcSettingsRef.current),
-      excelSettings: () => readExcelSettings(excelSettingsRef.current),
-      key: modelKey(urn),
-      paintPalette: settings.paintPalette,
-      paintIntensity: settings.paintIntensity,
-      fileName: () => exportNameRef.current ?? '',
-      features: {
-        paint: settings.paintBrushes,
-        export: settings.excelExport,
-        geometry: settings.glbExport,
-        ifc: settings.ifcExport,
-      },
-    });
-  }, [
+  useViewerTools(TOOLS, {
     adapter,
-    tools,
-    urn,
-    settings.paintBrushes,
-    settings.paintPalette,
-    settings.paintIntensity,
-    settings.excelExport,
-    settings.glbExport,
-    settings.ifcExport,
-    handleExportStatus,
-    handleGeometryStatus,
-    handleIfcStatus,
-  ]);
-
-  const paintWasOn = useRef(settings.paintBrushes);
-  useEffect(() => {
-    const wasOn = paintWasOn.current;
-    paintWasOn.current = settings.paintBrushes;
-    if (wasOn && !settings.paintBrushes && adapter && tools) {
-      resetPaint(adapter);
-    }
-  }, [adapter, tools, settings.paintBrushes]);
+    active: tools,
+    suffix: modelKey(urn),
+    fileName: () => exportNameRef.current ?? '',
+    report: showBadge,
+  });
 
   const sourceFor = useCallback(
     (id: string): ModelSource => {
