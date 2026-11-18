@@ -54,6 +54,10 @@ function remove(read: () => Storage, key: string) {
   }
 }
 
+export function removeJson(key: string): void {
+  remove(() => window.localStorage, key);
+}
+
 const forgetHooks: Array<() => void> = [];
 
 export function onForgetPersonal(hook: () => void): void {

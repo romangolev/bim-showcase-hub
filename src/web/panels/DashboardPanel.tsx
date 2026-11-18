@@ -13,6 +13,7 @@ import {
   CHART_KINDS,
   DASHBOARD_PRESETS,
   type DashboardKind,
+  type DashboardView,
   KIND_LABELS,
   PRESET_PROPERTIES,
   presetCharts,
@@ -21,11 +22,15 @@ import {
   itemsWithValues,
   runElementAction,
 } from '../extensions/elementActions.js';
-import { PANE_SETTINGS, usePaneSetting } from '../settings/paneSettings.js';
+import {
+  PANE_SETTINGS,
+  type PaneSetting,
+  usePaneSetting,
+} from '../settings/paneSettings.js';
+import { ALL_MODELS } from '../viewer/modelScope.js';
 import type { ModelDbId } from '../viewer/modelSet.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { ChartCanvas } from './ChartCanvas.js';
-import { useDashboardView } from './DashboardSettings.js';
 import {
   ModelScopeSelect,
   UnavailableModels,
@@ -49,6 +54,7 @@ export interface DashboardPanelProps {
   toggleable?: boolean;
   title?: string;
   className?: string;
+  setting?: PaneSetting<DashboardView>;
 }
 
 export function DashboardPanel({
@@ -61,10 +67,13 @@ export function DashboardPanel({
   toggleable = true,
   title = 'Dashboard',
   className,
+  setting,
 }: DashboardPanelProps) {
   const uid = useId();
   const resolved = useResolvedAdapter(adapter);
-  const [view, setView] = useDashboardView();
+  const [view, setView] = usePaneSetting(
+    setting ?? PANE_SETTINGS.dashboard.view,
+  );
   const { maxCategories } = view;
   const activePreset = DASHBOARD_PRESETS.find((p) => p.id === view.preset);
   const readNames = useMemo(
@@ -75,7 +84,16 @@ export function DashboardPanel({
     [activePreset, propertyNames],
   );
   const state = usePropertyRows(resolved, readNames);
-  const scope = useModelScope(resolved, state.rows);
+  const scope = useModelScope(
+    resolved,
+    state.rows,
+    setting
+      ? {
+          value: view.scope ?? ALL_MODELS,
+          onChange: (next) => setView((prev) => ({ ...prev, scope: next })),
+        }
+      : undefined,
+  );
   const [innerCollapsed, setInnerCollapsed] = useState(defaultCollapsed);
   const isCollapsed = collapsed ?? innerCollapsed;
 
@@ -180,6 +198,22 @@ export function DashboardPanel({
         ) : null}
         {!isCollapsed ? (
           <ModelScopeSelect state={scope} label="Chart models" />
+        ) : null}
+        {setting && !isCollapsed && !activePreset && options.length > 1 ? (
+          <select
+            className="bsh-select"
+            aria-label="Group by"
+            value={selected}
+            onChange={(e) =>
+              setView((prev) => ({ ...prev, property: e.target.value }))
+            }
+          >
+            {options.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
         ) : null}
         {!isCollapsed && state.status === 'ready' && options.length > 0 ? (
           <fieldset className="bsh-kinds" aria-label="Chart type">

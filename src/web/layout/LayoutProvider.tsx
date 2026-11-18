@@ -28,6 +28,7 @@ import { ModelRouteSync } from '../routes/ModelRouteSync.js';
 import { BSH_KEYS, FORGET_EVENT } from '../storage.js';
 import { usePersistedState } from '../usePersistedState.js';
 import { isMockViewer, ViewerProvider } from '../viewer/index.js';
+import { forgetInstanceSetting } from './instanceSettings.js';
 import {
   type DockController,
   type LayoutApi,
@@ -387,6 +388,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       if (urn) modelStore.close(urn);
       else if (isUserInstance(id)) {
         setUserState((state) => removeUserInstance(state, id));
+        forgetInstanceSetting(id);
       }
     },
     [modelStore, setUserState],

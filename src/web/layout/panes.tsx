@@ -28,6 +28,7 @@ import { SUMMARY_SETTINGS_ID } from '../panels/SummarySettings.js';
 import { memberLabel, memberMeta } from '../routes/ModelPage.js';
 import { ViewerPane } from '../viewer/index.js';
 import { page } from '../viewer/region.js';
+import { chartSetting } from './instanceSettings.js';
 import { useLayout, useMainContent } from './layoutContext.js';
 import { instancePanelId } from './panelIds.js';
 
@@ -235,8 +236,18 @@ export function DashboardPane() {
   );
 }
 
-export function ChartInstancePane(_props: { instance: string }) {
-  return <DashboardPane />;
+export function ChartInstancePane({ instance }: { instance: string }) {
+  const layout = useLayout();
+  const panel = instancePanelId('chart', instance);
+  return (
+    <div className="pane-dashboard">
+      <DashboardPanel
+        setting={chartSetting(panel)}
+        title={layout.paneTitle(panel).label}
+        toggleable={false}
+      />
+    </div>
+  );
 }
 
 export function ModelsPane() {
