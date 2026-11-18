@@ -158,6 +158,31 @@ describe('ViewerAdapter contract (mock)', () => {
     expect(found.every((info) => info.category.length > 0)).toBe(true);
   });
 
+  it('reads the full property set of one element', async () => {
+    await setup();
+    const modelId = adapter.getModels()[0]?.id ?? '';
+    const first = buildMockElements()[0];
+    const read = await adapter.getElementProperties({
+      modelId,
+      dbId: first?.dbId ?? 0,
+    });
+    expect(read?.name).toBe(first?.name);
+    expect(read?.properties.map((p) => p.name)).toEqual([
+      'Category',
+      'Name',
+      'Assembly Code',
+      'Classification Code',
+      'Level',
+    ]);
+    expect(read?.properties.every((p) => p.category.length > 0)).toBe(true);
+    expect(
+      await adapter.getElementProperties({ modelId, dbId: -1 }),
+    ).toBeNull();
+    expect(
+      await adapter.getElementProperties({ modelId: 'nope', dbId: 1 }),
+    ).toBeNull();
+  });
+
   it('clears the scene on unload and removes DOM on destroy', async () => {
     await setup();
     adapter.unload();

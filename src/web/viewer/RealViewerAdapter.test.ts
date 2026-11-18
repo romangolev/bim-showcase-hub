@@ -1051,6 +1051,67 @@ describe('RealViewerAdapter geometry export', () => {
     });
   });
 
+  async function makeLoaded() {
+    const one = makeAdapter();
+    await one.load('urn-a', 'Tower.rvt');
+    return one;
+  }
+
+  it('reads every property of one element with its category', async () => {
+    const one = await makeLoaded();
+    const model = (viewers[0] as FakeViewer).model;
+    const asked: unknown[] = [];
+    model.getBulkProperties = (ids, opts, ok) => {
+      asked.push([ids, opts]);
+      ok([
+        {
+          dbId: 7,
+          name: 'Basic Wall',
+          properties: [
+            { displayName: 'Level', displayValue: 'L1', displayCategory: ' ' },
+            { displayName: 'Area', displayValue: 12.5, displayCategory: 'Dim' },
+            {
+              displayName: 'Ref',
+              displayValue: { id: 3 },
+              displayCategory: 'X',
+            },
+          ],
+        },
+      ]);
+    };
+    const { id } = one.getModels()[0] as { id: string };
+    const result = await one.getElementProperties({ modelId: id, dbId: 7 });
+    expect(asked).toEqual([[[7], {}]]);
+    expect(result).toEqual({
+      dbId: 7,
+      name: 'Basic Wall',
+      properties: [
+        { category: 'Other', name: 'Level', value: 'L1' },
+        { category: 'Dim', name: 'Area', value: 12.5 },
+        { category: 'X', name: 'Ref', value: '[object Object]' },
+      ],
+    });
+    expect(
+      await one.getElementProperties({ modelId: 'nope', dbId: 7 }),
+    ).toBeNull();
+    model.getBulkProperties = (_ids, _opts, ok) => ok([]);
+    expect(await one.getElementProperties({ modelId: id, dbId: 8 })).toBeNull();
+  });
+
+  it('rejects when the viewer fails to read the properties', async () => {
+    const one = await makeLoaded();
+    (viewers[0] as FakeViewer).model.getBulkProperties = (
+      _ids,
+      _opts,
+      _ok,
+      fail,
+    ) => fail?.(new Error('boom'));
+    const { id } = one.getModels()[0] as { id: string };
+    await expect(
+      one.getElementProperties({ modelId: id, dbId: 1 }),
+    ).rejects.toThrow('boom');
+  });
+
   it('leaves hidden models out of the IFC source', async () => {
     const one = makeAdapter();
     const viewer = () => viewers[0] as FakeViewer;

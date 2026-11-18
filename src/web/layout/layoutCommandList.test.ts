@@ -69,4 +69,16 @@ describe('layoutCommands', () => {
       'Open a model first',
     );
   });
+
+  it('offers a Properties pane next to the other families', () => {
+    const list = layoutCommands(layout({}));
+    expect(list.find((c) => c.id === 'pane.new.properties')?.disabled).toBe(
+      undefined,
+    );
+    expect(
+      layoutCommands(layout({ canAddInstance: false })).find(
+        (c) => c.id === 'pane.new.properties',
+      )?.disabled,
+    ).toBe('Open a model first');
+  });
 });
