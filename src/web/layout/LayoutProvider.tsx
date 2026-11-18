@@ -32,6 +32,7 @@ import {
   forgetInstanceSetting,
   seedInstanceSetting,
 } from './instanceSettings.js';
+import { LayoutCommands } from './LayoutCommands.js';
 import {
   type DockController,
   type LayoutApi,
@@ -728,6 +729,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
           <TreeControlContext.Provider value={treeControl}>
             <ViewerProvider active={models.active}>
               <ModelRouteSync />
+              <LayoutCommands />
               <TopBar
                 treeOpen={treeOpen}
                 onToggleTree={toggleTree}

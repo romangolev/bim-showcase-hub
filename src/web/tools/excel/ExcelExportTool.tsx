@@ -45,6 +45,7 @@ export class ExcelExportTool extends ViewerTool<ExcelToolSettings> {
   readonly description =
     'Export element properties to an .xlsx file from the viewer toolbar.';
   readonly settings = EXCEL_SETTINGS;
+  readonly exportTitle = EXPORT_TOOLTIP;
   readonly legacy = {
     fields: ['excelExport', 'excel'],
     read: (blob: Record<string, unknown>) => ({

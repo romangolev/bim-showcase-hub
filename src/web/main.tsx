@@ -8,6 +8,7 @@ import './styles/tree.css';
 import './styles/landing.css';
 import './styles/model.css';
 import './styles/modal.css';
+import './styles/commands.css';
 import { App } from './App.js';
 import { migrateLegacyToolSettings } from './tools/index.js';
 

@@ -38,6 +38,7 @@ export class GlbExportTool extends ViewerTool<GlbToolSettings> {
   readonly description =
     'Export the model geometry to a .glb file from the viewer toolbar.';
   readonly settings = GLB_SETTINGS;
+  readonly exportTitle = GEOMETRY_TOOLTIP;
   readonly legacy = {
     fields: ['glbExport'],
     read: (blob: Record<string, unknown>) => ({ enabled: blob.glbExport }),

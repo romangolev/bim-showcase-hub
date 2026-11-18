@@ -1691,6 +1691,65 @@ def check_pane_families(page, checks):
     checks.add("closing the last chart pane removes the family", charts().count() == 0, charts().count())
 
 
+def palette(page):
+    return page.get_by_role("dialog", name="Command palette")
+
+
+def open_palette(page):
+    page.keyboard.press("Control+k")
+    palette(page).wait_for(state="visible", timeout=3000)
+    return palette(page).get_by_role("combobox")
+
+
+def check_command_palette(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page)
+    if not models(page)["models"]:
+        expand_to_viewable(page).click()
+        wait_until(page, lambda: models(page)["active"])
+        settle(page, 1000)
+    start = page.evaluate(ROOT_THEME)
+    other = "light" if start == "dark" else "dark"
+    anchor = page.get_by_role("button", name=THEME_TOGGLE).first
+    anchor.focus()
+    box = open_palette(page)
+    checks.add("palette opens with Ctrl+K and focuses its search", box.evaluate("(el) => el === document.activeElement"), "")
+    checks.add("palette search is a combobox tied to a listbox", box.get_attribute("aria-controls") is not None and palette(page).get_by_role("listbox").count() == 1, "")
+    box.fill("theme")
+    active_id = box.get_attribute("aria-activedescendant")
+    checks.add("active descendant points at the first match", bool(active_id) and palette(page).locator(f"[id='{active_id}']").get_attribute("aria-selected") == "true", active_id)
+    page.keyboard.press("Enter")
+    settle(page, 300)
+    checks.add("running the theme command flips the theme and closes the palette", page.evaluate(ROOT_THEME) == other and palette(page).count() == 0, page.evaluate(ROOT_THEME))
+    box = open_palette(page)
+    checks.add("a used command is listed under Recent", palette(page).get_by_text("Recent", exact=True).count() == 1, "")
+    box.fill("theme")
+    page.keyboard.press("Enter")
+    settle(page, 300)
+    checks.add("the theme command flips back", page.evaluate(ROOT_THEME) == start, page.evaluate(ROOT_THEME))
+    anchor.focus()
+    box = open_palette(page)
+    box.fill("export excel")
+    option = palette(page).get_by_role("option", name=re.compile("Export to Excel"))
+    checks.add("export commands are listed and enabled with a model open", option.count() == 1 and option.get_attribute("aria-disabled") is None, option.count())
+    box.fill("isolate sel")
+    option = palette(page).get_by_role("option", name=re.compile("Isolate selection"))
+    checks.add("element actions are disabled with a reason when nothing is selected", option.count() == 1 and option.get_attribute("aria-disabled") == "true" and "Select elements first" in option.inner_text(), option.inner_text() if option.count() else "")
+    box.fill("pane")
+    panes = palette(page).get_by_role("option").all_inner_texts()
+    checks.add("pane commands are listed", any("Dashboard pane" in text for text in panes) and any("Model summary pane" in text for text in panes), panes[:6])
+    page.keyboard.press("Escape")
+    settle(page, 200)
+    checks.add("Escape closes the palette and returns focus", palette(page).count() == 0 and anchor.evaluate("(el) => el === document.activeElement"), page.evaluate("() => document.activeElement?.outerHTML.slice(0, 120)"))
+    box = open_palette(page)
+    box.fill("geometry export settings")
+    page.keyboard.press("Enter")
+    settle(page, 400)
+    checks.add("a tool settings command opens that tool window", page.get_by_role("dialog", name="Geometry export settings").is_visible(), "")
+    page.keyboard.press("Escape")
+    settle(page, 300)
+
+
 def run_interaction_checks(page, checks, notes):
     try:
         check_layout(page, checks, notes)
@@ -1722,6 +1781,11 @@ def run_interaction_checks(page, checks, notes):
     except Exception as exc:
         page.screenshot(path=str(OUTPUT_DIR / "mock-viewer-links-failure.png"))
         checks.add("check_viewer_links", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+    try:
+        check_command_palette(page, checks)
+    except Exception as exc:
+        page.screenshot(path=str(OUTPUT_DIR / "mock-command-palette-failure.png"))
+        checks.add("check_command_palette", False, f"{type(exc).__name__}: {str(exc)[:160]}")
     try:
         check_blocked_picks(page, checks)
     except Exception as exc:

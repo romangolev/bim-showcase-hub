@@ -1,0 +1,153 @@
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ModalProvider } from '../modal/index.js';
+import type { ModalDefinition } from '../modal/types.js';
+import { installMemoryStorage } from '../test/mockApi.js';
+import { CommandPalette } from './CommandPalette.js';
+import { readRecents } from './recents.js';
+import { COMMANDS } from './registry.js';
+import type { Command } from './types.js';
+
+const MODALS: ModalDefinition[] = [
+  {
+    id: 'demo',
+    title: 'Demo window',
+    size: 'sm',
+    Body: () => <p>Demo body</p>,
+  },
+];
+
+function setup(commands: Command[]) {
+  COMMANDS.register('test', () => commands);
+  return render(
+    <ModalProvider definitions={MODALS}>
+      <button type="button">Opener</button>
+      <CommandPalette />
+    </ModalProvider>,
+  );
+}
+
+function press(key: string, init: KeyboardEventInit = {}) {
+  fireEvent.keyDown(document.activeElement ?? document.body, { key, ...init });
+}
+
+function openPalette() {
+  fireEvent.keyDown(document, { key: 'k', ctrlKey: true });
+}
+
+beforeEach(() => {
+  installMemoryStorage();
+  COMMANDS.register('test', () => []);
+});
+
+describe('CommandPalette', () => {
+  it('opens with Ctrl+K and Cmd+K as a labelled dialog with a combobox', () => {
+    setup([{ id: 'a', title: 'Alpha', group: 'G', run: () => undefined }]);
+    expect(screen.queryByRole('combobox')).toBeNull();
+    openPalette();
+    const box = screen.getByRole('combobox', { name: 'Search commands' });
+    expect(box).toHaveFocus();
+    expect(document.querySelector('dialog')?.getAttribute('aria-label')).toBe(
+      'Command palette',
+    );
+    expect(screen.getByRole('option', { name: 'Alpha' })).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: 'k', metaKey: true });
+    expect(screen.queryByRole('combobox')).toBeNull();
+  });
+
+  it('filters fuzzily and moves the active descendant with the arrows', () => {
+    setup([
+      { id: 'a', title: 'Toggle theme', group: 'G', run: () => undefined },
+      { id: 'b', title: 'Reset layout', group: 'G', run: () => undefined },
+      { id: 'c', title: 'Present', group: 'G', run: () => undefined },
+    ]);
+    openPalette();
+    const box = screen.getByRole('combobox');
+    const first = screen.getAllByRole('option')[0];
+    expect(box.getAttribute('aria-activedescendant')).toBe(first?.id);
+    press('ArrowDown');
+    const second = screen.getAllByRole('option')[1];
+    expect(box.getAttribute('aria-activedescendant')).toBe(second?.id);
+    expect(second).toHaveAttribute('aria-selected', 'true');
+    press('ArrowUp');
+    press('ArrowUp');
+    expect(box.getAttribute('aria-activedescendant')).toBe(
+      screen.getAllByRole('option')[2]?.id,
+    );
+    fireEvent.change(box, { target: { value: 'rslay' } });
+    expect(screen.getAllByRole('option')).toHaveLength(1);
+    expect(screen.getByRole('option', { name: 'Reset layout' })).toBeVisible();
+  });
+
+  it('runs the active command on Enter, records it and closes', () => {
+    const run = vi.fn();
+    setup([{ id: 'a', title: 'Alpha', group: 'G', run }]);
+    openPalette();
+    press('Enter');
+    expect(run).toHaveBeenCalledOnce();
+    expect(readRecents()).toEqual(['a']);
+    expect(screen.queryByRole('combobox')).toBeNull();
+  });
+
+  it('shows disabled commands with the reason and does not run them', () => {
+    const run = vi.fn();
+    setup([
+      {
+        id: 'x',
+        title: 'Export',
+        group: 'G',
+        disabled: 'Open a model first',
+        run,
+      },
+    ]);
+    openPalette();
+    const option = screen.getByRole('option', { name: /Export/ });
+    expect(option).toHaveAttribute('aria-disabled', 'true');
+    expect(option).toHaveTextContent('Open a model first');
+    press('Enter');
+    fireEvent.click(option);
+    expect(run).not.toHaveBeenCalled();
+    expect(screen.getByRole('combobox')).toBeInTheDocument();
+  });
+
+  it('lists recent commands first when the query is empty', () => {
+    window.localStorage.setItem('bsh.commands.recent.v1', '["b"]');
+    setup([
+      { id: 'a', title: 'Alpha', group: 'G', run: () => undefined },
+      { id: 'b', title: 'Beta', group: 'G', run: () => undefined },
+    ]);
+    openPalette();
+    const options = screen.getAllByRole('option');
+    expect(options[0]).toHaveTextContent('Beta');
+    expect(screen.getByText('Recent')).toBeInTheDocument();
+  });
+
+  it('can open a modal through the host and returns focus on close', () => {
+    setup([
+      {
+        id: 'm',
+        title: 'Open demo',
+        group: 'G',
+        run: (host) => host.openModal('demo'),
+      },
+    ]);
+    const opener = screen.getByRole('button', { name: 'Opener' });
+    opener.focus();
+    openPalette();
+    press('Enter');
+    expect(screen.getByText('Demo body')).toBeInTheDocument();
+  });
+
+  it('closes on Escape and restores focus to the previous element', () => {
+    setup([{ id: 'a', title: 'Alpha', group: 'G', run: () => undefined }]);
+    const opener = screen.getByRole('button', { name: 'Opener' });
+    opener.focus();
+    openPalette();
+    expect(screen.getByRole('combobox')).toHaveFocus();
+    act(() => {
+      document.querySelector('dialog')?.dispatchEvent(new Event('close'));
+    });
+    expect(screen.queryByRole('combobox')).toBeNull();
+    expect(opener).toHaveFocus();
+  });
+});

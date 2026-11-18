@@ -1,3 +1,4 @@
+import type { Command } from '../../commands/types.js';
 import type { ModalDefinition } from '../../modal/types.js';
 import { readJson, writeJson } from '../../storage.js';
 import type {
@@ -39,6 +40,12 @@ export class ToolRegistry {
 
   modals(): ModalDefinition[] {
     return this.tools.map((tool) => tool.settingsModal());
+  }
+
+  commands(ctx: ToolContext | null, snapshot: ToolSnapshot): Command[] {
+    return this.tools.flatMap((tool) =>
+      tool.commands(ctx, snapshot[tool.id] ?? tool.settings.initial),
+    );
   }
 
   snapshot(): Record<string, ToolSettings> {

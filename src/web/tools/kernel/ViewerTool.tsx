@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { isRecord } from '../../../shared/guards.js';
+import type { Command } from '../../commands/types.js';
 import type { ModalDefinition } from '../../modal/types.js';
 import type {
   ExportToolSpec,
@@ -40,8 +41,46 @@ export abstract class ViewerTool<S extends ToolSettings = ToolSettings> {
   abstract readonly description: string;
   abstract readonly settings: PersistedSetting<S>;
   readonly legacy?: LegacySettings;
+  readonly exportTitle?: string;
 
   abstract contribute(ctx: ToolContext, settings: S): ToolContribution;
+
+  commands(ctx: ToolContext | null, settings: S): Command[] {
+    const commands: Command[] = [
+      {
+        id: `${this.id}.settings`,
+        title: `${this.title} settings`,
+        group: 'Settings',
+        icon: 'settings',
+        run: (host) => host.openModal(this.modalId),
+      },
+    ];
+    if (!this.exportTitle) return commands;
+    const exports =
+      ctx && settings.enabled
+        ? (this.contribute(ctx, settings).exports ?? [])
+        : [];
+    if (exports.length === 0) {
+      commands.push({
+        id: `${this.id}.export`,
+        title: this.exportTitle,
+        group: 'Export',
+        disabled: settings.enabled
+          ? 'Open a model first'
+          : `Turned off in ${this.title} settings`,
+        run: () => undefined,
+      });
+    }
+    exports.forEach((spec, index) => {
+      commands.push({
+        id: `${this.id}.export${index ? `.${index}` : ''}`,
+        title: spec.tooltip,
+        group: 'Export',
+        run: () => spec.onExport(),
+      });
+    });
+    return commands;
+  }
 
   toolbarSignature(settings: S): unknown {
     return settings.enabled;
