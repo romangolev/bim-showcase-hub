@@ -13,9 +13,13 @@ import {
   type SummaryColumn,
   type SummaryView,
 } from '../extensions/modelSummary.js';
+import { summarySetting } from '../layout/instanceSettings.js';
+import type { PanelId } from '../layout/paneRegistry.js';
+import { useSummarySettingsTarget } from '../layout/summaryTarget.js';
 import type { ModalDefinition } from '../modal/types.js';
 import { PANE_SETTINGS, usePaneSetting } from '../settings/paneSettings.js';
 import { usePublishedAdapter } from '../viewer/activeAdapterStore.js';
+import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { PropertyPicker } from './PropertyPicker.js';
 import { useResolvedAdapter } from './useScopedRows.js';
 
@@ -73,11 +77,39 @@ export const SUMMARY_FORM: FormDefinition<SummaryForm> = {
   ],
 };
 
-export function SummarySettingsBody() {
-  const [view, setView, resetView] = usePaneSetting(PANE_SETTINGS.summary.view);
+function GlobalProperties({ adapter }: { adapter: ViewerAdapter | null }) {
   const [properties, setProperties] = usePaneSetting(
     PANE_SETTINGS.summary.properties,
   );
+  return (
+    <PropertyPicker
+      adapter={adapter}
+      value={properties}
+      onChange={setProperties}
+    />
+  );
+}
+
+function InstanceProperties({
+  target,
+  adapter,
+}: {
+  target: PanelId;
+  adapter: ViewerAdapter | null;
+}) {
+  const [spec, setSpec] = usePaneSetting(summarySetting(target));
+  return (
+    <PropertyPicker
+      adapter={adapter}
+      value={spec.properties}
+      onChange={(properties) => setSpec((prev) => ({ ...prev, properties }))}
+    />
+  );
+}
+
+export function SummarySettingsBody() {
+  const [view, setView, resetView] = usePaneSetting(PANE_SETTINGS.summary.view);
+  const target = useSummarySettingsTarget();
   const adapter = useResolvedAdapter(usePublishedAdapter());
   const [action, setAction] = usePaneSetting(PANE_SETTINGS.summary.action);
   const value: SummaryForm = {
@@ -106,11 +138,11 @@ export function SummarySettingsBody() {
     <div className="bsh-summary-settings">
       <fieldset className="bsh-fieldset">
         <legend>Properties</legend>
-        <PropertyPicker
-          adapter={adapter}
-          value={properties}
-          onChange={setProperties}
-        />
+        {target ? (
+          <InstanceProperties target={target} adapter={adapter} />
+        ) : (
+          <GlobalProperties adapter={adapter} />
+        )}
       </fieldset>
       <SettingsForm form={SUMMARY_FORM} value={value} onChange={onChange} />
       <button type="button" className="bsh-button" onClick={resetView}>

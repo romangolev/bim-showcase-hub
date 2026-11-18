@@ -17,6 +17,7 @@ import {
   viewEntries,
 } from '../extensions/modelSummary.js';
 import { PANE_SETTINGS, usePaneSetting } from '../settings/paneSettings.js';
+import type { ElementScope } from '../viewer/propertyScope.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import {
   ELEMENT_SCOPE_LABELS,
@@ -54,6 +55,7 @@ export interface ModelSummaryPanelProps {
   toggleable?: boolean;
   onOpenSettings?: () => void;
   scope?: { value: string; onChange: (scope: string) => void };
+  elements?: { value: ElementScope; onChange: (scope: ElementScope) => void };
 }
 
 const EMPTY: SummaryEntry[] = [];
@@ -71,6 +73,7 @@ export function ModelSummaryPanel({
   toggleable = true,
   onOpenSettings,
   scope: controlledScope,
+  elements: controlledElements,
 }: ModelSummaryPanelProps) {
   const uid = useId();
   const [innerCollapsed, setInnerCollapsed] = useState(defaultCollapsed);
@@ -79,9 +82,11 @@ export function ModelSummaryPanel({
   const resolved = useResolvedAdapter(adapter);
   const [savedProperties] = usePaneSetting(PANE_SETTINGS.summary.properties);
   const propertyNames = propertyNamesOverride ?? savedProperties;
-  const [elementsScope, setElementsScope] = usePaneSetting(
+  const [savedElements, setSavedElements] = usePaneSetting(
     PANE_SETTINGS.summary.scope,
   );
+  const elementsScope = controlledElements?.value ?? savedElements;
+  const setElementsScope = controlledElements?.onChange ?? setSavedElements;
   const state = useScopedRows(resolved, {
     names: propertyNames,
     elements: elementsScope,
