@@ -28,6 +28,7 @@ import { ModelRouteSync } from '../routes/ModelRouteSync.js';
 import { BSH_KEYS, FORGET_EVENT } from '../storage.js';
 import { usePersistedState } from '../usePersistedState.js';
 import { isMockViewer, ViewerProvider } from '../viewer/index.js';
+import { LayoutCommands } from './LayoutCommands.js';
 import {
   type DockController,
   type LayoutApi,
@@ -720,6 +721,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
           <TreeControlContext.Provider value={treeControl}>
             <ViewerProvider active={models.active}>
               <ModelRouteSync />
+              <LayoutCommands />
               <TopBar
                 treeOpen={treeOpen}
                 onToggleTree={toggleTree}
