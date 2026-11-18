@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
-import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
+import type {
+  ExportToolSpec,
+  ToolGroupSpec,
+  ViewerAdapter,
+} from '../viewer/ViewerAdapter.js';
 
 const exportToXlsx = vi.fn(async () => undefined);
 const exportGeometryToGlb = vi.fn(async () => undefined);
@@ -33,18 +37,19 @@ const {
 
 const adapter = {} as ViewerAdapter;
 
+function tool(spec: ToolGroupSpec, id: string): ExportToolSpec {
+  const found = spec.exports.find((entry) => entry.id === id);
+  if (!found) throw new Error(`export tool ${id} missing`);
+  return found;
+}
+
 function full(options: Parameters<typeof buildToolGroupSpec>[1] = {}) {
   const spec = buildToolGroupSpec(adapter, options);
-  if (!spec.paint || !spec.export || !spec.geometry || !spec.ifc) {
+  const [xlsx, glb, ifc] = spec.exports;
+  if (!spec.paint || !xlsx || !glb || !ifc) {
     throw new Error('tool spec incomplete');
   }
-  return {
-    ...spec,
-    paint: spec.paint,
-    export: spec.export,
-    geometry: spec.geometry,
-    ifc: spec.ifc,
-  };
+  return { ...spec, paint: spec.paint, export: xlsx, geometry: glb, ifc };
 }
 
 function ids(spec: ReturnType<typeof full>): string[] {
@@ -52,9 +57,7 @@ function ids(spec: ReturnType<typeof full>): string[] {
     spec.id,
     spec.paint.id,
     spec.paint.reset.id,
-    spec.export.id,
-    spec.geometry.id,
-    spec.ifc.id,
+    ...spec.exports.map((entry) => entry.id),
     ...spec.paint.swatches.map((swatch) => swatch.id),
   ];
 }
@@ -107,7 +110,7 @@ describe('tool group ids per viewer', () => {
     const spec = buildToolGroupSpec(adapter, {
       fileName: () => exportFileName('Snowdon Towers Sample.rvt', 'v3'),
     });
-    spec.geometry?.onExport();
+    tool(spec, 'export-glb').onExport();
     expect(exportGeometryToGlb).toHaveBeenCalledWith(
       adapter,
       expect.objectContaining({
@@ -122,7 +125,7 @@ describe('tool group ids per viewer', () => {
       fileName: () => exportFileName('Snowdon Towers Sample.rvt', 'v3'),
       ifcSettings,
     });
-    spec.ifc?.onExport();
+    tool(spec, 'export-ifc').onExport();
     expect(exportToIfc).toHaveBeenCalledWith(
       adapter,
       expect.objectContaining({
@@ -145,14 +148,14 @@ describe('running exports across re-registration', () => {
     );
     const own = {} as ViewerAdapter;
     const first = buildToolGroupSpec(own);
-    first.ifc?.onExport();
+    tool(first, 'export-ifc').onExport();
     const second = buildToolGroupSpec(own);
-    second.ifc?.onExport();
+    tool(second, 'export-ifc').onExport();
     expect(exportToIfc).toHaveBeenCalledTimes(1);
     finish();
     await Promise.resolve();
     await Promise.resolve();
-    second.ifc?.onExport();
+    tool(second, 'export-ifc').onExport();
     expect(exportToIfc).toHaveBeenCalledTimes(2);
   });
 });
@@ -166,8 +169,8 @@ describe('a failed export start', () => {
         throw new Error('boom');
       },
     });
-    expect(() => throwing.ifc?.onExport()).toThrow('boom');
-    buildToolGroupSpec(own).ifc?.onExport();
+    expect(() => tool(throwing, 'export-ifc').onExport()).toThrow('boom');
+    tool(buildToolGroupSpec(own), 'export-ifc').onExport();
     expect(exportToIfc).toHaveBeenCalledTimes(1);
   });
 });
@@ -179,11 +182,11 @@ describe('an export that rejects', () => {
     process.on('unhandledRejection', unhandled);
     exportToIfc.mockImplementationOnce(() => Promise.reject(new Error('boom')));
     const own = {} as ViewerAdapter;
-    buildToolGroupSpec(own).ifc?.onExport();
+    tool(buildToolGroupSpec(own), 'export-ifc').onExport();
     await new Promise((resolve) => setTimeout(resolve, 10));
     process.off('unhandledRejection', unhandled);
     expect(unhandled).not.toHaveBeenCalled();
-    buildToolGroupSpec(own).ifc?.onExport();
+    tool(buildToolGroupSpec(own), 'export-ifc').onExport();
     expect(exportToIfc).toHaveBeenCalledTimes(2);
   });
 });
@@ -233,40 +236,35 @@ describe('exportFileName', () => {
 describe('tool features', () => {
   it('omits disabled features from the tool group spec', () => {
     const mock = new MockViewerAdapter(document.createElement('div'));
+    const idsOf = (spec: ToolGroupSpec) =>
+      spec.exports.map((entry) => entry.id);
     const all = buildToolGroupSpec(mock);
     expect(all.paint).toBeDefined();
-    expect(all.export).toBeDefined();
-    expect(all.geometry).toBeDefined();
-    expect(all.ifc).toBeDefined();
+    expect(idsOf(all)).toEqual(['export-xlsx', 'export-glb', 'export-ifc']);
 
     const paintOnly = buildToolGroupSpec(mock, {
       features: { paint: true, export: false, geometry: false, ifc: false },
     });
     expect(paintOnly.paint).toBeDefined();
-    expect(paintOnly.export).toBeUndefined();
+    expect(idsOf(paintOnly)).toEqual([]);
 
     const exportOnly = buildToolGroupSpec(mock, {
       features: { paint: false, export: true, geometry: false, ifc: false },
     });
     expect(exportOnly.paint).toBeUndefined();
-    expect(exportOnly.export).toBeDefined();
-    expect(exportOnly.geometry).toBeUndefined();
+    expect(idsOf(exportOnly)).toEqual(['export-xlsx']);
 
     const geometryOnly = buildToolGroupSpec(mock, {
       features: { paint: false, export: false, geometry: true, ifc: false },
     });
     expect(geometryOnly.paint).toBeUndefined();
-    expect(geometryOnly.export).toBeUndefined();
-    expect(geometryOnly.geometry).toBeDefined();
-    expect(geometryOnly.ifc).toBeUndefined();
+    expect(idsOf(geometryOnly)).toEqual(['export-glb']);
 
     const ifcOnly = buildToolGroupSpec(mock, {
       features: { paint: false, export: false, geometry: false, ifc: true },
     });
     expect(ifcOnly.paint).toBeUndefined();
-    expect(ifcOnly.export).toBeUndefined();
-    expect(ifcOnly.geometry).toBeUndefined();
-    expect(ifcOnly.ifc).toBeDefined();
+    expect(idsOf(ifcOnly)).toEqual(['export-ifc']);
   });
 
   it('registers nothing when every feature is off', () => {

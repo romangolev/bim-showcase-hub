@@ -190,62 +190,67 @@ export function buildToolGroupSpec(
           },
         }
       : {}),
-    ...(features.export
-      ? {
-          export: {
-            id: keyed('export-xlsx', key),
-            tooltip: EXPORT_TOOLTIP,
-            onExport: () => {
-              const settings =
-                options.excelSettings?.() ?? DEFAULT_EXCEL_SETTINGS;
-              runOnce(adapter, 'xlsx', () =>
-                exportToXlsx(adapter, {
-                  propertyNames: DEFAULT_EXPORT_PROPERTIES,
-                  fileName: excelFileNameFrom(options.fileName?.(), settings),
-                  format: settings.format,
-                  scope: settings.scope,
-                  metadata: settings.metadata,
-                  confirm: confirmLargeExport,
-                  onStatus: options.onStatus,
-                }),
-              );
+    exports: [
+      ...(features.export
+        ? [
+            {
+              id: keyed('export-xlsx', key),
+              icon: 'bsh-ico-export',
+              tooltip: EXPORT_TOOLTIP,
+              onExport: () => {
+                const settings =
+                  options.excelSettings?.() ?? DEFAULT_EXCEL_SETTINGS;
+                runOnce(adapter, 'xlsx', () =>
+                  exportToXlsx(adapter, {
+                    propertyNames: DEFAULT_EXPORT_PROPERTIES,
+                    fileName: excelFileNameFrom(options.fileName?.(), settings),
+                    format: settings.format,
+                    scope: settings.scope,
+                    metadata: settings.metadata,
+                    confirm: confirmLargeExport,
+                    onStatus: options.onStatus,
+                  }),
+                );
+              },
             },
-          },
-        }
-      : {}),
-    ...(features.geometry
-      ? {
-          geometry: {
-            id: keyed('export-glb', key),
-            tooltip: GEOMETRY_TOOLTIP,
-            onExport: () => {
-              runOnce(adapter, 'glb', () =>
-                exportGeometryToGlb(adapter, {
-                  fileName: glbFileNameFrom(options.fileName?.()),
-                  onStatus: options.onGeometryStatus,
-                }),
-              );
+          ]
+        : []),
+      ...(features.geometry
+        ? [
+            {
+              id: keyed('export-glb', key),
+              icon: 'bsh-ico-glb',
+              tooltip: GEOMETRY_TOOLTIP,
+              onExport: () => {
+                runOnce(adapter, 'glb', () =>
+                  exportGeometryToGlb(adapter, {
+                    fileName: glbFileNameFrom(options.fileName?.()),
+                    onStatus: options.onGeometryStatus,
+                  }),
+                );
+              },
             },
-          },
-        }
-      : {}),
-    ...(features.ifc
-      ? {
-          ifc: {
-            id: keyed('export-ifc', key),
-            tooltip: IFC_TOOLTIP,
-            onExport: () => {
-              runOnce(adapter, 'ifc', () =>
-                exportToIfc(adapter, {
-                  fileName: ifcFileNameFrom(options.fileName?.()),
-                  settings: options.ifcSettings,
-                  onStatus: options.onIfcStatus,
-                }),
-              );
+          ]
+        : []),
+      ...(features.ifc
+        ? [
+            {
+              id: keyed('export-ifc', key),
+              icon: 'bsh-ico-ifc',
+              tooltip: IFC_TOOLTIP,
+              onExport: () => {
+                runOnce(adapter, 'ifc', () =>
+                  exportToIfc(adapter, {
+                    fileName: ifcFileNameFrom(options.fileName?.()),
+                    settings: options.ifcSettings,
+                    onStatus: options.onIfcStatus,
+                  }),
+                );
+              },
             },
-          },
-        }
-      : {}),
+          ]
+        : []),
+    ],
   };
 }
 

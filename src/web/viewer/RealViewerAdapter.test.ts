@@ -322,8 +322,9 @@ function makeAdapter(): RealViewerAdapter {
 
 function fullSpec() {
   const base = buildToolGroupSpec(adapter);
-  if (!base.paint || !base.export) throw new Error('tool spec incomplete');
-  return { ...base, paint: base.paint, export: base.export };
+  const exportTool = base.exports[0];
+  if (!base.paint || !exportTool) throw new Error('tool spec incomplete');
+  return { ...base, paint: base.paint, exportTool };
 }
 
 function specWith(
@@ -475,7 +476,7 @@ describe('RealViewerAdapter tool group extension', () => {
     const base = fullSpec();
     adapter.registerToolGroup({
       ...base,
-      export: { ...base.export, onExport },
+      exports: [{ ...base.exportTool, onExport }],
     });
     await adapter.load('dXJu');
     const viewer = viewers[0] as FakeViewer;
@@ -539,7 +540,7 @@ describe('RealViewerAdapter tool group extension', () => {
 
     function specExporting(onExport: () => void) {
       const base = fullSpec();
-      return { ...base, export: { ...base.export, onExport } };
+      return { ...base, exports: [{ ...base.exportTool, onExport }] };
     }
 
     const settle = () => new Promise((resolve) => setTimeout(resolve, 0));

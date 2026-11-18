@@ -36,7 +36,7 @@ The IFC export button uses the IFC mark (`src/web/viewer/ifc-logo.svg`), a regis
 
 - Add a modal: write a `ModalDefinition` and add one line for it in `src/web/modal/registry.ts`.
 - Add a setting: extend `Settings`, `DEFAULT_SETTINGS`, `readSettings` and `EXPERIMENTAL_FEATURES` in `src/web/settings`.
-- Tool group controls are optional per feature: `ToolGroupSpec.paint`, `.export`, `.geometry` and `.ifc` may be omitted, and `registerViewerTools` takes `features` (`paint`, `export`, `geometry`, `ifc`, set from the Settings modal) to choose which to build. `ViewerPane` registers the group after the model loads and again when a setting changes, without reloading the model.
+- Tool group controls are optional per feature: `ToolGroupSpec.paint` may be omitted and `ToolGroupSpec.exports` is a list (Excel, GLB and IFC entries, each with `id`, `icon`, `tooltip` and `onExport`) that holds only the enabled exports, and `registerViewerTools` takes `features` (`paint`, `export`, `geometry`, `ifc`, set from the Settings modal) to choose which to build. `ViewerPane` registers the group after the model loads and again when a setting changes, without reloading the model.
 
 ## Add an extension
 

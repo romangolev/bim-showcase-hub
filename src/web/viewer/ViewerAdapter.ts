@@ -33,6 +33,7 @@ export interface PaintToolSpec {
 
 export interface ExportToolSpec {
   id: string;
+  icon: string;
   tooltip: string;
   onExport: () => void;
 }
@@ -41,9 +42,7 @@ export interface ToolGroupSpec {
   id: string;
   title: string;
   paint?: PaintToolSpec;
-  export?: ExportToolSpec;
-  geometry?: ExportToolSpec;
-  ifc?: ExportToolSpec;
+  exports: ExportToolSpec[];
 }
 
 export type LoadStage = 'starting' | 'manifest' | 'geometry';

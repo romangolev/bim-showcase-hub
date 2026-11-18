@@ -2,9 +2,6 @@ import type { PropertyRow } from '../../shared/types.js';
 import type { IfcSourceRead } from '../ifc/types.js';
 import type { Theme } from '../theme/theme.js';
 import {
-  EXPORT_ICON_CLASS,
-  GLB_ICON_CLASS,
-  IFC_ICON_CLASS,
   PAINT_ICON_CLASS,
   RESET_ICON_CLASS,
   swatchIconClass,
@@ -772,37 +769,14 @@ export class MockViewerAdapter implements ViewerAdapter {
       parts.push(comboEl);
     }
 
-    const exportSpec = spec.export;
-    if (exportSpec) {
-      const exportButton = this.createToolbarButton(
-        exportSpec.id,
-        exportSpec.tooltip,
-        iconSpan(EXPORT_ICON_CLASS),
+    for (const entry of spec.exports) {
+      const button = this.createToolbarButton(
+        entry.id,
+        entry.tooltip,
+        iconSpan(entry.icon),
       );
-      exportButton.addEventListener('click', () => controller.export());
-      parts.push(exportButton);
-    }
-    const geometrySpec = spec.geometry;
-    if (geometrySpec) {
-      const geometryButton = this.createToolbarButton(
-        geometrySpec.id,
-        geometrySpec.tooltip,
-        iconSpan(GLB_ICON_CLASS),
-      );
-      geometryButton.addEventListener('click', () =>
-        controller.exportGeometry(),
-      );
-      parts.push(geometryButton);
-    }
-    const ifcSpec = spec.ifc;
-    if (ifcSpec) {
-      const ifcButton = this.createToolbarButton(
-        ifcSpec.id,
-        ifcSpec.tooltip,
-        iconSpan(IFC_ICON_CLASS),
-      );
-      ifcButton.addEventListener('click', () => controller.exportIfc());
-      parts.push(ifcButton);
+      button.addEventListener('click', () => controller.export(entry.id));
+      parts.push(button);
     }
 
     const apply = (state: ToolGroupState) => {
