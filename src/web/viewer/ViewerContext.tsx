@@ -5,9 +5,13 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
-import { publishActiveAdapter } from './activeAdapterStore.js';
+import {
+  publishActiveAdapter,
+  releaseActiveAdapter,
+} from './activeAdapterStore.js';
 import type { ViewerAdapter } from './ViewerAdapter.js';
 
 export interface ViewerRegistry {
@@ -52,10 +56,13 @@ export function ViewerProvider({
     });
   }, []);
   const adapter = active ? (adapters[active] ?? null) : null;
+  const published = useRef<ViewerAdapter | null>(null);
   useEffect(() => {
-    publishActiveAdapter(adapter);
-    return () => publishActiveAdapter(null);
+    if (adapter) publishActiveAdapter(adapter);
+    else releaseActiveAdapter(published.current);
+    published.current = adapter;
   }, [adapter]);
+  useEffect(() => () => releaseActiveAdapter(published.current), []);
   const value = useMemo(
     () => ({ adapter, activeKey: active, publish, withdraw }),
     [adapter, active, publish, withdraw],

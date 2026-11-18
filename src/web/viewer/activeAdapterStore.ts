@@ -10,6 +10,14 @@ export function publishActiveAdapter(adapter: ViewerAdapter | null): void {
   for (const listener of listeners) listener();
 }
 
+export function releaseActiveAdapter(adapter: ViewerAdapter | null): void {
+  if (adapter && current === adapter) publishActiveAdapter(null);
+}
+
+export function currentAdapter(): ViewerAdapter | null {
+  return current;
+}
+
 function subscribe(listener: () => void): () => void {
   listeners.add(listener);
   return () => {
