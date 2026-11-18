@@ -1,83 +1,80 @@
 # Design system
 
-[DESIGN.md](../DESIGN.md) is the source of truth for color, type, spacing, shape and component rules. This page only describes how the code applies it.
+[DESIGN.md](../DESIGN.md) is the source of truth for color, type, spacing, shape and component rules. This page describes how the code applies it.
 
 ## Tokens
 
-`src/web/styles/tokens.css` declares every token as a CSS custom property. Color tokens are declared per theme, on `:root, :root[data-theme="dark"]` and on `:root[data-theme="light"]`; everything else sits on `:root`. Tokens: colors (`--color-void`, `--color-graphite`, `--color-signal-blue` and the rest of the DESIGN.md palette), font (`--font-sans`, Inter variable), text sizes (`--text-13` and up), weights, tracking, spacing (`--space-1` to `--space-24`), radii (`--radius-button`, `--radius-card` and others), density tokens (`--gutter` 12px between panes, `--gutter-page` 16px, `--padding-card` 16px, `--padding-panel` 12px, `--row-padding`, `--nav-height` 56px, `--hit-target` 32px, 44px on touch or up to 700px wide), the hairline border and shadows.
+`src/web/styles/tokens.css` declares every token as a CSS custom property.
 
-The density values are an intentional adaptation of the Refero spec: radii, gutters, paddings and the top bar are tighter than the published values so the viewer gets more of the screen.
+- Color tokens are declared per theme, on `:root, :root[data-theme="dark"]` and `:root[data-theme="light"]`.
+- Everything else sits on `:root`: fonts, text sizes, spacing (`--space-*`), radii, density (`--gutter`, `--gutter-page`, `--nav-height`, `--hit-target`), `--border-hairline` and shadows.
+- The density values are tighter than the published spec so the viewer gets more of the screen.
 
-Other stylesheets in `src/web/styles` (`global.css`, `shell.css`, `tree.css`, `landing.css`, `model.css`), `src/web/panels/panels.css` and `src/web/layout/dockTheme.css` read these variables. Component styles do not contain raw hex colors or pixel values that have a token.
+Other stylesheets (`src/web/styles/*.css`, `panels/panels.css`, `layout/dockTheme.css`) read these variables. Components do not use raw hex colors or pixel values that have a token.
 
 ## Rules
 
-- Change a value in DESIGN.md first, then in `tokens.css`. Do not introduce a one-off value in a component.
-- Use `var(--token)` in CSS. Use the neutral tokens for surfaces and text.
-- Blue (`--color-signal-blue`, `--color-arc-blue`) marks active state, links, icons and openable tree versions. Green and red are for success and error only. The exception is the three paint swatches, which are user data colors.
-- Borders are 0.5px hairlines (`--border-hairline`). No gradients and no heavy shadows.
+- Change a value in DESIGN.md first, then in `tokens.css`. No one-off values in components.
+- Use `var(--token)` in CSS. Use neutral tokens for surfaces and text.
+- Blue (`--color-signal-blue`, `--color-arc-blue`) marks active state, links, icons and openable tree versions. Green and red mean success and error only. The paint swatches are the exception, they are user data.
+- Borders are 0.5px hairlines. No gradients and no heavy shadows.
 - Headlines use weight 400. The primary button is the neutral bone fill.
-- Version badges in the tree show the view state. Blue marks availability, coral marks failure, everything else is neutral:
+- Use `StateBlock` for loading, empty and error states.
+- Every interactive control needs an accessible name and a visible focus ring.
+
+### Version badges
+
+Tree badges show the view state ([architecture.md](architecture.md#view-state)). They sit right-aligned, share one size and carry a tooltip with the reason.
 
 | State | Badge | Style |
 |---|---|---|
 | `ready` | Viewable | arc-blue outline |
-| `unknown` | Unchecked | neutral (fog) text with an ash outline; the tooltip depends on why: a version past the checked window (`checked: false`) says "Not checked yet. It is checked when you open it.", a failed check says the geometry could not be verified (access, rate limit or network) and it may still open |
-| `processing` | Processing | neutral (chalk) outline with a spinner that stops under reduced motion |
-| `no-geometry` | No 3D or 2D view | muted (ash) text, no outline |
-| `not-translated` | Not translated | muted (ash) text, no outline |
+| `unknown` | Unchecked | neutral text, ash outline |
+| `processing` | Processing | neutral outline with a spinner that stops under reduced motion |
+| `no-geometry` | No 3D or 2D view | muted text, no outline |
+| `not-translated` | Not translated | muted text, no outline |
 | `failed` | Translation failed | coral outline |
 
-  All badges sit right-aligned in the row's trailing slot, share one size and truncate with an ellipsis (at most 60% of the row). Each badge has a tooltip with the reason and the action. Versions that cannot open explain themselves in an aria-live notice when selected.
-- Loading, empty and error feedback uses the shared `StateBlock` component, not ad hoc text.
-- The missing-hubs hint (`tree/NoHubsHint.tsx`) extends `StateBlock` with a numbered list, the Client ID with a Copy button and a help link: the full state when the hub list is empty, and a compact dismissible notice (stored in `localStorage` under `bsh.hint.hubs.dismissed.v1`, per user) above the filter when the user only has personal hubs. An unknown hub type never triggers it.
-- Interactive controls need an accessible name (`aria-label` or visible text) and a visible focus ring.
+### Overlays and status
 
-## Overlays and status
+- Task Center: `.task-center` in `styles/shell.css`. Rows carry `data-state`. Failure uses coral and "Done with warnings" uses ember.
+- Command palette: `.cmdk` in `styles/commands.css`, a native `dialog`.
+- Settings windows: the `.settings` blocks in `styles/modal.css`. Generated forms (`SettingsForm`) use the same blocks.
+- The in-viewer badge (`.bsh-viewer-badge`) is short-lived feedback for Share results only. Slow work reports in the Task Center.
+- The no-hubs hint is `components/tree/NoHubsHint.tsx`, built on `StateBlock`.
 
-- Task Center (`.task-center` in `styles/shell.css`): an icon button in the top bar (spinner while running, check when settled, alert when something failed or warned) opening a popover list. Rows carry `data-state` (`running`, `done`, `warning`, `failed`, `cancelled`); failure uses the coral token and "Done with warnings" the ember token, on the row detail and on the trigger.
-- Command palette (`.cmdk` in `styles/commands.css`): a native `dialog` with a search combobox and a grouped listbox.
-- Settings windows use the `.settings` blocks in `styles/modal.css`: `settings__section`, `settings__heading`, `settings__entry`. Generated forms (`SettingsForm`) use the same blocks, so a tool window and a pane window look alike.
-- The in-viewer badge (`.bsh-viewer-badge`, `viewer/viewer.css`) is short-lived feedback for Share results only. Work that takes time reports in the Task Center.
+## Layout breakpoint
 
-## Layout breakpoint and pane containers
+One breakpoint: `STACKED_QUERY` in `src/web/layout/LayoutProvider.tsx`. From 876 px wide panes are docked. Up to 875 px they stack in one column. Stacked-only rules use the `.stack` class.
 
-There is one layout breakpoint, `STACKED_QUERY` in `src/web/layout/LayoutProvider.tsx`: from 876 px wide the panes are docked, up to 875 px they are stacked in one column with the tree as an overlay. The value keeps the old reasoning (page padding 24 + minimum viewer 560 + gap 12 + minimum summary 280). Stacked-only rules are scoped to the `.stack` class rather than repeated in media queries.
-
-Each docked pane body sits in a `pane` size container (`.pane-slot--dock`), and the stacked column is a `pane` container too, so pane CSS uses `@container pane (...)` and responds to the pane's own width wherever it is placed. The tree keeps its own `tree` container.
+Each docked pane body is a `pane` size container, so pane CSS uses `@container pane (...)` and responds to its own width. The tree is a separate `tree` container.
 
 ## Dock theme
 
-`src/web/layout/dockTheme.css` defines the `bsh-dock` dockview theme. It maps dockview's `--dv-*` variables to our tokens, so dark and light follow `data-theme` with no theme branch: groups are graphite cards with a 0.5 px hairline and the card radius, tabs are 32 px with 13 px labels, the active tab of the focused group has a thin signal-blue underline, sashes are invisible until hovered (smoke), drop targets use the match wash with a signal-blue hairline, and floating groups have a hairline border and no shadow. The gap between groups is the 12 px gutter. A collapsed group shows only its header: a 33 px strip, vertical for panes in a row. Inside the dock the panels drop their own card border and visible title, because the tab already names the pane.
-
-Menus (`src/web/components/Menu.tsx`, used by the pane menus, the top bar Panes menu) are graphite popovers with hairline borders, rendered in a fixed-position portal above floating groups.
+`src/web/layout/dockTheme.css` defines the `bsh-dock` dockview theme. It maps dockview's `--dv-*` variables to our tokens, so both themes work without a theme branch. Groups are graphite cards with a hairline. The active tab has a signal-blue underline. Menus (`components/Menu.tsx`) render in a fixed-position portal above floating groups.
 
 ## Themes
 
-The app has dark and light themes. The light theme keeps every token role and changes only the values, so components never branch on theme. DESIGN.md has the light palette tables.
+Dark and light share every token role and change only values, so components never branch on theme.
 
-- `src/web/theme/theme.ts` holds the `Theme` type, the storage key `bsh-theme` and helpers. `ThemeContext.tsx` provides `ThemeProvider` and `useTheme()` (`theme`, `toggleTheme`). `useTheme` throws outside the provider.
+- `theme/theme.ts` holds the `Theme` type and storage key `bsh-theme`. `ThemeContext.tsx` provides `useTheme()` (`theme`, `toggleTheme`). It throws outside the provider.
 - The theme is the `data-theme` attribute on `<html>`, together with `color-scheme`.
-- Without a stored choice the theme follows `prefers-color-scheme`, live, and defaults to dark. Clicking the toggle in the top bar (also on the landing page) stores an explicit choice in `localStorage` under `bsh-theme` and stops following the system.
-- An inline script in `index.html` sets the theme before first paint to avoid a flash.
-- Tests that render `ViewerPane`, `ChartCanvas`, `DashboardPanel` or `ModelPage` import `render` from `src/web/test/render.tsx`, which wraps the tree in `ThemeProvider`.
+- Without a stored choice it follows `prefers-color-scheme`, live, and defaults to dark. The top bar toggle stores an explicit choice.
+- An inline script in `index.html` sets the theme before first paint.
+- Tests that render themed components import `render` from `src/web/test/render.tsx`.
 
-## Viewer
+## Viewer styling
 
-The Autodesk Viewer follows the app theme: `dark-theme` or `light-theme`, plus a scene background taken from the `--color-graphite` and `--color-void` tokens. `src/web/viewer/viewer.css` holds the pane, overlay and tool icon styles and the mock viewer uses it too. `src/web/viewer/viewerChrome.css` restyles the native Autodesk chrome, see below. The paint and export controls are a group in the native viewer toolbar (see [architecture.md](architecture.md)).
+The Autodesk Viewer follows the app theme: `dark-theme` or `light-theme`, plus a scene background from `--color-graphite` and `--color-void`. `viewer/viewer.css` holds pane, overlay and tool icon styles. The paint and export controls are a group in the native toolbar.
 
-## Viewer chrome
+`viewer/viewerChrome.css` restyles the native Autodesk UI with the same tokens: toolbar, tooltips, docking panels, Model Browser, Properties, context menus, spinner and alerts. Image icons are redrawn as inline SVG masks filled with `currentColor`. Some parts stay native: the ViewCube, environment thumbnails and CSS injected by extensions.
 
-`src/web/viewer/viewerChrome.css` themes the native Autodesk Viewer 7 UI with the same tokens as the app, so one rule set serves both themes: surfaces are `--color-graphite` and `--color-charcoal`, text `--color-chalk` and `--color-ash`, active state `--color-signal-blue` (`--color-arc-blue` for text), borders 0.5px hairlines, no gradients and no shadows, Inter instead of Artifakt.
+Autodesk injects its stylesheet after ours and hard-codes colors per theme. Every rule is therefore prefixed with `html .bsh-viewer-surface .adsk-viewing-viewer`, and `!important` is used only where Autodesk uses it.
 
-Themed: toolbar groups, buttons (idle, hover, active, disabled, `:focus-visible` ring), tooltips, the settings sub menu, docking panels (title, footer, buttons, text box, scrollbars), the Model Browser tree, Properties and Settings panels and their inputs, search and filter boxes, context menus (surface, flex item rows, icon slot, text, shortcut, divider, submenu arrow, hover), the loading spinner, the progress bar and the alert box. Image-based icons (panel close, resizer, tree arrows, visibility eye, search, filter, clear and menu expand) are redrawn as inline SVG masks filled with `currentColor`, so they follow the theme. The tool icons in `viewer.css` use the same pattern.
+To add a rule:
 
-Deliberately native: the ViewCube faces (WebGL), the environment thumbnails in Settings, the alert illustrations, the Layers and animation icons, the experimental disclaimer in Settings and any CSS injected by extensions.
+1. Find the selector in the Autodesk stylesheet. Add a rule with the scope prefix and the same tail. Use tokens only.
+2. Add the tail to `UPSTREAM_SELECTORS` in `e2e/viewer_selectors.py`, or to `OWN_SELECTORS` when it does not exist upstream, such as `:focus-visible`.
+3. Check contrast at 4.5:1 for text and 3:1 for UI in both themes.
 
-Why the selectors look long: Autodesk injects its stylesheet at runtime, after ours, and hard-codes colors per theme in `.adsk-viewing-viewer.dark-theme` and `.light-theme` blocks. Every rule is prefixed with `html .bsh-viewer-surface .adsk-viewing-viewer`, which outranks those blocks when the tail selector is the same, so `!important` is used only where Autodesk uses it (tree selection and hover, Settings labels).
-
-To extend: find the selector in the Autodesk stylesheet, add a rule with the scope prefix and the same tail, then add the tail to `UPSTREAM_SELECTORS` in `e2e/viewer_selectors.py` (or to `OWN_SELECTORS` when it does not exist upstream, such as `:focus-visible`). Use tokens only. Check text contrast at 4.5:1 and UI contrast at 3:1 in both themes.
-
-Context menus: Autodesk lays items out as `display: table-row` with a floated `.menu-item-icon` sized `width: 100%; height: 100%`. The themed chrome replaces this with a flex column and flex rows so the icon slot can never grow past its item or sit over the label. Items without an icon class hide the slot. Autodesk has no disabled item state: unavailable actions are left out of the menu.
-
-Version drift: the viewer is loaded as `7.*`, so Autodesk can rename classes at any time. `python3 e2e/viewer_selectors.py` fetches the stylesheet the app loads and fails when a listed selector is gone or when the list and `viewerChrome.css` disagree. `e2e/smoke.py` runs the same check and also asserts computed styles on the live viewer. It accepts a local file path to check against a saved stylesheet.
+The viewer loads as `7.*`, so Autodesk can rename classes at any time. `python3 e2e/viewer_selectors.py` fetches the stylesheet the app loads and fails when a listed selector is gone or when the list and `viewerChrome.css` disagree. `e2e/smoke.py` runs the same check.
