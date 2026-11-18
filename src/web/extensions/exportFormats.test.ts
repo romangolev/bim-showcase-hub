@@ -166,6 +166,35 @@ describe('exportToXlsx formats', () => {
     expect(body.elements[1]).toEqual({ dbId: 2, Name: 'Door' });
   });
 
+  it('passes delimiter, decimal mark and header to the CSV file', async () => {
+    const save = vi.fn();
+    await exportToXlsx(adapterOf(data), {
+      propertyNames: ['Name'],
+      format: 'csv',
+      table: { delimiter: ';', header: false },
+      fileName: 'a.csv',
+      save,
+    });
+    const text = new TextDecoder('utf-8', { ignoreBOM: true }).decode(
+      await savedBlob(save).arrayBuffer(),
+    );
+    expect(text).toBe("\uFEFF1;'=cmd\r\n2;Door");
+  });
+
+  it('adds a Summary sheet to the workbook when asked', async () => {
+    const without = vi.fn();
+    const withSheet = vi.fn();
+    const base = { propertyNames: ['Name'], fileName: 'a.xlsx' };
+    await exportToXlsx(adapterOf(data), { ...base, save: without });
+    const status = await exportToXlsx(adapterOf(data), {
+      ...base,
+      summarySheet: true,
+      save: withSheet,
+    });
+    expect(status).toMatchObject({ phase: 'done' });
+    expect(savedBlob(withSheet).size).toBeGreaterThan(savedBlob(without).size);
+  });
+
   it('copies TSV to the clipboard hook', async () => {
     const copy = vi.fn().mockResolvedValue(undefined);
     const status = await exportToXlsx(adapterOf(data), {

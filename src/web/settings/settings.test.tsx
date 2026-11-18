@@ -9,6 +9,7 @@ import {
   useSettings,
   writeSettings,
 } from './index.js';
+import { readExcelSettings } from './settings.js';
 
 beforeEach(() => {
   installMemoryStorage();
@@ -145,5 +146,28 @@ describe('SettingsProvider', () => {
   it('works without a provider using defaults', () => {
     render(<Probe />);
     expect(screen.getByText('paint true')).toBeTruthy();
+  });
+});
+
+describe('readExcelSettings', () => {
+  it('keeps valid values and falls back on bad ones', () => {
+    expect(
+      readExcelSettings({
+        csvDelimiter: ';',
+        decimalMark: ',',
+        includeHeader: false,
+        exporterName: false,
+        summarySheet: true,
+      }),
+    ).toMatchObject({
+      csvDelimiter: ';',
+      decimalMark: ',',
+      includeHeader: false,
+      exporterName: false,
+      summarySheet: true,
+    });
+    expect(
+      readExcelSettings({ csvDelimiter: '|', decimalMark: 'x' }),
+    ).toMatchObject({ csvDelimiter: ',', decimalMark: '.' });
   });
 });
