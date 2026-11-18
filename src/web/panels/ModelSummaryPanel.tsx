@@ -20,6 +20,7 @@ import {
 import { PANE_SETTINGS, usePaneSetting } from '../settings/paneSettings.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import {
+  FailedModels,
   ModelScopeSelect,
   UnavailableModels,
   useModelScope,
@@ -194,7 +195,13 @@ export function ModelSummaryPanel({
       >
         <div className="bsh-summary__body">
           {state.status === 'ready' ? (
-            <UnavailableModels models={scope.unavailable} />
+            <>
+              <UnavailableModels models={scope.unavailable} />
+              <FailedModels
+                names={state.failed}
+                unavailable={scope.unavailable}
+              />
+            </>
           ) : null}
           {!resolved && (
             <StateBlock

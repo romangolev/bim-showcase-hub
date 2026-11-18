@@ -20,7 +20,7 @@ export type RowsState =
       request: number;
       progress: ReadProgress | null;
     }
-  | { status: 'ready'; rows: PropertyRow[] }
+  | { status: 'ready'; rows: PropertyRow[]; failed: string[] }
   | { status: 'error'; rows: PropertyRow[]; message: string };
 
 export function useResolvedAdapter(
@@ -66,12 +66,16 @@ export function usePropertyRows(
         prev.status === 'loading' ? { ...prev, progress } : prev,
       );
     };
+    let failed: string[] = [];
     readLeafRows(adapter, names, {
       signal: controller.signal,
       onProgress,
+      onFailed: (names) => {
+        failed = names;
+      },
     }).then(
       (rows) => {
-        if (!cancelled) setState({ status: 'ready', rows });
+        if (!cancelled) setState({ status: 'ready', rows, failed });
       },
       (err: unknown) => {
         if (cancelled) return;

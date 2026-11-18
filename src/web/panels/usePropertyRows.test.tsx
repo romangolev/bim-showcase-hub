@@ -50,3 +50,25 @@ describe('usePropertyRows progress and cancel', () => {
     expect(reads[0]?.signal?.aborted).toBe(true);
   });
 });
+
+describe('usePropertyRows partial failure', () => {
+  it('lists the models that failed next to the rows that loaded', async () => {
+    const adapter = {
+      getModels: () => [
+        { id: 'a', urn: 'a', name: 'Arch', visible: true, status: 'ready' },
+        { id: 'b', urn: 'b', name: 'Struct', visible: true, status: 'ready' },
+      ],
+      onModelsChange: () => () => {},
+      getLeafProperties: vi.fn(
+        async (_n: string[], ids?: readonly string[]) => {
+          if (ids?.includes('b')) throw new Error('timeout');
+          return [{ dbId: 1, name: 'El', properties: { Name: 'n' } }];
+        },
+      ),
+    } as unknown as ViewerAdapter;
+    const { result } = renderHook(() => usePropertyRows(adapter, ['Name']));
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+    expect(result.current).toMatchObject({ failed: ['Struct'] });
+    expect(result.current.rows).toHaveLength(1);
+  });
+});

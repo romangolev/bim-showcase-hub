@@ -27,6 +27,7 @@ import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { ChartCanvas } from './ChartCanvas.js';
 import { useDashboardView } from './DashboardSettings.js';
 import {
+  FailedModels,
   ModelScopeSelect,
   UnavailableModels,
   useModelScope,
@@ -247,7 +248,13 @@ export function DashboardPanel({
           />
         )}
         {state.status === 'ready' ? (
-          <UnavailableModels models={scope.unavailable} />
+          <>
+            <UnavailableModels models={scope.unavailable} />
+            <FailedModels
+              names={state.failed}
+              unavailable={scope.unavailable}
+            />
+          </>
         ) : null}
         {activePreset && board.length === 0 && state.status === 'ready' && (
           <StateBlock

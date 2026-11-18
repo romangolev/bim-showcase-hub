@@ -220,15 +220,22 @@ function shownModels(adapter: ViewerAdapter): ModelInfo[] {
     .filter((model) => model.status === 'ready' && model.visible);
 }
 
+export interface LeafReadOptions extends ReadOptions {
+  modelIds?: readonly string[];
+  onFailed?: (modelNames: string[]) => void;
+}
+
 export async function readLeafRows(
   adapter: ViewerAdapter,
   propertyNames: readonly string[],
-  options: ReadOptions = {},
+  { modelIds, onFailed, ...options }: LeafReadOptions = {},
 ): Promise<PropertyRow[]> {
   throwIfAborted(options.signal);
   const entry = readsFor(adapter);
   const progress = sumProgress(options.onProgress);
-  const models = shownModels(adapter);
+  const models = shownModels(adapter).filter(
+    (model) => !modelIds || modelIds.includes(model.id),
+  );
   const known = new Set(adapter.getModels().map((model) => model.id));
   for (const id of entry.keys.keys()) {
     if (!known.has(id)) entry.keys.delete(id);
@@ -246,12 +253,17 @@ export async function readLeafRows(
   );
   throwIfAborted(options.signal);
   const rows: PropertyRow[] = [];
+  const failed: string[] = [];
   let failure: unknown = null;
-  for (const result of results) {
+  results.forEach((result, index) => {
     if (result.status === 'fulfilled') rows.push(...result.value);
-    else failure ??= result.reason;
-  }
+    else {
+      failed.push(models[index]?.name ?? '');
+      failure ??= result.reason;
+    }
+  });
   if (failure !== null && rows.length === 0) throw failure;
+  if (failed.length > 0) onFailed?.(failed);
   return project(rows, propertyNames);
 }
 

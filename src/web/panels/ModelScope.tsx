@@ -72,3 +72,21 @@ export function UnavailableModels({ models }: { models: ModelInfo[] }) {
     </p>
   );
 }
+
+export function FailedModels({
+  names,
+  unavailable,
+}: {
+  names: string[];
+  unavailable: ModelInfo[];
+}) {
+  const failed = names.filter(
+    (name) => !unavailable.some((model) => model.name === name),
+  );
+  if (failed.length === 0) return null;
+  return (
+    <p className="bsh-scope__notice" role="status">
+      {`${failed.length} model${failed.length === 1 ? '' : 's'} failed to load: ${failed.join(', ')}. Counts cover the other models.`}
+    </p>
+  );
+}

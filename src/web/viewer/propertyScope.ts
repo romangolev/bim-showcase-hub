@@ -3,7 +3,7 @@ import {
   ALL_MODELS,
   type ModelScope,
   resolveScope,
-  scopeRows,
+  unavailableModels,
 } from './modelScope.js';
 import type { ModelDbId } from './modelSet.js';
 import type { ReadOptions } from './propertyReads.js';
@@ -51,11 +51,24 @@ export async function readProperties(
   adapter: ViewerAdapter,
   { names, scope, ...options }: ReadPropertiesRequest,
 ): Promise<PropertyRow[]> {
-  const all = await readLeafRows(adapter, names, options);
   const models = adapter.getModels();
+  const model = resolveScope(scope?.models ?? ALL_MODELS, models);
+  const failed: string[] = [];
+  const rows = await readLeafRows(adapter, names, {
+    ...options,
+    ...(model === ALL_MODELS ? {} : { modelIds: [model] }),
+    onFailed: (names) => failed.push(...names),
+  });
+  const known = new Set(
+    unavailableModels(adapter.getModels()).map((model) => model.name),
+  );
+  const unexpected = failed.filter((name) => !known.has(name));
+  if (unexpected.length > 0) {
+    throw new Error(`Could not read properties of ${unexpected.join(', ')}`);
+  }
   const elements = scope?.elements ?? 'all';
   return filterByElementScope(
-    scopeRows(all, resolveScope(scope?.models ?? ALL_MODELS, models)),
+    rows,
     elements,
     await scopeElementItems(adapter, elements),
     models[0]?.id,

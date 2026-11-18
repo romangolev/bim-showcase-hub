@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { MockViewerAdapter } from './MockViewerAdapter.js';
 import { filterByElementScope, readProperties } from './propertyScope.js';
 
@@ -45,6 +45,21 @@ describe('readProperties', () => {
     );
     expect(one.length).toBe(all.length / 2);
     expect(one.every((row) => row.modelId === 'urn-a')).toBe(true);
+    adapter.destroy();
+  });
+
+  it('fails when a model cannot be read instead of dropping its rows', async () => {
+    const adapter = new MockViewerAdapter(document.createElement('div'));
+    await adapter.loadModels([{ urn: 'urn-a' }, { urn: 'urn-b' }]);
+    vi.spyOn(adapter, 'getLeafProperties').mockImplementation(
+      async (names, modelIds) => {
+        if (modelIds?.includes('urn-b')) throw new Error('timeout');
+        return [{ dbId: 1, name: 'El', properties: { [names[0] ?? '']: 'x' } }];
+      },
+    );
+    await expect(
+      readProperties(adapter, { names: ['Category'] }),
+    ).rejects.toThrow(/Could not read properties of/);
     adapter.destroy();
   });
 

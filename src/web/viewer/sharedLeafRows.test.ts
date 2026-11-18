@@ -144,6 +144,28 @@ describe('readLeafRows with a model set', () => {
     adapter.destroy();
   });
 
+  it('reports the models that failed while returning the others', async () => {
+    const { adapter } = await combined(['urn-a', 'urn-noprops']);
+    const onFailed = vi.fn();
+    const rows = await readLeafRows(adapter, ['Category'], { onFailed });
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.every((row) => row.modelId === 'urn-a')).toBe(true);
+    expect(onFailed).toHaveBeenCalledTimes(1);
+    expect(onFailed.mock.calls[0]?.[0]).toHaveLength(1);
+    adapter.destroy();
+  });
+
+  it('reads only the requested models', async () => {
+    const { adapter, spy } = await combined(['urn-a', 'urn-b']);
+    const rows = await readLeafRows(adapter, ['Category'], {
+      modelIds: ['urn-a'],
+    });
+    expect(rows.every((row) => row.modelId === 'urn-a')).toBe(true);
+    expect(callsFor(spy, 'urn-a')).toBe(1);
+    expect(callsFor(spy, 'urn-b')).toBe(0);
+    adapter.destroy();
+  });
+
   it('does not cache an empty read and reads again after a model reloads', async () => {
     let models: ModelInfo[] = [
       { id: 'm1', urn: 'm1', name: 'M1', visible: true, status: 'ready' },
