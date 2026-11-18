@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import type { GeometryPart, GeometryRead } from '../viewer/geometryTypes.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
@@ -172,6 +173,25 @@ describe('buildGlb', () => {
     ]);
     expect(built.skippedParts).toBe(1);
     expect(built.triangleCount).toBe(1);
+  });
+
+  it('keeps the output byte-identical for a fixed input', () => {
+    const built = buildGlb([
+      triangle({ dbId: 7, model: 'm', color: [0, 0, 1, 0.5] }),
+      triangle({
+        dbId: 7,
+        model: 'm',
+        positions: new Float32Array([0, 0, 0, 2, 0, 1.5, 0, -3, 0, 1, 1, 1]),
+        indices: new Uint16Array([0, 1, 2, 1, 2, 3, 3]).slice(0, 6),
+      }),
+      triangle({
+        positions: new Float32Array(70_000 * 3).map((_, i) => (i % 97) / 7),
+        indices: new Uint32Array([0, 1, 69_999]),
+      }),
+    ]);
+    expect(
+      createHash('sha256').update(new Uint8Array(built.data)).digest('hex'),
+    ).toBe('14fbadbf912ed8012fe2d963eb1d9fca9cae93dcbb30b3d24db059c09bfe36c4');
   });
 
   it('returns an empty scene for parts without triangles', () => {
