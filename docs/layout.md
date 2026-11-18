@@ -34,7 +34,6 @@ The Viewer pane has one instance per open model, a panel `viewer:<urn>` with its
 - Closing the last tab closes the viewer group and its companions, and the URL returns to `/`.
 - A combined tab is one panel titled `N models`. Its first URN is the key and the others are in the `with` URL parameter.
 - In Documents, Ctrl or Cmd click and Space pick versions and Shift click picks a range. The pick bar offers Open together (2 to 6), Add to the open viewer and Clear.
-- A row context menu offers Open, Open as modal, Add to or Remove from the open model, Pin and Unpin.
 
 ## User pane families
 
@@ -87,7 +86,7 @@ One layout per browser in `localStorage` under `bsh.layout.v2`: `{ version: 2, l
 - `dismissed` lists companions the user closed. They stay closed until reopened or reset.
 - `lastViewerArrangement` is where the viewer and companions return when the first model opens again.
 
-The write is debounced by 300 ms. A corrupt record or a dock with no known pane falls back to the default layout. Unknown panes are dropped and missing required panes are added back. Model tabs are reconciled with the open-models store on restore.
+A corrupt record or a dock with no known pane falls back to the default layout. Model tabs are reconciled with the open-models store on restore.
 
 Open tabs are in `sessionStorage` under `bsh.models.open`. Sign-out clears them with recent and pinned models. Other keys are in [development.md](development.md#storage-keys).
 
@@ -105,17 +104,13 @@ Every drag has a menu path.
 - `F6` and `Shift+F6` move focus between pane groups.
 - After a move, focus goes to the moved tab. A live region announces moves, collapse and reset.
 
-dockview 8 ships keyboard docking only in its commercial package, so the menus and `F6` are the keyboard path.
-
 ## Narrow screens
 
 Below 876 px (`STACKED_QUERY`, `src/web/layout/LayoutProvider.tsx`) the dock is not rendered.
 
-- With no model open, Documents is the main section.
-- With a model open, a tab strip above the viewer switches models. The viewer, dashboard and summary stack in a column.
-- Documents becomes an overlay from the top bar button.
-- The saved dock is untouched and returns when the window is wide again.
-- User-added panes are not shown and the layout cannot be customized.
+- With no model open, Documents is the main section. With a model open, a tab strip switches models above a column of viewer, dashboard and summary.
+- Documents is an overlay from the top bar button.
+- The saved dock returns when the window is wide again. User-added panes are not shown.
 
 ## Limits
 
@@ -124,9 +119,3 @@ Below 876 px (`STACKED_QUERY`, `src/web/layout/LayoutProvider.tsx`) the dock is 
 - At most 8 models are loaded across all tabs (`MAX_LOADED_MEMBERS`). A combined tab counts every model it holds. Visible tabs are never paused. A paused tab offers Load model.
 - A combined tab holds at most 6 models (`MAX_COMBINED_MODELS`).
 - All open models must come from one Autodesk region, because the viewer initializes once per page. `viewer/region.ts` records the region. A model from the other region shows an error with Close other models and reload.
-
-## Testing
-
-- Unit tests run real dockview in jsdom. They assert that adapters are not destroyed by moves, floating, collapse, reset or the breakpoint switch. `multiModel.test.tsx` covers several models.
-- In mock mode `window.__bshLayout` exposes the layout API for end-to-end scripts.
-- `e2e/mock_smoke.py` checks the layout and several models with real pointer drags. `e2e/smoke.py --layout` and `--multi` check the real viewer.
