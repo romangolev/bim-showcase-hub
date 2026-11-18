@@ -1,4 +1,5 @@
 import type { ComponentType } from 'react';
+import type { Command } from '../commands/types.js';
 import type { IconName } from '../components/icons.js';
 import { PANEL_SEPARATOR, type PanelId } from './panelIds.js';
 import {
@@ -42,6 +43,15 @@ export interface PaneInstances {
   creatable?: boolean;
 }
 
+export interface PaneCommandContext {
+  isOpen: (id: PaneId) => boolean;
+  toggle: (id: PanelId) => void;
+  create: (kind: PaneId) => void;
+  focus: (id: PanelId) => void;
+  toggleDisabled?: string;
+  createDisabled?: string;
+}
+
 export interface PaneDefinition {
   id: PaneId;
   title: string;
@@ -53,6 +63,7 @@ export interface PaneDefinition {
   canFloat: boolean;
   requires: 'viewer' | 'none';
   instances?: PaneInstances;
+  commands?: (ctx: PaneCommandContext) => readonly Command[];
 }
 
 export const TREE_WIDTH_DEFAULT = 320;
@@ -72,6 +83,15 @@ export const PANES: readonly PaneDefinition[] = [
     closable: false,
     canFloat: true,
     requires: 'none',
+    commands: (ctx) => [
+      {
+        id: 'pane.focus.tree',
+        title: 'Go to Documents',
+        group: 'Panes',
+        icon: 'folder',
+        run: () => ctx.focus('tree'),
+      },
+    ],
   },
   {
     id: 'viewer',
@@ -273,6 +293,46 @@ export function isUserInstance(id: unknown): boolean {
 }
 
 export const FOLLOWERS: readonly PaneId[] = PANE_IDS.filter(isFollower);
+
+function toggleCommand(
+  pane: PaneDefinition,
+  ctx: PaneCommandContext,
+): Command | null {
+  if (!pane.closable || pane.instances) return null;
+  return {
+    id: `pane.toggle.${pane.id}`,
+    title: `${ctx.isOpen(pane.id) ? 'Close' : 'Open'} ${pane.title} pane`,
+    group: 'Panes',
+    icon: pane.icon,
+    keywords: 'show hide toggle',
+    ...(ctx.toggleDisabled ? { disabled: ctx.toggleDisabled } : {}),
+    run: () => ctx.toggle(pane.id),
+  };
+}
+
+function createCommand(
+  pane: PaneDefinition,
+  ctx: PaneCommandContext,
+): Command | null {
+  if (!pane.instances?.creatable) return null;
+  return {
+    id: `pane.new.${pane.id}`,
+    title: `New ${pane.title.toLowerCase()}`,
+    group: 'Panes',
+    icon: pane.icon,
+    ...(ctx.createDisabled ? { disabled: ctx.createDisabled } : {}),
+    run: () => ctx.create(pane.id),
+  };
+}
+
+export function paneCommands(ctx: PaneCommandContext): Command[] {
+  return PANES.flatMap((pane) => {
+    if (pane.commands) return [...pane.commands(ctx)];
+    return [toggleCommand(pane, ctx), createCommand(pane, ctx)].filter(
+      (command): command is Command => command !== null,
+    );
+  });
+}
 
 export function hasPlainPanel(id: PaneId): boolean {
   return paneById(id).component !== null;

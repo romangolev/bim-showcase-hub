@@ -10,6 +10,7 @@ export interface Command {
   group: string;
   keywords?: string;
   icon?: IconName;
+  keys?: readonly string[];
   disabled?: string;
   run: (host: CommandHost) => void | Promise<void>;
 }
