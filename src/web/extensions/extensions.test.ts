@@ -184,7 +184,7 @@ describe('export rows', () => {
     adapter.destroy();
   });
 
-  it('counts only the rows written and skips keys containing "<"', async () => {
+  it('writes a sheet for every group, including keys containing "<"', async () => {
     const data = [
       row(1, { Category: 'Walls' }),
       row(2, { Category: 'Walls' }),
@@ -193,10 +193,14 @@ describe('export rows', () => {
     ];
     const adapter = {
       getLeafProperties: () => Promise.resolve(data),
+      getModels: () => [
+        { id: 'm', urn: 'm', name: 'm', visible: true, status: 'ready' },
+      ],
     } as unknown as MockViewerAdapter;
     const sheets = buildExportSheets(data, ['Category'], 'Category');
     expect(sheets.map((sheet) => sheet.name)).toEqual([
       'Walls',
+      'Model <Sketch>',
       EMPTY_VALUE_LABEL,
     ]);
     const status = await exportToXlsx(adapter, {
@@ -206,22 +210,8 @@ describe('export rows', () => {
     expect(status).toEqual({
       phase: 'done',
       fileName: 'model-properties.xlsx',
-      rowCount: 3,
+      rowCount: 4,
     });
-  });
-
-  it('reports empty when every group is skipped', async () => {
-    const data = [row(1, { Category: '<none>' }), row(2, { Category: 'A<B' })];
-    const adapter = {
-      getLeafProperties: () => Promise.resolve(data),
-    } as unknown as MockViewerAdapter;
-    const save = vi.fn();
-    const status = await exportToXlsx(adapter, {
-      propertyNames: ['Category'],
-      save,
-    });
-    expect(status).toEqual({ phase: 'empty' });
-    expect(save).not.toHaveBeenCalled();
   });
 
   it('reports empty and error outcomes', async () => {
@@ -229,6 +219,9 @@ describe('export rows', () => {
     expect((await exportToXlsx(adapter)).phase).toBe('empty');
     const failing = {
       getLeafProperties: () => Promise.reject(new Error('boom')),
+      getModels: () => [
+        { id: 'm', urn: 'm', name: 'm', visible: true, status: 'ready' },
+      ],
     } as unknown as MockViewerAdapter;
     const status = await exportToXlsx(failing);
     expect(describeStatus(status)).toBe('Export failed: boom');

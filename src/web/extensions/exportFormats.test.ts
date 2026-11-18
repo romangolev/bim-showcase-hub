@@ -22,6 +22,9 @@ function adapterOf(
 ): never {
   return {
     getLeafProperties: () => Promise.resolve(rows),
+    getModels: () => [
+      { id: 'm', urn: 'm', name: 'm', visible: true, status: 'ready' },
+    ],
     getModelSelection: () => [],
     ...extra,
   } as never;
@@ -224,6 +227,24 @@ describe('exportToXlsx formats', () => {
       "dbId\tName\r\n1\t'=cmd\r\n2\tDoor",
     );
     expect(status).toMatchObject({ phase: 'done', rowCount: 2 });
+  });
+
+  it('reports an error when the clipboard is unavailable', async () => {
+    const copy = vi.fn(() => {
+      throw new TypeError(
+        "Cannot read properties of undefined (reading 'write')",
+      );
+    });
+    const onStatus = vi.fn();
+    const status = await exportToXlsx(adapterOf(data), {
+      propertyNames: ['Name'],
+      format: 'copy',
+      copy,
+      onStatus,
+      save: vi.fn(),
+    });
+    expect(status).toMatchObject({ phase: 'error' });
+    expect(onStatus).toHaveBeenLastCalledWith(status);
   });
 
   it('copies with the configured delimiter and decimal mark', async () => {

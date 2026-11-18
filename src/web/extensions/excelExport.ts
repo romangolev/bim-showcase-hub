@@ -146,12 +146,10 @@ export function buildExportSheets(
     if (bucket) bucket.push(row);
     else groups.set(key, [row]);
   }
-  return [...groups.entries()]
-    .filter(([key]) => !key.includes('<'))
-    .map(([key, bucket]) => ({
-      name: sheetNameFor(key, used),
-      ...buildExportRows(bucket, propertyNames, withModel),
-    }));
+  return [...groups.entries()].map(([key, bucket]) => ({
+    name: sheetNameFor(key, used),
+    ...buildExportRows(bucket, propertyNames, withModel),
+  }));
 }
 
 export interface ExportOptions {
@@ -218,15 +216,16 @@ export async function exportToXlsx(
     reject: (): void => undefined,
   };
   let copied: Promise<void> | undefined;
-  if (format === 'copy') {
-    const pending = new Promise<string>((resolve, reject) => {
-      copyText.resolve = resolve;
-      copyText.reject = () => reject(new Error('Export stopped'));
-    });
-    copied = copy(pending);
-    copied.catch(() => undefined);
-  }
   try {
+    if (format === 'copy') {
+      const pending = new Promise<string>((resolve, reject) => {
+        copyText.resolve = resolve;
+        copyText.reject = () => reject(new Error('Export stopped'));
+      });
+      pending.catch(() => undefined);
+      copied = copy(pending);
+      copied.catch(() => undefined);
+    }
     emit({ phase: 'reading' });
     const all = await readLeafRows(adapter, propertyNames);
     const models =
