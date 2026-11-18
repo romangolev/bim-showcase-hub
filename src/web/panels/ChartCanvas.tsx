@@ -159,7 +159,10 @@ export function ChartCanvas({
             : {},
       },
     });
+    let painted = litKeyRef.current;
     paintRef.current = (key) => {
+      if (key === painted) return;
+      painted = key;
       Object.assign(instance.data.datasets[0] ?? {}, styleFor(key));
       instance.update('none');
     };
