@@ -23,6 +23,7 @@ import {
   ModelSet,
   ModelSetError,
   metersPerUnit,
+  modelIdFor,
   readySignature,
   spreadOf,
   togetherOffsets,
@@ -194,6 +195,13 @@ describe('ModelSet', () => {
     expect(set.list()).toEqual([]);
     set.add({ urn: 'c' });
     expect(set.get('c')?.name).toBe('Model 1');
+  });
+});
+
+describe('model ids', () => {
+  it('equal the model urn, so a urn can seed a model scope', () => {
+    expect(modelIdFor('urn:abc')).toBe('urn:abc');
+    expect(new ModelSet<object>().add({ urn: 'urn:abc' }).id).toBe('urn:abc');
   });
 });
 

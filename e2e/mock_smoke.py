@@ -1712,6 +1712,7 @@ def check_pane_families(page, checks):
     page.reload()
     settle(page, 1500)
     checks.add("user panes are restored with no model open", charts().count() == 2 and summaries().count() == 1, [charts().count(), summaries().count()])
+    checks.add("user panes show an empty state with no model open", page.get_by_text("No charts yet").count() == 2 and page.get_by_text("No model loaded yet").count() == 1, [page.get_by_text("No charts yet").count(), page.get_by_text("No model loaded yet").count()])
     expand_to_viewable(page).click()
     wait_until(page, lambda: models(page)["active"])
     settle(page, 1000)
