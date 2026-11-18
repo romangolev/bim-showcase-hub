@@ -1054,4 +1054,89 @@ describe('RealViewerAdapter geometry export', () => {
     const result = await one.getIfcSource();
     expect(result.models.map((m) => m.id)).toEqual([infoA?.id]);
   });
+
+  describe('getVisible', () => {
+    const children = new Map<number, number[]>([
+      [1, [2, 5]],
+      [2, [3, 4]],
+    ]);
+    const tree = {
+      getRootId: () => 1,
+      getChildCount: (id: number) => children.get(id)?.length ?? 0,
+      enumNodeChildren: (
+        id: number,
+        cb: (child: number) => void,
+        recursive?: boolean,
+      ) => {
+        for (const child of children.get(id) ?? []) {
+          cb(child);
+          if (recursive) tree.enumNodeChildren(child, cb, true);
+        }
+      },
+    };
+
+    interface Plan {
+      hidden?: number[][];
+      isolated?: number[][];
+    }
+
+    async function scene(modelCount: number, plan: Plan) {
+      const one = makeAdapter();
+      const viewer = () => viewers[0] as FakeViewer;
+      await one.load('urn-a', 'A.rvt');
+      const a = viewer().model;
+      a.getObjectTree = (ok) => ok(tree);
+      const models = [a];
+      if (modelCount > 1) {
+        const b = fakeSourceModel('b');
+        b.getObjectTree = (ok) => ok(tree);
+        viewer().loadDocumentNode = async () => b;
+        models.push(b);
+        viewer().getAllModels = () => models;
+        await one.addModel({ urn: 'urn-b', name: 'B.rvt' });
+      }
+      const pick = (lists: number[][] | undefined, model: ViewerModel) =>
+        lists?.[models.indexOf(model)] ?? [];
+      Object.assign(viewer(), {
+        getHiddenNodes: (model: ViewerModel) => pick(plan.hidden, model),
+        getIsolatedNodes: (model: ViewerModel) => pick(plan.isolated, model),
+      });
+      return one;
+    }
+
+    const dbIds = (items: { dbId: number }[]) =>
+      items.map((item) => item.dbId).sort();
+
+    it('returns every leaf when nothing is hidden or isolated', async () => {
+      const one = await scene(1, {});
+      expect(dbIds(await one.getVisible())).toEqual([3, 4, 5]);
+    });
+
+    it('drops the descendants of a hidden parent', async () => {
+      const one = await scene(1, { hidden: [[2]] });
+      expect(dbIds(await one.getVisible())).toEqual([5]);
+    });
+
+    it('keeps only the isolated leaves', async () => {
+      const one = await scene(1, { isolated: [[3]] });
+      expect(dbIds(await one.getVisible())).toEqual([3]);
+    });
+
+    it('honours hidden nodes inside an isolated parent', async () => {
+      const one = await scene(1, { hidden: [[4]], isolated: [[2]] });
+      expect(dbIds(await one.getVisible())).toEqual([3]);
+    });
+
+    it('applies hidden nodes to their own model only', async () => {
+      const one = await scene(2, { hidden: [[], [5]] });
+      const [infoA, infoB] = one.getModels();
+      const visible = await one.getVisible();
+      expect(
+        dbIds(visible.filter((item) => item.modelId === infoA?.id)),
+      ).toEqual([3, 4, 5]);
+      expect(
+        dbIds(visible.filter((item) => item.modelId === infoB?.id)),
+      ).toEqual([3, 4]);
+    });
+  });
 });
