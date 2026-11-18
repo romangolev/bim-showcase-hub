@@ -57,11 +57,13 @@ import type {
   CameraState,
   LoadStage,
   PaintSwatchSpec,
+  RestoreReport,
   Rgba,
   ToolGroupSpec,
   ViewerAdapter,
   ViewerState,
 } from './ViewerAdapter.js';
+import { NOTHING_SKIPPED } from './ViewerAdapter.js';
 import { sanitizeViewerState } from './viewerState.js';
 import './viewer.css';
 
@@ -553,9 +555,9 @@ export class MockViewerAdapter implements ViewerAdapter {
     return state;
   }
 
-  async restoreState(raw: ViewerState): Promise<void> {
+  async restoreState(raw: ViewerState): Promise<RestoreReport> {
     const state = sanitizeViewerState(raw);
-    if (!state) return;
+    if (!state) return NOTHING_SKIPPED;
     const keys = (field: 'isolated' | 'hidden' | 'selection') =>
       Object.entries(state.models)
         .filter(([modelId]) => this.models.get(modelId)?.visible)
@@ -570,6 +572,7 @@ export class MockViewerAdapter implements ViewerAdapter {
     this.applyIsolation();
     this.setSelectionKeys(keys('selection'));
     if (state.camera) this.setCamera(state.camera);
+    return NOTHING_SKIPPED;
   }
 
   getIsolated(): ModelDbId[] {

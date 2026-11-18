@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { viewerCommands } from '../commands/viewerCommands.js';
 import { forgetPersonal } from '../storage.js';
 import { MAX_NAME_LENGTH } from '../store/savedStore.js';
@@ -61,6 +61,24 @@ describe('viewpoints store', () => {
     expect(renameViewpoint(id, 'n'.repeat(200))).toBe(true);
     expect(listViewpoints()[0]?.name).toHaveLength(MAX_NAME_LENGTH);
     expect(renameViewpoint(id, '  ')).toBe(false);
+  });
+
+  it('reports a restore that skipped parts as partial', async () => {
+    const adapter = await loaded('urn-a');
+    saveViewpoint('A', adapter.getState());
+    const id = listViewpoints()[0]?.id ?? '';
+    const restore = vi.spyOn(adapter, 'restoreState');
+    restore.mockResolvedValueOnce({ skippedModels: [], viewerFailed: true });
+    const camera = await goToViewpoint(adapter, id);
+    expect(camera.result).toBe('partial');
+    expect(camera.text).toContain('camera');
+    restore.mockResolvedValueOnce({
+      skippedModels: ['x'],
+      viewerFailed: false,
+    });
+    const tree = await goToViewpoint(adapter, id);
+    expect(tree.result).toBe('partial');
+    expect(tree.text).toContain('object tree');
   });
 
   it('tells hidden models from closed ones', async () => {

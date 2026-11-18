@@ -70,11 +70,13 @@ import { ToolGroupController } from './toolGroupController.js';
 import type {
   CameraState,
   LoadStage,
+  RestoreReport,
   Rgba,
   ToolGroupSpec,
   ViewerAdapter,
   ViewerState,
 } from './ViewerAdapter.js';
+import { NOTHING_SKIPPED } from './ViewerAdapter.js';
 import { readViewerGeometry } from './viewerGeometry.js';
 import { readViewerSource, type SourceModelMeta } from './viewerSource.js';
 import {
@@ -748,15 +750,16 @@ export class RealViewerAdapter implements ViewerAdapter {
     );
   }
 
-  async restoreState(state: ViewerState): Promise<void> {
+  async restoreState(state: ViewerState): Promise<RestoreReport> {
     const viewer = this.viewer;
-    if (!viewer) return;
-    const selection = await restoreViewerState(
+    if (!viewer) return NOTHING_SKIPPED;
+    const { selection, report } = await restoreViewerState(
       viewer,
       this.stateModels(),
       state,
     );
     if (this.viewer === viewer) this.selectModelIds(selection);
+    return report;
   }
 
   private stateModels(): { id: string; handle: ViewerModel }[] {

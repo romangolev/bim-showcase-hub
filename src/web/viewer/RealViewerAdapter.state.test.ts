@@ -219,10 +219,10 @@ describe('viewer state', () => {
     const state = adapter.getState();
     await expect(
       adapter.restoreState(null as unknown as ViewerState),
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({ skippedModels: [], viewerFailed: false });
     await expect(
       adapter.restoreState({ version: 2 } as unknown as ViewerState),
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({ skippedModels: [], viewerFailed: false });
     await adapter.restoreState({
       ...state,
       camera: { eye: ['x'] },
@@ -232,8 +232,22 @@ describe('viewer state', () => {
     env.specs.set('bad', { propsFail: 'no tree' });
     await adapter.addModel({ urn: 'bad' });
     state.models.bad = { isolated: [11], hidden: [], selection: [11] };
-    await expect(adapter.restoreState(state)).resolves.toBeUndefined();
+    await expect(adapter.restoreState(state)).resolves.toEqual({
+      skippedModels: ['bad'],
+      viewerFailed: false,
+    });
     expect(adapter.getState().models.bad?.isolated).toEqual([]);
+  });
+
+  it('reports a viewer restore that threw', async () => {
+    const state = adapter.getState();
+    viewer().restoreState = () => {
+      throw new Error('boom');
+    };
+    await expect(adapter.restoreState(state)).resolves.toEqual({
+      skippedModels: [],
+      viewerFailed: true,
+    });
   });
 
   it('leaves models absent from the state and models with unreadable trees untouched', async () => {
@@ -267,7 +281,10 @@ describe('viewer state', () => {
       state.models.arch = { isolated: [11], hidden: [], selection: [] };
       const done = adapter.restoreState(state);
       await vi.advanceTimersByTimeAsync(TREE_TIMEOUT_MS + 1);
-      await expect(done).resolves.toBeUndefined();
+      await expect(done).resolves.toEqual({
+        skippedModels: ['slow'],
+        viewerFailed: false,
+      });
       expect(adapter.getState().models.arch?.isolated).toEqual([11]);
       expect(adapter.getState().models.slow?.isolated).toEqual([]);
     } finally {
@@ -289,7 +306,10 @@ describe('viewer state', () => {
   it('restores nothing after the adapter is destroyed', async () => {
     const state = adapter.getState();
     adapter.destroy();
-    await expect(adapter.restoreState(state)).resolves.toBeUndefined();
+    await expect(adapter.restoreState(state)).resolves.toEqual({
+      skippedModels: [],
+      viewerFailed: false,
+    });
     expect(adapter.getState().models).toEqual({});
   });
 });

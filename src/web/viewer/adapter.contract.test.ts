@@ -398,9 +398,9 @@ describe('mock fitting, screenshot and state', () => {
     expect(adapter.getState().models.gone).toBeUndefined();
     await expect(
       adapter.restoreState(null as unknown as typeof state),
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({ skippedModels: [], viewerFailed: false });
     await expect(
       adapter.restoreState({ version: 9 } as unknown as typeof state),
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({ skippedModels: [], viewerFailed: false });
   });
 });

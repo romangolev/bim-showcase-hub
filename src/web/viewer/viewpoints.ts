@@ -10,7 +10,11 @@ import {
   upsertSaved,
   useSavedItems,
 } from '../store/savedStore.js';
-import type { ViewerAdapter, ViewerState } from './ViewerAdapter.js';
+import type {
+  RestoreReport,
+  ViewerAdapter,
+  ViewerState,
+} from './ViewerAdapter.js';
 import { sanitizeViewerState } from './viewerState.js';
 
 export const VIEWPOINT_KIND = 'viewpoint';
@@ -128,8 +132,9 @@ export async function goToViewpoint(
       }.`,
     };
   }
+  let report: RestoreReport;
   try {
-    await adapter.restoreState(point.state);
+    report = await adapter.restoreState(point.state);
   } catch {
     return {
       result: 'failed',
@@ -139,6 +144,10 @@ export async function goToViewpoint(
   const skipped = [
     closed.length > 0 ? 'models that are not open' : '',
     hidden.length > 0 ? 'hidden models' : '',
+    report.skippedModels.length > 0
+      ? 'models whose object tree could not be read'
+      : '',
+    report.viewerFailed ? 'the camera and section planes' : '',
   ].filter(Boolean);
   return skipped.length > 0
     ? {

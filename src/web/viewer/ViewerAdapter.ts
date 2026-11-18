@@ -61,6 +61,16 @@ export interface CameraState {
   orthoHeight?: number;
 }
 
+export interface RestoreReport {
+  skippedModels: string[];
+  viewerFailed: boolean;
+}
+
+export const NOTHING_SKIPPED: RestoreReport = {
+  skippedModels: [],
+  viewerFailed: false,
+};
+
 export interface ViewerState {
   version: 1;
   camera: CameraState | null;
@@ -108,7 +118,7 @@ export interface ViewerAdapter {
   showAll(): void;
   fitToView(items?: readonly ModelDbId[]): void;
   getState(): ViewerState;
-  restoreState(state: ViewerState): Promise<void>;
+  restoreState(state: ViewerState): Promise<RestoreReport>;
   getScreenshot(width?: number, height?: number): Promise<Blob>;
   getCamera(): CameraState | null;
   setCamera(camera: CameraState): void;
