@@ -141,7 +141,7 @@ export function defineRecord<T>(spec: RecordSpec<T>): PersistedRecord<T> {
     has: () => peek() !== undefined,
     write(value) {
       const stored = adapter.set(area, key, codec.encode(value));
-      notify(key, value);
+      if (stored) notify(key, value);
       return stored;
     },
     remove() {
@@ -247,7 +247,7 @@ export function usePersisted<T>(
           ? (next as (p: T) => T)(valueRef.current)
           : next;
       setValue(resolved);
-      record.write(resolved);
+      if (!record.write(resolved)) notify(record.key, resolved);
     },
     [record, setValue],
   );

@@ -129,7 +129,18 @@ describe('records', () => {
     expect(a.result.current[0]).toBe(9);
   });
 
-  it('syncs hooks even when storage rejects the write', async () => {
+  it('does not notify subscribers of a write that storage rejected', async () => {
+    adapter.set = () => false;
+    const seen = renderHook(() => usePersisted(count));
+    await act(async () => {
+      expect(count.write(5)).toBe(false);
+      await Promise.resolve();
+    });
+    expect(seen.result.current[0]).toBe(1);
+    expect(count.read()).toBe(1);
+  });
+
+  it('keeps a rejected update in memory for the session across mounted hooks', async () => {
     adapter.set = () => false;
     const a = renderHook(() => usePersisted(count));
     const b = renderHook(() => usePersisted(count));
@@ -139,6 +150,7 @@ describe('records', () => {
     });
     expect(a.result.current[0]).toBe(5);
     expect(b.result.current[0]).toBe(5);
+    expect(count.read()).toBe(1);
   });
 
   it('applies consecutive functional updates exactly once each', () => {

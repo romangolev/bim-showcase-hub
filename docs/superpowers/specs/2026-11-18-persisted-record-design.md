@@ -63,7 +63,7 @@ A. The handle bundles what must stay consistent (key, default, sanitizer, codec,
 - `StorageAdapter` has `get`, `set`, `remove` and `keys`, each per area (`local` or `session`). `browserAdapter` reads `window.localStorage` and `window.sessionStorage` lazily and swallows blocked storage. `memoryAdapter()` backs tests. `setStorageAdapter` swaps it.
 - A record is personal when its key is in `BSH_KEYS.personal` or starts with a prefix in `BSH_PERSONAL_PREFIXES`. Everything else is a preference. The lists are static so a lazily loaded module cannot be missed by forget.
 - `forgetPersonal` removes the static personal keys and every stored key under a personal prefix in both areas, drops every family cache, runs the forget hooks, then fires `FORGET_EVENT`. Mounted hooks reset personal records to their default and re-read preference records.
-- `write` always notifies subscribers of that key (in a microtask, as before), even when the browser rejected the write, so two mounted hooks stay in step.
+- `write` notifies subscribers of that key (in a microtask) only when the browser accepted the write, so a list never shows an item that was not saved. `usePersisted`'s `update` is the one exception: when the write is rejected (private mode, full storage) it keeps the value in memory and notifies mounted hooks, so settings still work for the session.
 - A codec option stores raw strings where the format is not JSON today (theme, owner, open models, saved items wrapper).
 
 ## Caller migration
