@@ -1,4 +1,4 @@
-import { flag, isRecord } from '../../shared/guards.js';
+import { flag, isRecord, required } from '../../shared/guards.js';
 import {
   type BaseElementScope,
   type ElementScope,
@@ -46,11 +46,6 @@ export const DEFAULT_EXCEL_SETTINGS: ExcelSettings = {
   exporterName: true,
   summarySheet: false,
 };
-
-function required(value: unknown, fallback: string): string {
-  const next = typeof value === 'string' ? value.trim() : fallback;
-  return next || fallback;
-}
 
 export function readExcelSettings(value: unknown): ExcelSettings {
   const source = isRecord(value) ? value : {};

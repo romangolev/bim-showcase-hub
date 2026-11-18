@@ -1,3 +1,4 @@
+import { required, text } from '../../shared/guards.js';
 import { ALLOWED_CLASSES } from './classTable.js';
 import type { IfcSettings } from './types.js';
 
@@ -14,15 +15,6 @@ export const DEFAULT_IFC_SETTINGS: IfcSettings = {
   organisation: '',
   lengthUnit: 'm',
 };
-
-function text(value: unknown, fallback: string): string {
-  return typeof value === 'string' ? value.trim() : fallback;
-}
-
-function required(value: unknown, fallback: string): string {
-  const next = text(value, fallback);
-  return next || fallback;
-}
 
 function list(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
