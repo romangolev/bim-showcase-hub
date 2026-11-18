@@ -259,4 +259,17 @@ describe('mock selecting and isolating', () => {
     expect(await adapter.getVisible()).toHaveLength(buildMockElements().length);
     expect(host.querySelectorAll('.bsh-mock__el--dim')).toHaveLength(0);
   });
+
+  it('hides elements and shows all again', async () => {
+    await setup();
+    const [first] = buildMockElements();
+    const modelId = adapter.getModels()[0]?.id ?? '';
+    const total = buildMockElements().length;
+    adapter.hideModelIds([{ modelId, dbId: first?.dbId ?? 0 }]);
+    expect(await adapter.getVisible()).toHaveLength(total - 1);
+    expect(host.querySelectorAll('.bsh-mock__el--hidden')).toHaveLength(1);
+    adapter.showAll();
+    expect(await adapter.getVisible()).toHaveLength(total);
+    expect(host.querySelectorAll('.bsh-mock__el--hidden')).toHaveLength(0);
+  });
 });

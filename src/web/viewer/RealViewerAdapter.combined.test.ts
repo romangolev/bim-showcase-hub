@@ -590,6 +590,23 @@ describe('selecting and isolating by model', () => {
     expect(viewer().isolated.get(str)).toEqual([]);
   });
 
+  it('hides per model and shows everything again', async () => {
+    await adapter.loadModels([{ urn: 'arch' }, { urn: 'str' }]);
+    const arch = viewer().modelOf('arch');
+    const str = viewer().modelOf('str');
+    adapter.hideModelIds([
+      { modelId: 'arch', dbId: 3 },
+      { modelId: 'arch', dbId: 4 },
+    ]);
+    expect(viewer().getHiddenNodes(arch)).toEqual([3, 4]);
+    expect(viewer().getHiddenNodes(str)).toEqual([]);
+    adapter.isolateModelIds([{ modelId: 'str', dbId: 9 }]);
+    adapter.showAll();
+    expect(viewer().getHiddenNodes(arch)).toEqual([]);
+    expect(viewer().isolated.get(arch)).toEqual([]);
+    expect(viewer().isolated.get(str)).toEqual([]);
+  });
+
   it('fits the view to the selection', async () => {
     await adapter.loadModels([{ urn: 'arch' }]);
     const before = viewer().fits;

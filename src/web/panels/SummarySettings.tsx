@@ -2,33 +2,21 @@ import { NumberField } from '../components/NumberField.js';
 import {
   ACTION_LABELS,
   ELEMENT_ACTIONS,
-  type ElementAction,
   sanitizeAction,
 } from '../extensions/elementActions.js';
 import {
-  DEFAULT_SUMMARY_VIEW,
   SUMMARY_COLUMNS,
   type SummaryColumn,
   type SummaryView,
-  sanitizeView,
 } from '../extensions/modelSummary.js';
 import type { ModalDefinition } from '../modal/types.js';
-import { BSH_KEYS } from '../storage.js';
-import { usePersistedState } from '../usePersistedState.js';
+import { PANE_SETTINGS, usePaneSetting } from '../settings/paneSettings.js';
 
 export const SUMMARY_SETTINGS_ID = 'summary-settings';
 
 export function SummarySettingsBody() {
-  const [view, setView, resetView] = usePersistedState<SummaryView>(
-    BSH_KEYS.personal.summaryView,
-    DEFAULT_SUMMARY_VIEW,
-    sanitizeView,
-  );
-  const [action, setAction] = usePersistedState<ElementAction>(
-    BSH_KEYS.personal.summaryAction,
-    'select',
-    sanitizeAction,
-  );
+  const [view, setView, resetView] = usePaneSetting(PANE_SETTINGS.summary.view);
+  const [action, setAction] = usePaneSetting(PANE_SETTINGS.summary.action);
   const patch = (next: Partial<SummaryView>) =>
     setView((prev) => ({ ...prev, ...next }));
   const toggleColumn = (column: SummaryColumn) =>

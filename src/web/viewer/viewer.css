@@ -214,6 +214,10 @@
   opacity: 0.12;
 }
 
+.bsh-mock__el--hidden {
+  display: none;
+}
+
 .bsh-mock__el--themed {
   stroke: var(--color-snow);
 }

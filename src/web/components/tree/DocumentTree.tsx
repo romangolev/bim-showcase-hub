@@ -29,7 +29,7 @@ import {
   ROOT_SCOPE,
   scopeKey,
 } from '../../api/scope.js';
-import { usePersistedState } from '../../usePersistedState.js';
+import { PANE_SETTINGS, usePaneSetting } from '../../settings/paneSettings.js';
 import { MODEL_LIMIT_MESSAGE } from '../../viewer/modelSet.js';
 import { Icon } from '../icons.js';
 import { Menu, type MenuEntry } from '../Menu.js';
@@ -43,14 +43,7 @@ import {
   rowHeightFor,
   TreeRowView,
 } from './TreeRowView.js';
-import {
-  DEFAULT_TREE_VIEW,
-  metaText,
-  sanitizeTreeView,
-  sortChildren,
-  TREE_VIEW_KEY,
-  type TreeView,
-} from './treeView.js';
+import { metaText, sortChildren } from './treeView.js';
 import {
   blockedNotice,
   VIEW_STATE_COPY,
@@ -200,11 +193,7 @@ export function DocumentTree({
     stale: new Set<string>(),
   }).current;
 
-  const [view, setView] = usePersistedState<TreeView>(
-    TREE_VIEW_KEY,
-    DEFAULT_TREE_VIEW,
-    sanitizeTreeView,
-  );
+  const [view, setView] = usePaneSetting(PANE_SETTINGS.tree.view);
   const viewEntries = (): MenuEntry[] => [
     {
       id: 'sort-name',

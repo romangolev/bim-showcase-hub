@@ -5,38 +5,28 @@ import {
   DASHBOARD_PRESETS,
   type DashboardKind,
   type DashboardView,
-  DEFAULT_DASHBOARD_VIEW,
   KIND_LABELS,
   MAX_CATEGORIES,
   MIN_CATEGORIES,
-  sanitizeDashboardView,
 } from '../extensions/dashboardPresets.js';
 import {
   ACTION_LABELS,
   ELEMENT_ACTIONS,
-  type ElementAction,
   sanitizeAction,
 } from '../extensions/elementActions.js';
 import type { ModalDefinition } from '../modal/types.js';
-import { BSH_KEYS } from '../storage.js';
-import { usePersistedState } from '../usePersistedState.js';
+import { PANE_SETTINGS, usePaneSetting } from '../settings/paneSettings.js';
 
 export const DASHBOARD_SETTINGS_ID = 'dashboard-settings';
 
 export function useDashboardView() {
-  return usePersistedState<DashboardView>(
-    BSH_KEYS.personal.dashboardView,
-    DEFAULT_DASHBOARD_VIEW,
-    sanitizeDashboardView,
-  );
+  return usePaneSetting(PANE_SETTINGS.dashboard.view);
 }
 
 export function DashboardSettingsBody() {
   const [view, setView, resetView] = useDashboardView();
-  const [action, setAction, resetAction] = usePersistedState<ElementAction>(
-    BSH_KEYS.personal.dashboardAction,
-    'select',
-    sanitizeAction,
+  const [action, setAction, resetAction] = usePaneSetting(
+    PANE_SETTINGS.dashboard.action,
   );
   const patch = (next: Partial<DashboardView>) =>
     setView((prev) => ({ ...prev, ...next }));
