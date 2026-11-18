@@ -6,6 +6,7 @@ import {
   scopeRows,
 } from './modelScope.js';
 import type { ModelDbId } from './modelSet.js';
+import type { ReadOptions } from './propertyReads.js';
 import { readLeafRows } from './sharedLeafRows.js';
 import type { ViewerAdapter } from './ViewerAdapter.js';
 
@@ -41,16 +42,16 @@ export function filterByElementScope<
   );
 }
 
-export interface ReadPropertiesRequest {
+export interface ReadPropertiesRequest extends ReadOptions {
   names: readonly string[];
   scope?: Partial<PropertyScope>;
 }
 
 export async function readProperties(
   adapter: ViewerAdapter,
-  { names, scope }: ReadPropertiesRequest,
+  { names, scope, ...options }: ReadPropertiesRequest,
 ): Promise<PropertyRow[]> {
-  const all = await readLeafRows(adapter, names);
+  const all = await readLeafRows(adapter, names, options);
   const models = adapter.getModels();
   const elements = scope?.elements ?? 'all';
   return filterByElementScope(
