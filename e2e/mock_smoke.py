@@ -1553,6 +1553,52 @@ def check_documents_return(page, checks):
     checks.add("closing the last model tab returns the url to /", page.url.rstrip("/") == BASE_URL, page.url)
 
 
+def check_task_center(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page)
+    if not models(page)["models"]:
+        page.locator("[role=treeitem][data-viewable=true]").first.click()
+        wait_until(page, lambda: models(page)["active"])
+        settle(page, 1000)
+    trigger = page.get_by_role("button", name=re.compile(r"^Tasks"))
+    checks.add("the top bar shows the task center once a model has loaded", trigger.count() == 1, trigger.count())
+    trigger.click()
+    popover = page.get_by_role("region", name="Tasks")
+    checks.add("the task list names the model load as done", popover.get_by_text("Done").count() >= 1 and popover.get_by_text(re.compile(r"^Loading ")).count() >= 1, popover.inner_text())
+    page.keyboard.press("Escape")
+    checks.add("Escape closes the task list", page.get_by_role("region", name="Tasks").count() == 0)
+    live = page.locator("[role=status][aria-live=polite]").filter(has_text=re.compile(r"Loading .* finished"))
+    checks.add("one live region announces the finished load", live.count() == 1, live.count())
+
+
+def check_pane_families(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page)
+    if not models(page)["models"]:
+        page.locator("[role=treeitem][data-viewable=true]").first.click()
+        wait_until(page, lambda: models(page)["active"])
+        settle(page, 1000)
+    charts = lambda: page.locator(".dv-tab").filter(has_text=re.compile(r"^Chart \d$"))
+    for _ in range(2):
+        page.get_by_role("button", name="Panes").click()
+        page.get_by_role("menuitem", name="New chart").click()
+        settle(page, 500)
+    checks.add("New chart opens two chart panes", charts().count() == 2, charts().count())
+    page.reload()
+    settle(page, 1500)
+    checks.add("chart panes survive a reload", charts().count() == 2, charts().count())
+    tab = charts().first
+    tab.hover()
+    tab.locator(".dv-default-tab-action").click()
+    settle(page, 500)
+    checks.add("closing one chart pane keeps the other", charts().count() == 1, charts().count())
+    tab = charts().first
+    tab.hover()
+    tab.locator(".dv-default-tab-action").click()
+    settle(page, 500)
+    checks.add("closing the last chart pane removes the family", charts().count() == 0, charts().count())
+
+
 def run_interaction_checks(page, checks, notes):
     try:
         check_layout(page, checks, notes)
@@ -1589,6 +1635,12 @@ def run_interaction_checks(page, checks, notes):
     except Exception as exc:
         page.screenshot(path=str(OUTPUT_DIR / "mock-blocked-picks-failure.png"))
         checks.add("check_blocked_picks", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+    for check in (check_task_center, check_pane_families):
+        try:
+            check(page, checks)
+        except Exception as exc:
+            page.screenshot(path=str(OUTPUT_DIR / f"mock-{check.__name__}-failure.png"))
+            checks.add(check.__name__, False, f"{type(exc).__name__}: {str(exc)[:160]}")
     try:
         check_documents_return(page, checks)
     except Exception as exc:
