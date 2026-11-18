@@ -6,6 +6,7 @@ import {
   DashboardPane,
   ModelPaneBody,
   ModelsPane,
+  PropertiesInstancePane,
   SummaryInstancePane,
   SummaryPane,
   TreePane,
@@ -18,7 +19,8 @@ export type PaneId =
   | 'dashboard'
   | 'models'
   | 'chart'
-  | 'modelSummary';
+  | 'modelSummary'
+  | 'properties';
 
 export type PlacementDirection = 'left' | 'right' | 'below';
 
@@ -165,6 +167,28 @@ export const PANES: readonly PaneDefinition[] = [
     requires: 'viewer',
     instances: {
       component: SummaryInstancePane,
+      closable: true,
+      source: 'user',
+      creatable: true,
+    },
+  },
+  {
+    id: 'properties',
+    title: 'Properties',
+    icon: 'item',
+    component: null,
+    minSize: { width: 240, height: 160 },
+    defaultPlacement: {
+      kind: 'beside',
+      reference: 'viewer',
+      direction: 'right',
+      size: 320,
+    },
+    closable: true,
+    canFloat: true,
+    requires: 'viewer',
+    instances: {
+      component: PropertiesInstancePane,
       closable: true,
       source: 'user',
       creatable: true,

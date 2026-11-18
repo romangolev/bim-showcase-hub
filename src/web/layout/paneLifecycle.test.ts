@@ -111,6 +111,16 @@ describe('paneLifecycle instances', () => {
     expect(lifecycle.view().userPanels).toEqual([]);
   });
 
+  it('adds, seeds and forgets a properties pane', () => {
+    const { lifecycle, settings } = setup({ urns: ['u1'] });
+    const id = lifecycle.addInstance('properties') as PanelId;
+    expect(id).toBe('properties:1');
+    expect(settings.seed).toHaveBeenCalledWith('properties:1', 'u1');
+    lifecycle.closeInstance(id);
+    expect(settings.forget).toHaveBeenCalledWith('properties:1');
+    expect(lifecycle.view().userPanels).toEqual([]);
+  });
+
   it('keeps user panes hidden in stacked mode at home and restores them', () => {
     const user = { chart: [{ id: 'chart:1', title: 'Chart 1' }] };
     const { lifecycle, models, setMode } = setup({ user, mode: 'stacked' });

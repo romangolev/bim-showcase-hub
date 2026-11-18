@@ -23,6 +23,7 @@ import {
   DashboardPanel,
   ModelSummaryPanel,
   ModelsPanel,
+  PropertiesPanel,
 } from '../panels/index.js';
 import { SUMMARY_SETTINGS_ID } from '../panels/SummarySettings.js';
 import { memberLabel, memberMeta } from '../routes/ModelPage.js';
@@ -30,7 +31,11 @@ import { usePaneSetting } from '../settings/paneSettings.js';
 import { exportFileName, exportStem } from '../tools/kernel/exportKit.js';
 import { ViewerPane } from '../viewer/index.js';
 import { page } from '../viewer/region.js';
-import { chartSetting, summarySetting } from './instanceSettings.js';
+import {
+  chartSetting,
+  propertiesSetting,
+  summarySetting,
+} from './instanceSettings.js';
 import { useLayout, useMainContent } from './layoutContext.js';
 import { instancePanelId } from './panelIds.js';
 import { setSummarySettingsTarget } from './summaryTarget.js';
@@ -288,6 +293,23 @@ export function ChartInstancePane({ instance }: { instance: string }) {
         setting={chartSetting(panel)}
         title={layout.paneTitle(panel).label}
         toggleable={false}
+      />
+    </div>
+  );
+}
+
+export function PropertiesInstancePane({ instance }: { instance: string }) {
+  const layout = useLayout();
+  const panel = instancePanelId('properties', instance);
+  const [spec, setSpec] = usePaneSetting(propertiesSetting(panel));
+  return (
+    <div className="pane-properties">
+      <PropertiesPanel
+        title={layout.paneTitle(panel).label}
+        scope={{
+          value: spec.scope,
+          onChange: (scope) => setSpec({ scope }),
+        }}
       />
     </div>
   );
