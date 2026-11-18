@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { MockViewerAdapter } from './MockViewerAdapter.js';
-import { filterByElementScope, readProperties } from './propertyScope.js';
+import { filterByElementScope, readScopedRows } from './propertyScope.js';
 
 async function combined() {
   const adapter = new MockViewerAdapter(document.createElement('div'));
@@ -32,11 +32,13 @@ describe('filterByElementScope', () => {
   });
 });
 
-describe('readProperties', () => {
+describe('readScopedRows', () => {
   it('reads every model by default and narrows to one model', async () => {
     const adapter = await combined();
-    const all = await readProperties(adapter, { names: ['Category'] });
-    const one = await readProperties(adapter, {
+    const { rows: all } = await readScopedRows(adapter, {
+      names: ['Category'],
+    });
+    const { rows: one } = await readScopedRows(adapter, {
       names: ['Category'],
       scope: { models: 'urn-a' },
     });
@@ -58,18 +60,37 @@ describe('readProperties', () => {
       },
     );
     await expect(
-      readProperties(adapter, { names: ['Category'] }),
+      readScopedRows(adapter, { names: ['Category'] }),
     ).rejects.toThrow(/Could not read properties of/);
+    adapter.destroy();
+  });
+
+  it('reports failed models instead of throwing under the report policy', async () => {
+    const adapter = await combined();
+    vi.spyOn(adapter, 'getLeafProperties').mockImplementation(
+      async (names, modelIds) => {
+        if (modelIds?.includes('urn-b')) throw new Error('timeout');
+        return [{ dbId: 1, name: 'El', properties: { [names[0] ?? '']: 'x' } }];
+      },
+    );
+    const read = await readScopedRows(adapter, {
+      names: ['Category'],
+      onFailure: 'report',
+    });
+    expect(read.failed).toHaveLength(1);
+    expect(read.rows).toHaveLength(1);
     adapter.destroy();
   });
 
   it('keeps only selected elements', async () => {
     const adapter = await combined();
-    const all = await readProperties(adapter, { names: ['Category'] });
+    const { rows: all } = await readScopedRows(adapter, {
+      names: ['Category'],
+    });
     const first = all[0];
     if (!first?.modelId) throw new Error('no rows');
     adapter.selectModelIds([{ modelId: first.modelId, dbId: first.dbId }]);
-    const picked = await readProperties(adapter, {
+    const { rows: picked } = await readScopedRows(adapter, {
       names: ['Category'],
       scope: { elements: 'selected' },
     });

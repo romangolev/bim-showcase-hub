@@ -6,7 +6,7 @@ import {
   unavailableModels,
 } from '../viewer/modelScope.js';
 import { isAbortError, throwIfAborted } from '../viewer/propertyReads.js';
-import { readProperties } from '../viewer/propertyScope.js';
+import { readScopedRows } from '../viewer/propertyScope.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import {
   type AboutInfo,
@@ -220,7 +220,7 @@ export async function exportToXlsx(
       copied.catch(() => undefined);
     }
     emit({ phase: 'reading' });
-    const rows = await readProperties(adapter, {
+    const { rows } = await readScopedRows(adapter, {
       names: propertyNames,
       scope: { models: modelScope, elements: scope },
       signal,
