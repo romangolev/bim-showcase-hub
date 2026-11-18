@@ -64,6 +64,7 @@ import {
 } from './region.js';
 import { createResizeScheduler } from './resizeScheduler.js';
 import { readSceneBackground } from './sceneBackground.js';
+import { SelectionHub } from './selectionHub.js';
 import { ToolGroupController } from './toolGroupController.js';
 import type {
   CameraState,
@@ -244,7 +245,7 @@ export class RealViewerAdapter implements ViewerAdapter {
   private destroyed = false;
   private theme: Theme = 'dark';
   private readonly stageListeners = new Set<(stage: LoadStage) => void>();
-  private readonly selectionListeners = new Set<(items: ModelDbId[]) => void>();
+  private readonly selection = new SelectionHub();
   private controller: ToolGroupController | null = null;
   private mountedController: ToolGroupController | null = null;
   private toolsChain: Promise<void> = Promise.resolve();
@@ -875,14 +876,7 @@ export class RealViewerAdapter implements ViewerAdapter {
   }
 
   private emitSelection(): void {
-    const items = this.getModelSelection();
-    for (const cb of [...this.selectionListeners]) {
-      try {
-        cb(items.map((item) => ({ ...item })));
-      } catch (err) {
-        console.error(err);
-      }
-    }
+    this.selection.emit(this.getModelSelection());
   }
 
   resize(): void {
@@ -1085,10 +1079,7 @@ export class RealViewerAdapter implements ViewerAdapter {
   }
 
   onSelectionChange(cb: (items: ModelDbId[]) => void): () => void {
-    this.selectionListeners.add(cb);
-    return () => {
-      this.selectionListeners.delete(cb);
-    };
+    return this.selection.subscribe(cb);
   }
 
   destroy(): void {
@@ -1097,7 +1088,7 @@ export class RealViewerAdapter implements ViewerAdapter {
     this.unload();
     this.controller?.dispose();
     this.controller = null;
-    this.selectionListeners.clear();
+    this.selection.clear();
     this.models.dispose();
   }
 

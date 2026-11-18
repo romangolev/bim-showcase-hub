@@ -46,6 +46,7 @@ import {
   regionAvailable,
 } from './region.js';
 import { createResizeScheduler } from './resizeScheduler.js';
+import { SelectionHub } from './selectionHub.js';
 import {
   ToolGroupController,
   type ToolGroupState,
@@ -277,7 +278,7 @@ export class MockViewerAdapter implements ViewerAdapter {
     },
   });
   private readonly themed = new Map<string, Rgba>();
-  private readonly listeners = new Set<(items: ModelDbId[]) => void>();
+  private readonly hub = new SelectionHub();
   private placed = 0;
   private bounds: {
     x: number;
@@ -651,16 +652,13 @@ export class MockViewerAdapter implements ViewerAdapter {
   }
 
   onSelectionChange(cb: (items: ModelDbId[]) => void): () => void {
-    this.listeners.add(cb);
-    return () => {
-      this.listeners.delete(cb);
-    };
+    return this.hub.subscribe(cb);
   }
 
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
-    this.listeners.clear();
+    this.hub.clear();
     this.models.clear();
     this.models.dispose();
     this.themed.clear();
@@ -1038,14 +1036,7 @@ export class MockViewerAdapter implements ViewerAdapter {
       const { modelId, dbId } = parseKey(key);
       this.nodeOf(modelId, dbId)?.classList.add('bsh-mock__el--selected');
     }
-    const items = this.getModelSelection();
-    for (const cb of [...this.listeners]) {
-      try {
-        cb(items.map((item) => ({ ...item })));
-      } catch (err) {
-        console.error(err);
-      }
-    }
+    this.hub.emit(this.getModelSelection());
   }
 }
 
