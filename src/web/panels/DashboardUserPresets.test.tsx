@@ -15,7 +15,7 @@ describe('dashboard user presets', () => {
     installMemoryStorage();
   });
 
-  it('saves, applies, renames and deletes a preset', () => {
+  it('saves, applies, renames and deletes a preset', async () => {
     render(<DashboardSettingsBody />);
     expect(screen.getByText('No saved presets yet.')).toBeTruthy();
     const save = screen.getByRole('button', { name: 'Save current board' });
@@ -37,7 +37,7 @@ describe('dashboard user presets', () => {
       target: { value: 'doughnut' },
     });
     expect(viewStored().kind).toBe('doughnut');
-    fireEvent.click(screen.getByRole('button', { name: 'Apply Mine' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Apply Mine' }));
     expect(viewStored().kind).toBe('bar');
     expect(
       (screen.getByLabelText('Chart type') as HTMLSelectElement).value,
@@ -48,9 +48,11 @@ describe('dashboard user presets', () => {
     fireEvent.blur(rename);
     expect(readSaved('dashboard-preset')[0]?.name).toBe('Renamed');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Delete Renamed' }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Delete Renamed' }),
+    );
     expect(readSaved('dashboard-preset')).toHaveLength(0);
-    expect(screen.getByText('No saved presets yet.')).toBeTruthy();
+    expect(await screen.findByText('No saved presets yet.')).toBeTruthy();
   });
 
   it('applies a malformed saved preset through the sanitizer', () => {

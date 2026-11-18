@@ -10,11 +10,11 @@ import {
 import {
   MAX_NAME_LENGTH,
   removeSaved,
-  type SavedItem,
-  upsertSaved,
+  renameSaved,
+  useSavedItems,
 } from '../store/savedStore.js';
 import {
-  listDashboardPresets,
+  DASHBOARD_PRESET_KIND,
   saveDashboardPreset,
 } from './DashboardUserPresets.js';
 
@@ -51,9 +51,8 @@ function Preview({ properties }: { properties: readonly string[] }) {
 }
 
 export function DashboardGallery({ view, apply, rows }: DashboardGalleryProps) {
-  const [items, setItems] = useState<SavedItem[]>(listDashboardPresets);
+  const items = useSavedItems(DASHBOARD_PRESET_KIND);
   const [failed, setFailed] = useState(false);
-  const refresh = () => setItems(listDashboardPresets());
 
   const note = (properties: readonly string[]) =>
     `Charts ${properties.join(', ')}${
@@ -63,14 +62,6 @@ export function DashboardGallery({ view, apply, rows }: DashboardGalleryProps) {
         ? '. Not in this model.'
         : ''
     }`;
-
-  const rename = (item: SavedItem, next: string) => {
-    const trimmed = next.trim();
-    if (trimmed && trimmed !== item.name) {
-      upsertSaved({ ...item, name: trimmed, updatedAt: Date.now() });
-    }
-    refresh();
-  };
 
   return (
     <section className="bsh-gallery" aria-label="Dashboard preset gallery">
@@ -106,7 +97,6 @@ export function DashboardGallery({ view, apply, rows }: DashboardGalleryProps) {
                       preset: preset.id,
                     }),
                   );
-                  refresh();
                 }}
               >
                 Save as my preset
@@ -125,7 +115,9 @@ export function DashboardGallery({ view, apply, rows }: DashboardGalleryProps) {
                 aria-label={`Rename ${item.name}`}
                 maxLength={MAX_NAME_LENGTH}
                 defaultValue={item.name}
-                onBlur={(e) => rename(item, e.target.value)}
+                onBlur={(e) =>
+                  renameSaved(DASHBOARD_PRESET_KIND, item.id, e.target.value)
+                }
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') e.currentTarget.blur();
                 }}
@@ -146,10 +138,7 @@ export function DashboardGallery({ view, apply, rows }: DashboardGalleryProps) {
                   type="button"
                   className="bsh-button"
                   aria-label={`Delete ${item.name}`}
-                  onClick={() => {
-                    removeSaved(item.id);
-                    refresh();
-                  }}
+                  onClick={() => removeSaved(item.id)}
                 >
                   Delete
                 </button>

@@ -5,17 +5,16 @@ import {
 } from '../extensions/dashboardPresets.js';
 import {
   MAX_NAME_LENGTH,
+  newSavedId,
   readSaved,
   removeSaved,
+  renameSaved,
   type SavedItem,
   upsertSaved,
+  useSavedItems,
 } from '../store/savedStore.js';
 
 export const DASHBOARD_PRESET_KIND = 'dashboard-preset';
-
-function newId(): string {
-  return `dp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-}
 
 export function listDashboardPresets(): SavedItem[] {
   return readSaved(DASHBOARD_PRESET_KIND);
@@ -23,7 +22,7 @@ export function listDashboardPresets(): SavedItem[] {
 
 export function saveDashboardPreset(name: string, view: DashboardView) {
   const item: SavedItem = {
-    id: newId(),
+    id: newSavedId('dp'),
     kind: DASHBOARD_PRESET_KIND,
     name,
     version: 1,
@@ -42,10 +41,9 @@ export function DashboardUserPresets({
   view,
   apply,
 }: DashboardUserPresetsProps) {
-  const [items, setItems] = useState(listDashboardPresets);
+  const items = useSavedItems(DASHBOARD_PRESET_KIND);
   const [name, setName] = useState('');
   const [failed, setFailed] = useState(false);
-  const refresh = () => setItems(listDashboardPresets());
 
   const save = () => {
     const trimmed = name.trim();
@@ -53,15 +51,6 @@ export function DashboardUserPresets({
     const ok = saveDashboardPreset(trimmed, view);
     setFailed(!ok);
     if (ok) setName('');
-    refresh();
-  };
-
-  const rename = (item: SavedItem, next: string) => {
-    const trimmed = next.trim();
-    if (trimmed && trimmed !== item.name) {
-      upsertSaved({ ...item, name: trimmed, updatedAt: Date.now() });
-    }
-    refresh();
   };
 
   return (
@@ -106,7 +95,9 @@ export function DashboardUserPresets({
                 aria-label={`Rename ${item.name}`}
                 maxLength={MAX_NAME_LENGTH}
                 defaultValue={item.name}
-                onBlur={(e) => rename(item, e.target.value)}
+                onBlur={(e) =>
+                  renameSaved(DASHBOARD_PRESET_KIND, item.id, e.target.value)
+                }
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') e.currentTarget.blur();
                 }}
@@ -123,10 +114,7 @@ export function DashboardUserPresets({
                 type="button"
                 className="bsh-button"
                 aria-label={`Delete ${item.name}`}
-                onClick={() => {
-                  removeSaved(item.id);
-                  refresh();
-                }}
+                onClick={() => removeSaved(item.id)}
               >
                 Delete
               </button>

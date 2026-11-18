@@ -1,9 +1,18 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DASHBOARD_VIEW } from '../extensions/dashboardPresets.js';
+import { forgetPersonal } from '../storage.js';
 import { readSaved } from '../store/savedStore.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { DashboardGallery } from './DashboardGallery.js';
+import { saveDashboardPreset } from './DashboardUserPresets.js';
 
 describe('DashboardGallery', () => {
   beforeEach(() => {
@@ -45,7 +54,7 @@ describe('DashboardGallery', () => {
     );
   });
 
-  it('saves a built-in as my preset, then renames, applies and deletes it', () => {
+  it('saves a built-in as my preset, then renames, applies and deletes it', async () => {
     const apply = vi.fn();
     render(<DashboardGallery view={DEFAULT_DASHBOARD_VIEW} apply={apply} />);
     fireEvent.click(
@@ -55,18 +64,20 @@ describe('DashboardGallery', () => {
       preset: 'health',
     });
 
-    const rename = screen.getByLabelText('Rename Model health');
+    const rename = await screen.findByLabelText('Rename Model health');
     fireEvent.change(rename, { target: { value: 'Mine' } });
     fireEvent.blur(rename);
     expect(readSaved('dashboard-preset')[0]?.name).toBe('Mine');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Apply Mine' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Apply Mine' }));
     expect(apply).toHaveBeenCalledWith(
       expect.objectContaining({ preset: 'health' }),
     );
     fireEvent.click(screen.getByRole('button', { name: 'Delete Mine' }));
     expect(readSaved('dashboard-preset')).toHaveLength(0);
-    expect(screen.queryByLabelText('Rename Mine')).toBeNull();
+    await waitFor(() =>
+      expect(screen.queryByLabelText('Rename Mine')).toBeNull(),
+    );
   });
 
   it('marks a card whose properties are absent from the model', () => {
@@ -88,5 +99,34 @@ describe('DashboardGallery', () => {
       true,
     );
     expect(buttons[0]?.getAttribute('aria-label')).toBe('Apply Model health');
+  });
+
+  it('does not bring back a preset another pane deleted, and drops it on forget', async () => {
+    saveDashboardPreset('P', DEFAULT_DASHBOARD_VIEW);
+    const id = readSaved('dashboard-preset')[0]?.id ?? '';
+    const props = { view: DEFAULT_DASHBOARD_VIEW, apply: vi.fn() };
+    render(
+      <>
+        <DashboardGallery {...props} />
+        <DashboardGallery {...props} />
+      </>,
+    );
+    const stale = screen.getAllByLabelText('Rename P')[1] as HTMLInputElement;
+    const remove = screen.getAllByRole('button', { name: 'Delete P' })[0];
+    if (remove) fireEvent.click(remove);
+    fireEvent.change(stale, { target: { value: 'Back' } });
+    fireEvent.blur(stale);
+    await waitFor(() => expect(screen.queryByLabelText('Rename P')).toBeNull());
+    expect(readSaved('dashboard-preset')).toEqual([]);
+    expect(readSaved().find((item) => item.id === id)).toBeUndefined();
+  });
+
+  it('shows no preset after a forget while mounted', async () => {
+    saveDashboardPreset('P', DEFAULT_DASHBOARD_VIEW);
+    render(<DashboardGallery view={DEFAULT_DASHBOARD_VIEW} apply={vi.fn()} />);
+    expect(screen.getByLabelText('Rename P')).toBeTruthy();
+    act(() => forgetPersonal());
+    await waitFor(() => expect(screen.queryByLabelText('Rename P')).toBeNull());
+    expect(readSaved()).toEqual([]);
   });
 });
