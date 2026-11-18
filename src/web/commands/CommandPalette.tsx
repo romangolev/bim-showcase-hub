@@ -11,9 +11,10 @@ import {
 } from 'react';
 import { flushSync } from 'react-dom';
 import { useModal } from '../modal/index.js';
+import { notify } from '../tasks/notifications.js';
 import { startTask } from '../tasks/taskStore.js';
 import { filterCommands } from './fuzzy.js';
-import { readPins, togglePin } from './pins.js';
+import { PIN_LIMIT, readPins, togglePin } from './pins.js';
 import { readRecents, recordRecent } from './recents.js';
 import { COMMANDS } from './registry.js';
 import {
@@ -117,8 +118,23 @@ function PaletteDialog({ error, onClose, onRun }: DialogProps) {
       const entry = items[current];
       if (!entry) return;
       if (event.shiftKey) {
-        togglePin(entry.command.id);
-        setPins(readPins());
+        const change = togglePin(entry.command.id);
+        const nextPins = readPins();
+        setPins(nextPins);
+        const nextItems = arrange(commands, query, recents, nextPins);
+        const at = nextItems.findIndex(
+          (item) => item.command.id === entry.command.id,
+        );
+        setActive(change.pinned && at >= 0 ? at : 0);
+        if (change.evicted) {
+          const evicted = commands.find(
+            (command) => command.id === change.evicted,
+          );
+          notify(
+            `Pinned ${entry.command.title}. ${evicted?.title ?? change.evicted} was unpinned to keep ${PIN_LIMIT}.`,
+            { tone: 'info' },
+          );
+        }
         return;
       }
       if (!entry.command.disabled) onRun(entry.command);
@@ -269,6 +285,7 @@ export function CommandPalette() {
             ? failure.message
             : 'Something went wrong';
         setError(`${command.title} failed: ${reason}`);
+        notify(`${command.title} failed: ${reason}`, { tone: 'error' });
         setOpen(true);
       };
       try {
@@ -283,6 +300,7 @@ export function CommandPalette() {
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => {
       if (event.defaultPrevented || event.isComposing) return;
+      if (!(event.ctrlKey || event.metaKey || event.altKey)) return;
       if (document.querySelector('dialog[open]')) return;
       if (isEditableTarget(event.target)) return;
       const command = matchShortcut(COMMANDS.list(), event);

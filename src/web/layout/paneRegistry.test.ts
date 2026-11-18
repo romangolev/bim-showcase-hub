@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import type { Command } from '../commands/types.js';
 import {
   FOLLOWERS,
   followersOf,
@@ -11,7 +12,10 @@ import {
   isUserInstance,
   PANE_IDS,
   PANES,
+  type PaneDefinition,
   paneById,
+  paneCommands,
+  paneCommandsFor,
   paneKind,
   parsePanelId,
 } from './paneRegistry.js';
@@ -82,6 +86,91 @@ describe('pane registry', () => {
     expect(FOLLOWERS).toEqual(['summary', 'dashboard', 'models']);
     expect(followersOf('viewer')).toEqual(['summary', 'dashboard', 'models']);
     expect(followersOf('tree')).toEqual([]);
+  });
+
+  it('adds a pane hook’s commands after the generated toggle and create entries', () => {
+    const ctx = {
+      isOpen: () => false,
+      toggle: vi.fn(),
+      create: vi.fn(),
+      focus: vi.fn(),
+    };
+    const focus: Command = {
+      id: 'pane.focus.test',
+      title: 'Go to Test',
+      group: 'Panes',
+      run: () => undefined,
+    };
+    const base: PaneDefinition = {
+      id: 'chart',
+      title: 'Chart',
+      icon: 'chart',
+      component: null,
+      minSize: { width: 1, height: 1 },
+      defaultPlacement: { kind: 'root' },
+      closable: true,
+      canFloat: true,
+      requires: 'none',
+      commands: () => [focus],
+    };
+    expect(
+      paneCommandsFor(
+        {
+          ...base,
+          instances: {
+            component: () => null,
+            closable: true,
+            source: 'user',
+            creatable: true,
+          },
+        },
+        ctx,
+      ).map((command) => command.id),
+    ).toEqual(['pane.new.chart', 'pane.focus.test']);
+    expect(
+      paneCommandsFor({ ...base, instances: undefined }, ctx).map(
+        (command) => command.id,
+      ),
+    ).toEqual(['pane.toggle.chart', 'pane.focus.test']);
+    const override: Command = {
+      ...focus,
+      id: 'pane.new.chart',
+      title: 'Custom new chart',
+    };
+    const replaced = paneCommandsFor(
+      {
+        ...base,
+        instances: {
+          component: () => null,
+          closable: true,
+          source: 'user',
+          creatable: true,
+        },
+        commands: () => [override],
+      },
+      ctx,
+    );
+    expect(replaced.map((command) => command.id)).toEqual(['pane.new.chart']);
+    expect(replaced[0]?.title).toBe('Custom new chart');
+  });
+
+  it('keeps the generated commands and the hook commands for every pane', () => {
+    const ctx = {
+      isOpen: () => true,
+      toggle: vi.fn(),
+      create: vi.fn(),
+      focus: vi.fn(),
+    };
+    const commands = paneCommands(ctx);
+    expect(
+      commands.find((command) => command.id === 'pane.toggle.summary'),
+    ).toBeDefined();
+    expect(
+      commands.find((command) => command.id === 'pane.new.chart'),
+    ).toBeDefined();
+    expect(
+      commands.find((command) => command.id === 'pane.focus.tree'),
+    ).toBeDefined();
   });
 
   it('rejects instances of panes without instances', () => {

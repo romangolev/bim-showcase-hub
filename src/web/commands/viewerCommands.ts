@@ -1,3 +1,4 @@
+import { notify } from '../tasks/notifications.js';
 import {
   listSets,
   saveSelectionSet,
@@ -9,6 +10,7 @@ import {
   listViewpoints,
   nextViewpointName,
   saveViewpoint,
+  VIEWPOINT_MESSAGES,
 } from '../viewer/viewpoints.js';
 import type { Command } from './types.js';
 
@@ -52,13 +54,21 @@ export function viewerCommands(adapter: ViewerAdapter | null): Command[] {
       viewer.fitToView(),
     ),
     make('saveSet', 'Save selection as set', needsSelection, (viewer) => {
-      saveSelectionSet(
-        `Selection ${listSets().length + 1}`,
-        viewer.getModelSelection(),
+      const name = `Selection ${listSets().length + 1}`;
+      const result = saveSelectionSet(name, viewer.getModelSelection());
+      notify(
+        result === 'ok'
+          ? `Saved the selection set "${name}"`
+          : 'Could not save the selection set',
+        { tone: result === 'ok' ? 'success' : 'error' },
       );
     }),
     make('saveViewpoint', 'Save viewpoint', noModel, (viewer) => {
-      saveViewpoint(nextViewpointName(), viewer.getState());
+      const name = nextViewpointName();
+      const result = saveViewpoint(name, viewer.getState());
+      notify(result === 'ok' ? `Saved ${name}` : VIEWPOINT_MESSAGES[result], {
+        tone: result === 'ok' ? 'success' : 'error',
+      });
     }),
     ...listViewpoints().map((point) =>
       make(

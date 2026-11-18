@@ -8,25 +8,33 @@ const PINS = defineRecord<string[]>({
   initial: [],
   sanitize: (raw) =>
     Array.isArray(raw)
-      ? raw
-          .filter((id): id is string => typeof id === 'string' && Boolean(id))
-          .slice(0, PIN_LIMIT)
+      ? [
+          ...new Set(
+            raw.filter(
+              (id): id is string => typeof id === 'string' && Boolean(id),
+            ),
+          ),
+        ].slice(0, PIN_LIMIT)
       : [],
 });
+
+export interface PinChange {
+  pinned: boolean;
+  evicted: string | null;
+}
 
 export function readPins(): string[] {
   return PINS.read();
 }
 
-export function isPinned(id: string): boolean {
-  return readPins().includes(id);
-}
-
-export function togglePin(id: string): boolean {
+export function togglePin(id: string): PinChange {
   const pins = readPins();
-  const next = pins.includes(id)
-    ? pins.filter((known) => known !== id)
-    : [id, ...pins].slice(0, PIN_LIMIT);
+  if (pins.includes(id)) {
+    PINS.write(pins.filter((known) => known !== id));
+    return { pinned: false, evicted: null };
+  }
+  const next = [id, ...pins];
+  const evicted = next.length > PIN_LIMIT ? (next.pop() ?? null) : null;
   PINS.write(next);
-  return next.includes(id);
+  return { pinned: true, evicted };
 }

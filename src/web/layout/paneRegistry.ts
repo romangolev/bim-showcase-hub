@@ -325,13 +325,23 @@ function createCommand(
   };
 }
 
+export function paneCommandsFor(
+  pane: PaneDefinition,
+  ctx: PaneCommandContext,
+): Command[] {
+  const commands = [toggleCommand(pane, ctx), createCommand(pane, ctx)].filter(
+    (command): command is Command => command !== null,
+  );
+  for (const command of pane.commands?.(ctx) ?? []) {
+    const at = commands.findIndex((entry) => entry.id === command.id);
+    if (at >= 0) commands[at] = command;
+    else commands.push(command);
+  }
+  return commands;
+}
+
 export function paneCommands(ctx: PaneCommandContext): Command[] {
-  return PANES.flatMap((pane) => {
-    if (pane.commands) return [...pane.commands(ctx)];
-    return [toggleCommand(pane, ctx), createCommand(pane, ctx)].filter(
-      (command): command is Command => command !== null,
-    );
-  });
+  return PANES.flatMap((pane) => paneCommandsFor(pane, ctx));
 }
 
 export function hasPlainPanel(id: PaneId): boolean {

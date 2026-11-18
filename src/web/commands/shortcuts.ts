@@ -3,14 +3,19 @@ import type { Command } from './types.js';
 export const EDITABLE_SELECTOR =
   'input, textarea, select, [contenteditable]:not([contenteditable="false"])';
 
-interface ShortcutSpec {
+export interface ShortcutSpec {
   mod: boolean;
   alt: boolean;
   shift: boolean;
   key: string;
 }
 
-function parse(keys: string): ShortcutSpec | null {
+export type ShortcutEvent = Pick<
+  KeyboardEvent,
+  'key' | 'ctrlKey' | 'metaKey' | 'altKey' | 'shiftKey'
+> & { code?: string };
+
+export function parseShortcut(keys: string): ShortcutSpec | null {
   const parts = keys
     .toLowerCase()
     .split('+')
@@ -43,7 +48,7 @@ function isMac(): boolean {
 }
 
 export function formatShortcut(keys: string): string {
-  const spec = parse(keys);
+  const spec = parseShortcut(keys);
   if (!spec) return keys;
   const mac = isMac();
   const parts: string[] = [];
@@ -54,19 +59,20 @@ export function formatShortcut(keys: string): string {
   return mac ? parts.join('') : parts.join('+');
 }
 
-export function shortcutMatches(
-  keys: string,
-  event: Pick<
-    KeyboardEvent,
-    'key' | 'ctrlKey' | 'metaKey' | 'altKey' | 'shiftKey'
-  >,
-): boolean {
-  const spec = parse(keys);
+function keyOfCode(spec: ShortcutSpec, code: string): boolean {
+  if (!/^[a-z0-9]$/.test(spec.key)) return false;
+  const letter = `Key${spec.key.toUpperCase()}`;
+  return code === letter || code === `Digit${spec.key}`;
+}
+
+export function shortcutMatches(keys: string, event: ShortcutEvent): boolean {
+  const spec = parseShortcut(keys);
   if (!spec) return false;
   if (spec.mod !== (event.ctrlKey || event.metaKey)) return false;
   if (spec.alt !== event.altKey) return false;
   if (spec.shift !== event.shiftKey) return false;
-  return event.key.toLowerCase() === spec.key;
+  if (event.key.toLowerCase() === spec.key) return true;
+  return event.code !== undefined && keyOfCode(spec, event.code);
 }
 
 export function isEditableTarget(target: EventTarget | null): boolean {
@@ -77,10 +83,7 @@ export function isEditableTarget(target: EventTarget | null): boolean {
 
 export function matchShortcut(
   commands: readonly Command[],
-  event: Pick<
-    KeyboardEvent,
-    'key' | 'ctrlKey' | 'metaKey' | 'altKey' | 'shiftKey'
-  >,
+  event: ShortcutEvent,
 ): Command | undefined {
   return commands.find(
     (command) =>

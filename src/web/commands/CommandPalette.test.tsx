@@ -8,9 +8,11 @@ import {
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ModalProvider } from '../modal/index.js';
 import type { ModalDefinition } from '../modal/types.js';
+import { notifications } from '../tasks/notifications.js';
 import { tasks } from '../tasks/taskStore.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { CommandPalette } from './CommandPalette.js';
+import { PIN_LIMIT, readPins } from './pins.js';
 import { readRecents } from './recents.js';
 import { COMMANDS } from './registry.js';
 import type { Command } from './types.js';
@@ -293,5 +295,57 @@ describe('CommandPalette', () => {
       target: { value: 'alpha' },
     });
     expect(headings()).toBe(0);
+  });
+
+  it('pins the highlighted command on Shift+Enter and keeps it highlighted', () => {
+    setup([
+      { id: 'a', title: 'Alpha', group: 'G', run: () => undefined },
+      { id: 'b', title: 'Beta', group: 'G', run: () => undefined },
+    ]);
+    openPalette();
+    press('ArrowDown');
+    press('Enter', { shiftKey: true });
+    expect(readPins()).toEqual(['b']);
+    expect(screen.getByText('Pinned')).toBeInTheDocument();
+    const beta = screen.getByRole('option', { name: /Beta/ });
+    expect(beta).toHaveAttribute('aria-selected', 'true');
+    expect(
+      screen.getByRole('combobox').getAttribute('aria-activedescendant'),
+    ).toBe(beta.id);
+    press('Enter', { shiftKey: true });
+    expect(readPins()).toEqual([]);
+    const first = screen.getAllByRole('option')[0];
+    expect(
+      screen.getByRole('combobox').getAttribute('aria-activedescendant'),
+    ).toBe(first?.id);
+  });
+
+  it('says which pin was dropped when the limit is reached', () => {
+    setup([
+      ...Array.from({ length: PIN_LIMIT }, (_, index) => ({
+        id: `cmd-${index}`,
+        title: `Command ${index}`,
+        group: 'G',
+        run: () => undefined,
+      })),
+      { id: 'cmd-new', title: 'Newest', group: 'G', run: () => undefined },
+    ]);
+    const stored = Array.from(
+      { length: PIN_LIMIT },
+      (_, index) => `cmd-${index}`,
+    );
+    window.localStorage.setItem(
+      'bsh.commands.pinned.v1',
+      JSON.stringify(stored),
+    );
+    notifications.clear();
+    openPalette();
+    const box = screen.getByRole('combobox');
+    fireEvent.change(box, { target: { value: 'newest' } });
+    press('Enter', { shiftKey: true });
+    expect(notifications.getSnapshot().items.at(-1)?.message).toBe(
+      'Pinned Newest. Command 7 was unpinned to keep 8.',
+    );
+    expect(readPins()[0]).toBe('cmd-new');
   });
 });

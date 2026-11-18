@@ -1,8 +1,8 @@
 export { filterCommands, fuzzyScore } from './fuzzy.js';
 export {
-  isPinned,
   PIN_LIMIT,
   PINS_KEY,
+  type PinChange,
   readPins,
   togglePin,
 } from './pins.js';
@@ -13,6 +13,9 @@ export {
   formatShortcut,
   isEditableTarget,
   matchShortcut,
+  parseShortcut,
+  type ShortcutEvent,
+  type ShortcutSpec,
   shortcutMatches,
 } from './shortcuts.js';
 export type { Command, CommandHost, CommandProvider } from './types.js';
