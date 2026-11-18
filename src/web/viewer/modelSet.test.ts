@@ -67,6 +67,19 @@ describe('ModelSet', () => {
     });
   });
 
+  it('replaces or clears version and path when a failed model is re-added', () => {
+    const set = new ModelSet<string>();
+    set.add({ urn: 'a', name: 'A', version: 'V3', path: 'Hub / Proj' });
+    set.fail('a', 'boom');
+    set.add({ urn: 'a', version: 'V4', path: 'Hub / Other' });
+    expect(set.get('a')).toMatchObject({ version: 'V4', path: 'Hub / Other' });
+    set.fail('a', 'boom');
+    set.add({ urn: 'a' });
+    expect(set.get('a')).not.toHaveProperty('version');
+    expect(set.get('a')).not.toHaveProperty('path');
+    expect(set.get('a')?.name).toBe('A');
+  });
+
   it('caps the set at six models', () => {
     expect(MAX_COMBINED_MODELS).toBe(6);
     const set = new ModelSet<string>();

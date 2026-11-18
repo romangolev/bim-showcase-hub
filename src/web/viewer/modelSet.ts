@@ -211,12 +211,8 @@ export class ModelSet<H> {
       urn: source.urn,
       name:
         source.name?.trim() || existing?.info.name || `Model ${this.serial}`,
-      ...((source.version ?? existing?.info.version)
-        ? { version: source.version ?? existing?.info.version }
-        : {}),
-      ...((source.path ?? existing?.info.path)
-        ? { path: source.path ?? existing?.info.path }
-        : {}),
+      ...(source.version ? { version: source.version } : {}),
+      ...(source.path ? { path: source.path } : {}),
       visible: true,
       status: 'loading',
     };
