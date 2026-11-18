@@ -87,38 +87,46 @@ export interface Caption {
 }
 
 export function captionText(caption: Caption, date: Date): string {
-  const day = date.toISOString().slice(0, 10);
+  const day = [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-');
   return [caption.name, caption.version, day].filter(Boolean).join('  |  ');
 }
 
 export async function drawCaption(blob: Blob, text: string): Promise<Blob> {
   const bitmap = await createImageBitmap(blob);
-  const canvas = document.createElement('canvas');
-  canvas.width = bitmap.width;
-  canvas.height = bitmap.height;
-  const context = canvas.getContext('2d');
-  if (!context) throw new SnapshotError('The snapshot could not be drawn');
-  context.drawImage(bitmap, 0, 0);
-  const font = Math.max(12, Math.round(canvas.height * 0.022));
-  const bar = Math.round(font * 2);
-  context.fillStyle = 'rgba(0, 0, 0, 0.6)';
-  context.fillRect(0, canvas.height - bar, canvas.width, bar);
-  context.fillStyle = '#ffffff';
-  context.font = `${font}px system-ui, sans-serif`;
-  context.textBaseline = 'middle';
-  context.fillText(
-    text,
-    font,
-    canvas.height - bar / 2,
-    canvas.width - font * 2,
-  );
-  return new Promise<Blob>((resolve, reject) =>
-    canvas.toBlob(
-      (out) =>
-        out ? resolve(out) : reject(new SnapshotError('The snapshot failed')),
-      'image/png',
-    ),
-  );
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const context = canvas.getContext('2d');
+    if (!context) throw new SnapshotError('The snapshot could not be drawn');
+    context.drawImage(bitmap, 0, 0);
+    const font = Math.max(12, Math.round(canvas.height * 0.022));
+    const bar = Math.round(font * 2);
+    context.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    context.fillRect(0, canvas.height - bar, canvas.width, bar);
+    context.fillStyle = '#ffffff';
+    context.font = `${font}px system-ui, sans-serif`;
+    context.textBaseline = 'middle';
+    context.fillText(
+      text,
+      font,
+      canvas.height - bar / 2,
+      canvas.width - font * 2,
+    );
+    return await new Promise<Blob>((resolve, reject) =>
+      canvas.toBlob(
+        (out) =>
+          out ? resolve(out) : reject(new SnapshotError('The snapshot failed')),
+        'image/png',
+      ),
+    );
+  } finally {
+    bitmap.close();
+  }
 }
 
 export interface SnapshotRequest {

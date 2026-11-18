@@ -108,7 +108,7 @@ describe('PropertiesPanel', () => {
 
   it('reports a read failure', async () => {
     const adapter = await load(['urn-a']);
-    vi.spyOn(adapter, 'getElementProperties').mockRejectedValue(
+    vi.spyOn(adapter, 'getElementsProperties').mockRejectedValue(
       new Error('boom'),
     );
     render(<PropertiesPanel adapter={adapter} />);
@@ -119,5 +119,46 @@ describe('PropertiesPanel', () => {
     expect(
       await screen.findByText("We could not read this element's properties."),
     ).toBeInTheDocument();
+  });
+
+  it('reads the visible elements of a large selection in one call', async () => {
+    const adapter = await load(['urn-a']);
+    const modelId = adapter.getModels()[0]?.id ?? '';
+    const many = vi.spyOn(adapter, 'getElementsProperties');
+    render(<PropertiesPanel adapter={adapter} />);
+    const all = buildMockElements().map((entry) => ({
+      modelId,
+      dbId: entry.dbId,
+    }));
+    act(() => {
+      adapter.selectModelIds(all);
+    });
+    await waitFor(() => expect(many).toHaveBeenCalledTimes(1));
+    expect(many.mock.calls[0]?.[0].length).toBeLessThanOrEqual(20);
+  });
+
+  it('does not warn about duplicate keys for identical properties', async () => {
+    const adapter = await load(['urn-a']);
+    const modelId = adapter.getModels()[0]?.id ?? '';
+    vi.spyOn(adapter, 'getElementsProperties').mockResolvedValue([
+      {
+        dbId: first?.dbId ?? 0,
+        name: 'Wall',
+        properties: [
+          { category: 'Text', name: 'Comments', value: '' },
+          { category: 'Text', name: 'Comments', value: '' },
+        ],
+      },
+    ]);
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    render(<PropertiesPanel adapter={adapter} />);
+    act(() => {
+      adapter.selectModelIds([{ modelId, dbId: first?.dbId ?? 0 }]);
+    });
+    await waitFor(() =>
+      expect(screen.getAllByText('Comments')).toHaveLength(2),
+    );
+    expect(error).not.toHaveBeenCalled();
+    error.mockRestore();
   });
 });

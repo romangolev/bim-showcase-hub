@@ -246,6 +246,16 @@ function groupByModel(items: readonly ModelDbId[]): Map<string, number[]> {
   return byModel;
 }
 
+function visibilityEvents(viewing: {
+  HIDE_EVENT?: string;
+  SHOW_EVENT?: string;
+  ISOLATE_EVENT?: string;
+}): string[] {
+  return [viewing.HIDE_EVENT, viewing.SHOW_EVENT, viewing.ISOLATE_EVENT].filter(
+    (event): event is string => typeof event === 'string',
+  );
+}
+
 const SCREENSHOT_TIMEOUT_MS = 10_000;
 
 export class RealViewerAdapter implements ViewerAdapter {
@@ -254,6 +264,7 @@ export class RealViewerAdapter implements ViewerAdapter {
   private theme: Theme = 'dark';
   private readonly stageListeners = new Set<(stage: LoadStage) => void>();
   private readonly selection = new SelectionHub();
+  private readonly visibility = new SelectionHub();
   private controller: ToolGroupController | null = null;
   private mountedController: ToolGroupController | null = null;
   private toolsChain: Promise<void> = Promise.resolve();
@@ -288,6 +299,9 @@ export class RealViewerAdapter implements ViewerAdapter {
   private readonly placements = new Map<ViewerModel, PlacementMatrix>();
   private readonly onSelection = () => {
     this.emitSelection();
+  };
+  private readonly onVisibility = () => {
+    this.visibility.emit([]);
   };
   private readonly resizer = createResizeScheduler(() => this.resize());
   private readonly onScreenChange = () => {
@@ -430,6 +444,9 @@ export class RealViewerAdapter implements ViewerAdapter {
       viewing.AGGREGATE_SELECTION_CHANGED_EVENT ??
       viewing.SELECTION_CHANGED_EVENT;
     viewer.addEventListener(this.selectionEvent, this.onSelection);
+    for (const event of visibilityEvents(viewing)) {
+      viewer.addEventListener(event, this.onVisibility);
+    }
     let startCode: number | undefined;
     try {
       startCode = viewer.start();
@@ -562,34 +579,46 @@ export class RealViewerAdapter implements ViewerAdapter {
     return readViewerSource(viewer, shown);
   }
 
-  getElementProperties({
-    modelId,
-    dbId,
-  }: ModelDbId): Promise<ElementProperties | null> {
-    const model = this.models.handle(modelId);
-    if (!model) return Promise.resolve(null);
-    return new Promise((resolve, reject) =>
-      model.getBulkProperties(
-        [dbId],
-        {},
-        (items) => {
-          const item = items.find((entry) => entry.dbId === dbId);
-          resolve(
-            item
-              ? {
-                  dbId,
+  async getElementProperties(
+    item: ModelDbId,
+  ): Promise<ElementProperties | null> {
+    const [only] = await this.getElementsProperties([item]);
+    return only ?? null;
+  }
+
+  async getElementsProperties(
+    items: readonly ModelDbId[],
+  ): Promise<(ElementProperties | null)[]> {
+    const found = new Map<string, ElementProperties>();
+    await Promise.all(
+      [...groupByModel(items)].map(([modelId, dbIds]) => {
+        const model = this.models.handle(modelId);
+        if (!model) return Promise.resolve();
+        return new Promise<void>((resolve, reject) =>
+          model.getBulkProperties(
+            dbIds,
+            {},
+            (list) => {
+              for (const item of list) {
+                found.set(`${modelId}:${item.dbId}`, {
+                  dbId: item.dbId,
                   name: item.name,
                   properties: item.properties.map((prop) => ({
                     category: prop.displayCategory?.trim() || UNCATEGORIZED,
                     name: prop.displayName,
                     value: toPropertyValue(prop.displayValue),
                   })),
-                }
-              : null,
-          );
-        },
-        reject,
-      ),
+                });
+              }
+              resolve();
+            },
+            reject,
+          ),
+        );
+      }),
+    );
+    return items.map(
+      (item) => found.get(`${item.modelId}:${item.dbId}`) ?? null,
     );
   }
 
@@ -736,8 +765,10 @@ export class RealViewerAdapter implements ViewerAdapter {
       return;
     }
     if (targets.length === 0) return;
+    const previous = this.getModelSelection();
     this.selectModelIds(items);
     viewer.fitToView();
+    this.selectModelIds(previous);
   }
 
   getState(): ViewerState {
@@ -775,17 +806,23 @@ export class RealViewerAdapter implements ViewerAdapter {
       return Promise.reject(new Error('The viewer cannot take a snapshot'));
     }
     return new Promise<Blob>((resolve, reject) => {
-      const timer = setTimeout(
-        () => reject(new Error('The snapshot timed out')),
-        SCREENSHOT_TIMEOUT_MS,
-      );
+      let timedOut = false;
+      const timer = setTimeout(() => {
+        timedOut = true;
+        reject(new Error('The snapshot timed out'));
+      }, SCREENSHOT_TIMEOUT_MS);
       viewer.getScreenShot?.(
         width ?? frame.clientWidth,
         height ?? frame.clientHeight,
         (url) => {
           clearTimeout(timer);
+          if (timedOut) {
+            URL.revokeObjectURL(url);
+            return;
+          }
           fetch(url)
             .then((response) => response.blob())
+            .finally(() => URL.revokeObjectURL(url))
             .then(resolve, reject);
         },
       );
@@ -982,6 +1019,9 @@ export class RealViewerAdapter implements ViewerAdapter {
         this.selectionEvent || viewing.SELECTION_CHANGED_EVENT,
         this.onSelection,
       );
+      for (const event of visibilityEvents(viewing)) {
+        viewer.removeEventListener(event, this.onVisibility);
+      }
       if (viewing.FULLSCREEN_MODE_EVENT) {
         viewer.removeEventListener(
           viewing.FULLSCREEN_MODE_EVENT,
@@ -1011,6 +1051,9 @@ export class RealViewerAdapter implements ViewerAdapter {
         this.selectionEvent || viewing.SELECTION_CHANGED_EVENT,
         this.onSelection,
       );
+      for (const event of visibilityEvents(viewing)) {
+        viewer.removeEventListener(event, this.onVisibility);
+      }
     }
     if (this.viewer === viewer) this.viewer = null;
     this.removeFrame(viewer);
@@ -1142,6 +1185,10 @@ export class RealViewerAdapter implements ViewerAdapter {
     return this.selection.subscribe(cb);
   }
 
+  onVisibilityChange(cb: () => void): () => void {
+    return this.visibility.subscribe(() => cb());
+  }
+
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
@@ -1149,6 +1196,7 @@ export class RealViewerAdapter implements ViewerAdapter {
     this.controller?.dispose();
     this.controller = null;
     this.selection.clear();
+    this.visibility.clear();
     this.models.dispose();
   }
 

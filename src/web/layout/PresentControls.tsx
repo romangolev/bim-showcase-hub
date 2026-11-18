@@ -20,21 +20,30 @@ export function PresentControls({ onExit }: PresentControlsProps) {
   const [{ advanceSeconds }] = usePersisted(SNAPSHOT);
   const [index, setIndex] = useState<number | null>(null);
   const [notice, setNotice] = useState('');
+  const [restoring, setRestoring] = useState(false);
+  const busy = useRef(false);
   const latest = useRef({ adapter, points, index });
   latest.current = { adapter, points, index };
   const count = points.length;
 
   const step = useCallback(async (delta: 1 | -1) => {
     const { adapter: viewer, points: list, index: at } = latest.current;
-    if (!viewer || list.length === 0) return;
+    if (!viewer || list.length === 0 || busy.current) return;
     const base = at ?? (delta > 0 ? -1 : 0);
     const next = (base + delta + list.length) % list.length;
     latest.current.index = next;
     setIndex(next);
     const point = list[next];
     if (!point) return;
-    const outcome = await goToViewpoint(viewer, point.id);
-    setNotice(outcome.result === 'ok' ? '' : outcome.text);
+    busy.current = true;
+    setRestoring(true);
+    try {
+      const outcome = await goToViewpoint(viewer, point.id);
+      setNotice(outcome.result === 'ok' ? '' : outcome.text);
+    } finally {
+      busy.current = false;
+      setRestoring(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -62,10 +71,10 @@ export function PresentControls({ onExit }: PresentControlsProps) {
   }, [step]);
 
   useEffect(() => {
-    if (advanceSeconds <= 0 || count < 2) return;
+    if (advanceSeconds <= 0 || count < 2 || restoring) return;
     const timer = setTimeout(() => void step(1), advanceSeconds * 1000);
     return () => clearTimeout(timer);
-  }, [advanceSeconds, count, index, step]);
+  }, [advanceSeconds, count, index, restoring, step]);
 
   const current = index === null ? null : Math.min(index, count - 1);
   const name = current === null ? undefined : points[current]?.name;

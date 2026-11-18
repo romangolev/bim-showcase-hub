@@ -183,6 +183,23 @@ describe('ViewerAdapter contract (mock)', () => {
     ).toBeNull();
   });
 
+  it('reads several elements at once, keeping order and nulls', async () => {
+    await setup();
+    const modelId = adapter.getModels()[0]?.id ?? '';
+    const [a, b] = buildMockElements();
+    const read = await adapter.getElementsProperties([
+      { modelId, dbId: b?.dbId ?? 0 },
+      { modelId, dbId: -1 },
+      { modelId, dbId: a?.dbId ?? 0 },
+    ]);
+    expect(read.map((entry) => entry?.name ?? null)).toEqual([
+      b?.name,
+      null,
+      a?.name,
+    ]);
+    expect(await adapter.getElementsProperties([])).toEqual([]);
+  });
+
   it('clears the scene on unload and removes DOM on destroy', async () => {
     await setup();
     adapter.unload();

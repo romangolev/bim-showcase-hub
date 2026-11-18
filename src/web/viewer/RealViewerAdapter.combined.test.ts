@@ -632,6 +632,33 @@ describe('selecting and isolating by model', () => {
     expect(viewer().isolated.get(str)).toEqual([]);
   });
 
+  it('signals visibility changes from hide, show and isolate', async () => {
+    await adapter.loadModels([{ urn: 'arch' }]);
+    const seen = vi.fn();
+    const off = adapter.onVisibilityChange(seen);
+    adapter.hideModelIds([{ modelId: 'arch', dbId: 3 }]);
+    expect(seen).toHaveBeenCalledTimes(1);
+    adapter.isolateModelIds([{ modelId: 'arch', dbId: 4 }]);
+    expect(seen).toHaveBeenCalledTimes(2);
+    adapter.showAll();
+    expect(seen.mock.calls.length).toBeGreaterThan(2);
+    off();
+    const total = seen.mock.calls.length;
+    adapter.hideModelIds([{ modelId: 'arch', dbId: 5 }]);
+    expect(seen).toHaveBeenCalledTimes(total);
+  });
+
+  it('keeps the selection when fitting a group that spans two models', async () => {
+    await adapter.loadModels([{ urn: 'arch' }, { urn: 'str' }]);
+    const keep = [{ modelId: 'arch', dbId: 7 }];
+    adapter.selectModelIds(keep);
+    adapter.fitToView([
+      { modelId: 'arch', dbId: 3 },
+      { modelId: 'str', dbId: 9 },
+    ]);
+    expect(adapter.getModelSelection()).toEqual(keep);
+  });
+
   it('fits the view to the selection', async () => {
     await adapter.loadModels([{ urn: 'arch' }]);
     const before = viewer().fits;

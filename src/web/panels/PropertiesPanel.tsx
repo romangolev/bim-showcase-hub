@@ -51,7 +51,10 @@ export function PropertiesPanel({
       selection.filter((item) => item.modelId === modelId).map((i) => i.dbId),
     [selection, modelId],
   );
-  const key = `${modelId}|${ids.join(',')}`;
+  const key = useMemo(
+    () => `${modelId}|${ids.length}|${ids.slice(0, MAX_SELECTED).join(',')}`,
+    [modelId, ids],
+  );
 
   useEffect(() => {
     if (!adapter || !modelId || ids.length === 0) {
@@ -60,31 +63,31 @@ export function PropertiesPanel({
     }
     let live = true;
     setRead({ key, status: 'loading' });
-    Promise.all(
-      ids
-        .slice(0, MAX_SELECTED)
-        .map((dbId) => adapter.getElementProperties({ modelId, dbId })),
-    ).then(
-      (found) => {
-        if (!live) return;
-        setRead({
-          key,
-          status: 'ready',
-          elements: found.filter(
-            (element): element is ElementProperties => element !== null,
-          ),
-        });
-      },
-      (err: unknown) => {
-        if (!live) return;
-        setRead({
-          key,
-          status: 'error',
-          message:
-            err instanceof Error ? err.message : 'Could not read properties',
-        });
-      },
-    );
+    adapter
+      .getElementsProperties(
+        ids.slice(0, MAX_SELECTED).map((dbId) => ({ modelId, dbId })),
+      )
+      .then(
+        (found) => {
+          if (!live) return;
+          setRead({
+            key,
+            status: 'ready',
+            elements: found.filter(
+              (element): element is ElementProperties => element !== null,
+            ),
+          });
+        },
+        (err: unknown) => {
+          if (!live) return;
+          setRead({
+            key,
+            status: 'error',
+            message:
+              err instanceof Error ? err.message : 'Could not read properties',
+          });
+        },
+      );
     return () => {
       live = false;
     };
@@ -192,9 +195,9 @@ export function PropertiesPanel({
                         {group.category}
                       </summary>
                       <dl className="bsh-props__list">
-                        {group.items.map((prop) => (
+                        {group.items.map((prop, index) => (
                           <div
-                            key={`${prop.name}\u0000${valueText(prop.value)}`}
+                            key={`${index}\u0000${prop.name}`}
                             className="bsh-props__row"
                           >
                             <dt>{prop.name}</dt>

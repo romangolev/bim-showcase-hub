@@ -687,6 +687,64 @@ describe('RealViewerAdapter tool group extension', () => {
     }
   });
 
+  it('revokes the screenshot URL after reading it', async () => {
+    makeAdapter();
+    await adapter.load('dXJu');
+    const viewer = viewers[0] as FakeViewer & {
+      getScreenShot?: (w: number, h: number, cb: (url: string) => void) => void;
+    };
+    viewer.getScreenShot = (_w, _h, cb) => cb('blob:shot');
+    const revoke = vi
+      .spyOn(URL, 'revokeObjectURL')
+      .mockImplementation(() => {});
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ blob: async () => new Blob(['x']) })),
+    );
+    try {
+      await adapter.getScreenshot?.();
+      expect(revoke).toHaveBeenCalledWith('blob:shot');
+    } finally {
+      vi.unstubAllGlobals();
+      revoke.mockRestore();
+    }
+  });
+
+  it('revokes a screenshot that arrives after the timeout and reads nothing', async () => {
+    vi.useFakeTimers();
+    const revoke = vi
+      .spyOn(URL, 'revokeObjectURL')
+      .mockImplementation(() => {});
+    const fetcher = vi.fn();
+    vi.stubGlobal('fetch', fetcher);
+    try {
+      makeAdapter();
+      await adapter.load('dXJu');
+      const viewer = viewers[0] as FakeViewer & {
+        getScreenShot?: (
+          w: number,
+          h: number,
+          cb: (url: string) => void,
+        ) => void;
+      };
+      let late: (url: string) => void = () => {};
+      viewer.getScreenShot = (_w, _h, cb) => {
+        late = cb;
+      };
+      const result = adapter.getScreenshot?.();
+      const assertion = expect(result).rejects.toThrow('timed out');
+      await vi.advanceTimersByTimeAsync(10_000);
+      await assertion;
+      late('blob:late');
+      expect(revoke).toHaveBeenCalledWith('blob:late');
+      expect(fetcher).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+      revoke.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
   it('passes the requested size to the viewer screenshot', async () => {
     makeAdapter();
     await adapter.load('dXJu');
@@ -1096,6 +1154,34 @@ describe('RealViewerAdapter geometry export', () => {
     ).toBeNull();
     model.getBulkProperties = (_ids, _opts, ok) => ok([]);
     expect(await one.getElementProperties({ modelId: id, dbId: 8 })).toBeNull();
+  });
+
+  it('reads many elements with one bulk call per model', async () => {
+    const one = await makeLoaded();
+    const model = (viewers[0] as FakeViewer).model;
+    const asked: number[][] = [];
+    model.getBulkProperties = (ids, _opts, ok) => {
+      asked.push([...ids]);
+      ok(
+        ids
+          .filter((id) => id !== 9)
+          .map((dbId) => ({ dbId, name: `E${dbId}`, properties: [] })),
+      );
+    };
+    const { id } = one.getModels()[0] as { id: string };
+    const result = await one.getElementsProperties([
+      { modelId: id, dbId: 3 },
+      { modelId: id, dbId: 9 },
+      { modelId: 'gone', dbId: 1 },
+      { modelId: id, dbId: 1 },
+    ]);
+    expect(asked).toEqual([[3, 9, 1]]);
+    expect(result.map((entry) => entry?.name ?? null)).toEqual([
+      'E3',
+      null,
+      null,
+      'E1',
+    ]);
   });
 
   it('rejects when the viewer fails to read the properties', async () => {

@@ -3,6 +3,7 @@ import { setStorageAdapter } from '../storage.js';
 import { memoryAdapter } from '../storageAdapter.js';
 import {
   captionText,
+  drawCaption,
   MAX_SIDE,
   SNAPSHOT,
   SNAPSHOT_DEFAULTS,
@@ -113,10 +114,54 @@ describe('takeSnapshot', () => {
 
   it('builds the caption from name, version and date', () => {
     expect(
-      captionText(
-        { name: 'Tower', version: 'v3' },
-        new Date('2026-11-19T10:00:00Z'),
-      ),
+      captionText({ name: 'Tower', version: 'v3' }, new Date(2026, 10, 19, 10)),
     ).toBe('Tower  |  v3  |  2026-11-19');
+  });
+
+  it('uses the local calendar day, not the UTC day', () => {
+    const lateEvening = new Date(2026, 10, 17, 23, 30);
+    const earlyMorning = new Date(2026, 0, 5, 0, 15);
+    expect(captionText({ name: 'T' }, lateEvening)).toBe('T  |  2026-11-17');
+    expect(captionText({ name: 'T' }, earlyMorning)).toBe('T  |  2026-01-05');
+  });
+});
+
+describe('drawCaption', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  function stubCanvas(context: object | null) {
+    const close = vi.fn();
+    vi.stubGlobal(
+      'createImageBitmap',
+      vi.fn(async () => ({ width: 10, height: 10, close })),
+    );
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
+      context as never,
+    );
+    vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((cb) =>
+      cb(new Blob(['x'])),
+    );
+    return close;
+  }
+
+  it('closes the bitmap after drawing', async () => {
+    const close = stubCanvas({
+      drawImage: vi.fn(),
+      fillRect: vi.fn(),
+      fillText: vi.fn(),
+    });
+    await drawCaption(new Blob(['a']), 'caption');
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes the bitmap when drawing fails', async () => {
+    const close = stubCanvas(null);
+    await expect(drawCaption(new Blob(['a']), 'caption')).rejects.toThrow(
+      SnapshotError,
+    );
+    expect(close).toHaveBeenCalledTimes(1);
   });
 });
