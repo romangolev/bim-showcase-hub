@@ -1,3 +1,4 @@
+import { safeName } from '../../extensions/exportFormats.js';
 import { startTask, type TaskHandle } from '../../tasks/taskStore.js';
 import type {
   ExportToolSpec,
@@ -99,6 +100,12 @@ export function exportFileName(
     .replace(/\.(xlsx|glb|gltf|ifc)$/i, '')
     .replace(/-properties$/i, '');
   return model ? `${model}${suffix}.${extension}` : fallback;
+}
+
+export function exportStem(file?: string, version?: string): string {
+  const base = (file ?? '').replace(/\.[A-Za-z0-9]{1,5}$/, '');
+  const parts = [base, version ?? ''].map(safeName).filter(Boolean);
+  return base && parts.length > 0 ? parts.join('-').slice(0, 120) : '';
 }
 
 export const DEFAULT_CONFIRM_ABOVE = 20000;

@@ -21,7 +21,8 @@ const {
   EXCEL_SETTINGS_KEY,
   readExcelToolSettings,
 } = await import('./excelSettings.js');
-const { exportFileName } = await import('../../extensions/excelExport.js');
+const { DEFAULT_FILE_NAME } = await import('../../extensions/excelExport.js');
+const { exportFileName, exportStem } = await import('../kernel/exportKit.js');
 
 beforeEach(() => {
   installMemoryStorage();
@@ -80,7 +81,13 @@ describe('ExcelExportTool', () => {
     const live = { ...DEFAULT_EXCEL_TOOL_SETTINGS, format: 'csv' as const };
     const { exports } = tool.contribute(
       context({
-        fileName: () => exportFileName('Snowdon Towers Sample.rvt', 'v3'),
+        fileName: () =>
+          exportFileName(
+            exportStem('Snowdon Towers Sample.rvt', 'v3'),
+            DEFAULT_FILE_NAME,
+            '-properties',
+            'xlsx',
+          ),
         current: () => live as never,
       }),
     );
