@@ -11,6 +11,7 @@ import {
 } from '../../extensions/exportFormats.js';
 import { SelectionSets } from '../../panels/SelectionSets.js';
 import { usePersisted } from '../../storage.js';
+import { usePublishedAdapter } from '../../viewer/activeAdapterStore.js';
 import { modelScopeOptions, resolveScope } from '../../viewer/modelScope.js';
 import { useScopeCount } from '../../viewer/scopeCount.js';
 import { useSelectionSets, withSetLabels } from '../../viewer/selectionSets.js';
@@ -52,7 +53,9 @@ function SelectField<T extends string>({
 
 export function ExcelFields() {
   const [excel, setExcel] = usePersisted(EXCEL_SETTINGS);
-  const viewer = useActiveViewer();
+  const active = useActiveViewer();
+  const published = usePublishedAdapter();
+  const viewer = active ?? published;
   const models = useModels(viewer);
   const modelOptions = modelScopeOptions(models);
   const scopeLabels = withSetLabels(
