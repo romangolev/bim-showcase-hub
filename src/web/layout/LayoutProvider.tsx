@@ -230,9 +230,9 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
   const instances = useMemo(
     () => [
       ...models.models.map(({ urn }) => modelPanelId(urn)),
-      ...(models.models.length > 0 && !stacked
-        ? userInstanceIds(userState)
-        : []),
+      ...(stacked && models.models.length === 0
+        ? []
+        : userInstanceIds(userState)),
     ],
     [models.models, userState, stacked],
   );
@@ -746,6 +746,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
                   onVisibility={onVisibility}
                   treeOpen={overlayOpen}
                   onCloseTree={closeTree}
+                  userPanels={userInstanceIds(userState)}
                 />
               ) : (
                 <div className="app-body app-body--dock">

@@ -665,7 +665,53 @@ describe('user pane families', () => {
     await waitFor(() => expect(chartTabs()).toHaveLength(1));
     expect(storage.getItem('bsh.layout.instances.v1')).not.toContain('chart:1');
     act(() => handle().closeModel('aaa'));
-    await waitFor(() => expect(chartTabs()).toHaveLength(0));
+    await waitFor(() => expect(handle().models().models).toHaveLength(0));
+    await waitFor(() => expect(chartTabs()).toHaveLength(1));
+    expect(storage.getItem('bsh.layout.instances.v1')).toContain('chart:2');
+  });
+
+  it('restores user instances when no model is open at load', async () => {
+    storage.setItem(
+      'bsh.layout.instances.v1',
+      JSON.stringify({
+        chart: [{ id: 'chart:1', title: 'Chart 1' }],
+        modelSummary: [{ id: 'modelSummary:1', title: 'Model summary 1' }],
+      }),
+    );
+    renderPath('/');
+    await dockReady();
+    expect(await screen.findByRole('tab', { name: 'Chart 1' })).toBeVisible();
+    expect(
+      screen.getByRole('tab', { name: 'Model summary 1' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Viewer' })).toBeNull();
+    expect(storage.getItem('bsh.layout.instances.v1')).toContain('chart:1');
+  });
+
+  it('stacks user instances after the built-in sections on a model route', async () => {
+    media.setWidth(800);
+    storage.setItem(
+      'bsh.layout.instances.v1',
+      JSON.stringify({ chart: [{ id: 'chart:1', title: 'Chart 1' }] }),
+    );
+    renderPath('/model/aaa?file=A.rvt&v=v1');
+    expect(
+      await screen.findByRole('tablist', { name: 'Open models' }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole('region', { name: 'Chart 1' }),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps user instances out of the stacked home screen', async () => {
+    media.setWidth(800);
+    storage.setItem(
+      'bsh.layout.instances.v1',
+      JSON.stringify({ chart: [{ id: 'chart:1', title: 'Chart 1' }] }),
+    );
+    renderPath('/');
+    await screen.findByRole('complementary', { name: 'Documents' });
+    expect(screen.queryByRole('region', { name: 'Chart 1' })).toBeNull();
   });
 
   it('pins a summary instance to the model it was created for and cleans up on close', async () => {

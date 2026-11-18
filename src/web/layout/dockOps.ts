@@ -13,6 +13,7 @@ import {
   isFollower,
   isPaneId,
   isRequired,
+  isUserInstance,
   PANES,
   type PaneDefinition,
   type PaneId,
@@ -302,7 +303,7 @@ export function buildDefault(
   sync: InstanceSync,
 ) {
   api.clear();
-  const open = sync.instances.length > 0;
+  const open = sync.instances.some((id) => !isUserInstance(id));
   const steps = defaultSteps(treeWidth).filter((step) => {
     const pane = paneById(step.id);
     if (pane.instances) return open;
