@@ -10,9 +10,6 @@ import './styles/model.css';
 import './styles/modal.css';
 import './styles/commands.css';
 import { App } from './App.js';
-import { migrateLegacyToolSettings } from './tools/index.js';
-
-migrateLegacyToolSettings();
 
 const container = document.getElementById('root');
 if (!container) {

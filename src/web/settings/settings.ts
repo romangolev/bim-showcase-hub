@@ -48,3 +48,13 @@ export function writeSettings(settings: Settings): void {
     ...settings,
   });
 }
+
+export function scrubAppSettings(): void {
+  const stored = APP_SETTINGS_BLOB.read();
+  if (!isRecord(stored)) return;
+  const { sessionWarnMinutes, recentsLength } = stored;
+  APP_SETTINGS_BLOB.write({
+    ...(sessionWarnMinutes === undefined ? {} : { sessionWarnMinutes }),
+    ...(recentsLength === undefined ? {} : { recentsLength }),
+  });
+}

@@ -152,18 +152,6 @@ describe('ExcelExportTool', () => {
     second.exports?.[0]?.onExport();
     expect(exportToXlsx).toHaveBeenCalledTimes(1);
   });
-
-  it('reads the fields of the old combined settings', () => {
-    expect(tool.legacy.fields).toEqual(['excelExport', 'excel']);
-    expect(
-      readExcelToolSettings(
-        tool.legacy.read({ excelExport: false, excel: { format: 'json' } }),
-      ),
-    ).toMatchObject({ enabled: false, format: 'json' });
-    expect(readExcelToolSettings(tool.legacy.read({ excel: 'junk' }))).toEqual(
-      DEFAULT_EXCEL_TOOL_SETTINGS,
-    );
-  });
 });
 
 describe('excelFileNameFrom', () => {
