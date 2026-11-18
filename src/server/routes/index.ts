@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { createSessionCodec } from '../auth/sessionTokens.js';
 import type { ApsAuth } from '../auth/types.js';
 import type { ServerConfig } from '../config.js';
 import type { DataService } from '../data/types.js';
@@ -14,9 +15,10 @@ export interface AppDeps {
 
 export function apiRouter(config: ServerConfig, deps: AppDeps): Router {
   const router = Router();
+  const codec = createSessionCodec(config.sessionSecret);
   router.use(healthRouter(config));
-  router.use(authRouter(config, deps.auth));
-  router.use(dataRouter(config, deps.auth, deps.data));
+  router.use(authRouter(config, deps.auth, codec));
+  router.use(dataRouter(config, deps.auth, deps.data, codec));
   router.use(() => {
     throw new HttpError(404, 'Not found');
   });

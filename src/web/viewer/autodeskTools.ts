@@ -16,9 +16,6 @@ import type { PaintSwatchSpec } from './ViewerAdapter.js';
 export const TOOLS_EXTENSION_ID = 'BimShowcaseHub.Tools';
 export const PAINT_ICON_CLASS = 'bsh-ico-paint';
 export const RESET_ICON_CLASS = 'bsh-ico-reset';
-export const EXPORT_ICON_CLASS = 'bsh-ico-export';
-export const GLB_ICON_CLASS = 'bsh-ico-glb';
-export const IFC_ICON_CLASS = 'bsh-ico-ifc';
 
 export interface ToolsExtensionOptions {
   controller: ToolGroupController;
@@ -67,6 +64,7 @@ function createToolsExtension(viewing: AutodeskViewing): ViewerExtensionClass {
         for (const swatch of paintSpec.swatches) {
           const button: ControlButton = new UI.Button(swatch.id);
           button.setIcon(swatchIconClass(swatch.icon));
+          if (button.icon) button.icon.style.backgroundColor = swatch.swatch;
           button.onClick = () => controller.paint(swatch.color);
           combo.addControl(button);
           swatches.push({ swatch, button });
@@ -80,28 +78,12 @@ function createToolsExtension(viewing: AutodeskViewing): ViewerExtensionClass {
         group.addControl(combo);
       }
 
-      if (spec.export) {
-        const exportButton: ControlButton = new UI.Button(spec.export.id);
-        exportButton.setIcon(EXPORT_ICON_CLASS);
-        exportButton.setToolTip(spec.export.tooltip);
-        exportButton.onClick = () => controller.export();
-        group.addControl(exportButton);
-      }
-
-      if (spec.geometry) {
-        const geometryButton: ControlButton = new UI.Button(spec.geometry.id);
-        geometryButton.setIcon(GLB_ICON_CLASS);
-        geometryButton.setToolTip(spec.geometry.tooltip);
-        geometryButton.onClick = () => controller.exportGeometry();
-        group.addControl(geometryButton);
-      }
-
-      if (spec.ifc) {
-        const ifcButton: ControlButton = new UI.Button(spec.ifc.id);
-        ifcButton.setIcon(IFC_ICON_CLASS);
-        ifcButton.setToolTip(spec.ifc.tooltip);
-        ifcButton.onClick = () => controller.exportIfc();
-        group.addControl(ifcButton);
+      for (const entry of spec.exports) {
+        const button: ControlButton = new UI.Button(entry.id);
+        button.setIcon(entry.icon);
+        button.setToolTip(entry.tooltip);
+        button.onClick = () => controller.export(entry.id);
+        group.addControl(button);
       }
 
       const apply = (state: ToolGroupState) => {

@@ -2,14 +2,11 @@ import type { PropertyRow } from '../../shared/types.js';
 import type { IfcSourceRead } from '../ifc/types.js';
 import type { Theme } from '../theme/theme.js';
 import {
-  EXPORT_ICON_CLASS,
-  GLB_ICON_CLASS,
-  IFC_ICON_CLASS,
   PAINT_ICON_CLASS,
   RESET_ICON_CLASS,
   swatchIconClass,
 } from './autodeskTools.js';
-import { NO_GEOMETRY_MESSAGE } from './federation.js';
+import { NO_GEOMETRY_MESSAGE, STILL_PROCESSING_MESSAGE } from './federation.js';
 import type { GeometryPart, GeometryRead } from './geometryTypes.js';
 import {
   buildMockElements,
@@ -21,7 +18,7 @@ import {
 import { tagRows } from './modelScope.js';
 import {
   checkCapacity,
-  loadFailureMessage,
+  loadFailure,
   type ModelBox,
   type ModelDbId,
   type ModelInfo,
@@ -48,6 +45,8 @@ import {
   type ToolGroupState,
 } from './toolGroupController.js';
 import type {
+  CameraState,
+  LoadStage,
   PaintSwatchSpec,
   Rgba,
   ToolGroupSpec,
@@ -102,6 +101,9 @@ export const MOCK_BROKEN_MARKER = 'broken';
 export const MOCK_LOAD_ERROR = 'Mock model failed to load';
 export const MOCK_NO_PROPERTIES_MARKER = 'noprops';
 export const MOCK_NO_GEOMETRY_MARKER = 'nogeom';
+export const MOCK_PROCESSING_MARKER = 'processing';
+export const MOCK_NO_ACCESS_MARKER = 'noaccess';
+export const MOCK_NO_ACCESS_ERROR = 'Document load failed (4): mock';
 export const MOCK_PROPERTIES_ERROR = 'Properties could not be read: mock';
 const MODEL_GAP = 48;
 
@@ -242,6 +244,7 @@ export class MockViewerAdapter implements ViewerAdapter {
   private toolbar: HTMLDivElement | null = null;
   private status: HTMLDivElement | null = null;
   private selection = new Set<string>();
+  private isolated: Set<string> | null = null;
   private readonly models = new ModelSet<MockScene>();
   private readonly themed = new Map<string, Rgba>();
   private readonly listeners = new Set<(items: ModelDbId[]) => void>();
@@ -256,12 +259,27 @@ export class MockViewerAdapter implements ViewerAdapter {
   private controller: ToolGroupController | null = null;
   private disposeGroup: (() => void) | null = null;
   private theme: Theme = 'dark';
+  private camera: CameraState | null = {
+    eye: [0, 0, 10],
+    target: [0, 0, 0],
+    up: [0, 1, 0],
+    ortho: false,
+  };
   private loaded = false;
   private destroyed = false;
   private readonly resizer = createResizeScheduler(() => this.resize());
 
   constructor(private readonly container: HTMLElement) {
     this.build();
+  }
+
+  private readonly stageListeners = new Set<(stage: LoadStage) => void>();
+
+  onLoadStage(cb: (stage: LoadStage) => void): () => void {
+    this.stageListeners.add(cb);
+    return () => {
+      this.stageListeners.delete(cb);
+    };
   }
 
   async load(urn: string, name?: string): Promise<void> {
@@ -275,12 +293,15 @@ export class MockViewerAdapter implements ViewerAdapter {
     const region = detectRegion(unique[0]?.urn ?? '');
     if (!regionAvailable(region)) throw new RegionConflictError(region);
     this.unload();
+    for (const stage of ['starting', 'manifest', 'geometry'] as const) {
+      for (const cb of [...this.stageListeners]) cb(stage);
+    }
     for (const source of unique) this.models.add(source);
     for (const source of unique) this.loadOne(source);
     const models = this.models.list();
     if (models.some((model) => model.status === 'ready')) claimRegion(region);
     if (!models.some((model) => model.status === 'ready')) {
-      throw new Error(loadFailureMessage(models));
+      throw loadFailure(models);
     }
     return models;
   }
@@ -413,6 +434,79 @@ export class MockViewerAdapter implements ViewerAdapter {
     );
   }
 
+  getModelWeight(modelId: string): number | null {
+    return this.models.handle(modelId)?.nodes.size ?? null;
+  }
+
+  async getScreenshot(): Promise<Blob> {
+    const svg = this.svg;
+    if (!svg) throw new Error('The viewer cannot take a snapshot');
+    const { width, height } = svg.getBoundingClientRect();
+    const copy = svg.cloneNode(true) as SVGSVGElement;
+    copy.setAttribute('xmlns', SVG_NS);
+    copy.setAttribute('width', String(Math.max(1, Math.round(width))));
+    copy.setAttribute('height', String(Math.max(1, Math.round(height))));
+    const image = new Image();
+    const loaded = new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve();
+      image.onerror = () =>
+        reject(new Error('The snapshot could not be drawn'));
+    });
+    image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
+      new XMLSerializer().serializeToString(copy),
+    )}`;
+    await loaded;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(width));
+    canvas.height = Math.max(1, Math.round(height));
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('The snapshot could not be drawn');
+    context.fillStyle = '#0b0b0c';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    return new Promise<Blob>((resolve, reject) =>
+      canvas.toBlob(
+        (blob) =>
+          blob ? resolve(blob) : reject(new Error('The snapshot failed')),
+        'image/png',
+      ),
+    );
+  }
+
+  getCamera(): CameraState | null {
+    return this.camera;
+  }
+
+  setCamera(camera: CameraState): void {
+    this.camera = camera;
+    if (this.root) this.root.dataset.camera = JSON.stringify(camera);
+  }
+
+  fitToSelection(): void {}
+
+  getIsolated(): ModelDbId[] {
+    return this.isolated ? [...this.isolated].map(parseKey) : [];
+  }
+
+  isolateModelIds(items: readonly ModelDbId[]): void {
+    const keys = items
+      .filter((item) => this.nodeOf(item.modelId, item.dbId))
+      .map((item) => selectionKey(item.modelId, item.dbId));
+    this.isolated = keys.length > 0 ? new Set(keys) : null;
+    this.applyIsolation();
+  }
+
+  private applyIsolation(): void {
+    for (const { info, handle } of this.models.ready()) {
+      for (const [dbId, node] of handle.nodes) {
+        const dim =
+          this.isolated !== null &&
+          !this.isolated.has(selectionKey(info.id, dbId));
+        node.classList.toggle('bsh-mock__el--dim', dim);
+      }
+    }
+  }
+
   setModelThemingColor(items: readonly ModelDbId[], color: Rgba): void {
     for (const { modelId, dbId } of items) {
       const node = this.nodeOf(modelId, dbId);
@@ -427,6 +521,7 @@ export class MockViewerAdapter implements ViewerAdapter {
     for (const scene of this.models.clear()) scene.group.remove();
     this.svg?.replaceChildren();
     this.themed.clear();
+    this.isolated = null;
     this.bounds = null;
     this.loaded = false;
     this.placed = 0;
@@ -633,6 +728,8 @@ export class MockViewerAdapter implements ViewerAdapter {
           controller.paint(swatch.color);
           setOpen(false);
         });
+        const swatchIcon = button.querySelector<HTMLElement>('.bsh-mock__icon');
+        if (swatchIcon) swatchIcon.style.backgroundColor = swatch.swatch;
         flyout.appendChild(button);
         swatches.push({ swatch, button });
       }
@@ -674,37 +771,14 @@ export class MockViewerAdapter implements ViewerAdapter {
       parts.push(comboEl);
     }
 
-    const exportSpec = spec.export;
-    if (exportSpec) {
-      const exportButton = this.createToolbarButton(
-        exportSpec.id,
-        exportSpec.tooltip,
-        iconSpan(EXPORT_ICON_CLASS),
+    for (const entry of spec.exports) {
+      const button = this.createToolbarButton(
+        entry.id,
+        entry.tooltip,
+        iconSpan(entry.icon),
       );
-      exportButton.addEventListener('click', () => controller.export());
-      parts.push(exportButton);
-    }
-    const geometrySpec = spec.geometry;
-    if (geometrySpec) {
-      const geometryButton = this.createToolbarButton(
-        geometrySpec.id,
-        geometrySpec.tooltip,
-        iconSpan(GLB_ICON_CLASS),
-      );
-      geometryButton.addEventListener('click', () =>
-        controller.exportGeometry(),
-      );
-      parts.push(geometryButton);
-    }
-    const ifcSpec = spec.ifc;
-    if (ifcSpec) {
-      const ifcButton = this.createToolbarButton(
-        ifcSpec.id,
-        ifcSpec.tooltip,
-        iconSpan(IFC_ICON_CLASS),
-      );
-      ifcButton.addEventListener('click', () => controller.exportIfc());
-      parts.push(ifcButton);
+      button.addEventListener('click', () => controller.export(entry.id));
+      parts.push(button);
     }
 
     const apply = (state: ToolGroupState) => {
@@ -763,7 +837,15 @@ export class MockViewerAdapter implements ViewerAdapter {
       return;
     }
     if (source.urn.includes(MOCK_NO_GEOMETRY_MARKER)) {
-      this.models.fail(id, NO_GEOMETRY_MESSAGE);
+      this.models.fail(id, NO_GEOMETRY_MESSAGE, undefined, 'no-viewable');
+      return;
+    }
+    if (source.urn.includes(MOCK_PROCESSING_MARKER)) {
+      this.models.fail(id, STILL_PROCESSING_MESSAGE, undefined, 'processing');
+      return;
+    }
+    if (source.urn.includes(MOCK_NO_ACCESS_MARKER)) {
+      this.models.fail(id, MOCK_NO_ACCESS_ERROR, undefined, 'access');
       return;
     }
     const scene = this.renderModel(id, buildMockElements());

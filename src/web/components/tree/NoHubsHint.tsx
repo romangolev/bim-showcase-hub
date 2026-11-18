@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { childrenQueryOptions, sessionQueryOptions } from '../../api/hooks.js';
 import { ROOT_SCOPE } from '../../api/scope.js';
+import { BSH_KEYS, readJson, writeJson } from '../../storage.js';
 import { Icon } from '../icons.js';
 import { StateBlock } from '../StateBlock.js';
 
@@ -133,26 +134,17 @@ export function NoHubsHint({ onCheckAgain }: NoHubsHintProps) {
   );
 }
 
-export const HINT_DISMISSED_KEY = 'bsh.hint.hubs.dismissed.v1';
+export const HINT_DISMISSED_KEY = BSH_KEYS.personal.hubHint;
 
 function readDismissed(): string[] {
-  try {
-    const raw = window.localStorage.getItem(HINT_DISMISSED_KEY);
-    const parsed: unknown = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed)
-      ? parsed.filter((owner): owner is string => typeof owner === 'string')
-      : [];
-  } catch {
-    return [];
-  }
+  const parsed = readJson<unknown>(HINT_DISMISSED_KEY, []);
+  return Array.isArray(parsed)
+    ? parsed.filter((owner): owner is string => typeof owner === 'string')
+    : [];
 }
 
 function writeDismissed(owners: string[]) {
-  try {
-    window.localStorage.setItem(HINT_DISMISSED_KEY, JSON.stringify(owners));
-  } catch {
-    return;
-  }
+  writeJson(HINT_DISMISSED_KEY, owners);
 }
 
 export interface PersonalHubNoticeProps {

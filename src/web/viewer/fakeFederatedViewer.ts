@@ -149,6 +149,7 @@ export class FakeFederatedViewer implements GuiViewer3D {
   themed: { model: ViewerModel | undefined; dbId: number }[] = [];
   cleared: (ViewerModel | undefined)[] = [];
   fits = 0;
+  isolated = new Map<FakeModel, number[]>();
   fitted: ViewerBox[] = [];
   placed: { urn: string; elements: number[] }[] = [];
   impl = {
@@ -156,6 +157,17 @@ export class FakeFederatedViewer implements GuiViewer3D {
       const own = model as FakeModel;
       own.placement = [...matrix.elements];
       this.placed.push({ urn: own.urn, elements: [...matrix.elements] });
+    },
+    selector: {
+      setAggregateSelection: (
+        entries: { model: ViewerModel; ids: number[] }[],
+      ) => {
+        this.selections.clear();
+        for (const { model, ids } of entries) {
+          this.selections.set(this.own(model), [...ids]);
+        }
+        this.fire();
+      },
     },
   };
   navigation = {
@@ -239,6 +251,10 @@ export class FakeFederatedViewer implements GuiViewer3D {
   select(ids: number[], model: ViewerModel): void {
     this.selections.set(this.own(model), [...ids]);
     this.fire();
+  }
+
+  isolate(ids: number[], model: ViewerModel): void {
+    this.isolated.set(this.own(model), [...ids]);
   }
 
   showModel(model: ViewerModel | number): boolean {

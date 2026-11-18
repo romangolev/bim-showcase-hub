@@ -25,7 +25,12 @@ export function hubTypeOf(resource: NamedResource): HubType {
 export interface FolderContentResource {
   type?: string;
   id?: string;
-  attributes?: { name?: string; displayName?: string };
+  attributes?: {
+    name?: string;
+    displayName?: string;
+    lastModifiedTime?: string;
+    lastModifiedUserName?: string;
+  };
 }
 
 export interface VersionResource {
@@ -34,10 +39,32 @@ export interface VersionResource {
     versionNumber?: number;
     lastModifiedTime?: string;
     lastModifiedUserName?: string;
+    storageSize?: number;
   };
   relationships?: {
     derivatives?: { data?: { id?: string } };
     item?: { data?: { id?: string } };
+  };
+}
+
+export function metadataOf(
+  attributes:
+    | {
+        lastModifiedTime?: string;
+        lastModifiedUserName?: string;
+        storageSize?: number;
+      }
+    | undefined,
+): Pick<TreeNode, 'modifiedAt' | 'modifiedBy' | 'size'> {
+  const time = attributes?.lastModifiedTime;
+  const user = attributes?.lastModifiedUserName;
+  const size = attributes?.storageSize;
+  return {
+    ...(time && !Number.isNaN(new Date(time).getTime())
+      ? { modifiedAt: new Date(time).toISOString() }
+      : {}),
+    ...(user ? { modifiedBy: user } : {}),
+    ...(typeof size === 'number' && size >= 0 ? { size } : {}),
   };
 }
 
@@ -133,6 +160,7 @@ export function mapFolderContents(
       hasChildren: true,
       viewable: false,
       parentId: encodeId(folderId),
+      ...metadataOf(resource.attributes),
     });
   }
   return nodes;
@@ -190,6 +218,7 @@ export function mapVersions(
       viewable: Boolean(urn),
       viewState: urn ? 'unknown' : 'not-translated',
       parentId: encodeId(itemId),
+      ...metadataOf(resource.attributes),
     };
     if (urn) {
       node.urn = urn;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { measureTreeWidth, type TreeWidthSource } from './DockLayout.js';
+import { measureTreeWidth, type TreeWidthSource } from './dockOps.js';
 
 function source(options: {
   tree?: 'grid' | 'floating' | null;

@@ -161,6 +161,7 @@ export interface BubbleNode {
 
 export interface ViewingDocument {
   getRoot(): {
+    data?: { status?: string };
     getDefaultGeometry(): unknown;
     search?(query: { type: string; role?: string }): unknown[];
   };
@@ -171,6 +172,15 @@ export interface DocumentNodeLoadOptions {
   applyRefPoint?: boolean;
   globalOffset?: unknown;
   applyScaling?: string;
+}
+
+export interface ViewportState {
+  eye: number[];
+  target: number[];
+  up: number[];
+  isOrthographic?: boolean;
+  projection?: string;
+  [key: string]: unknown;
 }
 
 export interface AggregateSelection {
@@ -186,6 +196,11 @@ export interface GuiViewer3D {
   impl?: {
     resize?(width: number, height: number): void;
     setPlacementTransform?(model: ViewerModel, matrix: PlacementMatrix): void;
+    selector?: {
+      setAggregateSelection?(
+        entries: { model: ViewerModel; ids: number[] }[],
+      ): void;
+    };
   };
   navigation?: { fitBounds(immediate: boolean, bounds: ViewerBox): void };
   start(): number | undefined;
@@ -212,7 +227,20 @@ export interface GuiViewer3D {
   getAllModels?(): ViewerModel[];
   select?(ids: number[], model?: ViewerModel): void;
   getAggregateSelection?(): AggregateSelection[];
+  getIsolatedNodes?(model?: ViewerModel): number[];
+  isolate?(ids: number[], model?: ViewerModel): void;
   fitToView?(): void;
+  getScreenShot?(
+    width: number,
+    height: number,
+    onDone: (url: string) => void,
+  ): void;
+  getState?(filter?: { viewport?: boolean }): { viewport?: ViewportState };
+  restoreState?(
+    state: { viewport: ViewportState },
+    filter?: unknown,
+    immediate?: boolean,
+  ): boolean;
   getObjectTree(
     onSuccess: (tree: InstanceTree) => void,
     onError?: (err: unknown) => void,

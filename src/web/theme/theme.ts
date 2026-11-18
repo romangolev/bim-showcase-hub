@@ -1,6 +1,8 @@
+import { BSH_KEYS } from '../storage.js';
+
 export type Theme = 'dark' | 'light';
 
-export const THEME_STORAGE_KEY = 'bsh-theme';
+export const THEME_STORAGE_KEY = BSH_KEYS.preference.theme;
 export const LIGHT_SCHEME_QUERY = '(prefers-color-scheme: light)';
 
 export function isTheme(value: unknown): value is Theme {

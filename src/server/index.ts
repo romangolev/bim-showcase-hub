@@ -3,7 +3,9 @@ import { fileURLToPath } from 'node:url';
 import cookieSession from 'cookie-session';
 import express, { type Express } from 'express';
 import { createApsAuth } from './auth/apsAuth.js';
+import { SESSION_MAX_AGE_MS } from './auth/sessionTokens.js';
 import { loadConfig, type ServerConfig } from './config.js';
+import { FRAME_OPTIONS, REPORT_ONLY_CSP } from './csp.js';
 import { createApsDataService } from './data/apsDataService.js';
 import { errorHandler } from './errors.js';
 import { createMockDataService } from './mock/index.js';
@@ -34,12 +36,11 @@ export function createApp(
   if (config.production) {
     app.set('trust proxy', 1);
   }
-  app.use(express.json());
   app.use(
     cookieSession({
       name: 'bim-hub-session',
       keys: [config.sessionSecret],
-      maxAge: 60 * 60 * 1000,
+      maxAge: SESSION_MAX_AGE_MS,
       httpOnly: true,
       sameSite: 'lax',
     }),
@@ -47,6 +48,11 @@ export function createApp(
   app.use('/api', apiRouter(config, deps));
   if (config.production) {
     const staticDir = config.staticDir ?? defaultStaticDir();
+    app.use((_req, res, next) => {
+      res.set('Content-Security-Policy-Report-Only', REPORT_ONLY_CSP);
+      res.set('X-Frame-Options', FRAME_OPTIONS);
+      next();
+    });
     app.use(express.static(staticDir));
     app.get('/{*splat}', (_req, res) => {
       res.sendFile(path.join(staticDir, 'index.html'));

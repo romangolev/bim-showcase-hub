@@ -1,3 +1,5 @@
+import { isRecord } from '../../shared/guards.js';
+import { BSH_KEYS } from '../storage.js';
 import {
   hasPlainPanel,
   isFollower,
@@ -13,13 +15,13 @@ import {
   TREE_WIDTH_DEFAULT,
 } from './paneRegistry.js';
 
-export const LAYOUT_KEY = 'bsh.layout.v2';
+export const LAYOUT_KEY = BSH_KEYS.personal.layout;
 export const LAYOUT_VERSION = 2;
-export const LAYOUT_KEY_V1 = 'bsh.layout.v1';
+export const LAYOUT_KEY_V1 = BSH_KEYS.personal.layoutV1;
 export const LEGACY_KEYS = {
-  treeWidth: 'bsh.tree.width',
-  summary: 'bsh.summary.collapsed',
-  dashboard: 'bsh.dashboard.collapsed',
+  treeWidth: BSH_KEYS.preference.treeWidth,
+  summary: BSH_KEYS.preference.summaryCollapsed,
+  dashboard: BSH_KEYS.preference.dashboardCollapsed,
 } as const;
 export const TREE_WIDTH_MIN = 260;
 export const TREE_WIDTH_MAX = 480;
@@ -121,10 +123,6 @@ export function layoutReducer(
     case 'reset':
       return defaultModel();
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 interface CleanScope {

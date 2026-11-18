@@ -1,7 +1,11 @@
 import { useId } from 'react';
 import type { ModalDefinition } from '../modal/types.js';
+import { DashboardSettingsBody } from '../panels/DashboardSettings.js';
+import { SummarySettingsBody } from '../panels/SummarySettings.js';
 import { useTheme } from '../theme/ThemeContext.js';
+import { ExcelSettingsSection } from './ExcelSettingsSection.js';
 import { IfcSettingsSection } from './IfcSettingsSection.js';
+import { PaintSettingsSection } from './PaintSettingsSection.js';
 import { useSettings } from './SettingsContext.js';
 
 interface ExperimentalFeature {
@@ -71,6 +75,8 @@ function SwitchRow({ label, description, checked, onChange }: SwitchRowProps) {
 export function SettingsBody() {
   const { theme, toggleTheme } = useTheme();
   const { settings, setSetting } = useSettings();
+  const warnId = useId();
+  const recentsId = useId();
   return (
     <div className="settings">
       <section
@@ -103,6 +109,77 @@ export function SettingsBody() {
           />
         ))}
       </section>
+      <section className="settings__section" aria-labelledby="settings-session">
+        <h3 id="settings-session" className="settings__heading">
+          Session
+        </h3>
+        <div className="settings__field">
+          <label htmlFor={warnId}>
+            Warn me before the session ends (minutes)
+          </label>
+          <input
+            id={warnId}
+            type="number"
+            min={0}
+            max={120}
+            value={settings.sessionWarnMinutes}
+            onChange={(event) =>
+              setSetting(
+                'sessionWarnMinutes',
+                Math.min(120, Math.max(0, Number(event.target.value) || 0)),
+              )
+            }
+          />
+          <span className="settings__hint">0 turns the notice off.</span>
+        </div>
+      </section>
+      <section
+        className="settings__section"
+        aria-labelledby="settings-documents"
+      >
+        <h3 id="settings-documents" className="settings__heading">
+          Documents
+        </h3>
+        <div className="settings__field">
+          <label htmlFor={recentsId}>Recent models to list</label>
+          <input
+            id={recentsId}
+            type="number"
+            min={0}
+            max={20}
+            value={settings.recentsLength}
+            onChange={(event) =>
+              setSetting(
+                'recentsLength',
+                Math.min(
+                  20,
+                  Math.max(0, Math.round(Number(event.target.value) || 0)),
+                ),
+              )
+            }
+          />
+          <span className="settings__hint">
+            Pinned models are always listed. 0 hides the recent list.
+          </span>
+        </div>
+      </section>
+      <section className="settings__section" aria-labelledby="settings-summary">
+        <h3 id="settings-summary" className="settings__heading">
+          Model summary
+        </h3>
+        <SummarySettingsBody />
+      </section>
+      <section
+        className="settings__section"
+        aria-labelledby="settings-dashboard"
+      >
+        <h3 id="settings-dashboard" className="settings__heading">
+          Dashboard
+        </h3>
+        <DashboardSettingsBody />
+      </section>
+      <PaintSettingsSection />
+      <ExcelSettingsSection />
       <IfcSettingsSection />
     </div>
   );

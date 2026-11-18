@@ -35,17 +35,73 @@ describe('createApsDataService', () => {
     expect(client.getHubs).toHaveBeenCalledWith({ accessToken: 'tok' });
     expect(client.getHubProjects).toHaveBeenCalledWith('b.1', {
       accessToken: 'tok',
+      pageNumber: 0,
     });
     expect(client.getProjectTopFolders).toHaveBeenCalledWith('b.1', 'b.p', {
       accessToken: 'tok',
     });
     expect(client.getFolderContents).toHaveBeenCalledWith('b.p', 'f1', {
       accessToken: 'tok',
+      pageNumber: 0,
     });
     expect(client.getItemVersions).toHaveBeenCalledWith('b.p', 'i1', {
       accessToken: 'tok',
+      pageNumber: 0,
     });
     expect(versions[0]?.kind).toBe('version');
+  });
+
+  it('reads hubs and top folders once even when links.next is present', async () => {
+    const client = fakeClient();
+    client.getHubs.mockResolvedValue({
+      data: [{ id: 'b.1', attributes: { name: 'Hub' } }],
+      links: { next: { href: 'x' } },
+    });
+    client.getProjectTopFolders.mockResolvedValue({
+      data: [{ id: 'f1', attributes: { displayName: 'Files' } }],
+      links: { next: { href: 'x' } },
+    });
+    const service = createApsDataService(client as never);
+    await expect(service.listHubs('t')).resolves.toHaveLength(1);
+    await expect(
+      service.listTopFolders('t', 'b.1', 'b.p'),
+    ).resolves.toHaveLength(1);
+    expect(client.getHubs).toHaveBeenCalledTimes(1);
+    expect(client.getProjectTopFolders).toHaveBeenCalledTimes(1);
+  });
+
+  it('follows pages until links.next is absent', async () => {
+    const client = fakeClient();
+    client.getFolderContents
+      .mockResolvedValueOnce({
+        data: [{ type: 'items', id: 'i1', attributes: { name: 'a.rvt' } }],
+        links: { next: { href: 'x' } },
+      })
+      .mockResolvedValueOnce({
+        data: [{ type: 'items', id: 'i2', attributes: { name: 'b.rvt' } }],
+        links: {},
+      });
+    const service = createApsDataService(client as never);
+    const items = await service.listFolderContents('tok', 'b.p', 'f1');
+    expect(items.map((i) => i.name)).toEqual(['a.rvt', 'b.rvt']);
+    expect(client.getFolderContents).toHaveBeenCalledTimes(2);
+    expect(client.getFolderContents).toHaveBeenLastCalledWith('b.p', 'f1', {
+      accessToken: 'tok',
+      pageNumber: 1,
+    });
+  });
+
+  it('fails with a 502 when a list never ends', async () => {
+    const client = fakeClient();
+    client.getFolderContents.mockResolvedValue({
+      data: [],
+      links: { next: { href: 'x' } },
+    });
+    const service = createApsDataService(client as never);
+    await expect(
+      service.listFolderContents('tok', 'b.p', 'f1'),
+    ).rejects.toMatchObject({ status: 502, message: 'list too large' });
+    expect(client.getFolderContents).toHaveBeenCalledTimes(200);
   });
 
   it('checks one version on demand without listing the item', async () => {

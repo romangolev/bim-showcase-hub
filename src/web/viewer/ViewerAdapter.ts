@@ -33,6 +33,7 @@ export interface PaintToolSpec {
 
 export interface ExportToolSpec {
   id: string;
+  icon: string;
   tooltip: string;
   onExport: () => void;
 }
@@ -41,9 +42,16 @@ export interface ToolGroupSpec {
   id: string;
   title: string;
   paint?: PaintToolSpec;
-  export?: ExportToolSpec;
-  geometry?: ExportToolSpec;
-  ifc?: ExportToolSpec;
+  exports: ExportToolSpec[];
+}
+
+export type LoadStage = 'starting' | 'manifest' | 'geometry';
+
+export interface CameraState {
+  eye: Vec3;
+  target: Vec3;
+  up: Vec3;
+  ortho: boolean;
 }
 
 export interface ViewerAdapter {
@@ -51,7 +59,7 @@ export interface ViewerAdapter {
   unload(): void;
   resize(): void;
   scheduleResize(settleMs: number): void;
-  clearSelection?(): void;
+  clearSelection(): void;
   clearThemingColors(): void;
   setTheme(theme: Theme): void;
   getLeafProperties(
@@ -66,14 +74,23 @@ export interface ViewerAdapter {
   removeModel(modelId: string): void;
   getModels(): ModelInfo[];
   setModelVisible(modelId: string, visible: boolean): void;
+  onLoadStage(cb: (stage: LoadStage) => void): () => void;
   onModelsChange(cb: (models: ModelInfo[]) => void): () => void;
   getModelSelection(): ModelDbId[];
+  getModelWeight(modelId: string): number | null;
+  getIsolated(): ModelDbId[];
+  selectModelIds(items: readonly ModelDbId[]): void;
+  isolateModelIds(items: readonly ModelDbId[]): void;
+  fitToSelection(): void;
+  getScreenshot(): Promise<Blob>;
+  getCamera(): CameraState | null;
+  setCamera(camera: CameraState): void;
   setModelThemingColor(items: readonly ModelDbId[], color: Rgba): void;
   getSpread(): ModelSpread | null;
   getTogetherOffsets(): Record<string, Vec3>;
   setModelOffsets(offsets: Readonly<Record<string, Vec3>> | null): void;
-  getGeometryParts?(): Promise<GeometryRead>;
-  getIfcSource?(): Promise<IfcSourceRead>;
+  getGeometryParts(): Promise<GeometryRead>;
+  getIfcSource(): Promise<IfcSourceRead>;
 }
 
 export type ViewerAdapterFactory = (

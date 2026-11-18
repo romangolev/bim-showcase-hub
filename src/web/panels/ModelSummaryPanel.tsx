@@ -2,17 +2,34 @@ import { useId, useMemo, useState } from 'react';
 import { Icon } from '../components/icons.js';
 import { StateBlock } from '../components/StateBlock.js';
 import {
+  type ElementAction,
+  itemsWithValues,
+  runElementAction,
+  sanitizeAction,
+  showAllElements,
+} from '../extensions/elementActions.js';
+import { saveBlob } from '../extensions/excelExport.js';
+import { applyNamePattern, toDelimited } from '../extensions/exportFormats.js';
+import {
   DEFAULT_SUMMARY_PROPERTIES,
+  DEFAULT_SUMMARY_VIEW,
+  emptyShares,
   type SummaryEntry,
+  type SummaryView,
+  sanitizeView,
   summarize,
+  summaryTable,
+  viewEntries,
 } from '../extensions/modelSummary.js';
+import { BSH_KEYS } from '../storage.js';
+import { usePersistedState } from '../usePersistedState.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import {
   ModelScopeSelect,
   UnavailableModels,
   useModelScope,
 } from './ModelScope.js';
-import { SummaryTable } from './SummaryTable.js';
+import { entryKey, SummaryTable } from './SummaryTable.js';
 import {
   HIDDEN_MESSAGE,
   HIDDEN_TITLE,
@@ -36,6 +53,7 @@ export interface ModelSummaryPanelProps {
   defaultCollapsed?: boolean;
   onCollapsedChange?: (collapsed: boolean) => void;
   toggleable?: boolean;
+  onOpenSettings?: () => void;
 }
 
 const EMPTY: SummaryEntry[] = [];
@@ -51,6 +69,7 @@ export function ModelSummaryPanel({
   defaultCollapsed = false,
   onCollapsedChange,
   toggleable = true,
+  onOpenSettings,
 }: ModelSummaryPanelProps) {
   const uid = useId();
   const [innerCollapsed, setInnerCollapsed] = useState(defaultCollapsed);
@@ -64,6 +83,56 @@ export function ModelSummaryPanel({
       state.status === 'ready' ? summarize(scope.rows, propertyNames) : EMPTY,
     [state.status, scope.rows, propertyNames],
   );
+
+  const [view, setView] = usePersistedState<SummaryView>(
+    BSH_KEYS.personal.summaryView,
+    DEFAULT_SUMMARY_VIEW,
+    sanitizeView,
+  );
+  const [action] = usePersistedState<ElementAction>(
+    BSH_KEYS.personal.summaryAction,
+    'select',
+    sanitizeAction,
+  );
+  const [active, setActive] = useState<string | null>(null);
+  const [notice, setNotice] = useState('');
+  const shown = useMemo(() => viewEntries(entries, view), [entries, view]);
+  const shares = useMemo(
+    () => emptyShares(entries).filter((share) => share.percent > 0),
+    [entries],
+  );
+  const patch = (next: Partial<SummaryView>) =>
+    setView((prev) => ({ ...prev, ...next }));
+
+  const pick = (entry: SummaryEntry) => {
+    if (!resolved) return;
+    runElementAction(
+      resolved,
+      action,
+      itemsWithValues(scope.rows, entry.property, new Set([entry.value])),
+    );
+    setActive(entryKey(entry));
+  };
+
+  const table = () => summaryTable(shown, view.hiddenColumns);
+  const copyTable = async () => {
+    const { header, rows } = table();
+    try {
+      await navigator.clipboard.writeText(toDelimited(header, rows, '\t'));
+      setNotice(`Copied ${rows.length} rows`);
+    } catch {
+      setNotice('Could not copy to the clipboard');
+    }
+  };
+  const downloadCsv = () => {
+    const { header, rows } = table();
+    saveBlob(
+      new Blob(['\uFEFF', toDelimited(header, rows, ',')], {
+        type: 'text/csv;charset=utf-8',
+      }),
+      applyNamePattern('{model}-summary', model?.label ?? 'model', 'csv'),
+    );
+  };
 
   const toggle = () => {
     const next = !isCollapsed;
@@ -80,7 +149,8 @@ export function ModelSummaryPanel({
       className={`bsh-card bsh-summary ${className ?? ''}`.trim()}
       aria-labelledby={titleId}
       data-collapsed={isCollapsed}
-      data-rows-collapsed={!showAll && entries.length > STACKED_ROW_LIMIT}
+      data-density={view.density}
+      data-rows-collapsed={!showAll && shown.length > STACKED_ROW_LIMIT}
     >
       <header className="bsh-card__header bsh-summary__header">
         <h2 id={titleId} className="bsh-card__title bsh-summary__title">
@@ -101,6 +171,16 @@ export function ModelSummaryPanel({
         >
           Refresh
         </button>
+        {onOpenSettings ? (
+          <button
+            type="button"
+            className="bsh-icon-button"
+            onClick={onOpenSettings}
+          >
+            <Icon name="settings" size={16} />
+            <span className="bsh-sr-only">Summary settings</span>
+          </button>
+        ) : null}
         {toggleable ? (
           <button
             type="button"
@@ -166,15 +246,71 @@ export function ModelSummaryPanel({
               action={{ label: 'Refresh', onClick: state.reload }}
             />
           )}
-          {entries.length > 0 && <SummaryTable entries={entries} />}
-          {entries.length > STACKED_ROW_LIMIT && (
+          {entries.length > 0 && (
+            <div className="bsh-summary__tools">
+              <input
+                type="search"
+                className="bsh-input"
+                aria-label="Filter summary rows"
+                placeholder="Filter"
+                value={view.text}
+                onChange={(e) => patch({ text: e.target.value })}
+              />
+              <button type="button" className="bsh-button" onClick={copyTable}>
+                Copy table
+              </button>
+              <button
+                type="button"
+                className="bsh-button"
+                onClick={downloadCsv}
+              >
+                Download CSV
+              </button>
+              <span role="status" className="bsh-summary__notice">
+                {notice}
+              </span>
+              <button
+                type="button"
+                className="bsh-button"
+                onClick={() => resolved && showAllElements(resolved)}
+              >
+                Show all elements
+              </button>
+              {shares.length > 0 && (
+                <ul className="bsh-summary__shares" aria-label="Empty values">
+                  {shares.map((share) => (
+                    <li key={share.property} className="bsh-badge">
+                      {share.property}: {share.percent}% empty
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+          {entries.length > 0 && shown.length === 0 && (
+            <StateBlock
+              variant="empty"
+              compact
+              title="No rows match"
+              message="Change the filter, or reset the view in Summary settings."
+            />
+          )}
+          {shown.length > 0 && (
+            <SummaryTable
+              entries={shown}
+              hiddenColumns={view.hiddenColumns}
+              activeKey={active}
+              onPick={pick}
+            />
+          )}
+          {shown.length > STACKED_ROW_LIMIT && (
             <button
               type="button"
               className="bsh-button summary-toggle"
               aria-expanded={showAll}
               onClick={() => setShowAll((value) => !value)}
             >
-              {showAll ? 'Show fewer rows' : `Show all ${entries.length} rows`}
+              {showAll ? 'Show fewer rows' : `Show all ${shown.length} rows`}
             </button>
           )}
         </div>

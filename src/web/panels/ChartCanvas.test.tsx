@@ -140,3 +140,21 @@ describe('ChartCanvas theming', () => {
     expect(config.options.scales.x.ticks.color).toBe('#858687');
   });
 });
+
+describe('ChartCanvas export menu', () => {
+  it('offers the three exports from one labelled button', () => {
+    render(<ChartCanvas kind="bar" chart={chart} label="Bar chart" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Export Bar chart' }));
+    for (const name of ['Download PNG', 'Download CSV', 'Copy data']) {
+      expect(screen.getByRole('menuitem', { name })).toBeTruthy();
+    }
+  });
+
+  it('gives bars a minimum length', () => {
+    render(<ChartCanvas kind="bar" chart={chart} label="Bar chart" />);
+    const config = created.charts.at(-1)?.config as {
+      data: { datasets: { minBarLength?: number }[] };
+    };
+    expect(config.data.datasets[0]?.minBarLength).toBe(2);
+  });
+});

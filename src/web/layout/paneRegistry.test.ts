@@ -77,8 +77,8 @@ describe('pane registry', () => {
   });
 
   it('derives the viewer followers from the registry in one place', () => {
-    expect(FOLLOWERS).toEqual(['summary', 'dashboard']);
-    expect(followersOf('viewer')).toEqual(['summary', 'dashboard']);
+    expect(FOLLOWERS).toEqual(['summary', 'dashboard', 'models']);
+    expect(followersOf('viewer')).toEqual(['summary', 'dashboard', 'models']);
     expect(followersOf('tree')).toEqual([]);
   });
 

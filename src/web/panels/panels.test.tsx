@@ -1,15 +1,29 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { BSH_KEYS } from '../storage.js';
+import { installMemoryStorage } from '../test/mockApi.js';
 import { act, fireEvent, render, screen, waitFor } from '../test/render.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
 import { DashboardPanel } from './DashboardPanel.js';
+import { DashboardSettingsBody } from './DashboardSettings.js';
 import { ModelSummaryPanel } from './ModelSummaryPanel.js';
+import { SummarySettingsBody } from './SummarySettings.js';
 import { SummaryTable } from './SummaryTable.js';
+
+const made = vi.hoisted(() => ({
+  configs: [] as {
+    data: { labels: string[] };
+    options: { onClick: (e: unknown, els: { index: number }[]) => void };
+  }[],
+}));
 
 vi.mock('chart.js', () => {
   class Chart {
     static register = vi.fn();
     static defaults = { font: {}, color: '' };
     destroy = vi.fn();
+    constructor(_canvas: unknown, config: (typeof made.configs)[number]) {
+      made.configs.push(config);
+    }
   }
   const stub = {};
   return {
@@ -144,6 +158,10 @@ describe('shared property read', () => {
 });
 
 describe('DashboardPanel', () => {
+  beforeEach(() => {
+    installMemoryStorage();
+  });
+
   it('renders labelled charts and a data table fallback', async () => {
     const adapter = await loaded();
     render(<DashboardPanel adapter={adapter} />);
@@ -152,7 +170,9 @@ describe('DashboardPanel', () => {
         name: 'Bar chart of element counts by Category',
       }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('list', { name: /Legend/ })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('list', { name: /Legend/ }),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('img', {
         name: 'Doughnut chart of element share by Category',
@@ -161,17 +181,25 @@ describe('DashboardPanel', () => {
     expect(screen.getByText('Data table')).toBeInTheDocument();
   });
 
-  it('switches property and collapses', async () => {
+  it('switches property from the settings body and collapses', async () => {
     const adapter = await loaded();
     const onCollapsedChange = vi.fn();
     render(
-      <DashboardPanel
-        adapter={adapter}
-        onCollapsedChange={onCollapsedChange}
-      />,
+      <>
+        <DashboardPanel
+          adapter={adapter}
+          onCollapsedChange={onCollapsedChange}
+        />
+        <DashboardSettingsBody />
+      </>,
     );
-    const select = await screen.findByLabelText('Group elements by');
-    fireEvent.change(select, { target: { value: 'Level' } });
+    await screen.findByRole('img', {
+      name: 'Bar chart of element counts by Category',
+    });
+    expect(screen.queryByLabelText('Group elements by')).toBeNull();
+    fireEvent.change(screen.getByLabelText('Group by'), {
+      target: { value: 'Level' },
+    });
     expect(
       await screen.findByRole('img', {
         name: 'Bar chart of element counts by Level',
@@ -181,6 +209,20 @@ describe('DashboardPanel', () => {
     fireEvent.click(toggle);
     expect(onCollapsedChange).toHaveBeenCalledWith(true);
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('says so when the saved property is not in the model', async () => {
+    window.localStorage.setItem(
+      BSH_KEYS.personal.dashboardView,
+      JSON.stringify({ property: 'Level' }),
+    );
+    const adapter = await loaded();
+    render(<DashboardPanel adapter={adapter} propertyNames={['Category']} />);
+    expect(
+      await screen.findByText(
+        'This model has no Level values, so the chart groups by Category.',
+      ),
+    ).toBeInTheDocument();
   });
 
   it('honours the controlled collapsed prop', async () => {
@@ -365,5 +407,296 @@ describe('every model hidden', () => {
     act(() => adapter.setModelVisible('urn-b', true));
     await screen.findAllByRole('cell', { name: 'Walls' });
     expect(screen.queryByText('All models are hidden')).toBeNull();
+  });
+});
+
+describe('summary view, copy and row actions', () => {
+  beforeEach(() => {
+    installMemoryStorage();
+  });
+
+  it('filters rows by text and resets', async () => {
+    const adapter = await loaded();
+    render(
+      <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />,
+    );
+    await screen.findByRole('cell', { name: 'Walls' });
+    fireEvent.change(screen.getByLabelText('Filter summary rows'), {
+      target: { value: 'door' },
+    });
+    expect(screen.queryByRole('cell', { name: 'Walls' })).toBeNull();
+    expect(screen.getByRole('cell', { name: 'Doors' })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Filter summary rows'), {
+      target: { value: 'zzz' },
+    });
+    fireEvent.change(screen.getByLabelText('Filter summary rows'), {
+      target: { value: '' },
+    });
+    expect(screen.getByRole('cell', { name: 'Walls' })).toBeInTheDocument();
+  });
+
+  it('persists density and hides a column', async () => {
+    const adapter = await loaded();
+    const { container } = render(
+      <>
+        <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />
+        <SummarySettingsBody />
+      </>,
+    );
+    await screen.findByRole('cell', { name: 'Walls' });
+    fireEvent.change(screen.getByLabelText('Density'), {
+      target: { value: 'compact' },
+    });
+    fireEvent.click(screen.getByLabelText('property'));
+    await waitFor(() =>
+      expect(container.querySelector('section')).toHaveAttribute(
+        'data-density',
+        'compact',
+      ),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('columnheader', { name: 'Property' }),
+      ).toBeNull(),
+    );
+    expect(
+      JSON.parse(window.localStorage.getItem('bsh.summary.view.v1') ?? '{}'),
+    ).toMatchObject({ density: 'compact', hiddenColumns: ['property'] });
+  });
+
+  it('copies the visible rows as tab separated text', async () => {
+    const adapter = await loaded();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', { clipboard: { writeText } });
+    render(
+      <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />,
+    );
+    await screen.findByRole('cell', { name: 'Walls' });
+    fireEvent.click(screen.getByRole('button', { name: 'Copy table' }));
+    await waitFor(() => expect(writeText).toHaveBeenCalled());
+    expect(writeText.mock.calls[0]?.[0]).toMatch(
+      /^Property\tValue\tCount\r\nCategory\tWalls\t\d+/,
+    );
+    vi.unstubAllGlobals();
+  });
+
+  it('selects and isolates the elements of a clicked value', async () => {
+    const adapter = await loaded();
+    render(
+      <>
+        <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />
+        <SummarySettingsBody />
+      </>,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Walls' }));
+    const walls = adapter.getModelSelection();
+    expect(walls.length).toBeGreaterThan(1);
+    fireEvent.change(screen.getByLabelText('Row click'), {
+      target: { value: 'isolate' },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    fireEvent.click(screen.getByRole('button', { name: 'Doors' }));
+    expect(adapter.getIsolated().length).toBeGreaterThan(0);
+    expect(adapter.getIsolated().length).not.toBe(walls.length);
+    fireEvent.click(screen.getByRole('button', { name: 'Show all elements' }));
+    expect(adapter.getIsolated()).toEqual([]);
+  });
+});
+
+describe('dashboard settings', () => {
+  beforeEach(() => {
+    installMemoryStorage();
+    made.configs.length = 0;
+  });
+
+  it('opens from the panel gear button only when handled', () => {
+    const onOpenSettings = vi.fn();
+    const { unmount } = render(
+      <DashboardPanel onOpenSettings={onOpenSettings} />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Dashboard settings' }));
+    expect(onOpenSettings).toHaveBeenCalledOnce();
+    unmount();
+    render(<DashboardPanel />);
+    expect(
+      screen.queryByRole('button', { name: 'Dashboard settings' }),
+    ).toBeNull();
+  });
+
+  it('keeps the pane to charts and a chart type switch', async () => {
+    const adapter = await loaded();
+    render(<DashboardPanel adapter={adapter} />);
+    await screen.findByRole('img', {
+      name: 'Bar chart of element counts by Category',
+    });
+    expect(screen.queryByRole('button', { name: 'Model health' })).toBeNull();
+    expect(screen.queryByLabelText('Chart click action')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Doughnut' }));
+    expect(
+      screen.queryByRole('img', {
+        name: 'Bar chart of element counts by Category',
+      }),
+    ).toBeNull();
+    expect(
+      screen.getByRole('img', {
+        name: 'Doughnut chart of element share by Category',
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps two bodies and the panel in sync', async () => {
+    const adapter = await loaded();
+    render(
+      <>
+        <DashboardPanel adapter={adapter} />
+        <DashboardSettingsBody />
+        <DashboardSettingsBody />
+      </>,
+    );
+    await screen.findByRole('img', {
+      name: 'Bar chart of element counts by Category',
+    });
+    const [first, second] = screen.getAllByLabelText('Chart type');
+    fireEvent.change(first as HTMLElement, { target: { value: 'bar' } });
+    await waitFor(() =>
+      expect((second as HTMLSelectElement).value).toBe('bar'),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('img', {
+          name: 'Doughnut chart of element share by Category',
+        }),
+      ).toBeNull(),
+    );
+    fireEvent.click(
+      screen.getAllByRole('button', { name: 'Model health' })[0] as HTMLElement,
+    );
+    await screen.findByRole('img', {
+      name: 'Bar chart of element counts by Level',
+    });
+  });
+
+  it('limits the categories and resets', async () => {
+    render(<DashboardSettingsBody />);
+    const max = screen.getByLabelText('Maximum categories');
+    fireEvent.change(max, { target: { value: '1' } });
+    expect((max as HTMLInputElement).value).toBe('1');
+    fireEvent.change(max, { target: { value: '10' } });
+    expect((max as HTMLInputElement).value).toBe('10');
+    fireEvent.change(max, { target: { value: '' } });
+    expect((max as HTMLInputElement).value).toBe('');
+    fireEvent.change(max, { target: { value: '99' } });
+    fireEvent.keyDown(max, { key: 'Enter' });
+    await waitFor(() => expect((max as HTMLInputElement).value).toBe('30'));
+    fireEvent.click(screen.getByRole('button', { name: 'Reset dashboard' }));
+    await waitFor(() => expect((max as HTMLInputElement).value).toBe('12'));
+  });
+});
+
+describe('dashboard presets and cross-filter', () => {
+  beforeEach(() => {
+    installMemoryStorage();
+    made.configs.length = 0;
+  });
+
+  it('shows one chart per available property of a preset', async () => {
+    const adapter = await loaded();
+    render(
+      <>
+        <DashboardPanel adapter={adapter} />
+        <DashboardSettingsBody />
+      </>,
+    );
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Model health' }),
+    );
+    expect(
+      await screen.findByRole('img', {
+        name: 'Bar chart of element counts by Level',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', {
+        name: 'Bar chart of element counts by Category',
+      }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'By discipline' }));
+    await screen.findByRole('button', { name: 'Single chart' });
+    expect(
+      screen.queryByRole('img', {
+        name: 'Bar chart of element counts by Discipline',
+      }),
+    ).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Single chart' }));
+    expect(
+      await screen.findByRole('list', { name: /Legend/ }),
+    ).toBeInTheDocument();
+  });
+
+  it('selects the elements of a clicked bar', async () => {
+    const adapter = await loaded();
+    render(<DashboardPanel adapter={adapter} />);
+    await screen.findByRole('img', {
+      name: 'Bar chart of element counts by Category',
+    });
+    const config = made.configs.at(-2);
+    const index = config?.data.labels.indexOf('Walls') ?? -1;
+    expect(index).toBeGreaterThanOrEqual(0);
+    act(() => config?.options.onClick({}, [{ index }]));
+    expect(adapter.getModelSelection().length).toBeGreaterThan(1);
+  });
+});
+
+describe('summary settings entry points', () => {
+  beforeEach(() => {
+    installMemoryStorage();
+  });
+
+  it('opens from the panel gear button', () => {
+    const onOpenSettings = vi.fn();
+    render(<ModelSummaryPanel onOpenSettings={onOpenSettings} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Summary settings' }));
+    expect(onOpenSettings).toHaveBeenCalledOnce();
+  });
+
+  it('has no gear button without a handler', () => {
+    render(<ModelSummaryPanel />);
+    expect(
+      screen.queryByRole('button', { name: 'Summary settings' }),
+    ).toBeNull();
+  });
+
+  it('keeps two settings bodies and the panel in sync', async () => {
+    const adapter = await loaded();
+    const { container } = render(
+      <>
+        <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />
+        <SummarySettingsBody />
+        <SummarySettingsBody />
+      </>,
+    );
+    await screen.findByRole('cell', { name: 'Walls' });
+    const [first, second] = screen.getAllByLabelText('Density');
+    fireEvent.change(first as HTMLElement, { target: { value: 'compact' } });
+    await waitFor(() =>
+      expect((second as HTMLSelectElement).value).toBe('compact'),
+    );
+    expect(container.querySelector('section')).toHaveAttribute(
+      'data-density',
+      'compact',
+    );
+  });
+
+  it('resets the view from the settings body', async () => {
+    render(<SummarySettingsBody />);
+    fireEvent.change(screen.getByLabelText('Density'), {
+      target: { value: 'compact' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Reset view' }));
+    await waitFor(() =>
+      expect(
+        (screen.getByLabelText('Density') as HTMLSelectElement).value,
+      ).toBe('comfortable'),
+    );
   });
 });

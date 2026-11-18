@@ -51,16 +51,8 @@ export class ToolGroupController {
     this.update({ painted: false });
   }
 
-  export(): void {
-    this.spec.export?.onExport();
-  }
-
-  exportGeometry(): void {
-    this.spec.geometry?.onExport();
-  }
-
-  exportIfc(): void {
-    this.spec.ifc?.onExport();
+  export(id: string): void {
+    this.spec.exports.find((entry) => entry.id === id)?.onExport();
   }
 
   clearPainted(): void {

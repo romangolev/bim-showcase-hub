@@ -1,38 +1,36 @@
-import {
-  createColumnHelper,
-  tableFeatures,
-  useTable,
-} from '@tanstack/react-table';
 import { useRef } from 'react';
-import { formatCount, type SummaryEntry } from '../extensions/modelSummary.js';
+import {
+  formatCount,
+  type SummaryColumn,
+  type SummaryEntry,
+} from '../extensions/modelSummary.js';
 import { useScrollable } from './useScrollable.js';
 import './panels.css';
 
-const features = tableFeatures({});
-const helper = createColumnHelper<typeof features, SummaryEntry>();
-const columns = helper.columns([
-  helper.accessor('property', { header: 'Property' }),
-  helper.accessor('value', { header: 'Value' }),
-  helper.accessor('count', {
-    header: 'Count',
-    cell: (info) => formatCount(info.getValue()),
-  }),
-]);
+const COLUMNS: { id: SummaryColumn; header: string; className: string }[] = [
+  { id: 'property', header: 'Property', className: 'bsh-col-property' },
+  { id: 'value', header: 'Value', className: 'bsh-col-value' },
+  { id: 'count', header: 'Count', className: 'bsh-num' },
+];
 
-const COLUMN_CLASS: Record<string, string> = {
-  property: 'bsh-col-property',
-  value: 'bsh-col-value',
-  count: 'bsh-num',
-};
+export function entryKey(entry: SummaryEntry): string {
+  return `${entry.property}\u0000${entry.value}`;
+}
 
 export function SummaryTable({
   entries,
   decorative = false,
+  hiddenColumns = [],
+  activeKey,
+  onPick,
 }: {
   entries: SummaryEntry[];
   decorative?: boolean;
+  hiddenColumns?: readonly SummaryColumn[];
+  activeKey?: string | null;
+  onPick?: (entry: SummaryEntry) => void;
 }) {
-  const table = useTable({ features, columns, data: entries });
+  const columns = COLUMNS.filter(({ id }) => !hiddenColumns.includes(id));
   const wrapRef = useRef<HTMLDivElement>(null);
   const scrollable = useScrollable(wrapRef);
 
@@ -50,42 +48,44 @@ export function SummaryTable({
     >
       <table className="bsh-table bsh-table--summary">
         <thead>
-          {table.getHeaderGroups().map((group) => (
-            <tr key={group.id}>
-              {group.headers.map((header) => (
-                <th
-                  key={header.id}
-                  scope="col"
-                  className={COLUMN_CLASS[header.column.id]}
-                >
-                  {header.isPlaceholder ? null : (
-                    <table.FlexRender header={header} />
-                  )}
-                </th>
-              ))}
-            </tr>
-          ))}
+          <tr>
+            {columns.map(({ id, header, className }) => (
+              <th key={id} scope="col" className={className}>
+                {header}
+              </th>
+            ))}
+          </tr>
         </thead>
         <tbody>
-          {table.getRowModel().rows.map((row) => (
-            <tr key={row.id}>
-              {row.getAllCells().map((cell) => (
-                <td
-                  key={cell.id}
-                  className={COLUMN_CLASS[cell.column.id]}
-                  title={
-                    cell.column.id === 'count'
-                      ? formatCount(Number(cell.getValue()))
-                      : String(cell.getValue() ?? '')
-                  }
-                >
-                  <span className="bsh-clamp">
-                    <table.FlexRender cell={cell} />
-                  </span>
-                </td>
-              ))}
-            </tr>
-          ))}
+          {entries.map((entry) => {
+            const key = entryKey(entry);
+            return (
+              <tr
+                key={key}
+                data-active={activeKey === key ? 'true' : undefined}
+              >
+                {columns.map(({ id, className }) => {
+                  const text =
+                    id === 'count' ? formatCount(entry.count) : entry[id];
+                  return (
+                    <td key={id} className={className} title={String(text)}>
+                      {onPick && id === 'value' ? (
+                        <button
+                          type="button"
+                          className="bsh-row-pick"
+                          onClick={() => onPick(entry)}
+                        >
+                          <span className="bsh-clamp">{text}</span>
+                        </button>
+                      ) : (
+                        <span className="bsh-clamp">{text}</span>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

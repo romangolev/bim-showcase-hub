@@ -163,6 +163,17 @@ describe('buildGlb', () => {
     expect(built.triangleCount).toBe(1);
   });
 
+  it('skips parts with non-finite positions', () => {
+    const built = buildGlb([
+      triangle({
+        positions: new Float32Array([0, 0, 0, 1, Number.NaN, 0, 0, 1, 0]),
+      }),
+      triangle(),
+    ]);
+    expect(built.skippedParts).toBe(1);
+    expect(built.triangleCount).toBe(1);
+  });
+
   it('returns an empty scene for parts without triangles', () => {
     const built = buildGlb([
       triangle({ indices: new Uint16Array() }),
@@ -243,18 +254,23 @@ describe('exportGeometryToGlb', () => {
     expect(describeGlbStatus(status)).toContain('3 fragments skipped');
   });
 
+  it('refuses a file above the byte cap without saving', async () => {
+    const save = vi.fn();
+    const status = await exportGeometryToGlb(adapterWith([triangle()]), {
+      save,
+      maxBytes: 10,
+    });
+    expect(status).toMatchObject({
+      phase: 'error',
+      message: expect.stringContaining('larger than'),
+    });
+    expect(save).not.toHaveBeenCalled();
+  });
+
   it('reports an empty model without saving', async () => {
     const save = vi.fn();
     const status = await exportGeometryToGlb(adapterWith([]), { save });
     expect(status.phase).toBe('empty');
     expect(save).not.toHaveBeenCalled();
-  });
-
-  it('reports adapters without geometry support as an error', async () => {
-    const status = await exportGeometryToGlb({} as ViewerAdapter);
-    expect(status).toMatchObject({
-      phase: 'error',
-      message: 'Geometry export is not available for this model',
-    });
   });
 });

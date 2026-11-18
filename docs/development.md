@@ -73,6 +73,12 @@ When developing with real credentials, run the server on port 3000 so the defaul
 
 Mock mode needs `MOCK_APS=1` and a non-production `NODE_ENV`. The server computes `mock = !production && MOCK_APS === '1'`, so a production process with `MOCK_APS=1` still uses real APS. The client mock viewer additionally requires `import.meta.env.DEV`, so it is not reachable from a production build. In mock mode every request is signed in as "Alex Rivera" and no Autodesk call is made. The mock viewer can hold several models (one SVG group each); a urn containing `broken` fails to load, `nogeom` fails with the no-geometry message and `noprops` fails its property read, so per-model errors can be tested.
 
+## Session tokens and CSP
+
+The session cookie holds the Autodesk tokens as one AES-256-GCM sealed string (key derived from `SESSION_SECRET`) with an absolute 12 hour lifetime enforced on the server. Sign-out clears the browser cookie, but a copied cookie stays valid until it expires; real revocation needs a server-side session store. A refresh rejection answers 401 without clearing the cookie, so parallel requests on several instances cannot sign the user out.
+
+`Content-Security-Policy-Report-Only` is set in `vercel.json` and by the Express production path (`src/server/csp.ts`), and a test keeps the two equal. It is report-only because it has not been tested against the real Viewer. To enforce it, open the real app, check the browser console for violation reports, adjust the policy in both places, then rename the header to `Content-Security-Policy`.
+
 ## End-to-end tests
 
 Camoufox is the only browser used for end-to-end tests and visual QA in this repo. Do not use Playwright MCP or Chromium. The same rule is in `CLAUDE.md`. Camoufox runs `page.evaluate` in an isolated world, so reading page globals needs `main_world_eval=True` and the `mw:` prefix. The way to test the real app is Camoufox, a Firefox build driven through Playwright's Python API. The owner signs in to Autodesk once, in a persistent browser profile. The scripts reuse that session. They never see or type credentials.
@@ -193,7 +199,7 @@ The checks ignore failed requests to `cdn.derivative.autodesk.com` (404 for opti
 
 ### Session lifetime and the profile
 
-The session cookie (`bim-hub-session`, `cookie-session`) is set with `maxAge` of one hour (`src/server/index.ts`). It does not roll: the cookie is only sent again when the session content changes, which happens at sign-in and when the server refreshes the Autodesk access token (when it is within 60 seconds of expiry, see `sessionTokens.ts`). Each such write sets a new one-hour cookie. Plain page loads and API calls do not extend it, and a failed refresh clears the session. So an idle profile is signed out about an hour after the last sign-in or token refresh, and `smoke.py` then exits 2. Run `npm run e2e:signin` again.
+The session cookie (`bim-hub-session`, `cookie-session`) has `maxAge` of 12 hours (`SESSION_MAX_AGE_MS`), and the sealed token carries the same absolute cap from sign-in, so the cookie does not roll: extending it would not extend the session. `/api/session` returns `expiresAt` (sign-in plus 12 hours). The app warns shortly before it (Settings, Session, default 10 minutes, 0 turns it off) and, when any request answers 401, keeps the layout and open models mounted and shows a "Sign in again" banner instead of the landing page. Sign-in again is a full redirect, so queries and the viewer token reload with the page. Run `npm run e2e:signin` again when `smoke.py` exits 2.
 
 `e2e/.profile` contains cookies that are equivalent to your Autodesk login for the app. It is gitignored along with `e2e/.venv` and `e2e/output`. Never commit, copy or share it. Do not point `E2E_PROFILE_DIR` at a folder inside a synced or shared location.
 

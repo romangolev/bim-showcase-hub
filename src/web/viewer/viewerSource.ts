@@ -86,7 +86,7 @@ function levelReference(item: BulkPropertyItem): number | null {
 async function levelNamesOf(
   model: ViewerModel,
   ids: number[],
-): Promise<Map<number, string>> {
+): Promise<{ names: Map<number, string>; failed: boolean }> {
   const out = new Map<number, string>();
   try {
     for (let start = 0; start < ids.length; start += CHUNK) {
@@ -100,9 +100,9 @@ async function levelNamesOf(
       }
     }
   } catch {
-    return out;
+    return { names: out, failed: true };
   }
-  return out;
+  return { names: out, failed: false };
 }
 
 async function externalIdsOf(model: ViewerModel): Promise<Map<number, string>> {
@@ -126,10 +126,15 @@ async function readModel(
   viewer: GuiViewer3D,
   model: ViewerModel,
   meta: SourceModelMeta,
-): Promise<{ source: SourceModel; skipped: number } | null> {
-  let geometry: ReturnType<typeof readViewerGeometry>;
+): Promise<{
+  source: SourceModel;
+  skipped: number;
+  levelsUnavailable: boolean;
+  generatedIds: number;
+} | null> {
+  let geometry: Awaited<ReturnType<typeof readViewerGeometry>>;
   try {
-    geometry = readViewerGeometry(viewer, new Map([[model, meta.name]]));
+    geometry = await readViewerGeometry(viewer, new Map([[model, meta.name]]));
   } catch (err) {
     if (err instanceof Error && err.message === NO_MESH_MESSAGE) return null;
     throw err;
@@ -165,9 +170,7 @@ async function readModel(
       references.set(dbId, ref);
     }
   }
-  const levelNames = await levelNamesOf(model, [
-    ...new Set(references.values()),
-  ]);
+  const levels = await levelNamesOf(model, [...new Set(references.values())]);
   const needsMapping = ids.some((dbId) => !items.get(dbId)?.externalId);
   const externalIds = needsMapping
     ? await externalIdsOf(model)
@@ -181,7 +184,7 @@ async function readModel(
       name: item?.name ?? '',
       properties: withLevel(
         groups.get(dbId) ?? {},
-        levelNames.get(references.get(dbId) ?? -1),
+        levels.names.get(references.get(dbId) ?? -1),
       ),
       parts: byDbId.get(dbId) ?? [],
     };
@@ -189,6 +192,8 @@ async function readModel(
   return {
     source: { id: meta.id, name: meta.name, urn: meta.urn, elements },
     skipped,
+    levelsUnavailable: levels.failed,
+    generatedIds: elements.filter((element) => !element.externalId).length,
   };
 }
 
@@ -198,12 +203,21 @@ export async function readViewerSource(
 ): Promise<IfcSourceRead> {
   const sources: SourceModel[] = [];
   let skipped = 0;
+  let levelsUnavailable = 0;
+  let generatedIds = 0;
   for (const [model, meta] of models) {
     const result = await readModel(viewer, model, meta);
     if (!result) continue;
     sources.push(result.source);
     skipped += result.skipped;
+    if (result.levelsUnavailable) levelsUnavailable += 1;
+    generatedIds += result.generatedIds;
   }
   if (sources.length === 0) throw new Error(NO_MESH_MESSAGE);
-  return { models: sources, skipped };
+  return {
+    models: sources,
+    skipped,
+    ...(levelsUnavailable ? { levelsUnavailable } : {}),
+    ...(generatedIds ? { generatedIds } : {}),
+  };
 }

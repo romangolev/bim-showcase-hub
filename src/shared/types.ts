@@ -15,6 +15,9 @@ export interface TreeNode {
   checked?: boolean;
   urn?: string;
   parentId?: string;
+  modifiedAt?: string;
+  modifiedBy?: string;
+  size?: number;
 }
 
 export interface VersionViewState {
@@ -27,6 +30,8 @@ export interface SessionUser {
   name: string;
   picture: string | null;
   appClientId?: string;
+  expiresAt?: number;
+  expiresInMs?: number;
 }
 
 export interface ViewerToken {

@@ -4,9 +4,15 @@ import type { IfcSettings } from '../ifc/types.js';
 import { DEFAULT_IFC_SETTINGS } from '../settings/settings.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { saveBlob } from './excelExport.js';
-import { formatCount, missingModels } from './exportCommon.js';
+import {
+  formatCount,
+  missingModels,
+  tick,
+  tooLargeReason,
+} from './exportCommon.js';
 
 export const DEFAULT_IFC_FILE_NAME = 'model.ifc';
+export const MAX_IFC_BYTES = 512 * 1024 * 1024;
 
 export type IfcExportStatus =
   | { phase: 'reading' }
@@ -19,6 +25,8 @@ export type IfcExportStatus =
       byteLength: number;
       missing?: string[];
       skipped?: number;
+      levelsUnavailable?: number;
+      generatedIds?: number;
     }
   | { phase: 'empty' }
   | { phase: 'error'; message: string };
@@ -29,28 +37,19 @@ export interface IfcExportOptions {
   onStatus?: (status: IfcExportStatus) => void;
   save?: (blob: Blob, fileName: string) => void;
   now?: Date;
-}
-
-function tick(): Promise<void> {
-  if (typeof MessageChannel === 'undefined') {
-    return new Promise((resolve) => setTimeout(resolve, 0));
-  }
-  return new Promise((resolve) => {
-    const channel = new MessageChannel();
-    channel.port1.onmessage = () => {
-      channel.port1.close();
-      channel.port2.close();
-      resolve();
-    };
-    channel.port2.postMessage(null);
-  });
+  maxBytes?: number;
 }
 
 export function ifcHasWarning(status: IfcExportStatus): boolean {
   return (
     status.phase === 'error' ||
     (status.phase === 'done' &&
-      Boolean(status.missing?.length || status.skipped))
+      Boolean(
+        status.missing?.length ||
+          status.skipped ||
+          status.levelsUnavailable ||
+          status.generatedIds,
+      ))
   );
 }
 
@@ -68,6 +67,10 @@ export function describeIfcStatus(status: IfcExportStatus): string {
       }
       if (status.skipped) {
         notes.push(`${formatCount(status.skipped)} fragments skipped`);
+      }
+      if (status.levelsUnavailable) notes.push('levels unavailable');
+      if (status.generatedIds) {
+        notes.push(`${formatCount(status.generatedIds)} ids generated`);
       }
       return notes.length ? `${base}, ${notes.join(', ')}` : base;
     }
@@ -88,18 +91,13 @@ export async function exportToIfc(
     onStatus,
     save = saveBlob,
     now,
+    maxBytes = MAX_IFC_BYTES,
   } = options;
   const emit = (status: IfcExportStatus): IfcExportStatus => {
     onStatus?.(status);
     return status;
   };
   try {
-    if (typeof adapter.getIfcSource !== 'function') {
-      return emit({
-        phase: 'error',
-        message: 'IFC export is not available for this model',
-      });
-    }
     emit({ phase: 'reading' });
     const read = await adapter.getIfcSource();
     const sourceCount = read.models.reduce(
@@ -124,12 +122,21 @@ export async function exportToIfc(
       }
     }
     if (elementCount === 0) return emit({ phase: 'empty' });
-    const chunks: string[] = [];
+    const parts: Blob[] = [];
+    let size = 0;
     for (const chunk of buildIfc(model)) {
-      chunks.push(chunk);
+      const part = new Blob([chunk]);
+      size += part.size;
+      if (size > maxBytes) {
+        return emit({
+          phase: 'error',
+          message: `Export failed: ${tooLargeReason(maxBytes)}`,
+        });
+      }
+      parts.push(part);
       await tick();
     }
-    const blob = new Blob(chunks, { type: 'application/x-step' });
+    const blob = new Blob(parts, { type: 'application/x-step' });
     save(blob, fileName);
     const missing = missingModels(adapter);
     const skipped = read.skipped;
@@ -141,6 +148,10 @@ export async function exportToIfc(
       byteLength: blob.size,
       ...(missing.length ? { missing } : {}),
       ...(skipped ? { skipped } : {}),
+      ...(read.levelsUnavailable
+        ? { levelsUnavailable: read.levelsUnavailable }
+        : {}),
+      ...(read.generatedIds ? { generatedIds: read.generatedIds } : {}),
     });
   } catch (err) {
     return emit({

@@ -397,6 +397,34 @@ describe('federated selection, paint and properties', () => {
     await expect(adapter.getLeafProperties(['Category'])).rejects.toThrow('db');
   });
 
+  it('keeps the first value when two categories share a property name', async () => {
+    env.specs.set('a', { categories: ['Walls'] });
+    await adapter.loadModels([{ urn: 'a', name: 'Arch' }]);
+    vi.spyOn(viewer().modelOf('a'), 'getBulkProperties').mockImplementation(
+      (ids, _opts, ok) =>
+        ok(
+          ids.map((dbId) => ({
+            dbId,
+            name: 'x',
+            properties: [
+              {
+                displayName: 'Level',
+                displayValue: 'L1',
+                displayCategory: 'A',
+              },
+              {
+                displayName: 'Level',
+                displayValue: 'L2',
+                displayCategory: 'B',
+              },
+            ],
+          })),
+        ),
+    );
+    const rows = await adapter.getLeafProperties(['Level']);
+    expect(rows.every((row) => row.properties.Level === 'L1')).toBe(true);
+  });
+
   it('tags its container so scripts find this viewer', async () => {
     await adapter.loadModels([{ urn: 'a' }]);
     const tagged = host as HTMLElement & { bshViewer?: unknown };
@@ -534,5 +562,38 @@ describe('models far apart', () => {
     await adapter.loadModels([{ urn: 'arch' }, { urn: 'near' }]);
     expect(adapter.getSpread()?.farApart).toBe(false);
     expect(viewer().fits).toBe(1);
+  });
+});
+
+describe('selecting and isolating by model', () => {
+  it('selects per model and isolates only models with matches', async () => {
+    await adapter.loadModels([{ urn: 'arch' }, { urn: 'str' }]);
+    adapter.selectModelIds([
+      { modelId: 'arch', dbId: 3 },
+      { modelId: 'arch', dbId: 4 },
+      { modelId: 'str', dbId: 9 },
+    ]);
+    expect(adapter.getModelSelection()).toEqual([
+      { modelId: 'arch', dbId: 3 },
+      { modelId: 'arch', dbId: 4 },
+      { modelId: 'str', dbId: 9 },
+    ]);
+    adapter.selectModelIds([{ modelId: 'str', dbId: 9 }]);
+    expect(adapter.getModelSelection()).toEqual([{ modelId: 'str', dbId: 9 }]);
+    adapter.isolateModelIds([{ modelId: 'arch', dbId: 3 }]);
+    const arch = viewer().modelOf('arch');
+    const str = viewer().modelOf('str');
+    expect(viewer().isolated.get(arch)).toEqual([3]);
+    expect(viewer().isolated.get(str)).toEqual([-1]);
+    adapter.isolateModelIds([]);
+    expect(viewer().isolated.get(arch)).toEqual([]);
+    expect(viewer().isolated.get(str)).toEqual([]);
+  });
+
+  it('fits the view to the selection', async () => {
+    await adapter.loadModels([{ urn: 'arch' }]);
+    const before = viewer().fits;
+    adapter.fitToSelection();
+    expect(viewer().fits).toBe(before + 1);
   });
 });

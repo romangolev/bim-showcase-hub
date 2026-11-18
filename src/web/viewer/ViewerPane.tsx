@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { parseView } from '../api/viewLink.js';
 import { StateBlock } from '../components/StateBlock.js';
 import {
   describeStatus,
@@ -26,14 +27,17 @@ import { formatCount } from '../extensions/modelSummary.js';
 import { resetPaint } from '../extensions/paintBrushes.js';
 import { modelKey, registerViewerTools } from '../extensions/viewerTools.js';
 import { useSettings } from '../settings/SettingsContext.js';
-import { readIfcSettings } from '../settings/settings.js';
+import { readExcelSettings, readIfcSettings } from '../settings/settings.js';
 import { useTheme } from '../theme/ThemeContext.js';
 import { createViewerAdapter } from './createViewerAdapter.js';
+import { explainFailure } from './failureExplainer.js';
 import { ModelsMenu } from './ModelsMenu.js';
 import {
+  type FailureReason,
   ModelSetError,
   type ModelSource,
   type ModelSpread,
+  reasonOf,
   type Vec3,
 } from './modelSet.js';
 import {
@@ -44,8 +48,14 @@ import {
   regionConflictMessage,
   type ViewerRegion,
 } from './region.js';
+import { ShareMenu } from './ShareMenu.js';
 import { useModels } from './useModels.js';
-import type { ViewerAdapter, ViewerAdapterFactory } from './ViewerAdapter.js';
+import { useModelVisibilityMemory } from './useModelVisibilityMemory.js';
+import type {
+  LoadStage,
+  ViewerAdapter,
+  ViewerAdapterFactory,
+} from './ViewerAdapter.js';
 import { ActiveViewerContext, ModelViewerContext } from './ViewerContext.js';
 import './viewer.css';
 import './viewerChrome.css';
@@ -65,6 +75,8 @@ export interface ViewerPaneProps {
   offsets?: Readonly<Record<string, Vec3>> | null;
   onOffsetsChange?: (offsets: Record<string, Vec3> | null) => void;
   onSpreadChange?: (distanceMeters: number | null) => void;
+  initialView?: string | null;
+  shareHref?: string;
   children?: ReactNode;
 }
 
@@ -77,7 +89,7 @@ export function membersKey(members: readonly ModelSource[]): string {
 type PaneState =
   | { status: 'loading' }
   | { status: 'ready' }
-  | { status: 'error'; message: string }
+  | { status: 'error'; message: string; reason: FailureReason }
   | { status: 'region'; region: ViewerRegion };
 
 export const STATUS_DISMISS_MS = 4000;
@@ -141,8 +153,11 @@ function ifcBadge(status: IfcExportStatus): StatusBadge {
   };
 }
 
-const LOAD_ERROR_COPY =
-  'The model could not be loaded. It may still be processing, or you may not have access to it.';
+export const STAGE_TEXT: Record<LoadStage, string> = {
+  starting: 'Starting the viewer',
+  manifest: 'Reading the model manifest',
+  geometry: 'Loading geometry',
+};
 
 function detailOf(err: unknown): string {
   return err instanceof Error ? err.message : '';
@@ -163,6 +178,8 @@ export function ViewerPane({
   offsets = null,
   onOffsetsChange,
   onSpreadChange,
+  initialView = null,
+  shareHref,
   children,
 }: ViewerPaneProps) {
   const membersRef = useRef(members);
@@ -185,10 +202,13 @@ export function ViewerPane({
   const [adapter, setAdapter] = useState<ViewerAdapter | null>(null);
   const [state, setState] = useState<PaneState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
+  const [stage, setStage] = useState<LoadStage>('starting');
   const { theme } = useTheme();
   const { settings } = useSettings();
   const ifcSettingsRef = useRef(settings.ifc);
   ifcSettingsRef.current = settings.ifc;
+  const excelSettingsRef = useRef(settings.excel);
+  excelSettingsRef.current = settings.excel;
   const themeRef = useRef(theme);
   const instanceRef = useRef<ViewerAdapter | null>(null);
 
@@ -270,6 +290,8 @@ export function ViewerPane({
       return;
     }
     setState({ status: 'loading' });
+    setStage('starting');
+    let stopStage: (() => void) | undefined;
 
     (async () => {
       try {
@@ -277,6 +299,7 @@ export function ViewerPane({
         created = instance;
         instanceRef.current = instance;
         instance.setTheme(themeRef.current);
+        stopStage = instance.onLoadStage(setStage);
         if (cancelled) {
           instance.destroy();
           return;
@@ -306,12 +329,17 @@ export function ViewerPane({
           setState({ status: 'region', region: err.region });
           return;
         }
-        setState({ status: 'error', message: detailOf(err) });
+        setState({
+          status: 'error',
+          message: detailOf(err),
+          reason: reasonOf(err),
+        });
       }
     })();
 
     return () => {
       cancelled = true;
+      stopStage?.();
       adapterRef.current = null;
       created?.destroy();
       if (instanceRef.current === created) instanceRef.current = null;
@@ -327,7 +355,10 @@ export function ViewerPane({
       onGeometryStatus: handleGeometryStatus,
       onIfcStatus: handleIfcStatus,
       ifcSettings: () => readIfcSettings(ifcSettingsRef.current),
+      excelSettings: () => readExcelSettings(excelSettingsRef.current),
       key: modelKey(urn),
+      paintPalette: settings.paintPalette,
+      paintIntensity: settings.paintIntensity,
       fileName: () => exportNameRef.current ?? '',
       features: {
         paint: settings.paintBrushes,
@@ -341,6 +372,8 @@ export function ViewerPane({
     tools,
     urn,
     settings.paintBrushes,
+    settings.paintPalette,
+    settings.paintIntensity,
     settings.excelExport,
     settings.glbExport,
     settings.ifcExport,
@@ -416,6 +449,7 @@ export function ViewerPane({
   }, [adapter, sourceFor, addMember]);
 
   const loaded = useModels(adapter);
+  useModelVisibilityMemory(adapter, loaded);
   const labelKey = JSON.stringify([
     name ? [urn, name] : null,
     ...members.map((member) =>
@@ -433,6 +467,24 @@ export function ViewerPane({
     });
   }, [loaded, labelKey]);
   const combined = members.length > 0 || models.length > 1;
+  const orderKey = [urn, ...members.map((member) => member.urn)].join('\n');
+  const pendingView = useRef<string | null>(null);
+  const appliedView = useRef<string | null>(null);
+  if (initialView && initialView !== appliedView.current) {
+    pendingView.current = initialView;
+  }
+  useEffect(() => {
+    const raw = pendingView.current;
+    if (!adapter || !raw) return;
+    if (loaded.some((model) => model.status === 'loading')) return;
+    if (!loaded.some((model) => model.status === 'ready')) return;
+    pendingView.current = null;
+    appliedView.current = raw;
+    const link = parseView(raw, orderKey.split('\n'));
+    if (!link) return;
+    adapter.setCamera(link.camera);
+    if (link.selection.length > 0) adapter.selectModelIds(link.selection);
+  }, [adapter, loaded, orderKey]);
   const [spread, setSpread] = useState<ModelSpread | null>(null);
   const onSpreadRef = useRef(onSpreadChange);
   onSpreadRef.current = onSpreadChange;
@@ -476,6 +528,9 @@ export function ViewerPane({
               rows={3}
               className="bsh-viewer-skeleton"
             />
+            <p className="bsh-viewer-stage" role="status">
+              {STAGE_TEXT[stage]}
+            </p>
           </div>
         )}
         {state.status === 'region' && (
@@ -500,13 +555,17 @@ export function ViewerPane({
           <div className="bsh-viewer-overlay">
             <StateBlock
               variant="error"
-              title="Model unavailable"
-              message={LOAD_ERROR_COPY}
+              title={explainFailure(state.reason).title}
+              message={explainFailure(state.reason).text}
               detail={state.message || undefined}
-              action={{
-                label: 'Try again',
-                onClick: () => setAttempt((n) => n + 1),
-              }}
+              action={
+                explainFailure(state.reason).retry
+                  ? {
+                      label: 'Try again',
+                      onClick: () => setAttempt((n) => n + 1),
+                    }
+                  : undefined
+              }
               className="bsh-viewer-error"
             />
           </div>
@@ -523,8 +582,21 @@ export function ViewerPane({
             </span>
           ) : null}
         </div>
+        {adapter ? (
+          <ShareMenu
+            adapter={adapter}
+            modelIds={orderKey.split('\n')}
+            baseHref={shareHref}
+            fileName={exportName}
+            combined={combined}
+            onResult={(text, error) =>
+              showBadge({ text, detail: text, error }, false)
+            }
+          />
+        ) : null}
         {adapter && combined ? (
           <ModelsMenu
+            adapter={adapter}
             models={models}
             onToggle={(id, visible) => adapter.setModelVisible(id, visible)}
             onRemove={(id) => {

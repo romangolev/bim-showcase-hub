@@ -25,6 +25,8 @@ import { TreeControlContext } from '../components/TreeControl.js';
 import { useMediaQuery } from '../components/useMediaQuery.js';
 import { modelTabTitle } from '../routes/ModelPage.js';
 import { ModelRouteSync } from '../routes/ModelRouteSync.js';
+import { BSH_KEYS, FORGET_EVENT } from '../storage.js';
+import { usePersistedState } from '../usePersistedState.js';
 import { isMockViewer, ViewerProvider } from '../viewer/index.js';
 import {
   type DockController,
@@ -77,6 +79,7 @@ const MOVE_MESSAGES: Partial<Record<MoveTarget, string>> = {
 export const STACKED_MAX_WIDTH = 875;
 export const STACKED_QUERY = `(max-width: ${STACKED_MAX_WIDTH}px)`;
 export const LAYOUT_WRITE_DELAY_MS = 300;
+export const LOCK_KEY = BSH_KEYS.preference.layoutLocked;
 export const RESIZE_STEP = 16;
 export const RESIZE_STEP_FAST = 64;
 
@@ -140,7 +143,7 @@ function titlesFor(models: OpenModelsState): PaneTitles {
   return titles;
 }
 
-function useDebouncedWrite(model: LayoutModel) {
+export function useDebouncedWrite(model: LayoutModel) {
   const pending = useRef<LayoutModel | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const flush = useCallback(() => {
@@ -150,6 +153,15 @@ function useDebouncedWrite(model: LayoutModel) {
     pending.current = null;
     const store = storage();
     if (next && store) writeLayout(store, next);
+  }, []);
+  useEffect(() => {
+    const drop = () => {
+      clearTimeout(timer.current);
+      timer.current = undefined;
+      pending.current = null;
+    };
+    window.addEventListener(FORGET_EVENT, drop);
+    return () => window.removeEventListener(FORGET_EVENT, drop);
   }, []);
   const first = useRef(true);
   useEffect(() => {
@@ -276,7 +288,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
   useEffect(() => {
     if (!overlayOpen) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') closeTree();
+      if (event.key === 'Escape' && !event.defaultPrevented) closeTree();
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
@@ -286,11 +298,26 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
     setSignals((current) => ({ ...current, [id]: (current[id] ?? 0) + 1 }));
   }, []);
 
+  const floatPending = useRef<string | null>(null);
+  const floatNext = useCallback((urn: string) => {
+    if (lockedRef.current || modeRef.current === 'stacked') return;
+    const id = modelPanelId(urn);
+    if (attachedRef.current.includes(id)) {
+      controller.current?.movePane(id, 'float');
+      return;
+    }
+    floatPending.current = urn;
+  }, []);
+
   const onAttach = useCallback(
     (id: PanelId) => {
       setAttached((list) => (list.includes(id) ? list : [...list, id]));
       bump(id);
       const urn = modelOf(id);
+      if (urn && floatPending.current === urn) {
+        floatPending.current = null;
+        requestAnimationFrame(() => controller.current?.movePane(id, 'float'));
+      }
       if (urn) modelStore.show(urn);
     },
     [bump, modelStore],
@@ -341,6 +368,14 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
     [modelStore],
   );
 
+  const [locked, setLockedState] = usePersistedState<boolean>(
+    LOCK_KEY,
+    false,
+    (raw) => raw === true,
+  );
+  const lockedRef = useRef(locked);
+  lockedRef.current = locked;
+  const [maximized, setMaximized] = useState<PanelId | null>(null);
   const [resizing, setResizing] = useState<PanelId | null>(null);
   const [announcement, setAnnouncement] = useState('');
   const announce = useCallback((message: string) => {
@@ -408,12 +443,14 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       isOpen: (id) => openPanes.includes(id),
       isCollapsed: (id) => model.collapsed.includes(id),
       setCollapsed: (id, collapsed) => {
+        if (lockedRef.current) return;
         setCollapsed(id, collapsed);
         announce(
           `${paneById(id).title} ${collapsed ? 'collapsed' : 'expanded'}`,
         );
       },
       togglePane: (id) => {
+        if (lockedRef.current) return;
         const urn = modelOf(id);
         if (urn) {
           modelStore.close(urn);
@@ -428,6 +465,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
         controller.current?.openPane(id);
       },
       movePane: (id, target) => {
+        if (lockedRef.current) return;
         const kind = paneKind(id);
         if (kind) setCollapsed(kind, false);
         controller.current?.movePane(id, target);
@@ -436,10 +474,22 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
         requestAnimationFrame(() => controller.current?.focusPane(id));
       },
       resetLayout: () => {
+        if (lockedRef.current) return;
         dispatch({ type: 'reset' });
         controller.current?.reset(TREE_WIDTH_DEFAULT);
         announce('Layout reset');
         requestAnimationFrame(() => controller.current?.focusPane('viewer'));
+      },
+      locked,
+      setLocked: (next) => {
+        setLockedState(next);
+        announce(next ? 'Layout locked' : 'Layout unlocked');
+      },
+      maximized,
+      toggleMaximize: (id) => {
+        const now = controller.current?.toggleMaximize(id) ?? false;
+        announce(`${paneTitle(id).label} ${now ? 'maximized' : 'restored'}`);
+        bump(id);
       },
       focusPane: (id) => {
         if (id === 'tree') {
@@ -451,7 +501,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       resizeSignal: (id) => signals[id] ?? 0,
       location: (id) => controller.current?.location(id) ?? null,
       startResize: (id) => {
-        if (modeRef.current !== 'dock') return;
+        if (modeRef.current !== 'dock' || lockedRef.current) return;
         setResizing(id);
         announce(
           `Resizing ${paneTitle(id).label}. Arrow keys change its size, Shift moves faster, Escape finishes.`,
@@ -460,9 +510,14 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       },
       resizing,
       closeTreeOverlay,
+      floatNext,
       paneTitle,
     }),
     [
+      locked,
+      setLockedState,
+      maximized,
+      bump,
       announce,
       mode,
       openPanes,
@@ -471,12 +526,29 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       treeControl,
       signals,
       closeTreeOverlay,
+      floatNext,
       paneTitle,
       modelStore,
       closePane,
       resizing,
     ],
   );
+
+  useEffect(() => {
+    if (!maximized) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        target.closest('input, textarea, select, [role="menu"]')
+      )
+        return;
+      api.toggleMaximize(maximized);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [maximized, api]);
 
   useEffect(() => {
     if (!resizing) return;
@@ -607,6 +679,9 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
                       onActivateInstance={onActivateInstance}
                       onCloseInstance={onCloseInstance}
                       onClosePane={closePane}
+                      locked={locked}
+                      onToggleMaximize={api.toggleMaximize}
+                      onMaximized={setMaximized}
                       headerActions={({ pane }) => <PaneActions pane={pane} />}
                     />
                   </Suspense>

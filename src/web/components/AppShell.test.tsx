@@ -9,6 +9,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../App.js';
 import { notifyUnauthorized } from '../api/client.js';
+import { resetSessionEnded } from '../api/hooks.js';
 import { createAppRouter } from '../routes/router.js';
 import {
   createTestClient,
@@ -27,6 +28,7 @@ function renderApp(path = '/') {
 }
 
 beforeEach(() => {
+  resetSessionEnded();
   stubLayout();
   installMemoryStorage();
   vi.stubGlobal('__MOCK_APS__', true);
@@ -41,17 +43,33 @@ afterEach(() => {
 });
 
 describe('AppShell session expiry', () => {
-  it('shows the signed-out state when any API call reports 401', async () => {
+  it('keeps the layout and shows a sign-in banner when any API call reports 401', async () => {
     mockMatchMedia(1440);
     renderApp();
     await screen.findByRole('complementary', { name: 'Documents' });
     act(() => notifyUnauthorized());
     expect(
-      await screen.findByRole('button', { name: 'Sign in with Autodesk' }),
+      await screen.findByRole('button', { name: 'Sign in again' }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole('complementary', { name: 'Documents' }),
-    ).not.toBeInTheDocument();
+      screen.getByRole('complementary', { name: 'Documents' }),
+    ).toBeInTheDocument();
+  });
+
+  it('warns shortly before the session ends', async () => {
+    mockMatchMedia(1440);
+    mockFetch({
+      '/api/session': {
+        name: 'Ada',
+        picture: null,
+        expiresInMs: 4 * 60_000,
+      },
+      ...treeRoutes,
+    });
+    renderApp();
+    expect(
+      await screen.findByText('Your session ends in 4 min.'),
+    ).toBeInTheDocument();
   });
 });
 

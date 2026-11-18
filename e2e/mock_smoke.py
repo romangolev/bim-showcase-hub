@@ -36,6 +36,7 @@ MOCK_VIEWER_LABEL = "Mock building model"
 THEME_TOGGLE = re.compile(r"Switch to (light|dark) theme", re.I)
 SUMMARY_TOGGLE = re.compile(r"(Collapse|Expand) .*summary", re.I)
 TREE_TOGGLE = re.compile(r"(Collapse|Expand) document tree", re.I)
+STRIP_TOGGLE = re.compile(r"^Pinned and Recent")
 VIEWER_WIDTH = "() => document.querySelector(\"[data-active='true'] .model-viewer\").getBoundingClientRect().width"
 SCENE_FIT_WIDTH = "() => Number(document.querySelector(\"[data-active='true'] .bsh-mock__scene\")?.dataset.fitWidth || 0)"
 ROOT_THEME = "() => document.documentElement.dataset.theme"
@@ -49,6 +50,10 @@ GROUPS = """() => Object.fromEntries([...document.querySelectorAll('.dv-groupvie
         floating: Boolean(group.closest('.dv-resize-container')),
     }];
 }))"""
+SAME_GROUP = """(names) => {
+    const groups = names.map((name) => [...document.querySelectorAll('.dv-tab')].find((tab) => tab.textContent.trim() === name)?.closest('.dv-groupview'));
+    return Boolean(groups[0]) && groups[0] === groups[1];
+}"""
 TAG_VIEWER = "() => { const el = document.querySelector(\"[data-active='true'] .bsh-mock\"); if (el) el.dataset.e2eTag = 'kept'; return Boolean(el); }"
 VIEWER_KEPT = "() => document.querySelector(\"[data-active='true'] .bsh-mock\")?.dataset.e2eTag === 'kept'"
 VIEWER_FITS = """() => {
@@ -124,6 +129,41 @@ def check_theme(page, checks):
     checks.add("original theme persists across reload", page.evaluate(ROOT_THEME) == start, page.evaluate(ROOT_THEME))
 
 
+ACTIVE_OUTLINE = """() => [...document.querySelectorAll('.dv-groupview')].map((group) => {
+    const style = getComputedStyle(group, '::after');
+    return {
+        active: group.classList.contains('dv-active-group'),
+        outline: style.content !== 'none' && style.boxShadow !== 'none' && style.position === 'absolute',
+        tab: group.querySelector('.dv-tab')?.textContent.trim(),
+    };
+})"""
+
+
+def check_active_pane(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page, 300)
+    original = page.evaluate(ROOT_THEME)
+    for theme in ("dark", "light"):
+        if page.evaluate(ROOT_THEME) != theme:
+            page.get_by_role("button", name=THEME_TOGGLE).first.click()
+            settle(page, 300)
+        page.get_by_role("tab", name="Model summary").click()
+        settle(page, 300)
+        state = page.evaluate(ACTIVE_OUTLINE)
+        active = [g for g in state if g["active"]]
+        checks.add(f"{theme}: exactly one group is active", len(active) == 1, state)
+        checks.add(f"{theme}: the active group carries the accent outline", bool(active) and active[0]["outline"] and active[0]["tab"] == "Model summary", active)
+        checks.add(f"{theme}: other groups have no outline", all(not g["outline"] for g in state if not g["active"]), state)
+        page.screenshot(path=str(OUTPUT_DIR / f"mock-active-pane-{theme}.png"))
+    page.get_by_role("tab", name="Dashboard").click()
+    settle(page, 300)
+    active = [g for g in page.evaluate(ACTIVE_OUTLINE) if g["active"]]
+    checks.add("the accent follows the clicked pane", len(active) == 1 and active[0]["tab"] == "Dashboard", active)
+    if page.evaluate(ROOT_THEME) != original:
+        page.get_by_role("button", name=THEME_TOGGLE).first.click()
+        settle(page, 300)
+
+
 def check_summary_rail(page, checks):
     toggle = page.get_by_role("button", name=SUMMARY_TOGGLE).first
     before = viewer_width(page)
@@ -135,6 +175,174 @@ def check_summary_rail(page, checks):
     settle(page)
     restored = viewer_width(page)
     checks.add("expanding the summary restores the viewer width", abs(restored - before) <= 2, f"{before} -> {restored}")
+
+
+def check_summary_tools(page, checks):
+    pane = page.locator(".pane-summary").first
+    pane.locator("tbody tr").first.wait_for(timeout=8000)
+    rows = pane.locator("tbody tr").count()
+    pane.get_by_label("Filter summary rows").fill("zzz-no-match")
+    settle(page, 200)
+    checks.add("summary filter hides non-matching rows", pane.locator("tbody tr").count() == 0, pane.locator("tbody tr").count())
+    pane.get_by_label("Filter summary rows").fill("")
+    settle(page, 200)
+    checks.add("clearing the filter restores the rows", pane.locator("tbody tr").count() == rows, pane.locator("tbody tr").count())
+    pane.get_by_role("button", name="Summary settings").click()
+    dialog = page.get_by_role("dialog", name="Summary settings")
+    top = dialog.bounding_box()
+    view = page.viewport_size
+    checks.add("summary settings is centred vertically", abs((top["y"] + top["height"] / 2) - view["height"] / 2) <= 40 or top["height"] >= view["height"] - 40, top)
+    dialog.get_by_label("Density").select_option("compact")
+    settle(page, 200)
+    checks.add("density is compact", pane.locator("section[data-density='compact']").count() == 1)
+    page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
+    settle(page, 300)
+    box = dialog.bounding_box()
+    checks.add("summary settings fit at 390 wide", box["x"] >= 0 and box["x"] + box["width"] <= MOBILE[0] and horizontal_overflow(page) <= 0, box)
+    checks.add("summary settings stay inside the 390 viewport", box["y"] >= 0 and box["y"] + box["height"] <= MOBILE[1], box)
+    page.screenshot(path=str(OUTPUT_DIR / "mock-summary-settings-390.png"))
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    page.keyboard.press("Escape")
+    settle(page, 300)
+    checks.add("closing summary settings returns focus to the gear", page.evaluate("document.activeElement?.textContent") == "Summary settings")
+    open_settings(page)
+    main = page.get_by_role("dialog", name="Settings")
+    checks.add("main settings shows the same density", main.get_by_label("Density").input_value() == "compact")
+    main.get_by_label("Density").select_option("comfortable")
+    page.keyboard.press("Escape")
+    settle(page, 300)
+    checks.add("density change in main settings reaches the table", pane.locator("section[data-density='comfortable']").count() == 1)
+    first = pane.locator("tbody .bsh-row-pick").first
+    first.click()
+    settle(page, 300)
+    selected = page.locator(".bsh-mock__el--selected").count()
+    checks.add("clicking a summary value selects elements in the viewer", selected >= 1, selected)
+    pane.get_by_role("button", name="Summary settings").click()
+    page.get_by_role("dialog", name="Summary settings").get_by_label("Row click").select_option("isolate")
+    page.keyboard.press("Escape")
+    settle(page, 200)
+    pane.locator("tbody .bsh-row-pick").first.click()
+    settle(page, 300)
+    dim = page.locator(".bsh-mock__el--dim").count()
+    checks.add("isolating dims the other elements", dim >= 1, dim)
+    pane.get_by_role("button", name="Show all elements").click()
+    settle(page, 200)
+    checks.add("show all restores the elements", page.locator(".bsh-mock__el--dim").count() == 0)
+    pane.get_by_role("button", name="Summary settings").click()
+    page.get_by_role("dialog", name="Summary settings").get_by_label("Row click").select_option("select")
+    page.get_by_role("dialog", name="Summary settings").get_by_role("button", name="Reset view").click()
+    page.keyboard.press("Escape")
+    settle(page, 200)
+    with page.expect_download(timeout=8000) as info:
+        pane.get_by_role("button", name="Download CSV").click()
+    name = info.value.suggested_filename
+    checks.add("summary CSV downloads", name.endswith("-summary.csv"), name)
+
+
+COLLAPSED_RING = """() => [...document.querySelectorAll('.dv-groupview[data-collapsed]')].map((group) => ({
+    active: group.classList.contains('dv-active-group'),
+    content: getComputedStyle(group, '::after').content,
+}))"""
+LEGEND_BOXES = """() => {
+    const box = (el) => el && el.getBoundingClientRect().toJSON();
+    const frame = document.querySelector('.pane-dashboard .bsh-chart--doughnut');
+    const body = document.querySelector('.pane-dashboard .bsh-drawer__body');
+    const legend = frame?.querySelector('.bsh-legend');
+    body.scrollTop = body.scrollHeight;
+    return {
+        plot: box(frame.querySelector('.bsh-chart__plot')),
+        legend: box(legend),
+        body: box(body),
+        legendClipped: legend.scrollHeight > legend.clientHeight + 1 && legend.scrollWidth <= legend.clientWidth + 1,
+    };
+}"""
+
+
+def check_collapsed_ring(page, checks):
+    stubs = page.evaluate(COLLAPSED_RING)
+    checks.add("a collapsed pane stub is present", len(stubs) >= 1, stubs)
+    checks.add("no collapsed pane stub draws the active ring", all(stub["content"] in ("none", "normal") for stub in stubs), stubs)
+
+
+def boxes_overlap(a, b):
+    return a["x"] < b["x"] + b["width"] and b["x"] < a["x"] + a["width"] and a["y"] < b["y"] + b["height"] and b["y"] < a["y"] + a["height"]
+
+
+def check_dashboard_tools(page, checks):
+    check_collapsed_ring(page, checks)
+    expand = page.get_by_role("button", name="Expand Dashboard")
+    if expand.count():
+        expand.first.click()
+        settle(page, 600)
+    pane = page.locator(".pane-dashboard").first
+    pane.locator("canvas").first.wait_for(timeout=8000)
+    trigger = pane.get_by_role("button", name=re.compile(r"^Export ")).first
+    trigger_box = trigger.bounding_box()
+    checks.add("chart export trigger is at least 24px", trigger_box["width"] >= 24 and trigger_box["height"] >= 24, trigger_box)
+    checks.add("chart export row is compact", pane.locator(".bsh-chart__tools").first.bounding_box()["height"] <= 32)
+    layout = page.evaluate(LEGEND_BOXES)
+    checks.add("doughnut legend does not overlap the plot", not boxes_overlap(layout["plot"], layout["legend"]), layout)
+    checks.add(
+        "doughnut legend sits inside the pane",
+        layout["legend"]["x"] >= layout["body"]["x"] - 1
+        and layout["legend"]["x"] + layout["legend"]["width"] <= layout["body"]["x"] + layout["body"]["width"] + 1
+        and layout["legend"]["y"] + layout["legend"]["height"] <= layout["body"]["y"] + layout["body"]["height"] + 1,
+        layout,
+    )
+    page.screenshot(path=str(OUTPUT_DIR / "mock-dashboard.png"))
+    trigger.click()
+    with page.expect_download(timeout=8000) as info:
+        page.get_by_role("menuitem", name="Download PNG").click()
+    png = OUTPUT_DIR / "chart.png"
+    info.value.save_as(str(png))
+    checks.add("chart exports a PNG", png.read_bytes()[:4] == b"\x89PNG", png.stat().st_size)
+    trigger.click()
+    with page.expect_download(timeout=8000) as info:
+        page.get_by_role("menuitem", name="Download CSV").click()
+    checks.add("chart exports a CSV", info.value.suggested_filename.endswith(".csv"), info.value.suggested_filename)
+    trigger.click()
+    page.get_by_role("menuitem", name="Copy data").click()
+    settle(page, 200)
+    checks.add("chart copy reports a result", bool(pane.locator("[role=status]").first.inner_text().strip()))
+    plot = pane.locator(".bsh-chart--doughnut canvas").first.bounding_box()
+    page.mouse.click(plot["x"] + plot["width"] / 2 + 0.4 * min(plot["width"], plot["height"]), plot["y"] + plot["height"] / 2)
+    settle(page, 300)
+    selected = page.locator(".bsh-mock__el--selected").count()
+    checks.add("clicking a chart slice selects elements in the viewer", selected >= 1, selected)
+    checks.add("the dashboard pane has no preset buttons", pane.get_by_role("button", name="Model health").count() == 0)
+    pane.get_by_role("button", name="Dashboard settings").click()
+    dialog = page.get_by_role("dialog", name="Dashboard settings")
+    box = dialog.bounding_box()
+    view = page.viewport_size
+    checks.add("dashboard settings is centred vertically", abs((box["y"] + box["height"] / 2) - view["height"] / 2) <= 40 or box["height"] >= view["height"] - 40, box)
+    dialog.get_by_role("button", name="Model health").click()
+    settle(page, 300)
+    boards = pane.locator(".bsh-boards canvas").count()
+    checks.add("a dashboard preset shows several charts", boards >= 2, boards)
+    page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
+    settle(page, 300)
+    box = dialog.bounding_box()
+    checks.add("dashboard settings fit at 390 wide", box["x"] >= 0 and box["x"] + box["width"] <= MOBILE[0] and horizontal_overflow(page) <= 0, box)
+    page.screenshot(path=str(OUTPUT_DIR / "mock-dashboard-settings-390.png"))
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    page.keyboard.press("Escape")
+    settle(page, 300)
+    checks.add("closing dashboard settings returns focus to the gear", page.evaluate("document.activeElement?.textContent") == "Dashboard settings")
+    page.screenshot(path=str(OUTPUT_DIR / "mock-dashboard-preset.png"))
+    open_settings(page)
+    main = page.get_by_role("dialog", name="Settings")
+    checks.add("main settings shows the same preset", main.get_by_role("button", name="Model health").get_attribute("aria-pressed") == "true")
+    main.get_by_role("button", name="Single chart").click()
+    page.keyboard.press("Escape")
+    settle(page, 300)
+    checks.add("preset change in main settings reaches the pane", pane.locator(".bsh-boards").count() == 0 and pane.locator(".bsh-chart--doughnut").count() == 1)
+    pane.get_by_role("button", name="Bar", exact=True).click()
+    settle(page, 200)
+    checks.add("the pane switch shows only the bar chart", pane.locator(".bsh-chart--doughnut").count() == 0 and pane.locator(".bsh-chart--bar").count() == 1)
+    pane.get_by_role("button", name="Both").click()
+    settle(page, 200)
+    page.get_by_role("button", name="Collapse Dashboard").first.click()
+    settle(page, 600)
 
 
 def check_tree_resize(page, checks):
@@ -312,6 +520,337 @@ def check_layout(page, checks, notes):
     page.get_by_role("button", name="Panes").click()
     page.get_by_role("menuitem", name="Reset layout").click()
     settle(page)
+
+
+def check_lock_maximize(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page)
+    page.evaluate(TAG_VIEWER)
+    before = groups(page)["Model summary"]
+    pane_menu(page, "Model summary", "Maximize")
+    found = groups(page)
+    shown = {name: g for name, g in found.items() if g["right"] > g["left"] and g["bottom"] > g["top"]}
+    checks.add("maximize shows one pane filling the dock", "Model summary" in found and (found["Model summary"]["right"] - found["Model summary"]["left"]) > before["right"] - before["left"] + 200, shown)
+    page.keyboard.press("Escape")
+    settle(page)
+    restored = groups(page)["Model summary"]
+    checks.add("Escape restores the maximized pane", abs((restored["right"] - restored["left"]) - (before["right"] - before["left"])) <= 2, restored)
+    pane_menu(page, viewer_title(page), "Maximize")
+    checks.add("maximized viewer fits its container", page.evaluate(VIEWER_FITS) <= 2, page.evaluate(VIEWER_FITS))
+    page.get_by_role("tab").filter(has_text=viewer_title(page)).first.dblclick()
+    settle(page)
+    checks.add("double-click on the tab restores", default_arrangement(groups(page)), groups(page))
+    checks.add("maximize keeps the viewer element", page.evaluate(VIEWER_KEPT))
+
+    page.get_by_role("button", name="Panes").click()
+    page.get_by_role("menuitemcheckbox", name="Lock layout").click()
+    settle(page)
+    checks.add("locked layout is stored", page.evaluate("() => localStorage.getItem('bsh.layout.locked')") == "true")
+    checks.add("locked layout hides tab close buttons", page.locator(".dv-default-tab-action").count() == 0, page.locator(".dv-default-tab-action").count())
+    tab_box = page.get_by_role("tab", name="Dashboard").bounding_box()
+    viewer_box = page.locator(".dv-groupview:has([data-active='true'] .model-viewer) .dv-content-container").bounding_box()
+    pointer_drag(page, page.get_by_role("tab", name="Dashboard"), viewer_box["x"] + 24, viewer_box["y"] + viewer_box["height"] / 2)
+    checks.add("locked layout ignores a tab drag", default_arrangement(groups(page)), groups(page))
+    page.get_by_role("button", name="Dashboard pane options").click()
+    names = page.get_by_role("menuitem").all_inner_texts()
+    checks.add("locked pane menu offers only Maximize and Unlock", [n.strip() for n in names] == ["Maximize", "Unlock layout"], names)
+    page.keyboard.press("Escape")
+    page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
+    settle(page, 800)
+    checks.add("locked layout has no overflow at 390 wide", horizontal_overflow(page) <= 0)
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page, 1200)
+    page.get_by_role("button", name="Panes").click()
+    page.get_by_role("menuitemcheckbox", name="Lock layout").click()
+    settle(page)
+    checks.add("unlock stores false", page.evaluate("() => localStorage.getItem('bsh.layout.locked')") == "false")
+    checks.add("unlocked tabs have close buttons again", page.locator(".dv-default-tab-action").count() > 0)
+
+
+def check_session_banner(page, checks):
+    import json
+
+    def serve(offset_ms):
+        body = json.dumps({"name": MOCK_USER_NAME, "picture": None, "expiresInMs": offset_ms})
+        page.route("**/api/session", lambda route: route.fulfill(status=200, content_type="application/json", body=body))
+
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    serve(4 * 60_000)
+    page.reload(wait_until="networkidle")
+    settle(page, 1500)
+    warning = page.locator(".session-banner[data-state='soon']")
+    checks.add("session banner warns before the session ends", warning.count() == 1 and "ends in" in warning.inner_text(), warning.count())
+    soon_background = warning.evaluate("e => getComputedStyle(e).backgroundColor")
+    checks.add("warning keeps the dock mounted", page.locator(".dv-dockview").count() == 1)
+    page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
+    settle(page, 600)
+    checks.add("warning has no horizontal overflow at 390 wide", horizontal_overflow(page) <= 0)
+    brand = page.locator(".brand__name").bounding_box()
+    checks.add("the app title stays on one line at 390 wide", brand["height"] <= 24, brand)
+    checks.add("the soon banner has a leading icon", warning.locator("svg").count() == 1)
+    page.unroute("**/api/session")
+    serve(-1000)
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    page.reload(wait_until="networkidle")
+    settle(page, 1500)
+    ended = page.locator(".session-banner[data-state='ended']")
+    checks.add("expired session shows a sign-in banner", ended.count() == 1 and ended.get_by_role("button", name="Sign in again").count() == 1)
+    checks.add("ended and soon banners are coloured differently", ended.evaluate("e => getComputedStyle(e).backgroundColor") != soon_background)
+    checks.add("expired session keeps the layout", page.locator(".dv-dockview").count() == 1 and page.get_by_role("tab", name="Documents", exact=True).count() == 1)
+    page.screenshot(path=str(OUTPUT_DIR / "mock-session-ended.png"))
+    page.unroute("**/api/session")
+    page.reload(wait_until="networkidle")
+    settle(page, 1000)
+    checks.add("banner is gone after the session is healthy again", page.locator(".session-banner").count() == 0)
+
+
+def open_settings(page):
+    page.get_by_role("button", name=re.compile(MOCK_USER_NAME)).first.click()
+    page.get_by_role("menuitem", name="Settings").click()
+    settle(page, 300)
+
+
+def check_paint_palette(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page)
+    page.get_by_role("button", name="Settings", exact=True).click()
+    settle(page, 300)
+    checks.add("top bar gear opens settings", page.get_by_role("dialog", name="Settings").count() == 1)
+    settings_box = page.get_by_role("dialog", name="Settings").bounding_box()
+    view = page.viewport_size
+    checks.add("settings is centred vertically", abs((settings_box["y"] + settings_box["height"] / 2) - view["height"] / 2) <= 40 or settings_box["height"] >= view["height"] - 40, settings_box)
+    page.keyboard.press("Escape")
+    settle(page, 300)
+    open_settings(page)
+    checks.add("settings lists the three default swatches", page.get_by_label(re.compile(r"^Swatch \d$")).count() == 3)
+    checks.add("settings labels the slider as intensity", page.get_by_label(re.compile(r"^Intensity \d+%")).count() == 1)
+    page.get_by_label("Swatch 1", exact=True).fill("#112233")
+    page.get_by_role("button", name="Add swatch").click()
+    checks.add("add swatch makes four", page.get_by_label(re.compile(r"^Swatch \d$")).count() == 4)
+    page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
+    settle(page, 400)
+    checks.add("palette settings have no overflow at 390 wide", horizontal_overflow(page) <= 0)
+    settings_box = page.get_by_role("dialog", name="Settings").bounding_box()
+    checks.add("settings stay inside the 390 viewport", settings_box["y"] >= 0 and settings_box["y"] + settings_box["height"] <= MOBILE[1], settings_box)
+    page.screenshot(path=str(OUTPUT_DIR / "mock-settings-390.png"))
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    page.keyboard.press("Escape")
+    settle(page, 400)
+    page.locator("button[title='Paint selection']").first.click()
+    swatches = page.locator(".bsh-mock__flyout:visible button:not([data-button-id^='paint-reset'])")
+    ids = swatches.evaluate_all("els => els.map(el => el.dataset.buttonId)")
+    colour = swatches.first.locator(".bsh-mock__icon").evaluate("el => getComputedStyle(el).backgroundColor")
+    checks.add("toolbar swatches follow the palette", len(ids) == 4 and ids[0].startswith("paint-112233"), ids)
+    checks.add("first swatch uses the custom colour", colour == "rgb(17, 34, 51)", colour)
+    page.keyboard.press("Escape")
+    open_settings(page)
+    page.get_by_role("button", name="Reset palette").click()
+    checks.add("reset palette restores three swatches", page.get_by_label(re.compile(r"^Swatch \d$")).count() == 3)
+    page.keyboard.press("Escape")
+    settle(page, 400)
+
+
+def check_recents(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page)
+    page.get_by_role("button", name=STRIP_TOGGLE).click()
+    settle(page, 200)
+    recent = page.get_by_role("region", name="Recent")
+    checks.add("recent strip lists the opened model above the tree", recent.count() == 1 and recent.get_by_role("listitem").count() >= 1)
+    above = page.evaluate("() => { const strip = document.querySelector('.recent-strip'); const tree = document.querySelector('.doc-tree'); return strip && tree ? strip.getBoundingClientRect().bottom <= tree.getBoundingClientRect().top + 1 : false; }")
+    checks.add("recent strip sits above the tree", above)
+    pin = recent.get_by_role("button", name=re.compile(r"^Pin ")).first
+    pin.click()
+    settle(page, 200)
+    pinned = page.get_by_role("region", name="Pinned")
+    checks.add("pinning moves the model to Pinned", pinned.count() == 1 and pinned.get_by_role("listitem").count() == 1)
+    page.reload(wait_until="networkidle")
+    settle(page, 1500)
+    page.get_by_role("button", name=STRIP_TOGGLE).click()
+    settle(page, 200)
+    checks.add("pin survives a reload", page.get_by_role("region", name="Pinned").count() == 1)
+    url_before = page.url
+    page.get_by_role("region", name="Pinned").get_by_role("button", name=re.compile(r"^(?!Unpin)")).first.click()
+    settle(page, 500)
+    checks.add("clicking a pinned model opens it", "/model/" in page.url, page.url)
+    page.get_by_role("region", name="Pinned").get_by_role("button", name=re.compile(r"^Unpin ")).first.click()
+    checks.add("unpinning removes the Pinned section", page.get_by_role("region", name="Pinned").count() == 0)
+    page.mouse.move(DESKTOP[0] - 10, DESKTOP[1] - 10)
+    page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
+    settle(page, 600)
+    page.get_by_role("button", name=TREE_TOGGLE).first.click()
+    settle(page, 500)
+    checks.add("recent strip is inside the narrow tree overlay with no overflow", page.locator(".stack__tree:not([hidden]) .recent-strip").count() == 1 and horizontal_overflow(page) <= 0)
+    page.screenshot(path=str(OUTPUT_DIR / "mock-recents-narrow.png"))
+    page.keyboard.press("Escape")
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page, 800)
+
+
+def strip_expanded(page):
+    return page.locator(".recent-strip__toggle").get_attribute("aria-expanded") == "true"
+
+
+def strip_geometry(page):
+    return page.evaluate("() => { const t = document.querySelector('.recent-strip__toggle').getBoundingClientRect(); const d = document.querySelector('.doc-tree').getBoundingClientRect(); return { header: t.height, treeTop: d.top }; }")
+
+
+def check_strip(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page)
+    page.mouse.move(DESKTOP[0] - 10, DESKTOP[1] - 10)
+    page.wait_for_timeout(400)
+    toggle = page.locator(".recent-strip__toggle")
+    checks.add("recent strip starts collapsed with a counted header", not strip_expanded(page) and re.search(r"\(\d+\)", toggle.inner_text()) is not None, toggle.inner_text())
+    closed = strip_geometry(page)
+    toggle.hover()
+    page.wait_for_timeout(300)
+    checks.add("hovering the strip header expands it", strip_expanded(page) and page.locator(".recent-strip__panel").is_visible())
+    small = page.evaluate("() => [...document.querySelectorAll('.recent-strip__pin, .recent-strip__more')].map((e) => { const b = e.getBoundingClientRect(); return Math.min(b.width, b.height); })")
+    checks.add("strip pin and more buttons are at least 24px", bool(small) and min(small) >= 24, small)
+    open_ = strip_geometry(page)
+    checks.add("the expanded strip overlays the tree without reflow", abs(open_["header"] - closed["header"]) < 1 and abs(open_["treeTop"] - closed["treeTop"]) < 1, f"{closed} {open_}")
+    page.screenshot(path=str(OUTPUT_DIR / "mock-strip-expanded.png"))
+    page.mouse.move(DESKTOP[0] - 10, DESKTOP[1] - 10)
+    page.wait_for_timeout(500)
+    checks.add("leaving the strip collapses it again", not strip_expanded(page))
+
+    rows = ensure_viewables(page)
+    target = unselected_version(rows)
+    first_urn = models(page)["active"]
+    target.click(button="right")
+    menu = page.get_by_role("menu")
+    checks.add("right click on a version opens the model menu", menu.count() == 1 and menu.get_by_role("menuitem", name="Open as modal").count() == 1)
+    page.screenshot(path=str(OUTPUT_DIR / "mock-row-menu.png"))
+    menu.get_by_role("menuitem", name="Add to open model").click()
+    settle(page, 800)
+    checks.add("Add to open model puts the version into the url with=", "with=" in page.url, page.url)
+    target.hover()
+    remove = target.locator(".tree-row__action--remove")
+    checks.add("an added version shows a remove button on hover", remove.count() == 1 and remove.is_visible())
+    remove_box = remove.bounding_box()
+    checks.add("the tree row remove button is at least 24px", remove_box["width"] >= 24 and remove_box["height"] >= 24, remove_box)
+    page.get_by_role("tab", name="Models", exact=True).click()
+    settle(page, 400)
+    row = page.locator(".bsh-models__row").first
+    name_box = row.locator(".bsh-models__name").bounding_box()
+    remove_button = row.get_by_role("button", name=re.compile(r"^Remove ")).bounding_box()
+    checks.add("the Models row keeps Remove on the name line", abs((remove_button["y"] + remove_button["height"] / 2) - (name_box["y"] + name_box["height"] / 2)) <= 12, f"{name_box} {remove_button}")
+    page.screenshot(path=str(OUTPUT_DIR / "mock-models-tab.png"))
+    page.get_by_role("tab", name="Documents", exact=True).click()
+    settle(page, 400)
+    target.click(button="right")
+    menu = page.get_by_role("menu")
+    checks.add("the menu offers Remove once the version is added", menu.get_by_role("menuitem", name="Remove from open model").count() == 1 and menu.get_by_role("menuitem", name="Add to open model").count() == 0)
+    menu.get_by_role("menuitem", name="Remove from open model").click()
+    settle(page, 800)
+    checks.add("Remove from open model clears with= again", "with=" not in page.url, page.url)
+
+    target.click(button="right")
+    page.get_by_role("menu").get_by_role("menuitem", name="Open as modal").click()
+    settle(page, 1500)
+    state = models(page)
+    modal_urn = state["active"]
+    floating = wait_until(page, lambda: page.evaluate(f"mw:() => window.__bshLayout.location('viewer:{modal_urn}')") == "floating")
+    checks.add("Open as modal floats the model in its own pane", modal_urn != first_urn and bool(floating), modal_urn)
+    page.screenshot(path=str(OUTPUT_DIR / "mock-open-as-modal.png"))
+    page.evaluate(f"mw:() => window.__bshLayout.closeModel('{modal_urn}')")
+    settle(page, 800)
+
+    page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
+    settle(page, 600)
+    page.get_by_role("button", name=TREE_TOGGLE).first.click()
+    settle(page, 500)
+    toggle = page.locator(".stack__tree:not([hidden]) .recent-strip__toggle")
+    page.screenshot(path=str(OUTPUT_DIR / "mock-strip-narrow-collapsed.png"))
+    checks.add("narrow strip is collapsed until tapped", toggle.get_attribute("aria-expanded") == "false")
+    toggle.click()
+    settle(page, 300)
+    checks.add("tapping the header expands the strip", toggle.get_attribute("aria-expanded") == "true")
+    page.locator(".stack__tree:not([hidden]) .recent-strip__more").first.click()
+    settle(page, 300)
+    checks.add("the kebab button opens the menu on touch width", page.get_by_role("menu").count() == 1)
+    page.screenshot(path=str(OUTPUT_DIR / "mock-strip-narrow-menu.png"))
+    page.keyboard.press("Escape")
+    checks.add("Escape closes the menu", page.get_by_role("menu").count() == 0)
+    toggle.click()
+    settle(page, 300)
+    checks.add("tapping the header again collapses the strip", toggle.get_attribute("aria-expanded") == "false")
+    page.keyboard.press("Escape")
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page, 800)
+
+
+def tree_item_dates(page):
+    return page.evaluate("() => [...document.querySelectorAll(\".tree-row[data-kind='item'] .tree-row__meta\")].map((el) => el.textContent)")
+
+
+VIEW_BUTTON_OFFSET = """() => {
+    const button = document.querySelector("button[aria-label='Documents view']");
+    const icon = button.querySelector("svg").getBoundingClientRect();
+    const box = button.getBoundingClientRect();
+    const refresh = document.querySelector("button[aria-label='Refresh documents']").getBoundingClientRect();
+    return {
+        dx: icon.x + icon.width / 2 - (box.x + box.width / 2),
+        dy: icon.y + icon.height / 2 - (box.y + box.height / 2),
+        rowDy: box.y + box.height / 2 - (refresh.y + refresh.height / 2),
+        sizeDiff: Math.abs(box.width - refresh.width) + Math.abs(box.height - refresh.height),
+    };
+}"""
+
+
+def check_view_button(page, checks, label):
+    off = page.evaluate(VIEW_BUTTON_OFFSET)
+    checks.add(f"view button icon is centred ({label})", abs(off["dx"]) <= 1 and abs(off["dy"]) <= 1, off)
+    checks.add(f"view button aligns with refresh ({label})", abs(off["rowDy"]) <= 1 and off["sizeDiff"] <= 1, off)
+
+
+def check_tree_metadata(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page)
+    check_view_button(page, checks, "desktop")
+    page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
+    settle(page, 400)
+    check_view_button(page, checks, "390 wide")
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page, 400)
+    dates = tree_item_dates(page)
+    checks.add("file rows show their modified date", len(dates) >= 2 and all(re.fullmatch(r"\d{4}-\d{2}-\d{2}", d) for d in dates), dates)
+    page.get_by_role("button", name="Documents view").click()
+    page.get_by_role("menuitemcheckbox", name="Sort by modified").click()
+    settle(page, 800)
+    groups_sorted = page.evaluate("""() => {
+        const rows = [...document.querySelectorAll('.tree-row')];
+        const runs = [];
+        let run = [];
+        for (const row of rows) {
+            if (row.dataset.kind === 'item') run.push(row.querySelector('.tree-row__meta')?.textContent || '');
+            else if (run.length) { runs.push(run); run = []; }
+        }
+        if (run.length) runs.push(run);
+        return runs.filter((r) => r.length > 1).map((r) => r.every((d, i) => i === 0 || r[i - 1] >= d));
+    }""")
+    checks.add("sort by modified lists the newest file first in each folder", len(groups_sorted) >= 1 and all(groups_sorted), groups_sorted)
+    page.get_by_role("button", name="Documents view").click()
+    page.get_by_role("menuitemcheckbox", name="Show author").click()
+    settle(page, 300)
+    checks.add("author column adds the modifier", all(" · " in d for d in tree_item_dates(page)), tree_item_dates(page))
+    checks.add("tree view choice is stored", "modified" in page.evaluate("() => localStorage.getItem('bsh.tree.view')"))
+    page.evaluate("() => { document.querySelector('.tree-panel').style.width = '260px'; }")
+    settle(page, 300)
+    hidden = page.evaluate("() => [...document.querySelectorAll('.tree-row__meta')].every((el) => getComputedStyle(el).display === 'none')")
+    checks.add("narrow tree hides the metadata columns", hidden)
+    page.evaluate("() => { document.querySelector('.tree-panel').style.width = ''; }")
+    page.get_by_role("button", name="Documents view").click()
+    page.get_by_role("menuitemcheckbox", name="Show author").click()
+    page.get_by_role("button", name="Documents view").click()
+    page.get_by_role("menuitemcheckbox", name="Sort by name").click()
+    settle(page, 500)
+    page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
+    settle(page, 600)
+    checks.add("tree metadata has no overflow at 390 wide", horizontal_overflow(page) <= 0)
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page, 800)
 
 
 def models(page):
@@ -507,7 +1046,7 @@ def combined_groups(page):
 
 
 def models_trigger(page):
-    return page.locator("[data-active='true'] .bsh-viewer-models__trigger")
+    return page.locator("[data-active='true'] .bsh-viewer-models .bsh-viewer-models__trigger")
 
 
 def xlsx_has_model_column(path):
@@ -601,7 +1140,7 @@ def check_combined(page, checks, notes):
     failed = page.get_by_role("list", name="Models that failed")
     wait_until(page, lambda: failed.count() == 1)
     text = failed.inner_text() if failed.count() else ""
-    checks.add("combined: a file without geometry explains itself", "No viewable geometry" in text, text[:160])
+    checks.add("combined: a file without geometry explains itself", "Nothing to show" in text, text[:160])
     checks.add("combined: the failed model leaves the others rendered", len([g for g in combined_groups(page) if g["shapes"] > 0]) == 2, combined_groups(page))
     page.screenshot(path=str(OUTPUT_DIR / "mock-combined.png"))
 
@@ -615,11 +1154,11 @@ def check_combined(page, checks, notes):
     checks.add("combined: removing a member leaves a single-model tab", len(combined_groups(page)) == 1 and "with=" not in page.url and models_trigger(page).count() == 0, page.url)
 
     ensure_viewables(page)
-    addable = page.locator("[role=treeitem][data-viewable=true] .tree-row__action").count()
-    target = page.locator("[role=treeitem][data-viewable=true]").filter(has=page.locator(".tree-row__action")).first
+    addable = page.locator("[role=treeitem][data-viewable=true] .tree-row__action:not(.tree-row__action--remove)").count()
+    target = page.locator("[role=treeitem][data-viewable=true]").filter(has=page.locator(".tree-row__action:not(.tree-row__action--remove)")).first
     if target.count():
         target.hover()
-        target.locator(".tree-row__action").click()
+        target.locator(".tree-row__action:not(.tree-row__action--remove)").click()
         wait_until(page, lambda: len(combined_groups(page)) == 2)
     checks.add("combined: Add to open viewer adds a version to the active tab", addable >= 1 and len(combined_groups(page)) == 2 and len(models(page)["models"]) == 1, combined_groups(page))
 
@@ -630,6 +1169,143 @@ def check_combined(page, checks, notes):
     add = page.get_by_role("menuitem", name=re.compile(r"^Add model"))
     checks.add("combined: the menu explains the cap of six", add.count() == 1 and "limit of 6" in add.inner_text() and add.is_disabled(), add.inner_text() if add.count() else "")
     page.keyboard.press("Escape")
+    close_all_models(page)
+
+
+ACTIVE_VIEWER = "[data-active='true']"
+STUB_CLIPBOARD = """mw:() => {
+    window.__copied = null;
+    window.__images = 0;
+    navigator.clipboard.writeText = (text) => { window.__copied = text; return Promise.resolve(); };
+    return true;
+}"""
+COPIED = "mw:() => window.__copied"
+CAMERA = "() => document.querySelector(\"[data-active='true'] .bsh-mock\")?.dataset.camera || ''"
+SELECTED = "() => document.querySelectorAll(\"[data-active='true'] .bsh-mock__el--selected\").length"
+PNG_MAGIC = b"\x89PNG"
+
+
+def share_menu(page, item):
+    page.locator(f"{ACTIVE_VIEWER} .bsh-viewer-share button").click()
+    page.get_by_role("menuitem", name=item).click()
+
+
+def check_viewer_links(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    close_all_models(page)
+    page.goto(BASE_URL, wait_until="networkidle")
+    expand_to_viewable(page).click()
+    page.wait_for_url(re.compile(r"/model/"), timeout=15000)
+    urn = models(page)["active"]
+    second = f"{urn}-second"
+    page.goto(f"{BASE_URL}/model/{urn}?with={second}", wait_until="networkidle")
+    settle(page, 1500)
+    wait_until(page, lambda: len(combined_groups(page)) == 2)
+    page.evaluate(STUB_CLIPBOARD)
+
+    page.locator(f"{ACTIVE_VIEWER} [data-model-id='{urn}'] polygon").nth(3).dispatch_event("click")
+    share_menu(page, "Copy link to this view")
+    wait_until(page, lambda: page.evaluate(COPIED))
+    link = page.evaluate(COPIED) or ""
+    checks.add("share: the view link carries view and the model set", "view=" in link and "with=" in link, link[-160:])
+    checks.add("share: the badge confirms the copy", page.get_by_text("Link copied").count() == 1)
+
+    share_menu(page, "Copy link to these models")
+    wait_until(page, lambda: page.evaluate(COPIED) != link)
+    plain = page.evaluate(COPIED) or ""
+    checks.add("share: the model link keeps with and drops view", "with=" in plain and "view=" not in plain, plain[-160:])
+
+    page.goto(link, wait_until="networkidle")
+    settle(page, 2000)
+    wait_until(page, lambda: len(combined_groups(page)) == 2)
+    wait_until(page, lambda: page.evaluate(CAMERA))
+    checks.add("share: opening the link restores the camera", bool(page.evaluate(CAMERA)), page.evaluate(CAMERA))
+    checks.add("share: opening the link restores the selection", page.evaluate(SELECTED) == 1, page.evaluate(SELECTED))
+
+    with page.expect_download(timeout=30000) as download_info:
+        share_menu(page, "Save image (PNG)")
+    target = OUTPUT_DIR / "snapshot.png"
+    download_info.value.save_as(str(target))
+    checks.add("snapshot: Save image downloads a PNG", target.read_bytes()[:4] == PNG_MAGIC and target.stat().st_size > 200, target.stat().st_size)
+
+    chip = page.locator(f"{ACTIVE_VIEWER} .bsh-viewer-models .bsh-viewer-models__trigger").first
+    text = (chip.inner_text() if chip.count() else "") + " | " + (chip.get_attribute("title") or "")
+    checks.add("meter: the chip shows how many of six models are open and its tooltip the parts estimate", "2 of 6 models" in text and "parts (estimate)" in text, text)
+    checks.add("meter: no plain summary text sits over the 3D scene", page.locator(f"{ACTIVE_VIEWER} .bsh-viewer-cost__count, {ACTIVE_VIEWER} .bsh-viewer-cost__parts").count() == 0)
+
+    page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
+    settle(page, 600)
+    share = page.locator(f"{ACTIVE_VIEWER} .bsh-viewer-share button").bounding_box()
+    trigger = page.locator(f"{ACTIVE_VIEWER} .bsh-viewer-models .bsh-viewer-models__trigger").first.bounding_box()
+    fits = bool(share and trigger) and share["x"] + share["width"] <= MOBILE[0] and (trigger["x"] + trigger["width"] <= share["x"])
+    checks.add("narrow: Share and Models controls fit side by side", fits, f"{share} {trigger}")
+    checks.add("narrow: no horizontal overflow with the meter and share", horizontal_overflow(page) <= 0, horizontal_overflow(page))
+    page.screenshot(path=str(OUTPUT_DIR / "mock-share-narrow.png"))
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+
+    five = ",".join(f"{urn}-m{index}" for index in range(4))
+    page.goto(f"{BASE_URL}/model/{urn}?with={five}", wait_until="networkidle")
+    settle(page, 2000)
+    text = page.locator(f"{ACTIVE_VIEWER} .bsh-viewer-cost").inner_text()
+    checks.add("meter: warns before the sixth model", "One more model fits" in text, text)
+
+    page.goto(f"{BASE_URL}/model/{urn}?with={urn}-processing,{urn}-nogeom", wait_until="networkidle")
+    settle(page, 2000)
+    failed = page.get_by_role("list", name="Models that failed")
+    wait_until(page, lambda: failed.count() == 1)
+    text = failed.inner_text() if failed.count() else ""
+    checks.add("failures: processing and empty files get plain reasons", "Still processing" in text and "Nothing to show" in text, text[:200])
+    checks.add("failures: only the retryable file offers Retry", failed.get_by_role("button", name=re.compile(r"^Retry")).count() == 1)
+
+    page.goto(f"{BASE_URL}/model/{urn}-noaccess", wait_until="networkidle")
+    settle(page, 1500)
+    alert = page.get_by_role("alert").filter(has_text="No access")
+    checks.add("failures: a model without access says so", alert.count() >= 1)
+    page.screenshot(path=str(OUTPUT_DIR / "mock-no-access.png"))
+
+    page.goto(f"{BASE_URL}/model/{urn}?with={second}", wait_until="networkidle")
+    settle(page, 2000)
+    docs_tab = page.get_by_role("tab", name="Documents", exact=True)
+    models_tab = page.get_by_role("tab", name="Models", exact=True)
+    checks.add("models pane: open by default as a tab beside Documents", models_tab.count() == 1 and page.evaluate(SAME_GROUP, ["Documents", "Models"]), models_tab.count())
+    checks.add("models pane: Documents stays the active tab", docs_tab.get_attribute("aria-selected") == "true")
+    models_tab.click()
+    pane = page.locator(".pane-models")
+    wait_until(page, lambda: pane.count() == 1 and pane.locator(".bsh-models__row").count() == 2)
+    rows = pane.locator(".bsh-models__row")
+    checks.add("models pane: lists both models with a status", rows.count() == 2 and pane.locator("[data-status='ready']").count() >= 2, rows.count())
+    pane.get_by_role("button", name=re.compile(r"^Hide ")).first.click()
+    settle(page, 400)
+    checks.add("models pane: the eye hides a model", [g["hidden"] for g in combined_groups(page)].count(True) == 1, combined_groups(page))
+    pane.get_by_role("button", name=re.compile(r"^Show ")).first.click()
+    pane.get_by_role("button", name=re.compile(r"^Isolate ")).first.click()
+    settle(page, 400)
+    checks.add("models pane: Isolate hides the others", [g["hidden"] for g in combined_groups(page)].count(True) == 1, combined_groups(page))
+    flipped = pane.get_by_role("button", name="Show all models")
+    checks.add("models pane: the isolated row flips to Show all and is pressed", flipped.count() == 1 and flipped.get_attribute("aria-pressed") == "true", flipped.count())
+    page.screenshot(path=str(OUTPUT_DIR / "mock-models-pane.png"))
+    hidden_before = [g["hidden"] for g in combined_groups(page)]
+    page.reload(wait_until="networkidle")
+    settle(page, 2000)
+    page.get_by_role("tab", name="Models", exact=True).click()
+    pane = page.locator(".pane-models")
+    wait_until(page, lambda: pane.get_by_role("button", name="Show all models").count() == 1)
+    checks.add("models pane: reload restores the isolation", [g["hidden"] for g in combined_groups(page)] == hidden_before and pane.get_by_role("button", name="Show all models").count() == 1, combined_groups(page))
+    page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
+    settle(page, 800)
+    checks.add("models pane: narrow screen keeps the isolation and shows no Models tab", [g["hidden"] for g in combined_groups(page)] == hidden_before and page.get_by_role("tab", name="Models", exact=True).count() == 0, combined_groups(page))
+    page.screenshot(path=str(OUTPUT_DIR / "mock-models-pane-narrow.png"))
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page, 800)
+    page.get_by_role("tab", name="Models", exact=True).click()
+    pane = page.locator(".pane-models")
+    pane.get_by_role("button", name="Show all models").click()
+    settle(page, 400)
+    checks.add("models pane: Show all brings every model back", [g["hidden"] for g in combined_groups(page)].count(True) == 0, combined_groups(page))
+    pane.get_by_role("button", name=re.compile(r"^Remove ")).last.click()
+    settle(page, 800)
+    checks.add("models pane: Remove drops the model from the url", "with=" not in page.url, page.url)
+    page.get_by_role("tab", name="Documents", exact=True).click()
     close_all_models(page)
 
 
@@ -851,7 +1527,7 @@ def run_interaction_checks(page, checks, notes):
     except Exception as exc:
         page.screenshot(path=str(OUTPUT_DIR / "mock-layout-failure.png"))
         checks.add("check_layout", False, f"{type(exc).__name__}: {str(exc)[:160]}")
-    for check in (check_theme, check_summary_rail, check_tree_resize):
+    for check in (check_lock_maximize, check_active_pane, check_session_banner, check_paint_palette, check_recents, check_strip, check_tree_metadata, check_theme, check_summary_rail, check_summary_tools, check_dashboard_tools, check_tree_resize):
         try:
             check(page, checks)
         except Exception as exc:
@@ -871,6 +1547,11 @@ def run_interaction_checks(page, checks, notes):
     except Exception as exc:
         page.screenshot(path=str(OUTPUT_DIR / "mock-far-apart-failure.png"))
         checks.add("check_far_apart", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+    try:
+        check_viewer_links(page, checks)
+    except Exception as exc:
+        page.screenshot(path=str(OUTPUT_DIR / "mock-viewer-links-failure.png"))
+        checks.add("check_viewer_links", False, f"{type(exc).__name__}: {str(exc)[:160]}")
     try:
         check_blocked_picks(page, checks)
     except Exception as exc:
@@ -910,6 +1591,7 @@ def shoot_hint(page, name):
 def run_variant(context, checks, notes):
     page = context.new_page()
     watch(page, notes)
+    page.on("dialog", lambda dialog: dialog.accept())
     page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
     page.goto(BASE_URL, wait_until="networkidle")
     settle(page, 1200)
@@ -952,6 +1634,7 @@ def run_variant(context, checks, notes):
 def run(context, checks, notes):
     page = context.new_page()
     watch(page, notes)
+    page.on("dialog", lambda dialog: dialog.accept())
     status, session = api_get(context, "/api/session")
     checks.add(
         "session is the mock user",

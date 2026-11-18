@@ -4,7 +4,7 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import {
   fetchAuthUrl,
   fetchChildren,
@@ -28,15 +28,40 @@ export function useSession() {
   return useQuery(sessionQueryOptions);
 }
 
-export function useSessionExpiry() {
+let sessionEnded = false;
+const endedListeners = new Set<() => void>();
+
+function setSessionEnded(value: boolean) {
+  if (sessionEnded === value) return;
+  sessionEnded = value;
+  for (const listener of [...endedListeners]) listener();
+}
+
+export function useSessionExpiry(): boolean {
   const client = useQueryClient();
   useEffect(
     () =>
       subscribeUnauthorized(() => {
-        client.setQueryData(sessionQueryKey, null);
+        if (client.getQueryData(sessionQueryKey)) {
+          setSessionEnded(true);
+        }
       }),
     [client],
   );
+  return useSyncExternalStore(
+    (listener) => {
+      endedListeners.add(listener);
+      return () => {
+        endedListeners.delete(listener);
+      };
+    },
+    () => sessionEnded,
+    () => false,
+  );
+}
+
+export function resetSessionEnded() {
+  setSessionEnded(false);
 }
 
 export function childrenQueryOptions(scope: NodeScope) {
@@ -61,6 +86,7 @@ export function useSignOut() {
     onSuccess: () => {
       forgetModels();
       client.removeQueries({ queryKey: ['children'] });
+      resetSessionEnded();
       client.setQueryData(sessionQueryKey, null);
     },
   });

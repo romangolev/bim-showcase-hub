@@ -16,44 +16,51 @@ import {
   useContext,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
-import { defaultSteps, placementFor } from './defaultLayout.js';
+import { applyCollapse, GAP, steady as steadyOn } from './collapse.js';
+import {
+  addPane,
+  applyTitles,
+  buildDefault,
+  changesShape,
+  cycleGroups,
+  floatingBox,
+  type InstanceSync,
+  isInstance,
+  measureTreeWidth,
+  openKinds,
+  placementOf,
+  resolvePanel,
+  restore,
+  syncInstances,
+  type TreeWidthSource,
+} from './dockOps.js';
 import type {
   DockController,
   MoveTarget,
   PaneTitles,
 } from './layoutContext.js';
 import {
-  adoptArrangement,
-  loadWithFallback,
   type SerializedDock,
-  sanitizeDock,
   siblingCountOf,
   splitAxisOf,
 } from './layoutState.js';
 import {
   definitionOf,
   FOLLOWERS,
-  followersOf,
-  isFollower,
   isPaneId,
   isPanelClosable,
-  isRequired,
-  PANES,
-  type PaneDefinition,
   type PaneId,
   type PanelId,
-  type Placement,
   paneById,
   paneKind,
   parsePanelId,
 } from './paneRegistry.js';
 import { type HostStore, PaneSlot } from './ViewerHost.js';
 import './dockTheme.css';
-
-const GAP = 12;
 
 export const DOCK_THEME: DockviewTheme = {
   name: 'bsh',
@@ -64,16 +71,14 @@ export const DOCK_THEME: DockviewTheme = {
   dndTabIndicator: 'line',
 };
 
-export const HEADER_SIZE = 33;
-const FLOAT_MIN = { width: 360, height: 280 };
-const UNBOUNDED = Number.POSITIVE_INFINITY;
-
 interface SlotContextValue {
   hosts: HostStore<PanelId>;
   onAttach: (id: PanelId) => void;
   onVisibility: (id: PanelId, visible: boolean) => void;
   onCloseInstance: (id: PanelId) => void;
   onClosePane: (id: PaneId) => void;
+  onToggleMaximize: (id: PanelId) => void;
+  locked: boolean;
   titles: PaneTitles;
   headerActions?: (props: {
     pane: PanelId;
@@ -117,8 +122,9 @@ function PaneTab(props: IDockviewPanelHeaderProps) {
   return (
     <DockviewDefaultTab
       {...props}
-      hideClose={!isPanelClosable(id)}
+      hideClose={!isPanelClosable(id) || slot?.locked}
       title={slot?.titles[id]?.tooltip}
+      onDoubleClick={() => slot?.onToggleMaximize(id)}
       closeActionOverride={close}
     />
   );
@@ -132,376 +138,6 @@ function PaneActions({ activePanel, group }: IDockviewHeaderActionsProps) {
 }
 
 const COMPONENTS = { pane: PaneContent };
-
-const TYPING =
-  'input, textarea, select, [contenteditable=""], [contenteditable="true"]';
-const VIEWER_SURFACE = '.bsh-viewer-surface';
-
-export function cycleGroups(root: HTMLElement, event: KeyboardEvent) {
-  if (event.key !== 'F6' || event.altKey || event.ctrlKey || event.metaKey) {
-    return;
-  }
-  const target = event.target;
-  if (
-    target instanceof Element &&
-    (target.closest(TYPING) || target.closest(VIEWER_SURFACE))
-  ) {
-    return;
-  }
-  const groups = Array.from(
-    root.querySelectorAll<HTMLElement>('.dv-groupview'),
-  );
-  if (groups.length === 0) return;
-  event.preventDefault();
-  const current = groups.findIndex((group) =>
-    group.contains(document.activeElement),
-  );
-  const step = event.shiftKey ? -1 : 1;
-  const next =
-    current === -1
-      ? event.shiftKey
-        ? groups.length - 1
-        : 0
-      : (current + step + groups.length) % groups.length;
-  const group = groups[next];
-  const tab =
-    group?.querySelector<HTMLElement>('.dv-tab.dv-active-tab') ??
-    group?.querySelector<HTMLElement>('.dv-tab');
-  tab?.focus();
-}
-
-interface Bounds {
-  minimumWidth: number;
-  maximumWidth: number;
-  minimumHeight: number;
-  maximumHeight: number;
-}
-
-function constrain(group: DockviewGroupPanel, bounds: Bounds) {
-  if (
-    group.minimumWidth === bounds.minimumWidth &&
-    group.maximumWidth === bounds.maximumWidth &&
-    group.minimumHeight === bounds.minimumHeight &&
-    group.maximumHeight === bounds.maximumHeight
-  ) {
-    return;
-  }
-  group.api.setConstraints(bounds);
-}
-
-function sizePane(api: DockviewApi, id: PanelId, placement: Placement) {
-  if (placement.kind === 'root') return;
-  api
-    .getPanel(id)
-    ?.group.api.setSize(
-      placement.direction === 'below'
-        ? { height: placement.size }
-        : { width: placement.size },
-    );
-}
-
-function kindPanels(api: DockviewApi, kind: PaneId) {
-  return api.panels.filter((panel) => paneKind(panel.id) === kind);
-}
-
-export function resolvePanel(
-  api: DockviewApi,
-  id: PanelId,
-  active?: PanelId | null,
-) {
-  const exact = api.getPanel(id);
-  if (exact || !isPaneId(id)) return exact;
-  const preferred =
-    active && paneKind(active) === id ? api.getPanel(active) : undefined;
-  return preferred ?? kindPanels(api, id)[0];
-}
-
-function panelBase(id: PanelId, title?: string) {
-  const pane = definitionOf(id);
-  return {
-    id,
-    component: 'pane',
-    title: title ?? pane.title,
-    minimumWidth: pane.minSize.width,
-    minimumHeight: pane.minSize.height,
-  };
-}
-
-function addPane(
-  api: DockviewApi,
-  id: PanelId,
-  placement: Placement,
-  title?: string,
-) {
-  const base = panelBase(id, title);
-  if (placement.kind === 'root') {
-    if (api.panels.length === 0) {
-      api.addPanel(base);
-      return;
-    }
-    const tree = api.getPanel('tree');
-    api.addPanel({
-      ...base,
-      position:
-        tree && tree.api.location.type === 'grid'
-          ? { referencePanel: tree, direction: 'right' }
-          : { direction: 'left' },
-    });
-    return;
-  }
-  const sized =
-    placement.direction === 'below'
-      ? { initialHeight: placement.size }
-      : { initialWidth: placement.size };
-  const reference =
-    placement.kind === 'beside'
-      ? resolvePanel(api, placement.reference)
-      : undefined;
-  api.addPanel({
-    ...base,
-    ...sized,
-    position: reference
-      ? { referencePanel: reference, direction: placement.direction }
-      : { direction: placement.direction },
-  });
-  sizePane(api, id, placement);
-}
-
-function placementOf(api: DockviewApi, pane: PaneDefinition): Placement {
-  return placementFor(pane.defaultPlacement, (other) =>
-    Boolean(resolvePanel(api, other)),
-  );
-}
-
-export interface InstanceSync {
-  instances: readonly PanelId[];
-  active: PanelId | null;
-  titles: PaneTitles;
-  companions: readonly PaneId[];
-  treeWidth: number;
-  arrangement?: SerializedDock | null;
-}
-
-function adopt(api: DockviewApi, sync: InstanceSync, want: PanelId[]) {
-  if (!sync.arrangement) return false;
-  const snapshot = adoptArrangement(
-    sync.arrangement,
-    want,
-    sync.active,
-    sync.companions,
-    sync.titles,
-  );
-  if (!snapshot) return false;
-  try {
-    api.fromJSON(snapshot as never);
-  } catch {
-    return false;
-  }
-  if (!api.getPanel('tree')) {
-    addPane(api, 'tree', placementOf(api, paneById('tree')));
-  }
-  return true;
-}
-
-function isInstance(id: PanelId): boolean {
-  return Boolean(parsePanelId(id)?.instance);
-}
-
-function wantedOf(sync: InstanceSync, kind: PaneId): PanelId[] {
-  return sync.instances.filter((id) => paneKind(id) === kind);
-}
-
-export function changesShape(api: DockviewApi, sync: InstanceSync): boolean {
-  return PANES.some(
-    (pane) =>
-      pane.instances &&
-      (kindPanels(api, pane.id).length === 0) !==
-        (wantedOf(sync, pane.id).length === 0),
-  );
-}
-
-function sizeTree(api: DockviewApi, width: number) {
-  const tree = api.getPanel('tree');
-  if (tree && tree.api.location.type === 'grid') {
-    tree.group.api.setSize({ width });
-  }
-}
-
-export function syncInstances(api: DockviewApi, sync: InstanceSync) {
-  const wanted = new Set(sync.instances);
-  for (const pane of PANES) {
-    if (!pane.instances) continue;
-    const want = wantedOf(sync, pane.id);
-    const before = kindPanels(api, pane.id).length;
-    const adopted = before === 0 && want.length > 0 && adopt(api, sync, want);
-    const leaving = kindPanels(api, pane.id).filter(
-      (panel) => isInstance(panel.id) && !wanted.has(panel.id),
-    );
-    const arriving = want.filter((id) => !api.getPanel(id));
-    const [old] = leaving;
-    const [renamed] = arriving;
-    if (leaving.length === 1 && arriving.length === 1 && old && renamed) {
-      api.addPanel({
-        ...panelBase(renamed, sync.titles[renamed]?.label),
-        position: {
-          referenceGroup: old.group,
-          index: old.group.panels.indexOf(old),
-        },
-        inactive: renamed !== sync.active && old.group.activePanel !== old,
-      });
-    }
-    for (const panel of kindPanels(api, pane.id)) {
-      if (isInstance(panel.id) && !wanted.has(panel.id)) panel.api.close();
-    }
-    for (const id of want) {
-      if (api.getPanel(id)) continue;
-      const anchor =
-        (sync.active && paneKind(sync.active) === pane.id
-          ? api.getPanel(sync.active)
-          : undefined) ?? kindPanels(api, pane.id)[0];
-      const title = sync.titles[id]?.label;
-      if (anchor) {
-        api.addPanel({
-          ...panelBase(id, title),
-          position: { referenceGroup: anchor.group },
-          inactive: id !== sync.active,
-        });
-      } else {
-        addPane(api, id, placementOf(api, pane), title);
-      }
-    }
-    const followers = followersOf(pane.id);
-    if (want.length === 0) {
-      for (const follower of followers) api.getPanel(follower)?.api.close();
-    } else if (before === 0) {
-      if (!adopted) sizeTree(api, sync.treeWidth);
-      for (const follower of followers) {
-        if (!sync.companions.includes(follower)) continue;
-        if (api.getPanel(follower)) continue;
-        addPane(api, follower, placementOf(api, paneById(follower)));
-      }
-    }
-  }
-  const active = sync.active ? api.getPanel(sync.active) : undefined;
-  if (active && active.group.activePanel !== active) active.api.setActive();
-}
-
-function buildDefault(api: DockviewApi, treeWidth: number, sync: InstanceSync) {
-  api.clear();
-  const open = sync.instances.length > 0;
-  const steps = defaultSteps(treeWidth).filter((step) => {
-    const pane = paneById(step.id);
-    if (pane.instances) return open;
-    if (isFollower(step.id)) return open && sync.companions.includes(step.id);
-    return true;
-  });
-  for (const step of steps) {
-    const first = paneById(step.id).instances
-      ? (sync.instances.find((id) => id === sync.active) ??
-        sync.instances.find((id) => paneKind(id) === step.id))
-      : undefined;
-    if (first) addPane(api, first, step.placement, sync.titles[first]?.label);
-    else addPane(api, step.id, step.placement);
-  }
-  for (const step of steps) {
-    const target = resolvePanel(api, step.id, sync.active);
-    if (target) sizePane(api, target.id, step.placement);
-  }
-  syncInstances(api, sync);
-  resolvePanel(api, 'viewer', sync.active)?.api.setActive();
-}
-
-function restore(
-  api: DockviewApi,
-  dock: SerializedDock | null,
-  treeWidth: number,
-  sync: InstanceSync,
-) {
-  const clean = dock ? sanitizeDock(dock, sync.instances) : null;
-  if (!clean) {
-    buildDefault(api, treeWidth, sync);
-    return;
-  }
-  const loaded = loadWithFallback(
-    clean.dock,
-    (dock) => api.fromJSON(dock as never),
-    (id) => {
-      const kind = paneKind(id);
-      return kind !== null && isRequired(kind);
-    },
-  );
-  if (!loaded) {
-    buildDefault(api, treeWidth, sync);
-    return;
-  }
-  try {
-    for (const id of clean.missing) {
-      addPane(api, id, placementOf(api, paneById(id)));
-    }
-    syncInstances(api, sync);
-  } catch {
-    buildDefault(api, treeWidth, sync);
-  }
-}
-
-export function floatingBox(
-  api: { width: number; height: number },
-  group: { width: number; height: number },
-) {
-  const width = Math.round(
-    Math.min(Math.max(group.width, FLOAT_MIN.width), api.width * 0.6),
-  );
-  const height = Math.round(
-    Math.min(Math.max(group.height, FLOAT_MIN.height), api.height * 0.6),
-  );
-  return {
-    width,
-    height,
-    position: {
-      left: Math.max(0, Math.round((api.width - width) / 2)),
-      top: Math.max(0, Math.round((api.height - height) / 3)),
-    },
-  };
-}
-
-export function applyTitles(api: DockviewApi, titles: PaneTitles) {
-  for (const panel of api.panels) {
-    const kind = paneKind(panel.id);
-    if (!kind) continue;
-    const label = titles[panel.id]?.label ?? paneById(kind).title;
-    if (panel.title !== label) panel.api.setTitle(label);
-  }
-}
-
-export interface TreeWidthSource {
-  getPanel(id: string):
-    | {
-        api: { location: { type: string } };
-        group: { width: number; element: HTMLElement };
-      }
-    | undefined;
-  groups: readonly { api: { location: { type: string } } }[];
-}
-
-export function measureTreeWidth(api: TreeWidthSource): number | null {
-  const tree = api.getPanel('tree');
-  if (tree?.api.location.type !== 'grid') return null;
-  if (tree.group.element.dataset.collapsed) return null;
-  const docked = api.groups.filter(
-    (group) => group.api.location.type === 'grid',
-  );
-  if (docked.length < 2 || tree.group.width <= 0) return null;
-  return Math.round(tree.group.width);
-}
-
-function openKinds(api: DockviewApi): PaneId[] {
-  const kinds = new Set(api.panels.map((panel) => paneKind(panel.id)));
-  return PANES.map((pane) => pane.id).filter((id) => kinds.has(id));
-}
-
-function activeKind(group: DockviewGroupPanel): PaneId | null {
-  return paneKind(group.activePanel?.id);
-}
 
 export interface DockLayoutProps {
   hosts: HostStore<PanelId>;
@@ -522,6 +158,9 @@ export interface DockLayoutProps {
   onActivateInstance: (id: PanelId) => void;
   onCloseInstance: (id: PanelId) => void;
   onClosePane: (id: PaneId) => void;
+  locked: boolean;
+  onToggleMaximize: (id: PanelId) => void;
+  onMaximized: (id: PanelId | null) => void;
   headerActions?: SlotContextValue['headerActions'];
 }
 
@@ -546,186 +185,26 @@ export function DockLayout(props: DockLayoutProps) {
     arrangement: latest.current.arrangement,
   });
 
-  const relax = (group: DockviewGroupPanel) => {
-    const active = activeKind(group);
-    if (!active) return;
-    const min = paneById(active).minSize;
-    constrain(group, {
-      minimumWidth: min.width,
-      maximumWidth: UNBOUNDED,
-      minimumHeight: min.height,
-      maximumHeight: UNBOUNDED,
-    });
-  };
-
-  const pinOthers = (api: DockviewApi, skip: Set<string>) => {
-    const json = api.toJSON() as unknown as SerializedDock;
-    const pinned: DockviewGroupPanel[] = [];
-    for (const group of api.groups) {
-      if (skip.has(group.id) || group.element.dataset.collapsed) continue;
-      if (group.api.location.type !== 'grid') continue;
-      if (group.panels.some((panel) => paneKind(panel.id) === 'viewer')) {
-        continue;
-      }
-      const active = activeKind(group);
-      const axis = splitAxisOf(json, group.id);
-      if (!axis || !active) continue;
-      const min = paneById(active).minSize;
-      const siblings = siblingCountOf(json, group.id) ?? 1;
-      const share = (GAP * (siblings - 1)) / siblings;
-      const size = (axis === 'width' ? group.width : group.height) + share;
-      if (axis === 'width') {
-        constrain(group, {
-          minimumWidth: size,
-          maximumWidth: size,
-          minimumHeight: min.height,
-          maximumHeight: UNBOUNDED,
-        });
-      } else {
-        constrain(group, {
-          minimumWidth: min.width,
-          maximumWidth: UNBOUNDED,
-          minimumHeight: size,
-          maximumHeight: size,
-        });
-      }
-      pinned.push(group);
-    }
-    return () => {
-      for (const group of pinned) {
-        if (api.groups.includes(group) && !group.element.dataset.collapsed) {
-          relax(group);
-        }
-      }
-    };
-  };
-
   const steady = (run: (api: DockviewApi) => void, skip: string[] = []) => {
     const api = apiRef.current;
-    if (!api) return;
-    busy.current += 1;
-    const release = pinOthers(api, new Set(skip));
-    try {
-      run(api);
-    } finally {
-      release();
-      busy.current -= 1;
-    }
-  };
-
-  const restoredSize = (
-    group: DockviewGroupPanel,
-    pane: PaneId,
-    axis: 'width' | 'height',
-  ) => {
-    const previous = saved.current.get(group.id);
-    saved.current.delete(group.id);
-    const min = paneById(pane).minSize;
-    const floor = axis === 'width' ? min.width : min.height;
-    if (previous !== undefined && previous >= floor) return previous;
-    const placement = paneById(pane).defaultPlacement;
-    return placement.kind === 'root' ? floor : Math.max(placement.size, floor);
-  };
-
-  const applyCollapse = () => {
-    const api = apiRef.current;
-    if (!api) return;
-    const json = api.toJSON() as unknown as SerializedDock;
-    const changes: {
-      group: DockviewGroupPanel;
-      pane: PaneId;
-      axis: 'width' | 'height';
-      collapse: boolean;
-    }[] = [];
-    for (const group of api.groups) {
-      const active = activeKind(group);
-      if (!active) continue;
-      const axis =
-        group.api.location.type === 'grid' ? splitAxisOf(json, group.id) : null;
-      const want = axis !== null && latest.current.collapsed.includes(active);
-      const current = group.element.dataset.collapsed as
-        | 'width'
-        | 'height'
-        | undefined;
-      if (want && axis && current !== axis) {
-        changes.push({ group, pane: active, axis, collapse: true });
-      } else if (!want && current) {
-        changes.push({ group, pane: active, axis: current, collapse: false });
-      }
-    }
-    busy.current += 1;
-    try {
-      for (const group of api.groups) {
-        if (!group.element.dataset.collapsed) relax(group);
-      }
-      if (changes.length === 0) return;
-      steady(
-        () => {
-          for (const { group, pane, axis, collapse } of changes) {
-            const min = paneById(pane).minSize;
-            if (collapse) {
-              if (!group.element.dataset.collapsed) {
-                saved.current.set(
-                  group.id,
-                  axis === 'width' ? group.width : group.height,
-                );
-              }
-              group.element.dataset.collapsed = axis;
-              constrain(
-                group,
-                axis === 'height'
-                  ? {
-                      minimumHeight: HEADER_SIZE,
-                      maximumHeight: HEADER_SIZE,
-                      minimumWidth: min.width,
-                      maximumWidth: UNBOUNDED,
-                    }
-                  : {
-                      minimumWidth: HEADER_SIZE,
-                      maximumWidth: HEADER_SIZE,
-                      minimumHeight: min.height,
-                      maximumHeight: UNBOUNDED,
-                    },
-              );
-              group.api.setSize(
-                axis === 'height'
-                  ? { height: HEADER_SIZE }
-                  : { width: HEADER_SIZE },
-              );
-            } else {
-              delete group.element.dataset.collapsed;
-              relax(group);
-              const siblings =
-                siblingCountOf(
-                  api.toJSON() as unknown as SerializedDock,
-                  group.id,
-                ) ?? 1;
-              const size =
-                restoredSize(group, pane, axis) +
-                (GAP * (siblings - 1)) / siblings;
-              group.api.setSize(
-                axis === 'width' ? { width: size } : { height: size },
-              );
-            }
-          }
-        },
-        changes.map((change) => change.group.id),
-      );
-    } finally {
-      busy.current -= 1;
-    }
+    if (api) steadyOn(api, busy, run, skip);
   };
 
   const emit = () => {
     const api = apiRef.current;
     if (!api || !live.current || busy.current > 0) return;
     applyTitles(api, latest.current.titles);
-    applyCollapse();
+    applyCollapse(api, latest.current.collapsed, saved.current, busy);
     const width = measureTreeWidth(api as unknown as TreeWidthSource);
     if (width !== null && width !== latest.current.treeWidth) {
       latest.current.onTreeWidth(width);
     }
-    const dock = api.toJSON() as unknown as SerializedDock;
+    const raw = api.toJSON() as unknown as SerializedDock;
+    const { maximizedNode: _maximized, ...grid } = raw.grid;
+    const dock: SerializedDock = {
+      ...raw,
+      grid: grid as SerializedDock['grid'],
+    };
     const open = openKinds(api);
     const key = `${open.join(' ')}\n${JSON.stringify(dock)}`;
     if (key === lastEmitted.current) return;
@@ -764,7 +243,7 @@ export function DockLayout(props: DockLayoutProps) {
       const placement = pane.defaultPlacement;
       const direction =
         target === 'dock'
-          ? placement.kind === 'root'
+          ? placement.kind === 'root' || placement.kind === 'tab'
             ? 'right'
             : placement.direction
           : target;
@@ -784,7 +263,10 @@ export function DockLayout(props: DockLayoutProps) {
         existing.api.setActive();
         return;
       }
-      steady((api) => addPane(api, id, placementOf(api, paneById(id))));
+      steady((api) => {
+        addPane(api, id, placementOf(api, paneById(id)));
+        api.getPanel(id)?.api.setActive();
+      });
     },
     closePane: (id) => {
       const panel = apiRef.current?.getPanel(id);
@@ -800,6 +282,20 @@ export function DockLayout(props: DockLayoutProps) {
           arrangement: null,
         }),
       ),
+    toggleMaximize: (id) => {
+      const api = apiRef.current;
+      const panel = api
+        ? resolvePanel(api, id, latest.current.activeInstance)
+        : undefined;
+      if (!panel) return false;
+      if (panel.api.isMaximized()) {
+        panel.api.exitMaximized();
+        return false;
+      }
+      if (panel.api.location.type !== 'grid') return false;
+      panel.api.maximize();
+      return true;
+    },
     focusPane: (id) => {
       const api = apiRef.current;
       const panel = api
@@ -891,7 +387,16 @@ export function DockLayout(props: DockLayoutProps) {
       api.onDidLayoutChange(emit),
       api.onDidActivePanelChange(() => {
         onActivePanel();
+        const active = api.activePanel;
+        if (active?.group.api.isMaximized()) {
+          latest.current.onMaximized(active.id);
+        }
         emit();
+      }),
+      api.onDidMaximizedGroupChange((event) => {
+        latest.current.onMaximized(
+          event.isMaximized ? (event.group.activePanel?.id ?? null) : null,
+        );
       }),
       api.onDidMovePanel((moved) => {
         if (paneKind(moved.panel.id)) latest.current.onMoved(moved.panel.id);
@@ -916,6 +421,7 @@ export function DockLayout(props: DockLayoutProps) {
       },
       reset: (treeWidth) => controllerRef.current.reset(treeWidth),
       focusPane: (id) => controllerRef.current.focusPane(id),
+      toggleMaximize: (id) => controllerRef.current.toggleMaximize(id),
       location: (id) => controllerRef.current.location(id),
       resizePane: (id, delta) => controllerRef.current.resizePane(id, delta),
     });
@@ -982,18 +488,44 @@ export function DockLayout(props: DockLayoutProps) {
     };
   }, []);
 
+  const {
+    hosts,
+    onAttach,
+    onVisibility,
+    onCloseInstance,
+    onClosePane,
+    onToggleMaximize,
+    locked,
+    titles,
+    headerActions,
+  } = props;
+  const slotValue = useMemo(
+    () => ({
+      hosts,
+      onAttach,
+      onVisibility,
+      onCloseInstance,
+      onClosePane,
+      onToggleMaximize,
+      locked,
+      titles,
+      headerActions,
+    }),
+    [
+      hosts,
+      onAttach,
+      onVisibility,
+      onCloseInstance,
+      onClosePane,
+      onToggleMaximize,
+      locked,
+      titles,
+      headerActions,
+    ],
+  );
+
   return (
-    <SlotContext.Provider
-      value={{
-        hosts: props.hosts,
-        onAttach: props.onAttach,
-        onVisibility: props.onVisibility,
-        onCloseInstance: props.onCloseInstance,
-        onClosePane: props.onClosePane,
-        titles: props.titles,
-        headerActions: props.headerActions,
-      }}
-    >
+    <SlotContext.Provider value={slotValue}>
       <div className="dock-root" ref={rootRef}>
         <DockviewReact
           theme={DOCK_THEME}
@@ -1002,6 +534,8 @@ export function DockLayout(props: DockLayoutProps) {
           rightHeaderActionsComponent={PaneActions}
           onReady={onReady}
           dndStrategy="pointer"
+          disableDnd={props.locked}
+          disableFloatingGroups={props.locked}
           floatingGroupBounds="boundedWithinViewport"
           announcements
           getAnnouncement={() => (quiet.current > 0 ? null : undefined)}

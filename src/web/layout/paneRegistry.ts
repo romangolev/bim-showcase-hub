@@ -4,17 +4,19 @@ import { PANEL_SEPARATOR, type PanelId } from './panelIds.js';
 import {
   DashboardPane,
   ModelPaneBody,
+  ModelsPane,
   SummaryPane,
   TreePane,
 } from './panes.js';
 
-export type PaneId = 'tree' | 'viewer' | 'summary' | 'dashboard';
+export type PaneId = 'tree' | 'viewer' | 'summary' | 'dashboard' | 'models';
 
 export type PlacementDirection = 'left' | 'right' | 'below';
 
 export type Placement =
   | { kind: 'root' }
   | { kind: 'edge'; direction: PlacementDirection; size: number }
+  | { kind: 'tab'; reference: PaneId }
   | {
       kind: 'beside';
       reference: PaneId;
@@ -98,6 +100,17 @@ export const PANES: readonly PaneDefinition[] = [
       direction: 'below',
       size: 220,
     },
+    closable: true,
+    canFloat: true,
+    requires: 'viewer',
+  },
+  {
+    id: 'models',
+    title: 'Models',
+    icon: 'layers',
+    component: ModelsPane,
+    minSize: { width: 240, height: 160 },
+    defaultPlacement: { kind: 'tab', reference: 'tree' },
     closable: true,
     canFloat: true,
     requires: 'viewer',

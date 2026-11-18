@@ -141,12 +141,23 @@ describe('serialize and parse', () => {
       dock: sampleDock(),
       collapsed: ['dashboard' as const],
       treeWidth: 360,
-      dismissed: ['summary' as const],
+      dismissed: ['summary' as const, 'models' as const],
       lastViewerArrangement: sampleDock(),
     };
     const raw = serializeLayout(model);
     expect(JSON.parse(raw)).toMatchObject({ version: 2 });
     expect(parseLayout(raw)).toEqual(model);
+  });
+
+  it('keeps a saved dismissal of Models and leaves other saved layouts open to it', () => {
+    const base = { dock: sampleDock(), collapsed: [], treeWidth: 320 };
+    const closed = JSON.stringify({
+      version: 2,
+      layout: { ...base, dismissed: ['models'] },
+    });
+    expect(parseLayout(closed)?.dismissed).toEqual(['models']);
+    const older = JSON.stringify({ version: 2, layout: base });
+    expect(parseLayout(older)?.dismissed).toEqual([]);
   });
 
   it('rejects corrupt json, other versions and wrong shapes', () => {
@@ -367,6 +378,26 @@ describe('siblingCountOf', () => {
 });
 
 describe('storage', () => {
+  it('keeps Models closed in a layout saved before it opened by default', () => {
+    const storage = installMemoryStorage();
+    storage.setItem(
+      LAYOUT_KEY,
+      JSON.stringify({
+        version: 2,
+        layout: {
+          dock: sampleDock(),
+          collapsed: [],
+          treeWidth: 320,
+          dismissed: ['models'],
+        },
+      }),
+    );
+    const model = readLayout(storage);
+    expect(model.dismissed).toEqual(['models']);
+    writeLayout(storage, model);
+    expect(readLayout(storage).dismissed).toEqual(['models']);
+  });
+
   it('imports the old keys once, deletes them and saves the new record', () => {
     const storage = installMemoryStorage();
     storage.setItem(LEGACY_KEYS.treeWidth, '400');

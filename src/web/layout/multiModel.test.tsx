@@ -547,7 +547,12 @@ describe('Documents first', () => {
     await open(appRouter, 'bbb', 'B.rvt');
     await screen.findByRole('tab', { name: 'B.rvt · v1' });
     await waitFor(() =>
-      expect(handle().openPanes()).toEqual(['tree', 'viewer', 'dashboard']),
+      expect(handle().openPanes().sort()).toEqual([
+        'dashboard',
+        'models',
+        'tree',
+        'viewer',
+      ]),
     );
     act(() => handle().togglePane('summary'));
     await screen.findByRole('tab', { name: 'Model summary' });

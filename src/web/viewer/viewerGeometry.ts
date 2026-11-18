@@ -1,3 +1,4 @@
+import { tick } from '../extensions/exportCommon.js';
 import type {
   FragmentList,
   GuiViewer3D,
@@ -115,10 +116,12 @@ function indicesOf(geometry: ViewerGeometry): Uint16Array | Uint32Array | null {
   return out;
 }
 
-export function readViewerGeometry(
+const YIELD_EVERY = 300;
+
+export async function readViewerGeometry(
   viewer: GuiViewer3D,
   names?: ReadonlyMap<ViewerModel, string>,
-): GeometryRead {
+): Promise<GeometryRead> {
   const parts: GeometryPart[] = [];
   let skipped = 0;
   for (const model of modelsOf(viewer)) {
@@ -133,6 +136,7 @@ export function readViewerGeometry(
       typeof rawScale === 'number' && rawScale > 0 ? rawScale : 1;
     const count = fragments.getCount();
     for (let fragId = 0; fragId < count; fragId += 1) {
+      if (fragId > 0 && fragId % YIELD_EVERY === 0) await tick();
       if (fragments.isLine?.(fragId) || fragments.isPoint?.(fragId)) continue;
       if (fragments.isNotLoaded?.(fragId)) {
         skipped += 1;

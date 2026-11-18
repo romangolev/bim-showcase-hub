@@ -1,9 +1,16 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createTestClient,
   folder,
+  installMemoryStorage,
   item,
   json,
   mockFetch,
@@ -11,6 +18,7 @@ import {
   treeRoutes,
 } from '../../test/mockApi.js';
 import { DocumentTree } from './DocumentTree.js';
+import { TREE_VIEW_KEY, type TreeView } from './treeView.js';
 
 function renderTree(
   onOpenModel = vi.fn(),
@@ -44,7 +52,116 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+describe('DocumentTree metadata', () => {
+  const dated = (name: string, id: string, modifiedAt: string) => ({
+    ...item,
+    id,
+    name,
+    modifiedAt,
+    modifiedBy: 'Sam',
+  });
+  const contents = [
+    dated('b.rvt', 'i-b', '2025-05-01T00:00:00.000Z'),
+    dated('a.rvt', 'i-a', '2025-03-04T00:00:00.000Z'),
+  ];
+
+  async function open(view?: TreeView) {
+    installMemoryStorage();
+    if (view) {
+      window.localStorage.setItem(TREE_VIEW_KEY, JSON.stringify(view));
+    }
+    mockFetch({
+      ...treeRoutes,
+      '/api/projects/p1/folders/f1/contents': () => json(contents),
+    });
+    render(
+      <QueryClientProvider client={createTestClient()}>
+        <DocumentTree onOpenModel={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    await expandTo('Studio hub');
+    await expandTo('Riverside Tower');
+    await expandTo('Project Files');
+    await screen.findByText('a.rvt');
+  }
+
+  it('lists files by name and shows the modified date', async () => {
+    await open();
+    const names = screen
+      .getAllByRole('treeitem')
+      .map((row) => row.textContent ?? '');
+    expect(names.findIndex((t) => t.includes('a.rvt'))).toBeLessThan(
+      names.findIndex((t) => t.includes('b.rvt')),
+    );
+    expect(screen.getByText('2025-03-04')).toBeInTheDocument();
+  });
+
+  it('sorts by modified date and shows the author when asked', async () => {
+    await open({ sort: 'modified', modified: true, author: true, size: false });
+    expect(screen.getByText('2025-03-04 · Sam')).toBeInTheDocument();
+    const rows = screen.getAllByRole('treeitem').map((row) => row.textContent);
+    expect(rows.findIndex((t) => t?.includes('b.rvt'))).toBeLessThan(
+      rows.findIndex((t) => t?.includes('a.rvt')),
+    );
+  });
+});
+
+describe('DocumentTree sort', () => {
+  it('re-sorts a loaded folder that was collapsed when the sort changed', async () => {
+    installMemoryStorage();
+    const files = [
+      {
+        ...item,
+        id: 'i-b',
+        name: 'b.rvt',
+        modifiedAt: '2025-05-01T00:00:00.000Z',
+      },
+      {
+        ...item,
+        id: 'i-a',
+        name: 'a.rvt',
+        modifiedAt: '2025-03-04T00:00:00.000Z',
+      },
+    ];
+    mockFetch({
+      ...treeRoutes,
+      '/api/projects/p1/folders/f1/contents': () => json(files),
+    });
+    render(
+      <QueryClientProvider client={createTestClient()}>
+        <DocumentTree onOpenModel={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    await expandTo('Studio hub');
+    await expandTo('Riverside Tower');
+    await expandTo('Project Files');
+    await screen.findByText('a.rvt');
+    await expandTo('Project Files');
+    await waitFor(() =>
+      expect(screen.queryByText('a.rvt')).not.toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Documents view' }));
+    fireEvent.click(await screen.findByText('Sort by modified'));
+    await expandTo('Project Files');
+    await screen.findByText('a.rvt');
+    const rows = screen.getAllByRole('treeitem').map((row) => row.textContent);
+    expect(rows.findIndex((t) => t?.includes('b.rvt'))).toBeLessThan(
+      rows.findIndex((t) => t?.includes('a.rvt')),
+    );
+  });
+});
+
 describe('DocumentTree', () => {
+  it('shows a filter icon on the Documents view button', async () => {
+    mockFetch(treeRoutes);
+    renderTree();
+    await expandTo('Studio hub');
+    const button = screen.getByRole('button', { name: 'Documents view' });
+    expect(button.querySelector('svg path')?.getAttribute('d')).toBe(
+      'M22 3H2l8 9.46V19l4 2v-8.54Z',
+    );
+  });
+
   it('Refresh documents refetches the loaded folders', async () => {
     const fetchMock = mockFetch(treeRoutes);
     renderTree();
@@ -640,6 +757,8 @@ describe('DocumentTree multi-select', () => {
       addTarget: {
         label: 'the open viewer',
         canAdd: (urn: string) => urn !== 'urn-0',
+        has: () => false,
+        onRemove: vi.fn(),
         onAdd,
       },
     });
@@ -661,6 +780,67 @@ describe('DocumentTree multi-select', () => {
         expect.objectContaining({ urn: 'urn-1' }),
       ]),
     );
+  });
+
+  it('swaps the add button for a remove button on added versions', async () => {
+    const onRemove = vi.fn();
+    await openVersions(2, {
+      addTarget: {
+        label: 'the open viewer',
+        canAdd: () => false,
+        has: (urn: string) => urn === 'urn-1',
+        onAdd: vi.fn(),
+        onRemove,
+      },
+    });
+    expect(row(2)).toHaveAttribute('data-added', 'true');
+    expect(row(1)).not.toHaveAttribute('data-added');
+    const remove = screen.getByRole('button', {
+      name: 'Remove Tower.rvt from the open viewer',
+    });
+    expect(remove).toHaveAttribute('title', 'Remove from the open viewer');
+    fireEvent.click(remove);
+    expect(onRemove).toHaveBeenCalledWith('urn-1');
+    expect(screen.queryByRole('button', { name: /^Add Tower/ })).toBeNull();
+  });
+
+  it('opens a context menu on version rows with add, remove and modal', async () => {
+    const onAdd = vi.fn();
+    const onRemove = vi.fn();
+    const onOpenModal = vi.fn();
+    await openVersions(2, {
+      onOpenModal,
+      addTarget: {
+        label: 'the open viewer',
+        canAdd: () => true,
+        has: (urn: string) => urn === 'urn-1',
+        onAdd,
+        onRemove,
+      },
+    });
+    fireEvent.contextMenu(row(1));
+    const first = screen.getByRole('menu');
+    expect(
+      within(first)
+        .getAllByRole('menuitem')
+        .map((item) => item.textContent),
+    ).toEqual(['Open', 'Open as modal', 'Add to open model', 'Pin']);
+    fireEvent.click(within(first).getByText('Open as modal'));
+    expect(onOpenModal).toHaveBeenCalledWith(
+      'urn-0',
+      expect.objectContaining({ file: 'Tower.rvt' }),
+    );
+    fireEvent.keyDown(row(2), { key: 'F10', shiftKey: true });
+    fireEvent.click(
+      within(screen.getByRole('menu')).getByText('Remove from open model'),
+    );
+    expect(onRemove).toHaveBeenCalledWith('urn-1');
+  });
+
+  it('gives folders no context menu', async () => {
+    await openVersions(1);
+    fireEvent.contextMenu(screen.getByRole('treeitem', { name: /Tower\.rvt/ }));
+    expect(screen.queryByRole('menu')).toBeNull();
   });
 });
 
@@ -746,6 +926,8 @@ describe('DocumentTree picking skips blocked versions', () => {
       addTarget: {
         label: 'the open viewer',
         canAdd: () => true,
+        has: () => false,
+        onRemove: vi.fn(),
         onAdd: vi.fn(),
       },
     });
@@ -852,6 +1034,8 @@ describe('DocumentTree versions that were never checked', () => {
         addTarget: {
           label: 'the open viewer',
           canAdd: () => true,
+          has: () => false,
+          onRemove: vi.fn(),
           onAdd,
         },
       },

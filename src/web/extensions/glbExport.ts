@@ -1,10 +1,12 @@
+import { triangleVertexCount } from '../../shared/mesh.js';
 import type { GeometryPart } from '../viewer/geometryTypes.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { saveBlob } from './excelExport.js';
-import { formatCount, missingModels } from './exportCommon.js';
+import { formatCount, missingModels, tooLargeReason } from './exportCommon.js';
 
 export interface GlbBuildOptions {
   generator?: string;
+  maxBytes?: number;
 }
 
 export interface GlbBuild {
@@ -15,6 +17,7 @@ export interface GlbBuild {
   skippedParts: number;
 }
 
+export const MAX_GLB_BYTES = 512 * 1024 * 1024;
 export const GLB_MAGIC = 0x46546c67;
 export const GLB_VERSION = 2;
 export const GLB_JSON_CHUNK = 0x4e4f534a;
@@ -42,6 +45,7 @@ export interface GlbExportOptions {
   fileName?: string;
   onStatus?: (status: GlbExportStatus) => void;
   save?: (blob: Blob, fileName: string) => void;
+  maxBytes?: number;
 }
 
 function clamp01(value: number): number {
@@ -82,13 +86,10 @@ interface Element {
 }
 
 function usable(part: GeometryPart): Item | null {
-  const vertices = part.positions.length / 3;
-  const { indices } = part;
-  if (!Number.isInteger(vertices) || vertices === 0) return null;
-  if (indices.length < 3 || indices.length % 3 !== 0) return null;
+  const vertices = triangleVertexCount(part.positions, part.indices);
+  if (vertices === null) return null;
   let max = 0;
-  for (const index of indices) if (index > max) max = index;
-  if (max >= vertices) return null;
+  for (const index of part.indices) if (index > max) max = index;
   return { part, vertices, wide: max >= 65536 };
 }
 
@@ -138,6 +139,8 @@ export function buildGlb(
       total += item.vertices * 12 + indexBytes(item);
     }
   }
+  const maxBytes = options.maxBytes ?? MAX_GLB_BYTES;
+  if (total > maxBytes) throw new Error(tooLargeReason(maxBytes));
   const bin = new ArrayBuffer(total);
   const bufferViews: Record<string, unknown>[] = [];
   const accessors: Record<string, unknown>[] = [];
@@ -349,23 +352,18 @@ export async function exportGeometryToGlb(
     fileName = DEFAULT_GLB_FILE_NAME,
     onStatus,
     save = saveBlob,
+    maxBytes,
   } = options;
   const emit = (status: GlbExportStatus): GlbExportStatus => {
     onStatus?.(status);
     return status;
   };
   try {
-    if (typeof adapter.getGeometryParts !== 'function') {
-      return emit({
-        phase: 'error',
-        message: 'Geometry export is not available for this model',
-      });
-    }
     emit({ phase: 'reading' });
     const { parts, skipped: unread } = await adapter.getGeometryParts();
     if (parts.length === 0) return emit({ phase: 'empty' });
     emit({ phase: 'building' });
-    const built = buildGlb(parts);
+    const built = buildGlb(parts, { maxBytes });
     if (built.triangleCount === 0) return emit({ phase: 'empty' });
     const blob = new Blob([built.data], {
       type: 'model/gltf-binary',

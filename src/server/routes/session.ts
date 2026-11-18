@@ -9,3 +9,7 @@ export function sessionOf(req: Request): SessionStore {
   }
   return session as SessionStore;
 }
+
+export function clearOnRejection(req: Request): { clearOnRejection: boolean } {
+  return { clearOnRejection: req.get('X-Auth-Retry') === '1' };
+}

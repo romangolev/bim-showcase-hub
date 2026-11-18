@@ -81,7 +81,14 @@ describe('session and auth', () => {
       name: 'Sam Smith',
       picture: null,
       appClientId: realConfig.aps.clientId,
+      expiresAt: expect.any(Number),
+      expiresInMs: expect.any(Number),
     });
+    expect(session.body.expiresAt - Date.now()).toBeLessThanOrEqual(
+      12 * 60 * 60 * 1000,
+    );
+    expect(session.body.expiresInMs).toBeGreaterThan(0);
+    expect(session.body.expiresInMs).toBeLessThanOrEqual(12 * 60 * 60 * 1000);
 
     const token = await agent.get('/api/viewer/token');
     expect(token.status).toBe(200);
@@ -109,9 +116,29 @@ describe('session and auth', () => {
     });
   });
 
-  it('does not expose tokens in the session response or cookie value', async () => {
+  it('sends no-store on session and token responses', async () => {
     const agent = request.agent(realApp());
     await signIn(agent);
+    for (const url of ['/api/session', '/api/viewer/token']) {
+      const res = await agent.get(url);
+      expect(res.headers['cache-control'], url).toBe('no-store');
+    }
+    const signedOut = await request(realApp()).get('/api/session');
+    expect(signedOut.headers['cache-control']).toBe('no-store');
+  });
+
+  it('does not expose tokens in the session response or cookie value', async () => {
+    const agent = request.agent(realApp());
+    const callback = await signIn(agent);
+    const cookies = ([] as string[]).concat(
+      callback.headers['set-cookie'] ?? [],
+    );
+    for (const c of cookies) {
+      const value = decodeURIComponent(c.split(';')[0].split('=')[1]);
+      const decoded = Buffer.from(value, 'base64').toString();
+      expect(decoded).not.toContain('access-1');
+      expect(decoded).not.toContain('refresh-1');
+    }
     const session = await agent.get('/api/session');
     expect(JSON.stringify(session.body)).not.toContain('access-1');
   });
@@ -206,12 +233,27 @@ describe('session and auth', () => {
     expect((await agent.get('/api/hubs')).status).toBe(401);
   });
 
+  it('keeps a session older than an hour but younger than 12 hours', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      const auth = fakeAuth();
+      const agent = request.agent(realApp(auth));
+      await signIn(agent);
+      vi.setSystemTime(Date.now() + 2 * 60 * 60 * 1000);
+      expect((await agent.get('/api/session')).status).toBe(200);
+      vi.setSystemTime(Date.now() + 11 * 60 * 60 * 1000);
+      expect((await agent.get('/api/session')).status).toBe(401);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('signout is fine when never signed in', async () => {
     const res = await request(realApp()).post('/api/auth/signout');
     expect(res.status).toBe(204);
   });
 
-  it('answers 401 and drops the session when refresh fails', async () => {
+  it('answers 401 and keeps the cookie when refresh is rejected', async () => {
     const auth = fakeAuth({
       exchangeCode: vi.fn().mockResolvedValue({
         accessToken: 'a',
@@ -224,7 +266,35 @@ describe('session and auth', () => {
     await signIn(agent);
     const res = await agent.get('/api/viewer/token');
     expect(res.status).toBe(401);
+    expect((await agent.get('/api/session')).status).toBe(200);
+  });
+
+  it('clears the session when a retried request meets a refresh rejection', async () => {
+    const auth = fakeAuth({
+      exchangeCode: vi.fn().mockResolvedValue({
+        accessToken: 'a',
+        refreshToken: 'r',
+        expiresIn: 0,
+      }),
+      refresh: vi.fn().mockRejectedValue(new HttpError(401, 'Session expired')),
+    });
+    const agent = request.agent(realApp(auth));
+    await signIn(agent);
+    const res = await agent.get('/api/viewer/token').set('X-Auth-Retry', '1');
+    expect(res.status).toBe(401);
     expect((await agent.get('/api/session')).status).toBe(401);
+  });
+
+  it('redirects with upstream_error when the session would be too large', async () => {
+    const auth = fakeAuth({
+      exchangeCode: vi.fn().mockResolvedValue({
+        accessToken: 'a'.repeat(4000),
+        refreshToken: 'r',
+        expiresIn: 3600,
+      }),
+    });
+    const res = await signIn(request.agent(realApp(auth)));
+    expect(res.headers.location).toBe('/?auth_error=upstream_error');
   });
 
   it('answers 502 and keeps the session when refresh is transiently down', async () => {
@@ -299,14 +369,6 @@ describe('error handler', () => {
     const res = await request(app).get('/api/hubs');
     expect(res.status).toBe(404);
     expect(res.body).toEqual({ error: 'Gone' });
-  });
-
-  it('answers 400 for malformed json bodies', async () => {
-    const res = await request(realApp())
-      .post('/api/auth/signout')
-      .set('Content-Type', 'application/json')
-      .send('{bad json');
-    expect(res.status).toBe(400);
   });
 });
 

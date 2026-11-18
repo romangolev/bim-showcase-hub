@@ -5,6 +5,7 @@ import type {
   ViewerModel,
   ViewingDocument,
 } from './autodesk.js';
+import { type FailureReason, ModelLoadError } from './modelSet.js';
 
 export interface FederationAnchor {
   globalOffset?: unknown;
@@ -20,6 +21,9 @@ export const NO_MATCHING_VIEW_MESSAGE = {
 export const NO_GEOMETRY_MESSAGE =
   'No viewable geometry: this file was translated but has no 3D or 2D view.';
 
+export const STILL_PROCESSING_MESSAGE =
+  'This file is still being translated for the viewer.';
+
 export const OTHER_REGION_MESSAGE =
   'This model is stored in another region. Open it in its own viewer.';
 
@@ -31,6 +35,28 @@ export function nodeIs2d(node: unknown): boolean | undefined {
   return undefined;
 }
 
+function noGeometry(status: string | undefined): ModelLoadError {
+  return /^(pending|inprogress|processing)$/i.test(status ?? '')
+    ? new ModelLoadError('processing', STILL_PROCESSING_MESSAGE)
+    : new ModelLoadError('no-viewable', NO_GEOMETRY_MESSAGE);
+}
+
+const DOCUMENT_ERROR_REASONS: Record<number, FailureReason> = {
+  4: 'access',
+  5: 'missing',
+  9: 'no-viewable',
+};
+
+export function documentLoadError(
+  code: number,
+  message: string,
+): ModelLoadError {
+  return new ModelLoadError(
+    DOCUMENT_ERROR_REASONS[code] ?? 'unknown',
+    `Document load failed (${code}): ${message}`,
+  );
+}
+
 export function pickGeometryNode(
   doc: ViewingDocument,
   anchor: FederationAnchor | null,
@@ -39,7 +65,7 @@ export function pickGeometryNode(
   const preferred = root.getDefaultGeometry();
   if (!preferred) {
     const any = root.search?.({ type: 'geometry' })[0];
-    if (!any) throw new Error(NO_GEOMETRY_MESSAGE);
+    if (!any) throw noGeometry(root.data?.status);
     return anchor ? pickFrom(any, root, anchor) : any;
   }
   if (!anchor) return preferred;
@@ -56,7 +82,7 @@ function pickFrom(
   const role = anchor.is2d ? '2d' : '3d';
   const match = root.search?.({ type: 'geometry', role })[0];
   if (match) return match;
-  throw new Error(NO_MATCHING_VIEW_MESSAGE[role]);
+  throw new ModelLoadError('dimension', NO_MATCHING_VIEW_MESSAGE[role]);
 }
 
 export function anchorOf(model: ViewerModel): FederationAnchor {

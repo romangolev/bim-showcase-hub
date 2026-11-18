@@ -333,3 +333,62 @@ describe('ViewerPane with models far apart', () => {
     expect(onOffsetsChange).toHaveBeenCalledWith(null);
   });
 });
+
+describe('ViewerPane failure reasons', () => {
+  it('explains a member that is still processing and offers retry', async () => {
+    const { factory } = tracked();
+    render(
+      <ViewerPane
+        urn="urn-a"
+        members={[{ urn: 'urn-processing', name: 'Slow.rvt' }, C]}
+        factory={factory}
+      />,
+    );
+    const failed = await screen.findByRole('list', {
+      name: 'Models that failed',
+    });
+    expect(failed).toHaveTextContent('Still processing');
+    expect(screen.getByRole('button', { name: 'Retry Slow.rvt' })).toBeTruthy();
+  });
+
+  it('explains a member with nothing to show and offers only remove', async () => {
+    const { factory } = tracked();
+    render(
+      <ViewerPane
+        urn="urn-a"
+        members={[{ urn: 'urn-nogeom', name: 'Empty.rvt' }, C]}
+        factory={factory}
+      />,
+    );
+    const failed = await screen.findByRole('list', {
+      name: 'Models that failed',
+    });
+    expect(failed).toHaveTextContent('Nothing to show');
+    expect(
+      screen.queryByRole('button', { name: 'Retry Empty.rvt' }),
+    ).toBeNull();
+    expect(screen.getByRole('button', { name: 'Remove' })).toBeTruthy();
+  });
+
+  it('shows the reason when the only model cannot be opened', async () => {
+    const { factory } = tracked();
+    render(<ViewerPane urn="urn-noaccess" factory={factory} />);
+    expect(await screen.findByText('No access')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
+  });
+});
+
+describe('ViewerPane cost meter', () => {
+  it('counts models against the cap and warns before the last slot', async () => {
+    const { factory } = tracked();
+    const five = ['b', 'c', 'd', 'e'].map((id) => ({ urn: `urn-${id}` }));
+    render(<ViewerPane urn="urn-a" members={five} factory={factory} />);
+    const chip = await screen.findByRole('button', {
+      name: /Models in this viewer \(5\)/,
+    });
+    expect(chip.textContent).toContain('5 of 6 models');
+    expect(chip.getAttribute('title')).toMatch(/parts \(estimate\)/);
+    expect(screen.getByText(/One more model fits/)).toBeTruthy();
+    expect(screen.queryByText(/parts \(estimate\)/)).toBeNull();
+  });
+});

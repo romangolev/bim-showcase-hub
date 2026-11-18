@@ -1,0 +1,117 @@
+import { encodeView, withViewParam } from '../api/viewLink.js';
+import { Menu, type MenuEntry } from '../components/Menu.js';
+import { saveBlob } from '../extensions/excelExport.js';
+import type { ViewerAdapter } from './ViewerAdapter.js';
+
+export const COPIED_LINK_TEXT = 'Link copied';
+export const COPY_FAILED_TEXT = 'Could not copy the link';
+
+export const COPIED_IMAGE_TEXT = 'Image copied';
+export const SAVED_IMAGE_TEXT = 'Image saved';
+export const IMAGE_FAILED_TEXT = 'Could not take the snapshot';
+
+export function snapshotName(exportName?: string): string {
+  const base = (exportName ?? '').replace(/(-properties)?\.xlsx$/, '');
+  return `${base && base !== 'model' ? base : 'model'}-snapshot.png`;
+}
+
+export interface ShareMenuProps {
+  fileName?: string;
+  adapter: ViewerAdapter;
+  modelIds: readonly string[];
+  baseHref?: string;
+  combined: boolean;
+  onResult: (text: string, error: boolean) => void;
+}
+
+export function shareHref(
+  adapter: ViewerAdapter,
+  modelIds: readonly string[],
+  baseHref: string,
+  withView: boolean,
+): string {
+  const camera = withView ? adapter.getCamera() : null;
+  if (!camera) return withViewParam(baseHref, null);
+  return withViewParam(
+    baseHref,
+    encodeView({ camera, selection: adapter.getModelSelection() }, modelIds),
+  );
+}
+
+export function ShareMenu({
+  adapter,
+  modelIds,
+  baseHref,
+  combined,
+  onResult,
+  fileName,
+}: ShareMenuProps) {
+  const snapshot = async (mode: 'copy' | 'save') => {
+    try {
+      const image = adapter.getScreenshot();
+      if (mode === 'copy') {
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': image }),
+        ]);
+        onResult(COPIED_IMAGE_TEXT, false);
+      } else {
+        saveBlob(await image, snapshotName(fileName));
+        onResult(SAVED_IMAGE_TEXT, false);
+      }
+    } catch {
+      onResult(IMAGE_FAILED_TEXT, true);
+    }
+  };
+  const copy = async (withView: boolean) => {
+    const href = shareHref(
+      adapter,
+      modelIds,
+      baseHref ?? window.location.href,
+      withView,
+    );
+    try {
+      await navigator.clipboard.writeText(href);
+      onResult(COPIED_LINK_TEXT, false);
+    } catch {
+      onResult(COPY_FAILED_TEXT, true);
+    }
+  };
+  const items = (): MenuEntry[] => {
+    return [
+      {
+        id: 'copy-view',
+        label: 'Copy link to this view',
+        onSelect: () => void copy(true),
+      },
+      {
+        id: 'copy-models',
+        label: combined
+          ? 'Copy link to these models'
+          : 'Copy link to this model',
+        onSelect: () => void copy(false),
+      },
+      { kind: 'separator', id: 'image-separator' },
+      {
+        id: 'copy-image',
+        label: 'Copy image',
+        onSelect: () => void snapshot('copy'),
+      },
+      {
+        id: 'save-image',
+        label: 'Save image (PNG)',
+        onSelect: () => void snapshot('save'),
+      },
+    ];
+  };
+  return (
+    <div className="bsh-viewer-share">
+      <Menu
+        label="Share"
+        title="Copy a link"
+        triggerClassName="bsh-viewer-models__trigger"
+        trigger={<span>Share</span>}
+        items={items}
+      />
+    </div>
+  );
+}

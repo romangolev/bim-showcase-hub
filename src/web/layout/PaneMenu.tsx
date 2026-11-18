@@ -16,6 +16,20 @@ export function paneMenuEntries(layout: LayoutApi, pane: PanelId): MenuEntry[] {
   const kind = definition.id;
   const floating = layout.location(pane) === 'floating';
   const collapsed = layout.isCollapsed(kind);
+  const lockEntry: MenuEntry = {
+    id: 'lock',
+    label: layout.locked ? 'Unlock layout' : 'Lock layout',
+    onSelect: () => layout.setLocked(!layout.locked),
+  };
+  const maximized = layout.maximized === pane;
+  const maximizeEntry: MenuEntry = {
+    id: 'maximize',
+    label: maximized ? 'Restore' : 'Maximize',
+    disabled: !maximized && floating,
+    onSelect: () => layout.toggleMaximize(pane),
+  };
+  if (layout.locked)
+    return [maximizeEntry, { kind: 'separator', id: 'sep' }, lockEntry];
   const entries: MenuEntry[] = [
     {
       id: 'left',
@@ -32,6 +46,7 @@ export function paneMenuEntries(layout: LayoutApi, pane: PanelId): MenuEntry[] {
       label: 'Move below',
       onSelect: () => layout.movePane(pane, 'below'),
     },
+    maximizeEntry,
   ];
   if (definition.canFloat) {
     entries.push(
@@ -67,15 +82,12 @@ export function paneMenuEntries(layout: LayoutApi, pane: PanelId): MenuEntry[] {
       onSelect: () => layout.togglePane(pane),
     });
   }
-  entries.push(
-    { kind: 'separator', id: 'sep' },
-    {
-      id: 'reset',
-      label: 'Reset layout',
-      description: RESET_LAYOUT_DESCRIPTION,
-      onSelect: layout.resetLayout,
-    },
-  );
+  entries.push({ kind: 'separator', id: 'sep' }, lockEntry, {
+    id: 'reset',
+    label: 'Reset layout',
+    description: RESET_LAYOUT_DESCRIPTION,
+    onSelect: layout.resetLayout,
+  });
   return entries;
 }
 
@@ -94,7 +106,7 @@ export function PaneMenu({ pane }: { pane: PanelId }) {
 
 export function CollapseAction({ pane }: { pane: PanelId }) {
   const layout = useLayout();
-  if (layout.location(pane) === 'floating') return null;
+  if (layout.locked || layout.location(pane) === 'floating') return null;
   const kind = definitionOf(pane).id;
   const collapsed = layout.isCollapsed(kind);
   const label = `${collapsed ? 'Expand' : 'Collapse'} ${layout.paneTitle(pane).label}`;
@@ -133,13 +145,21 @@ export function layoutMenuEntries(layout: LayoutApi): MenuEntry[] {
       label: pane.title,
       icon: pane.icon,
       checked: layout.isOpen(pane.id),
+      disabled: layout.locked,
       onSelect: () => layout.togglePane(pane.id),
     })),
     { kind: 'separator' as const, id: 'sep' },
     {
+      id: 'lock',
+      label: 'Lock layout',
+      checked: layout.locked,
+      onSelect: () => layout.setLocked(!layout.locked),
+    },
+    {
       id: 'reset',
       label: 'Reset layout',
       description: RESET_LAYOUT_DESCRIPTION,
+      disabled: layout.locked,
       onSelect: layout.resetLayout,
     },
   ];

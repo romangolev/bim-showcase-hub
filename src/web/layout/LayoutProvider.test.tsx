@@ -10,6 +10,7 @@ import {
 import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../App.js';
+import { rememberModel } from '../api/modelStore.js';
 import { createAppRouter } from '../routes/router.js';
 import {
   createTestClient,
@@ -92,6 +93,26 @@ afterEach(() => {
 });
 
 describe('dock layout', () => {
+  it('floats an open model from the recent strip menu', async () => {
+    rememberModel('abc123', { file: 'Tower.rvt', v: '1' });
+    renderPath();
+    await dockReady();
+    fireEvent.click(
+      await screen.findByRole('button', { name: /^Pinned and Recent/ }),
+    );
+    fireEvent.click(
+      screen.getAllByRole('button', {
+        name: /^Actions for /,
+      })[0] as HTMLElement,
+    );
+    fireEvent.click(
+      within(screen.getByRole('menu')).getByText('Open as modal'),
+    );
+    await waitFor(() =>
+      expect(handle().location('viewer:abc123')).toBe('floating'),
+    );
+  });
+
   it('builds the default layout and saves it under the versioned key', async () => {
     renderPath();
     await dockReady();
@@ -106,6 +127,7 @@ describe('dock layout', () => {
     await waitFor(() =>
       expect(Object.keys(saved()?.dock?.panels ?? {}).sort()).toEqual([
         'dashboard',
+        'models',
         'summary',
         'tree',
         'viewer:abc123',
@@ -247,6 +269,7 @@ describe('dock layout', () => {
     await waitFor(() =>
       expect(handle().openPanes().sort()).toEqual([
         'dashboard',
+        'models',
         'summary',
         'tree',
         'viewer',
@@ -307,6 +330,28 @@ describe('dock layout', () => {
     expect(load).toHaveBeenCalledTimes(1);
   });
 
+  it('opens the Models pane as a tab beside Documents and lists the models', async () => {
+    renderPath();
+    await dockReady();
+    await waitFor(() => expect(handle().openPanes()).toContain('models'));
+    const models = await screen.findByRole('tab', { name: 'Models' });
+    const documents = screen.getByRole('tab', { name: 'Documents' });
+    expect(models.closest('.dv-groupview')).toBe(
+      documents.closest('.dv-groupview'),
+    );
+    expect(documents).toHaveAttribute('aria-selected', 'true');
+    act(() => handle().togglePane('models'));
+    await waitFor(() => expect(handle().openPanes()).not.toContain('models'));
+    act(() => handle().togglePane('models'));
+    await waitFor(() => expect(handle().openPanes()).toContain('models'));
+    await waitFor(() =>
+      expect(screen.getByRole('tab', { name: 'Models' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      ),
+    );
+  });
+
   it('restores a floating pane after a reload and never pops out', async () => {
     const first = renderPath();
     await dockReady();
@@ -333,6 +378,7 @@ describe('dock layout', () => {
     await waitFor(() =>
       expect(handle().openPanes().sort()).toEqual([
         'dashboard',
+        'models',
         'summary',
         'tree',
         'viewer',

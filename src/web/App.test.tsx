@@ -170,6 +170,19 @@ describe('App shell', () => {
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
 
+  it('opens the settings dialog from the top bar gear button', async () => {
+    mockFetch({
+      '/api/session': { name: 'Ada Lovelace', picture: null },
+      ...treeRoutes,
+    });
+    renderApp();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Settings' }));
+    expect(
+      await screen.findByRole('dialog', { name: 'Settings' }),
+    ).toBeInTheDocument();
+  });
+
   it('returns focus to the user menu trigger after the settings dialog closes', async () => {
     mockFetch({
       '/api/session': { name: 'Ada Lovelace', picture: null },

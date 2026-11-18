@@ -74,6 +74,22 @@ describe('exportToIfc', () => {
     expect(text).toContain('IFCWALL(');
   });
 
+  it('stops with a clear error when the file passes the size limit', async () => {
+    const save = vi.fn();
+    const status = await exportToIfc(adapterWith(source(0, 2)), {
+      settings: () => SETTINGS,
+      save,
+      maxBytes: 100,
+    });
+    expect(status).toMatchObject({
+      phase: 'error',
+      message: expect.stringMatching(
+        /^Export failed: the file would be larger than \d+ MB$/,
+      ),
+    });
+    expect(save).not.toHaveBeenCalled();
+  });
+
   it('counts the exported elements, not the source elements', async () => {
     const read = source(0, 3);
     const first = read.models[0]?.elements[1];
@@ -126,6 +142,21 @@ describe('exportToIfc', () => {
     expect(describeIfcStatus(status)).toContain('missing Annex.rvt');
   });
 
+  it('notes unavailable levels and generated ids', async () => {
+    const adapter = {
+      getIfcSource: async () => ({
+        ...source(),
+        levelsUnavailable: 1,
+        generatedIds: 4,
+      }),
+      getModels: () => [],
+    } as unknown as ViewerAdapter;
+    const status = await exportToIfc(adapter, { save: vi.fn() });
+    expect(ifcHasWarning(status)).toBe(true);
+    expect(describeIfcStatus(status)).toContain('levels unavailable');
+    expect(describeIfcStatus(status)).toContain('4 ids generated');
+  });
+
   it('reports an empty source without saving', async () => {
     const save = vi.fn();
     const status = await exportToIfc(adapterWith({ models: [], skipped: 0 }), {
@@ -135,11 +166,7 @@ describe('exportToIfc', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('reports adapters without IFC support and reader failures as errors', async () => {
-    expect(await exportToIfc({} as ViewerAdapter)).toMatchObject({
-      phase: 'error',
-      message: 'IFC export is not available for this model',
-    });
+  it('reports reader failures as errors', async () => {
     const failing = {
       getIfcSource: async () => {
         throw new Error('The model is still loading');

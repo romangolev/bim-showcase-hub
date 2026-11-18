@@ -1,6 +1,7 @@
 import { lazy, type ReactNode, Suspense } from 'react';
-import { useSession, useSessionExpiry } from '../api/hooks.js';
+import { useSession } from '../api/hooks.js';
 import { Landing } from './Landing.js';
+import { SessionBanner } from './SessionBanner.js';
 import { TopBar } from './TopBar.js';
 
 const LayoutProvider = lazy(() =>
@@ -26,7 +27,6 @@ function ShellMessage() {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const session = useSession();
-  useSessionExpiry();
   const signedIn = Boolean(session.data);
 
   return (
@@ -37,9 +37,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       {session.isPending ? (
         <ShellMessage />
       ) : signedIn ? (
-        <Suspense fallback={<ShellMessage />}>
-          <LayoutProvider main={children} />
-        </Suspense>
+        <>
+          <SessionBanner />
+          <Suspense fallback={<ShellMessage />}>
+            <LayoutProvider main={children} />
+          </Suspense>
+        </>
       ) : (
         <>
           <TopBar />

@@ -24,14 +24,24 @@ export type MenuEntry =
     }
   | { kind: 'separator'; id: string };
 
-export interface MenuProps {
-  label: string;
+interface MenuBaseProps {
   title?: string;
-  trigger: ReactNode;
   items: () => MenuEntry[];
   className?: string;
   triggerClassName?: string;
+  align?: 'start' | 'end';
+  onClose?: (restoreFocus: boolean) => void;
 }
+
+export type MenuProps = MenuBaseProps &
+  (
+    | { label: string; trigger: ReactNode; anchor?: undefined }
+    | {
+        label?: string;
+        trigger?: undefined;
+        anchor: { x: number; y: number } | null;
+      }
+  );
 
 interface Position {
   top: number;
@@ -55,6 +65,9 @@ export function Menu({
   items,
   className,
   triggerClassName = 'icon-button',
+  align = 'end',
+  anchor,
+  onClose,
 }: MenuProps) {
   const [open, setOpen] = useState<null | 'first' | 'last'>(null);
   const [entries, setEntries] = useState<MenuEntry[]>([]);
@@ -62,6 +75,10 @@ export function Menu({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
 
   const focusables = useCallback(
     () =>
@@ -81,25 +98,43 @@ export function Menu({
   const close = useCallback((restore: boolean) => {
     setOpen(null);
     if (restore) triggerRef.current?.focus();
+    onCloseRef.current?.(restore);
   }, []);
 
+  const anchorX = anchor?.x;
+  const anchorY = anchor?.y;
+  const anchorKey = anchor ? `${anchor.x},${anchor.y}` : null;
   const place = useCallback(() => {
-    const rect = triggerRef.current?.getBoundingClientRect();
+    const rect =
+      anchorX !== undefined && anchorY !== undefined
+        ? { left: anchorX, right: anchorX, top: anchorY, bottom: anchorY }
+        : triggerRef.current?.getBoundingClientRect();
     const menu = menuRef.current;
     if (!rect || !menu) return;
     const width = menu.offsetWidth;
     const height = menu.offsetHeight;
     const left = Math.max(
       GAP,
-      Math.min(rect.right - width, window.innerWidth - width - GAP),
+      Math.min(
+        anchorX !== undefined || align === 'start'
+          ? rect.left
+          : rect.right - width,
+        window.innerWidth - width - GAP,
+      ),
     );
-    const below = rect.bottom + GAP;
+    const below = rect.bottom + (anchorX !== undefined ? 0 : GAP);
     const top =
       below + height > window.innerHeight
         ? Math.max(GAP, rect.top - height - GAP)
         : below;
     setPosition({ top, left });
-  }, []);
+  }, [align, anchorX, anchorY]);
+
+  useEffect(() => {
+    if (anchorKey === null) return;
+    setEntries(itemsRef.current());
+    setOpen('first');
+  }, [anchorKey]);
 
   const pendingFocus = useRef<null | 'first' | 'last'>(null);
 
@@ -185,33 +220,35 @@ export function Menu({
 
   return (
     <div className={className ? `menu ${className}` : 'menu'}>
-      <button
-        ref={triggerRef}
-        type="button"
-        className={triggerClassName}
-        aria-label={label}
-        title={title ?? label}
-        aria-haspopup="menu"
-        aria-expanded={open !== null}
-        aria-controls={open ? menuId : undefined}
-        onClick={() => (open ? close(false) : show('first'))}
-        onKeyDown={(event) => {
-          if (open) return;
-          if (
-            event.key === 'ArrowDown' ||
-            event.key === 'Enter' ||
-            event.key === ' '
-          ) {
-            event.preventDefault();
-            show('first');
-          } else if (event.key === 'ArrowUp') {
-            event.preventDefault();
-            show('last');
-          }
-        }}
-      >
-        {trigger}
-      </button>
+      {anchor === undefined ? (
+        <button
+          ref={triggerRef}
+          type="button"
+          className={triggerClassName}
+          aria-label={label}
+          title={title ?? label}
+          aria-haspopup="menu"
+          aria-expanded={open !== null}
+          aria-controls={open ? menuId : undefined}
+          onClick={() => (open ? close(false) : show('first'))}
+          onKeyDown={(event) => {
+            if (open) return;
+            if (
+              event.key === 'ArrowDown' ||
+              event.key === 'Enter' ||
+              event.key === ' '
+            ) {
+              event.preventDefault();
+              show('first');
+            } else if (event.key === 'ArrowUp') {
+              event.preventDefault();
+              show('last');
+            }
+          }}
+        >
+          {trigger}
+        </button>
+      ) : null}
       {open
         ? createPortal(
             <div

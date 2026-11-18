@@ -3,3 +3,4 @@ export {
   ModelSummaryPanel,
   type ModelSummaryPanelProps,
 } from './ModelSummaryPanel.js';
+export { ModelsPanel, type ModelsPanelProps } from './ModelsPanel.js';

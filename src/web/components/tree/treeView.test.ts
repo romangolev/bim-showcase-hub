@@ -1,0 +1,84 @@
+import { describe, expect, it } from 'vitest';
+import type { TreeNode } from '../../../shared/types.js';
+import {
+  DEFAULT_TREE_VIEW,
+  formatSize,
+  metaText,
+  sanitizeTreeView,
+  sortChildren,
+} from './treeView.js';
+
+function node(
+  name: string,
+  kind: TreeNode['kind'],
+  modifiedAt?: string,
+): TreeNode {
+  return {
+    id: name,
+    kind,
+    name,
+    hasChildren: kind !== 'version',
+    viewable: false,
+    ...(modifiedAt ? { modifiedAt } : {}),
+  };
+}
+
+describe('sortChildren', () => {
+  const nodes = [
+    node('b.rvt', 'item', '2025-01-02T00:00:00.000Z'),
+    node('Z folder', 'folder'),
+    node('a10.rvt', 'item', '2025-03-01T00:00:00.000Z'),
+    node('a2.rvt', 'item'),
+  ];
+
+  it('sorts by name naturally with folders first', () => {
+    expect(sortChildren(nodes, 'name').map((n) => n.name)).toEqual([
+      'Z folder',
+      'a2.rvt',
+      'a10.rvt',
+      'b.rvt',
+    ]);
+  });
+
+  it('sorts newest first and puts undated items last', () => {
+    expect(sortChildren(nodes, 'modified').map((n) => n.name)).toEqual([
+      'Z folder',
+      'a10.rvt',
+      'b.rvt',
+      'a2.rvt',
+    ]);
+  });
+
+  it('leaves hubs, projects and versions in server order', () => {
+    const hubs = [node('b', 'hub'), node('a', 'hub')];
+    expect(sortChildren(hubs, 'name')).toBe(hubs);
+  });
+});
+
+describe('metaText and view', () => {
+  it('joins the enabled columns and formats sizes', () => {
+    const item = {
+      ...node('a.rvt', 'item', '2025-03-04T10:20:30.000Z'),
+      modifiedBy: 'Sam',
+      size: 5 * 1024 * 1024,
+    };
+    expect(metaText(item, DEFAULT_TREE_VIEW)).toBe('2025-03-04');
+    expect(
+      metaText(item, { ...DEFAULT_TREE_VIEW, author: true, size: true }),
+    ).toBe('2025-03-04 · Sam · 5.0 MB');
+    expect(formatSize(512)).toBe('512 B');
+  });
+
+  it('keeps only size for versions, whose row already shows date and author', () => {
+    const version = { ...node('v1: x by y', 'version'), size: 2048 };
+    expect(metaText(version, { ...DEFAULT_TREE_VIEW, size: true })).toBe(
+      '2.0 KB',
+    );
+  });
+
+  it('sanitizes stored junk', () => {
+    expect(sanitizeTreeView({ sort: 'x', modified: 3 })).toEqual(
+      DEFAULT_TREE_VIEW,
+    );
+  });
+});

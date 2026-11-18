@@ -618,3 +618,33 @@ describe('ViewerPane tool settings', () => {
     expect(spy).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('ViewerPane load stages', () => {
+  it('shows the current stage while loading', async () => {
+    let emit: (stage: 'manifest') => void = () => {};
+    let release: () => void = () => {};
+    const factory: ViewerAdapterFactory = async (container) => {
+      const adapter = await createMockViewerAdapter(container);
+      adapter.onLoadStage = (cb) => {
+        emit = cb;
+        return () => {};
+      };
+      const load = adapter.loadModels.bind(adapter);
+      adapter.loadModels = async (sources) => {
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        return load(sources);
+      };
+      return adapter;
+    };
+    render(<ViewerPane urn="abc" factory={factory} />);
+    expect(await screen.findByText('Starting the viewer')).toBeTruthy();
+    act(() => emit('manifest'));
+    expect(screen.getByText('Reading the model manifest')).toBeTruthy();
+    await act(async () => release());
+    await waitFor(() =>
+      expect(screen.queryByText('Reading the model manifest')).toBeNull(),
+    );
+  });
+});

@@ -93,6 +93,27 @@ function Probe() {
   );
 }
 
+describe('table export settings', () => {
+  it('keeps valid choices and defaults the rest', () => {
+    window.localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        excel: {
+          format: 'csv',
+          scope: 'nope',
+          metadata: true,
+          namePattern: '',
+        },
+      }),
+    );
+    expect(readSettings().excel).toEqual({
+      ...DEFAULT_SETTINGS.excel,
+      format: 'csv',
+      metadata: true,
+    });
+  });
+});
+
 describe('settings edge cases', () => {
   it.each(['null', '"5"', '[]'])('defaults for non-object JSON %s', (raw) => {
     window.localStorage.setItem(SETTINGS_STORAGE_KEY, raw);

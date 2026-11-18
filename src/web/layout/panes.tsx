@@ -1,4 +1,9 @@
-import { useParams, useRouter, useRouterState } from '@tanstack/react-router';
+import {
+  useParams,
+  useRouter,
+  useRouterState,
+  useSearch,
+} from '@tanstack/react-router';
 import { useMemo, useSyncExternalStore } from 'react';
 import { withUrns } from '../api/modelContext.js';
 import {
@@ -12,7 +17,14 @@ import { StateBlock } from '../components/StateBlock.js';
 import { useTreeControl } from '../components/TreeControl.js';
 import { TreePanel } from '../components/TreePanel.js';
 import { exportFileName } from '../extensions/excelExport.js';
-import { DashboardPanel, ModelSummaryPanel } from '../panels/index.js';
+import { useModal } from '../modal/ModalContext.js';
+import { DASHBOARD_SETTINGS_ID } from '../panels/DashboardSettings.js';
+import {
+  DashboardPanel,
+  ModelSummaryPanel,
+  ModelsPanel,
+} from '../panels/index.js';
+import { SUMMARY_SETTINGS_ID } from '../panels/SummarySettings.js';
 import { memberLabel } from '../routes/ModelPage.js';
 import { ViewerPane } from '../viewer/index.js';
 import { page } from '../viewer/region.js';
@@ -83,6 +95,7 @@ export function ModelPaneBody({ instance }: { instance: string }) {
   const title = layout.paneTitle(panel);
   const tree = useTreeControl();
   const router = useRouter();
+  const routeView = (useSearch({ strict: false }) as { view?: unknown }).view;
   const extras = withUrns(context);
   const memberKey = extras.join(',');
   const recalled = useSyncExternalStore(
@@ -130,6 +143,19 @@ export function ModelPaneBody({ instance }: { instance: string }) {
               store?.setView(instance, { offsets: next })
             }
             onSpreadChange={(spread) => store?.setView(instance, { spread })}
+            initialView={
+              active && typeof routeView === 'string' ? routeView : null
+            }
+            shareHref={
+              new URL(
+                router.buildLocation({
+                  to: '/model/$urn',
+                  params: { urn: instance },
+                  search: context ?? {},
+                }).href,
+                window.location.origin,
+              ).href
+            }
             onAddModel={tree ? () => tree.reveal() : undefined}
             onKeepOnly={() => {
               store?.keepOnly(instance);
@@ -172,10 +198,12 @@ function useActiveModelTitle() {
 export function SummaryPane() {
   const layout = useLayout();
   const model = useActiveModelTitle();
+  const modal = useModal();
   return (
     <aside className="pane-summary" aria-label="Model summary">
       <ModelSummaryPanel
         model={model}
+        onOpenSettings={() => modal.open(SUMMARY_SETTINGS_ID)}
         collapsed={layout.mode === 'stacked' && layout.isCollapsed('summary')}
         toggleable={layout.mode === 'stacked'}
         onCollapsedChange={(next) => layout.setCollapsed('summary', next)}
@@ -186,12 +214,30 @@ export function SummaryPane() {
 
 export function DashboardPane() {
   const layout = useLayout();
+  const modal = useModal();
   return (
     <div className="pane-dashboard">
       <DashboardPanel
+        onOpenSettings={() => modal.open(DASHBOARD_SETTINGS_ID)}
         collapsed={layout.mode === 'stacked' && layout.isCollapsed('dashboard')}
         toggleable={layout.mode === 'stacked'}
         onCollapsedChange={(next) => layout.setCollapsed('dashboard', next)}
+      />
+    </div>
+  );
+}
+
+export function ModelsPane() {
+  const { active } = useOpenModels();
+  const store = useOpenModelsStore();
+  const tree = useTreeControl();
+  return (
+    <div className="pane-models">
+      <ModelsPanel
+        onRemove={
+          store && active ? (urn) => store.removeFrom(active, urn) : undefined
+        }
+        onAdd={tree ? () => tree.reveal() : undefined}
       />
     </div>
   );

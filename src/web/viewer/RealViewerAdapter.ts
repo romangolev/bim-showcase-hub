@@ -15,6 +15,7 @@ import {
 import { ensureToolsExtension, TOOLS_EXTENSION_ID } from './autodeskTools.js';
 import {
   anchorOf,
+  documentLoadError,
   type FederationAnchor,
   federatedLoadOptions,
   OTHER_REGION_MESSAGE,
@@ -26,16 +27,18 @@ import { tagRows } from './modelScope.js';
 import {
   CANCELLED_MESSAGE,
   checkCapacity,
-  loadFailureMessage,
+  loadFailure,
   type ModelBox,
   type ModelDbId,
   type ModelInfo,
+  ModelLoadError,
   ModelSet,
   ModelSetError,
   type ModelSource,
   type ModelSpread,
   metersPerUnit,
   modelIdFor,
+  reasonOf,
   spreadOf,
   togetherOffsets,
   uniqueSources,
@@ -52,7 +55,13 @@ import {
 import { createResizeScheduler } from './resizeScheduler.js';
 import { readSceneBackground } from './sceneBackground.js';
 import { ToolGroupController } from './toolGroupController.js';
-import type { Rgba, ToolGroupSpec, ViewerAdapter } from './ViewerAdapter.js';
+import type {
+  CameraState,
+  LoadStage,
+  Rgba,
+  ToolGroupSpec,
+  ViewerAdapter,
+} from './ViewerAdapter.js';
 import { readViewerGeometry } from './viewerGeometry.js';
 import { readViewerSource, type SourceModelMeta } from './viewerSource.js';
 
@@ -154,7 +163,7 @@ function initializeViewing(region: ViewerRegion): Promise<void> {
 function loadDocument(urn: string) {
   return new Promise<ViewingDocument>((resolve, reject) => {
     getViewing().Document.load(`urn:${urn}`, resolve, (code, message) =>
-      reject(new Error(`Document load failed (${code}): ${message}`)),
+      reject(documentLoadError(code, message)),
     );
   });
 }
@@ -202,10 +211,24 @@ function toPropertyValue(value: unknown): string | number | boolean | null {
   return String(value);
 }
 
+function groupByModel(items: readonly ModelDbId[]): Map<string, number[]> {
+  const byModel = new Map<string, number[]>();
+  for (const { modelId, dbId } of items) {
+    const ids = byModel.get(modelId);
+    if (ids) ids.push(dbId);
+    else byModel.set(modelId, [dbId]);
+  }
+  return byModel;
+}
+
+const HIDE_ALL_NODE = -1;
+const SCREENSHOT_TIMEOUT_MS = 10_000;
+
 export class RealViewerAdapter implements ViewerAdapter {
   private viewer: GuiViewer3D | null = null;
   private destroyed = false;
   private theme: Theme = 'dark';
+  private readonly stageListeners = new Set<(stage: LoadStage) => void>();
   private readonly selectionListeners = new Set<(items: ModelDbId[]) => void>();
   private controller: ToolGroupController | null = null;
   private mountedController: ToolGroupController | null = null;
@@ -247,6 +270,17 @@ export class RealViewerAdapter implements ViewerAdapter {
 
   constructor(private readonly container: HTMLElement) {}
 
+  onLoadStage(cb: (stage: LoadStage) => void): () => void {
+    this.stageListeners.add(cb);
+    return () => {
+      this.stageListeners.delete(cb);
+    };
+  }
+
+  private emitStage(stage: LoadStage): void {
+    for (const cb of [...this.stageListeners]) cb(stage);
+  }
+
   async load(urn: string, name?: string): Promise<void> {
     await this.loadModels([name ? { urn, name } : { urn }]);
   }
@@ -262,12 +296,13 @@ export class RealViewerAdapter implements ViewerAdapter {
       return { id: info.id, token: this.models.token(info.id) };
     });
     let viewer: GuiViewer3D | null;
+    this.emitStage('starting');
     try {
       viewer = await this.ensureViewer(region);
     } catch (err) {
       if (!this.destroyed) {
         for (const { id, token } of entries) {
-          this.models.fail(id, errorMessage(err), token);
+          this.models.fail(id, errorMessage(err), token, reasonOf(err));
         }
       }
       throw err;
@@ -279,7 +314,7 @@ export class RealViewerAdapter implements ViewerAdapter {
     if (this.destroyed || this.viewer !== viewer) return [];
     const models = this.models.list();
     if (!models.some((model) => model.status === 'ready')) {
-      throw new Error(loadFailureMessage(models));
+      throw loadFailure(models);
     }
     return models;
   }
@@ -298,7 +333,7 @@ export class RealViewerAdapter implements ViewerAdapter {
       if (this.destroyed) {
         throw new ModelSetError('closed', VIEWER_CLOSED_MESSAGE);
       }
-      this.models.fail(info.id, errorMessage(err), token);
+      this.models.fail(info.id, errorMessage(err), token, reasonOf(err));
       return current();
     }
     if (this.destroyed) {
@@ -532,6 +567,113 @@ export class RealViewerAdapter implements ViewerAdapter {
     return viewer.getSelection().map((dbId) => ({ modelId: primary, dbId }));
   }
 
+  getModelWeight(modelId: string): number | null {
+    return this.models.handle(modelId)?.getFragmentList?.().getCount() ?? null;
+  }
+
+  getIsolated(): ModelDbId[] {
+    const viewer = this.viewer;
+    if (!viewer?.getIsolatedNodes) return [];
+    return this.models
+      .shown()
+      .flatMap(
+        ({ info, handle }) =>
+          viewer
+            .getIsolatedNodes?.(handle)
+            .map((dbId) => ({ modelId: info.id, dbId })) ?? [],
+      );
+  }
+
+  selectModelIds(items: readonly ModelDbId[]): void {
+    const viewer = this.viewer;
+    if (!viewer?.select) return;
+    const byModel = groupByModel(items);
+    const entries = this.models
+      .shown()
+      .filter(({ info }) => byModel.has(info.id))
+      .map(({ info, handle }) => ({
+        model: handle,
+        ids: byModel.get(info.id) ?? [],
+      }));
+    const selector = viewer.impl?.selector;
+    if (selector?.setAggregateSelection) {
+      if (entries.length === 0) viewer.clearSelection();
+      else selector.setAggregateSelection(entries);
+      return;
+    }
+    for (const { info, handle } of this.models.shown()) {
+      viewer.select(byModel.get(info.id) ?? [], handle);
+    }
+  }
+
+  isolateModelIds(items: readonly ModelDbId[]): void {
+    const viewer = this.viewer;
+    if (!viewer?.isolate) return;
+    const byModel = groupByModel(items);
+    for (const { info, handle } of this.models.shown()) {
+      const ids = byModel.get(info.id);
+      if (ids) viewer.isolate(ids, handle);
+      else viewer.isolate(items.length === 0 ? [] : [HIDE_ALL_NODE], handle);
+    }
+  }
+
+  fitToSelection(): void {
+    this.viewer?.fitToView?.();
+  }
+
+  getScreenshot(): Promise<Blob> {
+    const viewer = this.viewer;
+    const frame = viewer?.container;
+    if (!viewer?.getScreenShot || !frame) {
+      return Promise.reject(new Error('The viewer cannot take a snapshot'));
+    }
+    return new Promise<Blob>((resolve, reject) => {
+      const timer = setTimeout(
+        () => reject(new Error('The snapshot timed out')),
+        SCREENSHOT_TIMEOUT_MS,
+      );
+      viewer.getScreenShot?.(frame.clientWidth, frame.clientHeight, (url) => {
+        clearTimeout(timer);
+        fetch(url)
+          .then((response) => response.blob())
+          .then(resolve, reject);
+      });
+    });
+  }
+
+  getCamera(): CameraState | null {
+    const viewport = this.viewer?.getState?.({ viewport: true }).viewport;
+    if (!viewport) return null;
+    const { eye, target, up } = viewport;
+    if (![eye, target, up].every((vec) => vec?.length === 3)) return null;
+    return {
+      eye: eye as unknown as Vec3,
+      target: target as unknown as Vec3,
+      up: up as unknown as Vec3,
+      ortho: Boolean(viewport.isOrthographic),
+    };
+  }
+
+  setCamera(camera: CameraState): void {
+    const viewer = this.viewer;
+    const current = viewer?.getState?.({ viewport: true }).viewport;
+    if (!viewer?.restoreState || !current) return;
+    viewer.restoreState(
+      {
+        viewport: {
+          ...current,
+          eye: [...camera.eye],
+          target: [...camera.target],
+          up: [...camera.up],
+          isOrthographic: camera.ortho,
+          projection: camera.ortho ? 'orthographic' : 'perspective',
+        },
+      },
+      undefined,
+      true,
+    );
+  }
+
   setModelThemingColor(items: readonly ModelDbId[], color: Rgba): void {
     const viewer = this.viewer;
     const THREE = autodeskWindow().THREE;
@@ -547,7 +689,7 @@ export class RealViewerAdapter implements ViewerAdapter {
     const promise =
       apiForRegion(detectRegion(urn)) === this.api
         ? loadDocument(urn)
-        : Promise.reject(new Error(OTHER_REGION_MESSAGE));
+        : Promise.reject(new ModelLoadError('region', OTHER_REGION_MESSAGE));
     promise.catch(() => {});
     return promise;
   }
@@ -592,8 +734,9 @@ export class RealViewerAdapter implements ViewerAdapter {
     let release: (() => void) | null = null;
     try {
       if (apiForRegion(detectRegion(source.urn)) !== this.api) {
-        throw new Error(OTHER_REGION_MESSAGE);
+        throw new ModelLoadError('region', OTHER_REGION_MESSAGE);
       }
+      this.emitStage('manifest');
       const doc = await docPromise;
       if (stale()) return;
       while (!this.anchor && this.anchoring) {
@@ -612,6 +755,7 @@ export class RealViewerAdapter implements ViewerAdapter {
         };
       }
       const node = pickGeometryNode(doc, this.anchor);
+      this.emitStage('geometry');
       const model = await viewer.loadDocumentNode(
         doc,
         node,
@@ -649,7 +793,7 @@ export class RealViewerAdapter implements ViewerAdapter {
       }
     } catch (err) {
       if (this.destroyed || this.viewer !== viewer) return;
-      this.models.fail(id, errorMessage(err), token);
+      this.models.fail(id, errorMessage(err), token, reasonOf(err));
     } finally {
       release?.();
     }
@@ -835,7 +979,9 @@ export class RealViewerAdapter implements ViewerAdapter {
       const properties: PropertyRow['properties'] = {};
       for (const name of propertyNames) properties[name] = null;
       for (const prop of item.properties) {
-        properties[prop.displayName] = toPropertyValue(prop.displayValue);
+        if (properties[prop.displayName] === null) {
+          properties[prop.displayName] = toPropertyValue(prop.displayValue);
+        }
       }
       return { dbId: item.dbId, name: item.name, properties };
     });

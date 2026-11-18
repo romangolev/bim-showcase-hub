@@ -8,6 +8,7 @@ describe('default layout', () => {
       'summary',
       'dashboard',
       'tree',
+      'models',
     ]);
   });
 
@@ -27,6 +28,7 @@ describe('default layout', () => {
       direction: 'below',
     });
     expect(steps.tree).toEqual({ kind: 'edge', direction: 'left', size: 320 });
+    expect(steps.models).toEqual({ kind: 'tab', reference: 'tree' });
   });
 
   it('uses the imported tree width', () => {

@@ -29,16 +29,28 @@ import {
   ROOT_SCOPE,
   scopeKey,
 } from '../../api/scope.js';
+import { usePersistedState } from '../../usePersistedState.js';
 import { MODEL_LIMIT_MESSAGE } from '../../viewer/modelSet.js';
 import { Icon } from '../icons.js';
+import { Menu, type MenuEntry } from '../Menu.js';
 import { StateBlock } from '../StateBlock.js';
 import { NoHubsHint, PersonalHubNotice } from './NoHubsHint.js';
+import { usePins } from './pins.js';
+import { modelMenuEntries, useRowMenu } from './rowMenu.js';
 import {
   INDENT,
   ROW_HEIGHT,
   rowHeightFor,
   TreeRowView,
 } from './TreeRowView.js';
+import {
+  DEFAULT_TREE_VIEW,
+  metaText,
+  sanitizeTreeView,
+  sortChildren,
+  TREE_VIEW_KEY,
+  type TreeView,
+} from './treeView.js';
 import {
   blockedNotice,
   VIEW_STATE_COPY,
@@ -53,7 +65,9 @@ export interface PickedModel {
 export interface AddTarget {
   label: string;
   canAdd: (urn: string) => boolean;
+  has: (urn: string) => boolean;
   onAdd: (models: PickedModel[]) => void;
+  onRemove: (urn: string) => void;
 }
 
 export interface DocumentTreeProps {
@@ -61,6 +75,7 @@ export interface DocumentTreeProps {
   revealTrail?: readonly string[];
   onOpenModel: (urn: string, context: ModelContext) => void;
   onOpenTogether?: (models: PickedModel[]) => void;
+  onOpenModal?: (urn: string, context: ModelContext) => void;
   addTarget?: AddTarget | null;
   pollMs?: number;
 }
@@ -159,6 +174,7 @@ export function DocumentTree({
   revealTrail,
   onOpenModel,
   onOpenTogether,
+  onOpenModal,
   addTarget,
   pollMs = VERSION_POLL_MS,
 }: DocumentTreeProps) {
@@ -183,6 +199,36 @@ export function DocumentTree({
     loaded: new Set<string>(),
     stale: new Set<string>(),
   }).current;
+
+  const [view, setView] = usePersistedState<TreeView>(
+    TREE_VIEW_KEY,
+    DEFAULT_TREE_VIEW,
+    sanitizeTreeView,
+  );
+  const viewEntries = (): MenuEntry[] => [
+    {
+      id: 'sort-name',
+      label: 'Sort by name',
+      checked: view.sort === 'name',
+      onSelect: () => setView({ ...view, sort: 'name' }),
+    },
+    {
+      id: 'sort-modified',
+      label: 'Sort by modified',
+      checked: view.sort === 'modified',
+      onSelect: () => setView({ ...view, sort: 'modified' }),
+    },
+    { kind: 'separator', id: 'sep' },
+    ...(['modified', 'author', 'size'] as const).map((column) => ({
+      id: `col-${column}`,
+      label: `Show ${column}`,
+      checked: view[column],
+      onSelect: () => setView({ ...view, [column]: !view[column] }),
+    })),
+  ];
+
+  const viewRef = useRef(view);
+  viewRef.current = view;
 
   const selectedUrnRef = useRef(selectedUrn);
   selectedUrnRef.current = selectedUrn;
@@ -440,10 +486,66 @@ export function DocumentTree({
     return true;
   };
 
+  const addNode = (node: TreeNode) => {
+    if (!addTarget) return;
+    void ensureChecked(node).then((checked) => {
+      const checkedUrn = openableUrn(checked);
+      if (checkedUrn) {
+        addTarget.onAdd([{ urn: checkedUrn, context: contextFor(checked) }]);
+      } else {
+        openChecked(checked);
+      }
+    });
+  };
+
+  const pinsApi = usePins();
+  const rowMenu = useRowMenu();
+
+  const menuProps = (node: TreeNode) => {
+    if (node.kind !== 'version') return undefined;
+    return rowMenu.bind(() => {
+      const urn = openableUrn(node);
+      const context = contextFor(node);
+      return modelMenuEntries({
+        urn,
+        context,
+        addTarget,
+        pinned: pinsApi.pins.some((pin) => pin.urn === urn),
+        onOpen: () => openNode(node),
+        onOpenModal:
+          onOpenModal && urn ? () => onOpenModal(urn, context) : undefined,
+        onAdd: () => addNode(node),
+        onTogglePin: () => {
+          if (urn) pinsApi.toggle(urn, context);
+        },
+      });
+    });
+  };
+
   const rowAction = (node: TreeNode) => {
     const urn = openableUrn(node);
-    if (!urn || !addTarget?.canAdd(urn)) return null;
-    const label = `Add ${contextFor(node).file ?? node.name} to ${addTarget.label}`;
+    if (!urn || !addTarget) return null;
+    const name = contextFor(node).file ?? node.name;
+    if (addTarget.has(urn)) {
+      const label = `Remove ${name} from the open viewer`;
+      return (
+        <button
+          type="button"
+          className="tree-row__action tree-row__action--remove"
+          tabIndex={-1}
+          aria-label={label}
+          title="Remove from the open viewer"
+          onClick={(event) => {
+            event.stopPropagation();
+            addTarget.onRemove(urn);
+          }}
+        >
+          <Icon name="close" size={13} />
+        </button>
+      );
+    }
+    if (!addTarget.canAdd(urn)) return null;
+    const label = `Add ${name} to ${addTarget.label}`;
     return (
       <button
         type="button"
@@ -453,13 +555,7 @@ export function DocumentTree({
         title={`${label}. With the keyboard, press Space to select the version, then use Add to ${addTarget.label} in the selection bar.`}
         onClick={(event) => {
           event.stopPropagation();
-          void ensureChecked(node).then((checked) => {
-            if (openableUrn(checked)) {
-              addTarget.onAdd([{ urn, context: contextFor(checked) }]);
-            } else {
-              openChecked(checked);
-            }
-          });
+          addNode(node);
         }}
       >
         <Icon name="plus" size={13} />
@@ -501,7 +597,7 @@ export function DocumentTree({
             delete next[id];
             return next;
           });
-          return nodes.map((node) => {
+          return sortChildren(nodes, viewRef.current.sort).map((node) => {
             registry.nodes.set(node.id, node);
             registry.scopes.set(node.id, childScope(scope, node));
             return { id: node.id, data: node };
@@ -514,6 +610,17 @@ export function DocumentTree({
     },
     features: [asyncDataLoaderFeature, selectionFeature, hotkeysCoreFeature],
   });
+
+  const seenSort = useRef(view.sort);
+  useEffect(() => {
+    if (seenSort.current === view.sort) return;
+    seenSort.current = view.sort;
+    for (const item of tree.getItems()) {
+      if (item.isFolder() && registry.loaded.has(item.getId())) {
+        void item.invalidateChildrenIds();
+      }
+    }
+  }, [view.sort, tree, registry]);
 
   const revealKey = revealTrail?.join(TRAIL_SEPARATOR) ?? '';
   useEffect(() => {
@@ -848,14 +955,19 @@ export function DocumentTree({
           focused={item.isFocused()}
           viewState={viewStateOf(node)}
           checked={node.checked}
+          meta={metaText(node, view)}
           picked={urn !== null && pickedUrns.has(urn)}
           action={rowAction(node)}
+          added={urn !== null && addTarget?.has(urn)}
           rowProps={{
             ...props,
+            ...menuProps(node),
             'data-index': index,
             'aria-checked':
               urn !== null && onOpenTogether ? pickedUrns.has(urn) : undefined,
             onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => {
+              menuProps(node)?.onKeyDown?.(event);
+              if (event.defaultPrevented) return;
               if (onOpenTogether && onPickKey(event, node)) return;
               (
                 props as {
@@ -898,7 +1010,9 @@ export function DocumentTree({
           selected={urn !== null && urn === selectedUrn}
           picked={urn !== null && pickedUrns.has(urn)}
           action={rowAction(resultNode)}
+          added={urn !== null && addTarget?.has(urn)}
           rowProps={{
+            ...menuProps(resultNode),
             role: 'option',
             'aria-checked':
               urn !== null && onOpenTogether ? pickedUrns.has(urn) : undefined,
@@ -912,6 +1026,8 @@ export function DocumentTree({
               openNode(resultNode);
             },
             onKeyDown: (event) => {
+              menuProps(resultNode)?.onKeyDown?.(event);
+              if (event.defaultPrevented) return;
               if (onOpenTogether && onPickKey(event, resultNode)) return;
               onResultKeyDown(event, resultNode);
             },
@@ -1003,6 +1119,13 @@ export function DocumentTree({
             <Icon name="close" size={14} />
           </button>
         ) : null}
+        <Menu
+          label="Documents view"
+          title="Sort and columns"
+          trigger={<Icon name="filter" size={14} />}
+          triggerClassName="doc-tree__view"
+          items={viewEntries}
+        />
         <button
           type="button"
           className="doc-tree__refresh"
@@ -1069,6 +1192,7 @@ export function DocumentTree({
           {virtualizer.getVirtualItems().map((v) => renderRow(v.index))}
         </div>
       </div>
+      {rowMenu.menu}
     </div>
   );
 }

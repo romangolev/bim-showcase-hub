@@ -1,0 +1,79 @@
+import { act, renderHook } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { forgetModels } from './api/openModels.js';
+import {
+  LAYOUT_WRITE_DELAY_MS,
+  useDebouncedWrite,
+} from './layout/LayoutProvider.js';
+import { defaultModel, LAYOUT_KEY } from './layout/layoutState.js';
+import { readSettings, SETTINGS_STORAGE_KEY } from './settings/settings.js';
+import { BSH_KEYS, readJson, writeJson } from './storage.js';
+import { installMemoryStorage } from './test/mockApi.js';
+
+beforeEach(() => {
+  installMemoryStorage();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+describe('storage helpers', () => {
+  it('falls back on missing or broken values', () => {
+    expect(readJson('missing', 7)).toBe(7);
+    window.localStorage.setItem('broken', '{');
+    expect(readJson('broken', 'x')).toBe('x');
+    expect(writeJson('ok', { a: 1 })).toBe(true);
+    expect(readJson('ok', null)).toEqual({ a: 1 });
+  });
+});
+
+describe('sign-out', () => {
+  it('clears every personal key and keeps preferences', () => {
+    for (const key of Object.values(BSH_KEYS.personal)) {
+      window.localStorage.setItem(key, '"x"');
+    }
+    window.sessionStorage.setItem(BSH_KEYS.personal.openModels, '"x"');
+    for (const key of Object.values(BSH_KEYS.preference)) {
+      window.localStorage.setItem(key, '"x"');
+    }
+    forgetModels();
+    for (const key of Object.values(BSH_KEYS.personal)) {
+      expect(window.localStorage.getItem(key)).toBeNull();
+      expect(window.sessionStorage.getItem(key)).toBeNull();
+    }
+    expect(window.localStorage.getItem(BSH_KEYS.preference.theme)).toBe('"x"');
+    expect(window.localStorage.getItem(BSH_KEYS.preference.treeView)).toBe(
+      '"x"',
+    );
+  });
+
+  it('blanks the IFC author and organisation but keeps other settings', () => {
+    writeJson(SETTINGS_STORAGE_KEY, {
+      recentsLength: 9,
+      ifc: { author: 'Ada', organisation: 'Acme', projectName: 'Tower' },
+    });
+    forgetModels();
+    const settings = readSettings();
+    expect(settings.ifc.author).toBe('');
+    expect(settings.ifc.organisation).toBe('');
+    expect(settings.ifc.projectName).toBe('Tower');
+    expect(settings.recentsLength).toBe(9);
+  });
+
+  it('does not resurrect the layout from a pending write', () => {
+    vi.useFakeTimers();
+    const { rerender, unmount } = renderHook(
+      ({ model }) => useDebouncedWrite(model),
+      { initialProps: { model: defaultModel() } },
+    );
+    rerender({ model: { ...defaultModel(), treeWidth: 300 } });
+    forgetModels();
+    act(() => {
+      vi.advanceTimersByTime(LAYOUT_WRITE_DELAY_MS * 2);
+    });
+    unmount();
+    window.dispatchEvent(new Event('pagehide'));
+    expect(window.localStorage.getItem(LAYOUT_KEY)).toBeNull();
+  });
+});

@@ -121,9 +121,11 @@ export interface TreeRowViewProps {
   checked?: boolean;
   busy?: boolean;
   caption?: string;
+  meta?: string;
   secondary?: string;
   highlight?: string;
   picked?: boolean;
+  added?: boolean;
   action?: ReactNode;
   rowProps?: HTMLAttributes<HTMLDivElement> & {
     ref?: Ref<HTMLDivElement>;
@@ -143,9 +145,11 @@ export function TreeRowView({
   checked,
   busy = false,
   caption,
+  meta,
   secondary,
   highlight,
   picked,
+  added,
   action,
   rowProps,
 }: TreeRowViewProps) {
@@ -181,6 +185,7 @@ export function TreeRowView({
         : {})}
       data-two-line={Boolean(second)}
       data-picked={picked || undefined}
+      data-added={added || undefined}
       style={{
         ...rowProps?.style,
         minHeight,
@@ -244,6 +249,11 @@ export function TreeRowView({
           </span>
         ) : null}
       </span>
+      {meta ? (
+        <span className="tree-row__meta" title={meta}>
+          {meta}
+        </span>
+      ) : null}
       {caption ? <span className="tree-row__caption">{caption}</span> : null}
       {action}
     </div>

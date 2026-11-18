@@ -142,6 +142,64 @@ describe('Menu', () => {
   });
 });
 
+describe('Menu alignment', () => {
+  function openedLeft(align?: 'start' | 'end') {
+    vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(200);
+    render(
+      <Menu
+        label="Things"
+        trigger="Open"
+        align={align}
+        items={() => [{ id: 'a', label: 'Alpha', onSelect: vi.fn() }]}
+      />,
+    );
+    const trigger = screen.getByRole('button', { name: 'Things' });
+    vi.spyOn(trigger, 'getBoundingClientRect').mockReturnValue({
+      left: 300,
+      right: 400,
+      top: 10,
+      bottom: 30,
+      width: 100,
+      height: 20,
+      x: 300,
+      y: 10,
+      toJSON: () => ({}),
+    });
+    fireEvent.click(trigger);
+    return screen.getByRole('menu').style.left;
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('opens leftwards from the trigger edge by default', () => {
+    expect(openedLeft()).toBe('200px');
+  });
+
+  it('opens rightwards from the trigger edge with align start', () => {
+    expect(openedLeft('start')).toBe('300px');
+  });
+});
+
+describe('Menu anchored mode', () => {
+  it('keeps focus when the parent re-renders with an equal anchor', () => {
+    const items = () => [
+      { id: 'a', label: 'Alpha', onSelect: vi.fn() },
+      { id: 'b', label: 'Beta', onSelect: vi.fn() },
+      { id: 'c', label: 'Gamma', onSelect: vi.fn() },
+    ];
+    const { rerender } = render(<Menu anchor={{ x: 5, y: 5 }} items={items} />);
+    const entries = screen.getAllByRole('menuitem');
+    expect(document.activeElement).toBe(entries[0]);
+    act(() => entries[2]?.focus());
+    rerender(<Menu anchor={{ x: 5, y: 5 }} items={items} />);
+    expect(document.activeElement).toBe(screen.getAllByRole('menuitem')[2]);
+    rerender(<Menu anchor={{ x: 9, y: 9 }} items={items} />);
+    expect(document.activeElement).toBe(screen.getAllByRole('menuitem')[0]);
+  });
+});
+
 describe('pane menus', () => {
   it('offers every move without dragging and Close for a model tab', async () => {
     renderModel();
@@ -150,12 +208,28 @@ describe('pane menus', () => {
       'Move left',
       'Move right',
       'Move below',
+      'Maximize',
       'Float',
       'Resize with arrow keys',
       'Collapse',
       'Close',
+      'Lock layout',
       'Reset layout',
     ]);
+  });
+
+  it('offers only Maximize and Unlock once the layout is locked', async () => {
+    renderModel();
+    let menu = await openPaneMenu('Untitled model');
+    fireEvent.click(
+      within(menu).getByRole('menuitem', { name: 'Lock layout' }),
+    );
+    await waitFor(() =>
+      expect(window.localStorage.getItem('bsh.layout.locked')).toBe('true'),
+    );
+    menu = await openPaneMenu('Untitled model');
+    expect(itemNames(menu)).toEqual(['Maximize', 'Unlock layout']);
+    expect(screen.queryByRole('button', { name: /^Close / })).toBeNull();
   });
 
   it('offers Close for closable panes', async () => {
@@ -233,7 +307,7 @@ describe('panes menu in the top bar', () => {
       within(menu)
         .getAllByRole('menuitemcheckbox')
         .map((item) => item.textContent),
-    ).toEqual(['Model summary', 'Dashboard']);
+    ).toEqual(['Model summary', 'Dashboard', 'Models', 'Lock layout']);
     const dashboard = within(menu).getByRole('menuitemcheckbox', {
       name: 'Dashboard',
     });
@@ -332,5 +406,26 @@ describe('keyboard', () => {
     expect(filter).toHaveFocus();
     fireEvent.keyDown(filter, { key: 'F6' });
     expect(filter).toHaveFocus();
+  });
+});
+
+describe('active pane', () => {
+  it('marks one group active and moves it with the tab', async () => {
+    renderModel();
+    await screen.findByRole('button', { name: 'Dashboard pane options' });
+    await waitFor(() =>
+      expect(
+        document.querySelectorAll('.dv-groupview.dv-active-group'),
+      ).toHaveLength(1),
+    );
+    const tab = screen.getByRole('tab', { name: /Model summary/ });
+    fireEvent.pointerDown(tab);
+    fireEvent.mouseDown(tab);
+    fireEvent.click(tab);
+    await waitFor(() => {
+      const active = document.querySelectorAll('.dv-groupview.dv-active-group');
+      expect(active).toHaveLength(1);
+      expect(active[0]?.contains(tab)).toBe(true);
+    });
   });
 });

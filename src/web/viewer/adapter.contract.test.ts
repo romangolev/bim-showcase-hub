@@ -236,3 +236,25 @@ describe('mock exports skip hidden models', () => {
     expect(models.map((model) => model.urn)).toEqual(['urn-a']);
   });
 });
+
+describe('mock selecting and isolating', () => {
+  it('selects, isolates and restores elements', async () => {
+    await setup();
+    const [first, second] = buildMockElements();
+    const modelId = adapter.getModels()[0]?.id ?? '';
+    const items = [first, second].map((el) => ({
+      modelId,
+      dbId: el?.dbId ?? 0,
+    }));
+    adapter.selectModelIds(items);
+    expect(adapter.getModelSelection()).toHaveLength(2);
+    adapter.isolateModelIds(items);
+    expect(adapter.getIsolated()).toHaveLength(2);
+    expect(host.querySelectorAll('.bsh-mock__el--dim').length).toBe(
+      buildMockElements().length - 2,
+    );
+    adapter.isolateModelIds([]);
+    expect(adapter.getIsolated()).toEqual([]);
+    expect(host.querySelectorAll('.bsh-mock__el--dim')).toHaveLength(0);
+  });
+});
