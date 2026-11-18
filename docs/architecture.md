@@ -37,13 +37,13 @@ Upstream errors pass through `toHttpError`: 404 stays 404, 401 and 403 become 40
 
 ### Auth flow
 
-1. The client calls `/api/auth/url`. The server stores a random `state` in the session and returns the authorize URL.
-2. Autodesk redirects to `APS_CALLBACK_URL` (`/api/auth/callback`).
-3. The callback checks `state` with `timingSafeEqual`. On failure it redirects to `/?auth_error=<code>`: `invalid_state`, `access_denied`, `missing_code` or `upstream_error`.
-4. The server exchanges the code, stores the sealed tokens and the user (`{ id, name, picture }`) in the cookie and redirects to `/`. `id` is a SHA-256 hash of the Autodesk `sub`.
-5. Data routes call `getAccessToken`. It refreshes the token when under 60 seconds remain.
+1. `/api/auth/url` stores a random `state` in the session and returns the Autodesk authorize URL.
+2. Autodesk redirects to `APS_CALLBACK_URL`.
+3. The callback checks `state`. A failure redirects to `/?auth_error=<code>`: `invalid_state`, `access_denied`, `missing_code` or `upstream_error`.
+4. The server exchanges the code and stores the sealed tokens and the user (`{ id, name, picture }`) in the cookie. `id` is a SHA-256 hash of the Autodesk `sub`.
+5. Data routes call `getAccessToken`, which refreshes the token when under 60 seconds remain.
 
-A refresh that Autodesk rejects answers 401. The cookie is cleared only when the request carries `X-Auth-Retry: 1` (the client's one retry), so parallel requests cannot sign each other out. Other refresh failures answer 502.
+A refresh that Autodesk rejects answers 401. The cookie is cleared only on the client's one retry (`X-Auth-Retry: 1`), so parallel requests cannot sign each other out.
 
 ### Sessions
 
@@ -75,29 +75,23 @@ A derivative URN does not prove a model opens: the manifest can hold only a thum
 | `not-translated` | No manifest, or no derivative URN | no |
 | `unknown` | The check could not run, or the version was not checked | yes |
 
-- Listing versions checks only the newest `CHECKED_VERSIONS` (5) and waits at most `LIST_BUDGET_MS` (6 s).
+- Listing versions checks only the newest `CHECKED_VERSIONS` (5) within `LIST_BUDGET_MS` (6 s). A failed check yields `unknown`.
 - The `view-state` route checks one version on demand. Documents calls it before opening an unchecked version.
-- Results are cached in memory per access token and URN (60 s for final states, 10 s for `processing` and `unknown`).
-- The region comes from the URN (`src/shared/region.ts`). A failed check yields `unknown` and never fails the list.
-- `src/shared/viewState.ts` holds the classifier shared with the client.
-
-### Mock mode
-
-With `config.mock`, `createMockDataService()` replaces the APS service and the auth routes answer from fixtures in `src/server/mock/fixtures.ts`. The `View States` folder holds one file per state.
+- Results are cached per access token and URN for 10 to 60 seconds. The region comes from the URN (`src/shared/region.ts`).
 
 ## Client
 
 `src/web/main.tsx` renders `App` with a TanStack Query client and Router.
 
 - **Router** (`routes/router.tsx`): `/` shows the empty state, `/model/$urn` opens a model through `ModelRouteSync`. Search parameters are parsed by `parseModelContext`.
-- **Query** (`api/hooks.ts`): the `['session']` query picks the landing page or the app. Tree children are queries keyed by `scopeKey`.
+- **Query** (`src/web/api/hooks.ts`): the `['session']` query picks the landing page or the app. Tree children are queries keyed by `scopeKey`.
 - **Tree** (`components/tree/DocumentTree.tsx`): `@headless-tree/core` with `@tanstack/react-virtual`. Only versions in state `ready` or `unknown` open a model. Others show an explanation and a Check again button.
 - **Layout** (`src/web/layout`): `AppShell` loads `LayoutProvider` when signed in. Panes come from `paneRegistry.ts`. Details in [layout.md](layout.md).
 - **Viewer** (`src/web/viewer`): `ViewerPane` creates one `ViewerAdapter` per model tab and publishes it through context. `useViewer()` returns the active tab's adapter.
 
 ### Open models
 
-`api/openModels.ts` is the open-models store: open URNs with their context, the active URN and the loaded ones. It lives in `sessionStorage`, so a reload restores the tabs.
+`src/web/api/openModels.ts` is the open-models store: open URNs with their context, the active URN and the loaded ones. It lives in `sessionStorage`, so a reload restores the tabs.
 
 - A model loads when its tab is first shown.
 - Loaded tabs share a budget of `MAX_LOADED_MEMBERS` (8, `src/shared/combined.ts`). Over it, the least recently shown background tabs are paused and offer a Load button.
@@ -125,28 +119,17 @@ Summary, Dashboard and exports read property rows the same way: `useScopedRows` 
 - `viewer/sharedLeafRows.ts` keeps one cache per adapter and model. Refresh clears it.
 - The hook returns status, progress, `reload` and `cancel`.
 
-### Tasks
-
-`tasks/taskStore.ts` tracks long work shown in the Task Center. `startTask` returns a handle with `progress`, `finish`, `warn`, `fail`, `cancel` and `discard`. See [extensions.md](extensions.md#tasks).
-
 ## ViewerAdapter
 
 `viewer/ViewerAdapter.ts` is the only way panels and tools reach a viewer. It covers:
 
-- Lifecycle: `load`, `unload`, `resize`, `destroy`, `setTheme`.
-- Model sets: `loadModels`, `addModel`, `removeModel`, `getModels`, `setModelVisible`, `onModelsChange`.
-- Properties: `getLeafProperties`, `discoverProperties`, `getElementProperties`.
-- Selection and actions: `getModelSelection`, `onSelectionChange`, `selectModelIds`, `isolateModelIds`, `hideModelIds`, `showAll`, `fitToView`.
-- State: `getState`, `restoreState`, `getCamera`, `setCamera`, `getScreenshot`.
-- Paint: `setModelThemingColor`, `clearThemingColors`.
-- Toolbar: `registerToolGroup`.
-- Export sources: `getGeometryParts`, `getIfcSource`.
+Groups of methods: lifecycle (`load`, `resize`, `destroy`, `setTheme`), model sets (`loadModels`, `addModel`, `removeModel`, `getModels`), properties (`getLeafProperties`, `discoverProperties`), selection and actions (`getModelSelection`, `selectModelIds`, `isolateModelIds`, `fitToView`), state (`getState`, `restoreState`, `getScreenshot`), paint, `registerToolGroup` and export sources (`getGeometryParts`, `getIfcSource`).
 
 `createViewerAdapter` picks the implementation. The mock adapter is used only when `import.meta.env.DEV` is true and `VITE_MOCK_APS=1`, so production builds hold no mock viewer.
 
 - **RealViewerAdapter** loads the Autodesk Viewer 7.* script, initializes it once per page with a token callback that calls `/api/viewer/token`, and starts a `GuiViewer3D`. The page supports one region: the `derivativeV2_EU` API is chosen when the URN contains `emea`.
 - **MockViewerAdapter** draws a fixture building as SVG with generated property rows. A URN containing `broken`, `nogeom`, `noprops` or `far` simulates a failed load, no geometry, a failed property read and a far-away model.
-- `adapter.contract.test.ts` and `modelSet.contract.test.ts` run the same contract against both adapters.
+- `adapter.contract.test.ts` runs the same contract against both adapters.
 
 ### Model sets
 
@@ -155,20 +138,15 @@ One adapter holds several models in one scene (`viewer/modelSet.ts`). `load(urn)
 - Each model loads on its own. A failure sets `status: 'error'` and leaves the others alone.
 - Selection is a list of `{ modelId, dbId }` pairs, because dbIds repeat across models.
 - Models align by shared coordinates. The first loaded model is the anchor.
-- Models far apart can be brought together for viewing only.
 - `getLeafProperties` skips hidden models. A model whose properties fail gets `propertiesError`.
 
 ### Toolbar group
 
-The real adapter mounts tools as the Autodesk extension `BimShowcaseHub.Tools` (`viewer/autodeskTools.ts`), driven by `viewer/toolGroupController.ts`. The mock adapter uses the same controller.
+The real adapter mounts tools as the Autodesk extension `BimShowcaseHub.Tools` (`viewer/autodeskTools.ts`). The mock adapter shares `viewer/toolGroupController.ts`.
 
-### Resize and full screen
+### Resize, full screen and theme
 
-`ViewerPane` observes its host with a `ResizeObserver`. Every adapter has one scheduler (`viewer/resizeScheduler.ts`) that merges resize requests. Moving a pane moves its host element, so the adapter and its canvas are never recreated. Full screen uses the Autodesk screen mode and the browser Fullscreen API. The adapter sizes from the measured frame because Autodesk resizes too early.
-
-### Theme
-
-`ViewerPane` calls `adapter.setTheme` on creation and on every theme change. See [design-system.md](design-system.md#themes).
+Each adapter has one resize scheduler (`viewer/resizeScheduler.ts`) that merges requests from the host `ResizeObserver`, the window and full-screen events. Moving a pane moves its host element, so the adapter and canvas are never recreated. `ViewerPane` also calls `adapter.setTheme` on creation and on every theme change.
 
 ## Extension points
 
