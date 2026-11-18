@@ -249,21 +249,3 @@ export function usePersisted<T>(
   const reset = useCallback(() => update(record.initial), [update, record]);
   return [value, update, reset];
 }
-
-export function readJson<T>(key: string, fallback: T): T {
-  const text = adapter.get('local', key);
-  if (text === null) return fallback;
-  try {
-    return JSON.parse(text) as T;
-  } catch {
-    return fallback;
-  }
-}
-
-export function writeJson(key: string, value: unknown): boolean {
-  return adapter.set('local', key, JSON.stringify(value));
-}
-
-export function removeJson(key: string): void {
-  adapter.remove('local', key);
-}

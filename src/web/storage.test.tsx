@@ -7,8 +7,9 @@ import {
 } from './layout/LayoutProvider.js';
 import { defaultModel, LAYOUT_KEY } from './layout/layoutState.js';
 import { readSettings, SETTINGS_STORAGE_KEY } from './settings/settings.js';
-import { BSH_KEYS, readJson, writeJson } from './storage.js';
+import { BSH_KEYS } from './storage.js';
 import { tasks } from './tasks/taskStore.js';
+import { readJson, writeJson } from './test/storageJson.js';
 import { EXCEL_SETTINGS_KEY } from './tools/excel/excelSettings.js';
 import { IFC_SETTINGS_KEY } from './tools/ifc/ifcSettings.js';
 import './tools/index.js';

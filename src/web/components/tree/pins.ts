@@ -3,7 +3,7 @@ import {
   parseModelContext,
 } from '../../api/modelContext.js';
 import { PINNED_KEY } from '../../api/modelStore.js';
-import { usePersistedState } from '../../usePersistedState.js';
+import { defineRecord, usePersisted } from '../../storage.js';
 
 export interface Pin extends ModelContext {
   urn: string;
@@ -27,12 +27,14 @@ export function sanitizePins(raw: unknown): Pin[] {
 
 const NO_PINS: Pin[] = [];
 
+const PINS = defineRecord<Pin[]>({
+  key: PINNED_KEY,
+  initial: NO_PINS,
+  sanitize: sanitizePins,
+});
+
 export function usePins() {
-  const [pins, setPins] = usePersistedState<Pin[]>(
-    PINNED_KEY,
-    NO_PINS,
-    sanitizePins,
-  );
+  const [pins, setPins] = usePersisted(PINS);
   const toggle = (urn: string, context: ModelContext) =>
     setPins((current) =>
       current.some((pin) => pin.urn === urn)

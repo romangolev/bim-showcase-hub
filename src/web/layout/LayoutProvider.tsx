@@ -25,8 +25,12 @@ import { TreeControlContext } from '../components/TreeControl.js';
 import { useMediaQuery } from '../components/useMediaQuery.js';
 import { modelTabTitle } from '../routes/ModelPage.js';
 import { ModelRouteSync } from '../routes/ModelRouteSync.js';
-import { BSH_KEYS, FORGET_EVENT } from '../storage.js';
-import { usePersistedState } from '../usePersistedState.js';
+import {
+  BSH_KEYS,
+  defineRecord,
+  FORGET_EVENT,
+  usePersisted,
+} from '../storage.js';
 import { isMockViewer, ViewerProvider } from '../viewer/index.js';
 import {
   forgetInstanceSetting,
@@ -94,6 +98,18 @@ export const STACKED_MAX_WIDTH = 875;
 export const STACKED_QUERY = `(max-width: ${STACKED_MAX_WIDTH}px)`;
 export const LAYOUT_WRITE_DELAY_MS = 300;
 export const LOCK_KEY = BSH_KEYS.preference.layoutLocked;
+
+const LOCKED = defineRecord<boolean>({
+  key: LOCK_KEY,
+  initial: false,
+  sanitize: (raw) => raw === true,
+});
+
+const USER_INSTANCES = defineRecord<UserInstances>({
+  key: BSH_KEYS.personal.layoutInstances,
+  initial: {},
+  sanitize: sanitizeUserInstances,
+});
 export const RESIZE_STEP = 16;
 export const RESIZE_STEP_FAST = 64;
 
@@ -223,11 +239,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
   );
   const stacked = useMediaQuery(STACKED_QUERY);
   const mode: LayoutMode = stacked ? 'stacked' : 'dock';
-  const [userState, setUserState] = usePersistedState<UserInstances>(
-    BSH_KEYS.personal.layoutInstances,
-    {},
-    sanitizeUserInstances,
-  );
+  const [userState, setUserState] = usePersisted(USER_INSTANCES);
   const instances = useMemo(
     () => [
       ...models.models.map(({ urn }) => modelPanelId(urn)),
@@ -414,11 +426,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
     [setUserState],
   );
 
-  const [locked, setLockedState] = usePersistedState<boolean>(
-    LOCK_KEY,
-    false,
-    (raw) => raw === true,
-  );
+  const [locked, setLockedState] = usePersisted(LOCKED);
   const lockedRef = useRef(locked);
   lockedRef.current = locked;
   const [maximized, setMaximized] = useState<PanelId | null>(null);

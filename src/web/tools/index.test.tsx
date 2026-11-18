@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { BSH_KEYS, forgetPersonal, readJson, writeJson } from '../storage.js';
+import { BSH_KEYS, forgetPersonal } from '../storage.js';
 import { installMemoryStorage } from '../test/mockApi.js';
+import { readJson, writeJson } from '../test/storageJson.js';
 import { buildToolGroup } from '../test/toolGroup.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { EXCEL_SETTINGS_KEY } from './excel/excelSettings.js';

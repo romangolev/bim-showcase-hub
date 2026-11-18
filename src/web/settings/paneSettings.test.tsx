@@ -1,7 +1,8 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { FORGET_EVENT, readJson, writeJson } from '../storage.js';
+import { FORGET_EVENT } from '../storage.js';
 import { installMemoryStorage } from '../test/mockApi.js';
+import { readJson, writeJson } from '../test/storageJson.js';
 import { PANE_SETTINGS, usePaneSetting } from './paneSettings.js';
 
 beforeEach(() => {

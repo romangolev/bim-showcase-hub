@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { instanceSettingKey } from './layout/instanceSettings.js';
 import {
   BSH_KEYS,
@@ -125,6 +125,30 @@ describe('records', () => {
       window.dispatchEvent(new StorageEvent('storage', { key: 'test.count' }));
     });
     expect(a.result.current[0]).toBe(9);
+  });
+
+  it('syncs hooks even when storage rejects the write', async () => {
+    adapter.set = () => false;
+    const a = renderHook(() => usePersisted(count));
+    const b = renderHook(() => usePersisted(count));
+    await act(async () => {
+      a.result.current[1](5);
+      await Promise.resolve();
+    });
+    expect(a.result.current[0]).toBe(5);
+    expect(b.result.current[0]).toBe(5);
+  });
+
+  it('applies consecutive functional updates exactly once each', () => {
+    const view = renderHook(() => usePersisted(count));
+    const updater = vi.fn((n: number) => n + 1);
+    act(() => {
+      view.result.current[1](updater);
+      view.result.current[1](updater);
+    });
+    expect(view.result.current[0]).toBe(3);
+    expect(updater).toHaveBeenCalledTimes(2);
+    expect(adapter.get('local', 'test.count')).toBe('3');
   });
 
   it('rejects a family outside the registered prefixes', () => {

@@ -1,9 +1,10 @@
 import { fireEvent, render, renderHook, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { isRecord } from '../../../shared/guards.js';
-import { defineRecord, readJson, writeJson } from '../../storage.js';
+import { defineRecord } from '../../storage.js';
 import { createTaskStore } from '../../tasks/taskStore.js';
 import { installMemoryStorage } from '../../test/mockApi.js';
+import { readJson, writeJson } from '../../test/storageJson.js';
 import type { ViewerAdapter } from '../../viewer/ViewerAdapter.js';
 import { exportEntry, runOnce, statusReporter } from './exportKit.js';
 import { migrateLegacySettings } from './migrateLegacy.js';
