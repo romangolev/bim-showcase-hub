@@ -877,3 +877,71 @@
 .bsh-summary__progress progress {
   flex: 1 1 8rem;
 }
+
+.bsh-gallery__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-2);
+  margin: 0 0 var(--gutter);
+  padding: 0;
+  list-style: none;
+}
+
+.bsh-gallery__card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px solid var(--color-ghost-fill-hover);
+  border-radius: 8px;
+}
+
+.bsh-gallery__name {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.bsh-gallery__tag,
+.bsh-gallery__note {
+  margin: 0;
+  font-size: 0.8125rem;
+  opacity: 0.75;
+}
+
+.bsh-gallery__preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.75rem;
+}
+
+.bsh-gallery__preview li {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.bsh-gallery__preview svg {
+  fill: var(--color-iris);
+  stroke: var(--color-iris);
+}
+
+.bsh-gallery__preview svg rect {
+  stroke: none;
+}
+
+.bsh-gallery__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: auto;
+}
+
+.bsh-gallery__primary {
+  border-color: var(--color-iris);
+  background: var(--color-iris);
+  color: var(--color-on-accent);
+}

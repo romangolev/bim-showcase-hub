@@ -50,6 +50,11 @@ export function presetCharts(
   return availableProperties(rows, preset.properties);
 }
 
+export function viewProperties(view: DashboardView): readonly string[] {
+  const preset = DASHBOARD_PRESETS.find((p) => p.id === view.preset);
+  return preset ? preset.properties : [view.property];
+}
+
 export const CHART_KINDS = ['bar', 'doughnut', 'both'] as const;
 export type DashboardKind = (typeof CHART_KINDS)[number];
 export const KIND_LABELS: Record<DashboardKind, string> = {
