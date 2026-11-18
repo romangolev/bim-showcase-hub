@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BSH_KEYS, FORGET_EVENT, readJson, writeJson } from '../storage.js';
+import { BSH_KEYS, FORGET_EVENT, readJson, writeJson } from './storage.js';
 
 const SYNC_EVENT = 'bsh:persisted-state';
 

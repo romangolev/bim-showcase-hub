@@ -19,7 +19,7 @@ import {
 } from '../extensions/elementActions.js';
 import type { ModalDefinition } from '../modal/types.js';
 import { BSH_KEYS } from '../storage.js';
-import { usePersistedState } from './usePersistedState.js';
+import { usePersistedState } from '../usePersistedState.js';
 
 export const DASHBOARD_SETTINGS_ID = 'dashboard-settings';
 

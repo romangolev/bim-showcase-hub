@@ -29,7 +29,7 @@ import {
   ROOT_SCOPE,
   scopeKey,
 } from '../../api/scope.js';
-import { usePersistedState } from '../../panels/usePersistedState.js';
+import { usePersistedState } from '../../usePersistedState.js';
 import { MODEL_LIMIT_MESSAGE } from '../../viewer/modelSet.js';
 import { Icon } from '../icons.js';
 import { Menu, type MenuEntry } from '../Menu.js';

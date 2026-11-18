@@ -22,6 +22,7 @@ import {
   viewEntries,
 } from '../extensions/modelSummary.js';
 import { BSH_KEYS } from '../storage.js';
+import { usePersistedState } from '../usePersistedState.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import {
   ModelScopeSelect,
@@ -29,7 +30,6 @@ import {
   useModelScope,
 } from './ModelScope.js';
 import { entryKey, SummaryTable } from './SummaryTable.js';
-import { usePersistedState } from './usePersistedState.js';
 import {
   HIDDEN_MESSAGE,
   HIDDEN_TITLE,

@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { installMemoryStorage } from '../test/mockApi.js';
+import { installMemoryStorage } from './test/mockApi.js';
 import { usePersistedState } from './usePersistedState.js';
 
 const sanitize = (raw: unknown) => (typeof raw === 'number' ? raw : 0);

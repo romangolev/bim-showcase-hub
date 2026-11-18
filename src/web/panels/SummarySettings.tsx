@@ -14,7 +14,7 @@ import {
 } from '../extensions/modelSummary.js';
 import type { ModalDefinition } from '../modal/types.js';
 import { BSH_KEYS } from '../storage.js';
-import { usePersistedState } from './usePersistedState.js';
+import { usePersistedState } from '../usePersistedState.js';
 
 export const SUMMARY_SETTINGS_ID = 'summary-settings';
 

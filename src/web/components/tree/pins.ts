@@ -3,7 +3,7 @@ import {
   parseModelContext,
 } from '../../api/modelContext.js';
 import { PINNED_KEY } from '../../api/modelStore.js';
-import { usePersistedState } from '../../panels/usePersistedState.js';
+import { usePersistedState } from '../../usePersistedState.js';
 
 export interface Pin extends ModelContext {
   urn: string;
