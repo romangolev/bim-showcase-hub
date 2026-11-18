@@ -9,7 +9,6 @@ import {
 import { saveBlob } from '../extensions/excelExport.js';
 import { applyNamePattern, toDelimited } from '../extensions/exportFormats.js';
 import {
-  DEFAULT_SUMMARY_PROPERTIES,
   emptyShares,
   type SummaryEntry,
   type SummaryView,
@@ -57,7 +56,7 @@ export const STACKED_ROW_LIMIT = 12;
 export function ModelSummaryPanel({
   adapter,
   model,
-  propertyNames = DEFAULT_SUMMARY_PROPERTIES,
+  propertyNames: propertyNamesOverride,
   title = 'Model summary',
   className,
   collapsed,
@@ -71,6 +70,8 @@ export function ModelSummaryPanel({
   const isCollapsed = collapsed ?? innerCollapsed;
   const [showAll, setShowAll] = useState(false);
   const resolved = useResolvedAdapter(adapter);
+  const [savedProperties] = usePaneSetting(PANE_SETTINGS.summary.properties);
+  const propertyNames = propertyNamesOverride ?? savedProperties;
   const state = usePropertyRows(resolved, propertyNames);
   const scope = useModelScope(resolved, state.rows);
   const entries = useMemo(

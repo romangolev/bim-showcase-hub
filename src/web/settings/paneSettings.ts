@@ -13,8 +13,10 @@ import {
   sanitizeAction,
 } from '../extensions/elementActions.js';
 import {
+  DEFAULT_SUMMARY_PROPERTIES,
   DEFAULT_SUMMARY_VIEW,
   type SummaryView,
+  sanitizeProperties,
   sanitizeView,
 } from '../extensions/modelSummary.js';
 import { BSH_KEYS } from '../storage.js';
@@ -23,6 +25,8 @@ import {
   persistedSetting,
   usePersistedSetting,
 } from '../tools/kernel/persistedSetting.js';
+import type { ElementScope } from '../viewer/propertyScope.js';
+import { sanitizeElementScope } from '../viewer/propertyScope.js';
 
 export type PaneSetting<T> = PersistedSetting<T>;
 
@@ -34,6 +38,16 @@ export const PANE_SETTINGS = {
       BSH_KEYS.personal.summaryView,
       DEFAULT_SUMMARY_VIEW,
       sanitizeView,
+    ),
+    properties: setting<readonly string[]>(
+      BSH_KEYS.personal.summaryProperties,
+      DEFAULT_SUMMARY_PROPERTIES,
+      sanitizeProperties,
+    ),
+    scope: setting<ElementScope>(
+      BSH_KEYS.personal.summaryScope,
+      'all',
+      sanitizeElementScope,
     ),
     action: setting<ElementAction>(
       BSH_KEYS.personal.summaryAction,
