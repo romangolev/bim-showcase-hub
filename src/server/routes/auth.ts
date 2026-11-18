@@ -122,9 +122,18 @@ export function authRouter(
     res.redirect('/');
   });
 
-  router.post('/auth/signout', (req, res) => {
+  router.post('/auth/signout', async (req, res) => {
     if (!config.mock && req.session) {
-      clearAuth(sessionOf(req));
+      const session = sessionOf(req);
+      const refreshToken = codec.open(session.aps)?.refreshToken;
+      clearAuth(session);
+      if (refreshToken) {
+        try {
+          await auth.revoke(refreshToken);
+        } catch {
+          console.error('token revoke failed on sign-out');
+        }
+      }
     }
     req.session = null;
     res.status(204).end();
