@@ -2,8 +2,7 @@ import { flag } from '../../shared/guards.js';
 import {
   DEFAULT_EXCEL_SETTINGS,
   type ExcelSettings,
-  type ExportFormat,
-  type ExportScope,
+  readExcelSettings,
 } from '../extensions/exportFormats.js';
 import {
   DEFAULT_PAINT_INTENSITY,
@@ -54,6 +53,8 @@ export const DEFAULT_SETTINGS: Settings = {
   ifc: DEFAULT_IFC_SETTINGS,
   excel: DEFAULT_EXCEL_SETTINGS,
 };
+
+export { readExcelSettings };
 
 export const SETTINGS_STORAGE_KEY = BSH_KEYS.preference.settings;
 
@@ -116,35 +117,6 @@ export function readIfcSettings(value: unknown): IfcSettings {
     author: text(source.author, d.author),
     organisation: text(source.organisation, d.organisation),
     lengthUnit: source.lengthUnit === 'mm' ? 'mm' : 'm',
-  };
-}
-
-export function readExcelSettings(value: unknown): ExcelSettings {
-  const source =
-    typeof value === 'object' && value !== null
-      ? (value as Record<string, unknown>)
-      : {};
-  const d = DEFAULT_EXCEL_SETTINGS;
-  const format = (['xlsx', 'csv', 'json', 'copy'] as ExportFormat[]).find(
-    (item) => item === source.format,
-  );
-  const scope = (
-    ['all', 'selected', 'isolated', 'visible'] as ExportScope[]
-  ).find((item) => item === source.scope);
-  return {
-    format: format ?? d.format,
-    scope: scope ?? d.scope,
-    modelScope: required(source.modelScope, d.modelScope),
-    metadata: flag(source.metadata, d.metadata),
-    namePattern: required(source.namePattern, d.namePattern),
-    csvDelimiter:
-      ([',', ';', '\t'] as const).find(
-        (item) => item === source.csvDelimiter,
-      ) ?? d.csvDelimiter,
-    decimalMark: source.decimalMark === ',' ? ',' : d.decimalMark,
-    includeHeader: flag(source.includeHeader, d.includeHeader),
-    exporterName: flag(source.exporterName, d.exporterName),
-    summarySheet: flag(source.summarySheet, d.summarySheet),
   };
 }
 

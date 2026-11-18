@@ -1,4 +1,5 @@
 import type { IfcSettings } from '../ifc/types.js';
+import { excelFileNameFrom } from '../tools/excel/ExcelExportTool.js';
 import {
   confirmLargeExport as confirmAbove,
   exportFileName,
@@ -45,7 +46,7 @@ import {
   resetPaint,
 } from './paintBrushes.js';
 
-export { TOOL_GROUP_ID, TOOL_GROUP_TITLE };
+export { excelFileNameFrom, TOOL_GROUP_ID, TOOL_GROUP_TITLE };
 export const PAINT_TOOLTIP = 'Paint selection';
 export const PAINT_SELECT_HINT = 'Select elements to paint';
 export const PAINT_RESET_HINT = 'Nothing painted yet';
@@ -78,20 +79,6 @@ export interface ViewerToolsOptions {
   excelSettings?: () => ExcelSettings;
   key?: string;
   fileName?: () => string;
-}
-
-export function excelFileNameFrom(
-  fileName: string | undefined,
-  settings: ExcelSettings,
-): string {
-  const model = exportFileName(fileName, '', '', 'x').slice(0, -2) || 'model';
-  const extension = settings.format === 'copy' ? 'xlsx' : settings.format;
-  const pattern =
-    settings.namePattern.trim() === DEFAULT_NAME_PATTERN &&
-    /-properties(-|$)/i.test(model)
-      ? '{model}'
-      : settings.namePattern;
-  return applyNamePattern(pattern, model, extension);
 }
 
 export function confirmLargeExport(rowCount: number): boolean {
