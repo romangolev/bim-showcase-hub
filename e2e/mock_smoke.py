@@ -624,6 +624,47 @@ def open_tool_settings(page, title):
     settle(page, 300)
 
 
+def check_saved_items(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    open_settings(page)
+    main = page.get_by_role("dialog", name="Settings", exact=True)
+    checks.add("main settings has a saved items section", main.get_by_role("button", name="Export saved items").count() == 1)
+    checks.add("saved items section holds no tool switch", main.get_by_role("switch", name="Paint brushes").count() == 0)
+    with page.expect_download(timeout=8000) as info:
+        main.get_by_role("button", name="Export saved items").click()
+    target = OUTPUT_DIR / "bsh-saved.json"
+    info.value.save_as(str(target))
+    checks.add("saved items export is bsh-saved JSON", '"format": "bsh-saved"' in target.read_text(), info.value.suggested_filename)
+    bad = OUTPUT_DIR / "bad-saved.json"
+    bad.write_text('{"format":"bsh-saved","version":99,"items":[]}')
+    main.get_by_label("Saved items file").set_input_files(str(bad))
+    settle(page, 300)
+    checks.add("a newer-version file shows an error", "newer version" in main.get_by_role("alert").inner_text())
+    good = OUTPUT_DIR / "good-saved.json"
+    good.write_text('{"format":"bsh-saved","version":1,"items":[{"id":"smoke","kind":"dashboard-preset","name":"Smoke preset","data":{"kind":"bar"}}]}')
+    main.get_by_label("Saved items file").set_input_files(str(good))
+    settle(page, 300)
+    checks.add("a valid file imports", "Imported 1 item" in main.get_by_role("status").inner_text(), main.get_by_role("status").inner_text())
+    main.get_by_role("button", name="Dashboard settings").click()
+    settle(page, 300)
+    dialog = page.get_by_role("dialog", name="Dashboard settings")
+    checks.add("an imported preset appears in the dashboard window", dialog.get_by_role("button", name="Apply Smoke preset").count() == 1)
+    dialog.get_by_label("Preset name").fill("Smoke saved")
+    dialog.get_by_role("button", name="Save current board").click()
+    dialog.get_by_role("button", name="Apply Smoke preset").click()
+    settle(page, 200)
+    checks.add("applying a user preset sets the chart type", dialog.get_by_label("Chart type").input_value() == "bar")
+    dialog.get_by_label("Rename Smoke saved").fill("Smoke renamed")
+    dialog.get_by_label("Rename Smoke saved").press("Enter")
+    settle(page, 200)
+    checks.add("a user preset can be renamed", dialog.get_by_role("button", name="Delete Smoke renamed").count() == 1)
+    dialog.get_by_role("button", name="Delete Smoke renamed").click()
+    dialog.get_by_role("button", name="Delete Smoke preset").click()
+    checks.add("user presets can be deleted", dialog.get_by_text("No saved presets yet.").count() == 1)
+    page.keyboard.press("Escape")
+    settle(page, 300)
+
+
 def check_paint_palette(page, checks):
     page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
     settle(page)
@@ -1624,7 +1665,7 @@ def run_interaction_checks(page, checks, notes):
     except Exception as exc:
         page.screenshot(path=str(OUTPUT_DIR / "mock-layout-failure.png"))
         checks.add("check_layout", False, f"{type(exc).__name__}: {str(exc)[:160]}")
-    for check in (check_lock_maximize, check_active_pane, check_session_banner, check_paint_palette, check_recents, check_strip, check_tree_metadata, check_theme, check_summary_rail, check_summary_tools, check_dashboard_tools, check_tree_resize):
+    for check in (check_lock_maximize, check_active_pane, check_session_banner, check_saved_items, check_paint_palette, check_recents, check_strip, check_tree_metadata, check_theme, check_summary_rail, check_summary_tools, check_dashboard_tools, check_tree_resize):
         try:
             check(page, checks)
         except Exception as exc:
