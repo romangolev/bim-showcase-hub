@@ -100,6 +100,18 @@ describe('saved store', () => {
     expect(names).toEqual({ a: 'Stored', b: 'Newer' });
   });
 
+  it('fails cleanly on data nested too deep to sanitize', () => {
+    const depth = 20_000;
+    const nested = `${'{"a":'.repeat(depth)}1${'}'.repeat(depth)}`;
+    const text = `{"format":"bsh-saved","version":1,"items":[{"id":"d","kind":"viewpoint","name":"D","data":${nested}}]}`;
+    expect(text.length).toBeLessThan(MAX_IMPORT_BYTES);
+    expect(importSaved(text)).toMatchObject({
+      accepted: 0,
+      error: 'Not a saved-items file.',
+    });
+    expect(readSaved()).toEqual([]);
+  });
+
   it('strips prototype pollution keys', () => {
     const text =
       '{"format":"bsh-saved","version":1,"items":[{"id":"p","kind":"viewpoint","name":"P","data":{"__proto__":{"polluted":true},"ok":{"constructor":1,"y":2}}}]}';

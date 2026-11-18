@@ -138,7 +138,12 @@ export function importSaved(text: string): ImportResult {
   if (typeof parsed.version !== 'number' || parsed.version > SAVED_VERSION) {
     return fail('This file was saved by a newer version of the app.');
   }
-  const incoming = sanitizeItems(parsed.items);
+  let incoming: SavedItem[];
+  try {
+    incoming = sanitizeItems(parsed.items);
+  } catch {
+    return fail('Not a saved-items file.');
+  }
   const byId = new Map(current.map((item) => [item.id, item]));
   let accepted = 0;
   let older = 0;

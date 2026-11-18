@@ -103,4 +103,18 @@ describe('SavedItemsSettings', () => {
       ),
     );
   });
+
+  it('shows the failure for a file nested too deep', async () => {
+    render(<SavedItemsSettings />);
+    const depth = 20_000;
+    const nested = `${'{"a":'.repeat(depth)}1${'}'.repeat(depth)}`;
+    pick(
+      `{"format":"bsh-saved","version":1,"items":[{"id":"d","kind":"viewpoint","name":"D","data":${nested}}]}`,
+    );
+    await waitFor(() =>
+      expect(screen.getByRole('alert').textContent).toBe(
+        'Not a saved-items file.',
+      ),
+    );
+  });
 });
