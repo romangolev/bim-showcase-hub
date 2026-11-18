@@ -5,6 +5,7 @@ import {
   exportSaved,
   importSaved,
   MAX_IMPORT_BYTES,
+  MAX_ITEMS,
   readSaved,
   removeSaved,
   type SavedItem,
@@ -68,6 +69,35 @@ describe('saved store', () => {
       items: [item('ok'), { id: 'bad' }, item('ok')],
     });
     expect(importSaved(mixed)).toMatchObject({ accepted: 1, rejected: 2 });
+  });
+
+  it('reports what the cap dropped instead of claiming it accepted', () => {
+    for (let i = 0; i < MAX_ITEMS - 10; i++) upsertSaved(item(`s${i}`));
+    const text = JSON.stringify({
+      format: 'bsh-saved',
+      version: 1,
+      items: Array.from({ length: 50 }, (_, i) => item(`n${i}`)),
+    });
+    const result = importSaved(text);
+    expect(result).toMatchObject({ accepted: 10, dropped: 40, older: 0 });
+    expect(result.items).toHaveLength(MAX_ITEMS);
+    expect(readSaved()).toHaveLength(MAX_ITEMS);
+  });
+
+  it('keeps the newer item when ids collide', () => {
+    upsertSaved(item('a', { name: 'Stored', updatedAt: 10 }));
+    upsertSaved(item('b', { name: 'Stored B', updatedAt: 1 }));
+    const text = JSON.stringify({
+      format: 'bsh-saved',
+      version: 1,
+      items: [
+        item('a', { name: 'Older', updatedAt: 5 }),
+        item('b', { name: 'Newer', updatedAt: 9 }),
+      ],
+    });
+    expect(importSaved(text)).toMatchObject({ accepted: 1, older: 1 });
+    const names = Object.fromEntries(readSaved().map((i) => [i.id, i.name]));
+    expect(names).toEqual({ a: 'Stored', b: 'Newer' });
   });
 
   it('strips prototype pollution keys', () => {

@@ -25,6 +25,8 @@ export interface ImportResult {
   items: SavedItem[];
   accepted: number;
   rejected: number;
+  older: number;
+  dropped: number;
   error?: string;
 }
 
@@ -115,6 +117,8 @@ export function importSaved(text: string): ImportResult {
     items: current,
     accepted: 0,
     rejected: 0,
+    older: 0,
+    dropped: 0,
     error,
   });
   if (text.length > MAX_IMPORT_BYTES) return fail('File is too large.');
@@ -136,12 +140,25 @@ export function importSaved(text: string): ImportResult {
   }
   const incoming = sanitizeItems(parsed.items);
   const byId = new Map(current.map((item) => [item.id, item]));
-  for (const item of incoming) byId.set(item.id, item);
-  const merged = [...byId.values()].slice(0, MAX_ITEMS);
+  let accepted = 0;
+  let older = 0;
+  let dropped = 0;
+  for (const item of incoming) {
+    const existing = byId.get(item.id);
+    if (existing && existing.updatedAt > item.updatedAt) older += 1;
+    else if (!existing && byId.size >= MAX_ITEMS) dropped += 1;
+    else {
+      byId.set(item.id, item);
+      accepted += 1;
+    }
+  }
+  const merged = [...byId.values()];
   if (!persist(merged)) return fail('Could not save to this browser.');
   return {
     items: merged,
-    accepted: incoming.length,
+    accepted,
     rejected: parsed.items.length - incoming.length,
+    older,
+    dropped,
   };
 }

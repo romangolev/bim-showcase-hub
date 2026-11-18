@@ -4,6 +4,7 @@ import {
   exportSaved,
   importSaved,
   MAX_IMPORT_BYTES,
+  MAX_ITEMS,
   readSaved,
 } from '../store/savedStore.js';
 
@@ -57,8 +58,14 @@ export function SavedItemsSettings() {
     const skipped = result.rejected
       ? `, skipped ${plural(result.rejected, 'invalid item')}`
       : '';
+    const older = result.older
+      ? `, kept ${plural(result.older, 'newer stored item')}`
+      : '';
+    const dropped = result.dropped
+      ? `, dropped ${plural(result.dropped, 'item')} over the limit of ${MAX_ITEMS}`
+      : '';
     setNotice({
-      text: `Imported ${plural(result.accepted, 'item')}${skipped}.`,
+      text: `Imported ${plural(result.accepted, 'item')}${skipped}${older}${dropped}.`,
       error: false,
     });
   };

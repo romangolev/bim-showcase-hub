@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   exportSaved,
   MAX_IMPORT_BYTES,
+  MAX_ITEMS,
   readSaved,
   type SavedItem,
   upsertSaved,
@@ -82,6 +83,24 @@ describe('SavedItemsSettings', () => {
     pick('x'.repeat(MAX_IMPORT_BYTES + 1));
     await waitFor(() =>
       expect(screen.getByRole('alert').textContent).toBe('File is too large.'),
+    );
+  });
+
+  it('reports items dropped for the cap and stored items kept', async () => {
+    for (let i = 0; i < MAX_ITEMS - 1; i++) upsertSaved(item(`s${i}`));
+    upsertSaved({ ...item('keep'), updatedAt: 9 });
+    render(<SavedItemsSettings />);
+    pick(
+      JSON.stringify({
+        format: 'bsh-saved',
+        version: 1,
+        items: [item('keep'), item('x1'), item('x2')],
+      }),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole('status').textContent).toBe(
+        `Imported 0 items, kept 1 newer stored item, dropped 2 items over the limit of ${MAX_ITEMS}.`,
+      ),
     );
   });
 });
