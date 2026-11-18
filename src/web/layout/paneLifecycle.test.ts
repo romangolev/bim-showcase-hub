@@ -259,6 +259,35 @@ describe('paneLifecycle panes, lock and present', () => {
     expect(dock.toggleMaximize).not.toHaveBeenCalled();
   });
 
+  it('leaves a maximized viewer instance alone while presenting', () => {
+    const { lifecycle, dock } = setup();
+    lifecycle.maximizedChanged('viewer:urn-a' as PanelId);
+    lifecycle.setPresenting(true);
+    lifecycle.setPresenting(false);
+    expect(dock.toggleMaximize).not.toHaveBeenCalled();
+  });
+
+  it('maximizes the previously maximized pane again after presenting', () => {
+    const { lifecycle, dock } = setup();
+    lifecycle.maximizedChanged('summary');
+    lifecycle.setPresenting(true);
+    expect(dock.toggleMaximize).toHaveBeenLastCalledWith('viewer');
+    lifecycle.maximizedChanged('viewer');
+    lifecycle.setPresenting(false);
+    expect(vi.mocked(dock.toggleMaximize).mock.calls).toEqual([
+      ['viewer'],
+      ['viewer'],
+      ['summary'],
+    ]);
+  });
+
+  it('presents without a dock', () => {
+    const { lifecycle } = setup({ withDock: false });
+    lifecycle.setPresenting(true);
+    lifecycle.setPresenting(false);
+    expect(lifecycle.getState().presenting).toBe(false);
+  });
+
   it('runs a resize session', () => {
     const { lifecycle, dock } = setup();
     lifecycle.startResize('viewer');

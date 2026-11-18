@@ -184,7 +184,7 @@ export function createPaneLifecycle(deps: LifecycleDeps): PaneLifecycle {
   };
   const listeners = new Set<() => void>();
   let floatPending: string | null = null;
-  let presentMaximized = false;
+  let presentRestore: { previous: PanelId | null } | null = null;
   const shown = new Set<string>();
   let cached: {
     state: LifecycleState;
@@ -243,13 +243,17 @@ export function createPaneLifecycle(deps: LifecycleDeps): PaneLifecycle {
 
   const setPresenting = (next: boolean) => {
     if (next === state.presenting) return;
+    const dock = deps.dock();
     if (next) {
-      presentMaximized =
-        state.maximized !== 'viewer' &&
-        (deps.dock()?.toggleMaximize('viewer') ?? false);
-    } else if (presentMaximized) {
-      deps.dock()?.toggleMaximize('viewer');
-      presentMaximized = false;
+      const before = state.maximized;
+      const viewerFirst = before !== null && paneKind(before) === 'viewer';
+      const caused = !viewerFirst && (dock?.toggleMaximize('viewer') ?? false);
+      presentRestore = caused ? { previous: before } : null;
+    } else if (presentRestore) {
+      const { previous } = presentRestore;
+      presentRestore = null;
+      dock?.toggleMaximize('viewer');
+      if (previous) dock?.toggleMaximize(previous);
     }
     set({ presenting: next });
     announce(next ? 'Presentation mode on' : 'Presentation mode off');
