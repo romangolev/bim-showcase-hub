@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { act, fireEvent, render, screen, waitFor } from '../test/render.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
+import { DashboardPanel } from './DashboardPanel.js';
 import { ModelSummaryPanel } from './ModelSummaryPanel.js';
 
 const adapters: MockViewerAdapter[] = [];
@@ -63,5 +64,28 @@ describe('summary element scope', () => {
     expect(window.localStorage.getItem('bsh.summary.scope.v1')).toBe(
       '"selected"',
     );
+  });
+});
+
+describe('dashboard element scope', () => {
+  it('charts only the selected elements', async () => {
+    const adapter = await loaded();
+    render(<DashboardPanel adapter={adapter} />);
+    await screen.findByRole('img', {
+      name: 'Bar chart of element counts by Category',
+    });
+    const first = (await adapter.getVisible()).slice(0, 2);
+    act(() => adapter.selectModelIds(first));
+    fireEvent.change(screen.getByLabelText('Chart elements'), {
+      target: { value: 'selected' },
+    });
+    await waitFor(() => {
+      const total = [...document.querySelectorAll('table td')]
+        .map((td) => Number(td.textContent))
+        .filter((n) => Number.isInteger(n) && n > 0)
+        .reduce((a, b) => a + b, 0);
+      expect(total).toBeGreaterThan(0);
+      expect(total).toBeLessThanOrEqual(4);
+    });
   });
 });

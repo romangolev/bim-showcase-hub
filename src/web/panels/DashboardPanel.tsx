@@ -31,6 +31,7 @@ import { ALL_MODELS } from '../viewer/modelScope.js';
 import type { ModelDbId } from '../viewer/modelSet.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { ChartCanvas } from './ChartCanvas.js';
+import { ElementScopeSelect } from './ElementScope.js';
 import {
   FailedModels,
   ModelScopeSelect,
@@ -85,6 +86,7 @@ export function DashboardPanel({
   );
   const state = useScopedRows(resolved, {
     names: readNames,
+    elements: view.elements ?? 'all',
     ...(setting
       ? {
           models: {
@@ -199,6 +201,15 @@ export function DashboardPanel({
         ) : null}
         {!isCollapsed ? (
           <ModelScopeSelect state={state.models} label="Chart models" />
+        ) : null}
+        {!isCollapsed ? (
+          <ElementScopeSelect
+            value={view.elements ?? 'all'}
+            onChange={(next) =>
+              setView((prev) => ({ ...prev, elements: next }))
+            }
+            label="Chart elements"
+          />
         ) : null}
         {setting && !isCollapsed && !activePreset && options.length > 1 ? (
           <select

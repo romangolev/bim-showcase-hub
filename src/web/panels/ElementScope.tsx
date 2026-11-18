@@ -11,15 +11,17 @@ export const ELEMENT_SCOPE_LABELS: Record<ElementScope, string> = {
 export function ElementScopeSelect({
   value,
   onChange,
+  label = 'Summarize elements',
 }: {
   value: ElementScope;
   onChange: (next: ElementScope) => void;
+  label?: string;
 }) {
   const id = useId();
   return (
     <div className="bsh-field bsh-scope">
       <label htmlFor={id} className="bsh-sr-only">
-        Summarize elements
+        {label}
       </label>
       <select
         id={id}
