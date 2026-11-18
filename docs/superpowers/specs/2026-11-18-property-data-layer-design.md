@@ -70,7 +70,7 @@ readProperties(adapter, { names, scope?, signal?, onProgress? }): Promise<Proper
 
 ### Picker data (`src/web/viewer/propertyCatalog.ts`)
 
-`readPropertyCatalog(adapter, options)` merges discovery across visible models (distinct by name and category, with the models that have it). `groupCatalog(catalog, query)` returns `{ category, properties }[]`, filtered case-insensitively on name or category, categories and names sorted. A hook `usePropertyCatalog(adapter)` returns `{ status, catalog, reload }`.
+`discoverLeafProperties(adapter, { signal })` merges cached discovery across visible models (distinct by name and category). A waiter's abort rejects that waiter only; the shared discovery call is not cancelled. `groupCatalog(catalog, query)` returns `{ category, properties }[]`, filtered case-insensitively on name or category, categories and names sorted. A hook `usePropertyCatalog(adapter)` returns `{ status, catalog, reload }`.
 
 ## Consumer migration
 
