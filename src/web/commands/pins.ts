@@ -1,6 +1,6 @@
-import { defineRecord } from '../storage.js';
+import { BSH_KEYS, defineRecord } from '../storage.js';
 
-export const PINS_KEY = 'bsh.commands.pinned.v1';
+export const PINS_KEY = BSH_KEYS.preference.commandPins;
 export const PIN_LIMIT = 8;
 
 const PINS = defineRecord<string[]>({
