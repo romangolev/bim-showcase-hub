@@ -456,7 +456,10 @@ export class MockViewerAdapter implements ViewerAdapter {
     return this.models.handle(modelId)?.nodes.size ?? null;
   }
 
-  async getScreenshot(): Promise<Blob> {
+  async getScreenshot(
+    targetWidth?: number,
+    targetHeight?: number,
+  ): Promise<Blob> {
     const svg = this.svg;
     if (!svg) throw new Error('The viewer cannot take a snapshot');
     const { width, height } = svg.getBoundingClientRect();
@@ -475,8 +478,8 @@ export class MockViewerAdapter implements ViewerAdapter {
     )}`;
     await loaded;
     const canvas = document.createElement('canvas');
-    canvas.width = Math.max(1, Math.round(width));
-    canvas.height = Math.max(1, Math.round(height));
+    canvas.width = Math.max(1, Math.round(targetWidth ?? width));
+    canvas.height = Math.max(1, Math.round(targetHeight ?? height));
     const context = canvas.getContext('2d');
     if (!context) throw new Error('The snapshot could not be drawn');
     context.fillStyle = '#0b0b0c';

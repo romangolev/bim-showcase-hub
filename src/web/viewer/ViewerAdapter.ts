@@ -105,7 +105,7 @@ export interface ViewerAdapter {
   fitToView(items?: readonly ModelDbId[]): void;
   getState(): ViewerState;
   restoreState(state: ViewerState): Promise<void>;
-  getScreenshot(): Promise<Blob>;
+  getScreenshot(width?: number, height?: number): Promise<Blob>;
   getCamera(): CameraState | null;
   setCamera(camera: CameraState): void;
   setModelThemingColor(items: readonly ModelDbId[], color: Rgba): void;

@@ -740,7 +740,7 @@ export class RealViewerAdapter implements ViewerAdapter {
       .map(({ info, handle }) => ({ id: info.id, handle }));
   }
 
-  getScreenshot(): Promise<Blob> {
+  getScreenshot(width?: number, height?: number): Promise<Blob> {
     const viewer = this.viewer;
     const frame = viewer?.container;
     if (!viewer?.getScreenShot || !frame) {
@@ -751,12 +751,16 @@ export class RealViewerAdapter implements ViewerAdapter {
         () => reject(new Error('The snapshot timed out')),
         SCREENSHOT_TIMEOUT_MS,
       );
-      viewer.getScreenShot?.(frame.clientWidth, frame.clientHeight, (url) => {
-        clearTimeout(timer);
-        fetch(url)
-          .then((response) => response.blob())
-          .then(resolve, reject);
-      });
+      viewer.getScreenShot?.(
+        width ?? frame.clientWidth,
+        height ?? frame.clientHeight,
+        (url) => {
+          clearTimeout(timer);
+          fetch(url)
+            .then((response) => response.blob())
+            .then(resolve, reject);
+        },
+      );
     });
   }
 
