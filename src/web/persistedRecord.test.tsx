@@ -165,6 +165,41 @@ describe('records', () => {
     expect(adapter.get('local', 'test.count')).toBe('3');
   });
 
+  it('follows the record when its key changes and keeps the other key intact', () => {
+    const a = defineRecord<number>({
+      key: 'test.a',
+      initial: 0,
+      sanitize: Number,
+    });
+    const b = defineRecord<number>({
+      key: 'test.b',
+      initial: 0,
+      sanitize: Number,
+    });
+    a.write(1);
+    b.write(2);
+    const view = renderHook(({ record }) => usePersisted(record), {
+      initialProps: { record: a },
+    });
+    expect(view.result.current[0]).toBe(1);
+    view.rerender({ record: b });
+    expect(view.result.current[0]).toBe(2);
+    act(() => view.result.current[1]((n) => n + 1));
+    expect(a.read()).toBe(1);
+    expect(b.read()).toBe(3);
+  });
+
+  it('refuses a family key outside its prefix', () => {
+    const family = defineRecordFamily<number, string>({
+      prefix: 'bsh.pane.',
+      keyOf: (arg) => `elsewhere.${arg}`,
+      initial: 0,
+      sanitize: Number,
+    });
+    expect(() => family.get('x')).toThrow();
+    expect(() => family.forget('x')).toThrow();
+  });
+
   it('rejects a family outside the registered prefixes', () => {
     expect(() =>
       defineRecordFamily({

@@ -123,8 +123,7 @@ export function defineRecord<T>(spec: RecordSpec<T>): PersistedRecord<T> {
   const { key, initial, sanitize, area = 'local' } = spec;
   const codec = (spec.codec ?? JSON_CODEC) as Codec<T>;
   let cached: { text: string; value: T } | null = null;
-  const peek = (): unknown => {
-    const text = adapter.get(area, key);
+  const decode = (text: string | null): unknown => {
     if (text === null) return undefined;
     try {
       return codec.decode(text);
@@ -132,6 +131,7 @@ export function defineRecord<T>(spec: RecordSpec<T>): PersistedRecord<T> {
       return undefined;
     }
   };
+  const peek = (): unknown => decode(adapter.get(area, key));
   return {
     key,
     initial,
@@ -140,7 +140,7 @@ export function defineRecord<T>(spec: RecordSpec<T>): PersistedRecord<T> {
       if (spec.cache) {
         const text = adapter.get(area, key);
         if (text !== null && cached?.text === text) return cached.value;
-        const raw = peek();
+        const raw = decode(text);
         if (raw === undefined || text === null) return initial;
         cached = { text, value: sanitize(raw) };
         return cached.value;
@@ -185,15 +185,22 @@ export function defineRecordFamily<T, A>(
   familyDrops.push(() => cache.clear());
   const record = (key: string) =>
     cache.get(key) ?? defineRecord({ ...spec, key });
+  const keyFor = (arg: A): string => {
+    const key = spec.keyOf(arg);
+    if (!key.startsWith(spec.prefix)) {
+      throw new Error(`Key ${key} is outside prefix ${spec.prefix}`);
+    }
+    return key;
+  };
   return {
     get(arg) {
-      const key = spec.keyOf(arg);
+      const key = keyFor(arg);
       const hit = record(key);
       cache.set(key, hit);
       return hit;
     },
     forget(arg) {
-      const key = spec.keyOf(arg);
+      const key = keyFor(arg);
       record(key).remove();
       cache.delete(key);
     },
@@ -223,6 +230,13 @@ export function usePersisted<T>(
 ): [T, (next: T | ((prev: T) => T)) => void, () => void] {
   const [value, setState] = useState<T>(() => record.read());
   const valueRef = useRef(value);
+  const [seenKey, setSeenKey] = useState(record.key);
+  if (seenKey !== record.key) {
+    const next = record.read();
+    valueRef.current = next;
+    setSeenKey(record.key);
+    setState(next);
+  }
   const setValue = useCallback((next: T) => {
     valueRef.current = next;
     setState(next);
