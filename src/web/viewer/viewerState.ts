@@ -154,7 +154,7 @@ export function captureViewerState(
   return state;
 }
 
-function readTree(
+export function readTree(
   viewer: GuiViewer3D,
   model: ViewerModel,
 ): Promise<InstanceTree> {

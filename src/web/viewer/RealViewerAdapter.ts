@@ -82,6 +82,7 @@ import {
   captureViewerState,
   HIDE_ALL_NODE,
   readCamera,
+  readTree,
   resetNodes,
   restoreViewerState,
 } from './viewerState.js';
@@ -191,16 +192,6 @@ function loadDocument(urn: string) {
 
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : 'The model could not be loaded';
-}
-
-function readTree(
-  viewer: GuiViewer3D,
-  model: ViewerModel,
-): Promise<InstanceTree> {
-  return new Promise<InstanceTree>((resolve, reject) => {
-    if (model.getObjectTree) model.getObjectTree(resolve, reject);
-    else viewer.getObjectTree(resolve, reject);
-  });
 }
 
 function leafIds(tree: InstanceTree): number[] {
@@ -659,7 +650,9 @@ export class RealViewerAdapter implements ViewerAdapter {
     const perModel = await Promise.all(
       this.models.shown().map(async ({ info, handle }) => {
         const tree = await readTree(viewer, handle);
-        const isolated = viewer.getIsolatedNodes?.(handle) ?? [];
+        const isolatedNodes = viewer.getIsolatedNodes?.(handle) ?? [];
+        const isolated = isolatedNodes.filter((id) => id !== HIDE_ALL_NODE);
+        if (isolatedNodes.length > 0 && isolated.length === 0) return [];
         const hidden = withDescendants(
           tree,
           viewer.getHiddenNodes?.(handle) ?? [],

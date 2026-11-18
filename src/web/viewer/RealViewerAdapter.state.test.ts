@@ -115,6 +115,29 @@ describe('model-aware viewer actions', () => {
   });
 });
 
+describe('getVisible', () => {
+  it('gives up on a tree that never answers', async () => {
+    vi.useFakeTimers();
+    try {
+      env.specs.set('slow', { treeHang: true });
+      await adapter.addModel({ urn: 'slow' });
+      const done = adapter.getVisible();
+      const failed = expect(done).rejects.toThrow('timed out');
+      await vi.advanceTimersByTimeAsync(TREE_TIMEOUT_MS + 1);
+      await failed;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('reports nothing visible for a model isolated to no items', async () => {
+    adapter.isolateModelIds([{ modelId: 'arch', dbId: 11 }]);
+    const visible = await adapter.getVisible();
+    expect(visible.some((item) => item.modelId === 'str')).toBe(false);
+    expect(visible.some((item) => item.dbId === -1)).toBe(false);
+  });
+});
+
 describe('viewer state', () => {
   it('captures a serializable state keyed by model', () => {
     adapter.isolateModelIds([{ modelId: 'arch', dbId: 11 }]);
