@@ -47,6 +47,18 @@ export function runOnce(
   }
 }
 
+function isIncomplete(status: object): boolean {
+  const { missing, skipped, levelsUnavailable, generatedIds } = status as {
+    missing?: readonly unknown[];
+    skipped?: number;
+    levelsUnavailable?: number;
+    generatedIds?: number;
+  };
+  return Boolean(
+    missing?.length || skipped || levelsUnavailable || generatedIds,
+  );
+}
+
 export function statusReporter<S extends { phase: string }>(
   task: TaskHandle,
   describe: (status: S) => string,
@@ -55,6 +67,9 @@ export function statusReporter<S extends { phase: string }>(
     const detail = describe(status);
     switch (status.phase) {
       case 'done':
+        if (isIncomplete(status)) task.warn(detail);
+        else task.finish(detail);
+        break;
       case 'empty':
         task.finish(detail);
         break;

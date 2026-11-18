@@ -37,7 +37,7 @@ task.cancel();
 const { tasks, running } = useTasks();
 ```
 
-States: `running`, `done`, `failed`, `cancelled`. Calls on a finished task are ignored. History keeps the last 20 finished tasks.
+States: `running`, `done`, `warning`, `failed`, `cancelled`. `task.warn(detail)` settles a finished task whose result is incomplete. Calls on a finished task are ignored. History keeps the last 20 finished tasks.
 
 ## Export integration (deferred)
 

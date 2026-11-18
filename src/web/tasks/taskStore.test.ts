@@ -43,6 +43,22 @@ describe('task store', () => {
     expect(store.getSnapshot().announcement).toBe('A failed');
   });
 
+  it('settles a task with a warning once', () => {
+    const store = createTaskStore();
+    const task = store.start({ label: 'A' });
+    task.warn('Skipped 2');
+    task.finish();
+    task.fail(new Error('late'));
+    expect(store.getSnapshot().tasks[0]).toMatchObject({
+      state: 'warning',
+      progress: 1,
+      detail: 'Skipped 2',
+    });
+    expect(store.getSnapshot().announcement).toBe('A finished with warnings');
+    store.retry(task.id);
+    expect(store.getSnapshot().running).toBe(0);
+  });
+
   it('cancels through the producer hook once', () => {
     const store = createTaskStore();
     const cancel = vi.fn();

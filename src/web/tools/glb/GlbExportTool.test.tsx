@@ -100,7 +100,7 @@ describe('GlbExportTool', () => {
       byteLength: 1,
       skipped: 3,
     });
-    expect(last()?.state).toBe('done');
+    expect(last()?.state).toBe('warning');
     expect(last()?.detail).toContain('3 fragments skipped');
     tool
       .contribute(context({ adapter: {} as ViewerAdapter }))

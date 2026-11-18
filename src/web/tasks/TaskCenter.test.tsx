@@ -33,6 +33,21 @@ describe('TaskCenter', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Exporting cancelled');
   });
 
+  it('renders and announces a warning outcome', () => {
+    const store = createTaskStore();
+    render(<TaskCenter store={store} />);
+    act(() => {
+      store.start({ label: 'Export IFC' }).warn('2 skipped');
+    });
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Export IFC finished with warnings',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Tasks' }));
+    expect(
+      screen.getByText('Done with warnings: 2 skipped'),
+    ).toBeInTheDocument();
+  });
+
   it('announces a failure once, offers retry and clears finished tasks', () => {
     const store = createTaskStore();
     const retry = vi.fn();

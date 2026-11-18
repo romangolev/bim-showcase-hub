@@ -1,4 +1,4 @@
-export type TaskState = 'running' | 'done' | 'failed' | 'cancelled';
+export type TaskState = 'running' | 'done' | 'warning' | 'failed' | 'cancelled';
 
 export interface Task {
   id: number;
@@ -28,6 +28,7 @@ export interface TaskHandle {
   id: number;
   progress: (fraction: number | null, detail?: string) => void;
   finish: (detail?: string) => void;
+  warn: (detail?: string) => void;
   fail: (error?: unknown) => void;
   cancel: () => void;
 }
@@ -93,7 +94,7 @@ export function createTaskStore(now: () => number = Date.now): TaskStore {
       {
         state,
         detail: detail ?? task.detail,
-        progress: state === 'done' ? 1 : task.progress,
+        progress: state === 'done' || state === 'warning' ? 1 : task.progress,
         endedAt: now(),
       },
       `${task.label} ${verb}`,
@@ -143,6 +144,8 @@ export function createTaskStore(now: () => number = Date.now): TaskStore {
           );
         },
         finish: (detail) => settle(id, 'done', detail ?? null, 'finished'),
+        warn: (detail) =>
+          settle(id, 'warning', detail ?? null, 'finished with warnings'),
         fail: (error) => settle(id, 'failed', messageOf(error), 'failed'),
         cancel: () => cancel(id),
       };

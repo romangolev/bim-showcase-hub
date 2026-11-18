@@ -301,6 +301,21 @@ describe('export tasks', () => {
     });
     expect(report({ phase: 'done' })).toMatchObject({ state: 'done' });
     expect(report({ phase: 'empty' })).toMatchObject({ state: 'done' });
+    expect(report({ phase: 'done', skipped: 3 } as never)).toMatchObject({
+      state: 'warning',
+    });
+    expect(report({ phase: 'done', missing: ['Mark'] } as never)).toMatchObject(
+      { state: 'warning' },
+    );
+    expect(
+      report({ phase: 'done', levelsUnavailable: 1 } as never),
+    ).toMatchObject({ state: 'warning' });
+    expect(report({ phase: 'done', generatedIds: 2 } as never)).toMatchObject({
+      state: 'warning',
+    });
+    expect(
+      report({ phase: 'done', missing: [], skipped: 0 } as never),
+    ).toMatchObject({ state: 'done' });
     expect(report({ phase: 'error' })).toMatchObject({ state: 'failed' });
     expect(report({ phase: 'cancelled' })).toMatchObject({
       state: 'cancelled',

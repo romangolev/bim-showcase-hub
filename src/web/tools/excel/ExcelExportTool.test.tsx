@@ -116,7 +116,7 @@ describe('ExcelExportTool', () => {
       rowCount: 1234,
       missing: ['Annex.rvt'],
     });
-    expect(last()).toMatchObject({ state: 'done' });
+    expect(last()).toMatchObject({ state: 'warning' });
     expect(last()?.detail).toContain('Exported 1234 elements to a.xlsx');
     expect(last()?.detail).toContain('Missing Annex.rvt');
   });

@@ -179,7 +179,7 @@ describe('export task', () => {
       byteLength: 1,
       levelsUnavailable: 1,
     });
-    expect(last()?.state).toBe('done');
+    expect(last()?.state).toBe('warning');
     expect(last()?.detail).toContain('levels unavailable');
     new IfcExportTool()
       .contribute(context({ adapter: {} as ViewerAdapter }))

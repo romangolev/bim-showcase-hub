@@ -627,6 +627,10 @@ html[data-presenting] .bsh-viewer-surface .adsk-viewing-viewer .adsk-toolbar {
   color: var(--color-coral);
 }
 
+.task-center__trigger[data-warning="true"] {
+  color: var(--color-ember);
+}
+
 .task-center__count {
   position: absolute;
   top: -4px;
@@ -696,6 +700,10 @@ html[data-presenting] .bsh-viewer-surface .adsk-viewing-viewer .adsk-toolbar {
 
 .task-row[data-state="failed"] .task-row__detail {
   color: var(--color-coral);
+}
+
+.task-row[data-state="warning"] .task-row__detail {
+  color: var(--color-ember);
 }
 
 .task-row__bar {

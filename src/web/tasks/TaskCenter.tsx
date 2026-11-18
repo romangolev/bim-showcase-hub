@@ -6,6 +6,7 @@ import { useTasks } from './useTasks.js';
 const STATE_TEXT: Record<Task['state'], string> = {
   running: 'Running',
   done: 'Done',
+  warning: 'Done with warnings',
   failed: 'Failed',
   cancelled: 'Cancelled',
 };
@@ -70,6 +71,7 @@ export function TaskCenter({ store }: { store?: TaskStore }) {
   const root = useRef<HTMLDivElement>(null);
   const listId = useId();
   const failed = center.tasks.some((task) => task.state === 'failed');
+  const warned = center.tasks.some((task) => task.state === 'warning');
 
   useEffect(() => {
     if (!open) return;
@@ -105,10 +107,17 @@ export function TaskCenter({ store }: { store?: TaskStore }) {
           aria-expanded={open}
           aria-controls={listId}
           data-failed={failed}
+          data-warning={warned && !failed}
           onClick={() => setOpen((value) => !value)}
         >
           <Icon
-            name={center.running > 0 ? 'spinner' : failed ? 'alert' : 'check'}
+            name={
+              center.running > 0
+                ? 'spinner'
+                : failed || warned
+                  ? 'alert'
+                  : 'check'
+            }
             size={18}
             className={center.running > 0 ? 'spin' : undefined}
           />
