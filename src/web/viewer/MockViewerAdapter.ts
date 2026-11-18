@@ -34,6 +34,7 @@ import {
   type Vec3,
   VIEWER_CLOSED_MESSAGE,
 } from './modelSet.js';
+import { type ReadOptions, throwIfAborted } from './propertyReads.js';
 import {
   claimRegion,
   detectRegion,
@@ -602,8 +603,10 @@ export class MockViewerAdapter implements ViewerAdapter {
   async getLeafProperties(
     propertyNames: string[],
     modelIds?: readonly string[],
+    options: ReadOptions = {},
   ): Promise<PropertyRow[]> {
     if (!this.loaded) return [];
+    throwIfAborted(options.signal);
     const bulk = import.meta.env.MODE === 'test' ? 0 : LARGE_FIXTURE_ROWS;
     const rows: PropertyRow[] = [];
     let failed = false;
@@ -619,6 +622,7 @@ export class MockViewerAdapter implements ViewerAdapter {
       rows.push(...tagRows(buildMockRows(propertyNames, extra), info));
     }
     if (failed && rows.length === 0) throw new Error(MOCK_PROPERTIES_ERROR);
+    options.onProgress?.({ done: rows.length, total: rows.length });
     return rows;
   }
 

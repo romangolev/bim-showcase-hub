@@ -192,3 +192,94 @@ describe('readLeafRows with a model set', () => {
     adapter.destroy();
   });
 });
+
+describe('readLeafRows cancel and progress', () => {
+  type Progress = { done: number; total: number };
+  function gated() {
+    const signals: AbortSignal[] = [];
+    let release: (rows: PropertyRow[]) => void = () => {};
+    let progress: (p: Progress) => void = () => {};
+    const getLeafProperties = vi.fn(
+      (
+        _names: string[],
+        _ids?: readonly string[],
+        options?: { signal?: AbortSignal; onProgress?: (p: Progress) => void },
+      ) => {
+        if (options?.signal) signals.push(options.signal);
+        if (options?.onProgress) progress = options.onProgress;
+        return new Promise<PropertyRow[]>((resolve, reject) => {
+          release = resolve;
+          options?.signal?.addEventListener('abort', () =>
+            reject(new DOMException('stopped', 'AbortError')),
+          );
+        });
+      },
+    );
+    const adapter = {
+      getLeafProperties,
+      getModels,
+    } as unknown as ViewerAdapter;
+    return {
+      adapter,
+      signals,
+      getLeafProperties,
+      release: (rows: PropertyRow[]) => release(rows),
+      report: (p: Progress) => progress(p),
+    };
+  }
+
+  const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+  const row: PropertyRow = { dbId: 1, name: 'El', properties: { Name: 'n' } };
+
+  it('rejects an aborted read and aborts the underlying read', async () => {
+    const g = gated();
+    const controller = new AbortController();
+    const read = readLeafRows(g.adapter, ['Name'], {
+      signal: controller.signal,
+    });
+    await tick();
+    controller.abort();
+    await expect(read).rejects.toMatchObject({ name: 'AbortError' });
+    expect(g.signals[0]?.aborted).toBe(true);
+    g.release([row]);
+    await tick();
+    const again = readLeafRows(g.adapter, ['Name']);
+    await tick();
+    g.release([row]);
+    expect(await again).toHaveLength(1);
+    expect(g.getLeafProperties).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps the shared read alive while another waiter remains', async () => {
+    const g = gated();
+    const first = new AbortController();
+    const a = readLeafRows(g.adapter, ['Name'], { signal: first.signal });
+    const b = readLeafRows(g.adapter, ['Name']);
+    await tick();
+    first.abort();
+    await expect(a).rejects.toMatchObject({ name: 'AbortError' });
+    expect(g.signals[0]?.aborted).toBe(false);
+    g.release([row]);
+    expect(await b).toHaveLength(1);
+    expect(g.getLeafProperties).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports progress to every waiter', async () => {
+    const g = gated();
+    const seen: number[] = [];
+    const a = readLeafRows(g.adapter, ['Name'], {
+      onProgress: (p) => seen.push(p.done / p.total),
+    });
+    await tick();
+    g.report({ done: 1, total: 4 });
+    const late: number[] = [];
+    const b = readLeafRows(g.adapter, ['Name'], {
+      onProgress: (p) => late.push(p.done / p.total),
+    });
+    g.report({ done: 4, total: 4 });
+    g.release([row]);
+    await Promise.all([a, b]);
+    expect(seen).toEqual([0.25, 1]);
+    expect(late).toEqual([0.25, 1]);
+  });
+});

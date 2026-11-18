@@ -10,6 +10,7 @@ import type {
   ModelSpread,
   Vec3,
 } from './modelSet.js';
+import type { ReadOptions } from './propertyReads.js';
 
 export type Rgba = readonly [r: number, g: number, b: number, a: number];
 
@@ -66,6 +67,7 @@ export interface ViewerAdapter {
   getLeafProperties(
     propertyNames: string[],
     modelIds?: readonly string[],
+    options?: ReadOptions,
   ): Promise<PropertyRow[]>;
   registerToolGroup(spec: ToolGroupSpec): () => void;
   onSelectionChange(cb: (items: ModelDbId[]) => void): () => void;

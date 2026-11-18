@@ -47,6 +47,12 @@ import {
   VIEWER_CLOSED_MESSAGE,
 } from './modelSet.js';
 import {
+  type ReadOptions,
+  readInChunks,
+  sumProgress,
+  throwIfAborted,
+} from './propertyReads.js';
+import {
   apiForRegion,
   claimRegion,
   detectRegion,
@@ -987,17 +993,26 @@ export class RealViewerAdapter implements ViewerAdapter {
   async getLeafProperties(
     propertyNames: string[],
     modelIds?: readonly string[],
+    options: ReadOptions = {},
   ): Promise<PropertyRow[]> {
     const viewer = this.viewer;
     if (!viewer) return [];
     const shown = this.models
       .shown()
       .filter(({ info }) => !modelIds || modelIds.includes(info.id));
+    const progress = sumProgress(options.onProgress);
     const results = await Promise.allSettled(
       shown.map(async ({ info, handle }) =>
-        tagRows(await this.readModelRows(viewer, handle, propertyNames), info),
+        tagRows(
+          await this.readModelRows(viewer, handle, propertyNames, {
+            ...options,
+            onProgress: progress(info.id),
+          }),
+          info,
+        ),
       ),
     );
+    throwIfAborted(options.signal);
     const rows: PropertyRow[] = [];
     let failure: unknown = null;
     results.forEach((result, index) => {
@@ -1019,16 +1034,23 @@ export class RealViewerAdapter implements ViewerAdapter {
     viewer: GuiViewer3D,
     model: ViewerModel,
     propertyNames: string[],
+    options: ReadOptions,
   ): Promise<PropertyRow[]> {
     const tree = await readTree(viewer, model);
+    throwIfAborted(options.signal);
     const ids = leafIds(tree);
-    const items = await new Promise<BulkPropertyItem[]>((resolve, reject) =>
-      model.getBulkProperties(
-        ids,
-        { propFilter: propertyNames },
-        resolve,
-        reject,
-      ),
+    const items = await readInChunks(
+      ids,
+      (chunk) =>
+        new Promise<BulkPropertyItem[]>((resolve, reject) =>
+          model.getBulkProperties(
+            chunk,
+            { propFilter: propertyNames },
+            resolve,
+            reject,
+          ),
+        ),
+      options,
     );
     return items.map((item) => {
       const properties: PropertyRow['properties'] = {};
