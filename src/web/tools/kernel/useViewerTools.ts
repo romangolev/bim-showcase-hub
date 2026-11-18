@@ -2,14 +2,13 @@ import { useEffect, useRef } from 'react';
 import type { ViewerAdapter } from '../../viewer/ViewerAdapter.js';
 import { usePersistedSetting } from './persistedSetting.js';
 import type { ToolRegistry, ToolSnapshot } from './ToolRegistry.js';
-import type { ToolBadge, ToolContext, ToolSettings } from './ViewerTool.js';
+import type { ToolContext, ToolSettings } from './ViewerTool.js';
 
 export interface ViewerToolsOptions {
   adapter: ViewerAdapter | null;
   active: boolean;
   suffix?: string;
   fileName: () => string;
-  report: (badge: ToolBadge, busy: boolean) => void;
 }
 
 function withSuffix(base: string, suffix?: string): string {
@@ -52,7 +51,6 @@ export function useViewerTools(
       current: (tool) =>
         (liveRef.current[tool.id] ??
           tool.settings.initial) as typeof tool.settings.initial,
-      report: (badge, busy) => optionsRef.current.report(badge, busy),
     };
     const group = registry.buildGroup(ctx, snapshot);
     return group ? adapter.registerToolGroup(group) : undefined;

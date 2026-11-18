@@ -2,14 +2,15 @@ import {
   DEFAULT_GLB_FILE_NAME,
   describeGlbStatus,
   exportGeometryToGlb,
-  type GlbExportStatus,
-  glbHasWarning,
 } from '../../extensions/glbExport.js';
-import { exportEntry, exportFileName, isBusy } from '../kernel/exportKit.js';
+import {
+  exportEntry,
+  exportFileName,
+  statusReporter,
+} from '../kernel/exportKit.js';
 import { persistedSetting } from '../kernel/persistedSetting.js';
 import {
   readEnabled,
-  type ToolBadge,
   type ToolContext,
   type ToolContribution,
   type ToolSettings,
@@ -31,17 +32,6 @@ export function glbFileNameFrom(fileName?: string): string {
   return exportFileName(fileName, DEFAULT_GLB_FILE_NAME, '-geometry', 'glb');
 }
 
-export function glbBadge(status: GlbExportStatus): ToolBadge {
-  return {
-    text:
-      status.phase === 'error'
-        ? 'GLB export failed'
-        : describeGlbStatus(status),
-    detail: describeGlbStatus(status),
-    error: glbHasWarning(status),
-  };
-}
-
 export class GlbExportTool extends ViewerTool<GlbToolSettings> {
   readonly id = 'glb';
   readonly title = 'Geometry export';
@@ -59,12 +49,16 @@ export class GlbExportTool extends ViewerTool<GlbToolSettings> {
         exportEntry(
           ctx,
           this.id,
-          { id: 'export-glb', icon: 'bsh-ico-glb', tooltip: GEOMETRY_TOOLTIP },
-          () =>
+          {
+            id: 'export-glb',
+            icon: 'bsh-ico-glb',
+            tooltip: GEOMETRY_TOOLTIP,
+            label: 'Exporting geometry (GLB)',
+          },
+          ({ task }) =>
             exportGeometryToGlb(ctx.adapter, {
               fileName: glbFileNameFrom(ctx.fileName()),
-              onStatus: (status) =>
-                ctx.report(glbBadge(status), isBusy(status)),
+              onStatus: statusReporter(task, describeGlbStatus),
             }),
         ),
       ],

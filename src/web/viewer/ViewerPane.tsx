@@ -150,15 +150,13 @@ export function ViewerPane({
     onReadyRef.current = onReady;
   }, [onReady]);
 
-  const showBadge = useCallback((badge: StatusBadge, busy: boolean) => {
+  const showBadge = useCallback((badge: StatusBadge) => {
     clearTimeout(statusTimer.current);
     setStatusBadge(badge);
-    if (!busy) {
-      statusTimer.current = setTimeout(
-        () => setStatusBadge(null),
-        STATUS_DISMISS_MS,
-      );
-    }
+    statusTimer.current = setTimeout(
+      () => setStatusBadge(null),
+      STATUS_DISMISS_MS,
+    );
   }, []);
 
   useEffect(() => () => clearTimeout(statusTimer.current), []);
@@ -289,7 +287,6 @@ export function ViewerPane({
     active: tools,
     suffix: modelKey(urn),
     fileName: () => exportNameRef.current ?? '',
-    report: showBadge,
   });
 
   const sourceFor = useCallback(
@@ -494,9 +491,7 @@ export function ViewerPane({
             baseHref={shareHref}
             fileName={exportName}
             combined={combined}
-            onResult={(text, error) =>
-              showBadge({ text, detail: text, error }, false)
-            }
+            onResult={(text, error) => showBadge({ text, detail: text, error })}
           />
         ) : null}
         {adapter && combined ? (

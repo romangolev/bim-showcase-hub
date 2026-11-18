@@ -24,7 +24,6 @@ function context(adapter: Partial<ViewerAdapter>, suffix = ''): ToolContext {
     id: (base) => (suffix ? `${base}-${suffix}` : base),
     fileName: () => '',
     current: (tool) => tool.settings.initial,
-    report: () => undefined,
   };
 }
 

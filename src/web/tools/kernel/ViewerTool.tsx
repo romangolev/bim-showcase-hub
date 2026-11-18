@@ -13,12 +13,6 @@ export interface ToolSettings {
   enabled: boolean;
 }
 
-export interface ToolBadge {
-  text: string;
-  detail: string;
-  error: boolean;
-}
-
 export interface ToolContribution {
   paint?: PaintToolSpec;
   exports?: ExportToolSpec[];
@@ -29,7 +23,6 @@ export interface ToolContext {
   id: (base: string) => string;
   fileName: () => string;
   current: <S extends ToolSettings>(tool: ViewerTool<S>) => S;
-  report: (badge: ToolBadge, busy: boolean) => void;
 }
 
 export interface LegacySettings {
