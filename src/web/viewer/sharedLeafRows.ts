@@ -19,7 +19,6 @@ interface AdapterReads {
   keys: Map<string, KeyReads>;
 }
 
-const WHOLE = '';
 const reads = new WeakMap<ViewerAdapter, AdapterReads>();
 
 function readsFor(adapter: ViewerAdapter): AdapterReads {
@@ -46,7 +45,7 @@ function readsFor(adapter: ViewerAdapter): AdapterReads {
           if (!ready.has(model.id)) created.keys.delete(model.id);
         }
         for (const id of [...created.keys.keys()]) {
-          if (id !== WHOLE && !models.some((model) => model.id === id)) {
+          if (!models.some((model) => model.id === id)) {
             created.keys.delete(id);
           }
         }
@@ -135,8 +134,7 @@ function readKey(
   return key.batch.promise;
 }
 
-function shownModels(adapter: ViewerAdapter): ModelInfo[] | null {
-  if (typeof adapter.getModels !== 'function') return null;
+function shownModels(adapter: ViewerAdapter): ModelInfo[] {
   return adapter
     .getModels()
     .filter((model) => model.status === 'ready' && model.visible);
@@ -148,15 +146,9 @@ export async function readLeafRows(
 ): Promise<PropertyRow[]> {
   const entry = readsFor(adapter);
   const models = shownModels(adapter);
-  if (models === null) {
-    return project(
-      await readKey(adapter, entry, WHOLE, propertyNames),
-      propertyNames,
-    );
-  }
   const known = new Set(adapter.getModels().map((model) => model.id));
   for (const id of entry.keys.keys()) {
-    if (id !== WHOLE && !known.has(id)) entry.keys.delete(id);
+    if (!known.has(id)) entry.keys.delete(id);
   }
   const results = await Promise.allSettled(
     models.map(async (model) =>

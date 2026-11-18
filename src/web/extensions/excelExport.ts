@@ -45,7 +45,6 @@ export const FALLBACK_SHEET_NAME = 'Elements';
 export type ExportCell = string | number | boolean;
 
 function shownModels(adapter: ViewerAdapter): AboutInfo['models'] {
-  if (typeof adapter.getModels !== 'function') return [];
   return adapter
     .getModels()
     .filter((model) => model.status === 'ready' && model.visible)
@@ -65,7 +64,6 @@ async function scopeItems(adapter: ViewerAdapter, scope: ExportScope) {
 }
 
 function unavailableModelNames(adapter: ViewerAdapter): string[] {
-  if (typeof adapter.getModels !== 'function') return [];
   return unavailableModels(adapter.getModels()).map((model) => model.name);
 }
 
@@ -228,8 +226,7 @@ export async function exportToXlsx(
     }
     emit({ phase: 'reading' });
     const all = await readLeafRows(adapter, propertyNames);
-    const models =
-      typeof adapter.getModels === 'function' ? adapter.getModels() : [];
+    const models = adapter.getModels();
     const rows = filterByScope(
       scopeRows(all, resolveScope(modelScope, models)),
       scope,

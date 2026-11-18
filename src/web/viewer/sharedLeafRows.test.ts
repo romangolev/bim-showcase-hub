@@ -5,6 +5,10 @@ import type { ModelInfo } from './modelSet.js';
 import { forgetLeafRows, readLeafRows } from './sharedLeafRows.js';
 import type { ViewerAdapter } from './ViewerAdapter.js';
 
+const getModels = () => [
+  { id: 'm', urn: 'm', name: 'm', visible: true, status: 'ready' },
+];
+
 function fakeAdapter() {
   const getLeafProperties = vi.fn(async (names: string[]) => {
     const row: PropertyRow = {
@@ -15,7 +19,7 @@ function fakeAdapter() {
     return [row];
   });
   return {
-    adapter: { getLeafProperties } as unknown as ViewerAdapter,
+    adapter: { getLeafProperties, getModels } as unknown as ViewerAdapter,
     getLeafProperties,
   };
 }
@@ -83,7 +87,10 @@ describe('readLeafRows', () => {
           release = resolve;
         }),
     );
-    const adapter = { getLeafProperties } as unknown as ViewerAdapter;
+    const adapter = {
+      getLeafProperties,
+      getModels,
+    } as unknown as ViewerAdapter;
     const first = readLeafRows(adapter, ['Name', 'Level']);
     await new Promise((resolve) => setTimeout(resolve, 0));
     const second = readLeafRows(adapter, ['Name']);
