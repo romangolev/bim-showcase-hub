@@ -15,8 +15,8 @@ export interface AppProps {
 
 export function App({ appRouter = router, client = queryClient }: AppProps) {
   return (
-    <ThemeProvider>
-      <SettingsProvider>
+    <SettingsProvider>
+      <ThemeProvider>
         <QueryClientProvider client={client}>
           <ModalProvider>
             <RouterProvider router={appRouter} />
@@ -32,7 +32,7 @@ export function App({ appRouter = router, client = queryClient }: AppProps) {
             />
           </ModalProvider>
         </QueryClientProvider>
-      </SettingsProvider>
-    </ThemeProvider>
+      </ThemeProvider>
+    </SettingsProvider>
   );
 }

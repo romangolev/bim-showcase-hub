@@ -1,7 +1,6 @@
 import { useId } from 'react';
-import { SwitchRow } from '../components/SwitchRow.js';
 import type { ModalDefinition } from '../modal/types.js';
-import { useTheme } from '../theme/ThemeContext.js';
+import { THEME_PREFERENCES, type ThemePreference } from '../theme/theme.js';
 import { useSettings } from './SettingsContext.js';
 import { SettingsEntries } from './SettingsEntries.js';
 import { DENSITIES, type Settings, TEXT_SIZES } from './settings.js';
@@ -17,9 +16,15 @@ const TEXT_SIZE_LABELS: Record<Settings['textSize'], string> = {
   large: 'Large',
 };
 
+const THEME_LABELS: Record<ThemePreference, string> = {
+  system: 'System',
+  light: 'Light',
+  dark: 'Dark',
+};
+
 export function SettingsBody() {
-  const { theme, toggleTheme } = useTheme();
   const { settings, setSetting } = useSettings();
+  const themeId = useId();
   const warnId = useId();
   const recentsId = useId();
   const densityId = useId();
@@ -34,11 +39,25 @@ export function SettingsBody() {
         <h3 id="settings-appearance" className="settings__heading">
           Appearance
         </h3>
-        <SwitchRow
-          label="Dark theme"
-          checked={theme === 'dark'}
-          onChange={toggleTheme}
-        />
+        <div className="settings__field">
+          <label htmlFor={themeId}>Theme</label>
+          <select
+            id={themeId}
+            value={settings.theme}
+            onChange={(event) =>
+              setSetting('theme', event.target.value as Settings['theme'])
+            }
+          >
+            {THEME_PREFERENCES.map((theme) => (
+              <option key={theme} value={theme}>
+                {THEME_LABELS[theme]}
+              </option>
+            ))}
+          </select>
+          <span className="settings__hint">
+            System follows your device appearance.
+          </span>
+        </div>
         <div className="settings__field">
           <label htmlFor={densityId}>Interface density</label>
           <select

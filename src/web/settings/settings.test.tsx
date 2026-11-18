@@ -1,8 +1,10 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { installMemoryStorage } from '../test/mockApi.js';
+import { THEME_STORAGE_KEY } from '../theme/theme.js';
 import {
   DEFAULT_SETTINGS,
+  migrateLegacyTheme,
   readSettings,
   SETTINGS_STORAGE_KEY,
   SETTINGS_VERSION,
@@ -45,8 +47,36 @@ describe('app settings', () => {
       'reducedMotion',
       'sessionWarnMinutes',
       'textSize',
+      'theme',
       'version',
     ]);
+  });
+});
+
+describe('theme migration', () => {
+  it('moves an existing bsh-theme value into the settings blob once', () => {
+    window.localStorage.setItem(THEME_STORAGE_KEY, 'light');
+    migrateLegacyTheme();
+    expect(readSettings().theme).toBe('light');
+    expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBeNull();
+    migrateLegacyTheme();
+    expect(readSettings().theme).toBe('light');
+  });
+
+  it('keeps a theme that is already in the settings blob', () => {
+    window.localStorage.setItem(THEME_STORAGE_KEY, 'light');
+    window.localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({ theme: 'system' }),
+    );
+    migrateLegacyTheme();
+    expect(readSettings().theme).toBe('system');
+    expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('light');
+  });
+
+  it('defaults to system when neither source has a theme', () => {
+    migrateLegacyTheme();
+    expect(readSettings().theme).toBe('system');
   });
 });
 

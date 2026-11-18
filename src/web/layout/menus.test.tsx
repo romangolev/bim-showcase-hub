@@ -456,6 +456,26 @@ describe('registry-driven pane menus', () => {
       within(menu).getByRole('menuitem', { name: 'Go to Documents' }),
     ).toBeInTheDocument();
   });
+
+  it('opens a pane settings modal from the gear entry', async () => {
+    renderModel();
+    const menu = await openPaneMenu('Model summary');
+    fireEvent.click(within(menu).getByRole('menuitem', { name: 'Settings' }));
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Summary settings',
+    });
+    expect(within(dialog).getByText('Density')).toBeInTheDocument();
+  });
+
+  it('renders the inline Body for a pane without a modal', async () => {
+    renderModel();
+    const menu = await openPaneMenu('Documents');
+    fireEvent.click(within(menu).getByRole('menuitem', { name: 'Settings' }));
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Documents settings',
+    });
+    expect(within(dialog).getByText('Sort by')).toBeInTheDocument();
+  });
 });
 
 describe('active pane', () => {

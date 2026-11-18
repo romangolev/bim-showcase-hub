@@ -1,5 +1,7 @@
 import { act, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { SettingsProvider } from '../settings/SettingsContext.js';
+import { SETTINGS_STORAGE_KEY } from '../settings/settings.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { ThemeProvider, useTheme } from './ThemeContext.js';
 import { THEME_STORAGE_KEY } from './theme.js';
@@ -30,10 +32,11 @@ function stubScheme(initial: 'light' | 'dark') {
 }
 
 function Probe() {
-  const { theme, source, setTheme, toggleTheme } = useTheme();
+  const { theme, preference, source, setTheme, toggleTheme } = useTheme();
   return (
     <div>
       <output data-testid="theme">{theme}</output>
+      <output data-testid="preference">{preference}</output>
       <output data-testid="source">{source}</output>
       <button type="button" onClick={toggleTheme}>
         toggle
@@ -41,15 +44,20 @@ function Probe() {
       <button type="button" onClick={() => setTheme('dark')}>
         force dark
       </button>
+      <button type="button" onClick={() => setTheme('system')}>
+        follow system
+      </button>
     </div>
   );
 }
 
 function renderProbe() {
   return render(
-    <ThemeProvider>
-      <Probe />
-    </ThemeProvider>,
+    <SettingsProvider>
+      <ThemeProvider>
+        <Probe />
+      </ThemeProvider>
+    </SettingsProvider>,
   );
 }
 
@@ -57,6 +65,12 @@ function press(name: string) {
   act(() => {
     screen.getByRole('button', { name }).click();
   });
+}
+
+function storedSettings() {
+  return JSON.parse(
+    window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '{}',
+  ) as { theme?: string };
 }
 
 beforeEach(() => {
@@ -74,6 +88,7 @@ describe('ThemeProvider', () => {
     stubScheme('light');
     renderProbe();
     expect(screen.getByTestId('theme')).toHaveTextContent('light');
+    expect(screen.getByTestId('preference')).toHaveTextContent('system');
     expect(screen.getByTestId('source')).toHaveTextContent('system');
     expect(document.documentElement.dataset.theme).toBe('light');
     expect(document.documentElement.style.colorScheme).toBe('light');
@@ -87,19 +102,34 @@ describe('ThemeProvider', () => {
     expect(document.documentElement.dataset.theme).toBe('dark');
   });
 
-  it('persists an explicit choice and prefers it over the system', () => {
+  it('persists an explicit choice in the settings blob and prefers it', () => {
     const storage = installMemoryStorage();
     stubScheme('dark');
     const { unmount } = renderProbe();
     press('toggle');
     expect(screen.getByTestId('theme')).toHaveTextContent('light');
+    expect(screen.getByTestId('preference')).toHaveTextContent('light');
     expect(screen.getByTestId('source')).toHaveTextContent('user');
-    expect(storage.getItem(THEME_STORAGE_KEY)).toBe('light');
+    expect(storedSettings().theme).toBe('light');
+    expect(storage.getItem(THEME_STORAGE_KEY)).toBeNull();
     expect(document.documentElement.dataset.theme).toBe('light');
     unmount();
     renderProbe();
     expect(screen.getByTestId('theme')).toHaveTextContent('light');
     expect(screen.getByTestId('source')).toHaveTextContent('user');
+  });
+
+  it('moves an existing bsh-theme value into the settings blob once', () => {
+    const storage = installMemoryStorage();
+    storage.setItem(THEME_STORAGE_KEY, 'light');
+    stubScheme('dark');
+    renderProbe();
+    expect(screen.getByTestId('theme')).toHaveTextContent('light');
+    expect(storedSettings().theme).toBe('light');
+    expect(storage.getItem(THEME_STORAGE_KEY)).toBeNull();
+    press('follow system');
+    expect(screen.getByTestId('theme')).toHaveTextContent('dark');
+    expect(storedSettings().theme).toBe('system');
   });
 
   it('ignores a stored value that is not a theme', () => {
@@ -109,9 +139,10 @@ describe('ThemeProvider', () => {
     renderProbe();
     expect(screen.getByTestId('theme')).toHaveTextContent('dark');
     expect(screen.getByTestId('source')).toHaveTextContent('system');
+    expect(storage.getItem(THEME_STORAGE_KEY)).toBe('sepia');
   });
 
-  it('follows system changes only while there is no explicit choice', () => {
+  it('follows system changes only while the preference is system', () => {
     installMemoryStorage();
     const media = stubScheme('dark');
     renderProbe();
@@ -122,6 +153,9 @@ describe('ThemeProvider', () => {
     expect(media.listenerCount()).toBe(0);
     act(() => media.set('light'));
     expect(screen.getByTestId('theme')).toHaveTextContent('dark');
+    press('follow system');
+    expect(media.listenerCount()).toBe(1);
+    expect(screen.getByTestId('theme')).toHaveTextContent('light');
   });
 
   it('keeps working when storage throws', () => {
@@ -132,7 +166,11 @@ describe('ThemeProvider', () => {
       setItem: () => {
         throw new Error('quota');
       },
-    };
+      removeItem: () => undefined,
+      key: () => null,
+      length: 0,
+      clear: () => undefined,
+    } as unknown as Storage;
     Object.defineProperty(window, 'localStorage', {
       configurable: true,
       value: failing,

@@ -12,6 +12,7 @@ import { FORGET_EVENT } from '../storage.js';
 import {
   applyAppSettings,
   DEFAULT_SETTINGS,
+  migrateLegacyTheme,
   readSettings,
   type Settings,
   writeSettings,
@@ -20,17 +21,22 @@ import {
 export interface SettingsApi {
   settings: Settings;
   setSetting: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
+  provided: boolean;
 }
 
 const FALLBACK: SettingsApi = {
   settings: DEFAULT_SETTINGS,
   setSetting: () => undefined,
+  provided: false,
 };
 
 const SettingsContext = createContext<SettingsApi>(FALLBACK);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
-  const [settings, setSettings] = useState<Settings>(readSettings);
+  const [settings, setSettings] = useState<Settings>(() => {
+    migrateLegacyTheme();
+    return readSettings();
+  });
   useLayoutEffect(() => {
     applyAppSettings(settings, document.documentElement);
   }, [settings]);
@@ -50,7 +56,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     [],
   );
   const value = useMemo(
-    () => ({ settings, setSetting }),
+    () => ({ settings, setSetting, provided: true }),
     [settings, setSetting],
   );
   return (

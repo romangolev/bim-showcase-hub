@@ -1,9 +1,15 @@
+import { useState } from 'react';
 import type { Command, CommandHost } from '../commands/types.js';
 import { Icon } from '../components/icons.js';
 import { Menu, type MenuEntry } from '../components/Menu.js';
 import { useModal } from '../modal/index.js';
+import {
+  type PaneSettingsSchema,
+  paneSettingsSchema,
+} from '../settings/paneSettingsSchema.js';
 import { layoutCommands, paneCommandContext } from './layoutCommandList.js';
 import { type LayoutApi, useLayout } from './layoutContext.js';
+import { PaneSettingsDialog } from './PaneSettingsDialog.js';
 import {
   definitionOf,
   isPaneId,
@@ -13,11 +19,19 @@ import {
   paneById,
   paneCommandsFor,
 } from './paneRegistry.js';
+import { setSummarySettingsTarget } from './summaryTarget.js';
 
 export const RESET_LAYOUT_DESCRIPTION =
   'Resets the arrangement. Open models stay open; remembered viewer position and closed panes are cleared.';
 
-const NO_MODALS: CommandHost = { openModal: () => undefined };
+export interface PaneMenuHost extends CommandHost {
+  openPaneSettings: (schema: PaneSettingsSchema) => void;
+}
+
+const NO_MODALS: PaneMenuHost = {
+  openModal: () => undefined,
+  openPaneSettings: () => undefined,
+};
 const TOGGLE_PREFIX = 'pane.toggle.';
 const CREATE_PREFIX = 'pane.new.';
 
@@ -61,13 +75,34 @@ function toggleEntry(
   };
 }
 
+function settingsEntry(
+  schema: PaneSettingsSchema,
+  kind: PaneId,
+  host: PaneMenuHost,
+): MenuEntry {
+  return {
+    id: 'settings',
+    label: 'Settings',
+    description: schema.description,
+    onSelect: () => {
+      if (schema.modalId) {
+        if (kind === 'summary') setSummarySettingsTarget(null);
+        host.openModal(schema.modalId);
+        return;
+      }
+      if (schema.Body) host.openPaneSettings(schema);
+    },
+  };
+}
+
 export function paneMenuEntries(
   layout: LayoutApi,
   pane: PanelId,
-  host: CommandHost = NO_MODALS,
+  host: PaneMenuHost = NO_MODALS,
 ): MenuEntry[] {
   const definition = definitionOf(pane);
   const kind = definition.id;
+  const schema = paneSettingsSchema(kind);
   const floating = layout.location(pane) === 'floating';
   const collapsed = layout.isCollapsed(kind);
   const lockEntry: MenuEntry = {
@@ -85,6 +120,7 @@ export function paneMenuEntries(
   if (layout.locked)
     return [maximizeEntry, { kind: 'separator', id: 'sep' }, lockEntry];
   const entries: MenuEntry[] = [
+    ...(schema ? [settingsEntry(schema, kind, host)] : []),
     {
       id: 'left',
       label: 'Move left',
@@ -158,14 +194,25 @@ export function paneMenuEntries(
 export function PaneMenu({ pane }: { pane: PanelId }) {
   const layout = useLayout();
   const modal = useModal();
+  const [inline, setInline] = useState<PaneSettingsSchema | null>(null);
   const title = layout.paneTitle(pane).label;
   return (
-    <Menu
-      label={`${title} pane options`}
-      trigger={<Icon name="more" size={16} />}
-      triggerClassName="dock-action"
-      items={() => paneMenuEntries(layout, pane, { openModal: modal.open })}
-    />
+    <>
+      <Menu
+        label={`${title} pane options`}
+        trigger={<Icon name="more" size={16} />}
+        triggerClassName="dock-action"
+        items={() =>
+          paneMenuEntries(layout, pane, {
+            openModal: modal.open,
+            openPaneSettings: setInline,
+          })
+        }
+      />
+      {inline ? (
+        <PaneSettingsDialog schema={inline} onClose={() => setInline(null)} />
+      ) : null}
+    </>
   );
 }
 

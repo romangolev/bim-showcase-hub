@@ -39,3 +39,7 @@ export const PANE_SETTINGS_ORDER: readonly PaneId[] = [
   'summary',
   'dashboard',
 ];
+
+export function paneSettingsSchema(kind: PaneId): PaneSettingsSchema | null {
+  return PANE_SETTINGS_SCHEMA[kind] ?? null;
+}

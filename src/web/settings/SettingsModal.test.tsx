@@ -28,19 +28,21 @@ function renderBody() {
 }
 
 describe('SettingsBody', () => {
-  it('holds only the app switch and app fields, nothing from a tool', () => {
+  it('holds only the app fields, nothing from a tool', () => {
     renderBody();
+    const switches = screen
+      .getAllByRole('switch')
+      .map((el) => el.getAttribute('aria-label'));
+    expect(switches).toEqual(
+      expect.arrayContaining(['Caption on snapshots', 'Quiet mode']),
+    );
+    expect(switches).not.toContain('Dark theme');
     expect(
-      screen.getAllByRole('switch').map((el) => el.getAttribute('aria-label')),
-    ).toEqual(expect.arrayContaining(['Dark theme', 'Caption on snapshots']));
-    expect(
-      screen
-        .getAllByRole('switch')
-        .map((el) => el.getAttribute('aria-label'))
-        .filter((name) =>
-          ['Paint palette', 'Table export'].includes(name ?? ''),
-        ),
+      switches.filter((name) =>
+        ['Paint palette', 'Table export'].includes(name ?? ''),
+      ),
     ).toEqual([]);
+    expect(screen.getByLabelText('Theme')).toHaveValue('system');
     expect(
       screen.getByLabelText(/Warn me before the session ends/),
     ).toBeTruthy();
@@ -57,17 +59,21 @@ describe('SettingsBody', () => {
     expect(screen.queryByLabelText('Maximum categories')).toBeNull();
   });
 
-  it('toggles the dark theme switch', () => {
+  it('offers System, Light and Dark and applies the choice', () => {
     renderBody();
-    const dark = screen.getByRole('switch', { name: 'Dark theme' });
+    const theme = screen.getByLabelText('Theme');
+    expect(theme.tagName).toBe('SELECT');
+    expect(
+      within(theme as HTMLElement)
+        .getAllByRole('option')
+        .map((option) => option.textContent),
+    ).toEqual(['System', 'Light', 'Dark']);
     const start = document.documentElement.dataset.theme;
     const next = start === 'dark' ? 'light' : 'dark';
-    fireEvent.click(dark);
+    fireEvent.change(theme, { target: { value: next } });
     expect(document.documentElement.dataset.theme).toBe(next);
-    expect(dark.getAttribute('aria-checked')).toBe(String(next === 'dark'));
-    fireEvent.click(dark);
+    fireEvent.change(theme, { target: { value: 'system' } });
     expect(document.documentElement.dataset.theme).toBe(start);
-    expect(dark.getAttribute('aria-checked')).toBe(String(start === 'dark'));
   });
 
   it('lists every registered tool and both panes as entry points', () => {

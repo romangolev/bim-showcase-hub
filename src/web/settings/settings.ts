@@ -1,7 +1,14 @@
 import { flag, isRecord } from '../../shared/guards.js';
 import { BSH_KEYS, defineRecord, getStorageAdapter } from '../storage.js';
+import {
+  isThemePreference,
+  readStoredTheme,
+  THEME_PREFERENCES,
+  THEME_STORAGE_KEY,
+  type ThemePreference,
+} from '../theme/theme.js';
 
-export const SETTINGS_VERSION = 2;
+export const SETTINGS_VERSION = 3;
 
 export type Density = 'comfortable' | 'compact';
 export type TextSize = 'small' | 'medium' | 'large';
@@ -13,6 +20,7 @@ export interface Settings {
   recentsLength: number;
   density: Density;
   textSize: TextSize;
+  theme: ThemePreference;
   reducedMotion: boolean;
   language: Language;
 }
@@ -27,6 +35,7 @@ export const DEFAULT_SETTINGS: Settings = {
   recentsLength: 5,
   density: 'comfortable',
   textSize: 'medium',
+  theme: 'system',
   reducedMotion: false,
   language: 'en',
 };
@@ -69,9 +78,22 @@ export function readSettings(): Settings {
     ),
     density: pick(source.density, DENSITIES, DEFAULT_SETTINGS.density),
     textSize: pick(source.textSize, TEXT_SIZES, DEFAULT_SETTINGS.textSize),
+    theme: pick(source.theme, THEME_PREFERENCES, DEFAULT_SETTINGS.theme),
     reducedMotion: flag(source.reducedMotion, DEFAULT_SETTINGS.reducedMotion),
     language: pick(source.language, LANGUAGES, DEFAULT_SETTINGS.language),
   };
+}
+
+export function migrateLegacyTheme(): void {
+  const stored = APP_SETTINGS_BLOB.read();
+  if (isRecord(stored) && isThemePreference(stored.theme)) return;
+  const legacy = readStoredTheme();
+  if (!legacy) return;
+  const wrote = APP_SETTINGS_BLOB.write({
+    ...(isRecord(stored) ? stored : {}),
+    theme: legacy,
+  });
+  if (wrote) getStorageAdapter().remove('local', THEME_STORAGE_KEY);
 }
 
 export function writeSettings(settings: Settings): boolean {
