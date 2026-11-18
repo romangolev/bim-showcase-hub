@@ -376,6 +376,8 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
   const lockedRef = useRef(locked);
   lockedRef.current = locked;
   const [maximized, setMaximized] = useState<PanelId | null>(null);
+  const [presenting, setPresentingState] = useState(false);
+  const presentMaximized = useRef(false);
   const [resizing, setResizing] = useState<PanelId | null>(null);
   const [announcement, setAnnouncement] = useState('');
   const announce = useCallback((message: string) => {
@@ -491,6 +493,21 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
         announce(`${paneTitle(id).label} ${now ? 'maximized' : 'restored'}`);
         bump(id);
       },
+      presenting,
+      setPresenting: (next) => {
+        if (next === presenting) return;
+        if (next) {
+          presentMaximized.current =
+            maximized !== 'viewer' &&
+            (controller.current?.toggleMaximize('viewer') ?? false);
+        } else if (presentMaximized.current) {
+          controller.current?.toggleMaximize('viewer');
+          presentMaximized.current = false;
+        }
+        setPresentingState(next);
+        announce(next ? 'Presentation mode on' : 'Presentation mode off');
+        bump('viewer');
+      },
       focusPane: (id) => {
         if (id === 'tree') {
           treeControl.reveal();
@@ -517,6 +534,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       locked,
       setLockedState,
       maximized,
+      presenting,
       bump,
       announce,
       mode,
@@ -535,7 +553,27 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
   );
 
   useEffect(() => {
-    if (!maximized) return;
+    document.documentElement.toggleAttribute('data-presenting', presenting);
+    if (!presenting) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        target.closest('input, textarea, select, [role="menu"]')
+      )
+        return;
+      api.setPresenting(false);
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => {
+      document.removeEventListener('keydown', onKey, true);
+      document.documentElement.removeAttribute('data-presenting');
+    };
+  }, [presenting, api]);
+
+  useEffect(() => {
+    if (!maximized || presenting) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || event.defaultPrevented) return;
       const target = event.target;
@@ -548,7 +586,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [maximized, api]);
+  }, [maximized, presenting, api]);
 
   useEffect(() => {
     if (!resizing) return;
@@ -687,6 +725,15 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
                   </Suspense>
                 </div>
               )}
+              {presenting ? (
+                <button
+                  type="button"
+                  className="present-exit"
+                  onClick={() => api.setPresenting(false)}
+                >
+                  Exit presentation
+                </button>
+              ) : null}
               <PaneHosts hosts={hosts} panes={mounted} render={renderPane} />
               <div
                 className="visually-hidden layout-announcer"

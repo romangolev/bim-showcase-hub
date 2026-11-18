@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { chartDelimited, chartTable } from './chartExport.js';
-import { DASHBOARD_PRESETS, presetCharts } from './dashboardPresets.js';
+import { chartDelimited, chartTable, pngFrame } from './chartExport.js';
+import {
+  DASHBOARD_PRESETS,
+  DEFAULT_DASHBOARD_VIEW,
+  presetCharts,
+  sanitizeDashboardView,
+} from './dashboardPresets.js';
 
 const chart = {
   property: 'Category',
@@ -41,5 +46,32 @@ describe('dashboard presets', () => {
     expect(health && presetCharts(health, rows)).toEqual(['Category']);
     const discipline = DASHBOARD_PRESETS.find((p) => p.id === 'discipline');
     expect(discipline && presetCharts(discipline, rows)).toEqual(['Category']);
+  });
+});
+
+describe('chart PNG options', () => {
+  it('adds a title band and a legend column only when asked', () => {
+    expect(pngFrame(400, 300, {})).toMatchObject({ width: 400, height: 300 });
+    expect(pngFrame(400, 300, { title: 'Category' })).toMatchObject({
+      width: 400,
+      height: 332,
+      top: 32,
+    });
+    const legend = [{ label: 'Walls', color: '#fff' }];
+    expect(pngFrame(400, 300, { legend, more: 2 }).width).toBe(600);
+  });
+
+  it('defaults title and legend on and honours stored values', () => {
+    expect(DEFAULT_DASHBOARD_VIEW).toMatchObject({
+      pngTitle: true,
+      pngLegend: true,
+    });
+    expect(sanitizeDashboardView({})).toMatchObject({
+      pngTitle: true,
+      pngLegend: true,
+    });
+    expect(
+      sanitizeDashboardView({ pngTitle: false, pngLegend: false }),
+    ).toMatchObject({ pngTitle: false, pngLegend: false });
   });
 });

@@ -31,6 +31,8 @@ export interface LayoutApi {
   setLocked: (locked: boolean) => void;
   maximized: PanelId | null;
   toggleMaximize: (id: PanelId) => void;
+  presenting: boolean;
+  setPresenting: (presenting: boolean) => void;
   focusPane: (id: PanelId) => void;
   resizeSignal: (id: PanelId) => number;
   location: (id: PanelId) => 'grid' | 'floating' | null;
