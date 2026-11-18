@@ -1,8 +1,8 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { forgetModels } from '../api/openModels.js';
 import { DashboardPanel } from '../panels/DashboardPanel.js';
 import { usePaneSetting } from '../settings/paneSettings.js';
+import { forgetPersonal } from '../storage.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { fireEvent, render, screen } from '../test/render.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
@@ -88,7 +88,7 @@ describe('instance settings', () => {
     expect(
       window.localStorage.getItem('bsh.pane.modelSummary.1.v1'),
     ).not.toBeNull();
-    forgetModels();
+    forgetPersonal();
     expect(
       window.localStorage.getItem('bsh.pane.modelSummary.1.v1'),
     ).toBeNull();
@@ -101,7 +101,7 @@ describe('instance settings', () => {
       usePaneSetting(summarySetting('modelSummary:1')),
     );
     expect(view.result.current[0]).toEqual({ scope: 'urn-a' });
-    act(() => forgetModels());
+    act(() => forgetPersonal());
     expect(view.result.current[0]).toEqual({ scope: 'all' });
     expect(
       renderHook(() => usePaneSetting(summarySetting('modelSummary:1'))).result

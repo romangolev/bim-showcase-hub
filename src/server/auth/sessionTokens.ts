@@ -161,14 +161,6 @@ export function readUser(session: SessionStore): SessionUser | null {
   return null;
 }
 
-export function isSignedIn(
-  session: SessionStore,
-  codec: SessionCodec,
-  now: number = Date.now(),
-): boolean {
-  return readTokens(session, codec, now) !== null;
-}
-
 export function clearAuth(session: SessionStore): void {
   delete session.aps;
   delete session.user;

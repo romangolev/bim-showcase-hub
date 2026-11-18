@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MAX_LOADED_MEMBERS } from '../../shared/combined.js';
+import { forgetPersonal } from '../storage.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { MODEL_STORE_KEY } from './modelStore.js';
 import {
@@ -9,7 +10,6 @@ import {
   closeModel,
   createOpenModelsStore,
   EMPTY_OPEN_MODELS,
-  forgetModels,
   keepOnlyModel,
   liveWeight,
   MODEL_OWNER_KEY,
@@ -247,7 +247,7 @@ describe('model stores per user', () => {
     claimModels({ id: 'u1', name: 'Ada' });
     seed(storage);
     storage.setItem('bsh.docs.pinned', '["a"]');
-    forgetModels();
+    forgetPersonal();
     expect(storage.getItem('bsh.docs.pinned')).toBeNull();
     expect(storage.getItem(MODEL_OWNER_KEY)).toBeNull();
     expect(storage.getItem(MODEL_STORE_KEY)).toBeNull();
@@ -266,7 +266,7 @@ describe('model stores per user', () => {
     expect(store.getState()).toEqual(EMPTY_OPEN_MODELS);
     expect(sessionStorage.getItem(OPEN_MODELS_KEY)).toBeNull();
     expect(calls).toBe(1);
-    forgetModels();
+    forgetPersonal();
   });
 });
 

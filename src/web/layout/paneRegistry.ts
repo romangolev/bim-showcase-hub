@@ -214,10 +214,6 @@ export function paneKind(id: unknown): PaneId | null {
   return parsePanelId(id)?.kind ?? null;
 }
 
-export function isPanelId(id: unknown): id is PanelId {
-  return parsePanelId(id) !== null;
-}
-
 export function isInstancePanel(id: unknown): boolean {
   return Boolean(parsePanelId(id)?.instance);
 }

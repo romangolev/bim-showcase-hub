@@ -5,7 +5,6 @@ import {
 } from '../../extensions/excelExport.js';
 import {
   applyNamePattern,
-  CONFIRM_ABOVE,
   DEFAULT_NAME_PATTERN,
   type ExcelSettings,
 } from '../../extensions/exportFormats.js';
@@ -89,7 +88,7 @@ export class ExcelExportTool extends ViewerTool<ExcelToolSettings> {
                 decimal: settings.decimalMark,
                 header: settings.includeHeader,
               },
-              confirm: (rows) => confirmLargeExport(rows, CONFIRM_ABOVE),
+              confirm: (rows) => confirmLargeExport(rows),
               signal,
               onProgress: (fraction) => task.progress(fraction),
               onStatus: statusReporter(task, describeStatus),

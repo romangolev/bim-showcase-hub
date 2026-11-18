@@ -307,25 +307,6 @@ export function buildGlb(
   };
 }
 
-export function geometryFileName(
-  file?: string,
-  version?: string,
-  extension = 'glb',
-): string {
-  const base = (file ?? '').replace(/\.[A-Za-z0-9]{1,5}$/, '');
-  const parts = [base, version ?? '']
-    .map((part) =>
-      part
-        .normalize('NFKD')
-        .replace(/[^A-Za-z0-9._-]+/g, '-')
-        .replace(/-{2,}/g, '-')
-        .replace(/^[-.]+|[-.]+$/g, ''),
-    )
-    .filter(Boolean);
-  if (!parts.length) return DEFAULT_GLB_FILE_NAME;
-  return `${parts.join('-').slice(0, 120)}-geometry.${extension}`;
-}
-
 export function describeGlbStatus(status: GlbExportStatus): string {
   switch (status.phase) {
     case 'reading':
