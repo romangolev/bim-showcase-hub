@@ -150,4 +150,40 @@ describe('CommandPalette', () => {
     expect(screen.queryByRole('combobox')).toBeNull();
     expect(opener).toHaveFocus();
   });
+
+  it('ignores Enter while an IME composition is active', () => {
+    const run = vi.fn();
+    setup([{ id: 'a', title: 'Alpha', group: 'G', run }]);
+    openPalette();
+    fireEvent.keyDown(screen.getByRole('combobox'), {
+      key: 'Enter',
+      isComposing: true,
+    });
+    expect(run).not.toHaveBeenCalled();
+    expect(screen.getByRole('combobox')).toBeInTheDocument();
+  });
+
+  it('leaves Cmd/Ctrl+K to editable fields outside the palette', () => {
+    setup([{ id: 'a', title: 'Alpha', group: 'G', run: () => undefined }]);
+    const field = document.createElement('input');
+    const editor = document.createElement('div');
+    editor.setAttribute('contenteditable', 'true');
+    document.body.append(field, editor);
+    for (const target of [field, editor]) {
+      fireEvent.keyDown(target, { key: 'k', ctrlKey: true });
+      expect(screen.queryByRole('combobox')).toBeNull();
+    }
+    field.remove();
+    editor.remove();
+  });
+
+  it('still closes from its own field with Ctrl+K', () => {
+    setup([{ id: 'a', title: 'Alpha', group: 'G', run: () => undefined }]);
+    openPalette();
+    fireEvent.keyDown(screen.getByRole('combobox'), {
+      key: 'k',
+      ctrlKey: true,
+    });
+    expect(screen.queryByRole('combobox')).toBeNull();
+  });
 });

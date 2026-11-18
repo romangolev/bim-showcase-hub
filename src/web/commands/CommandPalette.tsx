@@ -93,6 +93,7 @@ function PaletteDialog({ onClose, onRun }: DialogProps) {
       event.preventDefault();
       setActive(current <= 0 ? last : current - 1);
     } else if (event.key === 'Enter') {
+      if (event.nativeEvent.isComposing) return;
       event.preventDefault();
       const entry = items[current];
       if (entry && !entry.command.disabled) onRun(entry.command);
@@ -189,6 +190,17 @@ export function isPaletteShortcut(event: globalThis.KeyboardEvent): boolean {
   );
 }
 
+const EDITABLE =
+  'input, textarea, select, [contenteditable]:not([contenteditable="false"])';
+
+function typingOutsidePalette(target: EventTarget | null): boolean {
+  return (
+    target instanceof Element &&
+    target.closest(EDITABLE) !== null &&
+    target.closest('.cmdk') === null
+  );
+}
+
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const modal = useModal();
@@ -196,6 +208,7 @@ export function CommandPalette() {
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => {
       if (!isPaletteShortcut(event) || event.isComposing) return;
+      if (typingOutsidePalette(event.target)) return;
       if (document.querySelector('dialog[open]:not(.cmdk)')) return;
       event.preventDefault();
       setOpen((value) => !value);
