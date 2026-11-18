@@ -43,7 +43,7 @@ export function viewerCommands(adapter: ViewerAdapter | null): Command[] {
       viewer.clearSelection(),
     ),
     make('fit', 'Zoom to selection', needsSelection, (viewer) =>
-      viewer.fitToSelection(),
+      viewer.fitToView(),
     ),
     make('saveSet', 'Save selection as set', needsSelection, (viewer) => {
       saveSelectionSet(

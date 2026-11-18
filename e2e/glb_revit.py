@@ -87,13 +87,13 @@ def manifest(token):
             return error.code, {}
 
 
-def bundle():
-    target = OUTPUT_DIR / "glb-harness" / "bundle.js"
+def bundle(entry="export_harness.ts", folder="glb-harness"):
+    target = OUTPUT_DIR / folder / "bundle.js"
     target.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run(
         [
             str(ROOT / "node_modules" / ".bin" / "esbuild"),
-            str(HARNESS / "export_harness.ts"),
+            str(HARNESS / entry),
             "--bundle",
             "--format=iife",
             "--platform=browser",
