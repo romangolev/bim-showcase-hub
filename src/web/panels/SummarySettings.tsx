@@ -11,11 +11,18 @@ import {
 } from '../extensions/modelSummary.js';
 import type { ModalDefinition } from '../modal/types.js';
 import { PANE_SETTINGS, usePaneSetting } from '../settings/paneSettings.js';
+import { usePublishedAdapter } from '../viewer/activeAdapterStore.js';
+import { PropertyPicker } from './PropertyPicker.js';
+import { useResolvedAdapter } from './usePropertyRows.js';
 
 export const SUMMARY_SETTINGS_ID = 'summary-settings';
 
 export function SummarySettingsBody() {
   const [view, setView, resetView] = usePaneSetting(PANE_SETTINGS.summary.view);
+  const [properties, setProperties] = usePaneSetting(
+    PANE_SETTINGS.summary.properties,
+  );
+  const adapter = useResolvedAdapter(usePublishedAdapter());
   const [action, setAction] = usePaneSetting(PANE_SETTINGS.summary.action);
   const patch = (next: Partial<SummaryView>) =>
     setView((prev) => ({ ...prev, ...next }));
@@ -28,6 +35,14 @@ export function SummarySettingsBody() {
 
   return (
     <div className="bsh-summary-settings">
+      <fieldset className="bsh-fieldset">
+        <legend>Properties</legend>
+        <PropertyPicker
+          adapter={adapter}
+          value={properties}
+          onChange={setProperties}
+        />
+      </fieldset>
       <label className="bsh-field">
         <input
           type="checkbox"

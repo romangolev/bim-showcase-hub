@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { PropertyRow } from '../../shared/types.js';
+import { sanitizeElementScope } from '../viewer/propertyScope.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import {
   itemsWithValues,
@@ -7,8 +8,10 @@ import {
   sanitizeAction,
 } from './elementActions.js';
 import {
+  DEFAULT_SUMMARY_PROPERTIES,
   DEFAULT_SUMMARY_VIEW,
   emptyShares,
+  sanitizeProperties,
   sanitizeView,
   summaryTable,
   viewEntries,
@@ -122,5 +125,18 @@ describe('element actions', () => {
     expect(adapter.selectModelIds).not.toHaveBeenCalled();
     expect(adapter.isolateModelIds).not.toHaveBeenCalled();
     expect(adapter.fitToSelection).not.toHaveBeenCalled();
+  });
+});
+
+describe('summary property and scope settings', () => {
+  it('sanitizes the chosen properties', () => {
+    expect(sanitizeProperties(['A', 'A', ' ', 3, 'B'])).toEqual(['A', 'B']);
+    expect(sanitizeProperties([])).toBe(DEFAULT_SUMMARY_PROPERTIES);
+    expect(sanitizeProperties('x')).toBe(DEFAULT_SUMMARY_PROPERTIES);
+  });
+
+  it('falls back to all elements for an unknown scope', () => {
+    expect(sanitizeElementScope('visible')).toBe('visible');
+    expect(sanitizeElementScope('bogus')).toBe('all');
   });
 });

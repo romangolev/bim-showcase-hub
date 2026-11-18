@@ -12,6 +12,17 @@ import type { ViewerAdapter } from './ViewerAdapter.js';
 
 export type ElementScope = 'all' | 'selected' | 'visible' | 'isolated';
 
+export const ELEMENT_SCOPES: readonly ElementScope[] = [
+  'all',
+  'selected',
+  'visible',
+  'isolated',
+];
+
+export function sanitizeElementScope(raw: unknown): ElementScope {
+  return ELEMENT_SCOPES.find((scope) => scope === raw) ?? 'all';
+}
+
 export interface PropertyScope {
   models: ModelScope;
   elements: ElementScope;

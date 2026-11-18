@@ -9,7 +9,6 @@ import {
 import { saveBlob } from '../extensions/excelExport.js';
 import { applyNamePattern, toDelimited } from '../extensions/exportFormats.js';
 import {
-  DEFAULT_SUMMARY_PROPERTIES,
   emptyShares,
   type SummaryEntry,
   type SummaryView,
@@ -19,6 +18,12 @@ import {
 } from '../extensions/modelSummary.js';
 import { PANE_SETTINGS, usePaneSetting } from '../settings/paneSettings.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
+import {
+  ELEMENT_SCOPE_LABELS,
+  ElementScopeSelect,
+  elementScopeLabel,
+  useElementScope,
+} from './ElementScope.js';
 import {
   FailedModels,
   ModelScopeSelect,
@@ -58,7 +63,7 @@ export const STACKED_ROW_LIMIT = 12;
 export function ModelSummaryPanel({
   adapter,
   model,
-  propertyNames = DEFAULT_SUMMARY_PROPERTIES,
+  propertyNames: propertyNamesOverride,
   title = 'Model summary',
   className,
   collapsed,
@@ -72,13 +77,31 @@ export function ModelSummaryPanel({
   const isCollapsed = collapsed ?? innerCollapsed;
   const [showAll, setShowAll] = useState(false);
   const resolved = useResolvedAdapter(adapter);
+  const [savedProperties] = usePaneSetting(PANE_SETTINGS.summary.properties);
+  const propertyNames = propertyNamesOverride ?? savedProperties;
   const state = usePropertyRows(resolved, propertyNames);
   const scope = useModelScope(resolved, state.rows);
+  const [elementsScope, setElementsScope] = usePaneSetting(
+    PANE_SETTINGS.summary.scope,
+  );
+  const [refreshTick, setRefreshTick] = useState(0);
+  const elements = useElementScope(
+    resolved,
+    elementsScope,
+    scope.rows,
+    refreshTick,
+  );
   const entries = useMemo(
     () =>
-      state.status === 'ready' ? summarize(scope.rows, propertyNames) : EMPTY,
-    [state.status, scope.rows, propertyNames],
+      state.status === 'ready' || state.status === 'cancelled'
+        ? summarize(elements.rows, propertyNames)
+        : EMPTY,
+    [state.status, elements.rows, propertyNames],
   );
+  const reload = () => {
+    setRefreshTick((tick) => tick + 1);
+    state.reload();
+  };
 
   const [view, setView] = usePaneSetting(PANE_SETTINGS.summary.view);
   const [action] = usePaneSetting(PANE_SETTINGS.summary.action);
@@ -97,7 +120,7 @@ export function ModelSummaryPanel({
     runElementAction(
       resolved,
       action,
-      itemsWithValues(scope.rows, entry.property, new Set([entry.value])),
+      itemsWithValues(elements.rows, entry.property, new Set([entry.value])),
     );
     setActive(entryKey(entry));
   };
@@ -151,10 +174,11 @@ export function ModelSummaryPanel({
           ) : null}
         </h2>
         <ModelScopeSelect state={scope} label="Summarize models" />
+        <ElementScopeSelect value={elementsScope} onChange={setElementsScope} />
         <button
           type="button"
           className="bsh-button bsh-summary__refresh"
-          onClick={state.reload}
+          onClick={reload}
           disabled={!resolved}
         >
           Refresh
@@ -203,6 +227,11 @@ export function ModelSummaryPanel({
               />
             </>
           ) : null}
+          {state.status === 'ready' && elements.elements !== 'all' ? (
+            <p className="bsh-scope__notice" role="status">
+              {elementScopeLabel(elements)}
+            </p>
+          ) : null}
           {!resolved && (
             <StateBlock
               variant="empty"
@@ -218,11 +247,42 @@ export function ModelSummaryPanel({
             />
           )}
           {resolved && state.status === 'loading' && (
-            <StateBlock
-              variant="loading"
-              message="Reading element properties"
-              rows={5}
-            />
+            <div className="bsh-summary__progress">
+              <progress
+                aria-label="Reading element properties"
+                max={state.progress?.total || undefined}
+                value={state.progress ? state.progress.done : undefined}
+              />
+              <span role="status">
+                {state.progress && state.progress.total > 0
+                  ? `Reading element properties: ${state.progress.done.toLocaleString('en-US')} of ${state.progress.total.toLocaleString('en-US')}`
+                  : 'Reading element properties'}
+              </span>
+              <button
+                type="button"
+                className="bsh-button"
+                onClick={state.cancel}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+          {resolved &&
+            state.status === 'loading' &&
+            state.rows.length === 0 && (
+              <StateBlock variant="loading" rows={5} />
+            )}
+          {state.status === 'cancelled' && (
+            <div className="bsh-summary__partial" role="status">
+              <span>
+                {state.rows.length > 0
+                  ? 'Partial data: the read was cancelled, so these counts may be out of date.'
+                  : 'The read was cancelled, so there is nothing to summarize yet.'}
+              </span>
+              <button type="button" className="bsh-button" onClick={reload}>
+                Read again
+              </button>
+            </div>
           )}
           {state.status === 'error' && (
             <StateBlock
@@ -232,14 +292,24 @@ export function ModelSummaryPanel({
               action={{ label: 'Retry', onClick: state.reload }}
             />
           )}
-          {state.status === 'ready' && entries.length === 0 && (
-            <StateBlock
-              variant="empty"
-              title="No elements to summarize"
-              message="This version has no readable elements. Try another version."
-              action={{ label: 'Refresh', onClick: state.reload }}
-            />
-          )}
+          {state.status === 'ready' &&
+            entries.length === 0 &&
+            !elements.pending && (
+              <StateBlock
+                variant="empty"
+                title={
+                  elements.elements === 'all'
+                    ? 'No elements to summarize'
+                    : `No ${ELEMENT_SCOPE_LABELS[elements.elements].toLowerCase()} elements`
+                }
+                message={
+                  elements.elements === 'all'
+                    ? 'This version has no readable elements. Try another version.'
+                    : 'Change the element scope, or pick elements in the viewer.'
+                }
+                action={{ label: 'Refresh', onClick: reload }}
+              />
+            )}
           {entries.length > 0 && (
             <div className="bsh-summary__tools">
               <input

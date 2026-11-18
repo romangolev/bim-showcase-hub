@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { PropertyRow } from '../../shared/types.js';
 import type { ReadOptions } from '../viewer/propertyReads.js';
@@ -39,6 +39,15 @@ describe('usePropertyRows progress and cancel', () => {
     );
     release([{ dbId: 1, name: 'El', properties: { Name: 'n' } }]);
     await waitFor(() => expect(result.current.status).toBe('ready'));
+  });
+
+  it('cancel aborts the read and ends in a cancelled state', async () => {
+    const { adapter, reads } = slowAdapter();
+    const { result } = renderHook(() => usePropertyRows(adapter, ['Name']));
+    await waitFor(() => expect(reads).toHaveLength(1));
+    act(() => result.current.cancel());
+    expect(reads[0]?.signal?.aborted).toBe(true);
+    expect(result.current.status).toBe('cancelled');
   });
 
   it('cancels the read when the hook unmounts', async () => {

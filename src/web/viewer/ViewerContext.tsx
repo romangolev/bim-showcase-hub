@@ -3,9 +3,11 @@ import {
   type ReactNode,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from 'react';
+import { publishActiveAdapter } from './activeAdapterStore.js';
 import type { ViewerAdapter } from './ViewerAdapter.js';
 
 export interface ViewerRegistry {
@@ -50,6 +52,10 @@ export function ViewerProvider({
     });
   }, []);
   const adapter = active ? (adapters[active] ?? null) : null;
+  useEffect(() => {
+    publishActiveAdapter(adapter);
+    return () => publishActiveAdapter(null);
+  }, [adapter]);
   const value = useMemo(
     () => ({ adapter, activeKey: active, publish, withdraw }),
     [adapter, active, publish, withdraw],

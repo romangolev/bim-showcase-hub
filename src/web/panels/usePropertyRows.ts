@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PropertyRow } from '../../shared/types.js';
 import { readySignature } from '../viewer/modelSet.js';
 import type { ReadProgress } from '../viewer/propertyReads.js';
@@ -21,6 +21,7 @@ export type RowsState =
       progress: ReadProgress | null;
     }
   | { status: 'ready'; rows: PropertyRow[]; failed: string[] }
+  | { status: 'cancelled'; rows: PropertyRow[] }
   | { status: 'error'; rows: PropertyRow[]; message: string };
 
 export function useResolvedAdapter(
@@ -33,11 +34,12 @@ export function useResolvedAdapter(
 export function usePropertyRows(
   adapter: ViewerAdapter | null,
   propertyNames: readonly string[],
-): RowsState & { reload: () => void } {
+): RowsState & { reload: () => void; cancel: () => void } {
   const key = propertyNames.join('\u0000');
   const names = useMemo(() => (key ? key.split('\u0000') : []), [key]);
   const [state, setState] = useState<RowsState>({ status: 'idle', rows: [] });
   const [version, setVersion] = useState(0);
+  const controllerRef = useRef<AbortController | null>(null);
   const all = useModels(adapter);
   const models = readySignature(all);
   const hidden =
@@ -60,6 +62,7 @@ export function usePropertyRows(
       progress: null,
     }));
     const controller = new AbortController();
+    controllerRef.current = controller;
     const onProgress = (progress: ReadProgress) => {
       if (cancelled) return;
       setState((prev) =>
@@ -75,10 +78,11 @@ export function usePropertyRows(
       },
     }).then(
       (rows) => {
-        if (!cancelled) setState({ status: 'ready', rows, failed });
+        if (!cancelled && !controller.signal.aborted)
+          setState({ status: 'ready', rows, failed });
       },
       (err: unknown) => {
-        if (cancelled) return;
+        if (cancelled || controller.signal.aborted) return;
         setState({
           status: 'error',
           rows: [],
@@ -93,5 +97,14 @@ export function usePropertyRows(
     };
   }, [adapter, names, models, version, hidden]);
 
-  return { ...state, reload };
+  const cancel = useCallback(() => {
+    controllerRef.current?.abort();
+    setState((prev) =>
+      prev.status === 'loading'
+        ? { status: 'cancelled', rows: prev.rows }
+        : prev,
+    );
+  }, []);
+
+  return { ...state, reload, cancel };
 }
