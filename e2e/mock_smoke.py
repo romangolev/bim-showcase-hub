@@ -575,8 +575,10 @@ def check_layout(page, checks, notes):
 
     page.get_by_role("button", name="Dashboard pane options").focus()
     page.keyboard.press("Enter")
-    page.keyboard.press("ArrowDown")
-    page.keyboard.press("ArrowDown")
+    for _ in range(8):
+        if page.evaluate("() => document.activeElement?.textContent?.trim()") == "Move below":
+            break
+        page.keyboard.press("ArrowDown")
     page.keyboard.press("Enter")
     settle(page)
     found = groups(page)
