@@ -101,12 +101,14 @@ export function createTaskStore(now: () => number = Date.now): TaskStore {
       },
       `${task.label} ${verb}`,
     );
+    if (state !== 'failed') hooks.delete(id);
   };
 
   const cancel = (id: number) => {
     if (find(id)?.state !== 'running') return;
+    const onCancel = hooks.get(id)?.cancel;
     settle(id, 'cancelled', null, 'cancelled');
-    hooks.get(id)?.cancel?.();
+    onCancel?.();
   };
 
   const remove = (id: number) => {

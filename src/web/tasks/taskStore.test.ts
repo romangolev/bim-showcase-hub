@@ -1,3 +1,5 @@
+import v8 from 'node:v8';
+import vm from 'node:vm';
 import { describe, expect, it, vi } from 'vitest';
 import { createTaskStore, HISTORY_LIMIT } from './taskStore.js';
 
@@ -73,6 +75,26 @@ describe('task store', () => {
     expect(store.getSnapshot().running).toBe(0);
     running.finish();
     expect(store.getSnapshot().tasks).toHaveLength(1);
+  });
+
+  it('releases the retry closure of a task that did not fail', async () => {
+    v8.setFlagsFromString('--expose-gc');
+    const collect = vm.runInNewContext('gc') as () => void;
+    const store = createTaskStore();
+    const start = (label: string) => {
+      const held = { label };
+      const ref = new WeakRef(held);
+      const task = store.start({ label, retry: () => held.label });
+      return { ref, task };
+    };
+    const done = start('A');
+    const failed = start('B');
+    done.task.finish();
+    failed.task.fail('x');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    collect();
+    expect(done.ref.deref()).toBeUndefined();
+    expect(failed.ref.deref()).toBeDefined();
   });
 
   it('cancels through the producer hook once', () => {
