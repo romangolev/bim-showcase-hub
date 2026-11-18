@@ -32,6 +32,7 @@ import { page } from '../viewer/region.js';
 import { chartSetting, summarySetting } from './instanceSettings.js';
 import { useLayout, useMainContent } from './layoutContext.js';
 import { instancePanelId } from './panelIds.js';
+import { setSummarySettingsTarget } from './summaryTarget.js';
 
 export const MODEL_KIND = 'viewer';
 
@@ -213,7 +214,10 @@ export function SummaryPane() {
     <aside className="pane-summary" aria-label="Model summary">
       <ModelSummaryPanel
         model={model}
-        onOpenSettings={() => modal.open(SUMMARY_SETTINGS_ID)}
+        onOpenSettings={() => {
+          setSummarySettingsTarget(null);
+          modal.open(SUMMARY_SETTINGS_ID);
+        }}
         collapsed={layout.mode === 'stacked' && layout.isCollapsed('summary')}
         toggleable={layout.mode === 'stacked'}
         onCollapsedChange={(next) => layout.setCollapsed('summary', next)}
@@ -232,8 +236,19 @@ export function SummaryInstancePane({ instance }: { instance: string }) {
       <ModelSummaryPanel
         title={layout.paneTitle(panel).label}
         toggleable={false}
-        onOpenSettings={() => modal.open(SUMMARY_SETTINGS_ID)}
-        scope={{ value: spec.scope, onChange: (scope) => setSpec({ scope }) }}
+        onOpenSettings={() => {
+          setSummarySettingsTarget(panel);
+          modal.open(SUMMARY_SETTINGS_ID);
+        }}
+        propertyNames={spec.properties}
+        scope={{
+          value: spec.scope,
+          onChange: (scope) => setSpec((prev) => ({ ...prev, scope })),
+        }}
+        elements={{
+          value: spec.elements,
+          onChange: (elements) => setSpec((prev) => ({ ...prev, elements })),
+        }}
       />
     </aside>
   );

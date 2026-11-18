@@ -726,7 +726,7 @@ describe('user pane families', () => {
     await screen.findByRole('tab', { name: 'Model summary 1' });
     expect(
       JSON.parse(storage.getItem('bsh.pane.modelSummary.1.v1') ?? '{}'),
-    ).toEqual({ scope: 'aaa' });
+    ).toMatchObject({ scope: 'aaa' });
     act(() => handle().togglePane('modelSummary:1'));
     await waitFor(() =>
       expect(screen.queryByRole('tab', { name: 'Model summary 1' })).toBeNull(),

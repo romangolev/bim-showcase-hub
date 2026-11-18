@@ -123,6 +123,31 @@ describe('paneLifecycle instances', () => {
   });
 });
 
+describe('paneLifecycle user panes at home', () => {
+  it('keeps user instances mounted in the dock with no model and through a model round trip', () => {
+    const user = {
+      chart: [{ id: 'chart:1', title: 'Chart 1' }],
+      modelSummary: [{ id: 'modelSummary:1', title: 'Model summary 1' }],
+    };
+    const { lifecycle, models } = setup({ user });
+    lifecycle.paneAttached('chart:1');
+    lifecycle.paneAttached('modelSummary:1');
+    expect(lifecycle.view().home).toBe(true);
+    expect(lifecycle.view().mounted).toEqual(['chart:1', 'modelSummary:1']);
+    models.open('u1');
+    lifecycle.reconcile();
+    expect(lifecycle.view().instances).toEqual([
+      'viewer:u1',
+      'chart:1',
+      'modelSummary:1',
+    ]);
+    models.close('u1');
+    lifecycle.reconcile();
+    expect(lifecycle.view().mounted).toEqual(['chart:1', 'modelSummary:1']);
+    expect(lifecycle.getState().user).toEqual(user);
+  });
+});
+
 describe('paneLifecycle model tabs', () => {
   it('routes activate and close of a model panel to the store', () => {
     const { lifecycle, models } = setup({ urns: ['a', 'b'] });

@@ -58,7 +58,13 @@ describe('instance settings', () => {
     });
     expect(view).toMatchObject({ preset: null, kind: 'bar', scope: 'urn1' });
     expect(spec.sanitize({ scope: 5 }).scope).toBeUndefined();
-    expect(sanitizeSummarySpec({ scope: '' })).toEqual({ scope: 'all' });
+    expect(sanitizeSummarySpec({ scope: '' })).toMatchObject({
+      scope: 'all',
+      elements: 'all',
+    });
+    expect(
+      sanitizeSummarySpec({ elements: 'selected', properties: ['Name'] }),
+    ).toMatchObject({ elements: 'selected', properties: ['Name'] });
   });
 
   it('removes the stored spec when the instance is forgotten', () => {
@@ -74,12 +80,15 @@ describe('instance settings', () => {
     const view = renderHook(() =>
       usePaneSetting(summarySetting('modelSummary:1')),
     );
-    expect(view.result.current[0]).toEqual({ scope: 'all' });
+    expect(view.result.current[0]).toMatchObject({
+      scope: 'all',
+      elements: 'all',
+    });
     await act(async () => {
       seedInstanceSetting('modelSummary:1', 'urn-a');
       await Promise.resolve();
     });
-    expect(view.result.current[0]).toEqual({ scope: 'urn-a' });
+    expect(view.result.current[0]).toMatchObject({ scope: 'urn-a' });
   });
 
   it('scrubs per-instance keys and cached specs on forget', () => {
@@ -100,13 +109,16 @@ describe('instance settings', () => {
     const view = renderHook(() =>
       usePaneSetting(summarySetting('modelSummary:1')),
     );
-    expect(view.result.current[0]).toEqual({ scope: 'urn-a' });
+    expect(view.result.current[0]).toMatchObject({ scope: 'urn-a' });
     act(() => forgetPersonal());
-    expect(view.result.current[0]).toEqual({ scope: 'all' });
+    expect(view.result.current[0]).toMatchObject({
+      scope: 'all',
+      elements: 'all',
+    });
     expect(
       renderHook(() => usePaneSetting(summarySetting('modelSummary:1'))).result
         .current[0],
-    ).toEqual({ scope: 'all' });
+    ).toMatchObject({ scope: 'all', elements: 'all' });
   });
 
   it('charts independently per instance and persists each spec', async () => {
