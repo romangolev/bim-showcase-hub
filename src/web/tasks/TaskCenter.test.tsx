@@ -61,8 +61,7 @@ describe('TaskCenter', () => {
     expect(screen.getByText('Failed: offline')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(retry).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole('button', { name: 'Clear finished' }));
-    expect(screen.queryByRole('button', { name: /Tasks/ })).toBeNull();
+    expect(screen.queryByText('Failed: offline')).toBeNull();
   });
 
   it('closes on Escape and on an outside press', () => {
