@@ -235,6 +235,7 @@ export async function exportToXlsx(
       copyText.reject();
       return emit({ phase: 'cancelled' });
     }
+    throwIfAborted(signal);
     emit({ phase: 'building' });
     let rowCount = rows.length;
     const about = (): AboutInfo => ({
@@ -304,6 +305,7 @@ export async function exportToXlsx(
         ...summary,
         ...aboutSheet,
       ]).toBlob();
+      throwIfAborted(signal);
       save(blob, fileName);
     } else {
       const flat = buildExportRows(
@@ -311,6 +313,7 @@ export async function exportToXlsx(
         propertyNames,
         distinctModelCount(rows) > 1,
       );
+      throwIfAborted(signal);
       if (format === 'copy') {
         copyText.resolve(
           toDelimited(flat.header, flat.rows, table.delimiter ?? '\t', table),

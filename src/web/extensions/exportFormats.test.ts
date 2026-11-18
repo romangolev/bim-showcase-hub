@@ -332,6 +332,40 @@ describe('exportToXlsx formats', () => {
     expect(status).toEqual({ phase: 'cancelled' });
     expect(save).not.toHaveBeenCalled();
   });
+
+  it('builds and saves nothing', async () => {
+    const save = vi.fn();
+    const controller = new AbortController();
+    const status = await exportToXlsx(adapterOf(data), {
+      propertyNames: ['Name'],
+      format: 'csv',
+      confirm: () => {
+        controller.abort();
+        return true;
+      },
+      signal: controller.signal,
+      save,
+    });
+    expect(status).toEqual({ phase: 'cancelled' });
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it('does not write the clipboard', async () => {
+    const written = vi.fn();
+    const controller = new AbortController();
+    const status = await exportToXlsx(adapterOf(data), {
+      propertyNames: ['Name'],
+      format: 'copy',
+      confirm: () => {
+        controller.abort();
+        return true;
+      },
+      signal: controller.signal,
+      copy: (text) => text.then(written),
+    });
+    expect(status).toEqual({ phase: 'cancelled' });
+    expect(written).not.toHaveBeenCalled();
+  });
 });
 
 describe('readExcelSettings', () => {
