@@ -1,6 +1,7 @@
 import { useId, useMemo, useState } from 'react';
 import { Icon } from '../components/icons.js';
 import { StateBlock } from '../components/StateBlock.js';
+import type { ElementAction } from '../extensions/elementActions.js';
 import {
   itemsWithValues,
   runElementAction,
@@ -56,6 +57,8 @@ export interface ModelSummaryPanelProps {
   onOpenSettings?: () => void;
   scope?: { value: string; onChange: (scope: string) => void };
   elements?: { value: ElementScope; onChange: (scope: ElementScope) => void };
+  view?: { value: SummaryView; onChange: (view: SummaryView) => void };
+  action?: ElementAction;
 }
 
 const EMPTY: SummaryEntry[] = [];
@@ -74,6 +77,8 @@ export function ModelSummaryPanel({
   onOpenSettings,
   scope: controlledScope,
   elements: controlledElements,
+  view: controlledView,
+  action: controlledAction,
 }: ModelSummaryPanelProps) {
   const uid = useId();
   const [innerCollapsed, setInnerCollapsed] = useState(defaultCollapsed);
@@ -101,8 +106,10 @@ export function ModelSummaryPanel({
   );
   const reload = state.reload;
 
-  const [view, setView] = usePaneSetting(PANE_SETTINGS.summary.view);
-  const [action] = usePaneSetting(PANE_SETTINGS.summary.action);
+  const [savedView, setSavedView] = usePaneSetting(PANE_SETTINGS.summary.view);
+  const [savedAction] = usePaneSetting(PANE_SETTINGS.summary.action);
+  const view = controlledView?.value ?? savedView;
+  const action = controlledAction ?? savedAction;
   const [active, setActive] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
   const shown = useMemo(() => viewEntries(entries, view), [entries, view]);
@@ -110,8 +117,11 @@ export function ModelSummaryPanel({
     () => emptyShares(entries).filter((share) => share.percent > 0),
     [entries],
   );
-  const patch = (next: Partial<SummaryView>) =>
-    setView((prev) => ({ ...prev, ...next }));
+  const patch = (next: Partial<SummaryView>) => {
+    const merged = { ...view, ...next };
+    if (controlledView) controlledView.onChange(merged);
+    else setSavedView(merged);
+  };
 
   const pick = (entry: SummaryEntry) => {
     if (!resolved) return;

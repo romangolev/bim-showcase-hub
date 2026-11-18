@@ -4,9 +4,17 @@ import {
   sanitizeDashboardView,
 } from '../extensions/dashboardPresets.js';
 import {
+  type ElementAction,
+  sanitizeAction,
+} from '../extensions/elementActions.js';
+import {
   DEFAULT_SUMMARY_PROPERTIES,
+  DEFAULT_SUMMARY_VIEW,
+  type SummaryView,
   sanitizeProperties,
+  sanitizeView,
 } from '../extensions/modelSummary.js';
+import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import { defineRecordFamily, type PersistedRecord } from '../storage.js';
 import {
   type ElementScope,
@@ -18,12 +26,16 @@ export interface SummarySpec {
   scope: string;
   elements: ElementScope;
   properties: readonly string[];
+  view: SummaryView;
+  action: ElementAction;
 }
 
 const DEFAULT_SUMMARY_SPEC: SummarySpec = {
   scope: 'all',
   elements: 'all',
   properties: DEFAULT_SUMMARY_PROPERTIES,
+  view: DEFAULT_SUMMARY_VIEW,
+  action: 'select',
 };
 
 const INSTANCE_PREFIX = 'bsh.pane.';
@@ -45,6 +57,8 @@ export function sanitizeSummarySpec(raw: unknown): SummarySpec {
     scope: typeof spec?.scope === 'string' && spec.scope ? spec.scope : 'all',
     elements: sanitizeElementScope(spec?.elements),
     properties: sanitizeProperties(spec?.properties),
+    view: sanitizeView(spec?.view),
+    action: sanitizeAction(spec?.action),
   };
 }
 
@@ -73,7 +87,12 @@ export function seedInstanceSetting(
   id: PanelId,
   activeModel: string | null,
 ): void {
-  if (parsePanelId(id)?.kind === 'modelSummary' && activeModel) {
-    summaries.get(id).write({ ...DEFAULT_SUMMARY_SPEC, scope: activeModel });
+  if (parsePanelId(id)?.kind === 'modelSummary') {
+    summaries.get(id).write({
+      ...DEFAULT_SUMMARY_SPEC,
+      scope: activeModel ?? 'all',
+      view: PANE_SETTINGS.summary.view.read(),
+      action: PANE_SETTINGS.summary.action.read(),
+    });
   }
 }
