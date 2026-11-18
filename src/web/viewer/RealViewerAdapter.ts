@@ -23,7 +23,6 @@ import {
 } from './federation.js';
 import { fullscreenElementOf, watchFullscreen } from './fullscreen.js';
 import type { GeometryRead } from './geometryTypes.js';
-import { tagRows } from './modelScope.js';
 import {
   CANCELLED_MESSAGE,
   checkCapacity,
@@ -46,6 +45,7 @@ import {
   type Vec3,
   VIEWER_CLOSED_MESSAGE,
 } from './modelSet.js';
+import { PropertyReader } from './propertyReader.js';
 import {
   DISCOVERY_SAMPLE,
   mergeInfos,
@@ -53,7 +53,6 @@ import {
   type ReadOptions,
   readInChunks,
   sampleIds,
-  sumProgress,
   throwIfAborted,
   UNCATEGORIZED,
 } from './propertyReads.js';
@@ -180,12 +179,6 @@ function loadDocument(urn: string) {
   });
 }
 
-function propertiesMessage(err: unknown): string {
-  return err instanceof Error && err.message
-    ? `Properties could not be read: ${err.message}`
-    : 'Properties could not be read';
-}
-
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : 'The model could not be loaded';
 }
@@ -261,6 +254,12 @@ export class RealViewerAdapter implements ViewerAdapter {
   private stopFullscreen: (() => void) | null = null;
   private frameObserver: ResizeObserver | null = null;
   private readonly models = new ModelSet<ViewerModel>();
+  private readonly reader = new PropertyReader<ViewerModel>(this.models, {
+    rows: ({ handle }, names, options) =>
+      this.readModelRows(this.openViewer(), handle, names, options),
+    infos: ({ handle }, options) =>
+      this.readModelInfos(this.openViewer(), handle, options),
+  });
   private anchor: FederationAnchor | null = null;
   private api = '';
   private selectionEvent = '';
@@ -379,6 +378,11 @@ export class RealViewerAdapter implements ViewerAdapter {
     const loaded = current();
     if (loaded.status === 'ready') this.frameModels(viewer);
     return loaded;
+  }
+
+  private openViewer(): GuiViewer3D {
+    if (!this.viewer) throw new Error(VIEWER_CLOSED_MESSAGE);
+    return this.viewer;
   }
 
   private ensureViewer(region: ViewerRegion): Promise<GuiViewer3D | null> {
@@ -995,67 +999,21 @@ export class RealViewerAdapter implements ViewerAdapter {
     for (const { handle } of ready) viewer.clearThemingColors(handle);
   }
 
-  async getLeafProperties(
+  getLeafProperties(
     propertyNames: string[],
     modelIds?: readonly string[],
     options: ReadOptions = {},
   ): Promise<PropertyRow[]> {
-    const viewer = this.viewer;
-    if (!viewer) return [];
-    const shown = this.models
-      .shown()
-      .filter(({ info }) => !modelIds || modelIds.includes(info.id));
-    const progress = sumProgress(options.onProgress);
-    const results = await Promise.allSettled(
-      shown.map(async ({ info, handle }) =>
-        tagRows(
-          await this.readModelRows(viewer, handle, propertyNames, {
-            ...options,
-            onProgress: progress(info.id),
-          }),
-          info,
-        ),
-      ),
-    );
-    throwIfAborted(options.signal);
-    const rows: PropertyRow[] = [];
-    let failure: unknown = null;
-    results.forEach((result, index) => {
-      const id = shown[index]?.info.id;
-      if (id === undefined) return;
-      if (result.status === 'fulfilled') {
-        rows.push(...result.value);
-        this.models.setPropertiesError(id);
-      } else {
-        failure ??= result.reason;
-        this.models.setPropertiesError(id, propertiesMessage(result.reason));
-      }
-    });
-    if (failure !== null && rows.length === 0) throw failure;
-    return rows;
+    if (!this.viewer) return Promise.resolve([]);
+    return this.reader.rows(propertyNames, modelIds, options);
   }
 
-  async discoverProperties(
+  discoverProperties(
     modelIds?: readonly string[],
     options: ReadOptions = {},
   ): Promise<PropertyInfo[]> {
-    const viewer = this.viewer;
-    if (!viewer) return [];
-    const shown = this.models
-      .shown()
-      .filter(({ info }) => !modelIds || modelIds.includes(info.id));
-    const results = await Promise.allSettled(
-      shown.map(({ handle }) => this.readModelInfos(viewer, handle, options)),
-    );
-    throwIfAborted(options.signal);
-    const lists: PropertyInfo[][] = [];
-    let failure: unknown = null;
-    for (const result of results) {
-      if (result.status === 'fulfilled') lists.push(result.value);
-      else failure ??= result.reason;
-    }
-    if (failure !== null && lists.length === 0) throw failure;
-    return mergeInfos(lists);
+    if (!this.viewer) return Promise.resolve([]);
+    return this.reader.infos(modelIds, options);
   }
 
   private async readModelInfos(

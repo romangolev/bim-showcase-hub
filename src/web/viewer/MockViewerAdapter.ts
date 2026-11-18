@@ -16,7 +16,6 @@ import {
   type MockElement,
   type Point,
 } from './mockModel.js';
-import { tagRows } from './modelScope.js';
 import {
   checkCapacity,
   loadFailure,
@@ -35,8 +34,8 @@ import {
   type Vec3,
   VIEWER_CLOSED_MESSAGE,
 } from './modelSet.js';
+import { PropertyReader } from './propertyReader.js';
 import {
-  mergeInfos,
   type PropertyInfo,
   type ReadOptions,
   throwIfAborted,
@@ -112,7 +111,6 @@ export const MOCK_NO_GEOMETRY_MARKER = 'nogeom';
 export const MOCK_PROCESSING_MARKER = 'processing';
 export const MOCK_NO_ACCESS_MARKER = 'noaccess';
 export const MOCK_NO_ACCESS_ERROR = 'Document load failed (4): mock';
-export const MOCK_PROPERTIES_ERROR = 'Properties could not be read: mock';
 const MODEL_GAP = 48;
 
 interface Box {
@@ -255,6 +253,24 @@ export class MockViewerAdapter implements ViewerAdapter {
   private isolated: Set<string> | null = null;
   private hiddenKeys = new Set<string>();
   private readonly models = new ModelSet<MockScene>();
+  private readonly reader = new PropertyReader<MockScene>(this.models, {
+    rows: async ({ info }, propertyNames, options) => {
+      if (info.urn.includes(MOCK_NO_PROPERTIES_MARKER)) {
+        throw new Error('mock');
+      }
+      const bulk = import.meta.env.MODE === 'test' ? 0 : LARGE_FIXTURE_ROWS;
+      const extra = bulk ? bulk + mockRowVariant(info.urn) : 0;
+      const rows = buildMockRows(propertyNames, extra);
+      options.onProgress?.({ done: rows.length, total: rows.length });
+      return rows;
+    },
+    infos: async ({ info }) => {
+      if (info.urn.includes(MOCK_NO_PROPERTIES_MARKER)) {
+        throw new Error('mock');
+      }
+      return [...MOCK_PROPERTY_INFOS];
+    },
+  });
   private readonly themed = new Map<string, Rgba>();
   private readonly listeners = new Set<(items: ModelDbId[]) => void>();
   private placed = 0;
@@ -613,23 +629,7 @@ export class MockViewerAdapter implements ViewerAdapter {
   ): Promise<PropertyRow[]> {
     if (!this.loaded) return [];
     throwIfAborted(options.signal);
-    const bulk = import.meta.env.MODE === 'test' ? 0 : LARGE_FIXTURE_ROWS;
-    const rows: PropertyRow[] = [];
-    let failed = false;
-    for (const { info } of this.models.shown()) {
-      if (modelIds && !modelIds.includes(info.id)) continue;
-      if (info.urn.includes(MOCK_NO_PROPERTIES_MARKER)) {
-        failed = true;
-        this.models.setPropertiesError(info.id, MOCK_PROPERTIES_ERROR);
-        continue;
-      }
-      this.models.setPropertiesError(info.id);
-      const extra = bulk ? bulk + mockRowVariant(info.urn) : 0;
-      rows.push(...tagRows(buildMockRows(propertyNames, extra), info));
-    }
-    if (failed && rows.length === 0) throw new Error(MOCK_PROPERTIES_ERROR);
-    options.onProgress?.({ done: rows.length, total: rows.length });
-    return rows;
+    return this.reader.rows(propertyNames, modelIds, options);
   }
 
   async discoverProperties(
@@ -638,15 +638,7 @@ export class MockViewerAdapter implements ViewerAdapter {
   ): Promise<PropertyInfo[]> {
     if (!this.loaded) return [];
     throwIfAborted(options.signal);
-    const lists: (readonly PropertyInfo[])[] = [];
-    let failed = false;
-    for (const { info } of this.models.shown()) {
-      if (modelIds && !modelIds.includes(info.id)) continue;
-      if (info.urn.includes(MOCK_NO_PROPERTIES_MARKER)) failed = true;
-      else lists.push(MOCK_PROPERTY_INFOS);
-    }
-    if (failed && lists.length === 0) throw new Error(MOCK_PROPERTIES_ERROR);
-    return mergeInfos(lists);
+    return this.reader.infos(modelIds, options);
   }
 
   registerToolGroup(spec: ToolGroupSpec): () => void {
