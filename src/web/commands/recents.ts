@@ -1,16 +1,23 @@
-import { BSH_KEYS, readJson, writeJson } from '../storage.js';
+import { BSH_KEYS, defineRecord } from '../storage.js';
 
 export const RECENT_LIMIT = 5;
 
+const RECENTS = defineRecord<string[]>({
+  key: BSH_KEYS.personal.recentCommands,
+  initial: [],
+  sanitize: (raw) =>
+    Array.isArray(raw)
+      ? raw
+          .filter((id): id is string => typeof id === 'string')
+          .slice(0, RECENT_LIMIT)
+      : [],
+});
+
 export function readRecents(): string[] {
-  const raw = readJson<unknown>(BSH_KEYS.personal.recentCommands, []);
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .filter((id): id is string => typeof id === 'string')
-    .slice(0, RECENT_LIMIT);
+  return RECENTS.read();
 }
 
 export function recordRecent(id: string): void {
   const next = [id, ...readRecents().filter((known) => known !== id)];
-  writeJson(BSH_KEYS.personal.recentCommands, next.slice(0, RECENT_LIMIT));
+  RECENTS.write(next.slice(0, RECENT_LIMIT));
 }
