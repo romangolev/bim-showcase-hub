@@ -17,7 +17,10 @@ import {
 } from '../extensions/modelSummary.js';
 import { summarySetting } from '../layout/instanceSettings.js';
 import type { PanelId } from '../layout/paneRegistry.js';
-import { useSummarySettingsTarget } from '../layout/summaryTarget.js';
+import {
+  setSummarySettingsTarget,
+  useSummarySettingsTarget,
+} from '../layout/summaryTarget.js';
 import type { ModalDefinition } from '../modal/types.js';
 import { PANE_SETTINGS, usePaneSetting } from '../settings/paneSettings.js';
 import { usePublishedAdapter } from '../viewer/activeAdapterStore.js';
@@ -220,4 +223,5 @@ export const SUMMARY_SETTINGS_MODAL: ModalDefinition = {
   title: 'Summary settings',
   size: 'lg',
   Body: SummarySettingsBody,
+  onClose: () => setSummarySettingsTarget(null),
 };

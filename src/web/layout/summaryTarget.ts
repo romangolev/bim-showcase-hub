@@ -9,6 +9,10 @@ export function setSummarySettingsTarget(id: PanelId | null): void {
   for (const listener of targetListeners) listener();
 }
 
+export function dropSummarySettingsTarget(id: PanelId): void {
+  if (summaryTarget === id) setSummarySettingsTarget(null);
+}
+
 export function useSummarySettingsTarget(): PanelId | null {
   return useSyncExternalStore(
     (listener) => {

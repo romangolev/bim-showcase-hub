@@ -66,7 +66,7 @@ Ctrl or Cmd+K opens the palette (`src/web/commands`).
 
 ## Settings and modals
 
-- Add a modal: write a `ModalDefinition` and add it to `src/web/modal/registry.ts`. Each registered tool already adds its own.
+- Add a modal: write a `ModalDefinition` and add it to `src/web/modal/registry.ts`. Each registered tool already adds its own. An optional `onClose` runs when the modal closes, for state the opener set.
 - App settings (`src/web/settings/settings.ts`, key `bsh-settings-v1`) hold only `sessionWarnMinutes` and `recentsLength`. Each tool and pane owns the rest of its settings.
 - Generated forms: `components/SettingsForm.tsx` renders a `FormDefinition` with field kinds `toggle`, `number`, `select`, `text`, `multi` and `list`.
 - Pane settings live in `settings/paneSettings.ts` and `layout/instanceSettings.ts`.

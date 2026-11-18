@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ModelSummaryPanel } from '../panels/ModelSummaryPanel.js';
-import { SummarySettingsBody } from '../panels/SummarySettings.js';
+import {
+  SUMMARY_SETTINGS_MODAL,
+  SummarySettingsBody,
+} from '../panels/SummarySettings.js';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import { forgetPersonal } from '../storage.js';
 import { installMemoryStorage } from '../test/mockApi.js';
@@ -13,7 +16,10 @@ import {
   summarySetting,
 } from './instanceSettings.js';
 import { SummaryInstancePane } from './panes.js';
-import { setSummarySettingsTarget } from './summaryTarget.js';
+import {
+  setSummarySettingsTarget,
+  useSummarySettingsTarget,
+} from './summaryTarget.js';
 
 vi.mock('./layoutContext.js', () => ({
   useLayout: () => ({ paneTitle: (id: string) => ({ label: id }) }),
@@ -169,5 +175,35 @@ describe('summary instance spec', () => {
     expect(window.localStorage.getItem(key(9))).toContain('"view"');
     forgetPersonal();
     expect(window.localStorage.getItem(key(9))).toBeNull();
+  });
+
+  it('clears the target when the settings modal closes', () => {
+    setSummarySettingsTarget('modelSummary:2');
+    SUMMARY_SETTINGS_MODAL.onClose?.();
+    let seen: string | null = 'unset';
+    const Probe = () => {
+      seen = useSummarySettingsTarget();
+      return null;
+    };
+    render(<Probe />);
+    expect(seen).toBeNull();
+  });
+
+  it('drops the target and does not recreate the key when its instance is forgotten', async () => {
+    seedInstanceSetting('modelSummary:2', 'urn');
+    setSummarySettingsTarget('modelSummary:2');
+    const key = 'bsh.pane.modelSummary.2.v1';
+    render(
+      <ModelViewerContext.Provider value={adapter}>
+        <SummarySettingsBody />
+      </ModelViewerContext.Provider>,
+    );
+    await screen.findByLabelText('Density');
+    forgetInstanceSetting('modelSummary:2');
+    await waitFor(() => expect(screen.getByLabelText('Density')).toBeTruthy());
+    fireEvent.change(screen.getByLabelText('Density'), {
+      target: { value: 'compact' },
+    });
+    expect(window.localStorage.getItem(key)).toBeNull();
   });
 });
