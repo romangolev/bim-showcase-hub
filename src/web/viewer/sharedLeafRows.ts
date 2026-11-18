@@ -3,6 +3,8 @@ import { tagRows } from './modelScope.js';
 import type { ModelInfo } from './modelSet.js';
 import {
   abortError,
+  mergeInfos,
+  type PropertyInfo,
   type ReadOptions,
   type ReadProgress,
   sumProgress,
@@ -23,6 +25,8 @@ interface KeyReads {
   inFlight: Pending | null;
   batch: Pending | null;
   settled: { names: Set<string>; rows: PropertyRow[] } | null;
+  discovery: Promise<PropertyInfo[]> | null;
+  discovered: PropertyInfo[] | null;
 }
 
 interface AdapterReads {
@@ -71,7 +75,13 @@ function readsFor(adapter: ViewerAdapter): AdapterReads {
 function keyReads(entry: AdapterReads, key: string): KeyReads {
   let reads = entry.keys.get(key);
   if (!reads) {
-    reads = { inFlight: null, batch: null, settled: null };
+    reads = {
+      inFlight: null,
+      batch: null,
+      settled: null,
+      discovery: null,
+      discovered: null,
+    };
     entry.keys.set(key, reads);
   }
   return reads;
@@ -250,4 +260,65 @@ export function forgetLeafRows(adapter: ViewerAdapter): void {
   if (!entry) return;
   entry.generation += 1;
   entry.keys.clear();
+}
+
+function discoverKey(
+  adapter: ViewerAdapter,
+  entry: AdapterReads,
+  id: string,
+): Promise<PropertyInfo[]> {
+  const key = keyReads(entry, id);
+  if (key.discovered) return Promise.resolve(key.discovered);
+  if (key.discovery) return key.discovery;
+  const generation = entry.generation;
+  const discovery = adapter.discoverProperties([id]);
+  key.discovery = discovery;
+  const release = () => {
+    if (key.discovery === discovery) key.discovery = null;
+  };
+  discovery.then((infos) => {
+    release();
+    if (entry.generation === generation && infos.length > 0) {
+      key.discovered = infos;
+    }
+  }, release);
+  return discovery;
+}
+
+function untilAborted<T>(
+  promise: Promise<T>,
+  signal?: AbortSignal,
+): Promise<T> {
+  if (!signal) return promise;
+  if (signal.aborted) return Promise.reject(abortError());
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(abortError());
+    signal.addEventListener('abort', onAbort, { once: true });
+    promise.then(resolve, reject).finally(() => {
+      signal.removeEventListener('abort', onAbort);
+    });
+  });
+}
+
+export async function discoverLeafProperties(
+  adapter: ViewerAdapter,
+  options: Pick<ReadOptions, 'signal'> = {},
+): Promise<PropertyInfo[]> {
+  const entry = readsFor(adapter);
+  const results = await untilAborted(
+    Promise.allSettled(
+      shownModels(adapter).map((model) =>
+        discoverKey(adapter, entry, model.id),
+      ),
+    ),
+    options.signal,
+  );
+  const lists: PropertyInfo[][] = [];
+  let failure: unknown = null;
+  for (const result of results) {
+    if (result.status === 'fulfilled') lists.push(result.value);
+    else failure ??= result.reason;
+  }
+  if (failure !== null && lists.length === 0) throw failure;
+  return mergeInfos(lists);
 }

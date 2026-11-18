@@ -2,7 +2,11 @@ import { describe, expect, it, vi } from 'vitest';
 import type { PropertyRow } from '../../shared/types.js';
 import { MockViewerAdapter } from './MockViewerAdapter.js';
 import type { ModelInfo } from './modelSet.js';
-import { forgetLeafRows, readLeafRows } from './sharedLeafRows.js';
+import {
+  discoverLeafProperties,
+  forgetLeafRows,
+  readLeafRows,
+} from './sharedLeafRows.js';
 import type { ViewerAdapter } from './ViewerAdapter.js';
 
 const getModels = () => [
@@ -281,5 +285,56 @@ describe('readLeafRows cancel and progress', () => {
     await Promise.all([a, b]);
     expect(seen).toEqual([0.25, 1]);
     expect(late).toEqual([0.25, 1]);
+  });
+});
+
+describe('discoverLeafProperties', () => {
+  function discovering() {
+    const discoverProperties = vi.fn(async () => [
+      { name: 'Level', category: 'Constraints' },
+    ]);
+    return {
+      adapter: { discoverProperties, getModels } as unknown as ViewerAdapter,
+      discoverProperties,
+    };
+  }
+
+  it('caches per model until the cache is forgotten', async () => {
+    const { adapter, discoverProperties } = discovering();
+    const [a, b] = await Promise.all([
+      discoverLeafProperties(adapter),
+      discoverLeafProperties(adapter),
+    ]);
+    expect(a).toEqual(b);
+    await discoverLeafProperties(adapter);
+    expect(discoverProperties).toHaveBeenCalledTimes(1);
+    forgetLeafRows(adapter);
+    await discoverLeafProperties(adapter);
+    expect(discoverProperties).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not cache a failed discovery', async () => {
+    const discoverProperties = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('db'))
+      .mockResolvedValue([{ name: 'Level', category: 'Constraints' }]);
+    const adapter = {
+      discoverProperties,
+      getModels,
+    } as unknown as ViewerAdapter;
+    await expect(discoverLeafProperties(adapter)).rejects.toThrow('db');
+    expect(await discoverLeafProperties(adapter)).toHaveLength(1);
+    expect(discoverProperties).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects a cancelled waiter without poisoning the cache', async () => {
+    const { adapter, discoverProperties } = discovering();
+    const controller = new AbortController();
+    controller.abort();
+    await expect(
+      discoverLeafProperties(adapter, { signal: controller.signal }),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+    expect(await discoverLeafProperties(adapter)).toHaveLength(1);
+    expect(discoverProperties).toHaveBeenCalledTimes(1);
   });
 });
