@@ -203,6 +203,29 @@ describe('paneLifecycle model tabs', () => {
     expect(dock.movePane).toHaveBeenCalledTimes(2);
   });
 
+  it('drops a pending float when its model closes before attaching', () => {
+    const { lifecycle, models, dock, flush } = setup({ urns: ['a'] });
+    lifecycle.floatNext('a');
+    lifecycle.reconcile();
+    models.close('a');
+    lifecycle.reconcile();
+    models.open('a');
+    lifecycle.paneAttached('viewer:a');
+    flush();
+    expect(dock.movePane).not.toHaveBeenCalled();
+  });
+
+  it('keeps one pending float per urn', () => {
+    const { lifecycle, dock, flush } = setup({ urns: ['a', 'b'] });
+    lifecycle.floatNext('a');
+    lifecycle.floatNext('b');
+    lifecycle.paneAttached('viewer:a');
+    lifecycle.paneAttached('viewer:b');
+    flush();
+    expect(dock.movePane).toHaveBeenCalledWith('viewer:a', 'float');
+    expect(dock.movePane).toHaveBeenCalledWith('viewer:b', 'float');
+  });
+
   it('ignores floatNext when locked or stacked', () => {
     const locked = setup({ urns: ['a'], locked: true });
     locked.lifecycle.paneAttached('viewer:a');
@@ -253,7 +276,7 @@ describe('paneLifecycle panes, lock and present', () => {
   });
 
   it('enters and leaves presentation, restoring the maximize it caused', () => {
-    const { lifecycle, dock } = setup();
+    const { lifecycle, dock } = setup({ urns: ['a'] });
     lifecycle.setPresenting(true);
     expect(lifecycle.getState().presenting).toBe(true);
     lifecycle.setPresenting(false);
@@ -262,7 +285,7 @@ describe('paneLifecycle panes, lock and present', () => {
   });
 
   it('does not unmaximize a viewer that was maximized before presenting', () => {
-    const { lifecycle, dock } = setup();
+    const { lifecycle, dock } = setup({ urns: ['a'] });
     lifecycle.maximizedChanged('viewer');
     lifecycle.setPresenting(true);
     lifecycle.setPresenting(false);
@@ -270,7 +293,7 @@ describe('paneLifecycle panes, lock and present', () => {
   });
 
   it('leaves a maximized viewer instance alone while presenting', () => {
-    const { lifecycle, dock } = setup();
+    const { lifecycle, dock } = setup({ urns: ['a'] });
     lifecycle.maximizedChanged('viewer:urn-a' as PanelId);
     lifecycle.setPresenting(true);
     lifecycle.setPresenting(false);
@@ -278,24 +301,62 @@ describe('paneLifecycle panes, lock and present', () => {
   });
 
   it('maximizes the previously maximized pane again after presenting', () => {
-    const { lifecycle, dock } = setup();
+    const { lifecycle, dock } = setup({ urns: ['a'] });
     lifecycle.maximizedChanged('summary');
     lifecycle.setPresenting(true);
-    expect(dock.toggleMaximize).toHaveBeenLastCalledWith('viewer');
+    expect(dock.toggleMaximize).toHaveBeenLastCalledWith('viewer:a');
     lifecycle.maximizedChanged('viewer');
     lifecycle.setPresenting(false);
     expect(vi.mocked(dock.toggleMaximize).mock.calls).toEqual([
-      ['viewer'],
-      ['viewer'],
+      ['viewer:a'],
+      ['viewer:a'],
       ['summary'],
     ]);
   });
 
   it('presents without a dock', () => {
-    const { lifecycle } = setup({ withDock: false });
+    const { lifecycle } = setup({ withDock: false, urns: ['a'] });
     lifecycle.setPresenting(true);
     lifecycle.setPresenting(false);
     expect(lifecycle.getState().presenting).toBe(false);
+  });
+
+  it('does not present without an open model', () => {
+    const empty = setup();
+    empty.lifecycle.setPresenting(true);
+    expect(empty.lifecycle.getState().presenting).toBe(false);
+    expect(empty.lifecycle.view().canPresent).toBe(false);
+    expect(empty.dock.toggleMaximize).not.toHaveBeenCalled();
+  });
+
+  it('restores the panel it maximized when the active model changes mid-present', () => {
+    const { lifecycle, dock, models } = setup({ urns: ['a', 'b'] });
+    models.activate('a');
+    lifecycle.setPresenting(true);
+    models.activate('b');
+    lifecycle.setPresenting(false);
+    expect(vi.mocked(dock.toggleMaximize).mock.calls).toEqual([
+      ['viewer:a'],
+      ['viewer:a'],
+    ]);
+  });
+
+  it('ends presentation when the layout mode changes and leaves the dock alone', () => {
+    const { lifecycle, dock, setMode } = setup({ urns: ['a'] });
+    lifecycle.setPresenting(true);
+    setMode('stacked');
+    lifecycle.modeChanged();
+    expect(lifecycle.getState().presenting).toBe(false);
+    expect(dock.toggleMaximize).toHaveBeenCalledTimes(1);
+    setMode('dock');
+    lifecycle.modeChanged();
+    lifecycle.setPresenting(true);
+    lifecycle.setPresenting(false);
+    expect(vi.mocked(dock.toggleMaximize).mock.calls).toEqual([
+      ['viewer:a'],
+      ['viewer:a'],
+      ['viewer:a'],
+    ]);
   });
 
   it('runs a resize session', () => {

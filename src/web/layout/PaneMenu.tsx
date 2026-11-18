@@ -159,7 +159,10 @@ export function layoutMenuEntries(layout: LayoutApi): MenuEntry[] {
     {
       id: 'present',
       label: 'Present',
-      description: 'Show only the viewer. Escape exits.',
+      description: layout.canPresent
+        ? 'Show only the viewer. Escape exits.'
+        : 'Open a model first',
+      disabled: !layout.canPresent,
       onSelect: () => layout.setPresenting(true),
     },
     {

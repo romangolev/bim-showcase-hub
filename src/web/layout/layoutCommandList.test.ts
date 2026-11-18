@@ -8,6 +8,7 @@ function layout(over: Partial<LayoutApi> = {}): LayoutApi {
     locked: false,
     presenting: false,
     canAddInstance: true,
+    canPresent: true,
     isOpen: (id: string) => id === 'summary',
     togglePane: vi.fn(),
     addInstance: vi.fn(),
@@ -61,6 +62,15 @@ describe('layoutCommands', () => {
     expect(stacked.find((c) => c.id === 'layout.present')?.disabled).toBe(
       'Available in the wide layout',
     );
+  });
+
+  it('disables Present with a reason when no model is open, but keeps Exit enabled', () => {
+    const present = (over: Partial<LayoutApi>) =>
+      layoutCommands(layout(over)).find((c) => c.id === 'layout.present');
+    expect(present({ canPresent: false })?.disabled).toBe('Open a model first');
+    expect(
+      present({ canPresent: false, presenting: true })?.disabled,
+    ).toBeUndefined();
   });
 
   it('explains why a new chart is unavailable without a model', () => {

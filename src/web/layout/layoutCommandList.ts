@@ -58,7 +58,15 @@ export function layoutCommands(layout: LayoutApi): Command[] {
       title: layout.presenting ? 'Exit present mode' : 'Present',
       group: 'Layout',
       keywords: 'presentation fullscreen',
-      ...reason(docked ? undefined : DOCK_ONLY_REASON),
+      ...reason(
+        layout.presenting
+          ? undefined
+          : !docked
+            ? DOCK_ONLY_REASON
+            : layout.canPresent
+              ? undefined
+              : 'Open a model first',
+      ),
       run: () => layout.setPresenting(!layout.presenting),
     },
     {

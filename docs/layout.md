@@ -98,7 +98,7 @@ Every drag has a menu path.
 
 - Pane menu: Move left, right or below, Float or Dock, Maximize or Restore, Resize with arrow keys, Collapse or Expand, Close, Lock, Reset.
 - Maximize (also a double click on a tab) fills the dock. Escape restores. It is not saved.
-- Present (Panes menu, palette or Share menu) shows the viewer alone. Arrows and Space step through saved viewpoints and Escape leaves.
+- Present (Panes menu, palette or Share menu) shows the viewer alone. Arrows and Space step through saved viewpoints and Escape leaves. Present needs an open model (the entries are disabled with a reason otherwise), restores the pane it maximized, and ends when the layout switches between wide and narrow. A Float request waits for its model to attach, per model, and is dropped if that model closes first.
 - Lock layout (`bsh.layout.locked`) turns off dragging, floating and closing. It does not apply to the stacked layout.
 - Resize mode: arrow keys change size by 16 px (64 px with Shift). Escape, Enter or Tab finish.
 - `F6` and `Shift+F6` move focus between pane groups.
