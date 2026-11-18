@@ -1,11 +1,13 @@
 import { type ChangeEvent, useRef, useState } from 'react';
 import { saveBlob } from '../extensions/excelExport.js';
+import { usePersisted } from '../storage.js';
 import {
   exportSaved,
   importSaved,
   MAX_IMPORT_BYTES,
   MAX_ITEMS,
-  readSaved,
+  SAVED,
+  type SavedItem,
 } from '../store/savedStore.js';
 
 export const SAVED_EXPORT_FILE = 'bsh-saved.json';
@@ -15,9 +17,9 @@ interface Notice {
   error: boolean;
 }
 
-function counts(): string {
+function counts(items: readonly SavedItem[]): string {
   const byKind = new Map<string, number>();
-  for (const item of readSaved()) {
+  for (const item of items) {
     byKind.set(item.kind, (byKind.get(item.kind) ?? 0) + 1);
   }
   if (!byKind.size) return 'Nothing saved yet.';
@@ -30,7 +32,7 @@ function plural(n: number, word: string): string {
 
 export function SavedItemsSettings() {
   const input = useRef<HTMLInputElement>(null);
-  const [summary, setSummary] = useState(counts);
+  const [items] = usePersisted(SAVED);
   const [notice, setNotice] = useState<Notice | null>(null);
 
   const onFile = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -50,7 +52,6 @@ export function SavedItemsSettings() {
       return;
     }
     const result = importSaved(text);
-    setSummary(counts());
     if (result.error) {
       setNotice({ text: result.error, error: true });
       return;
@@ -76,7 +77,7 @@ export function SavedItemsSettings() {
         Saved items
       </h3>
       <p className="settings__hint">
-        Presets and other saved configurations. {summary}
+        Presets and other saved configurations. {counts(items)}
       </p>
       <div className="settings__actions">
         <button

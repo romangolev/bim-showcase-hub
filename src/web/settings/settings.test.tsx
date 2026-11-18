@@ -146,6 +146,18 @@ describe('scrubAppSettings', () => {
     expect(stored()).toBeNull();
   });
 
+  it('removes the blob when the scrubbed write fails', () => {
+    window.localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({ recentsLength: 3, ifc: { author: 'Ada' } }),
+    );
+    vi.spyOn(window.localStorage, 'setItem').mockImplementation(() => {
+      throw new Error('quota');
+    });
+    scrubAppSettings();
+    expect(stored()).toBeNull();
+  });
+
   it('does nothing when nothing is stored', () => {
     scrubAppSettings();
     expect(stored()).toBeNull();

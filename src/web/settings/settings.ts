@@ -63,8 +63,9 @@ export function scrubAppSettings(): void {
     return;
   }
   const { sessionWarnMinutes, recentsLength } = stored;
-  APP_SETTINGS_BLOB.write({
+  const kept = {
     ...(sessionWarnMinutes === undefined ? {} : { sessionWarnMinutes }),
     ...(recentsLength === undefined ? {} : { recentsLength }),
-  });
+  };
+  if (!APP_SETTINGS_BLOB.write(kept)) APP_SETTINGS_BLOB.remove();
 }

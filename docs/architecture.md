@@ -103,8 +103,8 @@ A derivative URN does not prove a model opens: the manifest can hold only a thum
 `src/web/storage.ts` is the only code that touches browser storage.
 
 - `defineRecord({ key, initial, sanitize, area?, codec? })` returns a record with `read`, `write`, `remove`. Reads are always sanitized.
-- `usePersisted(record)` is the React hook: `[value, update, reset]`.
-- `defineRecordFamily` makes one record per argument. Its prefix must be in `BSH_PERSONAL_PREFIXES`.
+- `usePersisted(record)` is the React hook: `[value, update, reset]`. It re-reads when the record's key changes, so one component can serve several panels.
+- `defineRecordFamily` makes one record per argument. Its prefix must be in `BSH_PERSONAL_PREFIXES`, and `get` and `forget` throw for a key outside that prefix.
 - `BSH_KEYS` lists every key as `personal` (cleared on sign-out) or `preference` (kept).
 - `forgetPersonal()` runs on sign-out and when the owner changes.
 - Tests swap in `memoryAdapter()` with `setStorageAdapter`.

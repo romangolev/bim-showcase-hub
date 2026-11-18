@@ -47,7 +47,6 @@ export function runOnce(
   } catch (error) {
     active.delete(kind);
     task.fail(error);
-    throw error;
   }
 }
 
