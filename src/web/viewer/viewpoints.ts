@@ -1,12 +1,14 @@
 import { useMemo } from 'react';
-import { usePersisted } from '../storage.js';
 import {
   MAX_NAME_LENGTH,
   moveSaved,
+  newSavedId,
+  readSaved,
   removeSaved,
-  SAVED,
+  renameSaved,
   type SavedItem,
   upsertSaved,
+  useSavedItems,
 } from '../store/savedStore.js';
 import type { ViewerAdapter, ViewerState } from './ViewerAdapter.js';
 import { sanitizeViewerState } from './viewerState.js';
@@ -47,20 +49,21 @@ function fromItems(items: readonly SavedItem[]): Viewpoint[] {
 }
 
 export function listViewpoints(): Viewpoint[] {
-  return fromItems(SAVED.read());
+  return fromItems(readSaved(VIEWPOINT_KIND));
 }
 
 export function useViewpoints(): Viewpoint[] {
-  const [saved] = usePersisted(SAVED);
+  const saved = useSavedItems(VIEWPOINT_KIND);
   return useMemo(() => fromItems(saved), [saved]);
 }
 
-function newId(): string {
-  return `vp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
 export function nextViewpointName(): string {
-  return `Viewpoint ${listViewpoints().length + 1}`;
+  const used = new Set(
+    listViewpoints().map((point) => /^Viewpoint (\d+)$/.exec(point.name)?.[1]),
+  );
+  let number = 1;
+  while (used.has(String(number))) number += 1;
+  return `Viewpoint ${number}`;
 }
 
 export function saveViewpoint(
@@ -71,7 +74,7 @@ export function saveViewpoint(
   const trimmed = name.trim().slice(0, MAX_NAME_LENGTH);
   if (!trimmed) return 'failed';
   return upsertSaved({
-    id: newId(),
+    id: newSavedId('vp'),
     kind: VIEWPOINT_KIND,
     name: trimmed,
     version: 1,
@@ -83,12 +86,7 @@ export function saveViewpoint(
 }
 
 export function renameViewpoint(id: string, name: string): boolean {
-  const item = SAVED.read().find(
-    (entry) => entry.id === id && entry.kind === VIEWPOINT_KIND,
-  );
-  const trimmed = name.trim();
-  if (!item || !trimmed) return false;
-  return upsertSaved({ ...item, name: trimmed, updatedAt: Date.now() });
+  return renameSaved(VIEWPOINT_KIND, id, name);
 }
 
 export function deleteViewpoint(id: string): boolean {
@@ -111,17 +109,23 @@ export async function goToViewpoint(
   const point = listViewpoints().find((entry) => entry.id === id);
   if (!point) return { result: 'missing', text: 'That viewpoint was deleted.' };
   const wanted = Object.keys(point.state.models);
-  const open = new Set(
-    adapter
-      .getModels()
-      .filter((model) => model.status === 'ready' && model.visible)
-      .map((model) => model.id),
+  const models = adapter
+    .getModels()
+    .filter((model) => model.status === 'ready');
+  const open = new Set(models.map((model) => model.id));
+  const shown = new Set(
+    models.filter((model) => model.visible).map((model) => model.id),
   );
-  const present = wanted.filter((modelId) => open.has(modelId));
-  if (wanted.length > 0 && present.length === 0) {
+  const closed = wanted.filter((modelId) => !open.has(modelId));
+  const hidden = wanted.filter(
+    (modelId) => open.has(modelId) && !shown.has(modelId),
+  );
+  if (wanted.length > 0 && closed.length + hidden.length === wanted.length) {
     return {
       result: 'unavailable',
-      text: `"${point.name}" belongs to models that are not open.`,
+      text: `"${point.name}" belongs to models that are ${
+        closed.length > 0 ? 'not open' : 'hidden. Show them in the model list'
+      }.`,
     };
   }
   try {
@@ -132,10 +136,14 @@ export async function goToViewpoint(
       text: `Could not restore "${point.name}".`,
     };
   }
-  return present.length < wanted.length
+  const skipped = [
+    closed.length > 0 ? 'models that are not open' : '',
+    hidden.length > 0 ? 'hidden models' : '',
+  ].filter(Boolean);
+  return skipped.length > 0
     ? {
         result: 'partial',
-        text: `"${point.name}" restored without models that are not open.`,
+        text: `"${point.name}" restored without ${skipped.join(' and ')}.`,
       }
     : { result: 'ok', text: point.name };
 }

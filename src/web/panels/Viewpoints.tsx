@@ -81,7 +81,11 @@ export function ViewpointsBody() {
                 maxLength={MAX_NAME_LENGTH}
                 defaultValue={point.name}
                 onBlur={(event) =>
-                  renameViewpoint(point.id, event.target.value)
+                  setProblem(
+                    renameViewpoint(point.id, event.target.value)
+                      ? null
+                      : 'Could not rename the viewpoint. Use a non-empty name.',
+                  )
                 }
                 onKeyDown={(event) => {
                   if (event.key === 'Enter') event.currentTarget.blur();
