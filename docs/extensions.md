@@ -59,7 +59,7 @@ A tool is a viewer toolbar entry with its own settings window.
 
 Ctrl or Cmd+K opens the palette (`src/web/commands`).
 
-- `COMMANDS.register(source, () => Command[], priority?)` adds a source. Providers run each time the palette opens, so titles and `disabled` reasons are current.
+- `COMMANDS.register(source, () => Command[], priority?)` adds a source. Providers run each time the palette opens and each time the query changes, so titles and `disabled` reasons are current. A command that fails reopens the palette with the error inline and also reports to the Task Center.
 - A command has `id`, `title`, `group`, optional `keywords`, `icon` and `disabled` (a reason string), and `run(host)`. `host.openModal(id)` opens a settings window.
 - When two sources give the same id, the higher priority wins.
 - A tool adds commands by overriding `ViewerTool.commands(ctx, settings)`.

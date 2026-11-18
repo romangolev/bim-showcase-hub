@@ -221,7 +221,6 @@ describe('CommandPalette', () => {
         detail: 'nope',
       }),
     );
-    openPalette();
     press('ArrowDown');
     press('Enter');
     expect(tasks.getSnapshot().tasks.at(-1)).toMatchObject({
@@ -229,5 +228,70 @@ describe('CommandPalette', () => {
       state: 'failed',
       detail: 'bang',
     });
+  });
+
+  it('shows an inline alert when a command fails, even with no Task Center', async () => {
+    setup([
+      {
+        id: 'r',
+        title: 'Rejects',
+        group: 'G',
+        run: () => Promise.reject(new Error('nope')),
+      },
+    ]);
+    openPalette();
+    press('Enter');
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Rejects failed: nope',
+    );
+    expect(screen.getByRole('combobox')).toBeInTheDocument();
+  });
+
+  it('re-reads enabled state and reasons when the query changes', () => {
+    let reason: string | undefined = 'Open a model first';
+    COMMANDS.register('test', () => [
+      { id: 'a', title: 'Alpha', group: 'G', disabled: reason, run: () => {} },
+    ]);
+    render(
+      <ModalProvider definitions={MODALS}>
+        <CommandPalette />
+      </ModalProvider>,
+    );
+    openPalette();
+    expect(screen.getByText('Open a model first')).toBeInTheDocument();
+    reason = undefined;
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'a' } });
+    expect(screen.queryByText('Open a model first')).toBeNull();
+    expect(
+      screen
+        .getByRole('option', { name: 'Alpha' })
+        .getAttribute('aria-disabled'),
+    ).toBeNull();
+  });
+
+  it('keeps focus in the input when a disabled option is pressed', () => {
+    setup([
+      { id: 'a', title: 'Alpha', group: 'G', disabled: 'No', run: () => {} },
+    ]);
+    openPalette();
+    const option = screen.getByRole('option', { name: /Alpha/ });
+    expect(fireEvent.mouseDown(option)).toBe(false);
+    fireEvent.click(option);
+    expect(screen.getByRole('combobox')).toHaveFocus();
+  });
+
+  it('shows group headings only while the query is empty', () => {
+    setup([
+      { id: 'a', title: 'Alpha one', group: 'G1', run: () => {} },
+      { id: 'c', title: 'Alpha three', group: 'G1', run: () => {} },
+      { id: 'b', title: 'Alpha two', group: 'G2', run: () => {} },
+    ]);
+    openPalette();
+    const headings = () => document.querySelectorAll('.cmdk__group').length;
+    expect(headings()).toBe(2);
+    fireEvent.change(screen.getByRole('combobox'), {
+      target: { value: 'alpha' },
+    });
+    expect(headings()).toBe(0);
   });
 });

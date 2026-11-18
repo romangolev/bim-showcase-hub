@@ -78,3 +78,10 @@
   color: var(--color-ash);
   font-size: var(--text-13);
 }
+
+.cmdk__error {
+  margin: 0;
+  padding: var(--space-4);
+  color: var(--color-coral);
+  font-size: var(--text-13);
+}
