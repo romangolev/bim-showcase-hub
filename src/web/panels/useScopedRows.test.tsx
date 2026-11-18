@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { PropertyRow } from '../../shared/types.js';
 import type { ReadOptions } from '../viewer/propertyReads.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
-import { usePropertyRows } from './usePropertyRows.js';
+import { useScopedRows } from './useScopedRows.js';
 
 function slowAdapter() {
   const reads: ReadOptions[] = [];
@@ -25,10 +25,12 @@ function slowAdapter() {
   return { adapter, reads, release: (rows: PropertyRow[]) => release(rows) };
 }
 
-describe('usePropertyRows progress and cancel', () => {
+describe('useScopedRows progress and cancel', () => {
   it('exposes read progress while loading', async () => {
     const { adapter, reads, release } = slowAdapter();
-    const { result } = renderHook(() => usePropertyRows(adapter, ['Name']));
+    const { result } = renderHook(() =>
+      useScopedRows(adapter, { names: ['Name'] }),
+    );
     await waitFor(() => expect(reads).toHaveLength(1));
     reads[0]?.onProgress?.({ done: 2, total: 8 });
     await waitFor(() =>
@@ -43,7 +45,9 @@ describe('usePropertyRows progress and cancel', () => {
 
   it('cancel aborts the read and ends in a cancelled state', async () => {
     const { adapter, reads } = slowAdapter();
-    const { result } = renderHook(() => usePropertyRows(adapter, ['Name']));
+    const { result } = renderHook(() =>
+      useScopedRows(adapter, { names: ['Name'] }),
+    );
     await waitFor(() => expect(reads).toHaveLength(1));
     act(() => result.current.cancel());
     expect(reads[0]?.signal?.aborted).toBe(true);
@@ -52,7 +56,9 @@ describe('usePropertyRows progress and cancel', () => {
 
   it('cancels the read when the hook unmounts', async () => {
     const { adapter, reads } = slowAdapter();
-    const { unmount } = renderHook(() => usePropertyRows(adapter, ['Name']));
+    const { unmount } = renderHook(() =>
+      useScopedRows(adapter, { names: ['Name'] }),
+    );
     await waitFor(() => expect(reads).toHaveLength(1));
     expect(reads[0]?.signal?.aborted).toBe(false);
     unmount();
@@ -60,7 +66,7 @@ describe('usePropertyRows progress and cancel', () => {
   });
 });
 
-describe('usePropertyRows partial failure', () => {
+describe('useScopedRows partial failure', () => {
   it('lists the models that failed next to the rows that loaded', async () => {
     const adapter = {
       getModels: () => [
@@ -75,7 +81,9 @@ describe('usePropertyRows partial failure', () => {
         },
       ),
     } as unknown as ViewerAdapter;
-    const { result } = renderHook(() => usePropertyRows(adapter, ['Name']));
+    const { result } = renderHook(() =>
+      useScopedRows(adapter, { names: ['Name'] }),
+    );
     await waitFor(() => expect(result.current.status).toBe('ready'));
     expect(result.current).toMatchObject({ failed: ['Struct'] });
     expect(result.current.rows).toHaveLength(1);

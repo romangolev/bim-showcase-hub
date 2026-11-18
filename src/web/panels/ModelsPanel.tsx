@@ -7,7 +7,7 @@ import type { ModelInfo } from '../viewer/modelSet.js';
 import { useModels } from '../viewer/useModels.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { isolatedModel, isolateVisibility } from './modelRows.js';
-import { useResolvedAdapter } from './usePropertyRows.js';
+import { useResolvedAdapter } from './useScopedRows.js';
 import './panels.css';
 
 export interface ModelsPanelProps {

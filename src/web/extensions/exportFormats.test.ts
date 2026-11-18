@@ -107,7 +107,6 @@ describe('serializers', () => {
 });
 
 describe('scope and file name', () => {
-
   it('fills the pattern and sanitises the result', () => {
     const date = new Date('2026-11-17T10:00:00Z');
     expect(applyNamePattern('{model}_{date}', 'House 1', 'csv', date)).toBe(

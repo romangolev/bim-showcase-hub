@@ -17,7 +17,7 @@ import type { ModalDefinition } from '../modal/types.js';
 import { PANE_SETTINGS, usePaneSetting } from '../settings/paneSettings.js';
 import { usePublishedAdapter } from '../viewer/activeAdapterStore.js';
 import { PropertyPicker } from './PropertyPicker.js';
-import { useResolvedAdapter } from './usePropertyRows.js';
+import { useResolvedAdapter } from './useScopedRows.js';
 
 export const SUMMARY_SETTINGS_ID = 'summary-settings';
 
