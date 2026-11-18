@@ -55,6 +55,30 @@ const summaries = defineRecordFamily<SummarySpec, PanelId>({
   sanitize: sanitizeSummarySpec,
 });
 
+export interface PropertiesSpec {
+  scope: string;
+}
+
+const DEFAULT_PROPERTIES_SPEC: PropertiesSpec = { scope: 'all' };
+
+export function sanitizePropertiesSpec(raw: unknown): PropertiesSpec {
+  const scope = (raw as Partial<PropertiesSpec> | null)?.scope;
+  return { scope: typeof scope === 'string' && scope ? scope : 'all' };
+}
+
+const propertyPanes = defineRecordFamily<PropertiesSpec, PanelId>({
+  prefix: INSTANCE_PREFIX,
+  keyOf: instanceSettingKey,
+  initial: DEFAULT_PROPERTIES_SPEC,
+  sanitize: sanitizePropertiesSpec,
+});
+
+export function propertiesSetting(
+  id: PanelId,
+): PersistedRecord<PropertiesSpec> {
+  return propertyPanes.get(id);
+}
+
 export function chartSetting(id: PanelId): PersistedRecord<DashboardView> {
   return charts.get(id);
 }
@@ -67,6 +91,7 @@ export function forgetInstanceSetting(id: PanelId): void {
   if (!parsePanelId(id)?.instance) return;
   charts.forget(id);
   summaries.forget(id);
+  propertyPanes.forget(id);
 }
 
 export function seedInstanceSetting(
@@ -75,5 +100,8 @@ export function seedInstanceSetting(
 ): void {
   if (parsePanelId(id)?.kind === 'modelSummary' && activeModel) {
     summaries.get(id).write({ ...DEFAULT_SUMMARY_SPEC, scope: activeModel });
+  }
+  if (parsePanelId(id)?.kind === 'properties' && activeModel) {
+    propertyPanes.get(id).write({ scope: activeModel });
   }
 }
