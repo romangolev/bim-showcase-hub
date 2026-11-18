@@ -1,5 +1,8 @@
 import { useEffect, useRef } from 'react';
+import { COMMANDS } from '../../commands/registry.js';
+import { viewerCommands } from '../../commands/viewerCommands.js';
 import type { ViewerAdapter } from '../../viewer/ViewerAdapter.js';
+import { useActiveViewer } from '../../viewer/ViewerContext.js';
 import { usePersistedSetting } from './persistedSetting.js';
 import type { ToolRegistry, ToolSnapshot } from './ToolRegistry.js';
 import type { ToolBadge, ToolContext, ToolSettings } from './ViewerTool.js';
@@ -43,17 +46,35 @@ export function useViewerTools(
   optionsRef.current = options;
   const snapshot = useStableBy(live, JSON.stringify(signatures));
 
+  const makeCtx = (target: ViewerAdapter): ToolContext => ({
+    adapter: target,
+    id: (base) => withSuffix(base, suffix),
+    fileName: () => optionsRef.current.fileName(),
+    current: (tool) =>
+      (liveRef.current[tool.id] ??
+        tool.settings.initial) as typeof tool.settings.initial,
+    report: (badge, busy) => optionsRef.current.report(badge, busy),
+  });
+  const makeCtxRef = useRef(makeCtx);
+  makeCtxRef.current = makeCtx;
+  const activeViewer = useActiveViewer();
+  const isActiveViewer = adapter !== null && activeViewer === adapter;
+
+  useEffect(() => {
+    if (!adapter || !active || !isActiveViewer) return;
+    return COMMANDS.register(
+      `viewer:${suffix ?? ''}`,
+      () => [
+        ...viewerCommands(adapter),
+        ...registry.commands(makeCtxRef.current(adapter), liveRef.current),
+      ],
+      10,
+    );
+  }, [adapter, active, isActiveViewer, suffix, registry]);
+
   useEffect(() => {
     if (!adapter || !active) return;
-    const ctx: ToolContext = {
-      adapter,
-      id: (base) => withSuffix(base, suffix),
-      fileName: () => optionsRef.current.fileName(),
-      current: (tool) =>
-        (liveRef.current[tool.id] ??
-          tool.settings.initial) as typeof tool.settings.initial,
-      report: (badge, busy) => optionsRef.current.report(badge, busy),
-    };
+    const ctx = makeCtxRef.current(adapter);
     const group = registry.buildGroup(ctx, snapshot);
     return group ? adapter.registerToolGroup(group) : undefined;
   }, [adapter, active, suffix, registry, snapshot]);

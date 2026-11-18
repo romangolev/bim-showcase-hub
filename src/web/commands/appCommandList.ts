@@ -2,6 +2,7 @@ import { MODALS } from '../modal/registry.js';
 import type { Theme } from '../theme/theme.js';
 import { TOOLS } from '../tools/index.js';
 import type { Command } from './types.js';
+import { viewerCommands } from './viewerCommands.js';
 
 export interface AppCommandState {
   theme: Theme;
@@ -36,6 +37,7 @@ export function appCommands(state: AppCommandState): Command[] {
       run: () => state.toggleTheme(),
     },
     ...windows,
+    ...viewerCommands(null),
     ...TOOLS.commands(null, TOOLS.snapshot()),
     {
       id: 'account.signout',
