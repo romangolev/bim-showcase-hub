@@ -123,8 +123,17 @@ export function DashboardPanel({
     setViewerSelection(resolved.getModelSelection());
     return resolved.onSelectionChange(setViewerSelection);
   }, [resolved]);
-  const highlightFor = (chartData: ChartData) =>
-    selectedBuckets(scope.rows, chartData, viewerSelection);
+  const highlights = useMemo(
+    () =>
+      new Map(
+        [...board, ...(chart ? [chart] : [])].map((item) => [
+          item,
+          selectedBuckets(scope.rows, item, viewerSelection),
+        ]),
+      ),
+    [board, chart, scope.rows, viewerSelection],
+  );
+  const highlightFor = (chartData: ChartData) => highlights.get(chartData);
   const exportName = resolved?.getModels()[0]?.name ?? 'model';
   const crossFilter = (chartData: ChartData) => (label: string) => {
     if (!resolved) return;
