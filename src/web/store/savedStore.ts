@@ -6,16 +6,21 @@ import {
   getStorageAdapter,
   usePersisted,
 } from '../storage.js';
+import {
+  prepareSavedData,
+  SAVED_KIND_PATTERN,
+  savedKindVersions,
+} from './savedKindRegistry.js';
 
 export const SAVED_KEY = BSH_KEYS.personal.saved;
 export const SAVED_FORMAT = 'bsh-saved';
-export const SAVED_VERSION = 1;
+export const SAVED_VERSION = 2;
 export const MAX_IMPORT_BYTES = 1_000_000;
 export const MAX_ITEMS = 500;
 export const MAX_ITEM_BYTES = 100_000;
+export const MAX_TOTAL_BYTES = 4_000_000;
 export const MAX_NAME_LENGTH = 80;
 
-const KIND = /^[a-z][a-z0-9-]{0,31}$/;
 const BLOCKED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
 export interface SavedItem {
@@ -33,6 +38,7 @@ export interface ImportResult {
   rejected: number;
   older: number;
   dropped: number;
+  migrated: number;
   error?: string;
 }
 
@@ -50,7 +56,7 @@ export function sanitizeItem(raw: unknown): SavedItem | null {
   if (!isRecord(raw)) return null;
   const { id, kind, name, version, updatedAt, data } = raw;
   if (typeof id !== 'string' || !id || id.length > 64) return null;
-  if (typeof kind !== 'string' || !KIND.test(kind)) return null;
+  if (typeof kind !== 'string' || !SAVED_KIND_PATTERN.test(kind)) return null;
   if (typeof name !== 'string' || !name.trim()) return null;
   if (!isRecord(data)) return null;
   const item: SavedItem = {
@@ -72,6 +78,28 @@ export function sanitizeItem(raw: unknown): SavedItem | null {
 
 function fits(item: SavedItem): boolean {
   return JSON.stringify(item).length <= MAX_ITEM_BYTES;
+}
+
+interface NormalizedItem {
+  item: SavedItem;
+  migrated: boolean;
+}
+
+function normalizeItem(item: SavedItem): NormalizedItem | null {
+  const prepared = prepareSavedData(item.kind, item.data, item.version);
+  if (!prepared) return null;
+  return {
+    item: {
+      ...item,
+      version: prepared.version,
+      data: prepared.data,
+    },
+    migrated: prepared.migrated,
+  };
+}
+
+function totalBytes(items: readonly SavedItem[]): number {
+  return JSON.stringify({ version: SAVED_VERSION, items }).length;
 }
 
 function sanitizeItems(raw: unknown): SavedItem[] {
@@ -115,7 +143,13 @@ function storedFromNewerBuild(): boolean {
 }
 
 function persist(items: SavedItem[]): boolean {
-  return !storedFromNewerBuild() && SAVED.write(items);
+  if (storedFromNewerBuild()) return false;
+  if (totalBytes(items) > MAX_TOTAL_BYTES) return false;
+  return SAVED.write(items);
+}
+
+export function savedBytes(): number {
+  return totalBytes(readSaved());
 }
 
 export function useSavedItems(kind: string): SavedItem[] {
@@ -130,9 +164,16 @@ export function newSavedId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+export function getSaved(id: string): SavedItem | undefined {
+  return readSaved().find((item) => item.id === id);
+}
+
 export function upsertSaved(item: SavedItem): boolean {
-  const next = sanitizeItem(item);
-  if (!next || !fits(next)) return false;
+  const structural = sanitizeItem(item);
+  if (!structural) return false;
+  const normalized = normalizeItem(structural);
+  if (!normalized || !fits(normalized.item)) return false;
+  const next = normalized.item;
   const items = readSaved();
   const index = items.findIndex((existing) => existing.id === next.id);
   if (index >= 0) {
@@ -172,12 +213,34 @@ export function moveSaved(id: string, delta: -1 | 1): boolean {
   return persist(items);
 }
 
+export function clearSaved(): boolean {
+  return persist([]);
+}
+
 export function exportSaved(kind?: string): string {
   return JSON.stringify(
-    { format: SAVED_FORMAT, version: SAVED_VERSION, items: readSaved(kind) },
+    {
+      format: SAVED_FORMAT,
+      version: SAVED_VERSION,
+      kinds: savedKindVersions(),
+      items: readSaved(kind),
+    },
     null,
     2,
   );
+}
+
+interface IncomingItem {
+  item: SavedItem;
+  migrated: boolean;
+}
+
+function prepareIncoming(raw: unknown): IncomingItem | null {
+  const structural = sanitizeItem(raw);
+  if (!structural) return null;
+  const normalized = normalizeItem(structural);
+  if (!normalized || !fits(normalized.item)) return null;
+  return { item: normalized.item, migrated: normalized.migrated };
 }
 
 export function importSaved(text: string): ImportResult {
@@ -188,6 +251,7 @@ export function importSaved(text: string): ImportResult {
     rejected: 0,
     older: 0,
     dropped: 0,
+    migrated: 0,
     error,
   });
   if (text.length > MAX_IMPORT_BYTES) return fail('File is too large.');
@@ -200,16 +264,26 @@ export function importSaved(text: string): ImportResult {
   if (
     !isRecord(parsed) ||
     parsed.format !== SAVED_FORMAT ||
-    !Array.isArray(parsed.items)
+    !Array.isArray(parsed.items) ||
+    typeof parsed.version !== 'number' ||
+    !Number.isInteger(parsed.version) ||
+    parsed.version < 1
   ) {
     return fail('Not a saved-items file.');
   }
-  if (typeof parsed.version !== 'number' || parsed.version > SAVED_VERSION) {
+  if (parsed.version > SAVED_VERSION) {
     return fail('This file was saved by a newer version of the app.');
   }
-  let incoming: SavedItem[];
+  let incoming: IncomingItem[];
   try {
-    incoming = sanitizeItems(parsed.items).filter(fits);
+    const seen = new Set<string>();
+    incoming = [];
+    for (const entry of parsed.items) {
+      const prepared = prepareIncoming(entry);
+      if (!prepared || seen.has(prepared.item.id)) continue;
+      seen.add(prepared.item.id);
+      incoming.push(prepared);
+    }
   } catch {
     return fail('Not a saved-items file.');
   }
@@ -218,7 +292,8 @@ export function importSaved(text: string): ImportResult {
   let clashes = 0;
   let older = 0;
   let dropped = 0;
-  for (const item of incoming) {
+  let migrated = 0;
+  for (const { item, migrated: wasMigrated } of incoming) {
     const existing = byId.get(item.id);
     if (existing && existing.kind !== item.kind) clashes += 1;
     else if (existing && existing.updatedAt > item.updatedAt) older += 1;
@@ -226,6 +301,7 @@ export function importSaved(text: string): ImportResult {
     else {
       byId.set(item.id, item);
       accepted += 1;
+      if (wasMigrated) migrated += 1;
     }
   }
   const merged = [...byId.values()];
@@ -239,5 +315,32 @@ export function importSaved(text: string): ImportResult {
     rejected: parsed.items.length - incoming.length + clashes,
     older,
     dropped,
+    migrated,
   };
 }
+
+export interface SavedStore {
+  list(kind?: string): SavedItem[];
+  get(id: string): SavedItem | undefined;
+  put(item: SavedItem): boolean;
+  rename(kind: string, id: string, name: string): boolean;
+  remove(id: string): boolean;
+  move(id: string, delta: -1 | 1): boolean;
+  clear(): boolean;
+  bytes(): number;
+  export(kind?: string): string;
+  import(text: string): ImportResult;
+}
+
+export const savedStore: SavedStore = {
+  list: readSaved,
+  get: getSaved,
+  put: upsertSaved,
+  rename: renameSaved,
+  remove: removeSaved,
+  move: moveSaved,
+  clear: clearSaved,
+  bytes: savedBytes,
+  export: exportSaved,
+  import: importSaved,
+};
