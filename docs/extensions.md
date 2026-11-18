@@ -62,16 +62,14 @@ Ctrl or Cmd+K opens the palette (`src/web/commands`).
 - `COMMANDS.register(source, () => Command[], priority?)` adds a source. Providers run each time the palette opens, so titles and `disabled` reasons are current.
 - A command has `id`, `title`, `group`, optional `keywords`, `icon` and `disabled` (a reason string), and `run(host)`. `host.openModal(id)` opens a settings window.
 - When two sources give the same id, the higher priority wins.
-- Sources today: `AppCommands`, `LayoutCommands`, and each viewer through `useViewerTools`.
 - A tool adds commands by overriding `ViewerTool.commands(ctx, settings)`.
-- The last 5 command ids are stored in `bsh.commands.recent.v1`.
 
 ## Settings and modals
 
 - Add a modal: write a `ModalDefinition` and add it to `src/web/modal/registry.ts`. Each registered tool already adds its own.
 - App settings (`src/web/settings/settings.ts`, key `bsh-settings-v1`) hold only `sessionWarnMinutes` and `recentsLength`. Each tool and pane owns the rest of its settings.
 - Generated forms: `components/SettingsForm.tsx` renders a `FormDefinition` with field kinds `toggle`, `number`, `select`, `text`, `multi` and `list`.
-- Pane settings follow the same rule through `settings/paneSettings.ts`. Per-instance specs live in `layout/instanceSettings.ts`.
+- Pane settings live in `settings/paneSettings.ts` and `layout/instanceSettings.ts`.
 
 ## Persisted records
 
@@ -80,8 +78,7 @@ All browser storage goes through `src/web/storage.ts`. Do not call `localStorage
 - `defineRecord({ key, initial, sanitize, area?, codec? })` makes a record. `read()` always sanitizes.
 - `usePersisted(record)` returns `[value, update, reset]`.
 - Add a key to `BSH_KEYS.personal` when it describes the user's models, layout or work. Add it to `BSH_KEYS.preference` when it is a taste setting.
-- A family of keys needs a prefix in `BSH_PERSONAL_PREFIXES` for `defineRecordFamily`.
-- Sign-out runs `forgetPersonal()`.
+- A family of keys (`defineRecordFamily`) needs a prefix in `BSH_PERSONAL_PREFIXES`.
 
 ## Saved items
 
