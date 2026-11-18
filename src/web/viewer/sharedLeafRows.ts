@@ -21,11 +21,17 @@ interface Pending {
   promise: Promise<PropertyRow[]>;
 }
 
+interface Discovery {
+  controller: AbortController;
+  waiters: number;
+  promise: Promise<PropertyInfo[]>;
+}
+
 interface KeyReads {
   inFlight: Pending | null;
   batch: Pending | null;
   settled: { names: Set<string>; rows: PropertyRow[] } | null;
-  discovery: Promise<PropertyInfo[]> | null;
+  discovery: Discovery | null;
   discovered: PropertyInfo[] | null;
 }
 
@@ -102,6 +108,12 @@ function project(rows: PropertyRow[], names: readonly string[]): PropertyRow[] {
   });
 }
 
+function sameNames(have: Set<string>, want: readonly string[]): boolean {
+  return (
+    have.size === want.length && want.every((name, i) => [...have][i] === name)
+  );
+}
+
 function covers(have: Set<string>, want: readonly string[]): boolean {
   return want.every((name) => have.has(name));
 }
@@ -110,11 +122,11 @@ function startBatch(
   adapter: ViewerAdapter,
   entry: AdapterReads,
   key: KeyReads,
-  modelIds: readonly string[] | undefined,
+  model: ModelInfo,
 ): Pending {
   const generation = entry.generation;
   const pending: Pending = {
-    names: new Set<string>(),
+    names: new Set<string>(key.settled?.names),
     controller: new AbortController(),
     waiters: 0,
     listeners: new Set(),
@@ -125,13 +137,15 @@ function startBatch(
     if (key.batch === pending) key.batch = null;
     throwIfAborted(pending.controller.signal);
     key.inFlight = pending;
-    const read = adapter.getLeafProperties([...pending.names], modelIds, {
-      signal: pending.controller.signal,
-      onProgress: (progress) => {
-        pending.last = progress;
-        for (const listener of pending.listeners) listener(progress);
-      },
-    });
+    const read = adapter
+      .getLeafProperties([...pending.names], [model.id], {
+        signal: pending.controller.signal,
+        onProgress: (progress) => {
+          pending.last = progress;
+          for (const listener of pending.listeners) listener(progress);
+        },
+      })
+      .then((rows) => tagRows(rows, model));
     const release = () => {
       if (key.inFlight === pending) key.inFlight = null;
     };
@@ -189,12 +203,11 @@ function attach(
 function readKey(
   adapter: ViewerAdapter,
   entry: AdapterReads,
-  id: string,
+  model: ModelInfo,
   names: readonly string[],
-  modelIds: readonly string[] | undefined,
   options: ReadOptions,
 ): Promise<PropertyRow[]> {
-  const key = keyReads(entry, id);
+  const key = keyReads(entry, model.id);
   if (key.settled && covers(key.settled.names, names)) {
     const { rows } = key.settled;
     options.onProgress?.({ done: rows.length, total: rows.length });
@@ -208,7 +221,7 @@ function readKey(
     return attach(key.inFlight, options);
   }
   if (!key.batch || key.batch.controller.signal.aborted) {
-    key.batch = startBatch(adapter, entry, key, modelIds);
+    key.batch = startBatch(adapter, entry, key, model);
   }
   for (const name of names) key.batch.names.add(name);
   return attach(key.batch, options);
@@ -241,30 +254,35 @@ export async function readLeafRows(
     if (!known.has(id)) entry.keys.delete(id);
   }
   const results = await Promise.allSettled(
-    models.map(async (model) =>
-      tagRows(
-        await readKey(adapter, entry, model.id, propertyNames, [model.id], {
-          ...options,
-          onProgress: progress(model.id),
-        }),
-        model,
-      ),
+    models.map((model) =>
+      readKey(adapter, entry, model, propertyNames, {
+        ...options,
+        onProgress: progress(model.id),
+      }),
     ),
   );
   throwIfAborted(options.signal);
-  const rows: PropertyRow[] = [];
+  const parts: PropertyRow[][] = [];
   const failed: string[] = [];
   let failure: unknown = null;
   results.forEach((result, index) => {
-    if (result.status === 'fulfilled') rows.push(...result.value);
-    else {
+    if (result.status === 'fulfilled') {
+      const cached = keyReads(entry, models[index]?.id ?? '').settled;
+      parts.push(
+        cached?.rows === result.value && sameNames(cached.names, propertyNames)
+          ? result.value
+          : project(result.value, propertyNames),
+      );
+    } else {
       failed.push(models[index]?.name ?? '');
       failure ??= result.reason;
     }
   });
+  const only = parts.length === 1 ? parts[0] : undefined;
+  const rows = only ?? parts.flat();
   if (failure !== null && rows.length === 0) throw failure;
   if (failed.length > 0) onFailed?.(failed);
-  return project(rows, propertyNames);
+  return rows;
 }
 
 export function forgetLeafRows(adapter: ViewerAdapter): void {
@@ -278,37 +296,66 @@ function discoverKey(
   adapter: ViewerAdapter,
   entry: AdapterReads,
   id: string,
+  signal: AbortSignal | undefined,
 ): Promise<PropertyInfo[]> {
   const key = keyReads(entry, id);
   if (key.discovered) return Promise.resolve(key.discovered);
-  if (key.discovery) return key.discovery;
-  const generation = entry.generation;
-  const discovery = adapter.discoverProperties([id]);
-  key.discovery = discovery;
-  const release = () => {
-    if (key.discovery === discovery) key.discovery = null;
-  };
-  discovery.then((infos) => {
-    release();
-    if (entry.generation === generation && infos.length > 0) {
-      key.discovered = infos;
-    }
-  }, release);
-  return discovery;
-}
-
-function untilAborted<T>(
-  promise: Promise<T>,
-  signal?: AbortSignal,
-): Promise<T> {
-  if (!signal) return promise;
-  if (signal.aborted) return Promise.reject(abortError());
-  return new Promise<T>((resolve, reject) => {
-    const onAbort = () => reject(abortError());
-    signal.addEventListener('abort', onAbort, { once: true });
-    promise.then(resolve, reject).finally(() => {
-      signal.removeEventListener('abort', onAbort);
+  if (signal?.aborted) return Promise.reject(abortError());
+  let discovery = key.discovery;
+  if (!discovery || discovery.controller.signal.aborted) {
+    const generation = entry.generation;
+    const controller = new AbortController();
+    const promise = adapter.discoverProperties([id], {
+      signal: controller.signal,
     });
+    const created: Discovery = { controller, waiters: 0, promise };
+    discovery = created;
+    key.discovery = created;
+    const release = () => {
+      if (key.discovery === created) key.discovery = null;
+    };
+    promise.then((infos) => {
+      release();
+      if (
+        entry.generation === generation &&
+        !controller.signal.aborted &&
+        infos.length > 0
+      ) {
+        key.discovered = infos;
+      }
+    }, release);
+  }
+  const shared = discovery;
+  shared.waiters += 1;
+  return new Promise<PropertyInfo[]>((resolve, reject) => {
+    let done = false;
+    const leave = () => {
+      done = true;
+      shared.waiters -= 1;
+      signal?.removeEventListener('abort', onAbort);
+    };
+    const onAbort = () => {
+      if (done) return;
+      leave();
+      if (shared.waiters === 0) {
+        shared.controller.abort();
+        if (key.discovery === shared) key.discovery = null;
+      }
+      reject(abortError());
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
+    shared.promise.then(
+      (infos) => {
+        if (done) return;
+        leave();
+        resolve(infos);
+      },
+      (err: unknown) => {
+        if (done) return;
+        leave();
+        reject(err);
+      },
+    );
   });
 }
 
@@ -317,14 +364,12 @@ export async function discoverLeafProperties(
   options: Pick<ReadOptions, 'signal'> = {},
 ): Promise<PropertyInfo[]> {
   const entry = readsFor(adapter);
-  const results = await untilAborted(
-    Promise.allSettled(
-      shownModels(adapter).map((model) =>
-        discoverKey(adapter, entry, model.id),
-      ),
+  const results = await Promise.allSettled(
+    shownModels(adapter).map((model) =>
+      discoverKey(adapter, entry, model.id, options.signal),
     ),
-    options.signal,
   );
+  throwIfAborted(options.signal);
   const lists: PropertyInfo[][] = [];
   let failure: unknown = null;
   for (const result of results) {

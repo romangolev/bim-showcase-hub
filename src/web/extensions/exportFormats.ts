@@ -2,8 +2,6 @@ import { flag, isRecord } from '../../shared/guards.js';
 import type { ElementScope } from '../viewer/propertyScope.js';
 import type { ExportCell } from './excelExport.js';
 
-export { filterByElementScope as filterByScope } from '../viewer/propertyScope.js';
-
 export type ExportFormat = 'xlsx' | 'csv' | 'json' | 'copy';
 export type ExportScope = ElementScope;
 

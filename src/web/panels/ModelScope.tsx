@@ -1,47 +1,12 @@
-import { useId, useMemo, useState } from 'react';
-import type { PropertyRow } from '../../shared/types.js';
-import {
-  ALL_MODELS,
-  type ModelScope,
-  type ModelScopeOption,
-  modelScopeOptions,
-  resolveScope,
-  scopeRows,
-  unavailableModels,
-} from '../viewer/modelScope.js';
+import { useId } from 'react';
 import type { ModelInfo } from '../viewer/modelSet.js';
-import { useModels } from '../viewer/useModels.js';
-import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
-
-export interface ModelScopeState {
-  options: ModelScopeOption[];
-  scope: ModelScope;
-  setScope: (scope: ModelScope) => void;
-  rows: PropertyRow[];
-  unavailable: ModelInfo[];
-}
-
-export function useModelScope(
-  adapter: ViewerAdapter | null,
-  rows: PropertyRow[],
-  controlled?: { value: ModelScope; onChange: (scope: ModelScope) => void },
-): ModelScopeState {
-  const models = useModels(adapter);
-  const [inner, setInner] = useState<ModelScope>(ALL_MODELS);
-  const chosen = controlled?.value ?? inner;
-  const setScope = controlled?.onChange ?? setInner;
-  const options = useMemo(() => modelScopeOptions(models), [models]);
-  const scope = options.length > 0 ? resolveScope(chosen, models) : ALL_MODELS;
-  const scoped = useMemo(() => scopeRows(rows, scope), [rows, scope]);
-  const unavailable = useMemo(() => unavailableModels(models), [models]);
-  return { options, scope, setScope, rows: scoped, unavailable };
-}
+import type { ModelScopeControl } from './useScopedRows.js';
 
 export function ModelScopeSelect({
   state,
   label,
 }: {
-  state: ModelScopeState;
+  state: ModelScopeControl;
   label: string;
 }) {
   const id = useId();

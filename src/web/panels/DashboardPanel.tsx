@@ -31,18 +31,18 @@ import { ALL_MODELS } from '../viewer/modelScope.js';
 import type { ModelDbId } from '../viewer/modelSet.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { ChartCanvas } from './ChartCanvas.js';
+import { ElementScopeSelect } from './ElementScope.js';
 import {
   FailedModels,
   ModelScopeSelect,
   UnavailableModels,
-  useModelScope,
 } from './ModelScope.js';
 import {
   HIDDEN_MESSAGE,
   HIDDEN_TITLE,
-  usePropertyRows,
   useResolvedAdapter,
-} from './usePropertyRows.js';
+  useScopedRows,
+} from './useScopedRows.js';
 import './panels.css';
 
 export interface DashboardPanelProps {
@@ -84,26 +84,28 @@ export function DashboardPanel({
         : propertyNames,
     [activePreset, propertyNames],
   );
-  const state = usePropertyRows(resolved, readNames);
-  const scope = useModelScope(
-    resolved,
-    state.rows,
-    setting
+  const state = useScopedRows(resolved, {
+    names: readNames,
+    elements: view.elements ?? 'all',
+    ...(setting
       ? {
-          value: view.scope ?? ALL_MODELS,
-          onChange: (next) => setView((prev) => ({ ...prev, scope: next })),
+          models: {
+            value: view.scope ?? ALL_MODELS,
+            onChange: (next: string) =>
+              setView((prev) => ({ ...prev, scope: next })),
+          },
         }
-      : undefined,
-  );
+      : {}),
+  });
   const [innerCollapsed, setInnerCollapsed] = useState(defaultCollapsed);
   const isCollapsed = collapsed ?? innerCollapsed;
 
   const options = useMemo(
     () =>
       state.status === 'ready'
-        ? availableProperties(scope.rows, propertyNames)
+        ? availableProperties(state.rows, propertyNames)
         : [],
-    [state.status, scope.rows, propertyNames],
+    [state.status, state.rows, propertyNames],
   );
 
   const selected = options.includes(view.property) ? view.property : options[0];
@@ -111,20 +113,20 @@ export function DashboardPanel({
   const chart = useMemo(
     () =>
       state.status === 'ready' && selected
-        ? shapeChartData(scope.rows, selected, maxCategories)
+        ? shapeChartData(state.rows, selected, maxCategories)
         : null,
-    [state.status, scope.rows, selected, maxCategories],
+    [state.status, state.rows, selected, maxCategories],
   );
 
   const [action] = usePaneSetting(PANE_SETTINGS.dashboard.action);
   const board = useMemo(
     () =>
       state.status === 'ready' && activePreset
-        ? presetCharts(activePreset, scope.rows).map((property) =>
-            shapeChartData(scope.rows, property, maxCategories),
+        ? presetCharts(activePreset, state.rows).map((property) =>
+            shapeChartData(state.rows, property, maxCategories),
           )
         : [],
-    [state.status, activePreset, scope.rows, maxCategories],
+    [state.status, activePreset, state.rows, maxCategories],
   );
   const [viewerSelection, setViewerSelection] = useState<ModelDbId[]>([]);
   useEffect(() => {
@@ -140,10 +142,10 @@ export function DashboardPanel({
       new Map(
         [...board, ...(chart ? [chart] : [])].map((item) => [
           item,
-          selectedBuckets(scope.rows, item, viewerSelection),
+          selectedBuckets(state.rows, item, viewerSelection),
         ]),
       ),
-    [board, chart, scope.rows, viewerSelection],
+    [board, chart, state.rows, viewerSelection],
   );
   const highlightFor = (chartData: ChartData) => highlights.get(chartData);
   const exportName = resolved?.getModels()[0]?.name ?? 'model';
@@ -153,9 +155,9 @@ export function DashboardPanel({
       resolved,
       action,
       itemsWithValues(
-        scope.rows,
+        state.rows,
         chartData.property,
-        bucketLabels(scope.rows, chartData, label),
+        bucketLabels(state.rows, chartData, label),
       ),
     );
   };
@@ -198,7 +200,16 @@ export function DashboardPanel({
           </button>
         ) : null}
         {!isCollapsed ? (
-          <ModelScopeSelect state={scope} label="Chart models" />
+          <ModelScopeSelect state={state.models} label="Chart models" />
+        ) : null}
+        {!isCollapsed ? (
+          <ElementScopeSelect
+            value={view.elements ?? 'all'}
+            onChange={(next) =>
+              setView((prev) => ({ ...prev, elements: next }))
+            }
+            label="Chart elements"
+          />
         ) : null}
         {setting && !isCollapsed && !activePreset && options.length > 1 ? (
           <select
@@ -283,10 +294,10 @@ export function DashboardPanel({
         )}
         {state.status === 'ready' ? (
           <>
-            <UnavailableModels models={scope.unavailable} />
+            <UnavailableModels models={state.models.unavailable} />
             <FailedModels
               names={state.failed}
-              unavailable={scope.unavailable}
+              unavailable={state.models.unavailable}
             />
           </>
         ) : null}

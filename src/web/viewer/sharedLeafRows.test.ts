@@ -68,6 +68,26 @@ describe('readLeafRows', () => {
     expect(getLeafProperties).toHaveBeenCalledTimes(3);
   });
 
+  it('only grows the cached property names', async () => {
+    const { adapter, getLeafProperties } = fakeAdapter();
+    await readLeafRows(adapter, ['Name', 'Level']);
+    await readLeafRows(adapter, ['Category']);
+    expect(getLeafProperties).toHaveBeenCalledTimes(2);
+    const level = await readLeafRows(adapter, ['Level']);
+    const name = await readLeafRows(adapter, ['Name']);
+    expect(getLeafProperties).toHaveBeenCalledTimes(2);
+    expect(level[0]?.properties).toEqual({ Level: 'Level-v' });
+    expect(name[0]?.properties).toEqual({ Name: 'Name-v' });
+  });
+
+  it('hands out the cached rows when the names match the cache', async () => {
+    const { adapter } = fakeAdapter();
+    const first = await readLeafRows(adapter, ['Name', 'Level']);
+    const again = await readLeafRows(adapter, ['Name', 'Level']);
+    expect(again[0]).toBe(first[0]);
+    expect(first[0]?.modelId).toBe('m');
+  });
+
   it('keeps reads and caches separate per adapter', async () => {
     const a = fakeAdapter();
     const b = fakeAdapter();
@@ -346,6 +366,41 @@ describe('discoverLeafProperties', () => {
     } as unknown as ViewerAdapter;
     await expect(discoverLeafProperties(adapter)).rejects.toThrow('db');
     expect(await discoverLeafProperties(adapter)).toHaveLength(1);
+    expect(discoverProperties).toHaveBeenCalledTimes(2);
+  });
+
+  it('aborts the underlying discovery and never shares a stale result', async () => {
+    const calls: { signal?: AbortSignal; release: (v: unknown[]) => void }[] =
+      [];
+    const discoverProperties = vi.fn(
+      (_ids?: readonly string[], options?: { signal?: AbortSignal }) =>
+        new Promise((resolve) => {
+          calls.push({
+            ...(options?.signal ? { signal: options.signal } : {}),
+            release: resolve,
+          });
+        }),
+    );
+    const adapter = {
+      discoverProperties,
+      getModels,
+    } as unknown as ViewerAdapter;
+    const controller = new AbortController();
+    const first = discoverLeafProperties(adapter, {
+      signal: controller.signal,
+    });
+    controller.abort();
+    await expect(first).rejects.toMatchObject({ name: 'AbortError' });
+    expect(calls[0]?.signal?.aborted).toBe(true);
+    const second = discoverLeafProperties(adapter);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(discoverProperties).toHaveBeenCalledTimes(2);
+    calls[0]?.release([{ name: 'Stale', category: 'X' }]);
+    calls[1]?.release([{ name: 'Level', category: 'Constraints' }]);
+    expect(await second).toEqual([{ name: 'Level', category: 'Constraints' }]);
+    expect(await discoverLeafProperties(adapter)).toEqual([
+      { name: 'Level', category: 'Constraints' },
+    ]);
     expect(discoverProperties).toHaveBeenCalledTimes(2);
   });
 

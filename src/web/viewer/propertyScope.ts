@@ -3,6 +3,7 @@ import {
   ALL_MODELS,
   type ModelScope,
   resolveScope,
+  scopeRows,
   unavailableModels,
 } from './modelScope.js';
 import type { ModelDbId } from './modelSet.js';
@@ -53,35 +54,62 @@ export function filterByElementScope<
   );
 }
 
-export interface ReadPropertiesRequest extends ReadOptions {
-  names: readonly string[];
-  scope?: Partial<PropertyScope>;
+export function applyScope<T extends PropertyRow>(
+  rows: readonly T[],
+  scope: Partial<PropertyScope>,
+  items: readonly ModelDbId[],
+  primaryId?: string,
+): T[] {
+  return filterByElementScope(
+    scopeRows(rows, scope.models ?? ALL_MODELS),
+    scope.elements ?? 'all',
+    items,
+    primaryId,
+  );
 }
 
-export async function readProperties(
+export type FailurePolicy = 'throw' | 'report';
+
+export interface ScopedRowsRequest extends ReadOptions {
+  names: readonly string[];
+  scope?: Partial<PropertyScope>;
+  onFailure?: FailurePolicy;
+}
+
+export interface ScopedRows {
+  rows: PropertyRow[];
+  total: number;
+  failed: string[];
+}
+
+export async function readScopedRows(
   adapter: ViewerAdapter,
-  { names, scope, ...options }: ReadPropertiesRequest,
-): Promise<PropertyRow[]> {
+  { names, scope, onFailure = 'throw', ...options }: ScopedRowsRequest,
+): Promise<ScopedRows> {
   const models = adapter.getModels();
   const model = resolveScope(scope?.models ?? ALL_MODELS, models);
-  const failed: string[] = [];
-  const rows = await readLeafRows(adapter, names, {
+  let failed: string[] = [];
+  const read = await readLeafRows(adapter, names, {
     ...options,
     ...(model === ALL_MODELS ? {} : { modelIds: [model] }),
-    onFailed: (names) => failed.push(...names),
+    onFailed: (failedNames) => {
+      failed = failedNames;
+    },
   });
-  const known = new Set(
-    unavailableModels(adapter.getModels()).map((model) => model.name),
-  );
-  const unexpected = failed.filter((name) => !known.has(name));
-  if (unexpected.length > 0) {
-    throw new Error(`Could not read properties of ${unexpected.join(', ')}`);
+  if (onFailure === 'throw') {
+    const known = new Set(
+      unavailableModels(adapter.getModels()).map((m) => m.name),
+    );
+    const unexpected = failed.filter((name) => !known.has(name));
+    if (unexpected.length > 0) {
+      throw new Error(`Could not read properties of ${unexpected.join(', ')}`);
+    }
   }
   const elements = scope?.elements ?? 'all';
-  return filterByElementScope(
-    rows,
-    elements,
-    await scopeElementItems(adapter, elements),
-    models[0]?.id,
-  );
+  const items = await scopeElementItems(adapter, elements);
+  return {
+    rows: applyScope(read, { elements }, items, models[0]?.id),
+    total: read.length,
+    failed,
+  };
 }

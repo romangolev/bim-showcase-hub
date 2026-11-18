@@ -10,7 +10,6 @@ import {
   aboutRows,
   applyNamePattern,
   DEFAULT_EXCEL_SETTINGS,
-  filterByScope,
   guardCell,
   readExcelSettings,
   toDelimited,
@@ -108,23 +107,6 @@ describe('serializers', () => {
 });
 
 describe('scope and file name', () => {
-  const rows = [row(1, 'a'), row(2, 'b'), row(1, 'c', 'n')];
-
-  it('keeps all rows or only the listed model elements', () => {
-    expect(filterByScope(rows, 'all', [])).toHaveLength(3);
-    expect(
-      filterByScope(rows, 'selected', [
-        { modelId: 'm', dbId: 2 },
-        { modelId: 'n', dbId: 1 },
-      ]).map((r) => r.name),
-    ).toEqual(['b', 'c']);
-    expect(filterByScope(rows, 'isolated', [])).toEqual([]);
-    const bare = { dbId: 7, name: 'z' };
-    expect(
-      filterByScope([bare], 'selected', [{ modelId: 'm', dbId: 7 }], 'm'),
-    ).toEqual([bare]);
-  });
-
   it('fills the pattern and sanitises the result', () => {
     const date = new Date('2026-11-17T10:00:00Z');
     expect(applyNamePattern('{model}_{date}', 'House 1', 'csv', date)).toBe(

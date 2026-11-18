@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { usePropertyRows } from '../panels/usePropertyRows.js';
+import { useScopedRows } from '../panels/useScopedRows.js';
 import { MockViewerAdapter } from './MockViewerAdapter.js';
 import { useModels, useReadySignature } from './useModels.js';
 
@@ -59,11 +59,13 @@ describe('useModels', () => {
   });
 });
 
-describe('usePropertyRows with a model set', () => {
+describe('useScopedRows with a model set', () => {
   it('re-reads when a model is added or removed', async () => {
     const adapter = create();
     await adapter.loadModels([{ urn: 'urn-a' }]);
-    const { result } = renderHook(() => usePropertyRows(adapter, ['Category']));
+    const { result } = renderHook(() =>
+      useScopedRows(adapter, { names: ['Category'] }),
+    );
     await waitFor(() => expect(result.current.status).toBe('ready'));
     const single = result.current.rows.length;
     expect(single).toBeGreaterThan(0);

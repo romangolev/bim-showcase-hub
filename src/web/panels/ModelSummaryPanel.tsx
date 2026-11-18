@@ -22,21 +22,19 @@ import {
   ELEMENT_SCOPE_LABELS,
   ElementScopeSelect,
   elementScopeLabel,
-  useElementScope,
 } from './ElementScope.js';
 import {
   FailedModels,
   ModelScopeSelect,
   UnavailableModels,
-  useModelScope,
 } from './ModelScope.js';
 import { entryKey, SummaryTable } from './SummaryTable.js';
 import {
   HIDDEN_MESSAGE,
   HIDDEN_TITLE,
-  usePropertyRows,
   useResolvedAdapter,
-} from './usePropertyRows.js';
+  useScopedRows,
+} from './useScopedRows.js';
 import './panels.css';
 
 export interface SummaryModel {
@@ -81,29 +79,22 @@ export function ModelSummaryPanel({
   const resolved = useResolvedAdapter(adapter);
   const [savedProperties] = usePaneSetting(PANE_SETTINGS.summary.properties);
   const propertyNames = propertyNamesOverride ?? savedProperties;
-  const state = usePropertyRows(resolved, propertyNames);
-  const scope = useModelScope(resolved, state.rows, controlledScope);
   const [elementsScope, setElementsScope] = usePaneSetting(
     PANE_SETTINGS.summary.scope,
   );
-  const [refreshTick, setRefreshTick] = useState(0);
-  const elements = useElementScope(
-    resolved,
-    elementsScope,
-    scope.rows,
-    refreshTick,
-  );
+  const state = useScopedRows(resolved, {
+    names: propertyNames,
+    elements: elementsScope,
+    ...(controlledScope ? { models: controlledScope } : {}),
+  });
   const entries = useMemo(
     () =>
       state.status === 'ready' || state.status === 'cancelled'
-        ? summarize(elements.rows, propertyNames)
+        ? summarize(state.rows, propertyNames)
         : EMPTY,
-    [state.status, elements.rows, propertyNames],
+    [state.status, state.rows, propertyNames],
   );
-  const reload = () => {
-    setRefreshTick((tick) => tick + 1);
-    state.reload();
-  };
+  const reload = state.reload;
 
   const [view, setView] = usePaneSetting(PANE_SETTINGS.summary.view);
   const [action] = usePaneSetting(PANE_SETTINGS.summary.action);
@@ -122,7 +113,7 @@ export function ModelSummaryPanel({
     runElementAction(
       resolved,
       action,
-      itemsWithValues(elements.rows, entry.property, new Set([entry.value])),
+      itemsWithValues(state.rows, entry.property, new Set([entry.value])),
     );
     setActive(entryKey(entry));
   };
@@ -175,7 +166,7 @@ export function ModelSummaryPanel({
             </span>
           ) : null}
         </h2>
-        <ModelScopeSelect state={scope} label="Summarize models" />
+        <ModelScopeSelect state={state.models} label="Summarize models" />
         <ElementScopeSelect value={elementsScope} onChange={setElementsScope} />
         <button
           type="button"
@@ -222,16 +213,16 @@ export function ModelSummaryPanel({
         <div className="bsh-summary__body">
           {state.status === 'ready' ? (
             <>
-              <UnavailableModels models={scope.unavailable} />
+              <UnavailableModels models={state.models.unavailable} />
               <FailedModels
                 names={state.failed}
-                unavailable={scope.unavailable}
+                unavailable={state.models.unavailable}
               />
             </>
           ) : null}
-          {state.status === 'ready' && elements.elements !== 'all' ? (
+          {state.status === 'ready' && state.elements !== 'all' ? (
             <p className="bsh-scope__notice" role="status">
-              {elementScopeLabel(elements)}
+              {elementScopeLabel(state)}
             </p>
           ) : null}
           {!resolved && (
@@ -269,15 +260,13 @@ export function ModelSummaryPanel({
               </button>
             </div>
           )}
-          {resolved &&
-            state.status === 'loading' &&
-            state.rows.length === 0 && (
-              <StateBlock variant="loading" rows={5} />
-            )}
+          {resolved && state.status === 'loading' && state.total === 0 && (
+            <StateBlock variant="loading" rows={5} />
+          )}
           {state.status === 'cancelled' && (
             <div className="bsh-summary__partial" role="status">
               <span>
-                {state.rows.length > 0
+                {state.total > 0
                   ? 'Partial data: the read was cancelled, so these counts may be out of date.'
                   : 'The read was cancelled, so there is nothing to summarize yet.'}
               </span>
@@ -296,16 +285,16 @@ export function ModelSummaryPanel({
           )}
           {state.status === 'ready' &&
             entries.length === 0 &&
-            !elements.pending && (
+            !state.pending && (
               <StateBlock
                 variant="empty"
                 title={
-                  elements.elements === 'all'
+                  state.elements === 'all'
                     ? 'No elements to summarize'
-                    : `No ${ELEMENT_SCOPE_LABELS[elements.elements].toLowerCase()} elements`
+                    : `No ${ELEMENT_SCOPE_LABELS[state.elements].toLowerCase()} elements`
                 }
                 message={
-                  elements.elements === 'all'
+                  state.elements === 'all'
                     ? 'This version has no readable elements. Try another version.'
                     : 'Change the element scope, or pick elements in the viewer.'
                 }

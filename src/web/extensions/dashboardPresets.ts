@@ -1,6 +1,10 @@
 import { flag } from '../../shared/guards.js';
 import type { PropertyRow } from '../../shared/types.js';
 import {
+  type ElementScope,
+  sanitizeElementScope,
+} from '../viewer/propertyScope.js';
+import {
   availableProperties,
   DEFAULT_DASHBOARD_PROPERTIES,
   DEFAULT_MAX_CATEGORIES,
@@ -64,6 +68,7 @@ export interface DashboardView {
   pngTitle: boolean;
   pngLegend: boolean;
   scope?: string;
+  elements?: ElementScope;
 }
 
 export const DEFAULT_DASHBOARD_VIEW: DashboardView = {
@@ -99,6 +104,9 @@ export function sanitizeDashboardView(raw: unknown): DashboardView {
     pngLegend: flag(source.pngLegend, true),
     ...(typeof source.scope === 'string' && source.scope
       ? { scope: source.scope }
+      : {}),
+    ...(sanitizeElementScope(source.elements) !== 'all'
+      ? { elements: sanitizeElementScope(source.elements) }
       : {}),
   };
 }
