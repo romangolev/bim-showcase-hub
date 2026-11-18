@@ -7,8 +7,10 @@ import {
   MAX_IMPORT_BYTES,
   MAX_ITEM_BYTES,
   MAX_ITEMS,
+  MAX_NAME_LENGTH,
   readSaved,
   removeSaved,
+  renameSaved,
   SAVED,
   SAVED_KEY,
   type SavedItem,
@@ -116,6 +118,15 @@ describe('saved store', () => {
     expect(result.accepted).toBe(0);
     SAVED.write([big]);
     expect(readSaved()).toHaveLength(1);
+  });
+
+  it('renames with the shared name rules', () => {
+    upsertSaved(item('a', { kind: 'viewpoint' }));
+    expect(renameSaved('viewpoint', 'a', `  ${'n'.repeat(120)}  `)).toBe(true);
+    expect(readSaved()[0]?.name).toHaveLength(MAX_NAME_LENGTH);
+    expect(renameSaved('viewpoint', 'a', '   ')).toBe(false);
+    expect(renameSaved('selection-set', 'a', 'x')).toBe(false);
+    expect(renameSaved('viewpoint', 'gone', 'x')).toBe(false);
   });
 
   it('treats deleting a missing id as a no-op that does not write', () => {

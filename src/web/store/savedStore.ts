@@ -1,5 +1,6 @@
+import { useMemo } from 'react';
 import { isRecord } from '../../shared/guards.js';
-import { BSH_KEYS, defineRecord } from '../storage.js';
+import { BSH_KEYS, defineRecord, usePersisted } from '../storage.js';
 
 export const SAVED_KEY = BSH_KEYS.personal.saved;
 export const SAVED_FORMAT = 'bsh-saved';
@@ -101,6 +102,18 @@ function persist(items: SavedItem[]): boolean {
   return SAVED.write(items);
 }
 
+export function useSavedItems(kind: string): SavedItem[] {
+  const [saved] = usePersisted(SAVED);
+  return useMemo(
+    () => saved.filter((item) => item.kind === kind),
+    [saved, kind],
+  );
+}
+
+export function newSavedId(prefix: string): string {
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 export function upsertSaved(item: SavedItem): boolean {
   const next = sanitizeItem(item);
   if (!next || !fits(next)) return false;
@@ -110,6 +123,14 @@ export function upsertSaved(item: SavedItem): boolean {
   else if (items.length >= MAX_ITEMS) return false;
   else items.push(next);
   return persist(items);
+}
+
+export function renameSaved(kind: string, id: string, name: string): boolean {
+  const item = readSaved(kind).find((entry) => entry.id === id);
+  const trimmed = name.trim().slice(0, MAX_NAME_LENGTH);
+  if (!item || !trimmed) return false;
+  if (trimmed === item.name) return true;
+  return upsertSaved({ ...item, name: trimmed, updatedAt: Date.now() });
 }
 
 export function removeSaved(id: string): boolean {
