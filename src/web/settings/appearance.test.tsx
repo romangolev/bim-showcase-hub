@@ -80,6 +80,18 @@ describe('appearance settings', () => {
     }
   });
 
+  it('keeps the touch hit target at 44px or more in compact density', () => {
+    const touchBlock =
+      /@media \(pointer: coarse\), \(max-width: 700px\) \{\s*:root \{([^}]*)\}/.exec(
+        tokens,
+      )?.[1] ?? '';
+    expect(touchBlock).toMatch(/--hit-target:\s*max\(\s*44px\s*,/);
+    const density = /:root\[data-density="compact"\] \{\s*--density: ([^;]+);/
+      .exec(tokens)?.[1]
+      ?.trim();
+    expect(density).toBe('0.8');
+  });
+
   it('restores comfortable and medium from the scales', () => {
     const drop = withTokens();
     try {

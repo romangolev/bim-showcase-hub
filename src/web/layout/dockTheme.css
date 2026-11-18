@@ -317,11 +317,15 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bsh-dock {
+  .bsh-dock,
+  .bsh-dock .dv-drop-target-container,
+  .bsh-dock .dv-drop-target {
     --dv-transition-duration: 0ms;
   }
 }
 
-:root[data-reduced-motion="true"] .bsh-dock {
+:root[data-reduced-motion="true"] .bsh-dock,
+:root[data-reduced-motion="true"] .bsh-dock .dv-drop-target-container,
+:root[data-reduced-motion="true"] .bsh-dock .dv-drop-target {
   --dv-transition-duration: 0ms;
 }

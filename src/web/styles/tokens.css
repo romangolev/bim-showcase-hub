@@ -173,6 +173,6 @@
 
 @media (pointer: coarse), (max-width: 700px) {
   :root {
-    --hit-target: calc(44px * var(--density));
+    --hit-target: max(44px, calc(44px * var(--density)));
   }
 }

@@ -435,14 +435,6 @@
   }
 }
 
-:root[data-reduced-motion="true"] .spin {
-  animation: none;
-}
-
-:root[data-reduced-motion="true"] :is(.user-menu__trigger, .user-menu__item) {
-  transition: none;
-}
-
 .stack .tree-backdrop {
   position: fixed;
   inset: var(--nav-height) 0 0;
