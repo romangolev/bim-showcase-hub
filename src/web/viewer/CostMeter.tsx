@@ -16,7 +16,7 @@ export function costOf(
 ) {
   const weights = models
     .filter((model) => model.status === 'ready')
-    .map((model) => adapter?.getModelWeight?.(model.id) ?? null);
+    .map((model) => adapter?.getModelWeight(model.id) ?? null);
   return summarizeCost(models.length, weights);
 }
 

@@ -273,12 +273,4 @@ describe('exportGeometryToGlb', () => {
     expect(status.phase).toBe('empty');
     expect(save).not.toHaveBeenCalled();
   });
-
-  it('reports adapters without geometry support as an error', async () => {
-    const status = await exportGeometryToGlb({} as ViewerAdapter);
-    expect(status).toMatchObject({
-      phase: 'error',
-      message: 'Geometry export is not available for this model',
-    });
-  });
 });

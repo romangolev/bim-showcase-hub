@@ -359,12 +359,6 @@ export async function exportGeometryToGlb(
     return status;
   };
   try {
-    if (typeof adapter.getGeometryParts !== 'function') {
-      return emit({
-        phase: 'error',
-        message: 'Geometry export is not available for this model',
-      });
-    }
     emit({ phase: 'reading' });
     const { parts, skipped: unread } = await adapter.getGeometryParts();
     if (parts.length === 0) return emit({ phase: 'empty' });

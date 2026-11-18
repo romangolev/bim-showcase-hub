@@ -98,12 +98,6 @@ export async function exportToIfc(
     return status;
   };
   try {
-    if (typeof adapter.getIfcSource !== 'function') {
-      return emit({
-        phase: 'error',
-        message: 'IFC export is not available for this model',
-      });
-    }
     emit({ phase: 'reading' });
     const read = await adapter.getIfcSource();
     const sourceCount = read.models.reduce(

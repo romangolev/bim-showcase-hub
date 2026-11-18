@@ -43,13 +43,13 @@ export function runElementAction(
 ): void {
   if (items.length === 0) return;
   if (action === 'isolate') {
-    adapter.isolateModelIds?.(items);
+    adapter.isolateModelIds(items);
     return;
   }
-  adapter.selectModelIds?.(items);
-  if (action === 'zoom') adapter.fitToSelection?.();
+  adapter.selectModelIds(items);
+  if (action === 'zoom') adapter.fitToSelection();
 }
 
 export function showAllElements(adapter: ViewerAdapter): void {
-  adapter.isolateModelIds?.([]);
+  adapter.isolateModelIds([]);
 }

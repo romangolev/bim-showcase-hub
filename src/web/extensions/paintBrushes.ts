@@ -94,7 +94,7 @@ export function paintSelection(adapter: ViewerAdapter, color: Rgba): boolean {
   const selection = adapter.getModelSelection();
   if (selection.length === 0) return false;
   adapter.setModelThemingColor(selection, color);
-  adapter.clearSelection?.();
+  adapter.clearSelection();
   return true;
 }
 

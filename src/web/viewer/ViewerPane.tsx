@@ -299,7 +299,7 @@ export function ViewerPane({
         created = instance;
         instanceRef.current = instance;
         instance.setTheme(themeRef.current);
-        stopStage = instance.onLoadStage?.(setStage);
+        stopStage = instance.onLoadStage(setStage);
         if (cancelled) {
           instance.destroy();
           return;
@@ -482,8 +482,8 @@ export function ViewerPane({
     appliedView.current = raw;
     const link = parseView(raw, orderKey.split('\n'));
     if (!link) return;
-    adapter.setCamera?.(link.camera);
-    if (link.selection.length > 0) adapter.selectModelIds?.(link.selection);
+    adapter.setCamera(link.camera);
+    if (link.selection.length > 0) adapter.selectModelIds(link.selection);
   }, [adapter, loaded, orderKey]);
   const [spread, setSpread] = useState<ModelSpread | null>(null);
   const onSpreadRef = useRef(onSpreadChange);

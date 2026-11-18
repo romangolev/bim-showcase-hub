@@ -482,6 +482,8 @@ export class MockViewerAdapter implements ViewerAdapter {
     if (this.root) this.root.dataset.camera = JSON.stringify(camera);
   }
 
+  fitToSelection(): void {}
+
   getIsolated(): ModelDbId[] {
     return this.isolated ? [...this.isolated].map(parseKey) : [];
   }

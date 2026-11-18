@@ -46,7 +46,7 @@ function shownModels(adapter: ViewerAdapter): { name: string; urn: string }[] {
 
 function scopeItems(adapter: ViewerAdapter, scope: ExportScope) {
   if (scope === 'selected') return adapter.getModelSelection();
-  if (scope === 'isolated') return adapter.getIsolated?.() ?? [];
+  if (scope === 'isolated') return adapter.getIsolated();
   return [];
 }
 

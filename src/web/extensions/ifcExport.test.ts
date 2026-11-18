@@ -166,11 +166,7 @@ describe('exportToIfc', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('reports adapters without IFC support and reader failures as errors', async () => {
-    expect(await exportToIfc({} as ViewerAdapter)).toMatchObject({
-      phase: 'error',
-      message: 'IFC export is not available for this model',
-    });
+  it('reports reader failures as errors', async () => {
     const failing = {
       getIfcSource: async () => {
         throw new Error('The model is still loading');

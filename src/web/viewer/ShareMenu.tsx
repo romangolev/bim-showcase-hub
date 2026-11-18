@@ -30,7 +30,7 @@ export function shareHref(
   baseHref: string,
   withView: boolean,
 ): string {
-  const camera = withView ? adapter.getCamera?.() : null;
+  const camera = withView ? adapter.getCamera() : null;
   if (!camera) return withViewParam(baseHref, null);
   return withViewParam(
     baseHref,
@@ -48,8 +48,7 @@ export function ShareMenu({
 }: ShareMenuProps) {
   const snapshot = async (mode: 'copy' | 'save') => {
     try {
-      const image = adapter.getScreenshot?.();
-      if (!image) return;
+      const image = adapter.getScreenshot();
       if (mode === 'copy') {
         await navigator.clipboard.write([
           new ClipboardItem({ 'image/png': image }),
@@ -78,35 +77,31 @@ export function ShareMenu({
     }
   };
   const items = (): MenuEntry[] => {
-    const entries: MenuEntry[] = [];
-    if (adapter.getCamera) {
-      entries.push({
+    return [
+      {
         id: 'copy-view',
         label: 'Copy link to this view',
         onSelect: () => void copy(true),
-      });
-    }
-    entries.push({
-      id: 'copy-models',
-      label: combined ? 'Copy link to these models' : 'Copy link to this model',
-      onSelect: () => void copy(false),
-    });
-    if (adapter.getScreenshot) {
-      entries.push(
-        { kind: 'separator', id: 'image-separator' },
-        {
-          id: 'copy-image',
-          label: 'Copy image',
-          onSelect: () => void snapshot('copy'),
-        },
-        {
-          id: 'save-image',
-          label: 'Save image (PNG)',
-          onSelect: () => void snapshot('save'),
-        },
-      );
-    }
-    return entries;
+      },
+      {
+        id: 'copy-models',
+        label: combined
+          ? 'Copy link to these models'
+          : 'Copy link to this model',
+        onSelect: () => void copy(false),
+      },
+      { kind: 'separator', id: 'image-separator' },
+      {
+        id: 'copy-image',
+        label: 'Copy image',
+        onSelect: () => void snapshot('copy'),
+      },
+      {
+        id: 'save-image',
+        label: 'Save image (PNG)',
+        onSelect: () => void snapshot('save'),
+      },
+    ];
   };
   return (
     <div className="bsh-viewer-share">
