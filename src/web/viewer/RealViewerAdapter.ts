@@ -23,7 +23,6 @@ import {
 } from './federation.js';
 import { fullscreenElementOf, watchFullscreen } from './fullscreen.js';
 import type { GeometryRead } from './geometryTypes.js';
-import { tagRows } from './modelScope.js';
 import {
   CANCELLED_MESSAGE,
   checkCapacity,
@@ -40,12 +39,12 @@ import {
   metersPerUnit,
   modelIdFor,
   reasonOf,
-  spreadOf,
-  togetherOffsets,
   uniqueSources,
   type Vec3,
   VIEWER_CLOSED_MESSAGE,
 } from './modelSet.js';
+import { Placement } from './placement.js';
+import { PropertyReader } from './propertyReader.js';
 import {
   DISCOVERY_SAMPLE,
   mergeInfos,
@@ -53,7 +52,6 @@ import {
   type ReadOptions,
   readInChunks,
   sampleIds,
-  sumProgress,
   throwIfAborted,
   UNCATEGORIZED,
 } from './propertyReads.js';
@@ -66,6 +64,7 @@ import {
 } from './region.js';
 import { createResizeScheduler } from './resizeScheduler.js';
 import { readSceneBackground } from './sceneBackground.js';
+import { SelectionHub } from './selectionHub.js';
 import { ToolGroupController } from './toolGroupController.js';
 import type {
   CameraState,
@@ -180,12 +179,6 @@ function loadDocument(urn: string) {
   });
 }
 
-function propertiesMessage(err: unknown): string {
-  return err instanceof Error && err.message
-    ? `Properties could not be read: ${err.message}`
-    : 'Properties could not be read';
-}
-
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : 'The model could not be loaded';
 }
@@ -252,7 +245,7 @@ export class RealViewerAdapter implements ViewerAdapter {
   private destroyed = false;
   private theme: Theme = 'dark';
   private readonly stageListeners = new Set<(stage: LoadStage) => void>();
-  private readonly selectionListeners = new Set<(items: ModelDbId[]) => void>();
+  private readonly selection = new SelectionHub();
   private controller: ToolGroupController | null = null;
   private mountedController: ToolGroupController | null = null;
   private toolsChain: Promise<void> = Promise.resolve();
@@ -261,6 +254,20 @@ export class RealViewerAdapter implements ViewerAdapter {
   private stopFullscreen: (() => void) | null = null;
   private frameObserver: ResizeObserver | null = null;
   private readonly models = new ModelSet<ViewerModel>();
+  private readonly placement = new Placement<ViewerModel>(this.models, {
+    boxOf: (info) => this.boxes.get(info.id),
+    anchorId: () => this.anchorId ?? undefined,
+    unitMeters: () => metersPerUnit(this.anchor?.unit),
+    apply: (_info, handle, offset) => {
+      if (this.viewer) this.place(this.viewer, handle, offset);
+    },
+  });
+  private readonly reader = new PropertyReader<ViewerModel>(this.models, {
+    rows: ({ handle }, names, options) =>
+      this.readModelRows(this.openViewer(), handle, names, options),
+    infos: ({ handle }, options) =>
+      this.readModelInfos(this.openViewer(), handle, options),
+  });
   private anchor: FederationAnchor | null = null;
   private api = '';
   private selectionEvent = '';
@@ -271,7 +278,6 @@ export class RealViewerAdapter implements ViewerAdapter {
   private anchorId: string | null = null;
   private readonly boxes = new Map<string, ModelBox>();
   private readonly placements = new Map<ViewerModel, PlacementMatrix>();
-  private offsets: Record<string, Vec3> | null = null;
   private readonly onSelection = () => {
     this.emitSelection();
   };
@@ -381,6 +387,11 @@ export class RealViewerAdapter implements ViewerAdapter {
     return loaded;
   }
 
+  private openViewer(): GuiViewer3D {
+    if (!this.viewer) throw new Error(VIEWER_CLOSED_MESSAGE);
+    return this.viewer;
+  }
+
   private ensureViewer(region: ViewerRegion): Promise<GuiViewer3D | null> {
     if (this.viewer) return Promise.resolve(this.viewer);
     if (!this.starting) {
@@ -468,26 +479,17 @@ export class RealViewerAdapter implements ViewerAdapter {
   }
 
   getSpread(): ModelSpread | null {
-    const ready = new Set(this.models.ready().map(({ info }) => info.id));
-    const boxes = [...this.boxes.values()].filter((box) => ready.has(box.id));
-    return spreadOf(boxes, metersPerUnit(this.anchor?.unit));
+    return this.placement.spread();
   }
 
   getTogetherOffsets(): Record<string, Vec3> {
-    const ready = new Set(this.models.ready().map(({ info }) => info.id));
-    const boxes = [...this.boxes.values()].filter((box) => ready.has(box.id));
-    const anchorId =
-      this.anchorId && ready.has(this.anchorId) ? this.anchorId : boxes[0]?.id;
-    return anchorId ? togetherOffsets(boxes, anchorId) : {};
+    return this.placement.togetherOffsets();
   }
 
   setModelOffsets(offsets: Readonly<Record<string, Vec3>> | null): void {
-    this.offsets = offsets ? { ...offsets } : null;
+    this.placement.set(offsets);
     const viewer = this.viewer;
     if (!viewer) return;
-    for (const { info, handle } of this.models.ready()) {
-      this.place(viewer, handle, this.offsets?.[info.id]);
-    }
     this.frameModels(viewer);
   }
 
@@ -516,9 +518,7 @@ export class RealViewerAdapter implements ViewerAdapter {
 
   private frameModels(viewer: GuiViewer3D): void {
     const spread = this.getSpread();
-    const together = Boolean(
-      this.offsets && Object.keys(this.offsets).length > 0,
-    );
+    const together = this.placement.together;
     const anchor = this.anchorId
       ? this.models.handle(this.anchorId)
       : undefined;
@@ -846,7 +846,7 @@ export class RealViewerAdapter implements ViewerAdapter {
           max: [box.max.x, box.max.y, box.max.z],
         });
       }
-      const offset = this.offsets?.[id];
+      const offset = this.placement.offsetOf(id);
       if (offset) this.place(viewer, model, offset);
       release?.();
       release = null;
@@ -876,14 +876,7 @@ export class RealViewerAdapter implements ViewerAdapter {
   }
 
   private emitSelection(): void {
-    const items = this.getModelSelection();
-    for (const cb of [...this.selectionListeners]) {
-      try {
-        cb(items.map((item) => ({ ...item })));
-      } catch (err) {
-        console.error(err);
-      }
-    }
+    this.selection.emit(this.getModelSelection());
   }
 
   resize(): void {
@@ -919,7 +912,7 @@ export class RealViewerAdapter implements ViewerAdapter {
     this.anchorId = null;
     this.boxes.clear();
     this.placements.clear();
-    this.offsets = null;
+    this.placement.reset();
     this.settling = Promise.resolve();
     const viewer = this.viewer;
     if (!viewer) return;
@@ -995,67 +988,21 @@ export class RealViewerAdapter implements ViewerAdapter {
     for (const { handle } of ready) viewer.clearThemingColors(handle);
   }
 
-  async getLeafProperties(
+  getLeafProperties(
     propertyNames: string[],
     modelIds?: readonly string[],
     options: ReadOptions = {},
   ): Promise<PropertyRow[]> {
-    const viewer = this.viewer;
-    if (!viewer) return [];
-    const shown = this.models
-      .shown()
-      .filter(({ info }) => !modelIds || modelIds.includes(info.id));
-    const progress = sumProgress(options.onProgress);
-    const results = await Promise.allSettled(
-      shown.map(async ({ info, handle }) =>
-        tagRows(
-          await this.readModelRows(viewer, handle, propertyNames, {
-            ...options,
-            onProgress: progress(info.id),
-          }),
-          info,
-        ),
-      ),
-    );
-    throwIfAborted(options.signal);
-    const rows: PropertyRow[] = [];
-    let failure: unknown = null;
-    results.forEach((result, index) => {
-      const id = shown[index]?.info.id;
-      if (id === undefined) return;
-      if (result.status === 'fulfilled') {
-        rows.push(...result.value);
-        this.models.setPropertiesError(id);
-      } else {
-        failure ??= result.reason;
-        this.models.setPropertiesError(id, propertiesMessage(result.reason));
-      }
-    });
-    if (failure !== null && rows.length === 0) throw failure;
-    return rows;
+    if (!this.viewer) return Promise.resolve([]);
+    return this.reader.rows(propertyNames, modelIds, options);
   }
 
-  async discoverProperties(
+  discoverProperties(
     modelIds?: readonly string[],
     options: ReadOptions = {},
   ): Promise<PropertyInfo[]> {
-    const viewer = this.viewer;
-    if (!viewer) return [];
-    const shown = this.models
-      .shown()
-      .filter(({ info }) => !modelIds || modelIds.includes(info.id));
-    const results = await Promise.allSettled(
-      shown.map(({ handle }) => this.readModelInfos(viewer, handle, options)),
-    );
-    throwIfAborted(options.signal);
-    const lists: PropertyInfo[][] = [];
-    let failure: unknown = null;
-    for (const result of results) {
-      if (result.status === 'fulfilled') lists.push(result.value);
-      else failure ??= result.reason;
-    }
-    if (failure !== null && lists.length === 0) throw failure;
-    return mergeInfos(lists);
+    if (!this.viewer) return Promise.resolve([]);
+    return this.reader.infos(modelIds, options);
   }
 
   private async readModelInfos(
@@ -1132,10 +1079,7 @@ export class RealViewerAdapter implements ViewerAdapter {
   }
 
   onSelectionChange(cb: (items: ModelDbId[]) => void): () => void {
-    this.selectionListeners.add(cb);
-    return () => {
-      this.selectionListeners.delete(cb);
-    };
+    return this.selection.subscribe(cb);
   }
 
   destroy(): void {
@@ -1144,7 +1088,7 @@ export class RealViewerAdapter implements ViewerAdapter {
     this.unload();
     this.controller?.dispose();
     this.controller = null;
-    this.selectionListeners.clear();
+    this.selection.clear();
     this.models.dispose();
   }
 
