@@ -23,12 +23,12 @@ export const BSH_KEYS = {
     dashboardView: 'bsh.dashboard.view.v1',
     saved: 'bsh.saved.v1',
     recentCommands: 'bsh.commands.recent.v1',
+    layoutInstances: 'bsh.layout.instances.v1',
   },
   preference: {
     theme: 'bsh-theme',
     settings: 'bsh-settings-v1',
     layoutLocked: 'bsh.layout.locked',
-    layoutInstances: 'bsh.layout.instances.v1',
     treeView: 'bsh.tree.view',
     treeWidth: 'bsh.tree.width',
     summaryCollapsed: 'bsh.summary.collapsed',

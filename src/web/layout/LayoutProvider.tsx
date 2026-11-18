@@ -224,7 +224,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
   const stacked = useMediaQuery(STACKED_QUERY);
   const mode: LayoutMode = stacked ? 'stacked' : 'dock';
   const [userState, setUserState] = usePersistedState<UserInstances>(
-    BSH_KEYS.preference.layoutInstances,
+    BSH_KEYS.personal.layoutInstances,
     {},
     sanitizeUserInstances,
   );

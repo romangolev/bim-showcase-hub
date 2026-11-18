@@ -1,5 +1,6 @@
 import { APP_SETTINGS_BLOB } from '../settings/settings.js';
 import { onForgetPersonal } from '../storage.js';
+import { tasks } from '../tasks/taskStore.js';
 import { ExcelExportTool } from './excel/ExcelExportTool.js';
 import { GlbExportTool } from './glb/GlbExportTool.js';
 import { IfcExportTool } from './ifc/IfcExportTool.js';
@@ -14,6 +15,7 @@ export const TOOLS = new ToolRegistry()
   .register(new IfcExportTool());
 
 onForgetPersonal(() => {
+  tasks.clearFinished();
   TOOLS.scrubPersonal();
   migrateLegacySettings(TOOLS, APP_SETTINGS_BLOB, { scrub: true });
 });

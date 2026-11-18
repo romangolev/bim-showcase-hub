@@ -8,6 +8,8 @@ import {
 import { defaultModel, LAYOUT_KEY } from './layout/layoutState.js';
 import { readSettings, SETTINGS_STORAGE_KEY } from './settings/settings.js';
 import { BSH_KEYS, readJson, writeJson } from './storage.js';
+import { tasks } from './tasks/taskStore.js';
+import { EXCEL_SETTINGS_KEY } from './tools/excel/excelSettings.js';
 import { IFC_SETTINGS_KEY } from './tools/ifc/ifcSettings.js';
 import './tools/index.js';
 import { installMemoryStorage } from './test/mockApi.js';
@@ -68,6 +70,27 @@ describe('sign-out', () => {
       projectName: 'Tower',
       enabled: false,
     });
+  });
+
+  it('clears the user pane instances', () => {
+    writeJson(BSH_KEYS.personal.layoutInstances, { chart: [] });
+    forgetModels();
+    expect(window.localStorage.getItem('bsh.layout.instances.v1')).toBeNull();
+  });
+
+  it('resets the Excel model scope', () => {
+    writeJson(EXCEL_SETTINGS_KEY, { format: 'csv', modelScope: 'urn-secret' });
+    forgetModels();
+    expect(
+      readJson<Record<string, unknown>>(EXCEL_SETTINGS_KEY, {}),
+    ).toMatchObject({ format: 'csv', modelScope: 'all' });
+  });
+
+  it('clears finished tasks', () => {
+    tasks.start({ label: 'Export Tower.rvt' }).finish();
+    expect(tasks.getSnapshot().tasks).toHaveLength(1);
+    forgetModels();
+    expect(tasks.getSnapshot().tasks).toHaveLength(0);
   });
 
   it('does not resurrect the layout from a pending write', () => {
