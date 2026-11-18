@@ -10,6 +10,9 @@ import {
   FORMAT_LABELS,
   SCOPE_LABELS,
 } from '../extensions/exportFormats.js';
+import { modelScopeOptions, resolveScope } from '../viewer/modelScope.js';
+import { useModels } from '../viewer/useModels.js';
+import { useActiveViewer } from '../viewer/ViewerContext.js';
 import { useSettings } from './SettingsContext.js';
 
 interface SelectFieldProps<T extends string> {
@@ -47,6 +50,8 @@ function SelectField<T extends string>({
 export function ExcelSettingsSection() {
   const { settings, setSetting } = useSettings();
   const excel = settings.excel;
+  const models = useModels(useActiveViewer());
+  const modelOptions = modelScopeOptions(models);
   const patternId = useId();
   const metadataId = useId();
   const headerId = useId();
@@ -76,6 +81,16 @@ export function ExcelSettingsSection() {
         labels={SCOPE_LABELS}
         onChange={(scope) => update({ scope })}
       />
+      {modelOptions.length > 0 ? (
+        <SelectField<string>
+          label="Models"
+          value={resolveScope(excel.modelScope, models)}
+          labels={Object.fromEntries(
+            modelOptions.map((option) => [option.id, option.label]),
+          )}
+          onChange={(modelScope) => update({ modelScope })}
+        />
+      ) : null}
       <div className="settings__field">
         <label htmlFor={patternId}>File name pattern</label>
         <input

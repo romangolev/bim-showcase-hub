@@ -80,6 +80,7 @@ export interface ViewerAdapter {
   getModelSelection(): ModelDbId[];
   getModelWeight(modelId: string): number | null;
   getIsolated(): ModelDbId[];
+  getVisible(): Promise<ModelDbId[]>;
   selectModelIds(items: readonly ModelDbId[]): void;
   isolateModelIds(items: readonly ModelDbId[]): void;
   fitToSelection(): void;

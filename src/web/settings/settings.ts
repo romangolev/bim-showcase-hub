@@ -128,12 +128,13 @@ export function readExcelSettings(value: unknown): ExcelSettings {
   const format = (['xlsx', 'csv', 'json', 'copy'] as ExportFormat[]).find(
     (item) => item === source.format,
   );
-  const scope = (['all', 'selected', 'isolated'] as ExportScope[]).find(
-    (item) => item === source.scope,
-  );
+  const scope = (
+    ['all', 'selected', 'isolated', 'visible'] as ExportScope[]
+  ).find((item) => item === source.scope);
   return {
     format: format ?? d.format,
     scope: scope ?? d.scope,
+    modelScope: required(source.modelScope, d.modelScope),
     metadata: flag(source.metadata, d.metadata),
     namePattern: required(source.namePattern, d.namePattern),
     csvDelimiter:

@@ -206,6 +206,7 @@ export function buildToolGroupSpec(
                     fileName: excelFileNameFrom(options.fileName?.(), settings),
                     format: settings.format,
                     scope: settings.scope,
+                    modelScope: settings.modelScope,
                     metadata: settings.metadata,
                     exporterName: settings.exporterName,
                     summarySheet: settings.summarySheet,

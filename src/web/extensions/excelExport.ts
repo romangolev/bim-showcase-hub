@@ -1,5 +1,12 @@
 import type { PropertyRow } from '../../shared/types.js';
-import { distinctModelCount, unavailableModels } from '../viewer/modelScope.js';
+import {
+  ALL_MODELS,
+  distinctModelCount,
+  type ModelScope,
+  resolveScope,
+  scopeRows,
+  unavailableModels,
+} from '../viewer/modelScope.js';
 import { readLeafRows } from '../viewer/sharedLeafRows.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import {
@@ -50,9 +57,10 @@ function shownModels(adapter: ViewerAdapter): AboutInfo['models'] {
     }));
 }
 
-function scopeItems(adapter: ViewerAdapter, scope: ExportScope) {
+async function scopeItems(adapter: ViewerAdapter, scope: ExportScope) {
   if (scope === 'selected') return adapter.getModelSelection();
   if (scope === 'isolated') return adapter.getIsolated();
+  if (scope === 'visible') return adapter.getVisible();
   return [];
 }
 
@@ -152,6 +160,7 @@ export interface ExportOptions {
   fileName?: string;
   format?: ExportFormat;
   scope?: ExportScope;
+  modelScope?: ModelScope;
   metadata?: boolean;
   exporterName?: boolean;
   summarySheet?: boolean;
@@ -183,6 +192,7 @@ export async function exportToXlsx(
     fileName = DEFAULT_FILE_NAME,
     format = 'xlsx',
     scope = 'all',
+    modelScope = ALL_MODELS,
     metadata = false,
     exporterName = true,
     summarySheet = false,
@@ -219,13 +229,13 @@ export async function exportToXlsx(
   try {
     emit({ phase: 'reading' });
     const all = await readLeafRows(adapter, propertyNames);
+    const models =
+      typeof adapter.getModels === 'function' ? adapter.getModels() : [];
     const rows = filterByScope(
-      all,
+      scopeRows(all, resolveScope(modelScope, models)),
       scope,
-      scopeItems(adapter, scope),
-      typeof adapter.getModels === 'function'
-        ? adapter.getModels()[0]?.id
-        : undefined,
+      await scopeItems(adapter, scope),
+      models[0]?.id,
     );
     if (rows.length === 0) {
       copyText.reject();

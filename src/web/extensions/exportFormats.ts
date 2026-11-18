@@ -2,7 +2,7 @@ import type { ModelDbId } from '../viewer/modelSet.js';
 import type { ExportCell } from './excelExport.js';
 
 export type ExportFormat = 'xlsx' | 'csv' | 'json' | 'copy';
-export type ExportScope = 'all' | 'selected' | 'isolated';
+export type ExportScope = 'all' | 'selected' | 'isolated' | 'visible';
 
 export type CsvDelimiter = ',' | ';' | '\t';
 export type DecimalMark = '.' | ',';
@@ -16,6 +16,7 @@ export interface TableOptions {
 export interface ExcelSettings {
   format: ExportFormat;
   scope: ExportScope;
+  modelScope: string;
   metadata: boolean;
   namePattern: string;
   csvDelimiter: CsvDelimiter;
@@ -30,6 +31,7 @@ export const DEFAULT_NAME_PATTERN = '{model}-properties';
 export const DEFAULT_EXCEL_SETTINGS: ExcelSettings = {
   format: 'xlsx',
   scope: 'all',
+  modelScope: 'all',
   metadata: false,
   namePattern: DEFAULT_NAME_PATTERN,
   csvDelimiter: ',',
@@ -63,6 +65,7 @@ export const SCOPE_LABELS: Record<ExportScope, string> = {
   all: 'All elements',
   selected: 'Selected elements',
   isolated: 'Isolated elements',
+  visible: 'Visible elements',
 };
 
 export const CONFIRM_ABOVE = 20000;

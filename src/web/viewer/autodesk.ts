@@ -228,6 +228,7 @@ export interface GuiViewer3D {
   select?(ids: number[], model?: ViewerModel): void;
   getAggregateSelection?(): AggregateSelection[];
   getIsolatedNodes?(model?: ViewerModel): number[];
+  getHiddenNodes?(model?: ViewerModel): number[];
   isolate?(ids: number[], model?: ViewerModel): void;
   fitToView?(): void;
   getScreenShot?(

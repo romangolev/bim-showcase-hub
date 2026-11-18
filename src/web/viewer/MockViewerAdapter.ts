@@ -489,6 +489,19 @@ export class MockViewerAdapter implements ViewerAdapter {
     return this.isolated ? [...this.isolated].map(parseKey) : [];
   }
 
+  async getVisible(): Promise<ModelDbId[]> {
+    const isolated = this.isolated;
+    return this.models
+      .shown()
+      .flatMap(({ info, handle }) =>
+        [...handle.nodes.keys()]
+          .filter(
+            (dbId) => !isolated || isolated.has(selectionKey(info.id, dbId)),
+          )
+          .map((dbId) => ({ modelId: info.id, dbId })),
+      );
+  }
+
   isolateModelIds(items: readonly ModelDbId[]): void {
     const keys = items
       .filter((item) => this.nodeOf(item.modelId, item.dbId))

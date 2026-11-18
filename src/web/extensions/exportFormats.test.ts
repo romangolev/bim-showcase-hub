@@ -241,6 +241,48 @@ describe('exportToXlsx formats', () => {
     expect(none).toEqual({ phase: 'empty' });
   });
 
+  it('exports only the visible elements', async () => {
+    const save = vi.fn();
+    const status = await exportToXlsx(
+      adapterOf(data, { getVisible: async () => [{ modelId: 'm', dbId: 1 }] }),
+      { propertyNames: ['Name'], format: 'csv', scope: 'visible', save },
+    );
+    expect(status).toMatchObject({ phase: 'done', rowCount: 1 });
+  });
+
+  it('exports one model when a model scope is set', async () => {
+    const save = vi.fn();
+    const rows = [row(1, 'A', 'a'), row(2, 'B', 'b')];
+    const models = ['a', 'b'].map((id) => ({
+      id,
+      urn: id,
+      name: id,
+      visible: true,
+      status: 'ready',
+    }));
+    const adapter = adapterOf(rows, {
+      getModels: () => models,
+      getLeafProperties: (_names: string[], ids?: string[]) =>
+        Promise.resolve(
+          rows.filter((r) => !ids || ids.includes(r.modelId ?? '')),
+        ),
+    });
+    const one = await exportToXlsx(adapter, {
+      propertyNames: ['Name'],
+      format: 'csv',
+      modelScope: 'b',
+      save,
+    });
+    expect(one).toMatchObject({ phase: 'done', rowCount: 1 });
+    const stale = await exportToXlsx(adapter, {
+      propertyNames: ['Name'],
+      format: 'csv',
+      modelScope: 'gone',
+      save,
+    });
+    expect(stale).toMatchObject({ phase: 'done', rowCount: 2 });
+  });
+
   it('stops when the large-export confirmation is declined', async () => {
     const save = vi.fn();
     const status = await exportToXlsx(adapterOf(data), {

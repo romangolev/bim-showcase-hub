@@ -201,6 +201,17 @@ function leafIds(tree: InstanceTree): number[] {
   return leaves;
 }
 
+function withDescendants(
+  tree: InstanceTree,
+  ids: readonly number[],
+): Set<number> {
+  const all = new Set(ids);
+  for (const id of ids) {
+    tree.enumNodeChildren(id, (child) => all.add(child), true);
+  }
+  return all;
+}
+
 function toPropertyValue(value: unknown): string | number | boolean | null {
   if (value === null || value === undefined) return null;
   if (
@@ -583,6 +594,29 @@ export class RealViewerAdapter implements ViewerAdapter {
             .getIsolatedNodes?.(handle)
             .map((dbId) => ({ modelId: info.id, dbId })) ?? [],
       );
+  }
+
+  async getVisible(): Promise<ModelDbId[]> {
+    const viewer = this.viewer;
+    if (!viewer) return [];
+    const perModel = await Promise.all(
+      this.models.shown().map(async ({ info, handle }) => {
+        const tree = await readTree(viewer, handle);
+        const isolated = viewer.getIsolatedNodes?.(handle) ?? [];
+        const hidden = withDescendants(
+          tree,
+          viewer.getHiddenNodes?.(handle) ?? [],
+        );
+        const base =
+          isolated.length > 0
+            ? [...withDescendants(tree, isolated)]
+            : leafIds(tree);
+        return base
+          .filter((dbId) => tree.getChildCount(dbId) === 0 && !hidden.has(dbId))
+          .map((dbId) => ({ modelId: info.id, dbId }));
+      }),
+    );
+    return perModel.flat();
   }
 
   selectModelIds(items: readonly ModelDbId[]): void {

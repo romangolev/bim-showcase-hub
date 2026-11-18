@@ -250,11 +250,13 @@ describe('mock selecting and isolating', () => {
     expect(adapter.getModelSelection()).toHaveLength(2);
     adapter.isolateModelIds(items);
     expect(adapter.getIsolated()).toHaveLength(2);
+    expect(await adapter.getVisible()).toHaveLength(2);
     expect(host.querySelectorAll('.bsh-mock__el--dim').length).toBe(
       buildMockElements().length - 2,
     );
     adapter.isolateModelIds([]);
     expect(adapter.getIsolated()).toEqual([]);
+    expect(await adapter.getVisible()).toHaveLength(buildMockElements().length);
     expect(host.querySelectorAll('.bsh-mock__el--dim')).toHaveLength(0);
   });
 });

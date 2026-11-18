@@ -115,6 +115,19 @@ describe('table export settings', () => {
   });
 });
 
+describe('visible scope setting', () => {
+  it('accepts the visible scope and a model choice', () => {
+    window.localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({ excel: { scope: 'visible', modelScope: 'urn-b' } }),
+    );
+    expect(readSettings().excel).toMatchObject({
+      scope: 'visible',
+      modelScope: 'urn-b',
+    });
+  });
+});
+
 describe('settings edge cases', () => {
   it.each(['null', '"5"', '[]'])('defaults for non-object JSON %s', (raw) => {
     window.localStorage.setItem(SETTINGS_STORAGE_KEY, raw);
