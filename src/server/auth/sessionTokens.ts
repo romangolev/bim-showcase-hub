@@ -15,6 +15,7 @@ interface StoredTokens {
   refreshToken: string;
   expiresAt: number;
   issuedAt: number;
+  renewedAt: number;
 }
 
 export interface SessionCodec {
@@ -24,6 +25,7 @@ export interface SessionCodec {
 
 const EXPIRY_SKEW_MS = 60_000;
 export const SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+export const SESSION_ABSOLUTE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 export const CLOCK_SKEW_MS = 5 * 60 * 1000;
 export const MAX_COOKIE_BYTES = 3800;
 const IV_BYTES = 12;
@@ -67,7 +69,16 @@ export function createSessionCodec(secret: string): SessionCodec {
           typeof value.expiresAt === 'number' &&
           typeof value.issuedAt === 'number'
         ) {
-          return value as StoredTokens;
+          return {
+            accessToken: value.accessToken,
+            refreshToken: value.refreshToken,
+            expiresAt: value.expiresAt,
+            issuedAt: value.issuedAt,
+            renewedAt:
+              typeof value.renewedAt === 'number'
+                ? value.renewedAt
+                : value.issuedAt,
+          };
         }
         return null;
       } catch {
@@ -85,12 +96,20 @@ function readTokens(
   const tokens = codec.open(session.aps);
   if (!tokens) return null;
   if (
-    now - tokens.issuedAt >= SESSION_MAX_AGE_MS ||
-    tokens.issuedAt - now > CLOCK_SKEW_MS
+    now >= expiryOf(tokens) ||
+    tokens.issuedAt - now > CLOCK_SKEW_MS ||
+    tokens.renewedAt - now > CLOCK_SKEW_MS
   ) {
     return null;
   }
   return tokens;
+}
+
+function expiryOf(tokens: StoredTokens): number {
+  return Math.min(
+    tokens.renewedAt + SESSION_MAX_AGE_MS,
+    tokens.issuedAt + SESSION_ABSOLUTE_MAX_AGE_MS,
+  );
 }
 
 export function sessionExpiresAt(
@@ -99,7 +118,7 @@ export function sessionExpiresAt(
   now: number = Date.now(),
 ): number | null {
   const tokens = readTokens(session, codec, now);
-  return tokens ? tokens.issuedAt + SESSION_MAX_AGE_MS : null;
+  return tokens ? expiryOf(tokens) : null;
 }
 
 export function storeTokens(
@@ -108,13 +127,31 @@ export function storeTokens(
   codec: SessionCodec,
   now: number = Date.now(),
   issuedAt: number = now,
+  renewedAt: number = now,
 ): void {
   session.aps = codec.seal({
     accessToken: tokens.accessToken,
     refreshToken: tokens.refreshToken,
     expiresAt: now + tokens.expiresIn * 1000,
     issuedAt,
+    renewedAt,
   });
+}
+
+export function renewSession(
+  session: SessionStore,
+  codec: SessionCodec,
+  now: number = Date.now(),
+): boolean {
+  const tokens = readTokens(session, codec, now);
+  if (!tokens || now - tokens.renewedAt <= SESSION_MAX_AGE_MS / 2) return false;
+  const renewed = Math.min(
+    now + SESSION_MAX_AGE_MS,
+    tokens.issuedAt + SESSION_ABSOLUTE_MAX_AGE_MS,
+  );
+  if (renewed <= expiryOf(tokens)) return false;
+  session.aps = codec.seal({ ...tokens, renewedAt: now });
+  return true;
 }
 
 export function sessionCookieBytes(session: SessionStore): number {
@@ -190,7 +227,14 @@ export async function getAccessToken(
   try {
     const refreshed = await refreshOnce(auth, tokens.refreshToken);
     const previous = session.aps;
-    storeTokens(session, refreshed, codec, now, tokens.issuedAt);
+    storeTokens(
+      session,
+      refreshed,
+      codec,
+      now,
+      tokens.issuedAt,
+      tokens.renewedAt,
+    );
     if (sessionCookieBytes(session) > MAX_COOKIE_BYTES) session.aps = previous;
     return {
       accessToken: refreshed.accessToken,

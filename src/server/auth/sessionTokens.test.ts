@@ -9,8 +9,11 @@ import {
   isSignedIn,
   MAX_COOKIE_BYTES,
   readUser,
+  renewSession,
+  SESSION_ABSOLUTE_MAX_AGE_MS,
   SESSION_MAX_AGE_MS,
   sessionCookieBytes,
+  sessionExpiresAt,
   storeTokens,
   storeUser,
 } from './sessionTokens.js';
@@ -311,5 +314,87 @@ describe('session user', () => {
     expect(readUser(session)).toEqual({ id: 'u1', name: 'Sam', picture: null });
     storeUser(session, { name: 'Sam', picture: null });
     expect(readUser(session)).toEqual({ name: 'Sam', picture: null });
+  });
+});
+
+describe('rolling session', () => {
+  const tokens = { accessToken: 'a', refreshToken: 'r', expiresIn: 3600 };
+  const fresh = () => {
+    const session: Record<string, unknown> = {};
+    storeTokens(session, tokens, codec, NOW);
+    return session;
+  };
+  const half = SESSION_MAX_AGE_MS / 2;
+
+  it('does not renew in the first half of the window', () => {
+    const session = fresh();
+    const before = session.aps;
+    expect(renewSession(session, codec, NOW + half)).toBe(false);
+    expect(session.aps).toBe(before);
+    expect(sessionExpiresAt(session, codec, NOW + half)).toBe(
+      NOW + SESSION_MAX_AGE_MS,
+    );
+  });
+
+  it('renews after half the window and moves the expiry', () => {
+    const session = fresh();
+    const at = NOW + half + 1;
+    expect(renewSession(session, codec, at)).toBe(true);
+    expect(sessionExpiresAt(session, codec, at)).toBe(at + SESSION_MAX_AGE_MS);
+    expect(isSignedIn(session, codec, NOW + SESSION_MAX_AGE_MS + 1)).toBe(true);
+  });
+
+  it('never outlives the cap, however often it renews', () => {
+    const session = fresh();
+    let at = NOW;
+    while (at + half + 1 < NOW + SESSION_ABSOLUTE_MAX_AGE_MS) {
+      at += half + 1;
+      renewSession(session, codec, at);
+      expect(isSignedIn(session, codec, at)).toBe(true);
+    }
+    const cap = NOW + SESSION_ABSOLUTE_MAX_AGE_MS;
+    expect(sessionExpiresAt(session, codec, at)).toBeLessThanOrEqual(cap);
+    expect(isSignedIn(session, codec, cap - 1)).toBe(true);
+    expect(isSignedIn(session, codec, cap)).toBe(false);
+    expect(renewSession(session, codec, cap)).toBe(false);
+  });
+
+  it('stops renewing once the cap is the nearer limit', () => {
+    const session = fresh();
+    let at = NOW;
+    while (at + half + 1 < NOW + SESSION_ABSOLUTE_MAX_AGE_MS - 1000) {
+      at += half + 1;
+      renewSession(session, codec, at);
+    }
+    const capped = sessionExpiresAt(session, codec, at);
+    const sealed = session.aps;
+    at += half + 1;
+    if (at < (capped ?? 0)) {
+      expect(renewSession(session, codec, at)).toBe(false);
+      expect(session.aps).toBe(sealed);
+    }
+  });
+
+  it('keeps the original sign-in time through renewal and refresh', async () => {
+    const session = fresh();
+    const at = NOW + half + 1;
+    renewSession(session, codec, at);
+    await getAccessToken(session, fakeAuth(), codec, at + 1000);
+    expect(sessionExpiresAt(session, codec, at)).toBe(at + SESSION_MAX_AGE_MS);
+    expect(
+      isSignedIn(session, codec, NOW + SESSION_ABSOLUTE_MAX_AGE_MS - 1),
+    ).toBe(false);
+  });
+
+  it('treats a cookie without a renewal time as renewed at sign-in', () => {
+    const sealed = codec.seal({
+      accessToken: 'a',
+      refreshToken: 'r',
+      expiresAt: NOW + 1000,
+      issuedAt: NOW,
+    } as never);
+    expect(sessionExpiresAt({ aps: sealed }, codec, NOW)).toBe(
+      NOW + SESSION_MAX_AGE_MS,
+    );
   });
 });

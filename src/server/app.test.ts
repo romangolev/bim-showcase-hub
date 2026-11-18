@@ -98,6 +98,33 @@ describe('session and auth', () => {
     expect((await agent.get('/api/hubs')).status).toBe(200);
   });
 
+  it('renews the session after half the window but never past seven days', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      const start = Date.now();
+      const agent = request.agent(realApp());
+      await signIn(agent);
+      const hour = 60 * 60 * 1000;
+      const first = (await agent.get('/api/session')).body.expiresAt;
+      vi.setSystemTime(start + 7 * hour);
+      const renewed = (await agent.get('/api/session')).body.expiresAt;
+      expect(renewed).toBeGreaterThan(first);
+      expect(renewed).toBe(start + 19 * hour);
+      let at = start + 7 * hour;
+      for (let i = 0; i < 40; i += 1) {
+        at += 7 * hour;
+        vi.setSystemTime(at);
+        const res = await agent.get('/api/session');
+        if (res.status !== 200) break;
+        expect(res.body.expiresAt).toBeLessThanOrEqual(start + 168 * hour);
+      }
+      vi.setSystemTime(start + 168 * hour);
+      expect((await agent.get('/api/session')).status).toBe(401);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('returns the stable user id with the session', async () => {
     const auth = fakeAuth({
       getUser: vi.fn().mockResolvedValue({
