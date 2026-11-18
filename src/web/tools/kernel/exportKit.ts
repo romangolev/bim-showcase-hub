@@ -35,7 +35,10 @@ export function runOnce(
   });
   try {
     void start({ task, signal: controller.signal })
-      .catch((error: unknown) => task.fail(error))
+      .then(
+        () => task.fail('Export ended without a result'),
+        (error: unknown) => task.fail(error),
+      )
       .finally(() => {
         active.delete(kind);
       })

@@ -286,6 +286,19 @@ describe('export tasks', () => {
     expect(tasks.getSnapshot().tasks.at(-1)?.cancellable).toBe(false);
   });
 
+  it('fails a task whose exporter resolves without a terminal status', async () => {
+    const { tasks } = await import('../../tasks/taskStore.js');
+    const adapter = {} as ViewerAdapter;
+    runOnce(adapter, 'quiet', 'Quiet', async (job) => {
+      job.task.progress(null, 'Working');
+    });
+    await Promise.resolve();
+    expect(tasks.getSnapshot().tasks.at(-1)).toMatchObject({
+      state: 'failed',
+      detail: 'Export ended without a result',
+    });
+  });
+
   it('maps statuses onto the task', () => {
     const store = createTaskStore();
     const report = (
