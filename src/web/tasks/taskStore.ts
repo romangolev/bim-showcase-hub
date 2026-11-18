@@ -31,6 +31,7 @@ export interface TaskHandle {
   warn: (detail?: string) => void;
   fail: (error?: unknown) => void;
   cancel: () => void;
+  discard: () => void;
 }
 
 export interface TaskStore {
@@ -38,6 +39,7 @@ export interface TaskStore {
   cancel: (id: number) => void;
   retry: (id: number) => void;
   dismiss: (id: number) => void;
+  discard: (id: number) => void;
   clearFinished: () => void;
   subscribe: (listener: () => void) => () => void;
   getSnapshot: () => TaskSnapshot;
@@ -107,6 +109,19 @@ export function createTaskStore(now: () => number = Date.now): TaskStore {
     hooks.get(id)?.cancel?.();
   };
 
+  const remove = (id: number) => {
+    hooks.delete(id);
+    commit(
+      snapshot.tasks.filter((entry) => entry.id !== id),
+      snapshot.announcement,
+    );
+  };
+
+  const discard = (id: number) => {
+    const state = find(id)?.state;
+    if (state === 'running' || state === 'failed') remove(id);
+  };
+
   return {
     start({ label, cancel: onCancel, retry }) {
       const id = nextId++;
@@ -148,6 +163,7 @@ export function createTaskStore(now: () => number = Date.now): TaskStore {
           settle(id, 'warning', detail ?? null, 'finished with warnings'),
         fail: (error) => settle(id, 'failed', messageOf(error), 'failed'),
         cancel: () => cancel(id),
+        discard: () => discard(id),
       };
     },
     cancel,
@@ -157,12 +173,9 @@ export function createTaskStore(now: () => number = Date.now): TaskStore {
     dismiss(id) {
       const task = find(id);
       if (!task || task.state === 'running') return;
-      hooks.delete(id);
-      commit(
-        snapshot.tasks.filter((entry) => entry.id !== id),
-        snapshot.announcement,
-      );
+      remove(id);
     },
+    discard,
     clearFinished() {
       for (const task of snapshot.tasks) {
         if (task.state !== 'running') hooks.delete(task.id);

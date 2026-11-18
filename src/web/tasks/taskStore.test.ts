@@ -59,6 +59,22 @@ describe('task store', () => {
     expect(store.getSnapshot().running).toBe(0);
   });
 
+  it('discards running and failed tasks without a trace but keeps finished ones', () => {
+    const store = createTaskStore();
+    const running = store.start({ label: 'A' });
+    const failed = store.start({ label: 'B' });
+    failed.fail('x');
+    const done = store.start({ label: 'C' });
+    done.finish();
+    running.discard();
+    failed.discard();
+    done.discard();
+    expect(store.getSnapshot().tasks.map((task) => task.label)).toEqual(['C']);
+    expect(store.getSnapshot().running).toBe(0);
+    running.finish();
+    expect(store.getSnapshot().tasks).toHaveLength(1);
+  });
+
   it('cancels through the producer hook once', () => {
     const store = createTaskStore();
     const cancel = vi.fn();

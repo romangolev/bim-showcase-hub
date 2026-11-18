@@ -74,8 +74,82 @@ describe('ViewerPane', () => {
     const slow: ViewerAdapterFactory = () => new Promise(() => {});
     const { unmount } = render(<ViewerPane urn="def" factory={slow} />);
     expect(tasks.getSnapshot().tasks.at(-1)?.state).toBe('running');
+    const before = tasks.getSnapshot().tasks.length;
     unmount();
-    expect(tasks.getSnapshot().tasks.at(-1)?.state).toBe('cancelled');
+    expect(tasks.getSnapshot().tasks).toHaveLength(before - 1);
+    expect(
+      tasks.getSnapshot().tasks.some((task) => task.state === 'cancelled'),
+    ).toBe(false);
+  });
+
+  it('leaves no cancelled rows for superseded loads', async () => {
+    tasks.clearFinished();
+    const { factory } = trackedFactory();
+    const slowFirst: ViewerAdapterFactory = (container) =>
+      calls++ === 0 ? new Promise(() => {}) : factory(container);
+    let calls = 0;
+    const onReady = vi.fn();
+    const { rerender } = render(
+      <ViewerPane
+        urn="abc"
+        name="A.rvt"
+        factory={slowFirst}
+        onReady={onReady}
+      />,
+    );
+    rerender(
+      <ViewerPane
+        urn="def"
+        name="B.rvt"
+        factory={slowFirst}
+        onReady={onReady}
+      />,
+    );
+    await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
+    expect(
+      tasks.getSnapshot().tasks.map((task) => [task.label, task.state]),
+    ).toEqual([['Loading B.rvt', 'done']]);
+  });
+
+  it('leaves a single task after a StrictMode double mount', async () => {
+    tasks.clearFinished();
+    const { factory } = trackedFactory();
+    const onReady = vi.fn();
+    render(
+      <StrictMode>
+        <ViewerPane
+          urn="abc"
+          name="A.rvt"
+          factory={factory}
+          onReady={onReady}
+        />
+      </StrictMode>,
+    );
+    await waitFor(() => expect(onReady).toHaveBeenCalled());
+    expect(
+      tasks.getSnapshot().tasks.map((task) => [task.label, task.state]),
+    ).toEqual([['Loading A.rvt', 'done']]);
+  });
+
+  it('retries a failed load from the task center', async () => {
+    tasks.clearFinished();
+    let calls = 0;
+    const flaky: ViewerAdapterFactory = async (container) => {
+      calls += 1;
+      if (calls === 1) throw new Error('token failed');
+      return createMockViewerAdapter(container);
+    };
+    const onReady = vi.fn();
+    render(<ViewerPane urn="abc" factory={flaky} onReady={onReady} />);
+    await screen.findByRole('alert');
+    const failed = tasks.getSnapshot().tasks.at(-1);
+    expect(failed).toMatchObject({ state: 'failed', retryable: true });
+    act(() => tasks.retry(failed?.id ?? -1));
+    await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
+    expect(calls).toBe(2);
+    expect(
+      tasks.getSnapshot().tasks.filter((task) => task.state === 'failed'),
+    ).toHaveLength(0);
   });
 
   it('destroys the adapter on unmount', async () => {

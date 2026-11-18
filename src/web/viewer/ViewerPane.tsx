@@ -211,6 +211,7 @@ export function ViewerPane({
     let stopStage: (() => void) | undefined;
     const task = startTask({
       label: `Loading ${nameRef.current ?? 'model'}`,
+      retry: () => setAttempt((n) => n + 1),
     });
 
     (async () => {
@@ -272,7 +273,7 @@ export function ViewerPane({
 
     return () => {
       cancelled = true;
-      task.cancel();
+      task.discard();
       stopStage?.();
       adapterRef.current = null;
       created?.destroy();
