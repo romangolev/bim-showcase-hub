@@ -120,6 +120,22 @@ export function DashboardSettingsBody() {
           ))}
         </select>
       </label>
+      <label className="bsh-field">
+        <input
+          type="checkbox"
+          checked={view.pngTitle}
+          onChange={(e) => patch({ pngTitle: e.target.checked })}
+        />{' '}
+        Include the title in exported PNGs
+      </label>
+      <label className="bsh-field">
+        <input
+          type="checkbox"
+          checked={view.pngLegend}
+          onChange={(e) => patch({ pngLegend: e.target.checked })}
+        />{' '}
+        Include the legend in exported PNGs
+      </label>
       <button
         type="button"
         className="bsh-button"

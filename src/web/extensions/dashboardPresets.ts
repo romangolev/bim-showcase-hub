@@ -1,3 +1,4 @@
+import { flag } from '../../shared/guards.js';
 import type { PropertyRow } from '../../shared/types.js';
 import {
   availableProperties,
@@ -60,6 +61,8 @@ export interface DashboardView {
   property: string;
   maxCategories: number;
   kind: DashboardKind;
+  pngTitle: boolean;
+  pngLegend: boolean;
 }
 
 export const DEFAULT_DASHBOARD_VIEW: DashboardView = {
@@ -67,6 +70,8 @@ export const DEFAULT_DASHBOARD_VIEW: DashboardView = {
   property: DEFAULT_DASHBOARD_PROPERTIES[0] ?? '',
   maxCategories: DEFAULT_MAX_CATEGORIES,
   kind: 'both',
+  pngTitle: true,
+  pngLegend: true,
 };
 
 export function sanitizeDashboardView(raw: unknown): DashboardView {
@@ -89,5 +94,7 @@ export function sanitizeDashboardView(raw: unknown): DashboardView {
         ? Math.min(max, MAX_CATEGORIES)
         : DEFAULT_MAX_CATEGORIES,
     kind: CHART_KINDS.find((k) => k === source.kind) ?? 'both',
+    pngTitle: flag(source.pngTitle, true),
+    pngLegend: flag(source.pngLegend, true),
   };
 }

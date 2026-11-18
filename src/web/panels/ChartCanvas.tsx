@@ -22,6 +22,7 @@ import {
   seriesColors,
 } from '../extensions/dashboardData.js';
 import { useTheme } from '../theme/ThemeContext.js';
+import { useDashboardView } from './DashboardSettings.js';
 
 Chart.register(
   ArcElement,
@@ -65,6 +66,7 @@ export function ChartCanvas({
   const [notice, setNotice] = useState('');
   const { theme: pageTheme } = useTheme();
   const [colors, setColors] = useState<string[]>([]);
+  const [view] = useDashboardView();
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -144,11 +146,29 @@ export function ChartCanvas({
   const exportPng = async () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    const theme = readChartTheme();
+    const shown = chart.data.slice(0, LEGEND_LIMIT);
     const done = await saveChartPng(
       canvas,
-      readChartTheme().surface,
+      theme.surface,
       chart.property,
       exportName,
+      {
+        title: view.pngTitle ? chart.property : undefined,
+        legend:
+          view.pngLegend && kind === 'doughnut'
+            ? shown.map((d, index) => ({
+                label: d.label,
+                color: colors[index] ?? 'transparent',
+              }))
+            : undefined,
+        more:
+          view.pngLegend && kind === 'doughnut'
+            ? chart.data.length - shown.length
+            : 0,
+        text: theme.label,
+        font: theme.fontFamily,
+      },
     );
     setNotice(done ? '' : 'Could not draw the image');
   };
