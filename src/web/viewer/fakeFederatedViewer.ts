@@ -24,6 +24,7 @@ export interface FakeModelSpec {
   categories?: string[];
   fail?: string;
   propsFail?: string;
+  treeHang?: boolean;
   noGeometry?: boolean;
   center?: [number, number, number];
   size?: number;
@@ -71,6 +72,7 @@ export class FakeModel implements ViewerModel {
     onSuccess: (tree: InstanceTree) => void,
     onError?: (err: unknown) => void,
   ): void {
+    if (this.spec.treeHang) return;
     if (this.spec.propsFail) {
       onError?.(new Error(this.spec.propsFail));
       return;

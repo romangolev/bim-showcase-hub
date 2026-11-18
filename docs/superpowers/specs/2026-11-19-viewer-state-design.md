@@ -34,8 +34,8 @@ Everything is plain JSON. `models` is keyed by model id (the URN), because a `db
 ## Restore and degrade rules
 
 - Input is sanitized first: anything that is not a version 1 state with the right types restores nothing and never throws.
-- Models in the state that are not loaded and shown are skipped. Loaded models missing from the state are reset to fully visible and unselected.
-- Per model the adapter reads the object tree and keeps only ids that exist in it. If the tree cannot be read, the model's nodes are left reset. The sentinel `-1` (isolate nothing, used to hide a whole model) is kept.
+- Models in the state that are not loaded and shown are skipped. Loaded models missing from the state are left as they are.
+- Per model the adapter reads the object tree and keeps only ids that exist in it. If the tree cannot be read (or does not answer within 8 seconds), the model's nodes are left as they are, not reset. The sentinel `-1` (isolate nothing, used to hide a whole model) is kept.
 - An isolation whose ids are all unknown is dropped, because `isolate` with unknown ids would hide everything.
 - Reset runs first (`isolate([])` and `show(hidden)`), then isolate, hide, camera, cutplanes and selection.
 - Cutplanes: a non-empty list goes through `restoreState`; an empty list clears with `viewer.impl.setCutPlanes([])`, because neither `restoreState` nor `viewer.setCutPlanes([])` clears (checked on the real viewer). This is the one internal Autodesk call.

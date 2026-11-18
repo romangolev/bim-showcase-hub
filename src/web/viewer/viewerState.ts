@@ -9,6 +9,7 @@ import type { CameraState, ViewerState } from './ViewerAdapter.js';
 
 export const VIEWER_STATE_FILTER = { viewport: true, cutplanes: true } as const;
 export const HIDE_ALL_NODE = -1;
+export const TREE_TIMEOUT_MS = 8000;
 
 export interface StateModel {
   id: string;
@@ -158,8 +159,19 @@ function readTree(
   model: ViewerModel,
 ): Promise<InstanceTree> {
   return new Promise<InstanceTree>((resolve, reject) => {
-    if (model.getObjectTree) model.getObjectTree(resolve, reject);
-    else viewer.getObjectTree(resolve, reject);
+    const timer = setTimeout(
+      () => reject(new Error('Object tree timed out')),
+      TREE_TIMEOUT_MS,
+    );
+    const done =
+      <T>(settle: (value: T) => void) =>
+      (value: T) => {
+        clearTimeout(timer);
+        settle(value);
+      };
+    if (model.getObjectTree) {
+      model.getObjectTree(done(resolve), done(reject));
+    } else viewer.getObjectTree(done(resolve), done(reject));
   });
 }
 
@@ -204,12 +216,12 @@ export async function restoreViewerState(
   const known = await Promise.all(
     models.map(({ handle }) => knownIds(viewer, handle)),
   );
-  resetNodes(viewer, models);
   const selection: ModelDbId[] = [];
   models.forEach(({ id, handle }, index) => {
     const saved = state.models[id];
     const ids = known[index];
     if (!saved || !ids) return;
+    resetNodes(viewer, [{ id, handle }]);
     const valid = (list: readonly number[]) => list.filter((n) => ids.has(n));
     const isolated = saved.isolated.includes(HIDE_ALL_NODE)
       ? [HIDE_ALL_NODE]

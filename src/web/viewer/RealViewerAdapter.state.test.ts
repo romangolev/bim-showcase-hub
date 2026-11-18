@@ -7,7 +7,7 @@ import {
 import { RealViewerAdapter } from './RealViewerAdapter.js';
 import { resetRegion } from './region.js';
 import type { ViewerState } from './ViewerAdapter.js';
-import { VIEWER_STATE_FILTER } from './viewerState.js';
+import { TREE_TIMEOUT_MS, VIEWER_STATE_FILTER } from './viewerState.js';
 
 let env: FakeEnvironment;
 let host: HTMLElement;
@@ -211,6 +211,45 @@ describe('viewer state', () => {
     state.models.bad = { isolated: [11], hidden: [], selection: [11] };
     await expect(adapter.restoreState(state)).resolves.toBeUndefined();
     expect(adapter.getState().models.bad?.isolated).toEqual([]);
+  });
+
+  it('leaves models absent from the state and models with unreadable trees untouched', async () => {
+    env.specs.set('bad', { propsFail: 'no tree' });
+    await adapter.addModel({ urn: 'bad' });
+    adapter.isolateModelIds([{ modelId: 'str', dbId: 12 }]);
+    adapter.hideModelIds([{ modelId: 'bad', dbId: 11 }]);
+    const before = adapter.getState();
+    await adapter.restoreState({
+      version: 1,
+      camera: null,
+      cutplanes: [],
+      models: {
+        arch: { isolated: [11], hidden: [], selection: [] },
+        bad: { isolated: [], hidden: [], selection: [] },
+      },
+    });
+    const after = adapter.getState();
+    expect(after.models.str).toEqual(before.models.str);
+    expect(after.models.bad).toEqual(before.models.bad);
+    expect(after.models.arch?.isolated).toEqual([11]);
+  });
+
+  it('gives up on a tree that never answers and degrades', async () => {
+    vi.useFakeTimers();
+    try {
+      env.specs.set('slow', { treeHang: true });
+      await adapter.addModel({ urn: 'slow' });
+      const state = adapter.getState();
+      state.models.slow = { isolated: [11], hidden: [], selection: [] };
+      state.models.arch = { isolated: [11], hidden: [], selection: [] };
+      const done = adapter.restoreState(state);
+      await vi.advanceTimersByTimeAsync(TREE_TIMEOUT_MS + 1);
+      await expect(done).resolves.toBeUndefined();
+      expect(adapter.getState().models.arch?.isolated).toEqual([11]);
+      expect(adapter.getState().models.slow?.isolated).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('captures and clears cutplanes', async () => {
