@@ -26,14 +26,9 @@ npm run dev:mock
 | `npm run format` | `biome check --write .` |
 | `npm run typecheck` | `tsc` for the server and web configs |
 | `npm test` | `vitest run` |
-| `npm run e2e:setup` | Create `e2e/.venv`, install Camoufox and its browser |
-| `npm run e2e:signin` | Sign in once in a persistent profile |
-| `npm run e2e:smoke` | Smoke test against the real app |
-| `npm run e2e:glb` | GLB export check on a real Revit model |
-| `npm run e2e:ifc` | IFC export check on a real Revit model |
-| `npm run e2e:state` | Viewer state capture and restore check on a real Revit model |
+| `npm run e2e:*` | End-to-end scripts, see below |
 
-Biome handles formatting, linting and import order (two-space indent, single quotes). It ignores `docs`, `dist`, `DESIGN.md` and `package-lock.json`. Run `npm run lint` before committing.
+Biome formats and lints (two-space indent, single quotes) and ignores `docs`. Run `npm run lint` before committing.
 
 ## Environment variables
 
@@ -55,9 +50,7 @@ Copy `.env.example` to `.env`. `.env` is gitignored.
 
 With real credentials, run the server on port 3000 and register `http://localhost:3000/api/auth/callback` in the APS app.
 
-### Mock mode
-
-Mock mode needs `MOCK_APS=1` and a non-production `NODE_ENV`. The server computes `mock = !production && MOCK_APS === '1'`. The mock viewer also needs `import.meta.env.DEV`, so a production build cannot reach it. Every request is signed in as a mock user and no Autodesk call is made.
+Mock mode needs `MOCK_APS=1` and a non-production `NODE_ENV`. The mock viewer also needs `import.meta.env.DEV`, so a production build cannot reach it.
 
 ## Tests
 
@@ -97,9 +90,7 @@ All browser storage goes through `src/web/storage.ts`. `BSH_KEYS` is the full li
 
 To reset the layout, run `localStorage.removeItem('bsh.layout.v2')` or use Reset layout in the Panes menu. In mock mode `window.__bshLayout` exposes the layout API for tests. It does not exist in production builds.
 
-## Session tokens and CSP
-
-Session behavior is in [architecture.md](architecture.md#sessions).
+## CSP
 
 `Content-Security-Policy-Report-Only` is set in `vercel.json` and by the production Express path (`src/server/csp.ts`). A test keeps the two equal. It is report-only because it has not been checked against every Viewer case. To enforce it:
 
@@ -147,9 +138,8 @@ Notes:
 - `glb`, `ifc` and `state` use a two-legged token from `.env` and the harness in `e2e/harness/`. No sign-in. The default model is in the maintainer's APS bucket, so another APS app must set `E2E_REVIT_URN`.
 - IfcOpenShell is in `e2e/requirements.txt` only. Never add it to `package.json`.
 - Use Revit models for real-APS checks, and more than one model for anything about several models.
-- Checks ignore failed requests to `cdn.derivative.autodesk.com` and the favicon. Console errors are recorded but do not fail a run.
 
-Scripts launch Camoufox with `os=HOST_OS`. Without it Camoufox spoofs a random OS, and a mismatched WebGL fingerprint makes the viewer stop redrawing with a `too many uniforms` error.
+Scripts launch Camoufox with `os=HOST_OS`. A spoofed OS can make the viewer stop redrawing with a `too many uniforms` error.
 
 ### Sign-in profile
 
