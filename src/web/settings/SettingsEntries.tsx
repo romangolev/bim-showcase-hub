@@ -4,6 +4,7 @@ import { SUMMARY_SETTINGS_MODAL } from '../panels/SummarySettings.js';
 import { TOOLS } from '../tools/index.js';
 import { usePersistedSetting } from '../tools/kernel/persistedSetting.js';
 import type { AnyViewerTool } from '../tools/kernel/ToolRegistry.js';
+import { SavedItemsSettings } from './SavedItemsSettings.js';
 
 interface EntryRowProps {
   title: string;
@@ -81,6 +82,7 @@ export function SettingsEntries() {
           windowTitle={DASHBOARD_SETTINGS_MODAL.title}
         />
       </section>
+      <SavedItemsSettings />
     </>
   );
 }

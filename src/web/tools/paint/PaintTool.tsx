@@ -1,4 +1,9 @@
+import type { FormDefinition } from '../../components/SettingsForm.js';
 import {
+  DEFAULT_PAINT_INTENSITY,
+  DEFAULT_PAINT_PALETTE,
+  MAX_PAINT_SWATCHES,
+  NEW_SWATCH_COLOR,
   PALETTE_ICON,
   paintSelection,
   paletteToPresets,
@@ -11,12 +16,46 @@ import {
   type ToolContribution,
   ViewerTool,
 } from '../kernel/ViewerTool.js';
-import { PaintFields } from './PaintFields.js';
 import { PAINT_SETTINGS, type PaintSettings } from './paintSettings.js';
 
 export const PAINT_TOOLTIP = 'Paint selection';
 export const PAINT_SELECT_HINT = 'Select elements to paint';
 export const PAINT_RESET_HINT = 'Nothing painted yet';
+
+export const PAINT_FORM: FormDefinition<PaintSettings> = {
+  title: 'Paint palette',
+  intro: 'The swatches in the viewer toolbar paint menu follow this palette.',
+  fields: [
+    {
+      key: 'palette',
+      kind: 'list',
+      label: 'Swatches',
+      itemType: 'color',
+      newItem: NEW_SWATCH_COLOR,
+      min: 1,
+      max: MAX_PAINT_SWATCHES,
+      addLabel: 'Add swatch',
+      itemLabel: (index) => `Swatch ${index + 1}`,
+      removeLabel: (index) => `Remove swatch ${index + 1}`,
+    },
+    {
+      key: 'intensity',
+      kind: 'number',
+      label: 'Intensity',
+      min: 0.1,
+      max: 1,
+      slider: { step: 0.05, format: (value) => `${Math.round(value * 100)}%` },
+      hint: "How strongly the colour replaces the model's own colour. This is theming intensity, not transparency.",
+    },
+  ],
+  reset: {
+    label: 'Reset palette',
+    patch: {
+      palette: [...DEFAULT_PAINT_PALETTE],
+      intensity: DEFAULT_PAINT_INTENSITY,
+    },
+  },
+};
 
 export class PaintTool extends ViewerTool<PaintSettings> {
   readonly id = 'paint';
@@ -24,6 +63,7 @@ export class PaintTool extends ViewerTool<PaintSettings> {
   readonly description =
     'Colour the selected elements from the viewer toolbar.';
   readonly settings = PAINT_SETTINGS;
+  readonly form = PAINT_FORM;
   readonly legacy = {
     fields: ['paintBrushes', 'paintPalette', 'paintIntensity'],
     read: (blob: Record<string, unknown>) => ({
@@ -63,9 +103,5 @@ export class PaintTool extends ViewerTool<PaintSettings> {
 
   override onDisabled(adapter: ViewerAdapter): void {
     resetPaint(adapter);
-  }
-
-  protected override renderFields() {
-    return <PaintFields />;
   }
 }

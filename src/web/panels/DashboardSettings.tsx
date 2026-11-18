@@ -16,6 +16,7 @@ import {
 } from '../extensions/elementActions.js';
 import type { ModalDefinition } from '../modal/types.js';
 import { PANE_SETTINGS, usePaneSetting } from '../settings/paneSettings.js';
+import { DashboardUserPresets } from './DashboardUserPresets.js';
 
 export const DASHBOARD_SETTINGS_ID = 'dashboard-settings';
 
@@ -57,6 +58,7 @@ export function DashboardSettingsBody() {
           ))}
         </div>
       </fieldset>
+      <DashboardUserPresets view={view} apply={setView} />
       <label className="bsh-field">
         Group by
         <select
