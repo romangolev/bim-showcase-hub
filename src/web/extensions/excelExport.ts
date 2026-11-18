@@ -322,7 +322,9 @@ export async function exportToXlsx(
         distinctModelCount(rows) > 1,
       );
       if (format === 'copy') {
-        copyText.resolve(toDelimited(flat.header, flat.rows, '\t', table));
+        copyText.resolve(
+          toDelimited(flat.header, flat.rows, table.delimiter ?? '\t', table),
+        );
         await copied;
         delivered = 'the clipboard';
       } else if (format === 'csv') {

@@ -226,6 +226,18 @@ describe('exportToXlsx formats', () => {
     expect(status).toMatchObject({ phase: 'done', rowCount: 2 });
   });
 
+  it('copies with the configured delimiter and decimal mark', async () => {
+    const copy = vi.fn().mockResolvedValue(undefined);
+    await exportToXlsx(adapterOf(data), {
+      propertyNames: ['Name'],
+      format: 'copy',
+      table: { delimiter: ';', header: false },
+      copy,
+      save: vi.fn(),
+    });
+    expect(await copy.mock.calls[0]?.[0]).toBe("1;'=cmd\r\n2;Door");
+  });
+
   it('exports only the selection and reports empty for none', async () => {
     const save = vi.fn();
     const some = await exportToXlsx(
