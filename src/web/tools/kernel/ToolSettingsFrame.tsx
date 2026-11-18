@@ -1,4 +1,8 @@
 import type { ReactNode } from 'react';
+import {
+  type FormDefinition,
+  SettingsForm,
+} from '../../components/SettingsForm.js';
 import { SwitchRow } from '../../components/SwitchRow.js';
 import { usePersistedSetting } from './persistedSetting.js';
 import type { ToolSettings, ViewerTool } from './ViewerTool.js';
@@ -27,5 +31,24 @@ export function ToolSettingsFrame({ tool, children }: ToolSettingsFrameProps) {
       </section>
       {children}
     </div>
+  );
+}
+
+interface ToolFormProps<S extends ToolSettings> {
+  tool: ViewerTool<S>;
+  form: FormDefinition<S>;
+}
+
+export function ToolForm<S extends ToolSettings>({
+  tool,
+  form,
+}: ToolFormProps<S>) {
+  const [settings, setSettings] = usePersistedSetting(tool.settings);
+  return (
+    <SettingsForm
+      form={form}
+      value={settings}
+      onChange={(patch) => setSettings((current) => ({ ...current, ...patch }))}
+    />
   );
 }

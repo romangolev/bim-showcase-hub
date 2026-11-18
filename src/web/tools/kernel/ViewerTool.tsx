@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { isRecord } from '../../../shared/guards.js';
+import type { FormDefinition } from '../../components/SettingsForm.js';
 import type { ModalDefinition } from '../../modal/types.js';
 import type {
   ExportToolSpec,
@@ -7,7 +8,7 @@ import type {
   ViewerAdapter,
 } from '../../viewer/ViewerAdapter.js';
 import type { PersistedSetting } from './persistedSetting.js';
-import { ToolSettingsFrame } from './ToolSettingsFrame.js';
+import { ToolForm, ToolSettingsFrame } from './ToolSettingsFrame.js';
 
 export interface ToolSettings {
   enabled: boolean;
@@ -47,6 +48,7 @@ export abstract class ViewerTool<S extends ToolSettings = ToolSettings> {
   abstract readonly description: string;
   abstract readonly settings: PersistedSetting<S>;
   readonly legacy?: LegacySettings;
+  readonly form?: FormDefinition<S>;
 
   abstract contribute(ctx: ToolContext, settings: S): ToolContribution;
 
@@ -61,7 +63,7 @@ export abstract class ViewerTool<S extends ToolSettings = ToolSettings> {
   }
 
   protected renderFields(): ReactNode {
-    return null;
+    return this.form ? <ToolForm tool={this} form={this.form} /> : null;
   }
 
   renderSettings(): ReactNode {
