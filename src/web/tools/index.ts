@@ -12,7 +12,10 @@ export const TOOLS = new ToolRegistry()
   .register(new GlbExportTool())
   .register(new IfcExportTool());
 
-onForgetPersonal(() => TOOLS.scrubPersonal());
+onForgetPersonal(() => {
+  TOOLS.scrubPersonal();
+  migrateLegacySettings(TOOLS, BSH_KEYS.preference.settings, { scrub: true });
+});
 
 export function migrateLegacyToolSettings(): void {
   migrateLegacySettings(TOOLS, BSH_KEYS.preference.settings);

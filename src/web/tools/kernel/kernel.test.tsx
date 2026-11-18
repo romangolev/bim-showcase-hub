@@ -323,6 +323,32 @@ describe('migrateLegacySettings', () => {
   });
 });
 
+describe('migrateLegacySettings after a sign-out scrub', () => {
+  const APP = 'test.app';
+  const registry = () => new ToolRegistry().register(new FakeTool('a'));
+
+  it('clears personal legacy values even when the tool key cannot be stored', () => {
+    writeJson(APP, { aOn: false, aLabel: 'secret', minutes: 1 });
+    const set = vi
+      .spyOn(window.localStorage, 'setItem')
+      .mockImplementationOnce(() => {
+        throw new Error('quota');
+      });
+    migrateLegacySettings(registry(), APP, { scrub: true });
+    set.mockRestore();
+    expect(readJson(APP, null)).toEqual({ minutes: 1 });
+    migrateLegacySettings(registry(), APP);
+    expect(readJson('test.a', null)).toBeNull();
+  });
+
+  it('migrates with the personal fields scrubbed', () => {
+    writeJson(APP, { aOn: false, aLabel: 'secret' });
+    migrateLegacySettings(registry(), APP, { scrub: true });
+    expect(readJson('test.a', null)).toEqual({ enabled: false, label: '' });
+    expect(readJson(APP, null)).toEqual({});
+  });
+});
+
 describe('useViewerTools', () => {
   function fakeAdapter() {
     const dispose = vi.fn();

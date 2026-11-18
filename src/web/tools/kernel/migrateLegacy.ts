@@ -9,6 +9,7 @@ function has(blob: Record<string, unknown>, field: string): boolean {
 export function migrateLegacySettings(
   registry: ToolRegistry,
   appKey: string,
+  { scrub = false }: { scrub?: boolean } = {},
 ): void {
   const blob = readJson<unknown>(appKey, undefined);
   if (!isRecord(blob)) return;
@@ -21,11 +22,16 @@ export function migrateLegacySettings(
     const present = legacy.fields.some((field) => has(blob, field));
     const taken = readJson<unknown>(tool.settings.key, undefined) !== undefined;
     if (present && !taken) {
-      const value = tool.settings.sanitize(legacy.read(blob));
+      const clean = tool.settings.sanitize(legacy.read(blob));
+      const value = scrub ? tool.scrub(clean) : clean;
       stored = writeJson(tool.settings.key, value) && stored;
     }
   }
-  if (!stored || ![...legacyFields].some((field) => has(blob, field))) return;
+  if (
+    (!stored && !scrub) ||
+    ![...legacyFields].some((field) => has(blob, field))
+  )
+    return;
   const rest = Object.fromEntries(
     Object.entries(blob).filter(([field]) => !legacyFields.has(field)),
   );
