@@ -122,6 +122,7 @@ export function selectSet(adapter: ViewerAdapter, id: string): number {
       .map((model) => model.id),
   );
   const items = set.items.filter((item) => open.has(item.modelId));
+  if (items.length === 0) return 0;
   adapter.selectModelIds(items);
   return items.length;
 }

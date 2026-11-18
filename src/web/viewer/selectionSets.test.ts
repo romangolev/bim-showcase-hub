@@ -89,6 +89,17 @@ describe('selection sets', () => {
     ]);
   });
 
+  it('leaves the selection alone when none of its models are open', () => {
+    saveSelectionSet('Walls', items);
+    const selectModelIds = vi.fn();
+    const adapter = {
+      getModels: () => [{ id: 'z', status: 'ready' }],
+      selectModelIds,
+    } as unknown as ViewerAdapter;
+    expect(selectSet(adapter, listSets()[0]?.id ?? '')).toBe(0);
+    expect(selectModelIds).not.toHaveBeenCalled();
+  });
+
   it('is removed by forgetPersonal', () => {
     saveSelectionSet('Gone', items);
     forgetPersonal();
