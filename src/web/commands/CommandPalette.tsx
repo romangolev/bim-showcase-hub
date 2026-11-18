@@ -11,6 +11,7 @@ import {
 } from 'react';
 import { flushSync } from 'react-dom';
 import { useModal } from '../modal/index.js';
+import { startTask } from '../tasks/taskStore.js';
 import { filterCommands } from './fuzzy.js';
 import { readRecents, recordRecent } from './recents.js';
 import { COMMANDS } from './registry.js';
@@ -222,7 +223,13 @@ export function CommandPalette() {
     (command: Command) => {
       recordRecent(command.id);
       flushSync(() => setOpen(false));
-      void command.run({ openModal: modal.open });
+      const report = (error: unknown) =>
+        startTask({ label: command.title }).fail(error);
+      try {
+        Promise.resolve(command.run({ openModal: modal.open })).catch(report);
+      } catch (error) {
+        report(error);
+      }
     },
     [modal.open],
   );

@@ -1,7 +1,14 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ModalProvider } from '../modal/index.js';
 import type { ModalDefinition } from '../modal/types.js';
+import { tasks } from '../tasks/taskStore.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { CommandPalette } from './CommandPalette.js';
 import { readRecents } from './recents.js';
@@ -185,5 +192,42 @@ describe('CommandPalette', () => {
       ctrlKey: true,
     });
     expect(screen.queryByRole('combobox')).toBeNull();
+  });
+
+  it('reports a rejected or throwing command as a failed task', async () => {
+    tasks.clearFinished();
+    setup([
+      {
+        id: 'r',
+        title: 'Rejects',
+        group: 'G',
+        run: () => Promise.reject(new Error('nope')),
+      },
+      {
+        id: 't',
+        title: 'Throws',
+        group: 'G',
+        run: () => {
+          throw new Error('bang');
+        },
+      },
+    ]);
+    openPalette();
+    press('Enter');
+    await waitFor(() =>
+      expect(tasks.getSnapshot().tasks.at(-1)).toMatchObject({
+        label: 'Rejects',
+        state: 'failed',
+        detail: 'nope',
+      }),
+    );
+    openPalette();
+    press('ArrowDown');
+    press('Enter');
+    expect(tasks.getSnapshot().tasks.at(-1)).toMatchObject({
+      label: 'Throws',
+      state: 'failed',
+      detail: 'bang',
+    });
   });
 });

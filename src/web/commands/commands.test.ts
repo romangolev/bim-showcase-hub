@@ -30,6 +30,15 @@ describe('CommandRegistry', () => {
     );
   });
 
+  it('skips a provider that throws', () => {
+    const registry = new CommandRegistry();
+    registry.register('bad', () => {
+      throw new Error('boom');
+    });
+    registry.register('good', () => [command('a', 'A')]);
+    expect(registry.list().map((c) => c.id)).toEqual(['a']);
+  });
+
   it('re-registering a name replaces it and evaluates lazily', () => {
     const registry = new CommandRegistry();
     let title = 'one';

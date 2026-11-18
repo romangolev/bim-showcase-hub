@@ -22,7 +22,13 @@ export class CommandRegistry {
   list(): Command[] {
     const byId = new Map<string, { command: Command; priority: number }>();
     for (const source of this.sources) {
-      for (const command of source.provider()) {
+      let provided: readonly Command[];
+      try {
+        provided = source.provider();
+      } catch {
+        continue;
+      }
+      for (const command of provided) {
         const known = byId.get(command.id);
         if (!known || source.priority >= known.priority) {
           byId.set(command.id, { command, priority: source.priority });
