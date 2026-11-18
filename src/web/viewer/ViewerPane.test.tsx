@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ModelSummaryPanel } from '../panels/ModelSummaryPanel.js';
+import { tasks } from '../tasks/taskStore.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { act, fireEvent, render, screen, waitFor } from '../test/render.js';
 import { useTheme } from '../theme/ThemeContext.js';
@@ -42,6 +43,39 @@ describe('ViewerPane', () => {
     await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
     expect(screen.queryByText('Loading model')).toBeNull();
     expect(document.querySelector('[data-dbid]')).not.toBeNull();
+  });
+
+  it('reports loading to the task center and finishes it', async () => {
+    tasks.clearFinished();
+    const { factory } = trackedFactory();
+    const onReady = vi.fn();
+    render(
+      <ViewerPane urn="abc" name="A.rvt" factory={factory} onReady={onReady} />,
+    );
+    expect(tasks.getSnapshot().tasks.at(-1)).toMatchObject({
+      label: 'Loading A.rvt',
+      state: 'running',
+    });
+    await waitFor(() => expect(onReady).toHaveBeenCalled());
+    expect(tasks.getSnapshot().tasks.at(-1)?.state).toBe('done');
+  });
+
+  it('fails the task when loading fails and cancels it on unmount', async () => {
+    tasks.clearFinished();
+    const broken: ViewerAdapterFactory = async () => {
+      throw new Error('token failed');
+    };
+    render(<ViewerPane urn="abc" factory={broken} />);
+    await screen.findByRole('alert');
+    expect(tasks.getSnapshot().tasks.at(-1)).toMatchObject({
+      state: 'failed',
+      detail: 'token failed',
+    });
+    const slow: ViewerAdapterFactory = () => new Promise(() => {});
+    const { unmount } = render(<ViewerPane urn="def" factory={slow} />);
+    expect(tasks.getSnapshot().tasks.at(-1)?.state).toBe('running');
+    unmount();
+    expect(tasks.getSnapshot().tasks.at(-1)?.state).toBe('cancelled');
   });
 
   it('destroys the adapter on unmount', async () => {

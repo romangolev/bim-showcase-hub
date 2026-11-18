@@ -18,6 +18,7 @@ export const BSH_KEYS = {
     theme: 'bsh-theme',
     settings: 'bsh-settings-v1',
     layoutLocked: 'bsh.layout.locked',
+    layoutInstances: 'bsh.layout.instances.v1',
     treeView: 'bsh.tree.view',
     treeWidth: 'bsh.tree.width',
     summaryCollapsed: 'bsh.summary.collapsed',

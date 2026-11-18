@@ -1,0 +1,68 @@
+import { describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen } from '../test/render.js';
+import { TaskCenter } from './TaskCenter.js';
+import { createTaskStore } from './taskStore.js';
+
+describe('TaskCenter', () => {
+  it('renders nothing but the live region while no task exists', () => {
+    render(<TaskCenter store={createTaskStore()} />);
+    expect(screen.queryByRole('button', { name: /Tasks/ })).toBeNull();
+    expect(screen.getByRole('status')).toHaveTextContent('');
+  });
+
+  it('shows the running count, progress and a cancel button', () => {
+    const store = createTaskStore();
+    const cancel = vi.fn();
+    render(<TaskCenter store={store} />);
+    let handle: ReturnType<typeof store.start> | undefined;
+    act(() => {
+      handle = store.start({ label: 'Exporting', cancel });
+      handle.progress(0.5, 'Reading');
+    });
+    const trigger = screen.getByRole('button', { name: 'Tasks, 1 running' });
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(trigger);
+    expect(screen.getByText('Exporting')).toBeInTheDocument();
+    expect(screen.getByText('Running: Reading')).toBeInTheDocument();
+    expect(
+      screen.getByRole('progressbar', { name: 'Exporting progress' }),
+    ).toHaveAttribute('value', '50');
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Cancelled: Reading')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Exporting cancelled');
+  });
+
+  it('announces a failure once, offers retry and clears finished tasks', () => {
+    const store = createTaskStore();
+    const retry = vi.fn();
+    render(<TaskCenter store={store} />);
+    act(() => {
+      store.start({ label: 'Loading A', retry }).fail(new Error('offline'));
+    });
+    expect(screen.getAllByRole('status')).toHaveLength(1);
+    expect(screen.getByRole('status')).toHaveTextContent('Loading A failed');
+    fireEvent.click(screen.getByRole('button', { name: 'Tasks' }));
+    expect(screen.getByText('Failed: offline')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(retry).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Clear finished' }));
+    expect(screen.queryByRole('button', { name: /Tasks/ })).toBeNull();
+  });
+
+  it('closes on Escape and on an outside press', () => {
+    const store = createTaskStore();
+    render(<TaskCenter store={store} />);
+    act(() => {
+      store.start({ label: 'A' });
+    });
+    const trigger = screen.getByRole('button', { name: 'Tasks, 1 running' });
+    fireEvent.click(trigger);
+    expect(screen.getByRole('region', { name: 'Tasks' })).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('region', { name: 'Tasks' })).toBeNull();
+    fireEvent.click(trigger);
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByRole('region', { name: 'Tasks' })).toBeNull();
+  });
+});

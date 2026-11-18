@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { parseView } from '../api/viewLink.js';
 import { StateBlock } from '../components/StateBlock.js';
+import { startTask } from '../tasks/taskStore.js';
 import { useTheme } from '../theme/ThemeContext.js';
 import { TOOLS, useViewerTools } from '../tools/index.js';
 import { modelKey } from '../tools/kernel/modelKey.js';
@@ -210,6 +211,9 @@ export function ViewerPane({
     setState({ status: 'loading' });
     setStage('starting');
     let stopStage: (() => void) | undefined;
+    const task = startTask({
+      label: `Loading ${nameRef.current ?? 'model'}`,
+    });
 
     (async () => {
       try {
@@ -217,7 +221,10 @@ export function ViewerPane({
         created = instance;
         instanceRef.current = instance;
         instance.setTheme(themeRef.current);
-        stopStage = instance.onLoadStage(setStage);
+        stopStage = instance.onLoadStage((next) => {
+          setStage(next);
+          task.progress(null, STAGE_TEXT[next]);
+        });
         if (cancelled) {
           instance.destroy();
           return;
@@ -247,13 +254,16 @@ export function ViewerPane({
         setAdapter(instance);
         publish?.(urn, instance);
         setState({ status: 'ready' });
+        task.finish();
         onReadyRef.current?.(instance);
       } catch (err) {
         if (cancelled) return;
         if (err instanceof RegionConflictError) {
+          task.cancel();
           setState({ status: 'region', region: err.region });
           return;
         }
+        task.fail(err);
         setState({
           status: 'error',
           message: detailOf(err),
@@ -264,6 +274,7 @@ export function ViewerPane({
 
     return () => {
       cancelled = true;
+      task.cancel();
       stopStage?.();
       adapterRef.current = null;
       created?.destroy();

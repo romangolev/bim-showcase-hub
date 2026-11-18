@@ -235,6 +235,10 @@ export function DashboardPane() {
   );
 }
 
+export function ChartInstancePane(_props: { instance: string }) {
+  return <DashboardPane />;
+}
+
 export function ModelsPane() {
   const { active } = useOpenModels();
   const store = useOpenModelsStore();

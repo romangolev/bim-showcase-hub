@@ -25,6 +25,8 @@ export interface LayoutApi {
   isCollapsed: (id: PaneId) => boolean;
   setCollapsed: (id: PaneId, collapsed: boolean) => void;
   togglePane: (id: PanelId) => void;
+  addInstance: (kind: PaneId) => PanelId | null;
+  canAddInstance: boolean;
   movePane: (id: PanelId, target: MoveTarget) => void;
   resetLayout: () => void;
   locked: boolean;

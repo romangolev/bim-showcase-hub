@@ -31,6 +31,7 @@ import { pausedCopy } from './panes.js';
 interface Handle {
   movePane: (id: string, target: MoveTarget) => void;
   togglePane: (id: string) => void;
+  addInstance: (kind: string) => string | null;
   location: (id: string) => string | null;
   resetLayout: () => void;
   openPanes: () => string[];
@@ -632,6 +633,39 @@ describe('remembered arrangement', () => {
     expect(leafOrder()).toContain('viewer:bbb');
     expect(leafOrder()).toContain('dashboard');
     await waitFor(() => expect(sceneOf('bbb')?.isConnected).toBe(true));
+  });
+});
+
+describe('user pane families', () => {
+  function chartTabs() {
+    return screen.queryAllByRole('tab', { name: /^Chart \d$/ });
+  }
+
+  it('adds, persists, restores and removes chart instances', async () => {
+    const { unmount } = renderPath('/model/aaa?file=A.rvt&v=v1');
+    await dockReady();
+    await screen.findByRole('tab', { name: 'Model summary' });
+    let first: string | null = null;
+    let second: string | null = null;
+    act(() => {
+      first = handle().addInstance('chart');
+      second = handle().addInstance('chart');
+    });
+    expect([first, second]).toEqual(['chart:1', 'chart:2']);
+    await waitFor(() => expect(chartTabs()).toHaveLength(2));
+    expect(handle().openPanes()).toContain('chart');
+    expect(storage.getItem('bsh.layout.instances.v1')).toContain('chart:2');
+
+    unmount();
+    renderPath('/model/aaa?file=A.rvt&v=v1');
+    await dockReady();
+    await waitFor(() => expect(chartTabs()).toHaveLength(2));
+
+    act(() => handle().togglePane('chart:1'));
+    await waitFor(() => expect(chartTabs()).toHaveLength(1));
+    expect(storage.getItem('bsh.layout.instances.v1')).not.toContain('chart:1');
+    act(() => handle().closeModel('aaa'));
+    await waitFor(() => expect(chartTabs()).toHaveLength(0));
   });
 });
 
