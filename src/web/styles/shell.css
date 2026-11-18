@@ -99,8 +99,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: var(--control-height);
+  height: var(--control-height);
   border: var(--border-hairline);
   border-radius: var(--radius-tile);
   background: var(--color-ghost-fill);
@@ -435,6 +435,14 @@
   }
 }
 
+:root[data-reduced-motion="true"] .spin {
+  animation: none;
+}
+
+:root[data-reduced-motion="true"] :is(.user-menu__trigger, .user-menu__item) {
+  transition: none;
+}
+
 .stack .tree-backdrop {
   position: fixed;
   inset: var(--nav-height) 0 0;
@@ -587,7 +595,6 @@ html[data-presenting] .dv-tabs-and-actions-container,
 html[data-presenting] .dv-resize-container,
 html[data-presenting] .bsh-viewer-share,
 html[data-presenting] .bsh-viewer-models,
-html[data-presenting] .bsh-viewer-status,
 html[data-presenting] .bsh-mock__toolbar,
 html[data-presenting] .bsh-viewer-surface .adsk-viewing-viewer .adsk-toolbar {
   display: none;

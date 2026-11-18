@@ -102,3 +102,7 @@ a:hover {
     transition: none;
   }
 }
+
+:root[data-reduced-motion="true"] :is(.btn, .icon-button) {
+  transition: none;
+}
