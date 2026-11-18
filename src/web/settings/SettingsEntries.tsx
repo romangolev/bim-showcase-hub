@@ -1,9 +1,13 @@
 import { useModal } from '../modal/ModalContext.js';
-import { DASHBOARD_SETTINGS_MODAL } from '../panels/DashboardSettings.js';
-import { SUMMARY_SETTINGS_MODAL } from '../panels/SummarySettings.js';
 import { usePersisted } from '../storage.js';
+import { NotificationSettingsSection } from '../tasks/NotificationSettingsSection.js';
 import { TOOLS } from '../tools/index.js';
 import type { AnyViewerTool } from '../tools/kernel/ToolRegistry.js';
+import {
+  PANE_SETTINGS_ORDER,
+  PANE_SETTINGS_SCHEMA,
+  type PaneSettingsSchema,
+} from './paneSettingsSchema.js';
 import { SavedItemsSettings } from './SavedItemsSettings.js';
 import { SnapshotSettings } from './SnapshotSettings.js';
 
@@ -55,6 +59,27 @@ function ToolEntry({ tool }: { tool: AnyViewerTool }) {
   );
 }
 
+function PaneEntry({ schema }: { schema: PaneSettingsSchema }) {
+  if (!schema.modalId) return null;
+  return (
+    <EntryRow
+      title={schema.label}
+      description={schema.description}
+      modalId={schema.modalId}
+      windowTitle={schema.windowTitle}
+    />
+  );
+}
+
+const PANE_ENTRIES = PANE_SETTINGS_ORDER.flatMap((id) => {
+  const schema = PANE_SETTINGS_SCHEMA[id];
+  return schema ? [{ id, schema }] : [];
+});
+
+const PANE_FORMS = PANE_ENTRIES.flatMap(({ id, schema }) =>
+  schema.Body ? [{ id, Body: schema.Body }] : [],
+);
+
 export function SettingsEntries() {
   return (
     <>
@@ -70,19 +95,14 @@ export function SettingsEntries() {
         <h3 id="settings-panes" className="settings__heading">
           Panes
         </h3>
-        <EntryRow
-          title="Model summary"
-          description="Columns, sorting, density and the row click action."
-          modalId={SUMMARY_SETTINGS_MODAL.id}
-          windowTitle={SUMMARY_SETTINGS_MODAL.title}
-        />
-        <EntryRow
-          title="Dashboard"
-          description="Preset, chart type, categories and the chart click action."
-          modalId={DASHBOARD_SETTINGS_MODAL.id}
-          windowTitle={DASHBOARD_SETTINGS_MODAL.title}
-        />
+        {PANE_ENTRIES.map(({ id, schema }) => (
+          <PaneEntry key={id} schema={schema} />
+        ))}
       </section>
+      {PANE_FORMS.map(({ id, Body }) => (
+        <Body key={id} />
+      ))}
+      <NotificationSettingsSection />
       <SnapshotSettings />
       <SavedItemsSettings />
     </>

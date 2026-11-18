@@ -81,7 +81,7 @@
   display: flex;
   align-items: flex-start;
   gap: 6px;
-  padding-block: 6px;
+  padding-block: var(--row-inset);
   padding-inline-end: var(--space-3);
   color: var(--color-chalk);
   font-size: var(--text-13);

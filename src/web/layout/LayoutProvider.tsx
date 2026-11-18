@@ -14,6 +14,7 @@ import { useSession } from '../api/hooks.js';
 import {
   claimModels,
   createOpenModelsStore,
+  type ModelOwner,
   type OpenModelsState,
   type OpenModelsStore,
   ownerKey,
@@ -53,7 +54,7 @@ import {
 } from './layoutState.js';
 import { LayoutMenu, PaneActions } from './PaneMenu.js';
 import { PresentControls } from './PresentControls.js';
-import { createPaneLifecycle } from './paneLifecycle.js';
+import { createPaneLifecycle, type PaneLifecycle } from './paneLifecycle.js';
 import {
   definitionOf,
   FOLLOWERS,
@@ -155,6 +156,28 @@ function paneTitleIn(titles: PaneTitles, id: PanelId): PaneTitle {
   );
 }
 
+export function useOwnedModels(
+  owner: ModelOwner | null,
+  provided?: OpenModelsStore,
+  onOwnerChange?: () => void,
+): OpenModelsStore {
+  const [store] = useState(() => provided ?? createOpenModelsStore());
+  const claimed = useRef<string | null>(null);
+  const change = useRef(onOwnerChange);
+  change.current = onOwnerChange;
+  const key = owner ? ownerKey(owner) : '';
+  const id = owner?.id;
+  const name = owner?.name;
+  useLayoutEffect(() => {
+    if (!key || claimed.current === key) return;
+    claimed.current = key;
+    if (!claimModels({ id, name: name ?? '' })) return;
+    store.clear();
+    change.current?.();
+  }, [key, id, name, store]);
+  return store;
+}
+
 export function useDebouncedWrite(model: LayoutModel) {
   const pending = useRef<LayoutModel | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -203,17 +226,12 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
   const user = useSession().data;
   const ownerId = user?.id;
   const ownerName = user?.name ?? '';
-  const owner = ownerName ? ownerKey({ id: ownerId, name: ownerName }) : '';
-  const [modelStore] = useState(() => {
-    if (owner) claimModels({ id: ownerId, name: ownerName });
-    return openModels ?? createOpenModelsStore();
-  });
-  const claimed = useRef(owner);
-  useEffect(() => {
-    if (!owner || owner === claimed.current) return;
-    claimed.current = owner;
-    if (claimModels({ id: ownerId, name: ownerName })) modelStore.clear();
-  }, [owner, ownerId, ownerName, modelStore]);
+  const lifecycleRef = useRef<PaneLifecycle | null>(null);
+  const modelStore = useOwnedModels(
+    ownerName ? { id: ownerId, name: ownerName } : null,
+    openModels,
+    () => lifecycleRef.current?.forgetOwner(),
+  );
   const models = useSyncExternalStore(
     modelStore.subscribe,
     modelStore.getState,
@@ -268,6 +286,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       },
     });
   });
+  lifecycleRef.current = lifecycle;
   const state = useSyncExternalStore(
     lifecycle.subscribe,
     lifecycle.getState,

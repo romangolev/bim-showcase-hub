@@ -52,17 +52,22 @@ export function versionParts(name: string): VersionParts | null {
   };
 }
 
+export function twoLineRow(
+  kind: TreeNodeKind,
+  name: string,
+  secondary?: string,
+): boolean {
+  return (
+    Boolean(secondary) || (kind === 'version' && Boolean(versionParts(name)))
+  );
+}
+
 export function rowHeightFor(
   kind: TreeNodeKind,
   name: string,
   secondary?: string,
 ): number {
-  if (secondary) {
-    return TWO_LINE_ROW_HEIGHT;
-  }
-  return kind === 'version' && versionParts(name)
-    ? TWO_LINE_ROW_HEIGHT
-    : ROW_HEIGHT;
+  return twoLineRow(kind, name, secondary) ? TWO_LINE_ROW_HEIGHT : ROW_HEIGHT;
 }
 
 export function highlightMatch(text: string, query?: string): ReactNode {
@@ -165,7 +170,9 @@ export function TreeRowView({
   const primary = parts ? parts.label : name;
   const second = parts ? parts.detail : secondary;
   const middleTruncate = kind === 'item' && !highlight?.trim();
-  const minHeight = rowHeightFor(kind, name, secondary);
+  const minHeight = twoLineRow(kind, name, secondary)
+    ? 'var(--tree-row-height-two-line)'
+    : 'var(--tree-row-height)';
   return (
     <div
       title={name}

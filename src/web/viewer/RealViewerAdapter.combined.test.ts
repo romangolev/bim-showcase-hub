@@ -436,6 +436,63 @@ describe('federated selection, paint and properties', () => {
     ).rejects.toMatchObject({ name: 'AbortError' });
   });
 
+  it('covers every leaf when discovering properties', async () => {
+    const leaves = Array.from({ length: 5001 }, (_, i) => 1000 + i);
+    env.specs.set('a', { leaves });
+    await adapter.loadModels([{ urn: 'a', name: 'Arch' }]);
+    const chunks: number[] = [];
+    vi.spyOn(viewer().modelOf('a'), 'getBulkProperties').mockImplementation(
+      (ids, _options, ok) => {
+        chunks.push(ids.length);
+        ok(
+          ids.map((dbId) => ({
+            dbId,
+            name: 'n',
+            properties: [
+              {
+                displayName: 'Level',
+                displayValue: 'L1',
+                displayCategory: 'Constraints',
+              },
+            ],
+          })) as never[],
+        );
+      },
+    );
+    const seen: { done: number; total: number }[] = [];
+    const found = await adapter.discoverProperties(undefined, {
+      onProgress: (progress) => seen.push(progress),
+    });
+    expect(chunks).toEqual([5000, 1]);
+    expect(seen.at(-1)).toEqual({ done: 5001, total: 5001 });
+    expect(found).toEqual([{ name: 'Level', category: 'Constraints' }]);
+  });
+
+  it('stops discovering after the chunk that was cancelled', async () => {
+    const leaves = Array.from({ length: 5001 }, (_, i) => 1000 + i);
+    env.specs.set('a', { leaves });
+    await adapter.loadModels([{ urn: 'a' }]);
+    const controller = new AbortController();
+    const chunks: number[] = [];
+    vi.spyOn(viewer().modelOf('a'), 'getBulkProperties').mockImplementation(
+      (ids, _options, ok) => {
+        chunks.push(ids.length);
+        ok(
+          ids.map((dbId) => ({
+            dbId,
+            name: 'n',
+            properties: [{ displayName: 'Level', displayValue: 'L1' }],
+          })) as never[],
+        );
+        controller.abort();
+      },
+    );
+    await expect(
+      adapter.discoverProperties(undefined, { signal: controller.signal }),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+    expect(chunks).toEqual([5000]);
+  });
+
   it('keeps the first value when two categories share a property name', async () => {
     env.specs.set('a', { categories: ['Walls'] });
     await adapter.loadModels([{ urn: 'a', name: 'Arch' }]);
@@ -630,6 +687,33 @@ describe('selecting and isolating by model', () => {
     expect(viewer().getHiddenNodes(arch)).toEqual([]);
     expect(viewer().isolated.get(arch)).toEqual([]);
     expect(viewer().isolated.get(str)).toEqual([]);
+  });
+
+  it('signals visibility changes from hide, show and isolate', async () => {
+    await adapter.loadModels([{ urn: 'arch' }]);
+    const seen = vi.fn();
+    const off = adapter.onVisibilityChange(seen);
+    adapter.hideModelIds([{ modelId: 'arch', dbId: 3 }]);
+    expect(seen).toHaveBeenCalledTimes(1);
+    adapter.isolateModelIds([{ modelId: 'arch', dbId: 4 }]);
+    expect(seen).toHaveBeenCalledTimes(2);
+    adapter.showAll();
+    expect(seen.mock.calls.length).toBeGreaterThan(2);
+    off();
+    const total = seen.mock.calls.length;
+    adapter.hideModelIds([{ modelId: 'arch', dbId: 5 }]);
+    expect(seen).toHaveBeenCalledTimes(total);
+  });
+
+  it('keeps the selection when fitting a group that spans two models', async () => {
+    await adapter.loadModels([{ urn: 'arch' }, { urn: 'str' }]);
+    const keep = [{ modelId: 'arch', dbId: 7 }];
+    adapter.selectModelIds(keep);
+    adapter.fitToView([
+      { modelId: 'arch', dbId: 3 },
+      { modelId: 'str', dbId: 9 },
+    ]);
+    expect(adapter.getModelSelection()).toEqual(keep);
   });
 
   it('fits the view to the selection', async () => {

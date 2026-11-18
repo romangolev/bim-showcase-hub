@@ -6,12 +6,13 @@ Planned work lives in GitHub issues, tracked by [#108](https://github.com/romang
 
 | Area | Items |
 |---|---|
-| Documents | Deep search with filters (#18), saved model sets (#20), version drawer (#22), thumbnails (#23), hub and project switcher (#24), home view and drag a file onto the viewer (#25) |
-| Viewer and tabs | Configurable toolbar (#28), viewer settings panel (#29), persist tool state (#30), tab pin, duplicate and reopen (#31), split compare with synced cameras (#32), sheets and views browser (#33) |
+| Foundations | Command registry and command palette (#9), settings store and per-pane schema (#10), saved things store and JSON import and export (#11), shared property data layer (#12), notification and task center (#13) |
+| Documents | Deep search with filters (#18), multi-select in Documents and Open together (#19), saved model sets (#20), context menu and keyboard map for the tree (#21), version drawer (#22), thumbnails (#23), hub and project switcher (#24), home view and drag a file onto the viewer (#25) |
+| Viewer and tabs | Viewpoints: saved views (#26), configurable toolbar (#28), viewer settings panel (#29), persist tool state (#30), tab pin, duplicate and reopen (#31), split compare with synced cameras (#32), sheets and views browser (#33) |
 | Combined viewer | Per-model colors and ghosting (#37), saved federations (#38), discipline presets (#40), alignment info and nudge (#42), per-model scope everywhere (#43), version compare (#44) |
-| Summary | Grouped and pivot view (#49), quantity measures (#50), saved presets (#51), streaming load (#52), pinned properties and cross-model compare (#55) |
+| Summary | Property picker with discovery (#47), grouped and pivot view (#49), quantity measures (#50), saved presets (#51), streaming load (#52), pinned properties and cross-model compare (#55) |
 | Dashboard | Chart builder with saved specs (#57), model health KPIs (#60), color the model by a chart (#61), chart accessibility (#63), large-model performance (#64), compare models (#65) |
-| Paint and selection | Colors pane (#67), rules-based presets (#68), undo and history (#71), ghosting modes (#72), color column in export (#73), color-blind-safe palettes (#74), hotkeys (#75) |
+| Paint and selection | Isolate, hide, show all and invert (#66), colors pane (#67), rules-based presets (#68), named selection sets (#69), undo and history (#71), ghosting modes (#72), color column in export (#73), color-blind-safe palettes (#74), hotkeys (#75) |
 | Export and sharing | Export pane (#76), column presets (#78), large exports with cancel and a worker (#80), cell formatting and totals (#82), share view link (#83), printable report (#84) |
 | Workspace | Named workspaces (#86), export and import a layout (#89), Panes menu v2 (#90), pane rename and color tag (#91), layout undo (#92), auto-switch rules (#93), onboarding hints and configurable stacked layout (#94) |
 | New panes | Search results (#96), version history (#97), ACC Issues (#98), measurements (#99), activity log and Help (#100) |

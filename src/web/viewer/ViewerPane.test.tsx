@@ -383,12 +383,11 @@ describe('ViewerPane export tasks', () => {
       .tasks.filter((task) => task.label === label)
       .at(-1);
 
-  it('reports an Excel export to the task center and leaves the pane status empty', async () => {
+  it('reports an Excel export to the task center and keeps no live region in the pane', async () => {
     stubDownload();
     const { view } = await mountedPane();
-    const live = screen.getByRole('status');
-    expect(live).toHaveAttribute('aria-live', 'polite');
-    expect(view.container.querySelector('.bsh-viewer-status')).toBe(live);
+    expect(view.container.querySelector('.bsh-viewer-status')).toBeNull();
+    expect(view.container.querySelector('[role="status"]')).toBeNull();
     fireEvent.click(
       await screen.findByRole('button', { name: 'Export to Excel' }),
     );
@@ -398,7 +397,6 @@ describe('ViewerPane export tasks', () => {
       ),
     );
     expect(latest('Exporting Excel')?.state).toBe('done');
-    expect(live).toBeEmptyDOMElement();
   });
 
   it('marks a failed Excel export as failed', async () => {

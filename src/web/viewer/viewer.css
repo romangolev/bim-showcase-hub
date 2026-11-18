@@ -98,43 +98,6 @@
   background-color: #3b82f6;
 }
 
-.bsh-viewer-status {
-  position: absolute;
-  top: var(--space-3);
-  left: 50%;
-  z-index: 5;
-  display: flex;
-  justify-content: center;
-  max-width: calc(100% - var(--space-8));
-  transform: translateX(-50%);
-  pointer-events: none;
-}
-
-.bsh-viewer-badge {
-  max-width: 100%;
-  background: transparent;
-  backdrop-filter: blur(6px);
-}
-
-.bsh-viewer-badge__text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.bsh-viewer-badge .badge__dot {
-  flex: none;
-}
-
-.bsh-viewer-badge[data-variant="error"] {
-  border-color: var(--color-coral);
-  color: var(--color-coral);
-}
-
-.bsh-viewer-badge[data-variant="error"] .badge__dot {
-  background: var(--color-coral);
-}
-
 .bsh-mock {
   position: absolute;
   inset: 0;

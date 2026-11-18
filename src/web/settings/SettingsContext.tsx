@@ -4,11 +4,13 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
 } from 'react';
 import { FORGET_EVENT } from '../storage.js';
 import {
+  applyAppSettings,
   DEFAULT_SETTINGS,
   readSettings,
   type Settings,
@@ -29,6 +31,9 @@ const SettingsContext = createContext<SettingsApi>(FALLBACK);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<Settings>(readSettings);
+  useLayoutEffect(() => {
+    applyAppSettings(settings, document.documentElement);
+  }, [settings]);
   useEffect(() => {
     const reload = () => setSettings(readSettings());
     window.addEventListener(FORGET_EVENT, reload);

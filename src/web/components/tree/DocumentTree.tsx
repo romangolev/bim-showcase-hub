@@ -37,12 +37,7 @@ import { StateBlock } from '../StateBlock.js';
 import { NoHubsHint, PersonalHubNotice } from './NoHubsHint.js';
 import { usePins } from './pins.js';
 import { modelMenuEntries, useRowMenu } from './rowMenu.js';
-import {
-  INDENT,
-  ROW_HEIGHT,
-  rowHeightFor,
-  TreeRowView,
-} from './TreeRowView.js';
+import { INDENT, rowHeightFor, TreeRowView } from './TreeRowView.js';
 import { metaText, sortChildren } from './treeView.js';
 import {
   blockedNotice,
@@ -1037,7 +1032,7 @@ export function DocumentTree({
         role="presentation"
         style={{
           ...position,
-          minHeight: ROW_HEIGHT,
+          minHeight: 'var(--tree-row-height)',
           paddingInlineStart: indent,
         }}
       >

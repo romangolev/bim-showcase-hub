@@ -221,7 +221,7 @@ def check_summary_tools(page, checks):
     checks.add("closing summary settings returns focus to the gear", page.evaluate("document.activeElement?.textContent") == "Summary settings")
     open_settings(page)
     main = page.get_by_role("dialog", name="Settings", exact=True)
-    checks.add("main settings holds no pane controls", main.get_by_label("Density").count() == 0)
+    checks.add("main settings holds no pane-level density control", main.get_by_label("Density", exact=True).count() == 0 and main.get_by_label("Interface density").count() == 1)
     main.get_by_role("button", name="Summary settings").click()
     settle(page, 300)
     main = page.get_by_role("dialog", name="Summary settings")
@@ -1381,7 +1381,7 @@ def check_viewer_links(page, checks):
     wait_until(page, lambda: page.evaluate(COPIED))
     link = page.evaluate(COPIED) or ""
     checks.add("share: the view link carries view and the model set", "view=" in link and "with=" in link, link[-160:])
-    checks.add("share: the badge confirms the copy", page.get_by_text("Link copied").count() == 1)
+    checks.add("share: a toast confirms the copy", page.get_by_role("region", name="Notifications").get_by_text("Link copied").count() == 1)
 
     share_menu(page, "Copy link to these models")
     wait_until(page, lambda: page.evaluate(COPIED) != link)
@@ -1731,7 +1731,9 @@ def check_snapshots_viewpoints_present(page, checks):
         )
         set_snapshot_settings(page, {"resolution": "custom", "customWidth": 8192, "overlay": False})
         share_menu(page, "Save image (PNG)")
-        page.get_by_text("Snapshot too large").wait_for(timeout=5000)
+        page.get_by_role("region", name="Notifications").get_by_text(
+            "Snapshot too large"
+        ).wait_for(timeout=5000)
         checks.add("snapshot: a size over the cap fails visibly", True)
         page.evaluate("(key) => localStorage.removeItem(key)", SNAPSHOT_KEY)
 

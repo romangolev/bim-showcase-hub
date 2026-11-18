@@ -100,6 +100,7 @@ export interface ViewerAdapter {
   ): Promise<PropertyInfo[]>;
   registerToolGroup(spec: ToolGroupSpec): () => void;
   onSelectionChange(cb: (items: ModelDbId[]) => void): () => void;
+  onVisibilityChange(cb: () => void): () => void;
   destroy(): void;
   loadModels(sources: readonly ModelSource[]): Promise<ModelInfo[]>;
   addModel(source: ModelSource): Promise<ModelInfo>;
@@ -129,6 +130,9 @@ export interface ViewerAdapter {
   getGeometryParts(): Promise<GeometryRead>;
   getIfcSource(): Promise<IfcSourceRead>;
   getElementProperties(item: ModelDbId): Promise<ElementProperties | null>;
+  getElementsProperties(
+    items: readonly ModelDbId[],
+  ): Promise<(ElementProperties | null)[]>;
 }
 
 export type ViewerAdapterFactory = (

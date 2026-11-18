@@ -59,6 +59,7 @@ describe('PresentControls', () => {
     fireEvent.keyDown(document.body, { key: ' ' });
     await waitFor(() => expect(adapter.getCamera()?.eye).toEqual([2, 2, 2]));
     fireEvent.keyDown(document.body, { key: 'ArrowLeft' });
+    await waitFor(() => expect(adapter.getCamera()?.eye).toEqual([1, 1, 1]));
     fireEvent.keyDown(document.body, { key: 'ArrowLeft' });
     await waitFor(() => expect(screen.getByText('3 / 3')).toBeInTheDocument());
     expect(screen.getByRole('status')).toHaveTextContent(
@@ -91,6 +92,37 @@ describe('PresentControls', () => {
       await vi.advanceTimersByTimeAsync(5000);
     });
     expect(screen.getByText('2 / 2')).toBeInTheDocument();
+  });
+
+  it('ignores steps and holds the timer while a restore runs', async () => {
+    const adapter = await withViewpoints(3);
+    let release: () => void = () => undefined;
+    const original = adapter.restoreState.bind(adapter);
+    const spy = vi.spyOn(adapter, 'restoreState').mockImplementation(
+      (state: Parameters<typeof original>[0]) =>
+        new Promise<Awaited<ReturnType<typeof original>>>((resolve) => {
+          release = () => resolve(original(state));
+        }),
+    );
+    SNAPSHOT.write({ ...SNAPSHOT_DEFAULTS, advanceSeconds: 1 });
+    vi.useFakeTimers();
+    render(<PresentControls onExit={() => undefined} />);
+    fireEvent.keyDown(document.body, { key: 'ArrowRight' });
+    fireEvent.keyDown(document.body, { key: 'ArrowRight' });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('1 / 3')).toBeInTheDocument();
+    await act(async () => {
+      release();
+      await vi.advanceTimersByTimeAsync(500);
+    });
+    expect(spy).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    expect(spy).toHaveBeenCalledTimes(2);
   });
 
   it('reports a viewpoint whose models are closed', async () => {

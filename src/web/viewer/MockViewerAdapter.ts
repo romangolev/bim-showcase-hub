@@ -285,6 +285,7 @@ export class MockViewerAdapter implements ViewerAdapter {
   });
   private readonly themed = new Map<string, Rgba>();
   private readonly hub = new SelectionHub();
+  private readonly visibility = new SelectionHub();
   private placed = 0;
   private bounds: {
     x: number;
@@ -444,6 +445,12 @@ export class MockViewerAdapter implements ViewerAdapter {
         value: values[name] ?? null,
       })),
     };
+  }
+
+  getElementsProperties(
+    items: readonly ModelDbId[],
+  ): Promise<(ElementProperties | null)[]> {
+    return Promise.all(items.map((item) => this.getElementProperties(item)));
   }
 
   setModelVisible(modelId: string, visible: boolean): void {
@@ -628,6 +635,7 @@ export class MockViewerAdapter implements ViewerAdapter {
         node.classList.toggle('bsh-mock__el--hidden', this.hiddenKeys.has(key));
       }
     }
+    this.visibility.emit([]);
   }
 
   setModelThemingColor(items: readonly ModelDbId[], color: Rgba): void {
@@ -730,10 +738,15 @@ export class MockViewerAdapter implements ViewerAdapter {
     return this.hub.subscribe(cb);
   }
 
+  onVisibilityChange(cb: () => void): () => void {
+    return this.visibility.subscribe(() => cb());
+  }
+
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
     this.hub.clear();
+    this.visibility.clear();
     this.models.clear();
     this.models.dispose();
     this.themed.clear();

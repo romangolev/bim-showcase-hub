@@ -173,6 +173,67 @@ export interface AccessToken {
 
 const inflightRefreshes = new Map<string, Promise<TokenSet>>();
 
+const REFRESH_REPLAY_WINDOW_MS = 2 * 60 * 1000;
+const REFRESH_REPLAY_LIMIT = 500;
+
+interface RefreshReplay {
+  tokens: TokenSet;
+  issuedAt: number;
+  expiresAt: number;
+}
+
+const refreshReplays = new WeakMap<ApsAuth, Map<string, RefreshReplay>>();
+
+function replaysFor(auth: ApsAuth): Map<string, RefreshReplay> {
+  const existing = refreshReplays.get(auth);
+  if (existing) return existing;
+  const created = new Map<string, RefreshReplay>();
+  refreshReplays.set(auth, created);
+  return created;
+}
+
+function rememberRefresh(
+  auth: ApsAuth,
+  refreshToken: string,
+  tokens: TokenSet,
+  now: number,
+): void {
+  const replays = replaysFor(auth);
+  replays.delete(refreshToken);
+  replays.set(refreshToken, {
+    tokens,
+    issuedAt: now,
+    expiresAt: now + tokens.expiresIn * 1000,
+  });
+  while (replays.size > REFRESH_REPLAY_LIMIT) {
+    const oldest = replays.keys().next().value;
+    if (oldest === undefined) return;
+    replays.delete(oldest);
+  }
+}
+
+function replayRefresh(
+  auth: ApsAuth,
+  refreshToken: string,
+  now: number,
+): TokenSet | null {
+  const replays = refreshReplays.get(auth);
+  if (!replays) return null;
+  const entry = replays.get(refreshToken);
+  if (!entry) return null;
+  if (
+    now - entry.issuedAt > REFRESH_REPLAY_WINDOW_MS ||
+    now >= entry.expiresAt
+  ) {
+    replays.delete(refreshToken);
+    return null;
+  }
+  return {
+    ...entry.tokens,
+    expiresIn: Math.floor((entry.expiresAt - now) / 1000),
+  };
+}
+
 function refreshOnce(auth: ApsAuth, refreshToken: string): Promise<TokenSet> {
   const existing = inflightRefreshes.get(refreshToken);
   if (existing) return existing;
@@ -181,6 +242,27 @@ function refreshOnce(auth: ApsAuth, refreshToken: string): Promise<TokenSet> {
   });
   inflightRefreshes.set(refreshToken, pending);
   return pending;
+}
+
+async function refreshTokens(
+  auth: ApsAuth,
+  refreshToken: string,
+  now: number,
+): Promise<TokenSet> {
+  const replayed = replayRefresh(auth, refreshToken, now);
+  if (replayed) return replayed;
+  try {
+    const refreshed = await refreshOnce(auth, refreshToken);
+    rememberRefresh(auth, refreshToken, refreshed, now);
+    return refreshed;
+  } catch (err) {
+    if (toHttpError(err).status !== 401) {
+      throw new HttpError(502, 'Upstream service error');
+    }
+    const late = replayRefresh(auth, refreshToken, now);
+    if (late) return late;
+    throw new HttpError(401, 'Session expired');
+  }
 }
 
 export async function getAccessToken(
@@ -202,14 +284,12 @@ export async function getAccessToken(
   }
   let refreshed: TokenSet;
   try {
-    refreshed = await refreshOnce(auth, tokens.refreshToken);
+    refreshed = await refreshTokens(auth, tokens.refreshToken, now);
   } catch (err) {
-    const failure = toHttpError(err);
-    if (failure.status === 401) {
-      if (options.clearOnRejection) clearAuth(session);
-      throw new HttpError(401, 'Session expired');
+    if (toHttpError(err).status === 401 && options.clearOnRejection) {
+      clearAuth(session);
     }
-    throw new HttpError(502, 'Upstream service error');
+    throw err;
   }
   storeTokens(session, refreshed, codec, now, tokens.issuedAt, now);
   if (sessionCookieBytes(session) > MAX_COOKIE_BYTES) {

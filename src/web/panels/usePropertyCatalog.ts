@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { readySignature } from '../viewer/modelSet.js';
-import type { PropertyInfo } from '../viewer/propertyReads.js';
+import type { PropertyInfo, ReadProgress } from '../viewer/propertyReads.js';
 import {
   discoverLeafProperties,
   forgetLeafRows,
@@ -10,23 +10,37 @@ import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 
 export type CatalogState =
   | { status: 'idle'; catalog: PropertyInfo[] }
-  | { status: 'loading'; catalog: PropertyInfo[] }
+  | {
+      status: 'loading';
+      catalog: PropertyInfo[];
+      progress: ReadProgress | null;
+    }
   | { status: 'ready'; catalog: PropertyInfo[] }
+  | { status: 'cancelled'; catalog: PropertyInfo[] }
   | { status: 'error'; catalog: PropertyInfo[]; message: string };
 
 export function usePropertyCatalog(
   adapter: ViewerAdapter | null,
-): CatalogState & { reload: () => void } {
+): CatalogState & { reload: () => void; cancel: () => void } {
   const [state, setState] = useState<CatalogState>({
     status: 'idle',
     catalog: [],
   });
   const [version, setVersion] = useState(0);
+  const controllerRef = useRef<AbortController | null>(null);
   const models = readySignature(useModels(adapter));
   const reload = useCallback(() => {
     if (adapter) forgetLeafRows(adapter);
     setVersion((v) => v + 1);
   }, [adapter]);
+  const cancel = useCallback(() => {
+    controllerRef.current?.abort();
+    setState((prev) =>
+      prev.status === 'loading'
+        ? { status: 'cancelled', catalog: prev.catalog }
+        : prev,
+    );
+  }, []);
 
   useEffect(() => {
     if (!adapter || !models) {
@@ -34,8 +48,21 @@ export function usePropertyCatalog(
       return;
     }
     const controller = new AbortController();
-    setState((prev) => ({ status: 'loading', catalog: prev.catalog }));
-    discoverLeafProperties(adapter, { signal: controller.signal }).then(
+    controllerRef.current = controller;
+    setState((prev) => ({
+      status: 'loading',
+      catalog: prev.catalog,
+      progress: null,
+    }));
+    discoverLeafProperties(adapter, {
+      signal: controller.signal,
+      onProgress: (progress) => {
+        if (controller.signal.aborted) return;
+        setState((prev) =>
+          prev.status === 'loading' ? { ...prev, progress } : prev,
+        );
+      },
+    }).then(
       (catalog) => {
         if (!controller.signal.aborted) setState({ status: 'ready', catalog });
       },
@@ -52,5 +79,5 @@ export function usePropertyCatalog(
     return () => controller.abort();
   }, [adapter, models, version]);
 
-  return { ...state, reload };
+  return { ...state, reload, cancel };
 }

@@ -15,6 +15,9 @@ import {
 
 export const FAKE_AGGREGATE_EVENT = 'aggregate-selection-changed';
 export const FAKE_SELECTION_EVENT = 'selection-changed';
+export const FAKE_HIDE_EVENT = 'hide';
+export const FAKE_SHOW_EVENT = 'show';
+export const FAKE_ISOLATE_EVENT = 'isolate';
 export const FAKE_LEAVES = [11, 12, 13];
 
 export interface FakeModelSpec {
@@ -25,6 +28,7 @@ export interface FakeModelSpec {
   fail?: string;
   propsFail?: string;
   treeHang?: boolean;
+  leaves?: number[];
   noGeometry?: boolean;
   center?: [number, number, number];
   size?: number;
@@ -77,11 +81,12 @@ export class FakeModel implements ViewerModel {
       onError?.(new Error(this.spec.propsFail));
       return;
     }
+    const leaves = this.spec.leaves ?? FAKE_LEAVES;
     onSuccess({
       getRootId: () => 1,
-      getChildCount: (dbId) => (dbId === 1 ? FAKE_LEAVES.length : 0),
+      getChildCount: (dbId) => (dbId === 1 ? leaves.length : 0),
       enumNodeChildren: (_dbId, cb) => {
-        for (const leaf of FAKE_LEAVES) cb(leaf);
+        for (const leaf of leaves) cb(leaf);
       },
     });
   }
@@ -280,11 +285,13 @@ export class FakeFederatedViewer implements GuiViewer3D {
 
   isolate(ids: number[], model: ViewerModel): void {
     this.isolated.set(this.own(model), [...ids]);
+    this.dispatch(FAKE_ISOLATE_EVENT);
   }
 
   hide(ids: number[], model: ViewerModel): void {
     const own = this.own(model);
     this.hiddenNodes.set(own, [...(this.hiddenNodes.get(own) ?? []), ...ids]);
+    this.dispatch(FAKE_HIDE_EVENT);
   }
 
   show(ids: number[], model: ViewerModel): void {
@@ -294,6 +301,7 @@ export class FakeFederatedViewer implements GuiViewer3D {
       own,
       (this.hiddenNodes.get(own) ?? []).filter((id) => !gone.has(id)),
     );
+    this.dispatch(FAKE_SHOW_EVENT);
   }
 
   getHiddenNodes(model: ViewerModel): number[] {
@@ -428,6 +436,10 @@ export class FakeFederatedViewer implements GuiViewer3D {
     this.fire();
   }
 
+  private dispatch(type: string): void {
+    for (const cb of this.listeners.get(type) ?? []) cb({});
+  }
+
   private fire(): void {
     const selections = this.getAggregateSelection().map((entry) => ({
       model: entry.model,
@@ -502,6 +514,9 @@ export function installFakeFederation(): FakeEnvironment {
     SELECTION_CHANGED_EVENT: FAKE_SELECTION_EVENT,
     AGGREGATE_SELECTION_CHANGED_EVENT: FAKE_AGGREGATE_EVENT,
     TOOLBAR_CREATED_EVENT: 'toolbar-created',
+    HIDE_EVENT: FAKE_HIDE_EVENT,
+    SHOW_EVENT: FAKE_SHOW_EVENT,
+    ISOLATE_EVENT: FAKE_ISOLATE_EVENT,
   };
   autodeskWindow().Autodesk = { Viewing: viewing };
   autodeskWindow().THREE = {

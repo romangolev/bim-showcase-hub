@@ -32,7 +32,15 @@ describe('SettingsBody', () => {
     renderBody();
     expect(
       screen.getAllByRole('switch').map((el) => el.getAttribute('aria-label')),
-    ).toEqual(['Dark theme', 'Caption on snapshots']);
+    ).toEqual(expect.arrayContaining(['Dark theme', 'Caption on snapshots']));
+    expect(
+      screen
+        .getAllByRole('switch')
+        .map((el) => el.getAttribute('aria-label'))
+        .filter((name) =>
+          ['Paint palette', 'Table export'].includes(name ?? ''),
+        ),
+    ).toEqual([]);
     expect(
       screen.getByLabelText(/Warn me before the session ends/),
     ).toBeTruthy();

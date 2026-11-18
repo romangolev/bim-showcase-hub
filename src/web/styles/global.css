@@ -102,3 +102,12 @@ a:hover {
     transition: none;
   }
 }
+
+:root[data-reduced-motion="true"] *,
+:root[data-reduced-motion="true"] *::before,
+:root[data-reduced-motion="true"] *::after {
+  /* biome-ignore lint/complexity/noImportantStyles: the explicit setting must beat component rules and inline transitions */
+  animation: none !important;
+  /* biome-ignore lint/complexity/noImportantStyles: the explicit setting must beat component rules and inline transitions */
+  transition: none !important;
+}

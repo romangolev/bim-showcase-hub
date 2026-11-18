@@ -297,6 +297,9 @@ export interface AutodeskViewing {
   AGGREGATE_SELECTION_CHANGED_EVENT?: string;
   TOOLBAR_CREATED_EVENT: string;
   FULLSCREEN_MODE_EVENT?: string;
+  HIDE_EVENT?: string;
+  SHOW_EVENT?: string;
+  ISOLATE_EVENT?: string;
 }
 
 interface AutodeskWindow {

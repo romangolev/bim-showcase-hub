@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as excel from '../extensions/excelExport.js';
 import { setStorageAdapter } from '../storage.js';
 import { memoryAdapter } from '../storageAdapter.js';
+import { notifications } from '../tasks/notifications.js';
 import { fireEvent, render, screen, waitFor } from '../test/render.js';
 import { createMockViewerAdapter } from './MockViewerAdapter.js';
 import { ShareMenu, snapshotName } from './ShareMenu.js';
@@ -23,7 +24,15 @@ function setup() {
 let restoreStorage: ReturnType<typeof setStorageAdapter>;
 beforeEach(() => {
   restoreStorage = setStorageAdapter(memoryAdapter());
+  notifications.clear();
+  notifications.clearHistory();
 });
+
+function announced(text: string): boolean {
+  return notifications
+    .getSnapshot()
+    .items.some((item) => item.message === text);
+}
 afterEach(() => {
   vi.restoreAllMocks();
   setStorageAdapter(restoreStorage);
@@ -51,7 +60,7 @@ describe('Share menu', () => {
     const url = new URL(write.mock.calls[0]?.[0] as string);
     expect(url.searchParams.get('with')).toBe('urn-b');
     expect(url.searchParams.get('view')).toBe('1~0,0,10~0,0,0~0,1,0~p~0:100');
-    expect(await screen.findByText('Link copied')).toBeInTheDocument();
+    await waitFor(() => expect(announced('Link copied')).toBe(true));
   });
 
   it('copies a link without a view', async () => {
@@ -126,7 +135,7 @@ describe('Share menu snapshots', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Share' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Copy image' }));
     await waitFor(() => expect(write).toHaveBeenCalled());
-    expect(await screen.findByText('Image copied')).toBeInTheDocument();
+    await waitFor(() => expect(announced('Image copied')).toBe(true));
     fireEvent.click(screen.getByRole('button', { name: 'Share' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Save image (PNG)' }));
     await waitFor(() =>
@@ -148,9 +157,9 @@ describe('Share menu snapshots', () => {
     }
     fireEvent.click(screen.getByRole('button', { name: 'Share' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Save image (PNG)' }));
-    expect(
-      await screen.findByText('Could not take the snapshot'),
-    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(announced('Could not take the snapshot')).toBe(true),
+    );
   });
 
   it('applies the saved resolution to copy and save', async () => {

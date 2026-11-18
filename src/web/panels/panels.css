@@ -460,19 +460,6 @@
   overflow: hidden;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .bsh-button,
-  .bsh-icon-button,
-  .bsh-summary,
-  .bsh-summary__wrap,
-  .bsh-summary[data-collapsed="true"] .bsh-summary__wrap,
-  .bsh-summary__toggle-icon,
-  .bsh-drawer__body,
-  .bsh-drawer[data-collapsed="true"] .bsh-drawer__body {
-    transition: none;
-  }
-}
-
 .bsh-summary {
   transition: gap 160ms ease;
 }
@@ -1028,4 +1015,17 @@
 
 .bsh-props__copy:hover {
   color: var(--color-snow);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bsh-button,
+  .bsh-icon-button,
+  .bsh-summary,
+  .bsh-summary__wrap,
+  .bsh-summary[data-collapsed="true"] .bsh-summary__wrap,
+  .bsh-summary__toggle-icon,
+  .bsh-drawer__body,
+  .bsh-drawer[data-collapsed="true"] .bsh-drawer__body {
+    transition: none;
+  }
 }

@@ -81,12 +81,12 @@ describe('model-aware viewer actions', () => {
     expect(adapter.getModelSelection()).toEqual([]);
   });
 
-  it('selects items of several models and fits the selection', () => {
+  it('fits items of several models without changing the selection', () => {
     adapter.fitToView([
       { modelId: 'arch', dbId: 11 },
       { modelId: 'str', dbId: 12 },
     ]);
-    expect(adapter.getModelSelection()).toHaveLength(2);
+    expect(adapter.getModelSelection()).toHaveLength(0);
     expect(viewer().fitCalls.at(-1)?.ids).toBeNull();
   });
 

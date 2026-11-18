@@ -69,11 +69,29 @@ export function PropertyPicker({
         />
       )}
       {adapter && state.status === 'loading' && (
+        <>
+          <StateBlock
+            variant="loading"
+            compact
+            message={
+              state.progress
+                ? `Discovering properties, ${state.progress.done} of ${state.progress.total} elements`
+                : 'Discovering properties'
+            }
+            rows={3}
+          />
+          <button type="button" className="bsh-button" onClick={state.cancel}>
+            Cancel
+          </button>
+        </>
+      )}
+      {state.status === 'cancelled' && (
         <StateBlock
-          variant="loading"
+          variant="empty"
           compact
-          message="Discovering properties"
-          rows={3}
+          title="Discovery cancelled"
+          message="The property list stopped before it finished."
+          action={{ label: 'Retry', onClick: state.reload }}
         />
       )}
       {state.status === 'error' && (

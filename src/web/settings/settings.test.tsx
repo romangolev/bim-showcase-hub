@@ -5,6 +5,7 @@ import {
   DEFAULT_SETTINGS,
   readSettings,
   SETTINGS_STORAGE_KEY,
+  SETTINGS_VERSION,
   SettingsProvider,
   scrubAppSettings,
   useSettings,
@@ -30,7 +31,7 @@ describe('app settings', () => {
     expect(
       JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? ''),
     ).toEqual({
-      sessionWarnMinutes: 10,
+      ...DEFAULT_SETTINGS,
       recentsLength: 9,
       ifc: { schema: 'IFC4' },
     });
@@ -38,8 +39,13 @@ describe('app settings', () => {
 
   it('hold only app-level fields', () => {
     expect(Object.keys(DEFAULT_SETTINGS).sort()).toEqual([
+      'density',
+      'language',
       'recentsLength',
+      'reducedMotion',
       'sessionWarnMinutes',
+      'textSize',
+      'version',
     ]);
   });
 });
@@ -47,6 +53,19 @@ describe('app settings', () => {
 describe('readSettings', () => {
   it('returns defaults when nothing is stored', () => {
     expect(readSettings()).toEqual(DEFAULT_SETTINGS);
+  });
+
+  it('does not rewrite a blob from a newer build', () => {
+    window.localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({ version: SETTINGS_VERSION + 1, recentsLength: 3 }),
+    );
+    expect(writeSettings({ ...DEFAULT_SETTINGS, recentsLength: 9 })).toBe(
+      false,
+    );
+    expect(
+      JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? ''),
+    ).toEqual({ version: SETTINGS_VERSION + 1, recentsLength: 3 });
   });
 
   it('falls back to defaults for corrupt storage', () => {
@@ -106,7 +125,7 @@ describe('SettingsProvider', () => {
     expect(screen.getByText('recents 2')).toBeTruthy();
     expect(
       JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '{}'),
-    ).toEqual({ sessionWarnMinutes: 10, recentsLength: 2 });
+    ).toEqual({ ...DEFAULT_SETTINGS, recentsLength: 2 });
   });
 
   it('works without a provider using defaults', () => {

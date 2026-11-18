@@ -75,6 +75,7 @@ The default layout, menus, persistence and stack read the registry.
 | `closable` | `false` makes the pane required. Only Documents is |
 | `canFloat` | Offers Float in the pane menu |
 | `requires` | `'viewer'` hides the pane in the stacked layout outside the model route |
+| `commands` | Extra palette commands for this pane. `paneCommands` keeps the generated Open/Close and New entries and appends these ([extensions.md](extensions.md#add-a-command)) |
 
 ## Persistence
 

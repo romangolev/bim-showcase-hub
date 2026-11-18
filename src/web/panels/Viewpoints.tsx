@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { ModalDefinition } from '../modal/types.js';
 import { MAX_NAME_LENGTH } from '../store/savedStore.js';
+import { notify } from '../tasks/notifications.js';
 import { usePublishedAdapter } from '../viewer/activeAdapterStore.js';
 import {
   deleteViewpoint,
@@ -28,9 +29,13 @@ export function ViewpointsBody() {
       adapter.getState(),
     );
     if (result === 'ok') {
+      notify('Viewpoint saved', { tone: 'success' });
       setName('');
       setProblem(null);
-    } else setProblem(VIEWPOINT_MESSAGES[result]);
+    } else {
+      setProblem(VIEWPOINT_MESSAGES[result]);
+      notify(VIEWPOINT_MESSAGES[result], { tone: 'error' });
+    }
   };
 
   const go = async (id: string) => {

@@ -1,4 +1,5 @@
 import { useId } from 'react';
+import { DEFAULT_EXPORT_PROPERTIES } from '../../extensions/excelExport.js';
 import {
   type CsvDelimiter,
   DECIMAL_LABELS,
@@ -13,7 +14,7 @@ import { SelectionSets } from '../../panels/SelectionSets.js';
 import { usePersisted } from '../../storage.js';
 import { usePublishedAdapter } from '../../viewer/activeAdapterStore.js';
 import { modelScopeOptions, resolveScope } from '../../viewer/modelScope.js';
-import { useScopeCount } from '../../viewer/scopeCount.js';
+import { type ScopeCount, useScopeCount } from '../../viewer/scopeCount.js';
 import { useSelectionSets, withSetLabels } from '../../viewer/selectionSets.js';
 import { useModels } from '../../viewer/useModels.js';
 import { useActiveViewer } from '../../viewer/ViewerContext.js';
@@ -51,6 +52,21 @@ function SelectField<T extends string>({
   );
 }
 
+function rowsMessage(count: ScopeCount): string {
+  switch (count.status) {
+    case 'ready':
+      return `Rows to export: ${count.count.toLocaleString('en-US')}`;
+    case 'none':
+      return 'Rows to export: n/a, no model is shown';
+    case 'large':
+      return 'Rows to export: not counted, the model is large.';
+    case 'error':
+      return 'Rows to export: could not be counted';
+    default:
+      return 'Rows to export: counting…';
+  }
+}
+
 export function ExcelFields() {
   const [excel, setExcel] = usePersisted(EXCEL_SETTINGS);
   const active = useActiveViewer();
@@ -63,10 +79,14 @@ export function ExcelFields() {
     excel.scope,
     useSelectionSets(),
   );
-  const count = useScopeCount(viewer, {
-    models: resolveScope(excel.modelScope, models),
-    elements: excel.scope,
-  });
+  const { count, countNow } = useScopeCount(
+    viewer,
+    {
+      models: resolveScope(excel.modelScope, models),
+      elements: excel.scope,
+    },
+    DEFAULT_EXPORT_PROPERTIES,
+  );
   const patternId = useId();
   const metadataId = useId();
   const headerId = useId();
@@ -98,9 +118,15 @@ export function ExcelFields() {
       />
       {viewer ? (
         <p className="settings__hint" role="status">
-          {count === null
-            ? 'Rows to export: counting…'
-            : `Rows to export: ${count.toLocaleString('en-US')}`}
+          {rowsMessage(count)}
+          {count.status === 'large' ? (
+            <>
+              {' '}
+              <button type="button" onClick={countNow}>
+                Count now
+              </button>
+            </>
+          ) : null}
         </p>
       ) : null}
       {modelOptions.length > 0 ? (

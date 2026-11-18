@@ -11,18 +11,27 @@ import {
 } from 'react';
 import { flushSync } from 'react-dom';
 import { useModal } from '../modal/index.js';
+import { notify } from '../tasks/notifications.js';
 import { startTask } from '../tasks/taskStore.js';
 import { filterCommands } from './fuzzy.js';
+import { PIN_LIMIT, readPins, togglePin } from './pins.js';
 import { readRecents, recordRecent } from './recents.js';
 import { COMMANDS } from './registry.js';
+import {
+  formatShortcut,
+  isEditableTarget,
+  matchShortcut,
+} from './shortcuts.js';
 import type { Command } from './types.js';
 
 export const RECENT_GROUP = 'Recent';
+export const PINNED_GROUP = 'Pinned';
 
 export function arrange(
   commands: readonly Command[],
   query: string,
   recents: readonly string[],
+  pins: readonly string[] = [],
 ): Array<{ command: Command; group: string }> {
   if (query.trim()) {
     return filterCommands(commands, query).map((command) => ({
@@ -31,14 +40,22 @@ export function arrange(
     }));
   }
   const byId = new Map(commands.map((command) => [command.id, command]));
+  const pinned = pins
+    .map((id) => byId.get(id))
+    .filter((command): command is Command => command !== undefined);
+  const pinnedIds = new Set(pinned.map((command) => command.id));
   const recent = recents
+    .filter((id) => !pinnedIds.has(id))
     .map((id) => byId.get(id))
     .filter((command): command is Command => command !== undefined);
   const recentIds = new Set(recent.map((command) => command.id));
   return [
+    ...pinned.map((command) => ({ command, group: PINNED_GROUP })),
     ...recent.map((command) => ({ command, group: RECENT_GROUP })),
     ...commands
-      .filter((command) => !recentIds.has(command.id))
+      .filter(
+        (command) => !pinnedIds.has(command.id) && !recentIds.has(command.id),
+      )
       .map((command) => ({ command, group: command.group })),
   ];
 }
@@ -55,12 +72,13 @@ function PaletteDialog({ error, onClose, onRun }: DialogProps) {
   const baseId = useId();
   const [opener] = useState(() => document.activeElement as HTMLElement | null);
   const [recents] = useState(readRecents);
+  const [pins, setPins] = useState(readPins);
   const [query, setQuery] = useState('');
   const commands = useMemo(() => COMMANDS.list(), [query]);
   const [active, setActive] = useState(0);
   const items = useMemo(
-    () => arrange(commands, query, recents),
-    [commands, query, recents],
+    () => arrange(commands, query, recents, pins),
+    [commands, query, recents, pins],
   );
   const current = Math.min(active, Math.max(items.length - 1, 0));
   const optionId = (index: number) => `${baseId}-option-${index}`;
@@ -98,7 +116,28 @@ function PaletteDialog({ error, onClose, onRun }: DialogProps) {
       if (event.nativeEvent.isComposing) return;
       event.preventDefault();
       const entry = items[current];
-      if (entry && !entry.command.disabled) onRun(entry.command);
+      if (!entry) return;
+      if (event.shiftKey) {
+        const change = togglePin(entry.command.id);
+        const nextPins = readPins();
+        setPins(nextPins);
+        const nextItems = arrange(commands, query, recents, nextPins);
+        const at = nextItems.findIndex(
+          (item) => item.command.id === entry.command.id,
+        );
+        setActive(change.pinned && at >= 0 ? at : 0);
+        if (change.evicted) {
+          const evicted = commands.find(
+            (command) => command.id === change.evicted,
+          );
+          notify(
+            `Pinned ${entry.command.title}. ${evicted?.title ?? change.evicted} was unpinned to keep ${PIN_LIMIT}.`,
+            { tone: 'info' },
+          );
+        }
+        return;
+      }
+      if (!entry.command.disabled) onRun(entry.command);
     }
   };
 
@@ -167,6 +206,10 @@ function PaletteDialog({ error, onClose, onRun }: DialogProps) {
                   <span className="cmdk__title">{command.title}</span>
                   {command.disabled ? (
                     <span className="cmdk__reason">{command.disabled}</span>
+                  ) : command.keys?.[0] ? (
+                    <kbd className="cmdk__reason">
+                      {formatShortcut(command.keys[0])}
+                    </kbd>
                   ) : null}
                 </div>
               </Fragment>
@@ -180,7 +223,11 @@ function PaletteDialog({ error, onClose, onRun }: DialogProps) {
         ) : null}
         {items.length === 0 ? (
           <p className="cmdk__empty">No matching commands</p>
-        ) : null}
+        ) : (
+          <p className="cmdk__empty">
+            Enter runs · Shift+Enter pins · Esc closes
+          </p>
+        )}
         <div className="visually-hidden" role="status">
           {items.length === 1 ? '1 command' : `${items.length} commands`}
         </div>
@@ -198,14 +245,10 @@ export function isPaletteShortcut(event: globalThis.KeyboardEvent): boolean {
   );
 }
 
-const EDITABLE =
-  'input, textarea, select, [contenteditable]:not([contenteditable="false"])';
-
 function typingOutsidePalette(target: EventTarget | null): boolean {
   return (
-    target instanceof Element &&
-    target.closest(EDITABLE) !== null &&
-    target.closest('.cmdk') === null
+    isEditableTarget(target) &&
+    !(target instanceof Element && target.closest('.cmdk') !== null)
   );
 }
 
@@ -242,6 +285,7 @@ export function CommandPalette() {
             ? failure.message
             : 'Something went wrong';
         setError(`${command.title} failed: ${reason}`);
+        notify(`${command.title} failed: ${reason}`, { tone: 'error' });
         setOpen(true);
       };
       try {
@@ -252,6 +296,21 @@ export function CommandPalette() {
     },
     [modal.open],
   );
+
+  useEffect(() => {
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.defaultPrevented || event.isComposing) return;
+      if (!(event.ctrlKey || event.metaKey || event.altKey)) return;
+      if (document.querySelector('dialog[open]')) return;
+      if (isEditableTarget(event.target)) return;
+      const command = matchShortcut(COMMANDS.list(), event);
+      if (!command || command.disabled) return;
+      event.preventDefault();
+      run(command);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [run]);
 
   return open ? (
     <PaletteDialog error={error} onClose={close} onRun={run} />

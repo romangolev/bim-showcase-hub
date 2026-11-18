@@ -34,6 +34,7 @@ export function appCommands(state: AppCommandState): Command[] {
       title: `Switch to ${state.theme === 'dark' ? 'light' : 'dark'} theme`,
       group: 'Appearance',
       keywords: 'dark light mode',
+      keys: ['mod+alt+t'],
       run: () => state.toggleTheme(),
     },
     ...windows,
