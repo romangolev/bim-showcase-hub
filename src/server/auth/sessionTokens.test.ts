@@ -28,6 +28,7 @@ function fakeAuth(overrides: Partial<ApsAuth> = {}): ApsAuth {
       expiresIn: 3600,
     }),
     getUser: vi.fn(),
+    revoke: vi.fn(),
     ...overrides,
   };
 }
@@ -65,31 +66,6 @@ describe('sessionTokens', () => {
     const again = await getAccessToken(session, auth, codec, NOW + 3_600_000);
     expect(again.accessToken).toBe('new-access');
     expect(auth.refresh).toHaveBeenCalledTimes(1);
-  });
-
-  it('keeps the old session when the refreshed one would overflow the cookie', async () => {
-    const session: Record<string, unknown> = {};
-    storeTokens(
-      session,
-      { accessToken: 'a', refreshToken: 'r-big', expiresIn: 3600 },
-      codec,
-      NOW,
-    );
-    storeUser(session, {
-      name: 'Sam',
-      picture: `https://example.test/${'x'.repeat(2000)}`,
-    });
-    const before = session.aps;
-    const auth = fakeAuth({
-      refresh: vi.fn().mockResolvedValue({
-        accessToken: 'z'.repeat(1500),
-        refreshToken: 'r2',
-        expiresIn: 3600,
-      }),
-    });
-    const token = await getAccessToken(session, auth, codec, NOW + 3_590_000);
-    expect(token.accessToken).toBe('z'.repeat(1500));
-    expect(session.aps).toBe(before);
   });
 
   it('reports 401 but keeps the session when refresh is rejected', async () => {
@@ -281,6 +257,49 @@ describe('session robustness', () => {
       );
     },
   );
+
+  it('keeps the new tokens and drops the picture when the cookie is too large', async () => {
+    const session: Record<string, unknown> = {};
+    storeTokens(
+      session,
+      { accessToken: 'a', refreshToken: 'old-r', expiresIn: 1 },
+      codec,
+      NOW,
+    );
+    storeUser(session, {
+      name: 'Sam',
+      picture: `https://example.test/${'x'.repeat(MAX_COOKIE_BYTES)}`,
+    });
+    const auth = fakeAuth();
+    await expect(
+      getAccessToken(session, auth, codec, NOW + 10_000),
+    ).resolves.toMatchObject({ accessToken: 'new-access' });
+    expect(readUser(session)).toEqual({ name: 'Sam', picture: null });
+    expect(sessionCookieBytes(session)).toBeLessThanOrEqual(MAX_COOKIE_BYTES);
+    await getAccessToken(session, auth, codec, NOW + 10_000 + 3_600_000);
+    expect(auth.refresh).toHaveBeenLastCalledWith('new-refresh');
+  });
+
+  it('clears the session instead of keeping a dead token when still too large', async () => {
+    const session: Record<string, unknown> = {};
+    storeTokens(
+      session,
+      { accessToken: 'a', refreshToken: 'old-r', expiresIn: 1 },
+      codec,
+      NOW,
+    );
+    const auth = fakeAuth({
+      refresh: vi.fn().mockResolvedValue({
+        accessToken: 'x'.repeat(MAX_COOKIE_BYTES),
+        refreshToken: 'new-refresh',
+        expiresIn: 3600,
+      }),
+    });
+    await expect(
+      getAccessToken(session, auth, codec, NOW + 10_000),
+    ).rejects.toMatchObject({ status: 401 });
+    expect(isSignedIn(session, codec, NOW + 10_000)).toBe(false);
+  });
 
   it('clears only when the retry flag is set on a rejection', async () => {
     for (const [flag, signedIn] of [
