@@ -11,6 +11,10 @@ The app deploys to Vercel as a static client plus one serverless function that r
 
 `createApp` sets `trust proxy` in production, so the secure cookie works behind Vercel's proxy. In production the function does not serve the static client. Vercel serves `dist/web` and the function only receives `/api` requests.
 
+## CSP reports
+
+The Content-Security-Policy is report-only and carries `report-uri /api/csp-report`. `POST /api/csp-report` (`src/server/routes/csp.ts`, also served by the Vercel function) accepts `application/csp-report` and `application/reports+json` bodies up to 8 KB, needs no sign-in and always answers 204. For each valid report it writes one line to the function log: `csp-report directive=<directive> blocked=<origin or keyword> path=</first-segment>`. It never logs the full URL, query, fragment or cookies, and keeps only the first path segment of the document (model ids are in the path). Each instance logs at most 30 lines per minute and drops the rest. Search the function log for `csp-report` before enforcing the policy.
+
 ## Environment variables
 
 Set these for Production and for Preview.
