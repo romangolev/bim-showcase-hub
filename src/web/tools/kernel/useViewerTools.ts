@@ -50,8 +50,9 @@ export function useViewerTools(
     id: (base) => withSuffix(base, suffix),
     fileName: () => optionsRef.current.fileName(),
     current: (tool) =>
-      (liveRef.current[tool.id] ??
-        tool.settings.initial) as typeof tool.settings.initial,
+      tool.settings.sanitize(
+        liveRef.current[tool.id] ?? tool.settings.initial,
+      ) as typeof tool.settings.initial,
   });
   const makeCtxRef = useRef(makeCtx);
   makeCtxRef.current = makeCtx;

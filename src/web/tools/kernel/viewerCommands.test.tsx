@@ -48,6 +48,43 @@ class ExportingTool extends ViewerTool<ToolSettings> {
   }
 }
 
+class LabelledTool extends ViewerTool<ToolSettings & { label: string }> {
+  readonly id = 'labelled';
+  readonly title = 'Labelled';
+  readonly description = 'labelled';
+  readonly exportTitle = 'Export labelled';
+  readonly settings = defineRecord<ToolSettings & { label: string }>({
+    key: 'test.labelled',
+    initial: { enabled: true, label: 'Default' },
+    sanitize: (raw) => {
+      const label = (raw as { label?: unknown } | null)?.label;
+      return {
+        enabled: readEnabled(raw),
+        label: typeof label === 'string' && label.trim() ? label : 'Default',
+      };
+    },
+  });
+  readonly seen = vi.fn();
+
+  contribute(ctx: ToolContext): ToolContribution {
+    return {
+      exports: [
+        exportEntry(
+          ctx,
+          this.id,
+          {
+            id: 'export-labelled',
+            icon: 'x',
+            tooltip: 'Export labelled',
+            label: 'Export labelled',
+          },
+          async () => this.seen(ctx.current(this).label),
+        ),
+      ],
+    };
+  }
+}
+
 function fakeAdapter() {
   return {
     registerToolGroup: vi.fn(() => () => undefined),
@@ -135,5 +172,23 @@ describe('viewer command contribution', () => {
     expect(onDisabled).not.toHaveBeenCalled();
     view.rerender({ active: true });
     expect(onDisabled).toHaveBeenCalledWith(adapter);
+  });
+
+  it('hands exports sanitized settings while the stored text is still being edited', async () => {
+    const adapter = fakeAdapter();
+    const tool = new LabelledTool();
+    const registry = new ToolRegistry().register(tool);
+    renderHook(() => useViewerTools(registry, { ...options, adapter }), {
+      wrapper: wrapperFor(adapter),
+    });
+    await act(async () => {
+      tool.settings.write({ enabled: true, label: '' });
+    });
+    expect(tool.settings.read().label).toBe('Default');
+    const command = COMMANDS.list().find((c) => c.id === 'labelled.export');
+    await act(async () => {
+      await command?.run({ openModal: () => undefined });
+    });
+    expect(tool.seen).toHaveBeenCalledWith('Default');
   });
 });
