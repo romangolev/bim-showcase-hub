@@ -32,6 +32,10 @@ Property rows have the shape `{ dbId, name, properties, modelId?, modelName? }`.
 
 The IFC export button uses the IFC mark (`src/web/viewer/ifc-logo.svg`), a registered trademark of buildingSMART International, to label IFC export. The SVG was traced from a PNG found on a clipart site, so you may want to replace it with the official vector from buildingSMART.
 
+## Commands and the palette
+
+Ctrl/Cmd+K opens the command palette (`src/web/commands`, design in `superpowers/specs/2026-11-18-command-palette-design.md`). `COMMANDS.register(source, () => Command[], priority?)` adds a source of commands; providers run each time the palette opens, so titles and `disabled` reasons are current. A command has `id`, `title`, `group`, optional `keywords`, `icon` and `disabled` (a reason string), and `run(host)`; `host.openModal(id)` opens a settings window. When two sources give the same id the higher priority wins, which is how the active viewer's live commands replace the shell's disabled placeholders. Existing sources: `AppCommands` (theme, settings windows, sign-out, tool commands, placeholders), `LayoutCommands` (panes, lock, reset, present) and each viewer through `useViewerTools` (export and element actions while its adapter is the active one). A tool adds commands by overriding `ViewerTool.commands(ctx, settings)`; the default gives its settings window and, when the tool sets `exportTitle`, one command per toolbar export. Recents (last 5 ids) are stored under `bsh.commands.recent.v1` and cleared on sign-out.
+
 ## Settings and modals
 
 - Add a modal: write a `ModalDefinition` and add one line for it in `src/web/modal/registry.ts`. The registry already adds one modal per registered tool.
