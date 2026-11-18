@@ -1,5 +1,8 @@
+import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { forgetModels } from '../api/openModels.js';
 import { DashboardPanel } from '../panels/DashboardPanel.js';
+import { usePaneSetting } from '../settings/paneSettings.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { fireEvent, render, screen } from '../test/render.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
@@ -8,6 +11,7 @@ import {
   forgetInstanceSetting,
   instanceSettingKey,
   sanitizeSummarySpec,
+  seedInstanceSetting,
   summarySetting,
 } from './instanceSettings.js';
 
@@ -64,6 +68,45 @@ describe('instance settings', () => {
     window.localStorage.setItem('bsh.pane.chart.3.v1', '{}');
     forgetInstanceSetting('chart');
     expect(window.localStorage.getItem('bsh.pane.chart.3.v1')).toBe('{}');
+  });
+
+  it('shows a seeded scope in a mounted hook', async () => {
+    const view = renderHook(() =>
+      usePaneSetting(summarySetting('modelSummary:1')),
+    );
+    expect(view.result.current[0]).toEqual({ scope: 'all' });
+    await act(async () => {
+      seedInstanceSetting('modelSummary:1', 'urn-a');
+      await Promise.resolve();
+    });
+    expect(view.result.current[0]).toEqual({ scope: 'urn-a' });
+  });
+
+  it('scrubs per-instance keys and cached specs on forget', () => {
+    seedInstanceSetting('modelSummary:1', 'urn-a');
+    const before = summarySetting('modelSummary:1');
+    expect(
+      window.localStorage.getItem('bsh.pane.modelSummary.1.v1'),
+    ).not.toBeNull();
+    forgetModels();
+    expect(
+      window.localStorage.getItem('bsh.pane.modelSummary.1.v1'),
+    ).toBeNull();
+    expect(summarySetting('modelSummary:1')).not.toBe(before);
+  });
+
+  it('does not resurrect old settings for a reused id', () => {
+    seedInstanceSetting('modelSummary:1', 'urn-a');
+    const view = renderHook(() =>
+      usePaneSetting(summarySetting('modelSummary:1')),
+    );
+    expect(view.result.current[0]).toEqual({ scope: 'urn-a' });
+    act(() => forgetModels());
+    expect(view.result.current[0]).toEqual({ scope: 'all' });
+    expect(
+      renderHook(() => usePaneSetting(summarySetting('modelSummary:1'))).result
+        .current[0],
+    ).toEqual({ scope: 'all' });
   });
 
   it('charts independently per instance and persists each spec', async () => {

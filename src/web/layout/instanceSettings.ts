@@ -3,57 +3,50 @@ import {
   DEFAULT_DASHBOARD_VIEW,
   sanitizeDashboardView,
 } from '../extensions/dashboardPresets.js';
-import { removeJson, writeJson } from '../storage.js';
-import {
-  type PersistedSetting,
-  persistedSetting,
-} from '../tools/kernel/persistedSetting.js';
+import { defineRecordFamily, type PersistedRecord } from '../storage.js';
 import { type PanelId, parsePanelId } from './paneRegistry.js';
 
 export interface SummarySpec {
   scope: string;
 }
 
-const cache = new Map<string, PersistedSetting<unknown>>();
+const INSTANCE_PREFIX = 'bsh.pane.';
 
 export function instanceSettingKey(id: PanelId): string {
-  return `bsh.pane.${id.replace(':', '.')}.v1`;
+  return `${INSTANCE_PREFIX}${id.replace(':', '.')}.v1`;
 }
 
-function instanceSetting<T>(
-  id: PanelId,
-  initial: T,
-  sanitize: (raw: unknown) => T,
-): PersistedSetting<T> {
-  const key = instanceSettingKey(id);
-  const hit = cache.get(key);
-  if (hit) return hit as PersistedSetting<T>;
-  const created = persistedSetting(key, initial, sanitize);
-  cache.set(key, created);
-  return created;
-}
-
-export function chartSetting(id: PanelId): PersistedSetting<DashboardView> {
-  return instanceSetting(id, { ...DEFAULT_DASHBOARD_VIEW }, (raw) => ({
-    ...sanitizeDashboardView(raw),
-    preset: null,
-  }));
-}
+const charts = defineRecordFamily<DashboardView, PanelId>({
+  prefix: INSTANCE_PREFIX,
+  keyOf: instanceSettingKey,
+  initial: { ...DEFAULT_DASHBOARD_VIEW },
+  sanitize: (raw) => ({ ...sanitizeDashboardView(raw), preset: null }),
+});
 
 export function sanitizeSummarySpec(raw: unknown): SummarySpec {
   const scope = (raw as { scope?: unknown } | null)?.scope;
   return { scope: typeof scope === 'string' && scope ? scope : 'all' };
 }
 
-export function summarySetting(id: PanelId): PersistedSetting<SummarySpec> {
-  return instanceSetting(id, { scope: 'all' }, sanitizeSummarySpec);
+const summaries = defineRecordFamily<SummarySpec, PanelId>({
+  prefix: INSTANCE_PREFIX,
+  keyOf: instanceSettingKey,
+  initial: { scope: 'all' },
+  sanitize: sanitizeSummarySpec,
+});
+
+export function chartSetting(id: PanelId): PersistedRecord<DashboardView> {
+  return charts.get(id);
+}
+
+export function summarySetting(id: PanelId): PersistedRecord<SummarySpec> {
+  return summaries.get(id);
 }
 
 export function forgetInstanceSetting(id: PanelId): void {
   if (!parsePanelId(id)?.instance) return;
-  const key = instanceSettingKey(id);
-  cache.delete(key);
-  removeJson(key);
+  charts.forget(id);
+  summaries.forget(id);
 }
 
 export function seedInstanceSetting(
@@ -61,6 +54,6 @@ export function seedInstanceSetting(
   activeModel: string | null,
 ): void {
   if (parsePanelId(id)?.kind === 'modelSummary' && activeModel) {
-    writeJson(instanceSettingKey(id), { scope: activeModel });
+    summaries.get(id).write({ scope: activeModel });
   }
 }

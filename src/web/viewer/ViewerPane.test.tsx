@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ModelSummaryPanel } from '../panels/ModelSummaryPanel.js';
+import { type PersistedRecord, usePersisted } from '../storage.js';
 import { tasks } from '../tasks/taskStore.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { act, fireEvent, render, screen, waitFor } from '../test/render.js';
@@ -8,10 +9,6 @@ import { useTheme } from '../theme/ThemeContext.js';
 import { EXCEL_SETTINGS } from '../tools/excel/excelSettings.js';
 import { GLB_SETTINGS } from '../tools/glb/GlbExportTool.js';
 import { IFC_SETTINGS } from '../tools/ifc/ifcSettings.js';
-import {
-  type PersistedSetting,
-  usePersistedSetting,
-} from '../tools/kernel/persistedSetting.js';
 import { PAINT_SETTINGS } from '../tools/paint/paintSettings.js';
 import { createMockViewerAdapter } from './MockViewerAdapter.js';
 import type { ViewerAdapter, ViewerAdapterFactory } from './ViewerAdapter.js';
@@ -459,10 +456,10 @@ function Patch<T extends object>({
   patch,
 }: {
   label: string;
-  setting: PersistedSetting<T>;
+  setting: PersistedRecord<T>;
   patch: Partial<T>;
 }) {
-  const [, set] = usePersistedSetting(setting);
+  const [, set] = usePersisted(setting);
   return (
     <button type="button" onClick={() => set((c) => ({ ...c, ...patch }))}>
       {label}

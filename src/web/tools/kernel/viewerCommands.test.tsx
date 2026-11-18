@@ -2,11 +2,11 @@ import { renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { COMMANDS } from '../../commands/registry.js';
+import { defineRecord } from '../../storage.js';
 import { installMemoryStorage } from '../../test/mockApi.js';
 import type { ViewerAdapter } from '../../viewer/ViewerAdapter.js';
 import { ActiveViewerContext } from '../../viewer/ViewerContext.js';
 import { exportEntry } from './exportKit.js';
-import { persistedSetting } from './persistedSetting.js';
 import { ToolRegistry } from './ToolRegistry.js';
 import { useViewerTools } from './useViewerTools.js';
 import {
@@ -22,11 +22,11 @@ class ExportingTool extends ViewerTool<ToolSettings> {
   readonly title = 'Demo export';
   readonly description = 'demo';
   readonly exportTitle = 'Export demo';
-  readonly settings = persistedSetting<ToolSettings>(
-    'test.demo',
-    { enabled: true },
-    (raw) => ({ enabled: readEnabled(raw) }),
-  );
+  readonly settings = defineRecord<ToolSettings>({
+    key: 'test.demo',
+    initial: { enabled: true },
+    sanitize: (raw) => ({ enabled: readEnabled(raw) }),
+  });
   readonly started = vi.fn();
 
   contribute(ctx: ToolContext): ToolContribution {

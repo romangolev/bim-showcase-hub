@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { COMMANDS } from '../../commands/registry.js';
 import { viewerCommands } from '../../commands/viewerCommands.js';
+import { usePersisted } from '../../storage.js';
 import type { ViewerAdapter } from '../../viewer/ViewerAdapter.js';
 import { useActiveViewer } from '../../viewer/ViewerContext.js';
-import { usePersistedSetting } from './persistedSetting.js';
 import type { ToolRegistry, ToolSnapshot } from './ToolRegistry.js';
 import type { ToolContext, ToolSettings } from './ViewerTool.js';
 
@@ -35,7 +35,7 @@ export function useViewerTools(
   const live: Record<string, ToolSettings> = {};
   const signatures: unknown[] = [];
   for (const tool of tools) {
-    const [value] = usePersistedSetting(tool.settings);
+    const [value] = usePersisted(tool.settings);
     live[tool.id] = value;
     signatures.push([tool.id, tool.toolbarSignature(value)]);
   }

@@ -19,18 +19,22 @@ import {
   sanitizeProperties,
   sanitizeView,
 } from '../extensions/modelSummary.js';
-import { BSH_KEYS } from '../storage.js';
 import {
-  type PersistedSetting,
-  persistedSetting,
-  usePersistedSetting,
-} from '../tools/kernel/persistedSetting.js';
+  BSH_KEYS,
+  defineRecord,
+  type PersistedRecord,
+  usePersisted,
+} from '../storage.js';
 import type { ElementScope } from '../viewer/propertyScope.js';
 import { sanitizeElementScope } from '../viewer/propertyScope.js';
 
-export type PaneSetting<T> = PersistedSetting<T>;
+export type PaneSetting<T> = PersistedRecord<T>;
 
-const setting = persistedSetting;
+const setting = <T>(
+  key: string,
+  initial: T,
+  sanitize: (raw: unknown) => T,
+): PersistedRecord<T> => defineRecord({ key, initial, sanitize });
 
 export const PANE_SETTINGS = {
   summary: {
@@ -76,4 +80,4 @@ export const PANE_SETTINGS = {
   },
 } as const;
 
-export const usePaneSetting = usePersistedSetting;
+export const usePaneSetting = usePersisted;

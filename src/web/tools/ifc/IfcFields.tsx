@@ -1,6 +1,6 @@
 import { useId, useState } from 'react';
 import { ALLOWED_CLASSES, PROXY_CLASS } from '../../ifc/classTable.js';
-import { usePersistedSetting } from '../kernel/persistedSetting.js';
+import { usePersisted } from '../../storage.js';
 import { IFC_SETTINGS, type IfcToolSettings } from './ifcSettings.js';
 
 type TextKey =
@@ -144,7 +144,7 @@ const TEXT_FIELDS: readonly { key: TextKey; label: string }[] = [
 ];
 
 export function IfcFields() {
-  const [ifc, setIfc] = usePersistedSetting(IFC_SETTINGS);
+  const [ifc, setIfc] = usePersisted(IFC_SETTINGS);
   const update = (patch: Partial<IfcToolSettings>) =>
     setIfc((current) => ({ ...current, ...patch }));
   const unitId = useId();
