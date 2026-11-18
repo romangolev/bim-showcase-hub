@@ -1,5 +1,4 @@
 import { useId } from 'react';
-import { DEFAULT_EXPORT_PROPERTIES } from '../../extensions/excelExport.js';
 import {
   type CsvDelimiter,
   DECIMAL_LABELS,
@@ -10,6 +9,7 @@ import {
   FORMAT_LABELS,
   SCOPE_LABELS,
 } from '../../extensions/exportFormats.js';
+import { PropertyPicker } from '../../panels/PropertyPicker.js';
 import { SelectionSets } from '../../panels/SelectionSets.js';
 import { usePersisted } from '../../storage.js';
 import { usePublishedAdapter } from '../../viewer/activeAdapterStore.js';
@@ -85,7 +85,7 @@ export function ExcelFields() {
       models: resolveScope(excel.modelScope, models),
       elements: excel.scope,
     },
-    DEFAULT_EXPORT_PROPERTIES,
+    excel.properties,
   );
   const patternId = useId();
   const metadataId = useId();
@@ -139,6 +139,14 @@ export function ExcelFields() {
           onChange={(modelScope) => update({ modelScope })}
         />
       ) : null}
+      <fieldset className="bsh-fieldset">
+        <legend>Columns</legend>
+        <PropertyPicker
+          adapter={viewer}
+          value={excel.properties}
+          onChange={(properties) => update({ properties })}
+        />
+      </fieldset>
       <div className="settings__field">
         <label htmlFor={patternId}>File name pattern</label>
         <input

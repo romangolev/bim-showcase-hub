@@ -16,9 +16,35 @@ import {
 } from '../extensions/elementActions.js';
 import type { ModalDefinition } from '../modal/types.js';
 import { PANE_SETTINGS, usePaneSetting } from '../settings/paneSettings.js';
+import { defineRecord } from '../storage.js';
+import { usePublishedAdapter } from '../viewer/activeAdapterStore.js';
 import { DashboardUserPresets } from './DashboardUserPresets.js';
+import { PropertyPicker } from './PropertyPicker.js';
+import { useResolvedAdapter } from './useScopedRows.js';
 
 export const DASHBOARD_SETTINGS_ID = 'dashboard-settings';
+
+export const DASHBOARD_PROPERTIES_KEY = 'bsh.pane.dashboard.properties.v1';
+
+export function sanitizeDashboardProperties(raw: unknown): readonly string[] {
+  const names = Array.isArray(raw)
+    ? [
+        ...new Set(
+          raw.filter(
+            (name): name is string =>
+              typeof name === 'string' && name.trim() !== '',
+          ),
+        ),
+      ]
+    : [];
+  return names.length > 0 ? names : DEFAULT_DASHBOARD_PROPERTIES;
+}
+
+export const DASHBOARD_PROPERTIES = defineRecord({
+  key: DASHBOARD_PROPERTIES_KEY,
+  initial: DEFAULT_DASHBOARD_PROPERTIES,
+  sanitize: sanitizeDashboardProperties,
+});
 
 export function useDashboardView() {
   return usePaneSetting(PANE_SETTINGS.dashboard.view);
@@ -29,6 +55,12 @@ export function DashboardSettingsBody() {
   const [action, setAction, resetAction] = usePaneSetting(
     PANE_SETTINGS.dashboard.action,
   );
+  const [properties, setProperties, resetProperties] =
+    usePaneSetting(DASHBOARD_PROPERTIES);
+  const adapter = useResolvedAdapter(usePublishedAdapter());
+  const groupBy = properties.includes(view.property)
+    ? view.property
+    : (properties[0] ?? view.property);
   const patch = (next: Partial<DashboardView>) =>
     setView((prev) => ({ ...prev, ...next }));
 
@@ -59,15 +91,23 @@ export function DashboardSettingsBody() {
         </div>
       </fieldset>
       <DashboardUserPresets view={view} apply={setView} />
+      <fieldset className="bsh-fieldset">
+        <legend>Chart properties</legend>
+        <PropertyPicker
+          adapter={adapter}
+          value={properties}
+          onChange={setProperties}
+        />
+      </fieldset>
       <label className="bsh-field">
         Group by
         <select
           className="bsh-select"
-          value={view.property}
+          value={groupBy}
           disabled={view.preset !== null}
           onChange={(e) => patch({ property: e.target.value })}
         >
-          {DEFAULT_DASHBOARD_PROPERTIES.map((name) => (
+          {properties.map((name) => (
             <option key={name} value={name}>
               {name}
             </option>
@@ -134,6 +174,7 @@ export function DashboardSettingsBody() {
         onClick={() => {
           resetView();
           resetAction();
+          resetProperties();
         }}
       >
         Reset dashboard

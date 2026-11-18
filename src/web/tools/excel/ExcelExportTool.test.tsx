@@ -22,7 +22,9 @@ const {
   EXCEL_SETTINGS_KEY,
   readExcelToolSettings,
 } = await import('./excelSettings.js');
-const { DEFAULT_FILE_NAME } = await import('../../extensions/excelExport.js');
+const { DEFAULT_EXPORT_PROPERTIES, DEFAULT_FILE_NAME } = await import(
+  '../../extensions/excelExport.js'
+);
 const { exportFileName, exportStem } = await import('../kernel/exportKit.js');
 
 beforeEach(() => {
@@ -64,6 +66,12 @@ describe('readExcelToolSettings', () => {
       readExcelToolSettings({ enabled: false, format: 'csv', scope: 'nope' }),
     ).toMatchObject({ enabled: false, format: 'csv', scope: 'all' });
   });
+
+  it('keeps the chosen columns', () => {
+    expect(
+      readExcelToolSettings({ properties: ['Name', 'Level'] }).properties,
+    ).toEqual(['Name', 'Level']);
+  });
 });
 
 describe('set scope in the settings', () => {
@@ -85,6 +93,17 @@ describe('set scope in the settings', () => {
     });
     expect(tool.scrub({ ...settings, scope: 'selected' as const }).scope).toBe(
       'selected',
+    );
+  });
+
+  it('resets the chosen columns on scrub', () => {
+    const settings = {
+      ...DEFAULT_EXCEL_TOOL_SETTINGS,
+      modelScope: 'urn-a',
+      properties: ['Name'],
+    };
+    expect(new ExcelExportTool().scrub(settings).properties).toEqual(
+      DEFAULT_EXPORT_PROPERTIES,
     );
   });
 
@@ -150,6 +169,18 @@ describe('ExcelExportTool', () => {
         fileName: 'Snowdon-Towers-Sample-v3-properties.csv',
         format: 'csv',
       }),
+    );
+  });
+
+  it('exports the stored property columns', () => {
+    const live = { ...DEFAULT_EXCEL_TOOL_SETTINGS, properties: ['Name'] };
+    const { exports } = tool.contribute(
+      context({ current: () => live as never }),
+    );
+    exports?.[0]?.onExport();
+    expect(exportToXlsx).toHaveBeenCalledWith(
+      adapter,
+      expect.objectContaining({ propertyNames: ['Name'] }),
     );
   });
 

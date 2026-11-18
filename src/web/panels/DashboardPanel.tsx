@@ -5,7 +5,6 @@ import {
   availableProperties,
   bucketLabels,
   type ChartData,
-  DEFAULT_DASHBOARD_PROPERTIES,
   selectedBuckets,
   shapeChartData,
 } from '../extensions/dashboardData.js';
@@ -27,11 +26,13 @@ import {
   type PaneSetting,
   usePaneSetting,
 } from '../settings/paneSettings.js';
+import { usePersisted } from '../storage.js';
 import { ALL_MODELS } from '../viewer/modelScope.js';
 import type { ModelDbId } from '../viewer/modelSet.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { ChartCanvas } from './ChartCanvas.js';
 import { DashboardGallery } from './DashboardGallery.js';
+import { DASHBOARD_PROPERTIES } from './DashboardSettings.js';
 import { ElementScopeSelect, scopeName } from './ElementScope.js';
 import {
   FailedModels,
@@ -61,7 +62,7 @@ export interface DashboardPanelProps {
 
 export function DashboardPanel({
   adapter,
-  propertyNames = DEFAULT_DASHBOARD_PROPERTIES,
+  propertyNames: propertyNamesOverride,
   onOpenSettings,
   collapsed,
   defaultCollapsed = false,
@@ -76,6 +77,9 @@ export function DashboardPanel({
   const [view, setView] = usePaneSetting(
     setting ?? PANE_SETTINGS.dashboard.view,
   );
+  const [savedProperties] = usePersisted(DASHBOARD_PROPERTIES);
+  const propertyNames = propertyNamesOverride ?? savedProperties;
+  const curated = propertyNamesOverride === undefined;
   const { maxCategories } = view;
   const activePreset = DASHBOARD_PRESETS.find((p) => p.id === view.preset);
   const readNames = useMemo(
@@ -370,7 +374,8 @@ export function DashboardPanel({
         )}
         {!activePreset && chart && options.length > 0 && (
           <>
-            {selected !== view.property ? (
+            {selected !== view.property &&
+            (!curated || propertyNames.includes(view.property)) ? (
               <p className="bsh-muted">
                 This model has no {view.property} values, so the chart groups by{' '}
                 {selected}.

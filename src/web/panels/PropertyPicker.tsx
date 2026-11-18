@@ -3,6 +3,7 @@ import { StateBlock } from '../components/StateBlock.js';
 import { groupCatalog } from '../viewer/propertyCatalog.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { usePropertyCatalog } from './usePropertyCatalog.js';
+import './panels.css';
 
 export interface PropertyPickerProps {
   adapter: ViewerAdapter | null;
