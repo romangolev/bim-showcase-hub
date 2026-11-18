@@ -1852,6 +1852,16 @@ def check_documents_return(page, checks):
     settle(page, 800)
     checks.add("closing the last model tab leaves Documents alone", documents_alone(page), groups(page))
     checks.add("closing the last model tab returns the url to /", page.url.rstrip("/") == BASE_URL, page.url)
+    box = open_palette(page)
+    box.fill("present")
+    option = palette(page).get_by_role("option", name=re.compile("Present"))
+    checks.add(
+        "Present is disabled with a reason when no model is open",
+        option.count() >= 1 and option.first.get_attribute("aria-disabled") == "true" and "Open a model first" in option.first.inner_text(),
+        option.first.inner_text() if option.count() else "",
+    )
+    page.keyboard.press("Escape")
+    settle(page, 200)
 
 
 def check_task_center(page, checks):

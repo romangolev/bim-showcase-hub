@@ -121,6 +121,52 @@ describe('task store', () => {
     expect(retry).toHaveBeenCalledTimes(1);
   });
 
+  it('discards the failed task when retrying so it is replaced and not duplicated', () => {
+    const store = createTaskStore();
+    const retry = vi.fn(() => {
+      store.start({ label: 'A again' });
+    });
+    const task = store.start({ label: 'A', retry });
+    task.fail();
+    store.retry(task.id);
+    store.retry(task.id);
+    expect(retry).toHaveBeenCalledTimes(1);
+    expect(store.getSnapshot().tasks.map((t) => t.label)).toEqual(['A again']);
+  });
+
+  it('trims history by completion order, not start order', () => {
+    let clock = 0;
+    const store = createTaskStore(() => clock);
+    const slow = store.start({ label: 'slow' });
+    for (let i = 0; i < HISTORY_LIMIT; i += 1) {
+      clock += 1;
+      store.start({ label: `t${i}` }).finish();
+    }
+    clock += 1;
+    slow.fail('late');
+    const labels = store.getSnapshot().tasks.map((t) => t.label);
+    expect(labels).toContain('slow');
+    expect(labels).not.toContain('t0');
+    expect(store.getSnapshot().tasks).toHaveLength(HISTORY_LIMIT);
+  });
+
+  it('makes consecutive identical announcements distinct', () => {
+    const store = createTaskStore();
+    const a = store.start({ label: 'Export' });
+    const b = store.start({ label: 'Export' });
+    const c = store.start({ label: 'Export' });
+    a.finish();
+    const first = store.getSnapshot().announcement;
+    b.finish();
+    const second = store.getSnapshot().announcement;
+    c.finish();
+    const third = store.getSnapshot().announcement;
+    expect(first.trim()).toBe('Export finished');
+    expect(second).not.toBe(first);
+    expect(third).not.toBe(second);
+    expect(second.trim()).toBe('Export finished');
+  });
+
   it('dismisses and clears finished tasks but never running ones', () => {
     const store = createTaskStore();
     const a = store.start({ label: 'A' });

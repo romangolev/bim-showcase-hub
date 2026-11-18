@@ -96,7 +96,8 @@ function ToggleRow({ field, value, set }: RowProps<ToggleField>) {
 
 function NumberRow({ field, value, set }: RowProps<NumberFieldDef>) {
   const id = useId();
-  const current = Number(value);
+  const parsed = Number(value ?? Number.NaN);
+  const current = Number.isFinite(parsed) ? parsed : field.min;
   if (field.slider) {
     const { step, format } = field.slider;
     return (
@@ -132,10 +133,13 @@ function NumberRow({ field, value, set }: RowProps<NumberFieldDef>) {
 }
 
 function SelectRow({ field, value, set }: RowProps<SelectField>) {
+  const selected = field.options.some((option) => option.value === value)
+    ? String(value)
+    : (field.options[0]?.value ?? '');
   return (
     <label className="settings__field">
       {field.label}
-      <select value={String(value)} onChange={(e) => set(e.target.value)}>
+      <select value={selected} onChange={(e) => set(e.target.value)}>
         {field.options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}

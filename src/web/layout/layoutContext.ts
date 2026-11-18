@@ -27,6 +27,7 @@ export interface LayoutApi {
   togglePane: (id: PanelId) => void;
   addInstance: (kind: PaneId) => PanelId | null;
   canAddInstance: boolean;
+  canPresent: boolean;
   movePane: (id: PanelId, target: MoveTarget) => void;
   resetLayout: () => void;
   locked: boolean;

@@ -60,14 +60,14 @@ A tool is a viewer toolbar entry with its own settings window.
 
 Ctrl or Cmd+K opens the palette (`src/web/commands`).
 
-- `COMMANDS.register(source, () => Command[], priority?)` adds a source. Providers run each time the palette opens, so titles and `disabled` reasons are current.
+- `COMMANDS.register(source, () => Command[], priority?)` adds a source. Providers run each time the palette opens and each time the query changes, so titles and `disabled` reasons are current. A command that fails reopens the palette with the error inline and also reports to the Task Center.
 - A command has `id`, `title`, `group`, optional `keywords`, `icon` and `disabled` (a reason string), and `run(host)`. `host.openModal(id)` opens a settings window.
 - When two sources give the same id, the higher priority wins.
 - A tool adds commands by overriding `ViewerTool.commands(ctx, settings)`.
 
 ## Settings and modals
 
-- Add a modal: write a `ModalDefinition` and add it to `src/web/modal/registry.ts`. Each registered tool already adds its own.
+- Add a modal: write a `ModalDefinition` and add it to `src/web/modal/registry.ts`. Each registered tool already adds its own. An optional `onClose` runs when the modal closes, for state the opener set.
 - App settings (`src/web/settings/settings.ts`, key `bsh-settings-v1`) hold only `sessionWarnMinutes` and `recentsLength`. Each tool and pane owns the rest of its settings.
 - Generated forms: `components/SettingsForm.tsx` renders a `FormDefinition` with field kinds `toggle`, `number`, `select`, `text`, `multi` and `list`.
 - Pane settings live in `settings/paneSettings.ts` and `layout/instanceSettings.ts`.
@@ -95,5 +95,5 @@ All browser storage goes through `src/web/storage.ts`. Do not call `localStorage
 Wrap work the user waits for in `startTask({ label, cancel?, retry? })` (`src/web/tasks/taskStore.ts`).
 
 - Settle it with `finish`, `warn` (shown as "Done with warnings"), `fail` or `cancel`. `progress(fraction | null, detail)` updates a running task.
-- The Task Center in the top bar shows Cancel for tasks that gave `cancel` and Retry for failed tasks that gave `retry`.
+- The Task Center in the top bar shows Cancel for tasks that gave `cancel` and Retry for failed tasks that gave `retry`. Retry removes the failed task, so `retry` should start the new one.
 - Model loads and exports report this way. For an export use `exportEntry`.

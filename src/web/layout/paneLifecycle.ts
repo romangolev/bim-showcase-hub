@@ -57,6 +57,7 @@ export interface LifecycleView {
   companions: PaneId[];
   home: boolean;
   overlayOpen: boolean;
+  canPresent: boolean;
   treeOpen: boolean;
   canAddInstance: boolean;
   mounted: PanelId[];
@@ -158,6 +159,7 @@ export function deriveView(
       ? home || state.overlayTreeOpen
       : !state.layout.collapsed.includes('tree'),
     canAddInstance: !home && mode === 'dock',
+    canPresent: !home,
     mounted: mountedPanels(state.attached, {
       mode,
       open: state.openPanes,
@@ -183,8 +185,9 @@ export function createPaneLifecycle(deps: LifecycleDeps): PaneLifecycle {
     announcement: '',
   };
   const listeners = new Set<() => void>();
-  let floatPending: string | null = null;
-  let presentRestore: { previous: PanelId | null } | null = null;
+  const floatPending = new Map<string, boolean>();
+  let presentRestore: { panel: PanelId; previous: PanelId | null } | null =
+    null;
   const shown = new Set<string>();
   let cached: {
     state: LifecycleState;
@@ -245,15 +248,20 @@ export function createPaneLifecycle(deps: LifecycleDeps): PaneLifecycle {
     if (next === state.presenting) return;
     const dock = deps.dock();
     if (next) {
+      const { active, models } = deps.models.getState();
+      if (models.length === 0) return;
+      const panel = active ? modelPanelId(active) : 'viewer';
       const before = state.maximized;
       const viewerFirst = before !== null && paneKind(before) === 'viewer';
-      const caused = !viewerFirst && (dock?.toggleMaximize('viewer') ?? false);
-      presentRestore = caused ? { previous: before } : null;
+      const caused = !viewerFirst && (dock?.toggleMaximize(panel) ?? false);
+      presentRestore = caused ? { panel, previous: before } : null;
     } else if (presentRestore) {
-      const { previous } = presentRestore;
+      const { panel, previous } = presentRestore;
       presentRestore = null;
-      dock?.toggleMaximize('viewer');
-      if (previous) dock?.toggleMaximize(previous);
+      if (deps.mode() === 'dock') {
+        dock?.toggleMaximize(panel);
+        if (previous) dock?.toggleMaximize(previous);
+      }
     }
     set({ presenting: next });
     announce(next ? 'Presentation mode on' : 'Presentation mode off');
@@ -301,6 +309,11 @@ export function createPaneLifecycle(deps: LifecycleDeps): PaneLifecycle {
       if (Object.keys(patch).length > 0) set(patch);
     },
     reconcile: () => {
+      const open = deps.models.getState().models.map(({ urn }) => urn);
+      for (const [urn, seen] of floatPending) {
+        if (open.includes(urn)) floatPending.set(urn, true);
+        else if (seen) floatPending.delete(urn);
+      }
       const wanted = new Set(
         deriveView(state, deps.models.getState(), deps.mode()).instances,
       );
@@ -313,8 +326,15 @@ export function createPaneLifecycle(deps: LifecycleDeps): PaneLifecycle {
     },
     modeChanged: () => {
       const resizing = deps.mode() === 'dock' ? state.resizing : null;
-      if (state.overlayTreeOpen || resizing !== state.resizing)
-        set({ overlayTreeOpen: false, resizing });
+      const endPresent = state.presenting;
+      if (endPresent) presentRestore = null;
+      if (state.overlayTreeOpen || resizing !== state.resizing || endPresent)
+        set({
+          overlayTreeOpen: false,
+          resizing,
+          presenting: endPresent ? false : state.presenting,
+        });
+      if (endPresent) announce('Presentation mode off');
     },
     activateInstance: (id) => {
       const urn = modelOf(id);
@@ -407,7 +427,7 @@ export function createPaneLifecycle(deps: LifecycleDeps): PaneLifecycle {
         deps.dock()?.movePane(id, 'float');
         return;
       }
-      floatPending = urn;
+      floatPending.set(urn, false);
     },
     startResize: (id) => {
       if (deps.mode() !== 'dock' || state.locked) return;
@@ -434,8 +454,7 @@ export function createPaneLifecycle(deps: LifecycleDeps): PaneLifecycle {
         state = { ...state, attached: [...state.attached, id] };
       bump(id);
       const urn = modelOf(id);
-      if (urn && floatPending === urn) {
-        floatPending = null;
+      if (urn && floatPending.delete(urn)) {
         deps.later(() => deps.dock()?.movePane(id, 'float'));
       }
       if (urn) deps.models.show(urn);

@@ -21,6 +21,7 @@ import {
   sanitizeElementScope,
 } from '../viewer/propertyScope.js';
 import { type PanelId, parsePanelId } from './paneRegistry.js';
+import { dropSummarySettingsTarget } from './summaryTarget.js';
 
 export interface SummarySpec {
   scope: string;
@@ -103,6 +104,7 @@ export function summarySetting(id: PanelId): PersistedRecord<SummarySpec> {
 
 export function forgetInstanceSetting(id: PanelId): void {
   if (!parsePanelId(id)?.instance) return;
+  dropSummarySettingsTarget(id);
   charts.forget(id);
   summaries.forget(id);
   propertyPanes.forget(id);

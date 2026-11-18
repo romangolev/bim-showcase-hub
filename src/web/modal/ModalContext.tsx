@@ -2,7 +2,9 @@ import {
   createContext,
   type ReactNode,
   useContext,
+  useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import { ModalHost } from './ModalHost.js';
@@ -38,6 +40,14 @@ export function ModalProvider({
     [definitions],
   );
   const active = definitions.find((definition) => definition.id === openId);
+  const definitionsRef = useRef(definitions);
+  definitionsRef.current = definitions;
+  const activeId = active?.id;
+
+  useEffect(() => {
+    if (!activeId) return;
+    return definitionsRef.current.find((d) => d.id === activeId)?.onClose;
+  }, [activeId]);
 
   return (
     <ModalContext.Provider value={api}>

@@ -44,18 +44,19 @@ export function arrange(
 }
 
 interface DialogProps {
+  error: string | null;
   onClose: () => void;
   onRun: (command: Command) => void;
 }
 
-function PaletteDialog({ onClose, onRun }: DialogProps) {
+function PaletteDialog({ error, onClose, onRun }: DialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const baseId = useId();
   const [opener] = useState(() => document.activeElement as HTMLElement | null);
-  const [commands] = useState(() => COMMANDS.list());
   const [recents] = useState(readRecents);
   const [query, setQuery] = useState('');
+  const commands = useMemo(() => COMMANDS.list(), [query]);
   const [active, setActive] = useState(0);
   const items = useMemo(
     () => arrange(commands, query, recents),
@@ -139,7 +140,7 @@ function PaletteDialog({ onClose, onRun }: DialogProps) {
           aria-label="Commands"
         >
           {items.map(({ command, group }, index) => {
-            const heading = group !== previous;
+            const heading = !query.trim() && group !== previous;
             previous = group;
             return (
               <Fragment key={`${group}:${command.id}`}>
@@ -156,6 +157,7 @@ function PaletteDialog({ onClose, onRun }: DialogProps) {
                   aria-disabled={command.disabled ? true : undefined}
                   className="cmdk__option"
                   data-active={index === current}
+                  onMouseDown={(event) => event.preventDefault()}
                   onMouseMove={() => setActive(index)}
                   onClick={() => {
                     if (!command.disabled) onRun(command);
@@ -171,6 +173,11 @@ function PaletteDialog({ onClose, onRun }: DialogProps) {
             );
           })}
         </div>
+        {error ? (
+          <p className="cmdk__error" role="alert">
+            {error}
+          </p>
+        ) : null}
         {items.length === 0 ? (
           <p className="cmdk__empty">No matching commands</p>
         ) : null}
@@ -204,6 +211,7 @@ function typingOutsidePalette(target: EventTarget | null): boolean {
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const modal = useModal();
 
   useEffect(() => {
@@ -212,19 +220,30 @@ export function CommandPalette() {
       if (typingOutsidePalette(event.target)) return;
       if (document.querySelector('dialog[open]:not(.cmdk)')) return;
       event.preventDefault();
+      setError(null);
       setOpen((value) => !value);
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, []);
 
-  const close = useCallback(() => setOpen(false), []);
+  const close = useCallback(() => {
+    setError(null);
+    setOpen(false);
+  }, []);
   const run = useCallback(
     (command: Command) => {
       recordRecent(command.id);
       flushSync(() => setOpen(false));
-      const report = (error: unknown) =>
-        startTask({ label: command.title }).fail(error);
+      const report = (failure: unknown) => {
+        startTask({ label: command.title }).fail(failure);
+        const reason =
+          failure instanceof Error && failure.message
+            ? failure.message
+            : 'Something went wrong';
+        setError(`${command.title} failed: ${reason}`);
+        setOpen(true);
+      };
       try {
         Promise.resolve(command.run({ openModal: modal.open })).catch(report);
       } catch (error) {
@@ -234,5 +253,7 @@ export function CommandPalette() {
     [modal.open],
   );
 
-  return open ? <PaletteDialog onClose={close} onRun={run} /> : null;
+  return open ? (
+    <PaletteDialog error={error} onClose={close} onRun={run} />
+  ) : null;
 }

@@ -61,7 +61,14 @@ export function createTaskStore(now: () => number = Date.now): TaskStore {
   const find = (id: number) => snapshot.tasks.find((task) => task.id === id);
 
   const commit = (tasks: readonly Task[], announcement: string) => {
-    const finished = tasks.filter((task) => task.state !== 'running');
+    const finished = tasks
+      .filter((task) => task.state !== 'running')
+      .map((task, order) => ({ task, order }))
+      .sort(
+        (a, b) =>
+          (a.task.endedAt ?? 0) - (b.task.endedAt ?? 0) || a.order - b.order,
+      )
+      .map(({ task }) => task);
     const drop = new Set(
       finished.slice(0, Math.max(0, finished.length - HISTORY_LIMIT)),
     );
@@ -91,6 +98,7 @@ export function createTaskStore(now: () => number = Date.now): TaskStore {
   ) => {
     const task = find(id);
     if (task?.state !== 'running') return;
+    const message = `${task.label} ${verb}`;
     patch(
       id,
       {
@@ -99,7 +107,7 @@ export function createTaskStore(now: () => number = Date.now): TaskStore {
         progress: state === 'done' || state === 'warning' ? 1 : task.progress,
         endedAt: now(),
       },
-      `${task.label} ${verb}`,
+      snapshot.announcement === message ? `${message} ` : message,
     );
     if (state !== 'failed') hooks.delete(id);
   };
@@ -170,7 +178,10 @@ export function createTaskStore(now: () => number = Date.now): TaskStore {
     },
     cancel,
     retry(id) {
-      if (find(id)?.state === 'failed') hooks.get(id)?.retry?.();
+      if (find(id)?.state !== 'failed') return;
+      const onRetry = hooks.get(id)?.retry;
+      remove(id);
+      onRetry?.();
     },
     dismiss(id) {
       const task = find(id);

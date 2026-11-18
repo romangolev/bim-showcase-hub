@@ -128,3 +128,50 @@ describe('SettingsForm', () => {
     expect(onChange).toHaveBeenLastCalledWith({ count: 2, tags: ['t'] });
   });
 });
+
+describe('SettingsForm with missing or stale values', () => {
+  it('falls back to the first option, the minimum and an empty text', () => {
+    const form: FormDefinition<Demo> = {
+      fields: [
+        { key: 'count', kind: 'number', label: 'Count', min: 2, max: 5 },
+        {
+          key: 'level',
+          kind: 'number',
+          label: 'Level',
+          min: 3,
+          max: 9,
+          slider: { step: 1, format: (v) => `${v}x` },
+        },
+        {
+          key: 'mode',
+          kind: 'select',
+          label: 'Mode',
+          options: [
+            { value: 'a', label: 'Alpha' },
+            { value: 'b', label: 'Beta' },
+          ],
+        },
+        { key: 'name', kind: 'text', label: 'Name' },
+      ],
+    };
+    const { rerender } = render(
+      <SettingsForm form={form} value={{} as Demo} onChange={vi.fn()} />,
+    );
+    expect((screen.getByLabelText('Mode') as HTMLSelectElement).value).toBe(
+      'a',
+    );
+    expect(screen.getByLabelText(/Level/)).toHaveValue('3');
+    expect(screen.getByLabelText('Name')).toHaveValue('');
+    rerender(
+      <SettingsForm
+        form={form}
+        value={{ mode: 'gone', count: 'x', level: null } as unknown as Demo}
+        onChange={vi.fn()}
+      />,
+    );
+    expect((screen.getByLabelText('Mode') as HTMLSelectElement).value).toBe(
+      'a',
+    );
+    expect(screen.getByLabelText(/Level/)).toHaveValue('3');
+  });
+});

@@ -52,6 +52,7 @@ export function PresentControls({ onExit }: PresentControlsProps) {
         )
       )
         return;
+      if (!latest.current.adapter || latest.current.points.length === 0) return;
       event.preventDefault();
       event.stopPropagation();
       void step(delta);
