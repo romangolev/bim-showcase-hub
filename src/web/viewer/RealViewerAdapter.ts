@@ -47,10 +47,15 @@ import {
   VIEWER_CLOSED_MESSAGE,
 } from './modelSet.js';
 import {
+  DISCOVERY_SAMPLE,
+  mergeInfos,
+  type PropertyInfo,
   type ReadOptions,
   readInChunks,
+  sampleIds,
   sumProgress,
   throwIfAborted,
+  UNCATEGORIZED,
 } from './propertyReads.js';
 import {
   apiForRegion,
@@ -1028,6 +1033,55 @@ export class RealViewerAdapter implements ViewerAdapter {
     });
     if (failure !== null && rows.length === 0) throw failure;
     return rows;
+  }
+
+  async discoverProperties(
+    modelIds?: readonly string[],
+    options: ReadOptions = {},
+  ): Promise<PropertyInfo[]> {
+    const viewer = this.viewer;
+    if (!viewer) return [];
+    const shown = this.models
+      .shown()
+      .filter(({ info }) => !modelIds || modelIds.includes(info.id));
+    const results = await Promise.allSettled(
+      shown.map(({ handle }) => this.readModelInfos(viewer, handle, options)),
+    );
+    throwIfAborted(options.signal);
+    const lists: PropertyInfo[][] = [];
+    let failure: unknown = null;
+    for (const result of results) {
+      if (result.status === 'fulfilled') lists.push(result.value);
+      else failure ??= result.reason;
+    }
+    if (failure !== null && lists.length === 0) throw failure;
+    return mergeInfos(lists);
+  }
+
+  private async readModelInfos(
+    viewer: GuiViewer3D,
+    model: ViewerModel,
+    options: ReadOptions,
+  ): Promise<PropertyInfo[]> {
+    const tree = await readTree(viewer, model);
+    throwIfAborted(options.signal);
+    const items = await new Promise<BulkPropertyItem[]>((resolve, reject) =>
+      model.getBulkProperties(
+        sampleIds(leafIds(tree), DISCOVERY_SAMPLE),
+        {},
+        resolve,
+        reject,
+      ),
+    );
+    throwIfAborted(options.signal);
+    return mergeInfos([
+      items.flatMap((item) =>
+        item.properties.map((prop) => ({
+          name: prop.displayName,
+          category: prop.displayCategory?.trim() || UNCATEGORIZED,
+        })),
+      ),
+    ]);
   }
 
   private async readModelRows(

@@ -1,4 +1,5 @@
 import type { PropertyRow } from '../../shared/types.js';
+import type { PropertyInfo } from './propertyReads.js';
 
 export type MockCategory = 'Walls' | 'Doors' | 'Windows' | 'Slabs' | 'Columns';
 
@@ -270,6 +271,14 @@ export function elementProperties(
     Level: element.level,
   };
 }
+
+export const MOCK_PROPERTY_INFOS: readonly PropertyInfo[] = [
+  { name: 'Category', category: 'Identity Data' },
+  { name: 'Name', category: 'Identity Data' },
+  { name: 'Assembly Code', category: 'Identity Data' },
+  { name: 'Classification Code', category: 'Identity Data' },
+  { name: 'Level', category: 'Constraints' },
+];
 
 export const LARGE_FIXTURE_ROWS = 104_000;
 

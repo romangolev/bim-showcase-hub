@@ -12,6 +12,7 @@ import {
   buildMockElements,
   buildMockRows,
   LARGE_FIXTURE_ROWS,
+  MOCK_PROPERTY_INFOS,
   type MockElement,
   type Point,
 } from './mockModel.js';
@@ -34,7 +35,12 @@ import {
   type Vec3,
   VIEWER_CLOSED_MESSAGE,
 } from './modelSet.js';
-import { type ReadOptions, throwIfAborted } from './propertyReads.js';
+import {
+  mergeInfos,
+  type PropertyInfo,
+  type ReadOptions,
+  throwIfAborted,
+} from './propertyReads.js';
 import {
   claimRegion,
   detectRegion,
@@ -624,6 +630,23 @@ export class MockViewerAdapter implements ViewerAdapter {
     if (failed && rows.length === 0) throw new Error(MOCK_PROPERTIES_ERROR);
     options.onProgress?.({ done: rows.length, total: rows.length });
     return rows;
+  }
+
+  async discoverProperties(
+    modelIds?: readonly string[],
+    options: ReadOptions = {},
+  ): Promise<PropertyInfo[]> {
+    if (!this.loaded) return [];
+    throwIfAborted(options.signal);
+    const lists: (readonly PropertyInfo[])[] = [];
+    let failed = false;
+    for (const { info } of this.models.shown()) {
+      if (modelIds && !modelIds.includes(info.id)) continue;
+      if (info.urn.includes(MOCK_NO_PROPERTIES_MARKER)) failed = true;
+      else lists.push(MOCK_PROPERTY_INFOS);
+    }
+    if (failed && lists.length === 0) throw new Error(MOCK_PROPERTIES_ERROR);
+    return mergeInfos(lists);
   }
 
   registerToolGroup(spec: ToolGroupSpec): () => void {

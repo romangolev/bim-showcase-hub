@@ -1,4 +1,6 @@
 export const READ_CHUNK = 5000;
+export const DISCOVERY_SAMPLE = 300;
+export const UNCATEGORIZED = 'Other';
 
 export interface ReadProgress {
   done: number;
@@ -61,4 +63,27 @@ export function sumProgress(
     }
     onProgress?.({ done, total });
   };
+}
+
+export function sampleIds(ids: readonly number[], count: number): number[] {
+  if (ids.length <= count) return [...ids];
+  const step = ids.length / count;
+  return Array.from(
+    { length: count },
+    (_, i) => ids[Math.floor(i * step)] ?? 0,
+  );
+}
+
+export function mergeInfos(
+  lists: readonly (readonly PropertyInfo[])[],
+): PropertyInfo[] {
+  const seen = new Map<string, PropertyInfo>();
+  for (const list of lists) {
+    for (const info of list)
+      seen.set(`${info.category}\u0000${info.name}`, info);
+  }
+  return [...seen.values()].sort(
+    (a, b) =>
+      a.category.localeCompare(b.category) || a.name.localeCompare(b.name),
+  );
 }
