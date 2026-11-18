@@ -18,6 +18,7 @@ Everything lives in `src/web/layout`.
 | `instanceSettings.ts` | The per-instance settings records (chart and model summary specs) and their seed and forget |
 | `mounted.ts` | Which attached panels stay mounted for the current mode (`mountedPanels`) |
 | `LayoutCommands.tsx`, `layoutCommandList.ts` | The layout's commands for the palette: toggle panes, new chart or summary, go to Documents, present, lock, reset |
+| `PresentControls.tsx` | The Present overlay: exit button, viewpoint keys, position indicator and auto-advance |
 | `LayoutProvider.tsx` | The adapter between `paneLifecycle` and React: persistence, the open-models store, the dock or stacked switch, the top bar, `useLayout()` |
 | `DockLayout.tsx` | The dockview adapter. The only file that imports `dockview-react`, loaded lazily |
 | `StackedLayout.tsx` | The fixed stack below 876px, with the tree as an overlay and a model switcher above the viewer |
@@ -129,6 +130,7 @@ Reset layout is in every pane menu and in the top bar Panes menu; its tooltip sa
 
 - Every pane header has a collapse button and a menu: Move left, Move right, Move below (to that edge of the dock), Float or Dock, Maximize or Restore, Resize with arrow keys, Collapse or Expand, Close (closable panes only), Lock or Unlock layout, Reset layout. Every drag has a menu path.
 - Maximize (also a double-click on a tab) makes the pane's group fill the dock; Escape or Restore brings the arrangement back. The maximized state is not saved.
+- Present (Panes menu, palette, or Present in the viewer's Share menu, which is the entry on the stacked layout) hides the chrome and shows the viewer alone (`data-presenting` on `<html>`). ArrowRight and Space go to the next viewpoint, ArrowLeft to the previous, with a discreet `n / total` indicator that a live region also announces; Escape or the exit button leaves. Settings has an optional auto-advance interval (off by default). The lifecycle remembers a pane that was maximized before Present and maximizes it again on exit; a viewer the user had already maximized stays maximized. Design: [snapshots-viewpoints-present](superpowers/specs/2026-11-19-snapshots-viewpoints-present-design.md).
 - Lock layout (also in the Panes menu, stored in `localStorage` as `bsh.layout.locked`) turns off dragging and floating, hides tab close buttons and leaves only Maximize and Unlock in the pane menu; Panes toggles, Reset layout and keyboard resize are disabled. It does not apply to the stacked layout.
 - Resize with arrow keys enters a resize mode for that pane: Left and Right change its width, Up and Down its height, by 16 px (64 px with Shift); Escape, Enter or Tab finish. The live region announces the mode, each new size and the end. Floating groups are resized with their own handles.
 - The Panes menu in the top bar lists the optional panes (Model summary, Dashboard, Models) as checkbox items, offers New chart and New model summary, and resets the layout. Opening one without a model shows its "No model loaded yet" state. Documents is not listed because it cannot close, and model tabs open from Documents.

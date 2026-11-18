@@ -1627,6 +1627,144 @@ def check_presentation_mode(page, checks):
         checks.add("presentation mode", False, f"{type(exc).__name__}: {str(exc)[:160]}")
 
 
+def png_size(path):
+    data = path.read_bytes()
+    return int.from_bytes(data[16:20], "big"), int.from_bytes(data[20:24], "big")
+
+
+def snapshot_to(page, target):
+    with page.expect_download(timeout=30000) as download_info:
+        share_menu(page, "Save image (PNG)")
+    download_info.value.save_as(str(target))
+
+
+SNAPSHOT_KEY = "bsh.snapshot.v1"
+
+
+def set_snapshot_settings(page, value):
+    page.evaluate("([key, value]) => localStorage.setItem(key, JSON.stringify(value))", [SNAPSHOT_KEY, value])
+
+
+def drop_viewpoints(page):
+    page.evaluate(
+        """() => {
+            const raw = localStorage.getItem('bsh.saved.v1');
+            if (!raw) return;
+            const data = JSON.parse(raw);
+            data.items = data.items.filter((item) => item.kind !== 'viewpoint');
+            localStorage.setItem('bsh.saved.v1', JSON.stringify(data));
+        }"""
+    )
+
+
+def position(page):
+    return page.locator(".present-position [aria-hidden='true']").inner_text().replace("\xa0", " ").strip()
+
+
+def check_snapshots_viewpoints_present(page, checks):
+    try:
+        page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+        settle(page)
+        page.evaluate("(key) => localStorage.removeItem(key)", SNAPSHOT_KEY)
+        base = OUTPUT_DIR / "snapshot-1x.png"
+        snapshot_to(page, base)
+        set_snapshot_settings(page, {"resolution": "2x", "overlay": True})
+        double = OUTPUT_DIR / "snapshot-2x-caption.png"
+        snapshot_to(page, double)
+        (w1, h1), (w2, h2) = png_size(base), png_size(double)
+        checks.add(
+            "snapshot: 2x with the caption produces a larger image",
+            w2 >= w1 * 2 - 2 and h2 >= h1 * 2 - 2 and double.stat().st_size > base.stat().st_size,
+            f"{w1}x{h1} -> {w2}x{h2}",
+        )
+        set_snapshot_settings(page, {"resolution": "custom", "customWidth": 8192, "overlay": False})
+        share_menu(page, "Save image (PNG)")
+        page.get_by_text("Snapshot too large").wait_for(timeout=5000)
+        checks.add("snapshot: a size over the cap fails visibly", True)
+        page.evaluate("(key) => localStorage.removeItem(key)", SNAPSHOT_KEY)
+
+        drop_viewpoints(page)
+        for _ in range(2):
+            share_menu(page, "Save viewpoint")
+            page.wait_for_timeout(300)
+        page.locator(f"{ACTIVE_VIEWER} .bsh-viewer-share button").click()
+        listed = page.get_by_role("menuitem").filter(has_text="Go to Viewpoint").count()
+        page.screenshot(path=str(OUTPUT_DIR / "mock-viewpoints-menu.png"))
+        page.keyboard.press("Escape")
+        checks.add("viewpoints: two saved viewpoints are listed in the Share menu", listed == 2, listed)
+
+        before = groups(page)["Model summary"]
+        pane_menu(page, "Model summary", "Maximize")
+        maximized = groups(page)["Model summary"]
+        page.get_by_role("button", name="Panes").click()
+        page.get_by_role("menuitem", name="Present").click()
+        page.wait_for_timeout(500)
+        page.keyboard.press("ArrowRight")
+        page.wait_for_timeout(300)
+        first = position(page)
+        page.keyboard.press("ArrowRight")
+        page.wait_for_timeout(300)
+        second = position(page)
+        announced = page.locator(".present-position [role='status']").inner_text()
+        page.keyboard.press("ArrowLeft")
+        page.wait_for_timeout(300)
+        back = position(page)
+        page.keyboard.press("Space")
+        page.wait_for_timeout(300)
+        spaced = position(page)
+        checks.add(
+            "present: arrows and Space cycle viewpoints with a position indicator",
+            (first, second, back, spaced) == ("1 / 2", "2 / 2", "1 / 2", "2 / 2") and "Viewpoint 2 of 2" in announced,
+            (first, second, back, spaced, announced),
+        )
+        page.screenshot(path=str(OUTPUT_DIR / "mock-presenting-viewpoints.png"))
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(500)
+        restored = groups(page).get("Model summary", {})
+        width = restored.get("right", 0) - restored.get("left", 0)
+        checks.add(
+            "present: exit restores the previously maximized pane",
+            not page.evaluate("() => document.documentElement.hasAttribute('data-presenting')")
+            and abs(width - (maximized["right"] - maximized["left"])) <= 2
+            and width > before["right"] - before["left"] + 200,
+            restored,
+        )
+        page.keyboard.press("Escape")
+        settle(page)
+
+        page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
+        settle(page)
+        share_menu(page, "Present")
+        page.wait_for_timeout(500)
+        narrow = page.evaluate(
+            "() => ({present: document.documentElement.hasAttribute('data-presenting'),"
+            " tabs: getComputedStyle(document.querySelector('.stack__models')).display,"
+            " viewer: document.querySelector('.bsh-viewer-pane').getBoundingClientRect().height / innerHeight})"
+        )
+        page.keyboard.press("ArrowRight")
+        page.wait_for_timeout(300)
+        narrow_position = position(page)
+        page.screenshot(path=str(OUTPUT_DIR / "mock-presenting-narrow.png"))
+        checks.add(
+            "present: the narrow layout enters Present from the Share menu and cycles",
+            narrow["present"] and narrow["tabs"] == "none" and narrow["viewer"] > 0.9 and narrow_position == "1 / 2",
+            (narrow, narrow_position),
+        )
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(300)
+        checks.add(
+            "present: Escape leaves Present on the narrow layout",
+            not page.evaluate("() => document.documentElement.hasAttribute('data-presenting')"),
+        )
+    except Exception as exc:
+        checks.add("snapshots, viewpoints and present", False, f"{type(exc).__name__}: {str(exc)[:200]}")
+    finally:
+        drop_viewpoints(page)
+        page.evaluate("(key) => localStorage.removeItem(key)", SNAPSHOT_KEY)
+        page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+        settle(page)
+
+
 def check_documents_home(page, checks):
     settle(page)
     checks.add("default layout is Documents alone", documents_alone(page), groups(page))
@@ -2055,6 +2193,7 @@ def run(context, checks, notes):
     page.screenshot(path=str(OUTPUT_DIR / "mock-model.png"))
     checks.add("mock viewer is present", page.get_by_label(MOCK_VIEWER_LABEL).count() >= 1)
     check_presentation_mode(page, checks)
+    check_snapshots_viewpoints_present(page, checks)
 
     rows = page.locator("table tbody tr")
     try:

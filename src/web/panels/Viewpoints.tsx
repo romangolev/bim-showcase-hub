@@ -46,7 +46,7 @@ export function ViewpointsBody() {
           type="text"
           className="bsh-input"
           aria-label="Viewpoint name"
-          placeholder="Name the current view"
+          placeholder="Name this view"
           maxLength={MAX_NAME_LENGTH}
           value={name}
           onChange={(event) => setName(event.target.value)}

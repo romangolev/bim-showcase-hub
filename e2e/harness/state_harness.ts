@@ -82,6 +82,28 @@ window.__bshViewerState = {
       selection: viewer.getSelection(),
     };
   },
+  frame: () => {
+    const { viewer } = context();
+    return {
+      width: viewer.container.clientWidth,
+      height: viewer.container.clientHeight,
+    };
+  },
+  screenshot: (width: number, height: number) =>
+    new Promise<{ width: number; height: number }>((resolve, reject) => {
+      const { viewer } = context();
+      const timer = setTimeout(() => reject(new Error('timed out')), 20000);
+      viewer.getScreenShot?.(width, height, (url) => {
+        clearTimeout(timer);
+        fetch(url)
+          .then((response) => response.blob())
+          .then((blob) => createImageBitmap(blob))
+          .then((bitmap) => {
+            resolve({ width: bitmap.width, height: bitmap.height });
+          })
+          .catch(reject);
+      });
+    }),
   camera: () => readCamera(context().viewer),
   setCamera: (camera: Parameters<typeof applyCamera>[1]) =>
     applyCamera(context().viewer, camera),
