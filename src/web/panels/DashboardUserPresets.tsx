@@ -6,7 +6,6 @@ import {
 import {
   MAX_NAME_LENGTH,
   newSavedId,
-  readSaved,
   removeSaved,
   renameSaved,
   type SavedItem,
@@ -15,10 +14,6 @@ import {
 } from '../store/savedStore.js';
 
 export const DASHBOARD_PRESET_KIND = 'dashboard-preset';
-
-export function listDashboardPresets(): SavedItem[] {
-  return readSaved(DASHBOARD_PRESET_KIND);
-}
 
 export function saveDashboardPreset(name: string, view: DashboardView) {
   const item: SavedItem = {

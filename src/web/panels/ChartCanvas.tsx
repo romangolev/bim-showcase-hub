@@ -23,7 +23,6 @@ import {
   seriesColors,
 } from '../extensions/dashboardData.js';
 import { useTheme } from '../theme/ThemeContext.js';
-import { useDashboardView } from './DashboardSettings.js';
 
 Chart.register(
   ArcElement,
@@ -47,6 +46,8 @@ export interface ChartCanvasProps {
   label: string;
   exportName?: string;
   highlight?: ReadonlySet<string>;
+  pngTitle?: boolean;
+  pngLegend?: boolean;
   onSelectLabel?: (label: string) => void;
 }
 
@@ -62,6 +63,8 @@ export function ChartCanvas({
   label,
   exportName = 'model',
   highlight,
+  pngTitle = true,
+  pngLegend = true,
   onSelectLabel,
 }: ChartCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -74,7 +77,6 @@ export function ChartCanvas({
   const litKeyRef = useRef(litKey);
   litKeyRef.current = litKey;
   const paintRef = useRef<((litKey: string) => void) | null>(null);
-  const [view] = useDashboardView();
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -189,16 +191,16 @@ export function ChartCanvas({
       chart.property,
       exportName,
       {
-        title: view.pngTitle ? chart.property : undefined,
+        title: pngTitle ? chart.property : undefined,
         legend:
-          view.pngLegend && kind === 'doughnut'
+          pngLegend && kind === 'doughnut'
             ? shown.map((d, index) => ({
                 label: d.label,
                 color: colors[index] ?? 'transparent',
               }))
             : undefined,
         more:
-          view.pngLegend && kind === 'doughnut'
+          pngLegend && kind === 'doughnut'
             ? chart.data.length - shown.length
             : 0,
         text: theme.label,

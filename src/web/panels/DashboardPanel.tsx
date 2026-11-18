@@ -32,7 +32,7 @@ import type { ModelDbId } from '../viewer/modelSet.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { ChartCanvas } from './ChartCanvas.js';
 import { DashboardGallery } from './DashboardGallery.js';
-import { ElementScopeSelect } from './ElementScope.js';
+import { ElementScopeSelect, scopeName } from './ElementScope.js';
 import {
   FailedModels,
   ModelScopeSelect,
@@ -114,10 +114,10 @@ export function DashboardPanel({
 
   const chart = useMemo(
     () =>
-      state.status === 'ready' && selected
+      state.status === 'ready' && selected && !activePreset
         ? shapeChartData(state.rows, selected, maxCategories)
         : null,
-    [state.status, state.rows, selected, maxCategories],
+    [state.status, state.rows, selected, maxCategories, activePreset],
   );
 
   const [action] = usePaneSetting(PANE_SETTINGS.dashboard.action);
@@ -130,10 +130,12 @@ export function DashboardPanel({
         : [],
     [state.status, activePreset, state.rows, maxCategories],
   );
+  const settled = state.status === 'ready' && !state.pending;
+  const hasRows = settled && state.rows.length > 0;
+  const emptyScope =
+    settled && state.rows.length === 0 && state.elements !== 'all';
   const emptyBoard =
-    state.status === 'ready' &&
-    activePreset !== undefined &&
-    board.length === 0;
+    hasRows && activePreset !== undefined && board.length === 0;
   const showGallery = galleryOpen || !resolved || emptyBoard;
   const [viewerSelection, setViewerSelection] = useState<ModelDbId[]>([]);
   useEffect(() => {
@@ -293,14 +295,16 @@ export function DashboardPanel({
             message={HIDDEN_MESSAGE}
           />
         )}
-        {resolved && state.status === 'loading' && (
-          <StateBlock
-            variant="loading"
-            compact
-            message="Reading element properties"
-            rows={3}
-          />
-        )}
+        {resolved &&
+          (state.status === 'loading' ||
+            (state.status === 'ready' && state.pending)) && (
+            <StateBlock
+              variant="loading"
+              compact
+              message="Reading element properties"
+              rows={3}
+            />
+          )}
         {state.status === 'error' && (
           <StateBlock
             variant="error"
@@ -319,7 +323,15 @@ export function DashboardPanel({
             />
           </>
         ) : null}
-        {activePreset && board.length === 0 && state.status === 'ready' && (
+        {emptyScope && (
+          <StateBlock
+            variant="empty"
+            compact
+            title={`No ${scopeName(state.elements).toLowerCase()} elements`}
+            message="Change the element scope, or pick elements in the viewer."
+          />
+        )}
+        {emptyBoard && activePreset && (
           <StateBlock
             variant="empty"
             compact
@@ -331,7 +343,7 @@ export function DashboardPanel({
           <div id={`${uid}-gallery`}>
             <DashboardGallery
               view={view}
-              rows={state.status === 'ready' ? state.rows : undefined}
+              rows={hasRows ? state.rows : undefined}
               apply={(next) => {
                 setView(next);
                 setGalleryOpen(false);
@@ -349,6 +361,8 @@ export function DashboardPanel({
                 label={`${view.kind === 'doughnut' ? 'Doughnut' : 'Bar'} chart of element ${view.kind === 'doughnut' ? 'share' : 'counts'} by ${item.property}`}
                 exportName={exportName}
                 highlight={highlightFor(item)}
+                pngTitle={view.pngTitle}
+                pngLegend={view.pngLegend}
                 onSelectLabel={crossFilter(item)}
               />
             ))}
@@ -373,6 +387,8 @@ export function DashboardPanel({
                   label={`Bar chart of element counts by ${chart.property}`}
                   exportName={exportName}
                   highlight={highlightFor(chart)}
+                  pngTitle={view.pngTitle}
+                  pngLegend={view.pngLegend}
                   onSelectLabel={crossFilter(chart)}
                 />
               ) : null}
@@ -383,6 +399,8 @@ export function DashboardPanel({
                   label={`Doughnut chart of element share by ${chart.property}`}
                   exportName={exportName}
                   highlight={highlightFor(chart)}
+                  pngTitle={view.pngTitle}
+                  pngLegend={view.pngLegend}
                   onSelectLabel={crossFilter(chart)}
                 />
               ) : null}
@@ -413,7 +431,7 @@ export function DashboardPanel({
             </details>
           </>
         )}
-        {state.status === 'ready' && options.length === 0 && (
+        {settled && options.length === 0 && !emptyScope && (
           <StateBlock
             variant="empty"
             compact
