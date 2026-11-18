@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { hexToRgba } from '../extensions/paintBrushes.js';
+import { tasks } from '../tasks/taskStore.js';
 import { buildToolGroup } from '../test/toolGroup.js';
 import { MockViewerAdapter } from './MockViewerAdapter.js';
 import { buildMockElements } from './mockModel.js';
@@ -178,72 +179,45 @@ describe('mock toolbar tool group', () => {
     ).toHaveLength(1);
   });
 
-  it('runs the export through the toolbar button and reports status', async () => {
+  async function runExport(
+    id: string,
+    blobName: string,
+    expectedLabel: string,
+  ) {
     await setup();
-    const phases: boolean[] = [];
+    const before = tasks.getSnapshot().tasks.length;
     vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
     vi.stubGlobal('URL', {
       ...URL,
-      createObjectURL: () => 'blob:x',
+      createObjectURL: () => blobName,
       revokeObjectURL: () => {},
     });
-    adapter.registerToolGroup(
-      buildToolGroup(adapter, { report: (_badge, busy) => phases.push(busy) }),
-    );
-    button('export-xlsx').click();
-    button('export-xlsx').click();
-    await vi.waitFor(() => expect(phases).toContain(false));
-    expect(phases).toEqual([true, true, false]);
+    adapter.registerToolGroup(buildToolGroup(adapter));
+    button(id).click();
+    button(id).click();
+    const added = () => tasks.getSnapshot().tasks.slice(before);
+    expect(added()).toHaveLength(1);
+    await vi.waitFor(() => expect(added()[0]?.state).toBe('done'));
+    expect(added()[0]?.label).toBe(expectedLabel);
+    return added()[0]?.detail ?? '';
+  }
+
+  it('runs the export through the toolbar button and reports to the task center', async () => {
+    expect(
+      await runExport('export-xlsx', 'blob:x', 'Exporting Excel'),
+    ).toContain('Exported');
   });
 
-  it('runs the GLB export through the toolbar button and reports status', async () => {
-    await setup();
-    const phases: boolean[] = [];
-    const saved: string[] = [];
-    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
-    vi.stubGlobal('URL', {
-      ...URL,
-      createObjectURL: () => 'blob:glb',
-      revokeObjectURL: () => {},
-    });
-    adapter.registerToolGroup(
-      buildToolGroup(adapter, {
-        report: (badge, busy) => {
-          phases.push(busy);
-          if (!busy) saved.push(badge.detail);
-        },
-      }),
-    );
-    button('export-glb').click();
-    button('export-glb').click();
-    await vi.waitFor(() => expect(phases).toContain(false));
-    expect(phases).toEqual([true, true, false]);
-    expect(saved).toEqual([expect.stringContaining('Exported')]);
+  it('runs the GLB export through the toolbar button and reports to the task center', async () => {
+    expect(
+      await runExport('export-glb', 'blob:glb', 'Exporting geometry (GLB)'),
+    ).toContain('Exported');
   });
 
-  it('runs the IFC export through the toolbar button and reports status', async () => {
-    await setup();
-    const phases: boolean[] = [];
-    const saved: string[] = [];
-    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
-    vi.stubGlobal('URL', {
-      ...URL,
-      createObjectURL: () => 'blob:ifc',
-      revokeObjectURL: () => {},
-    });
-    adapter.registerToolGroup(
-      buildToolGroup(adapter, {
-        report: (badge, busy) => {
-          phases.push(busy);
-          if (!busy) saved.push(badge.detail);
-        },
-      }),
-    );
-    button('export-ifc').click();
-    button('export-ifc').click();
-    await vi.waitFor(() => expect(phases).toContain(false));
-    expect(phases).toEqual([true, true, false]);
-    expect(saved).toEqual([expect.stringContaining('elements')]);
+  it('runs the IFC export through the toolbar button and reports to the task center', async () => {
+    expect(
+      await runExport('export-ifc', 'blob:ifc', 'Exporting IFC'),
+    ).toContain('elements');
   });
 });
 

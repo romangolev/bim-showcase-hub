@@ -2,9 +2,10 @@ import { fireEvent, render, renderHook, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { isRecord } from '../../../shared/guards.js';
 import { readJson, writeJson } from '../../storage.js';
+import { createTaskStore } from '../../tasks/taskStore.js';
 import { installMemoryStorage } from '../../test/mockApi.js';
 import type { ViewerAdapter } from '../../viewer/ViewerAdapter.js';
-import { exportEntry, runOnce } from './exportKit.js';
+import { exportEntry, runOnce, statusReporter } from './exportKit.js';
 import { migrateLegacySettings } from './migrateLegacy.js';
 import { persistedSetting } from './persistedSetting.js';
 import { ToolRegistry } from './ToolRegistry.js';
@@ -54,7 +55,12 @@ class FakeTool extends ViewerTool<FakeSettings> {
       exportEntry(
         ctx,
         this.id,
-        { id: `export-${this.id}`, icon: 'i', tooltip: this.title },
+        {
+          id: `export-${this.id}`,
+          icon: 'i',
+          tooltip: this.title,
+          label: 'Exporting',
+        },
         async () => undefined,
       ),
     ];
@@ -94,7 +100,6 @@ function context(suffix?: string): ToolContext {
     id: (base) => (suffix ? `${base}-${suffix}` : base),
     fileName: () => 'm',
     current: (tool) => tool.settings.initial,
-    report: () => undefined,
   };
 }
 
@@ -215,30 +220,91 @@ describe('runOnce', () => {
           finish = resolve;
         }),
     );
-    runOnce(adapter, 'k', start);
-    runOnce(adapter, 'k', start);
+    runOnce(adapter, 'k', 'Export', start);
+    runOnce(adapter, 'k', 'Export', start);
     expect(start).toHaveBeenCalledTimes(1);
     finish();
     await Promise.resolve();
     await Promise.resolve();
-    runOnce(adapter, 'k', start);
+    runOnce(adapter, 'k', 'Export', start);
     expect(start).toHaveBeenCalledTimes(2);
   });
 
   it('keeps the kinds of one adapter apart and releases after a throw', () => {
     const adapter = {} as ViewerAdapter;
     const never = () => new Promise<void>(() => undefined);
-    runOnce(adapter, 'a', never);
+    runOnce(adapter, 'a', 'Export', never);
     const other = vi.fn(never);
-    runOnce(adapter, 'b', other);
+    runOnce(adapter, 'b', 'Export', other);
     expect(other).toHaveBeenCalledTimes(1);
     const boom = () => {
       throw new Error('boom');
     };
-    expect(() => runOnce(adapter, 'c', boom)).toThrow('boom');
+    expect(() => runOnce(adapter, 'c', 'Export', boom)).toThrow('boom');
     const again = vi.fn(never);
-    runOnce(adapter, 'c', again);
+    runOnce(adapter, 'c', 'Export', again);
     expect(again).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('export tasks', () => {
+  it('fails the task and frees the lock when the work rejects', async () => {
+    const adapter = {} as ViewerAdapter;
+    const { tasks } = await import('../../tasks/taskStore.js');
+    runOnce(adapter, 'r', 'Rejecting', () => Promise.reject(new Error('no')));
+    await vi.waitFor(() =>
+      expect(tasks.getSnapshot().tasks.at(-1)).toMatchObject({
+        label: 'Rejecting',
+        state: 'failed',
+        detail: 'no',
+      }),
+    );
+    const again = vi.fn(() => new Promise<void>(() => undefined));
+    runOnce(adapter, 'r', 'Rejecting', again);
+    expect(again).toHaveBeenCalledTimes(1);
+  });
+
+  it('offers cancel only when asked and aborts the signal', async () => {
+    const adapter = {} as ViewerAdapter;
+    const { tasks } = await import('../../tasks/taskStore.js');
+    let signal: AbortSignal | undefined;
+    runOnce(
+      adapter,
+      's',
+      'Cancellable',
+      (job) => {
+        signal = job.signal;
+        return new Promise<void>(() => undefined);
+      },
+      true,
+    );
+    const task = tasks.getSnapshot().tasks.at(-1);
+    expect(task?.cancellable).toBe(true);
+    if (task) tasks.cancel(task.id);
+    expect(signal?.aborted).toBe(true);
+    runOnce(adapter, 't', 'Plain', () => new Promise<void>(() => undefined));
+    expect(tasks.getSnapshot().tasks.at(-1)?.cancellable).toBe(false);
+  });
+
+  it('maps statuses onto the task', () => {
+    const store = createTaskStore();
+    const report = (
+      status: { phase: string },
+      task = store.start({ label: 'x' }),
+    ) => {
+      statusReporter(task, (s: { phase: string }) => s.phase)(status);
+      return store.getSnapshot().tasks.at(-1);
+    };
+    expect(report({ phase: 'reading' })).toMatchObject({
+      state: 'running',
+      detail: 'reading',
+    });
+    expect(report({ phase: 'done' })).toMatchObject({ state: 'done' });
+    expect(report({ phase: 'empty' })).toMatchObject({ state: 'done' });
+    expect(report({ phase: 'error' })).toMatchObject({ state: 'failed' });
+    expect(report({ phase: 'cancelled' })).toMatchObject({
+      state: 'cancelled',
+    });
   });
 });
 
@@ -359,7 +425,7 @@ describe('useViewerTools', () => {
       dispose,
     };
   }
-  const base = { fileName: () => '', report: () => undefined };
+  const base = { fileName: () => '' };
 
   it('registers the group once adapter is ready and disposes it on unmount', () => {
     const { adapter, registerToolGroup, dispose } = fakeAdapter();
@@ -413,7 +479,6 @@ function Probe({
     adapter,
     active: true,
     fileName: () => '',
-    report: () => undefined,
   });
   return (
     <button

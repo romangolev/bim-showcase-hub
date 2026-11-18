@@ -5,6 +5,7 @@ import {
   type ModelScope,
   unavailableModels,
 } from '../viewer/modelScope.js';
+import { isAbortError, throwIfAborted } from '../viewer/propertyReads.js';
 import { readProperties } from '../viewer/propertyScope.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import {
@@ -154,6 +155,8 @@ export interface ExportOptions {
   confirm?: (rowCount: number) => boolean;
   copy?: (text: Promise<string>) => Promise<void>;
   onStatus?: (status: ExportStatus) => void;
+  onProgress?: (fraction: number) => void;
+  signal?: AbortSignal;
   save?: (blob: Blob, fileName: string) => void;
 }
 
@@ -193,6 +196,8 @@ export async function exportToXlsx(
         }),
       ]),
     onStatus,
+    onProgress,
+    signal,
     save = saveBlob,
   } = options;
   const emit = (status: ExportStatus): ExportStatus => {
@@ -218,7 +223,10 @@ export async function exportToXlsx(
     const rows = await readProperties(adapter, {
       names: propertyNames,
       scope: { models: modelScope, elements: scope },
+      signal,
+      onProgress: ({ done, total }) => onProgress?.(total ? done / total : 0),
     });
+    throwIfAborted(signal);
     if (rows.length === 0) {
       copyText.reject();
       return emit({ phase: 'empty' });
@@ -351,6 +359,8 @@ export async function exportToXlsx(
     );
   } catch (err) {
     copyText.reject();
+    if (signal?.aborted || isAbortError(err))
+      return emit({ phase: 'cancelled' });
     return emit({
       phase: 'error',
       message: err instanceof Error ? err.message : 'Export failed',

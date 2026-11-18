@@ -1,9 +1,11 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { tasks } from '../../tasks/taskStore.js';
 import { installMemoryStorage } from '../../test/mockApi.js';
 import type { ViewerAdapter } from '../../viewer/ViewerAdapter.js';
 import type { ToolContext } from '../kernel/ViewerTool.js';
 
+const last = () => tasks.getSnapshot().tasks.at(-1);
 const exportGeometryToGlb = vi.fn(async (..._args: unknown[]) => undefined);
 
 vi.mock('../../extensions/glbExport.js', async (original) => ({
@@ -11,13 +13,8 @@ vi.mock('../../extensions/glbExport.js', async (original) => ({
   exportGeometryToGlb,
 }));
 
-const {
-  GLB_SETTINGS,
-  GLB_SETTINGS_KEY,
-  GlbExportTool,
-  glbBadge,
-  glbFileNameFrom,
-} = await import('./GlbExportTool.js');
+const { GLB_SETTINGS, GLB_SETTINGS_KEY, GlbExportTool, glbFileNameFrom } =
+  await import('./GlbExportTool.js');
 const { exportFileName } = await import('../../extensions/excelExport.js');
 
 beforeEach(() => {
@@ -36,7 +33,6 @@ function context(overrides: Partial<ToolContext> = {}): ToolContext {
     id: (base) => base,
     fileName: () => '',
     current: (tool) => tool.settings.initial,
-    report: () => undefined,
     ...overrides,
   };
 }
@@ -84,21 +80,39 @@ describe('GlbExportTool', () => {
     );
   });
 
-  it('reports status as a badge', () => {
-    const report = vi.fn();
-    tool.contribute(context({ report })).exports?.[0]?.onExport();
-    const call = exportGeometryToGlb.mock.calls[0]?.[1] as {
+  it('reports status to the task center with warnings and no cancel', () => {
+    tool.contribute(context()).exports?.[0]?.onExport();
+    const call = exportGeometryToGlb.mock.calls.at(-1)?.[1] as {
       onStatus: (status: unknown) => void;
     };
     call.onStatus({ phase: 'building' });
-    call.onStatus({ phase: 'error', message: 'x' });
-    expect(
-      report.mock.calls.map(([badge, busy]) => [badge.text, busy]),
-    ).toEqual([
-      [expect.any(String), true],
-      ['GLB export failed', false],
-    ]);
-    expect(glbBadge({ phase: 'error', message: 'x' }).error).toBe(true);
+    expect(last()).toMatchObject({
+      label: 'Exporting geometry (GLB)',
+      state: 'running',
+      detail: 'Building GLB',
+      cancellable: false,
+    });
+    call.onStatus({
+      phase: 'done',
+      fileName: 'a.glb',
+      triangleCount: 10,
+      meshCount: 2,
+      byteLength: 1,
+      skipped: 3,
+    });
+    expect(last()?.state).toBe('done');
+    expect(last()?.detail).toContain('3 fragments skipped');
+    tool
+      .contribute(context({ adapter: {} as ViewerAdapter }))
+      .exports?.[0]?.onExport();
+    const next = exportGeometryToGlb.mock.calls.at(-1)?.[1] as {
+      onStatus: (status: unknown) => void;
+    };
+    next.onStatus({ phase: 'error', message: 'Export failed: x' });
+    expect(last()).toMatchObject({
+      state: 'failed',
+      detail: 'Export failed: x',
+    });
   });
 
   it('keeps the busy state when the toolbar is rebuilt', async () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { IfcSettings, IfcSourceRead } from '../ifc/types.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
-import { describeIfcStatus, exportToIfc, ifcHasWarning } from './ifcExport.js';
+import { describeIfcStatus, exportToIfc } from './ifcExport.js';
 
 const SETTINGS: IfcSettings = {
   classOverrides: {},
@@ -137,7 +137,6 @@ describe('exportToIfc', () => {
       skipped: 3,
       missing: ['Annex.rvt'],
     });
-    expect(ifcHasWarning(status)).toBe(true);
     expect(describeIfcStatus(status)).toContain('3 fragments skipped');
     expect(describeIfcStatus(status)).toContain('missing Annex.rvt');
   });
@@ -152,7 +151,6 @@ describe('exportToIfc', () => {
       getModels: () => [],
     } as unknown as ViewerAdapter;
     const status = await exportToIfc(adapter, { save: vi.fn() });
-    expect(ifcHasWarning(status)).toBe(true);
     expect(describeIfcStatus(status)).toContain('levels unavailable');
     expect(describeIfcStatus(status)).toContain('4 ids generated');
   });

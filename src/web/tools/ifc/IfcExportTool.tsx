@@ -2,12 +2,13 @@ import {
   DEFAULT_IFC_FILE_NAME,
   describeIfcStatus,
   exportToIfc,
-  type IfcExportStatus,
-  ifcHasWarning,
 } from '../../extensions/ifcExport.js';
-import { exportEntry, exportFileName, isBusy } from '../kernel/exportKit.js';
 import {
-  type ToolBadge,
+  exportEntry,
+  exportFileName,
+  statusReporter,
+} from '../kernel/exportKit.js';
+import {
   type ToolContext,
   type ToolContribution,
   ViewerTool,
@@ -19,17 +20,6 @@ export const IFC_TOOLTIP = 'Export IFC';
 
 export function ifcFileNameFrom(fileName?: string): string {
   return exportFileName(fileName, DEFAULT_IFC_FILE_NAME, '', 'ifc');
-}
-
-export function ifcBadge(status: IfcExportStatus): ToolBadge {
-  return {
-    text:
-      status.phase === 'error'
-        ? 'IFC export failed'
-        : describeIfcStatus(status),
-    detail: describeIfcStatus(status),
-    error: ifcHasWarning(status),
-  };
 }
 
 export class IfcExportTool extends ViewerTool<IfcToolSettings> {
@@ -52,13 +42,17 @@ export class IfcExportTool extends ViewerTool<IfcToolSettings> {
         exportEntry(
           ctx,
           this.id,
-          { id: 'export-ifc', icon: 'bsh-ico-ifc', tooltip: IFC_TOOLTIP },
-          () =>
+          {
+            id: 'export-ifc',
+            icon: 'bsh-ico-ifc',
+            tooltip: IFC_TOOLTIP,
+            label: 'Exporting IFC',
+          },
+          ({ task }) =>
             exportToIfc(ctx.adapter, {
               fileName: ifcFileNameFrom(ctx.fileName()),
               settings: () => ctx.current(this),
-              onStatus: (status) =>
-                ctx.report(ifcBadge(status), isBusy(status)),
+              onStatus: statusReporter(task, describeIfcStatus),
             }),
         ),
       ],

@@ -40,19 +40,6 @@ export interface IfcExportOptions {
   maxBytes?: number;
 }
 
-export function ifcHasWarning(status: IfcExportStatus): boolean {
-  return (
-    status.phase === 'error' ||
-    (status.phase === 'done' &&
-      Boolean(
-        status.missing?.length ||
-          status.skipped ||
-          status.levelsUnavailable ||
-          status.generatedIds,
-      ))
-  );
-}
-
 export function describeIfcStatus(status: IfcExportStatus): string {
   switch (status.phase) {
     case 'reading':

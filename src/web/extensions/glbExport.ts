@@ -325,14 +325,6 @@ export function describeGlbStatus(status: GlbExportStatus): string {
   }
 }
 
-export function glbHasWarning(status: GlbExportStatus): boolean {
-  return (
-    status.phase === 'error' ||
-    (status.phase === 'done' &&
-      Boolean(status.missing?.length || status.skipped))
-  );
-}
-
 function doneText(status: Extract<GlbExportStatus, { phase: 'done' }>): string {
   const base = `Exported ${formatCount(status.triangleCount)} triangles in ${formatCount(status.meshCount)} meshes`;
   const notes: string[] = [];

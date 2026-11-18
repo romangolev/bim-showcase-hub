@@ -118,7 +118,6 @@ describe('the toolbar group', () => {
           id: (base) => base,
           fileName: () => '',
           current: (tool) => tool.settings.initial,
-          report: () => undefined,
         },
         Object.fromEntries(
           TOOLS.all().map((tool) => [tool.id, { enabled: false }]),

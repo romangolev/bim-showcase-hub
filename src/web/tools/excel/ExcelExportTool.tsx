@@ -1,7 +1,6 @@
 import {
   DEFAULT_EXPORT_PROPERTIES,
   describeStatus,
-  type ExportStatus,
   exportToXlsx,
 } from '../../extensions/excelExport.js';
 import {
@@ -10,15 +9,13 @@ import {
   DEFAULT_NAME_PATTERN,
   type ExcelSettings,
 } from '../../extensions/exportFormats.js';
-import { formatCount } from '../../extensions/modelSummary.js';
 import {
   confirmLargeExport,
   exportEntry,
   exportFileName,
-  isBusy,
+  statusReporter,
 } from '../kernel/exportKit.js';
 import {
-  type ToolBadge,
   type ToolContext,
   type ToolContribution,
   ViewerTool,
@@ -40,27 +37,6 @@ export function excelFileNameFrom(
       ? '{model}'
       : settings.namePattern;
   return applyNamePattern(pattern, model, extension);
-}
-
-function badgeText(status: ExportStatus): string {
-  if (status.phase === 'error') return 'Export failed';
-  if (status.phase === 'done') {
-    const rows = `Exported ${formatCount(status.rowCount)} rows`;
-    return status.missing?.length
-      ? `${rows}, missing ${status.missing.join(', ')}`
-      : rows;
-  }
-  return describeStatus(status);
-}
-
-export function excelBadge(status: ExportStatus): ToolBadge {
-  return {
-    text: badgeText(status),
-    detail: describeStatus(status),
-    error:
-      status.phase === 'error' ||
-      (status.phase === 'done' && Boolean(status.missing?.length)),
-  };
 }
 
 export class ExcelExportTool extends ViewerTool<ExcelToolSettings> {
@@ -89,8 +65,10 @@ export class ExcelExportTool extends ViewerTool<ExcelToolSettings> {
             id: 'export-xlsx',
             icon: 'bsh-ico-export',
             tooltip: EXPORT_TOOLTIP,
+            label: 'Exporting Excel',
+            cancellable: true,
           },
-          () => {
+          ({ task, signal }) => {
             const settings = ctx.current(this);
             return exportToXlsx(ctx.adapter, {
               propertyNames: DEFAULT_EXPORT_PROPERTIES,
@@ -107,8 +85,9 @@ export class ExcelExportTool extends ViewerTool<ExcelToolSettings> {
                 header: settings.includeHeader,
               },
               confirm: (rows) => confirmLargeExport(rows, CONFIRM_ABOVE),
-              onStatus: (status) =>
-                ctx.report(excelBadge(status), isBusy(status)),
+              signal,
+              onProgress: (fraction) => task.progress(fraction),
+              onStatus: statusReporter(task, describeStatus),
             });
           },
         ),

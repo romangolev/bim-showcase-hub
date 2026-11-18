@@ -6,10 +6,6 @@ export interface ToolGroupOptions {
   only?: readonly string[];
   suffix?: string;
   fileName?: () => string;
-  report?: (
-    badge: { text: string; detail: string; error: boolean },
-    busy: boolean,
-  ) => void;
   settings?: Record<string, Partial<ToolSettings> & Record<string, unknown>>;
 }
 
@@ -30,7 +26,6 @@ export function buildToolGroup(
     id: (base: string) => (options.suffix ? `${base}-${options.suffix}` : base),
     fileName: options.fileName ?? (() => ''),
     current: ((tool: { id: string }) => snapshot[tool.id]) as never,
-    report: options.report ?? (() => undefined),
   };
   const spec = TOOLS.buildGroup(ctx, snapshot);
   if (!spec) throw new Error('no tool is enabled');

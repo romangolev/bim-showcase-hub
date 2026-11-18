@@ -1,9 +1,11 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { tasks } from '../../tasks/taskStore.js';
 import { installMemoryStorage } from '../../test/mockApi.js';
 import type { ViewerAdapter } from '../../viewer/ViewerAdapter.js';
-import type { ToolBadge, ToolContext } from '../kernel/ViewerTool.js';
+import type { ToolContext } from '../kernel/ViewerTool.js';
 
+const last = () => tasks.getSnapshot().tasks.at(-1);
 const exportToXlsx = vi.fn(async (..._args: unknown[]) => undefined);
 
 vi.mock('../../extensions/excelExport.js', async (original) => ({
@@ -11,7 +13,7 @@ vi.mock('../../extensions/excelExport.js', async (original) => ({
   exportToXlsx,
 }));
 
-const { ExcelExportTool, excelFileNameFrom, excelBadge } = await import(
+const { ExcelExportTool, excelFileNameFrom } = await import(
   './ExcelExportTool.js'
 );
 const {
@@ -40,7 +42,6 @@ function context(
     id: (base) => (suffix ? `${base}-${suffix}` : base),
     fileName: () => '',
     current: (tool) => tool.settings.initial,
-    report: () => undefined,
     ...rest,
   };
 }
@@ -93,21 +94,53 @@ describe('ExcelExportTool', () => {
     );
   });
 
-  it('reports export status as a badge', () => {
-    const report = vi.fn();
-    const { exports } = tool.contribute(context({ report }));
+  it('reports export status to the task center', () => {
+    const { exports } = tool.contribute(context());
     exports?.[0]?.onExport();
-    const call = exportToXlsx.mock.calls[0]?.[1] as {
+    const call = exportToXlsx.mock.calls.at(-1)?.[1] as {
       onStatus: (status: unknown) => void;
+      onProgress: (fraction: number) => void;
     };
     call.onStatus({ phase: 'reading' });
-    call.onStatus({ phase: 'done', fileName: 'a.xlsx', rowCount: 1234 });
-    expect(
-      report.mock.calls.map(([badge, busy]) => [badge.text, busy]),
-    ).toEqual([
-      ['Reading element properties', true],
-      ['Exported 1,234 rows', false],
-    ]);
+    call.onProgress(0.5);
+    expect(last()).toMatchObject({
+      label: 'Exporting Excel',
+      state: 'running',
+      progress: 0.5,
+      detail: 'Reading element properties',
+      cancellable: true,
+    });
+    call.onStatus({
+      phase: 'done',
+      fileName: 'a.xlsx',
+      rowCount: 1234,
+      missing: ['Annex.rvt'],
+    });
+    expect(last()).toMatchObject({ state: 'done' });
+    expect(last()?.detail).toContain('Exported 1234 elements to a.xlsx');
+    expect(last()?.detail).toContain('Missing Annex.rvt');
+  });
+
+  it('aborts the read when the task is cancelled', () => {
+    const { exports } = tool.contribute(context());
+    exports?.[0]?.onExport();
+    const call = exportToXlsx.mock.calls.at(-1)?.[1] as { signal: AbortSignal };
+    expect(call.signal.aborted).toBe(false);
+    const task = last();
+    if (task) tasks.cancel(task.id);
+    expect(call.signal.aborted).toBe(true);
+    expect(last()?.state).toBe('cancelled');
+  });
+
+  it('fails the task and retries a failed export', async () => {
+    exportToXlsx.mockImplementationOnce(() => Promise.reject(new Error('x')));
+    const own = {} as ViewerAdapter;
+    tool.contribute(context({ adapter: own })).exports?.[0]?.onExport();
+    await vi.waitFor(() => expect(last()?.state).toBe('failed'));
+    const calls = exportToXlsx.mock.calls.length;
+    const task = last();
+    if (task) tasks.retry(task.id);
+    expect(exportToXlsx.mock.calls.length).toBe(calls + 1);
   });
 
   it('does not start a second export while one runs', () => {
@@ -130,20 +163,6 @@ describe('ExcelExportTool', () => {
     expect(readExcelToolSettings(tool.legacy.read({ excel: 'junk' }))).toEqual(
       DEFAULT_EXCEL_TOOL_SETTINGS,
     );
-  });
-});
-
-describe('excelBadge', () => {
-  it('flags errors and missing models', () => {
-    const bad: ToolBadge = excelBadge({ phase: 'error', message: 'x' });
-    expect(bad).toMatchObject({ text: 'Export failed', error: true });
-    expect(
-      excelBadge({ phase: 'done', fileName: 'a', rowCount: 1, missing: ['M'] })
-        .error,
-    ).toBe(true);
-    expect(
-      excelBadge({ phase: 'done', fileName: 'a', rowCount: 1 }).error,
-    ).toBe(false);
   });
 });
 

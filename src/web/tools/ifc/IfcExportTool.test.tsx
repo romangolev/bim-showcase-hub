@@ -1,9 +1,11 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { tasks } from '../../tasks/taskStore.js';
 import { installMemoryStorage } from '../../test/mockApi.js';
 import type { ViewerAdapter } from '../../viewer/ViewerAdapter.js';
 import type { ToolContext } from '../kernel/ViewerTool.js';
 
+const last = () => tasks.getSnapshot().tasks.at(-1);
 const exportToIfc = vi.fn(async (..._args: unknown[]) => undefined);
 
 vi.mock('../../extensions/ifcExport.js', async (original) => ({
@@ -11,9 +13,7 @@ vi.mock('../../extensions/ifcExport.js', async (original) => ({
   exportToIfc,
 }));
 
-const { IfcExportTool, ifcBadge, ifcFileNameFrom } = await import(
-  './IfcExportTool.js'
-);
+const { IfcExportTool, ifcFileNameFrom } = await import('./IfcExportTool.js');
 const { DEFAULT_IFC_TOOL_SETTINGS, IFC_SETTINGS_KEY, readIfcToolSettings } =
   await import('./ifcSettings.js');
 const { exportFileName } = await import('../../extensions/excelExport.js');
@@ -34,7 +34,6 @@ function context(overrides: Partial<ToolContext> = {}): ToolContext {
     id: (base) => base,
     fileName: () => '',
     current: (tool) => tool.settings.initial,
-    report: () => undefined,
     ...overrides,
   };
 }
@@ -157,13 +156,39 @@ describe('IfcExportTool', () => {
   });
 });
 
-describe('ifcBadge', () => {
-  it('names a failure and flags warnings', () => {
-    expect(ifcBadge({ phase: 'error', message: 'x' })).toMatchObject({
-      text: 'IFC export failed',
-      error: true,
+describe('export task', () => {
+  it('reports progress, warnings and failure without a cancel button', () => {
+    new IfcExportTool()
+      .contribute(context({ adapter: {} as ViewerAdapter }))
+      .exports?.[0]?.onExport();
+    const call = exportToIfc.mock.calls.at(-1)?.[1] as {
+      onStatus: (status: unknown) => void;
+    };
+    call.onStatus({ phase: 'reading' });
+    expect(last()).toMatchObject({
+      label: 'Exporting IFC',
+      state: 'running',
+      detail: 'Reading model',
+      cancellable: false,
     });
-    expect(ifcBadge({ phase: 'reading' }).error).toBe(false);
+    call.onStatus({
+      phase: 'done',
+      fileName: 'a.ifc',
+      elementCount: 5,
+      triangleCount: 9,
+      byteLength: 1,
+      levelsUnavailable: 1,
+    });
+    expect(last()?.state).toBe('done');
+    expect(last()?.detail).toContain('levels unavailable');
+    new IfcExportTool()
+      .contribute(context({ adapter: {} as ViewerAdapter }))
+      .exports?.[0]?.onExport();
+    const next = exportToIfc.mock.calls.at(-1)?.[1] as {
+      onStatus: (status: unknown) => void;
+    };
+    next.onStatus({ phase: 'error', message: 'Export failed: x' });
+    expect(last()).toMatchObject({ state: 'failed' });
   });
 });
 
