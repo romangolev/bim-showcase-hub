@@ -4,6 +4,7 @@ import {
   ResponseType,
   type Scopes,
   type ThreeLeggedToken,
+  TokenTypeHint,
 } from '@aps_sdk/authentication';
 import type { SessionUser } from '../../shared/types.js';
 import type { ServerConfig } from '../config.js';
@@ -12,7 +13,11 @@ import type { ApsAuth, TokenSet } from './types.js';
 
 type Client = Pick<
   AuthenticationClient,
-  'authorize' | 'getThreeLeggedToken' | 'refreshToken' | 'getUserInfo'
+  | 'authorize'
+  | 'getThreeLeggedToken'
+  | 'refreshToken'
+  | 'getUserInfo'
+  | 'revoke'
 >;
 
 export function userIdOf(subject: string): string {
@@ -29,6 +34,8 @@ function toTokenSet(token: ThreeLeggedToken): TokenSet {
     expiresIn: token.expires_in,
   };
 }
+
+const REVOKE_TIMEOUT_MS = 3000;
 
 const REFRESH_REJECTION_STATUSES = [400, 401, 403];
 
@@ -77,6 +84,12 @@ export function createApsAuth(
           ? new HttpError(401, 'Session expired')
           : toHttpError(err);
       }
+    },
+    revoke: async (refreshToken) => {
+      await client.revoke(refreshToken, clientId, TokenTypeHint.RefreshToken, {
+        clientSecret,
+        options: { timeout: REVOKE_TIMEOUT_MS },
+      });
     },
     getUser: async (accessToken) => {
       try {

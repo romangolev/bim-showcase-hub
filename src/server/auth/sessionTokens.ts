@@ -208,15 +208,9 @@ export async function getAccessToken(
       expiresIn: Math.floor((tokens.expiresAt - now) / 1000),
     };
   }
+  let refreshed: TokenSet;
   try {
-    const refreshed = await refreshOnce(auth, tokens.refreshToken);
-    const previous = session.aps;
-    storeTokens(session, refreshed, codec, now, tokens.issuedAt, now);
-    if (sessionCookieBytes(session) > MAX_COOKIE_BYTES) session.aps = previous;
-    return {
-      accessToken: refreshed.accessToken,
-      expiresIn: refreshed.expiresIn,
-    };
+    refreshed = await refreshOnce(auth, tokens.refreshToken);
   } catch (err) {
     const failure = toHttpError(err);
     if (failure.status === 401) {
@@ -225,4 +219,17 @@ export async function getAccessToken(
     }
     throw new HttpError(502, 'Upstream service error');
   }
+  storeTokens(session, refreshed, codec, now, tokens.issuedAt, now);
+  if (sessionCookieBytes(session) > MAX_COOKIE_BYTES) {
+    const user = readUser(session);
+    if (user) storeUser(session, { ...user, picture: null });
+  }
+  if (sessionCookieBytes(session) > MAX_COOKIE_BYTES) {
+    clearAuth(session);
+    throw new HttpError(401, 'Session too large, sign in again');
+  }
+  return {
+    accessToken: refreshed.accessToken,
+    expiresIn: refreshed.expiresIn,
+  };
 }

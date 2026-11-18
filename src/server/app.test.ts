@@ -24,6 +24,7 @@ function fakeAuth(overrides: Partial<ApsAuth> = {}): ApsAuth {
       expiresIn: 3600,
     }),
     getUser: vi.fn().mockResolvedValue({ name: 'Sam Smith', picture: null }),
+    revoke: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -275,6 +276,40 @@ describe('session and auth', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('signout revokes the refresh token once and clears the cookie', async () => {
+    const auth = fakeAuth();
+    const agent = request.agent(realApp(auth));
+    await signIn(agent);
+    const out = await agent.post('/api/auth/signout');
+    expect(out.status).toBe(204);
+    expect(auth.revoke).toHaveBeenCalledTimes(1);
+    expect(auth.revoke).toHaveBeenCalledWith('refresh-1');
+    expect((await agent.get('/api/session')).status).toBe(401);
+  });
+
+  it('signout still succeeds and logs no token when revoke fails', async () => {
+    const auth = fakeAuth({
+      revoke: vi.fn().mockRejectedValue(new Error('boom refresh-1')),
+    });
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const agent = request.agent(realApp(auth));
+    await signIn(agent);
+    const out = await agent.post('/api/auth/signout');
+    expect(out.status).toBe(204);
+    expect(JSON.stringify(spy.mock.calls)).not.toContain('refresh-1');
+    expect((await agent.get('/api/session')).status).toBe(401);
+  });
+
+  it('mock mode signout makes no revoke call', async () => {
+    const auth = fakeAuth();
+    const app = createApp(loadConfig({ MOCK_APS: '1' }), {
+      auth,
+      data: createMockDataService(),
+    });
+    expect((await request(app).post('/api/auth/signout')).status).toBe(204);
+    expect(auth.revoke).not.toHaveBeenCalled();
   });
 
   it('signout is fine when never signed in', async () => {

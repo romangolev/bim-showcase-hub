@@ -26,6 +26,7 @@ function fakeClient() {
       refresh_token: 'r2',
       expires_in: 3599,
     }),
+    revoke: vi.fn().mockResolvedValue({}),
     getUserInfo: vi.fn().mockResolvedValue({
       name: 'Sam Smith',
       picture: 'https://img/x.png',
@@ -63,6 +64,16 @@ describe('createApsAuth', () => {
     );
     await expect(auth.refresh('r')).resolves.toMatchObject({
       accessToken: 'a2',
+    });
+  });
+
+  it('revokes the refresh token with the client credentials', async () => {
+    const client = fakeClient();
+    const auth = createApsAuth(config, client as never);
+    await auth.revoke('r');
+    expect(client.revoke).toHaveBeenCalledWith('r', 'cid', 'refresh_token', {
+      clientSecret: 'csecret',
+      options: { timeout: 3000 },
     });
   });
 
