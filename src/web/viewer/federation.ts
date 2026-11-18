@@ -1,7 +1,6 @@
 import type {
   BubbleNode,
   DocumentNodeLoadOptions,
-  ViewerEvent,
   ViewerModel,
   ViewingDocument,
 } from './autodesk.js';
@@ -106,11 +105,4 @@ export function federatedLoadOptions(
   if (anchor.globalOffset) options.globalOffset = anchor.globalOffset;
   if (anchor.unit) options.applyScaling = anchor.unit;
   return options;
-}
-
-export function selectionIds(ev: ViewerEvent): number[] {
-  if (ev.selections) {
-    return ev.selections.flatMap((entry) => entry.dbIdArray ?? []);
-  }
-  return [...(ev.dbIdArray ?? [])];
 }
