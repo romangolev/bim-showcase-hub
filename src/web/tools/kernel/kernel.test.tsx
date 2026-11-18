@@ -231,7 +231,8 @@ describe('runOnce', () => {
     expect(start).toHaveBeenCalledTimes(2);
   });
 
-  it('keeps the kinds of one adapter apart and releases after a throw', () => {
+  it('keeps the kinds of one adapter apart and releases after a throw', async () => {
+    const { tasks } = await import('../../tasks/taskStore.js');
     const adapter = {} as ViewerAdapter;
     const never = () => new Promise<void>(() => undefined);
     runOnce(adapter, 'a', 'Export', never);
@@ -241,7 +242,11 @@ describe('runOnce', () => {
     const boom = () => {
       throw new Error('boom');
     };
-    expect(() => runOnce(adapter, 'c', 'Export', boom)).toThrow('boom');
+    expect(() => runOnce(adapter, 'c', 'Export', boom)).not.toThrow();
+    expect(tasks.getSnapshot().tasks.at(-1)).toMatchObject({
+      state: 'failed',
+      detail: 'boom',
+    });
     const again = vi.fn(never);
     runOnce(adapter, 'c', 'Export', again);
     expect(again).toHaveBeenCalledTimes(1);

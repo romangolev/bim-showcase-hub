@@ -115,7 +115,7 @@ describe('IfcExportTool', () => {
         },
       }),
     );
-    expect(() => throwing.exports?.[0]?.onExport()).toThrow('boom');
+    expect(() => throwing.exports?.[0]?.onExport()).not.toThrow();
     tool.contribute(context({ adapter: own })).exports?.[0]?.onExport();
     expect(exportToIfc).toHaveBeenCalledTimes(1);
   });
