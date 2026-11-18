@@ -17,7 +17,7 @@ Set these for Production and for Preview.
 
 | Variable | Required | Value |
 |---|---|---|
-| `SESSION_SECRET` | yes | A long random string, different per environment. Not `change-me` |
+| `SESSION_SECRET` | yes | A long random string, different per environment. Not `change-me`. It signs the cookie and derives the key that seals the Autodesk tokens, so changing it signs every user out |
 | `APS_CLIENT_ID` | yes | Client ID of the APS app |
 | `APS_CLIENT_SECRET` | yes | Client secret of the APS app |
 | `APS_CALLBACK_URL` | yes | `https://<host>/api/auth/callback` for that environment |
@@ -25,6 +25,8 @@ Set these for Production and for Preview.
 Ignored on Vercel: `MOCK_APS` (production ignores it), `VITE_MOCK_APS` (dev server only), `PORT` (Vercel assigns it) and `STATIC_DIR` (the function does not serve static files). `NODE_ENV` is `production` on Vercel builds and functions.
 
 `APS_CALLBACK_URL` is read as a plain environment variable, so Preview needs its own value. A preview deployment URL changes per deployment, so this project sets the Preview `APS_CALLBACK_URL` to the stable branch alias URL (`https://<branch-alias>/api/auth/callback`) and registers that same URL in the APS app. Open the preview through the alias, not through a per-deployment URL, or the callback will not match.
+
+Sessions are sealed cookies, so the function needs no database or shared store; see [architecture.md](architecture.md#sessions). Sign-out also revokes the Autodesk refresh token (best effort).
 
 Never put secret values in the repository, in these docs or in `vercel.json`.
 
@@ -51,6 +53,8 @@ To see hubs from Autodesk Construction Cloud or BIM 360 Docs, an account adminis
 | `/api/...` returns 500 and the function log shows `SESSION_SECRET is required in production` or `APS_CLIENT_ID and APS_CLIENT_SECRET are required` | Missing environment variables for that environment | Add them for Production or Preview and redeploy. Variables apply only to new deployments |
 | Sign-in returns to the app but shows the landing page again | Cookie not stored, or `SESSION_SECRET` changed between requests | Check that the site runs on HTTPS and that `SESSION_SECRET` is stable |
 | Redirect lands on `/?auth_error=access_denied` | The user declined access at Autodesk | Sign in again |
-| 400 "Invalid state" on the callback | The session cookie with the sign-in state was lost, for example by starting sign-in on another host | Start sign-in again from the same host that receives the callback |
+| Redirect lands on `/?auth_error=invalid_state` | The session cookie with the sign-in state was lost, for example by starting sign-in on another host | Start sign-in again from the same host that receives the callback |
+| Redirect lands on `/?auth_error=upstream_error` | The code exchange or user lookup failed, or the session did not fit in the cookie (3800 bytes) | Try again; the function log has a `sign-in failed` line |
+| The app says the session has ended | The 12 hour window ran out (it renews only with an Autodesk token refresh) or the 7 day cap was reached | Use Sign in again in the banner |
 | Signed in, but the tree shows no hubs | The ACC or BIM 360 account has not added the app as a custom integration | Follow the ACC and BIM 360 Docs step above |
 | Model page says the model could not be loaded | The version is still translating, or the account has no access | Open another version, or retry later |

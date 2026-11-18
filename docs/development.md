@@ -29,7 +29,7 @@ npm run dev:mock
 | `npm test` | `vitest run` |
 | `npm run e2e:setup` | Create `e2e/.venv`, install Camoufox, download the browser |
 | `npm run e2e:signin` | Open a window to sign in once |
-| `npm run e2e:smoke` | Smoke test against the real app |
+| `npm run e2e:smoke` | Smoke test against the real app (accepts browser dialogs) |
 | `npm run e2e:glb` | Open a real Revit model and verify the GLB export (two-legged token, no sign-in) |
 | `npm run e2e:ifc` | Open a real Revit model and verify the IFC export with IfcOpenShell (two-legged token, no sign-in) |
 
@@ -43,11 +43,11 @@ The theme lives in `src/web/theme`. State is `document.documentElement.dataset.t
 
 ## Layout in development
 
-The layout is saved in `localStorage` under `bsh.layout.v2` (a `bsh.layout.v1` record is migrated once), and the open model tabs in `sessionStorage` under `bsh.models.open`. Run `localStorage.removeItem('bsh.layout.v2')` or use Reset layout in the top bar Panes menu to get the default arrangement back; `sessionStorage.removeItem('bsh.models.open')` forgets the open tabs. In mock mode `window.__bshLayout` exposes the layout API (`movePane`, `togglePane`, `setCollapsed`, `resetLayout`, `openPanes`, `location`, `mode`, `read`, `models`, `activateModel`, `closeModel`); it does not exist in a production build. The mock viewer returns a slightly different number of rows per URN, so the summary changes between open models. See [layout.md](layout.md).
+The layout is saved in `localStorage` under `bsh.layout.v2` (a `bsh.layout.v1` record is migrated once), and the open model tabs in `sessionStorage` under `bsh.models.open`. Run `localStorage.removeItem('bsh.layout.v2')` or use Reset layout in the top bar Panes menu to get the default arrangement back; `sessionStorage.removeItem('bsh.models.open')` forgets the open tabs. In mock mode `window.__bshLayout` exposes the layout API (`movePane`, `togglePane`, `setCollapsed`, `resetLayout`, `openPanes`, `location`, `mode`, `read`, `models`, `activateModel`, `closeModel`); it does not exist in a production build. Pane settings are `localStorage` keys: the single Summary and Dashboard panes use `bsh.summary.*` and `bsh.dashboard.*`, panes added from the Panes menu use `bsh.pane.chart.<n>.v1` and `bsh.pane.modelSummary.<n>.v1`, and the list of added panes is `bsh.layout.instances.v1`. Tool settings are `bsh.tool.<id>.v1`, saved items `bsh.saved.v1` and recent commands `bsh.commands.recent.v1`. Sign-out clears the personal ones (see Persisted records in [extensions.md](extensions.md#persisted-records)). The mock viewer returns a slightly different number of rows per URN, so the summary changes between open models. See [layout.md](layout.md).
 
 ## Vitest
 
-`vitest.config.ts` defines two projects. `server` runs `src/server/**/*.test.ts` and `src/shared/**/*.test.ts` in Node. `web` runs `src/web/**/*.test.{ts,tsx}` in jsdom with Testing Library. `vitest.setup.ts` installs a no-op `ResizeObserver` when jsdom has none, so the real dockview runs in layout tests. Server routes are tested with supertest. The viewer adapter contract is tested against the mock adapter.
+`vitest.config.ts` defines two projects. `server` runs `src/server/**/*.test.ts` and `src/shared/**/*.test.ts` in Node. `web` runs `src/web/**/*.test.{ts,tsx}` in jsdom with Testing Library. `vitest.setup.ts` installs a no-op `ResizeObserver` when jsdom has none, so the real dockview runs in layout tests. Server routes are tested with supertest. The viewer adapter contract is tested against the mock adapter. Storage tests swap in `memoryAdapter()` with `setStorageAdapter` (`src/web/persistedRecord.test.tsx`); component tests use `installMemoryStorage()` from `src/web/test/mockApi.ts`. Pane lifecycle tests run `createPaneLifecycle` with fakes, without dockview (`src/web/layout/paneLifecycle.test.ts`).
 
 ## Environment variables
 
@@ -75,7 +75,7 @@ Mock mode needs `MOCK_APS=1` and a non-production `NODE_ENV`. The server compute
 
 ## Session tokens and CSP
 
-The session cookie holds the Autodesk tokens as one AES-256-GCM sealed string (key derived from `SESSION_SECRET`) with a 12 hour window enforced on the server and a 7 day cap from sign-in. The window slides only when a request needs an Autodesk token refresh (about hourly while the app is in use); that is the single place the cookie is rewritten, so a renewal can never overwrite a rotated refresh token. A session that needs no refresh ends 12 hours after its last refresh. Sign-out clears the browser cookie, but a copied cookie stays valid until it expires; real revocation needs a server-side session store. A refresh rejection answers 401 without clearing the cookie, so parallel requests on several instances cannot sign the user out.
+The session cookie holds the Autodesk tokens as one AES-256-GCM sealed string (key derived from `SESSION_SECRET`) with a 12 hour window enforced on the server and a 7 day cap from sign-in. The window slides only when a request needs an Autodesk token refresh (about hourly while the app is in use); that is the single place the cookie is rewritten, so a renewal can never overwrite a rotated refresh token. A session that needs no refresh ends 12 hours after its last refresh. Sign-out clears the cookie and asks Autodesk to revoke the refresh token (best effort, a failure is only logged), so a copied cookie cannot refresh after that, though its access token works until it expires (about an hour); there is no server-side session store. A refresh rejection answers 401 and clears the cookie only on the client's retry (`X-Auth-Retry: 1`), so parallel requests on several instances cannot sign the user out. The cookie must stay under 3800 bytes: a refresh that would exceed it drops the user's picture first, then ends the session.
 
 `Content-Security-Policy-Report-Only` is set in `vercel.json` and by the Express production path (`src/server/csp.ts`), and a test keeps the two equal. It is report-only because it has not been tested against the real Viewer. To enforce it, open the real app, check the browser console for violation reports, adjust the policy in both places, then rename the header to `Content-Security-Policy`.
 
@@ -120,7 +120,7 @@ e2e/.venv/bin/python -m camoufox fetch
 
 **signin.py** (`npm run e2e:signin`). Opens a visible window on `E2E_BASE_URL` with the persistent profile. Sign in to Autodesk in that window. The script polls `/api/session` for up to 15 minutes, prints the signed-in name and exits 0. Run it against the same `E2E_BASE_URL` you will test, because the session cookie is per origin.
 
-**smoke.py** (`npm run e2e:smoke`). Reuses the profile and checks the real app:
+**smoke.py** (`npm run e2e:smoke`). Reuses the profile and checks the real app. It accepts every browser dialog, because a large model triggers the confirmation before an export of more than 20,000 rows:
 
 - the session is signed in (exit 2 if not)
 - `/api/health` reports `mock: false`
@@ -178,6 +178,10 @@ It writes `01-home.png`, `02-model.png`, `03-after-export.png`, `05-viewer-chrom
 - the viewer resizes after the document tree pane closes
 - no horizontal overflow at 1440x900 and 390x844
 - no uncaught page errors
+- also checked in the same run: lock and maximize, the active pane ring, the session banner, Settings and saved items import and export, the paint palette, Pinned and Recent, tree metadata and sort, the summary and dashboard tools, tree resize, share links and presentation mode
+- command palette: opens with Ctrl+K as a combobox over a listbox, runs commands, and a tool settings command opens that tool's window
+- Task Center: the top bar button appears once a model has loaded, the list shows the load as done, Escape closes it and one live region announces the finish; each of the three exports is announced once and listed with its counts, none offers Cancel after finishing, and the viewer shows no export badge
+- pane families: New chart twice and New model summary from the Panes menu, specs saved per instance under `bsh.pane.chart.<n>.v1` and `bsh.pane.modelSummary.<n>.v1`, a summary pane pinned to the model it was made for, panes and specs surviving a reload (also with no model open, with their empty states), and closing a pane removing its spec
 
 It writes screenshots, `export.xlsx` and `mock-report.json` to `E2E_OUTPUT_DIR`.
 
@@ -199,7 +203,7 @@ The checks ignore failed requests to `cdn.derivative.autodesk.com` (404 for opti
 
 ### Session lifetime and the profile
 
-The session cookie (`bim-hub-session`, `cookie-session`) has `maxAge` of 12 hours (`SESSION_MAX_AGE_MS`), and the sealed token carries the same absolute cap from sign-in, and a token refresh moves both forward (never past 7 days from sign-in). `/api/session` returns `expiresAt`, the real end of the current window. The app warns shortly before it (Settings, Session, default 10 minutes, 0 turns it off) and, when any request answers 401, keeps the layout and open models mounted and shows a "Sign in again" banner instead of the landing page. Sign-in again is a full redirect, so queries and the viewer token reload with the page. Run `npm run e2e:signin` again when `smoke.py` exits 2.
+The session cookie (`bim-hub-session`, `cookie-session`) has `maxAge` of 12 hours (`SESSION_MAX_AGE_MS`), and the sealed token also carries a 7 day cap from sign-in. A token refresh moves the 12 hour window forward, never past that cap. `/api/session` returns `expiresAt`, the real end of the current window. The app warns shortly before it (Settings, Session, default 10 minutes, 0 turns it off) and, when any request answers 401, keeps the layout and open models mounted and shows a "Sign in again" banner instead of the landing page. Sign-in again is a full redirect, so queries and the viewer token reload with the page. Run `npm run e2e:signin` again when `smoke.py` exits 2.
 
 `e2e/.profile` contains cookies that are equivalent to your Autodesk login for the app. It is gitignored along with `e2e/.venv` and `e2e/output`. Never commit, copy or share it. Do not point `E2E_PROFILE_DIR` at a folder inside a synced or shared location.
 
