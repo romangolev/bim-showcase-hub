@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { buildToolGroupSpec } from '../extensions/viewerTools.js';
+import { buildToolGroup } from '../test/toolGroup.js';
 import {
   type AutodeskViewing,
   autodeskWindow,
@@ -321,7 +321,7 @@ function makeAdapter(): RealViewerAdapter {
 }
 
 function fullSpec() {
-  const base = buildToolGroupSpec(adapter);
+  const base = buildToolGroup(adapter);
   const exportTool = base.exports[0];
   if (!base.paint || !exportTool) throw new Error('tool spec incomplete');
   return { ...base, paint: base.paint, exportTool };
@@ -378,7 +378,7 @@ afterEach(() => {
 describe('RealViewerAdapter tool group extension', () => {
   it('registers an Autodesk extension and mounts one control group after the model loads', async () => {
     makeAdapter();
-    adapter.registerToolGroup(buildToolGroupSpec(adapter));
+    adapter.registerToolGroup(buildToolGroup(adapter));
     await adapter.load('dXJu');
     const viewer = viewers[0] as FakeViewer;
     expect(registerSpy).toHaveBeenCalledTimes(1);
@@ -405,9 +405,9 @@ describe('RealViewerAdapter tool group extension', () => {
       'Select elements to paint',
     ]);
     expect(swatches.map((s) => s.iconClass)).toEqual([
-      'bsh-ico-paint-red',
-      'bsh-ico-paint-green',
-      'bsh-ico-paint-blue',
+      'bsh-ico-paint-swatch',
+      'bsh-ico-paint-swatch',
+      'bsh-ico-paint-swatch',
     ]);
     expect(reset.iconClass).toBe('bsh-ico-reset');
     expect(exportButton.tooltip).toBe('Export to Excel');
@@ -423,16 +423,16 @@ describe('RealViewerAdapter tool group extension', () => {
     await adapter.load('dXJu');
     const viewer = viewers[0] as FakeViewer;
     expect(viewer.toolbar.groups).toHaveLength(0);
-    adapter.registerToolGroup(buildToolGroupSpec(adapter));
+    adapter.registerToolGroup(buildToolGroup(adapter));
     await vi.waitFor(() => expect(viewer.toolbar.groups).toHaveLength(1));
   });
 
   it('registers the extension class once across adapters', async () => {
     makeAdapter();
-    adapter.registerToolGroup(buildToolGroupSpec(adapter));
+    adapter.registerToolGroup(buildToolGroup(adapter));
     await adapter.load('dXJu');
     const second = new RealViewerAdapter(document.createElement('div'));
-    second.registerToolGroup(buildToolGroupSpec(second));
+    second.registerToolGroup(buildToolGroup(second));
     await second.load('dXJu');
     expect(registerSpy).toHaveBeenCalledTimes(1);
     expect(viewers[1]?.toolbar.groups).toHaveLength(1);
@@ -491,7 +491,7 @@ describe('RealViewerAdapter tool group extension', () => {
 
   it('unloads cleanly when the registration is disposed', async () => {
     makeAdapter();
-    const dispose = adapter.registerToolGroup(buildToolGroupSpec(adapter));
+    const dispose = adapter.registerToolGroup(buildToolGroup(adapter));
     await adapter.load('dXJu');
     const viewer = viewers[0] as FakeViewer;
     expect(viewer.toolbar.groups).toHaveLength(1);
@@ -510,14 +510,14 @@ describe('RealViewerAdapter tool group extension', () => {
     viewer.loadGate = new Promise<void>((resolve) => {
       release = resolve;
     });
-    const dispose = adapter.registerToolGroup(buildToolGroupSpec(adapter));
+    const dispose = adapter.registerToolGroup(buildToolGroup(adapter));
     dispose();
     viewer.loadGate = null;
     release();
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(viewer.toolbar.groups).toHaveLength(0);
     expect(viewer.extensions.size).toBe(0);
-    adapter.registerToolGroup(buildToolGroupSpec(adapter));
+    adapter.registerToolGroup(buildToolGroup(adapter));
     await vi.waitFor(() => expect(viewer.toolbar.groups).toHaveLength(1));
     expect(viewer.extensions.size).toBe(1);
   });
@@ -563,7 +563,7 @@ describe('RealViewerAdapter tool group extension', () => {
 
     it('ends with no group when the last registration is disposed while loading', async () => {
       const { viewer, open } = await gatedViewer();
-      const dispose = adapter.registerToolGroup(buildToolGroupSpec(adapter));
+      const dispose = adapter.registerToolGroup(buildToolGroup(adapter));
       dispose();
       open();
       await settle();
@@ -585,20 +585,20 @@ describe('RealViewerAdapter tool group extension', () => {
         return unload(id);
       };
       const load = vi.spyOn(viewer, 'loadExtension');
-      const dispose = adapter.registerToolGroup(buildToolGroupSpec(adapter));
+      const dispose = adapter.registerToolGroup(buildToolGroup(adapter));
       await settle();
       dispose();
       await settle();
       expect(thrown).toBe(true);
-      adapter.registerToolGroup(buildToolGroupSpec(adapter));
+      adapter.registerToolGroup(buildToolGroup(adapter));
       await settle();
       expect(load).toHaveBeenCalledTimes(2);
     });
 
     it('ends with none after register, dispose, register, dispose in a row', async () => {
       const { viewer, open } = await gatedViewer();
-      adapter.registerToolGroup(buildToolGroupSpec(adapter))();
-      adapter.registerToolGroup(buildToolGroupSpec(adapter))();
+      adapter.registerToolGroup(buildToolGroup(adapter))();
+      adapter.registerToolGroup(buildToolGroup(adapter))();
       open();
       await settle();
       expect(viewer.toolbar.groups).toHaveLength(0);
@@ -608,7 +608,7 @@ describe('RealViewerAdapter tool group extension', () => {
 
   it('removes the group when the adapter is destroyed', async () => {
     makeAdapter();
-    adapter.registerToolGroup(buildToolGroupSpec(adapter));
+    adapter.registerToolGroup(buildToolGroup(adapter));
     await adapter.load('dXJu');
     const viewer = viewers[0] as FakeViewer;
     adapter.destroy();
@@ -694,7 +694,7 @@ describe('RealViewerAdapter tool group extension', () => {
 
   it('disables the swatches again after the model is replaced', async () => {
     makeAdapter();
-    adapter.registerToolGroup(buildToolGroupSpec(adapter));
+    adapter.registerToolGroup(buildToolGroup(adapter));
     await adapter.load('dXJu');
     const first = viewers[0] as FakeViewer;
     first.select([11]);

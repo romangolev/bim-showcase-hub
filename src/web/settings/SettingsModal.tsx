@@ -1,76 +1,9 @@
 import { useId } from 'react';
+import { SwitchRow } from '../components/SwitchRow.js';
 import type { ModalDefinition } from '../modal/types.js';
-import { DashboardSettingsBody } from '../panels/DashboardSettings.js';
-import { SummarySettingsBody } from '../panels/SummarySettings.js';
 import { useTheme } from '../theme/ThemeContext.js';
-import { ExcelSettingsSection } from './ExcelSettingsSection.js';
-import { IfcSettingsSection } from './IfcSettingsSection.js';
-import { PaintSettingsSection } from './PaintSettingsSection.js';
 import { useSettings } from './SettingsContext.js';
-
-interface ExperimentalFeature {
-  key: 'paintBrushes' | 'excelExport' | 'glbExport' | 'ifcExport';
-  label: string;
-  description: string;
-}
-
-export const EXPERIMENTAL_FEATURES: readonly ExperimentalFeature[] = [
-  {
-    key: 'paintBrushes',
-    label: 'Paint brushes',
-    description: 'Colour the selected elements from the viewer toolbar.',
-  },
-  {
-    key: 'excelExport',
-    label: 'Excel export',
-    description:
-      'Export element properties to an .xlsx file from the viewer toolbar.',
-  },
-  {
-    key: 'glbExport',
-    label: 'Geometry export',
-    description:
-      'Export the model geometry to a .glb file from the viewer toolbar.',
-  },
-  {
-    key: 'ifcExport',
-    label: 'IFC export',
-    description:
-      'Export the model to an .ifc file from the viewer toolbar, using the IFC export settings below.',
-  },
-];
-
-interface SwitchRowProps {
-  label: string;
-  description?: string;
-  checked: boolean;
-  onChange: () => void;
-}
-
-function SwitchRow({ label, description, checked, onChange }: SwitchRowProps) {
-  const hintId = useId();
-  return (
-    <label className="switch-row">
-      <span className="switch-row__text">
-        <span className="switch-row__label">{label}</span>
-        {description ? (
-          <span id={hintId} className="switch-row__hint">
-            {description}
-          </span>
-        ) : null}
-      </span>
-      <input
-        type="checkbox"
-        role="switch"
-        checked={checked}
-        aria-checked={checked}
-        aria-label={label}
-        aria-describedby={description ? hintId : undefined}
-        onChange={onChange}
-      />
-    </label>
-  );
-}
+import { SettingsEntries } from './SettingsEntries.js';
 
 export function SettingsBody() {
   const { theme, toggleTheme } = useTheme();
@@ -91,23 +24,6 @@ export function SettingsBody() {
           checked={theme === 'dark'}
           onChange={toggleTheme}
         />
-      </section>
-      <section
-        className="settings__section"
-        aria-labelledby="settings-experimental"
-      >
-        <h3 id="settings-experimental" className="settings__heading">
-          Experimental features
-        </h3>
-        {EXPERIMENTAL_FEATURES.map((feature) => (
-          <SwitchRow
-            key={feature.key}
-            label={feature.label}
-            description={feature.description}
-            checked={settings[feature.key]}
-            onChange={() => setSetting(feature.key, !settings[feature.key])}
-          />
-        ))}
       </section>
       <section className="settings__section" aria-labelledby="settings-session">
         <h3 id="settings-session" className="settings__heading">
@@ -163,24 +79,7 @@ export function SettingsBody() {
           </span>
         </div>
       </section>
-      <section className="settings__section" aria-labelledby="settings-summary">
-        <h3 id="settings-summary" className="settings__heading">
-          Model summary
-        </h3>
-        <SummarySettingsBody />
-      </section>
-      <section
-        className="settings__section"
-        aria-labelledby="settings-dashboard"
-      >
-        <h3 id="settings-dashboard" className="settings__heading">
-          Dashboard
-        </h3>
-        <DashboardSettingsBody />
-      </section>
-      <PaintSettingsSection />
-      <ExcelSettingsSection />
-      <IfcSettingsSection />
+      <SettingsEntries />
     </div>
   );
 }

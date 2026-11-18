@@ -1,7 +1,7 @@
 import { buildIfc } from '../ifc/buildIfc.js';
 import { mapToIfc } from '../ifc/mapToIfc.js';
+import { DEFAULT_IFC_SETTINGS } from '../ifc/settings.js';
 import type { IfcSettings } from '../ifc/types.js';
-import { DEFAULT_IFC_SETTINGS } from '../settings/settings.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { saveBlob } from './excelExport.js';
 import {

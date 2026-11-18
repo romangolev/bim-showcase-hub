@@ -9,7 +9,6 @@ import {
   useSettings,
   writeSettings,
 } from './index.js';
-import { readExcelSettings } from './settings.js';
 
 beforeEach(() => {
   installMemoryStorage();
@@ -18,6 +17,15 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks();
   window.localStorage.clear();
+});
+
+describe('app settings', () => {
+  it('hold only app-level fields', () => {
+    expect(Object.keys(DEFAULT_SETTINGS).sort()).toEqual([
+      'recentsLength',
+      'sessionWarnMinutes',
+    ]);
+  });
 });
 
 describe('readSettings', () => {
@@ -30,105 +38,25 @@ describe('readSettings', () => {
     expect(readSettings()).toEqual(DEFAULT_SETTINGS);
   });
 
-  it('keeps valid booleans and defaults the rest', () => {
+  it('keeps valid numbers, clamps them and defaults the rest', () => {
     window.localStorage.setItem(
       SETTINGS_STORAGE_KEY,
-      JSON.stringify({ paintBrushes: false, excelExport: 'yes' }),
+      JSON.stringify({ sessionWarnMinutes: 500, recentsLength: 'many' }),
     );
     expect(readSettings()).toEqual({
       ...DEFAULT_SETTINGS,
-      paintBrushes: false,
+      sessionWarnMinutes: 120,
     });
   });
 
-  it('validates the nested IFC settings field by field', () => {
+  it('ignores tool fields that are still in an old blob', () => {
     window.localStorage.setItem(
       SETTINGS_STORAGE_KEY,
-      JSON.stringify({
-        ifcExport: false,
-        ifc: {
-          classOverrides: {
-            Walls: 'IfcCovering',
-            Bad: 'IfcNonsense',
-            ' ': 'IfcWall',
-          },
-          psetExclude: [' Dimensions ', '', 7],
-          psetInclude: 'nope',
-          levelProperty: '',
-          fallbackStorey: 'Ground',
-          projectName: 'P',
-          lengthUnit: 'km',
-        },
-      }),
+      JSON.stringify({ recentsLength: 8, paintBrushes: false, ifc: {} }),
     );
-    const { ifc, ifcExport } = readSettings();
-    expect(ifcExport).toBe(false);
-    expect(ifc.classOverrides).toEqual({ Walls: 'IfcCovering' });
-    expect(ifc.psetExclude).toEqual(['Dimensions']);
-    expect(ifc.psetInclude).toEqual([]);
-    expect(ifc.levelProperty).toBe('Level');
-    expect(ifc.fallbackStorey).toBe('Ground');
-    expect(ifc.projectName).toBe('P');
-    expect(ifc.lengthUnit).toBe('m');
+    expect(readSettings()).toEqual({ ...DEFAULT_SETTINGS, recentsLength: 8 });
   });
 
-  it('loads a record stored before the IFC settings existed', () => {
-    window.localStorage.setItem(
-      SETTINGS_STORAGE_KEY,
-      JSON.stringify({
-        paintBrushes: true,
-        excelExport: true,
-        glbExport: false,
-      }),
-    );
-    expect(readSettings()).toEqual({ ...DEFAULT_SETTINGS, glbExport: false });
-  });
-});
-
-function Probe() {
-  const { settings, setSetting } = useSettings();
-  return (
-    <button type="button" onClick={() => setSetting('paintBrushes', false)}>
-      paint {String(settings.paintBrushes)}
-    </button>
-  );
-}
-
-describe('table export settings', () => {
-  it('keeps valid choices and defaults the rest', () => {
-    window.localStorage.setItem(
-      SETTINGS_STORAGE_KEY,
-      JSON.stringify({
-        excel: {
-          format: 'csv',
-          scope: 'nope',
-          metadata: true,
-          namePattern: '',
-        },
-      }),
-    );
-    expect(readSettings().excel).toEqual({
-      ...DEFAULT_SETTINGS.excel,
-      format: 'csv',
-      metadata: true,
-    });
-  });
-});
-
-describe('visible scope setting', () => {
-  it('accepts the visible scope and a model choice', () => {
-    window.localStorage.setItem(
-      SETTINGS_STORAGE_KEY,
-      JSON.stringify({ excel: { scope: 'visible', modelScope: 'urn-b' } }),
-    );
-    expect(readSettings().excel).toMatchObject({
-      scope: 'visible',
-      modelScope: 'urn-b',
-    });
-  });
-});
-
-describe('settings edge cases', () => {
   it.each(['null', '"5"', '[]'])('defaults for non-object JSON %s', (raw) => {
     window.localStorage.setItem(SETTINGS_STORAGE_KEY, raw);
     expect(readSettings()).toEqual(DEFAULT_SETTINGS);
@@ -142,6 +70,15 @@ describe('settings edge cases', () => {
   });
 });
 
+function Probe() {
+  const { settings, setSetting } = useSettings();
+  return (
+    <button type="button" onClick={() => setSetting('recentsLength', 2)}>
+      recents {settings.recentsLength}
+    </button>
+  );
+}
+
 describe('SettingsProvider', () => {
   it('persists a changed setting', () => {
     render(
@@ -149,38 +86,15 @@ describe('SettingsProvider', () => {
         <Probe />
       </SettingsProvider>,
     );
-    fireEvent.click(screen.getByText('paint true'));
-    expect(screen.getByText('paint false')).toBeTruthy();
+    fireEvent.click(screen.getByText('recents 5'));
+    expect(screen.getByText('recents 2')).toBeTruthy();
     expect(
       JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '{}'),
-    ).toMatchObject({ paintBrushes: false });
+    ).toEqual({ sessionWarnMinutes: 10, recentsLength: 2 });
   });
 
   it('works without a provider using defaults', () => {
     render(<Probe />);
-    expect(screen.getByText('paint true')).toBeTruthy();
-  });
-});
-
-describe('readExcelSettings', () => {
-  it('keeps valid values and falls back on bad ones', () => {
-    expect(
-      readExcelSettings({
-        csvDelimiter: ';',
-        decimalMark: ',',
-        includeHeader: false,
-        exporterName: false,
-        summarySheet: true,
-      }),
-    ).toMatchObject({
-      csvDelimiter: ';',
-      decimalMark: ',',
-      includeHeader: false,
-      exporterName: false,
-      summarySheet: true,
-    });
-    expect(
-      readExcelSettings({ csvDelimiter: '|', decimalMark: 'x' }),
-    ).toMatchObject({ csvDelimiter: ',', decimalMark: '.' });
+    expect(screen.getByText('recents 5')).toBeTruthy();
   });
 });

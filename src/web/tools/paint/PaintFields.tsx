@@ -4,14 +4,18 @@ import {
   DEFAULT_PAINT_PALETTE,
   MAX_PAINT_SWATCHES,
   NEW_SWATCH_COLOR,
-} from '../extensions/paintBrushes.js';
-import { useSettings } from './SettingsContext.js';
+} from '../../extensions/paintBrushes.js';
+import { usePersistedSetting } from '../kernel/persistedSetting.js';
+import { PAINT_SETTINGS } from './paintSettings.js';
 
-export function PaintSettingsSection() {
-  const { settings, setSetting } = useSettings();
-  const { paintPalette: palette, paintIntensity: intensity } = settings;
+export function PaintFields() {
+  const [{ palette, intensity }, setSettings] =
+    usePersistedSetting(PAINT_SETTINGS);
   const intensityId = useId();
-  const setPalette = (next: string[]) => setSetting('paintPalette', next);
+  const setPalette = (next: string[]) =>
+    setSettings((current) => ({ ...current, palette: next }));
+  const setIntensity = (next: number) =>
+    setSettings((current) => ({ ...current, intensity: next }));
   return (
     <section className="settings__section" aria-labelledby="settings-paint">
       <h3 id="settings-paint" className="settings__heading">
@@ -22,7 +26,6 @@ export function PaintSettingsSection() {
       </p>
       <ul className="settings__palette">
         {palette.map((color, index) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: the colour is the edited value, so the slot must stay mounted
           <li key={index} className="settings__palette-item">
             <input
               type="color"
@@ -62,10 +65,13 @@ export function PaintSettingsSection() {
         <button
           type="button"
           className="btn"
-          onClick={() => {
-            setPalette([...DEFAULT_PAINT_PALETTE]);
-            setSetting('paintIntensity', DEFAULT_PAINT_INTENSITY);
-          }}
+          onClick={() =>
+            setSettings((current) => ({
+              ...current,
+              palette: [...DEFAULT_PAINT_PALETTE],
+              intensity: DEFAULT_PAINT_INTENSITY,
+            }))
+          }
         >
           Reset palette
         </button>
@@ -81,9 +87,7 @@ export function PaintSettingsSection() {
           max={1}
           step={0.05}
           value={intensity}
-          onChange={(event) =>
-            setSetting('paintIntensity', Number(event.target.value))
-          }
+          onChange={(event) => setIntensity(Number(event.target.value))}
         />
         <span className="settings__hint">
           How strongly the colour replaces the model's own colour. This is

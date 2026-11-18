@@ -4,16 +4,16 @@ import {
   DECIMAL_LABELS,
   DELIMITER_LABELS,
   type DecimalMark,
-  type ExcelSettings,
   type ExportFormat,
   type ExportScope,
   FORMAT_LABELS,
   SCOPE_LABELS,
-} from '../extensions/exportFormats.js';
-import { modelScopeOptions, resolveScope } from '../viewer/modelScope.js';
-import { useModels } from '../viewer/useModels.js';
-import { useActiveViewer } from '../viewer/ViewerContext.js';
-import { useSettings } from './SettingsContext.js';
+} from '../../extensions/exportFormats.js';
+import { modelScopeOptions, resolveScope } from '../../viewer/modelScope.js';
+import { useModels } from '../../viewer/useModels.js';
+import { useActiveViewer } from '../../viewer/ViewerContext.js';
+import { usePersistedSetting } from '../kernel/persistedSetting.js';
+import { EXCEL_SETTINGS, type ExcelToolSettings } from './excelSettings.js';
 
 interface SelectFieldProps<T extends string> {
   label: string;
@@ -47,9 +47,8 @@ function SelectField<T extends string>({
   );
 }
 
-export function ExcelSettingsSection() {
-  const { settings, setSetting } = useSettings();
-  const excel = settings.excel;
+export function ExcelFields() {
+  const [excel, setExcel] = usePersistedSetting(EXCEL_SETTINGS);
   const models = useModels(useActiveViewer());
   const modelOptions = modelScopeOptions(models);
   const patternId = useId();
@@ -57,8 +56,8 @@ export function ExcelSettingsSection() {
   const headerId = useId();
   const exporterId = useId();
   const summaryId = useId();
-  const update = (patch: Partial<ExcelSettings>) =>
-    setSetting('excel', { ...excel, ...patch });
+  const update = (patch: Partial<ExcelToolSettings>) =>
+    setExcel((current) => ({ ...current, ...patch }));
   return (
     <section className="settings__section" aria-labelledby="settings-excel">
       <h3 id="settings-excel" className="settings__heading">

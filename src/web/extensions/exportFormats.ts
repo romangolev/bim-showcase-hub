@@ -1,3 +1,4 @@
+import { flag, isRecord } from '../../shared/guards.js';
 import type { ModelDbId } from '../viewer/modelSet.js';
 import type { ExportCell } from './excelExport.js';
 
@@ -40,6 +41,37 @@ export const DEFAULT_EXCEL_SETTINGS: ExcelSettings = {
   exporterName: true,
   summarySheet: false,
 };
+
+function required(value: unknown, fallback: string): string {
+  const next = typeof value === 'string' ? value.trim() : fallback;
+  return next || fallback;
+}
+
+export function readExcelSettings(value: unknown): ExcelSettings {
+  const source = isRecord(value) ? value : {};
+  const d = DEFAULT_EXCEL_SETTINGS;
+  const format = (['xlsx', 'csv', 'json', 'copy'] as ExportFormat[]).find(
+    (item) => item === source.format,
+  );
+  const scope = (
+    ['all', 'selected', 'isolated', 'visible'] as ExportScope[]
+  ).find((item) => item === source.scope);
+  return {
+    format: format ?? d.format,
+    scope: scope ?? d.scope,
+    modelScope: required(source.modelScope, d.modelScope),
+    metadata: flag(source.metadata, d.metadata),
+    namePattern: required(source.namePattern, d.namePattern),
+    csvDelimiter:
+      ([',', ';', '\t'] as const).find(
+        (item) => item === source.csvDelimiter,
+      ) ?? d.csvDelimiter,
+    decimalMark: source.decimalMark === ',' ? ',' : d.decimalMark,
+    includeHeader: flag(source.includeHeader, d.includeHeader),
+    exporterName: flag(source.exporterName, d.exporterName),
+    summarySheet: flag(source.summarySheet, d.summarySheet),
+  };
+}
 
 export const DELIMITER_LABELS: Record<CsvDelimiter, string> = {
   ',': 'Comma (,)',

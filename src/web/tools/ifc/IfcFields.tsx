@@ -1,7 +1,7 @@
 import { useId, useState } from 'react';
-import { ALLOWED_CLASSES, PROXY_CLASS } from '../ifc/classTable.js';
-import type { IfcSettings } from '../ifc/types.js';
-import { useSettings } from './SettingsContext.js';
+import { ALLOWED_CLASSES, PROXY_CLASS } from '../../ifc/classTable.js';
+import { usePersistedSetting } from '../kernel/persistedSetting.js';
+import { IFC_SETTINGS, type IfcToolSettings } from './ifcSettings.js';
 
 type TextKey =
   | 'projectName'
@@ -143,11 +143,10 @@ const TEXT_FIELDS: readonly { key: TextKey; label: string }[] = [
   { key: 'fallbackStorey', label: 'Fallback storey' },
 ];
 
-export function IfcSettingsSection() {
-  const { settings, setSetting } = useSettings();
-  const ifc = settings.ifc;
-  const update = (patch: Partial<IfcSettings>) =>
-    setSetting('ifc', { ...ifc, ...patch });
+export function IfcFields() {
+  const [ifc, setIfc] = usePersistedSetting(IFC_SETTINGS);
+  const update = (patch: Partial<IfcToolSettings>) =>
+    setIfc((current) => ({ ...current, ...patch }));
   const unitId = useId();
   return (
     <section className="settings__section" aria-labelledby="settings-ifc">

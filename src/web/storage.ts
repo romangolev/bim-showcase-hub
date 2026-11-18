@@ -53,15 +53,10 @@ function remove(read: () => Storage, key: string) {
   }
 }
 
-function scrubIfcIdentity() {
-  const settings = readJson<unknown>(BSH_KEYS.preference.settings, null);
-  if (typeof settings !== 'object' || settings === null) return;
-  const ifc = (settings as { ifc?: unknown }).ifc;
-  if (typeof ifc !== 'object' || ifc === null) return;
-  writeJson(BSH_KEYS.preference.settings, {
-    ...settings,
-    ifc: { ...ifc, author: '', organisation: '' },
-  });
+const forgetHooks: Array<() => void> = [];
+
+export function onForgetPersonal(hook: () => void): void {
+  forgetHooks.push(hook);
 }
 
 export function forgetPersonal(): void {
@@ -69,6 +64,6 @@ export function forgetPersonal(): void {
     remove(() => window.localStorage, key);
     remove(() => window.sessionStorage, key);
   }
-  scrubIfcIdentity();
+  for (const hook of forgetHooks) hook();
   window.dispatchEvent(new Event(FORGET_EVENT));
 }
