@@ -35,13 +35,9 @@ Tree badges show the view state ([architecture.md](architecture.md#view-state)).
 | `not-translated` | Not translated | muted text, no outline |
 | `failed` | Translation failed | coral outline |
 
-### Overlays and status
+### Status UI
 
-- Task Center: `.task-center` in `styles/shell.css`. Rows carry `data-state`. Failure uses coral and "Done with warnings" uses ember.
-- Command palette: `.cmdk` in `styles/commands.css`, a native `dialog`.
-- Settings windows: the `.settings` blocks in `styles/modal.css`. Generated forms (`SettingsForm`) use the same blocks.
-- The in-viewer badge (`.bsh-viewer-badge`) is short-lived feedback for Share results only. Slow work reports in the Task Center.
-- The no-hubs hint is `components/tree/NoHubsHint.tsx`, built on `StateBlock`.
+Task Center (`.task-center`), the command palette (`.cmdk`) and settings windows (`.settings` blocks in `styles/modal.css`) have shared styles. The in-viewer badge (`.bsh-viewer-badge`) is for Share results only. Slow work reports in the Task Center.
 
 ## Layout breakpoint
 
@@ -51,7 +47,7 @@ Each docked pane body is a `pane` size container, so pane CSS uses `@container p
 
 ## Dock theme
 
-`src/web/layout/dockTheme.css` defines the `bsh-dock` dockview theme. It maps dockview's `--dv-*` variables to our tokens, so both themes work without a theme branch. Groups are graphite cards with a hairline. The active tab has a signal-blue underline. Menus (`components/Menu.tsx`) render in a fixed-position portal above floating groups.
+`src/web/layout/dockTheme.css` maps dockview's `--dv-*` variables to our tokens, so both themes work without a theme branch.
 
 ## Themes
 
@@ -59,15 +55,14 @@ Dark and light share every token role and change only values, so components neve
 
 - `theme/theme.ts` holds the `Theme` type and storage key `bsh-theme`. `ThemeContext.tsx` provides `useTheme()` (`theme`, `toggleTheme`). It throws outside the provider.
 - The theme is the `data-theme` attribute on `<html>`, together with `color-scheme`.
-- Without a stored choice it follows `prefers-color-scheme`, live, and defaults to dark. The top bar toggle stores an explicit choice.
-- An inline script in `index.html` sets the theme before first paint.
+- Without a stored choice it follows `prefers-color-scheme`. The top bar toggle stores an explicit choice. An inline script in `index.html` sets the theme before first paint.
 - Tests that render themed components import `render` from `src/web/test/render.tsx`.
 
 ## Viewer styling
 
 The Autodesk Viewer follows the app theme: `dark-theme` or `light-theme`, plus a scene background from `--color-graphite` and `--color-void`. `viewer/viewer.css` holds pane, overlay and tool icon styles. The paint and export controls are a group in the native toolbar.
 
-`viewer/viewerChrome.css` restyles the native Autodesk UI with the same tokens: toolbar, tooltips, docking panels, Model Browser, Properties, context menus, spinner and alerts. Image icons are redrawn as inline SVG masks filled with `currentColor`. Some parts stay native: the ViewCube, environment thumbnails and CSS injected by extensions.
+`viewer/viewerChrome.css` restyles the native Autodesk UI (toolbar, panels, menus, alerts) with the same tokens. The ViewCube and CSS injected by extensions stay native.
 
 Autodesk injects its stylesheet after ours and hard-codes colors per theme. Every rule is therefore prefixed with `html .bsh-viewer-surface .adsk-viewing-viewer`, and `!important` is used only where Autodesk uses it.
 
