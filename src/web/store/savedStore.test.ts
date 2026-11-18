@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { forgetPersonal } from '../storage.js';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { forgetPersonal, getStorageAdapter } from '../storage.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import {
   exportSaved,
@@ -8,6 +8,7 @@ import {
   MAX_ITEMS,
   readSaved,
   removeSaved,
+  SAVED,
   type SavedItem,
   upsertSaved,
 } from './savedStore.js';
@@ -69,6 +70,27 @@ describe('saved store', () => {
       items: [item('ok'), { id: 'bad' }, item('ok')],
     });
     expect(importSaved(mixed)).toMatchObject({ accepted: 1, rejected: 2 });
+  });
+
+  it('keeps stored items above the cap through a read, a rename and a delete', () => {
+    const stored = Array.from({ length: MAX_ITEMS + 20 }, (_, i) =>
+      item(`s${i}`),
+    );
+    SAVED.write(stored);
+    expect(readSaved()).toHaveLength(MAX_ITEMS + 20);
+    expect(upsertSaved(item('s3', { name: 'Renamed' }))).toBe(true);
+    expect(readSaved()).toHaveLength(MAX_ITEMS + 20);
+    expect(removeSaved('s0')).toBe(true);
+    expect(readSaved()).toHaveLength(MAX_ITEMS + 19);
+    expect(upsertSaved(item('new'))).toBe(false);
+  });
+
+  it('treats deleting a missing id as a no-op that does not write', () => {
+    upsertSaved(item('a'));
+    const adapter = getStorageAdapter();
+    const set = vi.spyOn(adapter, 'set');
+    expect(removeSaved('gone')).toBe(true);
+    expect(set).not.toHaveBeenCalled();
   });
 
   it('reports what the cap dropped instead of claiming it accepted', () => {

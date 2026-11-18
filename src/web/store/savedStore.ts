@@ -73,7 +73,6 @@ function sanitizeItems(raw: unknown): SavedItem[] {
     if (!item || seen.has(item.id)) continue;
     seen.add(item.id);
     items.push(item);
-    if (items.length >= MAX_ITEMS) break;
   }
   return items;
 }
@@ -109,7 +108,9 @@ export function upsertSaved(item: SavedItem): boolean {
 }
 
 export function removeSaved(id: string): boolean {
-  return persist(readSaved().filter((item) => item.id !== id));
+  const items = readSaved();
+  const kept = items.filter((item) => item.id !== id);
+  return kept.length === items.length || persist(kept);
 }
 
 export function moveSaved(id: string, delta: -1 | 1): boolean {
