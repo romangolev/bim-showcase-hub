@@ -11,6 +11,7 @@ import type { GeometryPart, GeometryRead } from './geometryTypes.js';
 import {
   buildMockElements,
   buildMockRows,
+  elementProperties,
   LARGE_FIXTURE_ROWS,
   MOCK_PROPERTY_INFOS,
   type MockElement,
@@ -35,6 +36,7 @@ import {
 import { Placement } from './placement.js';
 import { PropertyReader } from './propertyReader.js';
 import {
+  type ElementProperties,
   type PropertyInfo,
   type ReadOptions,
   throwIfAborted,
@@ -418,6 +420,25 @@ export class MockViewerAdapter implements ViewerAdapter {
           ],
         };
       }),
+    };
+  }
+
+  async getElementProperties({
+    modelId,
+    dbId,
+  }: ModelDbId): Promise<ElementProperties | null> {
+    if (!this.nodeOf(modelId, dbId)) return null;
+    const element = buildMockElements().find((entry) => entry.dbId === dbId);
+    if (!element) return null;
+    const values = elementProperties(element);
+    return {
+      dbId,
+      name: element.name,
+      properties: MOCK_PROPERTY_INFOS.map(({ category, name }) => ({
+        category,
+        name,
+        value: values[name] ?? null,
+      })),
     };
   }
 

@@ -10,7 +10,11 @@ import type {
   ModelSpread,
   Vec3,
 } from './modelSet.js';
-import type { PropertyInfo, ReadOptions } from './propertyReads.js';
+import type {
+  ElementProperties,
+  PropertyInfo,
+  ReadOptions,
+} from './propertyReads.js';
 
 export type Rgba = readonly [r: number, g: number, b: number, a: number];
 
@@ -101,6 +105,7 @@ export interface ViewerAdapter {
   setModelOffsets(offsets: Readonly<Record<string, Vec3>> | null): void;
   getGeometryParts(): Promise<GeometryRead>;
   getIfcSource(): Promise<IfcSourceRead>;
+  getElementProperties(item: ModelDbId): Promise<ElementProperties | null>;
 }
 
 export type ViewerAdapterFactory = (

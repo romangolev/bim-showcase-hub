@@ -47,6 +47,7 @@ import { Placement } from './placement.js';
 import { PropertyReader } from './propertyReader.js';
 import {
   DISCOVERY_SAMPLE,
+  type ElementProperties,
   mergeInfos,
   type PropertyInfo,
   type ReadOptions,
@@ -552,6 +553,37 @@ export class RealViewerAdapter implements ViewerAdapter {
       shown.set(handle, { id: info.id, name: info.name, urn: info.urn });
     }
     return readViewerSource(viewer, shown);
+  }
+
+  getElementProperties({
+    modelId,
+    dbId,
+  }: ModelDbId): Promise<ElementProperties | null> {
+    const model = this.models.handle(modelId);
+    if (!model) return Promise.resolve(null);
+    return new Promise((resolve, reject) =>
+      model.getBulkProperties(
+        [dbId],
+        {},
+        (items) => {
+          const item = items.find((entry) => entry.dbId === dbId);
+          resolve(
+            item
+              ? {
+                  dbId,
+                  name: item.name,
+                  properties: item.properties.map((prop) => ({
+                    category: prop.displayCategory?.trim() || UNCATEGORIZED,
+                    name: prop.displayName,
+                    value: toPropertyValue(prop.displayValue),
+                  })),
+                }
+              : null,
+          );
+        },
+        reject,
+      ),
+    );
   }
 
   setModelVisible(modelId: string, visible: boolean): void {
