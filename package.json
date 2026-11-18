@@ -22,7 +22,8 @@
     "e2e:signin": "e2e/.venv/bin/python e2e/signin.py",
     "e2e:smoke": "e2e/.venv/bin/python e2e/smoke.py",
     "e2e:glb": "e2e/.venv/bin/python e2e/glb_revit.py",
-    "e2e:ifc": "e2e/.venv/bin/python e2e/ifc_revit.py"
+    "e2e:ifc": "e2e/.venv/bin/python e2e/ifc_revit.py",
+    "e2e:state": "e2e/.venv/bin/python e2e/state_revit.py"
   },
   "dependencies": {
     "@aps_sdk/authentication": "^1.0.1",
