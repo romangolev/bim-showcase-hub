@@ -68,6 +68,8 @@ export function useResolvedAdapter(
   return override ?? fromContext;
 }
 
+const EMPTY_ITEMS: ModelDbId[] = [];
+
 function useElementItems(
   adapter: ViewerAdapter | null,
   elements: ElementScope,
@@ -83,18 +85,21 @@ function useElementItems(
   useEffect(() => {
     if (!adapter || elements === 'all') return;
     let live = true;
+    let latest = 0;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    const initial = ++latest;
     scopeElementItems(adapter, elements).then(
       (list) => {
-        if (live) setLoaded({ key, list });
+        if (live && initial === latest) setLoaded({ key, list });
       },
       () => {
-        if (live) setLoaded({ key, list: [] });
+        if (live && initial === latest) setLoaded({ key, list: [] });
       },
     );
     const off =
       elements === 'selected'
         ? adapter.onSelectionChange((list) => {
+            latest++;
             clearTimeout(timer);
             timer = setTimeout(() => {
               if (live) setLoaded({ key, list });
@@ -109,7 +114,8 @@ function useElementItems(
   }, [adapter, elements, key]);
 
   const current = elements === 'all' || loaded?.key === key;
-  return { items: current && loaded ? loaded.list : [], pending: !current };
+  const list = current && loaded ? loaded.list : EMPTY_ITEMS;
+  return useMemo(() => ({ items: list, pending: !current }), [list, current]);
 }
 
 export function useScopedRows(
