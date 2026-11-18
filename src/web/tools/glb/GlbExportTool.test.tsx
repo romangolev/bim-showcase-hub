@@ -15,7 +15,8 @@ vi.mock('../../extensions/glbExport.js', async (original) => ({
 
 const { GLB_SETTINGS, GLB_SETTINGS_KEY, GlbExportTool, glbFileNameFrom } =
   await import('./GlbExportTool.js');
-const { exportFileName } = await import('../../extensions/excelExport.js');
+const { DEFAULT_FILE_NAME } = await import('../../extensions/excelExport.js');
+const { exportFileName, exportStem } = await import('../kernel/exportKit.js');
 
 beforeEach(() => {
   installMemoryStorage();
@@ -68,7 +69,13 @@ describe('GlbExportTool', () => {
   it('exports geometry under the model name and version', () => {
     const { exports } = tool.contribute(
       context({
-        fileName: () => exportFileName('Snowdon Towers Sample.rvt', 'v3'),
+        fileName: () =>
+          exportFileName(
+            exportStem('Snowdon Towers Sample.rvt', 'v3'),
+            DEFAULT_FILE_NAME,
+            '-properties',
+            'xlsx',
+          ),
       }),
     );
     exports?.[0]?.onExport();

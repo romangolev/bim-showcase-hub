@@ -33,6 +33,13 @@ Other stylesheets in `src/web/styles` (`global.css`, `shell.css`, `tree.css`, `l
 - The missing-hubs hint (`tree/NoHubsHint.tsx`) extends `StateBlock` with a numbered list, the Client ID with a Copy button and a help link: the full state when the hub list is empty, and a compact dismissible notice (stored in `localStorage` under `bsh.hint.hubs.dismissed.v1`, per user) above the filter when the user only has personal hubs. An unknown hub type never triggers it.
 - Interactive controls need an accessible name (`aria-label` or visible text) and a visible focus ring.
 
+## Overlays and status
+
+- Task Center (`.task-center` in `styles/shell.css`): an icon button in the top bar (spinner while running, check when settled, alert when something failed or warned) opening a popover list. Rows carry `data-state` (`running`, `done`, `warning`, `failed`, `cancelled`); failure uses the coral token and "Done with warnings" the ember token, on the row detail and on the trigger.
+- Command palette (`.cmdk` in `styles/commands.css`): a native `dialog` with a search combobox and a grouped listbox.
+- Settings windows use the `.settings` blocks in `styles/modal.css`: `settings__section`, `settings__heading`, `settings__entry`. Generated forms (`SettingsForm`) use the same blocks, so a tool window and a pane window look alike.
+- The in-viewer badge (`.bsh-viewer-badge`, `viewer/viewer.css`) is short-lived feedback for Share results only. Work that takes time reports in the Task Center.
+
 ## Layout breakpoint and pane containers
 
 There is one layout breakpoint, `STACKED_QUERY` in `src/web/layout/LayoutProvider.tsx`: from 876 px wide the panes are docked, up to 875 px they are stacked in one column with the tree as an overlay. The value keeps the old reasoning (page padding 24 + minimum viewer 560 + gap 12 + minimum summary 280). Stacked-only rules are scoped to the `.stack` class rather than repeated in media queries.

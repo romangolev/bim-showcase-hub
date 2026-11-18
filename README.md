@@ -18,11 +18,14 @@ The screenshots use the built-in mock data, not a real account.
 - Lazy document tree for hubs, projects, folders, items and versions, with filtering and keyboard navigation.
 - Autodesk Viewer for any viewable version, in the US or EU region. Several models open at once, each in its own viewer tab: compare two side by side by dragging a tab, and the summary, dashboard and URL follow the active one. Open tabs come back after a reload and load when first shown.
 - Combined viewer: pick several versions in Documents (Ctrl or Cmd click, Shift click or Space) and open them together in one viewer and one scene, aligned by shared coordinates, up to six models. Add a version to the open viewer from its row, hide or remove models from the Models menu, and switch the summary and dashboard between all models and one model. A model that fails to load says why and leaves the others in place.
-- Tool group inside the viewer toolbar: paint selected elements red, green or blue (or reset), export properties to Excel, and export the loaded geometry as binary glTF (`.glb`) for Blender, Windows 3D Viewer or any glTF viewer, export the model as an IFC4 file (mesh-based coordination view, not a Revit IFC export), with an in-viewer status badge for each export.
+- Tool group inside the viewer toolbar: paint selected elements red, green or blue (or reset), export properties to Excel, CSV or JSON, export the loaded geometry as binary glTF (`.glb`) for Blender, Windows 3D Viewer or any glTF viewer, and export the model as an IFC4 file (mesh-based coordination view, not a Revit IFC export). Each tool is a class with its own settings window, and each can be turned off.
+- Task Center in the top bar: model loads and exports report progress there, with Cancel for the Excel export, Retry for failures and a "Done with warnings" state for partial results. The viewer shows a short status badge only for Share results (copied link, copied or saved image).
+- Command palette (Ctrl or Cmd+K): search theme, settings, pane, export and viewer commands and run them from the keyboard.
 - Dark and light themes with a top bar toggle. The choice is remembered, the viewer, including its native toolbar and panels, and the charts follow it.
-- Model summary: element counts grouped by Assembly Code, Classification Code and Name, in a pane that collapses to give the viewer more room.
-- Dashboard: bar chart and donut chart of elements by Category, Level, Assembly Code, Classification Code or Name.
-- Excel export: one sheet per Category with selected properties, built in the browser, with a Model column when the viewer holds several models. The viewer keeps its model and resizes when panes move, float, open, close or collapse.
+- Model summary: element counts grouped by Assembly Code, Classification Code and Name, in a pane that collapses to give the viewer more room. Add more summary panes, each with its own properties and model.
+- Dashboard: bar chart and donut chart of elements by Category, Level, Assembly Code, Classification Code or Name. Add more chart panes, each with its own settings, and save your own presets.
+- Saved items: dashboard presets are kept in the browser and can be exported to and imported from a JSON file in Settings.
+- Excel export: one sheet per Category with selected properties, built in the browser, with a Model column when the viewer holds several models, and a confirmation above 20,000 rows. The viewer keeps its model and resizes when panes move, float, open, close or collapse.
 - Mock mode with fixture hubs and a fake viewer, so the whole app runs without Autodesk credentials.
 
 ## Quick start (mock mode)

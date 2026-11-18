@@ -1,11 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { PropertyRow } from '../../shared/types.js';
 import { excelFileNameFrom } from '../tools/excel/ExcelExportTool.js';
-import {
-  DEFAULT_FILE_NAME,
-  exportFileName,
-  exportToXlsx,
-} from './excelExport.js';
+import { exportFileName, exportStem } from '../tools/kernel/exportKit.js';
+import { DEFAULT_FILE_NAME, exportToXlsx } from './excelExport.js';
 import {
   aboutRows,
   applyNamePattern,
@@ -397,16 +394,24 @@ describe('readExcelSettings', () => {
 });
 
 describe('exportFileName', () => {
+  const properties = (file?: string, version?: string) =>
+    exportFileName(
+      exportStem(file, version),
+      DEFAULT_FILE_NAME,
+      '-properties',
+      'xlsx',
+    );
+
   it('sanitizes the model name and version', () => {
-    expect(exportFileName('Tower: Phase/2*.rvt', 'v12')).toBe(
+    expect(properties('Tower: Phase/2*.rvt', 'v12')).toBe(
       'Tower-Phase-2-v12-properties.xlsx',
     );
-    expect(exportFileName('Café plan.nwd')).toBe('Cafe-plan-properties.xlsx');
+    expect(properties('Café plan.nwd')).toBe('Cafe-plan-properties.xlsx');
   });
 
   it('falls back without a file name', () => {
-    expect(exportFileName()).toBe(DEFAULT_FILE_NAME);
-    expect(exportFileName('', 'v2')).toBe(DEFAULT_FILE_NAME);
-    expect(exportFileName('***.rvt')).toBe(DEFAULT_FILE_NAME);
+    expect(properties()).toBe(DEFAULT_FILE_NAME);
+    expect(properties('', 'v2')).toBe(DEFAULT_FILE_NAME);
+    expect(properties('***.rvt')).toBe(DEFAULT_FILE_NAME);
   });
 });

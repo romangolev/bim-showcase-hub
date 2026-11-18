@@ -16,7 +16,8 @@ vi.mock('../../extensions/ifcExport.js', async (original) => ({
 const { IfcExportTool, ifcFileNameFrom } = await import('./IfcExportTool.js');
 const { DEFAULT_IFC_TOOL_SETTINGS, IFC_SETTINGS_KEY, readIfcToolSettings } =
   await import('./ifcSettings.js');
-const { exportFileName } = await import('../../extensions/excelExport.js');
+const { DEFAULT_FILE_NAME } = await import('../../extensions/excelExport.js');
+const { exportFileName, exportStem } = await import('../kernel/exportKit.js');
 
 beforeEach(() => {
   installMemoryStorage();
@@ -85,7 +86,13 @@ describe('IfcExportTool', () => {
     tool
       .contribute(
         context({
-          fileName: () => exportFileName('Snowdon Towers Sample.rvt', 'v3'),
+          fileName: () =>
+            exportFileName(
+              exportStem('Snowdon Towers Sample.rvt', 'v3'),
+              DEFAULT_FILE_NAME,
+              '-properties',
+              'xlsx',
+            ),
           current: () => live as never,
         }),
       )

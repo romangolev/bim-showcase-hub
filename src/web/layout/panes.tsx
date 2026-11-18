@@ -16,7 +16,7 @@ import { useOpenModels, useOpenModelsStore } from '../api/useOpenModels.js';
 import { StateBlock } from '../components/StateBlock.js';
 import { useTreeControl } from '../components/TreeControl.js';
 import { TreePanel } from '../components/TreePanel.js';
-import { exportFileName } from '../extensions/excelExport.js';
+import { DEFAULT_FILE_NAME } from '../extensions/excelExport.js';
 import { useModal } from '../modal/ModalContext.js';
 import { DASHBOARD_SETTINGS_ID } from '../panels/DashboardSettings.js';
 import {
@@ -27,6 +27,7 @@ import {
 import { SUMMARY_SETTINGS_ID } from '../panels/SummarySettings.js';
 import { memberLabel, memberMeta } from '../routes/ModelPage.js';
 import { usePaneSetting } from '../settings/paneSettings.js';
+import { exportFileName, exportStem } from '../tools/kernel/exportKit.js';
 import { ViewerPane } from '../viewer/index.js';
 import { page } from '../viewer/region.js';
 import { chartSetting, summarySetting } from './instanceSettings.js';
@@ -123,10 +124,14 @@ export function ModelPaneBody({ instance }: { instance: string }) {
     () => memberMeta({ v: version, crumbs: path ? [path] : [] }),
     [version, path],
   );
-  const exportName =
+  const exportName = exportFileName(
     members.length > 0
-      ? exportFileName(`${members.length + 1} models`)
-      : exportFileName(context?.file, context?.v);
+      ? exportStem(`${members.length + 1} models`)
+      : exportStem(context?.file, context?.v),
+    DEFAULT_FILE_NAME,
+    '-properties',
+    'xlsx',
+  );
   return (
     <section
       id={active ? 'main' : undefined}
