@@ -1127,6 +1127,28 @@ describe('RealViewerAdapter geometry export', () => {
       expect(dbIds(await one.getVisible())).toEqual([3]);
     });
 
+    it('lets a hidden parent win over isolated descendants', async () => {
+      const one = await scene(1, { hidden: [[2]], isolated: [[3, 4]] });
+      expect(dbIds(await one.getVisible())).toEqual([]);
+    });
+
+    it('keeps an isolated sibling when another branch is hidden', async () => {
+      const one = await scene(1, { hidden: [[2]], isolated: [[2, 5]] });
+      expect(dbIds(await one.getVisible())).toEqual([5]);
+    });
+
+    it('combines isolate in one model with hide in the other', async () => {
+      const one = await scene(2, { isolated: [[3], []], hidden: [[], [2]] });
+      const [infoA, infoB] = one.getModels();
+      const visible = await one.getVisible();
+      expect(
+        dbIds(visible.filter((item) => item.modelId === infoA?.id)),
+      ).toEqual([3]);
+      expect(
+        dbIds(visible.filter((item) => item.modelId === infoB?.id)),
+      ).toEqual([5]);
+    });
+
     it('applies hidden nodes to their own model only', async () => {
       const one = await scene(2, { hidden: [[], [5]] });
       const [infoA, infoB] = one.getModels();
