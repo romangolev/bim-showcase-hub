@@ -21,7 +21,15 @@ export function App({ appRouter = router, client = queryClient }: AppProps) {
           <ModalProvider>
             <RouterProvider router={appRouter} />
             <AppCommands />
-            <CommandPalette />
+            <CommandPalette
+              openModel={(urn, context) => {
+                void appRouter.navigate({
+                  to: '/model/$urn',
+                  params: { urn },
+                  search: context,
+                });
+              }}
+            />
           </ModalProvider>
         </QueryClientProvider>
       </SettingsProvider>

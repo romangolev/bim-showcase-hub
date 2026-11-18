@@ -439,6 +439,25 @@ describe('keyboard', () => {
   });
 });
 
+describe('registry-driven pane menus', () => {
+  it('shows the pane commands() hook in the pane menu', async () => {
+    renderModel();
+    const menu = await openPaneMenu('Documents');
+    expect(
+      within(menu).getByRole('menuitem', { name: 'Go to Documents' }),
+    ).toBeInTheDocument();
+  });
+
+  it('shows the same hook command in the Panes menu', async () => {
+    renderModel();
+    fireEvent.click(await screen.findByRole('button', { name: 'Panes' }));
+    const menu = screen.getByRole('menu', { name: 'Panes' });
+    expect(
+      within(menu).getByRole('menuitem', { name: 'Go to Documents' }),
+    ).toBeInTheDocument();
+  });
+});
+
 describe('active pane', () => {
   it('marks one group active and moves it with the tab', async () => {
     renderModel();
