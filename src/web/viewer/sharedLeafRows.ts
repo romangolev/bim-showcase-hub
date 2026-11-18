@@ -285,6 +285,24 @@ export async function readLeafRows(
   return rows;
 }
 
+export function peekLeafRows(
+  adapter: ViewerAdapter,
+  modelIds?: readonly string[],
+): PropertyRow[] | null {
+  const entry = reads.get(adapter);
+  const models = shownModels(adapter).filter(
+    (model) => !modelIds || modelIds.includes(model.id),
+  );
+  if (!entry || models.length === 0) return null;
+  const parts: PropertyRow[][] = [];
+  for (const model of models) {
+    const settled = entry.keys.get(model.id)?.settled;
+    if (!settled) return null;
+    parts.push(settled.rows);
+  }
+  return parts.flat();
+}
+
 export function forgetLeafRows(adapter: ViewerAdapter): void {
   const entry = reads.get(adapter);
   if (!entry) return;

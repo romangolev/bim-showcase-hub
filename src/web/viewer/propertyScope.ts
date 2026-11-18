@@ -8,20 +8,38 @@ import {
 } from './modelScope.js';
 import type { ModelDbId } from './modelSet.js';
 import type { ReadOptions } from './propertyReads.js';
+import { getSet, setIdOf } from './selectionSets.js';
 import { readLeafRows } from './sharedLeafRows.js';
 import type { ViewerAdapter } from './ViewerAdapter.js';
 
-export type ElementScope = 'all' | 'selected' | 'visible' | 'isolated';
+export type BaseElementScope = 'all' | 'selected' | 'visible' | 'isolated';
+export type ElementScope = BaseElementScope | `set:${string}`;
 
-export const ELEMENT_SCOPES: readonly ElementScope[] = [
+export const ELEMENT_SCOPES: readonly BaseElementScope[] = [
   'all',
   'selected',
   'visible',
   'isolated',
 ];
 
+const SET_SCOPE = /^set:[A-Za-z0-9_-]{1,64}$/;
+
 export function sanitizeElementScope(raw: unknown): ElementScope {
+  if (typeof raw === 'string' && SET_SCOPE.test(raw)) {
+    return raw as ElementScope;
+  }
   return ELEMENT_SCOPES.find((scope) => scope === raw) ?? 'all';
+}
+
+export function resolveElementScope(scope: ElementScope): ElementScope {
+  const id = setIdOf(scope);
+  return id !== undefined && !getSet(id) ? 'all' : scope;
+}
+
+export function scopeNoteFor(scope: ElementScope): string | undefined {
+  return resolveElementScope(scope) === scope
+    ? undefined
+    : 'The saved selection set no longer exists, so all elements were used';
 }
 
 export interface PropertyScope {
@@ -36,7 +54,8 @@ export async function scopeElementItems(
   if (elements === 'selected') return adapter.getModelSelection();
   if (elements === 'isolated') return adapter.getIsolated();
   if (elements === 'visible') return adapter.getVisible();
-  return [];
+  const id = setIdOf(elements);
+  return id === undefined ? [] : (getSet(id)?.items ?? []);
 }
 
 export function filterByElementScope<
@@ -80,6 +99,7 @@ export interface ScopedRows {
   rows: PropertyRow[];
   total: number;
   failed: string[];
+  scopeNote?: string;
 }
 
 export async function readScopedRows(
@@ -105,11 +125,14 @@ export async function readScopedRows(
       throw new Error(`Could not read properties of ${unexpected.join(', ')}`);
     }
   }
-  const elements = scope?.elements ?? 'all';
+  const requested = scope?.elements ?? 'all';
+  const elements = resolveElementScope(requested);
   const items = await scopeElementItems(adapter, elements);
+  const scopeNote = scopeNoteFor(requested);
   return {
     rows: applyScope(read, { elements }, items, models[0]?.id),
     total: read.length,
     failed,
+    ...(scopeNote ? { scopeNote } : {}),
   };
 }

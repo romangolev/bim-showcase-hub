@@ -8,6 +8,7 @@ import {
   DEFAULT_NAME_PATTERN,
   type ExcelSettings,
 } from '../../extensions/exportFormats.js';
+import { setIdOf } from '../../viewer/selectionSets.js';
 import {
   confirmLargeExport,
   exportEntry,
@@ -47,7 +48,11 @@ export class ExcelExportTool extends ViewerTool<ExcelToolSettings> {
   readonly exportTitle = EXPORT_TOOLTIP;
 
   override scrub(settings: ExcelToolSettings): ExcelToolSettings {
-    return { ...settings, modelScope: 'all' };
+    return {
+      ...settings,
+      modelScope: 'all',
+      scope: setIdOf(settings.scope) === undefined ? settings.scope : 'all',
+    };
   }
 
   contribute(ctx: ToolContext): ToolContribution {
