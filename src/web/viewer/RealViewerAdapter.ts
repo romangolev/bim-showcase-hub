@@ -39,12 +39,11 @@ import {
   metersPerUnit,
   modelIdFor,
   reasonOf,
-  spreadOf,
-  togetherOffsets,
   uniqueSources,
   type Vec3,
   VIEWER_CLOSED_MESSAGE,
 } from './modelSet.js';
+import { Placement } from './placement.js';
 import { PropertyReader } from './propertyReader.js';
 import {
   DISCOVERY_SAMPLE,
@@ -254,6 +253,14 @@ export class RealViewerAdapter implements ViewerAdapter {
   private stopFullscreen: (() => void) | null = null;
   private frameObserver: ResizeObserver | null = null;
   private readonly models = new ModelSet<ViewerModel>();
+  private readonly placement = new Placement<ViewerModel>(this.models, {
+    boxOf: (info) => this.boxes.get(info.id),
+    anchorId: () => this.anchorId ?? undefined,
+    unitMeters: () => metersPerUnit(this.anchor?.unit),
+    apply: (_info, handle, offset) => {
+      if (this.viewer) this.place(this.viewer, handle, offset);
+    },
+  });
   private readonly reader = new PropertyReader<ViewerModel>(this.models, {
     rows: ({ handle }, names, options) =>
       this.readModelRows(this.openViewer(), handle, names, options),
@@ -270,7 +277,6 @@ export class RealViewerAdapter implements ViewerAdapter {
   private anchorId: string | null = null;
   private readonly boxes = new Map<string, ModelBox>();
   private readonly placements = new Map<ViewerModel, PlacementMatrix>();
-  private offsets: Record<string, Vec3> | null = null;
   private readonly onSelection = () => {
     this.emitSelection();
   };
@@ -472,26 +478,17 @@ export class RealViewerAdapter implements ViewerAdapter {
   }
 
   getSpread(): ModelSpread | null {
-    const ready = new Set(this.models.ready().map(({ info }) => info.id));
-    const boxes = [...this.boxes.values()].filter((box) => ready.has(box.id));
-    return spreadOf(boxes, metersPerUnit(this.anchor?.unit));
+    return this.placement.spread();
   }
 
   getTogetherOffsets(): Record<string, Vec3> {
-    const ready = new Set(this.models.ready().map(({ info }) => info.id));
-    const boxes = [...this.boxes.values()].filter((box) => ready.has(box.id));
-    const anchorId =
-      this.anchorId && ready.has(this.anchorId) ? this.anchorId : boxes[0]?.id;
-    return anchorId ? togetherOffsets(boxes, anchorId) : {};
+    return this.placement.togetherOffsets();
   }
 
   setModelOffsets(offsets: Readonly<Record<string, Vec3>> | null): void {
-    this.offsets = offsets ? { ...offsets } : null;
+    this.placement.set(offsets);
     const viewer = this.viewer;
     if (!viewer) return;
-    for (const { info, handle } of this.models.ready()) {
-      this.place(viewer, handle, this.offsets?.[info.id]);
-    }
     this.frameModels(viewer);
   }
 
@@ -520,9 +517,7 @@ export class RealViewerAdapter implements ViewerAdapter {
 
   private frameModels(viewer: GuiViewer3D): void {
     const spread = this.getSpread();
-    const together = Boolean(
-      this.offsets && Object.keys(this.offsets).length > 0,
-    );
+    const together = this.placement.together;
     const anchor = this.anchorId
       ? this.models.handle(this.anchorId)
       : undefined;
@@ -850,7 +845,7 @@ export class RealViewerAdapter implements ViewerAdapter {
           max: [box.max.x, box.max.y, box.max.z],
         });
       }
-      const offset = this.offsets?.[id];
+      const offset = this.placement.offsetOf(id);
       if (offset) this.place(viewer, model, offset);
       release?.();
       release = null;
@@ -923,7 +918,7 @@ export class RealViewerAdapter implements ViewerAdapter {
     this.anchorId = null;
     this.boxes.clear();
     this.placements.clear();
-    this.offsets = null;
+    this.placement.reset();
     this.settling = Promise.resolve();
     const viewer = this.viewer;
     if (!viewer) return;

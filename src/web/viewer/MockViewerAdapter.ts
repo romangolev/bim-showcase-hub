@@ -28,12 +28,11 @@ import {
   type ModelSource,
   type ModelSpread,
   modelIdFor,
-  spreadOf,
-  togetherOffsets,
   uniqueSources,
   type Vec3,
   VIEWER_CLOSED_MESSAGE,
 } from './modelSet.js';
+import { Placement } from './placement.js';
 import { PropertyReader } from './propertyReader.js';
 import {
   type PropertyInfo,
@@ -253,6 +252,12 @@ export class MockViewerAdapter implements ViewerAdapter {
   private isolated: Set<string> | null = null;
   private hiddenKeys = new Set<string>();
   private readonly models = new ModelSet<MockScene>();
+  private readonly placement = new Placement<MockScene>(this.models, {
+    boxOf: (info, handle) => modelBoxOf(info.id, handle.box),
+    anchorId: () => this.models.ready()[0]?.info.id,
+    unitMeters: () => 1,
+    apply: (_info, handle, offset) => this.applyOffset(handle, offset),
+  });
   private readonly reader = new PropertyReader<MockScene>(this.models, {
     rows: async ({ info }, propertyNames, options) => {
       if (info.urn.includes(MOCK_NO_PROPERTIES_MARKER)) {
@@ -274,7 +279,6 @@ export class MockViewerAdapter implements ViewerAdapter {
   private readonly themed = new Map<string, Rgba>();
   private readonly listeners = new Set<(items: ModelDbId[]) => void>();
   private placed = 0;
-  private offsets: Record<string, Vec3> | null = null;
   private bounds: {
     x: number;
     y: number;
@@ -349,29 +353,15 @@ export class MockViewerAdapter implements ViewerAdapter {
   }
 
   getSpread(): ModelSpread | null {
-    return spreadOf(
-      this.models
-        .ready()
-        .map(({ info, handle }) => modelBoxOf(info.id, handle.box)),
-    );
+    return this.placement.spread();
   }
 
   getTogetherOffsets(): Record<string, Vec3> {
-    const ready = this.models.ready();
-    const anchor = ready[0];
-    if (!anchor) return {};
-    return togetherOffsets(
-      ready.map(({ info, handle }) => modelBoxOf(info.id, handle.box)),
-      anchor.info.id,
-    );
+    return this.placement.togetherOffsets();
   }
 
   setModelOffsets(offsets: Readonly<Record<string, Vec3>> | null): void {
-    this.offsets =
-      offsets && Object.keys(offsets).length > 0 ? { ...offsets } : null;
-    for (const { info, handle } of this.models.ready()) {
-      this.applyOffset(handle, this.offsets?.[info.id]);
-    }
+    this.placement.set(offsets);
     this.refresh();
   }
 
@@ -583,7 +573,7 @@ export class MockViewerAdapter implements ViewerAdapter {
     this.bounds = null;
     this.loaded = false;
     this.placed = 0;
-    this.offsets = null;
+    this.placement.reset();
     this.setSelectionKeys([]);
     this.controller?.clearPainted();
     this.refresh();
@@ -911,7 +901,7 @@ export class MockViewerAdapter implements ViewerAdapter {
       scene.group.remove();
       return;
     }
-    const offset = this.offsets?.[id];
+    const offset = this.placement.offsetOf(id);
     if (offset) this.applyOffset(scene, offset);
     if (!this.models.get(id)?.visible) {
       scene.group.setAttribute('display', 'none');
@@ -972,7 +962,7 @@ export class MockViewerAdapter implements ViewerAdapter {
     const spread = this.getSpread();
     const anchor = ready[0];
     const framed =
-      spread?.farApart && !this.offsets && anchor?.info.visible
+      spread?.farApart && !this.placement.together && anchor?.info.visible
         ? [anchor]
         : visible;
     const boxes = framed.map(({ handle }) => placedBox(handle));
