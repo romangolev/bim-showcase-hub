@@ -45,7 +45,9 @@ export function TopBar({
           <span className="brand__mark">
             <Icon name="model" size={16} />
           </span>
-          <span className="brand__name">BIM Showcase Hub</span>
+          <span className="brand__name">
+            BIM Showcase<span className="brand__suffix"> Hub</span>
+          </span>
         </a>
         <div className="topbar__spacer" />
         {session.isError ? (

@@ -167,8 +167,43 @@
   font-size: 0.875rem;
 }
 
+.session-banner__message {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.session-banner[data-state="soon"] {
+  border-bottom-color: var(--color-ember);
+  background: color-mix(in srgb, var(--color-ember) 16%, var(--color-graphite));
+}
+
+.session-banner[data-state="soon"] .session-banner__message svg {
+  color: var(--color-ember);
+}
+
 .session-banner[data-state="ended"] {
   border-bottom-color: var(--color-coral);
+  background: color-mix(in srgb, var(--color-coral) 18%, var(--color-graphite));
+}
+
+.session-banner[data-state="ended"] .session-banner__message svg {
+  color: var(--color-coral);
+}
+
+.session-banner .btn-primary {
+  border-color: var(--color-iris);
+  background: var(--color-iris);
+  color: var(--color-on-accent);
+}
+
+.session-banner .btn-primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-iris) 85%, var(--color-snow));
+}
+
+.session-banner .btn-primary:disabled {
+  color: var(--color-on-accent);
 }
 
 .topbar {
@@ -201,6 +236,7 @@
 
 .brand {
   display: inline-flex;
+  min-width: 0;
   align-items: center;
   gap: var(--gap-element);
   color: var(--color-snow);
@@ -210,8 +246,21 @@
   opacity: 1;
 }
 
+.brand__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 420px) {
+  .brand__suffix {
+    display: none;
+  }
+}
+
 .brand__mark {
   display: inline-flex;
+  flex: none;
   align-items: center;
   justify-content: center;
   width: 28px;

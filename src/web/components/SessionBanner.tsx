@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSession, useSessionExpiry, useSignIn } from '../api/hooks.js';
 import { useSettings } from '../settings/SettingsContext.js';
+import { Icon } from './icons.js';
 
 const TICK_MS = 15_000;
 
@@ -35,7 +36,8 @@ export function SessionBanner() {
       data-state={expired ? 'ended' : 'soon'}
       role={expired ? 'alert' : 'status'}
     >
-      <span>
+      <span className="session-banner__message">
+        <Icon name="alert" size={16} />
         {expired
           ? 'Your session has ended. Your open models stay as they are.'
           : `Your session ends in ${minutesLeft(expiresAt as number, now)} min.`}

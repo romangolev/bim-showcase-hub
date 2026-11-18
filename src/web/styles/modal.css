@@ -44,6 +44,15 @@
 .modal__body {
   padding: var(--space-4);
   overflow: auto;
+  background:
+    linear-gradient(var(--color-graphite) 30%, transparent) top / 100% 24px
+    no-repeat local,
+    linear-gradient(transparent, var(--color-graphite) 70%) bottom / 100% 24px
+    no-repeat local,
+    linear-gradient(var(--color-hairline), transparent) top / 100% 8px no-repeat
+    scroll,
+    linear-gradient(transparent, var(--color-hairline)) bottom / 100% 8px
+    no-repeat scroll;
 }
 
 .settings {
@@ -60,8 +69,14 @@
 
 .settings__heading {
   margin: 0;
-  font-size: var(--text-13);
-  color: var(--color-ash);
+  font-size: var(--text-14);
+  font-weight: var(--weight-strong);
+  color: var(--color-snow);
+}
+
+.settings__section + .settings__section {
+  padding-top: var(--space-4);
+  border-top: var(--border-hairline);
 }
 
 .switch-row {
@@ -87,9 +102,23 @@
   gap: var(--space-1);
 }
 
+.settings__field,
+.bsh-summary-settings .bsh-field:has(> .bsh-select, > .bsh-input) {
+  display: grid;
+  grid-template-columns: minmax(10rem, 16rem) minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--space-4);
+  row-gap: var(--space-1);
+}
+
 .settings__field label {
   font-size: var(--text-13);
-  color: var(--color-ash);
+  color: var(--color-chalk);
+}
+
+.settings__field input[type="number"],
+.bsh-summary-settings .bsh-input {
+  width: 120px;
 }
 
 .settings__field input,
@@ -124,6 +153,10 @@
   font-size: var(--text-13);
   color: var(--color-ash);
   margin: 0;
+}
+
+.settings__field > .settings__hint {
+  grid-column: 2;
 }
 
 .settings__palette {
