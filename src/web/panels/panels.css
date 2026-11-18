@@ -307,8 +307,9 @@
 
 .bsh-chart--doughnut {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   gap: var(--space-4);
+  min-height: 0;
 }
 
 .bsh-chart__plot {
@@ -326,8 +327,12 @@
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 2px;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 2px var(--space-4);
   min-width: 0;
+  min-height: 0;
+  overflow: auto;
   margin: 0;
   padding: 0;
   color: var(--color-chalk);
@@ -337,6 +342,7 @@
 
 .bsh-legend__item {
   display: flex;
+  max-width: 14ch;
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
@@ -658,14 +664,19 @@
 }
 
 .bsh-chart__tools {
-  margin: 0;
-  border: 0;
-  min-width: 0;
   display: flex;
-  flex-wrap: wrap;
+  flex: none;
   align-items: center;
+  justify-content: flex-end;
   gap: var(--space-1);
-  padding: 0 0 var(--space-1);
+  min-width: 0;
+  height: 24px;
+}
+
+.bsh-chart__tools .bsh-icon-button {
+  width: 24px;
+  height: 24px;
+  padding: 0;
 }
 
 .bsh-chart canvas {

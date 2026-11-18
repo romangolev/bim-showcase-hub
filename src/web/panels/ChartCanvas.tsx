@@ -9,6 +9,8 @@ import {
   Tooltip,
 } from 'chart.js';
 import { useEffect, useRef, useState } from 'react';
+import { Icon } from '../components/icons.js';
+import { Menu } from '../components/Menu.js';
 import {
   chartDelimited,
   saveChartCsv,
@@ -90,6 +92,7 @@ export function ChartCanvas({
             data: counts,
             backgroundColor: colors,
             borderWidth: 0,
+            ...(kind === 'bar' ? { minBarLength: 2 } : {}),
             ...(kind === 'doughnut' ? { spacing: 2, borderRadius: 2 } : {}),
           },
         ],
@@ -163,24 +166,26 @@ export function ChartCanvas({
 
   return (
     <div className="bsh-chart-frame">
-      <fieldset className="bsh-chart__tools" aria-label={`Export ${label}`}>
-        <button type="button" className="bsh-button" onClick={exportPng}>
-          PNG
-        </button>
-        <button
-          type="button"
-          className="bsh-button"
-          onClick={() => saveChartCsv(chart, exportName)}
-        >
-          CSV
-        </button>
-        <button type="button" className="bsh-button" onClick={copyChart}>
-          Copy
-        </button>
+      <div className="bsh-chart__tools">
         <span role="status" className="bsh-summary__notice">
           {notice}
         </span>
-      </fieldset>
+        <Menu
+          label={`Export ${label}`}
+          title="Export chart"
+          trigger={<Icon name="more" size={16} />}
+          triggerClassName="bsh-icon-button"
+          items={() => [
+            { id: 'png', label: 'Download PNG', onSelect: exportPng },
+            {
+              id: 'csv',
+              label: 'Download CSV',
+              onSelect: () => saveChartCsv(chart, exportName),
+            },
+            { id: 'copy', label: 'Copy data', onSelect: copyChart },
+          ]}
+        />
+      </div>
       <div className={`bsh-chart bsh-chart--${kind}`}>
         <div className="bsh-chart__plot">
           <canvas ref={canvasRef} role="img" aria-label={label} />
