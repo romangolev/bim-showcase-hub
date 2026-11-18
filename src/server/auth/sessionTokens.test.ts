@@ -9,7 +9,6 @@ import {
   isSignedIn,
   MAX_COOKIE_BYTES,
   readUser,
-  renewSession,
   SESSION_ABSOLUTE_MAX_AGE_MS,
   SESSION_MAX_AGE_MS,
   sessionCookieBytes,
@@ -226,15 +225,16 @@ describe('session codec', () => {
     expect(isSignedIn(session, codec, NOW)).toBe(false);
   });
 
-  it('ends the session after the absolute lifetime, even across refreshes', async () => {
+  it('ends the session 12 hours after the last refresh', async () => {
     const session: Record<string, unknown> = {};
     storeTokens(session, { ...tokens, expiresIn: 1 }, codec, NOW);
     const auth = fakeAuth();
     await getAccessToken(session, auth, codec, NOW + 3_600_000);
-    expect(isSignedIn(session, codec, NOW + SESSION_MAX_AGE_MS - 1)).toBe(true);
-    expect(isSignedIn(session, codec, NOW + SESSION_MAX_AGE_MS)).toBe(false);
+    const end = NOW + 3_600_000 + SESSION_MAX_AGE_MS;
+    expect(isSignedIn(session, codec, end - 1)).toBe(true);
+    expect(isSignedIn(session, codec, end)).toBe(false);
     await expect(
-      getAccessToken(session, auth, codec, NOW + SESSION_MAX_AGE_MS),
+      getAccessToken(session, auth, codec, end),
     ).rejects.toMatchObject({ status: 401 });
   });
 });
@@ -324,66 +324,51 @@ describe('rolling session', () => {
     storeTokens(session, tokens, codec, NOW);
     return session;
   };
-  const half = SESSION_MAX_AGE_MS / 2;
 
-  it('does not renew in the first half of the window', () => {
+  it('ends 12 hours after sign-in when no refresh is needed', async () => {
     const session = fresh();
-    const before = session.aps;
-    expect(renewSession(session, codec, NOW + half)).toBe(false);
-    expect(session.aps).toBe(before);
-    expect(sessionExpiresAt(session, codec, NOW + half)).toBe(
+    const auth = fakeAuth();
+    await getAccessToken(session, auth, codec, NOW + 1000);
+    expect(auth.refresh).not.toHaveBeenCalled();
+    expect(sessionExpiresAt(session, codec, NOW + 1000)).toBe(
       NOW + SESSION_MAX_AGE_MS,
     );
   });
 
-  it('renews after half the window and moves the expiry', () => {
+  it('moves the expiry when a refresh happens', async () => {
     const session = fresh();
-    const at = NOW + half + 1;
-    expect(renewSession(session, codec, at)).toBe(true);
+    const at = NOW + 3600_000 + 1;
+    await getAccessToken(session, fakeAuth(), codec, at);
     expect(sessionExpiresAt(session, codec, at)).toBe(at + SESSION_MAX_AGE_MS);
-    expect(isSignedIn(session, codec, NOW + SESSION_MAX_AGE_MS + 1)).toBe(true);
   });
 
-  it('never outlives the cap, however often it renews', () => {
+  it('never outlives the 7 day cap, however often it refreshes', async () => {
     const session = fresh();
     let at = NOW;
-    while (at + half + 1 < NOW + SESSION_ABSOLUTE_MAX_AGE_MS) {
-      at += half + 1;
-      renewSession(session, codec, at);
+    while (at + 3600_000 < NOW + SESSION_ABSOLUTE_MAX_AGE_MS) {
+      at += 3600_000;
+      await getAccessToken(session, fakeAuth(), codec, at);
       expect(isSignedIn(session, codec, at)).toBe(true);
     }
     const cap = NOW + SESSION_ABSOLUTE_MAX_AGE_MS;
     expect(sessionExpiresAt(session, codec, at)).toBeLessThanOrEqual(cap);
     expect(isSignedIn(session, codec, cap - 1)).toBe(true);
     expect(isSignedIn(session, codec, cap)).toBe(false);
-    expect(renewSession(session, codec, cap)).toBe(false);
   });
 
-  it('stops renewing once the cap is the nearer limit', () => {
-    const session = fresh();
-    let at = NOW;
-    while (at + half + 1 < NOW + SESSION_ABSOLUTE_MAX_AGE_MS - 1000) {
-      at += half + 1;
-      renewSession(session, codec, at);
+  it('keeps the refreshed refresh token across parallel requests', async () => {
+    const first = fresh();
+    const second = { aps: first.aps };
+    const auth = fakeAuth();
+    const at = NOW + 3600_000 + 1;
+    await Promise.all([
+      getAccessToken(first, auth, codec, at),
+      getAccessToken(second, auth, codec, at),
+    ]);
+    expect(auth.refresh).toHaveBeenCalledTimes(1);
+    for (const session of [first, second]) {
+      expect(codec.open(session.aps)?.refreshToken).toBe('new-refresh');
     }
-    const capped = sessionExpiresAt(session, codec, at);
-    const sealed = session.aps;
-    at += half + 1;
-    if (at < (capped ?? 0)) {
-      expect(renewSession(session, codec, at)).toBe(false);
-      expect(session.aps).toBe(sealed);
-    }
-  });
-
-  it('keeps the original sign-in time through renewal and refresh', async () => {
-    const session = fresh();
-    const at = NOW + half + 1;
-    renewSession(session, codec, at);
-    await getAccessToken(session, fakeAuth(), codec, at + 1000);
-    expect(sessionExpiresAt(session, codec, at)).toBe(at + SESSION_MAX_AGE_MS);
-    expect(
-      isSignedIn(session, codec, NOW + SESSION_ABSOLUTE_MAX_AGE_MS - 1),
-    ).toBe(false);
   });
 
   it('treats a cookie without a renewal time as renewed at sign-in', () => {

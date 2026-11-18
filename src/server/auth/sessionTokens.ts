@@ -138,22 +138,6 @@ export function storeTokens(
   });
 }
 
-export function renewSession(
-  session: SessionStore,
-  codec: SessionCodec,
-  now: number = Date.now(),
-): boolean {
-  const tokens = readTokens(session, codec, now);
-  if (!tokens || now - tokens.renewedAt <= SESSION_MAX_AGE_MS / 2) return false;
-  const renewed = Math.min(
-    now + SESSION_MAX_AGE_MS,
-    tokens.issuedAt + SESSION_ABSOLUTE_MAX_AGE_MS,
-  );
-  if (renewed <= expiryOf(tokens)) return false;
-  session.aps = codec.seal({ ...tokens, renewedAt: now });
-  return true;
-}
-
 export function sessionCookieBytes(session: SessionStore): number {
   return Buffer.from(JSON.stringify(session)).toString('base64').length;
 }
@@ -227,14 +211,7 @@ export async function getAccessToken(
   try {
     const refreshed = await refreshOnce(auth, tokens.refreshToken);
     const previous = session.aps;
-    storeTokens(
-      session,
-      refreshed,
-      codec,
-      now,
-      tokens.issuedAt,
-      tokens.renewedAt,
-    );
+    storeTokens(session, refreshed, codec, now, tokens.issuedAt, now);
     if (sessionCookieBytes(session) > MAX_COOKIE_BYTES) session.aps = previous;
     return {
       accessToken: refreshed.accessToken,

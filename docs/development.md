@@ -75,7 +75,7 @@ Mock mode needs `MOCK_APS=1` and a non-production `NODE_ENV`. The server compute
 
 ## Session tokens and CSP
 
-The session cookie holds the Autodesk tokens as one AES-256-GCM sealed string (key derived from `SESSION_SECRET`) with an absolute 12 hour lifetime enforced on the server. Sign-out clears the browser cookie, but a copied cookie stays valid until it expires; real revocation needs a server-side session store. A refresh rejection answers 401 without clearing the cookie, so parallel requests on several instances cannot sign the user out.
+The session cookie holds the Autodesk tokens as one AES-256-GCM sealed string (key derived from `SESSION_SECRET`) with a 12 hour window enforced on the server and a 7 day cap from sign-in. The window slides only when a request needs an Autodesk token refresh (about hourly while the app is in use); that is the single place the cookie is rewritten, so a renewal can never overwrite a rotated refresh token. A session that needs no refresh ends 12 hours after its last refresh. Sign-out clears the browser cookie, but a copied cookie stays valid until it expires; real revocation needs a server-side session store. A refresh rejection answers 401 without clearing the cookie, so parallel requests on several instances cannot sign the user out.
 
 `Content-Security-Policy-Report-Only` is set in `vercel.json` and by the Express production path (`src/server/csp.ts`), and a test keeps the two equal. It is report-only because it has not been tested against the real Viewer. To enforce it, open the real app, check the browser console for violation reports, adjust the policy in both places, then rename the header to `Content-Security-Policy`.
 
@@ -199,7 +199,7 @@ The checks ignore failed requests to `cdn.derivative.autodesk.com` (404 for opti
 
 ### Session lifetime and the profile
 
-The session cookie (`bim-hub-session`, `cookie-session`) has `maxAge` of 12 hours (`SESSION_MAX_AGE_MS`), and the sealed token carries the same absolute cap from sign-in, so the cookie does not roll: extending it would not extend the session. `/api/session` returns `expiresAt` (sign-in plus 12 hours). The app warns shortly before it (Settings, Session, default 10 minutes, 0 turns it off) and, when any request answers 401, keeps the layout and open models mounted and shows a "Sign in again" banner instead of the landing page. Sign-in again is a full redirect, so queries and the viewer token reload with the page. Run `npm run e2e:signin` again when `smoke.py` exits 2.
+The session cookie (`bim-hub-session`, `cookie-session`) has `maxAge` of 12 hours (`SESSION_MAX_AGE_MS`), and the sealed token carries the same absolute cap from sign-in, and a token refresh moves both forward (never past 7 days from sign-in). `/api/session` returns `expiresAt`, the real end of the current window. The app warns shortly before it (Settings, Session, default 10 minutes, 0 turns it off) and, when any request answers 401, keeps the layout and open models mounted and shows a "Sign in again" banner instead of the landing page. Sign-in again is a full redirect, so queries and the viewer token reload with the page. Run `npm run e2e:signin` again when `smoke.py` exits 2.
 
 `e2e/.profile` contains cookies that are equivalent to your Autodesk login for the app. It is gitignored along with `e2e/.venv` and `e2e/output`. Never commit, copy or share it. Do not point `E2E_PROFILE_DIR` at a folder inside a synced or shared location.
 

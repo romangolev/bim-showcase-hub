@@ -98,7 +98,7 @@ describe('session and auth', () => {
     expect((await agent.get('/api/hubs')).status).toBe(200);
   });
 
-  it('renews the session after half the window but never past seven days', async () => {
+  it('renews the session on token refresh but never past seven days', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     try {
       const start = Date.now();
@@ -107,13 +107,15 @@ describe('session and auth', () => {
       const hour = 60 * 60 * 1000;
       const first = (await agent.get('/api/session')).body.expiresAt;
       vi.setSystemTime(start + 7 * hour);
+      expect((await agent.get('/api/session')).body.expiresAt).toBe(first);
+      expect((await agent.get('/api/viewer/token')).status).toBe(200);
       const renewed = (await agent.get('/api/session')).body.expiresAt;
-      expect(renewed).toBeGreaterThan(first);
       expect(renewed).toBe(start + 19 * hour);
       let at = start + 7 * hour;
       for (let i = 0; i < 40; i += 1) {
-        at += 7 * hour;
+        at += 2 * hour;
         vi.setSystemTime(at);
+        await agent.get('/api/viewer/token');
         const res = await agent.get('/api/session');
         if (res.status !== 200) break;
         expect(res.body.expiresAt).toBeLessThanOrEqual(start + 168 * hour);
