@@ -11,6 +11,7 @@ import {
 } from '../../extensions/exportFormats.js';
 import { usePersisted } from '../../storage.js';
 import { modelScopeOptions, resolveScope } from '../../viewer/modelScope.js';
+import { useSelectionSets, withSetLabels } from '../../viewer/selectionSets.js';
 import { useModels } from '../../viewer/useModels.js';
 import { useActiveViewer } from '../../viewer/ViewerContext.js';
 import { EXCEL_SETTINGS, type ExcelToolSettings } from './excelSettings.js';
@@ -51,6 +52,11 @@ export function ExcelFields() {
   const [excel, setExcel] = usePersisted(EXCEL_SETTINGS);
   const models = useModels(useActiveViewer());
   const modelOptions = modelScopeOptions(models);
+  const scopeLabels = withSetLabels(
+    SCOPE_LABELS,
+    excel.scope,
+    useSelectionSets(),
+  );
   const patternId = useId();
   const metadataId = useId();
   const headerId = useId();
@@ -77,7 +83,7 @@ export function ExcelFields() {
       <SelectField<ExportScope>
         label="Rows"
         value={excel.scope}
-        labels={SCOPE_LABELS}
+        labels={scopeLabels}
         onChange={(scope) => update({ scope })}
       />
       {modelOptions.length > 0 ? (

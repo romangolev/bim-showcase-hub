@@ -61,7 +61,13 @@ export interface ExportSheet {
 export type ExportStatus =
   | { phase: 'reading' }
   | { phase: 'building' }
-  | { phase: 'done'; fileName: string; rowCount: number; missing?: string[] }
+  | {
+      phase: 'done';
+      fileName: string;
+      rowCount: number;
+      missing?: string[];
+      scopeNote?: string;
+    }
   | { phase: 'empty' }
   | { phase: 'cancelled' }
   | { phase: 'error'; message: string };
@@ -214,7 +220,7 @@ export async function exportToXlsx(
       copied.catch(() => undefined);
     }
     emit({ phase: 'reading' });
-    const { rows } = await readScopedRows(adapter, {
+    const { rows, scopeNote } = await readScopedRows(adapter, {
       names: propertyNames,
       scope: { models: modelScope, elements: scope },
       signal,
@@ -349,11 +355,13 @@ export async function exportToXlsx(
       }
     }
     const missing = unavailableModelNames(adapter);
-    return emit(
-      missing.length > 0
-        ? { phase: 'done', fileName: delivered, rowCount, missing }
-        : { phase: 'done', fileName: delivered, rowCount },
-    );
+    return emit({
+      phase: 'done',
+      fileName: delivered,
+      rowCount,
+      ...(missing.length > 0 ? { missing } : {}),
+      ...(scopeNote ? { scopeNote } : {}),
+    });
   } catch (err) {
     copyText.reject();
     if (signal?.aborted || isAbortError(err))
@@ -371,10 +379,16 @@ export function describeStatus(status: ExportStatus): string {
       return 'Reading element properties';
     case 'building':
       return 'Building the Excel file';
-    case 'done':
-      return status.missing?.length
-        ? `Exported ${status.rowCount} elements to ${status.fileName}. Missing ${status.missing.join(', ')}: properties could not be read`
-        : `Exported ${status.rowCount} elements to ${status.fileName}`;
+    case 'done': {
+      const base = `Exported ${status.rowCount} elements to ${status.fileName}`;
+      const notes = [
+        status.missing?.length
+          ? `Missing ${status.missing.join(', ')}: properties could not be read`
+          : '',
+        status.scopeNote ?? '',
+      ].filter(Boolean);
+      return notes.length > 0 ? `${base}. ${notes.join('. ')}` : base;
+    }
     case 'empty':
       return 'No elements to export';
     case 'cancelled':

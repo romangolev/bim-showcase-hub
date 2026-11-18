@@ -1,12 +1,29 @@
 import { useId } from 'react';
-import { ELEMENT_SCOPES, type ElementScope } from '../viewer/propertyScope.js';
+import {
+  type BaseElementScope,
+  ELEMENT_SCOPES,
+  type ElementScope,
+  sanitizeElementScope,
+} from '../viewer/propertyScope.js';
+import {
+  getSet,
+  setIdOf,
+  useSelectionSets,
+  withSetLabels,
+} from '../viewer/selectionSets.js';
 
-export const ELEMENT_SCOPE_LABELS: Record<ElementScope, string> = {
+export const ELEMENT_SCOPE_LABELS: Record<BaseElementScope, string> = {
   all: 'All elements',
   selected: 'Selected',
   visible: 'Visible',
   isolated: 'Isolated',
 };
+
+export function scopeName(scope: ElementScope): string {
+  const id = setIdOf(scope);
+  if (id === undefined) return ELEMENT_SCOPE_LABELS[scope as BaseElementScope];
+  return getSet(id)?.name ?? 'deleted set';
+}
 
 export function ElementScopeSelect({
   value,
@@ -18,6 +35,7 @@ export function ElementScopeSelect({
   label?: string;
 }) {
   const id = useId();
+  const labels = withSetLabels(ELEMENT_SCOPE_LABELS, value, useSelectionSets());
   return (
     <div className="bsh-field bsh-scope">
       <label htmlFor={id} className="bsh-sr-only">
@@ -27,15 +45,11 @@ export function ElementScopeSelect({
         id={id}
         className="bsh-select"
         value={value}
-        onChange={(event) =>
-          onChange(
-            ELEMENT_SCOPES.find((s) => s === event.target.value) ?? 'all',
-          )
-        }
+        onChange={(event) => onChange(sanitizeElementScope(event.target.value))}
       >
-        {ELEMENT_SCOPES.map((scope) => (
+        {Object.entries(labels).map(([scope, text]) => (
           <option key={scope} value={scope}>
-            {ELEMENT_SCOPE_LABELS[scope]}
+            {text}
           </option>
         ))}
       </select>
@@ -50,7 +64,7 @@ export function elementScopeLabel(state: {
   pending: boolean;
 }): string {
   if (state.elements === 'all') return '';
-  const name = ELEMENT_SCOPE_LABELS[state.elements].toLowerCase();
+  const name = scopeName(state.elements).toLowerCase();
   if (state.pending) return `Reading ${name} elements`;
   return `Summarizing ${state.rows.length.toLocaleString('en-US')} ${name} of ${state.total.toLocaleString('en-US')} elements`;
 }

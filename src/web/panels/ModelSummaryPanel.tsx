@@ -20,9 +20,9 @@ import { PANE_SETTINGS, usePaneSetting } from '../settings/paneSettings.js';
 import type { ElementScope } from '../viewer/propertyScope.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import {
-  ELEMENT_SCOPE_LABELS,
   ElementScopeSelect,
   elementScopeLabel,
+  scopeName,
 } from './ElementScope.js';
 import {
   FailedModels,
@@ -296,7 +296,7 @@ export function ModelSummaryPanel({
                 title={
                   state.elements === 'all'
                     ? 'No elements to summarize'
-                    : `No ${ELEMENT_SCOPE_LABELS[state.elements].toLowerCase()} elements`
+                    : `No ${scopeName(state.elements).toLowerCase()} elements`
                 }
                 message={
                   state.elements === 'all'

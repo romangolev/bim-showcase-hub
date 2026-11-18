@@ -1,6 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { PropertyRow } from '../../shared/types.js';
+import { installMemoryStorage } from '../test/mockApi.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
+import { readScopedRows } from '../viewer/propertyScope.js';
+import {
+  deleteSet,
+  listSets,
+  saveSelectionSet,
+} from '../viewer/selectionSets.js';
 import {
   availableProperties,
   CHART_PALETTES,
@@ -151,6 +158,32 @@ describe('export rows', () => {
     expect(describeStatus(status)).toContain(
       'Missing Broken DB: properties could not be read',
     );
+    adapter.destroy();
+  });
+
+  it('exports only a saved set and warns when the set is gone', async () => {
+    installMemoryStorage();
+    const adapter = new MockViewerAdapter(document.createElement('div'));
+    await adapter.load('urn');
+    const read = await readScopedRows(adapter, { names: ['Category'] });
+    const row0 = read.rows[0];
+    const first = { modelId: row0?.modelId ?? '', dbId: row0?.dbId ?? -1 };
+    saveSelectionSet('One', [first]);
+    const id = listSets()[0]?.id ?? '';
+    const one = await exportToXlsx(adapter, {
+      scope: `set:${id}`,
+      save: vi.fn(),
+    });
+    expect(one).toMatchObject({ phase: 'done', rowCount: 1 });
+    expect(one).not.toHaveProperty('scopeNote');
+    deleteSet(id);
+    const stale = await exportToXlsx(adapter, {
+      scope: `set:${id}`,
+      save: vi.fn(),
+    });
+    expect(stale).toMatchObject({ phase: 'done' });
+    expect((stale as { rowCount: number }).rowCount).toBeGreaterThan(1);
+    expect(describeStatus(stale)).toContain('no longer exists');
     adapter.destroy();
   });
 

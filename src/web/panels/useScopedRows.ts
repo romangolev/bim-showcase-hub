@@ -14,8 +14,11 @@ import type { ReadProgress } from '../viewer/propertyReads.js';
 import {
   applyScope,
   type ElementScope,
+  resolveElementScope,
   scopeElementItems,
+  scopeNoteFor,
 } from '../viewer/propertyScope.js';
+import { useSelectionSets } from '../viewer/selectionSets.js';
 import { forgetLeafRows, readLeafRows } from '../viewer/sharedLeafRows.js';
 import { useModels } from '../viewer/useModels.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
@@ -52,6 +55,7 @@ export type ScopedRows = ReadStatus & {
   total: number;
   pending: boolean;
   elements: ElementScope;
+  scopeNote?: string;
   models: ModelScopeControl;
   reload: () => void;
   cancel: () => void;
@@ -110,8 +114,15 @@ function useElementItems(
 
 export function useScopedRows(
   adapter: ViewerAdapter | null,
-  { names: nameList, elements = 'all', models: controlled }: ScopedRowsRequest,
+  {
+    names: nameList,
+    elements: requested = 'all',
+    models: controlled,
+  }: ScopedRowsRequest,
 ): ScopedRows {
+  useSelectionSets();
+  const elements = resolveElementScope(requested);
+  const scopeNote = scopeNoteFor(requested);
   const key = nameList.join('\u0000');
   const names = useMemo(() => (key ? key.split('\u0000') : []), [key]);
   const [read, setRead] = useState<ReadStatus & { rows: PropertyRow[] }>({
@@ -208,6 +219,7 @@ export function useScopedRows(
     total: modelRows.length,
     pending: items.pending,
     elements,
+    ...(scopeNote ? { scopeNote } : {}),
     models: {
       options,
       scope,
