@@ -1,7 +1,6 @@
 import { useId } from 'react';
 import {
   type BaseElementScope,
-  ELEMENT_SCOPES,
   type ElementScope,
   sanitizeElementScope,
 } from '../viewer/propertyScope.js';

@@ -13,7 +13,6 @@ import {
   aboutRows,
   type ExportFormat,
   type ExportScope,
-  safeName,
   type TableOptions,
   toDelimited,
   toJsonRecords,
