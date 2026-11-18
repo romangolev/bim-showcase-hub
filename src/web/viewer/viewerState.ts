@@ -34,12 +34,17 @@ function sanitizeCamera(raw: unknown): CameraState | null {
   if (!camera || typeof camera !== 'object') return null;
   const { eye, target, up } = camera;
   if (!isVec3(eye) || !isVec3(target) || !isVec3(up)) return null;
-  return {
+  const result: CameraState = {
     eye: [...eye],
     target: [...target],
     up: [...up],
     ortho: camera.ortho === true,
   };
+  const height = camera.orthoHeight;
+  if (typeof height === 'number' && Number.isFinite(height) && height > 0) {
+    result.orthoHeight = height;
+  }
+  return result;
 }
 
 export function sanitizeViewerState(raw: unknown): ViewerState | null {
@@ -84,6 +89,7 @@ export function readCamera(viewer: GuiViewer3D): CameraState | null {
     target: viewport.target,
     up: viewport.up,
     ortho: viewport.isOrthographic,
+    orthoHeight: viewport.orthographicHeight,
   });
 }
 
@@ -91,7 +97,7 @@ function viewportFor(
   current: ViewportState,
   camera: CameraState,
 ): ViewportState {
-  return {
+  const viewport: ViewportState = {
     ...current,
     eye: [...camera.eye],
     target: [...camera.target],
@@ -99,6 +105,10 @@ function viewportFor(
     isOrthographic: camera.ortho,
     projection: camera.ortho ? 'orthographic' : 'perspective',
   };
+  if (camera.orthoHeight !== undefined) {
+    viewport.orthographicHeight = camera.orthoHeight;
+  }
+  return viewport;
 }
 
 export function applyCamera(viewer: GuiViewer3D, camera: CameraState): void {
@@ -111,16 +121,24 @@ export function applyCamera(viewer: GuiViewer3D, camera: CameraState): void {
   );
 }
 
+function readCutplanes(viewer: GuiViewer3D): number[][] {
+  if (viewer.getCutPlanes) {
+    return viewer.getCutPlanes().map(({ x, y, z, w }) => [x, y, z, w]);
+  }
+  return (viewer.getState?.({ cutplanes: true }).cutplanes ?? []).map(
+    (plane) => [...plane],
+  );
+}
+
 export function captureViewerState(
   viewer: GuiViewer3D,
   models: readonly StateModel[],
   selection: readonly ModelDbId[],
 ): ViewerState {
-  const own = viewer.getState?.(VIEWER_STATE_FILTER);
   const state: ViewerState = {
     version: 1,
     camera: readCamera(viewer),
-    cutplanes: (own?.cutplanes ?? []).map((plane) => [...plane]),
+    cutplanes: readCutplanes(viewer),
     models: {},
   };
   for (const { id, handle } of models) {
@@ -152,7 +170,13 @@ async function knownIds(
   try {
     const tree = await readTree(viewer, model);
     const ids = new Set<number>([tree.getRootId()]);
-    tree.enumNodeChildren(tree.getRootId(), (id) => ids.add(id), true);
+    tree.enumNodeChildren(
+      tree.getRootId(),
+      (id) => {
+        ids.add(id);
+      },
+      true,
+    );
     return ids;
   } catch {
     return null;
@@ -198,17 +222,21 @@ export async function restoreViewerState(
     }
   });
   if (viewer.restoreState && viewer.getState) {
+    if (state.cutplanes.length === 0 && readCutplanes(viewer).length > 0) {
+      viewer.impl?.setCutPlanes?.([]);
+    }
+    const next: { viewport?: ViewportState; cutplanes?: number[][] } = {};
     const current = viewer.getState(VIEWER_STATE_FILTER);
-    const next: { viewport?: ViewportState; cutplanes: number[][] } = {
-      cutplanes: state.cutplanes,
-    };
     if (state.camera && current.viewport) {
       next.viewport = viewportFor(current.viewport, state.camera);
     }
-    try {
-      viewer.restoreState(next, VIEWER_STATE_FILTER, true);
-    } catch {
-      return selection;
+    if (state.cutplanes.length > 0) next.cutplanes = state.cutplanes;
+    if (next.viewport || next.cutplanes) {
+      try {
+        viewer.restoreState(next, VIEWER_STATE_FILTER, true);
+      } catch {
+        return selection;
+      }
     }
   }
   return selection;

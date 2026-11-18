@@ -196,6 +196,7 @@ export interface GuiViewer3D {
   impl?: {
     resize?(width: number, height: number): void;
     setPlacementTransform?(model: ViewerModel, matrix: PlacementMatrix): void;
+    setCutPlanes?(planes: unknown[]): void;
     selector?: {
       setAggregateSelection?(
         entries: { model: ViewerModel; ids: number[] }[],
@@ -251,6 +252,7 @@ export interface GuiViewer3D {
     filter?: { viewport?: boolean; cutplanes?: boolean },
     immediate?: boolean,
   ): boolean;
+  getCutPlanes?(): { x: number; y: number; z: number; w: number }[];
   getObjectTree(
     onSuccess: (tree: InstanceTree) => void,
     onError?: (err: unknown) => void,

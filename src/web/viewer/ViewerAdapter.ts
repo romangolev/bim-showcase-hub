@@ -54,6 +54,7 @@ export interface CameraState {
   target: Vec3;
   up: Vec3;
   ortho: boolean;
+  orthoHeight?: number;
 }
 
 export interface ViewerState {

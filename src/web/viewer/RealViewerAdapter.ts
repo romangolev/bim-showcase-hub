@@ -220,7 +220,13 @@ function withDescendants(
 ): Set<number> {
   const all = new Set(ids);
   for (const id of ids) {
-    tree.enumNodeChildren(id, (child) => all.add(child), true);
+    tree.enumNodeChildren(
+      id,
+      (child) => {
+        all.add(child);
+      },
+      true,
+    );
   }
   return all;
 }

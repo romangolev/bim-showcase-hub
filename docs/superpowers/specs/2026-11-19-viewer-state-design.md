@@ -27,7 +27,9 @@ Everything is plain JSON. `models` is keyed by model id (the URN), because a `db
 
 ## Autodesk filter
 
-`viewer.getState(filter)` and `viewer.restoreState(state, filter, immediate)` take a filter that is "similar in structure to viewerState". The adapter always passes `{ viewport: true, cutplanes: true }`, so renderOptions, autocam and the unfiltered `objectSet` never leak into the state and a Viewer upgrade that adds keys cannot change it. Isolation, hiding and selection are not taken from Autodesk's `objectSet`, which describes one model; they are read per model with `getIsolatedNodes(model)`, `getHiddenNodes(model)` and the aggregate selection, and restored with `isolate`, `hide` and `select`.
+`CameraState` is `{ eye, target, up, ortho, orthoHeight? }`; an orthographic view is zoomed by `orthographicHeight`, not by the eye, so it is part of the camera.
+
+`viewer.getState(filter)` and `viewer.restoreState(state, filter, immediate)` take a filter that is "similar in structure to viewerState". The adapter always passes a subset of `{ viewport: true, cutplanes: true }` (never an unfiltered call), so renderOptions, autocam and `objectSet` never leak into the state and a Viewer upgrade that adds keys cannot change it. Cutplanes are captured with `viewer.getCutPlanes()` because `getState().cutplanes` stays stale after a clear. Isolation, hiding and selection are not taken from Autodesk's `objectSet`, which describes one model; they are read per model with `getIsolatedNodes(model)`, `getHiddenNodes(model)` and the aggregate selection, and restored with `isolate`, `hide` and `select`.
 
 ## Restore and degrade rules
 
@@ -36,6 +38,8 @@ Everything is plain JSON. `models` is keyed by model id (the URN), because a `db
 - Per model the adapter reads the object tree and keeps only ids that exist in it. If the tree cannot be read, the model's nodes are left reset. The sentinel `-1` (isolate nothing, used to hide a whole model) is kept.
 - An isolation whose ids are all unknown is dropped, because `isolate` with unknown ids would hide everything.
 - Reset runs first (`isolate([])` and `show(hidden)`), then isolate, hide, camera, cutplanes and selection.
+- Cutplanes: a non-empty list goes through `restoreState`; an empty list clears with `viewer.impl.setCutPlanes([])`, because neither `restoreState` nor `viewer.setCutPlanes([])` clears (checked on the real viewer). This is the one internal Autodesk call.
+- `enumNodeChildren` stops when its callback returns a truthy value, so callbacks must not return `Set.add` results.
 
 ## Element action
 

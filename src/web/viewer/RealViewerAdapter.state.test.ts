@@ -102,12 +102,14 @@ describe('model-aware viewer actions', () => {
       target: [0, 0, 0],
       up: [0, 1, 0],
       ortho: true,
+      orthoHeight: 500,
     } as const;
     adapter.setCamera({
       eye: [...camera.eye],
       target: [...camera.target],
       up: [...camera.up],
       ortho: camera.ortho,
+      orthoHeight: camera.orthoHeight,
     });
     expect(adapter.getCamera()).toEqual(camera);
   });
@@ -134,10 +136,16 @@ describe('viewer state', () => {
     });
   });
 
-  it('captures with the explicit filter', () => {
+  it('never asks Autodesk for an unfiltered state', () => {
     const spy = vi.spyOn(viewer(), 'getState');
     adapter.getState();
-    expect(spy).toHaveBeenCalledWith(VIEWER_STATE_FILTER);
+    expect(spy).toHaveBeenCalled();
+    for (const [filter] of spy.mock.calls) {
+      expect(Object.keys(filter ?? {}).length).toBeGreaterThan(0);
+      for (const key of Object.keys(filter ?? {})) {
+        expect(Object.keys(VIEWER_STATE_FILTER)).toContain(key);
+      }
+    }
   });
 
   it('restores camera, nodes and selection', async () => {
@@ -203,6 +211,17 @@ describe('viewer state', () => {
     state.models.bad = { isolated: [11], hidden: [], selection: [11] };
     await expect(adapter.restoreState(state)).resolves.toBeUndefined();
     expect(adapter.getState().models.bad?.isolated).toEqual([]);
+  });
+
+  it('captures and clears cutplanes', async () => {
+    viewer().cutplanes = [[0, 0, 1, -5]];
+    const state = adapter.getState();
+    expect(state.cutplanes).toEqual([[0, 0, 1, -5]]);
+    viewer().cutplanes = [];
+    await adapter.restoreState(state);
+    expect(viewer().cutplanes).toEqual([[0, 0, 1, -5]]);
+    await adapter.restoreState({ ...state, cutplanes: [] });
+    expect(viewer().cutplanes).toEqual([]);
   });
 
   it('restores nothing after the adapter is destroyed', async () => {

@@ -178,6 +178,9 @@ export class FakeFederatedViewer implements GuiViewer3D {
       own.placement = [...matrix.elements];
       this.placed.push({ urn: own.urn, elements: [...matrix.elements] });
     },
+    setCutPlanes: (planes: unknown[]) => {
+      if (planes.length === 0) this.cutplanes = [];
+    },
     selector: {
       setAggregateSelection: (
         entries: { model: ViewerModel; ids: number[] }[],
@@ -322,6 +325,15 @@ export class FakeFederatedViewer implements GuiViewer3D {
     });
   }
 
+  getCutPlanes() {
+    return this.cutplanes.map(([x = 0, y = 0, z = 0, w = 0]) => ({
+      x,
+      y,
+      z,
+      w,
+    }));
+  }
+
   getIsolatedNodes(model: ViewerModel): number[] {
     return [...(this.isolated.get(this.own(model)) ?? [])];
   }
@@ -347,7 +359,7 @@ export class FakeFederatedViewer implements GuiViewer3D {
     if (state.viewport && (!filter || filter.viewport)) {
       this.viewport = { ...state.viewport };
     }
-    if (state.cutplanes && (!filter || filter.cutplanes)) {
+    if (state.cutplanes?.length && (!filter || filter.cutplanes)) {
       this.cutplanes = state.cutplanes.map((plane) => [...plane]);
     }
     return true;
