@@ -275,6 +275,22 @@ describe('paneLifecycle panes, lock and present', () => {
     expect(lifecycle.view().userPanels).toEqual(['chart:3']);
   });
 
+  it('forgets another owner without announcing a layout reset', () => {
+    const { lifecycle } = setup({
+      locked: true,
+      user: { chart: [{ id: 'chart:3', title: 'x' }] },
+    });
+    lifecycle.setCollapsed('tree', true);
+    lifecycle.forgetOwner();
+    const state = lifecycle.getState();
+    expect(state.layout).toEqual(defaultModel());
+    expect(state.user).toEqual({});
+    expect(state.locked).toBe(false);
+    expect(state.openPanes).toEqual(['tree']);
+    expect(state.announcement).toBe('');
+    expect(lifecycle.view().userPanels).toEqual([]);
+  });
+
   it('enters and leaves presentation, restoring the maximize it caused', () => {
     const { lifecycle, dock } = setup({ urns: ['a'] });
     lifecycle.setPresenting(true);

@@ -6,6 +6,7 @@ import type {
   PaneTitle,
 } from './layoutContext.js';
 import {
+  defaultModel,
   type LayoutModel,
   layoutReducer,
   type SerializedDock,
@@ -121,6 +122,7 @@ export interface PaneLifecycle {
   treeWidth: (width: number) => void;
   maximizedChanged: (id: PanelId | null) => void;
   moved: (id: PanelId) => void;
+  forgetOwner: () => void;
 }
 
 export function modelOf(id: PanelId): string | null {
@@ -479,5 +481,22 @@ export function createPaneLifecycle(deps: LifecycleDeps): PaneLifecycle {
     treeWidth: (width) => dispatch({ type: 'treeWidth', width }),
     maximizedChanged: (id) => set({ maximized: id }),
     moved: bump,
+    forgetOwner: () => {
+      const layout = defaultModel();
+      state = {
+        layout,
+        user: {},
+        locked: false,
+        openPanes: openFromDock(layout.dock),
+        attached: [],
+        signals: {},
+        overlayTreeOpen: false,
+        maximized: null,
+        presenting: false,
+        resizing: null,
+        announcement: '',
+      };
+      for (const listener of [...listeners]) listener();
+    },
   };
 }

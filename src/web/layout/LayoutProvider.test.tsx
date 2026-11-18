@@ -418,4 +418,21 @@ describe('dock layout', () => {
     expect(screen.getByRole('main')).toContainElement(heading);
     expect(screen.queryByRole('region', { name: 'Model viewer' })).toBeNull();
   });
+
+  it('claims a different stored owner without updating the task center while rendering', async () => {
+    storage.setItem('bsh.models.owner', 'name:Previous Owner');
+    const errors: string[] = [];
+    const spy = vi.spyOn(console, 'error').mockImplementation((...args) => {
+      errors.push(args.map((part) => String(part)).join(' '));
+    });
+    renderPath();
+    await dockReady();
+    spy.mockRestore();
+    expect(
+      errors.filter((text) => text.includes('Cannot update a component')),
+    ).toEqual([]);
+    await waitFor(() =>
+      expect(storage.getItem('bsh.models.owner')).toBe('name:Ada'),
+    );
+  });
 });
