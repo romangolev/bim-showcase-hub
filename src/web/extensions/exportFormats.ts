@@ -100,8 +100,6 @@ export const SCOPE_LABELS: Record<ExportScope, string> = {
   visible: 'Visible elements',
 };
 
-export const CONFIRM_ABOVE = 20000;
-
 const FORMULA_START = /^[=+\-@\t\r]/;
 const PLAIN_NUMBER = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
 

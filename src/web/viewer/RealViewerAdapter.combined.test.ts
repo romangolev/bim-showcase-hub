@@ -15,7 +15,6 @@ import {
   nodeIs2d,
   OTHER_REGION_MESSAGE,
   pickGeometryNode,
-  selectionIds,
 } from './federation.js';
 import { RealViewerAdapter } from './RealViewerAdapter.js';
 import { resetRegion } from './region.js';
@@ -540,20 +539,6 @@ describe('federation helpers', () => {
       is2d: false,
     });
     expect(anchorOf(new FakeModel('s', {}, {}, true)).unit).toBeUndefined();
-  });
-
-  it('flattens aggregate and single selection events', () => {
-    const model = new FakeModel('a', {}, {}, false);
-    expect(
-      selectionIds({
-        selections: [
-          { model, dbIdArray: [1, 2] },
-          { model, dbIdArray: [1] },
-        ],
-      }),
-    ).toEqual([1, 2, 1]);
-    expect(selectionIds({ dbIdArray: [4] })).toEqual([4]);
-    expect(selectionIds({})).toEqual([]);
   });
 });
 

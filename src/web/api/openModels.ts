@@ -407,10 +407,6 @@ export function parseOpenModels(raw: string | null): OpenModelsState {
   return { models, active, live: [], visible: [] };
 }
 
-export function forgetModels(): void {
-  forgetPersonal();
-}
-
 export interface ModelOwner {
   id?: string;
   name: string;
@@ -431,7 +427,7 @@ function sameOwner(stored: string, owner: ModelOwner): boolean {
 export function claimModels(owner: ModelOwner): boolean {
   const stored = MODEL_OWNER.read();
   const changed = stored !== null && !sameOwner(stored, owner);
-  if (changed) forgetModels();
+  if (changed) forgetPersonal();
   MODEL_OWNER.write(ownerKey(owner));
   return changed;
 }

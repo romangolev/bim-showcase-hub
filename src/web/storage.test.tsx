@@ -1,13 +1,12 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { forgetModels } from './api/openModels.js';
 import {
   LAYOUT_WRITE_DELAY_MS,
   useDebouncedWrite,
 } from './layout/LayoutProvider.js';
 import { defaultModel, LAYOUT_KEY } from './layout/layoutState.js';
 import { readSettings, SETTINGS_STORAGE_KEY } from './settings/settings.js';
-import { BSH_KEYS } from './storage.js';
+import { BSH_KEYS, forgetPersonal } from './storage.js';
 import { tasks } from './tasks/taskStore.js';
 import { readJson, writeJson } from './test/storageJson.js';
 import { EXCEL_SETTINGS_KEY } from './tools/excel/excelSettings.js';
@@ -42,7 +41,7 @@ describe('sign-out', () => {
     for (const key of Object.values(BSH_KEYS.preference)) {
       window.localStorage.setItem(key, '"x"');
     }
-    forgetModels();
+    forgetPersonal();
     for (const key of Object.values(BSH_KEYS.personal)) {
       expect(window.localStorage.getItem(key)).toBeNull();
       expect(window.sessionStorage.getItem(key)).toBeNull();
@@ -61,7 +60,7 @@ describe('sign-out', () => {
       projectName: 'Tower',
       enabled: false,
     });
-    forgetModels();
+    forgetPersonal();
     expect(readSettings().recentsLength).toBe(9);
     expect(
       readJson<Record<string, unknown>>(IFC_SETTINGS_KEY, {}),
@@ -75,13 +74,13 @@ describe('sign-out', () => {
 
   it('clears the user pane instances', () => {
     writeJson(BSH_KEYS.personal.layoutInstances, { chart: [] });
-    forgetModels();
+    forgetPersonal();
     expect(window.localStorage.getItem('bsh.layout.instances.v1')).toBeNull();
   });
 
   it('resets the Excel model scope', () => {
     writeJson(EXCEL_SETTINGS_KEY, { format: 'csv', modelScope: 'urn-secret' });
-    forgetModels();
+    forgetPersonal();
     expect(
       readJson<Record<string, unknown>>(EXCEL_SETTINGS_KEY, {}),
     ).toMatchObject({ format: 'csv', modelScope: 'all' });
@@ -90,7 +89,7 @@ describe('sign-out', () => {
   it('clears finished tasks', () => {
     tasks.start({ label: 'Export Tower.rvt' }).finish();
     expect(tasks.getSnapshot().tasks).toHaveLength(1);
-    forgetModels();
+    forgetPersonal();
     expect(tasks.getSnapshot().tasks).toHaveLength(0);
   });
 
@@ -101,7 +100,7 @@ describe('sign-out', () => {
       { initialProps: { model: defaultModel() } },
     );
     rerender({ model: { ...defaultModel(), treeWidth: 300 } });
-    forgetModels();
+    forgetPersonal();
     act(() => {
       vi.advanceTimersByTime(LAYOUT_WRITE_DELAY_MS * 2);
     });

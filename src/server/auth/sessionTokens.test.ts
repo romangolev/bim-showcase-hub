@@ -6,7 +6,6 @@ import {
   clearAuth,
   createSessionCodec,
   getAccessToken,
-  isSignedIn,
   MAX_COOKIE_BYTES,
   readUser,
   SESSION_ABSOLUTE_MAX_AGE_MS,
@@ -17,6 +16,12 @@ import {
   storeUser,
 } from './sessionTokens.js';
 import type { ApsAuth } from './types.js';
+
+const isSignedIn = (
+  session: Parameters<typeof sessionExpiresAt>[0],
+  codec: Parameters<typeof sessionExpiresAt>[1],
+  now?: number,
+) => sessionExpiresAt(session, codec, now) !== null;
 
 function fakeAuth(overrides: Partial<ApsAuth> = {}): ApsAuth {
   return {

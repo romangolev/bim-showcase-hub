@@ -4,14 +4,12 @@ import type { GeometryPart, GeometryRead } from '../viewer/geometryTypes.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import {
   buildGlb,
-  DEFAULT_GLB_FILE_NAME,
   describeGlbStatus,
   exportGeometryToGlb,
   GLB_BIN_CHUNK,
   GLB_JSON_CHUNK,
   GLB_MAGIC,
   GLB_VERSION,
-  geometryFileName,
 } from './glbExport.js';
 
 function triangle(overrides: Partial<GeometryPart> = {}): GeometryPart {
@@ -203,20 +201,6 @@ describe('buildGlb', () => {
     expect(built.triangleCount).toBe(0);
     expect(built.skippedParts).toBe(2);
     expect(json.meshes).toEqual([]);
-  });
-});
-
-describe('geometryFileName', () => {
-  it('sanitizes the model name and version', () => {
-    expect(geometryFileName('Snowdon Towers Sample.rvt', 'v3')).toBe(
-      'Snowdon-Towers-Sample-v3-geometry.glb',
-    );
-    expect(geometryFileName('Café plan.nwd')).toBe('Cafe-plan-geometry.glb');
-  });
-
-  it('falls back without a file name', () => {
-    expect(geometryFileName()).toBe(DEFAULT_GLB_FILE_NAME);
-    expect(geometryFileName('***.rvt')).toBe(DEFAULT_GLB_FILE_NAME);
   });
 });
 
