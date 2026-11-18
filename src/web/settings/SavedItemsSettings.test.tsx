@@ -1,10 +1,17 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   exportSaved,
   MAX_IMPORT_BYTES,
   MAX_ITEMS,
   readSaved,
+  removeSaved,
   type SavedItem,
   upsertSaved,
 } from '../store/savedStore.js';
@@ -42,6 +49,19 @@ describe('SavedItemsSettings', () => {
     expect(saved.calls).toHaveLength(1);
     expect(saved.calls[0]?.[1]).toBe('bsh-saved.json');
     expect(await saved.calls[0]?.[0].text()).toBe(exportSaved());
+  });
+
+  it('follows saves and deletes made elsewhere', async () => {
+    render(<SavedItemsSettings />);
+    expect(screen.getByText(/Nothing saved yet\./)).toBeTruthy();
+    await act(async () => {
+      upsertSaved(item('a'));
+    });
+    expect(screen.getByText(/dashboard-preset: 1/)).toBeTruthy();
+    await act(async () => {
+      removeSaved('a');
+    });
+    expect(screen.getByText(/Nothing saved yet\./)).toBeTruthy();
   });
 
   it('imports a valid file and reports the counts', async () => {
