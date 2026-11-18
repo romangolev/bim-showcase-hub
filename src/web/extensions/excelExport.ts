@@ -37,12 +37,17 @@ export const FALLBACK_SHEET_NAME = 'Elements';
 
 export type ExportCell = string | number | boolean;
 
-function shownModels(adapter: ViewerAdapter): { name: string; urn: string }[] {
+function shownModels(adapter: ViewerAdapter): AboutInfo['models'] {
   if (typeof adapter.getModels !== 'function') return [];
   return adapter
     .getModels()
     .filter((model) => model.status === 'ready' && model.visible)
-    .map(({ name, urn }) => ({ name, urn }));
+    .map(({ name, urn, version, path }) => ({
+      name,
+      urn,
+      ...(version ? { version } : {}),
+      ...(path ? { path } : {}),
+    }));
 }
 
 function scopeItems(adapter: ViewerAdapter, scope: ExportScope) {

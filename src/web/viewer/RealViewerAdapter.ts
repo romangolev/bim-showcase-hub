@@ -32,6 +32,7 @@ import {
   type ModelDbId,
   type ModelInfo,
   ModelLoadError,
+  type ModelMeta,
   ModelSet,
   ModelSetError,
   type ModelSource,
@@ -281,8 +282,8 @@ export class RealViewerAdapter implements ViewerAdapter {
     for (const cb of [...this.stageListeners]) cb(stage);
   }
 
-  async load(urn: string, name?: string): Promise<void> {
-    await this.loadModels([name ? { urn, name } : { urn }]);
+  async load(urn: string, name?: string, meta?: ModelMeta): Promise<void> {
+    await this.loadModels([{ urn, ...(name ? { name } : {}), ...meta }]);
   }
 
   async loadModels(sources: readonly ModelSource[]): Promise<ModelInfo[]> {

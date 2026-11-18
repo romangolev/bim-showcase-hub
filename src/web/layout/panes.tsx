@@ -25,7 +25,7 @@ import {
   ModelsPanel,
 } from '../panels/index.js';
 import { SUMMARY_SETTINGS_ID } from '../panels/SummarySettings.js';
-import { memberLabel } from '../routes/ModelPage.js';
+import { memberLabel, memberMeta } from '../routes/ModelPage.js';
 import { ViewerPane } from '../viewer/index.js';
 import { page } from '../viewer/region.js';
 import { useLayout, useMainContent } from './layoutContext.js';
@@ -109,9 +109,16 @@ export function ModelPaneBody({ instance }: { instance: string }) {
         ? memberKey.split(',').map((urn) => ({
             urn,
             name: memberLabel(urn, recallModel(urn)),
+            ...memberMeta(recallModel(urn)),
           }))
         : [],
     [memberKey, recalled],
+  );
+  const version = context?.v;
+  const path = context?.crumbs?.join(' / ');
+  const meta = useMemo(
+    () => memberMeta({ v: version, crumbs: path ? [path] : [] }),
+    [version, path],
   );
   const exportName =
     members.length > 0
@@ -136,6 +143,7 @@ export function ModelPaneBody({ instance }: { instance: string }) {
             resizeSignal={layout.resizeSignal(panel)}
             exportName={exportName}
             name={memberLabel(instance, context)}
+            meta={meta}
             members={members}
             onRemoveModel={(urn) => store?.removeFrom(instance, urn)}
             offsets={entry?.offsets ?? null}

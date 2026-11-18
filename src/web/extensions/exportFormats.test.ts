@@ -77,6 +77,23 @@ describe('serializers', () => {
     ).not.toContain('Exporter');
   });
 
+  it('adds version and path rows only when a model carries them', () => {
+    const base = { scope: 'all' as const, rowCount: 1 };
+    const plain = aboutRows({ ...base, models: [{ name: 'A', urn: 'u' }] });
+    expect(plain.map(([key]) => key)).not.toContain('Version');
+    const rows = aboutRows({
+      ...base,
+      models: [
+        { name: 'A', urn: 'u', version: 'V2', path: 'Hub / Project' },
+        { name: 'B', urn: 'w' },
+      ],
+    });
+    expect(Object.fromEntries(rows)).toMatchObject({
+      Version: 'V2, ',
+      Path: 'Hub / Project, ',
+    });
+  });
+
   it('builds JSON records keyed by header', () => {
     expect(toJsonRecords(['a', 'b'], [[1, 'x']])).toEqual([{ a: 1, b: 'x' }]);
   });

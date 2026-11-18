@@ -9,7 +9,12 @@ export const EMPTY_SOURCE_MESSAGE = 'A model URN is required';
 
 export type ModelStatus = 'loading' | 'ready' | 'error';
 
-export interface ModelSource {
+export interface ModelMeta {
+  version?: string;
+  path?: string;
+}
+
+export interface ModelSource extends ModelMeta {
   urn: string;
   name?: string;
 }
@@ -41,6 +46,8 @@ export interface ModelInfo {
   id: string;
   urn: string;
   name: string;
+  version?: string;
+  path?: string;
   visible: boolean;
   status: ModelStatus;
   error?: string;
@@ -204,6 +211,12 @@ export class ModelSet<H> {
       urn: source.urn,
       name:
         source.name?.trim() || existing?.info.name || `Model ${this.serial}`,
+      ...((source.version ?? existing?.info.version)
+        ? { version: source.version ?? existing?.info.version }
+        : {}),
+      ...((source.path ?? existing?.info.path)
+        ? { path: source.path ?? existing?.info.path }
+        : {}),
       visible: true,
       status: 'loading',
     };
@@ -216,9 +229,14 @@ export class ModelSet<H> {
   resolve(id: string, handle: H, token?: number): boolean {
     const entry = this.entries.get(id);
     if (!entry || (token !== undefined && entry.token !== token)) return false;
-    const { id: modelId, urn, name, visible } = entry.info;
+    const {
+      error: _error,
+      reason: _reason,
+      propertiesError: _propertiesError,
+      ...rest
+    } = entry.info;
     entry.handle = handle;
-    entry.info = { id: modelId, urn, name, visible, status: 'ready' };
+    entry.info = { ...rest, status: 'ready' };
     this.emit();
     return true;
   }

@@ -34,6 +34,7 @@ import { explainFailure } from './failureExplainer.js';
 import { ModelsMenu } from './ModelsMenu.js';
 import {
   type FailureReason,
+  type ModelMeta,
   ModelSetError,
   type ModelSource,
   type ModelSpread,
@@ -69,6 +70,7 @@ export interface ViewerPaneProps {
   exportName?: string;
   onKeepOnly?: () => void;
   name?: string;
+  meta?: ModelMeta;
   members?: readonly ModelSource[];
   onRemoveModel?: (urn: string) => void;
   onAddModel?: () => void;
@@ -172,6 +174,7 @@ export function ViewerPane({
   exportName,
   onKeepOnly,
   name,
+  meta,
   members = NO_MEMBERS,
   onRemoveModel,
   onAddModel,
@@ -186,6 +189,8 @@ export function ViewerPane({
   membersRef.current = members;
   const nameRef = useRef(name);
   nameRef.current = name;
+  const metaRef = useRef(meta);
+  metaRef.current = meta;
   const [setNotice, setSetNotice] = useState<string | null>(null);
   const registry = useContext(ActiveViewerContext);
   const publish = registry?.publish;
@@ -306,11 +311,18 @@ export function ViewerPane({
         }
         const extra = membersRef.current;
         const primaryName = nameRef.current;
+        const primaryMeta = metaRef.current;
         if (extra.length > 0) {
           await instance.loadModels([
-            primaryName ? { urn, name: primaryName } : { urn },
+            {
+              urn,
+              ...(primaryName ? { name: primaryName } : {}),
+              ...primaryMeta,
+            },
             ...extra,
           ]);
+        } else if (primaryMeta) {
+          await instance.load(urn, primaryName, primaryMeta);
         } else if (primaryName) {
           await instance.load(urn, primaryName);
         } else {
@@ -394,7 +406,11 @@ export function ViewerPane({
   const sourceFor = useCallback(
     (id: string): ModelSource => {
       if (id === urn) {
-        return nameRef.current ? { urn, name: nameRef.current } : { urn };
+        return {
+          urn,
+          ...(nameRef.current ? { name: nameRef.current } : {}),
+          ...metaRef.current,
+        };
       }
       return (
         membersRef.current.find((source) => source.urn === id) ?? { urn: id }

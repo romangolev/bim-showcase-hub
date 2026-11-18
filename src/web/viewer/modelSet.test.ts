@@ -56,6 +56,17 @@ describe('ModelSet', () => {
     ]);
   });
 
+  it('keeps version and path through load and resolve', () => {
+    const set = new ModelSet<string>();
+    set.add({ urn: 'a', name: 'A', version: 'V3', path: 'Hub / Proj' });
+    set.resolve('a', 'handle');
+    expect(set.get('a')).toMatchObject({
+      status: 'ready',
+      version: 'V3',
+      path: 'Hub / Proj',
+    });
+  });
+
   it('caps the set at six models', () => {
     expect(MAX_COMBINED_MODELS).toBe(6);
     const set = new ModelSet<string>();

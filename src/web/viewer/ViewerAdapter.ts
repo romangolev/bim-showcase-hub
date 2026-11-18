@@ -5,6 +5,7 @@ import type { GeometryRead } from './geometryTypes.js';
 import type {
   ModelDbId,
   ModelInfo,
+  ModelMeta,
   ModelSource,
   ModelSpread,
   Vec3,
@@ -55,7 +56,7 @@ export interface CameraState {
 }
 
 export interface ViewerAdapter {
-  load(urn: string, name?: string): Promise<void>;
+  load(urn: string, name?: string, meta?: ModelMeta): Promise<void>;
   unload(): void;
   resize(): void;
   scheduleResize(settleMs: number): void;

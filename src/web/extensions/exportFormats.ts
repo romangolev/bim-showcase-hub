@@ -156,17 +156,39 @@ export function applyNamePattern(
 }
 
 export interface AboutInfo {
-  models: readonly { name: string; urn: string }[];
+  models: readonly {
+    name: string;
+    urn: string;
+    version?: string;
+    path?: string;
+  }[];
   scope: ExportScope;
   rowCount: number;
   exporter?: boolean;
   date?: Date;
 }
 
+function optionalRow(
+  key: string,
+  values: readonly (string | undefined)[],
+): [string, ExportCell][] {
+  return values.some(Boolean)
+    ? [[key, values.map((value) => value ?? '').join(', ')]]
+    : [];
+}
+
 export function aboutRows(info: AboutInfo): [string, ExportCell][] {
   const rows: [string, ExportCell][] = [
     ['Model', info.models.map((model) => model.name).join(', ')],
     ['Source URN', info.models.map((model) => model.urn).join(', ')],
+    ...optionalRow(
+      'Version',
+      info.models.map((model) => model.version),
+    ),
+    ...optionalRow(
+      'Path',
+      info.models.map((model) => model.path),
+    ),
     ['Exported', (info.date ?? new Date()).toISOString()],
     ['Scope', SCOPE_LABELS[info.scope]],
     ['Rows', info.rowCount],

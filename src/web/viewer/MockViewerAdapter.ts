@@ -22,6 +22,7 @@ import {
   type ModelBox,
   type ModelDbId,
   type ModelInfo,
+  type ModelMeta,
   ModelSet,
   ModelSetError,
   type ModelSource,
@@ -282,8 +283,8 @@ export class MockViewerAdapter implements ViewerAdapter {
     };
   }
 
-  async load(urn: string, name?: string): Promise<void> {
-    await this.loadModels([name ? { urn, name } : { urn }]);
+  async load(urn: string, name?: string, meta?: ModelMeta): Promise<void> {
+    await this.loadModels([{ urn, ...(name ? { name } : {}), ...meta }]);
   }
 
   async loadModels(sources: readonly ModelSource[]): Promise<ModelInfo[]> {

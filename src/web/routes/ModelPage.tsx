@@ -6,7 +6,7 @@ import {
 import { recallModel } from '../api/modelStore.js';
 import { composeTitle } from '../components/useDocumentTitle.js';
 import type { PaneTitle } from '../layout/layoutContext.js';
-import { farApartMessage } from '../viewer/modelSet.js';
+import { farApartMessage, type ModelMeta } from '../viewer/modelSet.js';
 
 export function viewerTabTitle(
   urn: string,
@@ -30,6 +30,13 @@ export function memberLabel(
   return identity.version
     ? `${identity.title} · ${identity.version}`
     : identity.title;
+}
+
+export function memberMeta(context?: ModelContext | null): ModelMeta {
+  return {
+    ...(context?.v ? { version: context.v } : {}),
+    ...(context?.crumbs?.length ? { path: context.crumbs.join(' / ') } : {}),
+  };
 }
 
 export function modelTabTitle(
