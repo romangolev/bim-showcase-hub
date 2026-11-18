@@ -3,7 +3,7 @@ import {
   type ExcelSettings,
   readExcelSettings,
 } from '../../extensions/exportFormats.js';
-import { persistedSetting } from '../kernel/persistedSetting.js';
+import { defineRecord } from '../../storage.js';
 import { readEnabled, type ToolSettings } from '../kernel/ViewerTool.js';
 
 export type ExcelToolSettings = ExcelSettings & ToolSettings;
@@ -19,8 +19,8 @@ export function readExcelToolSettings(raw: unknown): ExcelToolSettings {
   return { enabled: readEnabled(raw), ...readExcelSettings(raw) };
 }
 
-export const EXCEL_SETTINGS = persistedSetting(
-  EXCEL_SETTINGS_KEY,
-  DEFAULT_EXCEL_TOOL_SETTINGS,
-  readExcelToolSettings,
-);
+export const EXCEL_SETTINGS = defineRecord({
+  key: EXCEL_SETTINGS_KEY,
+  initial: DEFAULT_EXCEL_TOOL_SETTINGS,
+  sanitize: readExcelToolSettings,
+});

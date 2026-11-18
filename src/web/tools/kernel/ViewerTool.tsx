@@ -3,12 +3,12 @@ import { isRecord } from '../../../shared/guards.js';
 import type { Command } from '../../commands/types.js';
 import type { FormDefinition } from '../../components/SettingsForm.js';
 import type { ModalDefinition } from '../../modal/types.js';
+import type { PersistedRecord } from '../../storage.js';
 import type {
   ExportToolSpec,
   PaintToolSpec,
   ViewerAdapter,
 } from '../../viewer/ViewerAdapter.js';
-import type { PersistedSetting } from './persistedSetting.js';
 import { ToolForm, ToolSettingsFrame } from './ToolSettingsFrame.js';
 
 export interface ToolSettings {
@@ -40,7 +40,7 @@ export abstract class ViewerTool<S extends ToolSettings = ToolSettings> {
   abstract readonly id: string;
   abstract readonly title: string;
   abstract readonly description: string;
-  abstract readonly settings: PersistedSetting<S>;
+  abstract readonly settings: PersistedRecord<S>;
   readonly legacy?: LegacySettings;
   readonly exportTitle?: string;
   readonly form?: FormDefinition<S>;

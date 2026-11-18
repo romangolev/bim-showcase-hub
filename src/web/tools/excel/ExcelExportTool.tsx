@@ -56,6 +56,10 @@ export class ExcelExportTool extends ViewerTool<ExcelToolSettings> {
     }),
   };
 
+  override scrub(settings: ExcelToolSettings): ExcelToolSettings {
+    return { ...settings, modelScope: 'all' };
+  }
+
   contribute(ctx: ToolContext): ToolContribution {
     return {
       exports: [

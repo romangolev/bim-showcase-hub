@@ -5,7 +5,7 @@ import {
   sanitizeIntensity,
   sanitizePalette,
 } from '../../extensions/paintBrushes.js';
-import { persistedSetting } from '../kernel/persistedSetting.js';
+import { defineRecord } from '../../storage.js';
 import { readEnabled, type ToolSettings } from '../kernel/ViewerTool.js';
 
 export interface PaintSettings extends ToolSettings {
@@ -30,8 +30,8 @@ export function readPaintSettings(raw: unknown): PaintSettings {
   };
 }
 
-export const PAINT_SETTINGS = persistedSetting(
-  PAINT_SETTINGS_KEY,
-  DEFAULT_PAINT_SETTINGS,
-  readPaintSettings,
-);
+export const PAINT_SETTINGS = defineRecord({
+  key: PAINT_SETTINGS_KEY,
+  initial: DEFAULT_PAINT_SETTINGS,
+  sanitize: readPaintSettings,
+});

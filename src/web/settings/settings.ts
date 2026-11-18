@@ -1,5 +1,5 @@
 import { isRecord } from '../../shared/guards.js';
-import { BSH_KEYS, readJson, writeJson } from '../storage.js';
+import { BSH_KEYS, defineRecord } from '../storage.js';
 
 export interface Settings {
   sessionWarnMinutes: number;
@@ -13,6 +13,12 @@ export const DEFAULT_SETTINGS: Settings = {
 
 export const SETTINGS_STORAGE_KEY = BSH_KEYS.preference.settings;
 
+export const APP_SETTINGS_BLOB = defineRecord<unknown>({
+  key: SETTINGS_STORAGE_KEY,
+  initial: undefined,
+  sanitize: (raw) => raw,
+});
+
 function minutes(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value)
     ? Math.min(120, Math.max(0, Math.round(value)))
@@ -20,7 +26,7 @@ function minutes(value: unknown, fallback: number): number {
 }
 
 export function readSettings(): Settings {
-  const parsed = readJson<unknown>(SETTINGS_STORAGE_KEY, undefined);
+  const parsed = APP_SETTINGS_BLOB.read();
   if (parsed === undefined) return DEFAULT_SETTINGS;
   const source = isRecord(parsed) ? parsed : {};
   return {
@@ -36,8 +42,8 @@ export function readSettings(): Settings {
 }
 
 export function writeSettings(settings: Settings): void {
-  const stored = readJson<unknown>(SETTINGS_STORAGE_KEY, undefined);
-  writeJson(SETTINGS_STORAGE_KEY, {
+  const stored = APP_SETTINGS_BLOB.read();
+  APP_SETTINGS_BLOB.write({
     ...(isRecord(stored) ? stored : {}),
     ...settings,
   });

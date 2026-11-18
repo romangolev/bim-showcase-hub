@@ -1,8 +1,8 @@
 import { useModal } from '../modal/ModalContext.js';
 import { DASHBOARD_SETTINGS_MODAL } from '../panels/DashboardSettings.js';
 import { SUMMARY_SETTINGS_MODAL } from '../panels/SummarySettings.js';
+import { usePersisted } from '../storage.js';
 import { TOOLS } from '../tools/index.js';
-import { usePersistedSetting } from '../tools/kernel/persistedSetting.js';
 import type { AnyViewerTool } from '../tools/kernel/ToolRegistry.js';
 import { SavedItemsSettings } from './SavedItemsSettings.js';
 
@@ -42,7 +42,7 @@ function EntryRow({
 }
 
 function ToolEntry({ tool }: { tool: AnyViewerTool }) {
-  const [settings] = usePersistedSetting(tool.settings);
+  const [settings] = usePersisted(tool.settings);
   return (
     <EntryRow
       title={tool.title}

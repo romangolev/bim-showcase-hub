@@ -1,6 +1,5 @@
 import type { Command } from '../../commands/types.js';
 import type { ModalDefinition } from '../../modal/types.js';
-import { readJson, writeJson } from '../../storage.js';
 import type {
   ExportToolSpec,
   PaintToolSpec,
@@ -51,9 +50,7 @@ export class ToolRegistry {
   snapshot(): Record<string, ToolSettings> {
     const out: Record<string, ToolSettings> = {};
     for (const tool of this.tools) {
-      const raw = readJson<unknown>(tool.settings.key, undefined);
-      out[tool.id] =
-        raw === undefined ? tool.settings.initial : tool.settings.sanitize(raw);
+      out[tool.id] = tool.settings.read();
     }
     return out;
   }
@@ -86,9 +83,8 @@ export class ToolRegistry {
 
   scrubPersonal(): void {
     for (const tool of this.tools) {
-      const raw = readJson<unknown>(tool.settings.key, undefined);
-      if (raw === undefined) continue;
-      writeJson(tool.settings.key, tool.scrub(tool.settings.sanitize(raw)));
+      if (tool.settings.has())
+        tool.settings.write(tool.scrub(tool.settings.read()));
     }
   }
 }

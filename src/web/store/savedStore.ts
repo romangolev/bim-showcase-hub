@@ -1,5 +1,5 @@
 import { isRecord } from '../../shared/guards.js';
-import { BSH_KEYS, readJson, writeJson } from '../storage.js';
+import { BSH_KEYS, defineRecord } from '../storage.js';
 
 export const SAVED_KEY = BSH_KEYS.personal.saved;
 export const SAVED_FORMAT = 'bsh-saved';
@@ -78,14 +78,23 @@ function sanitizeItems(raw: unknown): SavedItem[] {
   return items;
 }
 
+const SAVED = defineRecord<SavedItem[]>({
+  key: SAVED_KEY,
+  initial: [],
+  sanitize: (raw) => sanitizeItems(isRecord(raw) ? raw.items : undefined),
+  codec: {
+    encode: (items) => JSON.stringify({ version: SAVED_VERSION, items }),
+    decode: (text) => JSON.parse(text),
+  },
+});
+
 export function readSaved(kind?: string): SavedItem[] {
-  const parsed = readJson<unknown>(SAVED_KEY, undefined);
-  const items = sanitizeItems(isRecord(parsed) ? parsed.items : undefined);
+  const items = [...SAVED.read()];
   return kind === undefined ? items : items.filter((i) => i.kind === kind);
 }
 
 function persist(items: SavedItem[]): boolean {
-  return writeJson(SAVED_KEY, { version: SAVED_VERSION, items });
+  return SAVED.write(items);
 }
 
 export function upsertSaved(item: SavedItem): boolean {

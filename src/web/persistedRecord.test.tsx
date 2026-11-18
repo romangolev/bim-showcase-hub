@@ -1,0 +1,184 @@
+import { act, renderHook } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { instanceSettingKey } from './layout/instanceSettings.js';
+import {
+  BSH_KEYS,
+  BSH_PERSONAL_PREFIXES,
+  defineRecord,
+  defineRecordFamily,
+  forgetPersonal,
+  RAW_STRING,
+  setStorageAdapter,
+  usePersisted,
+} from './storage.js';
+import { memoryAdapter, type StorageAdapter } from './storageAdapter.js';
+import { EXCEL_SETTINGS_KEY } from './tools/excel/excelSettings.js';
+import { GLB_SETTINGS_KEY } from './tools/glb/GlbExportTool.js';
+import { IFC_SETTINGS_KEY } from './tools/ifc/ifcSettings.js';
+import { PAINT_SETTINGS_KEY } from './tools/paint/paintSettings.js';
+
+let adapter: StorageAdapter;
+let previous: StorageAdapter;
+
+beforeEach(() => {
+  adapter = memoryAdapter();
+  previous = setStorageAdapter(adapter);
+});
+
+afterEach(() => {
+  setStorageAdapter(previous);
+});
+
+const count = defineRecord<number>({
+  key: 'test.count',
+  initial: 1,
+  sanitize: (raw) => (typeof raw === 'number' ? raw : 0),
+});
+
+describe('storage keys', () => {
+  it('keeps every key string and version suffix', () => {
+    expect(BSH_KEYS).toEqual({
+      personal: {
+        layout: 'bsh.layout.v2',
+        layoutV1: 'bsh.layout.v1',
+        openModels: 'bsh.models.open',
+        modelOwner: 'bsh.models.owner',
+        recentModels: 'bsh.models.recent',
+        pinned: 'bsh.docs.pinned',
+        hiddenModels: 'bsh.models.hidden',
+        hubHint: 'bsh.hint.hubs.dismissed.v1',
+        summaryView: 'bsh.summary.view.v1',
+        summaryProperties: 'bsh.summary.properties.v1',
+        summaryScope: 'bsh.summary.scope.v1',
+        summaryAction: 'bsh.summary.action.v1',
+        dashboardAction: 'bsh.dashboard.action.v1',
+        dashboardView: 'bsh.dashboard.view.v1',
+        saved: 'bsh.saved.v1',
+        recentCommands: 'bsh.commands.recent.v1',
+        layoutInstances: 'bsh.layout.instances.v1',
+      },
+      preference: {
+        theme: 'bsh-theme',
+        settings: 'bsh-settings-v1',
+        layoutLocked: 'bsh.layout.locked',
+        treeView: 'bsh.tree.view',
+        treeWidth: 'bsh.tree.width',
+        summaryCollapsed: 'bsh.summary.collapsed',
+        dashboardCollapsed: 'bsh.dashboard.collapsed',
+      },
+    });
+    expect(BSH_PERSONAL_PREFIXES).toEqual(['bsh.pane.']);
+    expect(instanceSettingKey('chart:2')).toBe('bsh.pane.chart.2.v1');
+    expect([
+      PAINT_SETTINGS_KEY,
+      EXCEL_SETTINGS_KEY,
+      GLB_SETTINGS_KEY,
+      IFC_SETTINGS_KEY,
+    ]).toEqual([
+      'bsh.tool.paint.v1',
+      'bsh.tool.excel.v1',
+      'bsh.tool.glb.v1',
+      'bsh.tool.ifc.v1',
+    ]);
+  });
+});
+
+describe('records', () => {
+  it('falls back to the default and sanitizes what it reads', () => {
+    expect(count.read()).toBe(1);
+    expect(count.has()).toBe(false);
+    adapter.set('local', 'test.count', '{');
+    expect(count.read()).toBe(1);
+    adapter.set('local', 'test.count', '"x"');
+    expect(count.read()).toBe(0);
+    expect(count.write(7)).toBe(true);
+    expect(adapter.get('local', 'test.count')).toBe('7');
+    expect(count.has()).toBe(true);
+    count.remove();
+    expect(count.read()).toBe(1);
+  });
+
+  it('keeps raw strings and the session area apart', () => {
+    const raw = defineRecord<string>({
+      key: 'test.raw',
+      initial: '',
+      sanitize: (value) => String(value),
+      area: 'session',
+      codec: RAW_STRING,
+    });
+    raw.write('plain');
+    expect(adapter.get('session', 'test.raw')).toBe('plain');
+    expect(adapter.get('local', 'test.raw')).toBeNull();
+    expect(raw.read()).toBe('plain');
+  });
+
+  it('syncs two mounted hooks and a cross-tab change', async () => {
+    const a = renderHook(() => usePersisted(count));
+    const b = renderHook(() => usePersisted(count));
+    await act(async () => {
+      a.result.current[1](5);
+      await Promise.resolve();
+    });
+    expect(b.result.current[0]).toBe(5);
+    act(() => {
+      adapter.set('local', 'test.count', '9');
+      window.dispatchEvent(new StorageEvent('storage', { key: 'test.count' }));
+    });
+    expect(a.result.current[0]).toBe(9);
+  });
+
+  it('syncs hooks even when storage rejects the write', async () => {
+    adapter.set = () => false;
+    const a = renderHook(() => usePersisted(count));
+    const b = renderHook(() => usePersisted(count));
+    await act(async () => {
+      a.result.current[1](5);
+      await Promise.resolve();
+    });
+    expect(a.result.current[0]).toBe(5);
+    expect(b.result.current[0]).toBe(5);
+  });
+
+  it('applies consecutive functional updates exactly once each', () => {
+    const view = renderHook(() => usePersisted(count));
+    const updater = vi.fn((n: number) => n + 1);
+    act(() => {
+      view.result.current[1](updater);
+      view.result.current[1](updater);
+    });
+    expect(view.result.current[0]).toBe(3);
+    expect(updater).toHaveBeenCalledTimes(2);
+    expect(adapter.get('local', 'test.count')).toBe('3');
+  });
+
+  it('rejects a family outside the registered prefixes', () => {
+    expect(() =>
+      defineRecordFamily({
+        prefix: 'other.',
+        keyOf: String,
+        initial: 0,
+        sanitize: Number,
+      }),
+    ).toThrow();
+  });
+});
+
+describe('forget', () => {
+  it('removes personal keys in both areas and prefixed keys, keeps preferences', () => {
+    for (const key of Object.values(BSH_KEYS.personal)) {
+      adapter.set('local', key, '"x"');
+      adapter.set('session', key, '"x"');
+    }
+    for (const key of Object.values(BSH_KEYS.preference)) {
+      adapter.set('local', key, '"x"');
+    }
+    adapter.set('local', 'bsh.pane.chart.9.v1', '{}');
+    adapter.set('session', 'bsh.pane.chart.9.v1', '{}');
+    adapter.set('local', 'unrelated', '1');
+    forgetPersonal();
+    expect(adapter.keys('session')).toEqual([]);
+    expect(adapter.keys('local').sort()).toEqual(
+      [...Object.values(BSH_KEYS.preference), 'unrelated'].sort(),
+    );
+  });
+});

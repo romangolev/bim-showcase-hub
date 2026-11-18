@@ -4,7 +4,7 @@ import {
   SettingsForm,
 } from '../../components/SettingsForm.js';
 import { SwitchRow } from '../../components/SwitchRow.js';
-import { usePersistedSetting } from './persistedSetting.js';
+import { usePersisted } from '../../storage.js';
 import type { ToolSettings, ViewerTool } from './ViewerTool.js';
 
 interface ToolSettingsFrameProps {
@@ -13,7 +13,7 @@ interface ToolSettingsFrameProps {
 }
 
 export function ToolSettingsFrame({ tool, children }: ToolSettingsFrameProps) {
-  const [settings, setSettings] = usePersistedSetting(tool.settings);
+  const [settings, setSettings] = usePersisted(tool.settings);
   return (
     <div className="settings">
       <section className="settings__section">
@@ -43,7 +43,7 @@ export function ToolForm<S extends ToolSettings>({
   tool,
   form,
 }: ToolFormProps<S>) {
-  const [settings, setSettings] = usePersistedSetting(tool.settings);
+  const [settings, setSettings] = usePersisted(tool.settings);
   return (
     <SettingsForm
       form={form}

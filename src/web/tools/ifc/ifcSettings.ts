@@ -1,6 +1,6 @@
 import { DEFAULT_IFC_SETTINGS, readIfcSettings } from '../../ifc/settings.js';
 import type { IfcSettings } from '../../ifc/types.js';
-import { persistedSetting } from '../kernel/persistedSetting.js';
+import { defineRecord } from '../../storage.js';
 import { readEnabled, type ToolSettings } from '../kernel/ViewerTool.js';
 
 export type IfcToolSettings = IfcSettings & ToolSettings;
@@ -16,8 +16,8 @@ export function readIfcToolSettings(raw: unknown): IfcToolSettings {
   return { enabled: readEnabled(raw), ...readIfcSettings(raw) };
 }
 
-export const IFC_SETTINGS = persistedSetting(
-  IFC_SETTINGS_KEY,
-  DEFAULT_IFC_TOOL_SETTINGS,
-  readIfcToolSettings,
-);
+export const IFC_SETTINGS = defineRecord({
+  key: IFC_SETTINGS_KEY,
+  initial: DEFAULT_IFC_TOOL_SETTINGS,
+  sanitize: readIfcToolSettings,
+});

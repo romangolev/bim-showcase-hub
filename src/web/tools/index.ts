@@ -1,4 +1,6 @@
-import { BSH_KEYS, onForgetPersonal } from '../storage.js';
+import { APP_SETTINGS_BLOB } from '../settings/settings.js';
+import { onForgetPersonal } from '../storage.js';
+import { tasks } from '../tasks/taskStore.js';
 import { ExcelExportTool } from './excel/ExcelExportTool.js';
 import { GlbExportTool } from './glb/GlbExportTool.js';
 import { IfcExportTool } from './ifc/IfcExportTool.js';
@@ -13,12 +15,13 @@ export const TOOLS = new ToolRegistry()
   .register(new IfcExportTool());
 
 onForgetPersonal(() => {
+  tasks.clearFinished();
   TOOLS.scrubPersonal();
-  migrateLegacySettings(TOOLS, BSH_KEYS.preference.settings, { scrub: true });
+  migrateLegacySettings(TOOLS, APP_SETTINGS_BLOB, { scrub: true });
 });
 
 export function migrateLegacyToolSettings(): void {
-  migrateLegacySettings(TOOLS, BSH_KEYS.preference.settings);
+  migrateLegacySettings(TOOLS, APP_SETTINGS_BLOB);
 }
 
 export { useViewerTools } from './kernel/useViewerTools.js';

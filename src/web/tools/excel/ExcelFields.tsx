@@ -9,10 +9,10 @@ import {
   FORMAT_LABELS,
   SCOPE_LABELS,
 } from '../../extensions/exportFormats.js';
+import { usePersisted } from '../../storage.js';
 import { modelScopeOptions, resolveScope } from '../../viewer/modelScope.js';
 import { useModels } from '../../viewer/useModels.js';
 import { useActiveViewer } from '../../viewer/ViewerContext.js';
-import { usePersistedSetting } from '../kernel/persistedSetting.js';
 import { EXCEL_SETTINGS, type ExcelToolSettings } from './excelSettings.js';
 
 interface SelectFieldProps<T extends string> {
@@ -48,7 +48,7 @@ function SelectField<T extends string>({
 }
 
 export function ExcelFields() {
-  const [excel, setExcel] = usePersistedSetting(EXCEL_SETTINGS);
+  const [excel, setExcel] = usePersisted(EXCEL_SETTINGS);
   const models = useModels(useActiveViewer());
   const modelOptions = modelScopeOptions(models);
   const patternId = useId();

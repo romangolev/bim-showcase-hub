@@ -1,4 +1,4 @@
-import { BSH_KEYS } from '../storage.js';
+import { BSH_KEYS, defineRecord, RAW_STRING } from '../storage.js';
 
 export type Theme = 'dark' | 'light';
 
@@ -9,21 +9,19 @@ export function isTheme(value: unknown): value is Theme {
   return value === 'dark' || value === 'light';
 }
 
+const STORED_THEME = defineRecord<Theme | null>({
+  key: THEME_STORAGE_KEY,
+  initial: null,
+  sanitize: (value) => (isTheme(value) ? value : null),
+  codec: { encode: (value) => value ?? '', decode: RAW_STRING.decode },
+});
+
 export function readStoredTheme(): Theme | null {
-  try {
-    const value = window.localStorage.getItem(THEME_STORAGE_KEY);
-    return isTheme(value) ? value : null;
-  } catch {
-    return null;
-  }
+  return STORED_THEME.read();
 }
 
 export function writeStoredTheme(theme: Theme): void {
-  try {
-    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
-  } catch {
-    return;
-  }
+  STORED_THEME.write(theme);
 }
 
 export function readSystemTheme(): Theme {

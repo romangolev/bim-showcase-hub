@@ -3,12 +3,12 @@ import {
   describeGlbStatus,
   exportGeometryToGlb,
 } from '../../extensions/glbExport.js';
+import { defineRecord } from '../../storage.js';
 import {
   exportEntry,
   exportFileName,
   statusReporter,
 } from '../kernel/exportKit.js';
-import { persistedSetting } from '../kernel/persistedSetting.js';
 import {
   readEnabled,
   type ToolContext,
@@ -22,11 +22,11 @@ export const GLB_SETTINGS_KEY = 'bsh.tool.glb.v1';
 
 export type GlbToolSettings = ToolSettings;
 
-export const GLB_SETTINGS = persistedSetting<GlbToolSettings>(
-  GLB_SETTINGS_KEY,
-  { enabled: true },
-  (raw) => ({ enabled: readEnabled(raw) }),
-);
+export const GLB_SETTINGS = defineRecord<GlbToolSettings>({
+  key: GLB_SETTINGS_KEY,
+  initial: { enabled: true },
+  sanitize: (raw) => ({ enabled: readEnabled(raw) }),
+});
 
 export function glbFileNameFrom(fileName?: string): string {
   return exportFileName(fileName, DEFAULT_GLB_FILE_NAME, '-geometry', 'glb');
