@@ -116,7 +116,7 @@ The keys are listed in [development.md](development.md#storage-keys).
 Summary, Dashboard and exports read property rows the same way: `useScopedRows` in panels and `readScopedRows` (`viewer/propertyScope.ts`) in async code.
 
 - Scope is a model (`ALL_MODELS` or one model id) plus elements (`all`, `selected`, `visible`, `isolated` or `set:<id>`).
-- `viewer/sharedLeafRows.ts` keeps one cache per adapter and model. Refresh clears it.
+- `viewer/sharedLeafRows.ts` keeps one cache per adapter and model. Refresh clears it. An empty read is cached only when the adapter reported a complete tree (`onProgress` with `total: 0`), so a transient empty read is read again; `peekLeafRows` then returns `[]`.
 - The hook returns status, progress, `reload` and `cancel`.
 
 ## ViewerAdapter

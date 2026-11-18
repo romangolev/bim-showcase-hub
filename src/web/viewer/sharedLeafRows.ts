@@ -151,7 +151,10 @@ function startBatch(
     };
     read.then((rows) => {
       release();
-      if (entry.generation === generation && rows.length > 0) {
+      if (
+        entry.generation === generation &&
+        (rows.length > 0 || pending.last?.total === 0)
+      ) {
         key.settled = { names: pending.names, rows };
       }
     }, release);
