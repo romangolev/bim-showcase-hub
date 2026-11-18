@@ -83,6 +83,7 @@ export interface RecordSpec<T> {
   sanitize: (raw: unknown) => T;
   area?: StorageArea;
   codec?: Codec<T>;
+  cache?: boolean;
 }
 
 export interface PersistedRecord<T> {
@@ -121,6 +122,7 @@ function notify(key: string, value: unknown): void {
 export function defineRecord<T>(spec: RecordSpec<T>): PersistedRecord<T> {
   const { key, initial, sanitize, area = 'local' } = spec;
   const codec = (spec.codec ?? JSON_CODEC) as Codec<T>;
+  let cached: { text: string; value: T } | null = null;
   const peek = (): unknown => {
     const text = adapter.get(area, key);
     if (text === null) return undefined;
@@ -135,6 +137,14 @@ export function defineRecord<T>(spec: RecordSpec<T>): PersistedRecord<T> {
     initial,
     sanitize,
     read() {
+      if (spec.cache) {
+        const text = adapter.get(area, key);
+        if (text !== null && cached?.text === text) return cached.value;
+        const raw = peek();
+        if (raw === undefined || text === null) return initial;
+        cached = { text, value: sanitize(raw) };
+        return cached.value;
+      }
       const raw = peek();
       return raw === undefined ? initial : sanitize(raw);
     },

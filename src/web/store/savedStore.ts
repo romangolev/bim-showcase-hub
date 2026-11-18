@@ -61,7 +61,11 @@ export function sanitizeItem(raw: unknown): SavedItem | null {
         : 0,
     data: clean(data) as Record<string, unknown>,
   };
-  return JSON.stringify(item).length > MAX_ITEM_BYTES ? null : item;
+  return item;
+}
+
+function fits(item: SavedItem): boolean {
+  return JSON.stringify(item).length <= MAX_ITEM_BYTES;
 }
 
 function sanitizeItems(raw: unknown): SavedItem[] {
@@ -80,6 +84,7 @@ function sanitizeItems(raw: unknown): SavedItem[] {
 export const SAVED = defineRecord<SavedItem[]>({
   key: SAVED_KEY,
   initial: [],
+  cache: true,
   sanitize: (raw) => sanitizeItems(isRecord(raw) ? raw.items : undefined),
   codec: {
     encode: (items) => JSON.stringify({ version: SAVED_VERSION, items }),
@@ -98,7 +103,7 @@ function persist(items: SavedItem[]): boolean {
 
 export function upsertSaved(item: SavedItem): boolean {
   const next = sanitizeItem(item);
-  if (!next) return false;
+  if (!next || !fits(next)) return false;
   const items = readSaved();
   const index = items.findIndex((existing) => existing.id === next.id);
   if (index >= 0) items[index] = next;
@@ -165,7 +170,7 @@ export function importSaved(text: string): ImportResult {
   }
   let incoming: SavedItem[];
   try {
-    incoming = sanitizeItems(parsed.items);
+    incoming = sanitizeItems(parsed.items).filter(fits);
   } catch {
     return fail('Not a saved-items file.');
   }

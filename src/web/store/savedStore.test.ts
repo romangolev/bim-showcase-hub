@@ -5,10 +5,12 @@ import {
   exportSaved,
   importSaved,
   MAX_IMPORT_BYTES,
+  MAX_ITEM_BYTES,
   MAX_ITEMS,
   readSaved,
   removeSaved,
   SAVED,
+  SAVED_KEY,
   type SavedItem,
   upsertSaved,
 } from './savedStore.js';
@@ -83,6 +85,37 @@ describe('saved store', () => {
     expect(removeSaved('s0')).toBe(true);
     expect(readSaved()).toHaveLength(MAX_ITEMS + 19);
     expect(upsertSaved(item('new'))).toBe(false);
+  });
+
+  it('caches the sanitized list and drops it on write, remove, forget and external change', () => {
+    upsertSaved(item('a'));
+    const first = SAVED.read();
+    expect(SAVED.read()).toBe(first);
+    upsertSaved(item('b'));
+    const second = SAVED.read();
+    expect(second).not.toBe(first);
+    expect(second).toHaveLength(2);
+    removeSaved('a');
+    expect(SAVED.read().map((i) => i.id)).toEqual(['b']);
+    getStorageAdapter().set(
+      'local',
+      SAVED_KEY,
+      JSON.stringify({ version: 1, items: [item('x'), item('y')] }),
+    );
+    expect(SAVED.read().map((i) => i.id)).toEqual(['x', 'y']);
+    forgetPersonal();
+    expect(SAVED.read()).toEqual([]);
+  });
+
+  it('rejects an oversized item on write and import, not on read', () => {
+    const big = item('big', { data: { blob: 'x'.repeat(MAX_ITEM_BYTES) } });
+    expect(upsertSaved(big)).toBe(false);
+    const result = importSaved(
+      JSON.stringify({ format: 'bsh-saved', version: 1, items: [big] }),
+    );
+    expect(result.accepted).toBe(0);
+    SAVED.write([big]);
+    expect(readSaved()).toHaveLength(1);
   });
 
   it('treats deleting a missing id as a no-op that does not write', () => {
