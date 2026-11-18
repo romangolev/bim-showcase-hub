@@ -7,6 +7,7 @@ import {
   countByProperty,
   OTHER_COLOR,
   OTHER_LABEL,
+  selectedBuckets,
   seriesColors,
   shapeChartData,
 } from './dashboardData.js';
@@ -251,6 +252,23 @@ describe('dashboard data', () => {
     expect(shaped.data).toHaveLength(4);
     expect(shaped.data[0]).toEqual({ label: 'n0', count: 2 });
     expect(shaped.data[3]).toEqual({ label: OTHER_LABEL, count: 7 });
+  });
+
+  it('finds the buckets that hold the selected elements', () => {
+    const many = Array.from({ length: 10 }, (_, i) =>
+      row(i, { Name: `n${i}` }),
+    ).concat([row(100, { Name: 'n0' })]);
+    const shaped = shapeChartData(many, 'Name', 4);
+    const at = (...dbIds: number[]) =>
+      dbIds.map((dbId) => ({ modelId: 'm', dbId }));
+    const tagged = many.map((item) => ({ ...item, modelId: 'm' }));
+    expect(selectedBuckets(tagged, shaped, [])).toEqual(new Set());
+    expect(selectedBuckets(tagged, shaped, at(100, 9))).toEqual(
+      new Set(['n0', OTHER_LABEL]),
+    );
+    expect(
+      selectedBuckets(tagged, shaped, [{ modelId: 'x', dbId: 100 }]),
+    ).toEqual(new Set());
   });
 
   it('lists only properties that have values', () => {

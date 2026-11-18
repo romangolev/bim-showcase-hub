@@ -18,6 +18,7 @@ import {
 } from '../extensions/chartExport.js';
 import {
   type ChartData,
+  mixColors,
   readChartTheme,
   seriesColors,
 } from '../extensions/dashboardData.js';
@@ -37,12 +38,14 @@ export type ChartKind = 'bar' | 'doughnut';
 
 export const LEGEND_LIMIT = 8;
 const TICK_LABEL_LIMIT = 10;
+const DIM_WEIGHT = 0.35;
 
 export interface ChartCanvasProps {
   kind: ChartKind;
   chart: ChartData;
   label: string;
   exportName?: string;
+  highlight?: ReadonlySet<string>;
   onSelectLabel?: (label: string) => void;
 }
 
@@ -57,6 +60,7 @@ export function ChartCanvas({
   chart,
   label,
   exportName = 'model',
+  highlight,
   onSelectLabel,
 }: ChartCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -64,6 +68,7 @@ export function ChartCanvas({
   selectRef.current = onSelectLabel;
   const [notice, setNotice] = useState('');
   const { theme: pageTheme } = useTheme();
+  const litKey = highlight?.size ? JSON.stringify([...highlight].sort()) : '';
   const [colors, setColors] = useState<string[]>([]);
 
   useEffect(() => {
@@ -81,6 +86,14 @@ export function ChartCanvas({
     Chart.defaults.font.weight = Number(theme.fontWeight) || 420;
     Chart.defaults.color = theme.text;
     const labels = chart.data.map((d) => d.label);
+    const lit = litKey ? new Set<string>(JSON.parse(litKey)) : null;
+    const fills = lit
+      ? colors.map((color, index) =>
+          lit.has(labels[index] ?? '')
+            ? color
+            : mixColors(color, theme.surface, DIM_WEIGHT),
+        )
+      : colors;
     const counts = chart.data.map((d) => d.count);
     const instance = new Chart(canvas, {
       type: kind,
@@ -90,8 +103,9 @@ export function ChartCanvas({
           {
             label: chart.property,
             data: counts,
-            backgroundColor: colors,
-            borderWidth: 0,
+            backgroundColor: fills,
+            borderColor: theme.label,
+            borderWidth: labels.map((name) => (lit?.has(name) ? 2 : 0)),
             ...(kind === 'bar' ? { minBarLength: 2 } : {}),
             ...(kind === 'doughnut' ? { spacing: 2, borderRadius: 2 } : {}),
           },
@@ -139,7 +153,7 @@ export function ChartCanvas({
       },
     });
     return () => instance.destroy();
-  }, [kind, chart, pageTheme]);
+  }, [kind, chart, pageTheme, litKey]);
 
   const exportPng = async () => {
     const canvas = canvasRef.current;

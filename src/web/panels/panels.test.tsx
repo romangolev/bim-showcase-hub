@@ -3,6 +3,7 @@ import { BSH_KEYS } from '../storage.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { act, fireEvent, render, screen, waitFor } from '../test/render.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
+import { buildMockElements } from '../viewer/mockModel.js';
 import { DashboardPanel } from './DashboardPanel.js';
 import { DashboardSettingsBody } from './DashboardSettings.js';
 import { ModelSummaryPanel } from './ModelSummaryPanel.js';
@@ -11,7 +12,7 @@ import { SummaryTable } from './SummaryTable.js';
 
 const made = vi.hoisted(() => ({
   configs: [] as {
-    data: { labels: string[] };
+    data: { labels: string[]; datasets: { borderWidth: number[] }[] };
     options: { onClick: (e: unknown, els: { index: number }[]) => void };
   }[],
 }));
@@ -644,6 +645,31 @@ describe('dashboard presets and cross-filter', () => {
     expect(index).toBeGreaterThanOrEqual(0);
     act(() => config?.options.onClick({}, [{ index }]));
     expect(adapter.getModelSelection().length).toBeGreaterThan(1);
+  });
+
+  it('highlights the buckets of the viewer selection', async () => {
+    const adapter = await loaded();
+    render(<DashboardPanel adapter={adapter} />);
+    await screen.findByRole('img', {
+      name: 'Bar chart of element counts by Category',
+    });
+    const widths = () => made.configs.at(-2)?.data.datasets[0]?.borderWidth;
+    expect(widths()?.every((width) => width === 0)).toBe(true);
+    const modelId = adapter.getModels()[0]?.id ?? '';
+    act(() =>
+      adapter.selectModelIds([
+        { modelId, dbId: buildMockElements()[0]?.dbId ?? 0 },
+      ]),
+    );
+    await waitFor(() =>
+      expect(widths()?.some((width) => width > 0)).toBe(true),
+    );
+    const walls = made.configs.at(-2)?.data.labels.indexOf('Walls') ?? -1;
+    act(() => adapter.clearSelection());
+    await waitFor(() =>
+      expect(widths()?.every((width) => width === 0)).toBe(true),
+    );
+    expect(walls).toBeGreaterThanOrEqual(0);
   });
 });
 

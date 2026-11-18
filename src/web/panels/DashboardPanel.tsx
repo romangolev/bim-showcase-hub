@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { Icon } from '../components/icons.js';
 import { StateBlock } from '../components/StateBlock.js';
 import {
@@ -6,6 +6,7 @@ import {
   bucketLabels,
   type ChartData,
   DEFAULT_DASHBOARD_PROPERTIES,
+  selectedBuckets,
   shapeChartData,
 } from '../extensions/dashboardData.js';
 import {
@@ -24,6 +25,7 @@ import {
 } from '../extensions/elementActions.js';
 import { BSH_KEYS } from '../storage.js';
 import { usePersistedState } from '../usePersistedState.js';
+import type { ModelDbId } from '../viewer/modelSet.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { ChartCanvas } from './ChartCanvas.js';
 import { useDashboardView } from './DashboardSettings.js';
@@ -112,6 +114,17 @@ export function DashboardPanel({
         : [],
     [state.status, activePreset, scope.rows, maxCategories],
   );
+  const [viewerSelection, setViewerSelection] = useState<ModelDbId[]>([]);
+  useEffect(() => {
+    if (!resolved) {
+      setViewerSelection([]);
+      return;
+    }
+    setViewerSelection(resolved.getModelSelection());
+    return resolved.onSelectionChange(setViewerSelection);
+  }, [resolved]);
+  const highlightFor = (chartData: ChartData) =>
+    selectedBuckets(scope.rows, chartData, viewerSelection);
   const exportName = resolved?.getModels()[0]?.name ?? 'model';
   const crossFilter = (chartData: ChartData) => (label: string) => {
     if (!resolved) return;
@@ -251,6 +264,7 @@ export function DashboardPanel({
                 chart={item}
                 label={`${view.kind === 'doughnut' ? 'Doughnut' : 'Bar'} chart of element ${view.kind === 'doughnut' ? 'share' : 'counts'} by ${item.property}`}
                 exportName={exportName}
+                highlight={highlightFor(item)}
                 onSelectLabel={crossFilter(item)}
               />
             ))}
@@ -274,6 +288,7 @@ export function DashboardPanel({
                   chart={chart}
                   label={`Bar chart of element counts by ${chart.property}`}
                   exportName={exportName}
+                  highlight={highlightFor(chart)}
                   onSelectLabel={crossFilter(chart)}
                 />
               ) : null}
@@ -283,6 +298,7 @@ export function DashboardPanel({
                   chart={chart}
                   label={`Doughnut chart of element share by ${chart.property}`}
                   exportName={exportName}
+                  highlight={highlightFor(chart)}
                   onSelectLabel={crossFilter(chart)}
                 />
               ) : null}
