@@ -44,6 +44,14 @@ async function signIn(agent: ReturnType<typeof request.agent>) {
   return agent.get('/api/auth/callback').query({ code: 'abc', state });
 }
 
+function sessionCookiesOf(res: request.Response): string {
+  const cookies = ([] as string[]).concat(res.headers['set-cookie'] ?? []);
+  return cookies
+    .map((value) => value.split(';')[0] ?? '')
+    .filter((value) => value.startsWith('bim-hub-session'))
+    .join('; ');
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
 });
@@ -391,6 +399,47 @@ describe('session and auth', () => {
     expect(res.status).toBe(200);
     expect(res.body.access_token).toBe('access-2');
     expect(auth.refresh).toHaveBeenCalledWith('r');
+  });
+
+  it('keeps the session for a retry that still carries the pre-refresh cookie', async () => {
+    const live = new Set(['refresh-1']);
+    let issued = 1;
+    const auth = fakeAuth({
+      exchangeCode: vi.fn().mockResolvedValue({
+        accessToken: 'access-1',
+        refreshToken: 'refresh-1',
+        expiresIn: 0,
+      }),
+      refresh: vi.fn(async (refreshToken: string) => {
+        if (!live.delete(refreshToken)) {
+          throw new HttpError(401, 'Session expired');
+        }
+        issued += 1;
+        const tokens = {
+          accessToken: `access-${issued}`,
+          refreshToken: `refresh-${issued}`,
+          expiresIn: 3600,
+        };
+        live.add(tokens.refreshToken);
+        return tokens;
+      }),
+    });
+    const app = realApp(auth);
+    const agent = request.agent(app);
+    const stale = sessionCookiesOf(await signIn(agent));
+    expect((await agent.get('/api/hubs')).status).toBe(200);
+
+    const retried = await request(app)
+      .get('/api/hubs')
+      .set('Cookie', stale)
+      .set('X-Auth-Retry', '1');
+
+    expect(retried.status).toBe(200);
+    expect(auth.refresh).toHaveBeenCalledTimes(1);
+    const session = await request(app)
+      .get('/api/session')
+      .set('Cookie', sessionCookiesOf(retried));
+    expect(session.status).toBe(200);
   });
 
   it('passes the session access token to the data service', async () => {

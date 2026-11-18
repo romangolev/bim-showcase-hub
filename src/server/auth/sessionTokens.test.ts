@@ -15,7 +15,7 @@ import {
   storeTokens,
   storeUser,
 } from './sessionTokens.js';
-import type { ApsAuth } from './types.js';
+import type { ApsAuth, TokenSet } from './types.js';
 
 const isSignedIn = (
   session: Parameters<typeof sessionExpiresAt>[0],
@@ -328,6 +328,88 @@ describe('session robustness', () => {
       ).rejects.toMatchObject({ status: 401 });
       expect(isSignedIn(session, codec, NOW + 10_000)).toBe(signedIn);
     }
+  });
+});
+
+describe('single-use refresh tokens', () => {
+  function consumingAuth(initial: string): ApsAuth {
+    const live = new Set([initial]);
+    let issued = 0;
+    return fakeAuth({
+      refresh: vi.fn(async (refreshToken: string) => {
+        if (!live.delete(refreshToken)) {
+          throw new HttpError(401, 'Session expired');
+        }
+        issued += 1;
+        const tokens: TokenSet = {
+          accessToken: `access-${issued}`,
+          refreshToken: `refresh-${issued}`,
+          expiresIn: 3600,
+        };
+        live.add(tokens.refreshToken);
+        return tokens;
+      }),
+    });
+  }
+
+  it('serves a retried request that still carries the pre-refresh cookie', async () => {
+    const auth = consumingAuth('refresh-old');
+    const winner: Record<string, unknown> = {};
+    storeTokens(
+      winner,
+      { accessToken: 'access-0', refreshToken: 'refresh-old', expiresIn: 3600 },
+      codec,
+      NOW,
+    );
+    const stale = { aps: winner.aps };
+    const first = await getAccessToken(winner, auth, codec, NOW + 3_590_000);
+    const retried = await getAccessToken(stale, auth, codec, NOW + 3_590_500, {
+      clearOnRejection: true,
+    });
+    expect(auth.refresh).toHaveBeenCalledTimes(1);
+    expect(retried.accessToken).toBe(first.accessToken);
+    expect(isSignedIn(stale, codec, NOW + 3_590_500)).toBe(true);
+    expect(codec.open(stale.aps)?.refreshToken).toBe(
+      codec.open(winner.aps)?.refreshToken,
+    );
+  });
+
+  it('stops replaying a rotation once the window has passed', async () => {
+    const auth = consumingAuth('refresh-expiring');
+    const winner: Record<string, unknown> = {};
+    storeTokens(
+      winner,
+      {
+        accessToken: 'access-0',
+        refreshToken: 'refresh-expiring',
+        expiresIn: 3600,
+      },
+      codec,
+      NOW,
+    );
+    const stale = { aps: winner.aps };
+    await getAccessToken(winner, auth, codec, NOW + 3_590_000);
+    await expect(
+      getAccessToken(stale, auth, codec, NOW + 3_590_000 + 10 * 60_000),
+    ).rejects.toMatchObject({ status: 401 });
+    expect(auth.refresh).toHaveBeenCalledTimes(2);
+  });
+
+  it('ends the session for a refresh token it never issued', async () => {
+    const session: Record<string, unknown> = {};
+    storeTokens(
+      session,
+      { accessToken: 'a', refreshToken: 'refresh-foreign', expiresIn: 1 },
+      codec,
+      NOW,
+    );
+    const auth = consumingAuth('refresh-old');
+    await expect(
+      getAccessToken(session, auth, codec, NOW + 10_000, {
+        clearOnRejection: true,
+      }),
+    ).rejects.toMatchObject({ status: 401 });
+    expect(isSignedIn(session, codec, NOW + 10_000)).toBe(false);
   });
 });
 

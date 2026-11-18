@@ -41,7 +41,7 @@ Upstream errors pass through `toHttpError`: 404 stays 404, 401 and 403 become 40
 2. Autodesk redirects to `APS_CALLBACK_URL`.
 3. The callback checks `state`. A failure redirects to `/?auth_error=<code>`: `invalid_state`, `access_denied`, `missing_code` or `upstream_error`.
 4. The server exchanges the code and stores the sealed tokens and the user (`{ id, name, picture }`) in the cookie. `id` is a SHA-256 hash of the Autodesk `sub`.
-5. Data routes call `getAccessToken`, which refreshes the token when under 60 seconds remain.
+5. Data routes call `getAccessToken`, which refreshes the token when under 60 seconds remain. Autodesk refresh tokens are single-use, so the result of a rotation is also kept in the process for two minutes under the token it replaced. A request that still carries the cookie from before the rotation gets those tokens instead of presenting a spent refresh token.
 
 A refresh that Autodesk rejects answers 401. The cookie is cleared only on the client's one retry (`X-Auth-Retry: 1`), so parallel requests cannot sign each other out.
 
