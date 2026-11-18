@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { parseView } from '../api/viewLink.js';
 import { StateBlock } from '../components/StateBlock.js';
+import { notify } from '../tasks/notifications.js';
 import { startTask } from '../tasks/taskStore.js';
 import { useTheme } from '../theme/ThemeContext.js';
 import { TOOLS, useViewerTools } from '../tools/index.js';
@@ -80,16 +81,9 @@ type PaneState =
   | { status: 'error'; message: string; reason: FailureReason }
   | { status: 'region'; region: ViewerRegion };
 
-export const STATUS_DISMISS_MS = 4000;
 export const NOTICE_DISMISS_MS = 8000;
 export const ADD_FAILED_MESSAGE = 'Could not add the model';
 export const SETTLE_MS = 250;
-
-interface StatusBadge {
-  text: string;
-  detail: string;
-  error: boolean;
-}
 
 export const STAGE_TEXT: Record<LoadStage, string> = {
   starting: 'Starting the viewer',
@@ -135,10 +129,6 @@ export function ViewerPane({
   const withdraw = registry?.withdraw;
   const hostRef = useRef<HTMLDivElement>(null);
   const adapterRef = useRef<ViewerAdapter | null>(null);
-  const statusTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined,
-  );
-  const [statusBadge, setStatusBadge] = useState<StatusBadge | null>(null);
   const onReadyRef = useRef(onReady);
   const exportNameRef = useRef(exportName);
   exportNameRef.current = exportName;
@@ -153,17 +143,6 @@ export function ViewerPane({
   useEffect(() => {
     onReadyRef.current = onReady;
   }, [onReady]);
-
-  const showBadge = useCallback((badge: StatusBadge) => {
-    clearTimeout(statusTimer.current);
-    setStatusBadge(badge);
-    statusTimer.current = setTimeout(
-      () => setStatusBadge(null),
-      STATUS_DISMISS_MS,
-    );
-  }, []);
-
-  useEffect(() => () => clearTimeout(statusTimer.current), []);
 
   useEffect(() => {
     if (!setNotice) return;
@@ -477,18 +456,6 @@ export function ViewerPane({
             />
           </div>
         )}
-        <div className="bsh-viewer-status" role="status" aria-live="polite">
-          {statusBadge ? (
-            <span
-              className="badge bsh-viewer-badge"
-              data-variant={statusBadge.error ? 'error' : 'ok'}
-              title={statusBadge.detail}
-            >
-              <span className="badge__dot" aria-hidden="true" />
-              <span className="bsh-viewer-badge__text">{statusBadge.text}</span>
-            </span>
-          ) : null}
-        </div>
         {adapter ? (
           <ShareMenu
             adapter={adapter}
@@ -510,7 +477,9 @@ export function ViewerPane({
                 : (name ?? exportName?.replace(/\.xlsx$/, '') ?? 'Model'),
               ...(meta?.version ? { version: meta.version } : {}),
             }}
-            onResult={(text, error) => showBadge({ text, detail: text, error })}
+            onResult={(text, error) =>
+              notify(text, { tone: error ? 'error' : 'success' })
+            }
           />
         ) : null}
         {adapter && combined ? (

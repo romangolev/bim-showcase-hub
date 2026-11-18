@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { FORGET_EVENT } from '../storage.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { act, fireEvent, render, screen, within } from '../test/render.js';
 import { NotificationHost } from './NotificationHost.js';
@@ -97,5 +98,24 @@ describe('NotificationHost', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
     expect(run).toHaveBeenCalledTimes(1);
     expect(toasts()).toBeNull();
+  });
+
+  it('clears toasts, history and the announcement on sign-out', () => {
+    const store = createNotificationStore();
+    render(<NotificationHost store={store} />);
+    act(() => {
+      store.notify('Saved the viewpoint');
+      store.notify('Export failed', { tone: 'error' });
+    });
+    expect(store.getSnapshot().history).toHaveLength(0);
+    expect(screen.getByRole('status')).toHaveTextContent('Export failed');
+    act(() => {
+      window.dispatchEvent(new Event(FORGET_EVENT));
+    });
+    expect(toasts()).toBeNull();
+    expect(store.getSnapshot().items).toEqual([]);
+    expect(store.getSnapshot().history).toEqual([]);
+    expect(store.getSnapshot().announcement).toBe('');
+    expect(screen.getByRole('status')).toHaveTextContent('');
   });
 });

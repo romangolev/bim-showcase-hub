@@ -36,7 +36,7 @@ export const VIEWPOINT_MESSAGES: Record<
 > = {
   empty: 'Open a model first.',
   failed:
-    'Could not save the viewpoint. It may be too large; delete some saved items and try again.',
+    'Could not save the viewpoint. Saved items hold up to 4 MB; delete some and try again.',
 };
 
 function toViewpoint(item: SavedItem): Viewpoint | null {

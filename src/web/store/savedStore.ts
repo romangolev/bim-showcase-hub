@@ -308,6 +308,9 @@ export function importSaved(text: string): ImportResult {
   if (storedFromNewerBuild()) {
     return fail('Saved items were written by a newer version of the app.');
   }
+  if (totalBytes(merged) > MAX_TOTAL_BYTES) {
+    return fail('Saved items would exceed the 4 MB browser budget.');
+  }
   if (!persist(merged)) return fail('Could not save to this browser.');
   return {
     items: merged,

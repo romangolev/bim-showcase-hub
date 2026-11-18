@@ -40,11 +40,12 @@ beforeEach(() => {
 });
 
 describe('SavedItemsSettings', () => {
-  it('shows counts per kind and exports the store as JSON', async () => {
+  it('shows counts per kind, the budget and exports the store as JSON', async () => {
     upsertSaved(item('a'));
     upsertSaved(item('b', 'viewpoint'));
     render(<SavedItemsSettings />);
     expect(screen.getByText(/dashboard-preset: 1, viewpoint: 1/)).toBeTruthy();
+    expect(screen.getByText(/of 4\.0 MB used\./)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Export saved items' }));
     expect(saved.calls).toHaveLength(1);
     expect(saved.calls[0]?.[1]).toBe('bsh-saved.json');

@@ -1,6 +1,7 @@
 import { type CSSProperties, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon, type IconName } from '../components/icons.js';
+import { FORGET_EVENT } from '../storage.js';
 import {
   type NotificationSettings,
   type ToastPosition,
@@ -79,6 +80,16 @@ export function NotificationHost({
       for (const timer of timers) window.clearTimeout(timer);
     };
   }, [center.items, settings, store]);
+
+  useEffect(() => {
+    const forget = () => {
+      store.clear();
+      store.clearHistory();
+      store.announce('');
+    };
+    window.addEventListener(FORGET_EVENT, forget);
+    return () => window.removeEventListener(FORGET_EVENT, forget);
+  }, [store]);
 
   return createPortal(
     <>

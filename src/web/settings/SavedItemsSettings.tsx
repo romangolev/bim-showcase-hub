@@ -6,9 +6,12 @@ import {
   importSaved,
   MAX_IMPORT_BYTES,
   MAX_ITEMS,
+  MAX_TOTAL_BYTES,
   SAVED,
   type SavedItem,
+  savedBytes,
 } from '../store/savedStore.js';
+import { notify } from '../tasks/notifications.js';
 
 export const SAVED_EXPORT_FILE = 'bsh-saved.json';
 
@@ -30,10 +33,21 @@ function plural(n: number, word: string): string {
   return `${n} ${word}${n === 1 ? '' : 's'}`;
 }
 
+export function bytesLabel(value: number): string {
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)} MB`;
+  if (value >= 1000) return `${Math.round(value / 1000)} KB`;
+  return `${value} B`;
+}
+
 export function SavedItemsSettings() {
   const input = useRef<HTMLInputElement>(null);
   const [items] = usePersisted(SAVED);
   const [notice, setNotice] = useState<Notice | null>(null);
+
+  const report = (next: Notice) => {
+    setNotice(next);
+    notify(next.text, { tone: next.error ? 'error' : 'success' });
+  };
 
   const onFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const target = event.target;
@@ -41,19 +55,19 @@ export function SavedItemsSettings() {
     target.value = '';
     if (!file) return;
     if (file.size > MAX_IMPORT_BYTES) {
-      setNotice({ text: 'File is too large.', error: true });
+      report({ text: 'File is too large.', error: true });
       return;
     }
     let text: string;
     try {
       text = await file.text();
     } catch {
-      setNotice({ text: 'Could not read the file.', error: true });
+      report({ text: 'Could not read the file.', error: true });
       return;
     }
     const result = importSaved(text);
     if (result.error) {
-      setNotice({ text: result.error, error: true });
+      report({ text: result.error, error: true });
       return;
     }
     const skipped = result.rejected
@@ -65,7 +79,7 @@ export function SavedItemsSettings() {
     const dropped = result.dropped
       ? `, dropped ${plural(result.dropped, 'item')} over the limit of ${MAX_ITEMS}`
       : '';
-    setNotice({
+    report({
       text: `Imported ${plural(result.accepted, 'item')}${skipped}${older}${dropped}.`,
       error: false,
     });
@@ -77,7 +91,8 @@ export function SavedItemsSettings() {
         Saved items
       </h3>
       <p className="settings__hint">
-        Presets and other saved configurations. {counts(items)}
+        Presets and other saved configurations. {counts(items)}{' '}
+        {bytesLabel(savedBytes())} of {bytesLabel(MAX_TOTAL_BYTES)} used.
       </p>
       <div className="settings__actions">
         <button

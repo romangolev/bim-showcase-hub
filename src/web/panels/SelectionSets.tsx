@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { MAX_NAME_LENGTH } from '../store/savedStore.js';
+import { notify } from '../tasks/notifications.js';
 import {
   deleteSet,
   MAX_SET_ELEMENTS,
@@ -14,7 +15,8 @@ import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 export const SET_MESSAGES: Record<Exclude<SaveSetResult, 'ok'>, string> = {
   empty: 'Select elements in the viewer first.',
   'too-big': `A set holds up to ${MAX_SET_ELEMENTS.toLocaleString('en-US')} elements.`,
-  failed: 'Could not save the set. Delete some saved items and try again.',
+  failed:
+    'Could not save the set. Saved items hold up to 4 MB; delete some and try again.',
 };
 
 export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
@@ -26,9 +28,13 @@ export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
     if (!adapter) return;
     const result = saveSelectionSet(name, adapter.getModelSelection());
     if (result === 'ok') {
+      notify(`Saved the selection set "${name.trim()}"`, { tone: 'success' });
       setName('');
       setProblem(null);
-    } else setProblem(SET_MESSAGES[result]);
+    } else {
+      setProblem(SET_MESSAGES[result]);
+      notify(SET_MESSAGES[result], { tone: 'error' });
+    }
   };
 
   const select = (adapter: ViewerAdapter, id: string, total: number) => {
