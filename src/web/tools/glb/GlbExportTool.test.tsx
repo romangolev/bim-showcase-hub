@@ -134,16 +134,6 @@ describe('GlbExportTool', () => {
     tool.contribute(context({ adapter: own })).exports?.[0]?.onExport();
     expect(exportGeometryToGlb).toHaveBeenCalledTimes(2);
   });
-
-  it('reads the flag of the old combined settings', () => {
-    expect(tool.legacy.fields).toEqual(['glbExport']);
-    expect(
-      GLB_SETTINGS.sanitize(tool.legacy.read({ glbExport: false })),
-    ).toEqual({ enabled: false });
-    expect(GLB_SETTINGS.sanitize(tool.legacy.read({}))).toEqual({
-      enabled: true,
-    });
-  });
 });
 
 describe('glbFileNameFrom', () => {

@@ -124,23 +124,6 @@ describe('PaintTool', () => {
       ),
     );
   });
-
-  it('reads the fields of the old combined settings', () => {
-    expect(tool.legacy.fields).toEqual([
-      'paintBrushes',
-      'paintPalette',
-      'paintIntensity',
-    ]);
-    expect(
-      readPaintSettings(
-        tool.legacy.read({
-          paintBrushes: false,
-          paintPalette: ['#010203'],
-          paintIntensity: 0.3,
-        }),
-      ),
-    ).toEqual({ enabled: false, palette: ['#010203'], intensity: 0.3 });
-  });
 });
 
 describe('Paint settings window', () => {

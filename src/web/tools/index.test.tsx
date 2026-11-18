@@ -1,13 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { BSH_KEYS, forgetPersonal } from '../storage.js';
 import { installMemoryStorage } from '../test/mockApi.js';
-import { readJson, writeJson } from '../test/storageJson.js';
 import { buildToolGroup } from '../test/toolGroup.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { EXCEL_SETTINGS_KEY } from './excel/excelSettings.js';
 import { GLB_SETTINGS_KEY } from './glb/GlbExportTool.js';
 import { IFC_SETTINGS_KEY } from './ifc/ifcSettings.js';
-import { migrateLegacyToolSettings, TOOLS } from './index.js';
+import { TOOLS } from './index.js';
 import { exportFileName } from './kernel/exportKit.js';
 import { modelKey } from './kernel/modelKey.js';
 import { PAINT_SETTINGS_KEY } from './paint/paintSettings.js';
@@ -138,134 +137,13 @@ describe('exportFileName', () => {
   });
 });
 
-describe('migrating the old combined settings', () => {
-  const legacy = {
-    paintBrushes: false,
-    paintPalette: ['#010203', '#0a0b0c'],
-    paintIntensity: 0.7,
-    excelExport: true,
-    excel: { format: 'csv', scope: 'selected', namePattern: '{model}-x' },
-    glbExport: false,
-    ifcExport: true,
-    ifc: {
-      projectName: 'Tower',
-      author: 'Ada',
-      organisation: 'Acme',
-      lengthUnit: 'mm',
-    },
-    sessionWarnMinutes: 15,
-    recentsLength: 9,
-  };
-
-  it('moves every tool field to its tool key and keeps the app fields', () => {
-    writeJson(APP, legacy);
-    migrateLegacyToolSettings();
-    expect(readJson(PAINT_SETTINGS_KEY, null)).toEqual({
-      enabled: false,
-      palette: ['#010203', '#0a0b0c'],
-      intensity: 0.7,
-    });
-    expect(readJson(EXCEL_SETTINGS_KEY, null)).toMatchObject({
-      enabled: true,
-      format: 'csv',
-      scope: 'selected',
-      namePattern: '{model}-x',
-    });
-    expect(readJson(GLB_SETTINGS_KEY, null)).toEqual({ enabled: false });
-    expect(readJson(IFC_SETTINGS_KEY, null)).toMatchObject({
-      enabled: true,
-      projectName: 'Tower',
-      author: 'Ada',
-      organisation: 'Acme',
-      lengthUnit: 'mm',
-    });
-    expect(readJson(APP, null)).toEqual({
-      sessionWarnMinutes: 15,
-      recentsLength: 9,
-    });
-  });
-
-  it('migrates a partial blob and writes keys only for tools it mentions', () => {
-    writeJson(APP, { glbExport: false, recentsLength: 3 });
-    migrateLegacyToolSettings();
-    expect(readJson(GLB_SETTINGS_KEY, null)).toEqual({ enabled: false });
-    expect(window.localStorage.getItem(PAINT_SETTINGS_KEY)).toBeNull();
-    expect(window.localStorage.getItem(EXCEL_SETTINGS_KEY)).toBeNull();
-    expect(window.localStorage.getItem(IFC_SETTINGS_KEY)).toBeNull();
-    expect(readJson(APP, null)).toEqual({ recentsLength: 3 });
-  });
-
-  it('sanitizes bad values inside a legacy blob', () => {
-    writeJson(APP, {
-      paintBrushes: 'no',
-      paintPalette: 'nope',
-      paintIntensity: 'x',
-      excel: 'junk',
-      ifc: { lengthUnit: 'km', siteName: '' },
-    });
-    migrateLegacyToolSettings();
-    expect(readJson(PAINT_SETTINGS_KEY, null)).toMatchObject({
-      enabled: true,
-      intensity: 0.5,
-    });
-    expect(readJson(IFC_SETTINGS_KEY, null)).toMatchObject({
-      lengthUnit: 'm',
-      siteName: 'Site',
-    });
-    expect(readJson(APP, null)).toEqual({});
-  });
-
-  it('leaves a corrupt blob alone and writes nothing', () => {
-    window.localStorage.setItem(APP, '{"paintBrushes": ');
-    migrateLegacyToolSettings();
-    expect(window.localStorage.getItem(APP)).toBe('{"paintBrushes": ');
-    for (const tool of TOOLS.all()) {
-      expect(window.localStorage.getItem(tool.settings.key)).toBeNull();
-    }
-  });
-
-  it('does nothing for an already migrated blob and runs twice safely', () => {
-    writeJson(APP, legacy);
-    migrateLegacyToolSettings();
-    const once = tools();
-    migrateLegacyToolSettings();
-    expect(tools()).toEqual(once);
-    expect(readJson(APP, null)).toEqual({
-      sessionWarnMinutes: 15,
-      recentsLength: 9,
-    });
-  });
-
-  it('does not overwrite a tool key that is already there', () => {
-    writeJson(IFC_SETTINGS_KEY, { projectName: 'Newer' });
-    writeJson(APP, legacy);
-    migrateLegacyToolSettings();
-    expect(readJson(IFC_SETTINGS_KEY, null)).toEqual({ projectName: 'Newer' });
-    expect(readJson(APP, null)).toEqual({
-      sessionWarnMinutes: 15,
-      recentsLength: 9,
-    });
-  });
-
-  it('keeps the IFC identity out of the app blob but blanks it on sign-out', () => {
-    writeJson(APP, legacy);
-    migrateLegacyToolSettings();
-    expect(JSON.stringify(readJson(APP, null))).not.toContain('Ada');
-    forgetPersonal();
-    expect(readJson(IFC_SETTINGS_KEY, null)).toMatchObject({
-      author: '',
-      organisation: '',
-      projectName: 'Tower',
-      lengthUnit: 'mm',
-    });
-    expect(readJson(PAINT_SETTINGS_KEY, null)).toMatchObject({
-      enabled: false,
-    });
-  });
-
-  function tools() {
-    return TOOLS.all().map((tool) =>
-      window.localStorage.getItem(tool.settings.key),
+describe('sign-out and the old combined settings', () => {
+  it('drops personal IFC fields left in the app blob', () => {
+    window.localStorage.setItem(
+      APP,
+      JSON.stringify({ recentsLength: 4, ifc: { author: 'Ada' } }),
     );
-  }
+    forgetPersonal();
+    expect(window.localStorage.getItem(APP)).toBe('{"recentsLength":4}');
+  });
 });

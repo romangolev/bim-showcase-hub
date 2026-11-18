@@ -46,15 +46,6 @@ export class ExcelExportTool extends ViewerTool<ExcelToolSettings> {
     'Export element properties to an .xlsx file from the viewer toolbar.';
   readonly settings = EXCEL_SETTINGS;
   readonly exportTitle = EXPORT_TOOLTIP;
-  readonly legacy = {
-    fields: ['excelExport', 'excel'],
-    read: (blob: Record<string, unknown>) => ({
-      ...(typeof blob.excel === 'object' && blob.excel !== null
-        ? blob.excel
-        : {}),
-      enabled: blob.excelExport,
-    }),
-  };
 
   override scrub(settings: ExcelToolSettings): ExcelToolSettings {
     return { ...settings, modelScope: 'all' };

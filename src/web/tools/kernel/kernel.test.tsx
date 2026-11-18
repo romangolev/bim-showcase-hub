@@ -7,7 +7,6 @@ import { installMemoryStorage } from '../../test/mockApi.js';
 import { readJson, writeJson } from '../../test/storageJson.js';
 import type { ViewerAdapter } from '../../viewer/ViewerAdapter.js';
 import { exportEntry, runOnce, statusReporter } from './exportKit.js';
-import { migrateLegacySettings } from './migrateLegacy.js';
 import { ToolRegistry } from './ToolRegistry.js';
 import { useViewerTools } from './useViewerTools.js';
 import { readEnabled, type ToolContext, ViewerTool } from './ViewerTool.js';
@@ -30,7 +29,6 @@ function fakeSettings(key: string) {
 
 class FakeTool extends ViewerTool<FakeSettings> {
   readonly settings;
-  readonly legacy;
   readonly disabled = vi.fn();
   constructor(
     readonly id: string,
@@ -41,13 +39,6 @@ class FakeTool extends ViewerTool<FakeSettings> {
   ) {
     super();
     this.settings = fakeSettings(key);
-    this.legacy = {
-      fields: [`${id}On`, `${id}Label`],
-      read: (blob: Record<string, unknown>) => ({
-        enabled: blob[`${id}On`],
-        label: blob[`${id}Label`],
-      }),
-    };
   }
 
   contribute(ctx: ToolContext) {
@@ -333,118 +324,6 @@ describe('export tasks', () => {
     expect(report({ phase: 'cancelled' })).toMatchObject({
       state: 'cancelled',
     });
-  });
-});
-
-const APP_KEY = 'test.app';
-const APP = defineRecord<unknown>({
-  key: APP_KEY,
-  initial: undefined,
-  sanitize: (raw) => raw,
-});
-
-describe('migrateLegacySettings', () => {
-  const registry = () =>
-    new ToolRegistry().register(new FakeTool('a')).register(new FakeTool('b'));
-
-  it('moves tool fields to their keys and keeps the app fields', () => {
-    writeJson(APP_KEY, { aOn: false, aLabel: 'L', bOn: true, minutes: 7 });
-    migrateLegacySettings(registry(), APP);
-    expect(readJson('test.a', null)).toEqual({ enabled: false, label: 'L' });
-    expect(readJson('test.b', null)).toEqual({ enabled: true, label: 'x' });
-    expect(readJson(APP_KEY, null)).toEqual({ minutes: 7 });
-  });
-
-  it('migrates what a partial blob has and defaults the rest', () => {
-    writeJson(APP_KEY, { aLabel: 'only', minutes: 3 });
-    migrateLegacySettings(registry(), APP);
-    expect(readJson('test.a', null)).toEqual({ enabled: true, label: 'only' });
-    expect(window.localStorage.getItem('test.b')).toBeNull();
-    expect(readJson(APP_KEY, null)).toEqual({ minutes: 3 });
-  });
-
-  it('sanitizes bad legacy values', () => {
-    writeJson(APP_KEY, { aOn: 'maybe', aLabel: 12 });
-    migrateLegacySettings(registry(), APP);
-    expect(readJson('test.a', null)).toEqual({ enabled: true, label: 'x' });
-    expect(readJson(APP_KEY, null)).toEqual({});
-  });
-
-  it('is a no-op when nothing is stored', () => {
-    migrateLegacySettings(registry(), APP);
-    expect(window.localStorage.getItem(APP_KEY)).toBeNull();
-    expect(window.localStorage.getItem('test.a')).toBeNull();
-  });
-
-  it('leaves corrupt JSON untouched', () => {
-    window.localStorage.setItem(APP_KEY, '{broken');
-    migrateLegacySettings(registry(), APP);
-    expect(window.localStorage.getItem(APP_KEY)).toBe('{broken');
-    expect(window.localStorage.getItem('test.a')).toBeNull();
-  });
-
-  it.each([['null'], ['7'], ['"text"'], ['[1,2]']])(
-    'leaves a non-object blob (%s) untouched',
-    (raw) => {
-      window.localStorage.setItem(APP_KEY, raw);
-      migrateLegacySettings(registry(), APP);
-      expect(window.localStorage.getItem(APP_KEY)).toBe(raw);
-      expect(window.localStorage.getItem('test.a')).toBeNull();
-    },
-  );
-
-  it('is idempotent', () => {
-    writeJson(APP_KEY, { aOn: false, minutes: 7 });
-    migrateLegacySettings(registry(), APP);
-    const first = window.localStorage.getItem(APP_KEY);
-    migrateLegacySettings(registry(), APP);
-    expect(window.localStorage.getItem(APP_KEY)).toBe(first);
-    expect(readJson('test.a', null)).toEqual({ enabled: false, label: 'x' });
-  });
-
-  it('never overwrites a tool key that already exists', () => {
-    writeJson('test.a', { enabled: true, label: 'newer' });
-    writeJson(APP_KEY, { aOn: false, aLabel: 'old', minutes: 1 });
-    migrateLegacySettings(registry(), APP);
-    expect(readJson('test.a', null)).toEqual({ enabled: true, label: 'newer' });
-    expect(readJson(APP_KEY, null)).toEqual({ minutes: 1 });
-  });
-
-  it('keeps the old blob when a tool value cannot be stored', () => {
-    writeJson(APP_KEY, { aOn: false, minutes: 1 });
-    const set = vi
-      .spyOn(window.localStorage, 'setItem')
-      .mockImplementation(() => {
-        throw new Error('quota');
-      });
-    migrateLegacySettings(registry(), APP);
-    set.mockRestore();
-    expect(readJson(APP_KEY, null)).toEqual({ aOn: false, minutes: 1 });
-  });
-});
-
-describe('migrateLegacySettings after a sign-out scrub', () => {
-  const registry = () => new ToolRegistry().register(new FakeTool('a'));
-
-  it('clears personal legacy values even when the tool key cannot be stored', () => {
-    writeJson(APP_KEY, { aOn: false, aLabel: 'secret', minutes: 1 });
-    const set = vi
-      .spyOn(window.localStorage, 'setItem')
-      .mockImplementationOnce(() => {
-        throw new Error('quota');
-      });
-    migrateLegacySettings(registry(), APP, { scrub: true });
-    set.mockRestore();
-    expect(readJson(APP_KEY, null)).toEqual({ minutes: 1 });
-    migrateLegacySettings(registry(), APP);
-    expect(readJson('test.a', null)).toBeNull();
-  });
-
-  it('migrates with the personal fields scrubbed', () => {
-    writeJson(APP_KEY, { aOn: false, aLabel: 'secret' });
-    migrateLegacySettings(registry(), APP, { scrub: true });
-    expect(readJson('test.a', null)).toEqual({ enabled: false, label: '' });
-    expect(readJson(APP_KEY, null)).toEqual({});
   });
 });
 

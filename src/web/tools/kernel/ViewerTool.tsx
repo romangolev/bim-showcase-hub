@@ -27,11 +27,6 @@ export interface ToolContext {
   current: <S extends ToolSettings>(tool: ViewerTool<S>) => S;
 }
 
-export interface LegacySettings {
-  fields: readonly string[];
-  read: (blob: Record<string, unknown>) => unknown;
-}
-
 export function readEnabled(raw: unknown): boolean {
   return !isRecord(raw) || typeof raw.enabled !== 'boolean' || raw.enabled;
 }
@@ -41,7 +36,6 @@ export abstract class ViewerTool<S extends ToolSettings = ToolSettings> {
   abstract readonly title: string;
   abstract readonly description: string;
   abstract readonly settings: PersistedRecord<S>;
-  readonly legacy?: LegacySettings;
   readonly exportTitle?: string;
   readonly form?: FormDefinition<S>;
 

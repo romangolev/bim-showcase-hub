@@ -6,6 +6,7 @@ import {
   readSettings,
   SETTINGS_STORAGE_KEY,
   SettingsProvider,
+  scrubAppSettings,
   useSettings,
   writeSettings,
 } from './index.js';
@@ -111,5 +112,30 @@ describe('SettingsProvider', () => {
   it('works without a provider using defaults', () => {
     render(<Probe />);
     expect(screen.getByText('recents 5')).toBeTruthy();
+  });
+});
+
+describe('scrubAppSettings', () => {
+  const stored = () => window.localStorage.getItem(SETTINGS_STORAGE_KEY);
+
+  it('drops old tool fields such as the IFC author but keeps app fields', () => {
+    window.localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        recentsLength: 3,
+        sessionWarnMinutes: 20,
+        ifc: { author: 'Ada', organisation: 'Acme' },
+      }),
+    );
+    scrubAppSettings();
+    expect(JSON.parse(stored() ?? '')).toEqual({
+      recentsLength: 3,
+      sessionWarnMinutes: 20,
+    });
+  });
+
+  it('does nothing when nothing is stored', () => {
+    scrubAppSettings();
+    expect(stored()).toBeNull();
   });
 });

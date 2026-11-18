@@ -29,13 +29,6 @@ export class IfcExportTool extends ViewerTool<IfcToolSettings> {
     'Export the model to an .ifc file from the viewer toolbar, using the IFC export settings below.';
   readonly settings = IFC_SETTINGS;
   readonly exportTitle = IFC_TOOLTIP;
-  readonly legacy = {
-    fields: ['ifcExport', 'ifc'],
-    read: (blob: Record<string, unknown>) => ({
-      ...(typeof blob.ifc === 'object' && blob.ifc !== null ? blob.ifc : {}),
-      enabled: blob.ifcExport,
-    }),
-  };
 
   contribute(ctx: ToolContext): ToolContribution {
     return {

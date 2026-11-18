@@ -64,14 +64,6 @@ export class PaintTool extends ViewerTool<PaintSettings> {
     'Colour the selected elements from the viewer toolbar.';
   readonly settings = PAINT_SETTINGS;
   readonly form = PAINT_FORM;
-  readonly legacy = {
-    fields: ['paintBrushes', 'paintPalette', 'paintIntensity'],
-    read: (blob: Record<string, unknown>) => ({
-      enabled: blob.paintBrushes,
-      palette: blob.paintPalette,
-      intensity: blob.paintIntensity,
-    }),
-  };
 
   contribute(ctx: ToolContext, settings: PaintSettings): ToolContribution {
     const { adapter } = ctx;

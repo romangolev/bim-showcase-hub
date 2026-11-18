@@ -142,18 +142,6 @@ describe('IfcExportTool', () => {
       enabled: false,
     });
   });
-
-  it('reads the fields of the old combined settings', () => {
-    expect(tool.legacy.fields).toEqual(['ifcExport', 'ifc']);
-    expect(
-      readIfcToolSettings(
-        tool.legacy.read({ ifcExport: false, ifc: { author: 'Ann' } }),
-      ),
-    ).toMatchObject({ enabled: false, author: 'Ann' });
-    expect(readIfcToolSettings(tool.legacy.read({ ifc: 5 }))).toEqual(
-      DEFAULT_IFC_TOOL_SETTINGS,
-    );
-  });
 });
 
 describe('export task', () => {
