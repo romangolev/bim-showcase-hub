@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { Icon } from '../components/icons.js';
 import { StateBlock } from '../components/StateBlock.js';
 import {
@@ -6,38 +6,44 @@ import {
   bucketLabels,
   type ChartData,
   DEFAULT_DASHBOARD_PROPERTIES,
+  selectedBuckets,
   shapeChartData,
 } from '../extensions/dashboardData.js';
 import {
   CHART_KINDS,
   DASHBOARD_PRESETS,
   type DashboardKind,
+  type DashboardView,
   KIND_LABELS,
   PRESET_PROPERTIES,
   presetCharts,
 } from '../extensions/dashboardPresets.js';
 import {
-  type ElementAction,
   itemsWithValues,
   runElementAction,
-  sanitizeAction,
 } from '../extensions/elementActions.js';
-import { BSH_KEYS } from '../storage.js';
-import { usePersistedState } from '../usePersistedState.js';
+import {
+  PANE_SETTINGS,
+  type PaneSetting,
+  usePaneSetting,
+} from '../settings/paneSettings.js';
+import { ALL_MODELS } from '../viewer/modelScope.js';
+import type { ModelDbId } from '../viewer/modelSet.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { ChartCanvas } from './ChartCanvas.js';
-import { useDashboardView } from './DashboardSettings.js';
+import { DashboardGallery } from './DashboardGallery.js';
+import { ElementScopeSelect, scopeName } from './ElementScope.js';
 import {
+  FailedModels,
   ModelScopeSelect,
   UnavailableModels,
-  useModelScope,
 } from './ModelScope.js';
 import {
   HIDDEN_MESSAGE,
   HIDDEN_TITLE,
-  usePropertyRows,
   useResolvedAdapter,
-} from './usePropertyRows.js';
+  useScopedRows,
+} from './useScopedRows.js';
 import './panels.css';
 
 export interface DashboardPanelProps {
@@ -50,6 +56,7 @@ export interface DashboardPanelProps {
   toggleable?: boolean;
   title?: string;
   className?: string;
+  setting?: PaneSetting<DashboardView>;
 }
 
 export function DashboardPanel({
@@ -62,10 +69,13 @@ export function DashboardPanel({
   toggleable = true,
   title = 'Dashboard',
   className,
+  setting,
 }: DashboardPanelProps) {
   const uid = useId();
   const resolved = useResolvedAdapter(adapter);
-  const [view, setView] = useDashboardView();
+  const [view, setView] = usePaneSetting(
+    setting ?? PANE_SETTINGS.dashboard.view,
+  );
   const { maxCategories } = view;
   const activePreset = DASHBOARD_PRESETS.find((p) => p.id === view.preset);
   const readNames = useMemo(
@@ -75,43 +85,78 @@ export function DashboardPanel({
         : propertyNames,
     [activePreset, propertyNames],
   );
-  const state = usePropertyRows(resolved, readNames);
-  const scope = useModelScope(resolved, state.rows);
+  const state = useScopedRows(resolved, {
+    names: readNames,
+    elements: view.elements ?? 'all',
+    ...(setting
+      ? {
+          models: {
+            value: view.scope ?? ALL_MODELS,
+            onChange: (next: string) =>
+              setView((prev) => ({ ...prev, scope: next })),
+          },
+        }
+      : {}),
+  });
   const [innerCollapsed, setInnerCollapsed] = useState(defaultCollapsed);
+  const [galleryOpen, setGalleryOpen] = useState(false);
   const isCollapsed = collapsed ?? innerCollapsed;
 
   const options = useMemo(
     () =>
       state.status === 'ready'
-        ? availableProperties(scope.rows, propertyNames)
+        ? availableProperties(state.rows, propertyNames)
         : [],
-    [state.status, scope.rows, propertyNames],
+    [state.status, state.rows, propertyNames],
   );
 
   const selected = options.includes(view.property) ? view.property : options[0];
 
   const chart = useMemo(
     () =>
-      state.status === 'ready' && selected
-        ? shapeChartData(scope.rows, selected, maxCategories)
+      state.status === 'ready' && selected && !activePreset
+        ? shapeChartData(state.rows, selected, maxCategories)
         : null,
-    [state.status, scope.rows, selected, maxCategories],
+    [state.status, state.rows, selected, maxCategories, activePreset],
   );
 
-  const [action] = usePersistedState<ElementAction>(
-    BSH_KEYS.personal.dashboardAction,
-    'select',
-    sanitizeAction,
-  );
+  const [action] = usePaneSetting(PANE_SETTINGS.dashboard.action);
   const board = useMemo(
     () =>
       state.status === 'ready' && activePreset
-        ? presetCharts(activePreset, scope.rows).map((property) =>
-            shapeChartData(scope.rows, property, maxCategories),
+        ? presetCharts(activePreset, state.rows).map((property) =>
+            shapeChartData(state.rows, property, maxCategories),
           )
         : [],
-    [state.status, activePreset, scope.rows, maxCategories],
+    [state.status, activePreset, state.rows, maxCategories],
   );
+  const settled = state.status === 'ready' && !state.pending;
+  const hasRows = settled && state.rows.length > 0;
+  const emptyScope =
+    settled && state.rows.length === 0 && state.elements !== 'all';
+  const emptyBoard =
+    hasRows && activePreset !== undefined && board.length === 0;
+  const showGallery = galleryOpen || !resolved || emptyBoard;
+  const [viewerSelection, setViewerSelection] = useState<ModelDbId[]>([]);
+  useEffect(() => {
+    if (!resolved) {
+      setViewerSelection([]);
+      return;
+    }
+    setViewerSelection(resolved.getModelSelection());
+    return resolved.onSelectionChange(setViewerSelection);
+  }, [resolved]);
+  const highlights = useMemo(
+    () =>
+      new Map(
+        [...board, ...(chart ? [chart] : [])].map((item) => [
+          item,
+          selectedBuckets(state.rows, item, viewerSelection),
+        ]),
+      ),
+    [board, chart, state.rows, viewerSelection],
+  );
+  const highlightFor = (chartData: ChartData) => highlights.get(chartData);
   const exportName = resolved?.getModels()[0]?.name ?? 'model';
   const crossFilter = (chartData: ChartData) => (label: string) => {
     if (!resolved) return;
@@ -119,9 +164,9 @@ export function DashboardPanel({
       resolved,
       action,
       itemsWithValues(
-        scope.rows,
+        state.rows,
         chartData.property,
-        bucketLabels(scope.rows, chartData, label),
+        bucketLabels(state.rows, chartData, label),
       ),
     );
   };
@@ -164,7 +209,32 @@ export function DashboardPanel({
           </button>
         ) : null}
         {!isCollapsed ? (
-          <ModelScopeSelect state={scope} label="Chart models" />
+          <ModelScopeSelect state={state.models} label="Chart models" />
+        ) : null}
+        {!isCollapsed ? (
+          <ElementScopeSelect
+            value={view.elements ?? 'all'}
+            onChange={(next) =>
+              setView((prev) => ({ ...prev, elements: next }))
+            }
+            label="Chart elements"
+          />
+        ) : null}
+        {setting && !isCollapsed && !activePreset && options.length > 1 ? (
+          <select
+            className="bsh-select"
+            aria-label="Group by"
+            value={selected}
+            onChange={(e) =>
+              setView((prev) => ({ ...prev, property: e.target.value }))
+            }
+          >
+            {options.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
         ) : null}
         {!isCollapsed && state.status === 'ready' && options.length > 0 ? (
           <fieldset className="bsh-kinds" aria-label="Chart type">
@@ -180,6 +250,17 @@ export function DashboardPanel({
               </button>
             ))}
           </fieldset>
+        ) : null}
+        {!isCollapsed && resolved && !emptyBoard ? (
+          <button
+            type="button"
+            className="bsh-button"
+            aria-expanded={galleryOpen}
+            aria-controls={`${uid}-gallery`}
+            onClick={() => setGalleryOpen((open) => !open)}
+          >
+            Presets
+          </button>
         ) : null}
         {onOpenSettings ? (
           <button
@@ -214,14 +295,16 @@ export function DashboardPanel({
             message={HIDDEN_MESSAGE}
           />
         )}
-        {resolved && state.status === 'loading' && (
-          <StateBlock
-            variant="loading"
-            compact
-            message="Reading element properties"
-            rows={3}
-          />
-        )}
+        {resolved &&
+          (state.status === 'loading' ||
+            (state.status === 'ready' && state.pending)) && (
+            <StateBlock
+              variant="loading"
+              compact
+              message="Reading element properties"
+              rows={3}
+            />
+          )}
         {state.status === 'error' && (
           <StateBlock
             variant="error"
@@ -232,9 +315,23 @@ export function DashboardPanel({
           />
         )}
         {state.status === 'ready' ? (
-          <UnavailableModels models={scope.unavailable} />
+          <>
+            <UnavailableModels models={state.models.unavailable} />
+            <FailedModels
+              names={state.failed}
+              unavailable={state.models.unavailable}
+            />
+          </>
         ) : null}
-        {activePreset && board.length === 0 && state.status === 'ready' && (
+        {emptyScope && (
+          <StateBlock
+            variant="empty"
+            compact
+            title={`No ${scopeName(state.elements).toLowerCase()} elements`}
+            message="Change the element scope, or pick elements in the viewer."
+          />
+        )}
+        {emptyBoard && activePreset && (
           <StateBlock
             variant="empty"
             compact
@@ -242,6 +339,18 @@ export function DashboardPanel({
             message={`This model has none of the properties ${activePreset.label} uses.`}
           />
         )}
+        {showGallery && !isCollapsed ? (
+          <div id={`${uid}-gallery`}>
+            <DashboardGallery
+              view={view}
+              rows={hasRows ? state.rows : undefined}
+              apply={(next) => {
+                setView(next);
+                setGalleryOpen(false);
+              }}
+            />
+          </div>
+        ) : null}
         {activePreset && board.length > 0 && (
           <div className="bsh-boards">
             {board.map((item) => (
@@ -251,6 +360,9 @@ export function DashboardPanel({
                 chart={item}
                 label={`${view.kind === 'doughnut' ? 'Doughnut' : 'Bar'} chart of element ${view.kind === 'doughnut' ? 'share' : 'counts'} by ${item.property}`}
                 exportName={exportName}
+                highlight={highlightFor(item)}
+                pngTitle={view.pngTitle}
+                pngLegend={view.pngLegend}
                 onSelectLabel={crossFilter(item)}
               />
             ))}
@@ -274,6 +386,9 @@ export function DashboardPanel({
                   chart={chart}
                   label={`Bar chart of element counts by ${chart.property}`}
                   exportName={exportName}
+                  highlight={highlightFor(chart)}
+                  pngTitle={view.pngTitle}
+                  pngLegend={view.pngLegend}
                   onSelectLabel={crossFilter(chart)}
                 />
               ) : null}
@@ -283,6 +398,9 @@ export function DashboardPanel({
                   chart={chart}
                   label={`Doughnut chart of element share by ${chart.property}`}
                   exportName={exportName}
+                  highlight={highlightFor(chart)}
+                  pngTitle={view.pngTitle}
+                  pngLegend={view.pngLegend}
                   onSelectLabel={crossFilter(chart)}
                 />
               ) : null}
@@ -313,7 +431,7 @@ export function DashboardPanel({
             </details>
           </>
         )}
-        {state.status === 'ready' && options.length === 0 && (
+        {settled && options.length === 0 && !emptyScope && (
           <StateBlock
             variant="empty"
             compact

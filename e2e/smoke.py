@@ -1299,6 +1299,7 @@ def main():
             checks.add(f"{MULTI_COUNT} different viewable models exist (Revit first)", len(revit) >= MULTI_COUNT, [m["file"] for m in revit])
 
         page = context.pages[0] if context.pages else context.new_page()
+        page.on("dialog", lambda dialog: dialog.accept())
         watch(page, notes)
         page.goto(BASE_URL, wait_until="networkidle")
         try:

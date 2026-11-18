@@ -5,6 +5,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import { useEffect, useSyncExternalStore } from 'react';
+import { forgetPersonal } from '../storage.js';
 import {
   fetchAuthUrl,
   fetchChildren,
@@ -12,7 +13,6 @@ import {
   postSignOut,
   subscribeUnauthorized,
 } from './client.js';
-import { forgetModels } from './openModels.js';
 import { type NodeScope, scopeKey } from './scope.js';
 
 export const sessionQueryKey = ['session'] as const;
@@ -75,16 +75,12 @@ export function childrenQueryOptions(scope: NodeScope) {
   });
 }
 
-export function useNodeChildren(scope: NodeScope, enabled = true) {
-  return useQuery({ ...childrenQueryOptions(scope), enabled });
-}
-
 export function useSignOut() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: postSignOut,
     onSuccess: () => {
-      forgetModels();
+      forgetPersonal();
       client.removeQueries({ queryKey: ['children'] });
       resetSessionEnded();
       client.setQueryData(sessionQueryKey, null);

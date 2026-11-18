@@ -312,7 +312,9 @@ describe('ViewerPane with models far apart', () => {
       screen.getByRole('button', { name: 'Bring models together (view only)' }),
     );
     await waitFor(() => expect(offsetOf()).toBe('moved'));
-    fireEvent.click(screen.getByRole('button', { name: 'Restore positions' }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Restore positions' }),
+    );
     await waitFor(() => expect(offsetOf()).toBe('original'));
   });
 
@@ -329,7 +331,9 @@ describe('ViewerPane with models far apart', () => {
       />,
     );
     await waitFor(() => expect(offsetOf()).toBe('moved'));
-    fireEvent.click(screen.getByRole('button', { name: 'Restore positions' }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Restore positions' }),
+    );
     expect(onOffsetsChange).toHaveBeenCalledWith(null);
   });
 });

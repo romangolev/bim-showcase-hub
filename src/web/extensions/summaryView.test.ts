@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { PropertyRow } from '../../shared/types.js';
+import { sanitizeElementScope } from '../viewer/propertyScope.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import {
   itemsWithValues,
@@ -7,8 +8,10 @@ import {
   sanitizeAction,
 } from './elementActions.js';
 import {
+  DEFAULT_SUMMARY_PROPERTIES,
   DEFAULT_SUMMARY_VIEW,
   emptyShares,
+  sanitizeProperties,
   sanitizeView,
   summaryTable,
   viewEntries,
@@ -97,30 +100,51 @@ describe('element actions', () => {
     const adapter = {
       selectModelIds: vi.fn(),
       isolateModelIds: vi.fn(),
-      fitToSelection: vi.fn(),
+      hideModelIds: vi.fn(),
+      fitToView: vi.fn(),
     } as unknown as ViewerAdapter;
     const items = [{ modelId: 'm1', dbId: 1 }];
+    runElementAction(adapter, 'hide', items);
+    expect(adapter.hideModelIds).toHaveBeenCalledWith(items);
+    expect(adapter.selectModelIds).not.toHaveBeenCalled();
     runElementAction(adapter, 'select', items);
     runElementAction(adapter, 'isolate', items);
     expect(adapter.selectModelIds).toHaveBeenCalledTimes(1);
-    expect(adapter.fitToSelection).not.toHaveBeenCalled();
+    expect(adapter.fitToView).not.toHaveBeenCalled();
     runElementAction(adapter, 'zoom', items);
-    expect(adapter.fitToSelection).toHaveBeenCalledTimes(1);
+    expect(adapter.fitToView).toHaveBeenCalledWith(items);
     expect(adapter.isolateModelIds).toHaveBeenCalledWith(items);
     expect(sanitizeAction('nope')).toBe('select');
+    expect(sanitizeAction('hide')).toBe('hide');
+    expect(sanitizeAction(undefined)).toBe('select');
   });
 
   it('does nothing when no element matches', () => {
     const adapter = {
       selectModelIds: vi.fn(),
       isolateModelIds: vi.fn(),
-      fitToSelection: vi.fn(),
+      hideModelIds: vi.fn(),
+      fitToView: vi.fn(),
     } as unknown as ViewerAdapter;
-    for (const action of ['select', 'isolate', 'zoom'] as const) {
+    for (const action of ['select', 'isolate', 'hide', 'zoom'] as const) {
       runElementAction(adapter, action, []);
     }
     expect(adapter.selectModelIds).not.toHaveBeenCalled();
     expect(adapter.isolateModelIds).not.toHaveBeenCalled();
-    expect(adapter.fitToSelection).not.toHaveBeenCalled();
+    expect(adapter.hideModelIds).not.toHaveBeenCalled();
+    expect(adapter.fitToView).not.toHaveBeenCalled();
+  });
+});
+
+describe('summary property and scope settings', () => {
+  it('sanitizes the chosen properties', () => {
+    expect(sanitizeProperties(['A', 'A', ' ', 3, 'B'])).toEqual(['A', 'B']);
+    expect(sanitizeProperties([])).toBe(DEFAULT_SUMMARY_PROPERTIES);
+    expect(sanitizeProperties('x')).toBe(DEFAULT_SUMMARY_PROPERTIES);
+  });
+
+  it('falls back to all elements for an unknown scope', () => {
+    expect(sanitizeElementScope('visible')).toBe('visible');
+    expect(sanitizeElementScope('bogus')).toBe('all');
   });
 });

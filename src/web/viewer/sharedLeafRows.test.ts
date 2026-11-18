@@ -2,8 +2,17 @@ import { describe, expect, it, vi } from 'vitest';
 import type { PropertyRow } from '../../shared/types.js';
 import { MockViewerAdapter } from './MockViewerAdapter.js';
 import type { ModelInfo } from './modelSet.js';
-import { forgetLeafRows, readLeafRows } from './sharedLeafRows.js';
+import {
+  discoverLeafProperties,
+  forgetLeafRows,
+  peekLeafRows,
+  readLeafRows,
+} from './sharedLeafRows.js';
 import type { ViewerAdapter } from './ViewerAdapter.js';
+
+const getModels = () => [
+  { id: 'm', urn: 'm', name: 'm', visible: true, status: 'ready' },
+];
 
 function fakeAdapter() {
   const getLeafProperties = vi.fn(async (names: string[]) => {
@@ -15,7 +24,7 @@ function fakeAdapter() {
     return [row];
   });
   return {
-    adapter: { getLeafProperties } as unknown as ViewerAdapter,
+    adapter: { getLeafProperties, getModels } as unknown as ViewerAdapter,
     getLeafProperties,
   };
 }
@@ -60,6 +69,26 @@ describe('readLeafRows', () => {
     expect(getLeafProperties).toHaveBeenCalledTimes(3);
   });
 
+  it('only grows the cached property names', async () => {
+    const { adapter, getLeafProperties } = fakeAdapter();
+    await readLeafRows(adapter, ['Name', 'Level']);
+    await readLeafRows(adapter, ['Category']);
+    expect(getLeafProperties).toHaveBeenCalledTimes(2);
+    const level = await readLeafRows(adapter, ['Level']);
+    const name = await readLeafRows(adapter, ['Name']);
+    expect(getLeafProperties).toHaveBeenCalledTimes(2);
+    expect(level[0]?.properties).toEqual({ Level: 'Level-v' });
+    expect(name[0]?.properties).toEqual({ Name: 'Name-v' });
+  });
+
+  it('hands out the cached rows when the names match the cache', async () => {
+    const { adapter } = fakeAdapter();
+    const first = await readLeafRows(adapter, ['Name', 'Level']);
+    const again = await readLeafRows(adapter, ['Name', 'Level']);
+    expect(again[0]).toBe(first[0]);
+    expect(first[0]?.modelId).toBe('m');
+  });
+
   it('keeps reads and caches separate per adapter', async () => {
     const a = fakeAdapter();
     const b = fakeAdapter();
@@ -83,7 +112,10 @@ describe('readLeafRows', () => {
           release = resolve;
         }),
     );
-    const adapter = { getLeafProperties } as unknown as ViewerAdapter;
+    const adapter = {
+      getLeafProperties,
+      getModels,
+    } as unknown as ViewerAdapter;
     const first = readLeafRows(adapter, ['Name', 'Level']);
     await new Promise((resolve) => setTimeout(resolve, 0));
     const second = readLeafRows(adapter, ['Name']);
@@ -133,6 +165,28 @@ describe('readLeafRows with a model set', () => {
     adapter.destroy();
   });
 
+  it('reports the models that failed while returning the others', async () => {
+    const { adapter } = await combined(['urn-a', 'urn-noprops']);
+    const onFailed = vi.fn();
+    const rows = await readLeafRows(adapter, ['Category'], { onFailed });
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.every((row) => row.modelId === 'urn-a')).toBe(true);
+    expect(onFailed).toHaveBeenCalledTimes(1);
+    expect(onFailed.mock.calls[0]?.[0]).toHaveLength(1);
+    adapter.destroy();
+  });
+
+  it('reads only the requested models', async () => {
+    const { adapter, spy } = await combined(['urn-a', 'urn-b']);
+    const rows = await readLeafRows(adapter, ['Category'], {
+      modelIds: ['urn-a'],
+    });
+    expect(rows.every((row) => row.modelId === 'urn-a')).toBe(true);
+    expect(callsFor(spy, 'urn-a')).toBe(1);
+    expect(callsFor(spy, 'urn-b')).toBe(0);
+    adapter.destroy();
+  });
+
   it('does not cache an empty read and reads again after a model reloads', async () => {
     let models: ModelInfo[] = [
       { id: 'm1', urn: 'm1', name: 'M1', visible: true, status: 'ready' },
@@ -172,6 +226,28 @@ describe('readLeafRows with a model set', () => {
     expect(getLeafProperties).toHaveBeenCalledTimes(3);
   });
 
+  it('caches an empty read that reported a complete tree', async () => {
+    const getLeafProperties = vi.fn(
+      async (
+        _names: string[],
+        _ids?: string[],
+        options?: { onProgress?: (p: { done: number; total: number }) => void },
+      ) => {
+        options?.onProgress?.({ done: 0, total: 0 });
+        return [] as PropertyRow[];
+      },
+    );
+    const adapter = {
+      getLeafProperties,
+      getModels,
+    } as unknown as ViewerAdapter;
+    expect(peekLeafRows(adapter)).toBeNull();
+    expect(await readLeafRows(adapter, ['Name'])).toEqual([]);
+    expect(peekLeafRows(adapter)).toEqual([]);
+    expect(await readLeafRows(adapter, ['Name'])).toEqual([]);
+    expect(getLeafProperties).toHaveBeenCalledTimes(1);
+  });
+
   it('reuses the rows of the same version and leaves out removed models', async () => {
     const { adapter, spy } = await combined(['urn-a', 'urn-b']);
     await readLeafRows(adapter, ['Category']);
@@ -183,5 +259,182 @@ describe('readLeafRows with a model set', () => {
     expect(callsFor(spy, 'urn-b')).toBe(2);
     expect(back.some((row) => row.modelName === 'Renamed')).toBe(true);
     adapter.destroy();
+  });
+});
+
+describe('readLeafRows cancel and progress', () => {
+  type Progress = { done: number; total: number };
+  function gated() {
+    const signals: AbortSignal[] = [];
+    let release: (rows: PropertyRow[]) => void = () => {};
+    let progress: (p: Progress) => void = () => {};
+    const getLeafProperties = vi.fn(
+      (
+        _names: string[],
+        _ids?: readonly string[],
+        options?: { signal?: AbortSignal; onProgress?: (p: Progress) => void },
+      ) => {
+        if (options?.signal) signals.push(options.signal);
+        if (options?.onProgress) progress = options.onProgress;
+        return new Promise<PropertyRow[]>((resolve, reject) => {
+          release = resolve;
+          options?.signal?.addEventListener('abort', () =>
+            reject(new DOMException('stopped', 'AbortError')),
+          );
+        });
+      },
+    );
+    const adapter = {
+      getLeafProperties,
+      getModels,
+    } as unknown as ViewerAdapter;
+    return {
+      adapter,
+      signals,
+      getLeafProperties,
+      release: (rows: PropertyRow[]) => release(rows),
+      report: (p: Progress) => progress(p),
+    };
+  }
+
+  const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+  const row: PropertyRow = { dbId: 1, name: 'El', properties: { Name: 'n' } };
+
+  it('rejects an aborted read and aborts the underlying read', async () => {
+    const g = gated();
+    const controller = new AbortController();
+    const read = readLeafRows(g.adapter, ['Name'], {
+      signal: controller.signal,
+    });
+    await tick();
+    controller.abort();
+    await expect(read).rejects.toMatchObject({ name: 'AbortError' });
+    expect(g.signals[0]?.aborted).toBe(true);
+    g.release([row]);
+    await tick();
+    const again = readLeafRows(g.adapter, ['Name']);
+    await tick();
+    g.release([row]);
+    expect(await again).toHaveLength(1);
+    expect(g.getLeafProperties).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps the shared read alive while another waiter remains', async () => {
+    const g = gated();
+    const first = new AbortController();
+    const a = readLeafRows(g.adapter, ['Name'], { signal: first.signal });
+    const b = readLeafRows(g.adapter, ['Name']);
+    await tick();
+    first.abort();
+    await expect(a).rejects.toMatchObject({ name: 'AbortError' });
+    expect(g.signals[0]?.aborted).toBe(false);
+    g.release([row]);
+    expect(await b).toHaveLength(1);
+    expect(g.getLeafProperties).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports progress to every waiter', async () => {
+    const g = gated();
+    const seen: number[] = [];
+    const a = readLeafRows(g.adapter, ['Name'], {
+      onProgress: (p) => seen.push(p.done / p.total),
+    });
+    await tick();
+    g.report({ done: 1, total: 4 });
+    const late: number[] = [];
+    const b = readLeafRows(g.adapter, ['Name'], {
+      onProgress: (p) => late.push(p.done / p.total),
+    });
+    g.report({ done: 4, total: 4 });
+    g.release([row]);
+    await Promise.all([a, b]);
+    expect(seen).toEqual([0.25, 1]);
+    expect(late).toEqual([0.25, 1]);
+  });
+});
+
+describe('discoverLeafProperties', () => {
+  function discovering() {
+    const discoverProperties = vi.fn(async () => [
+      { name: 'Level', category: 'Constraints' },
+    ]);
+    return {
+      adapter: { discoverProperties, getModels } as unknown as ViewerAdapter,
+      discoverProperties,
+    };
+  }
+
+  it('caches per model until the cache is forgotten', async () => {
+    const { adapter, discoverProperties } = discovering();
+    const [a, b] = await Promise.all([
+      discoverLeafProperties(adapter),
+      discoverLeafProperties(adapter),
+    ]);
+    expect(a).toEqual(b);
+    await discoverLeafProperties(adapter);
+    expect(discoverProperties).toHaveBeenCalledTimes(1);
+    forgetLeafRows(adapter);
+    await discoverLeafProperties(adapter);
+    expect(discoverProperties).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not cache a failed discovery', async () => {
+    const discoverProperties = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('db'))
+      .mockResolvedValue([{ name: 'Level', category: 'Constraints' }]);
+    const adapter = {
+      discoverProperties,
+      getModels,
+    } as unknown as ViewerAdapter;
+    await expect(discoverLeafProperties(adapter)).rejects.toThrow('db');
+    expect(await discoverLeafProperties(adapter)).toHaveLength(1);
+    expect(discoverProperties).toHaveBeenCalledTimes(2);
+  });
+
+  it('aborts the underlying discovery and never shares a stale result', async () => {
+    const calls: { signal?: AbortSignal; release: (v: unknown[]) => void }[] =
+      [];
+    const discoverProperties = vi.fn(
+      (_ids?: readonly string[], options?: { signal?: AbortSignal }) =>
+        new Promise((resolve) => {
+          calls.push({
+            ...(options?.signal ? { signal: options.signal } : {}),
+            release: resolve,
+          });
+        }),
+    );
+    const adapter = {
+      discoverProperties,
+      getModels,
+    } as unknown as ViewerAdapter;
+    const controller = new AbortController();
+    const first = discoverLeafProperties(adapter, {
+      signal: controller.signal,
+    });
+    controller.abort();
+    await expect(first).rejects.toMatchObject({ name: 'AbortError' });
+    expect(calls[0]?.signal?.aborted).toBe(true);
+    const second = discoverLeafProperties(adapter);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(discoverProperties).toHaveBeenCalledTimes(2);
+    calls[0]?.release([{ name: 'Stale', category: 'X' }]);
+    calls[1]?.release([{ name: 'Level', category: 'Constraints' }]);
+    expect(await second).toEqual([{ name: 'Level', category: 'Constraints' }]);
+    expect(await discoverLeafProperties(adapter)).toEqual([
+      { name: 'Level', category: 'Constraints' },
+    ]);
+    expect(discoverProperties).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects a cancelled waiter without poisoning the cache', async () => {
+    const { adapter, discoverProperties } = discovering();
+    const controller = new AbortController();
+    controller.abort();
+    await expect(
+      discoverLeafProperties(adapter, { signal: controller.signal }),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+    expect(await discoverLeafProperties(adapter)).toHaveLength(1);
+    expect(discoverProperties).toHaveBeenCalledTimes(1);
   });
 });

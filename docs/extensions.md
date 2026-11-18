@@ -1,49 +1,100 @@
-# Viewer extensions
+# Extensions
 
-An extension here is a small module in `src/web/extensions` that works against the `ViewerAdapter` interface (see [architecture.md](architecture.md)), plus an optional React panel in `src/web/panels`. Modules never touch the Autodesk Viewer globals directly, so they run on both the real and the mock adapter and can be tested without a browser viewer.
+An extension is a small module in `src/web/extensions` that works against the `ViewerAdapter` interface ([architecture.md](architecture.md#vieweradapter)), plus an optional React panel in `src/web/panels`. Modules never touch Autodesk Viewer globals, so they run on the real and the mock adapter and can be tested without a browser viewer.
 
 ## Structure
 
-- `src/web/extensions/<name>.ts`: pure logic. Takes an adapter or `PropertyRow[]` and returns data or performs an action.
+- `src/web/extensions/<name>.ts`: pure logic. Takes an adapter or `PropertyRow[]`.
 - `src/web/extensions/index.ts`: re-exports each module.
-- `src/web/panels/<Name>.tsx`: the UI. Gets the adapter from `useViewer()` (through `useResolvedAdapter`, which also accepts an `adapter` prop for tests) and reads properties with `usePropertyRows`.
-- `src/web/panels/index.ts`: exports the panel. A pane entry in `src/web/layout/paneRegistry.ts` places it in the layout (see [layout.md](layout.md)).
-- `src/web/extensions/extensions.test.ts` and `panels/panels.test.tsx`: unit tests.
+- `src/web/panels/<Name>.tsx`: the UI. Gets the adapter from `useViewer()` (through `useResolvedAdapter`) and reads properties with `useScopedRows`.
+- `src/web/panels/index.ts`: exports the panel. A pane entry in `paneRegistry.ts` places it ([layout.md](layout.md#add-a-pane)).
+- Tests: `extensions/extensions.test.ts` and `panels/panels.test.tsx`.
 
-Property rows have the shape `{ dbId, name, properties, modelId?, modelName? }`. `adapter.getLeafProperties(names)` returns one row per leaf element of every loaded model, with a value or `null` for each requested property name and the model it came from. In a combined view dbIds repeat across models, so never key data by `dbId` alone. Use `scopeRows(rows, scope)` from `viewer/modelScope.ts` to show one model or `ALL_MODELS`. Hidden models are not read. Summary and dashboard show an All models / one model switch (`ModelScope.tsx`, `useModelScope`) when the viewer holds two or more loaded models; All models counts the union, so values are summed across models. A model whose properties could not be read has `propertiesError` set; show `unavailableModels(adapter.getModels())` next to partial results.
+A property row is `{ dbId, name, properties, modelId?, modelName? }`. In a combined view dbIds repeat across models, so never key data by `dbId` alone. Use `scopeRows` from `viewer/modelScope.ts` to show one model. A model whose properties failed has `propertiesError`: show `unavailableModels(adapter.getModels())` beside partial results.
 
-## Existing extensions
+Read rows with `useScopedRows` in panels and `readScopedRows` in async code, never `readLeafRows` directly ([architecture.md](architecture.md#scoped-rows)). Render states with `StateBlock`.
 
-**Viewer tools** (`viewerTools.ts`). `buildToolGroupSpec(adapter, options)` builds the `ToolGroupSpec` for the group `bim-showcase-hub-tools`: the paint tool, the Excel export, the geometry export and the IFC export (`ifc`). `registerViewerTools(adapter, { onStatus, onGeometryStatus, onIfcStatus, ifcSettings, features, key, fileName })` registers it with `adapter.registerToolGroup` and returns a disposer. `ViewerPane` calls it when its `tools` prop is true (the default) and shows export status as a badge in the viewer. On the real viewer the group becomes the Autodesk extension `BimShowcaseHub.Tools` in the native toolbar. On the mock viewer it is a toolbar group with a paint flyout. Find the buttons by their accessible names or titles: "Paint selection", the swatch labels, "Reset appearance", "Export to Excel" and "Export geometry (GLB)" and "Export IFC".
+## Built in
 
-**Paint brushes** (`paintBrushes.ts`, `panels/PaintChip.tsx`, `settings/PaintSettingsSection.tsx`). `PAINT_PRESETS` defines red, green and blue and is the default palette. Settings, Paint palette holds a global list of up to 8 hex swatches and an intensity (10 to 100 percent, default 50; it is theming intensity, not opacity). `paletteToPresets` turns them into the toolbar swatches, and `ViewerPane` re-registers the tool group when they change. Painted colour comes from the swatch hex, so the default red is `#ef4444` at 50 percent. `paintSelection` reads `adapter.getModelSelection()` (dbIds paired with their model), calls `setModelThemingColor` and clears the selection, so it paints across every model of a combined view. `resetPaint` calls `clearThemingColors`. The viewer tool group uses these functions. `PaintChip` is the small swatch used in the UI.
+| Extension | Where | Notes |
+|---|---|---|
+| Viewer tools | `tools/` | `PaintTool`, `ExcelExportTool`, `GlbExportTool`, `IfcExportTool`, registered in `tools/index.ts` |
+| Paint | `paintBrushes.ts`, `tools/paint/` | Up to 8 swatches and an intensity. Paints per `(modelId, dbId)` |
+| Model summary | `modelSummary.ts`, `panels/ModelSummaryPanel.tsx` | Counts values per property. Row click selects, isolates, hides or zooms |
+| Dashboard | `dashboardData.ts`, `panels/DashboardPanel.tsx` | Chart.js bar and doughnut charts, presets, PNG, CSV and copy |
+| Excel export | `excelExport.ts`, `exportFormats.ts` | XLSX, CSV, JSON or copy. Cells starting with `=`, `+`, `-` or `@` are guarded in CSV and copied text |
+| GLB export | `glbExport.ts`, `viewer/viewerGeometry.ts` | Binary glTF 2.0 from `adapter.getGeometryParts()`. Capped at 256 MB |
+| IFC export | `ifcExport.ts`, `ifc/` | IFC4 STEP file from `adapter.getIfcSource()`. A mesh-based coordination view, not a Revit IFC export |
+| Properties | `panels/PropertiesPanel.tsx` | Read-only property list of the selected elements |
+| Selection sets, viewpoints | `viewer/selectionSets.ts`, `viewer/viewpoints.ts` | Saved items of kind `selection-set` and `viewpoint` |
 
-**Model summary** (`modelSummary.ts`, `panels/ModelSummaryPanel.tsx`, `panels/SummaryTable.tsx`). `summarize(rows, propertyNames)` counts values for each property (Assembly Code, Classification Code and Name by default), sorted by count and then by value. Empty values are labeled `(empty)`. The panel shows loading, empty and error states and a Refresh button. It is the Model summary pane; its collapsed state is part of the saved layout (`bsh.layout.v1`), and the count column does not wrap. The toolbar has a text filter, Copy table (tab-separated), Download CSV and Show all elements. The other settings live in the Summary settings modal (`panels/SummarySettings.tsx`, modal id `summary-settings`): hide `(empty)`, minimum count, sort by count or value, comfortable or compact density, column toggles, the row click action (select, isolate, or select and zoom) and a reset. Open it from the gear button in the panel header (the `onOpenSettings` prop) or from the Model summary section of Settings, which renders the same `SummarySettingsBody`. `usePersistedState` broadcasts changes on `window`, so every instance of a key stays in sync. Per-property "% empty" badges show the QA signal. These view settings are stored in `localStorage` (`bsh.summary.view.v1`, `bsh.summary.action.v1`) for the summary pane, not per pane instance. Clicking a value calls the adapter methods `selectModelIds`, `isolateModelIds` and `fitToSelection` with `(modelId, dbId)` pairs found by `itemsWithValues` in `elementActions.ts`; with several models, isolate only touches models that have a match. "Show all elements" calls `isolateModelIds([])`.
+Exports over 20,000 rows ask for confirmation with a browser dialog. End-to-end scripts must accept dialogs.
 
-**Excel export** (`excelExport.ts`). `exportToXlsx(adapter, options)` reads the properties Category, Name, Assembly Code, Classification Code and Level, builds one sheet per Category value (sheet names are sanitized to Excel's rules and made unique), and writes the file with `write-excel-file`, loaded on demand. It reports progress through `ExportStatus` (`reading`, `building`, `done`, `empty`, `error`). The viewer shows the status as a badge for four seconds, with row counts formatted with separators. The file is named after the model and version (`exportFileName`, for example `Snowdon-Towers-v3-properties.xlsx`), or `model-properties.xlsx` without a file name. Each viewer registers its tool group with ids suffixed by a short key of its URN (`modelKey`), so two open viewers never share control ids. When the rows come from more than one model, every sheet starts with a `Model` column holding the model name. The Settings section "Table export" chooses the format (`xlsx`, `csv` with a BOM, `json`, or copy as tab-separated text), the row scope (all, selected, or isolated elements; `isolated` uses the optional `adapter.getIsolated()`, which only the real viewer implements), an optional About sheet or JSON `about` block (model names, URNs, date, scope, row count), and a file name pattern with `{model}` and `{date}`. Text cells that start with `=`, `+`, `-`, `@`, tab or return get a leading apostrophe in XLSX, CSV and copied text so names cannot run as formulas. Exports over 20000 rows ask for confirmation. Logic lives in `exportFormats.ts`.
+## Add a tool
 
-**GLB export** (`glbExport.ts`, `viewer/viewerGeometry.ts`, `viewer/geometryTypes.ts`). `exportGeometryToGlb(adapter, options)` asks `adapter.getGeometryParts()` for `{ parts, skipped }` and writes a binary glTF 2.0 file in the browser. `buildGlb` writes one node and one mesh per element: parts with the same model and `dbId` share a node, each part is one primitive, and the node carries `extras: { dbId, model }` so the geometry can be joined to the property rows by `dbId`. Materials are shared by colour, positions go straight into one binary buffer (the viewer's Z-up world becomes glTF's Y-up, in meters), and parts with broken indices are skipped. `RealViewerAdapter` reads the fragment list of every visible, ready model (`vb`/`vbstride`/`ib` with draw-call `offsets`, `matrixWorld`, `getUnitScale()`, material colour). It refuses to export while a model is still loading, and counts fragments it could not read (not loaded, no geometry, no world matrix) in `skipped`. The status badge, shared with the Excel export (the latest export wins), lists missing models and the skipped count in the error variant. The file is named after the model (`Snowdon-Towers-v3-geometry.glb`). `MockViewerAdapter` returns a real triangle box so mock tests cover the writer. The MVP drops textures, UVs and normals, and a fragment that holds several elements gets no `dbId`; see [research/2026-11-17-svf-to-glb-export.md](research/2026-11-17-svf-to-glb-export.md).
+A tool is a viewer toolbar entry with its own settings window.
 
-**IFC export** (`ifcExport.ts`, `ifc/mapToIfc.ts`, `ifc/buildIfc.ts`, `ifc/stepWriter.ts`, `ifc/classTable.ts`, `ifc/globalId.ts`, `viewer/viewerSource.ts`). `exportToIfc(adapter, options)` asks `adapter.getIfcSource()` for the geometry and Revit properties of every visible, ready model, maps them with `mapToIfc` and streams an IFC4 STEP file with `buildIfc` in the browser. Each element becomes one product with an `IfcTriangulatedFaceSet`, one property set per Revit property group, and, only for elements that have a `Type Name`, a shared type object (for example `IfcWallType`). Coordinates are the viewer's world space with its global offset applied, in meters or millimeters (the length unit setting): they are not shared or survey coordinates, so a federation with a native Revit IFC will show an offset. The Category is read from the Other group first, where the reader puts the hidden `__category__` value. The element class comes from the Revit `Category` through `classTable.ts` (walls to `IfcWall`, doors to `IfcDoor` and so on, anything unknown to `IfcBuildingElementProxy`), and storeys are built from the `Level` property (elements without one go to the fallback storey). Each model becomes one `IfcBuilding`. A GlobalId is the compressed 22-character form of the Revit `externalId` (a GUID plus a hex element suffix, which is XORed into the last four bytes) when it has that shape, otherwise a stable hash of the model URN and the `externalId` or `dbId`; a duplicate id gets a hash of its own. Property sets, storeys, types and relationships get ids hashed from stable keys (element GlobalId, building GlobalId, names), so re-exports keep them. `viewerSource.ts` reads `externalId` from the bulk property items and falls back to `getExternalIdMapping`. It reads the Revit `Category` from the viewer's hidden `__category__` group (other `__` groups are skipped). The storey lookup tries the configured level property first, then `LEVEL_FALLBACKS` in `mapToIfc.ts` (`Level`, `Base Level`, `Reference Level`, `Schedule Level`). When an element has no plain `Level` but the viewer holds one as a dbId reference in the `__internalref__` group, `viewerSource.ts` bulk-reads the distinct referenced nodes, takes their name (a trailing ` [id]` is removed) and adds it as `Constraints.Level`; if the lookup fails the element is left as it was. Not exported: materials beyond a colour, openings, relationships between elements, quantities, and 2D sheets. The Settings section "IFC export" sets class overrides, included or excluded property sets, the level property, the fallback storey and the project, site, building, author and organisation names. The result is a mesh-based coordination view, not a Revit IFC export, and Revit may not display `IfcTriangulatedFaceSet` geometry from IFC4 files, so open the file in a viewer such as BIMvision, Solibri or Blender with IfcOpenShell. `npm run e2e:ifc` validates the export on a real Revit sample; see [development.md](development.md).
+1. Write the logic in `src/web/extensions/<name>.ts`.
+2. Add `src/web/tools/<id>/<Name>Tool.tsx`, a class extending `ViewerTool<Settings>`:
+   - Set `id`, `title`, `description` and `settings`: a `defineRecord` under `bsh.tool.<id>.v1`, with `enabled: readEnabled(raw)` in the sanitizer.
+   - Implement `contribute(ctx, settings)` to return toolbar entries.
+   - For options, set `form` (a `FormDefinition`) or override `renderFields()`.
+   - For exports, use `exportEntry`, `exportStem`, `exportFileName`, `confirmLargeExport` and `statusReporter` from `tools/kernel/exportKit.ts`. Set `exportTitle` to get a palette command.
+   - `ctx.current(this)` returns the settings run through the record's sanitizer, so an export never sees a field the user has just cleared. Storage keeps the raw text while the field is edited.
+   - Override `toolbarSignature`, `onDisabled` and `scrub` only when needed. `scrub` blanks personal text on sign-out. If the scrubbed write fails, the record is removed.
+3. Register it in `src/web/tools/index.ts` with `.register(new YourTool())`. The registry rejects duplicate ids and settings keys.
+4. Test the class with a fake `ToolContext` (see `tools/glb/GlbExportTool.test.tsx`).
 
-**Dashboard** (`dashboardData.ts`, `panels/DashboardPanel.tsx`, `panels/ChartCanvas.tsx`). `shapeChartData(rows, property)` counts values, keeps the top 11 and merges the rest into "Other" when there are more than 12 categories. The panel only draws the charts (Chart.js) and has a Bar, Doughnut or Both switch; every other setting lives in the Dashboard settings modal (`panels/DashboardSettings.tsx`, modal id `dashboard-settings`), opened from the gear in the panel header (`onOpenSettings`) or from the Dashboard section of Settings, both rendering `DashboardSettingsBody`. It holds the preset, the group-by property, the maximum categories (3 to 30, default 12), the chart type and the chart click action, and is stored in `bsh.dashboard.view.v1`. Charts redraw with the theme colors when the theme changes. Series colors (`seriesColors`) come from an 8-color colour-blind-safe palette per theme (Okabe-Ito based, `CHART_PALETTES`); a value's color comes from a hash of its label, so it is the same in every chart, with the next free slot used when two values in one chart collide, a faded repeat after 8 values, and a neutral grey for "Other". The legend and the PNG use the same colors. Paint swatches are separate and unchanged. Each chart has PNG (drawn on the card surface color), CSV and Copy (tab-separated) buttons (`chartExport.ts`). Clicking a bar or slice runs the Chart click action (select, isolate, or select and zoom, stored in `bsh.dashboard.action.v1`; both keys are cleared on sign-out) on the elements of that bucket; the "Other" bucket covers all merged values. Presets (`dashboardPresets.ts`: Model health, By discipline, Quantities by type, Classification coverage) show one bar chart per property the model actually has and hide the rest; Single chart returns to the group-by property. Presets are built in and read-only; saving your own is not built. Presets assume Revit property names such as Discipline, Family and Type Name. It is the Dashboard pane; its collapsed state is part of the saved layout (`bsh.layout.v1`).
-
-## Credits
-
-The IFC export button uses the IFC mark (`src/web/viewer/ifc-logo.svg`), a registered trademark of buildingSMART International, to label IFC export. The SVG was traced from a PNG found on a clipart site, so you may want to replace it with the official vector from buildingSMART.
-
-## Settings and modals
-
-- Add a modal: write a `ModalDefinition` and add one line for it in `src/web/modal/registry.ts`.
-- Add a setting: extend `Settings`, `DEFAULT_SETTINGS`, `readSettings` and `EXPERIMENTAL_FEATURES` in `src/web/settings`.
-- Tool group controls are optional per feature: `ToolGroupSpec.paint` may be omitted and `ToolGroupSpec.exports` is a list (Excel, GLB and IFC entries, each with `id`, `icon`, `tooltip` and `onExport`) that holds only the enabled exports, and `registerViewerTools` takes `features` (`paint`, `export`, `geometry`, `ifc`, set from the Settings modal) to choose which to build. `ViewerPane` registers the group after the model loads and again when a setting changes, without reloading the model.
+`ViewerPane` calls `useViewerTools(TOOLS, ...)`, merges every enabled tool into one `ToolGroupSpec` and registers it with `adapter.registerToolGroup`. Nothing else changes when a tool is added. The spec has one paint slot, so the first registered paint tool wins.
 
 ## Add an extension
 
-1. Write the logic in `src/web/extensions/<name>.ts`. Accept a `ViewerAdapter` or `PropertyRow[]`. If it needs a viewer capability that the interface lacks, add the method to `ViewerAdapter`, implement it in both `RealViewerAdapter` and `MockViewerAdapter`, and extend `adapter.contract.test.ts`.
-2. Export it from `src/web/extensions/index.ts`.
-3. For viewer toolbar controls, extend `ToolGroupSpec` and `buildToolGroupSpec`, then implement the new control in both the Autodesk extension (`viewer/autodeskTools.ts`) and `MockViewerAdapter.buildToolGroup`. Registration goes through `adapter.registerToolGroup(spec)`, which returns a disposer to call on cleanup.
-4. For a panel, create `src/web/panels/<Name>.tsx` using `useResolvedAdapter` and `usePropertyRows`, use `StateBlock` for loading, empty and error states, and export it from `panels/index.ts`.
-5. Add a pane for the panel to `PANES` in `src/web/layout/paneRegistry.ts` (see [layout.md](layout.md)).
-6. Add tests with the mock adapter: logic in `extensions.test.ts`, UI in `panels.test.tsx`.
-7. Run `npm run lint`, `npm run typecheck` and `npm test`, then check the page with `npm run dev:mock`.
+1. Write the logic in `src/web/extensions/<name>.ts`. If it needs a viewer capability the interface lacks, add the method to `ViewerAdapter`, implement it in `RealViewerAdapter` and `MockViewerAdapter`, and extend `adapter.contract.test.ts`.
+2. Export it from `extensions/index.ts`.
+3. For a new kind of toolbar control, extend `ToolGroupSpec` and implement it in `viewer/autodeskTools.ts` and `MockViewerAdapter.buildToolGroup`.
+4. For a panel, add `panels/<Name>.tsx` and export it from `panels/index.ts`. Add a pane to `PANES`.
+5. Test with the mock adapter.
+6. Run `npm run lint`, `npm run typecheck` and `npm test`, then check the page with `npm run dev:mock`.
+
+## Add a command
+
+Ctrl or Cmd+K opens the palette (`src/web/commands`).
+
+- `COMMANDS.register(source, () => Command[], priority?)` adds a source. Providers run each time the palette opens and each time the query changes, so titles and `disabled` reasons are current. A command that fails reopens the palette with the error inline and also reports to the Task Center.
+- A command has `id`, `title`, `group`, optional `keywords`, `icon` and `disabled` (a reason string), and `run(host)`. `host.openModal(id)` opens a settings window.
+- When two sources give the same id, the higher priority wins.
+- A tool adds commands by overriding `ViewerTool.commands(ctx, settings)`.
+
+## Settings and modals
+
+- Add a modal: write a `ModalDefinition` and add it to `src/web/modal/registry.ts`. Each registered tool already adds its own. An optional `onClose` runs when the modal closes, for state the opener set.
+- App settings (`src/web/settings/settings.ts`, key `bsh-settings-v1`) hold only `sessionWarnMinutes` and `recentsLength`. Each tool and pane owns the rest of its settings.
+- Generated forms: `components/SettingsForm.tsx` renders a `FormDefinition` with field kinds `toggle`, `number`, `select`, `text`, `multi` and `list`.
+- Pane settings live in `settings/paneSettings.ts` and `layout/instanceSettings.ts`.
+
+## Persisted records
+
+All browser storage goes through `src/web/storage.ts`. Do not call `localStorage` directly.
+
+- `defineRecord({ key, initial, sanitize, area?, codec? })` makes a record. `read()` always sanitizes.
+- `usePersisted(record)` returns `[value, update, reset]`.
+- Add a key to `BSH_KEYS.personal` when it describes the user's models, layout or work. Add it to `BSH_KEYS.preference` when it is a taste setting.
+- A family of keys (`defineRecordFamily`) needs a prefix in `BSH_PERSONAL_PREFIXES`.
+
+## Saved items
+
+`src/web/store/savedStore.ts` keeps named, user-made items in one personal record (`bsh.saved.v1`).
+
+- An item is `{ id, kind, name, version, updatedAt, data }`. A new kind needs only a `kind` string and a sanitizer.
+- Use `readSaved(kind)`, `upsertSaved`, `removeSaved` and `moveSaved`.
+- Settings has Export and Import for a `bsh-saved.json` file. Import merges by id and the newer `updatedAt` wins. An id that already exists under another kind is never merged: `upsertSaved` fails and Import counts it as rejected.
+- The record carries a format version (`SAVED_VERSION`). A store written by a newer build (a higher version) is read-only: reading works, and `upsertSaved`, `renameSaved`, `removeSaved`, `moveSaved` and `importSaved` fail without writing, so an older build never strips newer data.
+- Kinds today: `dashboard-preset`, `selection-set`, `viewpoint`.
+
+## Tasks
+
+Wrap work the user waits for in `startTask({ label, cancel?, retry? })` (`src/web/tasks/taskStore.ts`).
+
+- Settle it with `finish`, `warn` (shown as "Done with warnings"), `fail` or `cancel`. `progress(fraction | null, detail)` updates a running task.
+- The Task Center in the top bar shows Cancel for tasks that gave `cancel` and Retry for failed tasks that gave `retry`. Retry removes the failed task, so `retry` should start the new one.
+- Model loads and exports report this way. For an export use `exportEntry`.

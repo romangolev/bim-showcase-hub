@@ -1,7 +1,7 @@
 import { buildIfc } from '../ifc/buildIfc.js';
 import { mapToIfc } from '../ifc/mapToIfc.js';
+import { DEFAULT_IFC_SETTINGS } from '../ifc/settings.js';
 import type { IfcSettings } from '../ifc/types.js';
-import { DEFAULT_IFC_SETTINGS } from '../settings/settings.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { saveBlob } from './excelExport.js';
 import {
@@ -38,19 +38,6 @@ export interface IfcExportOptions {
   save?: (blob: Blob, fileName: string) => void;
   now?: Date;
   maxBytes?: number;
-}
-
-export function ifcHasWarning(status: IfcExportStatus): boolean {
-  return (
-    status.phase === 'error' ||
-    (status.phase === 'done' &&
-      Boolean(
-        status.missing?.length ||
-          status.skipped ||
-          status.levelsUnavailable ||
-          status.generatedIds,
-      ))
-  );
 }
 
 export function describeIfcStatus(status: IfcExportStatus): string {

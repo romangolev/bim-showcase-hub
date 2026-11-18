@@ -11,4 +11,5 @@ export interface ApsAuth {
   exchangeCode(code: string): Promise<TokenSet>;
   refresh(refreshToken: string): Promise<TokenSet>;
   getUser(accessToken: string): Promise<SessionUser>;
+  revoke(refreshToken: string): Promise<void>;
 }

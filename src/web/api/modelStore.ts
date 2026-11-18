@@ -1,4 +1,4 @@
-import { BSH_KEYS, readJson, writeJson } from '../storage.js';
+import { BSH_KEYS, defineRecord } from '../storage.js';
 import { type ModelContext, parseModelContext } from './modelContext.js';
 
 export const MODEL_STORE_KEY = BSH_KEYS.personal.recentModels;
@@ -9,15 +9,22 @@ interface StoredModel extends ModelContext {
   urn: string;
 }
 
+const RECENT = defineRecord<StoredModel[]>({
+  key: MODEL_STORE_KEY,
+  initial: [],
+  sanitize: (parsed) => {
+    if (!Array.isArray(parsed)) return [];
+    return parsed.flatMap((entry: unknown) => {
+      const urn = (entry as { urn?: unknown } | null)?.urn;
+      return typeof urn === 'string' && urn
+        ? [{ urn, ...parseModelContext(entry) }]
+        : [];
+    });
+  },
+});
+
 function readAll(): StoredModel[] {
-  const parsed = readJson<unknown>(MODEL_STORE_KEY, []);
-  if (!Array.isArray(parsed)) return [];
-  return parsed.flatMap((entry: unknown) => {
-    const urn = (entry as { urn?: unknown } | null)?.urn;
-    return typeof urn === 'string' && urn
-      ? [{ urn, ...parseModelContext(entry) }]
-      : [];
-  });
+  return RECENT.read();
 }
 
 let storeVersion = 0;
@@ -68,7 +75,7 @@ export function rememberModel(urn: string, context: ModelContext): void {
     entry,
     ...readAll().filter((stored) => stored.urn !== urn),
   ].slice(0, MODEL_STORE_LIMIT);
-  if (writeJson(MODEL_STORE_KEY, next)) notifyStore();
+  if (RECENT.write(next)) notifyStore();
 }
 
 export function listRecentModels(): StoredModel[] {

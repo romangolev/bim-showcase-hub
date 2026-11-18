@@ -1,18 +1,23 @@
 import type { PropertyRow } from '../../shared/types.js';
-import { distinctModelCount, unavailableModels } from '../viewer/modelScope.js';
-import { readLeafRows } from '../viewer/sharedLeafRows.js';
+import {
+  ALL_MODELS,
+  distinctModelCount,
+  type ModelScope,
+  unavailableModels,
+} from '../viewer/modelScope.js';
+import { isAbortError, throwIfAborted } from '../viewer/propertyReads.js';
+import { readScopedRows } from '../viewer/propertyScope.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import {
   type AboutInfo,
   aboutRows,
   type ExportFormat,
   type ExportScope,
-  filterByScope,
-  safeName,
+  type TableOptions,
   toDelimited,
   toJsonRecords,
 } from './exportFormats.js';
-import { formatValue } from './modelSummary.js';
+import { formatValue, summarize } from './modelSummary.js';
 
 export const DEFAULT_EXPORT_PROPERTIES: readonly string[] = [
   'Category',
@@ -26,32 +31,23 @@ export const DEFAULT_GROUP_BY = 'Category';
 export const DEFAULT_FILE_NAME = 'model-properties.xlsx';
 export const MODEL_COLUMN = 'Model';
 
-export function exportFileName(file?: string, version?: string): string {
-  const base = (file ?? '').replace(/\.[A-Za-z0-9]{1,5}$/, '');
-  const parts = [base, version ?? ''].map(safeName).filter(Boolean);
-  if (!base || parts.length === 0) return DEFAULT_FILE_NAME;
-  return `${parts.join('-').slice(0, 120)}-properties.xlsx`;
-}
 export const FALLBACK_SHEET_NAME = 'Elements';
 
 export type ExportCell = string | number | boolean;
 
-function shownModels(adapter: ViewerAdapter): { name: string; urn: string }[] {
-  if (typeof adapter.getModels !== 'function') return [];
+function shownModels(adapter: ViewerAdapter): AboutInfo['models'] {
   return adapter
     .getModels()
     .filter((model) => model.status === 'ready' && model.visible)
-    .map(({ name, urn }) => ({ name, urn }));
-}
-
-function scopeItems(adapter: ViewerAdapter, scope: ExportScope) {
-  if (scope === 'selected') return adapter.getModelSelection();
-  if (scope === 'isolated') return adapter.getIsolated();
-  return [];
+    .map(({ name, urn, version, path }) => ({
+      name,
+      urn,
+      ...(version ? { version } : {}),
+      ...(path ? { path } : {}),
+    }));
 }
 
 function unavailableModelNames(adapter: ViewerAdapter): string[] {
-  if (typeof adapter.getModels !== 'function') return [];
   return unavailableModels(adapter.getModels()).map((model) => model.name);
 }
 
@@ -64,7 +60,13 @@ export interface ExportSheet {
 export type ExportStatus =
   | { phase: 'reading' }
   | { phase: 'building' }
-  | { phase: 'done'; fileName: string; rowCount: number; missing?: string[] }
+  | {
+      phase: 'done';
+      fileName: string;
+      rowCount: number;
+      missing?: string[];
+      scopeNote?: string;
+    }
   | { phase: 'empty' }
   | { phase: 'cancelled' }
   | { phase: 'error'; message: string };
@@ -132,12 +134,10 @@ export function buildExportSheets(
     if (bucket) bucket.push(row);
     else groups.set(key, [row]);
   }
-  return [...groups.entries()]
-    .filter(([key]) => !key.includes('<'))
-    .map(([key, bucket]) => ({
-      name: sheetNameFor(key, used),
-      ...buildExportRows(bucket, propertyNames, withModel),
-    }));
+  return [...groups.entries()].map(([key, bucket]) => ({
+    name: sheetNameFor(key, used),
+    ...buildExportRows(bucket, propertyNames, withModel),
+  }));
 }
 
 export interface ExportOptions {
@@ -146,10 +146,16 @@ export interface ExportOptions {
   fileName?: string;
   format?: ExportFormat;
   scope?: ExportScope;
+  modelScope?: ModelScope;
   metadata?: boolean;
+  exporterName?: boolean;
+  summarySheet?: boolean;
+  table?: Partial<TableOptions>;
   confirm?: (rowCount: number) => boolean;
   copy?: (text: Promise<string>) => Promise<void>;
   onStatus?: (status: ExportStatus) => void;
+  onProgress?: (fraction: number) => void;
+  signal?: AbortSignal;
   save?: (blob: Blob, fileName: string) => void;
 }
 
@@ -174,7 +180,11 @@ export async function exportToXlsx(
     fileName = DEFAULT_FILE_NAME,
     format = 'xlsx',
     scope = 'all',
+    modelScope = ALL_MODELS,
     metadata = false,
+    exporterName = true,
+    summarySheet = false,
+    table = {},
     confirm,
     copy = (text) =>
       navigator.clipboard.write([
@@ -185,6 +195,8 @@ export async function exportToXlsx(
         }),
       ]),
     onStatus,
+    onProgress,
+    signal,
     save = saveBlob,
   } = options;
   const emit = (status: ExportStatus): ExportStatus => {
@@ -196,25 +208,24 @@ export async function exportToXlsx(
     reject: (): void => undefined,
   };
   let copied: Promise<void> | undefined;
-  if (format === 'copy') {
-    const pending = new Promise<string>((resolve, reject) => {
-      copyText.resolve = resolve;
-      copyText.reject = () => reject(new Error('Export stopped'));
-    });
-    copied = copy(pending);
-    copied.catch(() => undefined);
-  }
   try {
+    if (format === 'copy') {
+      const pending = new Promise<string>((resolve, reject) => {
+        copyText.resolve = resolve;
+        copyText.reject = () => reject(new Error('Export stopped'));
+      });
+      pending.catch(() => undefined);
+      copied = copy(pending);
+      copied.catch(() => undefined);
+    }
     emit({ phase: 'reading' });
-    const all = await readLeafRows(adapter, propertyNames);
-    const rows = filterByScope(
-      all,
-      scope,
-      scopeItems(adapter, scope),
-      typeof adapter.getModels === 'function'
-        ? adapter.getModels()[0]?.id
-        : undefined,
-    );
+    const { rows, scopeNote } = await readScopedRows(adapter, {
+      names: propertyNames,
+      scope: { models: modelScope, elements: scope },
+      signal,
+      onProgress: ({ done, total }) => onProgress?.(total ? done / total : 0),
+    });
+    throwIfAborted(signal);
     if (rows.length === 0) {
       copyText.reject();
       return emit({ phase: 'empty' });
@@ -223,12 +234,14 @@ export async function exportToXlsx(
       copyText.reject();
       return emit({ phase: 'cancelled' });
     }
+    throwIfAborted(signal);
     emit({ phase: 'building' });
     let rowCount = rows.length;
     const about = (): AboutInfo => ({
       models: shownModels(adapter),
       scope,
       rowCount,
+      exporter: exporterName,
     });
     let delivered = fileName;
     if (format === 'xlsx') {
@@ -252,6 +265,31 @@ export async function exportToXlsx(
             },
           ]
         : [];
+      const summary = summarySheet
+        ? [
+            {
+              sheet: sheetNameFor(
+                'Summary',
+                new Set(
+                  [...sheets.map((sheet) => sheet.name), 'About'].map((name) =>
+                    name.toLowerCase(),
+                  ),
+                ),
+              ),
+              data: [
+                ['Property', 'Value', 'Count'].map((value) => ({
+                  value,
+                  fontWeight: 'bold' as const,
+                })),
+                ...summarize(rows, propertyNames).map((entry) => [
+                  entry.property,
+                  entry.value,
+                  entry.count,
+                ]),
+              ],
+            },
+          ]
+        : [];
       const blob = await writeXlsxFile([
         ...sheets.map((sheet) => ({
           sheet: sheet.name,
@@ -263,8 +301,10 @@ export async function exportToXlsx(
             ...sheet.rows,
           ],
         })),
+        ...summary,
         ...aboutSheet,
       ]).toBlob();
+      throwIfAborted(signal);
       save(blob, fileName);
     } else {
       const flat = buildExportRows(
@@ -272,15 +312,29 @@ export async function exportToXlsx(
         propertyNames,
         distinctModelCount(rows) > 1,
       );
+      throwIfAborted(signal);
       if (format === 'copy') {
-        copyText.resolve(toDelimited(flat.header, flat.rows, '\t'));
+        copyText.resolve(
+          toDelimited(flat.header, flat.rows, table.delimiter ?? '\t', table),
+        );
         await copied;
         delivered = 'the clipboard';
       } else if (format === 'csv') {
         save(
-          new Blob(['\uFEFF', toDelimited(flat.header, flat.rows, ',')], {
-            type: 'text/csv;charset=utf-8',
-          }),
+          new Blob(
+            [
+              '\uFEFF',
+              toDelimited(
+                flat.header,
+                flat.rows,
+                table.delimiter ?? ',',
+                table,
+              ),
+            ],
+            {
+              type: 'text/csv;charset=utf-8',
+            },
+          ),
           fileName,
         );
       } else {
@@ -300,13 +354,17 @@ export async function exportToXlsx(
       }
     }
     const missing = unavailableModelNames(adapter);
-    return emit(
-      missing.length > 0
-        ? { phase: 'done', fileName: delivered, rowCount, missing }
-        : { phase: 'done', fileName: delivered, rowCount },
-    );
+    return emit({
+      phase: 'done',
+      fileName: delivered,
+      rowCount,
+      ...(missing.length > 0 ? { missing } : {}),
+      ...(scopeNote ? { scopeNote } : {}),
+    });
   } catch (err) {
     copyText.reject();
+    if (signal?.aborted || isAbortError(err))
+      return emit({ phase: 'cancelled' });
     return emit({
       phase: 'error',
       message: err instanceof Error ? err.message : 'Export failed',
@@ -320,10 +378,16 @@ export function describeStatus(status: ExportStatus): string {
       return 'Reading element properties';
     case 'building':
       return 'Building the Excel file';
-    case 'done':
-      return status.missing?.length
-        ? `Exported ${status.rowCount} elements to ${status.fileName}. Missing ${status.missing.join(', ')}: properties could not be read`
-        : `Exported ${status.rowCount} elements to ${status.fileName}`;
+    case 'done': {
+      const base = `Exported ${status.rowCount} elements to ${status.fileName}`;
+      const notes = [
+        status.missing?.length
+          ? `Missing ${status.missing.join(', ')}: properties could not be read`
+          : '',
+        status.scopeNote ?? '',
+      ].filter(Boolean);
+      return notes.length > 0 ? `${base}. ${notes.join('. ')}` : base;
+    }
     case 'empty':
       return 'No elements to export';
     case 'cancelled':

@@ -1,5 +1,7 @@
 import { type QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from '@tanstack/react-router';
+import { AppCommands } from './commands/AppCommands.js';
+import { CommandPalette } from './commands/CommandPalette.js';
 import { ModalProvider } from './modal/index.js';
 import { queryClient } from './queryClient.js';
 import { router } from './routes/router.js';
@@ -18,6 +20,8 @@ export function App({ appRouter = router, client = queryClient }: AppProps) {
         <QueryClientProvider client={client}>
           <ModalProvider>
             <RouterProvider router={appRouter} />
+            <AppCommands />
+            <CommandPalette />
           </ModalProvider>
         </QueryClientProvider>
       </SettingsProvider>

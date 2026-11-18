@@ -1,6 +1,5 @@
 import { flag } from '../../../shared/guards.js';
 import type { TreeNode } from '../../../shared/types.js';
-import { BSH_KEYS } from '../../storage.js';
 
 export type TreeSort = 'name' | 'modified';
 
@@ -10,8 +9,6 @@ export interface TreeView {
   author: boolean;
   size: boolean;
 }
-
-export const TREE_VIEW_KEY = BSH_KEYS.preference.treeView;
 
 export const DEFAULT_TREE_VIEW: TreeView = {
   sort: 'name',

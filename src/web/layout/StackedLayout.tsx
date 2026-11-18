@@ -7,6 +7,7 @@ import {
   PANES,
   type PaneId,
   type PanelId,
+  paneKind,
 } from './paneRegistry.js';
 import { modelPanelId } from './panes.js';
 import { type HostStore, PaneSlot } from './ViewerHost.js';
@@ -22,6 +23,7 @@ export interface StackedLayoutProps {
   onVisibility?: (id: PanelId, visible: boolean) => void;
   treeOpen: boolean;
   onCloseTree: () => void;
+  userPanels?: readonly PanelId[];
 }
 
 const STACK_ORDER: readonly PaneId[] = ['viewer', 'dashboard', 'summary'];
@@ -156,6 +158,7 @@ export function StackedLayout({
   onVisibility,
   treeOpen,
   onCloseTree,
+  userPanels = [],
 }: StackedLayoutProps) {
   const onModel = models.active !== null;
   if (!onModel) {
@@ -226,6 +229,16 @@ export function StackedLayout({
               />
             )}
           </Fragment>
+        ))}
+        {userPanels.map((id) => (
+          <PaneSlot
+            key={id}
+            hosts={hosts}
+            id={id}
+            onAttach={onAttach}
+            onVisibility={onVisibility}
+            className={`stack__pane stack__pane--${paneKind(id)}`}
+          />
         ))}
       </div>
     </div>

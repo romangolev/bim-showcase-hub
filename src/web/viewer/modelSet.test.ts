@@ -23,6 +23,7 @@ import {
   ModelSet,
   ModelSetError,
   metersPerUnit,
+  modelIdFor,
   readySignature,
   spreadOf,
   togetherOffsets,
@@ -54,6 +55,30 @@ describe('ModelSet', () => {
       },
       { id: 'b', urn: 'b', name: 'Model 2', visible: true, status: 'loading' },
     ]);
+  });
+
+  it('keeps version and path through load and resolve', () => {
+    const set = new ModelSet<string>();
+    set.add({ urn: 'a', name: 'A', version: 'V3', path: 'Hub / Proj' });
+    set.resolve('a', 'handle');
+    expect(set.get('a')).toMatchObject({
+      status: 'ready',
+      version: 'V3',
+      path: 'Hub / Proj',
+    });
+  });
+
+  it('replaces or clears version and path when a failed model is re-added', () => {
+    const set = new ModelSet<string>();
+    set.add({ urn: 'a', name: 'A', version: 'V3', path: 'Hub / Proj' });
+    set.fail('a', 'boom');
+    set.add({ urn: 'a', version: 'V4', path: 'Hub / Other' });
+    expect(set.get('a')).toMatchObject({ version: 'V4', path: 'Hub / Other' });
+    set.fail('a', 'boom');
+    set.add({ urn: 'a' });
+    expect(set.get('a')).not.toHaveProperty('version');
+    expect(set.get('a')).not.toHaveProperty('path');
+    expect(set.get('a')?.name).toBe('A');
   });
 
   it('caps the set at six models', () => {
@@ -170,6 +195,13 @@ describe('ModelSet', () => {
     expect(set.list()).toEqual([]);
     set.add({ urn: 'c' });
     expect(set.get('c')?.name).toBe('Model 1');
+  });
+});
+
+describe('model ids', () => {
+  it('equal the model urn, so a urn can seed a model scope', () => {
+    expect(modelIdFor('urn:abc')).toBe('urn:abc');
+    expect(new ModelSet<object>().add({ urn: 'urn:abc' }).id).toBe('urn:abc');
   });
 });
 

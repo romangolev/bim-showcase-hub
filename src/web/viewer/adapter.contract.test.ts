@@ -7,7 +7,7 @@ import {
   LARGE_FIXTURE_ROWS,
 } from './mockModel.js';
 import { apiForRegion, detectRegion } from './region.js';
-import type { ViewerAdapter } from './ViewerAdapter.js';
+import type { CameraState, ViewerAdapter } from './ViewerAdapter.js';
 
 let host: HTMLElement;
 let adapter: MockViewerAdapter;
@@ -145,6 +145,44 @@ describe('ViewerAdapter contract (mock)', () => {
     );
   });
 
+  it('discovers the property names of the loaded model', async () => {
+    await setup();
+    const found = await adapter.discoverProperties();
+    expect(found.map((info) => info.name).sort()).toEqual([
+      'Assembly Code',
+      'Category',
+      'Classification Code',
+      'Level',
+      'Name',
+    ]);
+    expect(found.every((info) => info.category.length > 0)).toBe(true);
+  });
+
+  it('reads the full property set of one element', async () => {
+    await setup();
+    const modelId = adapter.getModels()[0]?.id ?? '';
+    const first = buildMockElements()[0];
+    const read = await adapter.getElementProperties({
+      modelId,
+      dbId: first?.dbId ?? 0,
+    });
+    expect(read?.name).toBe(first?.name);
+    expect(read?.properties.map((p) => p.name)).toEqual([
+      'Category',
+      'Name',
+      'Assembly Code',
+      'Classification Code',
+      'Level',
+    ]);
+    expect(read?.properties.every((p) => p.category.length > 0)).toBe(true);
+    expect(
+      await adapter.getElementProperties({ modelId, dbId: -1 }),
+    ).toBeNull();
+    expect(
+      await adapter.getElementProperties({ modelId: 'nope', dbId: 1 }),
+    ).toBeNull();
+  });
+
   it('clears the scene on unload and removes DOM on destroy', async () => {
     await setup();
     adapter.unload();
@@ -250,11 +288,119 @@ describe('mock selecting and isolating', () => {
     expect(adapter.getModelSelection()).toHaveLength(2);
     adapter.isolateModelIds(items);
     expect(adapter.getIsolated()).toHaveLength(2);
+    expect(await adapter.getVisible()).toHaveLength(2);
     expect(host.querySelectorAll('.bsh-mock__el--dim').length).toBe(
       buildMockElements().length - 2,
     );
     adapter.isolateModelIds([]);
     expect(adapter.getIsolated()).toEqual([]);
+    expect(await adapter.getVisible()).toHaveLength(buildMockElements().length);
     expect(host.querySelectorAll('.bsh-mock__el--dim')).toHaveLength(0);
+  });
+
+  it('hides elements and shows all again', async () => {
+    await setup();
+    const [first] = buildMockElements();
+    const modelId = adapter.getModels()[0]?.id ?? '';
+    const total = buildMockElements().length;
+    adapter.hideModelIds([{ modelId, dbId: first?.dbId ?? 0 }]);
+    expect(await adapter.getVisible()).toHaveLength(total - 1);
+    expect(host.querySelectorAll('.bsh-mock__el--hidden')).toHaveLength(1);
+    adapter.showAll();
+    expect(await adapter.getVisible()).toHaveLength(total);
+    expect(host.querySelectorAll('.bsh-mock__el--hidden')).toHaveLength(0);
+  });
+});
+
+describe('mock fitting, screenshot and state', () => {
+  it('records what a fit targets', async () => {
+    await setup();
+    const modelId = adapter.getModels()[0]?.id ?? '';
+    adapter.fitToView();
+    expect(host.querySelector<HTMLElement>('[data-fit]')?.dataset.fit).toBe(
+      'null',
+    );
+    adapter.fitToView([{ modelId, dbId: 3 }]);
+    expect(host.querySelector<HTMLElement>('[data-fit]')?.dataset.fit).toBe(
+      JSON.stringify([{ modelId, dbId: 3 }]),
+    );
+  });
+
+  it('reads and sets the camera', async () => {
+    await setup();
+    const camera: CameraState = {
+      eye: [1, 2, 3],
+      target: [0, 0, 0],
+      up: [0, 1, 0],
+      ortho: true,
+    };
+    adapter.setCamera(camera);
+    expect(adapter.getCamera()).toEqual(camera);
+  });
+
+  it('rejects a screenshot once the viewer is destroyed', async () => {
+    await setup();
+    adapter.destroy();
+    await expect(adapter.getScreenshot()).rejects.toThrow();
+  });
+
+  it('captures and restores camera, hidden, isolated and selected nodes', async () => {
+    await setup();
+    const [a, b] = buildMockElements();
+    const modelId = adapter.getModels()[0]?.id ?? '';
+    const at = (el?: { dbId: number }) => ({ modelId, dbId: el?.dbId ?? 0 });
+    adapter.isolateModelIds([at(a), at(b)]);
+    adapter.hideModelIds([at(b)]);
+    adapter.selectModelIds([at(a)]);
+    adapter.setCamera({
+      eye: [4, 5, 6],
+      target: [0, 0, 0],
+      up: [0, 0, 1],
+      ortho: false,
+    });
+    const saved = adapter.getState();
+    expect(JSON.parse(JSON.stringify(saved))).toEqual(saved);
+    expect(saved.models[modelId]).toEqual({
+      isolated: [a?.dbId, b?.dbId],
+      hidden: [b?.dbId],
+      selection: [a?.dbId],
+    });
+    adapter.showAll();
+    adapter.clearSelection();
+    adapter.setCamera({
+      eye: [0, 0, 1],
+      target: [0, 0, 0],
+      up: [0, 0, 1],
+      ortho: false,
+    });
+    await adapter.restoreState(saved);
+    expect(adapter.getState()).toEqual(saved);
+    expect(await adapter.getVisible()).toEqual([at(a)]);
+  });
+
+  it('skips unknown models and ids and ignores garbage', async () => {
+    await setup();
+    const [a] = buildMockElements();
+    const modelId = adapter.getModels()[0]?.id ?? '';
+    const state = adapter.getState();
+    state.models.gone = { isolated: [1], hidden: [2], selection: [3] };
+    state.models[modelId] = {
+      isolated: [-5],
+      hidden: [999999],
+      selection: [a?.dbId ?? 0, 999999],
+    };
+    await adapter.restoreState(state);
+    expect(adapter.getState().models[modelId]).toEqual({
+      isolated: [],
+      hidden: [],
+      selection: [a?.dbId],
+    });
+    expect(adapter.getState().models.gone).toBeUndefined();
+    await expect(
+      adapter.restoreState(null as unknown as typeof state),
+    ).resolves.toEqual({ skippedModels: [], viewerFailed: false });
+    await expect(
+      adapter.restoreState({ version: 9 } as unknown as typeof state),
+    ).resolves.toEqual({ skippedModels: [], viewerFailed: false });
   });
 });

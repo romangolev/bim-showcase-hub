@@ -1,4 +1,9 @@
-import { PANES, type PaneId, type Placement } from './paneRegistry.js';
+import {
+  isUserFamily,
+  PANES,
+  type PaneId,
+  type Placement,
+} from './paneRegistry.js';
 
 export interface LayoutStep {
   id: PaneId;
@@ -13,7 +18,7 @@ const RANK: Record<Placement['kind'], number> = {
 };
 
 export function defaultSteps(treeWidth: number): LayoutStep[] {
-  const steps = PANES.map((pane) => ({
+  const steps = PANES.filter((pane) => !isUserFamily(pane.id)).map((pane) => ({
     id: pane.id,
     placement:
       pane.id === 'tree' && pane.defaultPlacement.kind === 'edge'

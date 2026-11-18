@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { buildToolGroupSpec } from '../extensions/viewerTools.js';
+import { buildToolGroup } from '../test/toolGroup.js';
 import {
   type AutodeskViewing,
   autodeskWindow,
@@ -321,7 +321,7 @@ function makeAdapter(): RealViewerAdapter {
 }
 
 function fullSpec() {
-  const base = buildToolGroupSpec(adapter);
+  const base = buildToolGroup(adapter);
   const exportTool = base.exports[0];
   if (!base.paint || !exportTool) throw new Error('tool spec incomplete');
   return { ...base, paint: base.paint, exportTool };
@@ -378,7 +378,7 @@ afterEach(() => {
 describe('RealViewerAdapter tool group extension', () => {
   it('registers an Autodesk extension and mounts one control group after the model loads', async () => {
     makeAdapter();
-    adapter.registerToolGroup(buildToolGroupSpec(adapter));
+    adapter.registerToolGroup(buildToolGroup(adapter));
     await adapter.load('dXJu');
     const viewer = viewers[0] as FakeViewer;
     expect(registerSpy).toHaveBeenCalledTimes(1);
@@ -405,9 +405,9 @@ describe('RealViewerAdapter tool group extension', () => {
       'Select elements to paint',
     ]);
     expect(swatches.map((s) => s.iconClass)).toEqual([
-      'bsh-ico-paint-red',
-      'bsh-ico-paint-green',
-      'bsh-ico-paint-blue',
+      'bsh-ico-paint-swatch',
+      'bsh-ico-paint-swatch',
+      'bsh-ico-paint-swatch',
     ]);
     expect(reset.iconClass).toBe('bsh-ico-reset');
     expect(exportButton.tooltip).toBe('Export to Excel');
@@ -423,16 +423,16 @@ describe('RealViewerAdapter tool group extension', () => {
     await adapter.load('dXJu');
     const viewer = viewers[0] as FakeViewer;
     expect(viewer.toolbar.groups).toHaveLength(0);
-    adapter.registerToolGroup(buildToolGroupSpec(adapter));
+    adapter.registerToolGroup(buildToolGroup(adapter));
     await vi.waitFor(() => expect(viewer.toolbar.groups).toHaveLength(1));
   });
 
   it('registers the extension class once across adapters', async () => {
     makeAdapter();
-    adapter.registerToolGroup(buildToolGroupSpec(adapter));
+    adapter.registerToolGroup(buildToolGroup(adapter));
     await adapter.load('dXJu');
     const second = new RealViewerAdapter(document.createElement('div'));
-    second.registerToolGroup(buildToolGroupSpec(second));
+    second.registerToolGroup(buildToolGroup(second));
     await second.load('dXJu');
     expect(registerSpy).toHaveBeenCalledTimes(1);
     expect(viewers[1]?.toolbar.groups).toHaveLength(1);
@@ -491,7 +491,7 @@ describe('RealViewerAdapter tool group extension', () => {
 
   it('unloads cleanly when the registration is disposed', async () => {
     makeAdapter();
-    const dispose = adapter.registerToolGroup(buildToolGroupSpec(adapter));
+    const dispose = adapter.registerToolGroup(buildToolGroup(adapter));
     await adapter.load('dXJu');
     const viewer = viewers[0] as FakeViewer;
     expect(viewer.toolbar.groups).toHaveLength(1);
@@ -510,14 +510,14 @@ describe('RealViewerAdapter tool group extension', () => {
     viewer.loadGate = new Promise<void>((resolve) => {
       release = resolve;
     });
-    const dispose = adapter.registerToolGroup(buildToolGroupSpec(adapter));
+    const dispose = adapter.registerToolGroup(buildToolGroup(adapter));
     dispose();
     viewer.loadGate = null;
     release();
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(viewer.toolbar.groups).toHaveLength(0);
     expect(viewer.extensions.size).toBe(0);
-    adapter.registerToolGroup(buildToolGroupSpec(adapter));
+    adapter.registerToolGroup(buildToolGroup(adapter));
     await vi.waitFor(() => expect(viewer.toolbar.groups).toHaveLength(1));
     expect(viewer.extensions.size).toBe(1);
   });
@@ -563,7 +563,7 @@ describe('RealViewerAdapter tool group extension', () => {
 
     it('ends with no group when the last registration is disposed while loading', async () => {
       const { viewer, open } = await gatedViewer();
-      const dispose = adapter.registerToolGroup(buildToolGroupSpec(adapter));
+      const dispose = adapter.registerToolGroup(buildToolGroup(adapter));
       dispose();
       open();
       await settle();
@@ -585,20 +585,20 @@ describe('RealViewerAdapter tool group extension', () => {
         return unload(id);
       };
       const load = vi.spyOn(viewer, 'loadExtension');
-      const dispose = adapter.registerToolGroup(buildToolGroupSpec(adapter));
+      const dispose = adapter.registerToolGroup(buildToolGroup(adapter));
       await settle();
       dispose();
       await settle();
       expect(thrown).toBe(true);
-      adapter.registerToolGroup(buildToolGroupSpec(adapter));
+      adapter.registerToolGroup(buildToolGroup(adapter));
       await settle();
       expect(load).toHaveBeenCalledTimes(2);
     });
 
     it('ends with none after register, dispose, register, dispose in a row', async () => {
       const { viewer, open } = await gatedViewer();
-      adapter.registerToolGroup(buildToolGroupSpec(adapter))();
-      adapter.registerToolGroup(buildToolGroupSpec(adapter))();
+      adapter.registerToolGroup(buildToolGroup(adapter))();
+      adapter.registerToolGroup(buildToolGroup(adapter))();
       open();
       await settle();
       expect(viewer.toolbar.groups).toHaveLength(0);
@@ -608,7 +608,7 @@ describe('RealViewerAdapter tool group extension', () => {
 
   it('removes the group when the adapter is destroyed', async () => {
     makeAdapter();
-    adapter.registerToolGroup(buildToolGroupSpec(adapter));
+    adapter.registerToolGroup(buildToolGroup(adapter));
     await adapter.load('dXJu');
     const viewer = viewers[0] as FakeViewer;
     adapter.destroy();
@@ -687,6 +687,18 @@ describe('RealViewerAdapter tool group extension', () => {
     }
   });
 
+  it('passes the requested size to the viewer screenshot', async () => {
+    makeAdapter();
+    await adapter.load('dXJu');
+    const viewer = viewers[0] as FakeViewer & {
+      getScreenShot?: (w: number, h: number, cb: (url: string) => void) => void;
+    };
+    const shot = vi.fn();
+    viewer.getScreenShot = shot;
+    adapter.getScreenshot?.(1600, 900).catch(() => undefined);
+    expect(shot).toHaveBeenCalledWith(1600, 900, expect.any(Function));
+  });
+
   it('ignores resize before a viewer exists', () => {
     makeAdapter();
     expect(() => adapter.resize()).not.toThrow();
@@ -694,7 +706,7 @@ describe('RealViewerAdapter tool group extension', () => {
 
   it('disables the swatches again after the model is replaced', async () => {
     makeAdapter();
-    adapter.registerToolGroup(buildToolGroupSpec(adapter));
+    adapter.registerToolGroup(buildToolGroup(adapter));
     await adapter.load('dXJu');
     const first = viewers[0] as FakeViewer;
     first.select([11]);
@@ -1039,6 +1051,67 @@ describe('RealViewerAdapter geometry export', () => {
     });
   });
 
+  async function makeLoaded() {
+    const one = makeAdapter();
+    await one.load('urn-a', 'Tower.rvt');
+    return one;
+  }
+
+  it('reads every property of one element with its category', async () => {
+    const one = await makeLoaded();
+    const model = (viewers[0] as FakeViewer).model;
+    const asked: unknown[] = [];
+    model.getBulkProperties = (ids, opts, ok) => {
+      asked.push([ids, opts]);
+      ok([
+        {
+          dbId: 7,
+          name: 'Basic Wall',
+          properties: [
+            { displayName: 'Level', displayValue: 'L1', displayCategory: ' ' },
+            { displayName: 'Area', displayValue: 12.5, displayCategory: 'Dim' },
+            {
+              displayName: 'Ref',
+              displayValue: { id: 3 },
+              displayCategory: 'X',
+            },
+          ],
+        },
+      ]);
+    };
+    const { id } = one.getModels()[0] as { id: string };
+    const result = await one.getElementProperties({ modelId: id, dbId: 7 });
+    expect(asked).toEqual([[[7], {}]]);
+    expect(result).toEqual({
+      dbId: 7,
+      name: 'Basic Wall',
+      properties: [
+        { category: 'Other', name: 'Level', value: 'L1' },
+        { category: 'Dim', name: 'Area', value: 12.5 },
+        { category: 'X', name: 'Ref', value: '[object Object]' },
+      ],
+    });
+    expect(
+      await one.getElementProperties({ modelId: 'nope', dbId: 7 }),
+    ).toBeNull();
+    model.getBulkProperties = (_ids, _opts, ok) => ok([]);
+    expect(await one.getElementProperties({ modelId: id, dbId: 8 })).toBeNull();
+  });
+
+  it('rejects when the viewer fails to read the properties', async () => {
+    const one = await makeLoaded();
+    (viewers[0] as FakeViewer).model.getBulkProperties = (
+      _ids,
+      _opts,
+      _ok,
+      fail,
+    ) => fail?.(new Error('boom'));
+    const { id } = one.getModels()[0] as { id: string };
+    await expect(
+      one.getElementProperties({ modelId: id, dbId: 1 }),
+    ).rejects.toThrow('boom');
+  });
+
   it('leaves hidden models out of the IFC source', async () => {
     const one = makeAdapter();
     const viewer = () => viewers[0] as FakeViewer;
@@ -1053,5 +1126,112 @@ describe('RealViewerAdapter geometry export', () => {
     one.setModelVisible(infoB?.id as string, false);
     const result = await one.getIfcSource();
     expect(result.models.map((m) => m.id)).toEqual([infoA?.id]);
+  });
+
+  describe('getVisible', () => {
+    const children = new Map<number, number[]>([
+      [1, [2, 5]],
+      [2, [3, 4]],
+    ]);
+    const tree = {
+      getRootId: () => 1,
+      getChildCount: (id: number) => children.get(id)?.length ?? 0,
+      enumNodeChildren: (
+        id: number,
+        cb: (child: number) => void,
+        recursive?: boolean,
+      ) => {
+        for (const child of children.get(id) ?? []) {
+          cb(child);
+          if (recursive) tree.enumNodeChildren(child, cb, true);
+        }
+      },
+    };
+
+    interface Plan {
+      hidden?: number[][];
+      isolated?: number[][];
+    }
+
+    async function scene(modelCount: number, plan: Plan) {
+      const one = makeAdapter();
+      const viewer = () => viewers[0] as FakeViewer;
+      await one.load('urn-a', 'A.rvt');
+      const a = viewer().model;
+      a.getObjectTree = (ok) => ok(tree);
+      const models = [a];
+      if (modelCount > 1) {
+        const b = fakeSourceModel('b');
+        b.getObjectTree = (ok) => ok(tree);
+        viewer().loadDocumentNode = async () => b;
+        models.push(b);
+        viewer().getAllModels = () => models;
+        await one.addModel({ urn: 'urn-b', name: 'B.rvt' });
+      }
+      const pick = (lists: number[][] | undefined, model: ViewerModel) =>
+        lists?.[models.indexOf(model)] ?? [];
+      Object.assign(viewer(), {
+        getHiddenNodes: (model: ViewerModel) => pick(plan.hidden, model),
+        getIsolatedNodes: (model: ViewerModel) => pick(plan.isolated, model),
+      });
+      return one;
+    }
+
+    const dbIds = (items: { dbId: number }[]) =>
+      items.map((item) => item.dbId).sort();
+
+    it('returns every leaf when nothing is hidden or isolated', async () => {
+      const one = await scene(1, {});
+      expect(dbIds(await one.getVisible())).toEqual([3, 4, 5]);
+    });
+
+    it('drops the descendants of a hidden parent', async () => {
+      const one = await scene(1, { hidden: [[2]] });
+      expect(dbIds(await one.getVisible())).toEqual([5]);
+    });
+
+    it('keeps only the isolated leaves', async () => {
+      const one = await scene(1, { isolated: [[3]] });
+      expect(dbIds(await one.getVisible())).toEqual([3]);
+    });
+
+    it('honours hidden nodes inside an isolated parent', async () => {
+      const one = await scene(1, { hidden: [[4]], isolated: [[2]] });
+      expect(dbIds(await one.getVisible())).toEqual([3]);
+    });
+
+    it('lets a hidden parent win over isolated descendants', async () => {
+      const one = await scene(1, { hidden: [[2]], isolated: [[3, 4]] });
+      expect(dbIds(await one.getVisible())).toEqual([]);
+    });
+
+    it('keeps an isolated sibling when another branch is hidden', async () => {
+      const one = await scene(1, { hidden: [[2]], isolated: [[2, 5]] });
+      expect(dbIds(await one.getVisible())).toEqual([5]);
+    });
+
+    it('combines isolate in one model with hide in the other', async () => {
+      const one = await scene(2, { isolated: [[3], []], hidden: [[], [2]] });
+      const [infoA, infoB] = one.getModels();
+      const visible = await one.getVisible();
+      expect(
+        dbIds(visible.filter((item) => item.modelId === infoA?.id)),
+      ).toEqual([3]);
+      expect(
+        dbIds(visible.filter((item) => item.modelId === infoB?.id)),
+      ).toEqual([5]);
+    });
+
+    it('applies hidden nodes to their own model only', async () => {
+      const one = await scene(2, { hidden: [[], [5]] });
+      const [infoA, infoB] = one.getModels();
+      const visible = await one.getVisible();
+      expect(
+        dbIds(visible.filter((item) => item.modelId === infoA?.id)),
+      ).toEqual([3, 4, 5]);
+      expect(
+        dbIds(visible.filter((item) => item.modelId === infoB?.id)),
+      ).toEqual([3, 4]);
+    });
   });
 });

@@ -1,44 +1,12 @@
-import { useId, useMemo, useState } from 'react';
-import type { PropertyRow } from '../../shared/types.js';
-import {
-  ALL_MODELS,
-  type ModelScope,
-  type ModelScopeOption,
-  modelScopeOptions,
-  resolveScope,
-  scopeRows,
-  unavailableModels,
-} from '../viewer/modelScope.js';
+import { useId } from 'react';
 import type { ModelInfo } from '../viewer/modelSet.js';
-import { useModels } from '../viewer/useModels.js';
-import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
-
-export interface ModelScopeState {
-  options: ModelScopeOption[];
-  scope: ModelScope;
-  setScope: (scope: ModelScope) => void;
-  rows: PropertyRow[];
-  unavailable: ModelInfo[];
-}
-
-export function useModelScope(
-  adapter: ViewerAdapter | null,
-  rows: PropertyRow[],
-): ModelScopeState {
-  const models = useModels(adapter);
-  const [chosen, setScope] = useState<ModelScope>(ALL_MODELS);
-  const options = useMemo(() => modelScopeOptions(models), [models]);
-  const scope = options.length > 0 ? resolveScope(chosen, models) : ALL_MODELS;
-  const scoped = useMemo(() => scopeRows(rows, scope), [rows, scope]);
-  const unavailable = useMemo(() => unavailableModels(models), [models]);
-  return { options, scope, setScope, rows: scoped, unavailable };
-}
+import type { ModelScopeControl } from './useScopedRows.js';
 
 export function ModelScopeSelect({
   state,
   label,
 }: {
-  state: ModelScopeState;
+  state: ModelScopeControl;
   label: string;
 }) {
   const id = useId();
@@ -69,6 +37,24 @@ export function UnavailableModels({ models }: { models: ModelInfo[] }) {
   return (
     <p className="bsh-scope__notice" role="status">
       {`Properties unavailable for ${models.map((model) => model.name).join(', ')}. Counts cover the other models.`}
+    </p>
+  );
+}
+
+export function FailedModels({
+  names,
+  unavailable,
+}: {
+  names: string[];
+  unavailable: ModelInfo[];
+}) {
+  const failed = names.filter(
+    (name) => !unavailable.some((model) => model.name === name),
+  );
+  if (failed.length === 0) return null;
+  return (
+    <p className="bsh-scope__notice" role="status">
+      {`${failed.length} model${failed.length === 1 ? '' : 's'} failed to load: ${failed.join(', ')}. Counts cover the other models.`}
     </p>
   );
 }

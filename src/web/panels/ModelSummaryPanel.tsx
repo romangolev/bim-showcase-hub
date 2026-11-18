@@ -1,41 +1,42 @@
 import { useId, useMemo, useState } from 'react';
 import { Icon } from '../components/icons.js';
 import { StateBlock } from '../components/StateBlock.js';
+import type { ElementAction } from '../extensions/elementActions.js';
 import {
-  type ElementAction,
   itemsWithValues,
   runElementAction,
-  sanitizeAction,
   showAllElements,
 } from '../extensions/elementActions.js';
 import { saveBlob } from '../extensions/excelExport.js';
 import { applyNamePattern, toDelimited } from '../extensions/exportFormats.js';
 import {
-  DEFAULT_SUMMARY_PROPERTIES,
-  DEFAULT_SUMMARY_VIEW,
   emptyShares,
   type SummaryEntry,
   type SummaryView,
-  sanitizeView,
   summarize,
   summaryTable,
   viewEntries,
 } from '../extensions/modelSummary.js';
-import { BSH_KEYS } from '../storage.js';
-import { usePersistedState } from '../usePersistedState.js';
+import { PANE_SETTINGS, usePaneSetting } from '../settings/paneSettings.js';
+import type { ElementScope } from '../viewer/propertyScope.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import {
+  ElementScopeSelect,
+  elementScopeLabel,
+  scopeName,
+} from './ElementScope.js';
+import {
+  FailedModels,
   ModelScopeSelect,
   UnavailableModels,
-  useModelScope,
 } from './ModelScope.js';
 import { entryKey, SummaryTable } from './SummaryTable.js';
 import {
   HIDDEN_MESSAGE,
   HIDDEN_TITLE,
-  usePropertyRows,
   useResolvedAdapter,
-} from './usePropertyRows.js';
+  useScopedRows,
+} from './useScopedRows.js';
 import './panels.css';
 
 export interface SummaryModel {
@@ -54,6 +55,10 @@ export interface ModelSummaryPanelProps {
   onCollapsedChange?: (collapsed: boolean) => void;
   toggleable?: boolean;
   onOpenSettings?: () => void;
+  scope?: { value: string; onChange: (scope: string) => void };
+  elements?: { value: ElementScope; onChange: (scope: ElementScope) => void };
+  view?: { value: SummaryView; onChange: (view: SummaryView) => void };
+  action?: ElementAction;
 }
 
 const EMPTY: SummaryEntry[] = [];
@@ -62,7 +67,7 @@ export const STACKED_ROW_LIMIT = 12;
 export function ModelSummaryPanel({
   adapter,
   model,
-  propertyNames = DEFAULT_SUMMARY_PROPERTIES,
+  propertyNames: propertyNamesOverride,
   title = 'Model summary',
   className,
   collapsed,
@@ -70,30 +75,41 @@ export function ModelSummaryPanel({
   onCollapsedChange,
   toggleable = true,
   onOpenSettings,
+  scope: controlledScope,
+  elements: controlledElements,
+  view: controlledView,
+  action: controlledAction,
 }: ModelSummaryPanelProps) {
   const uid = useId();
   const [innerCollapsed, setInnerCollapsed] = useState(defaultCollapsed);
   const isCollapsed = collapsed ?? innerCollapsed;
   const [showAll, setShowAll] = useState(false);
   const resolved = useResolvedAdapter(adapter);
-  const state = usePropertyRows(resolved, propertyNames);
-  const scope = useModelScope(resolved, state.rows);
+  const [savedProperties] = usePaneSetting(PANE_SETTINGS.summary.properties);
+  const propertyNames = propertyNamesOverride ?? savedProperties;
+  const [savedElements, setSavedElements] = usePaneSetting(
+    PANE_SETTINGS.summary.scope,
+  );
+  const elementsScope = controlledElements?.value ?? savedElements;
+  const setElementsScope = controlledElements?.onChange ?? setSavedElements;
+  const state = useScopedRows(resolved, {
+    names: propertyNames,
+    elements: elementsScope,
+    ...(controlledScope ? { models: controlledScope } : {}),
+  });
   const entries = useMemo(
     () =>
-      state.status === 'ready' ? summarize(scope.rows, propertyNames) : EMPTY,
-    [state.status, scope.rows, propertyNames],
+      state.status === 'ready' || state.status === 'cancelled'
+        ? summarize(state.rows, propertyNames)
+        : EMPTY,
+    [state.status, state.rows, propertyNames],
   );
+  const reload = state.reload;
 
-  const [view, setView] = usePersistedState<SummaryView>(
-    BSH_KEYS.personal.summaryView,
-    DEFAULT_SUMMARY_VIEW,
-    sanitizeView,
-  );
-  const [action] = usePersistedState<ElementAction>(
-    BSH_KEYS.personal.summaryAction,
-    'select',
-    sanitizeAction,
-  );
+  const [savedView, setSavedView] = usePaneSetting(PANE_SETTINGS.summary.view);
+  const [savedAction] = usePaneSetting(PANE_SETTINGS.summary.action);
+  const view = controlledView?.value ?? savedView;
+  const action = controlledAction ?? savedAction;
   const [active, setActive] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
   const shown = useMemo(() => viewEntries(entries, view), [entries, view]);
@@ -101,15 +117,18 @@ export function ModelSummaryPanel({
     () => emptyShares(entries).filter((share) => share.percent > 0),
     [entries],
   );
-  const patch = (next: Partial<SummaryView>) =>
-    setView((prev) => ({ ...prev, ...next }));
+  const patch = (next: Partial<SummaryView>) => {
+    const merged = { ...view, ...next };
+    if (controlledView) controlledView.onChange(merged);
+    else setSavedView(merged);
+  };
 
   const pick = (entry: SummaryEntry) => {
     if (!resolved) return;
     runElementAction(
       resolved,
       action,
-      itemsWithValues(scope.rows, entry.property, new Set([entry.value])),
+      itemsWithValues(state.rows, entry.property, new Set([entry.value])),
     );
     setActive(entryKey(entry));
   };
@@ -162,11 +181,12 @@ export function ModelSummaryPanel({
             </span>
           ) : null}
         </h2>
-        <ModelScopeSelect state={scope} label="Summarize models" />
+        <ModelScopeSelect state={state.models} label="Summarize models" />
+        <ElementScopeSelect value={elementsScope} onChange={setElementsScope} />
         <button
           type="button"
           className="bsh-button bsh-summary__refresh"
-          onClick={state.reload}
+          onClick={reload}
           disabled={!resolved}
         >
           Refresh
@@ -207,7 +227,18 @@ export function ModelSummaryPanel({
       >
         <div className="bsh-summary__body">
           {state.status === 'ready' ? (
-            <UnavailableModels models={scope.unavailable} />
+            <>
+              <UnavailableModels models={state.models.unavailable} />
+              <FailedModels
+                names={state.failed}
+                unavailable={state.models.unavailable}
+              />
+            </>
+          ) : null}
+          {state.status === 'ready' && state.elements !== 'all' ? (
+            <p className="bsh-scope__notice" role="status">
+              {elementScopeLabel(state)}
+            </p>
           ) : null}
           {!resolved && (
             <StateBlock
@@ -224,11 +255,40 @@ export function ModelSummaryPanel({
             />
           )}
           {resolved && state.status === 'loading' && (
-            <StateBlock
-              variant="loading"
-              message="Reading element properties"
-              rows={5}
-            />
+            <div className="bsh-summary__progress">
+              <progress
+                aria-label="Reading element properties"
+                max={state.progress?.total || undefined}
+                value={state.progress ? state.progress.done : undefined}
+              />
+              <span role="status">
+                {state.progress && state.progress.total > 0
+                  ? `Reading element properties: ${state.progress.done.toLocaleString('en-US')} of ${state.progress.total.toLocaleString('en-US')}`
+                  : 'Reading element properties'}
+              </span>
+              <button
+                type="button"
+                className="bsh-button"
+                onClick={state.cancel}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+          {resolved && state.status === 'loading' && state.total === 0 && (
+            <StateBlock variant="loading" rows={5} />
+          )}
+          {state.status === 'cancelled' && (
+            <div className="bsh-summary__partial" role="status">
+              <span>
+                {state.total > 0
+                  ? 'Partial data: the read was cancelled, so these counts may be out of date.'
+                  : 'The read was cancelled, so there is nothing to summarize yet.'}
+              </span>
+              <button type="button" className="bsh-button" onClick={reload}>
+                Read again
+              </button>
+            </div>
           )}
           {state.status === 'error' && (
             <StateBlock
@@ -238,14 +298,24 @@ export function ModelSummaryPanel({
               action={{ label: 'Retry', onClick: state.reload }}
             />
           )}
-          {state.status === 'ready' && entries.length === 0 && (
-            <StateBlock
-              variant="empty"
-              title="No elements to summarize"
-              message="This version has no readable elements. Try another version."
-              action={{ label: 'Refresh', onClick: state.reload }}
-            />
-          )}
+          {state.status === 'ready' &&
+            entries.length === 0 &&
+            !state.pending && (
+              <StateBlock
+                variant="empty"
+                title={
+                  state.elements === 'all'
+                    ? 'No elements to summarize'
+                    : `No ${scopeName(state.elements).toLowerCase()} elements`
+                }
+                message={
+                  state.elements === 'all'
+                    ? 'This version has no readable elements. Try another version.'
+                    : 'Change the element scope, or pick elements in the viewer.'
+                }
+                action={{ label: 'Refresh', onClick: reload }}
+              />
+            )}
           {entries.length > 0 && (
             <div className="bsh-summary__tools">
               <input

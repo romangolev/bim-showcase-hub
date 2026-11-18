@@ -15,7 +15,6 @@ import {
   nodeIs2d,
   OTHER_REGION_MESSAGE,
   pickGeometryNode,
-  selectionIds,
 } from './federation.js';
 import { RealViewerAdapter } from './RealViewerAdapter.js';
 import { resetRegion } from './region.js';
@@ -397,6 +396,46 @@ describe('federated selection, paint and properties', () => {
     await expect(adapter.getLeafProperties(['Category'])).rejects.toThrow('db');
   });
 
+  it('discovers distinct properties with their categories across models', async () => {
+    await adapter.loadModels([
+      { urn: 'a', name: 'Arch' },
+      { urn: 'b', name: 'MEP' },
+    ]);
+    const answer =
+      (extra: string) =>
+      (ids: number[], _opts: unknown, ok: (items: never[]) => void) =>
+        ok(
+          ids.map((dbId) => ({
+            dbId,
+            name: 'n',
+            properties: [
+              {
+                displayName: 'Level',
+                displayValue: 'L1',
+                displayCategory: 'Constraints',
+              },
+              { displayName: extra, displayValue: 1 },
+            ],
+          })) as never[],
+        );
+    vi.spyOn(viewer().modelOf('a'), 'getBulkProperties').mockImplementation(
+      answer('Width') as never,
+    );
+    vi.spyOn(viewer().modelOf('b'), 'getBulkProperties').mockImplementation(
+      answer('Flow') as never,
+    );
+    expect(await adapter.discoverProperties()).toEqual([
+      { name: 'Level', category: 'Constraints' },
+      { name: 'Flow', category: 'Other' },
+      { name: 'Width', category: 'Other' },
+    ]);
+    const controller = new AbortController();
+    controller.abort();
+    await expect(
+      adapter.discoverProperties(undefined, { signal: controller.signal }),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
   it('keeps the first value when two categories share a property name', async () => {
     env.specs.set('a', { categories: ['Walls'] });
     await adapter.loadModels([{ urn: 'a', name: 'Arch' }]);
@@ -501,20 +540,6 @@ describe('federation helpers', () => {
     });
     expect(anchorOf(new FakeModel('s', {}, {}, true)).unit).toBeUndefined();
   });
-
-  it('flattens aggregate and single selection events', () => {
-    const model = new FakeModel('a', {}, {}, false);
-    expect(
-      selectionIds({
-        selections: [
-          { model, dbIdArray: [1, 2] },
-          { model, dbIdArray: [1] },
-        ],
-      }),
-    ).toEqual([1, 2, 1]);
-    expect(selectionIds({ dbIdArray: [4] })).toEqual([4]);
-    expect(selectionIds({})).toEqual([]);
-  });
 });
 
 describe('models far apart', () => {
@@ -590,10 +615,27 @@ describe('selecting and isolating by model', () => {
     expect(viewer().isolated.get(str)).toEqual([]);
   });
 
+  it('hides per model and shows everything again', async () => {
+    await adapter.loadModels([{ urn: 'arch' }, { urn: 'str' }]);
+    const arch = viewer().modelOf('arch');
+    const str = viewer().modelOf('str');
+    adapter.hideModelIds([
+      { modelId: 'arch', dbId: 3 },
+      { modelId: 'arch', dbId: 4 },
+    ]);
+    expect(viewer().getHiddenNodes(arch)).toEqual([3, 4]);
+    expect(viewer().getHiddenNodes(str)).toEqual([]);
+    adapter.isolateModelIds([{ modelId: 'str', dbId: 9 }]);
+    adapter.showAll();
+    expect(viewer().getHiddenNodes(arch)).toEqual([]);
+    expect(viewer().isolated.get(arch)).toEqual([]);
+    expect(viewer().isolated.get(str)).toEqual([]);
+  });
+
   it('fits the view to the selection', async () => {
     await adapter.loadModels([{ urn: 'arch' }]);
     const before = viewer().fits;
-    adapter.fitToSelection();
+    adapter.fitToView();
     expect(viewer().fits).toBe(before + 1);
   });
 });

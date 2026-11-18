@@ -1,13 +1,17 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { forgetModels } from './api/openModels.js';
 import {
   LAYOUT_WRITE_DELAY_MS,
   useDebouncedWrite,
 } from './layout/LayoutProvider.js';
 import { defaultModel, LAYOUT_KEY } from './layout/layoutState.js';
 import { readSettings, SETTINGS_STORAGE_KEY } from './settings/settings.js';
-import { BSH_KEYS, readJson, writeJson } from './storage.js';
+import { BSH_KEYS, forgetPersonal } from './storage.js';
+import { tasks } from './tasks/taskStore.js';
+import { readJson, writeJson } from './test/storageJson.js';
+import { EXCEL_SETTINGS_KEY } from './tools/excel/excelSettings.js';
+import { IFC_SETTINGS_KEY } from './tools/ifc/ifcSettings.js';
+import './tools/index.js';
 import { installMemoryStorage } from './test/mockApi.js';
 
 beforeEach(() => {
@@ -37,7 +41,7 @@ describe('sign-out', () => {
     for (const key of Object.values(BSH_KEYS.preference)) {
       window.localStorage.setItem(key, '"x"');
     }
-    forgetModels();
+    forgetPersonal();
     for (const key of Object.values(BSH_KEYS.personal)) {
       expect(window.localStorage.getItem(key)).toBeNull();
       expect(window.sessionStorage.getItem(key)).toBeNull();
@@ -49,16 +53,44 @@ describe('sign-out', () => {
   });
 
   it('blanks the IFC author and organisation but keeps other settings', () => {
-    writeJson(SETTINGS_STORAGE_KEY, {
-      recentsLength: 9,
-      ifc: { author: 'Ada', organisation: 'Acme', projectName: 'Tower' },
+    writeJson(SETTINGS_STORAGE_KEY, { recentsLength: 9 });
+    writeJson(IFC_SETTINGS_KEY, {
+      author: 'Ada',
+      organisation: 'Acme',
+      projectName: 'Tower',
+      enabled: false,
     });
-    forgetModels();
-    const settings = readSettings();
-    expect(settings.ifc.author).toBe('');
-    expect(settings.ifc.organisation).toBe('');
-    expect(settings.ifc.projectName).toBe('Tower');
-    expect(settings.recentsLength).toBe(9);
+    forgetPersonal();
+    expect(readSettings().recentsLength).toBe(9);
+    expect(
+      readJson<Record<string, unknown>>(IFC_SETTINGS_KEY, {}),
+    ).toMatchObject({
+      author: '',
+      organisation: '',
+      projectName: 'Tower',
+      enabled: false,
+    });
+  });
+
+  it('clears the user pane instances', () => {
+    writeJson(BSH_KEYS.personal.layoutInstances, { chart: [] });
+    forgetPersonal();
+    expect(window.localStorage.getItem('bsh.layout.instances.v1')).toBeNull();
+  });
+
+  it('resets the Excel model scope', () => {
+    writeJson(EXCEL_SETTINGS_KEY, { format: 'csv', modelScope: 'urn-secret' });
+    forgetPersonal();
+    expect(
+      readJson<Record<string, unknown>>(EXCEL_SETTINGS_KEY, {}),
+    ).toMatchObject({ format: 'csv', modelScope: 'all' });
+  });
+
+  it('clears finished tasks', () => {
+    tasks.start({ label: 'Export Tower.rvt' }).finish();
+    expect(tasks.getSnapshot().tasks).toHaveLength(1);
+    forgetPersonal();
+    expect(tasks.getSnapshot().tasks).toHaveLength(0);
   });
 
   it('does not resurrect the layout from a pending write', () => {
@@ -68,7 +100,7 @@ describe('sign-out', () => {
       { initialProps: { model: defaultModel() } },
     );
     rerender({ model: { ...defaultModel(), treeWidth: 300 } });
-    forgetModels();
+    forgetPersonal();
     act(() => {
       vi.advanceTimersByTime(LAYOUT_WRITE_DELAY_MS * 2);
     });

@@ -187,8 +187,22 @@ def check_summary_tools(page, checks):
     pane.get_by_label("Filter summary rows").fill("")
     settle(page, 200)
     checks.add("clearing the filter restores the rows", pane.locator("tbody tr").count() == rows, pane.locator("tbody tr").count())
+    scope = pane.get_by_label("Summarize elements")
+    scope.select_option("selected")
+    settle(page, 400)
+    checks.add("selected scope with no selection says so", pane.get_by_text("No selected elements").count() == 1)
+    scope.select_option("all")
+    settle(page, 400)
+    checks.add("all scope restores the rows", pane.locator("tbody tr").count() == rows, pane.locator("tbody tr").count())
     pane.get_by_role("button", name="Summary settings").click()
     dialog = page.get_by_role("dialog", name="Summary settings")
+    dialog.get_by_role("checkbox", name="Level").wait_for(timeout=8000)
+    checks.add("the property picker lists discovered properties", dialog.get_by_role("checkbox").count() > 5, dialog.get_by_role("checkbox").count())
+    dialog.get_by_role("checkbox", name="Level").check()
+    settle(page, 600)
+    checks.add("a picked property joins the summary", pane.locator("tbody tr", has_text="Level").count() > 0)
+    dialog.get_by_role("checkbox", name="Level").uncheck()
+    settle(page, 300)
     top = dialog.bounding_box()
     view = page.viewport_size
     checks.add("summary settings is centred vertically", abs((top["y"] + top["height"] / 2) - view["height"] / 2) <= 40 or top["height"] >= view["height"] - 40, top)
@@ -206,8 +220,12 @@ def check_summary_tools(page, checks):
     settle(page, 300)
     checks.add("closing summary settings returns focus to the gear", page.evaluate("document.activeElement?.textContent") == "Summary settings")
     open_settings(page)
-    main = page.get_by_role("dialog", name="Settings")
-    checks.add("main settings shows the same density", main.get_by_label("Density").input_value() == "compact")
+    main = page.get_by_role("dialog", name="Settings", exact=True)
+    checks.add("main settings holds no pane controls", main.get_by_label("Density").count() == 0)
+    main.get_by_role("button", name="Summary settings").click()
+    settle(page, 300)
+    main = page.get_by_role("dialog", name="Summary settings")
+    checks.add("the summary window opened from settings shows the same density", main.get_by_label("Density").input_value() == "compact")
     main.get_by_label("Density").select_option("comfortable")
     page.keyboard.press("Escape")
     settle(page, 300)
@@ -258,6 +276,52 @@ LEGEND_BOXES = """() => {
 }"""
 
 
+def check_selection_sets(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    pane = page.get_by_role("region", name=re.compile("Model summary"))
+    pane.locator("tbody .bsh-row-pick").first.click()
+    settle(page, 300)
+    picked = page.locator(".bsh-mock__el--selected").count()
+    checks.add("sets: a summary value selects elements to capture", picked >= 1, picked)
+    open_tool_settings(page, "Excel export")
+    dialog = page.get_by_role("dialog", name="Excel export settings")
+    dialog.get_by_label("Rows", exact=True).select_option("all")
+    count = dialog.get_by_role("status").filter(has_text="Rows to export")
+    wait_until(page, lambda: "counting" not in count.inner_text())
+    total = int(count.inner_text().split(":")[1].strip().replace(",", ""))
+    checks.add("sets: the live count shows every element for all", total >= picked, count.inner_text())
+    dialog.get_by_label("Selection set name").fill("Smoke set")
+    dialog.get_by_role("button", name="Save selection as set").click()
+    settle(page, 300)
+    checks.add("sets: the captured set is listed with its size", dialog.get_by_text(f"{picked} elements").count() >= 1, picked)
+    dialog.get_by_label("Rows", exact=True).select_option(label="Set: Smoke set")
+    wait_until(page, lambda: count.inner_text() == f"Rows to export: {picked}")
+    checks.add("sets: the live count follows the set scope", count.inner_text() == f"Rows to export: {picked}", count.inner_text())
+    page.keyboard.press("Escape")
+    settle(page, 300)
+    size, magic = download_export(page, OUTPUT_DIR / "set-export.xlsx")
+    checks.add("sets: export with the set scope downloads an xlsx", size > 500 and magic == XLSX_MAGIC, f"{size} bytes")
+    open_tool_settings(page, "Excel export")
+    dialog = page.get_by_role("dialog", name="Excel export settings")
+    dialog.get_by_role("button", name="Delete Smoke set").click()
+    settle(page, 300)
+    rows_select = dialog.get_by_label("Rows", exact=True)
+    checks.add("sets: a deleted set shows a visible fallback", "Deleted set" in rows_select.evaluate("el => el.selectedOptions[0].textContent"))
+    wait_until(page, lambda: count.inner_text() == f"Rows to export: {total:,}")
+    checks.add("sets: the count falls back to all elements", count.inner_text() == f"Rows to export: {total:,}", count.inner_text())
+    page.keyboard.press("Escape")
+    settle(page, 300)
+    download_export(page, OUTPUT_DIR / "set-export-stale.xlsx")
+    page.get_by_role("button", name=re.compile(r"^Tasks")).click()
+    text = page.get_by_role("region", name="Tasks").inner_text()
+    checks.add("sets: the stale-set export finishes with a notice", "no longer exists" in text, text[:200])
+    page.keyboard.press("Escape")
+    open_tool_settings(page, "Excel export")
+    page.get_by_role("dialog", name="Excel export settings").get_by_label("Rows", exact=True).select_option("all")
+    page.keyboard.press("Escape")
+    settle(page, 300)
+
+
 def check_collapsed_ring(page, checks):
     stubs = page.evaluate(COLLAPSED_RING)
     checks.add("a collapsed pane stub is present", len(stubs) >= 1, stubs)
@@ -266,6 +330,57 @@ def check_collapsed_ring(page, checks):
 
 def boxes_overlap(a, b):
     return a["x"] < b["x"] + b["width"] and b["x"] < a["x"] + a["width"] and a["y"] < b["y"] + b["height"] and b["y"] < a["y"] + a["height"]
+
+
+def check_dashboard_gallery(page, checks):
+    pane = page.locator(".pane-dashboard").first
+    toggle = pane.get_by_role("button", name="Presets", exact=True)
+    checks.add("the dashboard pane has a Presets toggle", toggle.count() == 1 and toggle.get_attribute("aria-expanded") == "false")
+    toggle.click()
+    settle(page, 300)
+    checks.add("the Presets toggle opens the gallery", pane.get_by_role("list", name="Dashboard presets").count() == 1 and toggle.get_attribute("aria-expanded") == "true")
+    checks.add("built-in cards have no rename or delete", pane.get_by_label(re.compile(r"^Rename ")).count() == 0 and pane.get_by_role("button", name=re.compile(r"^Delete ")).count() == 0)
+    checks.add("built-in cards offer Save as my preset", pane.get_by_role("button", name="Save Model health as my preset").count() == 1)
+    page.screenshot(path=str(OUTPUT_DIR / "mock-gallery.png"))
+    pane.get_by_role("button", name="Save Model health as my preset").click()
+    checks.add("saving a built-in adds an editable card", pane.get_by_label("Rename Model health").count() == 1 and pane.get_by_role("button", name="Delete Model health").count() == 1)
+    pane.get_by_role("button", name="Apply Quantities by type").click()
+    settle(page, 500)
+    checks.add("applying from the gallery closes it", pane.get_by_role("list", name="Dashboard presets").count() == 0)
+    names = pane.locator(".bsh-boards [role=img]").evaluate_all("(els) => els.map((el) => el.getAttribute('aria-label'))")
+    checks.add("a preset hides charts whose property the model lacks", len(names) == 1 and names[0].endswith("by Category"), names)
+    pane.get_by_role("button", name="Presets", exact=True).click()
+    settle(page, 300)
+    pane.get_by_role("button", name="Apply Model health").last.click()
+    settle(page, 500)
+    checks.add("a user preset applies from the gallery", pane.locator(".bsh-boards canvas").count() >= 2, pane.locator(".bsh-boards canvas").count())
+    pane.get_by_role("button", name="Presets", exact=True).click()
+    settle(page, 300)
+    pane.get_by_role("button", name="Delete Model health").click()
+    checks.add("deleting a user preset removes its card", pane.get_by_label("Rename Model health").count() == 0)
+    page.mouse.click(330, 300)
+    settle(page, 300)
+    pane.get_by_label("Chart elements").select_option("selected")
+    settle(page, 800)
+    presets = pane.get_by_role("button", name="Presets", exact=True)
+    if pane.get_by_role("list", name="Dashboard presets").count() == 1:
+        presets.click()
+        settle(page, 300)
+    empty = pane.get_by_text("No selected elements").count() == 1 and pane.get_by_text("Nothing to chart").count() == 0 and pane.get_by_role("list", name="Dashboard presets").count() == 0
+    checks.add("a preset on an empty element scope says the scope is empty and keeps the gallery closed", empty, pane.inner_text()[:160])
+    page.screenshot(path=str(OUTPUT_DIR / "mock-gallery-empty.png"))
+    presets.click()
+    settle(page, 300)
+    opened = pane.get_by_role("list", name="Dashboard presets").count() == 1
+    presets.click()
+    settle(page, 300)
+    checks.add("the gallery stays dismissible on an empty element scope", opened and pane.get_by_role("list", name="Dashboard presets").count() == 0)
+    pane.get_by_label("Chart elements").select_option("all")
+    settle(page, 400)
+    pane.get_by_role("button", name="Dashboard settings").click()
+    page.get_by_role("dialog", name="Dashboard settings").get_by_role("button", name="Single chart").click()
+    page.keyboard.press("Escape")
+    settle(page, 300)
 
 
 def check_dashboard_tools(page, checks):
@@ -330,8 +445,12 @@ def check_dashboard_tools(page, checks):
     checks.add("closing dashboard settings returns focus to the gear", page.evaluate("document.activeElement?.textContent") == "Dashboard settings")
     page.screenshot(path=str(OUTPUT_DIR / "mock-dashboard-preset.png"))
     open_settings(page)
-    main = page.get_by_role("dialog", name="Settings")
-    checks.add("main settings shows the same preset", main.get_by_role("button", name="Model health").get_attribute("aria-pressed") == "true")
+    main = page.get_by_role("dialog", name="Settings", exact=True)
+    checks.add("main settings holds no dashboard controls", main.get_by_role("button", name="Model health").count() == 0)
+    main.get_by_role("button", name="Dashboard settings").click()
+    settle(page, 300)
+    main = page.get_by_role("dialog", name="Dashboard settings")
+    checks.add("the dashboard window opened from settings shows the same preset", main.get_by_role("button", name="Model health").get_attribute("aria-pressed") == "true")
     main.get_by_role("button", name="Single chart").click()
     page.keyboard.press("Escape")
     settle(page, 300)
@@ -341,6 +460,7 @@ def check_dashboard_tools(page, checks):
     checks.add("the pane switch shows only the bar chart", pane.locator(".bsh-chart--doughnut").count() == 0 and pane.locator(".bsh-chart--bar").count() == 1)
     pane.get_by_role("button", name="Both").click()
     settle(page, 200)
+    check_dashboard_gallery(page, checks)
     page.get_by_role("button", name="Collapse Dashboard").first.click()
     settle(page, 600)
 
@@ -610,6 +730,54 @@ def open_settings(page):
     settle(page, 300)
 
 
+def open_tool_settings(page, title):
+    open_settings(page)
+    page.get_by_role("dialog", name="Settings", exact=True).get_by_role("button", name=f"{title} settings").click()
+    settle(page, 300)
+
+
+def check_saved_items(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    open_settings(page)
+    main = page.get_by_role("dialog", name="Settings", exact=True)
+    checks.add("main settings has a saved items section", main.get_by_role("button", name="Export saved items").count() == 1)
+    checks.add("saved items section holds no tool switch", main.get_by_role("switch", name="Paint brushes").count() == 0)
+    with page.expect_download(timeout=8000) as info:
+        main.get_by_role("button", name="Export saved items").click()
+    target = OUTPUT_DIR / "bsh-saved.json"
+    info.value.save_as(str(target))
+    checks.add("saved items export is bsh-saved JSON", '"format": "bsh-saved"' in target.read_text(), info.value.suggested_filename)
+    bad = OUTPUT_DIR / "bad-saved.json"
+    bad.write_text('{"format":"bsh-saved","version":99,"items":[]}')
+    main.get_by_label("Saved items file").set_input_files(str(bad))
+    settle(page, 300)
+    checks.add("a newer-version file shows an error", "newer version" in main.get_by_role("alert").inner_text())
+    good = OUTPUT_DIR / "good-saved.json"
+    good.write_text('{"format":"bsh-saved","version":1,"items":[{"id":"smoke","kind":"dashboard-preset","name":"Smoke preset","data":{"kind":"bar"}}]}')
+    main.get_by_label("Saved items file").set_input_files(str(good))
+    settle(page, 300)
+    checks.add("a valid file imports", "Imported 1 item" in main.get_by_role("status").inner_text(), main.get_by_role("status").inner_text())
+    main.get_by_role("button", name="Dashboard settings").click()
+    settle(page, 300)
+    dialog = page.get_by_role("dialog", name="Dashboard settings")
+    checks.add("an imported preset appears in the dashboard window", dialog.get_by_role("button", name="Apply Smoke preset").count() == 1)
+    dialog.get_by_label("Preset name").fill("Smoke saved")
+    dialog.get_by_role("button", name="Save current board").click()
+    dialog.get_by_role("button", name="Apply Smoke preset").click()
+    settle(page, 200)
+    checks.add("applying a user preset sets the chart type", dialog.get_by_label("Chart type").input_value() == "bar")
+    dialog.get_by_label("Rename Smoke saved").fill("Smoke renamed")
+    dialog.get_by_label("Rename Smoke saved").press("Enter")
+    settle(page, 200)
+    checks.add("a user preset can be renamed", dialog.get_by_role("button", name="Delete Smoke renamed").count() == 1)
+    dialog.get_by_role("button", name="Delete Smoke renamed").click()
+    dialog.get_by_role("button", name="Delete Smoke preset").click()
+    checks.add("user presets can be deleted", dialog.get_by_text("No saved presets yet.").count() == 1)
+    dialog.get_by_label("Chart type").select_option("both")
+    page.keyboard.press("Escape")
+    settle(page, 300)
+
+
 def check_paint_palette(page, checks):
     page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
     settle(page)
@@ -622,6 +790,11 @@ def check_paint_palette(page, checks):
     page.keyboard.press("Escape")
     settle(page, 300)
     open_settings(page)
+    main = page.get_by_role("dialog", name="Settings", exact=True)
+    checks.add("main settings lists each tool with an entry point", all(main.get_by_role("button", name=f"{t} settings").count() == 1 for t in ("Paint brushes", "Excel export", "Geometry export", "IFC export")))
+    checks.add("main settings holds no swatches", page.get_by_label(re.compile(r"^Swatch \d$")).count() == 0)
+    main.get_by_role("button", name="Paint brushes settings").click()
+    settle(page, 300)
     checks.add("settings lists the three default swatches", page.get_by_label(re.compile(r"^Swatch \d$")).count() == 3)
     checks.add("settings labels the slider as intensity", page.get_by_label(re.compile(r"^Intensity \d+%")).count() == 1)
     page.get_by_label("Swatch 1", exact=True).fill("#112233")
@@ -643,7 +816,7 @@ def check_paint_palette(page, checks):
     checks.add("toolbar swatches follow the palette", len(ids) == 4 and ids[0].startswith("paint-112233"), ids)
     checks.add("first swatch uses the custom colour", colour == "rgb(17, 34, 51)", colour)
     page.keyboard.press("Escape")
-    open_settings(page)
+    open_tool_settings(page, "Paint brushes")
     page.get_by_role("button", name="Reset palette").click()
     checks.add("reset palette restores three swatches", page.get_by_label(re.compile(r"^Swatch \d$")).count() == 3)
     page.keyboard.press("Escape")
@@ -1474,6 +1647,176 @@ def check_view_states(page, checks):
     page.goto(BASE_URL, wait_until="networkidle")
 
 
+def check_presentation_mode(page, checks):
+    try:
+        page.get_by_role("button", name="Panes").click()
+        page.get_by_role("menuitem", name="Present").click()
+        page.wait_for_timeout(500)
+        hidden = page.evaluate(
+            "() => ({present: document.documentElement.hasAttribute('data-presenting'),"
+            " top: getComputedStyle(document.querySelector('.topbar')).display,"
+            " tabs: [...document.querySelectorAll('.dv-tabs-and-actions-container')].every(e => getComputedStyle(e).display === 'none'),"
+            " viewerShare: document.querySelector('.bsh-viewer-pane').getBoundingClientRect().width / innerWidth})"
+        )
+        checks.add(
+            "presentation mode hides the chrome and leaves one pane",
+            hidden["present"] and hidden["top"] == "none" and hidden["tabs"] and hidden["viewerShare"] > 0.95,
+            hidden,
+        )
+        page.screenshot(path=str(OUTPUT_DIR / "mock-presenting.png"))
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(500)
+        restored = page.evaluate(
+            "() => ({present: document.documentElement.hasAttribute('data-presenting'),"
+            " top: getComputedStyle(document.querySelector('.topbar')).display})"
+        )
+        checks.add(
+            "Escape restores the layout after presenting",
+            not restored["present"] and restored["top"] != "none" and page.get_by_role("tab").count() >= 2,
+            restored,
+        )
+    except Exception as exc:
+        checks.add("presentation mode", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+
+
+def png_size(path):
+    data = path.read_bytes()
+    return int.from_bytes(data[16:20], "big"), int.from_bytes(data[20:24], "big")
+
+
+def snapshot_to(page, target):
+    with page.expect_download(timeout=30000) as download_info:
+        share_menu(page, "Save image (PNG)")
+    download_info.value.save_as(str(target))
+
+
+SNAPSHOT_KEY = "bsh.snapshot.v1"
+
+
+def set_snapshot_settings(page, value):
+    page.evaluate("([key, value]) => localStorage.setItem(key, JSON.stringify(value))", [SNAPSHOT_KEY, value])
+
+
+def drop_viewpoints(page):
+    page.evaluate(
+        """() => {
+            const raw = localStorage.getItem('bsh.saved.v1');
+            if (!raw) return;
+            const data = JSON.parse(raw);
+            data.items = data.items.filter((item) => item.kind !== 'viewpoint');
+            localStorage.setItem('bsh.saved.v1', JSON.stringify(data));
+        }"""
+    )
+
+
+def position(page):
+    return page.locator(".present-position [aria-hidden='true']").inner_text().replace("\xa0", " ").strip()
+
+
+def check_snapshots_viewpoints_present(page, checks):
+    try:
+        page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+        settle(page)
+        page.evaluate("(key) => localStorage.removeItem(key)", SNAPSHOT_KEY)
+        base = OUTPUT_DIR / "snapshot-1x.png"
+        snapshot_to(page, base)
+        set_snapshot_settings(page, {"resolution": "2x", "overlay": True})
+        double = OUTPUT_DIR / "snapshot-2x-caption.png"
+        snapshot_to(page, double)
+        (w1, h1), (w2, h2) = png_size(base), png_size(double)
+        checks.add(
+            "snapshot: 2x with the caption produces a larger image",
+            w2 >= w1 * 2 - 2 and h2 >= h1 * 2 - 2 and double.stat().st_size > base.stat().st_size,
+            f"{w1}x{h1} -> {w2}x{h2}",
+        )
+        set_snapshot_settings(page, {"resolution": "custom", "customWidth": 8192, "overlay": False})
+        share_menu(page, "Save image (PNG)")
+        page.get_by_text("Snapshot too large").wait_for(timeout=5000)
+        checks.add("snapshot: a size over the cap fails visibly", True)
+        page.evaluate("(key) => localStorage.removeItem(key)", SNAPSHOT_KEY)
+
+        drop_viewpoints(page)
+        for _ in range(2):
+            share_menu(page, "Save viewpoint")
+            page.wait_for_timeout(300)
+        page.locator(f"{ACTIVE_VIEWER} .bsh-viewer-share button").click()
+        listed = page.get_by_role("menuitem").filter(has_text="Go to Viewpoint").count()
+        page.screenshot(path=str(OUTPUT_DIR / "mock-viewpoints-menu.png"))
+        page.keyboard.press("Escape")
+        checks.add("viewpoints: two saved viewpoints are listed in the Share menu", listed == 2, listed)
+
+        before = groups(page)["Model summary"]
+        pane_menu(page, "Model summary", "Maximize")
+        maximized = groups(page)["Model summary"]
+        page.get_by_role("button", name="Panes").click()
+        page.get_by_role("menuitem", name="Present").click()
+        page.wait_for_timeout(500)
+        page.keyboard.press("ArrowRight")
+        page.wait_for_timeout(300)
+        first = position(page)
+        page.keyboard.press("ArrowRight")
+        page.wait_for_timeout(300)
+        second = position(page)
+        announced = page.locator(".present-position [role='status']").inner_text()
+        page.keyboard.press("ArrowLeft")
+        page.wait_for_timeout(300)
+        back = position(page)
+        page.keyboard.press("Space")
+        page.wait_for_timeout(300)
+        spaced = position(page)
+        checks.add(
+            "present: arrows and Space cycle viewpoints with a position indicator",
+            (first, second, back, spaced) == ("1 / 2", "2 / 2", "1 / 2", "2 / 2") and "Viewpoint 2 of 2" in announced,
+            (first, second, back, spaced, announced),
+        )
+        page.screenshot(path=str(OUTPUT_DIR / "mock-presenting-viewpoints.png"))
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(500)
+        restored = groups(page).get("Model summary", {})
+        width = restored.get("right", 0) - restored.get("left", 0)
+        checks.add(
+            "present: exit restores the previously maximized pane",
+            not page.evaluate("() => document.documentElement.hasAttribute('data-presenting')")
+            and abs(width - (maximized["right"] - maximized["left"])) <= 2
+            and width > before["right"] - before["left"] + 200,
+            restored,
+        )
+        page.keyboard.press("Escape")
+        settle(page)
+
+        page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
+        settle(page)
+        share_menu(page, "Present")
+        page.wait_for_timeout(500)
+        narrow = page.evaluate(
+            "() => ({present: document.documentElement.hasAttribute('data-presenting'),"
+            " tabs: getComputedStyle(document.querySelector('.stack__models')).display,"
+            " viewer: document.querySelector('.bsh-viewer-pane').getBoundingClientRect().height / innerHeight})"
+        )
+        page.keyboard.press("ArrowRight")
+        page.wait_for_timeout(300)
+        narrow_position = position(page)
+        page.screenshot(path=str(OUTPUT_DIR / "mock-presenting-narrow.png"))
+        checks.add(
+            "present: the narrow layout enters Present from the Share menu and cycles",
+            narrow["present"] and narrow["tabs"] == "none" and narrow["viewer"] > 0.9 and narrow_position == "1 / 2",
+            (narrow, narrow_position),
+        )
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(300)
+        checks.add(
+            "present: Escape leaves Present on the narrow layout",
+            not page.evaluate("() => document.documentElement.hasAttribute('data-presenting')"),
+        )
+    except Exception as exc:
+        checks.add("snapshots, viewpoints and present", False, f"{type(exc).__name__}: {str(exc)[:200]}")
+    finally:
+        drop_viewpoints(page)
+        page.evaluate("(key) => localStorage.removeItem(key)", SNAPSHOT_KEY)
+        page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+        settle(page)
+
+
 def check_documents_home(page, checks):
     settle(page)
     checks.add("default layout is Documents alone", documents_alone(page), groups(page))
@@ -1519,6 +1862,265 @@ def check_documents_return(page, checks):
     settle(page, 800)
     checks.add("closing the last model tab leaves Documents alone", documents_alone(page), groups(page))
     checks.add("closing the last model tab returns the url to /", page.url.rstrip("/") == BASE_URL, page.url)
+    box = open_palette(page)
+    box.fill("present")
+    option = palette(page).get_by_role("option", name=re.compile("Present"))
+    checks.add(
+        "Present is disabled with a reason when no model is open",
+        option.count() >= 1 and option.first.get_attribute("aria-disabled") == "true" and "Open a model first" in option.first.inner_text(),
+        option.first.inner_text() if option.count() else "",
+    )
+    page.keyboard.press("Escape")
+    settle(page, 200)
+
+
+def check_task_center(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page)
+    if not models(page)["models"]:
+        page.locator("[role=treeitem][data-viewable=true]").first.click()
+        wait_until(page, lambda: models(page)["active"])
+        settle(page, 1000)
+    trigger = page.get_by_role("button", name=re.compile(r"^Tasks"))
+    checks.add("the top bar shows the task center once a model has loaded", trigger.count() == 1, trigger.count())
+    trigger.click()
+    popover = page.get_by_role("region", name="Tasks")
+    checks.add("the task list names the model load as done", popover.get_by_text("Done").count() >= 1 and popover.get_by_text(re.compile(r"^Loading ")).count() >= 1, popover.inner_text())
+    page.keyboard.press("Escape")
+    checks.add("Escape closes the task list", page.get_by_role("region", name="Tasks").count() == 0)
+    live = page.locator("[role=status][aria-live=polite]").filter(has_text=re.compile(r"Loading .* finished"))
+    checks.add("one live region announces the finished load", live.count() == 1, live.count())
+
+
+def check_export_tasks(page, checks):
+    for label, download, name in (
+        ("Exporting Excel", download_export, "export-tasks.xlsx"),
+        ("Exporting geometry (GLB)", download_glb, "export-tasks.glb"),
+        ("Exporting IFC", download_ifc, "export-tasks.ifc"),
+    ):
+        try:
+            download(page, OUTPUT_DIR / name)
+            live = page.locator("[role=status][aria-live=polite]").filter(has_text=f"{label} finished")
+            wait_until(page, lambda: live.count() == 1)
+            checks.add(f"export task: {label} is announced once", live.count() == 1, live.count())
+        except Exception as exc:
+            checks.add(f"export task: {label} is announced once", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+    page.get_by_role("button", name=re.compile(r"^Tasks")).click()
+    popover = page.get_by_role("region", name="Tasks")
+    text = popover.inner_text()
+    checks.add("export task: the list shows the three exports with counts", all(label in text for label in ("Exporting Excel", "Exporting geometry (GLB)", "Exporting IFC")) and "Exported" in text, text)
+    checks.add("export task: no export offers a cancel after finishing", popover.get_by_role("button", name="Cancel").count() == 0)
+    page.keyboard.press("Escape")
+    checks.add("export task: the pane no longer shows an export badge", page.locator(".bsh-viewer-badge").count() == 0)
+
+
+def check_pane_families(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page)
+    if not models(page)["models"]:
+        page.locator("[role=treeitem][data-viewable=true]").first.click()
+        wait_until(page, lambda: models(page)["active"])
+        settle(page, 1000)
+    charts = lambda: page.locator(".dv-tab").filter(has_text=re.compile(r"^Chart \d$"))
+    for _ in range(2):
+        page.get_by_role("button", name="Panes").click()
+        page.get_by_role("menuitem", name="New chart").click()
+        settle(page, 500)
+    checks.add("New chart opens two chart panes", charts().count() == 2, charts().count())
+    charts().nth(1).click()
+    settle(page, 400)
+    groupers = page.get_by_label("Group by")
+    checks.add("a chart pane has its own property picker", groupers.count() == 1, groupers.count())
+    groupers.first.select_option("Level")
+    settle(page, 500)
+    stored = lambda key: page.evaluate(f"() => JSON.parse(localStorage.getItem('{key}') || 'null')")
+    checks.add("a chart spec is saved per instance", (stored("bsh.pane.chart.2.v1") or {}).get("property") == "Level" and stored("bsh.pane.chart.1.v1") is None, stored("bsh.pane.chart.2.v1"))
+    page.get_by_role("button", name="Panes").click()
+    page.get_by_role("menuitem", name="New model summary").click()
+    settle(page, 500)
+    summaries = lambda: page.locator(".dv-tab").filter(has_text=re.compile(r"^Model summary \d$"))
+    checks.add("New model summary opens a pane", summaries().count() == 1, summaries().count())
+    checks.add("the summary pane is pinned to the model it was made for", (stored("bsh.pane.modelSummary.1.v1") or {}).get("scope") == models(page)["active"], stored("bsh.pane.modelSummary.1.v1"))
+    page.get_by_role("button", name="Panes").click()
+    page.get_by_role("menuitem", name="New model summary").click()
+    settle(page, 500)
+    checks.add("a second summary pane opens", summaries().count() == 2, summaries().count())
+    first_summary = page.locator(".pane-summary").filter(has=page.get_by_role("heading", name=re.compile(r"^Model summary 1"))).first
+    first_summary.get_by_role("button", name="Summary settings").click()
+    dialog = page.get_by_role("dialog", name="Summary settings")
+    dialog.get_by_label("Density").select_option("compact")
+    dialog.get_by_label("Sort by").select_option("value")
+    settle(page, 300)
+    page.keyboard.press("Escape")
+    settle(page, 400)
+    spec_one = stored("bsh.pane.modelSummary.1.v1") or {}
+    spec_two = stored("bsh.pane.modelSummary.2.v1") or {}
+    checks.add("one summary instance keeps its own density and sort", (spec_one.get("view") or {}).get("density") == "compact" and (spec_one.get("view") or {}).get("sort") == "value", spec_one)
+    checks.add("another summary instance and the main pane are unchanged", (spec_two.get("view") or {}).get("density") == "comfortable" and (spec_two.get("view") or {}).get("sort") == "count" and (stored("bsh.summary.view.v1") or {}).get("density", "comfortable") == "comfortable", [spec_two, stored("bsh.summary.view.v1")])
+    tab = summaries().nth(1)
+    tab.hover()
+    tab.locator(".dv-default-tab-action").click()
+    settle(page, 500)
+    page.reload()
+    settle(page, 1500)
+    checks.add("chart panes survive a reload", charts().count() == 2, charts().count())
+    charts().nth(1).click()
+    settle(page, 400)
+    second = page.get_by_label("Group by").first.input_value()
+    charts().nth(0).click()
+    settle(page, 400)
+    first = page.get_by_label("Group by").first.input_value()
+    checks.add("chart specs survive a reload", second == "Level" and first != "Level", [first, second])
+    checks.add("the summary pane survives a reload", summaries().count() == 1, summaries().count())
+    for urn in [model["urn"] for model in models(page)["models"]]:
+        page.evaluate(f"mw:() => window.__bshLayout.closeModel('{urn}')")
+    wait_until(page, lambda: not models(page)["models"])
+    page.reload()
+    settle(page, 1500)
+    checks.add("user panes are restored with no model open", charts().count() == 2 and summaries().count() == 1, [charts().count(), summaries().count()])
+    checks.add("user panes show an empty state with no model open", page.get_by_text("No charts yet").count() >= 1 and page.get_by_text("No model loaded yet").count() == 1, [page.get_by_text("No charts yet").count(), page.get_by_text("No model loaded yet").count()])
+    page.evaluate("mw:() => window.__bshLayout.movePane('chart:1', 'left')")
+    settle(page, 500)
+    home_side = tab_side(page, "Chart 1")
+    checks.add("a user pane placed at home sits left of Documents", home_side == "left", home_side)
+    expand_to_viewable(page).click()
+    wait_until(page, lambda: models(page)["active"])
+    settle(page, 1000)
+    checks.add("user panes stay when a model opens again", charts().count() == 2 and summaries().count() == 1, [charts().count(), summaries().count()])
+    checks.add("a user pane keeps its home placement when the first model opens", tab_side(page, "Chart 1") == "left", tab_side(page, "Chart 1"))
+    page.reload()
+    settle(page, 1500)
+    checks.add("a user pane keeps its placement after a reload", tab_side(page, "Chart 1") == "left", tab_side(page, "Chart 1"))
+    for urn in [model["urn"] for model in models(page)["models"]]:
+        page.evaluate(f"mw:() => window.__bshLayout.closeModel('{urn}')")
+    wait_until(page, lambda: not models(page)["models"])
+    expand_to_viewable(page).click()
+    wait_until(page, lambda: models(page)["active"])
+    settle(page, 1000)
+    checks.add("a user pane keeps its placement after closing all models and reopening", tab_side(page, "Chart 1") == "left", tab_side(page, "Chart 1"))
+    tab = summaries().first
+    tab.hover()
+    tab.locator(".dv-default-tab-action").click()
+    settle(page, 500)
+    checks.add("closing the summary pane clears its spec", summaries().count() == 0 and stored("bsh.pane.modelSummary.1.v1") is None, stored("bsh.pane.modelSummary.1.v1"))
+    tab = charts().first
+    tab.hover()
+    tab.locator(".dv-default-tab-action").click()
+    settle(page, 500)
+    checks.add("closing one chart pane keeps the other", charts().count() == 1, charts().count())
+    tab = charts().first
+    tab.hover()
+    tab.locator(".dv-default-tab-action").click()
+    settle(page, 500)
+    checks.add("closing the last chart pane removes the family", charts().count() == 0, charts().count())
+
+
+def tab_side(page, text):
+    return page.evaluate(
+        """(text) => {
+            const tab = [...document.querySelectorAll('.dv-tab')].find((el) => el.textContent.trim() === text);
+            const docs = [...document.querySelectorAll('.dv-tab')].find((el) => el.textContent.trim() === 'Documents');
+            const a = tab?.closest('.dv-groupview')?.getBoundingClientRect();
+            const b = docs?.closest('.dv-groupview')?.getBoundingClientRect();
+            return a && b ? (a.left < b.left ? 'left' : 'right') : null;
+        }""",
+        text,
+    )
+
+
+def check_properties_pane(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page)
+    if not models(page)["models"]:
+        expand_to_viewable(page).click()
+        wait_until(page, lambda: models(page)["active"])
+        settle(page, 1000)
+    page.get_by_role("button", name="Panes").click()
+    page.get_by_role("menuitem", name="New properties").click()
+    settle(page, 600)
+    tab = page.locator(".dv-tab").filter(has_text=re.compile(r"^Properties \d$"))
+    checks.add("New properties opens a pane", tab.count() == 1, tab.count())
+    stored = page.evaluate("() => JSON.parse(localStorage.getItem('bsh.pane.properties.1.v1') || 'null')")
+    checks.add("the properties pane is bound to the active model", (stored or {}).get("scope") == models(page)["active"], stored)
+    checks.add("the properties pane asks for a selection", page.get_by_text("Select an element").count() == 1, page.get_by_text("Select an element").count())
+    page.locator("[data-active='true'] [data-dbid]").first.click(force=True)
+    settle(page, 800)
+    checks.add("selecting an element lists its properties by category", page.locator(".bsh-props").get_by_text("Identity Data", exact=True).count() == 1 and page.locator(".bsh-props").get_by_text("Assembly Code", exact=True).count() == 1, page.locator(".bsh-props").inner_text())
+    page.get_by_label("Filter properties").fill("level")
+    settle(page, 300)
+    props = page.locator(".bsh-props")
+    checks.add("the properties filter narrows the list", props.get_by_text("Assembly Code", exact=True).count() == 0 and props.get_by_text("Level", exact=True).count() == 1, props.inner_text())
+    page.get_by_label("Filter properties").fill("")
+    page.evaluate("mw:() => window.__bshLayout.movePane('properties:1', 'float')")
+    settle(page, 500)
+    checks.add("a properties pane floats", page.evaluate("mw:() => window.__bshLayout.location('properties:1')") == "floating", "")
+    page.reload()
+    settle(page, 1500)
+    checks.add("a floating properties pane survives a reload", page.locator(".dv-tab").filter(has_text=re.compile(r"^Properties \d$")).count() == 1 and page.evaluate("mw:() => window.__bshLayout.location('properties:1')") == "floating", "")
+    tab = page.locator(".dv-tab").filter(has_text=re.compile(r"^Properties \d$")).first
+    tab.hover()
+    tab.locator(".dv-default-tab-action").click()
+    settle(page, 500)
+    checks.add("closing the properties pane clears its spec", page.locator(".dv-tab").filter(has_text=re.compile(r"^Properties \d$")).count() == 0 and page.evaluate("() => localStorage.getItem('bsh.pane.properties.1.v1')") is None, "")
+
+
+def palette(page):
+    return page.get_by_role("dialog", name="Command palette")
+
+
+def open_palette(page):
+    page.keyboard.press("Control+k")
+    palette(page).wait_for(state="visible", timeout=3000)
+    return palette(page).get_by_role("combobox")
+
+
+def check_command_palette(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page)
+    if not models(page)["models"]:
+        expand_to_viewable(page).click()
+        wait_until(page, lambda: models(page)["active"])
+        settle(page, 1000)
+    start = page.evaluate(ROOT_THEME)
+    other = "light" if start == "dark" else "dark"
+    anchor = page.get_by_role("button", name=THEME_TOGGLE).first
+    anchor.focus()
+    box = open_palette(page)
+    checks.add("palette opens with Ctrl+K and focuses its search", box.evaluate("(el) => el === document.activeElement"), "")
+    checks.add("palette search is a combobox tied to a listbox", box.get_attribute("aria-controls") is not None and palette(page).get_by_role("listbox").count() == 1, "")
+    box.fill("theme")
+    active_id = box.get_attribute("aria-activedescendant")
+    checks.add("active descendant points at the first match", bool(active_id) and palette(page).locator(f"[id='{active_id}']").get_attribute("aria-selected") == "true", active_id)
+    page.keyboard.press("Enter")
+    settle(page, 300)
+    checks.add("running the theme command flips the theme and closes the palette", page.evaluate(ROOT_THEME) == other and palette(page).count() == 0, page.evaluate(ROOT_THEME))
+    box = open_palette(page)
+    checks.add("a used command is listed under Recent", palette(page).get_by_text("Recent", exact=True).count() == 1, "")
+    box.fill("theme")
+    page.keyboard.press("Enter")
+    settle(page, 300)
+    checks.add("the theme command flips back", page.evaluate(ROOT_THEME) == start, page.evaluate(ROOT_THEME))
+    anchor.focus()
+    box = open_palette(page)
+    box.fill("export excel")
+    option = palette(page).get_by_role("option", name=re.compile("Export to Excel"))
+    checks.add("export commands are listed and enabled with a model open", option.count() == 1 and option.get_attribute("aria-disabled") is None, option.count())
+    box.fill("isolate sel")
+    option = palette(page).get_by_role("option", name=re.compile("Isolate selection"))
+    checks.add("element actions are disabled with a reason when nothing is selected", option.count() == 1 and option.get_attribute("aria-disabled") == "true" and "Select elements first" in option.inner_text(), option.inner_text() if option.count() else "")
+    box.fill("pane")
+    panes = palette(page).get_by_role("option").all_inner_texts()
+    checks.add("pane commands are listed", any("Dashboard pane" in text for text in panes) and any("Model summary pane" in text for text in panes), panes[:6])
+    page.keyboard.press("Escape")
+    settle(page, 200)
+    checks.add("Escape closes the palette and returns focus", palette(page).count() == 0 and anchor.evaluate("(el) => el === document.activeElement"), page.evaluate("() => document.activeElement?.outerHTML.slice(0, 120)"))
+    box = open_palette(page)
+    box.fill("geometry export settings")
+    page.keyboard.press("Enter")
+    settle(page, 400)
+    checks.add("a tool settings command opens that tool window", page.get_by_role("dialog", name="Geometry export settings").is_visible(), "")
+    page.keyboard.press("Escape")
+    settle(page, 300)
 
 
 def run_interaction_checks(page, checks, notes):
@@ -1527,7 +2129,7 @@ def run_interaction_checks(page, checks, notes):
     except Exception as exc:
         page.screenshot(path=str(OUTPUT_DIR / "mock-layout-failure.png"))
         checks.add("check_layout", False, f"{type(exc).__name__}: {str(exc)[:160]}")
-    for check in (check_lock_maximize, check_active_pane, check_session_banner, check_paint_palette, check_recents, check_strip, check_tree_metadata, check_theme, check_summary_rail, check_summary_tools, check_dashboard_tools, check_tree_resize):
+    for check in (check_lock_maximize, check_active_pane, check_session_banner, check_saved_items, check_paint_palette, check_recents, check_strip, check_tree_metadata, check_theme, check_summary_rail, check_summary_tools, check_selection_sets, check_dashboard_tools, check_tree_resize):
         try:
             check(page, checks)
         except Exception as exc:
@@ -1553,10 +2155,21 @@ def run_interaction_checks(page, checks, notes):
         page.screenshot(path=str(OUTPUT_DIR / "mock-viewer-links-failure.png"))
         checks.add("check_viewer_links", False, f"{type(exc).__name__}: {str(exc)[:160]}")
     try:
+        check_command_palette(page, checks)
+    except Exception as exc:
+        page.screenshot(path=str(OUTPUT_DIR / "mock-command-palette-failure.png"))
+        checks.add("check_command_palette", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+    try:
         check_blocked_picks(page, checks)
     except Exception as exc:
         page.screenshot(path=str(OUTPUT_DIR / "mock-blocked-picks-failure.png"))
         checks.add("check_blocked_picks", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+    for check in (check_task_center, check_export_tasks, check_pane_families, check_properties_pane):
+        try:
+            check(page, checks)
+        except Exception as exc:
+            page.screenshot(path=str(OUTPUT_DIR / f"mock-{check.__name__}-failure.png"))
+            checks.add(check.__name__, False, f"{type(exc).__name__}: {str(exc)[:160]}")
     try:
         check_documents_return(page, checks)
     except Exception as exc:
@@ -1705,6 +2318,8 @@ def run(context, checks, notes):
     notes["viewer_canvas"] = f"{fill.get('canvasWidth')}x{fill.get('canvasHeight')}"
     page.screenshot(path=str(OUTPUT_DIR / "mock-model.png"))
     checks.add("mock viewer is present", page.get_by_label(MOCK_VIEWER_LABEL).count() >= 1)
+    check_presentation_mode(page, checks)
+    check_snapshots_viewpoints_present(page, checks)
 
     rows = page.locator("table tbody tr")
     try:

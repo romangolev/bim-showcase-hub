@@ -24,6 +24,7 @@ function fakeAuth(overrides: Partial<ApsAuth> = {}): ApsAuth {
       expiresIn: 3600,
     }),
     getUser: vi.fn().mockResolvedValue({ name: 'Sam Smith', picture: null }),
+    revoke: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -96,6 +97,35 @@ describe('session and auth', () => {
     expect(token.body.expires_in).toBeGreaterThan(0);
 
     expect((await agent.get('/api/hubs')).status).toBe(200);
+  });
+
+  it('renews the session on token refresh but never past seven days', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      const start = Date.now();
+      const agent = request.agent(realApp());
+      await signIn(agent);
+      const hour = 60 * 60 * 1000;
+      const first = (await agent.get('/api/session')).body.expiresAt;
+      vi.setSystemTime(start + 7 * hour);
+      expect((await agent.get('/api/session')).body.expiresAt).toBe(first);
+      expect((await agent.get('/api/viewer/token')).status).toBe(200);
+      const renewed = (await agent.get('/api/session')).body.expiresAt;
+      expect(renewed).toBe(start + 19 * hour);
+      let at = start + 7 * hour;
+      for (let i = 0; i < 40; i += 1) {
+        at += 2 * hour;
+        vi.setSystemTime(at);
+        await agent.get('/api/viewer/token');
+        const res = await agent.get('/api/session');
+        if (res.status !== 200) break;
+        expect(res.body.expiresAt).toBeLessThanOrEqual(start + 168 * hour);
+      }
+      vi.setSystemTime(start + 168 * hour);
+      expect((await agent.get('/api/session')).status).toBe(401);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('returns the stable user id with the session', async () => {
@@ -246,6 +276,40 @@ describe('session and auth', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('signout revokes the refresh token once and clears the cookie', async () => {
+    const auth = fakeAuth();
+    const agent = request.agent(realApp(auth));
+    await signIn(agent);
+    const out = await agent.post('/api/auth/signout');
+    expect(out.status).toBe(204);
+    expect(auth.revoke).toHaveBeenCalledTimes(1);
+    expect(auth.revoke).toHaveBeenCalledWith('refresh-1');
+    expect((await agent.get('/api/session')).status).toBe(401);
+  });
+
+  it('signout still succeeds and logs no token when revoke fails', async () => {
+    const auth = fakeAuth({
+      revoke: vi.fn().mockRejectedValue(new Error('boom refresh-1')),
+    });
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const agent = request.agent(realApp(auth));
+    await signIn(agent);
+    const out = await agent.post('/api/auth/signout');
+    expect(out.status).toBe(204);
+    expect(JSON.stringify(spy.mock.calls)).not.toContain('refresh-1');
+    expect((await agent.get('/api/session')).status).toBe(401);
+  });
+
+  it('mock mode signout makes no revoke call', async () => {
+    const auth = fakeAuth();
+    const app = createApp(loadConfig({ MOCK_APS: '1' }), {
+      auth,
+      data: createMockDataService(),
+    });
+    expect((await request(app).post('/api/auth/signout')).status).toBe(204);
+    expect(auth.revoke).not.toHaveBeenCalled();
   });
 
   it('signout is fine when never signed in', async () => {

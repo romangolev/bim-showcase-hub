@@ -196,6 +196,7 @@ export interface GuiViewer3D {
   impl?: {
     resize?(width: number, height: number): void;
     setPlacementTransform?(model: ViewerModel, matrix: PlacementMatrix): void;
+    setCutPlanes?(planes: unknown[]): void;
     selector?: {
       setAggregateSelection?(
         entries: { model: ViewerModel; ids: number[] }[],
@@ -228,19 +229,30 @@ export interface GuiViewer3D {
   select?(ids: number[], model?: ViewerModel): void;
   getAggregateSelection?(): AggregateSelection[];
   getIsolatedNodes?(model?: ViewerModel): number[];
+  getHiddenNodes?(model?: ViewerModel): number[];
   isolate?(ids: number[], model?: ViewerModel): void;
-  fitToView?(): void;
+  hide?(ids: number[], model?: ViewerModel): void;
+  show?(ids: number[], model?: ViewerModel): void;
+  fitToView?(
+    objectIds?: number[] | null,
+    model?: ViewerModel | null,
+    immediate?: boolean,
+  ): void;
   getScreenShot?(
     width: number,
     height: number,
     onDone: (url: string) => void,
   ): void;
-  getState?(filter?: { viewport?: boolean }): { viewport?: ViewportState };
+  getState?(filter?: { viewport?: boolean; cutplanes?: boolean }): {
+    viewport?: ViewportState;
+    cutplanes?: number[][];
+  };
   restoreState?(
-    state: { viewport: ViewportState },
-    filter?: unknown,
+    state: { viewport?: ViewportState; cutplanes?: number[][] },
+    filter?: { viewport?: boolean; cutplanes?: boolean },
     immediate?: boolean,
   ): boolean;
+  getCutPlanes?(): { x: number; y: number; z: number; w: number }[];
   getObjectTree(
     onSuccess: (tree: InstanceTree) => void,
     onError?: (err: unknown) => void,

@@ -148,7 +148,23 @@ export function layoutMenuEntries(layout: LayoutApi): MenuEntry[] {
       disabled: layout.locked,
       onSelect: () => layout.togglePane(pane.id),
     })),
+    ...PANES.filter((pane) => pane.instances?.creatable).map((pane) => ({
+      id: `new-${pane.id}`,
+      label: `New ${pane.title.toLowerCase()}`,
+      icon: pane.icon,
+      disabled: layout.locked || !layout.canAddInstance,
+      onSelect: () => layout.addInstance(pane.id),
+    })),
     { kind: 'separator' as const, id: 'sep' },
+    {
+      id: 'present',
+      label: 'Present',
+      description: layout.canPresent
+        ? 'Show only the viewer. Escape exits.'
+        : 'Open a model first',
+      disabled: !layout.canPresent,
+      onSelect: () => layout.setPresenting(true),
+    },
     {
       id: 'lock',
       label: 'Lock layout',

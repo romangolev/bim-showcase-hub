@@ -5,7 +5,6 @@ export function formatCount(value: number): string {
 }
 
 export function missingModels(adapter: ViewerAdapter): string[] {
-  if (typeof adapter.getModels !== 'function') return [];
   return adapter
     .getModels()
     .filter((model) => model.status !== 'ready')

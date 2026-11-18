@@ -3,7 +3,13 @@ import {
   MAX_LOADED_MEMBERS,
   type Vec3,
 } from '../../shared/combined.js';
-import { BSH_KEYS, forgetPersonal } from '../storage.js';
+import {
+  BSH_KEYS,
+  defineRecord,
+  forgetPersonal,
+  type PersistedRecord,
+  RAW_STRING,
+} from '../storage.js';
 import {
   joinWith,
   type ModelContext,
@@ -16,6 +22,18 @@ import { hasModelContext, recallModel } from './modelStore.js';
 
 export const OPEN_MODELS_KEY = BSH_KEYS.personal.openModels;
 export const MODEL_OWNER_KEY = BSH_KEYS.personal.modelOwner;
+
+export type OpenModelsPersist = Pick<
+  PersistedRecord<OpenModelsState>,
+  'read' | 'write' | 'remove'
+>;
+
+const MODEL_OWNER = defineRecord<string | null>({
+  key: MODEL_OWNER_KEY,
+  initial: null,
+  sanitize: (raw) => (typeof raw === 'string' ? raw : null),
+  codec: { encode: (value) => value ?? '', decode: RAW_STRING.decode },
+});
 
 export interface OpenModel {
   urn: string;
@@ -389,26 +407,6 @@ export function parseOpenModels(raw: string | null): OpenModelsState {
   return { models, active, live: [], visible: [] };
 }
 
-function local(): Storage | null {
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
-}
-
-function remove(storage: Storage | null, key: string) {
-  try {
-    storage?.removeItem(key);
-  } catch {
-    return;
-  }
-}
-
-export function forgetModels(): void {
-  forgetPersonal();
-}
-
 export interface ModelOwner {
   id?: string;
   name: string;
@@ -427,20 +425,10 @@ function sameOwner(stored: string, owner: ModelOwner): boolean {
 }
 
 export function claimModels(owner: ModelOwner): boolean {
-  const storage = local();
-  let stored: string | null = null;
-  try {
-    stored = storage?.getItem(MODEL_OWNER_KEY) ?? null;
-  } catch {
-    stored = null;
-  }
+  const stored = MODEL_OWNER.read();
   const changed = stored !== null && !sameOwner(stored, owner);
-  if (changed) forgetModels();
-  try {
-    storage?.setItem(MODEL_OWNER_KEY, ownerKey(owner));
-  } catch {
-    return changed;
-  }
+  if (changed) forgetPersonal();
+  MODEL_OWNER.write(ownerKey(owner));
   return changed;
 }
 
@@ -462,36 +450,26 @@ export interface OpenModelsStore {
   clear: () => void;
 }
 
-function sessionStore(): Storage | null {
-  try {
-    return window.sessionStorage;
-  } catch {
-    return null;
-  }
-}
+export const OPEN_MODELS = defineRecord<OpenModelsState>({
+  key: OPEN_MODELS_KEY,
+  initial: EMPTY_OPEN_MODELS,
+  sanitize: (raw) => parseOpenModels(raw as string),
+  area: 'session',
+  codec: { encode: serializeOpenModels, decode: RAW_STRING.decode },
+});
 
 export function createOpenModelsStore(
-  storage: Storage | null = sessionStore(),
+  persist: OpenModelsPersist | null = OPEN_MODELS,
   limit = MAX_LOADED_MEMBERS,
   contextFor: (urn: string) => ModelContext = (urn) => recallModel(urn) ?? {},
 ): OpenModelsStore {
-  let raw: string | null = null;
-  try {
-    raw = storage?.getItem(OPEN_MODELS_KEY) ?? null;
-  } catch {
-    raw = null;
-  }
-  let state = parseOpenModels(raw);
+  let state = persist?.read() ?? EMPTY_OPEN_MODELS;
   const listeners = new Set<() => void>();
   const save = (previous: OpenModelsState) => {
     if (previous.models === state.models && previous.active === state.active) {
       return;
     }
-    try {
-      storage?.setItem(OPEN_MODELS_KEY, serializeOpenModels(state));
-    } catch {
-      return;
-    }
+    persist?.write(state);
   };
   const apply = (next: OpenModelsState) => {
     if (next === state) return;
@@ -519,7 +497,7 @@ export function createOpenModelsStore(
       apply(removeFromModel(state, target, urn, contextFor, limit)),
     setView: (urn, view) => apply(setModelView(state, urn, view)),
     clear: () => {
-      remove(storage, OPEN_MODELS_KEY);
+      persist?.remove();
       if (state.models.length === 0) return;
       state = EMPTY_OPEN_MODELS;
       for (const listener of [...listeners]) listener();

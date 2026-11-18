@@ -4,53 +4,60 @@ The app deploys to Vercel as a static client plus one serverless function that r
 
 ## Vercel project
 
-- Node version: `package.json` pins `engines.node` to `24.x`. Vercel uses it.
-- Build: `vercel.json` sets `framework` to `null`, `buildCommand` to `npm run build` and `outputDirectory` to `dist/web`.
-- Function: `api/index.ts` exports `createApp()` as the default export. Vercel serves it at `/api`.
-- Rewrites, in order: `/api/(.*)` goes to `/api` (the function), everything else goes to `/index.html` so client routes such as `/model/<urn>` load.
-
-`createApp` sets `trust proxy` in production, so the secure cookie works behind Vercel's proxy. In production the function does not serve the static client. Vercel serves `dist/web` and the function only receives `/api` requests.
+- Node: `package.json` pins `engines.node` to `24.x`.
+- Build: `vercel.json` runs `npm run build` and serves `dist/web`.
+- Function: `api/index.ts` exports the app and serves `/api`.
+- Rewrites: `/api/(.*)` goes to the function, everything else to `/index.html` so client routes load.
+- `createApp` sets `trust proxy` in production so the secure cookie works behind Vercel.
 
 ## Environment variables
 
 Set these for Production and for Preview.
 
-| Variable | Required | Value |
-|---|---|---|
-| `SESSION_SECRET` | yes | A long random string, different per environment. Not `change-me` |
-| `APS_CLIENT_ID` | yes | Client ID of the APS app |
-| `APS_CLIENT_SECRET` | yes | Client secret of the APS app |
-| `APS_CALLBACK_URL` | yes | `https://<host>/api/auth/callback` for that environment |
+| Variable | Value |
+|---|---|
+| `SESSION_SECRET` | A long random string, different per environment. Not `change-me`. Changing it signs every user out |
+| `APS_CLIENT_ID` | Client ID of the APS app |
+| `APS_CLIENT_SECRET` | Client secret of the APS app |
+| `APS_CALLBACK_URL` | `https://<host>/api/auth/callback` for that environment |
 
-Ignored on Vercel: `MOCK_APS` (production ignores it), `VITE_MOCK_APS` (dev server only), `PORT` (Vercel assigns it) and `STATIC_DIR` (the function does not serve static files). `NODE_ENV` is `production` on Vercel builds and functions.
+Vercel ignores `MOCK_APS`, `VITE_MOCK_APS`, `PORT` and `STATIC_DIR`. Never put secrets in the repository, the docs or `vercel.json`.
 
-`APS_CALLBACK_URL` is read as a plain environment variable, so Preview needs its own value. A preview deployment URL changes per deployment, so this project sets the Preview `APS_CALLBACK_URL` to the stable branch alias URL (`https://<branch-alias>/api/auth/callback`) and registers that same URL in the APS app. Open the preview through the alias, not through a per-deployment URL, or the callback will not match.
+A preview URL changes per deployment. Set the Preview `APS_CALLBACK_URL` to the stable branch alias URL, register that URL in the APS app, and open previews through the alias.
 
-Never put secret values in the repository, in these docs or in `vercel.json`.
+Sessions are sealed cookies, so the function needs no database. See [architecture.md](architecture.md#sessions).
 
 ## APS app setup
 
-1. Sign in to https://aps.autodesk.com and create an application.
-2. Choose the type **Traditional Web App**. The app uses the three-legged flow with a client secret.
-3. Enable the APIs the app uses. The server calls the Data Management API (scope `data:read`). The viewer needs Model Derivative and the Viewer (scope `viewables:read`). Enable Data Management and Model Derivative for the app.
-4. Add one callback URL per environment. Each must match `APS_CALLBACK_URL` for that environment exactly, including scheme, host, path and the absence of a trailing slash:
+1. Sign in at https://aps.autodesk.com and create an application.
+2. Choose **Traditional Web App**. The app uses the three-legged flow with a client secret.
+3. Enable Data Management and Model Derivative. The server needs `data:read` and the viewer needs `viewables:read`.
+4. Add one callback URL per environment. Each must match that environment's `APS_CALLBACK_URL` exactly, with no trailing slash:
    - `https://<production-host>/api/auth/callback`
    - `https://<preview-alias>/api/auth/callback`
-   - `http://localhost:3000/api/auth/callback` for local development
+   - `http://localhost:3000/api/auth/callback`
 5. Copy the client ID and secret into the Vercel environment variables.
 
 ### ACC and BIM 360 Docs
 
-To see hubs from Autodesk Construction Cloud or BIM 360 Docs, an account administrator must add the app's Client ID as a custom integration in the Autodesk Docs or ACC account administration. The menu names change between Autodesk releases, so look for the custom integrations section there. Without it, the Data Management API returns no hubs for that account, even though sign-in succeeds. Personal and other hub types appear without this step.
+An account administrator must add the app's Client ID as a custom integration in the account administration of Autodesk Docs or ACC. Without it, sign-in works but the account shows no hubs. Personal hubs need no setup.
+
+## CSP reports
+
+The Content-Security-Policy is report-only with `report-uri /api/csp-report`. The route (`src/server/routes/csp.ts`) needs no sign-in, accepts bodies up to 8 KB and always answers 204.
+
+Each valid report becomes one log line: `csp-report directive=<directive> blocked=<origin or keyword> path=</first-segment>`. Full URLs and cookies are never logged. Each instance logs at most 30 lines per minute. Search the function log for `csp-report` before enforcing the policy.
 
 ## Troubleshooting
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| Autodesk shows "Request error" after clicking sign-in | `APS_CLIENT_ID` is wrong, or the callback URL sent does not match one registered in the APS app | Compare `APS_CALLBACK_URL` with the registered callback character by character |
-| `/api/...` returns 500 and the function log shows `SESSION_SECRET is required in production` or `APS_CLIENT_ID and APS_CLIENT_SECRET are required` | Missing environment variables for that environment | Add them for Production or Preview and redeploy. Variables apply only to new deployments |
-| Sign-in returns to the app but shows the landing page again | Cookie not stored, or `SESSION_SECRET` changed between requests | Check that the site runs on HTTPS and that `SESSION_SECRET` is stable |
-| Redirect lands on `/?auth_error=access_denied` | The user declined access at Autodesk | Sign in again |
-| 400 "Invalid state" on the callback | The session cookie with the sign-in state was lost, for example by starting sign-in on another host | Start sign-in again from the same host that receives the callback |
-| Signed in, but the tree shows no hubs | The ACC or BIM 360 account has not added the app as a custom integration | Follow the ACC and BIM 360 Docs step above |
-| Model page says the model could not be loaded | The version is still translating, or the account has no access | Open another version, or retry later |
+| Autodesk shows "Request error" on sign-in | Wrong `APS_CLIENT_ID`, or the callback URL is not registered | Compare `APS_CALLBACK_URL` with the registered callback character by character |
+| `/api/...` returns 500 and the log says `SESSION_SECRET is required in production` or `APS_CLIENT_ID and APS_CLIENT_SECRET are required` | Missing variables | Add them for that environment and redeploy |
+| Back on the landing page after sign-in | Cookie not stored, or `SESSION_SECRET` changed | Use HTTPS and keep `SESSION_SECRET` stable |
+| `/?auth_error=access_denied` | The user declined access | Sign in again |
+| `/?auth_error=invalid_state` | The sign-in cookie was lost, for example sign-in started on another host | Start again from the host that receives the callback |
+| `/?auth_error=upstream_error` | Code exchange or user lookup failed, or the session did not fit in the cookie | Try again. The log has a `sign-in failed` line |
+| The app says the session has ended | The 12 hour window ran out or the 7 day cap was reached | Use Sign in again in the banner |
+| Signed in but no hubs | The account has not added the app as a custom integration | See ACC and BIM 360 Docs above |
+| A model says it could not be loaded | The version is still translating, or the account has no access | Open another version, or retry later |

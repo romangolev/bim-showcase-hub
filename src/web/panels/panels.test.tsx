@@ -3,6 +3,7 @@ import { BSH_KEYS } from '../storage.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { act, fireEvent, render, screen, waitFor } from '../test/render.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
+import { buildMockElements } from '../viewer/mockModel.js';
 import { DashboardPanel } from './DashboardPanel.js';
 import { DashboardSettingsBody } from './DashboardSettings.js';
 import { ModelSummaryPanel } from './ModelSummaryPanel.js';
@@ -11,7 +12,7 @@ import { SummaryTable } from './SummaryTable.js';
 
 const made = vi.hoisted(() => ({
   configs: [] as {
-    data: { labels: string[] };
+    data: { labels: string[]; datasets: { borderWidth: number[] }[] };
     options: { onClick: (e: unknown, els: { index: number }[]) => void };
   }[],
 }));
@@ -21,7 +22,10 @@ vi.mock('chart.js', () => {
     static register = vi.fn();
     static defaults = { font: {}, color: '' };
     destroy = vi.fn();
+    update = vi.fn();
+    data: unknown;
     constructor(_canvas: unknown, config: (typeof made.configs)[number]) {
+      this.data = config.data;
       made.configs.push(config);
     }
   }
@@ -325,43 +329,6 @@ describe('Feedback states', () => {
 });
 
 describe('model scope in combined views', () => {
-  async function combined(): Promise<MockViewerAdapter> {
-    const adapter = new MockViewerAdapter(document.createElement('div'));
-    await adapter.loadModels([
-      { urn: 'urn-a', name: 'Arch' },
-      { urn: 'urn-b', name: 'MEP' },
-    ]);
-    adapters.push(adapter);
-    return adapter;
-  }
-
-  function wallsCount(): number {
-    const row = screen.getByRole('cell', { name: 'Walls' }).closest('tr');
-    return Number(row?.querySelectorAll('td')[2]?.textContent ?? '0');
-  }
-
-  it('sums counts over all models and narrows to one model', async () => {
-    const adapter = await combined();
-    render(
-      <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />,
-    );
-    await screen.findByRole('cell', { name: 'Walls' });
-    const scope = screen.getByRole('combobox', { name: 'Summarize models' });
-    expect(
-      [...(scope as HTMLSelectElement).options].map((o) => o.textContent),
-    ).toEqual(['All models', 'Arch', 'MEP']);
-    const all = wallsCount();
-    fireEvent.change(scope, { target: { value: 'urn-b' } });
-    await waitFor(() => expect(wallsCount()).toBe(all / 2));
-    adapter.removeModel('urn-b');
-    await waitFor(() =>
-      expect(
-        screen.queryByRole('combobox', { name: 'Summarize models' }),
-      ).toBeNull(),
-    );
-    await waitFor(() => expect(wallsCount()).toBe(all / 2));
-  });
-
   it('names a model whose properties cannot be read', async () => {
     const adapter = new MockViewerAdapter(document.createElement('div'));
     await adapter.loadModels([
@@ -375,14 +342,6 @@ describe('model scope in combined views', () => {
     expect(
       await screen.findByText(/Properties unavailable for Broken DB/),
     ).toBeInTheDocument();
-  });
-
-  it('charts one model in the dashboard', async () => {
-    const adapter = await combined();
-    render(<DashboardPanel adapter={adapter} />);
-    const scope = await screen.findByRole('combobox', { name: 'Chart models' });
-    fireEvent.change(scope, { target: { value: 'urn-a' } });
-    expect((scope as HTMLSelectElement).value).toBe('urn-a');
   });
 });
 
@@ -644,6 +603,31 @@ describe('dashboard presets and cross-filter', () => {
     expect(index).toBeGreaterThanOrEqual(0);
     act(() => config?.options.onClick({}, [{ index }]));
     expect(adapter.getModelSelection().length).toBeGreaterThan(1);
+  });
+
+  it('highlights the buckets of the viewer selection', async () => {
+    const adapter = await loaded();
+    render(<DashboardPanel adapter={adapter} />);
+    await screen.findByRole('img', {
+      name: 'Bar chart of element counts by Category',
+    });
+    const widths = () => made.configs.at(-2)?.data.datasets[0]?.borderWidth;
+    expect(widths()?.every((width) => width === 0)).toBe(true);
+    const modelId = adapter.getModels()[0]?.id ?? '';
+    act(() =>
+      adapter.selectModelIds([
+        { modelId, dbId: buildMockElements()[0]?.dbId ?? 0 },
+      ]),
+    );
+    await waitFor(() =>
+      expect(widths()?.some((width) => width > 0)).toBe(true),
+    );
+    const walls = made.configs.at(-2)?.data.labels.indexOf('Walls') ?? -1;
+    act(() => adapter.clearSelection());
+    await waitFor(() =>
+      expect(widths()?.every((width) => width === 0)).toBe(true),
+    );
+    expect(walls).toBeGreaterThanOrEqual(0);
   });
 });
 

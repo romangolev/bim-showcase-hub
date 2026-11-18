@@ -10,7 +10,7 @@ interface ModelsState {
 }
 
 function snapshot(adapter: ViewerAdapter | null): ModelInfo[] {
-  if (!adapter || typeof adapter.getModels !== 'function') return NO_MODELS;
+  if (!adapter) return NO_MODELS;
   return adapter.getModels();
 }
 

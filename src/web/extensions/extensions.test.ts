@@ -1,12 +1,20 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { PropertyRow } from '../../shared/types.js';
+import { installMemoryStorage } from '../test/mockApi.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
+import { readScopedRows } from '../viewer/propertyScope.js';
+import {
+  deleteSet,
+  listSets,
+  saveSelectionSet,
+} from '../viewer/selectionSets.js';
 import {
   availableProperties,
   CHART_PALETTES,
   countByProperty,
   OTHER_COLOR,
   OTHER_LABEL,
+  selectedBuckets,
   seriesColors,
   shapeChartData,
 } from './dashboardData.js';
@@ -32,7 +40,6 @@ import {
   sanitizeIntensity,
   sanitizePalette,
 } from './paintBrushes.js';
-import { buildToolGroupSpec } from './viewerTools.js';
 
 function row(
   dbId: number,
@@ -154,6 +161,32 @@ describe('export rows', () => {
     adapter.destroy();
   });
 
+  it('exports only a saved set and warns when the set is gone', async () => {
+    installMemoryStorage();
+    const adapter = new MockViewerAdapter(document.createElement('div'));
+    await adapter.load('urn');
+    const read = await readScopedRows(adapter, { names: ['Category'] });
+    const row0 = read.rows[0];
+    const first = { modelId: row0?.modelId ?? '', dbId: row0?.dbId ?? -1 };
+    saveSelectionSet('One', [first]);
+    const id = listSets()[0]?.id ?? '';
+    const one = await exportToXlsx(adapter, {
+      scope: `set:${id}`,
+      save: vi.fn(),
+    });
+    expect(one).toMatchObject({ phase: 'done', rowCount: 1 });
+    expect(one).not.toHaveProperty('scopeNote');
+    deleteSet(id);
+    const stale = await exportToXlsx(adapter, {
+      scope: `set:${id}`,
+      save: vi.fn(),
+    });
+    expect(stale).toMatchObject({ phase: 'done' });
+    expect((stale as { rowCount: number }).rowCount).toBeGreaterThan(1);
+    expect(describeStatus(stale)).toContain('no longer exists');
+    adapter.destroy();
+  });
+
   it('returns no sheets for no rows', () => {
     expect(buildExportSheets([], ['Name'])).toEqual([]);
   });
@@ -183,7 +216,7 @@ describe('export rows', () => {
     adapter.destroy();
   });
 
-  it('counts only the rows written and skips keys containing "<"', async () => {
+  it('writes a sheet for every group, including keys containing "<"', async () => {
     const data = [
       row(1, { Category: 'Walls' }),
       row(2, { Category: 'Walls' }),
@@ -192,10 +225,14 @@ describe('export rows', () => {
     ];
     const adapter = {
       getLeafProperties: () => Promise.resolve(data),
+      getModels: () => [
+        { id: 'm', urn: 'm', name: 'm', visible: true, status: 'ready' },
+      ],
     } as unknown as MockViewerAdapter;
     const sheets = buildExportSheets(data, ['Category'], 'Category');
     expect(sheets.map((sheet) => sheet.name)).toEqual([
       'Walls',
+      'Model <Sketch>',
       EMPTY_VALUE_LABEL,
     ]);
     const status = await exportToXlsx(adapter, {
@@ -205,22 +242,8 @@ describe('export rows', () => {
     expect(status).toEqual({
       phase: 'done',
       fileName: 'model-properties.xlsx',
-      rowCount: 3,
+      rowCount: 4,
     });
-  });
-
-  it('reports empty when every group is skipped', async () => {
-    const data = [row(1, { Category: '<none>' }), row(2, { Category: 'A<B' })];
-    const adapter = {
-      getLeafProperties: () => Promise.resolve(data),
-    } as unknown as MockViewerAdapter;
-    const save = vi.fn();
-    const status = await exportToXlsx(adapter, {
-      propertyNames: ['Category'],
-      save,
-    });
-    expect(status).toEqual({ phase: 'empty' });
-    expect(save).not.toHaveBeenCalled();
   });
 
   it('reports empty and error outcomes', async () => {
@@ -228,9 +251,48 @@ describe('export rows', () => {
     expect((await exportToXlsx(adapter)).phase).toBe('empty');
     const failing = {
       getLeafProperties: () => Promise.reject(new Error('boom')),
+      getModels: () => [
+        { id: 'm', urn: 'm', name: 'm', visible: true, status: 'ready' },
+      ],
     } as unknown as MockViewerAdapter;
     const status = await exportToXlsx(failing);
     expect(describeStatus(status)).toBe('Export failed: boom');
+  });
+
+  it('ends as cancelled when the signal aborts and reports progress', async () => {
+    const adapter = {
+      getLeafProperties: (
+        _names: unknown,
+        _models: unknown,
+        options: {
+          onProgress?: (p: { done: number; total: number }) => void;
+        },
+      ) => {
+        options.onProgress?.({ done: 1, total: 1 });
+        return Promise.resolve([row(1, { Category: 'Walls' })]);
+      },
+      getModels: () => [
+        { id: 'm', urn: 'm', name: 'm', visible: true, status: 'ready' },
+      ],
+    } as unknown as MockViewerAdapter;
+    const progress: number[] = [];
+    const done = await exportToXlsx(adapter, {
+      propertyNames: ['Category'],
+      save: vi.fn(),
+      onProgress: (fraction) => progress.push(fraction),
+    });
+    expect(done.phase).toBe('done');
+    expect(progress.at(-1)).toBe(1);
+    const controller = new AbortController();
+    controller.abort();
+    const copy = vi.fn(() => Promise.resolve());
+    const status = await exportToXlsx(adapter, {
+      propertyNames: ['Category'],
+      format: 'copy',
+      copy,
+      signal: controller.signal,
+    });
+    expect(status).toEqual({ phase: 'cancelled' });
   });
 });
 
@@ -251,6 +313,23 @@ describe('dashboard data', () => {
     expect(shaped.data).toHaveLength(4);
     expect(shaped.data[0]).toEqual({ label: 'n0', count: 2 });
     expect(shaped.data[3]).toEqual({ label: OTHER_LABEL, count: 7 });
+  });
+
+  it('finds the buckets that hold the selected elements', () => {
+    const many = Array.from({ length: 10 }, (_, i) =>
+      row(i, { Name: `n${i}` }),
+    ).concat([row(100, { Name: 'n0' })]);
+    const shaped = shapeChartData(many, 'Name', 4);
+    const at = (...dbIds: number[]) =>
+      dbIds.map((dbId) => ({ modelId: 'm', dbId }));
+    const tagged = many.map((item) => ({ ...item, modelId: 'm' }));
+    expect(selectedBuckets(tagged, shaped, [])).toEqual(new Set());
+    expect(selectedBuckets(tagged, shaped, at(100, 9))).toEqual(
+      new Set(['n0', OTHER_LABEL]),
+    );
+    expect(
+      selectedBuckets(tagged, shaped, [{ modelId: 'x', dbId: 100 }]),
+    ).toEqual(new Set());
   });
 
   it('lists only properties that have values', () => {
@@ -371,21 +450,6 @@ describe('paint palette', () => {
     );
     expect(new Set(ids).size).toBe(3);
     expect(ids[0]).toBe('paint-ff8000');
-  });
-
-  it('makes the tool group swatches follow the palette', () => {
-    const host = document.createElement('div');
-    const adapter = new MockViewerAdapter(host);
-    const spec = buildToolGroupSpec(adapter, {
-      paintPalette: ['#112233', '#445566'],
-      paintIntensity: 0.8,
-    });
-    expect(spec.paint?.swatches.map((item) => item.swatch)).toEqual([
-      '#112233',
-      '#445566',
-    ]);
-    expect(spec.paint?.swatches[0]?.color[3]).toBe(0.8);
-    adapter.destroy();
   });
 });
 

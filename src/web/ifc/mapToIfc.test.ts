@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { readIfcSettings } from '../settings/settings.js';
 import { mapToIfc } from './mapToIfc.js';
+import { readIfcSettings } from './settings.js';
 import type { IfcSettings, IfcSourceRead, SourceElement } from './types.js';
 
 const SETTINGS: IfcSettings = {

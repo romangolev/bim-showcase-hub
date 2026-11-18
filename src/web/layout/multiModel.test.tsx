@@ -31,6 +31,7 @@ import { pausedCopy } from './panes.js';
 interface Handle {
   movePane: (id: string, target: MoveTarget) => void;
   togglePane: (id: string) => void;
+  addInstance: (kind: string) => string | null;
   location: (id: string) => string | null;
   resetLayout: () => void;
   openPanes: () => string[];
@@ -632,6 +633,108 @@ describe('remembered arrangement', () => {
     expect(leafOrder()).toContain('viewer:bbb');
     expect(leafOrder()).toContain('dashboard');
     await waitFor(() => expect(sceneOf('bbb')?.isConnected).toBe(true));
+  });
+});
+
+describe('user pane families', () => {
+  function chartTabs() {
+    return screen.queryAllByRole('tab', { name: /^Chart \d$/ });
+  }
+
+  it('adds, persists, restores and removes chart instances', async () => {
+    const { unmount } = renderPath('/model/aaa?file=A.rvt&v=v1');
+    await dockReady();
+    await screen.findByRole('tab', { name: 'Model summary' });
+    let first: string | null = null;
+    let second: string | null = null;
+    act(() => {
+      first = handle().addInstance('chart');
+      second = handle().addInstance('chart');
+    });
+    expect([first, second]).toEqual(['chart:1', 'chart:2']);
+    await waitFor(() => expect(chartTabs()).toHaveLength(2));
+    expect(handle().openPanes()).toContain('chart');
+    expect(storage.getItem('bsh.layout.instances.v1')).toContain('chart:2');
+
+    unmount();
+    renderPath('/model/aaa?file=A.rvt&v=v1');
+    await dockReady();
+    await waitFor(() => expect(chartTabs()).toHaveLength(2));
+
+    act(() => handle().togglePane('chart:1'));
+    await waitFor(() => expect(chartTabs()).toHaveLength(1));
+    expect(storage.getItem('bsh.layout.instances.v1')).not.toContain('chart:1');
+    act(() => handle().closeModel('aaa'));
+    await waitFor(() => expect(handle().models().models).toHaveLength(0));
+    await waitFor(() => expect(chartTabs()).toHaveLength(1));
+    expect(storage.getItem('bsh.layout.instances.v1')).toContain('chart:2');
+  });
+
+  it('restores user instances when no model is open at load', async () => {
+    storage.setItem(
+      'bsh.layout.instances.v1',
+      JSON.stringify({
+        chart: [{ id: 'chart:1', title: 'Chart 1' }],
+        modelSummary: [{ id: 'modelSummary:1', title: 'Model summary 1' }],
+      }),
+    );
+    renderPath('/');
+    await dockReady();
+    expect(await screen.findByRole('tab', { name: 'Chart 1' })).toBeVisible();
+    expect(
+      screen.getByRole('tab', { name: 'Model summary 1' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Viewer' })).toBeNull();
+    expect(storage.getItem('bsh.layout.instances.v1')).toContain('chart:1');
+  });
+
+  it('stacks user instances after the built-in sections on a model route', async () => {
+    media.setWidth(800);
+    storage.setItem(
+      'bsh.layout.instances.v1',
+      JSON.stringify({ chart: [{ id: 'chart:1', title: 'Chart 1' }] }),
+    );
+    renderPath('/model/aaa?file=A.rvt&v=v1');
+    expect(
+      await screen.findByRole('tablist', { name: 'Open models' }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole('region', { name: 'Chart 1' }),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps user instances out of the stacked home screen', async () => {
+    media.setWidth(800);
+    storage.setItem(
+      'bsh.layout.instances.v1',
+      JSON.stringify({ chart: [{ id: 'chart:1', title: 'Chart 1' }] }),
+    );
+    renderPath('/');
+    await screen.findByRole('complementary', { name: 'Documents' });
+    expect(screen.queryByRole('region', { name: 'Chart 1' })).toBeNull();
+  });
+
+  it('pins a summary instance to the model it was created for and cleans up on close', async () => {
+    renderPath('/model/aaa?file=A.rvt&v=v1');
+    await dockReady();
+    await screen.findByRole('tab', { name: 'Model summary' });
+    let id: string | null = null;
+    act(() => {
+      id = handle().addInstance('modelSummary');
+    });
+    expect(id).toBe('modelSummary:1');
+    await screen.findByRole('tab', { name: 'Model summary 1' });
+    expect(
+      JSON.parse(storage.getItem('bsh.pane.modelSummary.1.v1') ?? '{}'),
+    ).toMatchObject({ scope: 'aaa' });
+    act(() => handle().togglePane('modelSummary:1'));
+    await waitFor(() =>
+      expect(screen.queryByRole('tab', { name: 'Model summary 1' })).toBeNull(),
+    );
+    expect(storage.getItem('bsh.pane.modelSummary.1.v1')).toBeNull();
+    expect(storage.getItem('bsh.layout.instances.v1') ?? '').not.toContain(
+      'modelSummary:1',
+    );
   });
 });
 

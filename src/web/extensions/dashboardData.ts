@@ -1,4 +1,5 @@
 import type { PropertyRow } from '../../shared/types.js';
+import type { ModelDbId } from '../viewer/modelSet.js';
 import { EMPTY_VALUE_LABEL, formatValue } from './modelSummary.js';
 
 export const DEFAULT_DASHBOARD_PROPERTIES: readonly string[] = [
@@ -68,6 +69,25 @@ export function bucketLabels(
   return new Set(all.map((d) => d.label).filter((name) => !shown.has(name)));
 }
 
+export function selectedBuckets(
+  rows: readonly PropertyRow[],
+  chart: ChartData,
+  selection: readonly ModelDbId[],
+): Set<string> {
+  const picked = new Set(
+    selection.map((item) => `${item.modelId}:${item.dbId}`),
+  );
+  if (picked.size === 0) return new Set();
+  const shown = new Set(chart.data.map((d) => d.label));
+  const buckets = new Set<string>();
+  for (const row of rows) {
+    if (!picked.has(`${row.modelId}:${row.dbId}`)) continue;
+    const label = formatValue(row.properties[chart.property]);
+    buckets.add(shown.has(label) ? label : OTHER_LABEL);
+  }
+  return buckets;
+}
+
 export function availableProperties(
   rows: readonly PropertyRow[],
   candidates: readonly string[],
@@ -121,6 +141,8 @@ export function readChartTheme(
 }
 
 function parseHex(color: string): [number, number, number] | null {
+  const rgb = /^rgb\((\d+), (\d+), (\d+)\)$/.exec(color.trim());
+  if (rgb) return [Number(rgb[1]), Number(rgb[2]), Number(rgb[3])];
   const match = /^#([0-9a-f]{6})$/i.exec(color.trim());
   if (!match?.[1]) return null;
   const value = Number.parseInt(match[1], 16);

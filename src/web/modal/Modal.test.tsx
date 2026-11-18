@@ -47,6 +47,20 @@ function renderModal(id: string) {
 }
 
 describe('ModalProvider', () => {
+  it('runs the definition onClose once when its modal closes', () => {
+    const onClose = vi.fn();
+    const defs: ModalDefinition[] = DEFINITIONS.map((d) => ({ ...d, onClose }));
+    render(
+      <ModalProvider definitions={defs}>
+        <Trigger id="demo" />
+      </ModalProvider>,
+    );
+    fireEvent.click(screen.getByText('Open demo'));
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText('Done'));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it('opens a registered modal with its title and body', () => {
     renderModal('demo');
     fireEvent.click(screen.getByText('Open demo'));

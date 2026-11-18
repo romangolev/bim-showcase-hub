@@ -7,6 +7,7 @@ import {
   within,
 } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { BSH_KEYS } from '../../storage.js';
 import {
   createTestClient,
   folder,
@@ -18,7 +19,7 @@ import {
   treeRoutes,
 } from '../../test/mockApi.js';
 import { DocumentTree } from './DocumentTree.js';
-import { TREE_VIEW_KEY, type TreeView } from './treeView.js';
+import type { TreeView } from './treeView.js';
 
 function renderTree(
   onOpenModel = vi.fn(),
@@ -68,7 +69,10 @@ describe('DocumentTree metadata', () => {
   async function open(view?: TreeView) {
     installMemoryStorage();
     if (view) {
-      window.localStorage.setItem(TREE_VIEW_KEY, JSON.stringify(view));
+      window.localStorage.setItem(
+        BSH_KEYS.preference.treeView,
+        JSON.stringify(view),
+      );
     }
     mockFetch({
       ...treeRoutes,

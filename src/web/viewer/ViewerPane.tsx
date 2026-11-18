@@ -9,31 +9,16 @@ import {
 } from 'react';
 import { parseView } from '../api/viewLink.js';
 import { StateBlock } from '../components/StateBlock.js';
-import {
-  describeStatus,
-  type ExportStatus,
-} from '../extensions/excelExport.js';
-import {
-  describeGlbStatus,
-  type GlbExportStatus,
-  glbHasWarning,
-} from '../extensions/glbExport.js';
-import {
-  describeIfcStatus,
-  type IfcExportStatus,
-  ifcHasWarning,
-} from '../extensions/ifcExport.js';
-import { formatCount } from '../extensions/modelSummary.js';
-import { resetPaint } from '../extensions/paintBrushes.js';
-import { modelKey, registerViewerTools } from '../extensions/viewerTools.js';
-import { useSettings } from '../settings/SettingsContext.js';
-import { readExcelSettings, readIfcSettings } from '../settings/settings.js';
+import { startTask } from '../tasks/taskStore.js';
 import { useTheme } from '../theme/ThemeContext.js';
+import { TOOLS, useViewerTools } from '../tools/index.js';
+import { modelKey } from '../tools/kernel/modelKey.js';
 import { createViewerAdapter } from './createViewerAdapter.js';
 import { explainFailure } from './failureExplainer.js';
 import { ModelsMenu } from './ModelsMenu.js';
 import {
   type FailureReason,
+  type ModelMeta,
   ModelSetError,
   type ModelSource,
   type ModelSpread,
@@ -69,6 +54,7 @@ export interface ViewerPaneProps {
   exportName?: string;
   onKeepOnly?: () => void;
   name?: string;
+  meta?: ModelMeta;
   members?: readonly ModelSource[];
   onRemoveModel?: (urn: string) => void;
   onAddModel?: () => void;
@@ -77,6 +63,8 @@ export interface ViewerPaneProps {
   onSpreadChange?: (distanceMeters: number | null) => void;
   initialView?: string | null;
   shareHref?: string;
+  onManageViewpoints?: () => void;
+  onPresent?: () => void;
   children?: ReactNode;
 }
 
@@ -97,60 +85,10 @@ export const NOTICE_DISMISS_MS = 8000;
 export const ADD_FAILED_MESSAGE = 'Could not add the model';
 export const SETTLE_MS = 250;
 
-function isBusy(status: { phase: string }): boolean {
-  return status.phase === 'reading' || status.phase === 'building';
-}
-
-function badgeText(status: ExportStatus): string {
-  if (status.phase === 'error') return 'Export failed';
-  if (status.phase === 'done') {
-    const rows = `Exported ${formatCount(status.rowCount)} rows`;
-    return status.missing?.length
-      ? `${rows}, missing ${status.missing.join(', ')}`
-      : rows;
-  }
-  return describeStatus(status);
-}
-
-function glbBadgeText(status: GlbExportStatus): string {
-  return status.phase === 'error'
-    ? 'GLB export failed'
-    : describeGlbStatus(status);
-}
-
 interface StatusBadge {
   text: string;
   detail: string;
   error: boolean;
-}
-
-function excelBadge(status: ExportStatus): StatusBadge {
-  return {
-    text: badgeText(status),
-    detail: describeStatus(status),
-    error:
-      status.phase === 'error' ||
-      (status.phase === 'done' && Boolean(status.missing?.length)),
-  };
-}
-
-function glbBadge(status: GlbExportStatus): StatusBadge {
-  return {
-    text: glbBadgeText(status),
-    detail: describeGlbStatus(status),
-    error: glbHasWarning(status),
-  };
-}
-
-function ifcBadge(status: IfcExportStatus): StatusBadge {
-  return {
-    text:
-      status.phase === 'error'
-        ? 'IFC export failed'
-        : describeIfcStatus(status),
-    detail: describeIfcStatus(status),
-    error: ifcHasWarning(status),
-  };
 }
 
 export const STAGE_TEXT: Record<LoadStage, string> = {
@@ -172,6 +110,7 @@ export function ViewerPane({
   exportName,
   onKeepOnly,
   name,
+  meta,
   members = NO_MEMBERS,
   onRemoveModel,
   onAddModel,
@@ -180,12 +119,16 @@ export function ViewerPane({
   onSpreadChange,
   initialView = null,
   shareHref,
+  onManageViewpoints,
+  onPresent,
   children,
 }: ViewerPaneProps) {
   const membersRef = useRef(members);
   membersRef.current = members;
   const nameRef = useRef(name);
   nameRef.current = name;
+  const metaRef = useRef(meta);
+  metaRef.current = meta;
   const [setNotice, setSetNotice] = useState<string | null>(null);
   const registry = useContext(ActiveViewerContext);
   const publish = registry?.publish;
@@ -204,11 +147,6 @@ export function ViewerPane({
   const [attempt, setAttempt] = useState(0);
   const [stage, setStage] = useState<LoadStage>('starting');
   const { theme } = useTheme();
-  const { settings } = useSettings();
-  const ifcSettingsRef = useRef(settings.ifc);
-  ifcSettingsRef.current = settings.ifc;
-  const excelSettingsRef = useRef(settings.excel);
-  excelSettingsRef.current = settings.excel;
   const themeRef = useRef(theme);
   const instanceRef = useRef<ViewerAdapter | null>(null);
 
@@ -216,31 +154,14 @@ export function ViewerPane({
     onReadyRef.current = onReady;
   }, [onReady]);
 
-  const showBadge = useCallback((badge: StatusBadge, busy: boolean) => {
+  const showBadge = useCallback((badge: StatusBadge) => {
     clearTimeout(statusTimer.current);
     setStatusBadge(badge);
-    if (!busy) {
-      statusTimer.current = setTimeout(
-        () => setStatusBadge(null),
-        STATUS_DISMISS_MS,
-      );
-    }
+    statusTimer.current = setTimeout(
+      () => setStatusBadge(null),
+      STATUS_DISMISS_MS,
+    );
   }, []);
-
-  const handleExportStatus = useCallback(
-    (next: ExportStatus) => showBadge(excelBadge(next), isBusy(next)),
-    [showBadge],
-  );
-
-  const handleGeometryStatus = useCallback(
-    (next: GlbExportStatus) => showBadge(glbBadge(next), isBusy(next)),
-    [showBadge],
-  );
-
-  const handleIfcStatus = useCallback(
-    (next: IfcExportStatus) => showBadge(ifcBadge(next), isBusy(next)),
-    [showBadge],
-  );
 
   useEffect(() => () => clearTimeout(statusTimer.current), []);
 
@@ -292,6 +213,10 @@ export function ViewerPane({
     setState({ status: 'loading' });
     setStage('starting');
     let stopStage: (() => void) | undefined;
+    const task = startTask({
+      label: `Loading ${nameRef.current ?? 'model'}`,
+      retry: () => setAttempt((n) => n + 1),
+    });
 
     (async () => {
       try {
@@ -299,18 +224,28 @@ export function ViewerPane({
         created = instance;
         instanceRef.current = instance;
         instance.setTheme(themeRef.current);
-        stopStage = instance.onLoadStage(setStage);
+        stopStage = instance.onLoadStage((next) => {
+          setStage(next);
+          task.progress(null, STAGE_TEXT[next]);
+        });
         if (cancelled) {
           instance.destroy();
           return;
         }
         const extra = membersRef.current;
         const primaryName = nameRef.current;
+        const primaryMeta = metaRef.current;
         if (extra.length > 0) {
           await instance.loadModels([
-            primaryName ? { urn, name: primaryName } : { urn },
+            {
+              urn,
+              ...(primaryName ? { name: primaryName } : {}),
+              ...primaryMeta,
+            },
             ...extra,
           ]);
+        } else if (primaryMeta) {
+          await instance.load(urn, primaryName, primaryMeta);
         } else if (primaryName) {
           await instance.load(urn, primaryName);
         } else {
@@ -322,13 +257,16 @@ export function ViewerPane({
         setAdapter(instance);
         publish?.(urn, instance);
         setState({ status: 'ready' });
+        task.finish();
         onReadyRef.current?.(instance);
       } catch (err) {
         if (cancelled) return;
         if (err instanceof RegionConflictError) {
+          task.cancel();
           setState({ status: 'region', region: err.region });
           return;
         }
+        task.fail(err);
         setState({
           status: 'error',
           message: detailOf(err),
@@ -339,6 +277,7 @@ export function ViewerPane({
 
     return () => {
       cancelled = true;
+      task.discard();
       stopStage?.();
       adapterRef.current = null;
       created?.destroy();
@@ -348,53 +287,21 @@ export function ViewerPane({
     };
   }, [urn, factory, publish, withdraw, attempt]);
 
-  useEffect(() => {
-    if (!adapter || !tools) return;
-    return registerViewerTools(adapter, {
-      onStatus: handleExportStatus,
-      onGeometryStatus: handleGeometryStatus,
-      onIfcStatus: handleIfcStatus,
-      ifcSettings: () => readIfcSettings(ifcSettingsRef.current),
-      excelSettings: () => readExcelSettings(excelSettingsRef.current),
-      key: modelKey(urn),
-      paintPalette: settings.paintPalette,
-      paintIntensity: settings.paintIntensity,
-      fileName: () => exportNameRef.current ?? '',
-      features: {
-        paint: settings.paintBrushes,
-        export: settings.excelExport,
-        geometry: settings.glbExport,
-        ifc: settings.ifcExport,
-      },
-    });
-  }, [
+  useViewerTools(TOOLS, {
     adapter,
-    tools,
-    urn,
-    settings.paintBrushes,
-    settings.paintPalette,
-    settings.paintIntensity,
-    settings.excelExport,
-    settings.glbExport,
-    settings.ifcExport,
-    handleExportStatus,
-    handleGeometryStatus,
-    handleIfcStatus,
-  ]);
-
-  const paintWasOn = useRef(settings.paintBrushes);
-  useEffect(() => {
-    const wasOn = paintWasOn.current;
-    paintWasOn.current = settings.paintBrushes;
-    if (wasOn && !settings.paintBrushes && adapter && tools) {
-      resetPaint(adapter);
-    }
-  }, [adapter, tools, settings.paintBrushes]);
+    active: tools,
+    suffix: modelKey(urn),
+    fileName: () => exportNameRef.current ?? '',
+  });
 
   const sourceFor = useCallback(
     (id: string): ModelSource => {
       if (id === urn) {
-        return nameRef.current ? { urn, name: nameRef.current } : { urn };
+        return {
+          urn,
+          ...(nameRef.current ? { name: nameRef.current } : {}),
+          ...metaRef.current,
+        };
       }
       return (
         membersRef.current.find((source) => source.urn === id) ?? { urn: id }
@@ -589,9 +496,21 @@ export function ViewerPane({
             baseHref={shareHref}
             fileName={exportName}
             combined={combined}
-            onResult={(text, error) =>
-              showBadge({ text, detail: text, error }, false)
-            }
+            onManageViewpoints={onManageViewpoints}
+            onPresent={onPresent}
+            frameSize={() => {
+              const host = hostRef.current;
+              return host
+                ? { width: host.clientWidth, height: host.clientHeight }
+                : null;
+            }}
+            caption={{
+              name: combined
+                ? `${name ?? 'Model'} and ${models.length - 1} more`
+                : (name ?? exportName?.replace(/\.xlsx$/, '') ?? 'Model'),
+              ...(meta?.version ? { version: meta.version } : {}),
+            }}
+            onResult={(text, error) => showBadge({ text, detail: text, error })}
           />
         ) : null}
         {adapter && combined ? (

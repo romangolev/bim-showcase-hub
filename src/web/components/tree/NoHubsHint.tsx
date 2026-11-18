@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { childrenQueryOptions, sessionQueryOptions } from '../../api/hooks.js';
 import { ROOT_SCOPE } from '../../api/scope.js';
-import { BSH_KEYS, readJson, writeJson } from '../../storage.js';
+import { BSH_KEYS, defineRecord } from '../../storage.js';
 import { Icon } from '../icons.js';
 import { StateBlock } from '../StateBlock.js';
 
@@ -136,16 +136,14 @@ export function NoHubsHint({ onCheckAgain }: NoHubsHintProps) {
 
 export const HINT_DISMISSED_KEY = BSH_KEYS.personal.hubHint;
 
-function readDismissed(): string[] {
-  const parsed = readJson<unknown>(HINT_DISMISSED_KEY, []);
-  return Array.isArray(parsed)
-    ? parsed.filter((owner): owner is string => typeof owner === 'string')
-    : [];
-}
-
-function writeDismissed(owners: string[]) {
-  writeJson(HINT_DISMISSED_KEY, owners);
-}
+const DISMISSED = defineRecord<string[]>({
+  key: HINT_DISMISSED_KEY,
+  initial: [],
+  sanitize: (parsed) =>
+    Array.isArray(parsed)
+      ? parsed.filter((owner): owner is string => typeof owner === 'string')
+      : [],
+});
 
 export interface PersonalHubNoticeProps {
   onCheckAgain: () => void;
@@ -161,7 +159,7 @@ export function PersonalHubNotice({ onCheckAgain }: PersonalHubNoticeProps) {
     enabled: false,
   });
   const owner = session?.name ?? 'anonymous';
-  const [dismissed, setDismissed] = useState<string[]>(readDismissed);
+  const [dismissed, setDismissed] = useState<string[]>(() => DISMISSED.read());
 
   const personalOnly =
     hubs !== undefined &&
@@ -174,7 +172,7 @@ export function PersonalHubNotice({ onCheckAgain }: PersonalHubNoticeProps) {
   const dismiss = () => {
     const next = [...dismissed, owner];
     setDismissed(next);
-    writeDismissed(next);
+    DISMISSED.write(next);
     document
       .querySelector<HTMLInputElement>('.doc-tree__search input')
       ?.focus();

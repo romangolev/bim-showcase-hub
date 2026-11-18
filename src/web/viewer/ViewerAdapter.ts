@@ -5,10 +5,16 @@ import type { GeometryRead } from './geometryTypes.js';
 import type {
   ModelDbId,
   ModelInfo,
+  ModelMeta,
   ModelSource,
   ModelSpread,
   Vec3,
 } from './modelSet.js';
+import type {
+  ElementProperties,
+  PropertyInfo,
+  ReadOptions,
+} from './propertyReads.js';
 
 export type Rgba = readonly [r: number, g: number, b: number, a: number];
 
@@ -52,10 +58,31 @@ export interface CameraState {
   target: Vec3;
   up: Vec3;
   ortho: boolean;
+  orthoHeight?: number;
+}
+
+export interface RestoreReport {
+  skippedModels: string[];
+  viewerFailed: boolean;
+}
+
+export const NOTHING_SKIPPED: RestoreReport = {
+  skippedModels: [],
+  viewerFailed: false,
+};
+
+export interface ViewerState {
+  version: 1;
+  camera: CameraState | null;
+  cutplanes: number[][];
+  models: Record<
+    string,
+    { isolated: number[]; hidden: number[]; selection: number[] }
+  >;
 }
 
 export interface ViewerAdapter {
-  load(urn: string, name?: string): Promise<void>;
+  load(urn: string, name?: string, meta?: ModelMeta): Promise<void>;
   unload(): void;
   resize(): void;
   scheduleResize(settleMs: number): void;
@@ -65,7 +92,12 @@ export interface ViewerAdapter {
   getLeafProperties(
     propertyNames: string[],
     modelIds?: readonly string[],
+    options?: ReadOptions,
   ): Promise<PropertyRow[]>;
+  discoverProperties(
+    modelIds?: readonly string[],
+    options?: ReadOptions,
+  ): Promise<PropertyInfo[]>;
   registerToolGroup(spec: ToolGroupSpec): () => void;
   onSelectionChange(cb: (items: ModelDbId[]) => void): () => void;
   destroy(): void;
@@ -79,10 +111,15 @@ export interface ViewerAdapter {
   getModelSelection(): ModelDbId[];
   getModelWeight(modelId: string): number | null;
   getIsolated(): ModelDbId[];
+  getVisible(): Promise<ModelDbId[]>;
   selectModelIds(items: readonly ModelDbId[]): void;
   isolateModelIds(items: readonly ModelDbId[]): void;
-  fitToSelection(): void;
-  getScreenshot(): Promise<Blob>;
+  hideModelIds(items: readonly ModelDbId[]): void;
+  showAll(): void;
+  fitToView(items?: readonly ModelDbId[]): void;
+  getState(): ViewerState;
+  restoreState(state: ViewerState): Promise<RestoreReport>;
+  getScreenshot(width?: number, height?: number): Promise<Blob>;
   getCamera(): CameraState | null;
   setCamera(camera: CameraState): void;
   setModelThemingColor(items: readonly ModelDbId[], color: Rgba): void;
@@ -91,6 +128,7 @@ export interface ViewerAdapter {
   setModelOffsets(offsets: Readonly<Record<string, Vec3>> | null): void;
   getGeometryParts(): Promise<GeometryRead>;
   getIfcSource(): Promise<IfcSourceRead>;
+  getElementProperties(item: ModelDbId): Promise<ElementProperties | null>;
 }
 
 export type ViewerAdapterFactory = (

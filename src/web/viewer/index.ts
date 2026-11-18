@@ -16,6 +16,7 @@ export {
   MODEL_LIMIT_MESSAGE,
   type ModelDbId,
   type ModelInfo,
+  type ModelMeta,
   ModelSetError,
   type ModelSource,
   type ModelStatus,

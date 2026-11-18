@@ -16,20 +16,30 @@ import { useOpenModels, useOpenModelsStore } from '../api/useOpenModels.js';
 import { StateBlock } from '../components/StateBlock.js';
 import { useTreeControl } from '../components/TreeControl.js';
 import { TreePanel } from '../components/TreePanel.js';
-import { exportFileName } from '../extensions/excelExport.js';
+import { DEFAULT_FILE_NAME } from '../extensions/excelExport.js';
 import { useModal } from '../modal/ModalContext.js';
 import { DASHBOARD_SETTINGS_ID } from '../panels/DashboardSettings.js';
 import {
   DashboardPanel,
   ModelSummaryPanel,
   ModelsPanel,
+  PropertiesPanel,
 } from '../panels/index.js';
 import { SUMMARY_SETTINGS_ID } from '../panels/SummarySettings.js';
-import { memberLabel } from '../routes/ModelPage.js';
+import { VIEWPOINTS_MODAL_ID } from '../panels/Viewpoints.js';
+import { memberLabel, memberMeta } from '../routes/ModelPage.js';
+import { usePaneSetting } from '../settings/paneSettings.js';
+import { exportFileName, exportStem } from '../tools/kernel/exportKit.js';
 import { ViewerPane } from '../viewer/index.js';
 import { page } from '../viewer/region.js';
+import {
+  chartSetting,
+  propertiesSetting,
+  summarySetting,
+} from './instanceSettings.js';
 import { useLayout, useMainContent } from './layoutContext.js';
 import { instancePanelId } from './panelIds.js';
+import { setSummarySettingsTarget } from './summaryTarget.js';
 
 export const MODEL_KIND = 'viewer';
 
@@ -85,6 +95,7 @@ export function TreePane() {
 
 export function ModelPaneBody({ instance }: { instance: string }) {
   const layout = useLayout();
+  const modal = useModal();
   const state = useOpenModels();
   const store = useOpenModelsStore();
   const panel = modelPanelId(instance);
@@ -109,14 +120,25 @@ export function ModelPaneBody({ instance }: { instance: string }) {
         ? memberKey.split(',').map((urn) => ({
             urn,
             name: memberLabel(urn, recallModel(urn)),
+            ...memberMeta(recallModel(urn)),
           }))
         : [],
     [memberKey, recalled],
   );
-  const exportName =
+  const version = context?.v;
+  const path = context?.crumbs?.join(' / ');
+  const meta = useMemo(
+    () => memberMeta({ v: version, crumbs: path ? [path] : [] }),
+    [version, path],
+  );
+  const exportName = exportFileName(
     members.length > 0
-      ? exportFileName(`${members.length + 1} models`)
-      : exportFileName(context?.file, context?.v);
+      ? exportStem(`${members.length + 1} models`)
+      : exportStem(context?.file, context?.v),
+    DEFAULT_FILE_NAME,
+    '-properties',
+    'xlsx',
+  );
   return (
     <section
       id={active ? 'main' : undefined}
@@ -136,6 +158,7 @@ export function ModelPaneBody({ instance }: { instance: string }) {
             resizeSignal={layout.resizeSignal(panel)}
             exportName={exportName}
             name={memberLabel(instance, context)}
+            meta={meta}
             members={members}
             onRemoveModel={(urn) => store?.removeFrom(instance, urn)}
             offsets={entry?.offsets ?? null}
@@ -146,6 +169,8 @@ export function ModelPaneBody({ instance }: { instance: string }) {
             initialView={
               active && typeof routeView === 'string' ? routeView : null
             }
+            onManageViewpoints={() => modal.open(VIEWPOINTS_MODAL_ID)}
+            onPresent={() => layout.setPresenting(true)}
             shareHref={
               new URL(
                 router.buildLocation({
@@ -203,10 +228,46 @@ export function SummaryPane() {
     <aside className="pane-summary" aria-label="Model summary">
       <ModelSummaryPanel
         model={model}
-        onOpenSettings={() => modal.open(SUMMARY_SETTINGS_ID)}
+        onOpenSettings={() => {
+          setSummarySettingsTarget(null);
+          modal.open(SUMMARY_SETTINGS_ID);
+        }}
         collapsed={layout.mode === 'stacked' && layout.isCollapsed('summary')}
         toggleable={layout.mode === 'stacked'}
         onCollapsedChange={(next) => layout.setCollapsed('summary', next)}
+      />
+    </aside>
+  );
+}
+
+export function SummaryInstancePane({ instance }: { instance: string }) {
+  const layout = useLayout();
+  const modal = useModal();
+  const panel = instancePanelId('modelSummary', instance);
+  const [spec, setSpec] = usePaneSetting(summarySetting(panel));
+  return (
+    <aside className="pane-summary" aria-label="Model summary">
+      <ModelSummaryPanel
+        title={layout.paneTitle(panel).label}
+        toggleable={false}
+        onOpenSettings={() => {
+          setSummarySettingsTarget(panel);
+          modal.open(SUMMARY_SETTINGS_ID);
+        }}
+        propertyNames={spec.properties}
+        view={{
+          value: spec.view,
+          onChange: (view) => setSpec((prev) => ({ ...prev, view })),
+        }}
+        action={spec.action}
+        scope={{
+          value: spec.scope,
+          onChange: (scope) => setSpec((prev) => ({ ...prev, scope })),
+        }}
+        elements={{
+          value: spec.elements,
+          onChange: (elements) => setSpec((prev) => ({ ...prev, elements })),
+        }}
       />
     </aside>
   );
@@ -222,6 +283,37 @@ export function DashboardPane() {
         collapsed={layout.mode === 'stacked' && layout.isCollapsed('dashboard')}
         toggleable={layout.mode === 'stacked'}
         onCollapsedChange={(next) => layout.setCollapsed('dashboard', next)}
+      />
+    </div>
+  );
+}
+
+export function ChartInstancePane({ instance }: { instance: string }) {
+  const layout = useLayout();
+  const panel = instancePanelId('chart', instance);
+  return (
+    <div className="pane-dashboard">
+      <DashboardPanel
+        setting={chartSetting(panel)}
+        title={layout.paneTitle(panel).label}
+        toggleable={false}
+      />
+    </div>
+  );
+}
+
+export function PropertiesInstancePane({ instance }: { instance: string }) {
+  const layout = useLayout();
+  const panel = instancePanelId('properties', instance);
+  const [spec, setSpec] = usePaneSetting(propertiesSetting(panel));
+  return (
+    <div className="pane-properties">
+      <PropertiesPanel
+        title={layout.paneTitle(panel).label}
+        scope={{
+          value: spec.scope,
+          onChange: (scope) => setSpec({ scope }),
+        }}
       />
     </div>
   );

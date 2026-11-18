@@ -17,7 +17,7 @@ export interface GlbBuild {
   skippedParts: number;
 }
 
-export const MAX_GLB_BYTES = 512 * 1024 * 1024;
+export const MAX_GLB_BYTES = 256 * 1024 * 1024;
 export const GLB_MAGIC = 0x46546c67;
 export const GLB_VERSION = 2;
 export const GLB_JSON_CHUNK = 0x4e4f534a;
@@ -128,6 +128,16 @@ function indexBytes(item: Item): number {
   return align4(item.part.indices.length * (item.wide ? 4 : 2));
 }
 
+function yUp(
+  positions: ArrayLike<number>,
+  i: number,
+): [number, number, number] {
+  const x = positions[i * 3] as number;
+  const y = positions[i * 3 + 1] as number;
+  const z = positions[i * 3 + 2] as number;
+  return [x === 0 ? 0 : x, z === 0 ? 0 : z, y === 0 ? 0 : -y];
+}
+
 export function buildGlb(
   parts: readonly GeometryPart[],
   options: GlbBuildOptions = {},
@@ -141,7 +151,6 @@ export function buildGlb(
   }
   const maxBytes = options.maxBytes ?? MAX_GLB_BYTES;
   if (total > maxBytes) throw new Error(tooLargeReason(maxBytes));
-  const bin = new ArrayBuffer(total);
   const bufferViews: Record<string, unknown>[] = [];
   const accessors: Record<string, unknown>[] = [];
   const materials: Record<string, unknown>[] = [];
@@ -177,17 +186,12 @@ export function buildGlb(
     const primitives: Record<string, unknown>[] = [];
     for (const item of element.items) {
       const { part, vertices, wide } = item;
-      const positions = new Float32Array(bin, offset, vertices * 3);
       const min = [Infinity, Infinity, Infinity];
       const max = [-Infinity, -Infinity, -Infinity];
       for (let i = 0; i < vertices; i += 1) {
-        const x = part.positions[i * 3] as number;
-        const y = part.positions[i * 3 + 1] as number;
-        const z = part.positions[i * 3 + 2] as number;
-        const out = [x === 0 ? 0 : x, z === 0 ? 0 : z, y === 0 ? 0 : -y];
+        const out = yUp(part.positions, i);
         for (let axis = 0; axis < 3; axis += 1) {
           const value = out[axis] as number;
-          positions[i * 3 + axis] = value;
           if (value < (min[axis] as number)) min[axis] = value;
           if (value > (max[axis] as number)) max[axis] = value;
         }
@@ -202,7 +206,6 @@ export function buildGlb(
       offset += vertices * 12;
 
       const IndexArray = wide ? Uint32Array : Uint16Array;
-      new IndexArray(bin, offset, part.indices.length).set(part.indices);
       const indexView =
         bufferViews.push({
           buffer: 0,
@@ -280,7 +283,20 @@ export function buildGlb(
     const binStart = 20 + jsonLength;
     view.setUint32(binStart, total, true);
     view.setUint32(binStart + 4, GLB_BIN_CHUNK, true);
-    bytes.set(new Uint8Array(bin), binStart + 8);
+    let writeAt = binStart + 8;
+    for (const element of elements) {
+      for (const item of element.items) {
+        const { part, vertices, wide } = item;
+        const positions = new Float32Array(out, writeAt, vertices * 3);
+        for (let i = 0; i < vertices; i += 1) {
+          positions.set(yUp(part.positions, i), i * 3);
+        }
+        writeAt += vertices * 12;
+        const IndexArray = wide ? Uint32Array : Uint16Array;
+        new IndexArray(out, writeAt, part.indices.length).set(part.indices);
+        writeAt += indexBytes(item);
+      }
+    }
   }
   return {
     data: out,
@@ -289,25 +305,6 @@ export function buildGlb(
     meshCount: elements.length,
     skippedParts: skipped,
   };
-}
-
-export function geometryFileName(
-  file?: string,
-  version?: string,
-  extension = 'glb',
-): string {
-  const base = (file ?? '').replace(/\.[A-Za-z0-9]{1,5}$/, '');
-  const parts = [base, version ?? '']
-    .map((part) =>
-      part
-        .normalize('NFKD')
-        .replace(/[^A-Za-z0-9._-]+/g, '-')
-        .replace(/-{2,}/g, '-')
-        .replace(/^[-.]+|[-.]+$/g, ''),
-    )
-    .filter(Boolean);
-  if (!parts.length) return DEFAULT_GLB_FILE_NAME;
-  return `${parts.join('-').slice(0, 120)}-geometry.${extension}`;
 }
 
 export function describeGlbStatus(status: GlbExportStatus): string {
@@ -323,14 +320,6 @@ export function describeGlbStatus(status: GlbExportStatus): string {
     case 'error':
       return status.message;
   }
-}
-
-export function glbHasWarning(status: GlbExportStatus): boolean {
-  return (
-    status.phase === 'error' ||
-    (status.phase === 'done' &&
-      Boolean(status.missing?.length || status.skipped))
-  );
 }
 
 function doneText(status: Extract<GlbExportStatus, { phase: 'done' }>): string {

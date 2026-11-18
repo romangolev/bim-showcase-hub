@@ -11,4 +11,5 @@ export interface ModalDefinition {
   title: string;
   size: ModalSize;
   Body: ComponentType<ModalBodyProps>;
+  onClose?: () => void;
 }

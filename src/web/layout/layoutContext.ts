@@ -25,12 +25,17 @@ export interface LayoutApi {
   isCollapsed: (id: PaneId) => boolean;
   setCollapsed: (id: PaneId, collapsed: boolean) => void;
   togglePane: (id: PanelId) => void;
+  addInstance: (kind: PaneId) => PanelId | null;
+  canAddInstance: boolean;
+  canPresent: boolean;
   movePane: (id: PanelId, target: MoveTarget) => void;
   resetLayout: () => void;
   locked: boolean;
   setLocked: (locked: boolean) => void;
   maximized: PanelId | null;
   toggleMaximize: (id: PanelId) => void;
+  presenting: boolean;
+  setPresenting: (presenting: boolean) => void;
   focusPane: (id: PanelId) => void;
   resizeSignal: (id: PanelId) => number;
   location: (id: PanelId) => 'grid' | 'floating' | null;

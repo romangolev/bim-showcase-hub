@@ -1,4 +1,8 @@
-import { NumberField } from '../components/NumberField.js';
+import type { ReactNode } from 'react';
+import {
+  type FormDefinition,
+  SettingsForm,
+} from '../components/SettingsForm.js';
 import {
   ACTION_LABELS,
   ELEMENT_ACTIONS,
@@ -10,112 +14,207 @@ import {
   SUMMARY_COLUMNS,
   type SummaryColumn,
   type SummaryView,
-  sanitizeView,
 } from '../extensions/modelSummary.js';
+import { summarySetting } from '../layout/instanceSettings.js';
+import type { PanelId } from '../layout/paneRegistry.js';
+import {
+  setSummarySettingsTarget,
+  useSummarySettingsTarget,
+} from '../layout/summaryTarget.js';
 import type { ModalDefinition } from '../modal/types.js';
-import { BSH_KEYS } from '../storage.js';
-import { usePersistedState } from '../usePersistedState.js';
+import { PANE_SETTINGS, usePaneSetting } from '../settings/paneSettings.js';
+import { usePublishedAdapter } from '../viewer/activeAdapterStore.js';
+import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
+import { PropertyPicker } from './PropertyPicker.js';
+import { useResolvedAdapter } from './useScopedRows.js';
 
 export const SUMMARY_SETTINGS_ID = 'summary-settings';
 
-export function SummarySettingsBody() {
-  const [view, setView, resetView] = usePersistedState<SummaryView>(
-    BSH_KEYS.personal.summaryView,
-    DEFAULT_SUMMARY_VIEW,
-    sanitizeView,
-  );
-  const [action, setAction] = usePersistedState<ElementAction>(
-    BSH_KEYS.personal.summaryAction,
-    'select',
-    sanitizeAction,
-  );
-  const patch = (next: Partial<SummaryView>) =>
-    setView((prev) => ({ ...prev, ...next }));
-  const toggleColumn = (column: SummaryColumn) =>
-    patch({
-      hiddenColumns: view.hiddenColumns.includes(column)
-        ? view.hiddenColumns.filter((c) => c !== column)
-        : [...view.hiddenColumns, column],
-    });
+interface SummaryForm {
+  hideEmpty: boolean;
+  minCount: number;
+  sort: string;
+  density: string;
+  action: ElementAction;
+  columns: SummaryColumn[];
+}
 
+export const SUMMARY_FORM: FormDefinition<SummaryForm> = {
+  fields: [
+    { key: 'hideEmpty', kind: 'toggle', label: 'Hide (empty)' },
+    { key: 'minCount', kind: 'number', label: 'Minimum count', min: 1 },
+    {
+      key: 'sort',
+      kind: 'select',
+      label: 'Sort by',
+      options: [
+        { value: 'count', label: 'Count' },
+        { value: 'value', label: 'Value' },
+      ],
+    },
+    {
+      key: 'density',
+      kind: 'select',
+      label: 'Density',
+      options: [
+        { value: 'comfortable', label: 'Comfortable' },
+        { value: 'compact', label: 'Compact' },
+      ],
+    },
+    {
+      key: 'action',
+      kind: 'select',
+      label: 'Row click',
+      options: ELEMENT_ACTIONS.map((name) => ({
+        value: name,
+        label: ACTION_LABELS[name],
+      })),
+    },
+    {
+      key: 'columns',
+      kind: 'multi',
+      label: 'Columns',
+      options: SUMMARY_COLUMNS.map((column) => ({
+        value: column,
+        label: column,
+      })),
+    },
+  ],
+};
+
+function GlobalProperties({ adapter }: { adapter: ViewerAdapter | null }) {
+  const [properties, setProperties] = usePaneSetting(
+    PANE_SETTINGS.summary.properties,
+  );
+  return (
+    <PropertyPicker
+      adapter={adapter}
+      value={properties}
+      onChange={setProperties}
+    />
+  );
+}
+
+function InstanceProperties({
+  target,
+  adapter,
+}: {
+  target: PanelId;
+  adapter: ViewerAdapter | null;
+}) {
+  const [spec, setSpec] = usePaneSetting(summarySetting(target));
+  return (
+    <PropertyPicker
+      adapter={adapter}
+      value={spec.properties}
+      onChange={(properties) => setSpec((prev) => ({ ...prev, properties }))}
+    />
+  );
+}
+
+function SummaryFields({
+  view,
+  action,
+  onView,
+  onAction,
+  onReset,
+  properties,
+}: {
+  view: SummaryView;
+  action: ElementAction;
+  onView: (view: SummaryView) => void;
+  onAction: (action: ElementAction) => void;
+  onReset: () => void;
+  properties: ReactNode;
+}) {
+  const value: SummaryForm = {
+    hideEmpty: view.hideEmpty,
+    minCount: view.minCount,
+    sort: view.sort,
+    density: view.density,
+    action,
+    columns: SUMMARY_COLUMNS.filter((c) => !view.hiddenColumns.includes(c)),
+  };
+  const onChange = (patch: Partial<SummaryForm>) => {
+    const { action: nextAction, columns, sort, density, ...rest } = patch;
+    if (nextAction !== undefined) onAction(sanitizeAction(nextAction));
+    const next: Partial<SummaryView> = { ...rest };
+    if (sort !== undefined) next.sort = sort === 'value' ? 'value' : 'count';
+    if (density !== undefined) {
+      next.density = density === 'compact' ? 'compact' : 'comfortable';
+    }
+    if (columns) {
+      next.hiddenColumns = SUMMARY_COLUMNS.filter((c) => !columns.includes(c));
+    }
+    if (Object.keys(next).length) onView({ ...view, ...next });
+  };
   return (
     <div className="bsh-summary-settings">
-      <label className="bsh-field">
-        <input
-          type="checkbox"
-          checked={view.hideEmpty}
-          onChange={(e) => patch({ hideEmpty: e.target.checked })}
-        />
-        Hide (empty)
-      </label>
-      <label className="bsh-field">
-        Minimum count
-        <NumberField
-          min={1}
-          className="bsh-input bsh-input--narrow"
-          value={view.minCount}
-          onCommit={(minCount) => patch({ minCount })}
-        />
-      </label>
-      <label className="bsh-field">
-        Sort by
-        <select
-          className="bsh-select"
-          value={view.sort}
-          onChange={(e) =>
-            patch({ sort: e.target.value === 'value' ? 'value' : 'count' })
-          }
-        >
-          <option value="count">Count</option>
-          <option value="value">Value</option>
-        </select>
-      </label>
-      <label className="bsh-field">
-        Density
-        <select
-          className="bsh-select"
-          value={view.density}
-          onChange={(e) =>
-            patch({
-              density: e.target.value === 'compact' ? 'compact' : 'comfortable',
-            })
-          }
-        >
-          <option value="comfortable">Comfortable</option>
-          <option value="compact">Compact</option>
-        </select>
-      </label>
-      <label className="bsh-field">
-        Row click
-        <select
-          className="bsh-select"
-          value={action}
-          onChange={(e) => setAction(sanitizeAction(e.target.value))}
-        >
-          {ELEMENT_ACTIONS.map((name) => (
-            <option key={name} value={name}>
-              {ACTION_LABELS[name]}
-            </option>
-          ))}
-        </select>
-      </label>
       <fieldset className="bsh-fieldset">
-        <legend>Columns</legend>
-        {SUMMARY_COLUMNS.map((column) => (
-          <label key={column} className="bsh-field">
-            <input
-              type="checkbox"
-              checked={!view.hiddenColumns.includes(column)}
-              onChange={() => toggleColumn(column)}
-            />
-            {column}
-          </label>
-        ))}
+        <legend>Properties</legend>
+        {properties}
       </fieldset>
-      <button type="button" className="bsh-button" onClick={resetView}>
+      <SettingsForm form={SUMMARY_FORM} value={value} onChange={onChange} />
+      <button type="button" className="bsh-button" onClick={onReset}>
         Reset view
       </button>
     </div>
+  );
+}
+
+function GlobalSummarySettings({ adapter }: { adapter: ViewerAdapter | null }) {
+  const [view, setView, resetView] = usePaneSetting(PANE_SETTINGS.summary.view);
+  const [action, setAction, resetAction] = usePaneSetting(
+    PANE_SETTINGS.summary.action,
+  );
+  return (
+    <SummaryFields
+      view={view}
+      action={action}
+      onView={setView}
+      onAction={setAction}
+      onReset={() => {
+        resetView();
+        resetAction();
+      }}
+      properties={<GlobalProperties adapter={adapter} />}
+    />
+  );
+}
+
+function InstanceSummarySettings({
+  target,
+  adapter,
+}: {
+  target: PanelId;
+  adapter: ViewerAdapter | null;
+}) {
+  const [spec, setSpec] = usePaneSetting(summarySetting(target));
+  return (
+    <SummaryFields
+      view={spec.view}
+      action={spec.action}
+      onView={(view) => setSpec((prev) => ({ ...prev, view }))}
+      onAction={(action) => setSpec((prev) => ({ ...prev, action }))}
+      onReset={() =>
+        setSpec((prev) => ({
+          ...prev,
+          view: DEFAULT_SUMMARY_VIEW,
+          action: 'select',
+        }))
+      }
+      properties={<InstanceProperties target={target} adapter={adapter} />}
+    />
+  );
+}
+
+export function SummarySettingsBody() {
+  const target = useSummarySettingsTarget();
+  const adapter = useResolvedAdapter(usePublishedAdapter());
+  return target ? (
+    <InstanceSummarySettings target={target} adapter={adapter} />
+  ) : (
+    <GlobalSummarySettings adapter={adapter} />
   );
 }
 
@@ -124,4 +223,5 @@ export const SUMMARY_SETTINGS_MODAL: ModalDefinition = {
   title: 'Summary settings',
   size: 'lg',
   Body: SummarySettingsBody,
+  onClose: () => setSummarySettingsTarget(null),
 };

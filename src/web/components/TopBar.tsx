@@ -1,6 +1,7 @@
 import type { ReactNode, Ref } from 'react';
 import { useSession, useSignIn } from '../api/hooks.js';
 import { useModal } from '../modal/index.js';
+import { TaskCenter } from '../tasks/TaskCenter.js';
 import { ThemeToggle } from '../theme/ThemeToggle.js';
 import { Icon } from './icons.js';
 import { UserMenu } from './UserMenu.js';
@@ -56,6 +57,7 @@ export function TopBar({
           </span>
         ) : null}
         {user ? actions : null}
+        {user ? <TaskCenter /> : null}
         {user ? (
           <button
             type="button"

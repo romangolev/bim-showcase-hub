@@ -831,3 +831,201 @@
 .bsh-charts[data-single] {
   grid-template-columns: minmax(0, 1fr);
 }
+
+.bsh-picker {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.bsh-picker__chosen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bsh-picker__remove {
+  margin-left: 0.375rem;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.bsh-picker__remove:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.bsh-picker__groups {
+  display: grid;
+  gap: 0.5rem;
+  max-height: 16rem;
+  overflow-y: auto;
+}
+
+.bsh-summary__progress,
+.bsh-summary__partial {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.bsh-summary__progress progress {
+  flex: 1 1 8rem;
+}
+
+.bsh-gallery__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-2);
+  margin: 0 0 var(--gutter);
+  padding: 0;
+  list-style: none;
+}
+
+.bsh-gallery__card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px solid var(--color-ghost-fill-hover);
+  border-radius: 8px;
+}
+
+.bsh-gallery__name {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.bsh-gallery__tag,
+.bsh-gallery__note {
+  margin: 0;
+  font-size: 0.8125rem;
+  opacity: 0.75;
+}
+
+.bsh-gallery__preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.75rem;
+}
+
+.bsh-gallery__preview li {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.bsh-gallery__preview svg {
+  fill: var(--color-iris);
+  stroke: var(--color-iris);
+}
+
+.bsh-gallery__preview svg rect {
+  stroke: none;
+}
+
+.bsh-gallery__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: auto;
+}
+
+.bsh-gallery__primary {
+  border-color: var(--color-iris);
+  background: var(--color-iris);
+  color: var(--color-on-accent);
+}
+
+.bsh-props__tools {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.bsh-props__tools .bsh-input {
+  flex: 1;
+  min-width: 8rem;
+}
+
+.bsh-props__notice {
+  color: var(--color-ash);
+  font-size: var(--text-13);
+}
+
+.bsh-props__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.bsh-props__name {
+  margin: var(--space-3) 0 var(--space-1);
+  color: var(--color-snow);
+  font-size: var(--text-14);
+  font-weight: var(--weight-ui);
+}
+
+.bsh-props__category {
+  padding: var(--space-2) 0;
+  color: var(--color-ash);
+  font-size: var(--text-13);
+  font-weight: var(--weight-ui);
+  cursor: pointer;
+}
+
+.bsh-props__list {
+  margin: 0;
+}
+
+.bsh-props__row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) auto;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  border-bottom: var(--border-hairline);
+  font-size: var(--text-13);
+}
+
+.bsh-props__row dt {
+  color: var(--color-ash);
+  overflow-wrap: anywhere;
+}
+
+.bsh-props__row dd {
+  margin: 0;
+  color: var(--color-chalk);
+  overflow-wrap: anywhere;
+}
+
+.bsh-props__copy {
+  min-height: var(--hit-target);
+  padding: 0 var(--space-2);
+  background: none;
+  color: var(--color-ash);
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.bsh-props__row:hover .bsh-props__copy,
+.bsh-props__copy:focus-visible {
+  opacity: 1;
+}
+
+.bsh-props__copy:hover {
+  color: var(--color-snow);
+}

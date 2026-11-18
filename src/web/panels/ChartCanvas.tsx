@@ -18,6 +18,7 @@ import {
 } from '../extensions/chartExport.js';
 import {
   type ChartData,
+  mixColors,
   readChartTheme,
   seriesColors,
 } from '../extensions/dashboardData.js';
@@ -37,12 +38,16 @@ export type ChartKind = 'bar' | 'doughnut';
 
 export const LEGEND_LIMIT = 8;
 const TICK_LABEL_LIMIT = 10;
+const DIM_WEIGHT = 0.35;
 
 export interface ChartCanvasProps {
   kind: ChartKind;
   chart: ChartData;
   label: string;
   exportName?: string;
+  highlight?: ReadonlySet<string>;
+  pngTitle?: boolean;
+  pngLegend?: boolean;
   onSelectLabel?: (label: string) => void;
 }
 
@@ -57,6 +62,9 @@ export function ChartCanvas({
   chart,
   label,
   exportName = 'model',
+  highlight,
+  pngTitle = true,
+  pngLegend = true,
   onSelectLabel,
 }: ChartCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -64,7 +72,11 @@ export function ChartCanvas({
   selectRef.current = onSelectLabel;
   const [notice, setNotice] = useState('');
   const { theme: pageTheme } = useTheme();
+  const litKey = highlight?.size ? JSON.stringify([...highlight].sort()) : '';
   const [colors, setColors] = useState<string[]>([]);
+  const litKeyRef = useRef(litKey);
+  litKeyRef.current = litKey;
+  const paintRef = useRef<((litKey: string) => void) | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -81,6 +93,19 @@ export function ChartCanvas({
     Chart.defaults.font.weight = Number(theme.fontWeight) || 420;
     Chart.defaults.color = theme.text;
     const labels = chart.data.map((d) => d.label);
+    const styleFor = (key: string) => {
+      const lit = key ? new Set<string>(JSON.parse(key)) : null;
+      return {
+        backgroundColor: lit
+          ? colors.map((color, index) =>
+              lit.has(labels[index] ?? '')
+                ? color
+                : mixColors(color, theme.surface, DIM_WEIGHT),
+            )
+          : colors,
+        borderWidth: labels.map((name) => (lit?.has(name) ? 2 : 0)),
+      };
+    };
     const counts = chart.data.map((d) => d.count);
     const instance = new Chart(canvas, {
       type: kind,
@@ -90,8 +115,8 @@ export function ChartCanvas({
           {
             label: chart.property,
             data: counts,
-            backgroundColor: colors,
-            borderWidth: 0,
+            ...styleFor(litKeyRef.current),
+            borderColor: theme.label,
             ...(kind === 'bar' ? { minBarLength: 2 } : {}),
             ...(kind === 'doughnut' ? { spacing: 2, borderRadius: 2 } : {}),
           },
@@ -138,17 +163,49 @@ export function ChartCanvas({
             : {},
       },
     });
-    return () => instance.destroy();
+    let painted = litKeyRef.current;
+    paintRef.current = (key) => {
+      if (key === painted) return;
+      painted = key;
+      Object.assign(instance.data.datasets[0] ?? {}, styleFor(key));
+      instance.update('none');
+    };
+    return () => {
+      paintRef.current = null;
+      instance.destroy();
+    };
   }, [kind, chart, pageTheme]);
+
+  useEffect(() => {
+    paintRef.current?.(litKey);
+  }, [litKey]);
 
   const exportPng = async () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    const theme = readChartTheme();
+    const shown = chart.data.slice(0, LEGEND_LIMIT);
     const done = await saveChartPng(
       canvas,
-      readChartTheme().surface,
+      theme.surface,
       chart.property,
       exportName,
+      {
+        title: pngTitle ? chart.property : undefined,
+        legend:
+          pngLegend && kind === 'doughnut'
+            ? shown.map((d, index) => ({
+                label: d.label,
+                color: colors[index] ?? 'transparent',
+              }))
+            : undefined,
+        more:
+          pngLegend && kind === 'doughnut'
+            ? chart.data.length - shown.length
+            : 0,
+        text: theme.label,
+        font: theme.fontFamily,
+      },
     );
     setNotice(done ? '' : 'Could not draw the image');
   };

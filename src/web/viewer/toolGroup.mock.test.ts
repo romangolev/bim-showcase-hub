@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { ExportStatus } from '../extensions/excelExport.js';
-import { buildToolGroupSpec } from '../extensions/viewerTools.js';
+import { hexToRgba } from '../extensions/paintBrushes.js';
+import { tasks } from '../tasks/taskStore.js';
+import { buildToolGroup } from '../test/toolGroup.js';
 import { MockViewerAdapter } from './MockViewerAdapter.js';
 import { buildMockElements } from './mockModel.js';
 
@@ -28,12 +29,12 @@ function button(id: string): HTMLButtonElement {
   return el;
 }
 
-const SWATCHES = ['paint-red', 'paint-green', 'paint-blue'];
+const SWATCHES = ['paint-ef4444', 'paint-22c55e', 'paint-3b82f6'];
 
 describe('mock toolbar tool group', () => {
   it('renders the paint combo with swatches and reset plus the export button', async () => {
     await setup();
-    adapter.registerToolGroup(buildToolGroupSpec(adapter));
+    adapter.registerToolGroup(buildToolGroup(adapter));
     const group = host.querySelector('[role="toolbar"] [role="group"]');
     expect(group).not.toBeNull();
     expect(group?.getAttribute('aria-label')).toBe('BIM Showcase Hub tools');
@@ -45,7 +46,7 @@ describe('mock toolbar tool group', () => {
       expect(button(id).querySelector('.bsh-mock__icon')).not.toBeNull();
       expect(button(id).className).toContain('bsh-mock__button');
     }
-    expect(button('paint-red').getAttribute('aria-label')).toBe(
+    expect(button('paint-ef4444').getAttribute('aria-label')).toBe(
       'Paint selected items in red',
     );
     expect(button('paint-reset').getAttribute('aria-label')).toBe(
@@ -63,7 +64,7 @@ describe('mock toolbar tool group', () => {
 
   it('sits after the fake native tools in the toolbar', async () => {
     await setup();
-    adapter.registerToolGroup(buildToolGroupSpec(adapter));
+    adapter.registerToolGroup(buildToolGroup(adapter));
     const toolbar = host.querySelector('[role="toolbar"]');
     const children = [...(toolbar?.children ?? [])];
     expect(children.at(-1)?.className).toBe('bsh-mock__group');
@@ -74,7 +75,7 @@ describe('mock toolbar tool group', () => {
 
   it('opens and closes the flyout with click, escape and outside press', async () => {
     await setup();
-    adapter.registerToolGroup(buildToolGroupSpec(adapter));
+    adapter.registerToolGroup(buildToolGroup(adapter));
     const trigger = button('paint');
     const flyout = host.querySelector<HTMLElement>('.bsh-mock__flyout');
     expect(flyout?.hidden).toBe(true);
@@ -93,14 +94,14 @@ describe('mock toolbar tool group', () => {
     await setup();
     const spy = vi.spyOn(adapter, 'setModelThemingColor');
     const clear = vi.spyOn(adapter, 'clearThemingColors');
-    adapter.registerToolGroup(buildToolGroupSpec(adapter));
+    adapter.registerToolGroup(buildToolGroup(adapter));
     for (const id of SWATCHES) {
       expect(button(id)).toHaveAttribute('aria-disabled', 'true');
       expect(button(id).title).toBe('Select elements to paint');
     }
     expect(button('paint-reset')).toHaveAttribute('aria-disabled', 'true');
     expect(button('paint-reset').title).toBe('Nothing painted yet');
-    button('paint-red').click();
+    button('paint-ef4444').click();
     button('paint-reset').click();
     expect(spy).not.toHaveBeenCalled();
     expect(clear).not.toHaveBeenCalled();
@@ -112,13 +113,13 @@ describe('mock toolbar tool group', () => {
     for (const id of SWATCHES) {
       expect(button(id)).not.toHaveAttribute('aria-disabled');
     }
-    expect(button('paint-green').title).toBe('Paint selected items in green');
+    expect(button('paint-22c55e').title).toBe('Paint selected items in green');
 
     button('paint').click();
-    button('paint-blue').click();
+    button('paint-3b82f6').click();
     expect(spy).toHaveBeenCalledWith(
       ids.map((dbId) => ({ modelId: 'dXJu', dbId })),
-      [0, 0, 1, 0.5],
+      hexToRgba('#3b82f6', 0.5),
     );
     expect(adapter.getModelSelection().map((item) => item.dbId)).toEqual([]);
     expect(host.querySelector<HTMLElement>('.bsh-mock__flyout')?.hidden).toBe(
@@ -137,11 +138,11 @@ describe('mock toolbar tool group', () => {
 
   it('removes the group on dispose and on destroy', async () => {
     await setup();
-    const dispose = adapter.registerToolGroup(buildToolGroupSpec(adapter));
+    const dispose = adapter.registerToolGroup(buildToolGroup(adapter));
     expect(host.querySelector('[data-group-id]')).not.toBeNull();
     dispose();
     expect(host.querySelector('[data-group-id]')).toBeNull();
-    adapter.registerToolGroup(buildToolGroupSpec(adapter));
+    adapter.registerToolGroup(buildToolGroup(adapter));
     adapter.destroy();
     expect(host.querySelector('[data-group-id]')).toBeNull();
   });
@@ -149,17 +150,17 @@ describe('mock toolbar tool group', () => {
   it('renders only the features present in the spec', async () => {
     await setup();
     const dispose = adapter.registerToolGroup(
-      buildToolGroupSpec(adapter, {
-        features: { paint: false, export: true, geometry: false, ifc: false },
+      buildToolGroup(adapter, {
+        only: ['excel'],
       }),
     );
     expect(host.querySelector('[data-button-id="paint"]')).toBeNull();
-    expect(host.querySelector('[data-button-id="paint-red"]')).toBeNull();
+    expect(host.querySelector('[data-button-id="paint-ef4444"]')).toBeNull();
     expect(button('export-xlsx')).not.toBeNull();
     dispose();
     adapter.registerToolGroup(
-      buildToolGroupSpec(adapter, {
-        features: { paint: true, export: false, geometry: false, ifc: false },
+      buildToolGroup(adapter, {
+        only: ['paint'],
       }),
     );
     expect(host.querySelector('[data-button-id="export-xlsx"]')).toBeNull();
@@ -168,9 +169,9 @@ describe('mock toolbar tool group', () => {
 
   it('leaves exactly one group after dispose then register', async () => {
     await setup();
-    const dispose = adapter.registerToolGroup(buildToolGroupSpec(adapter));
+    const dispose = adapter.registerToolGroup(buildToolGroup(adapter));
     dispose();
-    adapter.registerToolGroup(buildToolGroupSpec(adapter));
+    adapter.registerToolGroup(buildToolGroup(adapter));
     expect(host.querySelectorAll('[data-group-id]')).toHaveLength(1);
     expect(host.querySelectorAll('[data-button-id="paint"]')).toHaveLength(1);
     expect(
@@ -178,72 +179,45 @@ describe('mock toolbar tool group', () => {
     ).toHaveLength(1);
   });
 
-  it('runs the export through the toolbar button and reports status', async () => {
+  async function runExport(
+    id: string,
+    blobName: string,
+    expectedLabel: string,
+  ) {
     await setup();
-    const phases: ExportStatus['phase'][] = [];
+    const before = tasks.getSnapshot().tasks.length;
     vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
     vi.stubGlobal('URL', {
       ...URL,
-      createObjectURL: () => 'blob:x',
+      createObjectURL: () => blobName,
       revokeObjectURL: () => {},
     });
-    adapter.registerToolGroup(
-      buildToolGroupSpec(adapter, { onStatus: (s) => phases.push(s.phase) }),
-    );
-    button('export-xlsx').click();
-    button('export-xlsx').click();
-    await vi.waitFor(() => expect(phases).toContain('done'));
-    expect(phases).toEqual(['reading', 'building', 'done']);
+    adapter.registerToolGroup(buildToolGroup(adapter));
+    button(id).click();
+    button(id).click();
+    const added = () => tasks.getSnapshot().tasks.slice(before);
+    expect(added()).toHaveLength(1);
+    await vi.waitFor(() => expect(added()[0]?.state).toBe('done'));
+    expect(added()[0]?.label).toBe(expectedLabel);
+    return added()[0]?.detail ?? '';
+  }
+
+  it('runs the export through the toolbar button and reports to the task center', async () => {
+    expect(
+      await runExport('export-xlsx', 'blob:x', 'Exporting Excel'),
+    ).toContain('Exported');
   });
 
-  it('runs the GLB export through the toolbar button and reports status', async () => {
-    await setup();
-    const phases: string[] = [];
-    const saved: string[] = [];
-    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
-    vi.stubGlobal('URL', {
-      ...URL,
-      createObjectURL: () => 'blob:glb',
-      revokeObjectURL: () => {},
-    });
-    adapter.registerToolGroup(
-      buildToolGroupSpec(adapter, {
-        onGeometryStatus: (status) => {
-          phases.push(status.phase);
-          if (status.phase === 'done') saved.push(status.fileName);
-        },
-      }),
-    );
-    button('export-glb').click();
-    button('export-glb').click();
-    await vi.waitFor(() => expect(phases).toContain('done'));
-    expect(phases).toEqual(['reading', 'building', 'done']);
-    expect(saved).toEqual(['model-geometry.glb']);
+  it('runs the GLB export through the toolbar button and reports to the task center', async () => {
+    expect(
+      await runExport('export-glb', 'blob:glb', 'Exporting geometry (GLB)'),
+    ).toContain('Exported');
   });
 
-  it('runs the IFC export through the toolbar button and reports status', async () => {
-    await setup();
-    const phases: string[] = [];
-    const saved: string[] = [];
-    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
-    vi.stubGlobal('URL', {
-      ...URL,
-      createObjectURL: () => 'blob:ifc',
-      revokeObjectURL: () => {},
-    });
-    adapter.registerToolGroup(
-      buildToolGroupSpec(adapter, {
-        onIfcStatus: (status) => {
-          phases.push(status.phase);
-          if (status.phase === 'done') saved.push(status.fileName);
-        },
-      }),
-    );
-    button('export-ifc').click();
-    button('export-ifc').click();
-    await vi.waitFor(() => expect(phases).toContain('done'));
-    expect(phases).toEqual(['reading', 'building', 'done']);
-    expect(saved).toEqual(['model.ifc']);
+  it('runs the IFC export through the toolbar button and reports to the task center', async () => {
+    expect(
+      await runExport('export-ifc', 'blob:ifc', 'Exporting IFC'),
+    ).toContain('elements');
   });
 });
 

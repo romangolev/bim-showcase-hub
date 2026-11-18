@@ -35,8 +35,19 @@ const ARRANGEMENT: SerializedDock = {
   activeGroup: '2',
 };
 
-function fakeApi() {
+function fakeApi(existing: string[] = []) {
   const panels: { id: string }[] = [];
+  let loads = 0;
+  const make = (id: string) => ({
+    id,
+    group: { api: { setSize: () => {} }, panels: [], activePanel: null },
+    api: {
+      setActive: () => {},
+      close: () => {},
+      location: { type: 'grid' },
+    },
+  });
+  panels.push(...existing.map(make));
   const api = {
     get panels() {
       return panels;
@@ -46,24 +57,21 @@ function fakeApi() {
       panels.length = 0;
     },
     fromJSON: () => {
+      loads += 1;
       panels.length = 0;
       throw new Error('bad layout');
     },
     addPanel: (options: { id: string }) => {
-      const panel = {
-        id: options.id,
-        group: { api: { setSize: () => {} }, panels: [], activePanel: null },
-        api: {
-          setActive: () => {},
-          close: () => {},
-          location: { type: 'grid' },
-        },
-      };
+      const panel = make(options.id);
       panels.push(panel);
       return panel;
     },
   };
-  return { api: api as unknown as DockviewApi, panels };
+  return {
+    api: api as unknown as DockviewApi,
+    panels,
+    loads: () => loads,
+  };
 }
 
 describe('adopting a remembered arrangement', () => {
@@ -80,5 +88,37 @@ describe('adopting a remembered arrangement', () => {
     const ids = panels.map((panel) => panel.id);
     expect(ids).toContain('tree');
     expect(ids).toContain('viewer:x');
+  });
+
+  it('keeps user panes placed at home instead of rebuilding from the snapshot', () => {
+    const { api, panels, loads } = fakeApi(['tree', 'chart:1']);
+    syncInstances(api, {
+      instances: ['viewer:x', 'chart:1'],
+      active: 'viewer:x',
+      titles: {},
+      companions: ['summary'],
+      treeWidth: 320,
+      arrangement: ARRANGEMENT,
+    });
+    expect(loads()).toBe(0);
+    expect(panels.map((panel) => panel.id)).toEqual([
+      'tree',
+      'chart:1',
+      'viewer:x',
+      'summary',
+    ]);
+  });
+
+  it('still adopts the snapshot when only the tree is docked', () => {
+    const { api, loads } = fakeApi(['tree']);
+    syncInstances(api, {
+      instances: ['viewer:x'],
+      active: 'viewer:x',
+      titles: {},
+      companions: ['summary'],
+      treeWidth: 320,
+      arrangement: ARRANGEMENT,
+    });
+    expect(loads()).toBe(1);
   });
 });

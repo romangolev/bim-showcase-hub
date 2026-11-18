@@ -340,6 +340,36 @@ describe('panes menu in the top bar', () => {
     );
   });
 
+  it('presents the viewer alone and Escape restores the chrome', async () => {
+    renderModel();
+    fireEvent.click(await screen.findByRole('button', { name: 'Panes' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Present' }));
+    expect(document.documentElement).toHaveAttribute('data-presenting');
+    expect(
+      screen.getByRole('button', { name: 'Exit presentation' }),
+    ).toBeInTheDocument();
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    await waitFor(() =>
+      expect(document.documentElement).not.toHaveAttribute('data-presenting'),
+    );
+    expect(
+      screen.queryByRole('button', { name: 'Exit presentation' }),
+    ).toBeNull();
+  });
+
+  it('presents from the Share menu on narrow screens', async () => {
+    mockMatchMedia(800);
+    renderModel();
+    expect(screen.queryByRole('button', { name: 'Panes' })).toBeNull();
+    fireEvent.click(await screen.findByRole('button', { name: 'Share' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Present' }));
+    expect(document.documentElement).toHaveAttribute('data-presenting');
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    await waitFor(() =>
+      expect(document.documentElement).not.toHaveAttribute('data-presenting'),
+    );
+  });
+
   it('is hidden on narrow screens', async () => {
     const media = mockMatchMedia(1440);
     renderModel();
