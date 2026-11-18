@@ -30,7 +30,7 @@ describe('app settings', () => {
     expect(
       JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? ''),
     ).toEqual({
-      sessionWarnMinutes: 10,
+      ...DEFAULT_SETTINGS,
       recentsLength: 9,
       ifc: { schema: 'IFC4' },
     });
@@ -38,8 +38,13 @@ describe('app settings', () => {
 
   it('hold only app-level fields', () => {
     expect(Object.keys(DEFAULT_SETTINGS).sort()).toEqual([
+      'density',
+      'language',
       'recentsLength',
+      'reducedMotion',
       'sessionWarnMinutes',
+      'textSize',
+      'version',
     ]);
   });
 });
@@ -106,7 +111,7 @@ describe('SettingsProvider', () => {
     expect(screen.getByText('recents 2')).toBeTruthy();
     expect(
       JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '{}'),
-    ).toEqual({ sessionWarnMinutes: 10, recentsLength: 2 });
+    ).toEqual({ ...DEFAULT_SETTINGS, recentsLength: 2 });
   });
 
   it('works without a provider using defaults', () => {
