@@ -32,16 +32,16 @@ For real data, create an APS app, copy `.env.example` to `.env`, fill it in and 
 
 ## Scripts
 
-| Script | What it does |
-|---|---|
-| `npm run dev` | Express server and Vite (port 5173) |
-| `npm run dev:mock` | Same, with mock data and a mock viewer |
-| `npm run build` | Type-check, build the web app and the server |
-| `npm start` | Run the compiled server |
-| `npm test` | Vitest |
-| `npm run lint` / `format` | Biome check / fix |
-| `npm run typecheck` | TypeScript for server and web |
-| `npm run e2e:*` | Camoufox end-to-end scripts, see [development](docs/development.md#end-to-end-tests) |
+| Script                    | What it does                                                                         |
+| ------------------------- | ------------------------------------------------------------------------------------ |
+| `npm run dev`             | Express server and Vite (port 5173)                                                  |
+| `npm run dev:mock`        | Same, with mock data and a mock viewer                                               |
+| `npm run build`           | Type-check, build the web app and the server                                         |
+| `npm start`               | Run the compiled server                                                              |
+| `npm test`                | Vitest                                                                               |
+| `npm run lint` / `format` | Biome check / fix                                                                    |
+| `npm run typecheck`       | TypeScript for server and web                                                        |
+| `npm run e2e:*`           | Camoufox end-to-end scripts, see [development](docs/development.md#end-to-end-tests) |
 
 ## Project layout
 
