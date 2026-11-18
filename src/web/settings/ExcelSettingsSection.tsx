@@ -1,5 +1,9 @@
 import { useId } from 'react';
 import {
+  type CsvDelimiter,
+  DECIMAL_LABELS,
+  DELIMITER_LABELS,
+  type DecimalMark,
   type ExcelSettings,
   type ExportFormat,
   type ExportScope,
@@ -45,6 +49,9 @@ export function ExcelSettingsSection() {
   const excel = settings.excel;
   const patternId = useId();
   const metadataId = useId();
+  const headerId = useId();
+  const exporterId = useId();
+  const summaryId = useId();
   const update = (patch: Partial<ExcelSettings>) =>
     setSetting('excel', { ...excel, ...patch });
   return (
@@ -80,6 +87,53 @@ export function ExcelSettingsSection() {
         <span className="settings__hint">
           Use {'{model}'} and {'{date}'}.
         </span>
+      </div>
+      <SelectField<CsvDelimiter>
+        label="CSV and copy delimiter"
+        value={excel.csvDelimiter}
+        labels={DELIMITER_LABELS}
+        onChange={(csvDelimiter) => update({ csvDelimiter })}
+      />
+      <SelectField<DecimalMark>
+        label="CSV and copy decimal mark"
+        value={excel.decimalMark}
+        labels={DECIMAL_LABELS}
+        onChange={(decimalMark) => update({ decimalMark })}
+      />
+      <div className="settings__field">
+        <label htmlFor={headerId}>
+          <input
+            id={headerId}
+            type="checkbox"
+            checked={excel.includeHeader}
+            onChange={(event) =>
+              update({ includeHeader: event.target.checked })
+            }
+          />{' '}
+          Include the header row in CSV and copy
+        </label>
+      </div>
+      <div className="settings__field">
+        <label htmlFor={summaryId}>
+          <input
+            id={summaryId}
+            type="checkbox"
+            checked={excel.summarySheet}
+            onChange={(event) => update({ summarySheet: event.target.checked })}
+          />{' '}
+          Add a Summary sheet to the Excel file
+        </label>
+      </div>
+      <div className="settings__field">
+        <label htmlFor={exporterId}>
+          <input
+            id={exporterId}
+            type="checkbox"
+            checked={excel.exporterName}
+            onChange={(event) => update({ exporterName: event.target.checked })}
+          />{' '}
+          Name this app as the exporter in the About data
+        </label>
       </div>
       <div className="settings__field">
         <label htmlFor={metadataId}>

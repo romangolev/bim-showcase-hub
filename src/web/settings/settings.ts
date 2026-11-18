@@ -136,6 +136,14 @@ export function readExcelSettings(value: unknown): ExcelSettings {
     scope: scope ?? d.scope,
     metadata: flag(source.metadata, d.metadata),
     namePattern: required(source.namePattern, d.namePattern),
+    csvDelimiter:
+      ([',', ';', '\t'] as const).find(
+        (item) => item === source.csvDelimiter,
+      ) ?? d.csvDelimiter,
+    decimalMark: source.decimalMark === ',' ? ',' : d.decimalMark,
+    includeHeader: flag(source.includeHeader, d.includeHeader),
+    exporterName: flag(source.exporterName, d.exporterName),
+    summarySheet: flag(source.summarySheet, d.summarySheet),
   };
 }
 

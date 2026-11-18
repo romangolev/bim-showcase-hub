@@ -207,6 +207,13 @@ export function buildToolGroupSpec(
                     format: settings.format,
                     scope: settings.scope,
                     metadata: settings.metadata,
+                    exporterName: settings.exporterName,
+                    summarySheet: settings.summarySheet,
+                    table: {
+                      delimiter: settings.csvDelimiter,
+                      decimal: settings.decimalMark,
+                      header: settings.includeHeader,
+                    },
                     confirm: confirmLargeExport,
                     onStatus: options.onStatus,
                   }),

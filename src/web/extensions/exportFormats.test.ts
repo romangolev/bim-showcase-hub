@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from 'vitest';
 import type { PropertyRow } from '../../shared/types.js';
 import { exportToXlsx } from './excelExport.js';
 import {
+  aboutRows,
   applyNamePattern,
+  DEFAULT_EXCEL_SETTINGS,
   filterByScope,
   guardCell,
   toDelimited,
@@ -55,6 +57,26 @@ describe('serializers', () => {
     expect(toDelimited(['a'], [['p\tq']], '\t')).toBe('a\r\n"p\tq"');
   });
 
+  it('applies delimiter, decimal mark and header options', () => {
+    expect(
+      toDelimited(['a', 'b'], [[1.5, 'x']], ';', {
+        decimal: ',',
+        header: false,
+      }),
+    ).toBe('1,5;x');
+    expect(toDelimited(['a', 'b'], [[1.5, 2]], ',', { decimal: ',' })).toBe(
+      'a,b\r\n"1,5",2',
+    );
+  });
+
+  it('names the exporter in the about rows unless switched off', () => {
+    const info = { models: [], scope: 'all' as const, rowCount: 1 };
+    expect(aboutRows(info).map(([key]) => key)).toContain('Exporter');
+    expect(
+      aboutRows({ ...info, exporter: false }).map(([key]) => key),
+    ).not.toContain('Exporter');
+  });
+
   it('builds JSON records keyed by header', () => {
     expect(toJsonRecords(['a', 'b'], [[1, 'x']])).toEqual([{ a: 1, b: 'x' }]);
   });
@@ -92,6 +114,7 @@ describe('scope and file name', () => {
     );
     expect(
       excelFileNameFrom('House-properties-v2', {
+        ...DEFAULT_EXCEL_SETTINGS,
         format: 'csv',
         scope: 'all',
         metadata: false,
@@ -100,6 +123,7 @@ describe('scope and file name', () => {
     ).toBe('House-properties-v2.csv');
     expect(
       excelFileNameFrom('House-v2-properties.xlsx', {
+        ...DEFAULT_EXCEL_SETTINGS,
         format: 'csv',
         scope: 'all',
         metadata: false,

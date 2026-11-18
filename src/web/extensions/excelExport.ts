@@ -9,10 +9,11 @@ import {
   type ExportScope,
   filterByScope,
   safeName,
+  type TableOptions,
   toDelimited,
   toJsonRecords,
 } from './exportFormats.js';
-import { formatValue } from './modelSummary.js';
+import { formatValue, summarize } from './modelSummary.js';
 
 export const DEFAULT_EXPORT_PROPERTIES: readonly string[] = [
   'Category',
@@ -147,6 +148,9 @@ export interface ExportOptions {
   format?: ExportFormat;
   scope?: ExportScope;
   metadata?: boolean;
+  exporterName?: boolean;
+  summarySheet?: boolean;
+  table?: Partial<TableOptions>;
   confirm?: (rowCount: number) => boolean;
   copy?: (text: Promise<string>) => Promise<void>;
   onStatus?: (status: ExportStatus) => void;
@@ -175,6 +179,9 @@ export async function exportToXlsx(
     format = 'xlsx',
     scope = 'all',
     metadata = false,
+    exporterName = true,
+    summarySheet = false,
+    table = {},
     confirm,
     copy = (text) =>
       navigator.clipboard.write([
@@ -229,6 +236,7 @@ export async function exportToXlsx(
       models: shownModels(adapter),
       scope,
       rowCount,
+      exporter: exporterName,
     });
     let delivered = fileName;
     if (format === 'xlsx') {
@@ -252,6 +260,31 @@ export async function exportToXlsx(
             },
           ]
         : [];
+      const summary = summarySheet
+        ? [
+            {
+              sheet: sheetNameFor(
+                'Summary',
+                new Set(
+                  [...sheets.map((sheet) => sheet.name), 'About'].map((name) =>
+                    name.toLowerCase(),
+                  ),
+                ),
+              ),
+              data: [
+                ['Property', 'Value', 'Count'].map((value) => ({
+                  value,
+                  fontWeight: 'bold' as const,
+                })),
+                ...summarize(rows, propertyNames).map((entry) => [
+                  entry.property,
+                  entry.value,
+                  entry.count,
+                ]),
+              ],
+            },
+          ]
+        : [];
       const blob = await writeXlsxFile([
         ...sheets.map((sheet) => ({
           sheet: sheet.name,
@@ -263,6 +296,7 @@ export async function exportToXlsx(
             ...sheet.rows,
           ],
         })),
+        ...summary,
         ...aboutSheet,
       ]).toBlob();
       save(blob, fileName);
@@ -273,14 +307,25 @@ export async function exportToXlsx(
         distinctModelCount(rows) > 1,
       );
       if (format === 'copy') {
-        copyText.resolve(toDelimited(flat.header, flat.rows, '\t'));
+        copyText.resolve(toDelimited(flat.header, flat.rows, '\t', table));
         await copied;
         delivered = 'the clipboard';
       } else if (format === 'csv') {
         save(
-          new Blob(['\uFEFF', toDelimited(flat.header, flat.rows, ',')], {
-            type: 'text/csv;charset=utf-8',
-          }),
+          new Blob(
+            [
+              '\uFEFF',
+              toDelimited(
+                flat.header,
+                flat.rows,
+                table.delimiter ?? ',',
+                table,
+              ),
+            ],
+            {
+              type: 'text/csv;charset=utf-8',
+            },
+          ),
           fileName,
         );
       } else {

@@ -4,11 +4,25 @@ import type { ExportCell } from './excelExport.js';
 export type ExportFormat = 'xlsx' | 'csv' | 'json' | 'copy';
 export type ExportScope = 'all' | 'selected' | 'isolated';
 
+export type CsvDelimiter = ',' | ';' | '\t';
+export type DecimalMark = '.' | ',';
+
+export interface TableOptions {
+  delimiter: CsvDelimiter;
+  decimal: DecimalMark;
+  header: boolean;
+}
+
 export interface ExcelSettings {
   format: ExportFormat;
   scope: ExportScope;
   metadata: boolean;
   namePattern: string;
+  csvDelimiter: CsvDelimiter;
+  decimalMark: DecimalMark;
+  includeHeader: boolean;
+  exporterName: boolean;
+  summarySheet: boolean;
 }
 
 export const DEFAULT_NAME_PATTERN = '{model}-properties';
@@ -18,7 +32,25 @@ export const DEFAULT_EXCEL_SETTINGS: ExcelSettings = {
   scope: 'all',
   metadata: false,
   namePattern: DEFAULT_NAME_PATTERN,
+  csvDelimiter: ',',
+  decimalMark: '.',
+  includeHeader: true,
+  exporterName: true,
+  summarySheet: false,
 };
+
+export const DELIMITER_LABELS: Record<CsvDelimiter, string> = {
+  ',': 'Comma (,)',
+  ';': 'Semicolon (;)',
+  '\t': 'Tab',
+};
+
+export const DECIMAL_LABELS: Record<DecimalMark, string> = {
+  '.': 'Point (1.5)',
+  ',': 'Comma (1,5)',
+};
+
+export const EXPORTER_NAME = 'BIM Showcase Hub';
 
 export const FORMAT_LABELS: Record<ExportFormat, string> = {
   xlsx: 'Excel (.xlsx)',
@@ -56,8 +88,15 @@ export function safeName(text: string): string {
     .normalize('NFC');
 }
 
-function field(value: ExportCell, delimiter: string): string {
-  const text = String(value);
+function field(
+  value: ExportCell,
+  delimiter: string,
+  decimal: DecimalMark,
+): string {
+  const text =
+    typeof value === 'number' && decimal === ','
+      ? String(value).replace('.', ',')
+      : String(value);
   return text.includes(delimiter) || /["\r\n]/.test(text)
     ? `"${text.replace(/"/g, '""')}"`
     : text;
@@ -66,10 +105,13 @@ function field(value: ExportCell, delimiter: string): string {
 export function toDelimited(
   header: readonly string[],
   rows: readonly ExportCell[][],
-  delimiter: ',' | '\t',
+  delimiter: CsvDelimiter,
+  { decimal = '.', header: withHeader = true }: Partial<TableOptions> = {},
 ): string {
-  const lines = [header, ...rows].map((row) =>
-    row.map((value) => field(guardCell(value), delimiter)).join(delimiter),
+  const lines = (withHeader ? [header, ...rows] : rows).map((row) =>
+    row
+      .map((value) => field(guardCell(value), delimiter, decimal))
+      .join(delimiter),
   );
   return lines.join('\r\n');
 }
@@ -117,15 +159,19 @@ export interface AboutInfo {
   models: readonly { name: string; urn: string }[];
   scope: ExportScope;
   rowCount: number;
+  exporter?: boolean;
   date?: Date;
 }
 
 export function aboutRows(info: AboutInfo): [string, ExportCell][] {
-  return [
+  const rows: [string, ExportCell][] = [
     ['Model', info.models.map((model) => model.name).join(', ')],
     ['Source URN', info.models.map((model) => model.urn).join(', ')],
     ['Exported', (info.date ?? new Date()).toISOString()],
     ['Scope', SCOPE_LABELS[info.scope]],
     ['Rows', info.rowCount],
   ];
+  return info.exporter === false
+    ? rows
+    : [...rows, ['Exporter', EXPORTER_NAME]];
 }
