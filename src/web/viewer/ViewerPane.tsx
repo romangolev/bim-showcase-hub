@@ -492,6 +492,18 @@ export function ViewerPane({
             baseHref={shareHref}
             fileName={exportName}
             combined={combined}
+            frameSize={() => {
+              const host = hostRef.current;
+              return host
+                ? { width: host.clientWidth, height: host.clientHeight }
+                : null;
+            }}
+            caption={{
+              name: combined
+                ? `${name ?? 'Model'} and ${models.length - 1} more`
+                : (name ?? exportName?.replace(/\.xlsx$/, '') ?? 'Model'),
+              ...(meta?.version ? { version: meta.version } : {}),
+            }}
             onResult={(text, error) => showBadge({ text, detail: text, error })}
           />
         ) : null}

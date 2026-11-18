@@ -1,8 +1,11 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as excel from '../extensions/excelExport.js';
+import { setStorageAdapter } from '../storage.js';
+import { memoryAdapter } from '../storageAdapter.js';
 import { fireEvent, render, screen, waitFor } from '../test/render.js';
 import { createMockViewerAdapter } from './MockViewerAdapter.js';
-import { snapshotName } from './ShareMenu.js';
+import { ShareMenu, snapshotName } from './ShareMenu.js';
+import { SNAPSHOT, SNAPSHOT_DEFAULTS } from './snapshot.js';
 import type { ViewerAdapter, ViewerAdapterFactory } from './ViewerAdapter.js';
 import { ViewerPane } from './ViewerPane.js';
 
@@ -17,7 +20,14 @@ function setup() {
   return { factory, adapter: () => adapter as ViewerAdapter | null };
 }
 
-afterEach(() => vi.restoreAllMocks());
+let restoreStorage: ReturnType<typeof setStorageAdapter>;
+beforeEach(() => {
+  restoreStorage = setStorageAdapter(memoryAdapter());
+});
+afterEach(() => {
+  vi.restoreAllMocks();
+  setStorageAdapter(restoreStorage);
+});
 
 describe('Share menu', () => {
   it('copies a link with the camera and selection', async () => {
@@ -141,5 +151,52 @@ describe('Share menu snapshots', () => {
     expect(
       await screen.findByText('Could not take the snapshot'),
     ).toBeInTheDocument();
+  });
+
+  it('applies the saved resolution to copy and save', async () => {
+    SNAPSHOT.write({ ...SNAPSHOT_DEFAULTS, resolution: '2x' });
+    const blob = new Blob(['png'], { type: 'image/png' });
+    const getScreenshot = vi.fn().mockResolvedValue(blob);
+    const save = vi.spyOn(excel, 'saveBlob').mockImplementation(() => {});
+    const onResult = vi.fn();
+    render(
+      <ShareMenu
+        adapter={{ getScreenshot } as unknown as ViewerAdapter}
+        modelIds={['urn-a']}
+        combined={false}
+        frameSize={() => ({ width: 800, height: 400 })}
+        onResult={onResult}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Save image (PNG)' }));
+    await waitFor(() => expect(save).toHaveBeenCalled());
+    expect(getScreenshot).toHaveBeenCalledWith(1600, 800);
+    SNAPSHOT.remove();
+  });
+
+  it('fails visibly when the size is over the cap', async () => {
+    SNAPSHOT.write({ ...SNAPSHOT_DEFAULTS, resolution: '2x' });
+    const getScreenshot = vi.fn();
+    const onResult = vi.fn();
+    render(
+      <ShareMenu
+        adapter={{ getScreenshot } as unknown as ViewerAdapter}
+        modelIds={['urn-a']}
+        combined={false}
+        frameSize={() => ({ width: 5000, height: 3000 })}
+        onResult={onResult}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Save image (PNG)' }));
+    await waitFor(() =>
+      expect(onResult).toHaveBeenCalledWith(
+        expect.stringContaining('Snapshot too large'),
+        true,
+      ),
+    );
+    expect(getScreenshot).not.toHaveBeenCalled();
+    SNAPSHOT.remove();
   });
 });

@@ -1,6 +1,14 @@
 import { encodeView, withViewParam } from '../api/viewLink.js';
 import { Menu, type MenuEntry } from '../components/Menu.js';
 import { saveBlob } from '../extensions/excelExport.js';
+import {
+  type Caption,
+  type Size,
+  SNAPSHOT,
+  SnapshotError,
+  snapshotSize,
+  takeSnapshot,
+} from './snapshot.js';
 import type { ViewerAdapter } from './ViewerAdapter.js';
 
 export const COPIED_LINK_TEXT = 'Link copied';
@@ -21,6 +29,8 @@ export interface ShareMenuProps {
   modelIds: readonly string[];
   baseHref?: string;
   combined: boolean;
+  frameSize?: () => Size | null;
+  caption?: Caption;
   onResult: (text: string, error: boolean) => void;
 }
 
@@ -45,10 +55,20 @@ export function ShareMenu({
   combined,
   onResult,
   fileName,
+  frameSize,
+  caption = { name: 'Model' },
 }: ShareMenuProps) {
   const snapshot = async (mode: 'copy' | 'save') => {
     try {
-      const image = adapter.getScreenshot();
+      const request = {
+        adapter,
+        frame: frameSize?.() ?? null,
+        settings: SNAPSHOT.read(),
+        caption,
+      };
+      if (request.frame && request.frame.width > 0 && request.frame.height > 0)
+        snapshotSize(request.frame, request.settings);
+      const image = takeSnapshot(request);
       if (mode === 'copy') {
         await navigator.clipboard.write([
           new ClipboardItem({ 'image/png': image }),
@@ -58,8 +78,11 @@ export function ShareMenu({
         saveBlob(await image, snapshotName(fileName));
         onResult(SAVED_IMAGE_TEXT, false);
       }
-    } catch {
-      onResult(IMAGE_FAILED_TEXT, true);
+    } catch (err) {
+      onResult(
+        err instanceof SnapshotError ? err.message : IMAGE_FAILED_TEXT,
+        true,
+      );
     }
   };
   const copy = async (withView: boolean) => {
