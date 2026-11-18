@@ -24,9 +24,12 @@ export interface ModelScopeState {
 export function useModelScope(
   adapter: ViewerAdapter | null,
   rows: PropertyRow[],
+  controlled?: { value: ModelScope; onChange: (scope: ModelScope) => void },
 ): ModelScopeState {
   const models = useModels(adapter);
-  const [chosen, setScope] = useState<ModelScope>(ALL_MODELS);
+  const [inner, setInner] = useState<ModelScope>(ALL_MODELS);
+  const chosen = controlled?.value ?? inner;
+  const setScope = controlled?.onChange ?? setInner;
   const options = useMemo(() => modelScopeOptions(models), [models]);
   const scope = options.length > 0 ? resolveScope(chosen, models) : ALL_MODELS;
   const scoped = useMemo(() => scopeRows(rows, scope), [rows, scope]);

@@ -29,6 +29,10 @@ import { BSH_KEYS, FORGET_EVENT } from '../storage.js';
 import { usePersistedState } from '../usePersistedState.js';
 import { isMockViewer, ViewerProvider } from '../viewer/index.js';
 import {
+  forgetInstanceSetting,
+  seedInstanceSetting,
+} from './instanceSettings.js';
+import {
   type DockController,
   type LayoutApi,
   LayoutContext,
@@ -226,9 +230,9 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
   const instances = useMemo(
     () => [
       ...models.models.map(({ urn }) => modelPanelId(urn)),
-      ...(models.models.length > 0 && !stacked
-        ? userInstanceIds(userState)
-        : []),
+      ...(stacked && models.models.length === 0
+        ? []
+        : userInstanceIds(userState)),
     ],
     [models.models, userState, stacked],
   );
@@ -387,17 +391,21 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       if (urn) modelStore.close(urn);
       else if (isUserInstance(id)) {
         setUserState((state) => removeUserInstance(state, id));
+        forgetInstanceSetting(id);
       }
     },
     [modelStore, setUserState],
   );
 
+  const modelsRef = useRef(models);
+  modelsRef.current = models;
   const userStateRef = useRef(userState);
   userStateRef.current = userState;
   const addInstance = useCallback(
     (kind: PaneId) => {
       const added = addUserInstance(userStateRef.current, kind);
       if (!added) return null;
+      seedInstanceSetting(added.id, modelsRef.current.active);
       userStateRef.current = added.state;
       setUserState(added.state);
       return added.id;
@@ -738,6 +746,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
                   onVisibility={onVisibility}
                   treeOpen={overlayOpen}
                   onCloseTree={closeTree}
+                  userPanels={userInstanceIds(userState)}
                 />
               ) : (
                 <div className="app-body app-body--dock">

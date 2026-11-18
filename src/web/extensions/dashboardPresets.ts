@@ -63,6 +63,7 @@ export interface DashboardView {
   kind: DashboardKind;
   pngTitle: boolean;
   pngLegend: boolean;
+  scope?: string;
 }
 
 export const DEFAULT_DASHBOARD_VIEW: DashboardView = {
@@ -96,5 +97,8 @@ export function sanitizeDashboardView(raw: unknown): DashboardView {
     kind: CHART_KINDS.find((k) => k === source.kind) ?? 'both',
     pngTitle: flag(source.pngTitle, true),
     pngLegend: flag(source.pngLegend, true),
+    ...(typeof source.scope === 'string' && source.scope
+      ? { scope: source.scope }
+      : {}),
   };
 }
