@@ -186,7 +186,7 @@ describe('model stores per user', () => {
       MODEL_STORE_KEY,
       JSON.stringify([{ urn: 'a', file: 'A.rvt' }]),
     );
-    createOpenModelsStore(sessionStorage).open('a', { file: 'A.rvt' });
+    createOpenModelsStore().open('a', { file: 'A.rvt' });
   }
 
   it('keeps the models of the same user', () => {
@@ -195,9 +195,7 @@ describe('model stores per user', () => {
     seed(storage);
     expect(claimModels({ id: 'u1', name: 'Ada' })).toBe(false);
     expect(storage.getItem(MODEL_STORE_KEY)).not.toBeNull();
-    expect(
-      createOpenModelsStore(sessionStorage).getState().models,
-    ).toHaveLength(1);
+    expect(createOpenModelsStore().getState().models).toHaveLength(1);
   });
 
   it('forgets open and recent models when another user signs in', () => {
@@ -207,7 +205,7 @@ describe('model stores per user', () => {
     expect(claimModels({ id: 'u2', name: 'Grace' })).toBe(true);
     expect(storage.getItem(MODEL_STORE_KEY)).toBeNull();
     expect(sessionStorage.getItem(OPEN_MODELS_KEY)).toBeNull();
-    expect(createOpenModelsStore(sessionStorage).getState().models).toEqual([]);
+    expect(createOpenModelsStore().getState().models).toEqual([]);
     expect(storage.getItem(MODEL_OWNER_KEY)).toBe(
       ownerKey({ id: 'u2', name: 'Grace' }),
     );
@@ -219,7 +217,7 @@ describe('model stores per user', () => {
     seed(storage);
     expect(claimModels({ id: 'u2', name: 'Sam' })).toBe(true);
     expect(storage.getItem(MODEL_STORE_KEY)).toBeNull();
-    expect(createOpenModelsStore(sessionStorage).getState().models).toEqual([]);
+    expect(createOpenModelsStore().getState().models).toEqual([]);
   });
 
   it('keeps the data of a name-keyed owner when the id first appears', () => {
@@ -230,9 +228,7 @@ describe('model stores per user', () => {
     expect(storage.getItem(MODEL_STORE_KEY)).not.toBeNull();
     expect(storage.getItem(MODEL_OWNER_KEY)).toBe('id:u1');
     expect(claimModels({ id: 'u1', name: 'Ada' })).toBe(false);
-    expect(
-      createOpenModelsStore(sessionStorage).getState().models,
-    ).toHaveLength(1);
+    expect(createOpenModelsStore().getState().models).toHaveLength(1);
     storage.setItem(MODEL_OWNER_KEY, 'name:Ada');
     expect(claimModels({ id: 'u9', name: 'Grace' })).toBe(true);
   });
@@ -260,7 +256,7 @@ describe('model stores per user', () => {
 
   it('clears a live store', () => {
     installMemoryStorage();
-    const store = createOpenModelsStore(sessionStorage);
+    const store = createOpenModelsStore();
     store.open('a');
     let calls = 0;
     store.subscribe(() => {
@@ -276,12 +272,12 @@ describe('model stores per user', () => {
 
 describe('open models persistence', () => {
   it('restores tabs and the active one without loading any', () => {
-    const storage = installMemoryStorage();
-    const first = createOpenModelsStore(storage);
+    installMemoryStorage();
+    const first = createOpenModelsStore();
     first.open('a', { file: 'A.rvt' });
     first.open('b', { file: 'B.rvt' });
     first.activate('a');
-    const second = createOpenModelsStore(storage);
+    const second = createOpenModelsStore();
     expect(second.getState().models.map((model) => model.urn)).toEqual([
       'a',
       'b',
@@ -293,7 +289,7 @@ describe('open models persistence', () => {
   });
 
   it('notifies subscribers only on change', () => {
-    const store = createOpenModelsStore(installMemoryStorage());
+    const store = createOpenModelsStore();
     let calls = 0;
     const stop = store.subscribe(() => {
       calls += 1;
@@ -334,11 +330,13 @@ describe('open models persistence', () => {
   });
 
   it('writes under the session key', () => {
-    const storage = installMemoryStorage();
-    createOpenModelsStore(storage).open('a', { v: 'v1' });
-    expect(JSON.parse(storage.getItem(OPEN_MODELS_KEY) ?? '{}')).toEqual({
-      models: [{ urn: 'a', context: { v: 'v1' } }],
-      active: 'a',
-    });
+    installMemoryStorage();
+    createOpenModelsStore().open('a', { v: 'v1' });
+    expect(JSON.parse(sessionStorage.getItem(OPEN_MODELS_KEY) ?? '{}')).toEqual(
+      {
+        models: [{ urn: 'a', context: { v: 'v1' } }],
+        active: 'a',
+      },
+    );
   });
 });

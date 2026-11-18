@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { modelTabTitle } from '../routes/ModelPage.js';
+import { setStorageAdapter } from '../storage.js';
+import { memoryAdapter, type StorageAdapter } from '../storageAdapter.js';
 import {
   joinWith,
   parseModelContext,
@@ -20,32 +22,11 @@ import {
   serializeOpenModels,
 } from './openModels.js';
 
-function memoryStorage(): Storage {
-  const data = new Map<string, string>();
-  return {
-    get length() {
-      return data.size;
-    },
-    clear: () => data.clear(),
-    getItem: (key) => data.get(key) ?? null,
-    key: (index) => [...data.keys()][index] ?? null,
-    removeItem: (key) => {
-      data.delete(key);
-    },
-    setItem: (key, value) => {
-      data.set(key, value);
-    },
-  };
-}
-
-let session: Storage;
+let session: StorageAdapter;
 
 beforeEach(() => {
-  session = memoryStorage();
-  Object.defineProperty(window, 'localStorage', {
-    configurable: true,
-    value: memoryStorage(),
-  });
+  session = memoryAdapter();
+  setStorageAdapter(session);
 });
 
 function open(
@@ -158,10 +139,10 @@ describe('combined entries in the open-models store', () => {
   });
 
   it('persists the members and restores them lazily', () => {
-    const store = createOpenModelsStore(session);
+    const store = createOpenModelsStore();
     store.open('a', { file: 'A.rvt' });
     store.addTo('a', 'b');
-    const restored = parseOpenModels(session.getItem('bsh.models.open'));
+    const restored = parseOpenModels(session.get('session', 'bsh.models.open'));
     expect(restored.models).toEqual([
       { urn: 'a', context: { file: 'A.rvt', with: 'b' } },
     ]);
@@ -188,10 +169,10 @@ describe('combined tab title', () => {
 
 describe('positions of a combined tab', () => {
   it('saves offsets and spread with the entry and restores them', () => {
-    const store = createOpenModelsStore(session);
+    const store = createOpenModelsStore();
     store.open('a', { file: 'A.rvt', with: 'b,c' });
     store.setView('a', { offsets: { b: [1, 2, 3] }, spread: 423_000 });
-    const restored = parseOpenModels(session.getItem('bsh.models.open'));
+    const restored = parseOpenModels(session.get('session', 'bsh.models.open'));
     expect(restored.models[0]).toMatchObject({
       urn: 'a',
       offsets: { b: [1, 2, 3] },
