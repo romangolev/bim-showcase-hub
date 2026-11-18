@@ -6,7 +6,7 @@ Planned work lives in GitHub issues, tracked by [#108](https://github.com/romang
 
 | Area | Items |
 |---|---|
-| Foundations | Command registry and command palette (#9), settings store and per-pane schema (#10), saved things store and JSON import and export (#11), shared property data layer (#12), notification and task center (#13) |
+| Foundations | Shared property data layer (#12): Paint adoption, per-instance dashboard properties and group-by persistence, and the unmeasured 100k discovery cost |
 | Documents | Deep search with filters (#18), multi-select in Documents and Open together (#19), saved model sets (#20), context menu and keyboard map for the tree (#21), version drawer (#22), thumbnails (#23), hub and project switcher (#24), home view and drag a file onto the viewer (#25) |
 | Viewer and tabs | Viewpoints: saved views (#26), configurable toolbar (#28), viewer settings panel (#29), persist tool state (#30), tab pin, duplicate and reopen (#31), split compare with synced cameras (#32), sheets and views browser (#33) |
 | Combined viewer | Per-model colors and ghosting (#37), saved federations (#38), discipline presets (#40), alignment info and nudge (#42), per-model scope everywhere (#43), version compare (#44) |
