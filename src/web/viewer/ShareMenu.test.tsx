@@ -175,6 +175,31 @@ describe('Share menu snapshots', () => {
     SNAPSHOT.remove();
   });
 
+  it('fails visibly when a larger size is chosen but the frame is unknown', async () => {
+    SNAPSHOT.write({ ...SNAPSHOT_DEFAULTS, resolution: '2x' });
+    const getScreenshot = vi.fn();
+    const onResult = vi.fn();
+    render(
+      <ShareMenu
+        adapter={{ getScreenshot } as unknown as ViewerAdapter}
+        modelIds={['urn-a']}
+        combined={false}
+        frameSize={() => null}
+        onResult={onResult}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Save image (PNG)' }));
+    await waitFor(() =>
+      expect(onResult).toHaveBeenCalledWith(
+        expect.stringContaining('size of the viewer'),
+        true,
+      ),
+    );
+    expect(getScreenshot).not.toHaveBeenCalled();
+    SNAPSHOT.remove();
+  });
+
   it('fails visibly when the size is over the cap', async () => {
     SNAPSHOT.write({ ...SNAPSHOT_DEFAULTS, resolution: '2x' });
     const getScreenshot = vi.fn();
