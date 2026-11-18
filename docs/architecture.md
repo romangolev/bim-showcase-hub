@@ -118,7 +118,7 @@ Summary, Dashboard and exports read property rows the same way: `useScopedRows` 
 - Scope is a model (`ALL_MODELS` or one model id) plus elements (`all`, `selected`, `visible`, `isolated` or `set:<id>`).
 - `viewer/sharedLeafRows.ts` keeps one cache per adapter and model. Refresh clears it.
 - The hook returns status, progress, `reload` and `cancel`.
-- `selected` and `set:<id>` scopes refresh live (the selection event, debounced; the latest result wins). `visible` and `isolated` are read once per read or reload because the adapter has no visibility event, so use Refresh after changing visibility.
+- The `selected` scope refreshes live (the selection event, debounced; the latest result wins). `visible`, `isolated` and `set:<id>` are read once per read or reload because the adapter has no visibility event, so use Refresh after changing visibility.
 
 ## ViewerAdapter
 
