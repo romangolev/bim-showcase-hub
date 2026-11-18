@@ -661,6 +661,7 @@ def check_saved_items(page, checks):
     dialog.get_by_role("button", name="Delete Smoke renamed").click()
     dialog.get_by_role("button", name="Delete Smoke preset").click()
     checks.add("user presets can be deleted", dialog.get_by_text("No saved presets yet.").count() == 1)
+    dialog.get_by_label("Chart type").select_option("both")
     page.keyboard.press("Escape")
     settle(page, 300)
 
