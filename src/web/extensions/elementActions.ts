@@ -3,17 +3,19 @@ import type { ModelDbId } from '../viewer/modelSet.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { formatValue } from './modelSummary.js';
 
-export type ElementAction = 'select' | 'isolate' | 'zoom';
+export type ElementAction = 'select' | 'isolate' | 'hide' | 'zoom';
 
 export const ELEMENT_ACTIONS: readonly ElementAction[] = [
   'select',
   'isolate',
+  'hide',
   'zoom',
 ];
 
 export const ACTION_LABELS: Record<ElementAction, string> = {
   select: 'Select',
   isolate: 'Isolate',
+  hide: 'Hide',
   zoom: 'Select and zoom',
 };
 
@@ -44,6 +46,10 @@ export function runElementAction(
   if (items.length === 0) return;
   if (action === 'isolate') {
     adapter.isolateModelIds(items);
+    return;
+  }
+  if (action === 'hide') {
+    adapter.hideModelIds(items);
     return;
   }
   adapter.selectModelIds(items);

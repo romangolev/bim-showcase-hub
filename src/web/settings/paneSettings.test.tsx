@@ -21,6 +21,16 @@ describe('pane settings', () => {
     expect(PANE_SETTINGS.summary.action.sanitize('nonsense')).toBe('select');
   });
 
+  it('keeps a stored hide action and maps removed values to select', () => {
+    writeJson(PANE_SETTINGS.dashboard.action.key, 'hide');
+    const { result } = renderHook(() =>
+      usePaneSetting(PANE_SETTINGS.dashboard.action),
+    );
+    expect(result.current[0]).toBe('hide');
+    expect(PANE_SETTINGS.summary.action.sanitize('hide')).toBe('hide');
+    expect(PANE_SETTINGS.summary.action.sanitize('zoomed')).toBe('select');
+  });
+
   it('resets personal pane settings on sign-out', () => {
     writeJson(PANE_SETTINGS.dashboard.action.key, 'zoom');
     const { result } = renderHook(() =>
