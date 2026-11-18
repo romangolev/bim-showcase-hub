@@ -116,7 +116,7 @@ The keys are listed in [development.md](development.md#storage-keys).
 Summary, Dashboard and exports read property rows the same way: `useScopedRows` in panels and `readScopedRows` (`viewer/propertyScope.ts`) in async code.
 
 - Scope is a model (`ALL_MODELS` or one model id) plus elements (`all`, `selected`, `visible`, `isolated` or `set:<id>`).
-- `viewer/sharedLeafRows.ts` keeps one cache per adapter and model. Refresh clears it.
+- `viewer/sharedLeafRows.ts` keeps one cache per adapter and model. Refresh clears it. An empty read is cached only when the adapter reported a complete tree (`onProgress` with `total: 0`), so a transient empty read is read again; `peekLeafRows` then returns `[]`.
 - The hook returns status, progress, `reload` and `cancel`.
 - The `selected` scope refreshes live (the selection event, debounced; the latest result wins). `visible`, `isolated` and `set:<id>` are read once per read or reload because the adapter has no visibility event, so use Refresh after changing visibility.
 
@@ -125,6 +125,8 @@ Summary, Dashboard and exports read property rows the same way: `useScopedRows` 
 `viewer/ViewerAdapter.ts` is the only way panels and tools reach a viewer. It covers:
 
 Groups of methods: lifecycle (`load`, `resize`, `destroy`, `setTheme`), model sets (`loadModels`, `addModel`, `removeModel`, `getModels`), properties (`getLeafProperties`, `discoverProperties`), selection and actions (`getModelSelection`, `selectModelIds`, `isolateModelIds`, `fitToView`), state (`getState`, `restoreState`, `getScreenshot`), paint, `registerToolGroup` and export sources (`getGeometryParts`, `getIfcSource`).
+
+`restoreState` resolves with a `RestoreReport` (`skippedModels` whose object tree could not be read, and `viewerFailed` when the viewer's own restore threw). `goToViewpoint` turns a non-empty report into a `partial` result with a notice instead of `ok`. Isolation with only the hide-all sentinel (`HIDE_ALL_NODE`, -1) means nothing is visible for that model; `getVisible` ignores the sentinel. Object tree reads share one guarded `readTree` (`viewer/viewerState.ts`) that rejects after `TREE_TIMEOUT_MS`.
 
 `createViewerAdapter` picks the implementation. The mock adapter is used only when `import.meta.env.DEV` is true and `VITE_MOCK_APS=1`, so production builds hold no mock viewer.
 

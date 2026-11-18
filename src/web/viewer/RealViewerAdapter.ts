@@ -70,11 +70,13 @@ import { ToolGroupController } from './toolGroupController.js';
 import type {
   CameraState,
   LoadStage,
+  RestoreReport,
   Rgba,
   ToolGroupSpec,
   ViewerAdapter,
   ViewerState,
 } from './ViewerAdapter.js';
+import { NOTHING_SKIPPED } from './ViewerAdapter.js';
 import { readViewerGeometry } from './viewerGeometry.js';
 import { readViewerSource, type SourceModelMeta } from './viewerSource.js';
 import {
@@ -82,6 +84,7 @@ import {
   captureViewerState,
   HIDE_ALL_NODE,
   readCamera,
+  readTree,
   resetNodes,
   restoreViewerState,
 } from './viewerState.js';
@@ -191,16 +194,6 @@ function loadDocument(urn: string) {
 
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : 'The model could not be loaded';
-}
-
-function readTree(
-  viewer: GuiViewer3D,
-  model: ViewerModel,
-): Promise<InstanceTree> {
-  return new Promise<InstanceTree>((resolve, reject) => {
-    if (model.getObjectTree) model.getObjectTree(resolve, reject);
-    else viewer.getObjectTree(resolve, reject);
-  });
 }
 
 function leafIds(tree: InstanceTree): number[] {
@@ -659,7 +652,9 @@ export class RealViewerAdapter implements ViewerAdapter {
     const perModel = await Promise.all(
       this.models.shown().map(async ({ info, handle }) => {
         const tree = await readTree(viewer, handle);
-        const isolated = viewer.getIsolatedNodes?.(handle) ?? [];
+        const isolatedNodes = viewer.getIsolatedNodes?.(handle) ?? [];
+        const isolated = isolatedNodes.filter((id) => id !== HIDE_ALL_NODE);
+        if (isolatedNodes.length > 0 && isolated.length === 0) return [];
         const hidden = withDescendants(
           tree,
           viewer.getHiddenNodes?.(handle) ?? [],
@@ -755,15 +750,16 @@ export class RealViewerAdapter implements ViewerAdapter {
     );
   }
 
-  async restoreState(state: ViewerState): Promise<void> {
+  async restoreState(state: ViewerState): Promise<RestoreReport> {
     const viewer = this.viewer;
-    if (!viewer) return;
-    const selection = await restoreViewerState(
+    if (!viewer) return NOTHING_SKIPPED;
+    const { selection, report } = await restoreViewerState(
       viewer,
       this.stateModels(),
       state,
     );
     if (this.viewer === viewer) this.selectModelIds(selection);
+    return report;
   }
 
   private stateModels(): { id: string; handle: ViewerModel }[] {

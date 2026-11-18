@@ -5,6 +5,7 @@ import type { ModelInfo } from './modelSet.js';
 import {
   discoverLeafProperties,
   forgetLeafRows,
+  peekLeafRows,
   readLeafRows,
 } from './sharedLeafRows.js';
 import type { ViewerAdapter } from './ViewerAdapter.js';
@@ -223,6 +224,28 @@ describe('readLeafRows with a model set', () => {
     listener(models);
     await readLeafRows(adapter, ['Name']);
     expect(getLeafProperties).toHaveBeenCalledTimes(3);
+  });
+
+  it('caches an empty read that reported a complete tree', async () => {
+    const getLeafProperties = vi.fn(
+      async (
+        _names: string[],
+        _ids?: string[],
+        options?: { onProgress?: (p: { done: number; total: number }) => void },
+      ) => {
+        options?.onProgress?.({ done: 0, total: 0 });
+        return [] as PropertyRow[];
+      },
+    );
+    const adapter = {
+      getLeafProperties,
+      getModels,
+    } as unknown as ViewerAdapter;
+    expect(peekLeafRows(adapter)).toBeNull();
+    expect(await readLeafRows(adapter, ['Name'])).toEqual([]);
+    expect(peekLeafRows(adapter)).toEqual([]);
+    expect(await readLeafRows(adapter, ['Name'])).toEqual([]);
+    expect(getLeafProperties).toHaveBeenCalledTimes(1);
   });
 
   it('reuses the rows of the same version and leaves out removed models', async () => {

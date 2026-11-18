@@ -26,6 +26,8 @@ export const SAVED_IMAGE_TEXT = 'Image saved';
 export const SAVED_VIEWPOINT_TEXT = 'Viewpoint saved';
 export const MAX_LISTED_VIEWPOINTS = 10;
 export const IMAGE_FAILED_TEXT = 'Could not take the snapshot';
+export const FRAME_UNKNOWN_TEXT =
+  'Could not read the size of the viewer. Choose 1x in Settings or try again.';
 
 export function snapshotName(exportName?: string): string {
   const base = (exportName ?? '').replace(/(-properties)?\.xlsx$/, '');
@@ -74,14 +76,15 @@ export function ShareMenu({
   const viewpoints = useViewpoints();
   const snapshot = async (mode: 'copy' | 'save') => {
     try {
-      const request = {
-        adapter,
-        frame: frameSize?.() ?? null,
-        settings: SNAPSHOT.read(),
-        caption,
-      };
-      if (request.frame && request.frame.width > 0 && request.frame.height > 0)
-        snapshotSize(request.frame, request.settings);
+      const frame = frameSize?.() ?? null;
+      const settings = SNAPSHOT.read();
+      if (settings.resolution !== '1x') {
+        if (!frame || frame.width <= 0 || frame.height <= 0) {
+          throw new SnapshotError(FRAME_UNKNOWN_TEXT);
+        }
+        snapshotSize(frame, settings);
+      }
+      const request = { adapter, frame, settings, caption };
       const image = takeSnapshot(request);
       if (mode === 'copy') {
         await navigator.clipboard.write([

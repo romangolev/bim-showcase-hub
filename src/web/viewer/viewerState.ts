@@ -5,7 +5,11 @@ import type {
   ViewportState,
 } from './autodesk.js';
 import type { ModelDbId, Vec3 } from './modelSet.js';
-import type { CameraState, ViewerState } from './ViewerAdapter.js';
+import type {
+  CameraState,
+  RestoreReport,
+  ViewerState,
+} from './ViewerAdapter.js';
 
 export const VIEWER_STATE_FILTER = { viewport: true, cutplanes: true } as const;
 export const HIDE_ALL_NODE = -1;
@@ -154,7 +158,7 @@ export function captureViewerState(
   return state;
 }
 
-function readTree(
+export function readTree(
   viewer: GuiViewer3D,
   model: ViewerModel,
 ): Promise<InstanceTree> {
@@ -210,9 +214,10 @@ export async function restoreViewerState(
   viewer: GuiViewer3D,
   models: readonly StateModel[],
   raw: unknown,
-): Promise<ModelDbId[]> {
+): Promise<{ selection: ModelDbId[]; report: RestoreReport }> {
+  const report: RestoreReport = { skippedModels: [], viewerFailed: false };
   const state = sanitizeViewerState(raw);
-  if (!state) return [];
+  if (!state) return { selection: [], report };
   const known = await Promise.all(
     models.map(({ handle }) => knownIds(viewer, handle)),
   );
@@ -220,7 +225,11 @@ export async function restoreViewerState(
   models.forEach(({ id, handle }, index) => {
     const saved = state.models[id];
     const ids = known[index];
-    if (!saved || !ids) return;
+    if (!saved) return;
+    if (!ids) {
+      report.skippedModels.push(id);
+      return;
+    }
     resetNodes(viewer, [{ id, handle }]);
     const valid = (list: readonly number[]) => list.filter((n) => ids.has(n));
     const isolated = saved.isolated.includes(HIDE_ALL_NODE)
@@ -247,9 +256,9 @@ export async function restoreViewerState(
       try {
         viewer.restoreState(next, VIEWER_STATE_FILTER, true);
       } catch {
-        return selection;
+        report.viewerFailed = true;
       }
     }
   }
-  return selection;
+  return { selection, report };
 }
