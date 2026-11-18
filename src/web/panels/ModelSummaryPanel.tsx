@@ -92,7 +92,7 @@ export function ModelSummaryPanel({
   );
   const entries = useMemo(
     () =>
-      state.status === 'ready'
+      state.status === 'ready' || state.status === 'cancelled'
         ? summarize(elements.rows, propertyNames)
         : EMPTY,
     [state.status, elements.rows, propertyNames],
@@ -240,11 +240,42 @@ export function ModelSummaryPanel({
             />
           )}
           {resolved && state.status === 'loading' && (
-            <StateBlock
-              variant="loading"
-              message="Reading element properties"
-              rows={5}
-            />
+            <div className="bsh-summary__progress">
+              <progress
+                aria-label="Reading element properties"
+                max={state.progress?.total || undefined}
+                value={state.progress ? state.progress.done : undefined}
+              />
+              <span role="status">
+                {state.progress && state.progress.total > 0
+                  ? `Reading element properties: ${state.progress.done.toLocaleString('en-US')} of ${state.progress.total.toLocaleString('en-US')}`
+                  : 'Reading element properties'}
+              </span>
+              <button
+                type="button"
+                className="bsh-button"
+                onClick={state.cancel}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+          {resolved &&
+            state.status === 'loading' &&
+            state.rows.length === 0 && (
+              <StateBlock variant="loading" rows={5} />
+            )}
+          {state.status === 'cancelled' && (
+            <div className="bsh-summary__partial" role="status">
+              <span>
+                {state.rows.length > 0
+                  ? 'Partial data: the read was cancelled, so these counts may be out of date.'
+                  : 'The read was cancelled, so there is nothing to summarize yet.'}
+              </span>
+              <button type="button" className="bsh-button" onClick={reload}>
+                Read again
+              </button>
+            </div>
           )}
           {state.status === 'error' && (
             <StateBlock
