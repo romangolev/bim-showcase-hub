@@ -49,6 +49,7 @@ export interface ModelSummaryPanelProps {
   onCollapsedChange?: (collapsed: boolean) => void;
   toggleable?: boolean;
   onOpenSettings?: () => void;
+  scope?: { value: string; onChange: (scope: string) => void };
 }
 
 const EMPTY: SummaryEntry[] = [];
@@ -65,6 +66,7 @@ export function ModelSummaryPanel({
   onCollapsedChange,
   toggleable = true,
   onOpenSettings,
+  scope: controlledScope,
 }: ModelSummaryPanelProps) {
   const uid = useId();
   const [innerCollapsed, setInnerCollapsed] = useState(defaultCollapsed);
@@ -72,7 +74,7 @@ export function ModelSummaryPanel({
   const [showAll, setShowAll] = useState(false);
   const resolved = useResolvedAdapter(adapter);
   const state = usePropertyRows(resolved, propertyNames);
-  const scope = useModelScope(resolved, state.rows);
+  const scope = useModelScope(resolved, state.rows, controlledScope);
   const entries = useMemo(
     () =>
       state.status === 'ready' ? summarize(scope.rows, propertyNames) : EMPTY,

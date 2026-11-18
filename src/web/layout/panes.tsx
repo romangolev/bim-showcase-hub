@@ -26,9 +26,10 @@ import {
 } from '../panels/index.js';
 import { SUMMARY_SETTINGS_ID } from '../panels/SummarySettings.js';
 import { memberLabel, memberMeta } from '../routes/ModelPage.js';
+import { usePaneSetting } from '../settings/paneSettings.js';
 import { ViewerPane } from '../viewer/index.js';
 import { page } from '../viewer/region.js';
-import { chartSetting } from './instanceSettings.js';
+import { chartSetting, summarySetting } from './instanceSettings.js';
 import { useLayout, useMainContent } from './layoutContext.js';
 import { instancePanelId } from './panelIds.js';
 
@@ -216,6 +217,23 @@ export function SummaryPane() {
         collapsed={layout.mode === 'stacked' && layout.isCollapsed('summary')}
         toggleable={layout.mode === 'stacked'}
         onCollapsedChange={(next) => layout.setCollapsed('summary', next)}
+      />
+    </aside>
+  );
+}
+
+export function SummaryInstancePane({ instance }: { instance: string }) {
+  const layout = useLayout();
+  const modal = useModal();
+  const panel = instancePanelId('modelSummary', instance);
+  const [spec, setSpec] = usePaneSetting(summarySetting(panel));
+  return (
+    <aside className="pane-summary" aria-label="Model summary">
+      <ModelSummaryPanel
+        title={layout.paneTitle(panel).label}
+        toggleable={false}
+        onOpenSettings={() => modal.open(SUMMARY_SETTINGS_ID)}
+        scope={{ value: spec.scope, onChange: (scope) => setSpec({ scope }) }}
       />
     </aside>
   );

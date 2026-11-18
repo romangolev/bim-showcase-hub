@@ -3,7 +3,7 @@ import {
   DEFAULT_DASHBOARD_VIEW,
   sanitizeDashboardView,
 } from '../extensions/dashboardPresets.js';
-import { removeJson } from '../storage.js';
+import { removeJson, writeJson } from '../storage.js';
 import {
   type PersistedSetting,
   persistedSetting,
@@ -54,4 +54,13 @@ export function forgetInstanceSetting(id: PanelId): void {
   const key = instanceSettingKey(id);
   cache.delete(key);
   removeJson(key);
+}
+
+export function seedInstanceSetting(
+  id: PanelId,
+  activeModel: string | null,
+): void {
+  if (parsePanelId(id)?.kind === 'modelSummary' && activeModel) {
+    writeJson(instanceSettingKey(id), { scope: activeModel });
+  }
 }

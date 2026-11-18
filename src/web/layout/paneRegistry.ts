@@ -6,6 +6,7 @@ import {
   DashboardPane,
   ModelPaneBody,
   ModelsPane,
+  SummaryInstancePane,
   SummaryPane,
   TreePane,
 } from './panes.js';
@@ -16,7 +17,8 @@ export type PaneId =
   | 'summary'
   | 'dashboard'
   | 'models'
-  | 'chart';
+  | 'chart'
+  | 'modelSummary';
 
 export type PlacementDirection = 'left' | 'right' | 'below';
 
@@ -141,6 +143,28 @@ export const PANES: readonly PaneDefinition[] = [
     requires: 'viewer',
     instances: {
       component: ChartInstancePane,
+      closable: true,
+      source: 'user',
+      creatable: true,
+    },
+  },
+  {
+    id: 'modelSummary',
+    title: 'Model summary',
+    icon: 'table',
+    component: null,
+    minSize: { width: 280, height: 160 },
+    defaultPlacement: {
+      kind: 'beside',
+      reference: 'viewer',
+      direction: 'right',
+      size: 340,
+    },
+    closable: true,
+    canFloat: true,
+    requires: 'viewer',
+    instances: {
+      component: SummaryInstancePane,
       closable: true,
       source: 'user',
       creatable: true,

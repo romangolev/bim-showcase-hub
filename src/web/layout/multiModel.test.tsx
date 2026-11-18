@@ -667,6 +667,29 @@ describe('user pane families', () => {
     act(() => handle().closeModel('aaa'));
     await waitFor(() => expect(chartTabs()).toHaveLength(0));
   });
+
+  it('pins a summary instance to the model it was created for and cleans up on close', async () => {
+    renderPath('/model/aaa?file=A.rvt&v=v1');
+    await dockReady();
+    await screen.findByRole('tab', { name: 'Model summary' });
+    let id: string | null = null;
+    act(() => {
+      id = handle().addInstance('modelSummary');
+    });
+    expect(id).toBe('modelSummary:1');
+    await screen.findByRole('tab', { name: 'Model summary 1' });
+    expect(
+      JSON.parse(storage.getItem('bsh.pane.modelSummary.1.v1') ?? '{}'),
+    ).toEqual({ scope: 'aaa' });
+    act(() => handle().togglePane('modelSummary:1'));
+    await waitFor(() =>
+      expect(screen.queryByRole('tab', { name: 'Model summary 1' })).toBeNull(),
+    );
+    expect(storage.getItem('bsh.pane.modelSummary.1.v1')).toBeNull();
+    expect(storage.getItem('bsh.layout.instances.v1') ?? '').not.toContain(
+      'modelSummary:1',
+    );
+  });
 });
 
 const EU_URN = btoa('urn:adsk.wipemea:fs.file:vf.eu?version=1')

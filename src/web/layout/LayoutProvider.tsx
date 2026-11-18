@@ -28,7 +28,10 @@ import { ModelRouteSync } from '../routes/ModelRouteSync.js';
 import { BSH_KEYS, FORGET_EVENT } from '../storage.js';
 import { usePersistedState } from '../usePersistedState.js';
 import { isMockViewer, ViewerProvider } from '../viewer/index.js';
-import { forgetInstanceSetting } from './instanceSettings.js';
+import {
+  forgetInstanceSetting,
+  seedInstanceSetting,
+} from './instanceSettings.js';
 import {
   type DockController,
   type LayoutApi,
@@ -394,12 +397,15 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
     [modelStore, setUserState],
   );
 
+  const modelsRef = useRef(models);
+  modelsRef.current = models;
   const userStateRef = useRef(userState);
   userStateRef.current = userState;
   const addInstance = useCallback(
     (kind: PaneId) => {
       const added = addUserInstance(userStateRef.current, kind);
       if (!added) return null;
+      seedInstanceSetting(added.id, modelsRef.current.active);
       userStateRef.current = added.state;
       setUserState(added.state);
       return added.id;
