@@ -31,6 +31,7 @@ import { ALL_MODELS } from '../viewer/modelScope.js';
 import type { ModelDbId } from '../viewer/modelSet.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { ChartCanvas } from './ChartCanvas.js';
+import { DashboardGallery } from './DashboardGallery.js';
 import { ElementScopeSelect } from './ElementScope.js';
 import {
   FailedModels,
@@ -98,6 +99,7 @@ export function DashboardPanel({
       : {}),
   });
   const [innerCollapsed, setInnerCollapsed] = useState(defaultCollapsed);
+  const [galleryOpen, setGalleryOpen] = useState(false);
   const isCollapsed = collapsed ?? innerCollapsed;
 
   const options = useMemo(
@@ -128,6 +130,11 @@ export function DashboardPanel({
         : [],
     [state.status, activePreset, state.rows, maxCategories],
   );
+  const emptyBoard =
+    state.status === 'ready' &&
+    activePreset !== undefined &&
+    board.length === 0;
+  const showGallery = galleryOpen || !resolved || emptyBoard;
   const [viewerSelection, setViewerSelection] = useState<ModelDbId[]>([]);
   useEffect(() => {
     if (!resolved) {
@@ -242,6 +249,17 @@ export function DashboardPanel({
             ))}
           </fieldset>
         ) : null}
+        {!isCollapsed && resolved && !emptyBoard ? (
+          <button
+            type="button"
+            className="bsh-button"
+            aria-expanded={galleryOpen}
+            aria-controls={`${uid}-gallery`}
+            onClick={() => setGalleryOpen((open) => !open)}
+          >
+            Presets
+          </button>
+        ) : null}
         {onOpenSettings ? (
           <button
             type="button"
@@ -309,6 +327,18 @@ export function DashboardPanel({
             message={`This model has none of the properties ${activePreset.label} uses.`}
           />
         )}
+        {showGallery && !isCollapsed ? (
+          <div id={`${uid}-gallery`}>
+            <DashboardGallery
+              view={view}
+              rows={state.status === 'ready' ? state.rows : undefined}
+              apply={(next) => {
+                setView(next);
+                setGalleryOpen(false);
+              }}
+            />
+          </div>
+        ) : null}
         {activePreset && board.length > 0 && (
           <div className="bsh-boards">
             {board.map((item) => (

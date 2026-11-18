@@ -332,6 +332,47 @@ def boxes_overlap(a, b):
     return a["x"] < b["x"] + b["width"] and b["x"] < a["x"] + a["width"] and a["y"] < b["y"] + b["height"] and b["y"] < a["y"] + a["height"]
 
 
+def check_dashboard_gallery(page, checks):
+    pane = page.locator(".pane-dashboard").first
+    toggle = pane.get_by_role("button", name="Presets", exact=True)
+    checks.add("the dashboard pane has a Presets toggle", toggle.count() == 1 and toggle.get_attribute("aria-expanded") == "false")
+    toggle.click()
+    settle(page, 300)
+    checks.add("the Presets toggle opens the gallery", pane.get_by_role("list", name="Dashboard presets").count() == 1 and toggle.get_attribute("aria-expanded") == "true")
+    checks.add("built-in cards have no rename or delete", pane.get_by_label(re.compile(r"^Rename ")).count() == 0 and pane.get_by_role("button", name=re.compile(r"^Delete ")).count() == 0)
+    checks.add("built-in cards offer Save as my preset", pane.get_by_role("button", name="Save Model health as my preset").count() == 1)
+    page.screenshot(path=str(OUTPUT_DIR / "mock-gallery.png"))
+    pane.get_by_role("button", name="Save Model health as my preset").click()
+    checks.add("saving a built-in adds an editable card", pane.get_by_label("Rename Model health").count() == 1 and pane.get_by_role("button", name="Delete Model health").count() == 1)
+    pane.get_by_role("button", name="Apply Quantities by type").click()
+    settle(page, 500)
+    checks.add("applying from the gallery closes it", pane.get_by_role("list", name="Dashboard presets").count() == 0)
+    names = pane.locator(".bsh-boards [role=img]").evaluate_all("(els) => els.map((el) => el.getAttribute('aria-label'))")
+    checks.add("a preset hides charts whose property the model lacks", len(names) == 1 and names[0].endswith("by Category"), names)
+    pane.get_by_role("button", name="Presets", exact=True).click()
+    settle(page, 300)
+    pane.get_by_role("button", name="Apply Model health").last.click()
+    settle(page, 500)
+    checks.add("a user preset applies from the gallery", pane.locator(".bsh-boards canvas").count() >= 2, pane.locator(".bsh-boards canvas").count())
+    pane.get_by_role("button", name="Presets", exact=True).click()
+    settle(page, 300)
+    pane.get_by_role("button", name="Delete Model health").click()
+    checks.add("deleting a user preset removes its card", pane.get_by_label("Rename Model health").count() == 0)
+    page.mouse.click(330, 300)
+    settle(page, 300)
+    pane.get_by_label("Chart elements").select_option("selected")
+    settle(page, 800)
+    empty = pane.get_by_text("Nothing to chart here").count() == 1 and pane.get_by_role("list", name="Dashboard presets").count() == 1
+    checks.add("a board with no chart left shows the message and the gallery as its call to action", empty, pane.inner_text()[:160])
+    page.screenshot(path=str(OUTPUT_DIR / "mock-gallery-empty.png"))
+    pane.get_by_label("Chart elements").select_option("all")
+    settle(page, 400)
+    pane.get_by_role("button", name="Dashboard settings").click()
+    page.get_by_role("dialog", name="Dashboard settings").get_by_role("button", name="Single chart").click()
+    page.keyboard.press("Escape")
+    settle(page, 300)
+
+
 def check_dashboard_tools(page, checks):
     check_collapsed_ring(page, checks)
     expand = page.get_by_role("button", name="Expand Dashboard")
@@ -409,6 +450,7 @@ def check_dashboard_tools(page, checks):
     checks.add("the pane switch shows only the bar chart", pane.locator(".bsh-chart--doughnut").count() == 0 and pane.locator(".bsh-chart--bar").count() == 1)
     pane.get_by_role("button", name="Both").click()
     settle(page, 200)
+    check_dashboard_gallery(page, checks)
     page.get_by_role("button", name="Collapse Dashboard").first.click()
     settle(page, 600)
 

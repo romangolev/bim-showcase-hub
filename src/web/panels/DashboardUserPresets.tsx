@@ -17,7 +17,7 @@ function newId(): string {
   return `dp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function list(): SavedItem[] {
+export function listDashboardPresets(): SavedItem[] {
   return readSaved(DASHBOARD_PRESET_KIND);
 }
 
@@ -42,10 +42,10 @@ export function DashboardUserPresets({
   view,
   apply,
 }: DashboardUserPresetsProps) {
-  const [items, setItems] = useState(list);
+  const [items, setItems] = useState(listDashboardPresets);
   const [name, setName] = useState('');
   const [failed, setFailed] = useState(false);
-  const refresh = () => setItems(list());
+  const refresh = () => setItems(listDashboardPresets());
 
   const save = () => {
     const trimmed = name.trim();
