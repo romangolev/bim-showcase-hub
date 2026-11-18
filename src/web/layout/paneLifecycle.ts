@@ -308,7 +308,9 @@ export function createPaneLifecycle(deps: LifecycleDeps): PaneLifecycle {
       set({ attached: state.attached.filter((id) => !gone.includes(id)) });
     },
     modeChanged: () => {
-      if (state.overlayTreeOpen) set({ overlayTreeOpen: false });
+      const resizing = deps.mode() === 'dock' ? state.resizing : null;
+      if (state.overlayTreeOpen || resizing !== state.resizing)
+        set({ overlayTreeOpen: false, resizing });
     },
     activateInstance: (id) => {
       const urn = modelOf(id);

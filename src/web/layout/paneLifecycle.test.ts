@@ -244,6 +244,19 @@ describe('paneLifecycle panes, lock and present', () => {
     expect(lifecycle.getState().resizing).toBeNull();
   });
 
+  it('drops the overlay and a resize session when the mode changes', () => {
+    const { lifecycle, models, setMode } = setup({ mode: 'stacked' });
+    models.open('a');
+    lifecycle.toggleTree();
+    setMode('dock');
+    lifecycle.modeChanged();
+    expect(lifecycle.getState().overlayTreeOpen).toBe(false);
+    lifecycle.startResize('viewer');
+    setMode('stacked');
+    lifecycle.modeChanged();
+    expect(lifecycle.getState().resizing).toBeNull();
+  });
+
   it('opens the tree overlay in stacked mode only when a model is open', () => {
     const { lifecycle, models, focus } = setup({ mode: 'stacked' });
     lifecycle.toggleTree();
