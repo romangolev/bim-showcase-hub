@@ -1,6 +1,11 @@
 import { useMemo } from 'react';
 import { isRecord } from '../../shared/guards.js';
-import { BSH_KEYS, defineRecord, usePersisted } from '../storage.js';
+import {
+  BSH_KEYS,
+  defineRecord,
+  getStorageAdapter,
+  usePersisted,
+} from '../storage.js';
 
 export const SAVED_KEY = BSH_KEYS.personal.saved;
 export const SAVED_FORMAT = 'bsh-saved';
@@ -98,8 +103,19 @@ export function readSaved(kind?: string): SavedItem[] {
   return kind === undefined ? items : items.filter((i) => i.kind === kind);
 }
 
+function storedFromNewerBuild(): boolean {
+  const text = getStorageAdapter().get('local', SAVED_KEY);
+  if (text === null) return false;
+  try {
+    const { version } = JSON.parse(text) as { version?: unknown };
+    return typeof version === 'number' && version > SAVED_VERSION;
+  } catch {
+    return false;
+  }
+}
+
 function persist(items: SavedItem[]): boolean {
-  return SAVED.write(items);
+  return !storedFromNewerBuild() && SAVED.write(items);
 }
 
 export function useSavedItems(kind: string): SavedItem[] {
@@ -119,8 +135,10 @@ export function upsertSaved(item: SavedItem): boolean {
   if (!next || !fits(next)) return false;
   const items = readSaved();
   const index = items.findIndex((existing) => existing.id === next.id);
-  if (index >= 0) items[index] = next;
-  else if (items.length >= MAX_ITEMS) return false;
+  if (index >= 0) {
+    if (items[index]?.kind !== next.kind) return false;
+    items[index] = next;
+  } else if (items.length >= MAX_ITEMS) return false;
   else items.push(next);
   return persist(items);
 }
@@ -197,11 +215,13 @@ export function importSaved(text: string): ImportResult {
   }
   const byId = new Map(current.map((item) => [item.id, item]));
   let accepted = 0;
+  let clashes = 0;
   let older = 0;
   let dropped = 0;
   for (const item of incoming) {
     const existing = byId.get(item.id);
-    if (existing && existing.updatedAt > item.updatedAt) older += 1;
+    if (existing && existing.kind !== item.kind) clashes += 1;
+    else if (existing && existing.updatedAt > item.updatedAt) older += 1;
     else if (!existing && byId.size >= MAX_ITEMS) dropped += 1;
     else {
       byId.set(item.id, item);
@@ -209,11 +229,14 @@ export function importSaved(text: string): ImportResult {
     }
   }
   const merged = [...byId.values()];
+  if (storedFromNewerBuild()) {
+    return fail('Saved items were written by a newer version of the app.');
+  }
   if (!persist(merged)) return fail('Could not save to this browser.');
   return {
     items: merged,
     accepted,
-    rejected: parsed.items.length - incoming.length,
+    rejected: parsed.items.length - incoming.length + clashes,
     older,
     dropped,
   };

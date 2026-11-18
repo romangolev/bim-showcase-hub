@@ -6,7 +6,6 @@ import {
 import {
   MAX_NAME_LENGTH,
   newSavedId,
-  readSaved,
   removeSaved,
   renameSaved,
   type SavedItem,
@@ -15,10 +14,6 @@ import {
 } from '../store/savedStore.js';
 
 export const DASHBOARD_PRESET_KIND = 'dashboard-preset';
-
-export function listDashboardPresets(): SavedItem[] {
-  return readSaved(DASHBOARD_PRESET_KIND);
-}
 
 export function saveDashboardPreset(name: string, view: DashboardView) {
   const item: SavedItem = {
@@ -44,6 +39,7 @@ export function DashboardUserPresets({
   const items = useSavedItems(DASHBOARD_PRESET_KIND);
   const [name, setName] = useState('');
   const [failed, setFailed] = useState(false);
+  const [renameFailed, setRenameFailed] = useState(false);
 
   const save = () => {
     const trimmed = name.trim();
@@ -83,6 +79,11 @@ export function DashboardUserPresets({
           Could not save the preset. Delete some saved items and try again.
         </p>
       ) : null}
+      {renameFailed ? (
+        <p role="alert" className="settings__hint">
+          Could not rename the preset. Use a non-empty name.
+        </p>
+      ) : null}
       {items.length === 0 ? (
         <p className="settings__hint">No saved presets yet.</p>
       ) : (
@@ -95,9 +96,15 @@ export function DashboardUserPresets({
                 aria-label={`Rename ${item.name}`}
                 maxLength={MAX_NAME_LENGTH}
                 defaultValue={item.name}
-                onBlur={(e) =>
-                  renameSaved(DASHBOARD_PRESET_KIND, item.id, e.target.value)
-                }
+                onBlur={(e) => {
+                  const ok = renameSaved(
+                    DASHBOARD_PRESET_KIND,
+                    item.id,
+                    e.target.value,
+                  );
+                  if (!ok) e.target.value = item.name;
+                  setRenameFailed(!ok);
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') e.currentTarget.blur();
                 }}

@@ -84,7 +84,15 @@ export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
                 aria-label={`Rename ${set.name}`}
                 maxLength={MAX_NAME_LENGTH}
                 defaultValue={set.name}
-                onBlur={(event) => renameSet(set.id, event.target.value)}
+                onBlur={(event) => {
+                  const ok = renameSet(set.id, event.target.value);
+                  if (!ok) event.target.value = set.name;
+                  setProblem(
+                    ok
+                      ? null
+                      : 'Could not rename the set. Use a non-empty name.',
+                  );
+                }}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter') event.currentTarget.blur();
                 }}

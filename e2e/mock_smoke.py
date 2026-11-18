@@ -362,9 +362,19 @@ def check_dashboard_gallery(page, checks):
     settle(page, 300)
     pane.get_by_label("Chart elements").select_option("selected")
     settle(page, 800)
-    empty = pane.get_by_text("Nothing to chart here").count() == 1 and pane.get_by_role("list", name="Dashboard presets").count() == 1
-    checks.add("a board with no chart left shows the message and the gallery as its call to action", empty, pane.inner_text()[:160])
+    presets = pane.get_by_role("button", name="Presets", exact=True)
+    if pane.get_by_role("list", name="Dashboard presets").count() == 1:
+        presets.click()
+        settle(page, 300)
+    empty = pane.get_by_text("No selected elements").count() == 1 and pane.get_by_text("Nothing to chart").count() == 0 and pane.get_by_role("list", name="Dashboard presets").count() == 0
+    checks.add("a preset on an empty element scope says the scope is empty and keeps the gallery closed", empty, pane.inner_text()[:160])
     page.screenshot(path=str(OUTPUT_DIR / "mock-gallery-empty.png"))
+    presets.click()
+    settle(page, 300)
+    opened = pane.get_by_role("list", name="Dashboard presets").count() == 1
+    presets.click()
+    settle(page, 300)
+    checks.add("the gallery stays dismissible on an empty element scope", opened and pane.get_by_role("list", name="Dashboard presets").count() == 0)
     pane.get_by_label("Chart elements").select_option("all")
     settle(page, 400)
     pane.get_by_role("button", name="Dashboard settings").click()

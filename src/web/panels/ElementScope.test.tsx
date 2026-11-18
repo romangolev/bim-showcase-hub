@@ -1,9 +1,33 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { act, fireEvent, render, screen, waitFor } from '../test/render.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
 import { DashboardPanel } from './DashboardPanel.js';
 import { ModelSummaryPanel } from './ModelSummaryPanel.js';
+
+vi.mock('chart.js', () => {
+  class Chart {
+    static register = vi.fn();
+    static defaults = { font: {}, color: '' };
+    destroy = vi.fn();
+    update = vi.fn();
+    data: unknown;
+    constructor(_canvas: unknown, config: { data: unknown }) {
+      this.data = config.data;
+    }
+  }
+  const stub = {};
+  return {
+    Chart,
+    ArcElement: stub,
+    BarController: stub,
+    BarElement: stub,
+    CategoryScale: stub,
+    LinearScale: stub,
+    DoughnutController: stub,
+    Tooltip: stub,
+  };
+});
 
 const adapters: MockViewerAdapter[] = [];
 

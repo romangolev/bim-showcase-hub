@@ -53,6 +53,7 @@ function Preview({ properties }: { properties: readonly string[] }) {
 export function DashboardGallery({ view, apply, rows }: DashboardGalleryProps) {
   const items = useSavedItems(DASHBOARD_PRESET_KIND);
   const [failed, setFailed] = useState(false);
+  const [renameFailed, setRenameFailed] = useState(false);
 
   const note = (properties: readonly string[]) =>
     `Charts ${properties.join(', ')}${
@@ -68,6 +69,11 @@ export function DashboardGallery({ view, apply, rows }: DashboardGalleryProps) {
       {failed ? (
         <p role="alert" className="settings__hint">
           Could not save the preset. Delete some saved items and try again.
+        </p>
+      ) : null}
+      {renameFailed ? (
+        <p role="alert" className="settings__hint">
+          Could not rename the preset. Use a non-empty name.
         </p>
       ) : null}
       <ul className="bsh-gallery__list" aria-label="Dashboard presets">
@@ -115,9 +121,15 @@ export function DashboardGallery({ view, apply, rows }: DashboardGalleryProps) {
                 aria-label={`Rename ${item.name}`}
                 maxLength={MAX_NAME_LENGTH}
                 defaultValue={item.name}
-                onBlur={(e) =>
-                  renameSaved(DASHBOARD_PRESET_KIND, item.id, e.target.value)
-                }
+                onBlur={(e) => {
+                  const ok = renameSaved(
+                    DASHBOARD_PRESET_KIND,
+                    item.id,
+                    e.target.value,
+                  );
+                  if (!ok) e.target.value = item.name;
+                  setRenameFailed(!ok);
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') e.currentTarget.blur();
                 }}
