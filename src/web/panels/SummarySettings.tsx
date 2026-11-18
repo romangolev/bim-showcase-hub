@@ -11,6 +11,7 @@ import {
 } from '../extensions/modelSummary.js';
 import type { ModalDefinition } from '../modal/types.js';
 import { PANE_SETTINGS, usePaneSetting } from '../settings/paneSettings.js';
+import { usePublishedAdapter } from '../viewer/activeAdapterStore.js';
 import { PropertyPicker } from './PropertyPicker.js';
 import { useResolvedAdapter } from './usePropertyRows.js';
 
@@ -21,7 +22,7 @@ export function SummarySettingsBody() {
   const [properties, setProperties] = usePaneSetting(
     PANE_SETTINGS.summary.properties,
   );
-  const adapter = useResolvedAdapter();
+  const adapter = useResolvedAdapter(usePublishedAdapter());
   const [action, setAction] = usePaneSetting(PANE_SETTINGS.summary.action);
   const patch = (next: Partial<SummaryView>) =>
     setView((prev) => ({ ...prev, ...next }));
