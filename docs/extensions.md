@@ -86,7 +86,8 @@ All browser storage goes through `src/web/storage.ts`. Do not call `localStorage
 
 - An item is `{ id, kind, name, version, updatedAt, data }`. A new kind needs only a `kind` string and a sanitizer.
 - Use `readSaved(kind)`, `upsertSaved`, `removeSaved` and `moveSaved`.
-- Settings has Export and Import for a `bsh-saved.json` file. Import merges by id and the newer `updatedAt` wins.
+- Settings has Export and Import for a `bsh-saved.json` file. Import merges by id and the newer `updatedAt` wins. An id that already exists under another kind is never merged: `upsertSaved` fails and Import counts it as rejected.
+- The record carries a format version (`SAVED_VERSION`). A store written by a newer build (a higher version) is read-only: reading works, and `upsertSaved`, `renameSaved`, `removeSaved`, `moveSaved` and `importSaved` fail without writing, so an older build never strips newer data.
 - Kinds today: `dashboard-preset`, `selection-set`, `viewpoint`.
 
 ## Tasks
