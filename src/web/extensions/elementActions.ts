@@ -51,5 +51,5 @@ export function runElementAction(
 }
 
 export function showAllElements(adapter: ViewerAdapter): void {
-  adapter.isolateModelIds([]);
+  adapter.showAll();
 }

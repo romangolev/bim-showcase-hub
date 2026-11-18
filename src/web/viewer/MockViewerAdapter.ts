@@ -246,6 +246,7 @@ export class MockViewerAdapter implements ViewerAdapter {
   private status: HTMLDivElement | null = null;
   private selection = new Set<string>();
   private isolated: Set<string> | null = null;
+  private hiddenKeys = new Set<string>();
   private readonly models = new ModelSet<MockScene>();
   private readonly themed = new Map<string, Rgba>();
   private readonly listeners = new Set<(items: ModelDbId[]) => void>();
@@ -496,7 +497,9 @@ export class MockViewerAdapter implements ViewerAdapter {
       .flatMap(({ info, handle }) =>
         [...handle.nodes.keys()]
           .filter(
-            (dbId) => !isolated || isolated.has(selectionKey(info.id, dbId)),
+            (dbId) =>
+              (!isolated || isolated.has(selectionKey(info.id, dbId))) &&
+              !this.hiddenKeys.has(selectionKey(info.id, dbId)),
           )
           .map((dbId) => ({ modelId: info.id, dbId })),
       );
@@ -510,13 +513,30 @@ export class MockViewerAdapter implements ViewerAdapter {
     this.applyIsolation();
   }
 
+  hideModelIds(items: readonly ModelDbId[]): void {
+    for (const item of items) {
+      if (this.nodeOf(item.modelId, item.dbId)) {
+        this.hiddenKeys.add(selectionKey(item.modelId, item.dbId));
+      }
+    }
+    this.applyIsolation();
+  }
+
+  showAll(): void {
+    this.hiddenKeys.clear();
+    this.isolated = null;
+    this.applyIsolation();
+  }
+
   private applyIsolation(): void {
     for (const { info, handle } of this.models.ready()) {
       for (const [dbId, node] of handle.nodes) {
-        const dim =
-          this.isolated !== null &&
-          !this.isolated.has(selectionKey(info.id, dbId));
-        node.classList.toggle('bsh-mock__el--dim', dim);
+        const key = selectionKey(info.id, dbId);
+        node.classList.toggle(
+          'bsh-mock__el--dim',
+          this.isolated !== null && !this.isolated.has(key),
+        );
+        node.classList.toggle('bsh-mock__el--hidden', this.hiddenKeys.has(key));
       }
     }
   }
@@ -536,6 +556,7 @@ export class MockViewerAdapter implements ViewerAdapter {
     this.svg?.replaceChildren();
     this.themed.clear();
     this.isolated = null;
+    this.hiddenKeys.clear();
     this.bounds = null;
     this.loaded = false;
     this.placed = 0;

@@ -150,6 +150,7 @@ export class FakeFederatedViewer implements GuiViewer3D {
   cleared: (ViewerModel | undefined)[] = [];
   fits = 0;
   isolated = new Map<FakeModel, number[]>();
+  hiddenNodes = new Map<FakeModel, number[]>();
   fitted: ViewerBox[] = [];
   placed: { urn: string; elements: number[] }[] = [];
   impl = {
@@ -255,6 +256,24 @@ export class FakeFederatedViewer implements GuiViewer3D {
 
   isolate(ids: number[], model: ViewerModel): void {
     this.isolated.set(this.own(model), [...ids]);
+  }
+
+  hide(ids: number[], model: ViewerModel): void {
+    const own = this.own(model);
+    this.hiddenNodes.set(own, [...(this.hiddenNodes.get(own) ?? []), ...ids]);
+  }
+
+  show(ids: number[], model: ViewerModel): void {
+    const own = this.own(model);
+    const gone = new Set(ids);
+    this.hiddenNodes.set(
+      own,
+      (this.hiddenNodes.get(own) ?? []).filter((id) => !gone.has(id)),
+    );
+  }
+
+  getHiddenNodes(model: ViewerModel): number[] {
+    return [...(this.hiddenNodes.get(this.own(model)) ?? [])];
   }
 
   showModel(model: ViewerModel | number): boolean {

@@ -230,6 +230,8 @@ export interface GuiViewer3D {
   getIsolatedNodes?(model?: ViewerModel): number[];
   getHiddenNodes?(model?: ViewerModel): number[];
   isolate?(ids: number[], model?: ViewerModel): void;
+  hide?(ids: number[], model?: ViewerModel): void;
+  show?(ids: number[], model?: ViewerModel): void;
   fitToView?(): void;
   getScreenShot?(
     width: number,

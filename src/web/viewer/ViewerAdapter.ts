@@ -83,6 +83,8 @@ export interface ViewerAdapter {
   getVisible(): Promise<ModelDbId[]>;
   selectModelIds(items: readonly ModelDbId[]): void;
   isolateModelIds(items: readonly ModelDbId[]): void;
+  hideModelIds(items: readonly ModelDbId[]): void;
+  showAll(): void;
   fitToSelection(): void;
   getScreenshot(): Promise<Blob>;
   getCamera(): CameraState | null;
