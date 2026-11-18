@@ -22,7 +22,10 @@ vi.mock('chart.js', () => {
     static register = vi.fn();
     static defaults = { font: {}, color: '' };
     destroy = vi.fn();
+    update = vi.fn();
+    data: unknown;
     constructor(_canvas: unknown, config: (typeof made.configs)[number]) {
+      this.data = config.data;
       made.configs.push(config);
     }
   }

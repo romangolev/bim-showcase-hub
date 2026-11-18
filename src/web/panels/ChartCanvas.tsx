@@ -70,6 +70,9 @@ export function ChartCanvas({
   const { theme: pageTheme } = useTheme();
   const litKey = highlight?.size ? JSON.stringify([...highlight].sort()) : '';
   const [colors, setColors] = useState<string[]>([]);
+  const litKeyRef = useRef(litKey);
+  litKeyRef.current = litKey;
+  const paintRef = useRef<((litKey: string) => void) | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -86,14 +89,19 @@ export function ChartCanvas({
     Chart.defaults.font.weight = Number(theme.fontWeight) || 420;
     Chart.defaults.color = theme.text;
     const labels = chart.data.map((d) => d.label);
-    const lit = litKey ? new Set<string>(JSON.parse(litKey)) : null;
-    const fills = lit
-      ? colors.map((color, index) =>
-          lit.has(labels[index] ?? '')
-            ? color
-            : mixColors(color, theme.surface, DIM_WEIGHT),
-        )
-      : colors;
+    const styleFor = (key: string) => {
+      const lit = key ? new Set<string>(JSON.parse(key)) : null;
+      return {
+        backgroundColor: lit
+          ? colors.map((color, index) =>
+              lit.has(labels[index] ?? '')
+                ? color
+                : mixColors(color, theme.surface, DIM_WEIGHT),
+            )
+          : colors,
+        borderWidth: labels.map((name) => (lit?.has(name) ? 2 : 0)),
+      };
+    };
     const counts = chart.data.map((d) => d.count);
     const instance = new Chart(canvas, {
       type: kind,
@@ -103,9 +111,8 @@ export function ChartCanvas({
           {
             label: chart.property,
             data: counts,
-            backgroundColor: fills,
+            ...styleFor(litKeyRef.current),
             borderColor: theme.label,
-            borderWidth: labels.map((name) => (lit?.has(name) ? 2 : 0)),
             ...(kind === 'bar' ? { minBarLength: 2 } : {}),
             ...(kind === 'doughnut' ? { spacing: 2, borderRadius: 2 } : {}),
           },
@@ -152,8 +159,19 @@ export function ChartCanvas({
             : {},
       },
     });
-    return () => instance.destroy();
-  }, [kind, chart, pageTheme, litKey]);
+    paintRef.current = (key) => {
+      Object.assign(instance.data.datasets[0] ?? {}, styleFor(key));
+      instance.update('none');
+    };
+    return () => {
+      paintRef.current = null;
+      instance.destroy();
+    };
+  }, [kind, chart, pageTheme]);
+
+  useEffect(() => {
+    paintRef.current?.(litKey);
+  }, [litKey]);
 
   const exportPng = async () => {
     const canvas = canvasRef.current;

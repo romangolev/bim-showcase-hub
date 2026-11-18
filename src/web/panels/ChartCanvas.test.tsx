@@ -5,7 +5,12 @@ import { useTheme } from '../theme/ThemeContext.js';
 import { ChartCanvas } from './ChartCanvas.js';
 
 const created = vi.hoisted(() => ({
-  charts: [] as { config: unknown; destroy: ReturnType<typeof vi.fn> }[],
+  charts: [] as {
+    config: unknown;
+    destroy: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+    data: { datasets: Record<string, unknown>[] };
+  }[],
 }));
 
 vi.mock('chart.js', () => {
@@ -13,8 +18,16 @@ vi.mock('chart.js', () => {
     static register = vi.fn();
     static defaults = { font: {}, color: '' };
     destroy = vi.fn();
+    update = vi.fn();
+    data: { datasets: Record<string, unknown>[] };
     constructor(_canvas: unknown, config: unknown) {
-      created.charts.push({ config, destroy: this.destroy });
+      this.data = (config as { data: Chart['data'] }).data;
+      created.charts.push({
+        config,
+        destroy: this.destroy,
+        update: this.update,
+        data: this.data,
+      });
     }
   }
   const stub = {};
@@ -138,6 +151,31 @@ describe('ChartCanvas theming', () => {
       };
     };
     expect(config.options.scales.x.ticks.color).toBe('#858687');
+  });
+});
+
+describe('ChartCanvas highlight', () => {
+  it('repaints in place instead of rebuilding when the highlight changes', () => {
+    const { rerender } = render(
+      <ChartCanvas kind="bar" chart={chart} label="Counts" />,
+    );
+    const first = created.charts[0];
+    const before = first?.data.datasets[0]?.backgroundColor;
+    rerender(
+      <ChartCanvas
+        kind="bar"
+        chart={chart}
+        label="Counts"
+        highlight={new Set([chart.data[0]?.label ?? ''])}
+      />,
+    );
+    expect(created.charts).toHaveLength(1);
+    expect(first?.destroy).not.toHaveBeenCalled();
+    expect(first?.update).toHaveBeenCalledWith('none');
+    expect(first?.data.datasets[0]?.backgroundColor).not.toEqual(before);
+    expect(first?.data.datasets[0]?.borderWidth).toEqual(
+      chart.data.map((_, index) => (index === 0 ? 2 : 0)),
+    );
   });
 });
 
