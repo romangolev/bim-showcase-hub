@@ -27,6 +27,12 @@ export function usePersistedState<T>(
     const onForget = () => {
       if ((Object.values(BSH_KEYS.personal) as string[]).includes(key)) {
         setValue(initial);
+        return;
+      }
+      const raw = readJson<unknown>(key, undefined);
+      const next = raw === undefined ? initial : sanitizeRef.current(raw);
+      if (JSON.stringify(next) !== JSON.stringify(valueRef.current)) {
+        setValue(next);
       }
     };
     const onStorage = (event: StorageEvent) => {

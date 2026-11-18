@@ -64,11 +64,18 @@ function scrubIfcIdentity() {
   });
 }
 
+const forgetHooks: Array<() => void> = [];
+
+export function onForgetPersonal(hook: () => void): void {
+  forgetHooks.push(hook);
+}
+
 export function forgetPersonal(): void {
   for (const key of Object.values(BSH_KEYS.personal)) {
     remove(() => window.localStorage, key);
     remove(() => window.sessionStorage, key);
   }
   scrubIfcIdentity();
+  for (const hook of forgetHooks) hook();
   window.dispatchEvent(new Event(FORGET_EVENT));
 }

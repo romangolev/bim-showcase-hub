@@ -1,4 +1,13 @@
 import type { IfcSettings } from '../ifc/types.js';
+import {
+  confirmLargeExport as confirmAbove,
+  exportFileName,
+  runOnce,
+} from '../tools/kernel/exportKit.js';
+import {
+  TOOL_GROUP_ID,
+  TOOL_GROUP_TITLE,
+} from '../tools/kernel/ToolRegistry.js';
 import type {
   Rgba,
   ToolGroupSpec,
@@ -36,8 +45,7 @@ import {
   resetPaint,
 } from './paintBrushes.js';
 
-export const TOOL_GROUP_ID = 'bim-showcase-hub-tools';
-export const TOOL_GROUP_TITLE = 'BIM Showcase Hub tools';
+export { TOOL_GROUP_ID, TOOL_GROUP_TITLE };
 export const PAINT_TOOLTIP = 'Paint selection';
 export const PAINT_SELECT_HINT = 'Select elements to paint';
 export const PAINT_RESET_HINT = 'Nothing painted yet';
@@ -72,19 +80,6 @@ export interface ViewerToolsOptions {
   fileName?: () => string;
 }
 
-function exportFileName(
-  fileName: string | undefined,
-  fallback: string,
-  suffix: string,
-  extension: string,
-): string {
-  const model = (fileName ?? '')
-    .trim()
-    .replace(/\.(xlsx|glb|gltf|ifc)$/i, '')
-    .replace(/-properties$/i, '');
-  return model ? `${model}${suffix}.${extension}` : fallback;
-}
-
 export function excelFileNameFrom(
   fileName: string | undefined,
   settings: ExcelSettings,
@@ -100,12 +95,7 @@ export function excelFileNameFrom(
 }
 
 export function confirmLargeExport(rowCount: number): boolean {
-  return (
-    rowCount <= CONFIRM_ABOVE ||
-    window.confirm(
-      `Export ${rowCount.toLocaleString('en-US')} elements? This can take a while.`,
-    )
-  );
+  return confirmAbove(rowCount, CONFIRM_ABOVE);
 }
 
 export function glbFileNameFrom(fileName?: string): string {
@@ -123,35 +113,6 @@ export function modelKey(urn: string): string {
     hash = Math.imul(hash, 0x01000193) >>> 0;
   }
   return hash.toString(36);
-}
-
-type ExportKind = 'xlsx' | 'glb' | 'ifc';
-
-const running = new WeakMap<ViewerAdapter, Set<ExportKind>>();
-
-function runOnce(
-  adapter: ViewerAdapter,
-  kind: ExportKind,
-  start: () => Promise<unknown>,
-): void {
-  let kinds = running.get(adapter);
-  if (!kinds) {
-    kinds = new Set();
-    running.set(adapter, kinds);
-  }
-  if (kinds.has(kind)) return;
-  const active = kinds;
-  active.add(kind);
-  try {
-    void start()
-      .finally(() => {
-        active.delete(kind);
-      })
-      .catch(() => undefined);
-  } catch (error) {
-    active.delete(kind);
-    throw error;
-  }
 }
 
 function keyed(id: string, key?: string): string {

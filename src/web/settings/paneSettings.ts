@@ -18,21 +18,15 @@ import {
   sanitizeView,
 } from '../extensions/modelSummary.js';
 import { BSH_KEYS } from '../storage.js';
-import { usePersistedState } from '../usePersistedState.js';
+import {
+  type PersistedSetting,
+  persistedSetting,
+  usePersistedSetting,
+} from '../tools/kernel/persistedSetting.js';
 
-export interface PaneSetting<T> {
-  key: string;
-  initial: T;
-  sanitize: (raw: unknown) => T;
-}
+export type PaneSetting<T> = PersistedSetting<T>;
 
-function setting<T>(
-  key: string,
-  initial: T,
-  sanitize: (raw: unknown) => T,
-): PaneSetting<T> {
-  return { key, initial, sanitize };
-}
+const setting = persistedSetting;
 
 export const PANE_SETTINGS = {
   summary: {
@@ -68,6 +62,4 @@ export const PANE_SETTINGS = {
   },
 } as const;
 
-export function usePaneSetting<T>(spec: PaneSetting<T>) {
-  return usePersistedState<T>(spec.key, spec.initial, spec.sanitize);
-}
+export const usePaneSetting = usePersistedSetting;
