@@ -48,6 +48,10 @@ export function setStorageAdapter(next: StorageAdapter): StorageAdapter {
   return previous;
 }
 
+export function getStorageAdapter(): StorageAdapter {
+  return adapter;
+}
+
 const personalKeys = new Set<string>(Object.values(BSH_KEYS.personal));
 
 function isPersonal(key: string): boolean {

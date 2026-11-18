@@ -11,6 +11,7 @@ import {
   setStorageAdapter,
   usePersisted,
 } from './storage.js';
+import './tools/index.js';
 import { memoryAdapter, type StorageAdapter } from './storageAdapter.js';
 import { EXCEL_SETTINGS_KEY } from './tools/excel/excelSettings.js';
 import { GLB_SETTINGS_KEY } from './tools/glb/GlbExportTool.js';
@@ -178,7 +179,35 @@ describe('forget', () => {
     forgetPersonal();
     expect(adapter.keys('session')).toEqual([]);
     expect(adapter.keys('local').sort()).toEqual(
-      [...Object.values(BSH_KEYS.preference), 'unrelated'].sort(),
+      [
+        ...Object.values(BSH_KEYS.preference).filter(
+          (key) => key !== BSH_KEYS.preference.settings,
+        ),
+        'unrelated',
+      ].sort(),
+    );
+  });
+
+  it.each([
+    ['truncated JSON with an author', '{"ifc":{"author":"Ada'],
+    ['a number', '7'],
+    ['a string', '"x"'],
+    ['an array', '["Ada"]'],
+  ])('drops a corrupt app-settings blob: %s', (_name, blob) => {
+    adapter.set('local', BSH_KEYS.preference.settings, blob);
+    forgetPersonal();
+    expect(adapter.get('local', BSH_KEYS.preference.settings)).toBeNull();
+  });
+
+  it('trims a valid app-settings blob to the app fields', () => {
+    adapter.set(
+      'local',
+      BSH_KEYS.preference.settings,
+      '{"recentsLength":3,"ifc":{"author":"Ada"}}',
+    );
+    forgetPersonal();
+    expect(adapter.get('local', BSH_KEYS.preference.settings)).toBe(
+      '{"recentsLength":3}',
     );
   });
 });

@@ -1,5 +1,5 @@
 import { isRecord } from '../../shared/guards.js';
-import { BSH_KEYS, defineRecord } from '../storage.js';
+import { BSH_KEYS, defineRecord, getStorageAdapter } from '../storage.js';
 
 export interface Settings {
   sessionWarnMinutes: number;
@@ -50,8 +50,18 @@ export function writeSettings(settings: Settings): void {
 }
 
 export function scrubAppSettings(): void {
-  const stored = APP_SETTINGS_BLOB.read();
-  if (!isRecord(stored)) return;
+  const text = getStorageAdapter().get('local', SETTINGS_STORAGE_KEY);
+  if (text === null) return;
+  let stored: unknown;
+  try {
+    stored = JSON.parse(text);
+  } catch {
+    stored = undefined;
+  }
+  if (!isRecord(stored)) {
+    getStorageAdapter().remove('local', SETTINGS_STORAGE_KEY);
+    return;
+  }
   const { sessionWarnMinutes, recentsLength } = stored;
   APP_SETTINGS_BLOB.write({
     ...(sessionWarnMinutes === undefined ? {} : { sessionWarnMinutes }),

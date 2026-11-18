@@ -134,6 +134,18 @@ describe('scrubAppSettings', () => {
     });
   });
 
+  it.each([
+    ['truncated JSON with an author', '{"ifc":{"author":"Ada'],
+    ['a number', '7'],
+    ['a string', '"x"'],
+    ['an array', '[{"ifc":{"author":"Ada"}}]'],
+    ['null', 'null'],
+  ])('removes a corrupt blob: %s', (_name, blob) => {
+    window.localStorage.setItem(SETTINGS_STORAGE_KEY, blob);
+    scrubAppSettings();
+    expect(stored()).toBeNull();
+  });
+
   it('does nothing when nothing is stored', () => {
     scrubAppSettings();
     expect(stored()).toBeNull();
