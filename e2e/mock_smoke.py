@@ -1590,6 +1590,28 @@ def check_task_center(page, checks):
     checks.add("one live region announces the finished load", live.count() == 1, live.count())
 
 
+def check_export_tasks(page, checks):
+    for label, download, name in (
+        ("Exporting Excel", download_export, "export-tasks.xlsx"),
+        ("Exporting geometry (GLB)", download_glb, "export-tasks.glb"),
+        ("Exporting IFC", download_ifc, "export-tasks.ifc"),
+    ):
+        try:
+            download(page, OUTPUT_DIR / name)
+            live = page.locator("[role=status][aria-live=polite]").filter(has_text=f"{label} finished")
+            wait_until(page, lambda: live.count() == 1)
+            checks.add(f"export task: {label} is announced once", live.count() == 1, live.count())
+        except Exception as exc:
+            checks.add(f"export task: {label} is announced once", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+    page.get_by_role("button", name=re.compile(r"^Tasks")).click()
+    popover = page.get_by_role("region", name="Tasks")
+    text = popover.inner_text()
+    checks.add("export task: the list shows the three exports with counts", all(label in text for label in ("Exporting Excel", "Exporting geometry (GLB)", "Exporting IFC")) and "Exported" in text, text)
+    checks.add("export task: no export offers a cancel after finishing", popover.get_by_role("button", name="Cancel").count() == 0)
+    page.keyboard.press("Escape")
+    checks.add("export task: the pane no longer shows an export badge", page.locator(".bsh-viewer-badge").count() == 0)
+
+
 def check_pane_families(page, checks):
     page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
     settle(page)
@@ -1654,7 +1676,7 @@ def run_interaction_checks(page, checks, notes):
     except Exception as exc:
         page.screenshot(path=str(OUTPUT_DIR / "mock-blocked-picks-failure.png"))
         checks.add("check_blocked_picks", False, f"{type(exc).__name__}: {str(exc)[:160]}")
-    for check in (check_task_center, check_pane_families):
+    for check in (check_task_center, check_export_tasks, check_pane_families):
         try:
             check(page, checks)
         except Exception as exc:
