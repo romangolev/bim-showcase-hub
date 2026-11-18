@@ -2,6 +2,7 @@ import type { ComponentType } from 'react';
 import type { IconName } from '../components/icons.js';
 import { PANEL_SEPARATOR, type PanelId } from './panelIds.js';
 import {
+  ChartInstancePane,
   DashboardPane,
   ModelPaneBody,
   ModelsPane,
@@ -9,7 +10,13 @@ import {
   TreePane,
 } from './panes.js';
 
-export type PaneId = 'tree' | 'viewer' | 'summary' | 'dashboard' | 'models';
+export type PaneId =
+  | 'tree'
+  | 'viewer'
+  | 'summary'
+  | 'dashboard'
+  | 'models'
+  | 'chart';
 
 export type PlacementDirection = 'left' | 'right' | 'below';
 
@@ -27,6 +34,8 @@ export type Placement =
 export interface PaneInstances {
   component: ComponentType<{ instance: string }>;
   closable: boolean;
+  source: 'models' | 'user';
+  creatable?: boolean;
 }
 
 export interface PaneDefinition {
@@ -70,7 +79,7 @@ export const PANES: readonly PaneDefinition[] = [
     closable: true,
     canFloat: true,
     requires: 'none',
-    instances: { component: ModelPaneBody, closable: true },
+    instances: { component: ModelPaneBody, closable: true, source: 'models' },
   },
   {
     id: 'summary',
@@ -114,6 +123,28 @@ export const PANES: readonly PaneDefinition[] = [
     closable: true,
     canFloat: true,
     requires: 'viewer',
+  },
+  {
+    id: 'chart',
+    title: 'Chart',
+    icon: 'chart',
+    component: null,
+    minSize: { width: 320, height: 120 },
+    defaultPlacement: {
+      kind: 'beside',
+      reference: 'viewer',
+      direction: 'below',
+      size: 220,
+    },
+    closable: true,
+    canFloat: true,
+    requires: 'viewer',
+    instances: {
+      component: ChartInstancePane,
+      closable: true,
+      source: 'user',
+      creatable: true,
+    },
   },
 ];
 
@@ -174,11 +205,27 @@ export function definitionOf(id: PanelId): PaneDefinition {
 }
 
 export function followersOf(kind: PaneId): PaneId[] {
-  return PANES.filter((pane) => pane.requires === kind).map((pane) => pane.id);
+  return PANES.filter((pane) => pane.requires === kind && !pane.instances).map(
+    (pane) => pane.id,
+  );
 }
 
 export function isFollower(id: PaneId): boolean {
-  return paneById(id).requires !== 'none';
+  const pane = paneById(id);
+  return pane.requires !== 'none' && !pane.instances;
+}
+
+export function isUserFamily(kind: PaneId): boolean {
+  return paneById(kind).instances?.source === 'user';
+}
+
+export function userFamilies(): PaneDefinition[] {
+  return PANES.filter((pane) => pane.instances?.source === 'user');
+}
+
+export function isUserInstance(id: unknown): boolean {
+  const parsed = parsePanelId(id);
+  return Boolean(parsed?.instance && isUserFamily(parsed.kind));
 }
 
 export const FOLLOWERS: readonly PaneId[] = PANE_IDS.filter(isFollower);

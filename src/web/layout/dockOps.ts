@@ -221,7 +221,7 @@ function wantedOf(sync: InstanceSync, kind: PaneId): PanelId[] {
 export function changesShape(api: DockviewApi, sync: InstanceSync): boolean {
   return PANES.some(
     (pane) =>
-      pane.instances &&
+      pane.instances?.source === 'models' &&
       (kindPanels(api, pane.id).length === 0) !==
         (wantedOf(sync, pane.id).length === 0),
   );
@@ -238,9 +238,11 @@ export function syncInstances(api: DockviewApi, sync: InstanceSync) {
   const wanted = new Set(sync.instances);
   for (const pane of PANES) {
     if (!pane.instances) continue;
+    const user = pane.instances.source === 'user';
     const want = wantedOf(sync, pane.id);
     const before = kindPanels(api, pane.id).length;
-    const adopted = before === 0 && want.length > 0 && adopt(api, sync, want);
+    const adopted =
+      !user && before === 0 && want.length > 0 && adopt(api, sync, want);
     const leaving = kindPanels(api, pane.id).filter(
       (panel) => isInstance(panel.id) && !wanted.has(panel.id),
     );
@@ -277,6 +279,7 @@ export function syncInstances(api: DockviewApi, sync: InstanceSync) {
         addPane(api, id, placementOf(api, pane), title);
       }
     }
+    if (user) continue;
     const followers = followersOf(pane.id);
     if (want.length === 0) {
       for (const follower of followers) api.getPanel(follower)?.api.close();

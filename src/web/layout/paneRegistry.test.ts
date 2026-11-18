@@ -7,6 +7,8 @@ import {
   isPaneId,
   isPanelClosable,
   isRequired,
+  isUserFamily,
+  isUserInstance,
   PANE_IDS,
   PANES,
   paneById,
@@ -87,5 +89,17 @@ describe('pane registry', () => {
     expect(parsePanelId('viewer:')).toBeNull();
     expect(parsePanelId('terminal:x')).toBeNull();
     expect(paneKind(42)).toBeNull();
+  });
+
+  it('registers user families as instance panes that are not companions', () => {
+    expect(isUserFamily('chart')).toBe(true);
+    expect(isUserFamily('viewer')).toBe(false);
+    expect(parsePanelId('chart:3')).toEqual({ kind: 'chart', instance: '3' });
+    expect(parsePanelId('chart')).toEqual({ kind: 'chart', instance: null });
+    expect(isUserInstance('chart:3')).toBe(true);
+    expect(isUserInstance('viewer:x')).toBe(false);
+    expect(isPanelClosable('chart:3')).toBe(true);
+    expect(hasPlainPanel('chart')).toBe(false);
+    expect(FOLLOWERS).not.toContain('chart');
   });
 });

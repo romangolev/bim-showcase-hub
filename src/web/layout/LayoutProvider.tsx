@@ -52,6 +52,7 @@ import {
   definitionOf,
   FOLLOWERS,
   isPaneId,
+  isUserInstance,
   PANE_IDS,
   type PaneId,
   type PanelId,
@@ -62,6 +63,14 @@ import {
 } from './paneRegistry.js';
 import { MODEL_KIND, modelPanelId } from './panes.js';
 import { StackedLayout } from './StackedLayout.js';
+import {
+  addUserInstance,
+  removeUserInstance,
+  sanitizeUserInstances,
+  type UserInstances,
+  userInstanceIds,
+  userInstanceTitles,
+} from './userInstances.js';
 import { createHostStore, PaneHosts } from './ViewerHost.js';
 
 const DockLayout = lazy(() =>
@@ -207,15 +216,27 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
     modelStore.getState,
     modelStore.getState,
   );
-  const instances = useMemo(
-    () => models.models.map(({ urn }) => modelPanelId(urn)),
-    [models.models],
-  );
-  const activeInstance = models.active ? modelPanelId(models.active) : null;
-  const titles = useMemo(() => titlesFor(models), [models]);
-
   const stacked = useMediaQuery(STACKED_QUERY);
   const mode: LayoutMode = stacked ? 'stacked' : 'dock';
+  const [userState, setUserState] = usePersistedState<UserInstances>(
+    BSH_KEYS.preference.layoutInstances,
+    {},
+    sanitizeUserInstances,
+  );
+  const instances = useMemo(
+    () => [
+      ...models.models.map(({ urn }) => modelPanelId(urn)),
+      ...(models.models.length > 0 && !stacked
+        ? userInstanceIds(userState)
+        : []),
+    ],
+    [models.models, userState, stacked],
+  );
+  const activeInstance = models.active ? modelPanelId(models.active) : null;
+  const titles = useMemo(
+    () => ({ ...titlesFor(models), ...userInstanceTitles(userState) }),
+    [models, userState],
+  );
   const [model, dispatch] = useReducer(layoutReducer, instances, initialModel);
   const [openPanes, setOpenPanes] = useState<readonly PaneId[]>(() =>
     openFromDock(model.dock),
@@ -364,8 +385,24 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
     (id: PanelId) => {
       const urn = modelOf(id);
       if (urn) modelStore.close(urn);
+      else if (isUserInstance(id)) {
+        setUserState((state) => removeUserInstance(state, id));
+      }
     },
-    [modelStore],
+    [modelStore, setUserState],
+  );
+
+  const userStateRef = useRef(userState);
+  userStateRef.current = userState;
+  const addInstance = useCallback(
+    (kind: PaneId) => {
+      const added = addUserInstance(userStateRef.current, kind);
+      if (!added) return null;
+      userStateRef.current = added.state;
+      setUserState(added.state);
+      return added.id;
+    },
+    [setUserState],
   );
 
   const [locked, setLockedState] = usePersistedState<boolean>(
@@ -451,11 +488,20 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
           `${paneById(id).title} ${collapsed ? 'collapsed' : 'expanded'}`,
         );
       },
+      canAddInstance: models.models.length > 0 && mode === 'dock',
+      addInstance: (kind) => {
+        if (lockedRef.current || modeRef.current !== 'dock') return null;
+        return addInstance(kind);
+      },
       togglePane: (id) => {
         if (lockedRef.current) return;
         const urn = modelOf(id);
         if (urn) {
           modelStore.close(urn);
+          return;
+        }
+        if (isUserInstance(id)) {
+          onCloseInstance(id);
           return;
         }
         if (!isPaneId(id) || !paneById(id).closable) return;
@@ -549,6 +595,9 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       modelStore,
       closePane,
       resizing,
+      addInstance,
+      onCloseInstance,
+      models.models.length,
     ],
   );
 
@@ -628,6 +677,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
     target.__bshLayout = {
       movePane: api.movePane,
       togglePane: api.togglePane,
+      addInstance: api.addInstance,
       setCollapsed: api.setCollapsed,
       resetLayout: api.resetLayout,
       openPanes: () => [...api.openPanes],
