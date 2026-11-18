@@ -150,6 +150,12 @@ export function layoutMenuEntries(layout: LayoutApi): MenuEntry[] {
     })),
     { kind: 'separator' as const, id: 'sep' },
     {
+      id: 'present',
+      label: 'Present',
+      description: 'Show only the viewer. Escape exits.',
+      onSelect: () => layout.setPresenting(true),
+    },
+    {
       id: 'lock',
       label: 'Lock layout',
       checked: layout.locked,

@@ -1474,6 +1474,38 @@ def check_view_states(page, checks):
     page.goto(BASE_URL, wait_until="networkidle")
 
 
+def check_presentation_mode(page, checks):
+    try:
+        page.get_by_role("button", name="Panes").click()
+        page.get_by_role("menuitem", name="Present").click()
+        page.wait_for_timeout(500)
+        hidden = page.evaluate(
+            "() => ({present: document.documentElement.hasAttribute('data-presenting'),"
+            " top: getComputedStyle(document.querySelector('.topbar')).display,"
+            " tabs: [...document.querySelectorAll('.dv-tabs-and-actions-container')].every(e => getComputedStyle(e).display === 'none'),"
+            " viewerShare: document.querySelector('.bsh-viewer-pane').getBoundingClientRect().width / innerWidth})"
+        )
+        checks.add(
+            "presentation mode hides the chrome and leaves one pane",
+            hidden["present"] and hidden["top"] == "none" and hidden["tabs"] and hidden["viewerShare"] > 0.95,
+            hidden,
+        )
+        page.screenshot(path=str(OUTPUT_DIR / "mock-presenting.png"))
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(500)
+        restored = page.evaluate(
+            "() => ({present: document.documentElement.hasAttribute('data-presenting'),"
+            " top: getComputedStyle(document.querySelector('.topbar')).display})"
+        )
+        checks.add(
+            "Escape restores the layout after presenting",
+            not restored["present"] and restored["top"] != "none" and page.get_by_role("tab").count() >= 2,
+            restored,
+        )
+    except Exception as exc:
+        checks.add("presentation mode", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+
+
 def check_documents_home(page, checks):
     settle(page)
     checks.add("default layout is Documents alone", documents_alone(page), groups(page))
@@ -1705,6 +1737,7 @@ def run(context, checks, notes):
     notes["viewer_canvas"] = f"{fill.get('canvasWidth')}x{fill.get('canvasHeight')}"
     page.screenshot(path=str(OUTPUT_DIR / "mock-model.png"))
     checks.add("mock viewer is present", page.get_by_label(MOCK_VIEWER_LABEL).count() >= 1)
+    check_presentation_mode(page, checks)
 
     rows = page.locator("table tbody tr")
     try:

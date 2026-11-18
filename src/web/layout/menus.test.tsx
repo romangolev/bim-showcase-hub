@@ -340,6 +340,23 @@ describe('panes menu in the top bar', () => {
     );
   });
 
+  it('presents the viewer alone and Escape restores the chrome', async () => {
+    renderModel();
+    fireEvent.click(await screen.findByRole('button', { name: 'Panes' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Present' }));
+    expect(document.documentElement).toHaveAttribute('data-presenting');
+    expect(
+      screen.getByRole('button', { name: 'Exit presentation' }),
+    ).toBeInTheDocument();
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    await waitFor(() =>
+      expect(document.documentElement).not.toHaveAttribute('data-presenting'),
+    );
+    expect(
+      screen.queryByRole('button', { name: 'Exit presentation' }),
+    ).toBeNull();
+  });
+
   it('is hidden on narrow screens', async () => {
     const media = mockMatchMedia(1440);
     renderModel();

@@ -580,3 +580,36 @@
     transition: none;
   }
 }
+
+html[data-presenting] .topbar,
+html[data-presenting] .session-banner,
+html[data-presenting] .dv-tabs-and-actions-container,
+html[data-presenting] .dv-resize-container,
+html[data-presenting] .bsh-viewer-share,
+html[data-presenting] .bsh-viewer-models,
+html[data-presenting] .bsh-viewer-status,
+html[data-presenting] .bsh-mock__toolbar,
+html[data-presenting] .bsh-viewer-surface .adsk-viewing-viewer .adsk-toolbar {
+  display: none;
+}
+
+.present-exit {
+  position: fixed;
+  top: var(--space-2);
+  right: var(--space-2);
+  z-index: 50;
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-hairline);
+  border-radius: var(--radius-card);
+  background: var(--color-graphite);
+  color: var(--color-fog);
+  font: inherit;
+  font-size: var(--text-13);
+  opacity: 0.35;
+  cursor: pointer;
+}
+
+.present-exit:hover,
+.present-exit:focus-visible {
+  opacity: 1;
+}
