@@ -87,25 +87,36 @@ function useElementItems(
     let live = true;
     let latest = 0;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const initial = ++latest;
-    scopeElementItems(adapter, elements).then(
-      (list) => {
-        if (live && initial === latest) setLoaded({ key, list });
-      },
-      () => {
-        if (live && initial === latest) setLoaded({ key, list: [] });
-      },
-    );
+    const load = () => {
+      const token = ++latest;
+      scopeElementItems(adapter, elements).then(
+        (list) => {
+          if (live && token === latest) setLoaded({ key, list });
+        },
+        () => {
+          if (live && token === latest) setLoaded({ key, list: [] });
+        },
+      );
+    };
+    const delayed = (apply: () => void) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (live) apply();
+      }, SELECTION_DEBOUNCE_MS);
+    };
+    load();
     const off =
       elements === 'selected'
         ? adapter.onSelectionChange((list) => {
             latest++;
-            clearTimeout(timer);
-            timer = setTimeout(() => {
-              if (live) setLoaded({ key, list });
-            }, SELECTION_DEBOUNCE_MS);
+            delayed(() => setLoaded({ key, list }));
           })
-        : undefined;
+        : elements === 'visible' || elements === 'isolated'
+          ? adapter.onVisibilityChange(() => {
+              latest++;
+              delayed(load);
+            })
+          : undefined;
     return () => {
       live = false;
       clearTimeout(timer);

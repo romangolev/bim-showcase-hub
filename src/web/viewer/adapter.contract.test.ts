@@ -158,6 +158,25 @@ describe('ViewerAdapter contract (mock)', () => {
     expect(found.every((info) => info.category.length > 0)).toBe(true);
   });
 
+  it('reports read progress and rejects once aborted', async () => {
+    await setup();
+    const seen: { done: number; total: number }[] = [];
+    const rows = await adapter.getLeafProperties(['Name'], undefined, {
+      onProgress: (progress) => seen.push(progress),
+    });
+    expect(seen.at(-1)).toEqual({ done: rows.length, total: rows.length });
+    const controller = new AbortController();
+    controller.abort();
+    await expect(
+      adapter.getLeafProperties(['Name'], undefined, {
+        signal: controller.signal,
+      }),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+    await expect(
+      adapter.discoverProperties(undefined, { signal: controller.signal }),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
   it('reads the full property set of one element', async () => {
     await setup();
     const modelId = adapter.getModels()[0]?.id ?? '';

@@ -438,3 +438,66 @@ describe('discoverLeafProperties', () => {
     expect(discoverProperties).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('discovery progress', () => {
+  it('sums the progress of every model', async () => {
+    const discoverProperties = vi.fn(
+      async (
+        _ids?: readonly string[],
+        options?: { onProgress?: (p: { done: number; total: number }) => void },
+      ) => {
+        options?.onProgress?.({ done: 2, total: 2 });
+        return [{ name: 'Level', category: 'Constraints' }];
+      },
+    );
+    const adapter = {
+      discoverProperties,
+      getModels: () => [
+        { id: 'a', urn: 'a', name: 'a', visible: true, status: 'ready' },
+        { id: 'b', urn: 'b', name: 'b', visible: true, status: 'ready' },
+      ],
+    } as unknown as ViewerAdapter;
+    const seen: { done: number; total: number }[] = [];
+    await discoverLeafProperties(adapter, {
+      onProgress: (progress) => seen.push(progress),
+    });
+    expect(seen.at(-1)).toEqual({ done: 4, total: 4 });
+  });
+});
+
+describe('cache version', () => {
+  it('drops rows and discovery when the model version changes', async () => {
+    let version: string | undefined = '1';
+    const getLeafProperties = vi.fn(async () => [
+      { dbId: 1, name: 'El', properties: { Name: 'n' } },
+    ]);
+    const discoverProperties = vi.fn(async () => [
+      { name: 'Name', category: 'Identity Data' },
+    ]);
+    const adapter = {
+      getLeafProperties,
+      discoverProperties,
+      getModels: () => [
+        {
+          id: 'm',
+          urn: 'm',
+          name: 'm',
+          visible: true,
+          status: 'ready',
+          version,
+        },
+      ],
+    } as unknown as ViewerAdapter;
+    await readLeafRows(adapter, ['Name']);
+    await discoverLeafProperties(adapter);
+    await readLeafRows(adapter, ['Name']);
+    await discoverLeafProperties(adapter);
+    expect(getLeafProperties).toHaveBeenCalledTimes(1);
+    expect(discoverProperties).toHaveBeenCalledTimes(1);
+    version = '2';
+    await readLeafRows(adapter, ['Name']);
+    await discoverLeafProperties(adapter);
+    expect(getLeafProperties).toHaveBeenCalledTimes(2);
+    expect(discoverProperties).toHaveBeenCalledTimes(2);
+  });
+});

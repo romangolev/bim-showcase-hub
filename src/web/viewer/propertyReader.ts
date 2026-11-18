@@ -75,8 +75,14 @@ export class PropertyReader<H> {
     modelIds: readonly string[] | undefined,
     options: ReadOptions = {},
   ): Promise<PropertyInfo[]> {
+    const progress = sumProgress(options.onProgress);
     const results = await Promise.allSettled(
-      this.shown(modelIds).map((model) => this.source.infos(model, options)),
+      this.shown(modelIds).map((model) =>
+        this.source.infos(model, {
+          ...options,
+          onProgress: progress(model.info.id),
+        }),
+      ),
     );
     throwIfAborted(options.signal);
     const lists: PropertyInfo[][] = [];

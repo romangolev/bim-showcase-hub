@@ -46,13 +46,11 @@ import {
 import { Placement } from './placement.js';
 import { PropertyReader } from './propertyReader.js';
 import {
-  DISCOVERY_SAMPLE,
   type ElementProperties,
   mergeInfos,
   type PropertyInfo,
   type ReadOptions,
   readInChunks,
-  sampleIds,
   throwIfAborted,
   UNCATEGORIZED,
 } from './propertyReads.js';
@@ -1115,15 +1113,14 @@ export class RealViewerAdapter implements ViewerAdapter {
   ): Promise<PropertyInfo[]> {
     const tree = await readTree(viewer, model);
     throwIfAborted(options.signal);
-    const items = await new Promise<BulkPropertyItem[]>((resolve, reject) =>
-      model.getBulkProperties(
-        sampleIds(leafIds(tree), DISCOVERY_SAMPLE),
-        {},
-        resolve,
-        reject,
-      ),
+    const items = await readInChunks(
+      leafIds(tree),
+      (chunk) =>
+        new Promise<BulkPropertyItem[]>((resolve, reject) =>
+          model.getBulkProperties(chunk, {}, resolve, reject),
+        ),
+      options,
     );
-    throwIfAborted(options.signal);
     return mergeInfos([
       items.flatMap((item) =>
         item.properties.map((prop) => ({

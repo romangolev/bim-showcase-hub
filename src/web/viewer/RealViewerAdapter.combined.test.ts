@@ -436,6 +436,63 @@ describe('federated selection, paint and properties', () => {
     ).rejects.toMatchObject({ name: 'AbortError' });
   });
 
+  it('covers every leaf when discovering properties', async () => {
+    const leaves = Array.from({ length: 5001 }, (_, i) => 1000 + i);
+    env.specs.set('a', { leaves });
+    await adapter.loadModels([{ urn: 'a', name: 'Arch' }]);
+    const chunks: number[] = [];
+    vi.spyOn(viewer().modelOf('a'), 'getBulkProperties').mockImplementation(
+      (ids, _options, ok) => {
+        chunks.push(ids.length);
+        ok(
+          ids.map((dbId) => ({
+            dbId,
+            name: 'n',
+            properties: [
+              {
+                displayName: 'Level',
+                displayValue: 'L1',
+                displayCategory: 'Constraints',
+              },
+            ],
+          })) as never[],
+        );
+      },
+    );
+    const seen: { done: number; total: number }[] = [];
+    const found = await adapter.discoverProperties(undefined, {
+      onProgress: (progress) => seen.push(progress),
+    });
+    expect(chunks).toEqual([5000, 1]);
+    expect(seen.at(-1)).toEqual({ done: 5001, total: 5001 });
+    expect(found).toEqual([{ name: 'Level', category: 'Constraints' }]);
+  });
+
+  it('stops discovering after the chunk that was cancelled', async () => {
+    const leaves = Array.from({ length: 5001 }, (_, i) => 1000 + i);
+    env.specs.set('a', { leaves });
+    await adapter.loadModels([{ urn: 'a' }]);
+    const controller = new AbortController();
+    const chunks: number[] = [];
+    vi.spyOn(viewer().modelOf('a'), 'getBulkProperties').mockImplementation(
+      (ids, _options, ok) => {
+        chunks.push(ids.length);
+        ok(
+          ids.map((dbId) => ({
+            dbId,
+            name: 'n',
+            properties: [{ displayName: 'Level', displayValue: 'L1' }],
+          })) as never[],
+        );
+        controller.abort();
+      },
+    );
+    await expect(
+      adapter.discoverProperties(undefined, { signal: controller.signal }),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+    expect(chunks).toEqual([5000]);
+  });
+
   it('keeps the first value when two categories share a property name', async () => {
     env.specs.set('a', { categories: ['Walls'] });
     await adapter.loadModels([{ urn: 'a', name: 'Arch' }]);

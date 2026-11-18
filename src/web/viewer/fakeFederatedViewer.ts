@@ -28,6 +28,7 @@ export interface FakeModelSpec {
   fail?: string;
   propsFail?: string;
   treeHang?: boolean;
+  leaves?: number[];
   noGeometry?: boolean;
   center?: [number, number, number];
   size?: number;
@@ -80,11 +81,12 @@ export class FakeModel implements ViewerModel {
       onError?.(new Error(this.spec.propsFail));
       return;
     }
+    const leaves = this.spec.leaves ?? FAKE_LEAVES;
     onSuccess({
       getRootId: () => 1,
-      getChildCount: (dbId) => (dbId === 1 ? FAKE_LEAVES.length : 0),
+      getChildCount: (dbId) => (dbId === 1 ? leaves.length : 0),
       enumNodeChildren: (_dbId, cb) => {
-        for (const leaf of FAKE_LEAVES) cb(leaf);
+        for (const leaf of leaves) cb(leaf);
       },
     });
   }
