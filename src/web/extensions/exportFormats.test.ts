@@ -83,7 +83,7 @@ describe('serializers', () => {
   it('adds version and path rows only when a model carries them', () => {
     const base = { scope: 'all' as const, rowCount: 1 };
     const plain = aboutRows({ ...base, models: [{ name: 'A', urn: 'u' }] });
-    expect(plain.map(([key]) => key)).not.toContain('Version');
+    expect(plain.map(([key]) => key)).not.toContain('Version (from link)');
     const rows = aboutRows({
       ...base,
       models: [
@@ -92,8 +92,8 @@ describe('serializers', () => {
       ],
     });
     expect(Object.fromEntries(rows)).toMatchObject({
-      Version: 'V2, ',
-      Path: 'Hub / Project, ',
+      'Version (from link)': 'V2, ',
+      'Path (from link)': 'Hub / Project, ',
     });
   });
 

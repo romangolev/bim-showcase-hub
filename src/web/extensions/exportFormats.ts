@@ -185,11 +185,11 @@ export function aboutRows(info: AboutInfo): [string, ExportCell][] {
     ['Model', info.models.map((model) => model.name).join(', ')],
     ['Source URN', info.models.map((model) => model.urn).join(', ')],
     ...optionalRow(
-      'Version',
+      'Version (from link)',
       info.models.map((model) => model.version),
     ),
     ...optionalRow(
-      'Path',
+      'Path (from link)',
       info.models.map((model) => model.path),
     ),
     ['Exported', (info.date ?? new Date()).toISOString()],
