@@ -113,7 +113,11 @@ window.__bshViewerState = {
   },
   restore: async (state: unknown) => {
     const { viewer, models } = context();
-    const picked = await restoreViewerState(viewer, models, state);
+    const { selection: picked } = await restoreViewerState(
+      viewer,
+      models,
+      state,
+    );
     viewer.select?.(
       picked.map((item) => item.dbId),
       models[0]?.handle,
