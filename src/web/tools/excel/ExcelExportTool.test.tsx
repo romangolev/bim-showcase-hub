@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { tasks } from '../../tasks/taskStore.js';
 import { installMemoryStorage } from '../../test/mockApi.js';
+import { listSets, saveSelectionSet } from '../../viewer/selectionSets.js';
 import type { ViewerAdapter } from '../../viewer/ViewerAdapter.js';
 import type { ToolContext } from '../kernel/ViewerTool.js';
 
@@ -62,6 +63,57 @@ describe('readExcelToolSettings', () => {
     expect(
       readExcelToolSettings({ enabled: false, format: 'csv', scope: 'nope' }),
     ).toMatchObject({ enabled: false, format: 'csv', scope: 'all' });
+  });
+});
+
+describe('set scope in the settings', () => {
+  it('keeps a well-formed set scope and rejects a malformed one', () => {
+    expect(readExcelToolSettings({ scope: 'set:ss-1' }).scope).toBe('set:ss-1');
+    expect(readExcelToolSettings({ scope: 'set:' }).scope).toBe('all');
+  });
+
+  it('keeps scope and model choice on disk and resets set and model on scrub', () => {
+    const tool = new ExcelExportTool();
+    const settings = {
+      ...DEFAULT_EXCEL_TOOL_SETTINGS,
+      scope: 'set:ss-1' as const,
+      modelScope: 'urn-a',
+    };
+    expect(tool.scrub(settings)).toMatchObject({
+      scope: 'all',
+      modelScope: 'all',
+    });
+    expect(tool.scrub({ ...settings, scope: 'selected' as const }).scope).toBe(
+      'selected',
+    );
+  });
+
+  it('lists saved sets in the Rows select and shows a deleted set', () => {
+    saveSelectionSet('Walls', [{ modelId: 'a', dbId: 1 }]);
+    const id = listSets()[0]?.id ?? '';
+    window.localStorage.setItem(
+      EXCEL_SETTINGS_KEY,
+      JSON.stringify({ scope: `set:${id}` }),
+    );
+    render(new ExcelExportTool().renderSettings());
+    const rows = screen.getByLabelText('Rows') as HTMLSelectElement;
+    expect(rows.value).toBe(`set:${id}`);
+    expect([...rows.options].map((option) => option.textContent)).toContain(
+      'Set: Walls',
+    );
+    fireEvent.change(rows, { target: { value: 'selected' } });
+    expect(stored().scope).toBe('selected');
+  });
+
+  it('shows a deleted set visibly', () => {
+    window.localStorage.setItem(
+      EXCEL_SETTINGS_KEY,
+      JSON.stringify({ scope: 'set:gone' }),
+    );
+    render(new ExcelExportTool().renderSettings());
+    expect(screen.getByLabelText('Rows')).toHaveDisplayValue(
+      'Deleted set (using all elements)',
+    );
   });
 });
 

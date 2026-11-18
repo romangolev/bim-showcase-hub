@@ -1,5 +1,10 @@
 import { flag, isRecord } from '../../shared/guards.js';
-import type { ElementScope } from '../viewer/propertyScope.js';
+import {
+  type BaseElementScope,
+  type ElementScope,
+  sanitizeElementScope,
+} from '../viewer/propertyScope.js';
+import { DELETED_SET_LABEL, getSet, setIdOf } from '../viewer/selectionSets.js';
 import type { ExportCell } from './excelExport.js';
 
 export type ExportFormat = 'xlsx' | 'csv' | 'json' | 'copy';
@@ -53,12 +58,9 @@ export function readExcelSettings(value: unknown): ExcelSettings {
   const format = (['xlsx', 'csv', 'json', 'copy'] as ExportFormat[]).find(
     (item) => item === source.format,
   );
-  const scope = (
-    ['all', 'selected', 'isolated', 'visible'] as ExportScope[]
-  ).find((item) => item === source.scope);
   return {
     format: format ?? d.format,
-    scope: scope ?? d.scope,
+    scope: sanitizeElementScope(source.scope),
     modelScope: required(source.modelScope, d.modelScope),
     metadata: flag(source.metadata, d.metadata),
     namePattern: required(source.namePattern, d.namePattern),
@@ -93,7 +95,14 @@ export const FORMAT_LABELS: Record<ExportFormat, string> = {
   copy: 'Copy as table (TSV)',
 };
 
-export const SCOPE_LABELS: Record<ExportScope, string> = {
+export function scopeLabel(scope: ExportScope): string {
+  const id = setIdOf(scope);
+  if (id === undefined) return SCOPE_LABELS[scope as BaseElementScope];
+  const set = getSet(id);
+  return set ? `Saved set: ${set.name}` : DELETED_SET_LABEL;
+}
+
+export const SCOPE_LABELS: Record<BaseElementScope, string> = {
   all: 'All elements',
   selected: 'Selected elements',
   isolated: 'Isolated elements',
@@ -208,7 +217,7 @@ export function aboutRows(info: AboutInfo): [string, ExportCell][] {
       info.models.map((model) => model.path),
     ),
     ['Exported', (info.date ?? new Date()).toISOString()],
-    ['Scope', SCOPE_LABELS[info.scope]],
+    ['Scope', scopeLabel(info.scope)],
     ['Rows', info.rowCount],
   ];
   return info.exporter === false

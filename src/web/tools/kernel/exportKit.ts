@@ -52,14 +52,20 @@ export function runOnce(
 }
 
 function isIncomplete(status: object): boolean {
-  const { missing, skipped, levelsUnavailable, generatedIds } = status as {
-    missing?: readonly unknown[];
-    skipped?: number;
-    levelsUnavailable?: number;
-    generatedIds?: number;
-  };
+  const { missing, skipped, levelsUnavailable, generatedIds, scopeNote } =
+    status as {
+      missing?: readonly unknown[];
+      scopeNote?: string;
+      skipped?: number;
+      levelsUnavailable?: number;
+      generatedIds?: number;
+    };
   return Boolean(
-    missing?.length || skipped || levelsUnavailable || generatedIds,
+    missing?.length ||
+      skipped ||
+      levelsUnavailable ||
+      generatedIds ||
+      scopeNote,
   );
 }
 

@@ -73,9 +73,18 @@ import type {
   Rgba,
   ToolGroupSpec,
   ViewerAdapter,
+  ViewerState,
 } from './ViewerAdapter.js';
 import { readViewerGeometry } from './viewerGeometry.js';
 import { readViewerSource, type SourceModelMeta } from './viewerSource.js';
+import {
+  applyCamera,
+  captureViewerState,
+  HIDE_ALL_NODE,
+  readCamera,
+  resetNodes,
+  restoreViewerState,
+} from './viewerState.js';
 
 const VIEWER_VERSION = '7.*';
 const VIEWER_BASE = `https://developer.api.autodesk.com/modelderivative/v2/viewers/${VIEWER_VERSION}`;
@@ -212,7 +221,13 @@ function withDescendants(
 ): Set<number> {
   const all = new Set(ids);
   for (const id of ids) {
-    tree.enumNodeChildren(id, (child) => all.add(child), true);
+    tree.enumNodeChildren(
+      id,
+      (child) => {
+        all.add(child);
+      },
+      true,
+    );
   }
   return all;
 }
@@ -238,7 +253,6 @@ function groupByModel(items: readonly ModelDbId[]): Map<string, number[]> {
   return byModel;
 }
 
-const HIDE_ALL_NODE = -1;
 const SCREENSHOT_TIMEOUT_MS = 10_000;
 
 export class RealViewerAdapter implements ViewerAdapter {
@@ -707,16 +721,55 @@ export class RealViewerAdapter implements ViewerAdapter {
 
   showAll(): void {
     const viewer = this.viewer;
-    if (!viewer) return;
-    for (const { handle } of this.models.shown()) {
-      viewer.isolate?.([], handle);
-      const hidden = viewer.getHiddenNodes?.(handle) ?? [];
-      if (hidden.length > 0) viewer.show?.(hidden, handle);
-    }
+    if (viewer) resetNodes(viewer, this.stateModels());
   }
 
-  fitToSelection(): void {
-    this.viewer?.fitToView?.();
+  fitToView(items?: readonly ModelDbId[]): void {
+    const viewer = this.viewer;
+    if (!viewer?.fitToView) return;
+    if (!items || items.length === 0) {
+      viewer.fitToView();
+      return;
+    }
+    const byModel = groupByModel(items);
+    const targets = this.models
+      .shown()
+      .filter(({ info }) => byModel.has(info.id));
+    const [only] = targets;
+    if (targets.length === 1 && only) {
+      viewer.fitToView(byModel.get(only.info.id), only.handle, false);
+      return;
+    }
+    if (targets.length === 0) return;
+    this.selectModelIds(items);
+    viewer.fitToView();
+  }
+
+  getState(): ViewerState {
+    const viewer = this.viewer;
+    if (!viewer) return { version: 1, camera: null, cutplanes: [], models: {} };
+    return captureViewerState(
+      viewer,
+      this.stateModels(),
+      this.getModelSelection(),
+    );
+  }
+
+  async restoreState(state: ViewerState): Promise<void> {
+    const viewer = this.viewer;
+    if (!viewer) return;
+    const selection = await restoreViewerState(
+      viewer,
+      this.stateModels(),
+      state,
+    );
+    if (this.viewer === viewer) this.selectModelIds(selection);
+  }
+
+  private stateModels(): { id: string; handle: ViewerModel }[] {
+    return this.models
+      .shown()
+      .map(({ info, handle }) => ({ id: info.id, handle }));
   }
 
   getScreenshot(): Promise<Blob> {
@@ -740,36 +793,11 @@ export class RealViewerAdapter implements ViewerAdapter {
   }
 
   getCamera(): CameraState | null {
-    const viewport = this.viewer?.getState?.({ viewport: true }).viewport;
-    if (!viewport) return null;
-    const { eye, target, up } = viewport;
-    if (![eye, target, up].every((vec) => vec?.length === 3)) return null;
-    return {
-      eye: eye as unknown as Vec3,
-      target: target as unknown as Vec3,
-      up: up as unknown as Vec3,
-      ortho: Boolean(viewport.isOrthographic),
-    };
+    return this.viewer ? readCamera(this.viewer) : null;
   }
 
   setCamera(camera: CameraState): void {
-    const viewer = this.viewer;
-    const current = viewer?.getState?.({ viewport: true }).viewport;
-    if (!viewer?.restoreState || !current) return;
-    viewer.restoreState(
-      {
-        viewport: {
-          ...current,
-          eye: [...camera.eye],
-          target: [...camera.target],
-          up: [...camera.up],
-          isOrthographic: camera.ortho,
-          projection: camera.ortho ? 'orthographic' : 'perspective',
-        },
-      },
-      undefined,
-      true,
-    );
+    if (this.viewer) applyCamera(this.viewer, camera);
   }
 
   setModelThemingColor(items: readonly ModelDbId[], color: Rgba): void {

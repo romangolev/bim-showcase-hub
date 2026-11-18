@@ -58,6 +58,17 @@ export interface CameraState {
   target: Vec3;
   up: Vec3;
   ortho: boolean;
+  orthoHeight?: number;
+}
+
+export interface ViewerState {
+  version: 1;
+  camera: CameraState | null;
+  cutplanes: number[][];
+  models: Record<
+    string,
+    { isolated: number[]; hidden: number[]; selection: number[] }
+  >;
 }
 
 export interface ViewerAdapter {
@@ -95,7 +106,9 @@ export interface ViewerAdapter {
   isolateModelIds(items: readonly ModelDbId[]): void;
   hideModelIds(items: readonly ModelDbId[]): void;
   showAll(): void;
-  fitToSelection(): void;
+  fitToView(items?: readonly ModelDbId[]): void;
+  getState(): ViewerState;
+  restoreState(state: ViewerState): Promise<void>;
   getScreenshot(): Promise<Blob>;
   getCamera(): CameraState | null;
   setCamera(camera: CameraState): void;

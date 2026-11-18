@@ -7,7 +7,7 @@ import {
   LARGE_FIXTURE_ROWS,
 } from './mockModel.js';
 import { apiForRegion, detectRegion } from './region.js';
-import type { ViewerAdapter } from './ViewerAdapter.js';
+import type { CameraState, ViewerAdapter } from './ViewerAdapter.js';
 
 let host: HTMLElement;
 let adapter: MockViewerAdapter;
@@ -309,5 +309,98 @@ describe('mock selecting and isolating', () => {
     adapter.showAll();
     expect(await adapter.getVisible()).toHaveLength(total);
     expect(host.querySelectorAll('.bsh-mock__el--hidden')).toHaveLength(0);
+  });
+});
+
+describe('mock fitting, screenshot and state', () => {
+  it('records what a fit targets', async () => {
+    await setup();
+    const modelId = adapter.getModels()[0]?.id ?? '';
+    adapter.fitToView();
+    expect(host.querySelector<HTMLElement>('[data-fit]')?.dataset.fit).toBe(
+      'null',
+    );
+    adapter.fitToView([{ modelId, dbId: 3 }]);
+    expect(host.querySelector<HTMLElement>('[data-fit]')?.dataset.fit).toBe(
+      JSON.stringify([{ modelId, dbId: 3 }]),
+    );
+  });
+
+  it('reads and sets the camera', async () => {
+    await setup();
+    const camera: CameraState = {
+      eye: [1, 2, 3],
+      target: [0, 0, 0],
+      up: [0, 1, 0],
+      ortho: true,
+    };
+    adapter.setCamera(camera);
+    expect(adapter.getCamera()).toEqual(camera);
+  });
+
+  it('rejects a screenshot once the viewer is destroyed', async () => {
+    await setup();
+    adapter.destroy();
+    await expect(adapter.getScreenshot()).rejects.toThrow();
+  });
+
+  it('captures and restores camera, hidden, isolated and selected nodes', async () => {
+    await setup();
+    const [a, b] = buildMockElements();
+    const modelId = adapter.getModels()[0]?.id ?? '';
+    const at = (el?: { dbId: number }) => ({ modelId, dbId: el?.dbId ?? 0 });
+    adapter.isolateModelIds([at(a), at(b)]);
+    adapter.hideModelIds([at(b)]);
+    adapter.selectModelIds([at(a)]);
+    adapter.setCamera({
+      eye: [4, 5, 6],
+      target: [0, 0, 0],
+      up: [0, 0, 1],
+      ortho: false,
+    });
+    const saved = adapter.getState();
+    expect(JSON.parse(JSON.stringify(saved))).toEqual(saved);
+    expect(saved.models[modelId]).toEqual({
+      isolated: [a?.dbId, b?.dbId],
+      hidden: [b?.dbId],
+      selection: [a?.dbId],
+    });
+    adapter.showAll();
+    adapter.clearSelection();
+    adapter.setCamera({
+      eye: [0, 0, 1],
+      target: [0, 0, 0],
+      up: [0, 0, 1],
+      ortho: false,
+    });
+    await adapter.restoreState(saved);
+    expect(adapter.getState()).toEqual(saved);
+    expect(await adapter.getVisible()).toEqual([at(a)]);
+  });
+
+  it('skips unknown models and ids and ignores garbage', async () => {
+    await setup();
+    const [a] = buildMockElements();
+    const modelId = adapter.getModels()[0]?.id ?? '';
+    const state = adapter.getState();
+    state.models.gone = { isolated: [1], hidden: [2], selection: [3] };
+    state.models[modelId] = {
+      isolated: [-5],
+      hidden: [999999],
+      selection: [a?.dbId ?? 0, 999999],
+    };
+    await adapter.restoreState(state);
+    expect(adapter.getState().models[modelId]).toEqual({
+      isolated: [],
+      hidden: [],
+      selection: [a?.dbId],
+    });
+    expect(adapter.getState().models.gone).toBeUndefined();
+    await expect(
+      adapter.restoreState(null as unknown as typeof state),
+    ).resolves.toBeUndefined();
+    await expect(
+      adapter.restoreState({ version: 9 } as unknown as typeof state),
+    ).resolves.toBeUndefined();
   });
 });
