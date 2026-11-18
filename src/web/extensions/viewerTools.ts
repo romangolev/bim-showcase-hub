@@ -1,6 +1,7 @@
 import type { IfcSettings } from '../ifc/types.js';
 import { excelFileNameFrom } from '../tools/excel/ExcelExportTool.js';
 import { glbFileNameFrom } from '../tools/glb/GlbExportTool.js';
+import { ifcFileNameFrom } from '../tools/ifc/IfcExportTool.js';
 import {
   confirmLargeExport as confirmAbove,
   exportFileName,
@@ -47,7 +48,13 @@ import {
   resetPaint,
 } from './paintBrushes.js';
 
-export { excelFileNameFrom, glbFileNameFrom, TOOL_GROUP_ID, TOOL_GROUP_TITLE };
+export {
+  excelFileNameFrom,
+  glbFileNameFrom,
+  ifcFileNameFrom,
+  TOOL_GROUP_ID,
+  TOOL_GROUP_TITLE,
+};
 export const PAINT_TOOLTIP = 'Paint selection';
 export const PAINT_SELECT_HINT = 'Select elements to paint';
 export const PAINT_RESET_HINT = 'Nothing painted yet';
@@ -84,10 +91,6 @@ export interface ViewerToolsOptions {
 
 export function confirmLargeExport(rowCount: number): boolean {
   return confirmAbove(rowCount, CONFIRM_ABOVE);
-}
-
-export function ifcFileNameFrom(fileName?: string): string {
-  return exportFileName(fileName, DEFAULT_IFC_FILE_NAME, '', 'ifc');
 }
 
 export function modelKey(urn: string): string {
