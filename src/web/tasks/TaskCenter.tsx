@@ -1,5 +1,10 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { Icon } from '../components/icons.js';
+import { NotificationHost } from './NotificationHost.js';
+import {
+  type NotificationStore,
+  notifications as notificationsStore,
+} from './notifications.js';
 import type { Task, TaskStore } from './taskStore.js';
 import { useTasks } from './useTasks.js';
 
@@ -65,7 +70,13 @@ function TaskRow({
   );
 }
 
-export function TaskCenter({ store }: { store?: TaskStore }) {
+export function TaskCenter({
+  store,
+  notifications: notificationStore = notificationsStore,
+}: {
+  store?: TaskStore;
+  notifications?: NotificationStore;
+}) {
   const center = useTasks(store);
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -89,14 +100,16 @@ export function TaskCenter({ store }: { store?: TaskStore }) {
     };
   }, [open]);
 
+  useEffect(() => {
+    if (center.announcement) notificationStore.announce(center.announcement);
+  }, [center.announcement, notificationStore]);
+
   const finished = center.tasks.filter((task) => task.state !== 'running');
   const shown = [...center.tasks].reverse();
 
   return (
     <div className="task-center" ref={root}>
-      <div className="visually-hidden" role="status" aria-live="polite">
-        {center.announcement}
-      </div>
+      <NotificationHost store={notificationStore} />
       {center.tasks.length > 0 ? (
         <button
           type="button"

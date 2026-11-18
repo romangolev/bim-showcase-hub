@@ -34,6 +34,7 @@ export const BSH_KEYS = {
     summaryCollapsed: 'bsh.summary.collapsed',
     dashboardCollapsed: 'bsh.dashboard.collapsed',
     snapshot: 'bsh.snapshot.v1',
+    notifications: 'bsh.notify.v1',
   },
 } as const;
 
