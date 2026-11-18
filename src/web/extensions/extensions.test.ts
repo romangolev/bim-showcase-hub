@@ -225,6 +225,42 @@ describe('export rows', () => {
     const status = await exportToXlsx(failing);
     expect(describeStatus(status)).toBe('Export failed: boom');
   });
+
+  it('ends as cancelled when the signal aborts and reports progress', async () => {
+    const adapter = {
+      getLeafProperties: (
+        _names: unknown,
+        _models: unknown,
+        options: {
+          onProgress?: (p: { done: number; total: number }) => void;
+        },
+      ) => {
+        options.onProgress?.({ done: 1, total: 1 });
+        return Promise.resolve([row(1, { Category: 'Walls' })]);
+      },
+      getModels: () => [
+        { id: 'm', urn: 'm', name: 'm', visible: true, status: 'ready' },
+      ],
+    } as unknown as MockViewerAdapter;
+    const progress: number[] = [];
+    const done = await exportToXlsx(adapter, {
+      propertyNames: ['Category'],
+      save: vi.fn(),
+      onProgress: (fraction) => progress.push(fraction),
+    });
+    expect(done.phase).toBe('done');
+    expect(progress.at(-1)).toBe(1);
+    const controller = new AbortController();
+    controller.abort();
+    const copy = vi.fn(() => Promise.resolve());
+    const status = await exportToXlsx(adapter, {
+      propertyNames: ['Category'],
+      format: 'copy',
+      copy,
+      signal: controller.signal,
+    });
+    expect(status).toEqual({ phase: 'cancelled' });
+  });
 });
 
 describe('dashboard data', () => {
