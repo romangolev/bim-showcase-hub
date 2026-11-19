@@ -75,9 +75,10 @@ export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
     const left = sets.find((set) => set.id === first);
     const right = sets.find((set) => set.id === second);
     if (!canMerge || !left || !right) return;
-    const label =
+    const label = (
       name.trim() ||
-      `${left.name} ${mode === 'union' ? '∪' : '∩'} ${right.name}`;
+      `${left.name} ${mode === 'union' ? '∪' : '∩'} ${right.name}`
+    ).slice(0, MAX_NAME_LENGTH);
     const result = mergeSets(label, first, second, mode);
     if (result === 'ok') {
       notify(`Saved the merged set "${label}"`, { tone: 'success' });
