@@ -42,15 +42,23 @@ interface ResolvedScope {
 
 type ScopingRequest = Pick<ScopedReadRequest, 'models' | 'elements' | 'items'>;
 
+function modelIdsFor(
+  adapter: ViewerAdapter,
+  models: ModelScope | undefined,
+): readonly string[] | undefined {
+  const model = resolveScope(models ?? ALL_MODELS, adapter.getModels());
+  return model === ALL_MODELS ? undefined : [model];
+}
+
 async function resolveScoped(
   adapter: ViewerAdapter,
   { models, elements, items }: ScopingRequest,
+  modelIds = modelIdsFor(adapter, models),
 ): Promise<ResolvedScope> {
-  const model = resolveScope(models ?? ALL_MODELS, adapter.getModels());
   const requested = elements ?? 'all';
   const resolved = resolveElementScope(requested);
   return {
-    modelIds: model === ALL_MODELS ? undefined : [model],
+    modelIds,
     elements: resolved,
     items: items ?? (await scopeElementItems(adapter, resolved)),
     scopeNote: scopeNoteFor(requested),
@@ -102,7 +110,9 @@ export async function peekScopedRows(
   adapter: ViewerAdapter,
   request: Omit<ScopedReadRequest, 'names' | 'signal' | 'onProgress'>,
 ): Promise<ScopedRead | null> {
-  const scope = await resolveScoped(adapter, request);
-  const rows = peekLeafRows(adapter, scope.modelIds);
-  return rows ? scopedResult(adapter, rows, scope, []) : null;
+  const modelIds = modelIdsFor(adapter, request.models);
+  const rows = peekLeafRows(adapter, modelIds);
+  if (!rows) return null;
+  const scope = await resolveScoped(adapter, request, modelIds);
+  return scopedResult(adapter, rows, scope, []);
 }

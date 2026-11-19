@@ -150,8 +150,10 @@ describe('peekScopedRows', () => {
   it('answers null before anything is read and never reads properties', async () => {
     const adapter = await combined();
     const read = vi.spyOn(adapter, 'getLeafProperties');
-    expect(await peekScopedRows(adapter, {})).toBeNull();
+    const visible = vi.spyOn(adapter, 'getVisible');
+    expect(await peekScopedRows(adapter, { elements: 'visible' })).toBeNull();
     expect(read).not.toHaveBeenCalled();
+    expect(visible).not.toHaveBeenCalled();
     adapter.destroy();
   });
 
