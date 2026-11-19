@@ -32,13 +32,10 @@ const NO_MODALS: PaneMenuHost = {
   openModal: () => undefined,
   openPaneSettings: () => undefined,
 };
-const TOGGLE_PREFIX = 'pane.toggle.';
-const CREATE_PREFIX = 'pane.new.';
-
 function togglePaneOf(command: Command): PaneId | null {
-  if (!command.id.startsWith(TOGGLE_PREFIX)) return null;
-  const id = command.id.slice(TOGGLE_PREFIX.length);
-  return isPaneId(id) ? id : null;
+  return command.menu === 'toggle' && isPaneId(command.pane)
+    ? command.pane
+    : null;
 }
 
 function commandEntry(command: Command, host: CommandHost): MenuEntry {
@@ -174,9 +171,7 @@ export function paneMenuEntries(
   }
   const commandEntries = paneCommandsFor(definition, paneCommandContext(layout))
     .filter(
-      (command) =>
-        !command.id.startsWith(TOGGLE_PREFIX) &&
-        !command.id.startsWith(CREATE_PREFIX),
+      (command) => command.menu !== 'toggle' && command.menu !== 'create',
     )
     .map((command) => commandEntry(command, host));
   if (commandEntries.length > 0) {
@@ -277,16 +272,16 @@ export function layoutMenuEntries(
     const pane = togglePaneOf(command);
     if (pane) {
       toggles.push(toggleEntry(command, pane, layout, host));
-    } else if (command.id.startsWith(CREATE_PREFIX)) {
+    } else if (command.menu === 'create') {
       creates.push(commandEntry(command, host));
-    } else if (command.id.startsWith('pane.')) {
-      hooks.push(commandEntry(command, host));
-    } else if (command.id === 'layout.present') {
+    } else if (command.menu === 'present') {
       present = command;
-    } else if (command.id === 'layout.lock') {
+    } else if (command.menu === 'lock') {
       lock = command;
-    } else if (command.id === 'layout.reset') {
+    } else if (command.menu === 'reset') {
       reset = command;
+    } else {
+      hooks.push(commandEntry(command, host));
     }
   }
   const entries: MenuEntry[] = [...toggles, ...creates, ...hooks];

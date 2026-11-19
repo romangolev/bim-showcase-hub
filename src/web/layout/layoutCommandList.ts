@@ -38,6 +38,7 @@ export function layoutCommands(layout: LayoutApi): Command[] {
       group: 'Layout',
       keywords: 'presentation fullscreen',
       keys: ['mod+alt+p'],
+      menu: 'present',
       ...reason(
         layout.presenting
           ? undefined
@@ -54,12 +55,14 @@ export function layoutCommands(layout: LayoutApi): Command[] {
       title: layout.locked ? 'Unlock layout' : 'Lock layout',
       group: 'Layout',
       keys: ['mod+alt+l'],
+      menu: 'lock',
       run: () => layout.setLocked(!layout.locked),
     },
     {
       id: 'layout.reset',
       title: 'Reset layout',
       group: 'Layout',
+      menu: 'reset',
       ...reason(layout.locked ? LOCKED_REASON : undefined),
       run: () => layout.resetLayout(),
     },
