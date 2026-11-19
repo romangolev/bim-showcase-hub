@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   encodeView,
+  fitView,
+  MAX_LINK_CHARTS,
+  MAX_LINK_PANES,
+  MAX_VIEW_CHARS,
   parseView,
+  VIEW_FULL_VERSION,
   VIEW_SELECTION_CAP,
   withViewParam,
 } from './viewLink.js';
@@ -94,5 +99,95 @@ describe('view link', () => {
     expect(withViewParam('https://x.test/model/u?view=old', null)).toBe(
       'https://x.test/model/u',
     );
+  });
+});
+
+describe('full view link', () => {
+  const panes = { open: ['summary', 'chart:1'], collapsed: ['dashboard'] };
+  const charts = [
+    {
+      id: 'dashboard',
+      view: { property: 'Category', properties: ['Category'] },
+    },
+    { id: 'chart:1', view: { property: 'Level', properties: ['Level'] } },
+  ];
+
+  it('round trips panes and charts beside the camera and selection', () => {
+    const raw = encodeView(
+      { camera, selection: [{ modelId: 'a', dbId: 5 }], panes, charts },
+      ids,
+    );
+    expect(raw.startsWith(`${VIEW_FULL_VERSION}~`)).toBe(true);
+    const link = parseView(raw, ids);
+    expect(link?.camera).toEqual({ ...camera, eye: [1.235, -2, 30] });
+    expect(link?.selection).toEqual([{ modelId: 'a', dbId: 5 }]);
+    expect(link?.panes).toEqual(panes);
+    expect(link?.charts).toEqual(charts);
+  });
+
+  it('reads a link written before panes and charts', () => {
+    const link = parseView('1~1,2,3~0,0,0~0,0,1~p~0:5', ids);
+    expect(link?.selection).toEqual([{ modelId: 'a', dbId: 5 }]);
+    expect(link?.panes).toBeUndefined();
+    expect(link?.charts).toBeUndefined();
+  });
+
+  it('keeps a link inside the size budget by dropping panes and charts', () => {
+    const properties = Array.from(
+      { length: 200 },
+      (_, i) => `Level ${'x'.repeat(60)} ${i}`,
+    );
+    const fitted = fitView(
+      {
+        camera,
+        selection: [],
+        panes,
+        charts: [{ id: 'dashboard', view: { property: 'Level', properties } }],
+      },
+      ids,
+    );
+    expect(fitted.degraded).toBe(true);
+    expect(fitted.view.length).toBeLessThanOrEqual(MAX_VIEW_CHARS);
+    expect(fitted.view.startsWith('1~')).toBe(true);
+    const link = parseView(fitted.view, ids);
+    expect(link?.panes).toBeUndefined();
+    expect(link?.charts).toBeUndefined();
+    expect(link?.camera.ortho).toBe(false);
+  });
+
+  it('caps panes, charts and unknown ids', () => {
+    const raw = encodeView(
+      {
+        camera,
+        selection: [],
+        panes: {
+          open: [...Array.from({ length: 20 }, (_, i) => `chart:${i}`), '../x'],
+          collapsed: ['dashboard', 'a b'],
+        },
+        charts: Array.from({ length: 10 }, (_, i) => ({
+          id: `chart:${i}`,
+          view: { property: 'Category' },
+        })),
+      },
+      ids,
+    );
+    const link = parseView(raw, ids);
+    expect(link?.panes?.open).toHaveLength(MAX_LINK_PANES);
+    expect(link?.panes?.open).not.toContain('../x');
+    expect(link?.panes?.collapsed).toEqual(['dashboard']);
+    expect(link?.charts).toHaveLength(MAX_LINK_CHARTS);
+  });
+
+  it('ignores a broken charts segment but keeps the camera', () => {
+    const raw = `2~1,2,3~0,0,0~0,0,1~p~0:5||not-base64`;
+    const link = parseView(raw, ids);
+    expect(link?.camera.eye).toEqual([1, 2, 3]);
+    expect(link?.charts).toBeUndefined();
+  });
+
+  it('rejects a view longer than the cap', () => {
+    expect(
+      parseView(`1~1,2,3~0,0,0~0,0,1~p~${'0'.repeat(MAX_VIEW_CHARS)}`, ids),
+    ).toBeNull();
   });
 });

@@ -1,11 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { encodeView, parseView } from '../api/viewLink.js';
+import { DEFAULT_DASHBOARD_VIEW } from '../extensions/dashboardPresets.js';
 import * as excel from '../extensions/excelExport.js';
+import { type LayoutApi, LayoutContext } from '../layout/layoutContext.js';
+import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import { setStorageAdapter } from '../storage.js';
 import { memoryAdapter } from '../storageAdapter.js';
 import { notifications } from '../tasks/notifications.js';
 import { fireEvent, render, screen, waitFor } from '../test/render.js';
 import { createMockViewerAdapter } from './MockViewerAdapter.js';
 import { ShareMenu, snapshotName } from './ShareMenu.js';
+import {
+  LINK_DEGRADED_TEXT,
+  LINK_RESTORED_TEXT,
+  resetAppliedLinks,
+} from './shareLink.js';
 import { SNAPSHOT, SNAPSHOT_DEFAULTS } from './snapshot.js';
 import type { ViewerAdapter, ViewerAdapterFactory } from './ViewerAdapter.js';
 import { ViewerPane } from './ViewerPane.js';
@@ -26,6 +35,8 @@ beforeEach(() => {
   restoreStorage = setStorageAdapter(memoryAdapter());
   notifications.clear();
   notifications.clearHistory();
+  resetAppliedLinks();
+  window.history.replaceState({}, '', '/');
 });
 
 function announced(text: string): boolean {
@@ -59,7 +70,15 @@ describe('Share menu', () => {
     await waitFor(() => expect(write).toHaveBeenCalled());
     const url = new URL(write.mock.calls[0]?.[0] as string);
     expect(url.searchParams.get('with')).toBe('urn-b');
-    expect(url.searchParams.get('view')).toBe('1~0,0,10~0,0,0~0,1,0~p~0:100');
+    const link = parseView(url.searchParams.get('view'), ['urn-a', 'urn-b']);
+    expect(link?.camera).toEqual({
+      eye: [0, 0, 10],
+      target: [0, 0, 0],
+      up: [0, 1, 0],
+      ortho: false,
+    });
+    expect(link?.selection).toEqual([{ modelId: 'urn-a', dbId: 100 }]);
+    expect(link?.charts?.[0]?.id).toBe('dashboard');
     await waitFor(() => expect(announced('Link copied')).toBe(true));
   });
 
@@ -263,5 +282,133 @@ describe('Share menu snapshots', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Share' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Present' }));
     expect(onPresent).toHaveBeenCalled();
+  });
+});
+
+const CAMERA = {
+  eye: [0, 0, 10] as const,
+  target: [0, 0, 0] as const,
+  up: [0, 1, 0] as const,
+  ortho: false,
+};
+
+function linkAdapter(): ViewerAdapter {
+  return {
+    getCamera: () => CAMERA,
+    getModelSelection: () => [],
+  } as unknown as ViewerAdapter;
+}
+
+function fakeLayout(overrides: Partial<LayoutApi> = {}): LayoutApi {
+  return {
+    openPanes: [],
+    isCollapsed: () => false,
+    togglePane: vi.fn(),
+    setCollapsed: vi.fn(),
+    addInstance: vi.fn(() => null),
+    ...overrides,
+  } as unknown as LayoutApi;
+}
+
+describe('Share menu links', () => {
+  it('copies the panes and charts of the layout', async () => {
+    const write = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText: write } });
+    const layout = fakeLayout({ openPanes: ['summary'] });
+    render(
+      <LayoutContext.Provider value={layout}>
+        <ShareMenu
+          adapter={linkAdapter()}
+          modelIds={['urn-a']}
+          baseHref="https://app.test/model/urn-a"
+          combined={false}
+          onResult={vi.fn()}
+        />
+      </LayoutContext.Provider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+    fireEvent.click(
+      screen.getByRole('menuitem', { name: 'Copy link to this view' }),
+    );
+    await waitFor(() => expect(write).toHaveBeenCalled());
+    const link = parseView(
+      new URL(write.mock.calls[0]?.[0] as string).searchParams.get('view'),
+      ['urn-a'],
+    );
+    expect(link?.panes?.open).toEqual(['summary']);
+    expect(link?.charts?.[0]?.id).toBe('dashboard');
+  });
+
+  it('copies a camera-only link and says why when the view is too long', async () => {
+    const write = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText: write } });
+    PANE_SETTINGS.dashboard.view.write({
+      ...DEFAULT_DASHBOARD_VIEW,
+      properties: Array.from(
+        { length: 200 },
+        (_, i) => `Level ${'x'.repeat(60)} ${i}`,
+      ),
+    });
+    const onResult = vi.fn();
+    render(
+      <ShareMenu
+        adapter={linkAdapter()}
+        modelIds={['urn-a']}
+        baseHref="https://app.test/model/urn-a"
+        combined={false}
+        onResult={onResult}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+    fireEvent.click(
+      screen.getByRole('menuitem', { name: 'Copy link to this view' }),
+    );
+    await waitFor(() =>
+      expect(onResult).toHaveBeenCalledWith(LINK_DEGRADED_TEXT, false),
+    );
+    const view = new URL(write.mock.calls[0]?.[0] as string).searchParams.get(
+      'view',
+    );
+    expect(view?.startsWith('1~')).toBe(true);
+    expect(parseView(view, ['urn-a'])?.charts).toBeUndefined();
+  });
+
+  it('restores the panes and charts of a link in the address', async () => {
+    const view = encodeView(
+      {
+        camera: CAMERA,
+        selection: [],
+        panes: { open: ['summary'], collapsed: [] },
+        charts: [
+          {
+            id: 'dashboard',
+            view: { property: 'Level', properties: ['Level'] },
+          },
+        ],
+      },
+      ['urn-a'],
+    );
+    window.history.replaceState(
+      {},
+      '',
+      `/model/urn-a?view=${encodeURIComponent(view)}`,
+    );
+    const layout = fakeLayout();
+    const onResult = vi.fn();
+    render(
+      <LayoutContext.Provider value={layout}>
+        <ShareMenu
+          adapter={linkAdapter()}
+          modelIds={['urn-a']}
+          combined={false}
+          onResult={onResult}
+        />
+      </LayoutContext.Provider>,
+    );
+    await waitFor(() =>
+      expect(onResult).toHaveBeenCalledWith(LINK_RESTORED_TEXT, false),
+    );
+    expect(layout.togglePane).toHaveBeenCalledWith('summary');
+    expect(PANE_SETTINGS.dashboard.view.read().property).toBe('Level');
   });
 });

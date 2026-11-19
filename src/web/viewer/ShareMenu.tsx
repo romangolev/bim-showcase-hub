@@ -1,6 +1,14 @@
-import { encodeView, withViewParam } from '../api/viewLink.js';
+import { useContext, useEffect } from 'react';
+import { withViewParam } from '../api/viewLink.js';
 import { Menu, type MenuEntry } from '../components/Menu.js';
 import { saveBlob } from '../extensions/excelExport.js';
+import { type LayoutApi, LayoutContext } from '../layout/layoutContext.js';
+import {
+  LINK_DEGRADED_TEXT,
+  LINK_RESTORED_TEXT,
+  restoreLinkView,
+  sharedView,
+} from './shareLink.js';
 import {
   type Caption,
   type Size,
@@ -47,18 +55,26 @@ export interface ShareMenuProps {
   onResult: (text: string, error: boolean) => void;
 }
 
+export interface ShareHref {
+  href: string;
+  degraded: boolean;
+}
+
 export function shareHref(
   adapter: ViewerAdapter,
   modelIds: readonly string[],
   baseHref: string,
   withView: boolean,
-): string {
-  const camera = withView ? adapter.getCamera() : null;
-  if (!camera) return withViewParam(baseHref, null);
-  return withViewParam(
-    baseHref,
-    encodeView({ camera, selection: adapter.getModelSelection() }, modelIds),
-  );
+  layout: Pick<LayoutApi, 'openPanes' | 'isCollapsed'> | null = null,
+): ShareHref {
+  const shared = withView ? sharedView(adapter, modelIds, layout) : null;
+  if (!shared) {
+    return { href: withViewParam(baseHref, null), degraded: false };
+  }
+  return {
+    href: withViewParam(baseHref, shared.view),
+    degraded: shared.degraded,
+  };
 }
 
 export function ShareMenu({
@@ -74,25 +90,38 @@ export function ShareMenu({
   onPresent,
 }: ShareMenuProps) {
   const viewpoints = useViewpoints();
+  const layout = useContext(LayoutContext);
+  useEffect(() => {
+    const restored = restoreLinkView(
+      window.location.search,
+      modelIds,
+      layout ?? null,
+    );
+    if (restored && (restored.panes || restored.charts > 0)) {
+      onResult(LINK_RESTORED_TEXT, false);
+    }
+  }, [layout, modelIds, onResult]);
+  const takeImage = async (): Promise<Blob> => {
+    const frame = frameSize?.() ?? null;
+    const settings = SNAPSHOT.read();
+    if (settings.resolution !== '1x') {
+      if (!frame || frame.width <= 0 || frame.height <= 0) {
+        throw new SnapshotError(FRAME_UNKNOWN_TEXT);
+      }
+      snapshotSize(frame, settings);
+    }
+    return takeSnapshot({ adapter, frame, settings, caption });
+  };
   const snapshot = async (mode: 'copy' | 'save') => {
     try {
-      const frame = frameSize?.() ?? null;
-      const settings = SNAPSHOT.read();
-      if (settings.resolution !== '1x') {
-        if (!frame || frame.width <= 0 || frame.height <= 0) {
-          throw new SnapshotError(FRAME_UNKNOWN_TEXT);
-        }
-        snapshotSize(frame, settings);
-      }
-      const request = { adapter, frame, settings, caption };
-      const image = takeSnapshot(request);
+      const image = await takeImage();
       if (mode === 'copy') {
         await navigator.clipboard.write([
           new ClipboardItem({ 'image/png': image }),
         ]);
         onResult(COPIED_IMAGE_TEXT, false);
       } else {
-        saveBlob(await image, snapshotName(fileName));
+        saveBlob(image, snapshotName(fileName));
         onResult(SAVED_IMAGE_TEXT, false);
       }
     } catch (err) {
@@ -103,15 +132,16 @@ export function ShareMenu({
     }
   };
   const copy = async (withView: boolean) => {
-    const href = shareHref(
+    const { href, degraded } = shareHref(
       adapter,
       modelIds,
       baseHref ?? window.location.href,
       withView,
+      layout ?? null,
     );
     try {
       await navigator.clipboard.writeText(href);
-      onResult(COPIED_LINK_TEXT, false);
+      onResult(degraded ? LINK_DEGRADED_TEXT : COPIED_LINK_TEXT, false);
     } catch {
       onResult(COPY_FAILED_TEXT, true);
     }
