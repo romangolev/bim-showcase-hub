@@ -9,7 +9,12 @@ import { memoryAdapter } from '../storageAdapter.js';
 import { notifications } from '../tasks/notifications.js';
 import { fireEvent, render, screen, waitFor } from '../test/render.js';
 import { createMockViewerAdapter } from './MockViewerAdapter.js';
-import { ShareMenu, snapshotName } from './ShareMenu.js';
+import {
+  REPORT_BLOCKED_TEXT,
+  REPORT_READY_TEXT,
+  ShareMenu,
+  snapshotName,
+} from './ShareMenu.js';
 import {
   LINK_DEGRADED_TEXT,
   LINK_RESTORED_TEXT,
@@ -410,5 +415,76 @@ describe('Share menu links', () => {
     );
     expect(layout.togglePane).toHaveBeenCalledWith('summary');
     expect(PANE_SETTINGS.dashboard.view.read().property).toBe('Level');
+  });
+});
+
+describe('Share menu report', () => {
+  function fakeWindow() {
+    const write = vi.fn();
+    const print = vi.fn();
+    const win = {
+      document: {
+        readyState: 'complete',
+        open: vi.fn(),
+        write,
+        close: vi.fn(),
+      },
+      print,
+      addEventListener: vi.fn(),
+    };
+    return { win: win as unknown as Window, write, print };
+  }
+
+  it('prints the snapshot, the title and the summary of the model', async () => {
+    const blob = new Blob(['png'], { type: 'image/png' });
+    const getScreenshot = vi.fn().mockResolvedValue(blob);
+    const { win, write, print } = fakeWindow();
+    vi.spyOn(window, 'open').mockReturnValue(win);
+    const onResult = vi.fn();
+    const { factory } = setup();
+    const live = await factory(document.createElement('div'));
+    await live.load('urn-a');
+    live.getScreenshot = getScreenshot;
+    render(
+      <ShareMenu
+        adapter={live}
+        modelIds={['urn-a']}
+        combined={false}
+        caption={{ name: 'Tower', version: 'v2' }}
+        onResult={onResult}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Print report...' }));
+    await waitFor(() => expect(print).toHaveBeenCalled());
+    expect(getScreenshot).toHaveBeenCalledTimes(1);
+    const html = String(write.mock.calls.at(-1)?.[0]);
+    expect(html).toContain('<h1>Tower</h1>');
+    expect(html).toContain('v2');
+    expect(html).toContain('data:image/png;base64,cG5n');
+    expect(html).toContain('<h2>Summary</h2>');
+    expect(onResult).toHaveBeenCalledWith(REPORT_READY_TEXT, false);
+  });
+
+  it('asks for pop-ups when the report window is blocked', async () => {
+    vi.spyOn(window, 'open').mockReturnValue(null);
+    const onResult = vi.fn();
+    const { factory } = setup();
+    const live = await factory(document.createElement('div'));
+    await live.load('urn-a');
+    live.getScreenshot = async () => new Blob(['png'], { type: 'image/png' });
+    render(
+      <ShareMenu
+        adapter={live}
+        modelIds={['urn-a']}
+        combined={false}
+        onResult={onResult}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Print report...' }));
+    await waitFor(() =>
+      expect(onResult).toHaveBeenCalledWith(REPORT_BLOCKED_TEXT, true),
+    );
   });
 });

@@ -3,6 +3,14 @@ import { withViewParam } from '../api/viewLink.js';
 import { Menu, type MenuEntry } from '../components/Menu.js';
 import { saveBlob } from '../extensions/excelExport.js';
 import { type LayoutApi, LayoutContext } from '../layout/layoutContext.js';
+import { PANE_SETTINGS } from '../settings/paneSettings.js';
+import {
+  blobToDataUrl,
+  collectReport,
+  openReportWindow,
+  printReport,
+  reportHtml,
+} from './report.js';
 import {
   LINK_DEGRADED_TEXT,
   LINK_RESTORED_TEXT,
@@ -34,6 +42,9 @@ export const SAVED_IMAGE_TEXT = 'Image saved';
 export const SAVED_VIEWPOINT_TEXT = 'Viewpoint saved';
 export const MAX_LISTED_VIEWPOINTS = 10;
 export const IMAGE_FAILED_TEXT = 'Could not take the snapshot';
+export const REPORT_READY_TEXT = 'Report opened for printing';
+export const REPORT_BLOCKED_TEXT = 'Allow pop-ups to print the report';
+export const REPORT_FAILED_TEXT = 'Could not build the report';
 export const FRAME_UNKNOWN_TEXT =
   'Could not read the size of the viewer. Choose 1x in Settings or try again.';
 
@@ -131,6 +142,33 @@ export function ShareMenu({
       );
     }
   };
+  const printModelReport = async () => {
+    const win = openReportWindow();
+    if (!win) {
+      onResult(REPORT_BLOCKED_TEXT, true);
+      return;
+    }
+    try {
+      const image = await blobToDataUrl(await takeImage());
+      const dashboard = PANE_SETTINGS.dashboard.view.read();
+      const content = await collectReport(adapter, {
+        title: caption.name,
+        ...(caption.version ? { version: caption.version } : {}),
+        image,
+        names: PANE_SETTINGS.summary.properties.read(),
+        chartProperties: dashboard.properties,
+        maxCategories: dashboard.maxCategories,
+      });
+      printReport(reportHtml(content), () => win);
+      onResult(REPORT_READY_TEXT, false);
+    } catch (err) {
+      win.close();
+      onResult(
+        err instanceof SnapshotError ? err.message : REPORT_FAILED_TEXT,
+        true,
+      );
+    }
+  };
   const copy = async (withView: boolean) => {
     const { href, degraded } = shareHref(
       adapter,
@@ -180,6 +218,11 @@ export function ShareMenu({
         label: 'Save image (PNG)',
         onSelect: () => void snapshot('save'),
       },
+      {
+        id: 'print-report',
+        label: 'Print report...',
+        onSelect: () => void printModelReport(),
+      },
       { kind: 'separator', id: 'viewpoint-separator' },
       { id: 'save-viewpoint', label: 'Save viewpoint', onSelect: saveView },
       ...viewpoints.slice(0, MAX_LISTED_VIEWPOINTS).map((point) => ({
@@ -208,7 +251,7 @@ export function ShareMenu({
     <div className="bsh-viewer-share">
       <Menu
         label="Share"
-        title="Copy a link"
+        title="Share a link, an image or a print report"
         triggerClassName="bsh-viewer-models__trigger"
         trigger={<span>Share</span>}
         items={items}
