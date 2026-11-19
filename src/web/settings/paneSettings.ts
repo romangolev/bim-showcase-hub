@@ -7,7 +7,7 @@ import { DEFAULT_DASHBOARD_PROPERTIES } from '../extensions/dashboardData.js';
 import {
   type DashboardView,
   DEFAULT_DASHBOARD_VIEW,
-  sanitizeDashboardView,
+  sanitizeStoredDashboardView,
 } from '../extensions/dashboardPresets.js';
 import {
   type ElementAction,
@@ -37,6 +37,27 @@ const setting = <T>(
   sanitize: (raw: unknown) => T,
 ): PersistedRecord<T> => defineRecord({ key, initial, sanitize });
 
+export const LEGACY_DASHBOARD_PROPERTIES = setting<readonly string[]>(
+  BSH_KEYS.personal.dashboardProperties,
+  DEFAULT_DASHBOARD_PROPERTIES,
+  (raw) => sanitizePropertyNames(raw, DEFAULT_DASHBOARD_PROPERTIES),
+);
+
+export function withLegacyDashboardProperties(
+  record: PersistedRecord<DashboardView>,
+): PersistedRecord<DashboardView> {
+  return {
+    ...record,
+    read: () =>
+      record.has()
+        ? record.read()
+        : {
+            ...record.initial,
+            properties: LEGACY_DASHBOARD_PROPERTIES.read(),
+          },
+  };
+}
+
 export const PANE_SETTINGS = {
   summary: {
     view: setting<SummaryView>(
@@ -61,20 +82,18 @@ export const PANE_SETTINGS = {
     ),
   },
   dashboard: {
-    view: setting<DashboardView>(
-      BSH_KEYS.personal.dashboardView,
-      DEFAULT_DASHBOARD_VIEW,
-      sanitizeDashboardView,
+    view: withLegacyDashboardProperties(
+      setting<DashboardView>(
+        BSH_KEYS.personal.dashboardView,
+        DEFAULT_DASHBOARD_VIEW,
+        (raw) =>
+          sanitizeStoredDashboardView(raw, LEGACY_DASHBOARD_PROPERTIES.read()),
+      ),
     ),
     action: setting<ElementAction>(
       BSH_KEYS.personal.dashboardAction,
       'select',
       sanitizeAction,
-    ),
-    properties: setting<readonly string[]>(
-      BSH_KEYS.personal.dashboardProperties,
-      DEFAULT_DASHBOARD_PROPERTIES,
-      (raw) => sanitizePropertyNames(raw, DEFAULT_DASHBOARD_PROPERTIES),
     ),
   },
   tree: {

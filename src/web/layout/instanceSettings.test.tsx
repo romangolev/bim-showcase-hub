@@ -1,8 +1,9 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { DEFAULT_DASHBOARD_PROPERTIES } from '../extensions/dashboardData.js';
 import { DashboardPanel } from '../panels/DashboardPanel.js';
 import { usePaneSetting } from '../settings/paneSettings.js';
-import { forgetPersonal } from '../storage.js';
+import { BSH_KEYS, forgetPersonal } from '../storage.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { fireEvent, render, screen } from '../test/render.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
@@ -10,6 +11,7 @@ import {
   chartSetting,
   forgetInstanceSetting,
   instanceSettingKey,
+  migrateDashboardProperties,
   sanitizeSummarySpec,
   seedInstanceSetting,
   summarySetting,
@@ -58,6 +60,9 @@ describe('instance settings', () => {
     });
     expect(view).toMatchObject({ preset: null, kind: 'bar', scope: 'urn1' });
     expect(spec.sanitize({ scope: 5 }).scope).toBeUndefined();
+    expect(spec.sanitize({ scope: 5 })).toMatchObject({
+      properties: DEFAULT_DASHBOARD_PROPERTIES,
+    });
     expect(sanitizeSummarySpec({ scope: '' })).toMatchObject({
       scope: 'all',
       elements: 'all',
@@ -153,5 +158,87 @@ describe('instance settings', () => {
     ).toBe('Level');
     expect(window.localStorage.getItem('bsh.pane.chart.1.v1')).toBeNull();
     adapter.destroy();
+  });
+
+  it('keeps a property list per chart instance across a reload', async () => {
+    window.localStorage.setItem(
+      'bsh.pane.chart.1.v1',
+      JSON.stringify({ properties: ['Name'] }),
+    );
+    window.localStorage.setItem(
+      'bsh.pane.chart.2.v1',
+      JSON.stringify({ properties: ['Level'] }),
+    );
+    const adapter = new MockViewerAdapter(document.createElement('div'));
+    await adapter.load('urn');
+    const charts = () => (
+      <>
+        <section aria-label="first">
+          <DashboardPanel adapter={adapter} setting={chartSetting('chart:1')} />
+        </section>
+        <section aria-label="second">
+          <DashboardPanel adapter={adapter} setting={chartSetting('chart:2')} />
+        </section>
+      </>
+    );
+    const view = render(charts());
+    expect(
+      await screen.findAllByRole('img', {
+        name: 'Bar chart of element counts by Name',
+      }),
+    ).toHaveLength(1);
+    expect(
+      screen.getAllByRole('img', {
+        name: 'Bar chart of element counts by Level',
+      }),
+    ).toHaveLength(1);
+    view.unmount();
+    render(charts());
+    expect(
+      await screen.findAllByRole('img', {
+        name: 'Bar chart of element counts by Name',
+      }),
+    ).toHaveLength(1);
+    expect(
+      screen.getAllByRole('img', {
+        name: 'Bar chart of element counts by Level',
+      }),
+    ).toHaveLength(1);
+    expect(
+      JSON.parse(window.localStorage.getItem('bsh.pane.chart.1.v1') ?? '{}')
+        .properties,
+    ).toEqual(['Name']);
+    adapter.destroy();
+  });
+
+  it('migrates the old shared property list into the stored views', () => {
+    window.localStorage.setItem(
+      BSH_KEYS.personal.dashboardProperties,
+      JSON.stringify(['Name', 'Level']),
+    );
+    window.localStorage.setItem(
+      BSH_KEYS.personal.dashboardView,
+      JSON.stringify({ property: 'Level' }),
+    );
+    window.localStorage.setItem(
+      'bsh.pane.chart.1.v1',
+      JSON.stringify({ property: 'Name' }),
+    );
+    window.localStorage.setItem(
+      'bsh.pane.chart.2.v1',
+      JSON.stringify({ properties: ['Category'] }),
+    );
+    migrateDashboardProperties();
+    expect(
+      JSON.parse(
+        window.localStorage.getItem(BSH_KEYS.personal.dashboardView) ?? '{}',
+      ),
+    ).toMatchObject({ property: 'Level', properties: ['Name', 'Level'] });
+    expect(
+      JSON.parse(window.localStorage.getItem('bsh.pane.chart.1.v1') ?? '{}'),
+    ).toMatchObject({ properties: ['Name', 'Level'] });
+    expect(
+      JSON.parse(window.localStorage.getItem('bsh.pane.chart.2.v1') ?? '{}'),
+    ).toMatchObject({ properties: ['Category'] });
   });
 });

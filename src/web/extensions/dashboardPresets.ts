@@ -10,6 +10,7 @@ import {
   DEFAULT_DASHBOARD_PROPERTIES,
   DEFAULT_MAX_CATEGORIES,
 } from './dashboardData.js';
+import { sanitizePropertyNames } from './propertyNames.js';
 
 export interface DashboardPreset {
   id: string;
@@ -53,7 +54,7 @@ export function presetCharts(
 
 export function viewProperties(view: DashboardView): readonly string[] {
   const preset = DASHBOARD_PRESETS.find((p) => p.id === view.preset);
-  return preset ? preset.properties : [view.property];
+  return preset ? preset.properties : view.properties;
 }
 
 export const CHART_KINDS = ['bar', 'doughnut', 'both'] as const;
@@ -69,6 +70,7 @@ export const MAX_CATEGORIES = 30;
 export interface DashboardView {
   preset: string | null;
   property: string;
+  properties: readonly string[];
   maxCategories: number;
   kind: DashboardKind;
   pngTitle: boolean;
@@ -80,6 +82,7 @@ export interface DashboardView {
 export const DEFAULT_DASHBOARD_VIEW: DashboardView = {
   preset: null,
   property: DEFAULT_DASHBOARD_PROPERTIES[0] ?? '',
+  properties: DEFAULT_DASHBOARD_PROPERTIES,
   maxCategories: DEFAULT_MAX_CATEGORIES,
   kind: 'both',
   pngTitle: true,
@@ -100,6 +103,10 @@ export function sanitizeDashboardView(raw: unknown): DashboardView {
       typeof source.property === 'string' && source.property.trim() !== ''
         ? source.property
         : DEFAULT_DASHBOARD_VIEW.property,
+    properties: sanitizePropertyNames(
+      source.properties,
+      DEFAULT_DASHBOARD_PROPERTIES,
+    ),
     maxCategories:
       Number.isFinite(max) && max >= MIN_CATEGORIES
         ? Math.min(max, MAX_CATEGORIES)
@@ -116,8 +123,30 @@ export function sanitizeDashboardView(raw: unknown): DashboardView {
   };
 }
 
-export const DASHBOARD_PRESET_KIND = 'dashboard-preset';
+export function sanitizeStoredDashboardView(
+  raw: unknown,
+  legacyProperties: readonly string[],
+): DashboardView {
+  const view = sanitizeDashboardView(raw);
+  const stored =
+    typeof raw === 'object' && raw !== null
+      ? (raw as { properties?: unknown }).properties
+      : undefined;
+  const hasStored =
+    Array.isArray(stored) &&
+    stored.some((name) => typeof name === 'string' && name.trim() !== '');
+  return hasStored
+    ? view
+    : {
+        ...view,
+        properties: sanitizePropertyNames(
+          legacyProperties,
+          DEFAULT_DASHBOARD_PROPERTIES,
+        ),
+      };
+}
 
+export const DASHBOARD_PRESET_KIND = 'dashboard-preset';
 export type DashboardPresetData = {
   [K in keyof DashboardView]: DashboardView[K];
 };

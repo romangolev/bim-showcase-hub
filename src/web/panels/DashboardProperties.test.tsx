@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { DEFAULT_DASHBOARD_PROPERTIES } from '../extensions/dashboardData.js';
 import { BSH_KEYS } from '../storage.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { fireEvent, render, screen } from '../test/render.js';
@@ -52,7 +53,7 @@ function storedList(): string[] {
   );
 }
 
-function storedView(): { property?: string } {
+function storedView(): { property?: string; properties?: string[] } {
   return JSON.parse(
     window.localStorage.getItem(BSH_KEYS.personal.dashboardView) ?? '{}',
   );
@@ -83,7 +84,7 @@ describe('dashboard chart properties', () => {
     await screen.findByRole('img', {
       name: 'Bar chart of element counts by Level',
     });
-    expect(storedList()).toEqual([
+    expect(storedView().properties).toEqual([
       'Level',
       'Assembly Code',
       'Classification Code',
@@ -99,7 +100,7 @@ describe('dashboard chart properties', () => {
     });
   });
 
-  it('reads a stored list on the first render', async () => {
+  it('reads the old shared list when the stored view has none', async () => {
     window.localStorage.setItem(
       BSH_KEYS.personal.dashboardProperties,
       JSON.stringify(['Name']),
@@ -169,11 +170,43 @@ describe('dashboard chart properties', () => {
     ).toBeChecked();
     expect(screen.getByRole('checkbox', { name: 'Name' })).toBeChecked();
     fireEvent.click(screen.getByRole('checkbox', { name: 'Name' }));
-    expect(storedList()).toEqual([
+    expect(storedView().properties).toEqual([
       'Category',
       'Level',
       'Assembly Code',
       'Classification Code',
     ]);
+  });
+
+  it('keeps the view list over the old shared list', async () => {
+    window.localStorage.setItem(
+      BSH_KEYS.personal.dashboardView,
+      JSON.stringify({ properties: ['Name'] }),
+    );
+    window.localStorage.setItem(
+      BSH_KEYS.personal.dashboardProperties,
+      JSON.stringify(['Level']),
+    );
+    const adapter = await loaded();
+    render(<DashboardPanel adapter={adapter} />);
+    await screen.findByRole('img', {
+      name: 'Bar chart of element counts by Name',
+    });
+    expect(storedList()).toEqual(['Level']);
+  });
+
+  it('resets the view and its properties', () => {
+    window.localStorage.setItem(
+      BSH_KEYS.personal.dashboardProperties,
+      JSON.stringify(['Name']),
+    );
+    window.localStorage.setItem(
+      BSH_KEYS.personal.dashboardView,
+      JSON.stringify({ property: 'Name' }),
+    );
+    render(<DashboardSettingsBody />);
+    fireEvent.click(screen.getByRole('button', { name: 'Reset dashboard' }));
+    expect(storedView().properties).toEqual(DEFAULT_DASHBOARD_PROPERTIES);
+    expect(storedView().property).toBe(DEFAULT_DASHBOARD_PROPERTIES[0]);
   });
 });

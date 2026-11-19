@@ -31,21 +31,20 @@ export function DashboardSettingsBody() {
   const [action, setAction, resetAction] = usePaneSetting(
     PANE_SETTINGS.dashboard.action,
   );
-  const [properties, setProperties, resetProperties] = usePaneSetting(
-    PANE_SETTINGS.dashboard.properties,
-  );
   const adapter = useResolvedAdapter(usePublishedAdapter());
+  const properties = view.properties;
   const groupBy = properties.includes(view.property)
     ? view.property
     : (properties[0] ?? view.property);
   const patch = (next: Partial<DashboardView>) =>
     setView((prev) => ({ ...prev, ...next }));
-  const pickProperties = (next: readonly string[]) => {
-    setProperties(next);
-    if (!next.includes(view.property)) {
-      patch({ property: next[0] ?? view.property });
-    }
-  };
+  const pickProperties = (next: readonly string[]) =>
+    patch({
+      properties: next,
+      property: next.includes(view.property)
+        ? view.property
+        : (next[0] ?? view.property),
+    });
 
   return (
     <div className="bsh-summary-settings">
@@ -157,7 +156,6 @@ export function DashboardSettingsBody() {
         onClick={() => {
           resetView();
           resetAction();
-          resetProperties();
         }}
       >
         Reset dashboard

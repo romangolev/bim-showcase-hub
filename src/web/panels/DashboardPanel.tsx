@@ -26,7 +26,6 @@ import {
   type PaneSetting,
   usePaneSetting,
 } from '../settings/paneSettings.js';
-import { usePersisted } from '../storage.js';
 import { ALL_MODELS } from '../viewer/modelScope.js';
 import type { ModelDbId } from '../viewer/modelSet.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
@@ -74,7 +73,7 @@ export function DashboardPanel({
   const [view, setView] = usePaneSetting(
     setting ?? PANE_SETTINGS.dashboard.view,
   );
-  const [propertyNames] = usePersisted(PANE_SETTINGS.dashboard.properties);
+  const propertyNames = view.properties;
   const { maxCategories } = view;
   const activePreset = DASHBOARD_PRESETS.find((p) => p.id === view.preset);
   const readNames = useMemo(
