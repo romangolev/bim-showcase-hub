@@ -137,7 +137,9 @@ export function buildExportSheets(
 }
 
 const PLAIN_DECIMAL = /^-?(0|[1-9]\d*)(\.\d+)?$/;
-const IDENTIFIER_COLUMN = /(?:^|[\s_-])[Ii][Dd]$|[a-z0-9][A-Z][Dd]$/;
+const IDENTIFIER_COLUMN =
+  /(?:^|[\s_-])(?:[Ii][Dd]|[Nn]umber|[Mm]ark|[Cc]ode|[Tt]ag)$|[a-z0-9](?:[A-Z][Dd]|Number|Mark|Code|Tag)$/;
+const MAX_SAFE_DIGITS = 15;
 
 export const TOTAL_ROW_PREFIX = 'Total';
 export const TOTAL_ROW_SKIP_COLUMN = 0;
@@ -162,7 +164,11 @@ function numericCell(value: ExportCell): number | null {
   if (typeof value === 'number') {
     return Number.isFinite(value) ? value : null;
   }
-  if (typeof value === 'string' && PLAIN_DECIMAL.test(value)) {
+  if (
+    typeof value === 'string' &&
+    PLAIN_DECIMAL.test(value) &&
+    value.replace(/^-|\./g, '').replace(/^0+/, '').length <= MAX_SAFE_DIGITS
+  ) {
     return Number(value);
   }
   return null;
@@ -245,7 +251,7 @@ export function xlsxSheet(sheet: ExportSheet): XlsxSheet {
   return {
     sheet: sheet.name,
     data: [
-      sheet.header.map((value) => xlsxCell(value, true)),
+      sheet.header.map((value) => xlsxCell(value, true, true)),
       ...sheet.rows.map((row) =>
         row.map((value, column) =>
           xlsxCell(value, false, textColumns.has(column)),

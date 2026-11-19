@@ -76,10 +76,22 @@ describe('totalsRow', () => {
   });
 
   it('keeps codes with leading zeros as text and counts them', () => {
-    expect(totalsRow(['dbId', 'Code'], [[1, '0012']])).toEqual([
+    expect(totalsRow(['dbId', 'Finish'], [[1, '0012']])).toEqual([
       'Total (1)',
       '1 value',
     ]);
+  });
+
+  it('does not sum numbering columns', () => {
+    expect(
+      totalsRow(
+        ['dbId', 'Room Number', 'Mark', 'Type Mark', 'Code', 'Tag', 'Area'],
+        [
+          [1, '101', '1', '2', '3', '4', '10'],
+          [2, '102', '2', '3', '4', '5', '20'],
+        ],
+      ),
+    ).toEqual(['Total (2)', '', '', '', '', '', 30]);
   });
 
   it('leaves identifier columns blank instead of summing them', () => {
@@ -136,6 +148,14 @@ describe('xlsxCell', () => {
     expect(xlsxCell(3, true)).toMatchObject({ value: 3, fontWeight: 'bold' });
   });
 
+  it('keeps long digit strings as text', () => {
+    expect(xlsxCell('12345678901234567890')).toBe('12345678901234567890');
+    expect(xlsxCell('0.1234567890123456')).toBe('0.1234567890123456');
+    expect(xlsxCell('123456789012345')).toMatchObject({
+      value: 123456789012345,
+    });
+  });
+
   it('writes an identifier cell as text', () => {
     expect(xlsxCell('123456', false, true)).toBe('123456');
     expect(xlsxCell(123456, false, true)).toBe('123456');
@@ -143,6 +163,15 @@ describe('xlsxCell', () => {
 });
 
 describe('xlsxSheet', () => {
+  it('keeps numeric-looking headers as text', () => {
+    const out = xlsxSheet({
+      name: 'S',
+      header: ['dbId', '2024'],
+      rows: [[1, 5]],
+    });
+    expect(out.data[0]?.[1]).toEqual({ value: '2024', fontWeight: 'bold' });
+  });
+
   it('adds a bold header, formatted cells and a bold totals row', () => {
     const [sheet] = buildExportSheets(
       [row(1, { Category: 'Walls', Name: 'Wall', Area: '10' })],
