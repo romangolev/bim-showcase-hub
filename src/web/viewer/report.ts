@@ -15,6 +15,36 @@ import type { ViewerAdapter } from './ViewerAdapter.js';
 export const REPORT_MAX_PROPERTIES = 6;
 export const REPORT_MAX_CHARTS = 3;
 export const REPORT_VALUES_PER_PROPERTY = 8;
+export const REPORT_TITLE_MAX = 120;
+export const REPORT_NOTES_MAX = 2000;
+
+export type ReportOrientation = 'portrait' | 'landscape';
+
+export interface ReportSections {
+  snapshot: boolean;
+  summary: boolean;
+  dashboard: boolean;
+}
+
+export const REPORT_SECTIONS: ReportSections = {
+  snapshot: true,
+  summary: true,
+  dashboard: true,
+};
+
+export interface ReportOptions {
+  title: string;
+  notes: string;
+  orientation: ReportOrientation;
+  sections: ReportSections;
+}
+
+export const REPORT_DEFAULTS: ReportOptions = {
+  title: '',
+  notes: '',
+  orientation: 'portrait',
+  sections: { ...REPORT_SECTIONS },
+};
 
 export interface ReportSection {
   property: string;
@@ -38,6 +68,8 @@ export interface ReportContent {
   charts: ReportChart[];
   unavailable: string[];
   image?: string | null;
+  notes?: string;
+  orientation: ReportOrientation;
 }
 
 export interface ReportRequest {
@@ -49,6 +81,9 @@ export interface ReportRequest {
   maxCategories: number;
   elements?: ElementScope;
   view?: SummaryView;
+  sections?: ReportSections;
+  notes?: string;
+  orientation?: ReportOrientation;
   now?: Date;
 }
 
@@ -76,14 +111,17 @@ export function buildReportContent(
   rows: readonly PropertyRow[],
   request: ReportRequest,
 ): ReportContent {
+  const included = request.sections ?? REPORT_SECTIONS;
   const charts: ReportChart[] = [];
   const summarized = new Set(request.names.slice(0, REPORT_MAX_PROPERTIES));
   const chartable = [
     ...new Set(request.chartProperties.filter((p) => !summarized.has(p))),
   ];
-  for (const property of chartable.slice(0, REPORT_MAX_CHARTS)) {
-    const chart = shapeChartData(rows, property, request.maxCategories);
-    if (chart.total > 0) charts.push(chart);
+  if (included.dashboard) {
+    for (const property of chartable.slice(0, REPORT_MAX_CHARTS)) {
+      const chart = shapeChartData(rows, property, request.maxCategories);
+      if (chart.total > 0) charts.push(chart);
+    }
   }
   return {
     title: request.title,
@@ -91,10 +129,14 @@ export function buildReportContent(
     date: request.now ?? new Date(),
     elements: rows.length,
     models: [],
-    sections: sectionsFor(rows, request.names, request.view),
+    sections: included.summary
+      ? sectionsFor(rows, request.names, request.view)
+      : [],
     charts,
     unavailable: [],
-    image: request.image ?? null,
+    image: included.snapshot ? (request.image ?? null) : null,
+    ...(request.notes ? { notes: request.notes } : {}),
+    orientation: request.orientation ?? 'portrait',
   };
 }
 
@@ -196,9 +238,14 @@ function metaText(content: ReportContent): string {
   return parts.join('  |  ');
 }
 
+export const REPORT_LANDSCAPE_STYLE = '@page { size: landscape }';
+
 export function reportHtml(content: ReportContent): string {
   const figure = content.image
     ? `<figure><img src="${escapeHtml(content.image)}" alt="Model snapshot"></figure>`
+    : '';
+  const notes = content.notes
+    ? `<p class="notes">${escapeHtml(content.notes)}</p>`
     : '';
   const summary = content.sections.map(sectionHtml).join('');
   const charts = content.charts.map(chartHtml).join('');
@@ -206,19 +253,24 @@ export function reportHtml(content: ReportContent): string {
     content.unavailable.length > 0
       ? `<p class="more">Properties unavailable for ${escapeHtml(content.unavailable.join(', '))}.</p>`
       : '';
+  const style =
+    content.orientation === 'landscape'
+      ? `${REPORT_PRINT_STYLE}${REPORT_LANDSCAPE_STYLE}`
+      : REPORT_PRINT_STYLE;
   return [
     '<!doctype html>',
     '<html lang="en">',
     '<head>',
     '<meta charset="utf-8">',
     `<title>${escapeHtml(content.title)}</title>`,
-    `<style>${REPORT_PRINT_STYLE}</style>`,
+    `<style>${style}</style>`,
     '</head>',
     '<body>',
     '<header>',
     `<h1>${escapeHtml(content.title)}</h1>`,
     `<p class="meta">${escapeHtml(metaText(content))}</p>`,
     '</header>',
+    notes,
     figure,
     unavailable,
     summary ? `<h2>Summary</h2>${summary}` : '',

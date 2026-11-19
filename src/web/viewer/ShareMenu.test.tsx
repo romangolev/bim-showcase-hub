@@ -634,6 +634,7 @@ describe('Share menu report', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Share' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Print report...' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Print' }));
     await waitFor(() => expect(print).toHaveBeenCalled());
     expect(getScreenshot).toHaveBeenCalledTimes(1);
     const html = String(write.mock.calls.at(-1)?.[0]);
@@ -642,6 +643,67 @@ describe('Share menu report', () => {
     expect(html).toContain('data:image/png;base64,cG5n');
     expect(html).toContain('<h2>Summary</h2>');
     expect(onResult).toHaveBeenCalledWith(REPORT_READY_TEXT, false);
+  });
+
+  it('prints only the sections, title, notes and orientation of the report', async () => {
+    const blob = new Blob(['png'], { type: 'image/png' });
+    const getScreenshot = vi.fn().mockResolvedValue(blob);
+    const { win, write, print } = fakeWindow();
+    vi.spyOn(window, 'open').mockReturnValue(win);
+    const { factory } = setup();
+    const live = await factory(document.createElement('div'));
+    await live.load('urn-a');
+    live.getScreenshot = getScreenshot;
+    render(
+      <ShareMenu
+        adapter={live}
+        modelIds={['urn-a']}
+        combined={false}
+        caption={{ name: 'Tower', version: 'v2' }}
+        onResult={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Print report...' }));
+    fireEvent.change(screen.getByLabelText('Title'), {
+      target: { value: 'Level 3 review' },
+    });
+    fireEvent.change(screen.getByLabelText('Notes'), {
+      target: { value: 'Checked <b>on site</b>' },
+    });
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Snapshot' }));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Orientation' }), {
+      target: { value: 'landscape' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Print' }));
+    await waitFor(() => expect(print).toHaveBeenCalled());
+    const html = String(write.mock.calls.at(-1)?.[0]);
+    expect(html).toContain('<h1>Level 3 review</h1>');
+    expect(html).toContain('Checked &lt;b&gt;on site&lt;/b&gt;');
+    expect(html).not.toContain('<img');
+    expect(html).toContain('<h2>Summary</h2>');
+    expect(html).toContain('@page { size: landscape }');
+    expect(getScreenshot).not.toHaveBeenCalled();
+  });
+
+  it('closes the report options without printing', async () => {
+    const { print } = fakeWindow();
+    const { factory } = setup();
+    const live = await factory(document.createElement('div'));
+    await live.load('urn-a');
+    render(
+      <ShareMenu
+        adapter={live}
+        modelIds={['urn-a']}
+        combined={false}
+        onResult={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Print report...' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(print).not.toHaveBeenCalled();
   });
 
   it('asks for pop-ups when the report window is blocked', async () => {
@@ -661,6 +723,7 @@ describe('Share menu report', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Share' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Print report...' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Print' }));
     await waitFor(() =>
       expect(onResult).toHaveBeenCalledWith(REPORT_BLOCKED_TEXT, true),
     );

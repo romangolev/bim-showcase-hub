@@ -1,5 +1,6 @@
-import { useContext, useEffect, useRef } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import { type ViewLink, viewFileJson, withViewParam } from '../api/viewLink.js';
+import { Icon } from '../components/icons.js';
 import { Menu, type MenuEntry } from '../components/Menu.js';
 import { saveBlob } from '../extensions/excelExport.js';
 import { type LayoutApi, LayoutContext } from '../layout/layoutContext.js';
@@ -9,6 +10,12 @@ import {
   collectReport,
   openReportWindow,
   printReport,
+  REPORT_DEFAULTS,
+  REPORT_NOTES_MAX,
+  REPORT_SECTIONS,
+  REPORT_TITLE_MAX,
+  type ReportOptions,
+  type ReportSections,
   reportHtml,
 } from './report.js';
 import {
@@ -53,6 +60,12 @@ export const SAVED_VIEW_FILE_TEXT = 'View data saved';
 export const FRAME_UNKNOWN_TEXT =
   'Could not read the size of the viewer. Choose 1x in Settings or try again.';
 
+const REPORT_SECTION_LABELS: readonly [keyof ReportSections, string][] = [
+  ['snapshot', 'Snapshot'],
+  ['summary', 'Summary'],
+  ['dashboard', 'Dashboard'],
+];
+
 export function snapshotName(exportName?: string): string {
   const base = (exportName ?? '').replace(/(-properties)?\.xlsx$/, '');
   return `${base && base !== 'model' ? base : 'model'}-snapshot.png`;
@@ -80,6 +93,119 @@ export interface ShareHref {
   href: string;
   degraded: boolean;
   trimmed: boolean;
+}
+
+interface ReportDialogProps {
+  initial: ReportOptions;
+  onPrint: (options: ReportOptions) => void;
+  onClose: () => void;
+}
+
+function ReportDialog({ initial, onPrint, onClose }: ReportDialogProps) {
+  const [options, setOptions] = useState(initial);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    const onNativeClose = () => onCloseRef.current();
+    dialog?.addEventListener('close', onNativeClose);
+    if (dialog && !dialog.open) dialog.showModal();
+    dialog?.querySelector('input')?.focus();
+    return () => dialog?.removeEventListener('close', onNativeClose);
+  }, []);
+  const patch = (next: Partial<ReportOptions>) =>
+    setOptions((current) => ({ ...current, ...next }));
+  const patchSection = (key: keyof ReportSections, value: boolean) =>
+    setOptions((current) => ({
+      ...current,
+      sections: { ...current.sections, [key]: value },
+    }));
+  return (
+    <dialog
+      ref={dialogRef}
+      className="modal modal--sm"
+      aria-label="Report options"
+    >
+      <div className="modal__panel">
+        <header className="modal__head">
+          <h2 className="modal__title">Print report</h2>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Close"
+            onClick={onClose}
+          >
+            <Icon name="close" size={16} />
+          </button>
+        </header>
+        <div className="modal__body settings">
+          <label className="settings__field">
+            <span>Title</span>
+            <input
+              type="text"
+              value={options.title}
+              maxLength={REPORT_TITLE_MAX}
+              onChange={(event) => patch({ title: event.target.value })}
+            />
+          </label>
+          <label className="settings__field">
+            <span>Notes</span>
+            <textarea
+              rows={3}
+              value={options.notes}
+              maxLength={REPORT_NOTES_MAX}
+              onChange={(event) => patch({ notes: event.target.value })}
+            />
+          </label>
+          <div className="settings__section">
+            <h3 className="settings__heading">Sections</h3>
+            {REPORT_SECTION_LABELS.map(([key, label]) => (
+              <label key={key} className="settings__field">
+                <span>{label}</span>
+                <input
+                  type="checkbox"
+                  checked={options.sections[key]}
+                  aria-label={label}
+                  onChange={(event) => patchSection(key, event.target.checked)}
+                />
+              </label>
+            ))}
+          </div>
+          <label className="settings__field">
+            <span>Orientation</span>
+            <select
+              value={options.orientation}
+              aria-label="Orientation"
+              onChange={(event) =>
+                patch({
+                  orientation:
+                    event.target.value === 'landscape'
+                      ? 'landscape'
+                      : 'portrait',
+                })
+              }
+            >
+              <option value="portrait">Portrait</option>
+              <option value="landscape">Landscape</option>
+            </select>
+          </label>
+          <div className="settings__actions">
+            <button type="button" className="btn" onClick={onClose}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => onPrint(options)}
+            >
+              Print
+            </button>
+          </div>
+        </div>
+      </div>
+    </dialog>
+  );
 }
 
 export function shareHref(
@@ -118,6 +244,7 @@ export function ShareMenu({
 }: ShareMenuProps) {
   const viewpoints = useViewpoints();
   const layout = useContext(LayoutContext);
+  const [report, setReport] = useState<ReportOptions | null>(null);
   const pendingState = useRef<ViewerState | null>(null);
   useEffect(() => {
     const restored = restoreLinkView(
@@ -174,24 +301,30 @@ export function ShareMenu({
       );
     }
   };
-  const printModelReport = async () => {
+  const printModelReport = async (options: ReportOptions) => {
     const win = openReportWindow();
     if (!win) {
       onResult(REPORT_BLOCKED_TEXT, true);
       return;
     }
+    setReport(null);
     try {
-      const image = await blobToDataUrl(await takeImage());
+      const image = options.sections.snapshot
+        ? await blobToDataUrl(await takeImage())
+        : null;
       const dashboard = PANE_SETTINGS.dashboard.view.read();
       const content = await collectReport(adapter, {
-        title: caption.name,
+        title: options.title.trim() || caption.name,
         ...(caption.version ? { version: caption.version } : {}),
-        image,
+        ...(image ? { image } : {}),
         names: PANE_SETTINGS.summary.properties.read(),
         chartProperties: dashboard.properties,
         maxCategories: dashboard.maxCategories,
         elements: PANE_SETTINGS.summary.scope.read(),
         view: PANE_SETTINGS.summary.view.read(),
+        sections: options.sections,
+        ...(options.notes.trim() ? { notes: options.notes.trim() } : {}),
+        orientation: options.orientation,
       });
       printReport(reportHtml(content), () => win);
       onResult(REPORT_READY_TEXT, false);
@@ -202,6 +335,13 @@ export function ShareMenu({
         true,
       );
     }
+  };
+  const openReportOptions = () => {
+    setReport({
+      ...REPORT_DEFAULTS,
+      title: caption.name,
+      sections: { ...REPORT_SECTIONS },
+    });
   };
   const saveViewFile = (link: ViewLink) => {
     const text = viewFileJson(link, modelIds);
@@ -280,7 +420,7 @@ export function ShareMenu({
       {
         id: 'print-report',
         label: 'Print report...',
-        onSelect: () => void printModelReport(),
+        onSelect: openReportOptions,
       },
       { kind: 'separator', id: 'viewpoint-separator' },
       { id: 'save-viewpoint', label: 'Save viewpoint', onSelect: saveView },
@@ -315,6 +455,13 @@ export function ShareMenu({
         trigger={<span>Share</span>}
         items={items}
       />
+      {report ? (
+        <ReportDialog
+          initial={report}
+          onPrint={(options) => void printModelReport(options)}
+          onClose={() => setReport(null)}
+        />
+      ) : null}
     </div>
   );
 }
