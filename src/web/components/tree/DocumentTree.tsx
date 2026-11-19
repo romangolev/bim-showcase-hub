@@ -14,16 +14,11 @@ import {
   useRef,
   useState,
 } from 'react';
-import {
-  MAX_COMBINED_MODELS,
-  MAX_LOADED_MEMBERS,
-} from '../../../shared/combined.js';
 import type { TreeNode } from '../../../shared/types.js';
-import { type ModelContext, versionTag } from '../../api/modelContext.js';
+import type { ModelContext } from '../../api/modelContext.js';
 import type { NodeScope } from '../../api/scope.js';
 import { PANE_SETTINGS, usePaneSetting } from '../../settings/paneSettings.js';
 import { notify } from '../../tasks/notifications.js';
-import { MODEL_LIMIT_MESSAGE } from '../../viewer/modelSet.js';
 import { Icon } from '../icons.js';
 import { Menu, type MenuEntry } from '../Menu.js';
 import { StateBlock } from '../StateBlock.js';
@@ -35,22 +30,19 @@ import { modelHref, modelMenuEntries, useRowMenu } from './rowMenu.js';
 import { INDENT, rowHeightFor, TreeRowView } from './TreeRowView.js';
 import {
   openableUrn,
+  type PickedModel,
+  pickLimit,
+  skippedNotice,
   sleep,
   TRAIL_SEPARATOR,
+  tabLimitMessage,
   VERSION_POLL_MS,
 } from './treeState.js';
 import { metaText } from './treeView.js';
 import { useTreeState } from './useTreeState.js';
-import {
-  blockedNotice,
-  VIEW_STATE_COPY,
-  viewStateOf,
-} from './viewStateCopy.js';
+import { viewStateOf } from './viewStateCopy.js';
 
-export interface PickedModel {
-  urn: string;
-  context: ModelContext;
-}
+export type { PickedModel };
 
 export interface AddTarget {
   label: string;
@@ -73,29 +65,7 @@ export interface DocumentTreeProps {
   pollMs?: number;
 }
 
-export function tabLimitMessage(openCount: number): string {
-  const room = MAX_LOADED_MEMBERS - openCount;
-  const open =
-    openCount === 0
-      ? ''
-      : `${openCount} ${openCount === 1 ? 'model is' : 'models are'} already loaded. `;
-  return room < 1
-    ? `A viewer loads up to ${MAX_LOADED_MEMBERS} models. ${open}Close a model to open another.`
-    : `A viewer loads up to ${MAX_LOADED_MEMBERS} models. ${open}Select ${room} or fewer to open them as tabs.`;
-}
-
-export function skippedNotice(nodes: readonly TreeNode[]): {
-  title: string;
-  message: string;
-} {
-  const states = [...new Set(nodes.map((node) => viewStateOf(node)))];
-  const count = nodes.length;
-  const labels = states.map((state) => VIEW_STATE_COPY[state].label);
-  return {
-    title: `Skipped ${count} ${count === 1 ? 'version' : 'versions'} that cannot be opened: ${labels.join(', ')}`,
-    message: states.map((state) => VIEW_STATE_COPY[state].reason).join(' '),
-  };
-}
+export { skippedNotice, tabLimitMessage };
 
 function pickLabel(model: PickedModel): string {
   return model.context.file ?? model.urn;
@@ -182,14 +152,7 @@ export function DocumentTree({
   const rootId = root.node.id;
   const rootScope = root.scope;
   const copy = rootCopy(rootScope);
-  const [picked, setPicked] = useState<PickedModel[]>([]);
-  const anchorRef = useRef<string | null>(null);
   const [filter, setFilter] = useState('');
-  const [notice, setNotice] = useState<{
-    title: string;
-    message: string;
-    itemId?: string;
-  } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const typeahead = useRef({
@@ -230,37 +193,14 @@ export function DocumentTree({
     root,
     sort: () => viewRef.current.sort,
   });
-  const { errors } = snapshot;
-  const { contextFor, resolved, needsCheck, ensureChecked, parentName } = state;
+  const { errors, picked, notice } = snapshot;
+  const { contextFor, resolved, needsCheck, parentName } = state;
 
   const selectedUrnRef = useRef(selectedUrn);
   selectedUrnRef.current = selectedUrn;
 
-  const openNode = (input: TreeNode) => {
-    const node = resolved(input);
-    if (needsCheck(node)) {
-      void ensureChecked(node).then(openChecked);
-      return;
-    }
-    openChecked(node);
-  };
-
-  const openChecked = (node: TreeNode) => {
-    const urn = openableUrn(node);
-    if (urn) {
-      setNotice(null);
-      onOpenModel(urn, contextFor(node));
-      return;
-    }
-    const message = blockedNotice(node);
-    if (message) {
-      setNotice({
-        title: `${versionTag(node.name) ?? node.name} cannot be opened`,
-        message,
-        itemId: node.parentId,
-      });
-    }
-  };
+  const openNode = (node: TreeNode) =>
+    state.open(node, (model) => onOpenModel(model.urn, model.context));
 
   const activate = (item: ItemInstance<TreeNode>) => {
     const node = item.getItemData();
@@ -277,32 +217,7 @@ export function DocumentTree({
 
   const pickedUrns = new Set(picked.map((model) => model.urn));
 
-  const isBlocked = (node: TreeNode) =>
-    node.kind === 'version' && openableUrn(node) === null;
-
-  const togglePick = (input: TreeNode) => {
-    const node = resolved(input);
-    if (needsCheck(node)) {
-      void ensureChecked(node).then(pickChecked);
-      return;
-    }
-    pickChecked(node);
-  };
-
-  const pickChecked = (node: TreeNode) => {
-    if (isBlocked(node)) {
-      openChecked(node);
-      return;
-    }
-    const urn = openableUrn(node);
-    if (!urn) return;
-    anchorRef.current = node.id;
-    setPicked((current) =>
-      current.some((model) => model.urn === urn)
-        ? current.filter((model) => model.urn !== urn)
-        : [...current, { urn, context: contextFor(node) }],
-    );
-  };
+  const { isBlocked, togglePick } = state;
 
   const pickRange = (node: TreeNode) => {
     const listed = rowsRef.current.flatMap((row) => {
@@ -312,49 +227,9 @@ export function DocumentTree({
           : row.type === 'result'
             ? row.node
             : null;
-      return data?.kind === 'version' ? [resolved(data)] : [];
+      return data?.kind === 'version' ? [data] : [];
     });
-    const from = listed.findIndex((entry) => entry.id === anchorRef.current);
-    const to = listed.findIndex((entry) => entry.id === node.id);
-    const range =
-      from === -1 || to === -1
-        ? listed.filter((entry) => entry.id === node.id)
-        : listed.slice(Math.min(from, to), Math.max(from, to) + 1);
-    if (range.some(needsCheck)) {
-      void Promise.all(range.map(ensureChecked)).then((checked) => {
-        const byId = new Map(checked.map((entry) => [entry.id, entry]));
-        pickRangeOf(
-          listed.map((entry) => byId.get(entry.id) ?? entry),
-          node,
-        );
-      });
-      return;
-    }
-    pickRangeOf(listed, node);
-  };
-
-  const pickRangeOf = (versions: TreeNode[], node: TreeNode) => {
-    const from = versions.findIndex((entry) => entry.id === anchorRef.current);
-    const to = versions.findIndex((entry) => entry.id === node.id);
-    if (from === -1 || to === -1) {
-      pickChecked(versions[to] ?? resolved(node));
-      return;
-    }
-    const [start, end] = from < to ? [from, to] : [to, from];
-    const range = versions.slice(start, end + 1);
-    const skipped = range.filter(isBlocked);
-    setPicked((current) => {
-      const next = [...current];
-      for (const entry of range) {
-        const id = openableUrn(entry);
-        if (id && !next.some((model) => model.urn === id)) {
-          next.push({ urn: id, context: contextFor(entry) });
-        }
-      }
-      return next;
-    });
-    if (skipped.length > 0) setNotice(skippedNotice(skipped));
-    else setNotice(null);
+    state.pickRange(node, listed);
   };
 
   const onPickClick = (event: MouseEvent, node: TreeNode): boolean => {
@@ -384,14 +259,7 @@ export function DocumentTree({
 
   const addNode = (node: TreeNode) => {
     if (!addTarget) return;
-    void ensureChecked(node).then((checked) => {
-      const checkedUrn = openableUrn(checked);
-      if (checkedUrn) {
-        addTarget.onAdd([{ urn: checkedUrn, context: contextFor(checked) }]);
-      } else {
-        openChecked(checked);
-      }
-    });
+    state.add(node, (models) => addTarget.onAdd(models));
   };
 
   const pinsApi = usePins();
@@ -1036,15 +904,15 @@ export function DocumentTree({
             onOpenTabs
               ? (models) => {
                   onOpenTabs(models);
-                  setPicked([]);
+                  state.clearPicked();
                 }
               : undefined
           }
           onOpenTogether={(models) => {
             onOpenTogether(models);
-            setPicked([]);
+            state.clearPicked();
           }}
-          onClear={() => setPicked([])}
+          onClear={state.clearPicked}
         />
       ) : null}
       <div className="doc-tree__notice" role="status" aria-live="polite">
@@ -1059,19 +927,16 @@ export function DocumentTree({
               notice.itemId
                 ? {
                     label: 'Check again',
-                    onClick: () => {
-                      state.recheck(notice.itemId as string);
-                      setNotice(null);
-                    },
+                    onClick: () => state.checkAgain(notice.itemId as string),
                   }
-                : { label: 'Dismiss', onClick: () => setNotice(null) }
+                : { label: 'Dismiss', onClick: state.dismissNotice }
             }
           >
             {notice.itemId ? (
               <button
                 type="button"
                 className="btn btn-small"
-                onClick={() => setNotice(null)}
+                onClick={state.dismissNotice}
               >
                 Dismiss
               </button>
@@ -1112,8 +977,10 @@ function PickBar({
   onOpenTogether: (models: PickedModel[]) => void;
   onClear: () => void;
 }) {
-  const tooManyCombined = picked.length > MAX_COMBINED_MODELS;
-  const tooManyTabs = openCount + picked.length > MAX_LOADED_MEMBERS;
+  const { tooManyCombined, tooManyTabs, message } = pickLimit(
+    openCount,
+    picked.length,
+  );
   const addable = addTarget
     ? picked.filter((model) => addTarget.canAdd(model.urn))
     : [];
@@ -1170,13 +1037,9 @@ function PickBar({
           >
             Clear
           </button>
-          {tooManyTabs ? (
+          {message ? (
             <span className="doc-tree__picks-limit" role="alert">
-              {tabLimitMessage(openCount)}
-            </span>
-          ) : tooManyCombined ? (
-            <span className="doc-tree__picks-limit" role="alert">
-              {MODEL_LIMIT_MESSAGE}
+              {message}
             </span>
           ) : null}
         </>

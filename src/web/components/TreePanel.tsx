@@ -25,11 +25,11 @@ import {
   type AddTarget,
   DocumentTree,
   type PickedModel,
-  tabLimitMessage,
 } from './tree/DocumentTree.js';
 import { DOC_ROOT, type TreeRoot, treeRootOf } from './tree/docRoot.js';
 import { HubProjectSwitcher } from './tree/HubProjectSwitcher.js';
 import { RecentStrip } from './tree/RecentStrip.js';
+import { overTabLimit, tabLimitMessage } from './tree/treeState.js';
 import type { TreeOpenMode } from './tree/treeView.js';
 
 export interface TreePanelProps {
@@ -56,7 +56,7 @@ export function exceedsTabLimit(
   models: readonly PickedModel[],
 ): boolean {
   const fresh = models.filter((model) => !isOpen(state, model.urn)).length;
-  return loadedMembers(state) + fresh > MAX_LOADED_MEMBERS;
+  return overTabLimit(loadedMembers(state), fresh);
 }
 
 export function openPickedAsTabs(

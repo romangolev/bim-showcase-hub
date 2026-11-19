@@ -1,11 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  MAX_COMBINED_MODELS,
+  MAX_LOADED_MEMBERS,
+} from '../../../shared/combined.js';
 import type { TreeNode, VersionViewState } from '../../../shared/types.js';
+import { MODEL_LIMIT_MESSAGE } from '../../viewer/modelSet.js';
 import { DEFAULT_TREE_ROOT } from './docRoot.js';
 import {
   CHECK_CONCURRENCY,
   createTreeState,
+  overTabLimit,
+  pickLimit,
+  skippedNotice,
   type TreeData,
   type TreeHost,
+  tabLimitMessage,
 } from './treeState.js';
 
 function node(id: string, extra: Partial<TreeNode> = {}): TreeNode {
@@ -379,5 +388,248 @@ describe('treeState polling', () => {
     vi.advanceTimersByTime(10_000);
     stop();
     expect(invalidated.length).toBe(6);
+  });
+});
+
+describe('treeState picking', () => {
+  async function loaded(extra: TreeNode[] = []) {
+    const made = make({
+      children: async (scope) => {
+        const id = scope.kind === 'root' ? 'root' : scope.id;
+        if (id === 'doc.rvt') {
+          return [
+            version('v1', 'doc.rvt', { name: 'v1: a' }),
+            version('v2', 'doc.rvt', { name: 'v2: b' }),
+            version('v3', 'doc.rvt', { name: 'v3: c', viewState: 'failed' }),
+            version('v4', 'doc.rvt', { name: 'v4: d' }),
+            ...extra,
+          ];
+        }
+        return TREE[id] ?? [];
+      },
+    });
+    await loadAll(made.state);
+    return made;
+  }
+
+  const get = (
+    state: { node: (id: string) => TreeNode | undefined },
+    id: string,
+  ) => {
+    const found = state.node(id);
+    if (!found) throw new Error(`${id} missing`);
+    return found;
+  };
+
+  it('toggles a version in and out of the selection with its context', async () => {
+    const { state } = await loaded();
+    state.togglePick(get(state, 'v1'));
+    expect(state.getSnapshot().picked).toEqual([
+      { urn: 'urn:v1', context: state.contextFor(get(state, 'v1')) },
+    ]);
+    state.togglePick(get(state, 'v1'));
+    expect(state.getSnapshot().picked).toEqual([]);
+  });
+
+  it('turns a blocked pick into a notice instead of a selection', async () => {
+    const { state } = await loaded();
+    state.togglePick(get(state, 'v3'));
+    expect(state.getSnapshot().picked).toEqual([]);
+    expect(state.getSnapshot().notice).toMatchObject({
+      title: 'v3 cannot be opened',
+      itemId: 'doc.rvt',
+    });
+    state.dismissNotice();
+    expect(state.getSnapshot().notice).toBeNull();
+  });
+
+  it('picks the range from the anchor and skips blocked versions with a notice', async () => {
+    const { state } = await loaded();
+    const listed = ['v1', 'v2', 'v3', 'v4'].map((id) => get(state, id));
+    state.togglePick(get(state, 'v1'));
+    state.pickRange(get(state, 'v4'), listed);
+    expect(state.getSnapshot().picked.map((model) => model.urn)).toEqual([
+      'urn:v1',
+      'urn:v2',
+      'urn:v4',
+    ]);
+    expect(state.getSnapshot().notice).toEqual(
+      skippedNotice([get(state, 'v3')]),
+    );
+  });
+
+  it('range without an anchor picks the single version', async () => {
+    const { state } = await loaded();
+    const listed = ['v1', 'v2'].map((id) => get(state, id));
+    state.pickRange(get(state, 'v2'), listed);
+    expect(state.getSnapshot().picked.map((model) => model.urn)).toEqual([
+      'urn:v2',
+    ]);
+  });
+
+  it('checks unchecked versions before picking them', async () => {
+    const { state } = await loaded([
+      version('u1', 'doc.rvt', {
+        checked: false,
+        viewState: 'unknown',
+        urn: 'urn:u1',
+      }),
+    ]);
+    state.togglePick(get(state, 'u1'));
+    await vi.waitFor(() =>
+      expect(state.getSnapshot().picked.map((model) => model.urn)).toEqual([
+        'urn:u1',
+      ]),
+    );
+  });
+
+  it('clears the selection', async () => {
+    const { state } = await loaded();
+    state.togglePick(get(state, 'v1'));
+    state.clearPicked();
+    expect(state.getSnapshot().picked).toEqual([]);
+  });
+});
+
+describe('treeState open decisions', () => {
+  async function loaded(data: Partial<TreeData> = {}) {
+    const made = make({
+      children: async (scope) => {
+        const id = scope.kind === 'root' ? 'root' : scope.id;
+        if (id === 'doc.rvt') {
+          return [
+            version('v1', 'doc.rvt', { name: 'v1: a' }),
+            version('v2', 'doc.rvt', { name: 'v2: b', viewState: 'failed' }),
+            version('u1', 'doc.rvt', {
+              name: 'v3: c',
+              checked: false,
+              viewState: 'unknown',
+            }),
+          ];
+        }
+        return TREE[id] ?? [];
+      },
+      ...data,
+    });
+    await loadAll(made.state);
+    return made;
+  }
+
+  const get = (
+    state: { node: (id: string) => TreeNode | undefined },
+    id: string,
+  ) => {
+    const found = state.node(id);
+    if (!found) throw new Error(`${id} missing`);
+    return found;
+  };
+
+  it('hands an openable version to the caller synchronously and clears the notice', async () => {
+    const { state } = await loaded();
+    state.open(get(state, 'v2'), () => undefined);
+    expect(state.getSnapshot().notice).not.toBeNull();
+    const perform = vi.fn();
+    state.open(get(state, 'v1'), perform);
+    expect(perform).toHaveBeenCalledWith({
+      urn: 'urn:v1',
+      context: state.contextFor(get(state, 'v1')),
+    });
+    expect(state.getSnapshot().notice).toBeNull();
+  });
+
+  it('explains a version that cannot be opened and does not perform', async () => {
+    const { state } = await loaded();
+    const perform = vi.fn();
+    state.open(get(state, 'v2'), perform);
+    expect(perform).not.toHaveBeenCalled();
+    expect(state.getSnapshot().notice).toMatchObject({
+      title: 'v2 cannot be opened',
+      itemId: 'doc.rvt',
+    });
+  });
+
+  it('checks an unchecked version first, then decides on the result', async () => {
+    const { state } = await loaded({
+      viewState: async () => ({ viewState: 'ready', viewable: true }),
+    });
+    const perform = vi.fn();
+    state.open({ ...get(state, 'u1'), urn: 'urn:u1' }, perform);
+    expect(perform).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(perform).toHaveBeenCalled());
+    expect(perform.mock.calls[0]?.[0].urn).toBe('urn:u1');
+  });
+
+  it('blocks an unchecked version that turns out not to be viewable', async () => {
+    const { state } = await loaded({
+      viewState: async () => ({ viewState: 'no-geometry', viewable: false }),
+    });
+    const perform = vi.fn();
+    state.open({ ...get(state, 'u1'), urn: 'urn:u1' }, perform);
+    await vi.waitFor(() =>
+      expect(state.getSnapshot().notice?.title).toBe('v3 cannot be opened'),
+    );
+    expect(perform).not.toHaveBeenCalled();
+  });
+
+  it('add hands the checked version to the caller, or explains why not', async () => {
+    const { state } = await loaded();
+    const perform = vi.fn();
+    state.add(get(state, 'v1'), perform);
+    await vi.waitFor(() => expect(perform).toHaveBeenCalledTimes(1));
+    expect(perform.mock.calls[0]?.[0]).toHaveLength(1);
+    state.add(get(state, 'v2'), perform);
+    await vi.waitFor(() => expect(state.getSnapshot().notice).not.toBeNull());
+    expect(perform).toHaveBeenCalledTimes(1);
+  });
+
+  it('check again rechecks the folder and dismisses the notice', async () => {
+    const { state, invalidated } = await loaded();
+    state.open(get(state, 'v2'), () => undefined);
+    state.checkAgain('doc.rvt');
+    expect(invalidated).toContainEqual(['doc.rvt', true]);
+    expect(state.getSnapshot().notice).toBeNull();
+  });
+});
+
+describe('tab and combined limits', () => {
+  it('reports no message below both limits', () => {
+    expect(pickLimit(0, 1)).toEqual({
+      tooManyTabs: false,
+      tooManyCombined: false,
+      message: null,
+    });
+  });
+
+  it('reports the tab limit message when the loaded members would overflow', () => {
+    const limit = pickLimit(MAX_LOADED_MEMBERS - 1, 2);
+    expect(limit.tooManyTabs).toBe(true);
+    expect(limit.message).toBe(tabLimitMessage(MAX_LOADED_MEMBERS - 1));
+    expect(limit.message).toContain('Select 1 or fewer');
+  });
+
+  it('asks to close a model when there is no room left', () => {
+    expect(tabLimitMessage(MAX_LOADED_MEMBERS)).toContain('Close a model');
+    expect(tabLimitMessage(1)).toContain('1 model is already loaded');
+  });
+
+  it('reports the combined limit message otherwise', () => {
+    const picked = MAX_COMBINED_MODELS + 1;
+    const limit = pickLimit(0, picked);
+    expect(limit.tooManyCombined).toBe(picked > MAX_COMBINED_MODELS);
+    if (!limit.tooManyTabs) expect(limit.message).toBe(MODEL_LIMIT_MESSAGE);
+  });
+
+  it('shares one rule with the tab-open check', () => {
+    for (
+      let loadedCount = 0;
+      loadedCount <= MAX_LOADED_MEMBERS;
+      loadedCount += 1
+    ) {
+      for (let picked = 0; picked <= MAX_LOADED_MEMBERS + 1; picked += 1) {
+        expect(pickLimit(loadedCount, picked).tooManyTabs).toBe(
+          overTabLimit(loadedCount, picked),
+        );
+      }
+    }
   });
 });

@@ -1,11 +1,20 @@
+import {
+  MAX_COMBINED_MODELS,
+  MAX_LOADED_MEMBERS,
+} from '../../../shared/combined.js';
 import type { TreeNode, VersionViewState } from '../../../shared/types.js';
 import { viewableFor } from '../../../shared/viewState.js';
 import { friendlyError } from '../../api/friendlyError.js';
 import { type ModelContext, versionTag } from '../../api/modelContext.js';
 import { childScope, type NodeScope } from '../../api/scope.js';
+import { MODEL_LIMIT_MESSAGE } from '../../viewer/modelSet.js';
 import type { TreeRoot } from './docRoot.js';
 import { sortChildren, type TreeSort } from './treeView.js';
-import { viewStateOf } from './viewStateCopy.js';
+import {
+  blockedNotice,
+  VIEW_STATE_COPY,
+  viewStateOf,
+} from './viewStateCopy.js';
 
 export const VERSION_POLL_MS = 15_000;
 export const CHECK_CONCURRENCY = 4;
@@ -36,9 +45,28 @@ export interface NodeError {
   detail?: string;
 }
 
+export interface PickedModel {
+  urn: string;
+  context: ModelContext;
+}
+
+export interface TreeNotice {
+  title: string;
+  message: string;
+  itemId?: string;
+}
+
 export interface TreeSnapshot {
   errors: Readonly<Record<string, NodeError>>;
   checkVersion: number;
+  picked: PickedModel[];
+  notice: TreeNotice | null;
+}
+
+export interface PickLimit {
+  tooManyTabs: boolean;
+  tooManyCombined: boolean;
+  message: string | null;
 }
 
 export interface TreeState {
@@ -55,6 +83,14 @@ export interface TreeState {
   resolved: (node: TreeNode) => TreeNode;
   needsCheck: (node: TreeNode) => boolean;
   ensureChecked: (node: TreeNode) => Promise<TreeNode>;
+  isBlocked: (node: TreeNode) => boolean;
+  open: (node: TreeNode, perform: (model: PickedModel) => void) => void;
+  add: (node: TreeNode, perform: (models: PickedModel[]) => void) => void;
+  togglePick: (node: TreeNode) => void;
+  pickRange: (node: TreeNode, listed: readonly TreeNode[]) => void;
+  clearPicked: () => void;
+  dismissNotice: () => void;
+  checkAgain: (itemId: string) => void;
   retry: (id: string) => void;
   refresh: (id: string) => void;
   refreshAll: () => void;
@@ -99,6 +135,48 @@ export function openableUrn(node: TreeNode): string | null {
   return null;
 }
 
+export function tabLimitMessage(openCount: number): string {
+  const room = MAX_LOADED_MEMBERS - openCount;
+  const open =
+    openCount === 0
+      ? ''
+      : `${openCount} ${openCount === 1 ? 'model is' : 'models are'} already loaded. `;
+  return room < 1
+    ? `A viewer loads up to ${MAX_LOADED_MEMBERS} models. ${open}Close a model to open another.`
+    : `A viewer loads up to ${MAX_LOADED_MEMBERS} models. ${open}Select ${room} or fewer to open them as tabs.`;
+}
+
+export function overTabLimit(loaded: number, fresh: number): boolean {
+  return loaded + fresh > MAX_LOADED_MEMBERS;
+}
+
+export function pickLimit(openCount: number, picked: number): PickLimit {
+  const tooManyCombined = picked > MAX_COMBINED_MODELS;
+  const tooManyTabs = overTabLimit(openCount, picked);
+  return {
+    tooManyTabs,
+    tooManyCombined,
+    message: tooManyTabs
+      ? tabLimitMessage(openCount)
+      : tooManyCombined
+        ? MODEL_LIMIT_MESSAGE
+        : null,
+  };
+}
+
+export function skippedNotice(nodes: readonly TreeNode[]): {
+  title: string;
+  message: string;
+} {
+  const states = [...new Set(nodes.map((node) => viewStateOf(node)))];
+  const count = nodes.length;
+  const labels = states.map((state) => VIEW_STATE_COPY[state].label);
+  return {
+    title: `Skipped ${count} ${count === 1 ? 'version' : 'versions'} that cannot be opened: ${labels.join(', ')}`,
+    message: states.map((state) => VIEW_STATE_COPY[state].reason).join(' '),
+  };
+}
+
 function toNodeError(error: unknown): NodeError {
   return friendlyError(error, 'We could not load this. Try again.');
 }
@@ -122,7 +200,13 @@ export function createTreeState({
   const attempts = new Map<string, number>();
   let active = 0;
   let host: TreeHost | null = null;
-  let snapshot: TreeSnapshot = { errors: {}, checkVersion: 0 };
+  let anchor: string | null = null;
+  let snapshot: TreeSnapshot = {
+    errors: {},
+    checkVersion: 0,
+    picked: [],
+    notice: null,
+  };
   const listeners = new Set<() => void>();
 
   const update = (patch: Partial<TreeSnapshot>) => {
@@ -245,6 +329,72 @@ export function createTreeState({
     return context;
   };
 
+  const isBlocked = (node: TreeNode) =>
+    node.kind === 'version' && openableUrn(node) === null;
+
+  const openChecked = (
+    node: TreeNode,
+    perform: (model: PickedModel) => void,
+  ) => {
+    const urn = openableUrn(node);
+    if (urn) {
+      update({ notice: null });
+      perform({ urn, context: contextFor(node) });
+      return;
+    }
+    const message = blockedNotice(node);
+    if (message) {
+      update({
+        notice: {
+          title: `${versionTag(node.name) ?? node.name} cannot be opened`,
+          message,
+          itemId: node.parentId,
+        },
+      });
+    }
+  };
+
+  const notifyBlocked = (node: TreeNode) => openChecked(node, () => undefined);
+
+  const pickChecked = (node: TreeNode) => {
+    if (isBlocked(node)) {
+      notifyBlocked(node);
+      return;
+    }
+    const urn = openableUrn(node);
+    if (!urn) return;
+    anchor = node.id;
+    const current = snapshot.picked;
+    update({
+      picked: current.some((model) => model.urn === urn)
+        ? current.filter((model) => model.urn !== urn)
+        : [...current, { urn, context: contextFor(node) }],
+    });
+  };
+
+  const pickRangeOf = (versions: TreeNode[], node: TreeNode) => {
+    const from = versions.findIndex((entry) => entry.id === anchor);
+    const to = versions.findIndex((entry) => entry.id === node.id);
+    if (from === -1 || to === -1) {
+      pickChecked(versions[to] ?? resolved(node));
+      return;
+    }
+    const [start, end] = from < to ? [from, to] : [to, from];
+    const range = versions.slice(start, end + 1);
+    const skipped = range.filter(isBlocked);
+    const next = [...snapshot.picked];
+    for (const entry of range) {
+      const id = openableUrn(entry);
+      if (id && !next.some((model) => model.urn === id)) {
+        next.push({ urn: id, context: contextFor(entry) });
+      }
+    }
+    update({
+      picked: next,
+      notice: skipped.length > 0 ? skippedNotice(skipped) : null,
+    });
+  };
+
   const retry = (id: string) => {
     const errors = { ...snapshot.errors };
     delete errors[id];
@@ -354,6 +504,61 @@ export function createTreeState({
     resolved,
     needsCheck,
     ensureChecked,
+    isBlocked,
+    open: (input, perform) => {
+      const node = resolved(input);
+      if (needsCheck(node)) {
+        void ensureChecked(node).then((checked) =>
+          openChecked(checked, perform),
+        );
+        return;
+      }
+      openChecked(node, perform);
+    },
+    add: (node, perform) => {
+      void ensureChecked(node).then((checked) => {
+        const urn = openableUrn(checked);
+        if (urn) {
+          perform([{ urn, context: contextFor(checked) }]);
+        } else {
+          notifyBlocked(checked);
+        }
+      });
+    },
+    togglePick: (input) => {
+      const node = resolved(input);
+      if (needsCheck(node)) {
+        void ensureChecked(node).then(pickChecked);
+        return;
+      }
+      pickChecked(node);
+    },
+    pickRange: (node, source) => {
+      const listed = source.map(resolved);
+      const from = listed.findIndex((entry) => entry.id === anchor);
+      const to = listed.findIndex((entry) => entry.id === node.id);
+      const range =
+        from === -1 || to === -1
+          ? listed.filter((entry) => entry.id === node.id)
+          : listed.slice(Math.min(from, to), Math.max(from, to) + 1);
+      if (range.some(needsCheck)) {
+        void Promise.all(range.map(ensureChecked)).then((checked) => {
+          const byId = new Map(checked.map((entry) => [entry.id, entry]));
+          pickRangeOf(
+            listed.map((entry) => byId.get(entry.id) ?? entry),
+            node,
+          );
+        });
+        return;
+      }
+      pickRangeOf(listed, node);
+    },
+    clearPicked: () => update({ picked: [] }),
+    dismissNotice: () => update({ notice: null }),
+    checkAgain: (itemId) => {
+      recheck(itemId);
+      update({ notice: null });
+    },
     retry,
     refresh,
     refreshAll: () => {
