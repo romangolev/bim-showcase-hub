@@ -28,6 +28,7 @@ function linkWith(extra: Partial<ViewLink>): ViewLink {
 
 function fakeLayout(overrides: Partial<LayoutApi> = {}): LayoutApi {
   return {
+    mode: 'dock',
     openPanes: [],
     isCollapsed: () => false,
     togglePane: vi.fn(),
@@ -109,11 +110,35 @@ describe('share link capture', () => {
     const layout = fakeLayout({ openPanes: ['summary'] });
     const shared = sharedView(fakeAdapter(), ['urn-a'], layout);
     expect(shared?.degraded).toBe(false);
+    expect(shared?.trimmed).toBe(false);
     const link = parseView(shared?.view, ['urn-a']);
     expect(link?.camera.eye).toEqual([0, 0, 10]);
     expect(link?.selection).toEqual([{ modelId: 'urn-a', dbId: 7 }]);
     expect(link?.panes?.open).toEqual(['summary']);
     expect(link?.charts?.[0]?.id).toBe('dashboard');
+  });
+
+  it('says when a chart pane does not fit in the link', () => {
+    for (let i = 1; i <= 4; i += 1) {
+      chartSetting(`chart:${i}`).write({
+        preset: null,
+        property: `Level ${i}`,
+        properties: [`Level ${i}`],
+        maxCategories: 6,
+        kind: 'bar',
+        pngTitle: false,
+        pngLegend: false,
+      });
+    }
+    expect(captureCharts().map((chart) => chart.id)).toEqual([
+      'dashboard',
+      'chart:1',
+      'chart:2',
+      'chart:3',
+    ]);
+    expect(sharedView(fakeAdapter(), ['urn-a'], fakeLayout())?.trimmed).toBe(
+      true,
+    );
   });
 
   it('has no link before the viewer has a camera', () => {
@@ -151,6 +176,48 @@ describe('share link restore', () => {
       ).panes,
     ).toBe(false);
     expect(layout.togglePane).not.toHaveBeenCalled();
+  });
+
+  it('ignores a pane id this build does not know', () => {
+    const layout = fakeLayout();
+    const link = parseView('2~1,2,3~0,0,0~0,0,1~p~~|foo', ['urn-a']);
+    if (!link) throw new Error('no link');
+    expect(link.camera.eye).toEqual([1, 2, 3]);
+    expect(applyViewLink(link, layout)).toEqual({ panes: false, charts: 0 });
+    expect(layout.togglePane).not.toHaveBeenCalled();
+    expect(layout.setCollapsed).not.toHaveBeenCalled();
+  });
+
+  it('leaves an instance-only pane to the charts', () => {
+    const layout = fakeLayout({
+      openPanes: [],
+      addInstance: vi.fn(() => 'chart:1'),
+    });
+    const report = applyViewLink(
+      linkWith({
+        panes: { open: ['chart'], collapsed: [] },
+        charts: [
+          { id: 'chart:1', view: { property: 'Level', properties: ['Level'] } },
+        ],
+      }),
+      layout,
+    );
+    expect(layout.togglePane).not.toHaveBeenCalled();
+    expect(layout.addInstance).toHaveBeenCalledWith('chart');
+    expect(layout.addInstance).toHaveBeenCalledTimes(1);
+    expect(report.charts).toBe(1);
+    expect(chartSetting('chart:1').read().property).toBe('Level');
+  });
+
+  it('leaves the stored panes alone in the stacked layout', () => {
+    const layout = fakeLayout({ mode: 'stacked' });
+    const report = applyViewLink(
+      linkWith({ panes: { open: ['summary'], collapsed: ['dashboard'] } }),
+      layout,
+    );
+    expect(report.panes).toBe(false);
+    expect(layout.togglePane).not.toHaveBeenCalled();
+    expect(layout.setCollapsed).not.toHaveBeenCalled();
   });
 
   it('writes the dashboard and chart views from the link', () => {

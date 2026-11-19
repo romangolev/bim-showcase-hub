@@ -3,7 +3,7 @@ import { createOpenModelsStore } from '../api/openModels.js';
 import type { DockController, LayoutMode } from './layoutContext.js';
 import { defaultModel, type SerializedDock } from './layoutState.js';
 import { createPaneLifecycle } from './paneLifecycle.js';
-import type { PanelId } from './paneRegistry.js';
+import type { PaneId, PanelId } from './paneRegistry.js';
 import type { UserInstances } from './userInstances.js';
 
 function fakeDock(): DockController {
@@ -273,6 +273,15 @@ describe('paneLifecycle panes, lock and present', () => {
     });
     expect(lifecycle.getState().locked).toBe(true);
     expect(lifecycle.view().userPanels).toEqual(['chart:3']);
+  });
+
+  it('ignores a pane id that is not registered', () => {
+    const { lifecycle } = setup();
+    const before = lifecycle.getState().layout;
+    expect(() =>
+      lifecycle.setCollapsed('foo' as unknown as PaneId, true),
+    ).not.toThrow();
+    expect(lifecycle.getState().layout).toBe(before);
   });
 
   it('forgets another owner without announcing a layout reset', () => {

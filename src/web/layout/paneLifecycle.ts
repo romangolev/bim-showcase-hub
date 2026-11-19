@@ -372,7 +372,7 @@ export function createPaneLifecycle(deps: LifecycleDeps): PaneLifecycle {
     },
     closePane,
     setCollapsed: (id, collapsed) => {
-      if (state.locked) return;
+      if (state.locked || !isPaneId(id)) return;
       dispatch({ type: 'setCollapsed', id, collapsed });
       announce(`${paneById(id).title} ${collapsed ? 'collapsed' : 'expanded'}`);
     },
