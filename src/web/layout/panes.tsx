@@ -30,8 +30,8 @@ import { SUMMARY_SETTINGS_ID } from '../panels/SummarySettings.js';
 import { VIEWPOINTS_MODAL_ID } from '../panels/Viewpoints.js';
 import { usePaneSetting } from '../settings/paneSettings.js';
 import { exportFileName, exportStem } from '../tools/kernel/exportKit.js';
-import { ViewerPane } from '../viewer/index.js';
 import { page } from '../viewer/region.js';
+import { ViewerPane } from '../viewer/ViewerPane.js';
 import { setDashboardSettingsTarget } from './dashboardTarget.js';
 import {
   chartSetting,

@@ -31,7 +31,8 @@ import {
   FORGET_EVENT,
   usePersisted,
 } from '../storage.js';
-import { isMockViewer, ViewerProvider } from '../viewer/index.js';
+import { isMockViewer } from '../viewer/createViewerAdapter.js';
+import { ViewerProvider } from '../viewer/ViewerContext.js';
 import {
   forgetInstanceSetting,
   seedInstanceSetting,

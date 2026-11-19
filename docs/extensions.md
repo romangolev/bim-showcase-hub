@@ -5,7 +5,6 @@ An extension is a small module in `src/web/extensions` that works against the `V
 ## Structure
 
 - `src/web/extensions/<name>.ts`: pure logic. Takes an adapter or `PropertyRow[]`.
-- `src/web/extensions/index.ts`: re-exports each module.
 - `src/web/panels/<Name>.tsx`: the UI. Gets the adapter from `useViewer()` (through `useResolvedAdapter`) and reads properties with `useScopedRows`.
 - `src/web/panels/index.ts`: exports the panel. A pane entry in `paneRegistry.ts` places it ([layout.md](layout.md#add-a-pane)).
 - Tests: `extensions/extensions.test.ts` and `panels/panels.test.tsx`.
@@ -108,11 +107,10 @@ A tool is a viewer toolbar entry with its own settings window.
 ## Add an extension
 
 1. Write the logic in `src/web/extensions/<name>.ts`. If it needs a viewer capability the interface lacks, add the method to `ViewerAdapter`, implement it in `RealViewerAdapter` and `MockViewerAdapter`, and extend `adapter.contract.test.ts`.
-2. Export it from `extensions/index.ts`.
-3. For a new kind of toolbar control, extend `ToolGroupSpec` and implement it in `viewer/autodeskTools.ts` and `MockViewerAdapter.buildToolGroup`.
-4. For a panel, add `panels/<Name>.tsx` and export it from `panels/index.ts`. Add a pane to `PANES`.
-5. Test with the mock adapter.
-6. Run `npm run lint`, `npm run typecheck` and `npm test`, then check the page with `npm run dev:mock`.
+2. For a new kind of toolbar control, extend `ToolGroupSpec` and implement it in `viewer/autodeskTools.ts` and `MockViewerAdapter.buildToolGroup`.
+3. For a panel, add `panels/<Name>.tsx` and export it from `panels/index.ts`. Add a pane to `PANES`.
+4. Test with the mock adapter.
+5. Run `npm run lint`, `npm run typecheck` and `npm test`, then check the page with `npm run dev:mock`.
 
 ## Add a command
 
