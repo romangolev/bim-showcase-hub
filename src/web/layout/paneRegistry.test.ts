@@ -37,7 +37,6 @@ describe('pane registry', () => {
     expect(isRequired('tree')).toBe(true);
     expect(PANES.filter((pane) => isRequired(pane.id))).toEqual([tree]);
     expect(isRequired('viewer')).toBe(false);
-    expect(paneById('viewer').canFloat).toBe(true);
     expect(hasPlainPanel('viewer')).toBe(false);
     expect(hasPlainPanel('tree')).toBe(true);
   });
@@ -118,7 +117,6 @@ describe('pane registry', () => {
       minSize: { width: 1, height: 1 },
       defaultPlacement: { kind: 'root' },
       closable: true,
-      canFloat: true,
       requires: 'none',
       commands: () => [focus],
     };
@@ -128,9 +126,7 @@ describe('pane registry', () => {
           ...base,
           instances: {
             component: () => null,
-            closable: true,
             source: 'user',
-            creatable: true,
           },
         },
         ctx,
@@ -151,9 +147,7 @@ describe('pane registry', () => {
         ...base,
         instances: {
           component: () => null,
-          closable: true,
           source: 'user',
-          creatable: true,
         },
         commands: () => [override],
       },

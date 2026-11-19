@@ -158,21 +158,19 @@ export function paneMenuEntries(
     },
     maximizeEntry,
   ];
-  if (definition.canFloat) {
-    entries.push(
-      floating
-        ? {
-            id: 'dock',
-            label: 'Dock',
-            onSelect: () => layout.movePane(pane, 'dock'),
-          }
-        : {
-            id: 'float',
-            label: 'Float',
-            onSelect: () => layout.movePane(pane, 'float'),
-          },
-    );
-  }
+  entries.push(
+    floating
+      ? {
+          id: 'dock',
+          label: 'Dock',
+          onSelect: () => layout.movePane(pane, 'dock'),
+        }
+      : {
+          id: 'float',
+          label: 'Float',
+          onSelect: () => layout.movePane(pane, 'float'),
+        },
+  );
   if (!floating) {
     entries.push({
       id: 'resize',

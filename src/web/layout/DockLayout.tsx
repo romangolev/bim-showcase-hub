@@ -260,7 +260,7 @@ export function DockLayout(props: DockLayoutProps) {
     if (!api || !panel) return;
     const pane = definitionOf(panel.id);
     if (target === 'float') {
-      if (!pane.canFloat || panel.api.location.type === 'floating') {
+      if (panel.api.location.type === 'floating') {
         return;
       }
       api.addFloatingGroup(panel, floatingBox(api, panel.group));
