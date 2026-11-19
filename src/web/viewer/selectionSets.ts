@@ -110,7 +110,7 @@ function dataOf(
     if (seen.has(id)) continue;
     seen.add(id);
     const key = stable?.get(id)?.trim();
-    if (key) {
+    if (key && key.length <= MAX_KEY_LENGTH) {
       const list = keys[modelId] ?? [];
       list.push({ dbId, key });
       keys[modelId] = list;
@@ -204,7 +204,7 @@ export async function stableKeysFor(
     byModel.set(modelId, ids);
   }
   for (const [modelId, ids] of byModel) {
-    const map = await externalMapFor(adapter, modelId);
+    const map = (await externalMapFor(adapter, modelId)) ?? {};
     const byDbId = new Map<number, string>();
     for (const [key, dbId] of Object.entries(map)) {
       if (!byDbId.has(dbId)) byDbId.set(dbId, key);
@@ -217,17 +217,56 @@ export async function stableKeysFor(
   return out;
 }
 
+interface CachedMap {
+  version: string | undefined;
+  promise: Promise<Record<string, number> | null>;
+}
+
+const externalMaps = new WeakMap<ViewerAdapter, Map<string, CachedMap>>();
+
+function cacheFor(adapter: ViewerAdapter): Map<string, CachedMap> {
+  let cache = externalMaps.get(adapter);
+  if (!cache) {
+    const created = new Map<string, CachedMap>();
+    cache = created;
+    externalMaps.set(adapter, created);
+    if (typeof adapter.onModelsChange === 'function') {
+      adapter.onModelsChange((models) => {
+        for (const id of [...created.keys()]) {
+          const model = models.find((entry) => entry.id === id);
+          if (model?.status !== 'ready') created.delete(id);
+        }
+      });
+    }
+  }
+  return cache;
+}
+
 async function externalMapFor(
   adapter: ViewerAdapter,
   modelId: string,
-): Promise<Record<string, number>> {
+): Promise<Record<string, number> | null> {
   const read = adapter.getExternalIdMap;
-  if (typeof read !== 'function') return {};
-  try {
-    return await read.call(adapter, modelId);
-  } catch {
-    return {};
-  }
+  if (typeof read !== 'function') return null;
+  const cache = cacheFor(adapter);
+  const model = adapter.getModels().find((entry) => entry.id === modelId);
+  const cached = cache.get(modelId);
+  if (cached && cached.version === model?.version) return cached.promise;
+  const entry: CachedMap = {
+    version: model?.version,
+    promise: read.call(adapter, modelId).then(
+      (map) => {
+        if (Object.keys(map).length === 0) cache.delete(modelId);
+        return map;
+      },
+      () => {
+        if (cache.get(modelId) === entry) cache.delete(modelId);
+        return null;
+      },
+    ),
+  };
+  cache.set(modelId, entry);
+  return entry.promise;
 }
 
 function openModelIds(adapter: ViewerAdapter): Set<string> {
@@ -258,20 +297,22 @@ export async function migrateSelectionSet(
       models[modelId] = [...ids];
       continue;
     }
-    const map = await externalMapFor(adapter, modelId);
+    const map = (await externalMapFor(adapter, modelId)) ?? {};
     const byDbId = new Map<number, string>();
     for (const [key, dbId] of Object.entries(map)) {
       if (!byDbId.has(dbId)) byDbId.set(dbId, key);
     }
     const kept: number[] = [];
+    const entries = keys[modelId] ?? [];
+    const present = new Set(entries.map((entry) => entry.key));
     for (const dbId of ids) {
       const key = byDbId.get(dbId);
-      if (!key) {
+      if (!key || key.length > MAX_KEY_LENGTH) {
         kept.push(dbId);
         continue;
       }
-      const entries = keys[modelId] ?? [];
-      if (!entries.some((entry) => entry.key === key)) {
+      if (!present.has(key)) {
+        present.add(key);
         entries.push({ dbId, key });
         keys[modelId] = entries;
         changed = true;
@@ -280,6 +321,9 @@ export async function migrateSelectionSet(
     if (kept.length > 0) models[modelId] = kept;
   }
   if (!changed) return set;
+  const current = SELECTION_SETS.get(id);
+  if (!current) return undefined;
+  if (current.updatedAt !== item.updatedAt) return toSet(current);
   const next: SelectionSetData =
     Object.keys(keys).length > 0 ? { models, keys } : { models };
   const migrated = toSet({ ...item, data: next });
@@ -324,14 +368,14 @@ export async function resolveSetItems(
     const entries = set.keys.filter((entry) => entry.modelId === modelId);
     if (entries.length > 0) {
       const map = await externalMapFor(adapter, modelId);
+      const readable = map !== null && Object.keys(map).length > 0;
       for (const entry of entries) {
-        const dbId = map[entry.key];
-        push(
-          modelId,
-          typeof dbId === 'number' && Number.isInteger(dbId)
-            ? dbId
-            : entry.dbId,
-        );
+        const dbId = map?.[entry.key];
+        if (typeof dbId === 'number' && Number.isInteger(dbId)) {
+          push(modelId, dbId);
+        } else if (!readable) {
+          push(modelId, entry.dbId);
+        }
       }
     }
     for (const item of set.items) {
