@@ -265,10 +265,9 @@ export function ShareMenu({
     const state = pendingState.current;
     if (!state) return;
     const ids = Object.keys(state.models);
-    const waiting = loaded.some(
-      (model) => ids.includes(model.id) && model.status === 'loading',
-    );
-    if (waiting) return;
+    const expected = loaded.filter((model) => ids.includes(model.id));
+    if (expected.length === 0) return;
+    if (expected.some((model) => model.status === 'loading')) return;
     pendingState.current = null;
     void adapter.restoreState(state);
   }, [adapter, loaded]);

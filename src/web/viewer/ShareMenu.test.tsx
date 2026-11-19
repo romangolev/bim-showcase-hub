@@ -440,6 +440,43 @@ describe('Share menu links', () => {
     expect(live.getState().models['urn-a']?.isolated).toEqual([second.dbId]);
   });
 
+  it('keeps the hidden elements of a link until the models are listed', async () => {
+    const { factory } = setup();
+    const live = await factory(document.createElement('div'));
+    const source = await factory(document.createElement('div'));
+    await source.load('urn-a');
+    const [first, second] = await source.getVisible();
+    if (!first || !second) throw new Error('no elements');
+    const view = encodeView(
+      {
+        camera: CAMERA,
+        selection: [],
+        nodes: [
+          { modelId: 'urn-a', hidden: [first.dbId], isolated: [second.dbId] },
+        ],
+      },
+      ['urn-a'],
+    );
+    window.history.replaceState(
+      {},
+      '',
+      `/model/urn-a?view=${encodeURIComponent(view)}`,
+    );
+    render(
+      <ShareMenu
+        adapter={live}
+        modelIds={['urn-a']}
+        combined={false}
+        onResult={vi.fn()}
+      />,
+    );
+    await live.load('urn-a');
+    await waitFor(() =>
+      expect(live.getState().models['urn-a']?.hidden).toEqual([first.dbId]),
+    );
+    expect(live.getState().models['urn-a']?.isolated).toEqual([second.dbId]);
+  });
+
   it('copies the panes and charts of the layout', async () => {
     const write = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText: write } });
