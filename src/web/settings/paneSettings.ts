@@ -3,6 +3,7 @@ import {
   sanitizeTreeView,
   type TreeView,
 } from '../components/tree/treeView.js';
+import { DEFAULT_DASHBOARD_PROPERTIES } from '../extensions/dashboardData.js';
 import {
   type DashboardView,
   DEFAULT_DASHBOARD_VIEW,
@@ -69,6 +70,11 @@ export const PANE_SETTINGS = {
       BSH_KEYS.personal.dashboardAction,
       'select',
       sanitizeAction,
+    ),
+    properties: setting<readonly string[]>(
+      BSH_KEYS.personal.dashboardProperties,
+      DEFAULT_DASHBOARD_PROPERTIES,
+      (raw) => sanitizePropertyNames(raw, DEFAULT_DASHBOARD_PROPERTIES),
     ),
   },
   tree: {

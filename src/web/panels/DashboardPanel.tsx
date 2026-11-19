@@ -32,7 +32,6 @@ import type { ModelDbId } from '../viewer/modelSet.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { ChartCanvas } from './ChartCanvas.js';
 import { DashboardGallery } from './DashboardGallery.js';
-import { DASHBOARD_PROPERTIES } from './DashboardSettings.js';
 import { ElementScopeSelect, scopeName } from './ElementScope.js';
 import {
   FailedModels,
@@ -49,7 +48,6 @@ import './panels.css';
 
 export interface DashboardPanelProps {
   adapter?: ViewerAdapter | null;
-  propertyNames?: readonly string[];
   onOpenSettings?: () => void;
   collapsed?: boolean;
   defaultCollapsed?: boolean;
@@ -62,7 +60,6 @@ export interface DashboardPanelProps {
 
 export function DashboardPanel({
   adapter,
-  propertyNames: propertyNamesOverride,
   onOpenSettings,
   collapsed,
   defaultCollapsed = false,
@@ -77,9 +74,7 @@ export function DashboardPanel({
   const [view, setView] = usePaneSetting(
     setting ?? PANE_SETTINGS.dashboard.view,
   );
-  const [savedProperties] = usePersisted(DASHBOARD_PROPERTIES);
-  const propertyNames = propertyNamesOverride ?? savedProperties;
-  const curated = propertyNamesOverride === undefined;
+  const [propertyNames] = usePersisted(PANE_SETTINGS.dashboard.properties);
   const { maxCategories } = view;
   const activePreset = DASHBOARD_PRESETS.find((p) => p.id === view.preset);
   const readNames = useMemo(
@@ -375,7 +370,7 @@ export function DashboardPanel({
         {!activePreset && chart && options.length > 0 && (
           <>
             {selected !== view.property &&
-            (!curated || propertyNames.includes(view.property)) ? (
+            propertyNames.includes(view.property) ? (
               <p className="bsh-muted">
                 This model has no {view.property} values, so the chart groups by{' '}
                 {selected}.

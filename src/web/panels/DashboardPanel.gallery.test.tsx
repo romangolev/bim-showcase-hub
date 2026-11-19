@@ -138,7 +138,7 @@ describe('DashboardPanel gallery', () => {
     );
     const adapter = await loaded();
     vi.spyOn(adapter, 'getLeafProperties').mockResolvedValue(navisworks);
-    render(<DashboardPanel adapter={adapter} propertyNames={['Item']} />);
+    render(<DashboardPanel adapter={adapter} />);
     expect(
       await screen.findByText('Nothing to chart here'),
     ).toBeInTheDocument();
@@ -161,7 +161,7 @@ describe('DashboardPanel gallery', () => {
     );
     const adapter = await loaded();
     vi.spyOn(adapter, 'getLeafProperties').mockResolvedValue(partial);
-    render(<DashboardPanel adapter={adapter} propertyNames={['Category']} />);
+    render(<DashboardPanel adapter={adapter} />);
     await screen.findByRole('img', {
       name: 'Bar chart of element counts by Category',
     });

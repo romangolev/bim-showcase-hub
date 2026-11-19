@@ -1,5 +1,4 @@
 import { NumberField } from '../components/NumberField.js';
-import { DEFAULT_DASHBOARD_PROPERTIES } from '../extensions/dashboardData.js';
 import {
   CHART_KINDS,
   DASHBOARD_PRESETS,
@@ -14,25 +13,14 @@ import {
   ELEMENT_ACTIONS,
   sanitizeAction,
 } from '../extensions/elementActions.js';
-import { sanitizePropertyNames } from '../extensions/propertyNames.js';
 import type { ModalDefinition } from '../modal/types.js';
 import { PANE_SETTINGS, usePaneSetting } from '../settings/paneSettings.js';
-import { defineRecord } from '../storage.js';
 import { usePublishedAdapter } from '../viewer/activeAdapterStore.js';
 import { DashboardUserPresets } from './DashboardUserPresets.js';
 import { PropertyPicker } from './PropertyPicker.js';
 import { useResolvedAdapter } from './useScopedRows.js';
 
 export const DASHBOARD_SETTINGS_ID = 'dashboard-settings';
-
-export const DASHBOARD_PROPERTIES_KEY = 'bsh.pane.dashboard.properties.v1';
-
-export const DASHBOARD_PROPERTIES = defineRecord({
-  key: DASHBOARD_PROPERTIES_KEY,
-  initial: DEFAULT_DASHBOARD_PROPERTIES,
-  sanitize: (raw) =>
-    sanitizePropertyNames(raw, DEFAULT_DASHBOARD_PROPERTIES),
-});
 
 export function useDashboardView() {
   return usePaneSetting(PANE_SETTINGS.dashboard.view);
@@ -43,8 +31,9 @@ export function DashboardSettingsBody() {
   const [action, setAction, resetAction] = usePaneSetting(
     PANE_SETTINGS.dashboard.action,
   );
-  const [properties, setProperties, resetProperties] =
-    usePaneSetting(DASHBOARD_PROPERTIES);
+  const [properties, setProperties, resetProperties] = usePaneSetting(
+    PANE_SETTINGS.dashboard.properties,
+  );
   const adapter = useResolvedAdapter(usePublishedAdapter());
   const groupBy = properties.includes(view.property)
     ? view.property

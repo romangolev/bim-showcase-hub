@@ -5,10 +5,7 @@ import { fireEvent, render, screen } from '../test/render.js';
 import { publishActiveAdapter } from '../viewer/activeAdapterStore.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
 import { DashboardPanel } from './DashboardPanel.js';
-import {
-  DASHBOARD_PROPERTIES_KEY,
-  DashboardSettingsBody,
-} from './DashboardSettings.js';
+import { DashboardSettingsBody } from './DashboardSettings.js';
 
 const made = vi.hoisted(() => ({
   configs: [] as { data: { labels: string[] } }[],
@@ -51,7 +48,7 @@ async function loaded(): Promise<MockViewerAdapter> {
 
 function storedList(): string[] {
   return JSON.parse(
-    window.localStorage.getItem(DASHBOARD_PROPERTIES_KEY) ?? '[]',
+    window.localStorage.getItem(BSH_KEYS.personal.dashboardProperties) ?? '[]',
   );
 }
 
@@ -97,7 +94,7 @@ describe('dashboard chart properties', () => {
 
   it('reads a stored list on the first render', async () => {
     window.localStorage.setItem(
-      DASHBOARD_PROPERTIES_KEY,
+      BSH_KEYS.personal.dashboardProperties,
       JSON.stringify(['Name']),
     );
     const adapter = await loaded();
@@ -113,7 +110,7 @@ describe('dashboard chart properties', () => {
       JSON.stringify({ property: 'Type Name' }),
     );
     window.localStorage.setItem(
-      DASHBOARD_PROPERTIES_KEY,
+      BSH_KEYS.personal.dashboardProperties,
       JSON.stringify(['Category', 'Type Name']),
     );
     render(<DashboardSettingsBody />);
@@ -141,7 +138,7 @@ describe('dashboard chart properties', () => {
 
   it('keeps the default list and its group by when no catalog is available', async () => {
     window.localStorage.setItem(
-      DASHBOARD_PROPERTIES_KEY,
+      BSH_KEYS.personal.dashboardProperties,
       JSON.stringify(['Name', 'Level']),
     );
     render(<DashboardSettingsBody />);
