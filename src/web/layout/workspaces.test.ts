@@ -15,7 +15,7 @@ import {
   removeWorkspace,
   renameWorkspace,
   sanitizeWorkspaces,
-  saveWorkspace,
+  saveWorkspace as saveRaw,
   serializeWorkspace,
   WORKSPACES_KEY,
   WORKSPACES_RECORD,
@@ -59,6 +59,11 @@ const model: LayoutModel = {
   treeWidth: 320,
 };
 
+function saveWorkspace(...args: Parameters<typeof saveRaw>) {
+  const result = saveRaw(...args);
+  return result && 'store' in result ? result : null;
+}
+
 function saved(store: WorkspaceStore, name: string): Workspace {
   const found = store.items.find((item) => item.name === name);
   if (!found) throw new Error(`missing workspace ${name}`);
@@ -100,10 +105,25 @@ describe('workspace store', () => {
       store;
     expect(store.items).toHaveLength(1);
     expect(store.items[0]?.layout.treeWidth).toBe(400);
-    for (let n = 0; n < MAX_WORKSPACES + 3; n += 1) {
+    for (let n = 0; n < MAX_WORKSPACES - 1; n += 1) {
       store = saveWorkspace(store, `Workspace ${n}`, model, {})?.store ?? store;
     }
     expect(store.items).toHaveLength(MAX_WORKSPACES);
+  });
+
+  it('refuses a new name when full and keeps every workspace', () => {
+    let store = emptyWorkspaces();
+    for (let n = 0; n < MAX_WORKSPACES; n += 1) {
+      store = saveWorkspace(store, `Workspace ${n}`, model, {})?.store ?? store;
+    }
+    const oldest = store.items[MAX_WORKSPACES - 1]?.name;
+    expect(saveRaw(store, 'One more', model, {})).toEqual({
+      error: 'full',
+    });
+    const again = saveWorkspace(store, String(oldest), model, {});
+    expect(again && 'store' in again && again.store.items).toHaveLength(
+      MAX_WORKSPACES,
+    );
   });
 
   it('persists under the versioned key and reads it back', () => {

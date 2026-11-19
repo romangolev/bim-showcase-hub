@@ -11,7 +11,12 @@ import { createPortal } from 'react-dom';
 import { Icon } from '../components/icons.js';
 import { ModalHost } from '../modal/ModalHost.js';
 import { useLayout } from './layoutContext.js';
-import type { Workspace, WorkspaceApi } from './workspaces.js';
+import {
+  cleanWorkspaceName,
+  MAX_WORKSPACES,
+  type Workspace,
+  type WorkspaceApi,
+} from './workspaces.js';
 import './workspaces.css';
 
 const GAP = 4;
@@ -25,8 +30,10 @@ function NameForm({
   initial,
   submitLabel,
   onSubmit,
+  guard,
   close,
 }: FormProps & {
+  guard?: (name: string) => { error?: string; confirm?: string } | null;
   title: string;
   initial: string;
   submitLabel: string;
@@ -34,6 +41,7 @@ function NameForm({
 }) {
   const [name, setName] = useState(initial);
   const [error, setError] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     inputRef.current?.focus();
@@ -44,6 +52,16 @@ function NameForm({
       className="workspaces__form"
       onSubmit={(event) => {
         event.preventDefault();
+        const verdict = guard?.(name);
+        if (verdict?.error) {
+          setError(verdict.error);
+          return;
+        }
+        if (verdict?.confirm && confirm !== name) {
+          setConfirm(name);
+          setError(verdict.confirm);
+          return;
+        }
         if (!onSubmit(name)) {
           setError('Enter a unique name.');
           return;
@@ -63,6 +81,7 @@ function NameForm({
           onChange={(event) => {
             setName(event.target.value);
             setError(null);
+            setConfirm(null);
           }}
         />
       </label>
@@ -73,7 +92,7 @@ function NameForm({
       ) : null}
       <div className="settings__actions">
         <button className="btn btn-primary" type="submit">
-          {submitLabel}
+          {confirm === name ? 'Replace workspace' : submitLabel}
         </button>
         <button className="btn" type="button" onClick={close}>
           Cancel
@@ -464,6 +483,24 @@ export function WorkspaceSwitcher() {
                 initial=""
                 submitLabel="Save workspace"
                 close={done}
+                guard={(name) => {
+                  const clean = cleanWorkspaceName(name);
+                  if (!clean) return null;
+                  const same = workspace.items.find(
+                    (item) => item.name.toLowerCase() === clean.toLowerCase(),
+                  );
+                  if (same) {
+                    return {
+                      confirm: `${same.name} already exists. Save again to replace it.`,
+                    };
+                  }
+                  if (workspace.items.length >= MAX_WORKSPACES) {
+                    return {
+                      error: `You can keep ${MAX_WORKSPACES} workspaces. Delete one first.`,
+                    };
+                  }
+                  return null;
+                }}
                 onSubmit={(name) => workspace.save(name) !== null}
               />
             ),

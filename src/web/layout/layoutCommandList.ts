@@ -72,6 +72,7 @@ export function layoutCommands(layout: LayoutApi): Command[] {
       group: 'Workspaces',
       keywords: 'preset arrangement named',
       menu: 'hook',
+      ...reason(docked ? undefined : DOCK_ONLY_REASON),
       run: () => layout.workspaces.openDialog({ kind: 'save' }),
     },
     {
@@ -119,9 +120,11 @@ export function layoutCommands(layout: LayoutApi): Command[] {
       ...reason(
         layout.locked
           ? LOCKED_REASON
-          : layout.workspaces.canRevert
-            ? undefined
-            : 'Nothing to revert',
+          : !docked
+            ? DOCK_ONLY_REASON
+            : layout.workspaces.canRevert
+              ? undefined
+              : 'Nothing to revert',
       ),
       run: () => layout.workspaces.revert(),
     },

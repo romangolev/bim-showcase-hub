@@ -242,12 +242,15 @@ export function saveWorkspace(
   name: string,
   layout: LayoutModel,
   appearances: PaneAppearances,
-): { store: WorkspaceStore; workspace: Workspace } | null {
+): { store: WorkspaceStore; workspace: Workspace } | { error: 'full' } | null {
   const clean = cleanWorkspaceName(name);
   if (!clean || !layout.dock) return null;
   const existing = store.items.find(
     (item) => item.name.toLowerCase() === clean.toLowerCase(),
   );
+  if (!existing && store.items.length >= MAX_WORKSPACES) {
+    return { error: 'full' };
+  }
   const workspace: Workspace = {
     id: existing?.id ?? newWorkspaceId(),
     name: clean,
@@ -258,10 +261,7 @@ export function saveWorkspace(
     ? store.items.map((item) => (item.id === workspace.id ? workspace : item))
     : [workspace, ...store.items];
   return {
-    store: {
-      version: WORKSPACES_VERSION,
-      items: items.slice(0, MAX_WORKSPACES),
-    },
+    store: { version: WORKSPACES_VERSION, items },
     workspace,
   };
 }

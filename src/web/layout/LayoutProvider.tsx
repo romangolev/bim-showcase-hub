@@ -343,6 +343,13 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
 
   useDebouncedWrite(model);
 
+  const applyBlocker = () =>
+    lifecycle.getState().locked
+      ? 'Unlock the layout first.'
+      : modeRef.current !== 'dock'
+        ? 'Open the dock layout to apply this.'
+        : null;
+
   const shareRead = useRef(false);
   useEffect(() => {
     if (shareRead.current) return;
@@ -366,8 +373,9 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
         lifecycle.notify(parsed.error);
         return;
       }
-      if (lifecycle.getState().locked) {
-        lifecycle.notify('Unlock the layout to apply a shared layout.');
+      const blocked = applyBlocker();
+      if (blocked) {
+        lifecycle.notify(blocked);
         return;
       }
       const shared = parsed.workspace.appearances;
@@ -394,12 +402,15 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       layout: LayoutModel,
       name: string,
       nextAppearances: PaneAppearances | null,
-    ) => {
+    ): string | null => {
+      const blocked = applyBlocker();
+      if (blocked) return blocked;
       const travels =
         nextAppearances !== null && Object.keys(nextAppearances).length > 0;
       undoAppearances.current = travels ? appearances : null;
       if (travels && nextAppearances) replacePaneAppearances(nextAppearances);
       lifecycle.applyWorkspace({ layout }, name);
+      return null;
     };
     return {
       presets: PRESETS,
@@ -418,6 +429,11 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
           lifecycle.setPresenting(!getState().presenting);
           return;
         }
+        const blocked = applyBlocker();
+        if (blocked) {
+          notify(blocked);
+          return;
+        }
         undoAppearances.current = null;
         lifecycle.applyWorkspace(
           {
@@ -432,15 +448,28 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       applySaved: (id) => {
         const item = workspaces.items.find((entry) => entry.id === id);
         if (!item) return;
-        applyLayout(item.layout, item.name, item.appearances);
+        const blocked = applyLayout(item.layout, item.name, item.appearances);
+        if (blocked) {
+          notify(blocked);
+          return;
+        }
         setActiveWorkspace(item.id);
       },
       save: (name) => {
         const result = saveWorkspace(workspaces, name, model, appearances);
         if (!result) return null;
+        if ('error' in result) {
+          notify('Workspace limit reached. Delete one first.');
+          return null;
+        }
+        const replaced = workspaces.items.some(
+          (item) => item.id === result.workspace.id,
+        );
         setWorkspaces(result.store);
         setActiveWorkspace(result.workspace.id);
-        notify(`Workspace ${result.workspace.name} saved`);
+        notify(
+          `Workspace ${result.workspace.name} ${replaced ? 'replaced' : 'saved'}`,
+        );
         return result.workspace;
       },
       rename: (id, name) => {
@@ -467,12 +496,12 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       importText: (text) => {
         const parsed = parseWorkspace(text);
         if ('error' in parsed) return parsed.error;
-        if (state.locked) return 'Unlock the layout first.';
-        applyLayout(
+        const blocked = applyLayout(
           parsed.workspace.layout,
           parsed.workspace.name,
           parsed.workspace.appearances,
         );
+        if (blocked) return blocked;
         setActiveWorkspace(null);
         setWorkspaceDialog(null);
         notify(`Layout ${parsed.workspace.name} imported`);

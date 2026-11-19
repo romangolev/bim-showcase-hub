@@ -4,7 +4,12 @@ import { installMemoryStorage } from '../test/mockApi.js';
 import { type LayoutApi, LayoutContext } from './layoutContext.js';
 import { defaultModel } from './layoutState.js';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher.js';
-import { PRESETS, type Workspace, type WorkspaceApi } from './workspaces.js';
+import {
+  MAX_WORKSPACES,
+  PRESETS,
+  type Workspace,
+  type WorkspaceApi,
+} from './workspaces.js';
 
 const house: Workspace = {
   id: 'ws-1',
@@ -144,6 +149,40 @@ describe('workspace switcher', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save workspace' }));
     expect(save).toHaveBeenCalledWith('House');
     expect(workspaces.closeDialog).toHaveBeenCalled();
+  });
+
+  it('asks before replacing a workspace with the same name', () => {
+    const save = vi.fn(() => house);
+    const workspaces = fakeWorkspaces({
+      dialog: { kind: 'save' },
+      items: [house],
+      save,
+    });
+    renderSwitcher(workspaces);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Workspace name' }), {
+      target: { value: house.name.toUpperCase() },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save workspace' }));
+    expect(save).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert').textContent).toContain('already exists');
+    fireEvent.click(screen.getByRole('button', { name: 'Replace workspace' }));
+    expect(save).toHaveBeenCalledWith(house.name.toUpperCase());
+  });
+
+  it('tells the user to delete one when the list is full', () => {
+    const save = vi.fn(() => house);
+    const items = Array.from({ length: MAX_WORKSPACES }, (_, n) => ({
+      ...house,
+      id: `w${n}`,
+      name: `W${n}`,
+    }));
+    renderSwitcher(fakeWorkspaces({ dialog: { kind: 'save' }, items, save }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Workspace name' }), {
+      target: { value: 'Fresh' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save workspace' }));
+    expect(save).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert').textContent).toContain('Delete one');
   });
 
   it('reports a rejected import inline', () => {
