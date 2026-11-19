@@ -28,10 +28,10 @@ import type { Command } from './types.js';
 
 export const RECENT_GROUP = 'Recent';
 
-export interface CommandPaletteProps {
+interface CommandPaletteProps {
   openModel?: (urn: string, context: ModelContext) => void;
 }
-export const PINNED_GROUP = 'Pinned';
+const PINNED_GROUP = 'Pinned';
 
 export function arrange(
   commands: readonly Command[],

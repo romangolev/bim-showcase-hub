@@ -31,7 +31,7 @@ import {
 export const RESET_LAYOUT_DESCRIPTION =
   'Resets the arrangement. Open models stay open; remembered viewer position and closed panes are cleared.';
 
-export interface PaneMenuHost extends CommandHost {
+interface PaneMenuHost extends CommandHost {
   openPaneSettings: (schema: PaneSettingsSchema) => void;
   renamePane?: () => void;
   tagPane?: () => void;

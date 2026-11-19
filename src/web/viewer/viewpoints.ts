@@ -14,7 +14,7 @@ import { sanitizeViewerState } from './viewerState.js';
 
 export const VIEWPOINT_KIND = 'viewpoint';
 
-export type ViewpointData = { state: ViewerState };
+type ViewpointData = { state: ViewerState };
 
 export const VIEWPOINTS = defineSavedKind<ViewpointData>({
   kind: VIEWPOINT_KIND,

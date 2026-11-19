@@ -20,7 +20,7 @@ import type { Command } from './types.js';
 export const NO_MODEL_REASON = 'Open a model first';
 export const NO_SELECTION_REASON = 'Select elements first';
 
-export interface ViewerShortcut {
+interface ViewerShortcut {
   command: string;
   keys: string;
   label: string;

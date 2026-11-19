@@ -5,7 +5,7 @@ import {
   notifications,
 } from './notifications.js';
 
-export interface NotificationCenter extends NotificationSnapshot {
+interface NotificationCenter extends NotificationSnapshot {
   dismiss: (id: number) => void;
   clear: () => void;
   clearHistory: () => void;

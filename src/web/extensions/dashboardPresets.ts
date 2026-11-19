@@ -147,7 +147,7 @@ export function sanitizeStoredDashboardView(
 }
 
 export const DASHBOARD_PRESET_KIND = 'dashboard-preset';
-export type DashboardPresetData = {
+type DashboardPresetData = {
   [K in keyof DashboardView]: DashboardView[K];
 };
 

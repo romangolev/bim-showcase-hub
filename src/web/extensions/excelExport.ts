@@ -146,8 +146,8 @@ const IDENTIFIER_COLUMN =
   /(?:^|[\s_-])(?:[Ii][Dd]|[Nn]umber|[Mm]ark|[Cc]ode|[Tt]ag)$|[a-z0-9](?:[A-Z][Dd]|Number|Mark|Code|Tag)$/;
 const MAX_SAFE_DIGITS = 15;
 
-export const TOTAL_ROW_PREFIX = 'Total';
-export const TOTAL_ROW_SKIP_COLUMN = 0;
+const TOTAL_ROW_PREFIX = 'Total';
+const TOTAL_ROW_SKIP_COLUMN = 0;
 
 function isIdentifierColumn(header: string): boolean {
   return IDENTIFIER_COLUMN.test(header.trim());
@@ -213,14 +213,14 @@ export function totalsRow(
   return cells;
 }
 
-export interface XlsxCellStyle {
+interface XlsxCellStyle {
   value: ExportCell;
   type?: NumberConstructor;
   format?: string;
   fontWeight?: 'bold';
 }
 
-export type XlsxCell = ExportCell | XlsxCellStyle;
+type XlsxCell = ExportCell | XlsxCellStyle;
 
 export function xlsxCell(
   value: ExportCell,
@@ -240,7 +240,7 @@ export function xlsxCell(
   };
 }
 
-export interface XlsxSheet {
+interface XlsxSheet {
   sheet: string;
   data: XlsxCell[][];
   stickyRowsCount: number;

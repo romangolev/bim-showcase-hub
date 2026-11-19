@@ -1,6 +1,6 @@
-export type NotificationTone = 'info' | 'success' | 'warning' | 'error';
+type NotificationTone = 'info' | 'success' | 'warning' | 'error';
 
-export interface NotificationAction {
+interface NotificationAction {
   label: string;
   run: () => void;
 }

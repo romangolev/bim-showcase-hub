@@ -11,14 +11,14 @@ export interface SavedKindSpec<T extends SavedData = SavedData> {
   sanitize: (data: unknown) => T | null;
 }
 
-export interface SavedKindEntry {
+interface SavedKindEntry {
   kind: string;
   version: number;
   label: string;
   sanitize: (data: unknown) => unknown;
 }
 
-export interface PreparedSavedData {
+interface PreparedSavedData {
   data: SavedData;
   version: number;
 }

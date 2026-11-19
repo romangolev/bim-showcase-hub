@@ -7,7 +7,7 @@ import { Menu, type MenuEntry } from '../Menu.js';
 import type { AddTarget, PickedModel } from './DocumentTree.js';
 import { RecentStrip } from './RecentStrip.js';
 
-export interface DocumentsHomeProps {
+interface DocumentsHomeProps {
   selectedUrn?: string;
   onOpen: (urn: string, context: ModelContext) => void;
   onOpenModal?: (urn: string, context: ModelContext) => void;

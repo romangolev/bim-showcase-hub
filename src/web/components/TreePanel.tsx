@@ -36,15 +36,15 @@ export interface TreePanelProps {
   onNavigate?: () => void;
 }
 
-export interface OpenTarget {
+interface OpenTarget {
   urn: string;
   context: ModelContext;
   notice?: string;
 }
 
-export const COMBINED_FULL_NOTICE = 'The open viewer is full; opened a new tab';
+const COMBINED_FULL_NOTICE = 'The open viewer is full; opened a new tab';
 
-export function loadedMembers(state: OpenModelsState): number {
+function loadedMembers(state: OpenModelsState): number {
   return state.models.reduce(
     (sum, model) => sum + liveWeight(state, model.urn),
     0,

@@ -273,7 +273,7 @@ export function encodeView(
   );
 }
 
-export interface FittedView {
+interface FittedView {
   view: string;
   degraded: boolean;
 }
@@ -344,7 +344,7 @@ export function parseView(
   return link;
 }
 
-export interface ViewFile {
+interface ViewFile {
   kind: typeof VIEW_FILE_KIND;
   version: typeof VIEW_FILE_VERSION;
   created: string;

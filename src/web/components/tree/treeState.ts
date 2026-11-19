@@ -50,7 +50,7 @@ export interface PickedModel {
   context: ModelContext;
 }
 
-export interface TreeNotice {
+interface TreeNotice {
   title: string;
   message: string;
   itemId?: string;
@@ -63,7 +63,7 @@ export interface TreeSnapshot {
   notice: TreeNotice | null;
 }
 
-export interface PickLimit {
+interface PickLimit {
   tooManyTabs: boolean;
   tooManyCombined: boolean;
   message: string | null;

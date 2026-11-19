@@ -14,7 +14,7 @@ export const DELETED_SET_LABEL = 'Deleted set (using all elements)';
 
 export const MAX_KEY_LENGTH = 512;
 
-export interface SelectionSetKey {
+interface SelectionSetKey {
   modelId: string;
   dbId: number;
   key: string;
@@ -37,7 +37,7 @@ export interface SelectionSetData {
   [field: string]: unknown;
 }
 
-export type StableKeys = ReadonlyMap<string, string>;
+type StableKeys = ReadonlyMap<string, string>;
 
 export function elementId(item: { modelId: string; dbId: number }): string {
   return `${item.modelId}:${item.dbId}`;
@@ -171,10 +171,7 @@ export function useSelectionSets(): SelectionSet[] {
   return useMemo(() => items.map(toSet), [items]);
 }
 
-export function saveSetData(
-  name: string,
-  data: SelectionSetData,
-): SaveSetResult {
+function saveSetData(name: string, data: SelectionSetData): SaveSetResult {
   const count = countOf(data);
   if (count === 0) return 'empty';
   if (count > MAX_SET_ELEMENTS) return 'too-big';

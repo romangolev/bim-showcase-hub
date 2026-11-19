@@ -1,9 +1,9 @@
-export const SHARE_PARAM = 'layout';
+const SHARE_PARAM = 'layout';
 export const SHARE_MAX_LENGTH = 6000;
 const COMPRESSED = 'z';
 const PLAIN = 'j';
-export const STREAM_TIMEOUT_MS = 1200;
-export const INFLATE_MAX_BYTES = 256 * 1024;
+const STREAM_TIMEOUT_MS = 1200;
+const INFLATE_MAX_BYTES = 256 * 1024;
 
 function bounded<T>(task: Promise<T>, fallback: T): Promise<T> {
   return Promise.race([

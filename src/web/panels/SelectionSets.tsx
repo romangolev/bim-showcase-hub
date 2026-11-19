@@ -26,7 +26,7 @@ export const SET_MESSAGES: Record<Exclude<SaveSetResult, 'ok'>, string> = {
     'Could not save the set. Saved items hold up to 4 MB; delete some and try again.',
 };
 
-export const MERGE_MESSAGES: Record<MergeMode, string> = {
+const MERGE_MESSAGES: Record<MergeMode, string> = {
   union: 'Union keeps every element that is in either set.',
   intersect: 'Intersect keeps only the elements that are in both sets.',
 };

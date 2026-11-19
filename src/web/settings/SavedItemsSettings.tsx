@@ -33,7 +33,7 @@ function plural(n: number, word: string): string {
   return `${n} ${word}${n === 1 ? '' : 's'}`;
 }
 
-export function bytesLabel(value: number): string {
+function bytesLabel(value: number): string {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)} MB`;
   if (value >= 1000) return `${Math.round(value / 1000)} KB`;
   return `${value} B`;

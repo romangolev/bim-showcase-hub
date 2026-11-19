@@ -299,7 +299,7 @@ export function importSaved(text: string): ImportResult {
   };
 }
 
-export interface SavedStore {
+interface SavedStore {
   list(kind?: string): SavedItem[];
   get(id: string): SavedItem | undefined;
   put(item: SavedItem): boolean;

@@ -78,14 +78,14 @@ export function capturePanes(
     : { open, collapsed };
 }
 
-export interface SharedView {
+interface SharedView {
   view: string;
   degraded: boolean;
   trimmed: boolean;
   link: ViewLink;
 }
 
-export function captureNodes(
+function captureNodes(
   state: ViewerState,
   modelIds: readonly string[],
 ): ViewNodes[] | undefined {

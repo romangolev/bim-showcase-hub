@@ -18,7 +18,7 @@ export const REPORT_VALUES_PER_PROPERTY = 8;
 export const REPORT_TITLE_MAX = 120;
 export const REPORT_NOTES_MAX = 2000;
 
-export type ReportOrientation = 'portrait' | 'landscape';
+type ReportOrientation = 'portrait' | 'landscape';
 
 export interface ReportSections {
   snapshot: boolean;
@@ -46,19 +46,19 @@ export const REPORT_DEFAULTS: ReportOptions = {
   sections: { ...REPORT_SECTIONS },
 };
 
-export interface ReportSection {
+interface ReportSection {
   property: string;
   entries: SummaryEntry[];
   more: number;
 }
 
-export interface ReportChart {
+interface ReportChart {
   property: string;
   total: number;
   data: ChartData['data'];
 }
 
-export interface ReportContent {
+interface ReportContent {
   title: string;
   version?: string;
   date: Date;
@@ -72,7 +72,7 @@ export interface ReportContent {
   orientation: ReportOrientation;
 }
 
-export interface ReportRequest {
+interface ReportRequest {
   title: string;
   version?: string;
   image?: string | null;
@@ -166,7 +166,7 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;');
 }
 
-export const REPORT_PRINT_STYLE = `
+const REPORT_PRINT_STYLE = `
   :root { color-scheme: light }
   html, body { background: #fff }
   body { margin: 0; color: #1b1f24; font: 13px/1.45 system-ui, sans-serif }
@@ -238,7 +238,7 @@ function metaText(content: ReportContent): string {
   return parts.join('  |  ');
 }
 
-export const REPORT_LANDSCAPE_STYLE = '@page { size: landscape }';
+const REPORT_LANDSCAPE_STYLE = '@page { size: landscape }';
 
 export function reportHtml(content: ReportContent): string {
   const figure = content.image
@@ -280,7 +280,7 @@ export function reportHtml(content: ReportContent): string {
   ].join('');
 }
 
-export const REPORT_WAITING_HTML =
+const REPORT_WAITING_HTML =
   '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   '<title>Preparing report</title></head><body style="font:13px system-ui,sans-serif;padding:24px">' +
   'Preparing the report...</body></html>';

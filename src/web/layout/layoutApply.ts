@@ -16,7 +16,7 @@ const BLOCKED_REASON = {
   'dock-only': DOCK_ONLY_REASON,
 } as const;
 
-export interface LayoutApplyDeps {
+interface LayoutApplyDeps {
   lifecycle: Pick<
     PaneLifecycle,
     'applyWorkspace' | 'revertWorkspace' | 'notify'
@@ -27,7 +27,7 @@ export interface LayoutApplyDeps {
   };
 }
 
-export interface LayoutApply {
+interface LayoutApply {
   subscribe: (listener: () => void) => () => void;
   active: () => string | null;
   setActive: (id: string | null) => void;

@@ -50,9 +50,9 @@ export const MAX_LISTED_VIEWPOINTS = 10;
 export const IMAGE_FAILED_TEXT = 'Could not take the snapshot';
 export const REPORT_READY_TEXT = 'Report opened for printing';
 export const REPORT_BLOCKED_TEXT = 'Allow pop-ups to print the report';
-export const REPORT_FAILED_TEXT = 'Could not build the report';
-export const SAVED_VIEW_FILE_TEXT = 'View data saved';
-export const FRAME_UNKNOWN_TEXT =
+const REPORT_FAILED_TEXT = 'Could not build the report';
+const SAVED_VIEW_FILE_TEXT = 'View data saved';
+const FRAME_UNKNOWN_TEXT =
   'Could not read the size of the viewer. Choose 1x in Settings or try again.';
 
 const REPORT_SECTION_LABELS: readonly [keyof ReportSections, string][] = [
@@ -66,7 +66,7 @@ export function snapshotName(exportName?: string): string {
   return `${base && base !== 'model' ? base : 'model'}-snapshot.png`;
 }
 
-export function viewFileName(exportName?: string): string {
+function viewFileName(exportName?: string): string {
   const base = (exportName ?? '').replace(/(-properties)?\.xlsx$/, '');
   return `${base && base !== 'model' ? base : 'model'}-view.json`;
 }
@@ -84,7 +84,7 @@ export interface ShareMenuProps {
   onResult: (text: string, error: boolean) => void;
 }
 
-export interface ShareHref {
+interface ShareHref {
   href: string;
   degraded: boolean;
   trimmed: boolean;

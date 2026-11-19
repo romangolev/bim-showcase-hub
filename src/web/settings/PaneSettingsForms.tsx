@@ -6,7 +6,7 @@ import type { TreeView } from '../components/tree/treeView.js';
 import { usePersisted } from '../storage.js';
 import { PANE_SETTINGS } from './paneSettings.js';
 
-export const TREE_SETTINGS_FORM: FormDefinition<TreeView> = {
+const TREE_SETTINGS_FORM: FormDefinition<TreeView> = {
   title: 'Documents',
   intro: 'How folders and versions are listed in the tree.',
   fields: [

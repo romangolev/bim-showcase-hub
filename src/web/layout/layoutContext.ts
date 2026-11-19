@@ -7,7 +7,7 @@ import type { WorkspaceApi } from './workspaces.js';
 export type LayoutMode = 'dock' | 'stacked';
 export type MoveTarget = 'left' | 'right' | 'below' | 'float' | 'dock';
 
-export interface ApplyTarget {
+interface ApplyTarget {
   dock?: SerializedDock | null;
   steps?: readonly LayoutStep[] | null;
 }

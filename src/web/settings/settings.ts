@@ -11,8 +11,8 @@ import {
 export const SETTINGS_VERSION = 3;
 
 export type Density = 'comfortable' | 'compact';
-export type TextSize = 'small' | 'medium' | 'large';
-export type Language = 'en';
+type TextSize = 'small' | 'medium' | 'large';
+type Language = 'en';
 
 export interface Settings {
   version: number;
@@ -27,7 +27,7 @@ export interface Settings {
 
 export const DENSITIES: readonly Density[] = ['comfortable', 'compact'];
 export const TEXT_SIZES: readonly TextSize[] = ['small', 'medium', 'large'];
-export const LANGUAGES: readonly Language[] = ['en'];
+const LANGUAGES: readonly Language[] = ['en'];
 
 export const DEFAULT_SETTINGS: Settings = {
   version: SETTINGS_VERSION,

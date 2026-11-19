@@ -30,7 +30,7 @@ const CATALOG = defineRecord<PaneCatalog>({
   sanitize: sanitizePaneCatalog,
 });
 
-export function toggleList(list: readonly PaneId[], id: PaneId): PaneId[] {
+function toggleList(list: readonly PaneId[], id: PaneId): PaneId[] {
   return list.includes(id)
     ? list.filter((entry) => entry !== id)
     : [...list, id];
@@ -63,7 +63,7 @@ export function matchesPane(pane: PaneDefinition, query: string): boolean {
   return terms.every((term) => text.includes(term));
 }
 
-export interface OrderedPanes {
+interface OrderedPanes {
   pinned: PaneDefinition[];
   groups: { category: string; panes: PaneDefinition[] }[];
   hidden: PaneDefinition[];

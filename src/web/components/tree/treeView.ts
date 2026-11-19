@@ -5,7 +5,7 @@ export type TreeSort = 'name' | 'modified';
 
 export type TreeOpenMode = 'tab' | 'replace' | 'combined';
 
-export function sanitizeOpenMode(raw: unknown): TreeOpenMode {
+function sanitizeOpenMode(raw: unknown): TreeOpenMode {
   return raw === 'replace' || raw === 'combined' ? raw : 'tab';
 }
 

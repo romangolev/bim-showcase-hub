@@ -22,7 +22,7 @@ export type IncomingAdapter = Pick<
   'setCamera' | 'selectModelIds' | 'restoreState'
 >;
 
-export interface LinkApplyReport {
+interface LinkApplyReport {
   panes: boolean;
   charts: number;
 }
@@ -111,7 +111,7 @@ interface Pending {
   state: ViewerState | null;
 }
 
-export interface IncomingLink {
+interface IncomingLink {
   offer: (
     raw: string | null,
     modelIds: readonly string[],
@@ -157,7 +157,7 @@ export function createIncomingLink(): IncomingLink {
   };
 }
 
-export interface UseIncomingLinkOptions {
+interface UseIncomingLinkOptions {
   adapter: IncomingAdapter | null;
   loaded: readonly ModelInfo[];
   raw: string | null;

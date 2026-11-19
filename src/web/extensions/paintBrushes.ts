@@ -16,7 +16,7 @@ export type PaintPaletteId =
   | 'contrast'
   | 'custom';
 
-export interface PaintPalette {
+interface PaintPalette {
   id: PaintPaletteId;
   label: string;
   swatches: readonly { hex: string; name: string }[];
