@@ -17,7 +17,8 @@ import {
 import type { TreeNode } from '../../../shared/types.js';
 import type { ModelContext } from '../../api/modelContext.js';
 import type { NodeScope } from '../../api/scope.js';
-import { PANE_SETTINGS, usePaneSetting } from '../../settings/paneSettings.js';
+import { PANE_SETTINGS } from '../../settings/paneSettings.js';
+import { usePersisted } from '../../storage.js';
 import { notify } from '../../tasks/notifications.js';
 import { Icon } from '../icons.js';
 import { Menu, type MenuEntry } from '../Menu.js';
@@ -164,7 +165,7 @@ export function DocumentTree({
     null,
   );
 
-  const [view, setView] = usePaneSetting(PANE_SETTINGS.tree.view);
+  const [view, setView] = usePersisted(PANE_SETTINGS.tree.view);
   const viewEntries = (): MenuEntry[] => [
     {
       id: 'sort-name',

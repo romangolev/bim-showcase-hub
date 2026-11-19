@@ -1,12 +1,6 @@
 import { flag, isRecord } from '../../shared/guards.js';
 import { BSH_KEYS, defineRecord, getStorageAdapter } from '../storage.js';
-import {
-  isThemePreference,
-  readStoredTheme,
-  THEME_PREFERENCES,
-  THEME_STORAGE_KEY,
-  type ThemePreference,
-} from '../theme/theme.js';
+import { THEME_PREFERENCES, type ThemePreference } from '../theme/theme.js';
 
 export const SETTINGS_VERSION = 3;
 
@@ -82,20 +76,6 @@ export function readSettings(): Settings {
     reducedMotion: flag(source.reducedMotion, DEFAULT_SETTINGS.reducedMotion),
     language: pick(source.language, LANGUAGES, DEFAULT_SETTINGS.language),
   };
-}
-
-export function migrateLegacyTheme(): void {
-  if (storedFromNewerBuild()) return;
-  const stored = APP_SETTINGS_BLOB.read();
-  if (isRecord(stored) && isThemePreference(stored.theme)) return;
-  const legacy = readStoredTheme();
-  if (!legacy) return;
-  const wrote = APP_SETTINGS_BLOB.write({
-    ...(isRecord(stored) ? stored : {}),
-    theme: legacy,
-    version: SETTINGS_VERSION,
-  });
-  if (wrote) getStorageAdapter().remove('local', THEME_STORAGE_KEY);
 }
 
 export function writeSettings(settings: Settings): boolean {

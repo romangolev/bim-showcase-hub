@@ -218,11 +218,10 @@ describe('DashboardPanel', () => {
   it('says so when the saved property is not in the model', async () => {
     window.localStorage.setItem(
       BSH_KEYS.personal.dashboardView,
-      JSON.stringify({ property: 'Level' }),
-    );
-    window.localStorage.setItem(
-      BSH_KEYS.personal.dashboardProperties,
-      JSON.stringify(['Category', 'Level']),
+      JSON.stringify({
+        property: 'Level',
+        properties: ['Category', 'Level'],
+      }),
     );
     const adapter = await loaded();
     vi.spyOn(adapter, 'getLeafProperties').mockResolvedValue([

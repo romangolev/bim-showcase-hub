@@ -8,7 +8,6 @@ import {
 export const BSH_KEYS = {
   personal: {
     layout: 'bsh.layout.v2',
-    layoutV1: 'bsh.layout.v1',
     openModels: 'bsh.models.open',
     modelOwner: 'bsh.models.owner',
     recentModels: 'bsh.models.recent',
@@ -21,20 +20,15 @@ export const BSH_KEYS = {
     summaryAction: 'bsh.summary.action.v1',
     dashboardAction: 'bsh.dashboard.action.v1',
     dashboardView: 'bsh.dashboard.view.v1',
-    dashboardProperties: 'bsh.pane.dashboard.properties.v1',
     saved: 'bsh.saved.v1',
     recentCommands: 'bsh.commands.recent.v1',
     layoutInstances: 'bsh.layout.instances.v1',
     workspaces: 'bsh.workspaces.v1',
   },
   preference: {
-    theme: 'bsh-theme',
     settings: 'bsh-settings-v1',
     layoutLocked: 'bsh.layout.locked',
     treeView: 'bsh.tree.view',
-    treeWidth: 'bsh.tree.width',
-    summaryCollapsed: 'bsh.summary.collapsed',
-    dashboardCollapsed: 'bsh.dashboard.collapsed',
     snapshot: 'bsh.snapshot.v1',
     notifications: 'bsh.notify.v1',
     commandPins: 'bsh.commands.pinned.v1',

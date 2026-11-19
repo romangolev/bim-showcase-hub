@@ -1,6 +1,7 @@
 import type { ModelContext } from '../../api/modelContext.js';
 import { recallModel } from '../../api/modelStore.js';
-import { PANE_SETTINGS, usePaneSetting } from '../../settings/paneSettings.js';
+import { PANE_SETTINGS } from '../../settings/paneSettings.js';
+import { usePersisted } from '../../storage.js';
 import { useSelectionSets } from '../../viewer/selectionSets.js';
 import { Icon } from '../icons.js';
 import { Menu, type MenuEntry } from '../Menu.js';
@@ -29,7 +30,7 @@ export function DocumentsHome({
   onOpenTabs,
   addTarget,
 }: DocumentsHomeProps) {
-  const [view, setView] = usePaneSetting(PANE_SETTINGS.tree.view);
+  const [view, setView] = usePersisted(PANE_SETTINGS.tree.view);
   const sets = useSelectionSets();
 
   const entries = (): MenuEntry[] => [

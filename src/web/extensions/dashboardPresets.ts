@@ -123,29 +123,6 @@ export function sanitizeDashboardView(raw: unknown): DashboardView {
   };
 }
 
-export function sanitizeStoredDashboardView(
-  raw: unknown,
-  legacyProperties: readonly string[],
-): DashboardView {
-  const view = sanitizeDashboardView(raw);
-  const stored =
-    typeof raw === 'object' && raw !== null
-      ? (raw as { properties?: unknown }).properties
-      : undefined;
-  const hasStored =
-    Array.isArray(stored) &&
-    stored.some((name) => typeof name === 'string' && name.trim() !== '');
-  return hasStored
-    ? view
-    : {
-        ...view,
-        properties: sanitizePropertyNames(
-          legacyProperties,
-          DEFAULT_DASHBOARD_PROPERTIES,
-        ),
-      };
-}
-
 export const DASHBOARD_PRESET_KIND = 'dashboard-preset';
 type DashboardPresetData = {
   [K in keyof DashboardView]: DashboardView[K];

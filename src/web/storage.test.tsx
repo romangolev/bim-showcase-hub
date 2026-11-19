@@ -46,7 +46,9 @@ describe('sign-out', () => {
       expect(window.localStorage.getItem(key)).toBeNull();
       expect(window.sessionStorage.getItem(key)).toBeNull();
     }
-    expect(window.localStorage.getItem(BSH_KEYS.preference.theme)).toBe('"x"');
+    expect(window.localStorage.getItem(BSH_KEYS.preference.layoutLocked)).toBe(
+      '"x"',
+    );
     expect(window.localStorage.getItem(BSH_KEYS.preference.treeView)).toBe(
       '"x"',
     );

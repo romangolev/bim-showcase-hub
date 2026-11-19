@@ -17,12 +17,6 @@ import {
 
 export const LAYOUT_KEY = BSH_KEYS.personal.layout;
 export const LAYOUT_VERSION = 2;
-export const LAYOUT_KEY_V1 = BSH_KEYS.personal.layoutV1;
-export const LEGACY_KEYS = {
-  treeWidth: BSH_KEYS.preference.treeWidth,
-  summary: BSH_KEYS.preference.summaryCollapsed,
-  dashboard: BSH_KEYS.preference.dashboardCollapsed,
-} as const;
 export const TREE_WIDTH_MIN = 260;
 export const TREE_WIDTH_MAX = 480;
 
@@ -412,11 +406,7 @@ export function serializeLayout(model: LayoutModel): string {
   return JSON.stringify({ version: LAYOUT_VERSION, layout: model });
 }
 
-export function parseLayout(
-  raw: string | null,
-  version: number = LAYOUT_VERSION,
-  prepare: (dock: SerializedDock) => SerializedDock = (dock) => dock,
-): LayoutModel | null {
+export function parseLayout(raw: string | null): LayoutModel | null {
   if (raw === null) return null;
   let parsed: unknown;
   try {
@@ -424,7 +414,7 @@ export function parseLayout(
   } catch {
     return null;
   }
-  if (!isRecord(parsed) || parsed.version !== version) return null;
+  if (!isRecord(parsed) || parsed.version !== LAYOUT_VERSION) return null;
   const layout = parsed.layout;
   if (!isRecord(layout)) return null;
   const collapsed = Array.isArray(layout.collapsed)
@@ -434,9 +424,7 @@ export function parseLayout(
   const dismissed = Array.isArray(layout.dismissed)
     ? layout.dismissed.filter(isPaneId)
     : [];
-  const source = isRecord(layout.dock)
-    ? prepare(layout.dock as SerializedDock)
-    : layout.dock;
+  const source = layout.dock;
   const dock = source === null ? null : (sanitizeDock(source)?.dock ?? null);
   const remembered = sanitizeDock(
     isRecord(layout.lastViewerArrangement)
@@ -545,40 +533,6 @@ export function adoptArrangement(
   return sanitizeDock({ ...mapped, panels }, instances)?.dock ?? null;
 }
 
-function safeGet(storage: Storage, key: string): string | null {
-  try {
-    return storage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function safeRemove(storage: Storage, key: string) {
-  try {
-    storage.removeItem(key);
-  } catch {
-    return;
-  }
-}
-
-export function importLegacy(storage: Storage): LayoutModel {
-  const model = defaultModel();
-  const width = safeGet(storage, LEGACY_KEYS.treeWidth);
-  const summary = safeGet(storage, LEGACY_KEYS.summary);
-  const dashboard = safeGet(storage, LEGACY_KEYS.dashboard);
-  const collapsed: PaneId[] = [];
-  if (summary === '1') collapsed.push('summary');
-  if (dashboard !== '0') {
-    collapsed.push('dashboard');
-  }
-  for (const key of Object.values(LEGACY_KEYS)) safeRemove(storage, key);
-  return {
-    ...model,
-    collapsed,
-    treeWidth: width === null ? model.treeWidth : clampTreeWidth(Number(width)),
-  };
-}
-
 export function writeLayout(storage: Storage, model: LayoutModel) {
   try {
     storage.setItem(LAYOUT_KEY, serializeLayout(model));
@@ -587,37 +541,10 @@ export function writeLayout(storage: Storage, model: LayoutModel) {
   }
 }
 
-export function migrateV1(
-  raw: string | null,
-  openPanels: readonly PanelId[],
-): LayoutModel | null {
-  const first = openPanels[0];
-  return parseLayout(raw, 1, (dock) =>
-    first && isRecord(dock.panels) && isRecord(dock.grid)
-      ? renamePanel(dock, 'viewer', first)
-      : dock,
-  );
-}
-
-export function readLayout(
-  storage: Storage,
-  openPanels: readonly PanelId[] = [],
-): LayoutModel {
-  let raw: string | null;
+export function readLayout(storage: Storage): LayoutModel {
   try {
-    raw = storage.getItem(LAYOUT_KEY);
+    return parseLayout(storage.getItem(LAYOUT_KEY)) ?? defaultModel();
   } catch {
     return defaultModel();
   }
-  if (raw !== null) return parseLayout(raw) ?? defaultModel();
-  const old = safeGet(storage, LAYOUT_KEY_V1);
-  if (old !== null) {
-    const migrated = migrateV1(old, openPanels) ?? defaultModel();
-    safeRemove(storage, LAYOUT_KEY_V1);
-    writeLayout(storage, migrated);
-    return migrated;
-  }
-  const imported = importLegacy(storage);
-  writeLayout(storage, imported);
-  return imported;
 }

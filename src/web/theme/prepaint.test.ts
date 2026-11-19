@@ -35,20 +35,13 @@ describe('pre-paint theme', () => {
     expect(document.documentElement.style.colorScheme).toBe('light');
   });
 
-  it('follows the system for a stored system choice, not the legacy key', () => {
+  it('follows the system for a stored system choice', () => {
     window.localStorage.setItem(
       BSH_KEYS.preference.settings,
       JSON.stringify({ theme: 'system' }),
     );
-    window.localStorage.setItem(BSH_KEYS.preference.theme, 'light');
     runPrepaint(false);
     expect(document.documentElement.dataset.theme).toBe('dark');
-  });
-
-  it('uses the legacy key while the settings hold no theme', () => {
-    window.localStorage.setItem(BSH_KEYS.preference.theme, 'light');
-    runPrepaint(false);
-    expect(document.documentElement.dataset.theme).toBe('light');
   });
 
   it('falls back to the media query for a corrupt settings blob', () => {

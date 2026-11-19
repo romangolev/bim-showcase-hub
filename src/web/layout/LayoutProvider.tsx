@@ -79,7 +79,6 @@ import { StackedLayout } from './StackedLayout.js';
 import {
   sanitizeUserInstances,
   type UserInstances,
-  userInstanceIds,
   userInstanceTitles,
 } from './userInstances.js';
 import { createHostStore, PaneHosts } from './ViewerHost.js';
@@ -141,9 +140,9 @@ function storage(): Storage | null {
   }
 }
 
-function initialModel(openPanels: readonly PanelId[]): LayoutModel {
+function initialModel(): LayoutModel {
   const store = storage();
-  return store ? readLayout(store, openPanels) : defaultModel();
+  return store ? readLayout(store) : defaultModel();
 }
 
 function focusTreeTarget() {
@@ -279,12 +278,6 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
   setters.current = { setUserState, setLockedState };
 
   const [lifecycle] = useState(() => {
-    const initialInstances = [
-      ...models.models.map(({ urn }) => modelPanelId(urn)),
-      ...(stacked && models.models.length === 0
-        ? []
-        : userInstanceIds(userState)),
-    ];
     return createPaneLifecycle({
       models: modelStore,
       dock: () => controller.current,
@@ -308,7 +301,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       later: (run) => requestAnimationFrame(run),
       title: (id) => paneTitleIn(titlesRef.current, id),
       initial: {
-        layout: initialModel(initialInstances),
+        layout: initialModel(),
         user: userState,
         locked,
       },

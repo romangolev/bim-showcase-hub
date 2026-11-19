@@ -18,7 +18,8 @@ import {
 import { useModelContext } from '../api/useModelContext.js';
 import { useOpenModels, useOpenModelsStore } from '../api/useOpenModels.js';
 import { LayoutContext } from '../layout/layoutContext.js';
-import { PANE_SETTINGS, usePaneSetting } from '../settings/paneSettings.js';
+import { PANE_SETTINGS } from '../settings/paneSettings.js';
+import { usePersisted } from '../storage.js';
 import { notify } from '../tasks/notifications.js';
 import { DocumentsHome } from './tree/DocumentsHome.js';
 import {
@@ -128,7 +129,7 @@ export function TreePanel({ onNavigate }: TreePanelProps) {
   const state = useOpenModels();
   const active = state.active;
   const layout = useContext(LayoutContext);
-  const [view] = usePaneSetting(PANE_SETTINGS.tree.view);
+  const [view] = usePersisted(PANE_SETTINGS.tree.view);
   const [root, setRoot] = useState<TreeRoot>(() =>
     treeRootOf(DOC_ROOT.read(), undefined, undefined),
   );

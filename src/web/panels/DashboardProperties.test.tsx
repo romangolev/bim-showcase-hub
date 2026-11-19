@@ -47,12 +47,6 @@ async function loaded(): Promise<MockViewerAdapter> {
   return adapter;
 }
 
-function storedList(): string[] {
-  return JSON.parse(
-    window.localStorage.getItem(BSH_KEYS.personal.dashboardProperties) ?? '[]',
-  );
-}
-
 function storedView(): { property?: string; properties?: string[] } {
   return JSON.parse(
     window.localStorage.getItem(BSH_KEYS.personal.dashboardView) ?? '{}',
@@ -100,26 +94,13 @@ describe('dashboard chart properties', () => {
     });
   });
 
-  it('reads the old shared list when the stored view has none', async () => {
-    window.localStorage.setItem(
-      BSH_KEYS.personal.dashboardProperties,
-      JSON.stringify(['Name']),
-    );
-    const adapter = await loaded();
-    render(<DashboardPanel adapter={adapter} />);
-    await screen.findByRole('img', {
-      name: 'Bar chart of element counts by Name',
-    });
-  });
-
   it('keeps a catalog property as the stored group by on reload', () => {
     window.localStorage.setItem(
       BSH_KEYS.personal.dashboardView,
-      JSON.stringify({ property: 'Type Name' }),
-    );
-    window.localStorage.setItem(
-      BSH_KEYS.personal.dashboardProperties,
-      JSON.stringify(['Category', 'Type Name']),
+      JSON.stringify({
+        property: 'Type Name',
+        properties: ['Category', 'Type Name'],
+      }),
     );
     render(<DashboardSettingsBody />);
     expect(screen.getByLabelText('Group by')).toHaveDisplayValue('Type Name');
@@ -146,8 +127,8 @@ describe('dashboard chart properties', () => {
 
   it('keeps the default list and its group by when no catalog is available', async () => {
     window.localStorage.setItem(
-      BSH_KEYS.personal.dashboardProperties,
-      JSON.stringify(['Name', 'Level']),
+      BSH_KEYS.personal.dashboardView,
+      JSON.stringify({ properties: ['Name', 'Level'] }),
     );
     render(<DashboardSettingsBody />);
     expect(screen.getByText('No model loaded')).toBeInTheDocument();
@@ -178,28 +159,7 @@ describe('dashboard chart properties', () => {
     ]);
   });
 
-  it('keeps the view list over the old shared list', async () => {
-    window.localStorage.setItem(
-      BSH_KEYS.personal.dashboardView,
-      JSON.stringify({ properties: ['Name'] }),
-    );
-    window.localStorage.setItem(
-      BSH_KEYS.personal.dashboardProperties,
-      JSON.stringify(['Level']),
-    );
-    const adapter = await loaded();
-    render(<DashboardPanel adapter={adapter} />);
-    await screen.findByRole('img', {
-      name: 'Bar chart of element counts by Name',
-    });
-    expect(storedList()).toEqual(['Level']);
-  });
-
   it('resets the view and its properties', () => {
-    window.localStorage.setItem(
-      BSH_KEYS.personal.dashboardProperties,
-      JSON.stringify(['Name']),
-    );
     window.localStorage.setItem(
       BSH_KEYS.personal.dashboardView,
       JSON.stringify({ property: 'Name' }),
