@@ -54,6 +54,7 @@ describe('storage keys', () => {
         summaryAction: 'bsh.summary.action.v1',
         dashboardAction: 'bsh.dashboard.action.v1',
         dashboardView: 'bsh.dashboard.view.v1',
+        dashboardProperties: 'bsh.pane.dashboard.properties.v1',
         saved: 'bsh.saved.v1',
         recentCommands: 'bsh.commands.recent.v1',
         layoutInstances: 'bsh.layout.instances.v1',
