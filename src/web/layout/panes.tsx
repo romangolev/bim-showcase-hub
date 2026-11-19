@@ -11,6 +11,7 @@ import {
   recallModel,
   subscribeModelStore,
 } from '../api/modelStore.js';
+import { memberLabel, memberMeta } from '../api/modelTitles.js';
 import { contextOf } from '../api/openModels.js';
 import { useOpenModels, useOpenModelsStore } from '../api/useOpenModels.js';
 import { StateBlock } from '../components/StateBlock.js';
@@ -27,7 +28,6 @@ import {
 } from '../panels/index.js';
 import { SUMMARY_SETTINGS_ID } from '../panels/SummarySettings.js';
 import { VIEWPOINTS_MODAL_ID } from '../panels/Viewpoints.js';
-import { memberLabel, memberMeta } from '../routes/ModelPage.js';
 import { usePaneSetting } from '../settings/paneSettings.js';
 import { exportFileName, exportStem } from '../tools/kernel/exportKit.js';
 import { ViewerPane } from '../viewer/index.js';
