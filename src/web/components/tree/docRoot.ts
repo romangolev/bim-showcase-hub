@@ -78,6 +78,23 @@ export function treeRootOf(
         },
       };
     }
+    if (!projects) {
+      return {
+        node: {
+          id: root.projectId,
+          kind: 'project',
+          name: 'Project',
+          hasChildren: true,
+          viewable: false,
+        },
+        scope: {
+          kind: 'project',
+          id: root.projectId,
+          hubId: root.hubId,
+          projectId: root.projectId,
+        },
+      };
+    }
   }
   const hub = hubs?.find((entry) => entry.id === root.hubId);
   if (hub) {

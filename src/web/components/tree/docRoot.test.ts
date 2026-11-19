@@ -120,4 +120,24 @@ describe('treeRootOf', () => {
     expect(root.node).toMatchObject({ id: 'h1', kind: 'hub' });
     expect(root.scope).toEqual(hubScope('h1'));
   });
+
+  it('follows the stored project while the project list is unavailable', () => {
+    const root = treeRootOf({ hubId: 'h1', projectId: 'p1' }, [hub], undefined);
+    expect(root.node).toMatchObject({ id: 'p1', kind: 'project' });
+    expect(root.scope).toEqual({
+      kind: 'project',
+      id: 'p1',
+      hubId: 'h1',
+      projectId: 'p1',
+    });
+  });
+
+  it('falls back to the hub when the loaded list lacks the project', () => {
+    const root = treeRootOf(
+      { hubId: 'h1', projectId: 'gone' },
+      [hub],
+      [project],
+    );
+    expect(root.scope).toEqual(hubScope('h1'));
+  });
 });
