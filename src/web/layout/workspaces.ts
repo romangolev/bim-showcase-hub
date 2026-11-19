@@ -13,10 +13,10 @@ import {
 import type { PaneId } from './paneRegistry.js';
 
 export const WORKSPACES_KEY = BSH_KEYS.personal.workspaces;
-export const WORKSPACES_VERSION = 1;
-export const WORKSPACE_NAME_MAX = 40;
+const WORKSPACES_VERSION = 1;
+const WORKSPACE_NAME_MAX = 40;
 export const MAX_WORKSPACES = 20;
-export const WORKSPACE_KIND = 'bsh.workspace';
+const WORKSPACE_KIND = 'bsh.workspace';
 
 export interface Workspace {
   id: string;
@@ -30,7 +30,7 @@ export interface WorkspaceStore {
   items: Workspace[];
 }
 
-export type PresetId = 'review' | 'data' | 'present' | 'coordination';
+type PresetId = 'review' | 'data' | 'present' | 'coordination';
 
 export interface WorkspacePreset {
   id: PresetId;
@@ -161,7 +161,6 @@ export interface WorkspaceApi {
   items: readonly Workspace[];
   active: string | null;
   canRevert: boolean;
-  locked: boolean;
   canPresent: boolean;
   dialog: WorkspaceDialog;
   openDialog: (dialog: WorkspaceDialog) => void;
@@ -185,7 +184,7 @@ export function cleanWorkspaceName(raw: unknown): string | null {
   return name || null;
 }
 
-export function newWorkspaceId(): string {
+function newWorkspaceId(): string {
   const crypto = globalThis.crypto;
   if (typeof crypto?.randomUUID === 'function') return crypto.randomUUID();
   return `ws-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -316,7 +315,7 @@ export function serializeWorkspace(workspace: {
   });
 }
 
-export type ParsedWorkspace = { workspace: Workspace } | { error: string };
+type ParsedWorkspace = { workspace: Workspace } | { error: string };
 
 export function parseWorkspace(raw: string): ParsedWorkspace {
   let parsed: unknown;

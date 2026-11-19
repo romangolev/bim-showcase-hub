@@ -7,8 +7,8 @@ import {
   useRef,
   useState,
 } from 'react';
-import { parseView } from '../api/viewLink.js';
 import { StateBlock } from '../components/StateBlock.js';
+import { LayoutContext } from '../layout/layoutContext.js';
 import { notify } from '../tasks/notifications.js';
 import { startTask } from '../tasks/taskStore.js';
 import { useTheme } from '../theme/ThemeContext.js';
@@ -16,6 +16,7 @@ import { TOOLS, useViewerTools } from '../tools/index.js';
 import { modelKey } from '../tools/kernel/modelKey.js';
 import { createViewerAdapter } from './createViewerAdapter.js';
 import { explainFailure } from './failureExplainer.js';
+import { useIncomingLink } from './incomingLink.js';
 import { ModelsMenu } from './ModelsMenu.js';
 import {
   type FailureReason,
@@ -63,6 +64,7 @@ export interface ViewerPaneProps {
   onOffsetsChange?: (offsets: Record<string, Vec3> | null) => void;
   onSpreadChange?: (distanceMeters: number | null) => void;
   initialView?: string | null;
+  onViewConsumed?: () => void;
   shareHref?: string;
   onManageViewpoints?: () => void;
   onPresent?: () => void;
@@ -112,6 +114,7 @@ export function ViewerPane({
   onOffsetsChange,
   onSpreadChange,
   initialView = null,
+  onViewConsumed,
   shareHref,
   onManageViewpoints,
   onPresent,
@@ -354,23 +357,17 @@ export function ViewerPane({
   }, [loaded, labelKey]);
   const combined = members.length > 0 || models.length > 1;
   const orderKey = [urn, ...members.map((member) => member.urn)].join('\n');
-  const pendingView = useRef<string | null>(null);
-  const appliedView = useRef<string | null>(null);
-  if (initialView && initialView !== appliedView.current) {
-    pendingView.current = initialView;
-  }
-  useEffect(() => {
-    const raw = pendingView.current;
-    if (!adapter || !raw) return;
-    if (loaded.some((model) => model.status === 'loading')) return;
-    if (!loaded.some((model) => model.status === 'ready')) return;
-    pendingView.current = null;
-    appliedView.current = raw;
-    const link = parseView(raw, orderKey.split('\n'));
-    if (!link) return;
-    adapter.setCamera(link.camera);
-    if (link.selection.length > 0) adapter.selectModelIds(link.selection);
-  }, [adapter, loaded, orderKey]);
+  const layout = useContext(LayoutContext);
+  useIncomingLink({
+    adapter,
+    loaded,
+    raw: initialView,
+    modelIds: orderKey.split('\n'),
+    layout: layout ?? null,
+    clear: onViewConsumed,
+    onResult: (text, error) =>
+      notify(text, { tone: error ? 'error' : 'success' }),
+  });
   const [spread, setSpread] = useState<ModelSpread | null>(null);
   const onSpreadRef = useRef(onSpreadChange);
   onSpreadRef.current = onSpreadChange;

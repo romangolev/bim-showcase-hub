@@ -52,7 +52,7 @@ export function versionParts(name: string): VersionParts | null {
   };
 }
 
-export function twoLineRow(
+function twoLineRow(
   kind: TreeNodeKind,
   name: string,
   secondary?: string,

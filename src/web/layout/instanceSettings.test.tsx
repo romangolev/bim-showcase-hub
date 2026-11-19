@@ -2,8 +2,7 @@ import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DASHBOARD_PROPERTIES } from '../extensions/dashboardData.js';
 import { DashboardPanel } from '../panels/DashboardPanel.js';
-import { usePaneSetting } from '../settings/paneSettings.js';
-import { BSH_KEYS, forgetPersonal } from '../storage.js';
+import { forgetPersonal, usePersisted } from '../storage.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { fireEvent, render, screen } from '../test/render.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
@@ -11,7 +10,6 @@ import {
   chartSetting,
   forgetInstanceSetting,
   instanceSettingKey,
-  migrateDashboardProperties,
   sanitizeSummarySpec,
   seedInstanceSetting,
   summarySetting,
@@ -83,7 +81,7 @@ describe('instance settings', () => {
 
   it('shows a seeded scope in a mounted hook', async () => {
     const view = renderHook(() =>
-      usePaneSetting(summarySetting('modelSummary:1')),
+      usePersisted(summarySetting('modelSummary:1')),
     );
     expect(view.result.current[0]).toMatchObject({
       scope: 'all',
@@ -112,7 +110,7 @@ describe('instance settings', () => {
   it('does not resurrect old settings for a reused id', () => {
     seedInstanceSetting('modelSummary:1', 'urn-a');
     const view = renderHook(() =>
-      usePaneSetting(summarySetting('modelSummary:1')),
+      usePersisted(summarySetting('modelSummary:1')),
     );
     expect(view.result.current[0]).toMatchObject({ scope: 'urn-a' });
     act(() => forgetPersonal());
@@ -121,7 +119,7 @@ describe('instance settings', () => {
       elements: 'all',
     });
     expect(
-      renderHook(() => usePaneSetting(summarySetting('modelSummary:1'))).result
+      renderHook(() => usePersisted(summarySetting('modelSummary:1'))).result
         .current[0],
     ).toMatchObject({ scope: 'all', elements: 'all' });
   });
@@ -209,36 +207,5 @@ describe('instance settings', () => {
         .properties,
     ).toEqual(['Name']);
     adapter.destroy();
-  });
-
-  it('migrates the old shared property list into the stored views', () => {
-    window.localStorage.setItem(
-      BSH_KEYS.personal.dashboardProperties,
-      JSON.stringify(['Name', 'Level']),
-    );
-    window.localStorage.setItem(
-      BSH_KEYS.personal.dashboardView,
-      JSON.stringify({ property: 'Level' }),
-    );
-    window.localStorage.setItem(
-      'bsh.pane.chart.1.v1',
-      JSON.stringify({ property: 'Name' }),
-    );
-    window.localStorage.setItem(
-      'bsh.pane.chart.2.v1',
-      JSON.stringify({ properties: ['Category'] }),
-    );
-    migrateDashboardProperties();
-    expect(
-      JSON.parse(
-        window.localStorage.getItem(BSH_KEYS.personal.dashboardView) ?? '{}',
-      ),
-    ).toMatchObject({ property: 'Level', properties: ['Name', 'Level'] });
-    expect(
-      JSON.parse(window.localStorage.getItem('bsh.pane.chart.1.v1') ?? '{}'),
-    ).toMatchObject({ properties: ['Name', 'Level'] });
-    expect(
-      JSON.parse(window.localStorage.getItem('bsh.pane.chart.2.v1') ?? '{}'),
-    ).toMatchObject({ properties: ['Category'] });
   });
 });

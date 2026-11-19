@@ -1,7 +1,5 @@
 import {
   type KeyboardEvent,
-  useCallback,
-  useEffect,
   useId,
   useLayoutEffect,
   useMemo,
@@ -12,20 +10,38 @@ import { createPortal } from 'react-dom';
 import type { Command } from '../commands/types.js';
 import { Icon } from '../components/icons.js';
 import type { MenuEntry } from '../components/Menu.js';
+import { moveFocus, onEscape, usePopover } from '../components/usePopover.js';
 import { useModal } from '../modal/index.js';
 import { layoutCommands, paneCommandContext } from './layoutCommandList.js';
 import { type LayoutApi, useLayout } from './layoutContext.js';
 import { layoutMenuEntries } from './PaneMenu.js';
-import {
-  orderPanes,
-  type PaneCatalog,
-  usePaneCatalog,
-  withHidden,
-  withPin,
-} from './paneCatalog.js';
 import { PANES, type PaneDefinition, paneCommandsFor } from './paneRegistry.js';
 
-const GAP = 4;
+function matchesPane(pane: PaneDefinition, query: string): boolean {
+  const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (terms.length === 0) return true;
+  const text =
+    `${pane.title} ${pane.description} ${pane.category} ${pane.keywords}`.toLowerCase();
+  return terms.every((term) => text.includes(term));
+}
+
+function groupPanes(
+  panes: readonly PaneDefinition[],
+  query: string,
+): { category: string; panes: PaneDefinition[] }[] {
+  const matched = panes.filter((pane) => matchesPane(pane, query));
+  if (query.trim()) {
+    return matched.length > 0 ? [{ category: '', panes: matched }] : [];
+  }
+  const groups = new Map<string, PaneDefinition[]>();
+  for (const pane of matched) {
+    groups.set(pane.category, [...(groups.get(pane.category) ?? []), pane]);
+  }
+  return [...groups].map(([category, grouped]) => ({
+    category,
+    panes: grouped,
+  }));
+}
 
 interface PaneRow {
   pane: PaneDefinition;
@@ -75,59 +91,20 @@ function withoutPaneEntries(entries: readonly MenuEntry[]): MenuEntry[] {
   return clean;
 }
 
-interface PinProps {
-  pane: PaneDefinition;
-  pinned: boolean;
-  onToggle: () => void;
-}
-
-function PinAction({ pane, pinned, onToggle }: PinProps) {
-  const label = `${pinned ? 'Unpin' : 'Pin'} ${pane.title}`;
-  return (
-    <button
-      type="button"
-      role="menuitem"
-      className="panes-menu__action"
-      aria-label={label}
-      title={label}
-      onClick={onToggle}
-    >
-      <Icon name="star" size={14} />
-    </button>
-  );
-}
-
 interface RowProps {
   row: PaneRow;
-  pinned: boolean;
-  hidden: boolean;
   onRun: (command: Command) => void;
-  onPin: () => void;
-  onHide: () => void;
   onFocus: () => void;
 }
 
-function PaneRowItem({
-  row,
-  pinned,
-  hidden,
-  onRun,
-  onPin,
-  onHide,
-  onFocus,
-}: RowProps) {
+function PaneRowItem({ row, onRun, onFocus }: RowProps) {
   const { pane, toggle, create, extras } = row;
   const descriptionId = useId();
   const primary = toggle ?? create;
   const state = toggle ? (row.open ? 'Open' : 'Closed') : create ? 'New' : null;
   return (
-    <li
-      className="panes-menu__row"
-      role="none"
-      data-kind={pane.id}
-      data-hidden={hidden}
-    >
-      {primary && !hidden ? (
+    <li className="panes-menu__row" role="none" data-kind={pane.id}>
+      {primary ? (
         // biome-ignore lint/a11y/useAriaPropsSupportedByRole: the role follows the command kind
         <button
           type="button"
@@ -166,7 +143,7 @@ function PaneRowItem({
         </div>
       )}
       <div className="panes-menu__actions">
-        {!hidden && toggle && row.open ? (
+        {toggle && row.open ? (
           <button
             type="button"
             role="menuitem"
@@ -178,35 +155,20 @@ function PaneRowItem({
             <Icon name="locate" size={14} />
           </button>
         ) : null}
-        {!hidden
-          ? extras.map((command) => (
-              <button
-                key={command.id}
-                type="button"
-                role="menuitem"
-                className="panes-menu__action"
-                aria-label={command.title}
-                title={command.disabled ?? command.title}
-                disabled={Boolean(command.disabled)}
-                onClick={() => onRun(command)}
-              >
-                {command.icon ? <Icon name={command.icon} size={14} /> : null}
-              </button>
-            ))
-          : null}
-        {!hidden ? (
-          <PinAction pane={pane} pinned={pinned} onToggle={onPin} />
-        ) : null}
-        <button
-          type="button"
-          role="menuitem"
-          className="panes-menu__action"
-          aria-label={hidden ? `Show ${pane.title}` : `Hide ${pane.title}`}
-          title={hidden ? `Show ${pane.title}` : `Hide ${pane.title}`}
-          onClick={onHide}
-        >
-          <Icon name={hidden ? 'check' : 'ban'} size={14} />
-        </button>
+        {extras.map((command) => (
+          <button
+            key={command.id}
+            type="button"
+            role="menuitem"
+            className="panes-menu__action"
+            aria-label={command.title}
+            title={command.disabled ?? command.title}
+            disabled={Boolean(command.disabled)}
+            onClick={() => onRun(command)}
+          >
+            {command.icon ? <Icon name={command.icon} size={14} /> : null}
+          </button>
+        ))}
       </div>
     </li>
   );
@@ -245,23 +207,17 @@ function FooterEntry({
 export function PanesMenu() {
   const layout = useLayout();
   const modal = useModal();
-  const [catalog, setCatalog] = usePaneCatalog();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [showHidden, setShowHidden] = useState(false);
-  const [position, setPosition] = useState<{
-    top: number;
-    left: number;
-  } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const popoverId = useId();
 
   const rows = useMemo(() => rowsOf(layout), [layout]);
   const visiblePanes = useMemo(() => rows.map((row) => row.pane), [rows]);
-  const ordered = useMemo(
-    () => orderPanes(visiblePanes, catalog, query, showHidden),
-    [visiblePanes, catalog, query, showHidden],
+  const groups = useMemo(
+    () => groupPanes(visiblePanes, query),
+    [visiblePanes, query],
   );
   const rowById = useMemo(
     () => new Map(rows.map((row) => [row.pane.id, row])),
@@ -276,58 +232,23 @@ export function PanesMenu() {
     [layout, modal.open, commands],
   );
 
-  const place = useCallback(() => {
-    const rect = triggerRef.current?.getBoundingClientRect();
-    const box = popoverRef.current;
-    if (!rect || !box) return;
-    const width = box.offsetWidth;
-    const height = box.offsetHeight;
-    const left = Math.max(
-      GAP,
-      Math.min(rect.right - width, window.innerWidth - width - GAP),
-    );
-    const below = rect.bottom + GAP;
-    const top =
-      below + height > window.innerHeight
-        ? Math.max(GAP, rect.top - height - GAP)
-        : below;
-    setPosition({ top, left });
-  }, []);
-
-  useLayoutEffect(() => {
-    if (!open) {
-      setPosition(null);
-      return;
-    }
-    place();
-    popoverRef.current?.querySelector<HTMLInputElement>('input')?.focus();
-  }, [open, place]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onPointer = (event: PointerEvent) => {
-      const target = event.target as Node;
-      if (
-        !popoverRef.current?.contains(target) &&
-        !triggerRef.current?.contains(target)
-      ) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener('pointerdown', onPointer);
-    window.addEventListener('resize', place);
-    document.addEventListener('scroll', place, true);
-    return () => {
-      document.removeEventListener('pointerdown', onPointer);
-      window.removeEventListener('resize', place);
-      document.removeEventListener('scroll', place, true);
-    };
-  }, [open, place]);
-
   const close = (restore: boolean) => {
     setOpen(false);
     if (restore) triggerRef.current?.focus();
   };
+
+  const position = usePopover({
+    open,
+    triggerRef,
+    popoverRef,
+    onDismiss: () => setOpen(false),
+  });
+
+  useLayoutEffect(() => {
+    if (open) {
+      popoverRef.current?.querySelector<HTMLInputElement>('input')?.focus();
+    }
+  }, [open]);
 
   const run = (command: Command) => {
     close(true);
@@ -340,17 +261,8 @@ export function PanesMenu() {
     entry.onSelect();
   };
 
-  const toggleCatalog = (next: PaneCatalog) => {
-    setCatalog(next);
-  };
-
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      event.stopPropagation();
-      close(true);
-      return;
-    }
+    if (onEscape(event, () => close(true))) return;
     const box = popoverRef.current;
     if (!box) return;
     const buttons = Array.from(
@@ -362,24 +274,13 @@ export function PanesMenu() {
     const target = event.target as HTMLElement;
     const item = target.closest<HTMLButtonElement>('[role^="menuitem"]');
     const index = item ? buttons.indexOf(item) : -1;
-    const focusAt = (next: number) => {
-      event.preventDefault();
-      buttons[(next + buttons.length) % buttons.length]?.focus();
-    };
     if (!item && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
-      focusAt(event.key === 'ArrowDown' ? 0 : buttons.length - 1);
+      event.preventDefault();
+      buttons[event.key === 'ArrowDown' ? 0 : buttons.length - 1]?.focus();
       return;
     }
-    if (!item) return;
-    if (event.key === 'ArrowDown') focusAt(index + 1);
-    else if (event.key === 'ArrowUp') focusAt(index - 1);
-    else if (event.key === 'Home') focusAt(0);
-    else if (event.key === 'End') focusAt(buttons.length - 1);
+    if (item) moveFocus(event, buttons, index);
   };
-
-  const hiddenCount = catalog.hidden.filter((id) =>
-    rows.some((row) => row.pane.id === id),
-  ).length;
 
   return (
     <div className="menu">
@@ -432,40 +333,7 @@ export function PanesMenu() {
               </div>
               <div className="panes-menu__body" role="menu" aria-label="Panes">
                 <div className="panes-menu__list">
-                  {ordered.pinned.length > 0 ? (
-                    <fieldset
-                      className="panes-menu__group"
-                      aria-label="Pinned panes"
-                    >
-                      <h3 className="panes-menu__heading">Pinned</h3>
-                      <ul role="none" className="panes-menu__rows">
-                        {ordered.pinned.map((pane) => {
-                          const row = rowById.get(pane.id);
-                          if (!row) return null;
-                          return (
-                            <PaneRowItem
-                              key={pane.id}
-                              row={row}
-                              pinned
-                              hidden={false}
-                              onRun={run}
-                              onPin={() =>
-                                toggleCatalog(withPin(catalog, pane.id))
-                              }
-                              onHide={() =>
-                                toggleCatalog(withHidden(catalog, pane.id))
-                              }
-                              onFocus={() => {
-                                close(true);
-                                layout.focusPane(pane.id);
-                              }}
-                            />
-                          );
-                        })}
-                      </ul>
-                    </fieldset>
-                  ) : null}
-                  {ordered.groups.map((group) => (
+                  {groups.map((group) => (
                     <fieldset
                       key={group.category || 'matches'}
                       className="panes-menu__group"
@@ -484,15 +352,7 @@ export function PanesMenu() {
                             <PaneRowItem
                               key={pane.id}
                               row={row}
-                              pinned={catalog.pins.includes(pane.id)}
-                              hidden={false}
                               onRun={run}
-                              onPin={() =>
-                                toggleCatalog(withPin(catalog, pane.id))
-                              }
-                              onHide={() =>
-                                toggleCatalog(withHidden(catalog, pane.id))
-                              }
                               onFocus={() => {
                                 close(true);
                                 layout.focusPane(pane.id);
@@ -503,55 +363,10 @@ export function PanesMenu() {
                       </ul>
                     </fieldset>
                   ))}
-                  {ordered.groups.length === 0 &&
-                  ordered.pinned.length === 0 &&
-                  ordered.hidden.length === 0 ? (
+                  {groups.length === 0 ? (
                     <p className="panes-menu__empty">No panes match</p>
                   ) : null}
-                  {ordered.hidden.length > 0 ? (
-                    <fieldset
-                      className="panes-menu__group"
-                      aria-label="Hidden panes"
-                    >
-                      <h3 className="panes-menu__heading">Hidden</h3>
-                      <ul role="none" className="panes-menu__rows">
-                        {ordered.hidden.map((pane) => {
-                          const row = rowById.get(pane.id);
-                          if (!row) return null;
-                          return (
-                            <PaneRowItem
-                              key={pane.id}
-                              row={row}
-                              pinned={false}
-                              hidden
-                              onRun={run}
-                              onPin={() =>
-                                toggleCatalog(withPin(catalog, pane.id))
-                              }
-                              onHide={() =>
-                                toggleCatalog(withHidden(catalog, pane.id))
-                              }
-                              onFocus={() => undefined}
-                            />
-                          );
-                        })}
-                      </ul>
-                    </fieldset>
-                  ) : null}
                 </div>
-                {hiddenCount > 0 || showHidden ? (
-                  <button
-                    type="button"
-                    role="menuitemcheckbox"
-                    aria-checked={showHidden}
-                    className="panes-menu__manage"
-                    onClick={() => setShowHidden((value) => !value)}
-                  >
-                    {showHidden
-                      ? 'Hide hidden panes'
-                      : `Show hidden panes (${hiddenCount})`}
-                  </button>
-                ) : null}
                 {footer.length > 0 ? (
                   <div className="panes-menu__footer">
                     {footer.map((entry) =>

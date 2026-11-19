@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   claimRegion,
-  currentRegion,
+  regionAvailable,
   regionConflictMessage,
   resetRegion,
 } from './region.js';
@@ -12,11 +12,13 @@ afterEach(() => {
 
 describe('page region', () => {
   it('lets the first model claim the region and rejects the other one', () => {
-    expect(currentRegion()).toBeNull();
+    expect(regionAvailable('US')).toBe(true);
+    expect(regionAvailable('EU')).toBe(true);
     expect(claimRegion('US')).toBe(true);
     expect(claimRegion('US')).toBe(true);
     expect(claimRegion('EU')).toBe(false);
-    expect(currentRegion()).toBe('US');
+    expect(regionAvailable('US')).toBe(true);
+    expect(regionAvailable('EU')).toBe(false);
   });
 
   it('names the region in the message', () => {

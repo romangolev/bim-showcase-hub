@@ -1,13 +1,9 @@
 import { act, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SettingsProvider } from '../settings/SettingsContext.js';
-import {
-  migrateLegacyTheme,
-  SETTINGS_STORAGE_KEY,
-} from '../settings/settings.js';
+import { SETTINGS_STORAGE_KEY } from '../settings/settings.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { ThemeProvider, useTheme } from './ThemeContext.js';
-import { THEME_STORAGE_KEY } from './theme.js';
 
 function stubScheme(initial: 'light' | 'dark') {
   let scheme = initial;
@@ -104,41 +100,17 @@ describe('ThemeProvider', () => {
   });
 
   it('persists an explicit choice in the settings blob and prefers it', () => {
-    const storage = installMemoryStorage();
+    installMemoryStorage();
     stubScheme('dark');
     const { unmount } = renderProbe();
     press('toggle');
     expect(screen.getByTestId('theme')).toHaveTextContent('light');
     expect(screen.getByTestId('preference')).toHaveTextContent('light');
     expect(storedSettings().theme).toBe('light');
-    expect(storage.getItem(THEME_STORAGE_KEY)).toBeNull();
     expect(document.documentElement.dataset.theme).toBe('light');
     unmount();
     renderProbe();
     expect(screen.getByTestId('theme')).toHaveTextContent('light');
-  });
-
-  it('reads an existing bsh-theme value after the startup migration', () => {
-    const storage = installMemoryStorage();
-    storage.setItem(THEME_STORAGE_KEY, 'light');
-    stubScheme('dark');
-    migrateLegacyTheme();
-    renderProbe();
-    expect(screen.getByTestId('theme')).toHaveTextContent('light');
-    expect(storedSettings().theme).toBe('light');
-    expect(storage.getItem(THEME_STORAGE_KEY)).toBeNull();
-    press('follow system');
-    expect(screen.getByTestId('theme')).toHaveTextContent('dark');
-    expect(storedSettings().theme).toBe('system');
-  });
-
-  it('ignores a stored value that is not a theme', () => {
-    const storage = installMemoryStorage();
-    storage.setItem(THEME_STORAGE_KEY, 'sepia');
-    stubScheme('dark');
-    renderProbe();
-    expect(screen.getByTestId('theme')).toHaveTextContent('dark');
-    expect(storage.getItem(THEME_STORAGE_KEY)).toBe('sepia');
   });
 
   it('follows system changes only while the preference is system', () => {

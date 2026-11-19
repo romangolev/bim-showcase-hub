@@ -2,7 +2,7 @@ import { useContext, useEffect, useRef, useState } from 'react';
 import { type ViewLink, viewFileJson, withViewParam } from '../api/viewLink.js';
 import { Icon } from '../components/icons.js';
 import { Menu, type MenuEntry } from '../components/Menu.js';
-import { saveBlob } from '../extensions/excelExport.js';
+import { saveBlob } from '../extensions/download.js';
 import { type LayoutApi, LayoutContext } from '../layout/layoutContext.js';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import {
@@ -19,13 +19,8 @@ import {
   reportHtml,
 } from './report.js';
 import {
-  clearLinkView,
   LINK_DEGRADED_TEXT,
-  LINK_RESTORED_TEXT,
   LINK_TRIMMED_TEXT,
-  linkViewerState,
-  linkViewFromUrl,
-  restoreLinkView,
   sharedView,
 } from './shareLink.js';
 import {
@@ -36,8 +31,7 @@ import {
   snapshotSize,
   takeSnapshot,
 } from './snapshot.js';
-import { useModels } from './useModels.js';
-import type { ViewerAdapter, ViewerState } from './ViewerAdapter.js';
+import type { ViewerAdapter } from './ViewerAdapter.js';
 import {
   goToViewpoint,
   nextViewpointName,
@@ -56,9 +50,9 @@ export const MAX_LISTED_VIEWPOINTS = 10;
 export const IMAGE_FAILED_TEXT = 'Could not take the snapshot';
 export const REPORT_READY_TEXT = 'Report opened for printing';
 export const REPORT_BLOCKED_TEXT = 'Allow pop-ups to print the report';
-export const REPORT_FAILED_TEXT = 'Could not build the report';
-export const SAVED_VIEW_FILE_TEXT = 'View data saved';
-export const FRAME_UNKNOWN_TEXT =
+const REPORT_FAILED_TEXT = 'Could not build the report';
+const SAVED_VIEW_FILE_TEXT = 'View data saved';
+const FRAME_UNKNOWN_TEXT =
   'Could not read the size of the viewer. Choose 1x in Settings or try again.';
 
 const REPORT_SECTION_LABELS: readonly [keyof ReportSections, string][] = [
@@ -72,7 +66,7 @@ export function snapshotName(exportName?: string): string {
   return `${base && base !== 'model' ? base : 'model'}-snapshot.png`;
 }
 
-export function viewFileName(exportName?: string): string {
+function viewFileName(exportName?: string): string {
   const base = (exportName ?? '').replace(/(-properties)?\.xlsx$/, '');
   return `${base && base !== 'model' ? base : 'model'}-view.json`;
 }
@@ -90,7 +84,7 @@ export interface ShareMenuProps {
   onResult: (text: string, error: boolean) => void;
 }
 
-export interface ShareHref {
+interface ShareHref {
   href: string;
   degraded: boolean;
   trimmed: boolean;
@@ -246,31 +240,6 @@ export function ShareMenu({
   const viewpoints = useViewpoints();
   const layout = useContext(LayoutContext);
   const [report, setReport] = useState<ReportOptions | null>(null);
-  const pendingState = useRef<ViewerState | null>(null);
-  useEffect(() => {
-    const restored = restoreLinkView(
-      window.location.search,
-      modelIds,
-      layout ?? null,
-    );
-    if (linkViewFromUrl(window.location.search)) clearLinkView();
-    if (!restored) return;
-    pendingState.current = linkViewerState(restored.link, modelIds);
-    if (restored.panes || restored.charts > 0) {
-      onResult(LINK_RESTORED_TEXT, false);
-    }
-  }, [layout, modelIds, onResult]);
-  const loaded = useModels(adapter);
-  useEffect(() => {
-    const state = pendingState.current;
-    if (!state) return;
-    const ids = Object.keys(state.models);
-    const expected = loaded.filter((model) => ids.includes(model.id));
-    if (expected.length === 0) return;
-    if (expected.some((model) => model.status === 'loading')) return;
-    pendingState.current = null;
-    void adapter.restoreState(state);
-  }, [adapter, loaded]);
   const takeImage = async (): Promise<Blob> => {
     const frame = frameSize?.() ?? null;
     const settings = SNAPSHOT.read();

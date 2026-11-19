@@ -7,6 +7,7 @@ import { PaintTool } from './PaintTool.js';
 import {
   DEFAULT_PAINT_SETTINGS,
   PAINT_SETTINGS_KEY,
+  type PaintSettings,
   readPaintSettings,
 } from './paintSettings.js';
 
@@ -28,39 +29,41 @@ function context(adapter: Partial<ViewerAdapter>, suffix = ''): ToolContext {
 }
 
 describe('readPaintSettings', () => {
-  it('returns the defaults for anything that is not a record', () => {
-    expect(readPaintSettings(undefined)).toEqual(DEFAULT_PAINT_SETTINGS);
-    expect(readPaintSettings('x')).toEqual(DEFAULT_PAINT_SETTINGS);
-    expect(readPaintSettings([1])).toEqual(DEFAULT_PAINT_SETTINGS);
-  });
-
-  it('validates each field on its own', () => {
-    expect(
-      readPaintSettings({
+  const d = DEFAULT_PAINT_SETTINGS;
+  it.each<[string, unknown, Partial<typeof d>]>([
+    ['undefined', undefined, d],
+    ['a string', 'x', d],
+    ['an array', [1], d],
+    [
+      'each field validated on its own',
+      {
         enabled: false,
         palette: ['#ABCDEF', 'nope', '#abcdef', '#123456'],
         intensity: 5,
-      }),
-    ).toEqual({
-      enabled: false,
-      paletteId: 'custom',
-      palette: ['#abcdef', '#123456'],
-      intensity: 1,
-      ghostRest: true,
-    });
-    expect(
-      readPaintSettings({ enabled: 'no', palette: [], intensity: 'x' }),
-    ).toEqual(DEFAULT_PAINT_SETTINGS);
-  });
-
-  it('keeps an old custom palette without a palette id', () => {
-    expect(readPaintSettings({ palette: ['#112233'] }).paletteId).toBe(
-      'custom',
-    );
-    expect(
-      readPaintSettings({ palette: ['#ef4444', '#22c55e', '#3b82f6'] })
-        .paletteId,
-    ).toBe('default');
+      },
+      {
+        enabled: false,
+        paletteId: 'custom',
+        palette: ['#abcdef', '#123456'],
+        intensity: 1,
+        ghostRest: true,
+      },
+    ],
+    ['wrongly typed fields', { enabled: 'no', palette: [], intensity: 'x' }, d],
+    [
+      'an old custom palette without a palette id',
+      { palette: ['#112233'] },
+      { paletteId: 'custom' },
+    ],
+    [
+      'an old default palette without a palette id',
+      { palette: ['#ef4444', '#22c55e', '#3b82f6'] },
+      { paletteId: 'default' },
+    ],
+    ['a stored ghostRest false', { ghostRest: false }, { ghostRest: false }],
+    ['a garbage ghostRest', { ghostRest: 'no' }, { ghostRest: true }],
+  ])('reads %s', (_name, input, expected) => {
+    expect(readPaintSettings(input)).toMatchObject(expected);
   });
 });
 
@@ -124,44 +127,34 @@ describe('PaintTool', () => {
     const on = DEFAULT_PAINT_SETTINGS;
     const off = { ...DEFAULT_PAINT_SETTINGS, ghostRest: false };
 
-    it('defaults to the viewer default and leaves the viewer alone', () => {
-      const setGhosting = vi.fn();
-      expect(DEFAULT_PAINT_SETTINGS.ghostRest).toBe(true);
-      tool.onSettingsChanged(
-        { setGhosting } as unknown as ViewerAdapter,
-        undefined,
-        on,
-      );
-      expect(setGhosting).not.toHaveBeenCalled();
-    });
-
-    it('applies a stored false once when the tool first runs', () => {
-      const setGhosting = vi.fn();
-      tool.onSettingsChanged(
-        { setGhosting } as unknown as ViewerAdapter,
+    it.each<[string, PaintSettings | undefined, PaintSettings, boolean[]]>([
+      ['leaves the viewer alone by default', undefined, on, []],
+      [
+        'applies a stored false once when the tool first runs',
         undefined,
         off,
-      );
-      expect(setGhosting).toHaveBeenCalledExactlyOnceWith(false);
-    });
-
-    it('calls the adapter once when the setting changes, not for other changes', () => {
-      const setGhosting = vi.fn();
-      const adapter = { setGhosting } as unknown as ViewerAdapter;
-      tool.onSettingsChanged(adapter, on, off);
-      expect(setGhosting).toHaveBeenCalledExactlyOnceWith(false);
-      tool.onSettingsChanged(adapter, off, { ...off, intensity: 0.5 });
-      expect(setGhosting).toHaveBeenCalledOnce();
-    });
-
-    it('re-applies a stored false after the tool is turned back on', () => {
-      const setGhosting = vi.fn();
-      tool.onSettingsChanged(
-        { setGhosting } as unknown as ViewerAdapter,
+        [false],
+      ],
+      ['calls the adapter when the setting changes', on, off, [false]],
+      ['ignores other changes', off, { ...off, intensity: 0.5 }, []],
+      [
+        're-applies a stored false after the tool is turned back on',
         { ...off, enabled: false },
         off,
+        [false],
+      ],
+    ])('%s', (_name, prev, next, calls) => {
+      const setGhosting = vi.fn();
+      tool.onSettingsChanged(
+        { setGhosting } as unknown as ViewerAdapter,
+        prev,
+        next,
       );
-      expect(setGhosting).toHaveBeenCalledExactlyOnceWith(false);
+      expect(setGhosting.mock.calls).toEqual(calls.map((call) => [call]));
+    });
+
+    it('defaults ghosting on', () => {
+      expect(DEFAULT_PAINT_SETTINGS.ghostRest).toBe(true);
     });
 
     it('restores the viewer default when disabled', () => {
@@ -178,11 +171,6 @@ describe('PaintTool', () => {
       tool.contribute(context({ setGhosting }), off);
       expect(setGhosting).not.toHaveBeenCalled();
     });
-  });
-
-  it('keeps a stored ghostRest false and defaults garbage to true', () => {
-    expect(readPaintSettings({ ghostRest: false }).ghostRest).toBe(false);
-    expect(readPaintSettings({ ghostRest: 'no' }).ghostRest).toBe(true);
   });
 
   it('paints the selection and resets through the adapter', () => {

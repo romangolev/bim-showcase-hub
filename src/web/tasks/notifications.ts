@@ -1,6 +1,6 @@
-export type NotificationTone = 'info' | 'success' | 'warning' | 'error';
+type NotificationTone = 'info' | 'success' | 'warning' | 'error';
 
-export interface NotificationAction {
+interface NotificationAction {
   label: string;
   run: () => void;
 }
@@ -38,7 +38,6 @@ export interface NotificationStore {
   getSnapshot: () => NotificationSnapshot;
 }
 
-export const DEFAULT_NOTIFICATION_DURATION = 6000;
 export const MAX_LIVE_NOTIFICATIONS = 5;
 export const NOTIFICATION_HISTORY_LIMIT = 50;
 
@@ -146,10 +145,6 @@ export const notifications = createNotificationStore();
 
 export function notify(message: string, options?: NotifyOptions): number {
   return notifications.notify(message, options);
-}
-
-export function dismissNotification(id: number): void {
-  notifications.dismiss(id);
 }
 
 export function announce(message: string): void {

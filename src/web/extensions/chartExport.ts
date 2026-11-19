@@ -1,5 +1,5 @@
 import type { ChartData } from './dashboardData.js';
-import { saveBlob } from './excelExport.js';
+import { saveBlob } from './download.js';
 import { applyNamePattern, toDelimited } from './exportFormats.js';
 
 export function chartTable(chart: ChartData): {

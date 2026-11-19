@@ -13,17 +13,17 @@ import {
   resolveElementScope,
   scopeNoteFor,
 } from './propertyScope.js';
-import { scopeElementItems } from './scopeItems.js';
+import { scopeElementItems } from './setResolution.js';
 import { peekLeafRows, readLeafRows } from './sharedLeafRows.js';
 import type { ViewerAdapter } from './ViewerAdapter.js';
 
-export interface ScopedReadRequest extends ReadOptions {
+interface ScopedReadRequest extends ReadOptions {
   names: readonly string[];
   models?: ModelScope;
   elements?: ElementScope;
 }
 
-export interface ScopedRead {
+interface ScopedRead {
   rows: PropertyRow[];
   total: number;
   failed: string[];

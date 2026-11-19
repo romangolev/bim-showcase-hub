@@ -5,7 +5,6 @@ An extension is a small module in `src/web/extensions` that works against the `V
 ## Structure
 
 - `src/web/extensions/<name>.ts`: pure logic. Takes an adapter or `PropertyRow[]`.
-- `src/web/extensions/index.ts`: re-exports each module.
 - `src/web/panels/<Name>.tsx`: the UI. Gets the adapter from `useViewer()` (through `useResolvedAdapter`) and reads properties with `useScopedRows`.
 - `src/web/panels/index.ts`: exports the panel. A pane entry in `paneRegistry.ts` places it ([layout.md](layout.md#add-a-pane)).
 - Tests: `extensions/extensions.test.ts` and `panels/panels.test.tsx`.
@@ -26,17 +25,16 @@ Read rows with `useScopedRows` in panels and `readScopedRows` (`viewer/scopedRow
 | GLB export | `glbExport.ts`, `viewer/viewerGeometry.ts` | Binary glTF 2.0 from `adapter.getGeometryParts()`. Capped at 256 MB |
 | IFC export | `ifcExport.ts`, `ifc/` | IFC4 STEP file from `adapter.getIfcSource()`. A mesh-based coordination view, not a Revit IFC export |
 | Properties | `panels/PropertiesPanel.tsx` | Read-only property list of the selected elements |
-| Selection sets, viewpoints | `viewer/selectionSets.ts`, `viewer/viewpoints.ts` | Saved items of kind `selection-set` and `viewpoint`. A set holds up to 10,000 elements, keeps stable external ids where the model has them, and merges two sets as a union or an intersection |
+| Selection sets, viewpoints | `viewer/selectionSets.ts`, `viewer/setResolution.ts`, `viewer/viewpoints.ts` | Saved items of kind `selection-set` and `viewpoint`. A set holds up to 10,000 elements, keeps stable external ids where the model has them, and merges two sets as a union or an intersection |
 
 Exports over 20,000 rows ask for confirmation with a browser dialog. End-to-end scripts must accept dialogs.
 
 ## Panes menu and appearance
 
-Every `PaneDefinition` carries `description`, `category` and `keywords` beside `title` (`layout/paneRegistry.ts`). `matchesPane` searches all four, and `orderPanes` turns the result into pinned rows, category groups and hidden rows (`layout/paneCatalog.ts`).
+Every `PaneDefinition` carries `description`, `category` and `keywords` beside `title` (`layout/paneRegistry.ts`). `PanesMenu.tsx` searches all four and groups the result by category.
 
-- The top bar Panes menu (`layout/PanesMenu.tsx`) is a search dialog. Each row comes from `paneCommandsFor`: Open/Close for a normal pane, New for a user kind, and any `PaneDefinition.commands` hooks. Focus, Pin and Hide sit beside the main action. The footer holds the rest of `layoutCommands`: the workspace actions (save, import, download, copy JSON, share link, revert), Present, Lock and Reset. A kind with no command at all, such as the Viewer, has no row.
-- With a query the category groups collapse into one "Matching panes" list. Without one, pinned panes come first, then the categories, then the Hidden section behind `Show hidden panes (N)`.
-- Pins and hidden panes are per pane kind, not per copy, and live in the personal `bsh.pane.catalog.v1` (`{ pins, hidden }`). Hiding a pinned pane unpins it. Hiding only removes the row from this menu: palette commands still run and an open pane stays open.
+- The top bar Panes menu (`layout/PanesMenu.tsx`) is a search dialog. Each row comes from `paneCommandsFor`: Open/Close for a normal pane, New for a user kind, and any `PaneDefinition.commands` hooks. Focus and the extra commands sit beside the main action. The footer holds the rest of `layoutCommands`: the workspace actions (save, import, download, copy JSON, share link, revert), Present, Lock and Reset. A kind with no command at all, such as the Viewer, has no row.
+- With a query the category groups collapse into one "Matching panes" list. Without one, the rows are grouped by category.
 - Titles and colour tags are per panel id, so a plain pane uses `summary` and a copy uses `chart:1`, and each copy keeps its own. They live in the personal `bsh.pane.appearance.v1`. A title is trimmed to 48 characters; an empty title restores the registry title. A colour is red, orange, yellow, green, blue or purple and shows as a dot on the pane's tab. Both survive closing the pane and a reload, and a saved workspace carries them ([layout.md](layout.md#workspaces)).
 
 ## Table export
@@ -57,13 +55,13 @@ Every `PaneDefinition` carries `description`, `category` and `keywords` beside `
 
 - Palettes: **Default** (red, green, blue), **Okabe–Ito**, **Viridis**, **High contrast** and **Custom swatches** (1 to 8 colours). Each swatch becomes a paint entry with a numbered marker, which appears in the entry's tooltip and in the settings list, so colour is not the only cue.
 - Intensity (0.1 to 1) is theming strength, not transparency. Painting colours the current selection and clears it, per `(modelId, dbId)`.
-- `ghostRest` turns on `adapter.setGhosting`: isolating then leaves the rest of the model visible but faded instead of hidden, and painted colours are unaffected. Turning the tool off resets ghosting and clears the paint.
+- `ghostRest` is on by default, like the viewer's own `ghosting` setting: isolating leaves the rest of the model visible but faded, and painted colours are unaffected. Turning it off hides the rest through `adapter.setGhosting(false)`. Turning the tool off puts ghosting back on and clears the paint.
 - Reset appearance clears every theming colour in the active viewer, including every model a combined scene holds, not the last stroke: there is no paint undo stack.
 - `VIEWER_SHORTCUTS` (`commands/viewerCommands.ts`) is listed in Paint settings and gives each command its `keys`: `mod+alt+i` isolate, `mod+alt+h` hide selection, `mod+alt+shift+h` show all, `mod+alt+shift+i` invert selection, `mod+alt+b` paint with the first swatch, `mod+alt+shift+r` reset appearance. The bindings are fixed in code; there is no rebinding UI.
 
 ## Share links
 
-The Share menu copies a link to the model with or without the current view. The view travels as `?view=` on the model URL. The encoded value starts with its format version: version 1 carries the camera and the selection, version 2 adds the open and collapsed panes and the chart views, and version 3 adds the hidden and isolated node ids. A build that does not know a pane id ignores it while still applying the camera. Opening a link only opens panes and sets collapsed state, never closes a pane, puts its charts into newly added chart panes, overwrites the dashboard view, and then removes `?view=` from the address so a reload does not apply it again. A current link reads `?view=3~...` when it carries node ids and stays at version 2 otherwise.
+The Share menu copies a link to the model with or without the current view. The view travels as `?view=` on the model URL. The encoded value starts with its format version: version 1 carries the camera and the selection, version 2 adds the open and collapsed panes and the chart views, and version 3 adds the hidden and isolated node ids. A build that does not know a pane id ignores it while still applying the camera. `viewer/incomingLink.ts` owns opening a link (`useIncomingLink`, called by `ViewerPane` for the routed viewer). It reads `view` from the router search (`ModelPaneBody` passes it as `initialView`), parses it once, applies the panes and charts, and clears `view` with a router `navigate({ replace: true })` (`onViewConsumed`), so a reload does not apply it again; a ref guard keeps a re-run before the router clears from applying twice, and a malformed link is cleared without applying. It then waits until the link's models are listed and none is loading before it sets the camera and selection and restores the hidden and isolated elements through `adapter.restoreState`. Opening a link only opens panes and sets collapsed state, never closes a pane, puts its charts into newly added chart panes and overwrites the dashboard view; this is separate from applying a workspace. The `#layout=` hash is not part of it: `LayoutProvider` reads it and hands it to `layoutApply.applyShared`. A current link reads `?view=3~...` when it carries node ids and stays at version 2 otherwise.
 
 - Version 2 names the open pane kinds and the collapsed panes. Collapsing exists only for Documents, Model summary, Dashboard and Models. Chart, Model summary and Properties are instance kinds: a link leaves them to the chart views instead of opening a blank pane.
 - Version 3 adds `nodes`: per model, the isolated dbIds and the hidden dbIds (`-1` is the hide-all sentinel). A link carries at most 400 node ids; a larger set is left out and the link falls back to version 2, or version 1 without panes and charts. Models the node list does not name are restored with nothing hidden or isolated and keep the selection the link gives them.
@@ -108,11 +106,10 @@ A tool is a viewer toolbar entry with its own settings window.
 ## Add an extension
 
 1. Write the logic in `src/web/extensions/<name>.ts`. If it needs a viewer capability the interface lacks, add the method to `ViewerAdapter`, implement it in `RealViewerAdapter` and `MockViewerAdapter`, and extend `adapter.contract.test.ts`.
-2. Export it from `extensions/index.ts`.
-3. For a new kind of toolbar control, extend `ToolGroupSpec` and implement it in `viewer/autodeskTools.ts` and `MockViewerAdapter.buildToolGroup`.
-4. For a panel, add `panels/<Name>.tsx` and export it from `panels/index.ts`. Add a pane to `PANES`.
-5. Test with the mock adapter.
-6. Run `npm run lint`, `npm run typecheck` and `npm test`, then check the page with `npm run dev:mock`.
+2. For a new kind of toolbar control, extend `ToolGroupSpec` and implement it in `viewer/autodeskTools.ts` and `MockViewerAdapter.buildToolGroup`.
+3. For a panel, add `panels/<Name>.tsx` and export it from `panels/index.ts`. Add a pane to `PANES`.
+4. Test with the mock adapter.
+5. Run `npm run lint`, `npm run typecheck` and `npm test`, then check the page with `npm run dev:mock`.
 
 ## Add a command
 
@@ -131,8 +128,8 @@ Ctrl or Cmd+K opens the palette (`src/web/commands`).
 ## Settings and modals
 
 - Add a modal: write a `ModalDefinition` and add it to `src/web/modal/registry.ts`. Each registered tool already adds its own. An optional `onClose` runs when the modal closes, for state the opener set.
-- App settings (`src/web/settings/settings.ts`, key `bsh-settings-v1`, `SETTINGS_VERSION` 3) hold `theme` (`system`, `light` or `dark`), `density` (`comfortable` or `compact`), `textSize` (`small`, `medium` or `large`), `reducedMotion`, `language`, `sessionWarnMinutes` and `recentsLength`. `language` is `en` only (`LANGUAGES`), and Settings shows no language control until a second language ships (#105). A blob written by a newer build is never rewritten. Each tool and pane owns the rest of its settings.
-- Theme lives in app settings, not its own key. When the app starts and `bsh-theme` still exists, `migrateLegacyTheme()` copies that value into `settings.theme`, writes the current `SETTINGS_VERSION`, and removes `bsh-theme` once the write succeeds; a settings blob that already holds a theme or comes from a newer build is left alone. After that the theme is read and written through settings only.
+- App settings (`src/web/settings/settings.ts`, key `bsh-settings-v1`, `SETTINGS_VERSION` 3) hold `theme` (`system`, `light` or `dark`), `density` (`comfortable` or `compact`), `textSize` (`small`, `medium` or `large`), `reducedMotion`, `sessionWarnMinutes` and `recentsLength`. A stored `language` field from an older build is ignored. A blob written by a newer build is never rewritten. Each tool and pane owns the rest of its settings.
+- Theme lives in app settings, not its own key. It is read and written through settings only.
 - Appearance settings reach the document: `applyAppSettings` sets `data-density`, `data-text-size`, `data-reduced-motion` and `lang` on `<html>`. `styles/tokens.css` turns density into the spacing, control-height and row-height scales and text size into the `--text-*` scale; `global.css`, `panels.css`, `viewer.css`, `shell.css` and `dockTheme.css` drop decorative animation for both the system reduced-motion query and the setting.
 - Generated forms: `components/SettingsForm.tsx` renders a `FormDefinition` with field kinds `toggle`, `number`, `select`, `text`, `multi` and `list`.
 - Pane settings live in `settings/paneSettings.ts` and `layout/instanceSettings.ts`. `settings/paneSettingsSchema.ts` maps a pane kind to a `PaneSettingsSchema` (`label`, `description`, `windowTitle`, optional `modalId`, `Body` and `onOpen`) in `PANE_SETTINGS_SCHEMA`; `paneSettingsSchema(kind)` returns `null` for a pane with no entry, and `PANE_SETTINGS_ORDER` fixes the order in Settings.
@@ -154,20 +151,20 @@ All browser storage goes through `src/web/storage.ts`. Do not call `localStorage
 `src/web/store/savedStore.ts` keeps named, user-made items in one personal record (`bsh.saved.v1`).
 
 - An item is `{ id, kind, name, version, updatedAt, data }`. The export envelope is `bsh-saved` version 2 with a `kinds` map of per-kind versions (`savedKindVersions()`), so a file states which version of each kind it holds.
-- Declare a kind with `defineSavedKind({ kind, version, label, sanitize, migrate? })` (`store/savedKinds.ts`). It calls `registerSavedKind` (`store/savedKindRegistry.ts`), which validates the kind name and version and rejects a duplicate kind; a second `defineSavedKind` with the same version is tolerated and one with a different version throws. The handle has `list`, `get`, `save`, `rename`, `remove` and `move`. `useSavedKindItems(handle)` is the React list.
-- A kind version bump requires a `migrate(data, fromVersion)`; a stored item is migrated when it is read for a write, so an older build never strips newer data (`prepareSavedData`). An item from a version above the registered one is rejected. Import counts migrated items and reports them as "upgraded N items".
+- Declare a kind with `defineSavedKind({ kind, version, label, sanitize })` (`store/savedKinds.ts`). It calls `registerSavedKind` (`store/savedKindRegistry.ts`), which validates the kind name and version and rejects a duplicate kind; a second `defineSavedKind` with the same version is tolerated and one with a different version throws. The handle has `list`, `get`, `save`, `rename`, `remove` and `move`. `useSavedKindItems(handle)` is the React list.
+- A stored or imported item whose version differs from the registered one is rejected (`prepareSavedData`); there is no migration hook.
 - Use `readSaved(kind)`, `upsertSaved`, `removeSaved` and `moveSaved` for the raw item shape.
 - Settings has Export and Import for a `bsh-saved.json` file (imports are capped at 1 MB). Import merges by id and the newer `updatedAt` wins. An id that already exists under another kind is never merged: `upsertSaved` fails and Import counts it as rejected.
 - The store budget is `MAX_TOTAL_BYTES` (4 MB) across at most `MAX_ITEMS` (500) items and `MAX_ITEM_BYTES` (100 KB) per item. Settings shows the used bytes against the budget, and a save or import that would exceed it fails with a message instead of a silent no-op.
 - A store written by a newer build (a higher `SAVED_VERSION`) is read-only: reading works, and `upsertSaved`, `renameSaved`, `removeSaved`, `moveSaved` and `importSaved` fail without writing.
-- Production kinds, each registered once at version 1 with a typed handle: `viewpoint` (`viewer/viewpoints.ts`, `VIEWPOINTS`), `selection-set` (`viewer/selectionSets.ts`, `SELECTION_SETS`), `dashboard-preset` (`extensions/dashboardPresets.ts`, `DASHBOARD_USER_PRESETS`) and `export-preset` (`tools/excel/exportPresets.ts`, `EXPORT_PRESETS`). A kind that is not registered still round-trips through storage and export, but its data is neither sanitized nor migrated.
+- Production kinds, each registered once at version 1 with a typed handle: `viewpoint` (`viewer/viewpoints.ts`, `VIEWPOINTS`), `selection-set` (`viewer/selectionSets.ts`, `SELECTION_SETS`), `dashboard-preset` (`extensions/dashboardPresets.ts`, `DASHBOARD_USER_PRESETS`) and `export-preset` (`tools/excel/exportPresets.ts`, `EXPORT_PRESETS`). A kind that is not registered still round-trips through storage and export, but its data is not sanitized.
 
 ## Notifications
 
 Toasts and the single polite live region share one store (`src/web/tasks/notifications.ts`).
 
 - `notify(message, { tone, detail, duration, action })` shows a toast and announces it. `announce(message)` only updates the live region. Both are safe to call from event handlers, promises and effects.
-- `useNotify()` returns the bound `notify`, `dismiss` and `clear` for components. `NotificationHost` renders the toasts and the live region once, mounted by the Task Center and portalled to `document.body`; it is the only polite live region for outcomes. Pane-local status text must not add another.
+- `NotificationHost` renders the toasts and the live region once, mounted by the Task Center and portalled to `document.body`; it is the only polite live region for outcomes. Pane-local status text must not add another.
 - Position, duration and quiet mode are preferences in `bsh.notify.v1` (`NotificationSettingsSection.tsx`, mounted in Settings). Duration 0 keeps a toast until it is dismissed, and an error always stays until dismissed. Quiet mode hides toasts and still announces.
 - Task outcomes are forwarded into the same live region. A toast stays for its duration, at most 5 are live and the last 50 go to history. Sign-out (`FORGET_EVENT`) clears the live toasts, the history and the live text.
 - Real outcomes raise a toast: a saved viewpoint, a saved selection set, a snapshot or share result, a saved-items import result and a failed command.

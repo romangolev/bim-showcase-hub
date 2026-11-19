@@ -21,7 +21,8 @@ import {
 import { chartSetting } from '../layout/instanceSettings.js';
 import type { PanelId } from '../layout/paneRegistry.js';
 import type { ModalDefinition } from '../modal/types.js';
-import { PANE_SETTINGS, usePaneSetting } from '../settings/paneSettings.js';
+import { PANE_SETTINGS } from '../settings/paneSettings.js';
+import { usePersisted } from '../storage.js';
 import { usePublishedAdapter } from '../viewer/activeAdapterStore.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { DashboardUserPresets } from './DashboardUserPresets.js';
@@ -35,7 +36,7 @@ type ViewSetter = (
 ) => void;
 
 export function useDashboardView() {
-  return usePaneSetting(PANE_SETTINGS.dashboard.view);
+  return usePersisted(PANE_SETTINGS.dashboard.view);
 }
 
 interface DashboardFieldsProps {
@@ -197,7 +198,7 @@ function GlobalDashboardSettings({
   adapter: ViewerAdapter | null;
 }) {
   const [view, setView, resetView] = useDashboardView();
-  const [action, setAction, resetAction] = usePaneSetting(
+  const [action, setAction, resetAction] = usePersisted(
     PANE_SETTINGS.dashboard.action,
   );
   return (
@@ -220,7 +221,7 @@ function InstanceDashboardSettings({
   target: PanelId;
   adapter: ViewerAdapter | null;
 }) {
-  const [view, setView, resetView] = usePaneSetting(chartSetting(target));
+  const [view, setView, resetView] = usePersisted(chartSetting(target));
   return (
     <DashboardFields
       adapter={adapter}

@@ -247,14 +247,18 @@ describe('ViewerPane resize wiring', () => {
     return { view, spy };
   }
 
-  it('observes the viewer container and resizes the adapter on size changes', async () => {
-    const { spy } = await mounted();
+  it('observes the viewer container, resizes on size and window changes but not on a parent transitionend', async () => {
+    const { view, spy } = await mounted();
     const observer = FakeResizeObserver.instances[0];
     expect(observer?.observed[0]).toHaveClass('bsh-viewer-surface');
     observer?.trigger();
     expect(spy).toHaveBeenCalledTimes(1);
     observer?.trigger();
     expect(spy).toHaveBeenCalledTimes(2);
+    fireEvent.transitionEnd(view.container.firstElementChild as Element);
+    expect(spy).toHaveBeenCalledTimes(2);
+    fireEvent(window, new Event('resize'));
+    expect(spy).toHaveBeenCalledTimes(3);
   });
 
   it('throttles bursts into one resize per animation frame', async () => {
@@ -277,14 +281,6 @@ describe('ViewerPane resize wiring', () => {
     observer?.trigger();
     expect(frames).toHaveLength(1);
     frames[0]?.(0);
-    expect(spy).toHaveBeenCalledTimes(1);
-  });
-
-  it('resizes on window resize but not on a parent transitionend', async () => {
-    const { view, spy } = await mounted();
-    fireEvent.transitionEnd(view.container.firstElementChild as Element);
-    expect(spy).not.toHaveBeenCalled();
-    fireEvent(window, new Event('resize'));
     expect(spy).toHaveBeenCalledTimes(1);
   });
 

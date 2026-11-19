@@ -77,17 +77,14 @@ All browser storage goes through `src/web/storage.ts`. `BSH_KEYS` lists the fixe
 | `bsh.models.owner`, `bsh.models.recent`, `bsh.models.hidden` | personal | Owner id, recent models, hidden models |
 | `bsh.docs.pinned` | personal | Pinned model URNs |
 | `bsh.summary.*`, `bsh.dashboard.*` | personal | View, properties, scope and click action of the main panes. The dashboard view includes its property list |
-| `bsh.pane.dashboard.properties.v1` | personal | Legacy Dashboard chart columns. Read as the fallback for views saved before each view carried its own list, and written into them once by `migrateDashboardProperties` |
 | `bsh.pane.<kind>.<n>.v1` | personal | Spec of a chart, summary or properties pane instance. A chart spec includes its property list |
 | `bsh.pane.docs.root.v1` | personal | Documents root: the hub and project the tree starts at |
-| `bsh.pane.catalog.v1` | personal | Panes menu state: `{ pins, hidden }`, by pane kind. Under the `bsh.pane.` prefix |
 | `bsh.pane.appearance.v1` | personal | Pane titles and colour tags, keyed by panel id (`summary`, `chart:1`). Under the `bsh.pane.` prefix |
 | `bsh.saved.v1` | personal | Saved items: dashboard presets, export presets, selection sets, viewpoints |
 | `bsh.workspaces.v1` | personal | Named workspaces: `{ version: 1, items }`, each with a name, a layout and pane appearances |
 | `bsh.commands.recent.v1` | personal | Recent palette commands |
 | `bsh.hint.hubs.dismissed.v1` | personal | No-hubs notice dismissed |
-| `bsh-theme` | preference | Legacy `dark` or `light`. Copied into `bsh-settings-v1` on first load and removed; the theme now lives in app settings |
-| `bsh-settings-v1` | preference | App settings, version 3: theme (`system`, `light`, `dark`), density, text size, reduced motion, language, session warning, recents length |
+| `bsh-settings-v1` | preference | App settings, version 3: theme (`system`, `light`, `dark`), density, text size, reduced motion, session warning, recents length |
 | `bsh.layout.locked` | preference | Layout lock |
 | `bsh.tree.view` | preference | Tree sort and metadata columns |
 | `bsh.snapshot.v1` | preference | Snapshot and Present options |

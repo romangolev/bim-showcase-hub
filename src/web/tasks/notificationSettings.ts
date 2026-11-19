@@ -49,16 +49,6 @@ export const NOTIFICATION_SETTINGS = defineRecord<NotificationSettings>({
   },
 });
 
-export function readNotificationSettings(): NotificationSettings {
-  return NOTIFICATION_SETTINGS.read();
-}
-
-export function writeNotificationSettings(
-  settings: NotificationSettings,
-): boolean {
-  return NOTIFICATION_SETTINGS.write(settings);
-}
-
 export function useNotificationSettings() {
   return usePersisted(NOTIFICATION_SETTINGS);
 }

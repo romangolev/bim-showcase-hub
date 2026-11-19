@@ -22,12 +22,7 @@ import {
 } from '../test/mockApi.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
 import type { MoveTarget } from './layoutContext.js';
-import {
-  LAYOUT_KEY,
-  type LayoutModel,
-  LEGACY_KEYS,
-  parseLayout,
-} from './layoutState.js';
+import { LAYOUT_KEY, type LayoutModel, parseLayout } from './layoutState.js';
 import type { PaneId } from './paneRegistry.js';
 
 interface LayoutHandle {
@@ -275,19 +270,6 @@ describe('dock layout', () => {
         'viewer',
       ]),
     );
-  });
-
-  it('imports the old keys on first run and deletes them', async () => {
-    storage.setItem(LEGACY_KEYS.summary, '1');
-    storage.setItem(LEGACY_KEYS.dashboard, '1');
-    storage.setItem(LEGACY_KEYS.treeWidth, '400');
-    renderPath();
-    await dockReady();
-    expect(storage.getItem(LEGACY_KEYS.summary)).toBeNull();
-    expect(storage.getItem(LEGACY_KEYS.dashboard)).toBeNull();
-    expect(storage.getItem(LEGACY_KEYS.treeWidth)).toBeNull();
-    expect(saved()?.collapsed.sort()).toEqual(['dashboard', 'summary']);
-    expect(saved()?.treeWidth).toBe(400);
   });
 
   it('never destroys or reloads the viewer across moves and the breakpoint switch', async () => {

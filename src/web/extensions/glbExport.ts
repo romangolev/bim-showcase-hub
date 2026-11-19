@@ -1,7 +1,7 @@
 import { triangleVertexCount } from '../../shared/mesh.js';
 import type { GeometryPart } from '../viewer/geometryTypes.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
-import { saveBlob } from './excelExport.js';
+import { saveBlob } from './download.js';
 import { formatCount, missingModels, tooLargeReason } from './exportCommon.js';
 
 export interface GlbBuildOptions {

@@ -31,12 +31,14 @@ import {
   FORGET_EVENT,
   usePersisted,
 } from '../storage.js';
-import { isMockViewer, ViewerProvider } from '../viewer/index.js';
+import { isMockViewer } from '../viewer/createViewerAdapter.js';
+import { ViewerProvider } from '../viewer/ViewerContext.js';
 import {
   forgetInstanceSetting,
   seedInstanceSetting,
 } from './instanceSettings.js';
 import { LayoutCommands } from './LayoutCommands.js';
+import { createLayoutApply } from './layoutApply.js';
 import {
   type DockController,
   type LayoutApi,
@@ -46,7 +48,7 @@ import {
   type PaneTitle,
   type PaneTitles,
 } from './layoutContext.js';
-import { decodeShare, shareLinkFor, shareParamIn } from './layoutShare.js';
+import { shareLinkFor, shareParamIn } from './layoutShare.js';
 import {
   defaultModel,
   type LayoutModel,
@@ -57,7 +59,6 @@ import { PaneActions } from './PaneMenu.js';
 import { LayoutMenu } from './PanesMenu.js';
 import { PresentControls } from './PresentControls.js';
 import {
-  type PaneAppearances,
   paneTags,
   readPaneAppearances,
   replacePaneAppearances,
@@ -78,7 +79,6 @@ import { StackedLayout } from './StackedLayout.js';
 import {
   sanitizeUserInstances,
   type UserInstances,
-  userInstanceIds,
   userInstanceTitles,
 } from './userInstances.js';
 import { createHostStore, PaneHosts } from './ViewerHost.js';
@@ -87,7 +87,6 @@ import { downloadText, writeClipboard } from './workspaceFiles.js';
 import {
   activeNameOf,
   PRESETS,
-  parseWorkspace,
   removeWorkspace,
   renameWorkspace,
   saveWorkspace,
@@ -141,9 +140,9 @@ function storage(): Storage | null {
   }
 }
 
-function initialModel(openPanels: readonly PanelId[]): LayoutModel {
+function initialModel(): LayoutModel {
   const store = storage();
-  return store ? readLayout(store, openPanels) : defaultModel();
+  return store ? readLayout(store) : defaultModel();
 }
 
 function focusTreeTarget() {
@@ -267,9 +266,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
   const [userState, setUserState] = usePersisted(USER_INSTANCES);
   const [locked, setLockedState] = usePersisted(LOCKED);
   const [workspaces, setWorkspaces] = usePersisted(WORKSPACES_RECORD);
-  const [activeWorkspace, setActiveWorkspace] = useState<string | null>(null);
   const [workspaceDialog, setWorkspaceDialog] = useState<WorkspaceDialog>(null);
-  const undoAppearances = useRef<PaneAppearances | null>(null);
   const appearances = usePaneAppearances();
   const [hosts] = useState(() => createHostStore<PanelId>());
   const controller = useRef<DockController | null>(null);
@@ -281,12 +278,6 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
   setters.current = { setUserState, setLockedState };
 
   const [lifecycle] = useState(() => {
-    const initialInstances = [
-      ...models.models.map(({ urn }) => modelPanelId(urn)),
-      ...(stacked && models.models.length === 0
-        ? []
-        : userInstanceIds(userState)),
-    ];
     return createPaneLifecycle({
       models: modelStore,
       dock: () => controller.current,
@@ -310,7 +301,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       later: (run) => requestAnimationFrame(run),
       title: (id) => paneTitleIn(titlesRef.current, id),
       initial: {
-        layout: initialModel(initialInstances),
+        layout: initialModel(),
         user: userState,
         locked,
       },
@@ -343,12 +334,20 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
 
   useDebouncedWrite(model);
 
-  const applyBlocker = () =>
-    lifecycle.getState().locked
-      ? 'Unlock the layout first.'
-      : modeRef.current !== 'dock'
-        ? 'Open the dock layout to apply this.'
-        : null;
+  const [layoutApply] = useState(() =>
+    createLayoutApply({
+      lifecycle,
+      appearances: {
+        read: readPaneAppearances,
+        replace: replacePaneAppearances,
+      },
+    }),
+  );
+  const activeWorkspace = useSyncExternalStore(
+    layoutApply.subscribe,
+    layoutApply.active,
+    layoutApply.active,
+  );
 
   const shareRead = useRef(false);
   useEffect(() => {
@@ -363,32 +362,8 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       '',
       `${url.pathname}${url.search}`,
     );
-    void decodeShare(param).then((text) => {
-      if (!text) {
-        lifecycle.notify('This share link is not a readable layout.');
-        return;
-      }
-      const parsed = parseWorkspace(text);
-      if ('error' in parsed) {
-        lifecycle.notify(parsed.error);
-        return;
-      }
-      const blocked = applyBlocker();
-      if (blocked) {
-        lifecycle.notify(blocked);
-        return;
-      }
-      const shared = parsed.workspace.appearances;
-      if (Object.keys(shared).length > 0) {
-        undoAppearances.current = readPaneAppearances();
-        replacePaneAppearances(shared);
-      }
-      lifecycle.applyWorkspace(
-        { layout: parsed.workspace.layout },
-        parsed.workspace.name,
-      );
-    });
-  }, [lifecycle]);
+    void layoutApply.applyShared(param);
+  }, [layoutApply]);
 
   const workspaceApi = useMemo<WorkspaceApi>(() => {
     const { notify, getState } = lifecycle;
@@ -398,26 +373,11 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
         layout: model,
         appearances,
       });
-    const applyLayout = (
-      layout: LayoutModel,
-      name: string,
-      nextAppearances: PaneAppearances | null,
-    ): string | null => {
-      const blocked = applyBlocker();
-      if (blocked) return blocked;
-      const travels =
-        nextAppearances !== null && Object.keys(nextAppearances).length > 0;
-      undoAppearances.current = travels ? appearances : null;
-      if (travels && nextAppearances) replacePaneAppearances(nextAppearances);
-      lifecycle.applyWorkspace({ layout }, name);
-      return null;
-    };
     return {
       presets: PRESETS,
       items: workspaces.items,
       active: activeWorkspace,
       canRevert: state.canRevert,
-      locked: state.locked,
       canPresent: view.canPresent,
       dialog: workspaceDialog,
       openDialog: (dialog) => setWorkspaceDialog(dialog),
@@ -429,31 +389,11 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
           lifecycle.setPresenting(!getState().presenting);
           return;
         }
-        const blocked = applyBlocker();
-        if (blocked) {
-          notify(blocked);
-          return;
-        }
-        undoAppearances.current = null;
-        lifecycle.applyWorkspace(
-          {
-            steps: preset.steps,
-            collapsed: preset.collapsed,
-            dismissed: preset.dismissed,
-          },
-          preset.name,
-        );
-        setActiveWorkspace(`preset:${preset.id}`);
+        layoutApply.applyPreset(preset);
       },
       applySaved: (id) => {
         const item = workspaces.items.find((entry) => entry.id === id);
-        if (!item) return;
-        const blocked = applyLayout(item.layout, item.name, item.appearances);
-        if (blocked) {
-          notify(blocked);
-          return;
-        }
-        setActiveWorkspace(item.id);
+        if (item) layoutApply.applySaved(item);
       },
       save: (name) => {
         const result = saveWorkspace(workspaces, name, model, appearances);
@@ -466,7 +406,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
           (item) => item.id === result.workspace.id,
         );
         setWorkspaces(result.store);
-        setActiveWorkspace(result.workspace.id);
+        layoutApply.setActive(result.workspace.id);
         notify(
           `Workspace ${result.workspace.name} ${replaced ? 'replaced' : 'saved'}`,
         );
@@ -481,31 +421,14 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       },
       remove: (id) => {
         setWorkspaces(removeWorkspace(workspaces, id));
-        if (activeWorkspace === id) setActiveWorkspace(null);
+        if (activeWorkspace === id) layoutApply.setActive(null);
         notify('Workspace deleted');
       },
-      revert: () => {
-        if (!getState().canRevert) return;
-        if (undoAppearances.current) {
-          replacePaneAppearances(undoAppearances.current);
-          undoAppearances.current = null;
-        }
-        lifecycle.revertWorkspace();
-        setActiveWorkspace(null);
-      },
+      revert: layoutApply.revert,
       importText: (text) => {
-        const parsed = parseWorkspace(text);
-        if ('error' in parsed) return parsed.error;
-        const blocked = applyLayout(
-          parsed.workspace.layout,
-          parsed.workspace.name,
-          parsed.workspace.appearances,
-        );
-        if (blocked) return blocked;
-        setActiveWorkspace(null);
-        setWorkspaceDialog(null);
-        notify(`Layout ${parsed.workspace.name} imported`);
-        return null;
+        const error = layoutApply.applyImported(text);
+        if (!error) setWorkspaceDialog(null);
+        return error;
       },
       exportText,
       download: () => {
@@ -546,10 +469,10 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
     };
   }, [
     lifecycle,
+    layoutApply,
     workspaces,
     activeWorkspace,
     state.canRevert,
-    state.locked,
     view.canPresent,
     workspaceDialog,
     model,

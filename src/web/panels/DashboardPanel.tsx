@@ -21,11 +21,8 @@ import {
   itemsWithValues,
   runElementAction,
 } from '../extensions/elementActions.js';
-import {
-  PANE_SETTINGS,
-  type PaneSetting,
-  usePaneSetting,
-} from '../settings/paneSettings.js';
+import { PANE_SETTINGS } from '../settings/paneSettings.js';
+import { type PersistedRecord, usePersisted } from '../storage.js';
 import { ALL_MODELS } from '../viewer/modelScope.js';
 import type { ModelDbId } from '../viewer/modelSet.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
@@ -54,7 +51,7 @@ export interface DashboardPanelProps {
   toggleable?: boolean;
   title?: string;
   className?: string;
-  setting?: PaneSetting<DashboardView>;
+  setting?: PersistedRecord<DashboardView>;
 }
 
 export function DashboardPanel({
@@ -70,9 +67,7 @@ export function DashboardPanel({
 }: DashboardPanelProps) {
   const uid = useId();
   const resolved = useResolvedAdapter(adapter);
-  const [view, setView] = usePaneSetting(
-    setting ?? PANE_SETTINGS.dashboard.view,
-  );
+  const [view, setView] = usePersisted(setting ?? PANE_SETTINGS.dashboard.view);
   const propertyNames = view.properties;
   const { maxCategories } = view;
   const activePreset = DASHBOARD_PRESETS.find((p) => p.id === view.preset);
@@ -118,7 +113,7 @@ export function DashboardPanel({
     [state.status, state.rows, selected, maxCategories, activePreset],
   );
 
-  const [action] = usePaneSetting(PANE_SETTINGS.dashboard.action);
+  const [action] = usePersisted(PANE_SETTINGS.dashboard.action);
   const board = useMemo(
     () =>
       state.status === 'ready' && activePreset

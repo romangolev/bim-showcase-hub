@@ -124,12 +124,26 @@ describe('ModelSummaryPanel collapse and counts', () => {
     ).toBe('true');
   });
 
-  it('honours the controlled collapsed prop', () => {
-    render(<ModelSummaryPanel collapsed onCollapsedChange={() => {}} />);
-    expect(
-      screen.getByRole('button', { name: 'Expand Model summary' }),
-    ).toHaveAttribute('aria-expanded', 'false');
-  });
+  it.each([
+    ['ModelSummaryPanel', ModelSummaryPanel, 'Expand Model summary'],
+    ['DashboardPanel', DashboardPanel, 'Expand'],
+  ])(
+    'honours the controlled collapsed prop of the %s',
+    async (_name, Panel, label) => {
+      installMemoryStorage();
+      render(
+        <Panel
+          adapter={await loaded()}
+          collapsed
+          onCollapsedChange={() => {}}
+        />,
+      );
+      expect(screen.getByRole('button', { name: label })).toHaveAttribute(
+        'aria-expanded',
+        'false',
+      );
+    },
+  );
 
   it('formats large counts with separators and never wraps them', () => {
     render(
@@ -218,11 +232,10 @@ describe('DashboardPanel', () => {
   it('says so when the saved property is not in the model', async () => {
     window.localStorage.setItem(
       BSH_KEYS.personal.dashboardView,
-      JSON.stringify({ property: 'Level' }),
-    );
-    window.localStorage.setItem(
-      BSH_KEYS.personal.dashboardProperties,
-      JSON.stringify(['Category', 'Level']),
+      JSON.stringify({
+        property: 'Level',
+        properties: ['Category', 'Level'],
+      }),
     );
     const adapter = await loaded();
     vi.spyOn(adapter, 'getLeafProperties').mockResolvedValue([
@@ -234,15 +247,6 @@ describe('DashboardPanel', () => {
         'This model has no Level values, so the chart groups by Category.',
       ),
     ).toBeInTheDocument();
-  });
-
-  it('honours the controlled collapsed prop', async () => {
-    const adapter = await loaded();
-    render(<DashboardPanel adapter={adapter} collapsed />);
-    expect(screen.getByRole('button', { name: 'Expand' })).toHaveAttribute(
-      'aria-expanded',
-      'false',
-    );
   });
 });
 
@@ -475,19 +479,21 @@ describe('dashboard settings', () => {
     made.configs.length = 0;
   });
 
-  it('opens from the panel gear button only when handled', () => {
-    const onOpenSettings = vi.fn();
-    const { unmount } = render(
-      <DashboardPanel onOpenSettings={onOpenSettings} />,
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Dashboard settings' }));
-    expect(onOpenSettings).toHaveBeenCalledOnce();
-    unmount();
-    render(<DashboardPanel />);
-    expect(
-      screen.queryByRole('button', { name: 'Dashboard settings' }),
-    ).toBeNull();
-  });
+  it.each([
+    ['DashboardPanel', DashboardPanel, 'Dashboard settings'],
+    ['ModelSummaryPanel', ModelSummaryPanel, 'Summary settings'],
+  ])(
+    'opens from the %s gear button only when handled',
+    (_name, Panel, label) => {
+      const onOpenSettings = vi.fn();
+      const { unmount } = render(<Panel onOpenSettings={onOpenSettings} />);
+      fireEvent.click(screen.getByRole('button', { name: label }));
+      expect(onOpenSettings).toHaveBeenCalledOnce();
+      unmount();
+      render(<Panel />);
+      expect(screen.queryByRole('button', { name: label })).toBeNull();
+    },
+  );
 
   it('keeps the pane to charts and a chart type switch', async () => {
     const adapter = await loaded();
@@ -641,20 +647,6 @@ describe('dashboard presets and cross-filter', () => {
 describe('summary settings entry points', () => {
   beforeEach(() => {
     installMemoryStorage();
-  });
-
-  it('opens from the panel gear button', () => {
-    const onOpenSettings = vi.fn();
-    render(<ModelSummaryPanel onOpenSettings={onOpenSettings} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Summary settings' }));
-    expect(onOpenSettings).toHaveBeenCalledOnce();
-  });
-
-  it('has no gear button without a handler', () => {
-    render(<ModelSummaryPanel />);
-    expect(
-      screen.queryByRole('button', { name: 'Summary settings' }),
-    ).toBeNull();
   });
 
   it('keeps two settings bodies and the panel in sync', async () => {

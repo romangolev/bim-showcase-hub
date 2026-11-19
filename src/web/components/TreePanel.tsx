@@ -18,33 +18,34 @@ import {
 import { useModelContext } from '../api/useModelContext.js';
 import { useOpenModels, useOpenModelsStore } from '../api/useOpenModels.js';
 import { LayoutContext } from '../layout/layoutContext.js';
-import { PANE_SETTINGS, usePaneSetting } from '../settings/paneSettings.js';
+import { PANE_SETTINGS } from '../settings/paneSettings.js';
+import { usePersisted } from '../storage.js';
 import { notify } from '../tasks/notifications.js';
 import { DocumentsHome } from './tree/DocumentsHome.js';
 import {
   type AddTarget,
   DocumentTree,
   type PickedModel,
-  tabLimitMessage,
 } from './tree/DocumentTree.js';
 import { DOC_ROOT, type TreeRoot, treeRootOf } from './tree/docRoot.js';
 import { HubProjectSwitcher } from './tree/HubProjectSwitcher.js';
 import { RecentStrip } from './tree/RecentStrip.js';
+import { overTabLimit, tabLimitMessage } from './tree/treeState.js';
 import type { TreeOpenMode } from './tree/treeView.js';
 
 export interface TreePanelProps {
   onNavigate?: () => void;
 }
 
-export interface OpenTarget {
+interface OpenTarget {
   urn: string;
   context: ModelContext;
   notice?: string;
 }
 
-export const COMBINED_FULL_NOTICE = 'The open viewer is full; opened a new tab';
+const COMBINED_FULL_NOTICE = 'The open viewer is full; opened a new tab';
 
-export function loadedMembers(state: OpenModelsState): number {
+function loadedMembers(state: OpenModelsState): number {
   return state.models.reduce(
     (sum, model) => sum + liveWeight(state, model.urn),
     0,
@@ -56,7 +57,7 @@ export function exceedsTabLimit(
   models: readonly PickedModel[],
 ): boolean {
   const fresh = models.filter((model) => !isOpen(state, model.urn)).length;
-  return loadedMembers(state) + fresh > MAX_LOADED_MEMBERS;
+  return overTabLimit(loadedMembers(state), fresh);
 }
 
 export function openPickedAsTabs(
@@ -128,7 +129,7 @@ export function TreePanel({ onNavigate }: TreePanelProps) {
   const state = useOpenModels();
   const active = state.active;
   const layout = useContext(LayoutContext);
-  const [view] = usePaneSetting(PANE_SETTINGS.tree.view);
+  const [view] = usePersisted(PANE_SETTINGS.tree.view);
   const [root, setRoot] = useState<TreeRoot>(() =>
     treeRootOf(DOC_ROOT.read(), undefined, undefined),
   );

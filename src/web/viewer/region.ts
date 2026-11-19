@@ -32,10 +32,6 @@ export function regionAvailable(region: ViewerRegion): boolean {
   return pageRegion === null || pageRegion === region;
 }
 
-export function currentRegion(): ViewerRegion | null {
-  return pageRegion;
-}
-
 export function resetRegion(): void {
   if (pageRegion === null) return;
   pageRegion = null;

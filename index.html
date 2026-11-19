@@ -22,14 +22,6 @@
         } catch {
           preference = null;
         }
-        if (preference === null) {
-          try {
-            const legacy = localStorage.getItem("bsh-theme");
-            if (legacy === "light" || legacy === "dark") preference = legacy;
-          } catch {
-            preference = null;
-          }
-        }
         let theme = preference;
         if (theme !== "light" && theme !== "dark") {
           const light = window.matchMedia?.("(prefers-color-scheme: light)");

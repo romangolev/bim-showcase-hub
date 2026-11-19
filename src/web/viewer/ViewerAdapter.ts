@@ -131,7 +131,6 @@ export interface ViewerAdapter {
   setModelOffsets(offsets: Readonly<Record<string, Vec3>> | null): void;
   getGeometryParts(): Promise<GeometryRead>;
   getIfcSource(): Promise<IfcSourceRead>;
-  getElementProperties(item: ModelDbId): Promise<ElementProperties | null>;
   getElementsProperties(
     items: readonly ModelDbId[],
   ): Promise<(ElementProperties | null)[]>;

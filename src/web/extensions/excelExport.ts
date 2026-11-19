@@ -7,6 +7,7 @@ import {
 import { isAbortError, throwIfAborted } from '../viewer/propertyReads.js';
 import { readScopedRows } from '../viewer/scopedRows.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
+import { saveBlob } from './download.js';
 import {
   type AboutInfo,
   aboutRows,
@@ -146,8 +147,8 @@ const IDENTIFIER_COLUMN =
   /(?:^|[\s_-])(?:[Ii][Dd]|[Nn]umber|[Mm]ark|[Cc]ode|[Tt]ag)$|[a-z0-9](?:[A-Z][Dd]|Number|Mark|Code|Tag)$/;
 const MAX_SAFE_DIGITS = 15;
 
-export const TOTAL_ROW_PREFIX = 'Total';
-export const TOTAL_ROW_SKIP_COLUMN = 0;
+const TOTAL_ROW_PREFIX = 'Total';
+const TOTAL_ROW_SKIP_COLUMN = 0;
 
 function isIdentifierColumn(header: string): boolean {
   return IDENTIFIER_COLUMN.test(header.trim());
@@ -213,14 +214,14 @@ export function totalsRow(
   return cells;
 }
 
-export interface XlsxCellStyle {
+interface XlsxCellStyle {
   value: ExportCell;
   type?: NumberConstructor;
   format?: string;
   fontWeight?: 'bold';
 }
 
-export type XlsxCell = ExportCell | XlsxCellStyle;
+type XlsxCell = ExportCell | XlsxCellStyle;
 
 export function xlsxCell(
   value: ExportCell,
@@ -240,7 +241,7 @@ export function xlsxCell(
   };
 }
 
-export interface XlsxSheet {
+interface XlsxSheet {
   sheet: string;
   data: XlsxCell[][];
   stickyRowsCount: number;
@@ -316,17 +317,6 @@ export interface ExportOptions {
   onProgress?: (fraction: number) => void;
   signal?: AbortSignal;
   save?: (blob: Blob, fileName: string) => void;
-}
-
-export function saveBlob(blob: Blob, fileName: string): void {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = fileName;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
 }
 
 export async function exportToXlsx(

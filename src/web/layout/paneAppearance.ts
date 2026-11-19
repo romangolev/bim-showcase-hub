@@ -24,7 +24,7 @@ export const PANE_COLORS: readonly { id: PaneColor; label: string }[] = [
 
 const COLOR_IDS = new Set<string>(PANE_COLORS.map((color) => color.id));
 
-export interface PaneAppearance {
+interface PaneAppearance {
   title?: string;
   color?: PaneColor;
 }
@@ -37,7 +37,7 @@ export function sanitizePaneTitle(raw: unknown): string | undefined {
   return title || undefined;
 }
 
-export function sanitizePaneColor(raw: unknown): PaneColor | undefined {
+function sanitizePaneColor(raw: unknown): PaneColor | undefined {
   return typeof raw === 'string' && COLOR_IDS.has(raw)
     ? (raw as PaneColor)
     : undefined;
@@ -77,7 +77,7 @@ export function usePaneAppearances(): PaneAppearances {
   return appearances;
 }
 
-export function withPaneAppearance(
+function withPaneAppearance(
   appearances: PaneAppearances,
   id: PanelId,
   patch: PaneAppearance,
@@ -122,13 +122,6 @@ export function setPaneColor(
   return write(
     withPaneAppearance(appearances, id, { color: color ?? undefined }),
   );
-}
-
-export function paneColorOf(
-  appearances: PaneAppearances,
-  id: PanelId,
-): PaneColor | undefined {
-  return appearances[id]?.color;
 }
 
 export function paneTags(

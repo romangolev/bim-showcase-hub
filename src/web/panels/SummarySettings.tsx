@@ -22,7 +22,8 @@ import {
   useSummarySettingsTarget,
 } from '../layout/summaryTarget.js';
 import type { ModalDefinition } from '../modal/types.js';
-import { PANE_SETTINGS, usePaneSetting } from '../settings/paneSettings.js';
+import { PANE_SETTINGS } from '../settings/paneSettings.js';
+import { usePersisted } from '../storage.js';
 import { usePublishedAdapter } from '../viewer/activeAdapterStore.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { PropertyPicker } from './PropertyPicker.js';
@@ -83,7 +84,7 @@ export const SUMMARY_FORM: FormDefinition<SummaryForm> = {
 };
 
 function GlobalProperties({ adapter }: { adapter: ViewerAdapter | null }) {
-  const [properties, setProperties] = usePaneSetting(
+  const [properties, setProperties] = usePersisted(
     PANE_SETTINGS.summary.properties,
   );
   return (
@@ -102,7 +103,7 @@ function InstanceProperties({
   target: PanelId;
   adapter: ViewerAdapter | null;
 }) {
-  const [spec, setSpec] = usePaneSetting(summarySetting(target));
+  const [spec, setSpec] = usePersisted(summarySetting(target));
   return (
     <PropertyPicker
       adapter={adapter}
@@ -163,8 +164,8 @@ function SummaryFields({
 }
 
 function GlobalSummarySettings({ adapter }: { adapter: ViewerAdapter | null }) {
-  const [view, setView, resetView] = usePaneSetting(PANE_SETTINGS.summary.view);
-  const [action, setAction, resetAction] = usePaneSetting(
+  const [view, setView, resetView] = usePersisted(PANE_SETTINGS.summary.view);
+  const [action, setAction, resetAction] = usePersisted(
     PANE_SETTINGS.summary.action,
   );
   return (
@@ -189,7 +190,7 @@ function InstanceSummarySettings({
   target: PanelId;
   adapter: ViewerAdapter | null;
 }) {
-  const [spec, setSpec] = usePaneSetting(summarySetting(target));
+  const [spec, setSpec] = usePersisted(summarySetting(target));
   return (
     <SummaryFields
       view={spec.view}

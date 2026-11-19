@@ -191,10 +191,9 @@ describe('ViewerAdapter contract (mock)', () => {
     await setup();
     const modelId = adapter.getModels()[0]?.id ?? '';
     const first = buildMockElements()[0];
-    const read = await adapter.getElementProperties({
-      modelId,
-      dbId: first?.dbId ?? 0,
-    });
+    const [read] = await adapter.getElementsProperties([
+      { modelId, dbId: first?.dbId ?? 0 },
+    ]);
     expect(read?.name).toBe(first?.name);
     expect(read?.properties.map((p) => p.name)).toEqual([
       'Category',
@@ -205,11 +204,11 @@ describe('ViewerAdapter contract (mock)', () => {
     ]);
     expect(read?.properties.every((p) => p.category.length > 0)).toBe(true);
     expect(
-      await adapter.getElementProperties({ modelId, dbId: -1 }),
-    ).toBeNull();
-    expect(
-      await adapter.getElementProperties({ modelId: 'nope', dbId: 1 }),
-    ).toBeNull();
+      await adapter.getElementsProperties([
+        { modelId, dbId: -1 },
+        { modelId: 'nope', dbId: 1 },
+      ]),
+    ).toEqual([null, null]);
   });
 
   it('reads several elements at once, keeping order and nulls', async () => {
@@ -336,15 +335,15 @@ describe('mock selecting and isolating', () => {
     expect(adapter.getIsolated()).toHaveLength(2);
     expect(await adapter.getVisible()).toHaveLength(2);
     const total = buildMockElements().length;
+    expect(host.querySelectorAll('.bsh-mock__el--dim')).toHaveLength(total - 2);
+    expect(host.querySelectorAll('.bsh-mock__el--hidden')).toHaveLength(0);
+    adapter.setGhosting(false);
     expect(host.querySelectorAll('.bsh-mock__el--dim')).toHaveLength(0);
     expect(host.querySelectorAll('.bsh-mock__el--hidden')).toHaveLength(
       total - 2,
     );
     adapter.setGhosting(true);
     expect(host.querySelectorAll('.bsh-mock__el--dim')).toHaveLength(total - 2);
-    expect(host.querySelectorAll('.bsh-mock__el--hidden')).toHaveLength(0);
-    adapter.setGhosting(false);
-    expect(host.querySelectorAll('.bsh-mock__el--dim')).toHaveLength(0);
     adapter.isolateModelIds([]);
     expect(adapter.getIsolated()).toEqual([]);
     expect(await adapter.getVisible()).toHaveLength(total);

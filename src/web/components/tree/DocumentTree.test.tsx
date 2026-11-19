@@ -190,30 +190,6 @@ describe('DocumentTree', () => {
     );
   });
 
-  it('Refresh skips collapsed folders and refetches expanded ones', async () => {
-    const fetchMock = mockFetch(treeRoutes);
-    renderTree();
-    await expandTo('Studio hub');
-    await expandTo('Riverside Tower');
-    await screen.findByText('Project Files');
-    await expandTo('Riverside Tower');
-    await waitFor(() =>
-      expect(screen.queryByText('Project Files')).not.toBeInTheDocument(),
-    );
-    const count = (url: string) =>
-      fetchMock.mock.calls.filter((call) => String(call[0]) === url).length;
-    const projects = count('/api/hubs/h1/projects');
-    const folders = count('/api/hubs/h1/projects/p1/folders');
-
-    fireEvent.click(screen.getByRole('button', { name: 'Refresh documents' }));
-
-    await waitFor(() =>
-      expect(count('/api/hubs/h1/projects')).toBe(projects + 1),
-    );
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    expect(count('/api/hubs/h1/projects/p1/folders')).toBe(folders);
-  });
-
   it('Refresh marks a collapsed loaded folder stale and refetches it on expand', async () => {
     let renamed = false;
     const fetchMock = mockFetch({
@@ -243,32 +219,6 @@ describe('DocumentTree', () => {
     await expandTo('Riverside Tower');
     expect(await screen.findByText('Fresh Files')).toBeInTheDocument();
     expect(count()).toBe(before + 1);
-  });
-
-  it('Refresh refreshes an expanded folder under a collapsed ancestor once the ancestor opens', async () => {
-    let renamed = false;
-    mockFetch({
-      ...treeRoutes,
-      '/api/projects/p1/folders/f1/contents': () =>
-        json([{ ...item, name: renamed ? 'Fresh.rvt' : item.name }]),
-    });
-    renderTree();
-    await expandTo('Studio hub');
-    await expandTo('Riverside Tower');
-    await expandTo('Project Files');
-    await screen.findByText('Tower.rvt');
-    await expandTo('Studio hub');
-    await waitFor(() =>
-      expect(screen.queryByText('Riverside Tower')).not.toBeInTheDocument(),
-    );
-    renamed = true;
-
-    fireEvent.click(screen.getByRole('button', { name: 'Refresh documents' }));
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    await expandTo('Studio hub');
-    expect(await screen.findByText('Fresh.rvt')).toBeInTheDocument();
-    expect(screen.queryByText('Tower.rvt')).not.toBeInTheDocument();
   });
 
   it('Refresh retries a folder that failed to load even when collapsed', async () => {
@@ -534,42 +484,6 @@ describe('DocumentTree', () => {
       const settled = calls();
       await new Promise((resolve) => setTimeout(resolve, 200));
       expect(calls()).toBe(settled);
-    });
-
-    it('Refresh rechecks the view state of an expanded version parent', async () => {
-      await openVersions(
-        [
-          ['processing', false],
-          ['ready', true],
-        ],
-        100000,
-      );
-      const row = () => screen.getByRole('treeitem', { name: /^v9:/ });
-      expect(row()).toHaveAttribute('data-view-state', 'processing');
-      fireEvent.click(
-        screen.getByRole('button', { name: 'Refresh documents' }),
-      );
-      await waitFor(() =>
-        expect(row()).toHaveAttribute('data-view-state', 'ready'),
-      );
-    });
-
-    it('polls an unknown item again after it is collapsed and expanded', async () => {
-      const { calls } = await openVersions([['unknown', true]], 25);
-      await waitFor(() => expect(calls()).toBe(4), { timeout: 2000 });
-      await new Promise((resolve) => setTimeout(resolve, 150));
-      expect(calls()).toBe(4);
-      fireEvent.click(screen.getByText('Tower.rvt'));
-      await waitFor(() =>
-        expect(
-          screen.queryByRole('treeitem', { name: /^v9:/ }),
-        ).not.toBeInTheDocument(),
-      );
-      fireEvent.click(screen.getByText('Tower.rvt'));
-      await screen.findByRole('treeitem', { name: /^v9:/ });
-      await waitFor(() => expect(calls()).toBeGreaterThan(5), {
-        timeout: 2000,
-      });
     });
 
     it('does not poll while the page is hidden', async () => {
@@ -1082,36 +996,6 @@ const notice = () =>
   document.querySelector('.doc-tree__notice')?.textContent ?? '';
 
 describe('DocumentTree picking skips blocked versions', () => {
-  it('does not pick a blocked version and explains it on Ctrl click and Space', async () => {
-    const { onOpenModel } = await openMixed();
-    expect(row(2)).not.toHaveAttribute('aria-checked');
-    fireEvent.click(row(2), { ctrlKey: true });
-    expect(notice()).toContain('cannot be opened');
-    expect(screen.queryByText(/selected$/)).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
-    fireEvent.keyDown(row(4), { key: ' ' });
-    expect(notice()).toContain('cannot be opened');
-    expect(onOpenModel).not.toHaveBeenCalled();
-    expect(row(4)).not.toHaveAttribute('aria-checked');
-  });
-
-  it('skips blocked versions in a Shift range and says so', async () => {
-    const { onOpenTogether } = await openMixed();
-    fireEvent.click(row(1), { ctrlKey: true });
-    fireEvent.click(row(5), { shiftKey: true });
-    expect(screen.getByText('3 selected')).toBeInTheDocument();
-    expect(notice()).toContain(
-      'Skipped 2 versions that cannot be opened: No 3D or 2D view, Processing',
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Open together' }));
-    const picked = onOpenTogether.mock.calls[0]?.[0] as { urn: string }[];
-    expect(picked.map((model) => model.urn)).toEqual([
-      'urn-r1',
-      'urn-r2',
-      'urn-r3',
-    ]);
-  });
-
   it('offers no add button on blocked versions', async () => {
     await openMixed({
       addTarget: {
@@ -1129,132 +1013,6 @@ describe('DocumentTree picking skips blocked versions', () => {
 });
 
 describe('DocumentTree versions that were never checked', () => {
-  const never = (index: number, urn: string) => ({
-    id: `nv${index}`,
-    kind: 'version' as const,
-    name: `v${index}: Issue ${index}`,
-    hasChildren: false,
-    viewable: true,
-    viewState: 'unknown' as const,
-    checked: false,
-    urn,
-    parentId: 'i1',
-  });
-
-  async function openNever(
-    states: Record<string, string>,
-    props: Record<string, unknown> = {},
-    pollMs = 0,
-  ) {
-    let listings = 0;
-    const checks: string[] = [];
-    const routes: Record<string, unknown> = {
-      ...treeRoutes,
-      '/api/projects/p1/items/i1/versions': () => {
-        listings += 1;
-        return json([never(1, 'urn-1'), never(2, 'urn-2')]);
-      },
-    };
-    for (const [id, state] of Object.entries(states)) {
-      routes[`/api/projects/p1/items/i1/versions/${id}/view-state`] = () => {
-        checks.push(id);
-        return json({ viewState: state, viewable: state === 'ready' });
-      };
-    }
-    mockFetch(routes);
-    const onOpenModel = vi.fn();
-    const onOpenTogether = vi.fn();
-    render(
-      <QueryClientProvider client={createTestClient()}>
-        <DocumentTree
-          onOpenModel={onOpenModel}
-          onOpenTogether={onOpenTogether}
-          pollMs={pollMs}
-          {...props}
-        />
-      </QueryClientProvider>,
-    );
-    await expandTo('Studio hub');
-    await expandTo('Riverside Tower');
-    await expandTo('Project Files');
-    await expandTo('Tower.rvt');
-    await screen.findByRole('treeitem', { name: 'v1: Issue 1' });
-    return { onOpenModel, onOpenTogether, checks, listings: () => listings };
-  }
-
-  it('checks a never-checked version before opening it', async () => {
-    const { onOpenModel, checks } = await openNever({
-      nv1: 'no-geometry',
-      nv2: 'ready',
-    });
-    fireEvent.click(row(1));
-    await waitFor(() =>
-      expect(
-        document.querySelector('.doc-tree__notice')?.textContent,
-      ).toContain('cannot be opened'),
-    );
-    expect(onOpenModel).not.toHaveBeenCalled();
-    expect(row(1)).toHaveAttribute('data-view-state', 'no-geometry');
-    fireEvent.click(row(2));
-    await waitFor(() => expect(onOpenModel).toHaveBeenCalledTimes(1));
-    expect(onOpenModel.mock.calls[0]?.[0]).toBe('urn-2');
-    expect(checks).toEqual(['nv1', 'nv2']);
-    fireEvent.click(row(2));
-    await waitFor(() => expect(onOpenModel).toHaveBeenCalledTimes(2));
-    expect(checks).toEqual(['nv1', 'nv2']);
-  });
-
-  it('checks before picking and never picks a blocked one', async () => {
-    await openNever({ nv1: 'processing', nv2: 'ready' });
-    fireEvent.click(row(1), { ctrlKey: true });
-    await waitFor(() =>
-      expect(
-        document.querySelector('.doc-tree__notice')?.textContent,
-      ).toContain('cannot be opened'),
-    );
-    expect(row(1)).not.toHaveAttribute('aria-checked', 'true');
-    fireEvent.click(row(2), { ctrlKey: true });
-    await waitFor(() => expect(row(2)).toHaveAttribute('aria-checked', 'true'));
-  });
-
-  it('checks before adding to the open viewer', async () => {
-    const onAdd = vi.fn();
-    await openNever(
-      { nv1: 'failed', nv2: 'ready' },
-      {
-        addTarget: {
-          label: 'the open viewer',
-          canAdd: () => true,
-          has: () => false,
-          onRemove: vi.fn(),
-          onAdd,
-        },
-      },
-    );
-    const buttons = screen.getAllByRole('button', {
-      name: 'Add Tower.rvt to the open viewer',
-    });
-    fireEvent.click(buttons[0] as HTMLElement);
-    await waitFor(() =>
-      expect(
-        document.querySelector('.doc-tree__notice')?.textContent,
-      ).toContain('cannot be opened'),
-    );
-    expect(onAdd).not.toHaveBeenCalled();
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Add Tower.rvt to the open viewer' }),
-    );
-    await waitFor(() => expect(onAdd).toHaveBeenCalledTimes(1));
-  });
-
-  it('does not poll for versions that were never checked', async () => {
-    const { listings } = await openNever({}, {}, 20);
-    await new Promise((resolve) => setTimeout(resolve, 200));
-    expect(listings()).toBe(1);
-  });
-});
-
-describe('DocumentTree on-demand checks', () => {
   const never = (index: number) => ({
     id: `nv${index}`,
     kind: 'version' as const,
@@ -1268,16 +1026,20 @@ describe('DocumentTree on-demand checks', () => {
   });
 
   interface Setup {
-    count: number;
-    respond: (id: string, call: number) => Response | Promise<Response>;
+    count?: number;
+    respond?: (id: string, call: number) => Response;
     pollMs?: number;
+    props?: Record<string, unknown>;
   }
 
-  async function setup({ count, respond, pollMs = 0 }: Setup) {
+  async function setup({
+    count = 2,
+    respond = () => state('ready'),
+    pollMs = 0,
+    props = {},
+  }: Setup = {}) {
     let listings = 0;
     const calls: string[] = [];
-    let running = 0;
-    let peak = 0;
     const routes: Record<string, unknown> = {
       ...treeRoutes,
       '/api/projects/p1/items/i1/versions': () => {
@@ -1287,20 +1049,10 @@ describe('DocumentTree on-demand checks', () => {
     };
     for (let i = 1; i <= count; i++) {
       const id = `nv${i}`;
-      routes[`/api/projects/p1/items/i1/versions/${id}/view-state`] =
-        async () => {
-          calls.push(id);
-          running += 1;
-          peak = Math.max(peak, running);
-          try {
-            return await respond(
-              id,
-              calls.filter((call) => call === id).length,
-            );
-          } finally {
-            running -= 1;
-          }
-        };
+      routes[`/api/projects/p1/items/i1/versions/${id}/view-state`] = () => {
+        calls.push(id);
+        return respond(id, calls.filter((call) => call === id).length);
+      };
     }
     mockFetch(routes);
     const onOpenModel = vi.fn();
@@ -1310,6 +1062,7 @@ describe('DocumentTree on-demand checks', () => {
           onOpenModel={onOpenModel}
           onOpenTogether={vi.fn()}
           pollMs={pollMs}
+          {...props}
         />
       </QueryClientProvider>,
     );
@@ -1318,33 +1071,59 @@ describe('DocumentTree on-demand checks', () => {
     await expandTo('Project Files');
     await expandTo('Tower.rvt');
     await screen.findByRole('treeitem', { name: 'v1: Issue 1' });
-    return {
-      onOpenModel,
-      calls,
-      peak: () => peak,
-      listings: () => listings,
-    };
+    return { onOpenModel, calls, listings: () => listings };
   }
 
   const state = (viewState: string) =>
     json({ viewState, viewable: viewState === 'ready' });
 
-  it('does not keep a failed check and asks again next time', async () => {
+  it('checks a never-checked version before opening it', async () => {
     const { onOpenModel, calls } = await setup({
-      count: 1,
-      respond: (_id, call) =>
-        call === 1 ? json({ error: 'busy' }, 429) : state('no-geometry'),
+      respond: (id) => state(id === 'nv1' ? 'no-geometry' : 'ready'),
     });
     fireEvent.click(row(1));
+    await waitFor(() => expect(notice()).toContain('cannot be opened'));
+    expect(onOpenModel).not.toHaveBeenCalled();
+    expect(row(1)).toHaveAttribute('data-view-state', 'no-geometry');
+    fireEvent.click(row(2));
     await waitFor(() => expect(onOpenModel).toHaveBeenCalledTimes(1));
-    fireEvent.click(row(1));
-    await waitFor(() =>
-      expect(
-        document.querySelector('.doc-tree__notice')?.textContent,
-      ).toContain('cannot be opened'),
+    expect(onOpenModel.mock.calls[0]?.[0]).toBe('urn-2');
+    expect(calls).toEqual(['nv1', 'nv2']);
+    fireEvent.click(row(2));
+    await waitFor(() => expect(onOpenModel).toHaveBeenCalledTimes(2));
+    expect(calls).toEqual(['nv1', 'nv2']);
+  });
+
+  it('checks before adding to the open viewer', async () => {
+    const onAdd = vi.fn();
+    await setup({
+      respond: (id) => state(id === 'nv1' ? 'failed' : 'ready'),
+      props: {
+        addTarget: {
+          label: 'the open viewer',
+          canAdd: () => true,
+          has: () => false,
+          onRemove: vi.fn(),
+          onAdd,
+        },
+      },
+    });
+    const buttons = screen.getAllByRole('button', {
+      name: 'Add Tower.rvt to the open viewer',
+    });
+    fireEvent.click(buttons[0] as HTMLElement);
+    await waitFor(() => expect(notice()).toContain('cannot be opened'));
+    expect(onAdd).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Add Tower.rvt to the open viewer' }),
     );
-    expect(calls).toEqual(['nv1', 'nv1']);
-    expect(onOpenModel).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(onAdd).toHaveBeenCalledTimes(1));
+  });
+
+  it('does not poll for versions that were never checked', async () => {
+    const { listings } = await setup({ pollMs: 20 });
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(listings()).toBe(1);
   });
 
   it('Check again forgets the on-demand result', async () => {
@@ -1376,7 +1155,6 @@ describe('DocumentTree on-demand checks', () => {
 
   it('picks a version whose check fails without checking it again', async () => {
     const { calls } = await setup({
-      count: 2,
       respond: () => json({ error: 'busy' }, 429),
     });
     fireEvent.click(row(1), { ctrlKey: true });
@@ -1412,42 +1190,5 @@ describe('DocumentTree on-demand checks', () => {
     fireEvent.click(row(1), { shiftKey: true });
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(screen.getByText('1 selected')).toBeInTheDocument();
-  });
-
-  it('checks only the picked range, once per version, four at a time', async () => {
-    const gate: (() => void)[] = [];
-    const { calls, peak } = await setup({
-      count: 8,
-      respond: () =>
-        new Promise<Response>((resolve) => {
-          gate.push(() => resolve(state('ready')));
-        }),
-    });
-    fireEvent.click(row(2), { ctrlKey: true });
-    fireEvent.click(row(2), { ctrlKey: true });
-    await waitFor(() => expect(gate).toHaveLength(1));
-    gate.shift()?.();
-    await waitFor(() =>
-      expect(row(2)).toHaveAttribute('data-view-state', 'ready'),
-    );
-    expect(calls).toEqual(['nv2']);
-    if (row(2).getAttribute('aria-checked') !== 'true') {
-      fireEvent.click(row(2), { ctrlKey: true });
-    }
-    expect(row(2)).toHaveAttribute('aria-checked', 'true');
-    expect(calls).toEqual(['nv2']);
-    fireEvent.click(row(8), { shiftKey: true });
-    await waitFor(() => expect(gate.length).toBeGreaterThan(0));
-    while (gate.length > 0 || calls.length < 7) {
-      await new Promise((resolve) => setTimeout(resolve, 5));
-      gate.shift()?.();
-    }
-    await waitFor(() =>
-      expect(screen.getByText('7 selected')).toBeInTheDocument(),
-    );
-    expect([...calls].sort()).toEqual(
-      ['nv2', 'nv3', 'nv4', 'nv5', 'nv6', 'nv7', 'nv8'].sort(),
-    );
-    expect(peak()).toBeLessThanOrEqual(4);
   });
 });

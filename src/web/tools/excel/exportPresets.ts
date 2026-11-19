@@ -9,7 +9,7 @@ import {
 import { sanitizePropertyNames } from '../../extensions/propertyNames.js';
 import { defineSavedKind } from '../../store/savedKinds.js';
 
-export type ExportPresetData = {
+type ExportPresetData = {
   properties: readonly string[];
   format: ExportFormat;
   scope: ExportScope;
@@ -23,9 +23,9 @@ export type ExportPresetSettings = Pick<
   'format' | 'scope' | 'namePattern' | 'includeHeader' | 'groupBy'
 > & { properties: readonly string[] };
 
-export const EXPORT_PRESET_KIND = 'export-preset';
+const EXPORT_PRESET_KIND = 'export-preset';
 
-export interface BuiltInExportPreset {
+interface BuiltInExportPreset {
   id: string;
   name: string;
   data: ExportPresetData;

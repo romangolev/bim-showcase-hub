@@ -31,7 +31,7 @@ import {
 export const RESET_LAYOUT_DESCRIPTION =
   'Resets the arrangement. Open models stay open; remembered viewer position and closed panes are cleared.';
 
-export interface PaneMenuHost extends CommandHost {
+interface PaneMenuHost extends CommandHost {
   openPaneSettings: (schema: PaneSettingsSchema) => void;
   renamePane?: () => void;
   tagPane?: () => void;
@@ -158,21 +158,19 @@ export function paneMenuEntries(
     },
     maximizeEntry,
   ];
-  if (definition.canFloat) {
-    entries.push(
-      floating
-        ? {
-            id: 'dock',
-            label: 'Dock',
-            onSelect: () => layout.movePane(pane, 'dock'),
-          }
-        : {
-            id: 'float',
-            label: 'Float',
-            onSelect: () => layout.movePane(pane, 'float'),
-          },
-    );
-  }
+  entries.push(
+    floating
+      ? {
+          id: 'dock',
+          label: 'Dock',
+          onSelect: () => layout.movePane(pane, 'dock'),
+        }
+      : {
+          id: 'float',
+          label: 'Float',
+          onSelect: () => layout.movePane(pane, 'float'),
+        },
+  );
   if (!floating) {
     entries.push({
       id: 'resize',

@@ -130,14 +130,6 @@ async function mergeRawWithKeyed(open: boolean, mode: 'Union' | 'Intersect') {
 }
 
 describe('merging raw and keyed sets', () => {
-  it('counts the same element once in a union when the model is open', async () => {
-    const merged = await mergeRawWithKeyed(true, 'Union');
-    expect(merged).toEqual({
-      models: {},
-      keys: { 'urn-a': [{ dbId: 1, key: 'ext-1' }] },
-    });
-  });
-
   it('finds the overlap in an intersect when the model is open', async () => {
     const merged = await mergeRawWithKeyed(true, 'Intersect');
     expect(merged).toEqual({

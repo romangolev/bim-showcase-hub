@@ -1,5 +1,5 @@
 import { type ChangeEvent, useRef, useState } from 'react';
-import { saveBlob } from '../extensions/excelExport.js';
+import { saveBlob } from '../extensions/download.js';
 import { usePersisted } from '../storage.js';
 import {
   exportSaved,
@@ -33,7 +33,7 @@ function plural(n: number, word: string): string {
   return `${n} ${word}${n === 1 ? '' : 's'}`;
 }
 
-export function bytesLabel(value: number): string {
+function bytesLabel(value: number): string {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)} MB`;
   if (value >= 1000) return `${Math.round(value / 1000)} KB`;
   return `${value} B`;
@@ -79,11 +79,8 @@ export function SavedItemsSettings() {
     const dropped = result.dropped
       ? `, dropped ${plural(result.dropped, 'item')} over the limit of ${MAX_ITEMS}`
       : '';
-    const upgraded = result.migrated
-      ? `, upgraded ${plural(result.migrated, 'item')}`
-      : '';
     report({
-      text: `Imported ${plural(result.accepted, 'item')}${upgraded}${skipped}${older}${dropped}.`,
+      text: `Imported ${plural(result.accepted, 'item')}${skipped}${older}${dropped}.`,
       error: false,
     });
   };

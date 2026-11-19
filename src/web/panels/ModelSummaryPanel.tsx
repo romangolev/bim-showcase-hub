@@ -1,13 +1,13 @@
 import { useId, useMemo, useState } from 'react';
 import { Icon } from '../components/icons.js';
 import { StateBlock } from '../components/StateBlock.js';
+import { saveBlob } from '../extensions/download.js';
 import type { ElementAction } from '../extensions/elementActions.js';
 import {
   itemsWithValues,
   runElementAction,
   showAllElements,
 } from '../extensions/elementActions.js';
-import { saveBlob } from '../extensions/excelExport.js';
 import { applyNamePattern, toDelimited } from '../extensions/exportFormats.js';
 import {
   emptyShares,
@@ -17,7 +17,8 @@ import {
   summaryTable,
   viewEntries,
 } from '../extensions/modelSummary.js';
-import { PANE_SETTINGS, usePaneSetting } from '../settings/paneSettings.js';
+import { PANE_SETTINGS } from '../settings/paneSettings.js';
+import { usePersisted } from '../storage.js';
 import type { ElementScope } from '../viewer/propertyScope.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import {
@@ -85,9 +86,9 @@ export function ModelSummaryPanel({
   const isCollapsed = collapsed ?? innerCollapsed;
   const [showAll, setShowAll] = useState(false);
   const resolved = useResolvedAdapter(adapter);
-  const [savedProperties] = usePaneSetting(PANE_SETTINGS.summary.properties);
+  const [savedProperties] = usePersisted(PANE_SETTINGS.summary.properties);
   const propertyNames = propertyNamesOverride ?? savedProperties;
-  const [savedElements, setSavedElements] = usePaneSetting(
+  const [savedElements, setSavedElements] = usePersisted(
     PANE_SETTINGS.summary.scope,
   );
   const elementsScope = controlledElements?.value ?? savedElements;
@@ -106,8 +107,8 @@ export function ModelSummaryPanel({
   );
   const reload = state.reload;
 
-  const [savedView, setSavedView] = usePaneSetting(PANE_SETTINGS.summary.view);
-  const [savedAction] = usePaneSetting(PANE_SETTINGS.summary.action);
+  const [savedView, setSavedView] = usePersisted(PANE_SETTINGS.summary.view);
+  const [savedAction] = usePersisted(PANE_SETTINGS.summary.action);
   const view = controlledView?.value ?? savedView;
   const action = controlledAction ?? savedAction;
   const [active, setActive] = useState<string | null>(null);

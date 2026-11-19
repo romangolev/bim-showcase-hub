@@ -28,10 +28,10 @@ import {
 } from '../panels/index.js';
 import { SUMMARY_SETTINGS_ID } from '../panels/SummarySettings.js';
 import { VIEWPOINTS_MODAL_ID } from '../panels/Viewpoints.js';
-import { usePaneSetting } from '../settings/paneSettings.js';
+import { usePersisted } from '../storage.js';
 import { exportFileName, exportStem } from '../tools/kernel/exportKit.js';
-import { ViewerPane } from '../viewer/index.js';
 import { page } from '../viewer/region.js';
+import { ViewerPane } from '../viewer/ViewerPane.js';
 import { setDashboardSettingsTarget } from './dashboardTarget.js';
 import {
   chartSetting,
@@ -170,6 +170,14 @@ export function ModelPaneBody({ instance }: { instance: string }) {
             initialView={
               active && typeof routeView === 'string' ? routeView : null
             }
+            onViewConsumed={() =>
+              void router.navigate({
+                to: '/model/$urn',
+                params: { urn: instance },
+                search: context ?? {},
+                replace: true,
+              })
+            }
             onManageViewpoints={() => modal.open(VIEWPOINTS_MODAL_ID)}
             onPresent={() => layout.setPresenting(true)}
             shareHref={
@@ -245,7 +253,7 @@ export function SummaryInstancePane({ instance }: { instance: string }) {
   const layout = useLayout();
   const modal = useModal();
   const panel = instancePanelId('modelSummary', instance);
-  const [spec, setSpec] = usePaneSetting(summarySetting(panel));
+  const [spec, setSpec] = usePersisted(summarySetting(panel));
   return (
     <aside className="pane-summary" aria-label="Model summary">
       <ModelSummaryPanel
@@ -314,7 +322,7 @@ export function ChartInstancePane({ instance }: { instance: string }) {
 export function PropertiesInstancePane({ instance }: { instance: string }) {
   const layout = useLayout();
   const panel = instancePanelId('properties', instance);
-  const [spec, setSpec] = usePaneSetting(propertiesSetting(panel));
+  const [spec, setSpec] = usePersisted(propertiesSetting(panel));
   return (
     <div className="pane-properties">
       <PropertiesPanel

@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon, type IconName } from './icons.js';
+import { moveFocus, onEscape, usePopover } from './usePopover.js';
 
 export type MenuEntry =
   | {
@@ -43,13 +44,6 @@ export type MenuProps = MenuBaseProps &
       }
   );
 
-interface Position {
-  top: number;
-  left: number;
-}
-
-const GAP = 4;
-
 function CheckMark({ checked }: { checked?: boolean }) {
   return (
     <span className="menu__check">
@@ -71,7 +65,6 @@ export function Menu({
 }: MenuProps) {
   const [open, setOpen] = useState<null | 'first' | 'last'>(null);
   const [entries, setEntries] = useState<MenuEntry[]>([]);
-  const [position, setPosition] = useState<Position | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
@@ -101,34 +94,15 @@ export function Menu({
     onCloseRef.current?.(restore);
   }, []);
 
-  const anchorX = anchor?.x;
-  const anchorY = anchor?.y;
   const anchorKey = anchor ? `${anchor.x},${anchor.y}` : null;
-  const place = useCallback(() => {
-    const rect =
-      anchorX !== undefined && anchorY !== undefined
-        ? { left: anchorX, right: anchorX, top: anchorY, bottom: anchorY }
-        : triggerRef.current?.getBoundingClientRect();
-    const menu = menuRef.current;
-    if (!rect || !menu) return;
-    const width = menu.offsetWidth;
-    const height = menu.offsetHeight;
-    const left = Math.max(
-      GAP,
-      Math.min(
-        anchorX !== undefined || align === 'start'
-          ? rect.left
-          : rect.right - width,
-        window.innerWidth - width - GAP,
-      ),
-    );
-    const below = rect.bottom + (anchorX !== undefined ? 0 : GAP);
-    const top =
-      below + height > window.innerHeight
-        ? Math.max(GAP, rect.top - height - GAP)
-        : below;
-    setPosition({ top, left });
-  }, [align, anchorX, anchorY]);
+  const position = usePopover({
+    open: open !== null,
+    triggerRef,
+    popoverRef: menuRef,
+    onDismiss: () => close(false),
+    align,
+    anchor: anchor ?? undefined,
+  });
 
   useEffect(() => {
     if (anchorKey === null) return;
@@ -139,13 +113,8 @@ export function Menu({
   const pendingFocus = useRef<null | 'first' | 'last'>(null);
 
   useLayoutEffect(() => {
-    if (!open) {
-      setPosition(null);
-      return;
-    }
-    pendingFocus.current = open;
-    place();
-  }, [open, place]);
+    if (open) pendingFocus.current = open;
+  }, [open, anchorKey]);
 
   useLayoutEffect(() => {
     const where = pendingFocus.current;
@@ -155,60 +124,15 @@ export function Menu({
     (where === 'last' ? list[list.length - 1] : list[0])?.focus();
   }, [position, focusables]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onPointer = (event: PointerEvent) => {
-      const target = event.target as Node;
-      if (
-        !menuRef.current?.contains(target) &&
-        !triggerRef.current?.contains(target)
-      ) {
-        close(false);
-      }
-    };
-    document.addEventListener('pointerdown', onPointer);
-    window.addEventListener('resize', place);
-    document.addEventListener('scroll', place, true);
-    return () => {
-      document.removeEventListener('pointerdown', onPointer);
-      window.removeEventListener('resize', place);
-      document.removeEventListener('scroll', place, true);
-    };
-  }, [open, close, place]);
-
   const onMenuKeyDown = (event: KeyboardEvent) => {
+    if (onEscape(event, () => close(true))) return;
     const list = focusables();
-    const index = list.indexOf(document.activeElement as HTMLButtonElement);
-    const move = (next: number) => {
+    if (moveFocus(event, list)) return;
+    if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
-      list[(next + list.length) % list.length]?.focus();
-    };
-    switch (event.key) {
-      case 'ArrowDown':
-        move(index + 1);
-        break;
-      case 'ArrowUp':
-        move(index - 1);
-        break;
-      case 'Home':
-        move(0);
-        break;
-      case 'End':
-        move(list.length - 1);
-        break;
-      case 'Enter':
-      case ' ':
-        event.preventDefault();
-        list[index]?.click();
-        break;
-      case 'Escape':
-        event.preventDefault();
-        event.stopPropagation();
-        close(true);
-        break;
-      case 'Tab':
-        close(false);
-        break;
+      list[list.indexOf(document.activeElement as HTMLButtonElement)]?.click();
+    } else if (event.key === 'Tab') {
+      close(false);
     }
   };
 

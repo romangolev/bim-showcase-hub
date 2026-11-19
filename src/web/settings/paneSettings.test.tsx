@@ -7,11 +7,11 @@ import {
 } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DEFAULT_TREE_VIEW } from '../components/tree/treeView.js';
-import { FORGET_EVENT } from '../storage.js';
+import { FORGET_EVENT, usePersisted } from '../storage.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { readJson, writeJson } from '../test/storageJson.js';
 import { TreeSettingsForm } from './PaneSettingsForms.js';
-import { PANE_SETTINGS, usePaneSetting } from './paneSettings.js';
+import { PANE_SETTINGS } from './paneSettings.js';
 
 beforeEach(() => {
   installMemoryStorage();
@@ -21,7 +21,7 @@ describe('pane settings', () => {
   it('keeps the existing keys and falls back on garbage', () => {
     writeJson(PANE_SETTINGS.summary.action.key, 'isolate');
     const { result } = renderHook(() =>
-      usePaneSetting(PANE_SETTINGS.summary.action),
+      usePersisted(PANE_SETTINGS.summary.action),
     );
     expect(result.current[0]).toBe('isolate');
     act(() => result.current[1]('nonsense' as never));
@@ -32,7 +32,7 @@ describe('pane settings', () => {
   it('keeps a stored hide action and maps removed values to select', () => {
     writeJson(PANE_SETTINGS.dashboard.action.key, 'hide');
     const { result } = renderHook(() =>
-      usePaneSetting(PANE_SETTINGS.dashboard.action),
+      usePersisted(PANE_SETTINGS.dashboard.action),
     );
     expect(result.current[0]).toBe('hide');
     expect(PANE_SETTINGS.summary.action.sanitize('hide')).toBe('hide');
@@ -42,7 +42,7 @@ describe('pane settings', () => {
   it('resets personal pane settings on sign-out', () => {
     writeJson(PANE_SETTINGS.dashboard.action.key, 'zoom');
     const { result } = renderHook(() =>
-      usePaneSetting(PANE_SETTINGS.dashboard.action),
+      usePersisted(PANE_SETTINGS.dashboard.action),
     );
     expect(result.current[0]).toBe('zoom');
     act(() => {
@@ -57,9 +57,7 @@ describe('pane settings', () => {
       ...DEFAULT_TREE_VIEW,
       openMode: 'combined',
     });
-    const { result } = renderHook(() =>
-      usePaneSetting(PANE_SETTINGS.tree.view),
-    );
+    const { result } = renderHook(() => usePersisted(PANE_SETTINGS.tree.view));
     expect(result.current[0].openMode).toBe('combined');
     act(() => result.current[1]({ ...result.current[0], openMode: 'replace' }));
     expect(readJson(PANE_SETTINGS.tree.view.key, null)).toMatchObject({

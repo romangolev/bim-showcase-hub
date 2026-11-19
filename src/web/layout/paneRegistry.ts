@@ -38,9 +38,7 @@ export type Placement =
 
 export interface PaneInstances {
   component: ComponentType<{ instance: string }>;
-  closable: boolean;
   source: 'models' | 'user';
-  creatable?: boolean;
 }
 
 export interface PaneCommandContext {
@@ -63,7 +61,6 @@ export interface PaneDefinition {
   minSize: { width: number; height: number };
   defaultPlacement: Placement;
   closable: boolean;
-  canFloat: boolean;
   requires: 'viewer' | 'none';
   instances?: PaneInstances;
   commands?: (ctx: PaneCommandContext) => readonly Command[];
@@ -87,7 +84,6 @@ export const PANES: readonly PaneDefinition[] = [
       size: TREE_WIDTH_DEFAULT,
     },
     closable: false,
-    canFloat: true,
     requires: 'none',
     commands: (ctx) => [
       {
@@ -111,9 +107,8 @@ export const PANES: readonly PaneDefinition[] = [
     minSize: { width: 360, height: 280 },
     defaultPlacement: { kind: 'root' },
     closable: true,
-    canFloat: true,
     requires: 'none',
-    instances: { component: ModelPaneBody, closable: true, source: 'models' },
+    instances: { component: ModelPaneBody, source: 'models' },
   },
   {
     id: 'summary',
@@ -131,7 +126,6 @@ export const PANES: readonly PaneDefinition[] = [
       size: 340,
     },
     closable: true,
-    canFloat: true,
     requires: 'viewer',
   },
   {
@@ -150,7 +144,6 @@ export const PANES: readonly PaneDefinition[] = [
       size: 220,
     },
     closable: true,
-    canFloat: true,
     requires: 'viewer',
   },
   {
@@ -164,7 +157,6 @@ export const PANES: readonly PaneDefinition[] = [
     minSize: { width: 240, height: 160 },
     defaultPlacement: { kind: 'tab', reference: 'tree' },
     closable: true,
-    canFloat: true,
     requires: 'viewer',
   },
   {
@@ -183,13 +175,10 @@ export const PANES: readonly PaneDefinition[] = [
       size: 220,
     },
     closable: true,
-    canFloat: true,
     requires: 'viewer',
     instances: {
       component: ChartInstancePane,
-      closable: true,
       source: 'user',
-      creatable: true,
     },
   },
   {
@@ -208,13 +197,10 @@ export const PANES: readonly PaneDefinition[] = [
       size: 340,
     },
     closable: true,
-    canFloat: true,
     requires: 'viewer',
     instances: {
       component: SummaryInstancePane,
-      closable: true,
       source: 'user',
-      creatable: true,
     },
   },
   {
@@ -233,13 +219,10 @@ export const PANES: readonly PaneDefinition[] = [
       size: 320,
     },
     closable: true,
-    canFloat: true,
     requires: 'viewer',
     instances: {
       component: PropertiesInstancePane,
-      closable: true,
       source: 'user',
-      creatable: true,
     },
   },
 ];
@@ -344,7 +327,7 @@ function createCommand(
   pane: PaneDefinition,
   ctx: PaneCommandContext,
 ): Command | null {
-  if (!pane.instances?.creatable) return null;
+  if (pane.instances?.source !== 'user') return null;
   return {
     id: `pane.new.${pane.id}`,
     title: `New ${pane.title.toLowerCase()}`,
@@ -384,7 +367,5 @@ export function isPanelClosable(id: PanelId): boolean {
   const parsed = parsePanelId(id);
   if (!parsed) return false;
   const definition = paneById(parsed.kind);
-  return parsed.instance
-    ? Boolean(definition.instances?.closable)
-    : definition.closable;
+  return parsed.instance ? Boolean(definition.instances) : definition.closable;
 }

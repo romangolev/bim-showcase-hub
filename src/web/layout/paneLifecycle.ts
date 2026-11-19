@@ -34,6 +34,8 @@ import {
 } from './userInstances.js';
 import type { WorkspaceApplyTarget } from './workspaces.js';
 
+export type WorkspaceApplyResult = 'applied' | 'locked' | 'dock-only';
+
 const MOVE_MESSAGES: Partial<Record<MoveTarget, string>> = {
   left: 'moved to the left edge',
   right: 'moved to the right edge',
@@ -108,8 +110,11 @@ export interface PaneLifecycle {
   setCollapsed: (id: PaneId, collapsed: boolean) => void;
   movePane: (id: PanelId, target: MoveTarget) => void;
   resetLayout: () => void;
-  applyWorkspace: (target: WorkspaceApplyTarget, label: string) => void;
-  revertWorkspace: () => void;
+  applyWorkspace: (
+    target: WorkspaceApplyTarget,
+    label: string,
+  ) => WorkspaceApplyResult;
+  revertWorkspace: () => boolean;
   controllerReady: () => void;
   notify: (message: string) => void;
   setLocked: (locked: boolean) => void;
@@ -300,8 +305,12 @@ export function createPaneLifecycle(deps: LifecycleDeps): PaneLifecycle {
     return true;
   };
 
-  const applyWorkspace = (target: WorkspaceApplyTarget, label: string) => {
-    if (state.locked || deps.mode() !== 'dock') return;
+  const applyWorkspace = (
+    target: WorkspaceApplyTarget,
+    label: string,
+  ): WorkspaceApplyResult => {
+    if (state.locked) return 'locked';
+    if (deps.mode() !== 'dock') return 'dock-only';
     if (state.presenting) setPresenting(false);
     undoLayout = state.layout;
     const base = target.layout ?? state.layout;
@@ -329,11 +338,12 @@ export function createPaneLifecycle(deps: LifecycleDeps): PaneLifecycle {
     pendingApply = null;
     if (flushApply(target)) announce(`${label} applied`);
     else if (target.steps) pendingApply = { target, label };
+    return 'applied';
   };
 
   const revertWorkspace = () => {
     const snapshot = undoLayout;
-    if (!snapshot || state.locked) return;
+    if (!snapshot || state.locked) return false;
     undoLayout = null;
     pendingApply = null;
     set({
@@ -345,6 +355,7 @@ export function createPaneLifecycle(deps: LifecycleDeps): PaneLifecycle {
     });
     deps.dock()?.apply({ dock: snapshot.dock }, snapshot.treeWidth);
     announce('Workspace reverted');
+    return true;
   };
 
   return {

@@ -1,32 +1,25 @@
 import {
   fitView,
   MAX_LINK_CHARTS,
-  parseView,
   type ViewChart,
   type ViewLink,
   type ViewNodes,
   type ViewPanes,
-  withViewParam,
 } from '../api/viewLink.js';
-import {
-  type DashboardView,
-  sanitizeDashboardView,
-} from '../extensions/dashboardPresets.js';
+import type { DashboardView } from '../extensions/dashboardPresets.js';
 import { chartSetting } from '../layout/instanceSettings.js';
 import type { LayoutApi } from '../layout/layoutContext.js';
-import { isPaneId, type PaneId, paneById } from '../layout/paneRegistry.js';
+import type { PaneId } from '../layout/paneRegistry.js';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import { getStorageAdapter } from '../storage.js';
 import type { ViewerAdapter, ViewerState } from './ViewerAdapter.js';
 
-export const LINK_RESTORED_TEXT =
-  'Restored the panes and charts from the link; the summary columns stay local';
 export const LINK_DEGRADED_TEXT =
   'Link copied with the camera and selection only: the full view was too long';
 export const LINK_TRIMMED_TEXT =
   'Link copied without the chart panes beyond the first three';
 
-const COLLAPSED_PANES: readonly PaneId[] = [
+export const COLLAPSED_PANES: readonly PaneId[] = [
   'tree',
   'summary',
   'dashboard',
@@ -85,14 +78,14 @@ export function capturePanes(
     : { open, collapsed };
 }
 
-export interface SharedView {
+interface SharedView {
   view: string;
   degraded: boolean;
   trimmed: boolean;
   link: ViewLink;
 }
 
-export function captureNodes(
+function captureNodes(
   state: ViewerState,
   modelIds: readonly string[],
 ): ViewNodes[] | undefined {
@@ -131,123 +124,4 @@ export function sharedView(
     trimmed: chartInstanceIds().length + 1 > MAX_LINK_CHARTS,
     link,
   };
-}
-
-export function linkViewerState(
-  link: ViewLink,
-  modelIds: readonly string[],
-): ViewerState | null {
-  if (!link.nodes || link.nodes.length === 0) return null;
-  const models: ViewerState['models'] = {};
-  for (const modelId of modelIds) {
-    const entry = link.nodes.find((nodes) => nodes.modelId === modelId);
-    models[modelId] = {
-      hidden: entry ? [...entry.hidden] : [],
-      isolated: entry ? [...entry.isolated] : [],
-      selection: link.selection
-        .filter((item) => item.modelId === modelId)
-        .map((item) => item.dbId),
-    };
-  }
-  return { version: 1, camera: link.camera, cutplanes: [], models };
-}
-
-export function linkViewFromUrl(search: string): string | null {
-  const value = new URLSearchParams(search).get('view');
-  return value && value.length > 0 ? value : null;
-}
-
-function isLinkPane(id: string): id is PaneId {
-  return isPaneId(id) && (id === 'viewer' || paneById(id).component !== null);
-}
-
-function applyPanes(panes: ViewPanes | undefined, layout: LayoutApi | null) {
-  if (!panes || !layout || layout.mode === 'stacked') return false;
-  let changed = false;
-  const open = new Set<PaneId>(panes.open.filter(isLinkPane));
-  for (const id of open) {
-    if (!layout.openPanes.includes(id)) {
-      layout.togglePane(id);
-      changed = true;
-    }
-  }
-  const collapsed = new Set(
-    COLLAPSED_PANES.filter((id) => panes.collapsed.includes(id)),
-  );
-  const candidates = new Set<PaneId>([...COLLAPSED_PANES, ...open]);
-  for (const id of candidates) {
-    const wanted = collapsed.has(id);
-    if (layout.isCollapsed(id) !== wanted) {
-      layout.setCollapsed(id, wanted);
-      changed = true;
-    }
-  }
-  return changed;
-}
-
-function applyCharts(
-  charts: readonly ViewChart[] | undefined,
-  layout: LayoutApi | null,
-): number {
-  if (!charts || charts.length === 0) return 0;
-  let applied = 0;
-  for (const chart of charts) {
-    const view = sanitizeDashboardView(chart.view);
-    if (chart.id === 'dashboard') {
-      PANE_SETTINGS.dashboard.view.write(view);
-      applied += 1;
-      continue;
-    }
-    const created = layout?.addInstance('chart');
-    if (!created) continue;
-    chartSetting(created as PaneId).write(view);
-    applied += 1;
-  }
-  return applied;
-}
-
-export interface LinkApplyReport {
-  panes: boolean;
-  charts: number;
-}
-
-export interface LinkRestoreReport extends LinkApplyReport {
-  link: ViewLink;
-}
-
-export function applyViewLink(
-  link: ViewLink,
-  layout: LayoutApi | null,
-): LinkApplyReport {
-  return {
-    panes: applyPanes(link.panes, layout),
-    charts: applyCharts(link.charts, layout),
-  };
-}
-
-const applied = new Set<string>();
-
-export function resetAppliedLinks(): void {
-  applied.clear();
-}
-
-export function clearLinkView(): void {
-  window.history.replaceState(
-    window.history.state,
-    '',
-    withViewParam(window.location.href, null),
-  );
-}
-
-export function restoreLinkView(
-  search: string,
-  modelIds: readonly string[],
-  layout: LayoutApi | null,
-): LinkRestoreReport | null {
-  const raw = linkViewFromUrl(search);
-  if (!raw || applied.has(raw)) return null;
-  const link = parseView(raw, modelIds);
-  if (!link) return null;
-  applied.add(raw);
-  return { ...applyViewLink(link, layout), link };
 }

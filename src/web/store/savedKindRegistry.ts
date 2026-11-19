@@ -9,21 +9,18 @@ export interface SavedKindSpec<T extends SavedData = SavedData> {
   version: number;
   label: string;
   sanitize: (data: unknown) => T | null;
-  migrate?: (data: unknown, fromVersion: number) => unknown;
 }
 
-export interface SavedKindEntry {
+interface SavedKindEntry {
   kind: string;
   version: number;
   label: string;
   sanitize: (data: unknown) => unknown;
-  migrate?: (data: unknown, fromVersion: number) => unknown;
 }
 
-export interface PreparedSavedData {
+interface PreparedSavedData {
   data: SavedData;
   version: number;
-  migrated: boolean;
 }
 
 const registry = new Map<string, SavedKindEntry>();
@@ -48,7 +45,6 @@ export function registerSavedKind<T extends SavedData>(
     version: spec.version,
     label: spec.label,
     sanitize: spec.sanitize,
-    ...(spec.migrate ? { migrate: spec.migrate } : {}),
   });
   return spec;
 }
@@ -57,16 +53,8 @@ export function getSavedKind(kind: string): SavedKindEntry | undefined {
   return registry.get(kind);
 }
 
-export function hasSavedKind(kind: string): boolean {
-  return registry.has(kind);
-}
-
 export function unregisterSavedKind(kind: string): void {
   registry.delete(kind);
-}
-
-export function resetSavedKinds(): void {
-  registry.clear();
 }
 
 export function savedKindVersions(): Record<string, number> {
@@ -85,30 +73,20 @@ export function prepareSavedData(
 ): PreparedSavedData | null {
   const spec = registry.get(kind);
   if (!spec) {
-    return isRecord(data) ? { data, version, migrated: false } : null;
+    return isRecord(data) ? { data, version } : null;
   }
   const from =
     Number.isInteger(version) && version > 0
       ? Math.min(version, spec.version)
       : 1;
   if (version > spec.version) return null;
-  let value = data;
-  let migrated = false;
-  if (from < spec.version) {
-    if (!spec.migrate) return null;
-    try {
-      value = spec.migrate(value, from);
-      migrated = true;
-    } catch {
-      return null;
-    }
-  }
+  if (from < spec.version) return null;
   let clean: unknown;
   try {
-    clean = spec.sanitize(value);
+    clean = spec.sanitize(data);
   } catch {
     return null;
   }
   if (!isRecord(clean)) return null;
-  return { data: clean, version: spec.version, migrated };
+  return { data: clean, version: spec.version };
 }

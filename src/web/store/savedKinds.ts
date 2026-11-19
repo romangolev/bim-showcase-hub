@@ -28,7 +28,7 @@ export interface SavedKindItem<T extends SavedData> {
   data: T;
 }
 
-export interface SavedKindHandle<T extends SavedData> {
+interface SavedKindHandle<T extends SavedData> {
   readonly kind: string;
   readonly version: number;
   readonly label: string;

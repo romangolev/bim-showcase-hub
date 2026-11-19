@@ -15,7 +15,7 @@ import {
   treeRootOf,
 } from './docRoot.js';
 
-export interface HubProjectSwitcherProps {
+interface HubProjectSwitcherProps {
   onChange: (root: TreeRoot) => void;
 }
 

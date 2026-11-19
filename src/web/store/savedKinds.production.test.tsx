@@ -1,6 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { isRecord } from '../../shared/guards.js';
 import {
   DASHBOARD_USER_PRESETS,
   DEFAULT_DASHBOARD_VIEW,
@@ -9,7 +8,6 @@ import {
 import { DashboardUserPresets } from '../panels/DashboardUserPresets.js';
 import { SelectionSets } from '../panels/SelectionSets.js';
 import { ViewpointsBody } from '../panels/Viewpoints.js';
-import { SavedItemsSettings } from '../settings/SavedItemsSettings.js';
 import { getStorageAdapter } from '../storage.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { DEFAULT_EXCEL_TOOL_SETTINGS } from '../tools/excel/excelSettings.js';
@@ -24,7 +22,6 @@ import {
 import type { ViewerState } from '../viewer/ViewerAdapter.js';
 import { listViewpoints, VIEWPOINTS } from '../viewer/viewpoints.js';
 import { getSavedKind, savedKindVersions } from './savedKindRegistry.js';
-import { defineSavedKind } from './savedKinds.js';
 import {
   importSaved,
   readSaved,
@@ -142,7 +139,7 @@ describe('production saved kinds', () => {
       importSaved(
         JSON.stringify({ format: 'bsh-saved', version: 2, items: [newer] }),
       ),
-    ).toMatchObject({ accepted: 0, rejected: 1, migrated: 0 });
+    ).toMatchObject({ accepted: 0, rejected: 1 });
     expect(VIEWPOINTS.list()).toEqual([]);
   });
 
@@ -214,7 +211,7 @@ describe('production saved kinds', () => {
         ],
       }),
     );
-    expect(result).toMatchObject({ accepted: 2, rejected: 0, migrated: 0 });
+    expect(result).toMatchObject({ accepted: 2, rejected: 0 });
     expect(listViewpoints()[0]?.name).toBe('Imported view');
     expect(listSets()[0]?.items).toEqual([{ modelId: 'a', dbId: 3 }]);
     expect(readSaved().every((item) => item.version === 1)).toBe(true);
@@ -301,57 +298,5 @@ describe('production saved kind consumers', () => {
         'Second',
       ]),
     );
-  });
-
-  it('reports migrated items after an import', async () => {
-    defineSavedKind({
-      kind: 'summary-preset',
-      version: 2,
-      label: 'Summary preset',
-      sanitize: (raw) =>
-        isRecord(raw) && Array.isArray(raw.columns)
-          ? { columns: raw.columns as unknown[] }
-          : null,
-      migrate: (raw) => {
-        const source = isRecord(raw) ? raw : {};
-        const columns = Array.isArray(source.columns) ? source.columns : [];
-        return { columns: [...columns, 'Level'] };
-      },
-    });
-    render(<SavedItemsSettings />);
-    fireEvent.change(screen.getByLabelText('Saved items file'), {
-      target: {
-        files: [
-          new File(
-            [
-              JSON.stringify({
-                format: 'bsh-saved',
-                version: 2,
-                items: [
-                  {
-                    id: 'p',
-                    kind: 'summary-preset',
-                    name: 'Old',
-                    version: 1,
-                    updatedAt: 1,
-                    data: { columns: ['Category'] },
-                  },
-                ],
-              }),
-            ],
-            'saved.json',
-            { type: 'application/json' },
-          ),
-        ],
-      },
-    });
-    await waitFor(() =>
-      expect(screen.getByRole('status').textContent).toBe(
-        'Imported 1 item, upgraded 1 item.',
-      ),
-    );
-    expect(readSaved()[0]?.data).toEqual({
-      columns: ['Category', 'Level'],
-    });
   });
 });

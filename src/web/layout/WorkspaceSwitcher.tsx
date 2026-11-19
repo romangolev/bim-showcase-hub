@@ -1,6 +1,5 @@
 import {
   type KeyboardEvent,
-  useCallback,
   useEffect,
   useId,
   useLayoutEffect,
@@ -9,7 +8,9 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '../components/icons.js';
+import { moveFocus, onEscape, usePopover } from '../components/usePopover.js';
 import { ModalHost } from '../modal/ModalHost.js';
+import { LOCKED_REASON } from './layoutApply.js';
 import { useLayout } from './layoutContext.js';
 import {
   cleanWorkspaceName,
@@ -18,8 +19,6 @@ import {
   type WorkspaceApi,
 } from './workspaces.js';
 import './workspaces.css';
-
-const GAP = 4;
 
 interface FormProps {
   close: () => void;
@@ -182,62 +181,23 @@ export function WorkspaceSwitcher() {
   const layout = useLayout();
   const workspace = layout.workspaces;
   const [open, setOpen] = useState(false);
-  const [position, setPosition] = useState<{
-    top: number;
-    left: number;
-  } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const popoverId = useId();
   const locked = layout.locked;
 
-  const place = useCallback(() => {
-    const rect = triggerRef.current?.getBoundingClientRect();
-    const box = popoverRef.current;
-    if (!rect || !box) return;
-    const width = box.offsetWidth;
-    const height = box.offsetHeight;
-    const left = Math.max(
-      GAP,
-      Math.min(rect.right - width, window.innerWidth - width - GAP),
-    );
-    const below = rect.bottom + GAP;
-    const top =
-      below + height > window.innerHeight
-        ? Math.max(GAP, rect.top - height - GAP)
-        : below;
-    setPosition({ top, left });
-  }, []);
+  const position = usePopover({
+    open,
+    triggerRef,
+    popoverRef,
+    onDismiss: () => setOpen(false),
+  });
 
   useLayoutEffect(() => {
-    if (!open) {
-      setPosition(null);
-      return;
+    if (open) {
+      popoverRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
     }
-    place();
-    popoverRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
-  }, [open, place]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onPointer = (event: PointerEvent) => {
-      const target = event.target as Node;
-      if (
-        !popoverRef.current?.contains(target) &&
-        !triggerRef.current?.contains(target)
-      ) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener('pointerdown', onPointer);
-    window.addEventListener('resize', place);
-    document.addEventListener('scroll', place, true);
-    return () => {
-      document.removeEventListener('pointerdown', onPointer);
-      window.removeEventListener('resize', place);
-      document.removeEventListener('scroll', place, true);
-    };
-  }, [open, place]);
+  }, [open]);
 
   if (layout.mode !== 'dock') return null;
 
@@ -252,30 +212,17 @@ export function WorkspaceSwitcher() {
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      event.stopPropagation();
-      close(true);
-      return;
-    }
+    if (onEscape(event, () => close(true))) return;
     const buttons = Array.from(
       popoverRef.current?.querySelectorAll<HTMLButtonElement>(
         'button:not(:disabled)',
       ) ?? [],
     );
     if (buttons.length === 0) return;
-    const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
-    const move = (next: number) => {
-      event.preventDefault();
-      buttons[(next + buttons.length) % buttons.length]?.focus();
-    };
-    if (event.key === 'ArrowDown') move(index + 1);
-    else if (event.key === 'ArrowUp') move(index - 1);
-    else if (event.key === 'Home') move(0);
-    else if (event.key === 'End') move(buttons.length - 1);
+    moveFocus(event, buttons);
   };
 
-  const lockReason = locked ? 'Unlock the layout first' : undefined;
+  const lockReason = locked ? LOCKED_REASON : undefined;
   const dialog = workspace.dialog;
   const renaming =
     dialog?.kind === 'rename'

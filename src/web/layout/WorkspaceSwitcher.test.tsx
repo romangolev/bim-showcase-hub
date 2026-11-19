@@ -24,7 +24,6 @@ function fakeWorkspaces(over: Partial<WorkspaceApi> = {}): WorkspaceApi {
     items: [],
     active: null,
     canRevert: false,
-    locked: false,
     canPresent: true,
     dialog: null,
     openDialog: vi.fn(),

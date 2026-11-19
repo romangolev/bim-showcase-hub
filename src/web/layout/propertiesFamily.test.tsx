@@ -1,7 +1,6 @@
 import { renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { usePaneSetting } from '../settings/paneSettings.js';
-import { forgetPersonal } from '../storage.js';
+import { forgetPersonal, usePersisted } from '../storage.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import {
   forgetInstanceSetting,
@@ -54,7 +53,7 @@ describe('properties pane family', () => {
     expect(window.localStorage.getItem('bsh.pane.properties.1.v1')).toBeNull();
     seedInstanceSetting('properties:1', 'urn-a');
     const { result } = renderHook(() =>
-      usePaneSetting(propertiesSetting('properties:1')),
+      usePersisted(propertiesSetting('properties:1')),
     );
     expect(result.current[0]).toEqual({ scope: 'urn-a' });
     forgetInstanceSetting('properties:1');

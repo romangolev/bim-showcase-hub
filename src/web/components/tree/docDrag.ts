@@ -10,12 +10,12 @@ export interface DraggedModel {
   context: ModelContext;
 }
 
-export interface DragSource {
+interface DragSource {
   readonly types: readonly string[];
   getData(format: string): string;
 }
 
-export interface DropLike {
+interface DropLike {
   dataTransfer: DragSource | null;
   preventDefault(): void;
 }
