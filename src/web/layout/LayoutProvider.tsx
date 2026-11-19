@@ -55,6 +55,11 @@ import {
 import { PaneActions } from './PaneMenu.js';
 import { LayoutMenu } from './PanesMenu.js';
 import { PresentControls } from './PresentControls.js';
+import {
+  paneTags,
+  usePaneAppearances,
+  withPaneTitles,
+} from './paneAppearance.js';
 import { createPaneLifecycle, type PaneLifecycle } from './paneLifecycle.js';
 import {
   definitionOf,
@@ -242,6 +247,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
   const mode: LayoutMode = stacked ? 'stacked' : 'dock';
   const [userState, setUserState] = usePersisted(USER_INSTANCES);
   const [locked, setLockedState] = usePersisted(LOCKED);
+  const appearances = usePaneAppearances();
   const [hosts] = useState(() => createHostStore<PanelId>());
   const controller = useRef<DockController | null>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
@@ -298,9 +304,14 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
   const { layout: model, openPanes, presenting, maximized, resizing } = state;
   const activeInstance = models.active ? modelPanelId(models.active) : null;
   const titles = useMemo(
-    () => ({ ...titlesFor(models), ...userInstanceTitles(state.user) }),
-    [models, state.user],
+    () =>
+      withPaneTitles(
+        { ...titlesFor(models), ...userInstanceTitles(state.user) },
+        appearances,
+      ),
+    [models, state.user, appearances],
   );
+  const tags = useMemo(() => paneTags(appearances), [appearances]);
   titlesRef.current = titles;
 
   useLayoutEffect(() => {
@@ -519,6 +530,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
                   hosts={hosts}
                   open={companions}
                   titles={titles}
+                  tags={tags}
                   models={models}
                   onSelectModel={modelStore.activate}
                   onCloseModel={modelStore.close}
@@ -543,6 +555,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
                       treeWidth={model.treeWidth}
                       collapsed={model.collapsed}
                       titles={titles}
+                      tags={tags}
                       instances={instances}
                       activeInstance={activeInstance}
                       companions={companions}

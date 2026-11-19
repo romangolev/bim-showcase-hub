@@ -205,6 +205,8 @@ describe('pane menus', () => {
     renderModel();
     const menu = await openPaneMenu('Untitled model');
     expect(itemNames(menu)).toEqual([
+      'Rename pane…',
+      'Color tag…',
       'Move left',
       'Move right',
       'Move below',

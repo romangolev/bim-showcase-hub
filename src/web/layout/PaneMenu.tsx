@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Command, CommandHost } from '../commands/types.js';
 import { Icon } from '../components/icons.js';
 import { Menu, type MenuEntry } from '../components/Menu.js';
@@ -10,6 +10,14 @@ import {
 } from '../settings/paneSettingsSchema.js';
 import { layoutCommands, paneCommandContext } from './layoutCommandList.js';
 import { type LayoutApi, useLayout } from './layoutContext.js';
+import {
+  PANE_COLORS,
+  PANE_TITLE_MAX,
+  type PaneColor,
+  readPaneAppearances,
+  setPaneColor,
+  setPaneTitle,
+} from './paneAppearance.js';
 import {
   definitionOf,
   isPaneId,
@@ -25,11 +33,15 @@ export const RESET_LAYOUT_DESCRIPTION =
 
 export interface PaneMenuHost extends CommandHost {
   openPaneSettings: (schema: PaneSettingsSchema) => void;
+  renamePane?: () => void;
+  tagPane?: () => void;
 }
 
 const NO_MODALS: PaneMenuHost = {
   openModal: () => undefined,
   openPaneSettings: () => undefined,
+  renamePane: () => undefined,
+  tagPane: () => undefined,
 };
 function togglePaneOf(command: Command): PaneId | null {
   return command.menu === 'toggle' && isPaneId(command.pane)
@@ -117,6 +129,19 @@ export function paneMenuEntries(
   const entries: MenuEntry[] = [
     ...(schema ? [settingsEntry(schema, host)] : []),
     {
+      id: 'rename',
+      label: 'Rename pane…',
+      description: 'Set a title for this pane. It survives closing and reload.',
+      onSelect: () => host.renamePane?.(),
+    },
+    {
+      id: 'tag',
+      label: 'Color tag…',
+      description: 'Show a colored dot on this pane’s tab.',
+      onSelect: () => host.tagPane?.(),
+    },
+    { kind: 'separator', id: 'sep.appearance' },
+    {
       id: 'left',
       label: 'Move left',
       onSelect: () => layout.movePane(pane, 'left'),
@@ -182,10 +207,124 @@ export function paneMenuEntries(
   return entries;
 }
 
+function RenamePaneDialog({
+  pane,
+  close,
+}: {
+  pane: PanelId;
+  close: () => void;
+}) {
+  const [value, setValue] = useState(
+    () => readPaneAppearances()[pane]?.title ?? '',
+  );
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+  const fallback = definitionOf(pane).title;
+  return (
+    <form
+      className="pane-appearance"
+      onSubmit={(event) => {
+        event.preventDefault();
+        setPaneTitle(pane, value);
+        close();
+      }}
+    >
+      <label className="settings__field">
+        Title
+        <input
+          ref={inputRef}
+          type="text"
+          aria-label="Pane title"
+          maxLength={PANE_TITLE_MAX}
+          placeholder={fallback}
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+        />
+      </label>
+      <p className="settings__hint">
+        Leave empty to use {fallback}. The title survives closing and reload.
+      </p>
+      <div className="settings__actions">
+        <button className="btn btn-primary" type="submit">
+          Save title
+        </button>
+        <button
+          className="btn"
+          type="button"
+          onClick={() => {
+            setPaneTitle(pane, null);
+            close();
+          }}
+        >
+          Reset title
+        </button>
+        <button className="btn" type="button" onClick={close}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function ColorPaneDialog({
+  pane,
+  close,
+}: {
+  pane: PanelId;
+  close: () => void;
+}) {
+  const [color, setColor] = useState<PaneColor | null>(
+    () => readPaneAppearances()[pane]?.color ?? null,
+  );
+  return (
+    <div className="pane-appearance">
+      <fieldset className="pane-appearance__colors" aria-label="Color tag">
+        <legend className="visually-hidden">Color tag</legend>
+        {PANE_COLORS.map((entry) => (
+          <button
+            key={entry.id}
+            type="button"
+            className="pane-appearance__color"
+            data-color={entry.id}
+            aria-label={entry.label}
+            aria-pressed={color === entry.id}
+            title={entry.label}
+            onClick={() => {
+              setPaneColor(pane, entry.id);
+              setColor(entry.id);
+              close();
+            }}
+          >
+            <span className="pane-appearance__swatch" data-color={entry.id} />
+          </button>
+        ))}
+      </fieldset>
+      <div className="settings__actions">
+        <button
+          className="btn"
+          type="button"
+          onClick={() => {
+            setPaneColor(pane, null);
+            close();
+          }}
+        >
+          Remove tag
+        </button>
+        <button className="btn" type="button" onClick={close}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function PaneMenu({ pane }: { pane: PanelId }) {
   const layout = useLayout();
   const modal = useModal();
   const [inline, setInline] = useState<PaneSettingsSchema | null>(null);
+  const [appearance, setAppearance] = useState<'rename' | 'color' | null>(null);
   const inlineBody = useMemo(() => {
     const Body = inline?.Body;
     return Body ? () => <Body /> : null;
@@ -201,6 +340,8 @@ export function PaneMenu({ pane }: { pane: PanelId }) {
           paneMenuEntries(layout, pane, {
             openModal: modal.open,
             openPaneSettings: setInline,
+            renamePane: () => setAppearance('rename'),
+            tagPane: () => setAppearance('color'),
           })
         }
       />
@@ -213,6 +354,28 @@ export function PaneMenu({ pane }: { pane: PanelId }) {
             Body: inlineBody,
           }}
           onClose={() => setInline(null)}
+        />
+      ) : null}
+      {appearance === 'rename' ? (
+        <ModalHost
+          definition={{
+            id: 'pane-rename',
+            title: 'Rename pane',
+            size: 'sm',
+            Body: ({ close }) => <RenamePaneDialog pane={pane} close={close} />,
+          }}
+          onClose={() => setAppearance(null)}
+        />
+      ) : null}
+      {appearance === 'color' ? (
+        <ModalHost
+          definition={{
+            id: 'pane-color',
+            title: 'Color tag',
+            size: 'sm',
+            Body: ({ close }) => <ColorPaneDialog pane={pane} close={close} />,
+          }}
+          onClose={() => setAppearance(null)}
         />
       ) : null}
     </>

@@ -48,6 +48,7 @@ import {
 import type {
   DockController,
   MoveTarget,
+  PaneTags,
   PaneTitles,
 } from './layoutContext.js';
 import {
@@ -87,6 +88,7 @@ interface SlotContextValue {
   onToggleMaximize: (id: PanelId) => void;
   locked: boolean;
   titles: PaneTitles;
+  tags: PaneTags;
   headerActions?: (props: {
     pane: PanelId;
     group: DockviewGroupPanel;
@@ -131,6 +133,7 @@ function PaneTab(props: IDockviewPanelHeaderProps) {
       {...props}
       hideClose={!isPanelClosable(id) || slot?.locked}
       title={slot?.titles[id]?.tooltip}
+      data-tag={slot?.tags[id]}
       onDoubleClick={() => slot?.onToggleMaximize(id)}
       closeActionOverride={close}
     />
@@ -152,6 +155,7 @@ export interface DockLayoutProps {
   treeWidth: number;
   collapsed: readonly PaneId[];
   titles: PaneTitles;
+  tags: PaneTags;
   instances: readonly PanelId[];
   activeInstance: PanelId | null;
   companions: readonly PaneId[];
@@ -547,6 +551,7 @@ export function DockLayout(props: DockLayoutProps) {
     onToggleMaximize,
     locked,
     titles,
+    tags,
     headerActions,
   } = props;
   const slotValue = useMemo(
@@ -559,6 +564,7 @@ export function DockLayout(props: DockLayoutProps) {
       onToggleMaximize,
       locked,
       titles,
+      tags,
       headerActions,
     }),
     [
@@ -570,6 +576,7 @@ export function DockLayout(props: DockLayoutProps) {
       onToggleMaximize,
       locked,
       titles,
+      tags,
       headerActions,
     ],
   );

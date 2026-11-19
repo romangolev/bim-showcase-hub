@@ -104,6 +104,41 @@
   box-shadow: inset 0 -1px 0 var(--color-signal-blue);
 }
 
+.bsh-dock .dv-default-tab[data-tag] .dv-default-tab-content::before {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: var(--space-2);
+  border-radius: var(--radius-badge);
+  background: var(--pane-tag-color);
+  content: "";
+  vertical-align: middle;
+}
+
+.bsh-dock .dv-default-tab[data-tag="red"] {
+  --pane-tag-color: #e5534b;
+}
+
+.bsh-dock .dv-default-tab[data-tag="orange"] {
+  --pane-tag-color: #e08a3c;
+}
+
+.bsh-dock .dv-default-tab[data-tag="yellow"] {
+  --pane-tag-color: #d6b64a;
+}
+
+.bsh-dock .dv-default-tab[data-tag="green"] {
+  --pane-tag-color: #4caf7d;
+}
+
+.bsh-dock .dv-default-tab[data-tag="blue"] {
+  --pane-tag-color: #4a8fd6;
+}
+
+.bsh-dock .dv-default-tab[data-tag="purple"] {
+  --pane-tag-color: #9a72d6;
+}
+
 .bsh-dock .dv-groupview.dv-active-group:not([data-collapsed])::after {
   position: absolute;
   inset: 0;

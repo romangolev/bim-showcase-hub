@@ -68,3 +68,4 @@ export interface PaneTitle {
 }
 
 export type PaneTitles = Readonly<Record<PanelId, PaneTitle>>;
+export type PaneTags = Readonly<Record<PanelId, string>>;
