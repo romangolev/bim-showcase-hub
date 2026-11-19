@@ -1,8 +1,9 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PropertyRow } from '../../../shared/types.js';
 import {
   DEFAULT_EXPORT_PROPERTIES,
+  describeStatus,
   exportToXlsx,
 } from '../../extensions/excelExport.js';
 import { DEFAULT_NAME_PATTERN } from '../../extensions/exportFormats.js';
@@ -144,7 +145,7 @@ describe('the export preset saved kind', () => {
     });
   });
 
-  it('exports a preset column the model lacks as a blank cell', async () => {
+  it('exports a preset column the model lacks as a blank cell and warns', async () => {
     const preset = presetFromSettings({
       ...DEFAULT_EXCEL_TOOL_SETTINGS,
       properties: ['Name', 'Ghost'],
@@ -159,7 +160,12 @@ describe('the export preset saved kind', () => {
         saved.push(blob);
       },
     });
-    expect(status).toMatchObject({ phase: 'done', rowCount: 1 });
+    expect(status).toMatchObject({
+      phase: 'done',
+      rowCount: 1,
+      missingColumns: ['Ghost'],
+    });
+    expect(describeStatus(status)).toContain('No values for Ghost');
     const text = await (saved[0] as Blob).text();
     expect(text).toContain('dbId,Name,Ghost');
     expect(text).toContain('1,Wall,');
@@ -191,6 +197,21 @@ describe('presets in the Excel settings', () => {
 
     fireEvent.click(screen.getByLabelText('Delete Weekly'));
     expect(EXPORT_PRESETS.list()).toEqual([]);
+  });
+
+  it('reports a save that the browser refuses', () => {
+    vi.spyOn(window.localStorage, 'setItem').mockImplementation(() => {
+      throw new Error('Quota exceeded');
+    });
+    render(new ExcelExportTool().renderSettings());
+    fireEvent.change(screen.getByLabelText('Export preset name'), {
+      target: { value: 'Weekly' },
+    });
+    fireEvent.click(screen.getByText('Save current setup'));
+    expect(EXPORT_PRESETS.list()).toEqual([]);
+    expect(screen.getByRole('alert').textContent).toMatch(
+      /Could not save the preset/,
+    );
   });
 
   it('lists a saved preset again after the window is reopened', () => {

@@ -60,6 +60,7 @@ export type ExportStatus =
       fileName: string;
       rowCount: number;
       missing?: string[];
+      missingColumns?: string[];
       scopeNote?: string;
     }
   | { phase: 'empty' }
@@ -136,9 +137,26 @@ export function buildExportSheets(
 }
 
 const PLAIN_DECIMAL = /^-?(0|[1-9]\d*)(\.\d+)?$/;
+const IDENTIFIER_COLUMN = /(?:^|[\s_-])id$/i;
 
 export const TOTAL_ROW_PREFIX = 'Total';
 export const TOTAL_ROW_SKIP_COLUMN = 0;
+
+function isIdentifierColumn(header: string): boolean {
+  return IDENTIFIER_COLUMN.test(header.trim());
+}
+
+function blankColumns(
+  rows: readonly PropertyRow[],
+  propertyNames: readonly string[],
+): string[] {
+  return propertyNames.filter((name) =>
+    rows.every((row) => {
+      const value = row.properties[name];
+      return value === null || value === undefined || value === '';
+    }),
+  );
+}
 
 function numericCell(value: ExportCell): number | null {
   if (typeof value === 'number') {
@@ -166,13 +184,19 @@ export function totalsRow(
       .map((row) => row[column] ?? '')
       .filter((value) => value !== '');
     const numbers = values.map(numericCell);
-    if (skip.has(column) || values.length === 0) {
+    if (
+      skip.has(column) ||
+      isIdentifierColumn(header[column] ?? '') ||
+      values.length === 0
+    ) {
       cells.push('');
     } else if (numbers.every((value): value is number => value !== null)) {
       const sum = numbers.reduce((total, value) => total + value, 0);
       cells.push(Number(sum.toFixed(6)));
     } else {
-      cells.push(values.length);
+      cells.push(
+        `${values.length} ${values.length === 1 ? 'value' : 'values'}`,
+      );
     }
   }
   return cells;
@@ -187,10 +211,15 @@ export interface XlsxCellStyle {
 
 export type XlsxCell = ExportCell | XlsxCellStyle;
 
-export function xlsxCell(value: ExportCell, bold = false): XlsxCell {
-  const number = numericCell(value);
+export function xlsxCell(
+  value: ExportCell,
+  bold = false,
+  textOnly = false,
+): XlsxCell {
+  const number = textOnly ? null : numericCell(value);
   if (number === null) {
-    return bold ? { value, fontWeight: 'bold' } : value;
+    const text = textOnly && typeof value === 'number' ? String(value) : value;
+    return bold ? { value: text, fontWeight: 'bold' } : text;
   }
   return {
     value: number,
@@ -208,11 +237,20 @@ export interface XlsxSheet {
 
 export function xlsxSheet(sheet: ExportSheet): XlsxSheet {
   const totals = totalsRow(sheet.header, sheet.rows);
+  const textColumns = new Set(
+    sheet.header.flatMap((name, index) =>
+      isIdentifierColumn(name) ? [index] : [],
+    ),
+  );
   return {
     sheet: sheet.name,
     data: [
       sheet.header.map((value) => xlsxCell(value, true)),
-      ...sheet.rows.map((row) => row.map((value) => xlsxCell(value))),
+      ...sheet.rows.map((row) =>
+        row.map((value, column) =>
+          xlsxCell(value, false, textColumns.has(column)),
+        ),
+      ),
       ...(totals ? [totals.map((value) => xlsxCell(value, true))] : []),
     ],
     stickyRowsCount: 1,
@@ -322,6 +360,7 @@ export async function exportToXlsx(
     }
     throwIfAborted(signal);
     emit({ phase: 'building' });
+    const missingColumns = blankColumns(rows, propertyNames);
     let rowCount = rows.length;
     const about = (): AboutInfo => ({
       models: shownModels(adapter),
@@ -436,6 +475,7 @@ export async function exportToXlsx(
       fileName: delivered,
       rowCount,
       ...(missing.length > 0 ? { missing } : {}),
+      ...(missingColumns.length > 0 ? { missingColumns } : {}),
       ...(scopeNote ? { scopeNote } : {}),
     });
   } catch (err) {
@@ -460,6 +500,9 @@ export function describeStatus(status: ExportStatus): string {
       const notes = [
         status.missing?.length
           ? `Missing ${status.missing.join(', ')}: properties could not be read`
+          : '',
+        status.missingColumns?.length
+          ? `No values for ${status.missingColumns.join(', ')}: the columns are blank`
           : '',
         status.scopeNote ?? '',
       ].filter(Boolean);

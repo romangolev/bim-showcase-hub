@@ -22,7 +22,7 @@ Read rows with `useScopedRows` in panels and `readScopedRows` (`viewer/scopedRow
 | Paint | `paintBrushes.ts`, `tools/paint/` | Up to 8 swatches and an intensity. Paints per `(modelId, dbId)` |
 | Model summary | `modelSummary.ts`, `panels/ModelSummaryPanel.tsx` | Counts values per property. Row click selects, isolates, hides or zooms |
 | Dashboard | `dashboardData.ts`, `panels/DashboardPanel.tsx` | Chart.js bar and doughnut charts, presets, PNG, CSV and copy. Each view (the main Dashboard and every chart instance) carries its own property list |
-| Excel export | `excelExport.ts`, `exportFormats.ts` | XLSX, CSV, JSON or copy. Cells starting with `=`, `+`, `-` or `@` are guarded in CSV and copied text |
+| Excel export | `excelExport.ts`, `exportFormats.ts` | XLSX, CSV, JSON or copy. Cells starting with `=`, `+`, `-` or `@` are guarded in CSV and copied text. XLSX writes numeric values as numbers with a number format, freezes the bold header, and ends each sheet with a bold totals row: sums for number columns and labelled counts for text columns. Columns named like `Type Id` or `Workset ID` stay text and are left out of the totals. CSV, JSON and copy keep plain values and have no totals row |
 | GLB export | `glbExport.ts`, `viewer/viewerGeometry.ts` | Binary glTF 2.0 from `adapter.getGeometryParts()`. Capped at 256 MB |
 | IFC export | `ifcExport.ts`, `ifc/` | IFC4 STEP file from `adapter.getIfcSource()`. A mesh-based coordination view, not a Revit IFC export |
 | Properties | `panels/PropertiesPanel.tsx` | Read-only property list of the selected elements |
@@ -102,7 +102,7 @@ All browser storage goes through `src/web/storage.ts`. Do not call `localStorage
 - Settings has Export and Import for a `bsh-saved.json` file (imports are capped at 1 MB). Import merges by id and the newer `updatedAt` wins. An id that already exists under another kind is never merged: `upsertSaved` fails and Import counts it as rejected.
 - The store budget is `MAX_TOTAL_BYTES` (4 MB) across at most `MAX_ITEMS` (500) items and `MAX_ITEM_BYTES` (100 KB) per item. Settings shows the used bytes against the budget, and a save or import that would exceed it fails with a message instead of a silent no-op.
 - A store written by a newer build (a higher `SAVED_VERSION`) is read-only: reading works, and `upsertSaved`, `renameSaved`, `removeSaved`, `moveSaved` and `importSaved` fail without writing.
-- Production kinds, each registered once at version 1 with a typed handle: `viewpoint` (`viewer/viewpoints.ts`, `VIEWPOINTS`), `selection-set` (`viewer/selectionSets.ts`, `SELECTION_SETS`) and `dashboard-preset` (`panels/DashboardUserPresets.tsx`, `DASHBOARD_USER_PRESETS`). A kind that is not registered still round-trips through storage and export, but its data is neither sanitized nor migrated.
+- Production kinds, each registered once at version 1 with a typed handle: `viewpoint` (`viewer/viewpoints.ts`, `VIEWPOINTS`), `selection-set` (`viewer/selectionSets.ts`, `SELECTION_SETS`), `dashboard-preset` (`panels/DashboardUserPresets.tsx`, `DASHBOARD_USER_PRESETS`) and `export-preset` (`tools/excel/exportPresets.ts`, `EXPORT_PRESETS`). A kind that is not registered still round-trips through storage and export, but its data is neither sanitized nor migrated.
 
 ## Notifications
 

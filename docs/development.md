@@ -79,7 +79,7 @@ All browser storage goes through `src/web/storage.ts`. `BSH_KEYS` is the full li
 | `bsh.summary.*`, `bsh.dashboard.*` | personal | View, properties, scope and click action of the main panes. The dashboard view includes its property list |
 | `bsh.pane.dashboard.properties.v1` | personal | Legacy Dashboard chart columns. Read as the fallback for views saved before each view carried its own list, and written into them once by `migrateDashboardProperties` |
 | `bsh.pane.<kind>.<n>.v1` | personal | Spec of a chart, summary or properties pane instance. A chart spec includes its property list |
-| `bsh.saved.v1` | personal | Saved items: dashboard presets, selection sets, viewpoints |
+| `bsh.saved.v1` | personal | Saved items: dashboard presets, export presets, selection sets, viewpoints |
 | `bsh.commands.recent.v1` | personal | Recent palette commands |
 | `bsh.hint.hubs.dismissed.v1` | personal | No-hubs notice dismissed |
 | `bsh-theme` | preference | Legacy `dark` or `light`. Copied into `bsh-settings-v1` on first load and removed; the theme now lives in app settings |

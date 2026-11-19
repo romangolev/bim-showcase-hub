@@ -51,16 +51,24 @@ export function runOnce(
 }
 
 function isIncomplete(status: object): boolean {
-  const { missing, skipped, levelsUnavailable, generatedIds, scopeNote } =
-    status as {
-      missing?: readonly unknown[];
-      scopeNote?: string;
-      skipped?: number;
-      levelsUnavailable?: number;
-      generatedIds?: number;
-    };
+  const {
+    missing,
+    missingColumns,
+    skipped,
+    levelsUnavailable,
+    generatedIds,
+    scopeNote,
+  } = status as {
+    missing?: readonly unknown[];
+    missingColumns?: readonly unknown[];
+    scopeNote?: string;
+    skipped?: number;
+    levelsUnavailable?: number;
+    generatedIds?: number;
+  };
   return Boolean(
     missing?.length ||
+      missingColumns?.length ||
       skipped ||
       levelsUnavailable ||
       generatedIds ||

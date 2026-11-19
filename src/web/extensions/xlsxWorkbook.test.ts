@@ -50,7 +50,12 @@ describe('totalsRow', () => {
   ];
 
   it('sums numeric columns and counts text columns', () => {
-    expect(totalsRow(header, rows)).toEqual(['Total (3)', 3, 20, 3]);
+    expect(totalsRow(header, rows)).toEqual([
+      'Total (3)',
+      '3 values',
+      20,
+      '3 values',
+    ]);
   });
 
   it('labels the row and leaves the id column blank', () => {
@@ -73,8 +78,20 @@ describe('totalsRow', () => {
   it('keeps codes with leading zeros as text and counts them', () => {
     expect(totalsRow(['dbId', 'Code'], [[1, '0012']])).toEqual([
       'Total (1)',
-      1,
+      '1 value',
     ]);
+  });
+
+  it('leaves identifier columns blank instead of summing them', () => {
+    expect(
+      totalsRow(
+        ['dbId', 'Type Id', 'Workset ID', 'Area'],
+        [
+          [1, '123456', '7', '10'],
+          [2, '123457', '8', '20'],
+        ],
+      ),
+    ).toEqual(['Total (2)', '', '', 30]);
   });
 });
 
@@ -106,6 +123,11 @@ describe('xlsxCell', () => {
     });
     expect(xlsxCell(3, true)).toMatchObject({ value: 3, fontWeight: 'bold' });
   });
+
+  it('writes an identifier cell as text', () => {
+    expect(xlsxCell('123456', false, true)).toBe('123456');
+    expect(xlsxCell(123456, false, true)).toBe('123456');
+  });
 });
 
 describe('xlsxSheet', () => {
@@ -126,6 +148,22 @@ describe('xlsxSheet', () => {
     });
     expect(built.data.at(-1)?.[0]).toEqual({
       value: 'Total (1)',
+      fontWeight: 'bold',
+    });
+  });
+
+  it('keeps an identifier column as text in the sheet', () => {
+    const [sheet] = buildExportSheets(
+      [row(1, { 'Type Id': '11001', Area: '10' })],
+      ['Type Id', 'Area'],
+      null,
+    );
+    if (!sheet) throw new Error('no sheet');
+    const built = xlsxSheet(sheet);
+    expect(built.data[1]?.[1]).toBe('11001');
+    expect(built.data[1]?.[2]).toMatchObject({ value: 10, type: Number });
+    expect(built.data.at(-1)?.[1]).toEqual({
+      value: '',
       fontWeight: 'bold',
     });
   });
@@ -150,9 +188,64 @@ describe('exportToXlsx and the totals row', () => {
     const sheets = written.at(-1) as Array<{ data: unknown[][] }>;
     expect(sheets[0]?.data.at(-1)).toEqual([
       { value: 'Total (2)', fontWeight: 'bold' },
-      { value: 2, type: Number, format: '#,##0', fontWeight: 'bold' },
+      { value: '2 values', fontWeight: 'bold' },
       { value: 30.5, type: Number, format: '#,##0.00', fontWeight: 'bold' },
-      { value: 2, type: Number, format: '#,##0', fontWeight: 'bold' },
+      { value: '2 values', fontWeight: 'bold' },
+    ]);
+  });
+
+  it('writes a totals row on every grouped sheet', async () => {
+    const status = await exportToXlsx(
+      adapterOf([
+        row(1, { Category: 'Walls', Name: 'Wall', Area: '10' }),
+        row(2, { Category: 'Walls', Name: 'Door', Area: '15' }),
+        row(3, { Category: 'Floors', Name: 'Slab', Area: '5' }),
+      ]),
+      {
+        propertyNames: ['Category', 'Name', 'Area'],
+        groupBy: 'Category',
+        format: 'xlsx',
+        fileName: 'a.xlsx',
+        save: () => undefined,
+      },
+    );
+    expect(status).toMatchObject({ phase: 'done', rowCount: 3 });
+    const sheets = written.at(-1) as Array<{
+      sheet: string;
+      data: unknown[][];
+    }>;
+    expect(sheets.map((sheet) => sheet.sheet)).toEqual(['Walls', 'Floors']);
+    expect(sheets[0]?.data.at(-1)?.[0]).toEqual({
+      value: 'Total (2)',
+      fontWeight: 'bold',
+    });
+    expect(sheets[0]?.data.at(-1)?.[3]).toMatchObject({ value: 25 });
+    expect(sheets[1]?.data.at(-1)?.[0]).toEqual({
+      value: 'Total (1)',
+      fontWeight: 'bold',
+    });
+  });
+
+  it('keeps an identifier column as text and out of the totals', async () => {
+    await exportToXlsx(
+      adapterOf([
+        row(1, { Name: 'Wall', 'Type Id': '11001' }),
+        row(2, { Name: 'Door', 'Type Id': '11002' }),
+      ]),
+      {
+        propertyNames: ['Name', 'Type Id'],
+        groupBy: null,
+        format: 'xlsx',
+        fileName: 'a.xlsx',
+        save: () => undefined,
+      },
+    );
+    const sheets = written.at(-1) as Array<{ data: unknown[][] }>;
+    expect(sheets[0]?.data[1]?.[2]).toBe('11001');
+    expect(sheets[0]?.data.at(-1)).toEqual([
+      { value: 'Total (2)', fontWeight: 'bold' },
+      { value: '2 values', fontWeight: 'bold' },
+      { value: '', fontWeight: 'bold' },
     ]);
   });
 
