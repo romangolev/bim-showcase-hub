@@ -24,6 +24,7 @@ import {
   LINK_RESTORED_TEXT,
   LINK_TRIMMED_TEXT,
   linkViewerState,
+  linkViewFromUrl,
   restoreLinkView,
   sharedView,
 } from './shareLink.js';
@@ -252,8 +253,8 @@ export function ShareMenu({
       modelIds,
       layout ?? null,
     );
+    if (linkViewFromUrl(window.location.search)) clearLinkView();
     if (!restored) return;
-    clearLinkView();
     pendingState.current = linkViewerState(restored.link, modelIds);
     if (restored.panes || restored.charts > 0) {
       onResult(LINK_RESTORED_TEXT, false);

@@ -542,6 +542,22 @@ describe('Share menu links', () => {
     expect(new URLSearchParams(window.location.search).has('view')).toBe(false);
   });
 
+  it('removes a malformed link from the address', async () => {
+    window.history.replaceState({}, '', '/model/urn-a?view=garbage');
+    const onResult = vi.fn();
+    render(
+      <ShareMenu
+        adapter={linkAdapter()}
+        modelIds={['urn-a']}
+        combined={false}
+        onResult={onResult}
+      />,
+    );
+    expect(await screen.findByRole('button', { name: 'Share' })).toBeTruthy();
+    expect(new URLSearchParams(window.location.search).has('view')).toBe(false);
+    expect(onResult).not.toHaveBeenCalled();
+  });
+
   it('restores a crafted link without touching the pane it names', async () => {
     window.history.replaceState(
       {},
