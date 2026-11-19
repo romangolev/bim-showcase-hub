@@ -1,5 +1,6 @@
 import { flag } from '../../shared/guards.js';
 import type { PropertyRow } from '../../shared/types.js';
+import { defineSavedKind } from '../store/savedKinds.js';
 import {
   type ElementScope,
   sanitizeElementScope,
@@ -113,4 +114,21 @@ export function sanitizeDashboardView(raw: unknown): DashboardView {
       ? { elements: sanitizeElementScope(source.elements) }
       : {}),
   };
+}
+
+export const DASHBOARD_PRESET_KIND = 'dashboard-preset';
+
+export type DashboardPresetData = {
+  [K in keyof DashboardView]: DashboardView[K];
+};
+
+export const DASHBOARD_USER_PRESETS = defineSavedKind<DashboardPresetData>({
+  kind: DASHBOARD_PRESET_KIND,
+  version: 1,
+  label: 'Dashboard preset',
+  sanitize: (raw) => sanitizeDashboardView(raw),
+});
+
+export function saveDashboardPreset(name: string, view: DashboardView) {
+  return DASHBOARD_USER_PRESETS.save(name, view) !== null;
 }

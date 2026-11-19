@@ -5,7 +5,7 @@ import { installMemoryStorage } from '../test/mockApi.js';
 import { saveSelectionSet } from '../viewer/selectionSets.js';
 import { DashboardGallery } from './DashboardGallery.js';
 import { DashboardSettingsBody } from './DashboardSettings.js';
-import { saveDashboardPreset } from './DashboardUserPresets.js';
+import { saveDashboardPreset } from '../extensions/dashboardPresets.js';
 import { SelectionSets } from './SelectionSets.js';
 
 beforeEach(() => {

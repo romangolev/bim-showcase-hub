@@ -7,12 +7,14 @@ import {
   within,
 } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_DASHBOARD_VIEW } from '../extensions/dashboardPresets.js';
+import {
+  DEFAULT_DASHBOARD_VIEW,
+  saveDashboardPreset,
+} from '../extensions/dashboardPresets.js';
 import { forgetPersonal } from '../storage.js';
 import { readSaved } from '../store/savedStore.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { DashboardGallery } from './DashboardGallery.js';
-import { saveDashboardPreset } from './DashboardUserPresets.js';
 
 describe('DashboardGallery', () => {
   beforeEach(() => {

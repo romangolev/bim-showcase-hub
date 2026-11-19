@@ -2,9 +2,11 @@ import { useState } from 'react';
 import type { PropertyRow } from '../../shared/types.js';
 import { availableProperties } from '../extensions/dashboardData.js';
 import {
+  DASHBOARD_PRESET_KIND,
   DASHBOARD_PRESETS,
   type DashboardView,
   sanitizeDashboardView,
+  saveDashboardPreset,
   viewProperties,
 } from '../extensions/dashboardPresets.js';
 import {
@@ -13,10 +15,6 @@ import {
   renameSaved,
   useSavedItems,
 } from '../store/savedStore.js';
-import {
-  DASHBOARD_PRESET_KIND,
-  saveDashboardPreset,
-} from './DashboardUserPresets.js';
 
 interface DashboardGalleryProps {
   view: DashboardView;

@@ -1,27 +1,12 @@
 import { useState } from 'react';
 import {
+  DASHBOARD_USER_PRESETS,
   type DashboardView,
   sanitizeDashboardView,
+  saveDashboardPreset,
 } from '../extensions/dashboardPresets.js';
-import { defineSavedKind, useSavedKindItems } from '../store/savedKinds.js';
+import { useSavedKindItems } from '../store/savedKinds.js';
 import { MAX_NAME_LENGTH } from '../store/savedStore.js';
-
-export const DASHBOARD_PRESET_KIND = 'dashboard-preset';
-
-export type DashboardPresetData = {
-  [K in keyof DashboardView]: DashboardView[K];
-};
-
-export const DASHBOARD_USER_PRESETS = defineSavedKind<DashboardPresetData>({
-  kind: DASHBOARD_PRESET_KIND,
-  version: 1,
-  label: 'Dashboard preset',
-  sanitize: (raw) => sanitizeDashboardView(raw),
-});
-
-export function saveDashboardPreset(name: string, view: DashboardView) {
-  return DASHBOARD_USER_PRESETS.save(name, view) !== null;
-}
 
 interface DashboardUserPresetsProps {
   view: DashboardView;

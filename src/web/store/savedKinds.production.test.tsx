@@ -1,12 +1,12 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { isRecord } from '../../shared/guards.js';
-import { DEFAULT_DASHBOARD_VIEW } from '../extensions/dashboardPresets.js';
 import {
   DASHBOARD_USER_PRESETS,
-  DashboardUserPresets,
+  DEFAULT_DASHBOARD_VIEW,
   saveDashboardPreset,
-} from '../panels/DashboardUserPresets.js';
+} from '../extensions/dashboardPresets.js';
+import { DashboardUserPresets } from '../panels/DashboardUserPresets.js';
 import { SelectionSets } from '../panels/SelectionSets.js';
 import { ViewpointsBody } from '../panels/Viewpoints.js';
 import { SavedItemsSettings } from '../settings/SavedItemsSettings.js';
