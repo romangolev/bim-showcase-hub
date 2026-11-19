@@ -286,8 +286,10 @@ export async function migrateSelectionSet(
   if (!changed) return set;
   const next: SelectionSetData =
     Object.keys(keys).length > 0 ? { models, keys } : { models };
-  const saved = SELECTION_SETS.save(item.name, next, id);
-  return saved ? toSet(saved) : set;
+  const migrated = toSet({ ...item, data: next });
+  SELECTION_SETS.save(item.name, next, id);
+  const stored = SELECTION_SETS.get(id);
+  return stored ? toSet(stored) : migrated;
 }
 
 export async function migrateSelectionSets(

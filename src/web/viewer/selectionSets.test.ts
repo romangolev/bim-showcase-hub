@@ -245,7 +245,11 @@ describe('stable selection set keys', () => {
       data: { models: { a: [1, 2] } },
     });
     const before = fakeAdapter({ a: { 'ext-1': 1, 'ext-2': 2 } });
-    await migrateSelectionSet(before, 'legacy');
+    expect(await scopeElementItems(before, 'set:legacy')).toEqual([
+      { modelId: 'a', dbId: 1 },
+      { modelId: 'a', dbId: 2 },
+    ]);
+    expect(storedData('legacy').keys?.a).toHaveLength(2);
     const after = fakeAdapter({ a: { 'ext-1': 101, 'ext-2': 102 } });
     const elements = await scopeElementItems(after, 'set:legacy');
     expect(elements).toEqual([
