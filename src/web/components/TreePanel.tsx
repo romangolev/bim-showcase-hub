@@ -1,5 +1,5 @@
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
-import { useContext } from 'react';
+import { useContext, useState } from 'react';
 import {
   MAX_COMBINED_MODELS,
   MAX_LOADED_MEMBERS,
@@ -22,6 +22,8 @@ import {
   DocumentTree,
   type PickedModel,
 } from './tree/DocumentTree.js';
+import { DEFAULT_TREE_ROOT, type TreeRoot } from './tree/docRoot.js';
+import { HubProjectSwitcher } from './tree/HubProjectSwitcher.js';
 import { RecentStrip } from './tree/RecentStrip.js';
 import type { TreeOpenMode } from './tree/treeView.js';
 
@@ -79,6 +81,7 @@ export function TreePanel({ onNavigate }: TreePanelProps) {
   const active = state.active;
   const layout = useContext(LayoutContext);
   const [view] = usePaneSetting(PANE_SETTINGS.tree.view);
+  const [root, setRoot] = useState<TreeRoot>(DEFAULT_TREE_ROOT);
 
   const openTogether = (models: PickedModel[]) => {
     const [first, ...rest] = models.slice(0, MAX_COMBINED_MODELS);
@@ -148,6 +151,9 @@ export function TreePanel({ onNavigate }: TreePanelProps) {
       <div className="tree-panel__head">
         <h2 className="tree-panel__title">Documents</h2>
       </div>
+      <div className="docs-toolbar">
+        <HubProjectSwitcher onChange={setRoot} />
+      </div>
       <RecentStrip
         selectedUrn={urn}
         onOpen={open}
@@ -155,6 +161,8 @@ export function TreePanel({ onNavigate }: TreePanelProps) {
         addTarget={addTarget}
       />
       <DocumentTree
+        key={`${root.scope.kind}:${root.node.id}`}
+        root={root}
         selectedUrn={urn}
         revealTrail={trail}
         onOpenModel={open}

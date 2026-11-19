@@ -24,19 +24,13 @@ import { fetchVersionViewState } from '../../api/client.js';
 import { friendlyError } from '../../api/friendlyError.js';
 import { childrenQueryOptions } from '../../api/hooks.js';
 import { type ModelContext, versionTag } from '../../api/modelContext.js';
-import {
-  childScope,
-  type NodeScope,
-  ROOT_ID,
-  ROOT_NODE,
-  ROOT_SCOPE,
-  scopeKey,
-} from '../../api/scope.js';
+import { childScope, type NodeScope, scopeKey } from '../../api/scope.js';
 import { PANE_SETTINGS, usePaneSetting } from '../../settings/paneSettings.js';
 import { MODEL_LIMIT_MESSAGE } from '../../viewer/modelSet.js';
 import { Icon } from '../icons.js';
 import { Menu, type MenuEntry } from '../Menu.js';
 import { StateBlock } from '../StateBlock.js';
+import { DEFAULT_TREE_ROOT, type TreeRoot } from './docRoot.js';
 import { NoHubsHint, PersonalHubNotice } from './NoHubsHint.js';
 import { usePins } from './pins.js';
 import { modelHref, modelMenuEntries, useRowMenu } from './rowMenu.js';
@@ -69,6 +63,7 @@ export interface DocumentTreeProps {
   onOpenTogether?: (models: PickedModel[]) => void;
   onOpenModal?: (urn: string, context: ModelContext) => void;
   addTarget?: AddTarget | null;
+  root?: TreeRoot;
   pollMs?: number;
 }
 
@@ -143,6 +138,34 @@ const STATUS_COPY: Record<StatusVariant, string> = {
   empty: 'Nothing here yet.',
 };
 
+interface RootCopy {
+  error: string;
+  empty: string;
+  emptyMessage: string;
+}
+
+function rootCopy(scope: NodeScope): RootCopy {
+  if (scope.kind === 'hub') {
+    return {
+      error: 'Could not load this hub',
+      empty: 'No projects here yet',
+      emptyMessage: 'Ask a hub admin to add a project, then refresh.',
+    };
+  }
+  if (scope.kind === 'project') {
+    return {
+      error: 'Could not load this project',
+      empty: 'No folders here yet',
+      emptyMessage: 'This project has no top folders to browse.',
+    };
+  }
+  return {
+    error: 'Could not load hubs',
+    empty: 'No hubs found',
+    emptyMessage: 'Add your Autodesk account to a hub, then refresh.',
+  };
+}
+
 const MIN_ROW_HEIGHT = 30;
 
 const TRAIL_SEPARATOR = '|';
@@ -172,9 +195,13 @@ export function DocumentTree({
   onOpenTogether,
   onOpenModal,
   addTarget,
+  root = DEFAULT_TREE_ROOT,
   pollMs = VERSION_POLL_MS,
 }: DocumentTreeProps) {
   const queryClient = useQueryClient();
+  const rootId = root.node.id;
+  const rootScope = root.scope;
+  const copy = rootCopy(rootScope);
   const [picked, setPicked] = useState<PickedModel[]>([]);
   const anchorRef = useRef<string | null>(null);
   const [errors, setErrors] = useState<Record<string, NodeError>>({});
@@ -195,8 +222,8 @@ export function DocumentTree({
     null,
   );
   const registry = useRef({
-    nodes: new Map<string, TreeNode>([[ROOT_ID, ROOT_NODE]]),
-    scopes: new Map<string, NodeScope>([[ROOT_ID, ROOT_SCOPE]]),
+    nodes: new Map<string, TreeNode>([[rootId, root.node]]),
+    scopes: new Map<string, NodeScope>([[rootId, rootScope]]),
     loaded: new Set<string>(),
     stale: new Set<string>(),
   }).current;
@@ -628,7 +655,7 @@ export function DocumentTree({
   };
 
   const tree = useTree<TreeNode>({
-    rootItemId: ROOT_ID,
+    rootItemId: rootId,
     getItemName: (item) => item.getItemData().name,
     isItemFolder: (item) => item.getItemData().hasChildren,
     createLoadingItemData: () => LOADING_NODE,
@@ -786,7 +813,7 @@ export function DocumentTree({
   const rows: Row[] = [];
   if (query) {
     for (const [id, node] of registry.nodes) {
-      if (id !== ROOT_ID && node.name.toLowerCase().includes(query)) {
+      if (id !== rootId && node.name.toLowerCase().includes(query)) {
         rows.push({ type: 'result', key: `result:${id}`, node });
       }
     }
@@ -796,14 +823,14 @@ export function DocumentTree({
         key: 'status:search',
         variant: 'empty',
         level: 0,
-        parentId: ROOT_ID,
+        parentId: rootId,
         title: 'Nothing found',
         message: `No matches for “${filter.trim()}” in loaded folders. Expand more folders to search deeper.`,
         clearFilter: true,
       });
     }
   } else {
-    const rootItem = tree.getItemInstance(ROOT_ID);
+    const rootItem = tree.getItemInstance(rootId);
     const items = tree.getItems();
     for (const item of items) {
       const id = item.getId();
@@ -843,35 +870,35 @@ export function DocumentTree({
       }
     }
     if (items.length === 0) {
-      if (errors[ROOT_ID]) {
+      if (errors[rootId]) {
         rows.push({
           type: 'status',
           key: 'status:root',
           variant: 'error',
           level: 0,
-          parentId: ROOT_ID,
-          title: 'Could not load hubs',
-          message: errors[ROOT_ID]?.message,
-          detail: errors[ROOT_ID]?.detail,
+          parentId: rootId,
+          title: copy.error,
+          message: errors[rootId]?.message,
+          detail: errors[rootId]?.detail,
         });
-      } else if (registry.loaded.has(ROOT_ID)) {
+      } else if (registry.loaded.has(rootId)) {
         rows.push({
           type: 'status',
           key: 'status:root',
           variant: 'empty',
           level: 0,
-          parentId: ROOT_ID,
-          title: 'No hubs found',
-          message: 'Add your Autodesk account to a hub, then refresh.',
-          noHubs: true,
+          parentId: rootId,
+          title: copy.empty,
+          message: copy.emptyMessage,
+          noHubs: rootScope.kind === 'root',
         });
-      } else if (rootItem.isLoading() || !registry.loaded.has(ROOT_ID)) {
+      } else if (rootItem.isLoading() || !registry.loaded.has(rootId)) {
         rows.push({
           type: 'status',
           key: 'status:root',
           variant: 'loading',
           level: 0,
-          parentId: ROOT_ID,
+          parentId: rootId,
         });
       }
     }
@@ -920,14 +947,14 @@ export function DocumentTree({
     registry.loaded.delete(id);
     registry.stale.delete(id);
     queryClient.removeQueries({
-      queryKey: scopeKey(registry.scopes.get(id) ?? ROOT_SCOPE),
+      queryKey: scopeKey(registry.scopes.get(id) ?? rootScope),
       exact: true,
     });
     retry(id);
   };
 
   const refreshAll = () => {
-    const ids = new Set<string>([ROOT_ID, ...Object.keys(errors)]);
+    const ids = new Set<string>([rootId, ...Object.keys(errors)]);
     for (const item of tree.getItems()) {
       if (item.isFolder() && item.isExpanded()) ids.add(item.getId());
     }
@@ -953,7 +980,7 @@ export function DocumentTree({
   const recheck = (id: string) => {
     forgetChecks(id);
     queryClient.removeQueries({
-      queryKey: scopeKey(registry.scopes.get(id) ?? ROOT_SCOPE),
+      queryKey: scopeKey(registry.scopes.get(id) ?? rootScope),
       exact: true,
     });
     void tree.getItemInstance(id).invalidateChildrenIds(true);
@@ -1180,7 +1207,7 @@ export function DocumentTree({
           <StateBlock
             variant="loading"
             compact
-            rows={row.parentId === ROOT_ID ? 4 : 2}
+            rows={row.parentId === rootId ? 4 : 2}
           />
         ) : row.noHubs ? (
           <NoHubsHint onCheckAgain={() => refresh(row.parentId)} />
@@ -1204,7 +1231,7 @@ export function DocumentTree({
 
   return (
     <div className="doc-tree" onKeyDownCapture={onTreeKeyDown}>
-      <PersonalHubNotice onCheckAgain={() => refresh(ROOT_ID)} />
+      <PersonalHubNotice onCheckAgain={() => refresh(rootId)} />
       <div className="doc-tree__search">
         <Icon name="search" size={14} />
         <input
