@@ -32,11 +32,23 @@ export function readPaintSettings(raw: unknown): PaintSettings {
   const source = isRecord(raw) ? raw : {};
   return {
     enabled: readEnabled(source),
-    paletteId: sanitizePaletteId(source.paletteId),
+    paletteId: readPaletteId(source),
     palette: sanitizePalette(source.palette),
     intensity: sanitizeIntensity(source.intensity),
     ghostRest: source.ghostRest === true,
   };
+}
+
+function readPaletteId(source: Record<string, unknown>): PaintPaletteId {
+  if (source.paletteId !== undefined) {
+    return sanitizePaletteId(source.paletteId);
+  }
+  if (!Array.isArray(source.palette)) return DEFAULT_PAINT_PALETTE_ID;
+  const palette = sanitizePalette(source.palette);
+  const unchanged =
+    palette.length === DEFAULT_PAINT_PALETTE.length &&
+    palette.every((hex, index) => hex === DEFAULT_PAINT_PALETTE[index]);
+  return unchanged ? DEFAULT_PAINT_PALETTE_ID : 'custom';
 }
 
 export const PAINT_SETTINGS = defineRecord({

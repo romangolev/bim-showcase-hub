@@ -43,7 +43,7 @@ describe('readPaintSettings', () => {
       }),
     ).toEqual({
       enabled: false,
-      paletteId: 'default',
+      paletteId: 'custom',
       palette: ['#abcdef', '#123456'],
       intensity: 1,
       ghostRest: false,
@@ -51,6 +51,16 @@ describe('readPaintSettings', () => {
     expect(
       readPaintSettings({ enabled: 'no', palette: [], intensity: 'x' }),
     ).toEqual(DEFAULT_PAINT_SETTINGS);
+  });
+
+  it('keeps an old custom palette without a palette id', () => {
+    expect(readPaintSettings({ palette: ['#112233'] }).paletteId).toBe(
+      'custom',
+    );
+    expect(
+      readPaintSettings({ palette: ['#ef4444', '#22c55e', '#3b82f6'] })
+        .paletteId,
+    ).toBe('default');
   });
 });
 
