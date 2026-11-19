@@ -326,6 +326,7 @@ export function createPaneLifecycle(deps: LifecycleDeps): PaneLifecycle {
       resizing: null,
       openPanes: target.steps ? state.openPanes : openFromDock(layout.dock),
     });
+    pendingApply = null;
     if (flushApply(target)) announce(`${label} applied`);
     else if (target.steps) pendingApply = { target, label };
   };
