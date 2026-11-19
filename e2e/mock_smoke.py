@@ -579,6 +579,8 @@ def check_layout(page, checks, notes):
         if page.evaluate("() => document.activeElement?.textContent?.trim()") == "Move below":
             break
         page.keyboard.press("ArrowDown")
+    walked = page.evaluate("() => document.activeElement?.textContent?.trim()")
+    checks.add("keyboard: pane menu walked to Move below", walked == "Move below", walked)
     page.keyboard.press("Enter")
     settle(page)
     found = groups(page)
