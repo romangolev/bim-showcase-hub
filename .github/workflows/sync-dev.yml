@@ -1,0 +1,31 @@
+name: Sync dev with main
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-dev
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Align dev with main
+        run: |
+          git fetch origin main dev
+          main="$(git rev-parse origin/main)"
+          dev="$(git rev-parse origin/dev)"
+          if [ "$main" = "$dev" ]; then
+            echo "dev already matches main"
+            exit 0
+          fi
+          git push origin "$main:refs/heads/dev" --force-with-lease=refs/heads/dev:"$dev"
