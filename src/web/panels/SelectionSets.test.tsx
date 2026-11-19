@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { viewerCommands } from '../commands/viewerCommands.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
-import { readScopedRows } from '../viewer/propertyScope.js';
+import { readScopedRows } from '../viewer/scopedRows.js';
 import { listSets, saveSelectionSet } from '../viewer/selectionSets.js';
 import { SelectionSets } from './SelectionSets.js';
 
