@@ -18,19 +18,30 @@ export interface ViewChart {
   view: unknown;
 }
 
+export interface ViewNodes {
+  modelId: string;
+  hidden: number[];
+  isolated: number[];
+}
+
 export interface ViewLink {
   camera: ViewCamera;
   selection: ModelDbId[];
   panes?: ViewPanes;
   charts?: ViewChart[];
+  nodes?: ViewNodes[];
 }
 
 export const VIEW_VERSION = '1';
 export const VIEW_FULL_VERSION = '2';
+export const VIEW_NODES_VERSION = '3';
 export const VIEW_SELECTION_CAP = 200;
 export const MAX_VIEW_CHARS = 4000;
 export const MAX_LINK_PANES = 12;
 export const MAX_LINK_CHARTS = 4;
+export const MAX_LINK_NODES = 400;
+export const VIEW_FILE_KIND = 'bsh-view';
+export const VIEW_FILE_VERSION = 1;
 
 const SEPARATOR = '~';
 const MAX_COORDINATE = 1e7;
@@ -96,6 +107,64 @@ function decodeSelection(
     }
   }
   return items.slice(0, VIEW_SELECTION_CAP);
+}
+
+const HIDE_ALL_NODE = -1;
+
+function isNodeId(value: number): boolean {
+  return Number.isInteger(value) && (value === HIDE_ALL_NODE || value >= 0);
+}
+
+function nodeIds(raw: string): number[] {
+  const ids: number[] = [];
+  for (const part of raw ? raw.split(',') : []) {
+    const dbId = Number(part);
+    if (part !== '' && isNodeId(dbId)) ids.push(dbId);
+  }
+  return ids;
+}
+
+function encodeNodes(
+  nodes: readonly ViewNodes[] | undefined,
+  modelIds: readonly string[],
+): string | null {
+  if (!nodes) return null;
+  const groups: string[] = [];
+  let count = 0;
+  for (const { modelId, hidden, isolated } of nodes) {
+    const index = modelIds.indexOf(modelId);
+    if (index === -1) continue;
+    const shown = isolated.filter(isNodeId);
+    const hiddenIds = hidden.filter(isNodeId);
+    if (shown.length === 0 && hiddenIds.length === 0) continue;
+    count += shown.length + hiddenIds.length;
+    if (count > MAX_LINK_NODES) return null;
+    groups.push(`${index}:${shown.join(',')}|${hiddenIds.join(',')}`);
+  }
+  return groups.length === 0 ? null : groups.join(';');
+}
+
+function decodeNodes(
+  raw: string | undefined,
+  modelIds: readonly string[],
+): ViewNodes[] | null {
+  if (!raw) return null;
+  const nodes: ViewNodes[] = [];
+  let count = 0;
+  for (const group of raw.split(';')) {
+    const [indexRaw, lists = ''] = group.split(':');
+    if (!/^\d+$/.test(indexRaw ?? '')) continue;
+    const modelId = modelIds[Number(indexRaw)];
+    if (modelId === undefined) continue;
+    const [isolatedRaw = '', hiddenRaw = ''] = lists.split('|');
+    const isolated = nodeIds(isolatedRaw);
+    const hidden = nodeIds(hiddenRaw);
+    if (isolated.length === 0 && hidden.length === 0) continue;
+    count += isolated.length + hidden.length;
+    if (count > MAX_LINK_NODES) return null;
+    nodes.push({ modelId, hidden, isolated });
+  }
+  return nodes.length === 0 ? null : nodes;
 }
 
 function validPaneIds(values: unknown): string[] {
@@ -190,6 +259,12 @@ export function encodeView(
   ];
   const panes = encodePanes(link.panes);
   const charts = encodeCharts(link.charts);
+  const nodes = encodeNodes(link.nodes, modelIds);
+  if (nodes !== null) {
+    return [VIEW_NODES_VERSION, ...head, panes ?? '', charts ?? '', nodes].join(
+      SEPARATOR,
+    );
+  }
   if (panes === null && charts === null) {
     return [VIEW_VERSION, ...head].join(SEPARATOR);
   }
@@ -223,9 +298,24 @@ export function parseView(
   modelIds: readonly string[],
 ): ViewLink | null {
   if (typeof raw !== 'string' || raw.length > MAX_VIEW_CHARS) return null;
-  const [version, eye, target, up, projection, selection = '', panes, charts] =
-    raw.split(SEPARATOR);
-  if (version !== VIEW_VERSION && version !== VIEW_FULL_VERSION) return null;
+  const [
+    version,
+    eye,
+    target,
+    up,
+    projection,
+    selection = '',
+    panes,
+    charts,
+    nodes,
+  ] = raw.split(SEPARATOR);
+  if (
+    version !== VIEW_VERSION &&
+    version !== VIEW_FULL_VERSION &&
+    version !== VIEW_NODES_VERSION
+  ) {
+    return null;
+  }
   const camera = [parseVec(eye), parseVec(target), parseVec(up)];
   if (camera.some((entry) => entry === null)) return null;
   const [eyeVec, targetVec, upVec] = camera as [number, number, number][];
@@ -241,13 +331,40 @@ export function parseView(
     },
     selection: decodeSelection(selection, modelIds),
   };
-  if (version === VIEW_FULL_VERSION) {
+  if (version === VIEW_FULL_VERSION || version === VIEW_NODES_VERSION) {
     const parsedPanes = decodePanes(panes);
     if (parsedPanes) link.panes = parsedPanes;
     const parsedCharts = decodeCharts(charts);
     if (parsedCharts) link.charts = parsedCharts;
   }
+  if (version === VIEW_NODES_VERSION) {
+    const parsedNodes = decodeNodes(nodes, modelIds);
+    if (parsedNodes) link.nodes = parsedNodes;
+  }
   return link;
+}
+
+export interface ViewFile {
+  kind: typeof VIEW_FILE_KIND;
+  version: typeof VIEW_FILE_VERSION;
+  created: string;
+  models: string[];
+  view: ViewLink;
+}
+
+export function viewFileJson(
+  link: ViewLink,
+  modelIds: readonly string[],
+  now = new Date(),
+): string {
+  const file: ViewFile = {
+    kind: VIEW_FILE_KIND,
+    version: VIEW_FILE_VERSION,
+    created: now.toISOString(),
+    models: [...modelIds],
+    view: link,
+  };
+  return JSON.stringify(file, null, 2);
 }
 
 export function withViewParam(href: string, view: string | null): string {

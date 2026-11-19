@@ -4,6 +4,7 @@ import {
   parseView,
   type ViewChart,
   type ViewLink,
+  type ViewNodes,
   type ViewPanes,
   withViewParam,
 } from '../api/viewLink.js';
@@ -16,7 +17,7 @@ import type { LayoutApi } from '../layout/layoutContext.js';
 import { isPaneId, type PaneId, paneById } from '../layout/paneRegistry.js';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import { getStorageAdapter } from '../storage.js';
-import type { ViewerAdapter } from './ViewerAdapter.js';
+import type { ViewerAdapter, ViewerState } from './ViewerAdapter.js';
 
 export const LINK_RESTORED_TEXT =
   'Restored the panes and charts from the link; the summary columns stay local';
@@ -88,6 +89,25 @@ export interface SharedView {
   view: string;
   degraded: boolean;
   trimmed: boolean;
+  link: ViewLink;
+}
+
+export function captureNodes(
+  state: ViewerState,
+  modelIds: readonly string[],
+): ViewNodes[] | undefined {
+  const nodes: ViewNodes[] = [];
+  for (const modelId of modelIds) {
+    const entry = state.models[modelId];
+    if (!entry) continue;
+    if (entry.hidden.length === 0 && entry.isolated.length === 0) continue;
+    nodes.push({
+      modelId,
+      hidden: [...entry.hidden],
+      isolated: [...entry.isolated],
+    });
+  }
+  return nodes.length === 0 ? undefined : nodes;
 }
 
 export function sharedView(
@@ -98,18 +118,34 @@ export function sharedView(
   const camera = adapter.getCamera();
   if (!camera) return null;
   const panes = capturePanes(layout);
-  return {
-    ...fitView(
-      {
-        camera,
-        selection: adapter.getModelSelection(),
-        ...(panes ? { panes } : {}),
-        charts: captureCharts(),
-      },
-      modelIds,
-    ),
-    trimmed: chartInstanceIds().length + 1 > MAX_LINK_CHARTS,
+  const nodes = captureNodes(adapter.getState(), modelIds);
+  const link: ViewLink = {
+    camera,
+    selection: adapter.getModelSelection(),
+    ...(panes ? { panes } : {}),
+    charts: captureCharts(),
+    ...(nodes ? { nodes } : {}),
   };
+  return {
+    ...fitView(link, modelIds),
+    trimmed: chartInstanceIds().length + 1 > MAX_LINK_CHARTS,
+    link,
+  };
+}
+
+export function linkViewerState(link: ViewLink): ViewerState | null {
+  if (!link.nodes || link.nodes.length === 0) return null;
+  const models: ViewerState['models'] = {};
+  for (const { modelId, hidden, isolated } of link.nodes) {
+    models[modelId] = {
+      hidden: [...hidden],
+      isolated: [...isolated],
+      selection: link.selection
+        .filter((item) => item.modelId === modelId)
+        .map((item) => item.dbId),
+    };
+  }
+  return { version: 1, camera: link.camera, cutplanes: [], models };
 }
 
 export function linkViewFromUrl(search: string): string | null {
@@ -171,6 +207,10 @@ export interface LinkApplyReport {
   charts: number;
 }
 
+export interface LinkRestoreReport extends LinkApplyReport {
+  link: ViewLink;
+}
+
 export function applyViewLink(
   link: ViewLink,
   layout: LayoutApi | null,
@@ -199,11 +239,11 @@ export function restoreLinkView(
   search: string,
   modelIds: readonly string[],
   layout: LayoutApi | null,
-): LinkApplyReport | null {
+): LinkRestoreReport | null {
   const raw = linkViewFromUrl(search);
   if (!raw || applied.has(raw)) return null;
   const link = parseView(raw, modelIds);
   if (!link) return null;
   applied.add(raw);
-  return applyViewLink(link, layout);
+  return { ...applyViewLink(link, layout), link };
 }

@@ -9,11 +9,12 @@ import {
   applyViewLink,
   captureCharts,
   capturePanes,
+  linkViewerState,
   resetAppliedLinks,
   restoreLinkView,
   sharedView,
 } from './shareLink.js';
-import type { ViewerAdapter } from './ViewerAdapter.js';
+import type { ViewerAdapter, ViewerState } from './ViewerAdapter.js';
 
 const CAMERA = {
   eye: [0, 0, 10] as const,
@@ -38,10 +39,12 @@ function fakeLayout(overrides: Partial<LayoutApi> = {}): LayoutApi {
   } as unknown as LayoutApi;
 }
 
-function fakeAdapter(): ViewerAdapter {
+function fakeAdapter(state?: ViewerState): ViewerAdapter {
   return {
     getCamera: () => CAMERA,
     getModelSelection: () => [{ modelId: 'urn-a', dbId: 7 }],
+    getState: () =>
+      state ?? { version: 1, camera: null, cutplanes: [], models: {} },
   } as unknown as ViewerAdapter;
 }
 
@@ -144,6 +147,49 @@ describe('share link capture', () => {
   it('has no link before the viewer has a camera', () => {
     const adapter = { getCamera: () => null } as unknown as ViewerAdapter;
     expect(sharedView(adapter, ['urn-a'], null)).toBeNull();
+  });
+
+  it('carries the hidden and isolated elements of the viewer', () => {
+    const state: ViewerState = {
+      version: 1,
+      camera: null,
+      cutplanes: [],
+      models: {
+        'urn-a': { hidden: [3, 4], isolated: [5], selection: [] },
+        'urn-b': { hidden: [], isolated: [], selection: [] },
+      },
+    };
+    const shared = sharedView(fakeAdapter(state), ['urn-a', 'urn-b'], null);
+    expect(parseView(shared?.view, ['urn-a', 'urn-b'])?.nodes).toEqual([
+      { modelId: 'urn-a', hidden: [3, 4], isolated: [5] },
+    ]);
+  });
+
+  it('builds the viewer state that restores the link', () => {
+    const link = parseView(
+      fitView(
+        {
+          camera: CAMERA,
+          selection: [{ modelId: 'urn-a', dbId: 7 }],
+          nodes: [{ modelId: 'urn-a', hidden: [3], isolated: [-1] }],
+        },
+        ['urn-a'],
+      ).view,
+      ['urn-a'],
+    );
+    if (!link) throw new Error('no link');
+    expect(linkViewerState(link)).toEqual({
+      version: 1,
+      camera: CAMERA,
+      cutplanes: [],
+      models: {
+        'urn-a': { hidden: [3], isolated: [-1], selection: [7] },
+      },
+    });
+  });
+
+  it('has no viewer state to restore without nodes', () => {
+    expect(linkViewerState(linkWith({}))).toBeNull();
   });
 });
 
@@ -315,6 +361,6 @@ describe('share link restore', () => {
   it('keeps an old link to the camera only', () => {
     expect(
       restoreLinkView('?view=1~1,2,3~0,0,0~0,0,1~p~', ['urn-a'], fakeLayout()),
-    ).toEqual({ panes: false, charts: 0 });
+    ).toMatchObject({ panes: false, charts: 0 });
   });
 });

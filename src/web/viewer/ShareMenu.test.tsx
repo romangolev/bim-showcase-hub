@@ -215,7 +215,7 @@ describe('Share menu snapshots', () => {
     const onResult = vi.fn();
     render(
       <ShareMenu
-        adapter={{ getScreenshot } as unknown as ViewerAdapter}
+        adapter={partialAdapter({ getScreenshot })}
         modelIds={['urn-a']}
         combined={false}
         frameSize={() => ({ width: 800, height: 400 })}
@@ -235,7 +235,7 @@ describe('Share menu snapshots', () => {
     const onResult = vi.fn();
     render(
       <ShareMenu
-        adapter={{ getScreenshot } as unknown as ViewerAdapter}
+        adapter={partialAdapter({ getScreenshot })}
         modelIds={['urn-a']}
         combined={false}
         frameSize={() => null}
@@ -260,7 +260,7 @@ describe('Share menu snapshots', () => {
     const onResult = vi.fn();
     render(
       <ShareMenu
-        adapter={{ getScreenshot } as unknown as ViewerAdapter}
+        adapter={partialAdapter({ getScreenshot })}
         modelIds={['urn-a']}
         combined={false}
         frameSize={() => ({ width: 5000, height: 3000 })}
@@ -319,9 +319,21 @@ const CAMERA = {
 };
 
 function linkAdapter(): ViewerAdapter {
-  return {
+  return partialAdapter({
     getCamera: () => CAMERA,
     getModelSelection: () => [],
+  });
+}
+
+function partialAdapter(overrides: Partial<ViewerAdapter>): ViewerAdapter {
+  return {
+    getModels: () => [],
+    onModelsChange: () => () => undefined,
+    getCamera: () => CAMERA,
+    getModelSelection: () => [],
+    getState: () => ({ version: 1, camera: null, cutplanes: [], models: {} }),
+    restoreState: async () => ({ skippedModels: [], viewerFailed: false }),
+    ...overrides,
   } as unknown as ViewerAdapter;
 }
 
@@ -338,6 +350,96 @@ function fakeLayout(overrides: Partial<LayoutApi> = {}): LayoutApi {
 }
 
 describe('Share menu links', () => {
+  it('offers the full view as a JSON file when the link is too long', async () => {
+    const save = vi.spyOn(excel, 'saveBlob').mockImplementation(() => {});
+    PANE_SETTINGS.dashboard.view.write({
+      ...DEFAULT_DASHBOARD_VIEW,
+      properties: Array.from(
+        { length: 200 },
+        (_, i) => `Level ${'x'.repeat(60)} ${i}`,
+      ),
+    });
+    const onResult = vi.fn();
+    render(
+      <ShareMenu
+        adapter={linkAdapter()}
+        modelIds={['urn-a']}
+        baseHref="https://app.test/model/urn-a"
+        combined={false}
+        onResult={onResult}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+    fireEvent.click(
+      await screen.findByRole('menuitem', { name: 'Save view data (JSON)' }),
+    );
+    await waitFor(() => expect(save).toHaveBeenCalled());
+    const [blob, name] = save.mock.calls[0] as [Blob, string];
+    expect(name).toBe('model-view.json');
+    const file = JSON.parse(await blob.text()) as {
+      kind: string;
+      models: string[];
+      view: { camera: unknown; charts: unknown[] };
+    };
+    expect(file.kind).toBe('bsh-view');
+    expect(file.models).toEqual(['urn-a']);
+    expect(file.view.camera).toEqual(CAMERA);
+    expect(file.view.charts?.length).toBeGreaterThan(0);
+    expect(onResult).toHaveBeenCalledWith('View data saved', false);
+  });
+
+  it('offers no view file when the whole view fits the link', async () => {
+    render(
+      <ShareMenu
+        adapter={linkAdapter()}
+        modelIds={['urn-a']}
+        baseHref="https://app.test/model/urn-a"
+        combined={false}
+        onResult={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+    expect(
+      screen.queryByRole('menuitem', { name: 'Save view data (JSON)' }),
+    ).toBeNull();
+  });
+
+  it('restores the hidden and isolated elements of a link', async () => {
+    const { factory } = setup();
+    const live = await factory(document.createElement('div'));
+    await live.load('urn-a');
+    const visible = await live.getVisible();
+    const [first, second] = visible;
+    if (!first || !second) throw new Error('no elements');
+    const view = encodeView(
+      {
+        camera: CAMERA,
+        selection: [],
+        nodes: [
+          { modelId: 'urn-a', hidden: [first.dbId], isolated: [second.dbId] },
+        ],
+      },
+      ['urn-a'],
+    );
+    window.history.replaceState(
+      {},
+      '',
+      `/model/urn-a?view=${encodeURIComponent(view)}`,
+    );
+    render(
+      <ShareMenu
+        adapter={live}
+        modelIds={['urn-a']}
+        combined={false}
+        onResult={vi.fn()}
+      />,
+    );
+    await waitFor(() =>
+      expect(live.getState().models['urn-a']?.hidden).toEqual([first.dbId]),
+    );
+    expect(live.getState().models['urn-a']?.isolated).toEqual([second.dbId]);
+  });
+
   it('copies the panes and charts of the layout', async () => {
     const write = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText: write } });

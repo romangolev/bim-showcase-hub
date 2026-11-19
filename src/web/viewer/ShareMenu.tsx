@@ -1,5 +1,5 @@
-import { useContext, useEffect } from 'react';
-import { withViewParam } from '../api/viewLink.js';
+import { useContext, useEffect, useRef } from 'react';
+import { type ViewLink, viewFileJson, withViewParam } from '../api/viewLink.js';
 import { Menu, type MenuEntry } from '../components/Menu.js';
 import { saveBlob } from '../extensions/excelExport.js';
 import { type LayoutApi, LayoutContext } from '../layout/layoutContext.js';
@@ -16,6 +16,7 @@ import {
   LINK_DEGRADED_TEXT,
   LINK_RESTORED_TEXT,
   LINK_TRIMMED_TEXT,
+  linkViewerState,
   restoreLinkView,
   sharedView,
 } from './shareLink.js';
@@ -27,7 +28,8 @@ import {
   snapshotSize,
   takeSnapshot,
 } from './snapshot.js';
-import type { ViewerAdapter } from './ViewerAdapter.js';
+import { useModels } from './useModels.js';
+import type { ViewerAdapter, ViewerState } from './ViewerAdapter.js';
 import {
   goToViewpoint,
   nextViewpointName,
@@ -47,12 +49,18 @@ export const IMAGE_FAILED_TEXT = 'Could not take the snapshot';
 export const REPORT_READY_TEXT = 'Report opened for printing';
 export const REPORT_BLOCKED_TEXT = 'Allow pop-ups to print the report';
 export const REPORT_FAILED_TEXT = 'Could not build the report';
+export const SAVED_VIEW_FILE_TEXT = 'View data saved';
 export const FRAME_UNKNOWN_TEXT =
   'Could not read the size of the viewer. Choose 1x in Settings or try again.';
 
 export function snapshotName(exportName?: string): string {
   const base = (exportName ?? '').replace(/(-properties)?\.xlsx$/, '');
   return `${base && base !== 'model' ? base : 'model'}-snapshot.png`;
+}
+
+export function viewFileName(exportName?: string): string {
+  const base = (exportName ?? '').replace(/(-properties)?\.xlsx$/, '');
+  return `${base && base !== 'model' ? base : 'model'}-view.json`;
 }
 
 export interface ShareMenuProps {
@@ -110,17 +118,32 @@ export function ShareMenu({
 }: ShareMenuProps) {
   const viewpoints = useViewpoints();
   const layout = useContext(LayoutContext);
+  const pendingState = useRef<ViewerState | null>(null);
   useEffect(() => {
     const restored = restoreLinkView(
       window.location.search,
       modelIds,
       layout ?? null,
     );
-    if (restored) clearLinkView();
-    if (restored && (restored.panes || restored.charts > 0)) {
+    if (!restored) return;
+    clearLinkView();
+    pendingState.current = linkViewerState(restored.link);
+    if (restored.panes || restored.charts > 0) {
       onResult(LINK_RESTORED_TEXT, false);
     }
   }, [layout, modelIds, onResult]);
+  const loaded = useModels(adapter);
+  useEffect(() => {
+    const state = pendingState.current;
+    if (!state) return;
+    const ids = Object.keys(state.models);
+    const waiting = loaded.some(
+      (model) => ids.includes(model.id) && model.status === 'loading',
+    );
+    if (waiting) return;
+    pendingState.current = null;
+    void adapter.restoreState(state);
+  }, [adapter, loaded]);
   const takeImage = async (): Promise<Blob> => {
     const frame = frameSize?.() ?? null;
     const settings = SNAPSHOT.read();
@@ -180,6 +203,14 @@ export function ShareMenu({
       );
     }
   };
+  const saveViewFile = (link: ViewLink) => {
+    const text = viewFileJson(link, modelIds);
+    saveBlob(
+      new Blob([text], { type: 'application/json' }),
+      viewFileName(fileName),
+    );
+    onResult(SAVED_VIEW_FILE_TEXT, false);
+  };
   const copy = async (withView: boolean) => {
     const { href, degraded, trimmed } = shareHref(
       adapter,
@@ -212,12 +243,22 @@ export function ShareMenu({
     onResult(outcome.text, outcome.result !== 'ok');
   };
   const items = (): MenuEntry[] => {
+    const shared = sharedView(adapter, modelIds, layout ?? null);
     return [
       {
         id: 'copy-view',
         label: 'Copy link to this view',
         onSelect: () => void copy(true),
       },
+      ...(shared?.degraded
+        ? [
+            {
+              id: 'save-view-json',
+              label: 'Save view data (JSON)',
+              onSelect: () => saveViewFile(shared.link),
+            },
+          ]
+        : []),
       {
         id: 'copy-models',
         label: combined
