@@ -31,6 +31,8 @@ Everything lives in `src/web/layout`.
 | `layoutState.ts`, `defaultLayout.ts` | Reducer, serialize and sanitize, the default arrangement |
 | `userInstances.ts`, `instanceSettings.ts` | User-added panes and their per-instance settings |
 | `PaneMenu.tsx` | Pane header menu and the top bar Panes menu |
+| `workspaces.ts` | Built-in presets, saved workspaces, their storage and JSON |
+| `WorkspaceSwitcher.tsx` | The top bar Workspaces menu and its save, rename and import dialogs |
 | `dockTheme.css` | The `bsh-dock` theme, see [design-system.md](design-system.md#dock-theme) |
 
 Layouts never render pane content. They attach host elements to slots, so React never sees a move. A pane is unmounted only when it is closed. A viewer is destroyed only when its tab closes, when it is paused for the loaded-model budget, or on sign-out.
@@ -106,31 +108,23 @@ Open tabs are in `sessionStorage` under `bsh.models.open`. Sign-out clears them 
 
 Reset layout (every pane menu and the Panes menu) rebuilds the default arrangement without remounting any pane. Open models stay open.
 
-## Keyboard and screen readers
+## Workspaces
 
-Every drag has a menu path.
+The Workspaces menu in the top bar switches the whole arrangement. It lists four built-in presets and the user's saved workspaces.
 
-- Pane menu: Move left, right or below, Float or Dock, Maximize or Restore, Resize with arrow keys, Collapse or Expand, Close, Lock, Reset.
-- Maximize (also a double click on a tab) fills the dock. Escape restores. It is not saved.
-- Present (Panes menu, palette or Share menu) shows the viewer alone. Arrows and Space step through saved viewpoints and Escape leaves. Present needs an open model (the entries are disabled with a reason otherwise), restores the pane it maximized, and ends when the layout switches between wide and narrow. A Float request waits for its model to attach, per model, and is dropped if that model closes first.
-- Lock layout (`bsh.layout.locked`) turns off dragging, floating and closing. It does not apply to the stacked layout.
-- Resize mode: arrow keys change size by 16 px (64 px with Shift). Escape, Enter or Tab finish.
-- `F6` and `Shift+F6` move focus between pane groups.
-- In Documents, `/` focuses the filter and typing letters moves focus to the next matching row. Enter opens the focused version and Space picks it. Shift+F10 or the context menu key opens the row menu.
-- After a move, focus goes to the moved tab. A live region announces moves, collapse and reset.
+- **Review**: Documents, viewer, Model summary and a collapsed Dashboard.
+- **Data**: the Dashboard and Model summary open, with wider data panes.
+- **Present**: the same present mode as the Panes menu and palette, not another arrangement. It needs an open model.
+- **Coordination**: Viewer, Models and Model summary; Documents collapsed and charts dismissed.
 
-## Narrow screens
+A preset is a list of pane placements, so it tolerates whichever models are open. Applying any workspace keeps the open models: model tabs are rebuilt in the new arrangement and the viewers are attached again, never reloaded.
 
-Below 876 px (`STACKED_QUERY`, `src/web/layout/LayoutProvider.tsx`) the dock is not rendered.
+Saved workspaces live in `bsh.workspaces.v1` (`{ version: 1, items }`) and are personal: sign-out clears them like the layout. A workspace stores the full arrangement — `dock`, `collapsed`, `treeWidth`, `dismissed`, `lastViewerArrangement` — plus the pane titles and colors it names. Applying a saved workspace restores those titles and colors when it carries any; built-in presets leave them alone. The payload is read through `parseLayout` and `sanitizeDock`, so a corrupt entry or a newer version reads as no workspaces, and one broken entry is dropped without losing the rest. Names are trimmed to 40 characters, at most 20 workspaces are kept, and saving an existing name updates it.
 
-- With no model open, Documents is the main section. With a model open, a tab strip switches models above a column of viewer, dashboard and summary.
-- Documents is an overlay from the top bar button.
-- The saved dock returns when the window is wide again. User-added panes are not shown.
+Applying a workspace is undoable once: the previous arrangement is snapshotted and the menu offers **Revert layout**. A full history is not kept.
 
-## Limits
+Limits:
 
-- Floating groups stay inside the page. There are no pop-out windows.
-- One layout per browser. No named presets.
-- At most 8 models are loaded across all tabs (`MAX_LOADED_MEMBERS`). A combined tab counts every model it holds. Visible tabs are never paused. A paused tab offers Load model.
-- A combined tab holds at most 6 models (`MAX_COMBINED_MODELS`).
-- All open models must come from one Autodesk region, because the viewer initializes once per page. `viewer/region.ts` records the region. A model from the other region shows an error with Close other models and reload.
+- User-added panes (`chart:2`, `properties:1`, `modelSummary:3`) are not part of a workspace. The instances that exist now are kept and placed by the usual reconciliation.
+- Pinned and hidden panes in the Panes menu are a global preference and do not travel with a workspace.
+- Applying needs the wide layout and an unlocked layout.

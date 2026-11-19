@@ -32,6 +32,7 @@ import {
   addPane,
   applyTitles,
   buildDefault,
+  buildSteps,
   changesShape,
   cycleGroups,
   floatingBox,
@@ -306,6 +307,14 @@ export function DockLayout(props: DockLayoutProps) {
           arrangement: null,
         }),
       ),
+    apply: (target, treeWidth) =>
+      rebuild((api) => {
+        if (target.steps) {
+          buildSteps(api, target.steps, { ...sync(), treeWidth });
+          return;
+        }
+        restore(api, target.dock ?? null, treeWidth, { ...sync(), treeWidth });
+      }),
     toggleMaximize: (id) => {
       const api = apiRef.current;
       const panel = api
@@ -444,6 +453,8 @@ export function DockLayout(props: DockLayoutProps) {
         emit();
       },
       reset: (treeWidth) => controllerRef.current.reset(treeWidth),
+      apply: (target, treeWidth) =>
+        controllerRef.current.apply(target, treeWidth),
       focusPane: (id) => controllerRef.current.focusPane(id),
       toggleMaximize: (id) => controllerRef.current.toggleMaximize(id),
       location: (id) => controllerRef.current.location(id),

@@ -1,5 +1,9 @@
 import type { DockviewApi, DockviewGroupPanel } from 'dockview-react';
-import { defaultSteps, placementFor } from './defaultLayout.js';
+import {
+  defaultSteps,
+  type LayoutStep,
+  placementFor,
+} from './defaultLayout.js';
 import type { PaneTitles } from './layoutContext.js';
 import {
   adoptArrangement,
@@ -303,15 +307,23 @@ export function buildDefault(
   treeWidth: number,
   sync: InstanceSync,
 ) {
+  buildSteps(api, defaultSteps(treeWidth), sync);
+}
+
+export function buildSteps(
+  api: DockviewApi,
+  steps: readonly LayoutStep[],
+  sync: InstanceSync,
+) {
   api.clear();
   const open = sync.instances.some((id) => !isUserInstance(id));
-  const steps = defaultSteps(treeWidth).filter((step) => {
+  const usable = steps.filter((step) => {
     const pane = paneById(step.id);
     if (pane.instances) return open;
     if (isFollower(step.id)) return open && sync.companions.includes(step.id);
     return true;
   });
-  for (const step of steps) {
+  for (const step of usable) {
     const first = paneById(step.id).instances
       ? (sync.instances.find((id) => id === sync.active) ??
         sync.instances.find((id) => paneKind(id) === step.id))
@@ -319,7 +331,7 @@ export function buildDefault(
     if (first) addPane(api, first, step.placement, sync.titles[first]?.label);
     else addPane(api, step.id, step.placement);
   }
-  for (const step of steps) {
+  for (const step of usable) {
     const target = resolvePanel(api, step.id, sync.active);
     if (target) sizePane(api, target.id, step.placement);
   }

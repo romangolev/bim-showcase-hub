@@ -68,6 +68,10 @@ export function readPaneAppearances(): PaneAppearances {
   return APPEARANCES.read();
 }
 
+export function replacePaneAppearances(next: PaneAppearances): PaneAppearances {
+  return write(sanitizePaneAppearances(next));
+}
+
 export function usePaneAppearances(): PaneAppearances {
   const [appearances] = usePersisted(APPEARANCES);
   return appearances;

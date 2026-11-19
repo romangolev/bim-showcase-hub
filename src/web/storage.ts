@@ -25,6 +25,7 @@ export const BSH_KEYS = {
     saved: 'bsh.saved.v1',
     recentCommands: 'bsh.commands.recent.v1',
     layoutInstances: 'bsh.layout.instances.v1',
+    workspaces: 'bsh.workspaces.v1',
   },
   preference: {
     theme: 'bsh-theme',

@@ -12,6 +12,7 @@ function fakeDock(): DockController {
     openPane: vi.fn(),
     closePane: vi.fn(),
     reset: vi.fn(),
+    apply: vi.fn(),
     focusPane: vi.fn(),
     toggleMaximize: vi.fn(() => true),
     location: vi.fn(() => 'grid' as const),

@@ -16,6 +16,14 @@ function layout(over: Partial<LayoutApi> = {}): LayoutApi {
     setLocked: vi.fn(),
     resetLayout: vi.fn(),
     focusPane: vi.fn(),
+    workspaces: {
+      openDialog: vi.fn(),
+      download: vi.fn(),
+      copyJson: vi.fn(),
+      copyLink: vi.fn(),
+      revert: vi.fn(),
+      canRevert: false,
+    },
     ...over,
   } as unknown as LayoutApi;
 }

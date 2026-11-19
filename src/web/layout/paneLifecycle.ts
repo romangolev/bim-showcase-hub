@@ -6,6 +6,7 @@ import type {
   PaneTitle,
 } from './layoutContext.js';
 import {
+  clampTreeWidth,
   defaultModel,
   type LayoutModel,
   layoutReducer,
@@ -31,6 +32,7 @@ import {
   type UserInstances,
   userInstanceIds,
 } from './userInstances.js';
+import type { WorkspaceApplyTarget } from './workspaces.js';
 
 const MOVE_MESSAGES: Partial<Record<MoveTarget, string>> = {
   left: 'moved to the left edge',
@@ -42,6 +44,7 @@ export interface LifecycleState {
   layout: LayoutModel;
   user: UserInstances;
   locked: boolean;
+  canRevert: boolean;
   openPanes: readonly PaneId[];
   attached: readonly PanelId[];
   signals: Readonly<Record<PanelId, number>>;
@@ -105,6 +108,10 @@ export interface PaneLifecycle {
   setCollapsed: (id: PaneId, collapsed: boolean) => void;
   movePane: (id: PanelId, target: MoveTarget) => void;
   resetLayout: () => void;
+  applyWorkspace: (target: WorkspaceApplyTarget, label: string) => void;
+  revertWorkspace: () => void;
+  controllerReady: () => void;
+  notify: (message: string) => void;
   setLocked: (locked: boolean) => void;
   toggleMaximize: (id: PanelId) => void;
   setPresenting: (presenting: boolean) => void;
@@ -177,6 +184,7 @@ export function createPaneLifecycle(deps: LifecycleDeps): PaneLifecycle {
     layout: deps.initial.layout,
     user: deps.initial.user,
     locked: deps.initial.locked,
+    canRevert: false,
     openPanes: openFromDock(deps.initial.layout.dock),
     attached: [],
     signals: {},
@@ -188,6 +196,9 @@ export function createPaneLifecycle(deps: LifecycleDeps): PaneLifecycle {
   };
   const listeners = new Set<() => void>();
   const floatPending = new Map<string, boolean>();
+  let undoLayout: LayoutModel | null = null;
+  let pendingApply: { target: WorkspaceApplyTarget; label: string } | null =
+    null;
   let presentRestore: { panel: PanelId; previous: PanelId | null } | null =
     null;
   const shown = new Set<string>();
@@ -278,6 +289,61 @@ export function createPaneLifecycle(deps: LifecycleDeps): PaneLifecycle {
       deps.dock()?.openPane('tree');
     }
     deps.focus.treeTarget();
+  };
+
+  const flushApply = (target: WorkspaceApplyTarget) => {
+    const dock = deps.dock();
+    if (!dock) return false;
+    if (target.steps)
+      dock.apply({ steps: target.steps }, state.layout.treeWidth);
+    else dock.apply({ dock: state.layout.dock }, state.layout.treeWidth);
+    return true;
+  };
+
+  const applyWorkspace = (target: WorkspaceApplyTarget, label: string) => {
+    if (state.locked || deps.mode() !== 'dock') return;
+    if (state.presenting) setPresenting(false);
+    undoLayout = state.layout;
+    const base = target.layout ?? state.layout;
+    const layout: LayoutModel = {
+      ...base,
+      collapsed: target.collapsed
+        ? [...new Set(target.collapsed)]
+        : base.collapsed,
+      dismissed: target.dismissed
+        ? [...new Set(target.dismissed)]
+        : base.dismissed,
+      treeWidth:
+        target.treeWidth === undefined
+          ? base.treeWidth
+          : clampTreeWidth(target.treeWidth),
+      lastViewerArrangement: state.layout.lastViewerArrangement,
+    };
+    set({
+      layout,
+      canRevert: true,
+      maximized: null,
+      resizing: null,
+      openPanes: target.steps ? state.openPanes : openFromDock(layout.dock),
+    });
+    if (flushApply(target)) announce(`${label} applied`);
+    else if (target.steps) pendingApply = { target, label };
+  };
+
+  const revertWorkspace = () => {
+    const snapshot = undoLayout;
+    if (!snapshot || state.locked) return;
+    undoLayout = null;
+    pendingApply = null;
+    set({
+      layout: snapshot,
+      openPanes: openFromDock(snapshot.dock),
+      maximized: null,
+      resizing: null,
+      canRevert: false,
+    });
+    deps.dock()?.apply({ dock: snapshot.dock }, snapshot.treeWidth);
+    announce('Workspace reverted');
   };
 
   return {
@@ -392,6 +458,16 @@ export function createPaneLifecycle(deps: LifecycleDeps): PaneLifecycle {
       announce('Layout reset');
       deps.later(() => deps.dock()?.focusPane('viewer'));
     },
+    applyWorkspace,
+    revertWorkspace,
+    controllerReady: () => {
+      const pending = pendingApply;
+      if (!pending) return;
+      if (!flushApply(pending.target)) return;
+      pendingApply = null;
+      announce(`${pending.label} applied`);
+    },
+    notify: announce,
     setLocked: (next) => {
       state = { ...state, locked: next };
       deps.persist.locked(next);
@@ -483,10 +559,13 @@ export function createPaneLifecycle(deps: LifecycleDeps): PaneLifecycle {
     moved: bump,
     forgetOwner: () => {
       const layout = defaultModel();
+      undoLayout = null;
+      pendingApply = null;
       state = {
         layout,
         user: {},
         locked: false,
+        canRevert: false,
         openPanes: openFromDock(layout.dock),
         attached: [],
         signals: {},

@@ -66,5 +66,28 @@ export function layoutCommands(layout: LayoutApi): Command[] {
       ...reason(layout.locked ? LOCKED_REASON : undefined),
       run: () => layout.resetLayout(),
     },
+    {
+      id: 'layout.workspace.save',
+      title: 'Save workspace as…',
+      group: 'Workspaces',
+      keywords: 'preset arrangement named',
+      menu: 'hook',
+      run: () => layout.workspaces.openDialog({ kind: 'save' }),
+    },
+    {
+      id: 'layout.workspace.revert',
+      title: 'Revert layout',
+      group: 'Workspaces',
+      keywords: 'undo workspace previous',
+      menu: 'hook',
+      ...reason(
+        layout.locked
+          ? LOCKED_REASON
+          : layout.workspaces.canRevert
+            ? undefined
+            : 'Nothing to revert',
+      ),
+      run: () => layout.workspaces.revert(),
+    },
   ];
 }

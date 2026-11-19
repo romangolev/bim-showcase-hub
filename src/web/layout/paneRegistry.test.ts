@@ -216,6 +216,14 @@ function menuLayout(over: Partial<LayoutApi> = {}): LayoutApi {
     setPresenting: vi.fn(),
     setLocked: vi.fn(),
     resetLayout: vi.fn(),
+    workspaces: {
+      canRevert: false,
+      openDialog: vi.fn(),
+      download: vi.fn(),
+      copyJson: vi.fn(),
+      copyLink: vi.fn(),
+      revert: vi.fn(),
+    },
     ...over,
   } as unknown as LayoutApi;
 }

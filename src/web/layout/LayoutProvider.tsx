@@ -56,7 +56,9 @@ import { PaneActions } from './PaneMenu.js';
 import { LayoutMenu } from './PanesMenu.js';
 import { PresentControls } from './PresentControls.js';
 import {
+  type PaneAppearances,
   paneTags,
+  replacePaneAppearances,
   usePaneAppearances,
   withPaneTitles,
 } from './paneAppearance.js';
@@ -78,6 +80,16 @@ import {
   userInstanceTitles,
 } from './userInstances.js';
 import { createHostStore, PaneHosts } from './ViewerHost.js';
+import { WorkspaceSwitcher } from './WorkspaceSwitcher.js';
+import {
+  PRESETS,
+  removeWorkspace,
+  renameWorkspace,
+  saveWorkspace,
+  WORKSPACES_RECORD,
+  type WorkspaceApi,
+  type WorkspaceDialog,
+} from './workspaces.js';
 
 const DockLayout = lazy(() =>
   import('./DockLayout.js').then((module) => ({
@@ -247,6 +259,10 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
   const mode: LayoutMode = stacked ? 'stacked' : 'dock';
   const [userState, setUserState] = usePersisted(USER_INSTANCES);
   const [locked, setLockedState] = usePersisted(LOCKED);
+  const [workspaces, setWorkspaces] = usePersisted(WORKSPACES_RECORD);
+  const [activeWorkspace, setActiveWorkspace] = useState<string | null>(null);
+  const [workspaceDialog, setWorkspaceDialog] = useState<WorkspaceDialog>(null);
+  const undoAppearances = useRef<PaneAppearances | null>(null);
   const appearances = usePaneAppearances();
   const [hosts] = useState(() => createHostStore<PanelId>());
   const controller = useRef<DockController | null>(null);
@@ -320,6 +336,96 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
 
   useDebouncedWrite(model);
 
+  const workspaceApi = useMemo<WorkspaceApi>(() => {
+    const { notify, getState } = lifecycle;
+    const applyLayout = (
+      layout: LayoutModel,
+      name: string,
+      nextAppearances: PaneAppearances | null,
+    ) => {
+      const travels =
+        nextAppearances !== null && Object.keys(nextAppearances).length > 0;
+      undoAppearances.current = travels ? appearances : null;
+      if (travels && nextAppearances) replacePaneAppearances(nextAppearances);
+      lifecycle.applyWorkspace({ layout }, name);
+    };
+    return {
+      presets: PRESETS,
+      items: workspaces.items,
+      active: activeWorkspace,
+      canRevert: state.canRevert,
+      locked: state.locked,
+      canPresent: view.canPresent,
+      dialog: workspaceDialog,
+      openDialog: (dialog) => setWorkspaceDialog(dialog),
+      closeDialog: () => setWorkspaceDialog(null),
+      applyPreset: (id) => {
+        const preset = PRESETS.find((entry) => entry.id === id);
+        if (!preset) return;
+        if (preset.id === 'present') {
+          lifecycle.setPresenting(!getState().presenting);
+          return;
+        }
+        undoAppearances.current = null;
+        lifecycle.applyWorkspace(
+          {
+            steps: preset.steps,
+            collapsed: preset.collapsed,
+            dismissed: preset.dismissed,
+          },
+          preset.name,
+        );
+        setActiveWorkspace(`preset:${preset.id}`);
+      },
+      applySaved: (id) => {
+        const item = workspaces.items.find((entry) => entry.id === id);
+        if (!item) return;
+        applyLayout(item.layout, item.name, item.appearances);
+        setActiveWorkspace(item.id);
+      },
+      save: (name) => {
+        const result = saveWorkspace(workspaces, name, model, appearances);
+        if (!result) return null;
+        setWorkspaces(result.store);
+        setActiveWorkspace(result.workspace.id);
+        notify(`Workspace ${result.workspace.name} saved`);
+        return result.workspace;
+      },
+      rename: (id, name) => {
+        const next = renameWorkspace(workspaces, id, name);
+        if (next === workspaces) return false;
+        setWorkspaces(next);
+        notify('Workspace renamed');
+        return true;
+      },
+      remove: (id) => {
+        setWorkspaces(removeWorkspace(workspaces, id));
+        if (activeWorkspace === id) setActiveWorkspace(null);
+        notify('Workspace deleted');
+      },
+      revert: () => {
+        if (!getState().canRevert) return;
+        if (undoAppearances.current) {
+          replacePaneAppearances(undoAppearances.current);
+          undoAppearances.current = null;
+        }
+        lifecycle.revertWorkspace();
+        setActiveWorkspace(null);
+      },
+    };
+  }, [
+    lifecycle,
+    workspaces,
+    activeWorkspace,
+    state.canRevert,
+    state.locked,
+    view.canPresent,
+    workspaceDialog,
+    model,
+    appearances,
+    setWorkspaces,
+  ]);
+
   const instanceKey = instances.join('\n');
   useEffect(() => {
     lifecycle.reconcile();
@@ -358,9 +464,13 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
     return () => document.removeEventListener('keydown', onKey);
   }, [overlayOpen, lifecycle]);
 
-  const onController = useCallback((next: DockController | null) => {
-    controller.current = next;
-  }, []);
+  const onController = useCallback(
+    (next: DockController | null) => {
+      controller.current = next;
+      if (next) lifecycle.controllerReady();
+    },
+    [lifecycle],
+  );
 
   const treeControl = useMemo(
     () => ({ reveal: lifecycle.revealTree }),
@@ -399,6 +509,8 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       closeTreeOverlay: lifecycle.closeTreeOverlay,
       floatNext: lifecycle.floatNext,
       paneTitle,
+      workspaces: workspaceApi,
+      notify: lifecycle.notify,
     }),
     [
       lifecycle,
@@ -413,6 +525,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       presenting,
       resizing,
       paneTitle,
+      workspaceApi,
     ],
   );
 
@@ -493,6 +606,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       models: () => modelStore.getState(),
       activateModel: modelStore.activate,
       closeModel: modelStore.close,
+      workspaces: () => api.workspaces,
     };
     return () => {
       delete target.__bshLayout;
@@ -523,7 +637,12 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
                 treeOpen={treeOpen}
                 onToggleTree={lifecycle.toggleTree}
                 toggleRef={toggleRef}
-                actions={<LayoutMenu />}
+                actions={
+                  <>
+                    <WorkspaceSwitcher />
+                    <LayoutMenu />
+                  </>
+                }
               />
               {stacked ? (
                 <StackedLayout
