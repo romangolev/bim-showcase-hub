@@ -85,6 +85,7 @@ export function readSettings(): Settings {
 }
 
 export function migrateLegacyTheme(): void {
+  if (storedFromNewerBuild()) return;
   const stored = APP_SETTINGS_BLOB.read();
   if (isRecord(stored) && isThemePreference(stored.theme)) return;
   const legacy = readStoredTheme();
@@ -92,6 +93,7 @@ export function migrateLegacyTheme(): void {
   const wrote = APP_SETTINGS_BLOB.write({
     ...(isRecord(stored) ? stored : {}),
     theme: legacy,
+    version: SETTINGS_VERSION,
   });
   if (wrote) getStorageAdapter().remove('local', THEME_STORAGE_KEY);
 }

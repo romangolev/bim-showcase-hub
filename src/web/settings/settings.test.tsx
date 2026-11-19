@@ -58,9 +58,25 @@ describe('theme migration', () => {
     window.localStorage.setItem(THEME_STORAGE_KEY, 'light');
     migrateLegacyTheme();
     expect(readSettings().theme).toBe('light');
+    expect(
+      JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? ''),
+    ).toMatchObject({ theme: 'light', version: SETTINGS_VERSION });
     expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBeNull();
     migrateLegacyTheme();
     expect(readSettings().theme).toBe('light');
+  });
+
+  it('leaves a settings blob from a newer build alone', () => {
+    window.localStorage.setItem(THEME_STORAGE_KEY, 'light');
+    window.localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({ version: SETTINGS_VERSION + 1 }),
+    );
+    migrateLegacyTheme();
+    expect(
+      JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? ''),
+    ).toEqual({ version: SETTINGS_VERSION + 1 });
+    expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('light');
   });
 
   it('keeps a theme that is already in the settings blob', () => {
