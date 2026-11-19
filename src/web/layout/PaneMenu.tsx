@@ -301,7 +301,7 @@ export function layoutMenuEntries(
   if (lockCommand) {
     entries.push({
       id: lockCommand.id,
-      label: 'Lock layout',
+      label: lockCommand.title,
       checked: layout.locked,
       onSelect: () => {
         void lockCommand.run(host);
@@ -313,7 +313,7 @@ export function layoutMenuEntries(
     entries.push({
       id: resetCommand.id,
       label: 'Reset layout',
-      description: RESET_LAYOUT_DESCRIPTION,
+      description: resetCommand.disabled ?? RESET_LAYOUT_DESCRIPTION,
       ...(resetCommand.disabled ? { disabled: true } : {}),
       onSelect: () => {
         void resetCommand.run(host);

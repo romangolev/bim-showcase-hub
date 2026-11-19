@@ -21,6 +21,23 @@ const layout = {
 const host = { openModal: () => undefined };
 
 describe('layoutMenuEntries', () => {
+  it('names the lock entry from the command and explains a blocked reset', () => {
+    const locked = { ...layout, locked: true } as LayoutApi;
+    const entries = layoutMenuEntries(locked, host);
+    const labels = entries.flatMap((entry) =>
+      entry.kind === 'separator' ? [] : [entry.label],
+    );
+    expect(labels).toContain('Unlock layout');
+    expect(
+      entries.find(
+        (entry) => entry.kind !== 'separator' && entry.id === 'layout.reset',
+      ),
+    ).toMatchObject({
+      description: 'Unlock the layout first',
+      disabled: true,
+    });
+  });
+
   it('keeps a layout command that has no menu slot yet', () => {
     const future: Command = {
       id: 'layout.future',
