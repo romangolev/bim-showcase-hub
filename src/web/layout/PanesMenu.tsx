@@ -1,7 +1,5 @@
 import {
   type KeyboardEvent,
-  useCallback,
-  useEffect,
   useId,
   useLayoutEffect,
   useMemo,
@@ -12,6 +10,7 @@ import { createPortal } from 'react-dom';
 import type { Command } from '../commands/types.js';
 import { Icon } from '../components/icons.js';
 import type { MenuEntry } from '../components/Menu.js';
+import { moveFocus, onEscape, usePopover } from '../components/usePopover.js';
 import { useModal } from '../modal/index.js';
 import { layoutCommands, paneCommandContext } from './layoutCommandList.js';
 import { type LayoutApi, useLayout } from './layoutContext.js';
@@ -24,8 +23,6 @@ import {
   withPin,
 } from './paneCatalog.js';
 import { PANES, type PaneDefinition, paneCommandsFor } from './paneRegistry.js';
-
-const GAP = 4;
 
 interface PaneRow {
   pane: PaneDefinition;
@@ -249,10 +246,6 @@ export function PanesMenu() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [showHidden, setShowHidden] = useState(false);
-  const [position, setPosition] = useState<{
-    top: number;
-    left: number;
-  } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const popoverId = useId();
@@ -276,58 +269,23 @@ export function PanesMenu() {
     [layout, modal.open, commands],
   );
 
-  const place = useCallback(() => {
-    const rect = triggerRef.current?.getBoundingClientRect();
-    const box = popoverRef.current;
-    if (!rect || !box) return;
-    const width = box.offsetWidth;
-    const height = box.offsetHeight;
-    const left = Math.max(
-      GAP,
-      Math.min(rect.right - width, window.innerWidth - width - GAP),
-    );
-    const below = rect.bottom + GAP;
-    const top =
-      below + height > window.innerHeight
-        ? Math.max(GAP, rect.top - height - GAP)
-        : below;
-    setPosition({ top, left });
-  }, []);
-
-  useLayoutEffect(() => {
-    if (!open) {
-      setPosition(null);
-      return;
-    }
-    place();
-    popoverRef.current?.querySelector<HTMLInputElement>('input')?.focus();
-  }, [open, place]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onPointer = (event: PointerEvent) => {
-      const target = event.target as Node;
-      if (
-        !popoverRef.current?.contains(target) &&
-        !triggerRef.current?.contains(target)
-      ) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener('pointerdown', onPointer);
-    window.addEventListener('resize', place);
-    document.addEventListener('scroll', place, true);
-    return () => {
-      document.removeEventListener('pointerdown', onPointer);
-      window.removeEventListener('resize', place);
-      document.removeEventListener('scroll', place, true);
-    };
-  }, [open, place]);
-
   const close = (restore: boolean) => {
     setOpen(false);
     if (restore) triggerRef.current?.focus();
   };
+
+  const position = usePopover({
+    open,
+    triggerRef,
+    popoverRef,
+    onDismiss: () => setOpen(false),
+  });
+
+  useLayoutEffect(() => {
+    if (open) {
+      popoverRef.current?.querySelector<HTMLInputElement>('input')?.focus();
+    }
+  }, [open]);
 
   const run = (command: Command) => {
     close(true);
@@ -345,12 +303,7 @@ export function PanesMenu() {
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      event.stopPropagation();
-      close(true);
-      return;
-    }
+    if (onEscape(event, () => close(true))) return;
     const box = popoverRef.current;
     if (!box) return;
     const buttons = Array.from(
@@ -362,19 +315,12 @@ export function PanesMenu() {
     const target = event.target as HTMLElement;
     const item = target.closest<HTMLButtonElement>('[role^="menuitem"]');
     const index = item ? buttons.indexOf(item) : -1;
-    const focusAt = (next: number) => {
-      event.preventDefault();
-      buttons[(next + buttons.length) % buttons.length]?.focus();
-    };
     if (!item && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
-      focusAt(event.key === 'ArrowDown' ? 0 : buttons.length - 1);
+      event.preventDefault();
+      buttons[event.key === 'ArrowDown' ? 0 : buttons.length - 1]?.focus();
       return;
     }
-    if (!item) return;
-    if (event.key === 'ArrowDown') focusAt(index + 1);
-    else if (event.key === 'ArrowUp') focusAt(index - 1);
-    else if (event.key === 'Home') focusAt(0);
-    else if (event.key === 'End') focusAt(buttons.length - 1);
+    if (item) moveFocus(event, buttons, index);
   };
 
   const hiddenCount = catalog.hidden.filter((id) =>

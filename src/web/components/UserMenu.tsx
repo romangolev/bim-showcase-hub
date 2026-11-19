@@ -9,6 +9,7 @@ import type { Session } from '../api/client.js';
 import { useSignOut } from '../api/hooks.js';
 import { useModal } from '../modal/index.js';
 import { Icon } from './icons.js';
+import { moveFocus, onEscape, useOutsidePointer } from './usePopover.js';
 
 export function UserMenu({ user }: { user: Session }) {
   const [open, setOpen] = useState(false);
@@ -42,50 +43,11 @@ export function UserMenu({ user }: { user: Session }) {
   }, [open, items]);
 
   const onMenuKeyDown = (event: KeyboardEvent) => {
-    const list = items();
-    const index = list.indexOf(document.activeElement as HTMLButtonElement);
-    const move = (next: number) => {
-      event.preventDefault();
-      list[(next + list.length) % list.length]?.focus();
-    };
-    switch (event.key) {
-      case 'ArrowDown':
-        move(index + 1);
-        break;
-      case 'ArrowUp':
-        move(index - 1);
-        break;
-      case 'Home':
-        move(0);
-        break;
-      case 'End':
-        move(list.length - 1);
-        break;
-      case 'Escape':
-        event.preventDefault();
-        event.stopPropagation();
-        close(true);
-        break;
-      case 'Tab':
-        close(false);
-        break;
-    }
+    if (onEscape(event, () => close(true))) return;
+    if (!moveFocus(event, items()) && event.key === 'Tab') close(false);
   };
 
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    const onPointer = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener('pointerdown', onPointer);
-    return () => {
-      document.removeEventListener('pointerdown', onPointer);
-    };
-  }, [open]);
+  useOutsidePointer(open, [rootRef], () => setOpen(false));
 
   const initial = user.name.trim().charAt(0).toUpperCase() || '?';
 
