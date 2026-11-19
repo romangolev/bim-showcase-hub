@@ -1281,58 +1281,51 @@ describe('RealViewerAdapter geometry export', () => {
     const dbIds = (items: { dbId: number }[]) =>
       items.map((item) => item.dbId).sort();
 
-    it('returns every leaf when nothing is hidden or isolated', async () => {
-      const one = await scene(1, {});
-      expect(dbIds(await one.getVisible())).toEqual([3, 4, 5]);
+    it.each<[string, Plan, number[]]>([
+      ['nothing is hidden or isolated', {}, [3, 4, 5]],
+      ['a hidden parent drops its descendants', { hidden: [[2]] }, [5]],
+      ['only the isolated leaves stay', { isolated: [[3]] }, [3]],
+      [
+        'hidden nodes inside an isolated parent are honoured',
+        { hidden: [[4]], isolated: [[2]] },
+        [3],
+      ],
+      [
+        'a hidden parent wins over isolated descendants',
+        { hidden: [[2]], isolated: [[3, 4]] },
+        [],
+      ],
+      [
+        'an isolated sibling stays when another branch is hidden',
+        { hidden: [[2]], isolated: [[2, 5]] },
+        [5],
+      ],
+    ])('one model: %s', async (_name, plan, expected) => {
+      const one = await scene(1, plan);
+      expect(dbIds(await one.getVisible())).toEqual(expected);
     });
 
-    it('drops the descendants of a hidden parent', async () => {
-      const one = await scene(1, { hidden: [[2]] });
-      expect(dbIds(await one.getVisible())).toEqual([5]);
-    });
-
-    it('keeps only the isolated leaves', async () => {
-      const one = await scene(1, { isolated: [[3]] });
-      expect(dbIds(await one.getVisible())).toEqual([3]);
-    });
-
-    it('honours hidden nodes inside an isolated parent', async () => {
-      const one = await scene(1, { hidden: [[4]], isolated: [[2]] });
-      expect(dbIds(await one.getVisible())).toEqual([3]);
-    });
-
-    it('lets a hidden parent win over isolated descendants', async () => {
-      const one = await scene(1, { hidden: [[2]], isolated: [[3, 4]] });
-      expect(dbIds(await one.getVisible())).toEqual([]);
-    });
-
-    it('keeps an isolated sibling when another branch is hidden', async () => {
-      const one = await scene(1, { hidden: [[2]], isolated: [[2, 5]] });
-      expect(dbIds(await one.getVisible())).toEqual([5]);
-    });
-
-    it('combines isolate in one model with hide in the other', async () => {
-      const one = await scene(2, { isolated: [[3], []], hidden: [[], [2]] });
+    it.each<[string, Plan, number[], number[]]>([
+      [
+        'isolate in one model combines with hide in the other',
+        { isolated: [[3], []], hidden: [[], [2]] },
+        [3],
+        [5],
+      ],
+      [
+        'hidden nodes apply to their own model only',
+        { hidden: [[], [5]] },
+        [3, 4, 5],
+        [3, 4],
+      ],
+    ])('two models: %s', async (_name, plan, expectedA, expectedB) => {
+      const one = await scene(2, plan);
       const [infoA, infoB] = one.getModels();
       const visible = await one.getVisible();
-      expect(
-        dbIds(visible.filter((item) => item.modelId === infoA?.id)),
-      ).toEqual([3]);
-      expect(
-        dbIds(visible.filter((item) => item.modelId === infoB?.id)),
-      ).toEqual([5]);
-    });
-
-    it('applies hidden nodes to their own model only', async () => {
-      const one = await scene(2, { hidden: [[], [5]] });
-      const [infoA, infoB] = one.getModels();
-      const visible = await one.getVisible();
-      expect(
-        dbIds(visible.filter((item) => item.modelId === infoA?.id)),
-      ).toEqual([3, 4, 5]);
-      expect(
-        dbIds(visible.filter((item) => item.modelId === infoB?.id)),
-      ).toEqual([3, 4]);
+      const of = (info?: { id: string }) =>
+        dbIds(visible.filter((item) => item.modelId === info?.id));
+      expect(of(infoA)).toEqual(expectedA);
+      expect(of(infoB)).toEqual(expectedB);
     });
   });
 });
