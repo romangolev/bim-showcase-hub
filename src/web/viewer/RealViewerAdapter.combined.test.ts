@@ -493,6 +493,65 @@ describe('federated selection, paint and properties', () => {
     expect(chunks).toEqual([5000]);
   });
 
+  it('reads a 100k model in 20 discovery chunks and reports progress', async () => {
+    const leaves = Array.from({ length: 100_000 }, (_, i) => i + 2);
+    env.specs.set('a', { leaves });
+    await adapter.loadModels([{ urn: 'a' }]);
+    const chunks: number[] = [];
+    vi.spyOn(viewer().modelOf('a'), 'getBulkProperties').mockImplementation(
+      (ids, _options, ok) => {
+        chunks.push(ids.length);
+        ok(
+          ids.map((dbId) => ({
+            dbId,
+            name: 'n',
+            properties: [
+              {
+                displayName: 'Level',
+                displayValue: 'L1',
+                displayCategory: 'Constraints',
+              },
+            ],
+          })) as never[],
+        );
+      },
+    );
+    const seen: { done: number; total: number }[] = [];
+    const found = await adapter.discoverProperties(undefined, {
+      onProgress: (progress) => seen.push(progress),
+    });
+    expect(chunks).toEqual(Array.from({ length: 20 }, () => 5000));
+    expect(seen[0]).toEqual({ done: 0, total: 100_000 });
+    expect(seen.at(-1)).toEqual({ done: 100_000, total: 100_000 });
+    expect(seen).toHaveLength(21);
+    expect(found).toEqual([{ name: 'Level', category: 'Constraints' }]);
+  });
+
+  it('cancels 100k discovery between chunks', async () => {
+    const leaves = Array.from({ length: 100_000 }, (_, i) => i + 2);
+    env.specs.set('a', { leaves });
+    await adapter.loadModels([{ urn: 'a' }]);
+    const controller = new AbortController();
+    const chunks: number[] = [];
+    vi.spyOn(viewer().modelOf('a'), 'getBulkProperties').mockImplementation(
+      (ids, _options, ok) => {
+        chunks.push(ids.length);
+        ok(
+          ids.map((dbId) => ({
+            dbId,
+            name: 'n',
+            properties: [{ displayName: 'Level', displayValue: 'L1' }],
+          })) as never[],
+        );
+        controller.abort();
+      },
+    );
+    await expect(
+      adapter.discoverProperties(undefined, { signal: controller.signal }),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+    expect(chunks).toEqual([5000]);
+  });
+
   it('keeps the first value when two categories share a property name', async () => {
     env.specs.set('a', { categories: ['Walls'] });
     await adapter.loadModels([{ urn: 'a', name: 'Arch' }]);
