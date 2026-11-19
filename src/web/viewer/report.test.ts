@@ -1,8 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PropertyRow } from '../../shared/types.js';
+import { DEFAULT_SUMMARY_VIEW } from '../extensions/modelSummary.js';
+import { MockViewerAdapter } from './MockViewerAdapter.js';
 import {
   blobToDataUrl,
   buildReportContent,
+  collectReport,
   openReportWindow,
   printReport,
   REPORT_MAX_CHARTS,
@@ -95,6 +98,47 @@ describe('report content', () => {
       'Category',
     );
     expect(content.charts.map((chart) => chart.property)).toEqual(['Level']);
+  });
+
+  it('follows the summary view of the pane', () => {
+    const content = buildReportContent(
+      [row(1, { Category: 'Walls' }), row(2, {})],
+      {
+        ...request,
+        names: ['Category'],
+        chartProperties: [],
+        view: { ...DEFAULT_SUMMARY_VIEW, hideEmpty: true },
+      },
+    );
+    expect(content.sections[0]?.entries).toEqual([
+      { property: 'Category', value: 'Walls', count: 1 },
+    ]);
+  });
+});
+
+describe('report scope', () => {
+  it('collects only the elements of the summary scope', async () => {
+    const adapter = new MockViewerAdapter(document.createElement('div'));
+    await adapter.loadModels([{ urn: 'urn-a' }]);
+    const rows = await adapter.getLeafProperties(['Category']);
+    const first = rows[0];
+    if (!first) throw new Error('no rows');
+    adapter.selectModelIds([{ modelId: 'urn-a', dbId: first.dbId }]);
+    const content = await collectReport(adapter, {
+      title: 'Tower',
+      names: ['Category'],
+      chartProperties: [],
+      maxCategories: 6,
+      elements: 'selected',
+    });
+    expect(rows.length).toBeGreaterThan(1);
+    expect(content.elements).toBe(1);
+    expect(
+      content.sections
+        .flatMap((section) => section.entries)
+        .reduce((total, entry) => total + entry.count, 0),
+    ).toBe(1);
+    adapter.destroy();
   });
 });
 

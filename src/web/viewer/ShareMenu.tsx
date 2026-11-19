@@ -14,6 +14,7 @@ import {
 import {
   LINK_DEGRADED_TEXT,
   LINK_RESTORED_TEXT,
+  LINK_TRIMMED_TEXT,
   restoreLinkView,
   sharedView,
 } from './shareLink.js';
@@ -69,6 +70,7 @@ export interface ShareMenuProps {
 export interface ShareHref {
   href: string;
   degraded: boolean;
+  trimmed: boolean;
 }
 
 export function shareHref(
@@ -80,11 +82,16 @@ export function shareHref(
 ): ShareHref {
   const shared = withView ? sharedView(adapter, modelIds, layout) : null;
   if (!shared) {
-    return { href: withViewParam(baseHref, null), degraded: false };
+    return {
+      href: withViewParam(baseHref, null),
+      degraded: false,
+      trimmed: false,
+    };
   }
   return {
     href: withViewParam(baseHref, shared.view),
     degraded: shared.degraded,
+    trimmed: shared.trimmed,
   };
 }
 
@@ -158,6 +165,8 @@ export function ShareMenu({
         names: PANE_SETTINGS.summary.properties.read(),
         chartProperties: dashboard.properties,
         maxCategories: dashboard.maxCategories,
+        elements: PANE_SETTINGS.summary.scope.read(),
+        view: PANE_SETTINGS.summary.view.read(),
       });
       printReport(reportHtml(content), () => win);
       onResult(REPORT_READY_TEXT, false);
@@ -170,7 +179,7 @@ export function ShareMenu({
     }
   };
   const copy = async (withView: boolean) => {
-    const { href, degraded } = shareHref(
+    const { href, degraded, trimmed } = shareHref(
       adapter,
       modelIds,
       baseHref ?? window.location.href,
@@ -179,7 +188,14 @@ export function ShareMenu({
     );
     try {
       await navigator.clipboard.writeText(href);
-      onResult(degraded ? LINK_DEGRADED_TEXT : COPIED_LINK_TEXT, false);
+      onResult(
+        degraded
+          ? LINK_DEGRADED_TEXT
+          : trimmed
+            ? LINK_TRIMMED_TEXT
+            : COPIED_LINK_TEXT,
+        false,
+      );
     } catch {
       onResult(COPY_FAILED_TEXT, true);
     }

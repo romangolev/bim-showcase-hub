@@ -3,9 +3,12 @@ import { type ChartData, shapeChartData } from '../extensions/dashboardData.js';
 import {
   formatCount,
   type SummaryEntry,
+  type SummaryView,
   summarize,
+  viewEntries,
 } from '../extensions/modelSummary.js';
 import { ALL_MODELS } from './modelScope.js';
+import type { ElementScope } from './propertyScope.js';
 import { readScopedRows } from './scopedRows.js';
 import type { ViewerAdapter } from './ViewerAdapter.js';
 
@@ -44,14 +47,18 @@ export interface ReportRequest {
   names: readonly string[];
   chartProperties: readonly string[];
   maxCategories: number;
+  elements?: ElementScope;
+  view?: SummaryView;
   now?: Date;
 }
 
 function sectionsFor(
   rows: readonly PropertyRow[],
   names: readonly string[],
+  view: SummaryView | undefined,
 ): ReportSection[] {
-  const entries = summarize(rows, names.slice(0, REPORT_MAX_PROPERTIES));
+  const summarized = summarize(rows, names.slice(0, REPORT_MAX_PROPERTIES));
+  const entries = view ? viewEntries(summarized, view) : summarized;
   const grouped = new Map<string, SummaryEntry[]>();
   for (const entry of entries) {
     const list = grouped.get(entry.property);
@@ -84,7 +91,7 @@ export function buildReportContent(
     date: request.now ?? new Date(),
     elements: rows.length,
     models: [],
-    sections: sectionsFor(rows, request.names),
+    sections: sectionsFor(rows, request.names, request.view),
     charts,
     unavailable: [],
     image: request.image ?? null,
@@ -99,12 +106,11 @@ export async function collectReport(
   const read = await readScopedRows(adapter, {
     names,
     models: ALL_MODELS,
-    elements: 'all',
+    elements: request.elements ?? 'all',
   });
   const content = buildReportContent(read.rows, request);
   return {
     ...content,
-    elements: read.total,
     models: adapter.getModels().map((model) => model.name),
     unavailable: read.unavailable.map((model) => model.name),
   };

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { encodeView, parseView } from '../api/viewLink.js';
 import { DEFAULT_DASHBOARD_VIEW } from '../extensions/dashboardPresets.js';
 import * as excel from '../extensions/excelExport.js';
+import { chartSetting } from '../layout/instanceSettings.js';
 import { type LayoutApi, LayoutContext } from '../layout/layoutContext.js';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import { setStorageAdapter } from '../storage.js';
@@ -18,6 +19,7 @@ import {
 import {
   LINK_DEGRADED_TEXT,
   LINK_RESTORED_TEXT,
+  LINK_TRIMMED_TEXT,
   resetAppliedLinks,
 } from './shareLink.js';
 import { SNAPSHOT, SNAPSHOT_DEFAULTS } from './snapshot.js';
@@ -121,6 +123,25 @@ describe('Share menu', () => {
     expect(adapter()?.getModelSelection()).toEqual([
       { modelId: 'urn-a', dbId: 101 },
     ]);
+  });
+
+  it('applies the camera of a crafted link that names an unknown pane', async () => {
+    const { factory, adapter } = setup();
+    render(
+      <ViewerPane
+        urn="urn-a"
+        factory={factory}
+        initialView="2~5,6,7~0,0,0~0,1,0~p~~|foo"
+      />,
+    );
+    await waitFor(() =>
+      expect(adapter()?.getCamera?.()).toEqual({
+        eye: [5, 6, 7],
+        target: [0, 0, 0],
+        up: [0, 1, 0],
+        ortho: false,
+      }),
+    );
   });
 });
 
@@ -306,6 +327,7 @@ function linkAdapter(): ViewerAdapter {
 
 function fakeLayout(overrides: Partial<LayoutApi> = {}): LayoutApi {
   return {
+    mode: 'dock',
     openPanes: [],
     isCollapsed: () => false,
     togglePane: vi.fn(),
@@ -415,6 +437,59 @@ describe('Share menu links', () => {
     );
     expect(layout.togglePane).toHaveBeenCalledWith('summary');
     expect(PANE_SETTINGS.dashboard.view.read().property).toBe('Level');
+  });
+
+  it('restores a crafted link without touching the pane it names', async () => {
+    window.history.replaceState(
+      {},
+      '',
+      '/model/urn-a?view=2~1,2,3~0,0,0~0,0,1~p~~%7Cfoo',
+    );
+    const layout = fakeLayout();
+    const onResult = vi.fn();
+    render(
+      <LayoutContext.Provider value={layout}>
+        <ShareMenu
+          adapter={linkAdapter()}
+          modelIds={['urn-a']}
+          combined={false}
+          onResult={onResult}
+        />
+      </LayoutContext.Provider>,
+    );
+    expect(await screen.findByRole('button', { name: 'Share' })).toBeTruthy();
+    expect(layout.setCollapsed).not.toHaveBeenCalled();
+    expect(layout.togglePane).not.toHaveBeenCalled();
+    expect(onResult).not.toHaveBeenCalled();
+  });
+
+  it('says which chart panes did not fit in the link', async () => {
+    const write = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText: write } });
+    for (let i = 1; i <= 4; i += 1) {
+      chartSetting(`chart:${i}`).write({
+        ...DEFAULT_DASHBOARD_VIEW,
+        property: `Level ${i}`,
+        properties: [`Level ${i}`],
+      });
+    }
+    const onResult = vi.fn();
+    render(
+      <ShareMenu
+        adapter={linkAdapter()}
+        modelIds={['urn-a']}
+        baseHref="https://app.test/model/urn-a"
+        combined={false}
+        onResult={onResult}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+    fireEvent.click(
+      screen.getByRole('menuitem', { name: 'Copy link to this view' }),
+    );
+    await waitFor(() =>
+      expect(onResult).toHaveBeenCalledWith(LINK_TRIMMED_TEXT, false),
+    );
   });
 });
 
