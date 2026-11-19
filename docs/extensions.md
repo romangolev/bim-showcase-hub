@@ -12,7 +12,7 @@ An extension is a small module in `src/web/extensions` that works against the `V
 
 A property row is `{ dbId, name, properties, modelId?, modelName? }`. In a combined view dbIds repeat across models, so never key data by `dbId` alone. Use `scopeRows` from `viewer/modelScope.ts` to show one model. A model whose properties failed has `propertiesError`: show `unavailableModels(adapter.getModels())` beside partial results.
 
-Read rows with `useScopedRows` in panels and `readScopedRows` in async code, never `readLeafRows` directly ([architecture.md](architecture.md#scoped-rows)). Render states with `StateBlock`.
+Read rows with `useScopedRows` in panels and `readScopedRows` / `peekScopedRows` (`viewer/scopedRows.ts`) in async code, never `readLeafRows` directly ([architecture.md](architecture.md#scoped-rows)). Render states with `StateBlock`.
 
 ## Built in
 

@@ -113,17 +113,17 @@ The keys are listed in [development.md](development.md#storage-keys).
 
 ### User-made items
 
-`src/web/store/savedStore.ts` holds viewpoints, selection sets and dashboard presets in one personal record (`bsh.saved.v1`). Each kind is declared once with `defineSavedKind` (`store/savedKinds.ts`), which registers it through `registerSavedKind` (`store/savedKindRegistry.ts`) and returns a typed handle. The production kinds are `viewpoint` (`viewer/viewpoints.ts`), `selection-set` (`viewer/selectionSets.ts`) and `dashboard-preset` (`panels/DashboardUserPresets.tsx`), all at version 1. The export envelope is `bsh-saved` version 2 with a per-kind version map; import migrates older items and merges by id.
+`src/web/store/savedStore.ts` holds viewpoints, selection sets and dashboard presets in one personal record (`bsh.saved.v1`). Each kind is declared once with `defineSavedKind` (`store/savedKinds.ts`), which registers it through `registerSavedKind` (`store/savedKindRegistry.ts`) and returns a typed handle. The production kinds are `viewpoint` (`viewer/viewpoints.ts`), `selection-set` (`viewer/selectionSets.ts`) and `dashboard-preset` (`extensions/dashboardPresets.ts`), all at version 1. The export envelope is `bsh-saved` version 2 with a per-kind version map; import migrates older items and merges by id.
 
 ### Scoped rows
 
-Summary, Dashboard and exports read property rows the same way: `useScopedRows` in panels and `readScopedRows` (`viewer/propertyScope.ts`) in async code.
+Summary, Dashboard and exports read property rows the same way: `useScopedRows` in panels and `readScopedRows` / `peekScopedRows` (`viewer/scopedRows.ts`) in async code. The seam owns model resolution, element scope, the failure report and the scope note; the hook adds live scope signals and status.
 
 - Dashboard and Excel choose their columns from the shared property catalog: `PropertyPicker` (`panels/PropertyPicker.tsx`) lists what `usePropertyCatalog` discovered, and the chosen names become the `names` of the scoped read. The Dashboard stores them in `bsh.pane.dashboard.properties.v1`, Excel in its tool settings (`bsh.tool.excel.v1`), and the export drops columns from the same rows rather than reading the model again.
 - Scope is a model (`ALL_MODELS` or one model id) plus elements (`all`, `selected`, `visible`, `isolated` or `set:<id>`).
 - `viewer/sharedLeafRows.ts` keeps one cache per adapter and model. Refresh clears it. An empty read is cached only when the adapter reported a complete tree (`onProgress` with `total: 0`), so a transient empty read is read again; `peekLeafRows` then returns `[]`.
 - The hook returns status, progress, `reload` and `cancel`.
-- The `selected` scope refreshes live (the selection event, debounced; the latest result wins). `visible`, `isolated` and `set:<id>` are read once per read or reload because the adapter has no visibility event, so use Refresh after changing visibility.
+- The `selected` scope refreshes live (the selection event, debounced; the latest result wins). `visible` and `isolated` refresh on the adapter's visibility event (debounced). `set:<id>` is read once per read or reload; use Refresh after editing a set.
 
 ## ViewerAdapter
 
