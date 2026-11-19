@@ -429,29 +429,24 @@ export class MockViewerAdapter implements ViewerAdapter {
     };
   }
 
-  async getElementProperties({
-    modelId,
-    dbId,
-  }: ModelDbId): Promise<ElementProperties | null> {
-    if (!this.nodeOf(modelId, dbId)) return null;
-    const element = buildMockElements().find((entry) => entry.dbId === dbId);
-    if (!element) return null;
-    const values = elementProperties(element);
-    return {
-      dbId,
-      name: element.name,
-      properties: MOCK_PROPERTY_INFOS.map(({ category, name }) => ({
-        category,
-        name,
-        value: values[name] ?? null,
-      })),
-    };
-  }
-
-  getElementsProperties(
+  async getElementsProperties(
     items: readonly ModelDbId[],
   ): Promise<(ElementProperties | null)[]> {
-    return Promise.all(items.map((item) => this.getElementProperties(item)));
+    return items.map(({ modelId, dbId }) => {
+      if (!this.nodeOf(modelId, dbId)) return null;
+      const element = buildMockElements().find((entry) => entry.dbId === dbId);
+      if (!element) return null;
+      const values = elementProperties(element);
+      return {
+        dbId,
+        name: element.name,
+        properties: MOCK_PROPERTY_INFOS.map(({ category, name }) => ({
+          category,
+          name,
+          value: values[name] ?? null,
+        })),
+      };
+    });
   }
 
   setModelVisible(modelId: string, visible: boolean): void {

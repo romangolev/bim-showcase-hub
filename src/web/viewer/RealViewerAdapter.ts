@@ -577,13 +577,6 @@ export class RealViewerAdapter implements ViewerAdapter {
     return readViewerSource(viewer, shown);
   }
 
-  async getElementProperties(
-    item: ModelDbId,
-  ): Promise<ElementProperties | null> {
-    const [only] = await this.getElementsProperties([item]);
-    return only ?? null;
-  }
-
   async getElementsProperties(
     items: readonly ModelDbId[],
   ): Promise<(ElementProperties | null)[]> {

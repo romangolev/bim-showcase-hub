@@ -191,10 +191,9 @@ describe('ViewerAdapter contract (mock)', () => {
     await setup();
     const modelId = adapter.getModels()[0]?.id ?? '';
     const first = buildMockElements()[0];
-    const read = await adapter.getElementProperties({
-      modelId,
-      dbId: first?.dbId ?? 0,
-    });
+    const [read] = await adapter.getElementsProperties([
+      { modelId, dbId: first?.dbId ?? 0 },
+    ]);
     expect(read?.name).toBe(first?.name);
     expect(read?.properties.map((p) => p.name)).toEqual([
       'Category',
@@ -205,11 +204,11 @@ describe('ViewerAdapter contract (mock)', () => {
     ]);
     expect(read?.properties.every((p) => p.category.length > 0)).toBe(true);
     expect(
-      await adapter.getElementProperties({ modelId, dbId: -1 }),
-    ).toBeNull();
-    expect(
-      await adapter.getElementProperties({ modelId: 'nope', dbId: 1 }),
-    ).toBeNull();
+      await adapter.getElementsProperties([
+        { modelId, dbId: -1 },
+        { modelId: 'nope', dbId: 1 },
+      ]),
+    ).toEqual([null, null]);
   });
 
   it('reads several elements at once, keeping order and nulls', async () => {

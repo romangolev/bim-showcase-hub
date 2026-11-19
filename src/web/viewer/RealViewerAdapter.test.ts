@@ -1149,7 +1149,9 @@ describe('RealViewerAdapter geometry export', () => {
       ]);
     };
     const { id } = one.getModels()[0] as { id: string };
-    const result = await one.getElementProperties({ modelId: id, dbId: 7 });
+    const [result] = await one.getElementsProperties([
+      { modelId: id, dbId: 7 },
+    ]);
     expect(asked).toEqual([[[7], {}]]);
     expect(result).toEqual({
       dbId: 7,
@@ -1161,10 +1163,12 @@ describe('RealViewerAdapter geometry export', () => {
       ],
     });
     expect(
-      await one.getElementProperties({ modelId: 'nope', dbId: 7 }),
-    ).toBeNull();
+      await one.getElementsProperties([{ modelId: 'nope', dbId: 7 }]),
+    ).toEqual([null]);
     model.getBulkProperties = (_ids, _opts, ok) => ok([]);
-    expect(await one.getElementProperties({ modelId: id, dbId: 8 })).toBeNull();
+    expect(await one.getElementsProperties([{ modelId: id, dbId: 8 }])).toEqual(
+      [null],
+    );
   });
 
   it('reads many elements with one bulk call per model', async () => {
@@ -1205,7 +1209,7 @@ describe('RealViewerAdapter geometry export', () => {
     ) => fail?.(new Error('boom'));
     const { id } = one.getModels()[0] as { id: string };
     await expect(
-      one.getElementProperties({ modelId: id, dbId: 1 }),
+      one.getElementsProperties([{ modelId: id, dbId: 1 }]),
     ).rejects.toThrow('boom');
   });
 
