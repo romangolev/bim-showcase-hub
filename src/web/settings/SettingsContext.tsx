@@ -12,7 +12,6 @@ import { FORGET_EVENT } from '../storage.js';
 import {
   applyAppSettings,
   DEFAULT_SETTINGS,
-  migrateLegacyTheme,
   readSettings,
   type Settings,
   writeSettings,
@@ -31,10 +30,7 @@ const FALLBACK: SettingsApi = {
 const SettingsContext = createContext<SettingsApi>(FALLBACK);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
-  const [settings, setSettings] = useState<Settings>(() => {
-    migrateLegacyTheme();
-    return readSettings();
-  });
+  const [settings, setSettings] = useState<Settings>(readSettings);
   useLayoutEffect(() => {
     applyAppSettings(settings, document.documentElement);
   }, [settings]);

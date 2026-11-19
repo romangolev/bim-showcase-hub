@@ -1,7 +1,10 @@
 import { act, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SettingsProvider } from '../settings/SettingsContext.js';
-import { SETTINGS_STORAGE_KEY } from '../settings/settings.js';
+import {
+  migrateLegacyTheme,
+  SETTINGS_STORAGE_KEY,
+} from '../settings/settings.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { ThemeProvider, useTheme } from './ThemeContext.js';
 import { THEME_STORAGE_KEY } from './theme.js';
@@ -119,10 +122,11 @@ describe('ThemeProvider', () => {
     expect(screen.getByTestId('source')).toHaveTextContent('user');
   });
 
-  it('moves an existing bsh-theme value into the settings blob once', () => {
+  it('reads an existing bsh-theme value after the startup migration', () => {
     const storage = installMemoryStorage();
     storage.setItem(THEME_STORAGE_KEY, 'light');
     stubScheme('dark');
+    migrateLegacyTheme();
     renderProbe();
     expect(screen.getByTestId('theme')).toHaveTextContent('light');
     expect(storedSettings().theme).toBe('light');
