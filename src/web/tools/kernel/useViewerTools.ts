@@ -79,6 +79,9 @@ export function useViewerTools(
   }, [adapter, active, suffix, registry, snapshot]);
 
   const wasEnabled = useRef<Record<string, boolean>>({});
+  const seen = useRef<
+    { adapter: ViewerAdapter; snapshot: ToolSnapshot } | undefined
+  >(undefined);
   useEffect(() => {
     if (!adapter || !active) return;
     const before = wasEnabled.current;
@@ -88,6 +91,15 @@ export function useViewerTools(
     for (const tool of registry.all()) {
       if (before[tool.id] && !snapshot[tool.id]?.enabled) {
         tool.onDisabled(adapter);
+      }
+    }
+    const previous =
+      seen.current?.adapter === adapter ? seen.current.snapshot : {};
+    seen.current = { adapter, snapshot };
+    for (const tool of registry.all()) {
+      const next = snapshot[tool.id];
+      if (next && next !== previous[tool.id]) {
+        tool.onSettingsChanged(adapter, previous[tool.id], next);
       }
     }
   }, [adapter, active, registry, snapshot]);

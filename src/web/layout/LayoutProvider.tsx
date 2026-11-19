@@ -46,14 +46,24 @@ import {
   type PaneTitle,
   type PaneTitles,
 } from './layoutContext.js';
+import { decodeShare, shareLinkFor, shareParamIn } from './layoutShare.js';
 import {
   defaultModel,
   type LayoutModel,
   readLayout,
   writeLayout,
 } from './layoutState.js';
-import { LayoutMenu, PaneActions } from './PaneMenu.js';
+import { PaneActions } from './PaneMenu.js';
+import { LayoutMenu } from './PanesMenu.js';
 import { PresentControls } from './PresentControls.js';
+import {
+  type PaneAppearances,
+  paneTags,
+  readPaneAppearances,
+  replacePaneAppearances,
+  usePaneAppearances,
+  withPaneTitles,
+} from './paneAppearance.js';
 import { createPaneLifecycle, type PaneLifecycle } from './paneLifecycle.js';
 import {
   definitionOf,
@@ -72,6 +82,21 @@ import {
   userInstanceTitles,
 } from './userInstances.js';
 import { createHostStore, PaneHosts } from './ViewerHost.js';
+import { WorkspaceSwitcher } from './WorkspaceSwitcher.js';
+import { downloadText, writeClipboard } from './workspaceFiles.js';
+import {
+  activeNameOf,
+  PRESETS,
+  parseWorkspace,
+  removeWorkspace,
+  renameWorkspace,
+  saveWorkspace,
+  serializeWorkspace,
+  WORKSPACES_RECORD,
+  type WorkspaceApi,
+  type WorkspaceDialog,
+  workspaceFileName,
+} from './workspaces.js';
 
 const DockLayout = lazy(() =>
   import('./DockLayout.js').then((module) => ({
@@ -241,6 +266,11 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
   const mode: LayoutMode = stacked ? 'stacked' : 'dock';
   const [userState, setUserState] = usePersisted(USER_INSTANCES);
   const [locked, setLockedState] = usePersisted(LOCKED);
+  const [workspaces, setWorkspaces] = usePersisted(WORKSPACES_RECORD);
+  const [activeWorkspace, setActiveWorkspace] = useState<string | null>(null);
+  const [workspaceDialog, setWorkspaceDialog] = useState<WorkspaceDialog>(null);
+  const undoAppearances = useRef<PaneAppearances | null>(null);
+  const appearances = usePaneAppearances();
   const [hosts] = useState(() => createHostStore<PanelId>());
   const controller = useRef<DockController | null>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
@@ -297,9 +327,14 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
   const { layout: model, openPanes, presenting, maximized, resizing } = state;
   const activeInstance = models.active ? modelPanelId(models.active) : null;
   const titles = useMemo(
-    () => ({ ...titlesFor(models), ...userInstanceTitles(state.user) }),
-    [models, state.user],
+    () =>
+      withPaneTitles(
+        { ...titlesFor(models), ...userInstanceTitles(state.user) },
+        appearances,
+      ),
+    [models, state.user, appearances],
   );
+  const tags = useMemo(() => paneTags(appearances), [appearances]);
   titlesRef.current = titles;
 
   useLayoutEffect(() => {
@@ -307,6 +342,220 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
   }, [lifecycle, userState, locked]);
 
   useDebouncedWrite(model);
+
+  const applyBlocker = () =>
+    lifecycle.getState().locked
+      ? 'Unlock the layout first.'
+      : modeRef.current !== 'dock'
+        ? 'Open the dock layout to apply this.'
+        : null;
+
+  const shareRead = useRef(false);
+  useEffect(() => {
+    if (shareRead.current) return;
+    shareRead.current = true;
+    const param = shareParamIn(window.location.hash);
+    if (!param) return;
+    const url = new URL(window.location.href);
+    url.hash = '';
+    window.history.replaceState(
+      window.history.state,
+      '',
+      `${url.pathname}${url.search}`,
+    );
+    void decodeShare(param).then((text) => {
+      if (!text) {
+        lifecycle.notify('This share link is not a readable layout.');
+        return;
+      }
+      const parsed = parseWorkspace(text);
+      if ('error' in parsed) {
+        lifecycle.notify(parsed.error);
+        return;
+      }
+      const blocked = applyBlocker();
+      if (blocked) {
+        lifecycle.notify(blocked);
+        return;
+      }
+      const shared = parsed.workspace.appearances;
+      if (Object.keys(shared).length > 0) {
+        undoAppearances.current = readPaneAppearances();
+        replacePaneAppearances(shared);
+      }
+      lifecycle.applyWorkspace(
+        { layout: parsed.workspace.layout },
+        parsed.workspace.name,
+      );
+    });
+  }, [lifecycle]);
+
+  const workspaceApi = useMemo<WorkspaceApi>(() => {
+    const { notify, getState } = lifecycle;
+    const exportText = () =>
+      serializeWorkspace({
+        name: activeNameOf(workspaces.items, activeWorkspace) ?? 'Layout',
+        layout: model,
+        appearances,
+      });
+    const applyLayout = (
+      layout: LayoutModel,
+      name: string,
+      nextAppearances: PaneAppearances | null,
+    ): string | null => {
+      const blocked = applyBlocker();
+      if (blocked) return blocked;
+      const travels =
+        nextAppearances !== null && Object.keys(nextAppearances).length > 0;
+      undoAppearances.current = travels ? appearances : null;
+      if (travels && nextAppearances) replacePaneAppearances(nextAppearances);
+      lifecycle.applyWorkspace({ layout }, name);
+      return null;
+    };
+    return {
+      presets: PRESETS,
+      items: workspaces.items,
+      active: activeWorkspace,
+      canRevert: state.canRevert,
+      locked: state.locked,
+      canPresent: view.canPresent,
+      dialog: workspaceDialog,
+      openDialog: (dialog) => setWorkspaceDialog(dialog),
+      closeDialog: () => setWorkspaceDialog(null),
+      applyPreset: (id) => {
+        const preset = PRESETS.find((entry) => entry.id === id);
+        if (!preset) return;
+        if (preset.id === 'present') {
+          lifecycle.setPresenting(!getState().presenting);
+          return;
+        }
+        const blocked = applyBlocker();
+        if (blocked) {
+          notify(blocked);
+          return;
+        }
+        undoAppearances.current = null;
+        lifecycle.applyWorkspace(
+          {
+            steps: preset.steps,
+            collapsed: preset.collapsed,
+            dismissed: preset.dismissed,
+          },
+          preset.name,
+        );
+        setActiveWorkspace(`preset:${preset.id}`);
+      },
+      applySaved: (id) => {
+        const item = workspaces.items.find((entry) => entry.id === id);
+        if (!item) return;
+        const blocked = applyLayout(item.layout, item.name, item.appearances);
+        if (blocked) {
+          notify(blocked);
+          return;
+        }
+        setActiveWorkspace(item.id);
+      },
+      save: (name) => {
+        const result = saveWorkspace(workspaces, name, model, appearances);
+        if (!result) return null;
+        if ('error' in result) {
+          notify('Workspace limit reached. Delete one first.');
+          return null;
+        }
+        const replaced = workspaces.items.some(
+          (item) => item.id === result.workspace.id,
+        );
+        setWorkspaces(result.store);
+        setActiveWorkspace(result.workspace.id);
+        notify(
+          `Workspace ${result.workspace.name} ${replaced ? 'replaced' : 'saved'}`,
+        );
+        return result.workspace;
+      },
+      rename: (id, name) => {
+        const next = renameWorkspace(workspaces, id, name);
+        if (next === workspaces) return false;
+        setWorkspaces(next);
+        notify('Workspace renamed');
+        return true;
+      },
+      remove: (id) => {
+        setWorkspaces(removeWorkspace(workspaces, id));
+        if (activeWorkspace === id) setActiveWorkspace(null);
+        notify('Workspace deleted');
+      },
+      revert: () => {
+        if (!getState().canRevert) return;
+        if (undoAppearances.current) {
+          replacePaneAppearances(undoAppearances.current);
+          undoAppearances.current = null;
+        }
+        lifecycle.revertWorkspace();
+        setActiveWorkspace(null);
+      },
+      importText: (text) => {
+        const parsed = parseWorkspace(text);
+        if ('error' in parsed) return parsed.error;
+        const blocked = applyLayout(
+          parsed.workspace.layout,
+          parsed.workspace.name,
+          parsed.workspace.appearances,
+        );
+        if (blocked) return blocked;
+        setActiveWorkspace(null);
+        setWorkspaceDialog(null);
+        notify(`Layout ${parsed.workspace.name} imported`);
+        return null;
+      },
+      exportText,
+      download: () => {
+        const name = activeNameOf(workspaces.items, activeWorkspace);
+        const saved = downloadText(workspaceFileName(name), exportText());
+        notify(saved ? 'Workspace downloaded' : 'Downloads are unavailable');
+      },
+      copyJson: () => {
+        void writeClipboard(exportText()).then((copied) =>
+          notify(
+            copied
+              ? 'Workspace JSON copied'
+              : 'Clipboard is unavailable; use Download layout',
+          ),
+        );
+      },
+      copyLink: () => {
+        void (async () => {
+          const text = exportText();
+          const link = await shareLinkFor(window.location.href, text);
+          if (!link) {
+            const copied = await writeClipboard(text);
+            notify(
+              copied
+                ? 'Layout too long for a link; workspace JSON copied instead'
+                : 'Layout too long for a link; use Download layout',
+            );
+            return;
+          }
+          const copied = await writeClipboard(link);
+          notify(
+            copied
+              ? 'Share link copied'
+              : 'Clipboard is unavailable; use Download layout',
+          );
+        })();
+      },
+    };
+  }, [
+    lifecycle,
+    workspaces,
+    activeWorkspace,
+    state.canRevert,
+    state.locked,
+    view.canPresent,
+    workspaceDialog,
+    model,
+    appearances,
+    setWorkspaces,
+  ]);
 
   const instanceKey = instances.join('\n');
   useEffect(() => {
@@ -346,9 +595,13 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
     return () => document.removeEventListener('keydown', onKey);
   }, [overlayOpen, lifecycle]);
 
-  const onController = useCallback((next: DockController | null) => {
-    controller.current = next;
-  }, []);
+  const onController = useCallback(
+    (next: DockController | null) => {
+      controller.current = next;
+      if (next) lifecycle.controllerReady();
+    },
+    [lifecycle],
+  );
 
   const treeControl = useMemo(
     () => ({ reveal: lifecycle.revealTree }),
@@ -387,6 +640,8 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       closeTreeOverlay: lifecycle.closeTreeOverlay,
       floatNext: lifecycle.floatNext,
       paneTitle,
+      workspaces: workspaceApi,
+      notify: lifecycle.notify,
     }),
     [
       lifecycle,
@@ -401,6 +656,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       presenting,
       resizing,
       paneTitle,
+      workspaceApi,
     ],
   );
 
@@ -481,6 +737,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       models: () => modelStore.getState(),
       activateModel: modelStore.activate,
       closeModel: modelStore.close,
+      workspaces: () => api.workspaces,
     };
     return () => {
       delete target.__bshLayout;
@@ -511,13 +768,19 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
                 treeOpen={treeOpen}
                 onToggleTree={lifecycle.toggleTree}
                 toggleRef={toggleRef}
-                actions={<LayoutMenu />}
+                actions={
+                  <>
+                    <WorkspaceSwitcher />
+                    <LayoutMenu />
+                  </>
+                }
               />
               {stacked ? (
                 <StackedLayout
                   hosts={hosts}
                   open={companions}
                   titles={titles}
+                  tags={tags}
                   models={models}
                   onSelectModel={modelStore.activate}
                   onCloseModel={modelStore.close}
@@ -542,6 +805,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
                       treeWidth={model.treeWidth}
                       collapsed={model.collapsed}
                       titles={titles}
+                      tags={tags}
                       instances={instances}
                       activeInstance={activeInstance}
                       companions={companions}

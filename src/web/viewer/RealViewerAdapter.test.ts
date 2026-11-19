@@ -455,7 +455,7 @@ describe('RealViewerAdapter tool group extension', () => {
 
     viewer.select([11, 12]);
     for (const swatch of swatches) expect(swatch.state).toBe(STATE.INACTIVE);
-    expect(swatches[0]?.tooltip).toBe('Paint selected items in red');
+    expect(swatches[0]?.tooltip).toBe('Paint selected items in red (1)');
 
     swatches[0]?.click();
     expect(viewer.themed.map((t) => t.id)).toEqual([11, 12]);
@@ -1089,6 +1089,17 @@ describe('RealViewerAdapter geometry export', () => {
     };
     return model as ViewerModel;
   }
+
+  it('reads the external id map for saved selections', async () => {
+    const one = makeAdapter();
+    await one.load('urn-a', 'Tower.rvt');
+    Object.assign((viewers[0] as FakeViewer).model, fakeSourceModel('a'));
+    const info = one.getModels()[0];
+    expect(await one.getExternalIdMap(info?.id ?? '')).toEqual({
+      'guid-a': 1,
+    });
+    expect(await one.getExternalIdMap('missing')).toEqual({});
+  });
 
   it('reads properties and external ids as an IFC source', async () => {
     const one = makeAdapter();

@@ -12,6 +12,7 @@ function fakeDock(): DockController {
     openPane: vi.fn(),
     closePane: vi.fn(),
     reset: vi.fn(),
+    apply: vi.fn(),
     focusPane: vi.fn(),
     toggleMaximize: vi.fn(() => true),
     location: vi.fn(() => 'grid' as const),
@@ -37,6 +38,7 @@ function setup(
   const models = createOpenModelsStore(null);
   for (const urn of options.urns ?? []) models.open(urn);
   const dock = fakeDock();
+  let dockAttached = options.withDock !== false;
   let mode: LayoutMode = options.mode ?? 'dock';
   const hosts = { release: vi.fn() };
   const persist = { user: vi.fn(), locked: vi.fn() };
@@ -45,7 +47,7 @@ function setup(
   const queue: Array<() => void> = [];
   const lifecycle = createPaneLifecycle({
     models,
-    dock: () => (options.withDock === false ? null : dock),
+    dock: () => (dockAttached ? dock : null),
     mode: () => mode,
     hosts,
     persist,
@@ -67,6 +69,9 @@ function setup(
     persist,
     settings,
     focus,
+    attachDock: () => {
+      dockAttached = true;
+    },
     setMode: (next: LayoutMode) => {
       mode = next;
     },
@@ -201,6 +206,28 @@ describe('paneLifecycle model tabs', () => {
     expect(dock.movePane).toHaveBeenCalledWith('viewer:a', 'float');
     lifecycle.floatNext('a');
     expect(dock.movePane).toHaveBeenCalledTimes(2);
+  });
+
+  it('drops a queued preset when a newer layout-only workspace applies', () => {
+    const { lifecycle, dock, attachDock } = setup({ withDock: false });
+    lifecycle.applyWorkspace({ steps: [] } as never, 'Review');
+    lifecycle.applyWorkspace({ layout: defaultModel() }, 'Saved');
+    attachDock();
+    lifecycle.controllerReady();
+    expect(dock.apply).not.toHaveBeenCalledWith(
+      expect.objectContaining({ steps: expect.anything() }),
+      expect.anything(),
+    );
+  });
+
+  it('replaces a queued preset with a newer queued one', () => {
+    const { lifecycle, dock, attachDock } = setup({ withDock: false });
+    lifecycle.applyWorkspace({ steps: [] } as never, 'Review');
+    lifecycle.applyWorkspace({ steps: [{}] } as never, 'Other');
+    attachDock();
+    lifecycle.controllerReady();
+    expect(dock.apply).toHaveBeenCalledTimes(1);
+    expect(dock.apply).toHaveBeenCalledWith({ steps: [{}] }, expect.anything());
   });
 
   it('drops a pending float when its model closes before attaching', () => {

@@ -16,6 +16,14 @@ const layout = {
   setLocked: vi.fn(),
   resetLayout: vi.fn(),
   focusPane: vi.fn(),
+  workspaces: {
+    canRevert: false,
+    openDialog: vi.fn(),
+    download: vi.fn(),
+    copyJson: vi.fn(),
+    copyLink: vi.fn(),
+    revert: vi.fn(),
+  },
 } as unknown as LayoutApi;
 
 const host = { openModal: () => undefined };

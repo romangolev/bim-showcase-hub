@@ -34,11 +34,14 @@ import {
 } from './modelSummary.js';
 import {
   DEFAULT_PAINT_PALETTE,
+  PAINT_PALETTES,
   PAINT_PRESETS,
   paintSelection,
   paletteToPresets,
+  resolvePaintPalette,
   sanitizeIntensity,
   sanitizePalette,
+  sanitizePaletteId,
 } from './paintBrushes.js';
 
 function row(
@@ -470,6 +473,45 @@ describe('paint palette', () => {
     );
     expect(new Set(ids).size).toBe(3);
     expect(ids[0]).toBe('paint-ff8000');
+  });
+
+  it('sanitises palette ids and resolves named and custom palettes', () => {
+    expect(sanitizePaletteId('okabe-ito')).toBe('okabe-ito');
+    expect(sanitizePaletteId('nope')).toBe('default');
+    expect(resolvePaintPalette('okabe-ito', [])[0]).toBe('#e69f00');
+    expect(resolvePaintPalette('custom', ['#112233'])).toEqual(['#112233']);
+  });
+
+  it('labels every swatch of every palette with a non-colour marker', () => {
+    for (const palette of PAINT_PALETTES) {
+      if (palette.id === 'custom') continue;
+      const presets = paletteToPresets(
+        resolvePaintPalette(palette.id, []),
+        0.5,
+      );
+      expect(presets).toHaveLength(palette.swatches.length);
+      expect(new Set(presets.map((preset) => preset.marker)).size).toBe(
+        presets.length,
+      );
+      for (const preset of presets) {
+        expect(preset.label).toContain(preset.marker);
+        expect(preset.colorName).not.toBe('');
+      }
+    }
+  });
+
+  it('keeps the default palette colours and ids unchanged', () => {
+    const presets = paletteToPresets(DEFAULT_PAINT_PALETTE, 0.5);
+    expect(presets.map((preset) => preset.id)).toEqual(
+      PAINT_PRESETS.map((preset) => preset.id),
+    );
+    expect(presets.map((preset) => preset.swatch)).toEqual([
+      '#ef4444',
+      '#22c55e',
+      '#3b82f6',
+    ]);
+    expect(presets[0]?.color[0]).toBeCloseTo(0xef / 255);
+    expect(presets[0]?.color[3]).toBe(0.5);
   });
 });
 

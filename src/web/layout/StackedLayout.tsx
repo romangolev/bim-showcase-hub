@@ -1,7 +1,7 @@
 import { Fragment, type KeyboardEvent, useEffect, useRef } from 'react';
 import type { OpenModelsState } from '../api/openModels.js';
 import { Icon } from '../components/icons.js';
-import type { PaneTitles } from './layoutContext.js';
+import type { PaneTags, PaneTitles } from './layoutContext.js';
 import {
   isFollower,
   PANES,
@@ -16,6 +16,7 @@ export interface StackedLayoutProps {
   hosts: HostStore<PanelId>;
   open: readonly PaneId[];
   titles?: PaneTitles;
+  tags?: PaneTags;
   models: OpenModelsState;
   onSelectModel: (urn: string) => void;
   onCloseModel: (urn: string) => void;
@@ -44,6 +45,7 @@ export function stackedPanes(
 export interface ModelSwitcherProps {
   models: OpenModelsState;
   titles: PaneTitles;
+  tags?: PaneTags;
   onSelect: (urn: string) => void;
   onClose: (urn: string) => void;
 }
@@ -64,6 +66,7 @@ const MOVES: Record<string, (index: number, count: number) => number> = {
 export function ModelSwitcher({
   models,
   titles,
+  tags = {},
   onSelect,
   onClose,
 }: ModelSwitcherProps) {
@@ -124,6 +127,7 @@ export function ModelSwitcher({
               className="stack__model-tab"
               data-active={selected}
               data-urn={urn}
+              data-tag={tags[modelPanelId(urn)]}
               title={titles[modelPanelId(urn)]?.tooltip}
               onClick={() => onSelect(urn)}
             >
@@ -151,6 +155,7 @@ export function StackedLayout({
   hosts,
   open,
   titles = {},
+  tags = {},
   models,
   onSelectModel,
   onCloseModel,
@@ -196,6 +201,7 @@ export function StackedLayout({
               <ModelSwitcher
                 models={models}
                 titles={titles}
+                tags={tags}
                 onSelect={onSelectModel}
                 onClose={onCloseModel}
               />

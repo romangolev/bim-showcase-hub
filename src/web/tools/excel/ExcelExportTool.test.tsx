@@ -180,7 +180,11 @@ describe('ExcelExportTool', () => {
     exports?.[0]?.onExport();
     expect(exportToXlsx).toHaveBeenCalledWith(
       adapter,
-      expect.objectContaining({ propertyNames: ['Name'] }),
+      expect.objectContaining({
+        propertyNames: ['Name'],
+        groupBy: 'Category',
+        emptyText: '',
+      }),
     );
   });
 
@@ -280,5 +284,23 @@ describe('Excel settings window', () => {
       namePattern: '{model}-x',
       summarySheet: true,
     });
+  });
+
+  it('persists the group-by column and the empty-cell choice', () => {
+    renderWindow();
+    fireEvent.change(screen.getByLabelText('Group by'), {
+      target: { value: 'Level' },
+    });
+    fireEvent.change(screen.getByLabelText('Empty cells'), {
+      target: { value: '(empty)' },
+    });
+    expect(stored()).toMatchObject({
+      groupBy: 'Level',
+      emptyLabel: '(empty)',
+    });
+    fireEvent.change(screen.getByLabelText('Group by'), {
+      target: { value: '' },
+    });
+    expect(stored().groupBy).toBeNull();
   });
 });

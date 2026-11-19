@@ -67,7 +67,7 @@ Helpers:
 
 ## Storage keys
 
-All browser storage goes through `src/web/storage.ts`. `BSH_KEYS` is the full list. Personal keys are cleared on sign-out. Preference keys stay.
+All browser storage goes through `src/web/storage.ts`. `BSH_KEYS` lists the fixed keys and `BSH_PERSONAL_PREFIXES` the personal families (`bsh.pane.`). Personal keys are cleared on sign-out. Preference keys stay.
 
 | Key | Class | Holds |
 |---|---|---|
@@ -80,7 +80,10 @@ All browser storage goes through `src/web/storage.ts`. `BSH_KEYS` is the full li
 | `bsh.pane.dashboard.properties.v1` | personal | Legacy Dashboard chart columns. Read as the fallback for views saved before each view carried its own list, and written into them once by `migrateDashboardProperties` |
 | `bsh.pane.<kind>.<n>.v1` | personal | Spec of a chart, summary or properties pane instance. A chart spec includes its property list |
 | `bsh.pane.docs.root.v1` | personal | Documents root: the hub and project the tree starts at |
+| `bsh.pane.catalog.v1` | personal | Panes menu state: `{ pins, hidden }`, by pane kind. Under the `bsh.pane.` prefix |
+| `bsh.pane.appearance.v1` | personal | Pane titles and colour tags, keyed by panel id (`summary`, `chart:1`). Under the `bsh.pane.` prefix |
 | `bsh.saved.v1` | personal | Saved items: dashboard presets, export presets, selection sets, viewpoints |
+| `bsh.workspaces.v1` | personal | Named workspaces: `{ version: 1, items }`, each with a name, a layout and pane appearances |
 | `bsh.commands.recent.v1` | personal | Recent palette commands |
 | `bsh.hint.hubs.dismissed.v1` | personal | No-hubs notice dismissed |
 | `bsh-theme` | preference | Legacy `dark` or `light`. Copied into `bsh-settings-v1` on first load and removed; the theme now lives in app settings |

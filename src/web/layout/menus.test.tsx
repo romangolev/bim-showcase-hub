@@ -205,6 +205,8 @@ describe('pane menus', () => {
     renderModel();
     const menu = await openPaneMenu('Untitled model');
     expect(itemNames(menu)).toEqual([
+      'Rename pane…',
+      'Color tag…',
       'Move left',
       'Move right',
       'Move below',
@@ -302,12 +304,7 @@ describe('panes menu in the top bar', () => {
     renderModel();
     const trigger = await screen.findByRole('button', { name: 'Panes' });
     fireEvent.click(trigger);
-    let menu = screen.getByRole('menu', { name: 'Panes' });
-    expect(
-      within(menu)
-        .getAllByRole('menuitemcheckbox')
-        .map((item) => item.textContent),
-    ).toEqual(['Model summary', 'Dashboard', 'Models', 'Lock layout']);
+    let menu = screen.getByRole('dialog', { name: 'Panes' });
     const dashboard = within(menu).getByRole('menuitemcheckbox', {
       name: 'Dashboard',
     });
@@ -318,7 +315,7 @@ describe('panes menu in the top bar', () => {
     );
 
     fireEvent.click(trigger);
-    menu = screen.getByRole('menu', { name: 'Panes' });
+    menu = screen.getByRole('dialog', { name: 'Panes' });
     expect(
       within(menu).getByRole('menuitemcheckbox', { name: 'Dashboard' }),
     ).toHaveAttribute('aria-checked', 'false');
@@ -451,7 +448,7 @@ describe('registry-driven pane menus', () => {
   it('shows the same hook command in the Panes menu', async () => {
     renderModel();
     fireEvent.click(await screen.findByRole('button', { name: 'Panes' }));
-    const menu = screen.getByRole('menu', { name: 'Panes' });
+    const menu = screen.getByRole('dialog', { name: 'Panes' });
     expect(
       within(menu).getByRole('menuitem', { name: 'Go to Documents' }),
     ).toBeInTheDocument();

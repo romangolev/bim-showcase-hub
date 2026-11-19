@@ -58,6 +58,9 @@ describe('pane registry', () => {
   it('gives every pane a title, an icon and a positive minimum size', () => {
     for (const pane of PANES) {
       expect(pane.title.length).toBeGreaterThan(0);
+      expect(pane.description.length).toBeGreaterThan(0);
+      expect(pane.category.length).toBeGreaterThan(0);
+      expect(pane.keywords.length).toBeGreaterThan(0);
       expect(pane.icon.length).toBeGreaterThan(0);
       expect(pane.minSize.width).toBeGreaterThan(0);
       expect(pane.minSize.height).toBeGreaterThan(0);
@@ -107,6 +110,9 @@ describe('pane registry', () => {
     const base: PaneDefinition = {
       id: 'chart',
       title: 'Chart',
+      description: 'A chart.',
+      category: 'Analysis',
+      keywords: 'chart graph',
       icon: 'chart',
       component: null,
       minSize: { width: 1, height: 1 },
@@ -210,6 +216,14 @@ function menuLayout(over: Partial<LayoutApi> = {}): LayoutApi {
     setPresenting: vi.fn(),
     setLocked: vi.fn(),
     resetLayout: vi.fn(),
+    workspaces: {
+      canRevert: false,
+      openDialog: vi.fn(),
+      download: vi.fn(),
+      copyJson: vi.fn(),
+      copyLink: vi.fn(),
+      revert: vi.fn(),
+    },
     ...over,
   } as unknown as LayoutApi;
 }

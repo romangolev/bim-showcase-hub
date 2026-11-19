@@ -32,6 +32,7 @@ import {
   addPane,
   applyTitles,
   buildDefault,
+  buildSteps,
   changesShape,
   cycleGroups,
   floatingBox,
@@ -48,6 +49,7 @@ import {
 import type {
   DockController,
   MoveTarget,
+  PaneTags,
   PaneTitles,
 } from './layoutContext.js';
 import {
@@ -87,6 +89,7 @@ interface SlotContextValue {
   onToggleMaximize: (id: PanelId) => void;
   locked: boolean;
   titles: PaneTitles;
+  tags: PaneTags;
   headerActions?: (props: {
     pane: PanelId;
     group: DockviewGroupPanel;
@@ -131,6 +134,7 @@ function PaneTab(props: IDockviewPanelHeaderProps) {
       {...props}
       hideClose={!isPanelClosable(id) || slot?.locked}
       title={slot?.titles[id]?.tooltip}
+      data-tag={slot?.tags[id]}
       onDoubleClick={() => slot?.onToggleMaximize(id)}
       closeActionOverride={close}
     />
@@ -152,6 +156,7 @@ export interface DockLayoutProps {
   treeWidth: number;
   collapsed: readonly PaneId[];
   titles: PaneTitles;
+  tags: PaneTags;
   instances: readonly PanelId[];
   activeInstance: PanelId | null;
   companions: readonly PaneId[];
@@ -302,6 +307,14 @@ export function DockLayout(props: DockLayoutProps) {
           arrangement: null,
         }),
       ),
+    apply: (target, treeWidth) =>
+      rebuild((api) => {
+        if (target.steps) {
+          buildSteps(api, target.steps, { ...sync(), treeWidth });
+          return;
+        }
+        restore(api, target.dock ?? null, treeWidth, { ...sync(), treeWidth });
+      }),
     toggleMaximize: (id) => {
       const api = apiRef.current;
       const panel = api
@@ -440,6 +453,8 @@ export function DockLayout(props: DockLayoutProps) {
         emit();
       },
       reset: (treeWidth) => controllerRef.current.reset(treeWidth),
+      apply: (target, treeWidth) =>
+        controllerRef.current.apply(target, treeWidth),
       focusPane: (id) => controllerRef.current.focusPane(id),
       toggleMaximize: (id) => controllerRef.current.toggleMaximize(id),
       location: (id) => controllerRef.current.location(id),
@@ -492,13 +507,19 @@ export function DockLayout(props: DockLayoutProps) {
       setModelOver(false);
       handleModelDrop(event, (model) => openDroppedRef.current(model));
     };
+    const onDragEnd = () => {
+      depth = 0;
+      setModelOver(false);
+    };
     doc.addEventListener('keydown', onKey);
+    doc.addEventListener('dragend', onDragEnd);
     root.addEventListener('dragenter', onDragEnter);
     root.addEventListener('dragover', onDragOver);
     root.addEventListener('dragleave', onDragLeave);
     root.addEventListener('drop', onDrop);
     return () => {
       doc.removeEventListener('keydown', onKey);
+      doc.removeEventListener('dragend', onDragEnd);
       root.removeEventListener('dragenter', onDragEnter);
       root.removeEventListener('dragover', onDragOver);
       root.removeEventListener('dragleave', onDragLeave);
@@ -547,6 +568,7 @@ export function DockLayout(props: DockLayoutProps) {
     onToggleMaximize,
     locked,
     titles,
+    tags,
     headerActions,
   } = props;
   const slotValue = useMemo(
@@ -559,6 +581,7 @@ export function DockLayout(props: DockLayoutProps) {
       onToggleMaximize,
       locked,
       titles,
+      tags,
       headerActions,
     }),
     [
@@ -570,6 +593,7 @@ export function DockLayout(props: DockLayoutProps) {
       onToggleMaximize,
       locked,
       titles,
+      tags,
       headerActions,
     ],
   );

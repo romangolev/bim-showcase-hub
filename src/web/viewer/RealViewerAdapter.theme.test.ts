@@ -17,6 +17,9 @@ function installFakeViewing() {
     setBackgroundColor(...channels: number[]) {
       calls.push({ background: channels });
     }
+    setGhosting(enabled: boolean) {
+      calls.push(`ghosting:${enabled}`);
+    }
     addEventListener() {}
     removeEventListener() {}
     loadDocumentNode() {
@@ -100,6 +103,17 @@ describe('RealViewerAdapter theme', () => {
     expect(calls).toEqual([]);
     await adapter.load('dXJuOmFkc2s');
     expect(calls.slice(0, 2)).toEqual(['light-theme', LIGHT_BACKGROUND]);
+    adapter.destroy();
+  });
+
+  it('forwards ghosting to the viewer', async () => {
+    const calls = installFakeViewing();
+    const adapter = new RealViewerAdapter(document.createElement('div'));
+    await adapter.load('dXJuOmFkc2s');
+    calls.length = 0;
+    adapter.setGhosting(true);
+    adapter.setGhosting(false);
+    expect(calls).toEqual(['ghosting:true', 'ghosting:false']);
     adapter.destroy();
   });
 });

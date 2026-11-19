@@ -66,5 +66,67 @@ export function layoutCommands(layout: LayoutApi): Command[] {
       ...reason(layout.locked ? LOCKED_REASON : undefined),
       run: () => layout.resetLayout(),
     },
+    {
+      id: 'layout.workspace.save',
+      title: 'Save workspace as…',
+      group: 'Workspaces',
+      keywords: 'preset arrangement named',
+      menu: 'hook',
+      ...reason(docked ? undefined : DOCK_ONLY_REASON),
+      run: () => layout.workspaces.openDialog({ kind: 'save' }),
+    },
+    {
+      id: 'layout.workspace.import',
+      title: 'Import layout…',
+      group: 'Workspaces',
+      keywords: 'paste drop file json',
+      menu: 'hook',
+      ...reason(
+        layout.locked ? LOCKED_REASON : docked ? undefined : DOCK_ONLY_REASON,
+      ),
+      run: () => layout.workspaces.openDialog({ kind: 'import' }),
+    },
+    {
+      id: 'layout.workspace.download',
+      title: 'Download layout',
+      group: 'Workspaces',
+      keywords: 'export file json workspace',
+      menu: 'hook',
+      run: () => layout.workspaces.download(),
+    },
+    {
+      id: 'layout.workspace.copy',
+      title: 'Copy layout JSON',
+      group: 'Workspaces',
+      keywords: 'export clipboard workspace',
+      menu: 'hook',
+      run: () => layout.workspaces.copyJson(),
+    },
+    {
+      id: 'layout.workspace.link',
+      title: 'Copy layout link',
+      group: 'Workspaces',
+      keywords: 'share url compressed',
+      menu: 'hook',
+      ...reason(docked ? undefined : DOCK_ONLY_REASON),
+      run: () => layout.workspaces.copyLink(),
+    },
+    {
+      id: 'layout.workspace.revert',
+      title: 'Revert layout',
+      group: 'Workspaces',
+      keywords: 'undo workspace previous',
+      menu: 'hook',
+      ...reason(
+        layout.locked
+          ? LOCKED_REASON
+          : !docked
+            ? DOCK_ONLY_REASON
+            : layout.workspaces.canRevert
+              ? undefined
+              : 'Nothing to revert',
+      ),
+      run: () => layout.workspaces.revert(),
+    },
   ];
 }

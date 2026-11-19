@@ -223,6 +223,19 @@ describe('xlsxSheet', () => {
       fontWeight: 'bold',
     });
   });
+
+  it('sizes columns from the widest cell and keeps a minimum and maximum', () => {
+    const built = xlsxSheet({
+      name: 'S',
+      header: ['dbId', 'Name'],
+      rows: [[1, 'x'.repeat(80)]],
+    });
+    expect(built.columns).toHaveLength(2);
+    expect(built.columns[0]?.width).toBe(11);
+    expect(built.columns[1]?.width).toBe(60);
+    const narrow = xlsxSheet({ name: 'S', header: ['dbId'], rows: [] });
+    expect(narrow.columns[0]?.width).toBe(8);
+  });
 });
 
 describe('exportToXlsx and the totals row', () => {
@@ -327,5 +340,51 @@ describe('exportToXlsx and the totals row', () => {
     expect(text).toContain('dbId,Name,Area');
     expect(text).toContain('1,Wall,10');
     expect(text).not.toContain('Total');
+  });
+});
+
+describe('the empty-cell text', () => {
+  const rows = () => [row(1, { Name: 'Wall' })];
+
+  it('writes (empty) in XLSX and CSV when chosen', async () => {
+    const saved: Blob[] = [];
+    await exportToXlsx(adapterOf(rows()), {
+      propertyNames: ['Name', 'Level'],
+      groupBy: null,
+      format: 'csv',
+      emptyText: '(empty)',
+      fileName: 'a.csv',
+      save: (blob) => {
+        saved.push(blob);
+      },
+    });
+    expect(await textOf(saved[0] as Blob)).toContain('1,Wall,(empty)');
+
+    await exportToXlsx(adapterOf(rows()), {
+      propertyNames: ['Name', 'Level'],
+      groupBy: null,
+      format: 'xlsx',
+      emptyText: '(empty)',
+      fileName: 'a.xlsx',
+      save: () => undefined,
+    });
+    const sheets = written.at(-1) as Array<{ data: unknown[][] }>;
+    expect(sheets[0]?.data[1]?.[2]).toBe('(empty)');
+  });
+
+  it('keeps JSON blank so its records stay unchanged', async () => {
+    const saved: Blob[] = [];
+    await exportToXlsx(adapterOf(rows()), {
+      propertyNames: ['Name', 'Level'],
+      groupBy: null,
+      format: 'json',
+      emptyText: '(empty)',
+      fileName: 'a.json',
+      save: (blob) => {
+        saved.push(blob);
+      },
+    });
+    const body = JSON.parse(await textOf(saved[0] as Blob));
+    expect(body).toEqual([{ dbId: 1, Name: 'Wall', Level: '' }]);
   });
 });

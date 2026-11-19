@@ -1,14 +1,23 @@
 import { createContext, type ReactNode, useContext } from 'react';
+import type { LayoutStep } from './defaultLayout.js';
+import type { SerializedDock } from './layoutState.js';
 import type { PaneId, PanelId } from './paneRegistry.js';
+import type { WorkspaceApi } from './workspaces.js';
 
 export type LayoutMode = 'dock' | 'stacked';
 export type MoveTarget = 'left' | 'right' | 'below' | 'float' | 'dock';
+
+export interface ApplyTarget {
+  dock?: SerializedDock | null;
+  steps?: readonly LayoutStep[] | null;
+}
 
 export interface DockController {
   movePane: (id: PanelId, target: MoveTarget) => void;
   openPane: (id: PaneId) => void;
   closePane: (id: PaneId) => void;
   reset: (treeWidth: number) => void;
+  apply: (target: ApplyTarget, treeWidth: number) => void;
   focusPane: (id: PanelId) => void;
   toggleMaximize: (id: PanelId) => boolean;
   location: (id: PanelId) => 'grid' | 'floating' | null;
@@ -44,6 +53,8 @@ export interface LayoutApi {
   closeTreeOverlay: () => void;
   floatNext: (urn: string) => void;
   paneTitle: (id: PanelId) => PaneTitle;
+  workspaces: WorkspaceApi;
+  notify: (message: string) => void;
 }
 
 export const LayoutContext = createContext<LayoutApi | null>(null);
@@ -68,3 +79,4 @@ export interface PaneTitle {
 }
 
 export type PaneTitles = Readonly<Record<PanelId, PaneTitle>>;
+export type PaneTags = Readonly<Record<PanelId, string>>;

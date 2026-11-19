@@ -4,6 +4,8 @@ import {
   DECIMAL_LABELS,
   DELIMITER_LABELS,
   type DecimalMark,
+  EMPTY_LABELS,
+  type EmptyLabel,
   type ExportFormat,
   type ExportScope,
   FORMAT_LABELS,
@@ -11,6 +13,7 @@ import {
 } from '../../extensions/exportFormats.js';
 import { PropertyPicker } from '../../panels/PropertyPicker.js';
 import { SelectionSets } from '../../panels/SelectionSets.js';
+import { usePropertyCatalog } from '../../panels/usePropertyCatalog.js';
 import { usePersisted } from '../../storage.js';
 import { usePublishedAdapter } from '../../viewer/activeAdapterStore.js';
 import { modelScopeOptions, resolveScope } from '../../viewer/modelScope.js';
@@ -89,10 +92,17 @@ export function ExcelFields() {
     excel.properties,
   );
   const patternId = useId();
+  const groupId = useId();
   const metadataId = useId();
   const headerId = useId();
   const exporterId = useId();
   const summaryId = useId();
+  const catalogState = usePropertyCatalog(viewer);
+  const catalog = [...new Set(catalogState.catalog.map((info) => info.name))];
+  const groupBy =
+    excel.groupBy !== null && excel.properties.includes(excel.groupBy)
+      ? excel.groupBy
+      : '';
   const update = (patch: Partial<ExcelToolSettings>) =>
     setExcel((current) => ({ ...current, ...patch }));
   return (
@@ -150,7 +160,25 @@ export function ExcelFields() {
           onChange={(properties) => update({ properties })}
         />
       </fieldset>
-      <PresetFields current={excel} apply={update} />
+      <PresetFields current={excel} apply={update} catalog={catalog} />
+      <div className="settings__field">
+        <label htmlFor={groupId}>Group by</label>
+        <select
+          id={groupId}
+          value={groupBy}
+          onChange={(event) => update({ groupBy: event.target.value || null })}
+        >
+          <option value="">One sheet</option>
+          {excel.properties.map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+        </select>
+        <span className="settings__hint">
+          Excel files get one sheet per value of a chosen column.
+        </span>
+      </div>
       <div className="settings__field">
         <label htmlFor={patternId}>File name pattern</label>
         <input
@@ -174,6 +202,12 @@ export function ExcelFields() {
         value={excel.decimalMark}
         labels={DECIMAL_LABELS}
         onChange={(decimalMark) => update({ decimalMark })}
+      />
+      <SelectField<EmptyLabel>
+        label="Empty cells"
+        value={excel.emptyLabel}
+        labels={EMPTY_LABELS}
+        onChange={(emptyLabel) => update({ emptyLabel })}
       />
       <div className="settings__field">
         <label htmlFor={headerId}>

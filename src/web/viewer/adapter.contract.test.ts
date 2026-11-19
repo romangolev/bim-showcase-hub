@@ -127,6 +127,16 @@ describe('ViewerAdapter contract (mock)', () => {
     expect(elementNode(id).style.fill).toBe('');
   });
 
+  it('maps external ids to dbIds for saved selections', async () => {
+    await setup();
+    const modelId = adapter.getModels()[0]?.id ?? '';
+    const [first] = buildMockElements();
+    const map = await adapter.getExternalIdMap(modelId);
+    const dbId = first?.dbId ?? 0;
+    expect(map[`mock-${dbId}`]).toBe(dbId);
+    expect(await adapter.getExternalIdMap('missing-model')).toEqual({});
+  });
+
   it('returns deterministic leaf properties filtered by name', async () => {
     await setup();
     const names = ['Name', 'Assembly Code', 'Classification Code', 'Level'];
@@ -325,13 +335,21 @@ describe('mock selecting and isolating', () => {
     adapter.isolateModelIds(items);
     expect(adapter.getIsolated()).toHaveLength(2);
     expect(await adapter.getVisible()).toHaveLength(2);
-    expect(host.querySelectorAll('.bsh-mock__el--dim').length).toBe(
-      buildMockElements().length - 2,
+    const total = buildMockElements().length;
+    expect(host.querySelectorAll('.bsh-mock__el--dim')).toHaveLength(0);
+    expect(host.querySelectorAll('.bsh-mock__el--hidden')).toHaveLength(
+      total - 2,
     );
+    adapter.setGhosting(true);
+    expect(host.querySelectorAll('.bsh-mock__el--dim')).toHaveLength(total - 2);
+    expect(host.querySelectorAll('.bsh-mock__el--hidden')).toHaveLength(0);
+    adapter.setGhosting(false);
+    expect(host.querySelectorAll('.bsh-mock__el--dim')).toHaveLength(0);
     adapter.isolateModelIds([]);
     expect(adapter.getIsolated()).toEqual([]);
-    expect(await adapter.getVisible()).toHaveLength(buildMockElements().length);
+    expect(await adapter.getVisible()).toHaveLength(total);
     expect(host.querySelectorAll('.bsh-mock__el--dim')).toHaveLength(0);
+    expect(host.querySelectorAll('.bsh-mock__el--hidden')).toHaveLength(0);
   });
 
   it('hides elements and shows all again', async () => {

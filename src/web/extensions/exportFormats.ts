@@ -12,6 +12,7 @@ export type ExportScope = ElementScope;
 
 export type CsvDelimiter = ',' | ';' | '\t';
 export type DecimalMark = '.' | ',';
+export type EmptyLabel = 'blank' | '(empty)';
 
 export interface TableOptions {
   delimiter: CsvDelimiter;
@@ -30,9 +31,12 @@ export interface ExcelSettings {
   includeHeader: boolean;
   exporterName: boolean;
   summarySheet: boolean;
+  groupBy: string | null;
+  emptyLabel: EmptyLabel;
 }
 
 export const DEFAULT_NAME_PATTERN = '{model}-properties';
+export const DEFAULT_GROUP_BY = 'Category';
 
 export const DEFAULT_EXCEL_SETTINGS: ExcelSettings = {
   format: 'xlsx',
@@ -45,6 +49,8 @@ export const DEFAULT_EXCEL_SETTINGS: ExcelSettings = {
   includeHeader: true,
   exporterName: true,
   summarySheet: false,
+  groupBy: DEFAULT_GROUP_BY,
+  emptyLabel: 'blank',
 };
 
 export function readExcelSettings(value: unknown): ExcelSettings {
@@ -67,6 +73,11 @@ export function readExcelSettings(value: unknown): ExcelSettings {
     includeHeader: flag(source.includeHeader, d.includeHeader),
     exporterName: flag(source.exporterName, d.exporterName),
     summarySheet: flag(source.summarySheet, d.summarySheet),
+    groupBy:
+      source.groupBy === null
+        ? null
+        : required(source.groupBy, d.groupBy ?? DEFAULT_GROUP_BY),
+    emptyLabel: source.emptyLabel === '(empty)' ? '(empty)' : d.emptyLabel,
   };
 }
 
@@ -79,6 +90,11 @@ export const DELIMITER_LABELS: Record<CsvDelimiter, string> = {
 export const DECIMAL_LABELS: Record<DecimalMark, string> = {
   '.': 'Point (1.5)',
   ',': 'Comma (1,5)',
+};
+
+export const EMPTY_LABELS: Record<EmptyLabel, string> = {
+  blank: 'Blank cells',
+  '(empty)': '(empty) text',
 };
 
 export const EXPORTER_NAME = 'BIM Showcase Hub';

@@ -43,12 +43,24 @@ describe('readPaintSettings', () => {
       }),
     ).toEqual({
       enabled: false,
+      paletteId: 'custom',
       palette: ['#abcdef', '#123456'],
       intensity: 1,
+      ghostRest: true,
     });
     expect(
       readPaintSettings({ enabled: 'no', palette: [], intensity: 'x' }),
     ).toEqual(DEFAULT_PAINT_SETTINGS);
+  });
+
+  it('keeps an old custom palette without a palette id', () => {
+    expect(readPaintSettings({ palette: ['#112233'] }).paletteId).toBe(
+      'custom',
+    );
+    expect(
+      readPaintSettings({ palette: ['#ef4444', '#22c55e', '#3b82f6'] })
+        .paletteId,
+    ).toBe('default');
   });
 });
 
@@ -83,14 +95,94 @@ describe('PaintTool', () => {
     );
   });
 
-  it('follows the palette and intensity', () => {
+  it('follows the custom palette and intensity', () => {
     const { paint } = tool.contribute(context({}), {
       enabled: true,
+      paletteId: 'custom',
       palette: ['#000000'],
       intensity: 0.8,
+      ghostRest: false,
     });
     expect(paint?.swatches).toHaveLength(1);
     expect(paint?.swatches[0]?.color).toEqual([0, 0, 0, 0.8]);
+  });
+
+  it('uses a named palette over the custom swatches', () => {
+    const { paint } = tool.contribute(context({}), {
+      ...DEFAULT_PAINT_SETTINGS,
+      paletteId: 'okabe-ito',
+      palette: ['#000000'],
+    });
+    expect(paint?.swatches).toHaveLength(8);
+    expect(paint?.swatches[0]?.swatch).toBe('#e69f00');
+    expect(paint?.swatches[0]?.label).toBe(
+      'Paint selected items in orange (1)',
+    );
+  });
+
+  describe('ghosting', () => {
+    const on = DEFAULT_PAINT_SETTINGS;
+    const off = { ...DEFAULT_PAINT_SETTINGS, ghostRest: false };
+
+    it('defaults to the viewer default and leaves the viewer alone', () => {
+      const setGhosting = vi.fn();
+      expect(DEFAULT_PAINT_SETTINGS.ghostRest).toBe(true);
+      tool.onSettingsChanged(
+        { setGhosting } as unknown as ViewerAdapter,
+        undefined,
+        on,
+      );
+      expect(setGhosting).not.toHaveBeenCalled();
+    });
+
+    it('applies a stored false once when the tool first runs', () => {
+      const setGhosting = vi.fn();
+      tool.onSettingsChanged(
+        { setGhosting } as unknown as ViewerAdapter,
+        undefined,
+        off,
+      );
+      expect(setGhosting).toHaveBeenCalledExactlyOnceWith(false);
+    });
+
+    it('calls the adapter once when the setting changes, not for other changes', () => {
+      const setGhosting = vi.fn();
+      const adapter = { setGhosting } as unknown as ViewerAdapter;
+      tool.onSettingsChanged(adapter, on, off);
+      expect(setGhosting).toHaveBeenCalledExactlyOnceWith(false);
+      tool.onSettingsChanged(adapter, off, { ...off, intensity: 0.5 });
+      expect(setGhosting).toHaveBeenCalledOnce();
+    });
+
+    it('re-applies a stored false after the tool is turned back on', () => {
+      const setGhosting = vi.fn();
+      tool.onSettingsChanged(
+        { setGhosting } as unknown as ViewerAdapter,
+        { ...off, enabled: false },
+        off,
+      );
+      expect(setGhosting).toHaveBeenCalledExactlyOnceWith(false);
+    });
+
+    it('restores the viewer default when disabled', () => {
+      const setGhosting = vi.fn();
+      tool.onDisabled({
+        setGhosting,
+        clearThemingColors: vi.fn(),
+      } as unknown as ViewerAdapter);
+      expect(setGhosting).toHaveBeenCalledExactlyOnceWith(true);
+    });
+
+    it('has no adapter side effect when contributing', () => {
+      const setGhosting = vi.fn();
+      tool.contribute(context({ setGhosting }), off);
+      expect(setGhosting).not.toHaveBeenCalled();
+    });
+  });
+
+  it('keeps a stored ghostRest false and defaults garbage to true', () => {
+    expect(readPaintSettings({ ghostRest: false }).ghostRest).toBe(false);
+    expect(readPaintSettings({ ghostRest: 'no' }).ghostRest).toBe(true);
   });
 
   it('paints the selection and resets through the adapter', () => {
@@ -123,6 +215,14 @@ describe('PaintTool', () => {
         tool.toolbarSignature({ ...DEFAULT_PAINT_SETTINGS, intensity: 0.9 }),
       ),
     );
+    expect(JSON.stringify(a)).not.toBe(
+      JSON.stringify(
+        tool.toolbarSignature({
+          ...DEFAULT_PAINT_SETTINGS,
+          paletteId: 'viridis',
+        }),
+      ),
+    );
   });
 });
 
@@ -149,6 +249,37 @@ describe('Paint settings window', () => {
     expect(stored().palette).toHaveLength(3);
     fireEvent.click(screen.getByRole('button', { name: 'Reset palette' }));
     expect(stored().palette[0]).toBe('#ef4444');
+  });
+
+  it('stores the chosen palette and shows numbered labels for it', () => {
+    renderWindow();
+    fireEvent.change(screen.getByLabelText(/Palette/), {
+      target: { value: 'okabe-ito' },
+    });
+    expect(stored().paletteId).toBe('okabe-ito');
+    const legend = screen.getByRole('region', { name: 'Active palette' });
+    expect(legend).toHaveTextContent('Orange');
+    expect(legend).toHaveTextContent('1');
+    expect(legend).toHaveTextContent('Black');
+    expect(legend).toHaveTextContent('8');
+  });
+
+  it('resets the palette choice and the custom swatches together', () => {
+    renderWindow();
+    fireEvent.change(screen.getByLabelText(/Palette/), {
+      target: { value: 'viridis' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Reset palette' }));
+    expect(stored().paletteId).toBe('default');
+    expect(stored().palette[0]).toBe('#ef4444');
+  });
+
+  it('stores the ghosting setting', () => {
+    renderWindow();
+    fireEvent.click(
+      screen.getByRole('switch', { name: 'Ghost the rest when isolating' }),
+    );
+    expect(stored().ghostRest).toBe(false);
   });
 
   it('labels the slider as intensity and stores it', () => {

@@ -55,6 +55,9 @@ export interface PaneCommandContext {
 export interface PaneDefinition {
   id: PaneId;
   title: string;
+  description: string;
+  category: string;
+  keywords: string;
   icon: IconName;
   component: ComponentType | null;
   minSize: { width: number; height: number };
@@ -72,6 +75,9 @@ export const PANES: readonly PaneDefinition[] = [
   {
     id: 'tree',
     title: 'Documents',
+    description: 'Browse hubs, projects, folders and model versions.',
+    category: 'Workspace',
+    keywords: 'tree files hubs projects folders versions browse',
     icon: 'folder',
     component: TreePane,
     minSize: { width: 260, height: 160 },
@@ -97,6 +103,9 @@ export const PANES: readonly PaneDefinition[] = [
   {
     id: 'viewer',
     title: 'Viewer',
+    description: 'Show models in the Autodesk Viewer.',
+    category: 'Viewer',
+    keywords: 'model 3d view scene autodesk',
     icon: 'model',
     component: null,
     minSize: { width: 360, height: 280 },
@@ -109,6 +118,9 @@ export const PANES: readonly PaneDefinition[] = [
   {
     id: 'summary',
     title: 'Model summary',
+    description: 'Key properties of the active model at a glance.',
+    category: 'Viewer',
+    keywords: 'properties overview totals key values model',
     icon: 'table',
     component: SummaryPane,
     minSize: { width: 280, height: 160 },
@@ -125,6 +137,9 @@ export const PANES: readonly PaneDefinition[] = [
   {
     id: 'dashboard',
     title: 'Dashboard',
+    description: 'Chart the properties of the active model.',
+    category: 'Analysis',
+    keywords: 'chart charts graph properties analysis',
     icon: 'chart',
     component: DashboardPane,
     minSize: { width: 320, height: 120 },
@@ -141,6 +156,9 @@ export const PANES: readonly PaneDefinition[] = [
   {
     id: 'models',
     title: 'Models',
+    description: 'Models open in the active viewer.',
+    category: 'Viewer',
+    keywords: 'layers loaded combined scene list',
     icon: 'layers',
     component: ModelsPane,
     minSize: { width: 240, height: 160 },
@@ -152,6 +170,9 @@ export const PANES: readonly PaneDefinition[] = [
   {
     id: 'chart',
     title: 'Chart',
+    description: 'A chart of chosen model properties.',
+    category: 'Analysis',
+    keywords: 'graph dashboard properties analysis add',
     icon: 'chart',
     component: null,
     minSize: { width: 320, height: 120 },
@@ -174,6 +195,9 @@ export const PANES: readonly PaneDefinition[] = [
   {
     id: 'modelSummary',
     title: 'Model summary',
+    description: 'A second summary with its own scope and properties.',
+    category: 'Data',
+    keywords: 'properties overview totals key values add',
     icon: 'table',
     component: null,
     minSize: { width: 280, height: 160 },
@@ -196,6 +220,9 @@ export const PANES: readonly PaneDefinition[] = [
   {
     id: 'properties',
     title: 'Properties',
+    description: 'Properties of the current selection.',
+    category: 'Data',
+    keywords: 'selection elements attributes metadata add',
     icon: 'item',
     component: null,
     minSize: { width: 240, height: 160 },

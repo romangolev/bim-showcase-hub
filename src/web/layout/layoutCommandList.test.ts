@@ -16,6 +16,14 @@ function layout(over: Partial<LayoutApi> = {}): LayoutApi {
     setLocked: vi.fn(),
     resetLayout: vi.fn(),
     focusPane: vi.fn(),
+    workspaces: {
+      openDialog: vi.fn(),
+      download: vi.fn(),
+      copyJson: vi.fn(),
+      copyLink: vi.fn(),
+      revert: vi.fn(),
+      canRevert: false,
+    },
     ...over,
   } as unknown as LayoutApi;
 }
@@ -23,6 +31,20 @@ function layout(over: Partial<LayoutApi> = {}): LayoutApi {
 const host = { openModal: () => undefined };
 
 describe('layoutCommands', () => {
+  it('disables save and revert in the stacked layout', () => {
+    const list = layoutCommands(
+      layout({
+        mode: 'stacked',
+        workspaces: { canRevert: true } as LayoutApi['workspaces'],
+      }),
+    );
+    for (const id of ['layout.workspace.save', 'layout.workspace.revert']) {
+      expect(list.find((c) => c.id === id)?.disabled).toBe(
+        'Available in the wide layout',
+      );
+    }
+  });
+
   it('names open and close from the current pane state', () => {
     const list = layoutCommands(layout());
     const titles = Object.fromEntries(list.map((c) => [c.id, c.title]));

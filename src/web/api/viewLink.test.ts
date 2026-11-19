@@ -3,11 +3,16 @@ import {
   encodeView,
   fitView,
   MAX_LINK_CHARTS,
+  MAX_LINK_NODES,
   MAX_LINK_PANES,
   MAX_VIEW_CHARS,
   parseView,
+  VIEW_FILE_KIND,
+  VIEW_FILE_VERSION,
   VIEW_FULL_VERSION,
+  VIEW_NODES_VERSION,
   VIEW_SELECTION_CAP,
+  viewFileJson,
   withViewParam,
 } from './viewLink.js';
 
@@ -189,5 +194,85 @@ describe('full view link', () => {
     expect(
       parseView(`1~1,2,3~0,0,0~0,0,1~p~${'0'.repeat(MAX_VIEW_CHARS)}`, ids),
     ).toBeNull();
+  });
+});
+
+describe('nodes in the view link', () => {
+  const nodes = [
+    { modelId: 'a', hidden: [3, 4], isolated: [5] },
+    { modelId: 'b', hidden: [], isolated: [-1] },
+  ];
+
+  it('round trips hidden and isolated elements beside the charts', () => {
+    const raw = encodeView({ camera, selection: [], nodes }, ids);
+    expect(raw.startsWith(`${VIEW_NODES_VERSION}~`)).toBe(true);
+    expect(parseView(raw, ids)?.nodes).toEqual(nodes);
+  });
+
+  it('reads a link written before the nodes', () => {
+    const link = parseView('2~1,2,3~0,0,0~0,0,1~p~0:5~summary|~', ids);
+    expect(link?.panes?.open).toEqual(['summary']);
+    expect(link?.nodes).toBeUndefined();
+  });
+
+  it('drops the nodes when they do not fit the cap', () => {
+    const hidden = Array.from({ length: MAX_LINK_NODES + 1 }, (_, i) => i);
+    const raw = encodeView(
+      {
+        camera,
+        selection: [],
+        nodes: [{ modelId: 'a', hidden, isolated: [] }],
+      },
+      ids,
+    );
+    expect(raw.startsWith(`${VIEW_FULL_VERSION}~`)).toBe(false);
+    expect(raw.startsWith('1~')).toBe(true);
+    expect(parseView(raw, ids)?.nodes).toBeUndefined();
+  });
+
+  it('drops the nodes when the full view is too long', () => {
+    const fitted = fitView(
+      {
+        camera,
+        selection: [],
+        nodes: [{ modelId: 'a', hidden: [1, 2, 3], isolated: [] }],
+        charts: Array.from({ length: MAX_LINK_CHARTS }, (_, i) => ({
+          id: `chart:${i}`,
+          view: {
+            properties: Array.from({ length: 200 }, () => 'x'.repeat(40)),
+          },
+        })),
+      },
+      ids,
+    );
+    expect(fitted.degraded).toBe(true);
+    expect(parseView(fitted.view, ids)?.nodes).toBeUndefined();
+    expect(parseView(fitted.view, ids)?.charts).toBeUndefined();
+  });
+
+  it('ignores a broken nodes segment but keeps the camera', () => {
+    const link = parseView('3~1,2,3~0,0,0~0,0,1~p~0:5~~|~~x:1', ids);
+    expect(link?.camera.eye).toEqual([1, 2, 3]);
+    expect(link?.nodes).toBeUndefined();
+  });
+
+  it('writes the full view into a JSON file', () => {
+    const text = viewFileJson(
+      { camera, selection: [], nodes },
+      ids,
+      new Date(2026, 10, 19),
+    );
+    const file = JSON.parse(text) as {
+      kind: string;
+      version: number;
+      created: string;
+      models: string[];
+      view: { nodes: typeof nodes };
+    };
+    expect(file.kind).toBe(VIEW_FILE_KIND);
+    expect(file.version).toBe(VIEW_FILE_VERSION);
+    expect(file.models).toEqual(ids);
+    expect(file.created).toBe(new Date(2026, 10, 19).toISOString());
+    expect(file.view.nodes).toEqual(nodes);
   });
 });

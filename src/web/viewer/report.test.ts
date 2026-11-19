@@ -114,6 +114,29 @@ describe('report content', () => {
       { property: 'Category', value: 'Walls', count: 1 },
     ]);
   });
+
+  it('leaves out the sections the report does not include', () => {
+    const content = buildReportContent(ROWS, {
+      ...request,
+      image: 'data:image/png;base64,AAAA',
+      sections: { snapshot: false, summary: false, dashboard: false },
+    });
+    expect(content.image).toBeNull();
+    expect(content.sections).toEqual([]);
+    expect(content.charts).toEqual([]);
+    expect(content.elements).toBe(3);
+  });
+
+  it('keeps the orientation and the notes of the request', () => {
+    const content = buildReportContent(ROWS, {
+      ...request,
+      notes: 'Checked on site',
+      orientation: 'landscape',
+    });
+    expect(content.notes).toBe('Checked on site');
+    expect(content.orientation).toBe('landscape');
+    expect(reportHtml(content)).toContain('@page { size: landscape }');
+  });
 });
 
 describe('report scope', () => {
@@ -178,6 +201,32 @@ describe('report html', () => {
     );
     expect(html).not.toContain('<script>x&y');
     expect(html).toContain('&lt;script&gt;x&amp;y&lt;/script&gt;');
+  });
+
+  it('prints the notes and escapes them', () => {
+    const html = reportHtml(
+      buildReportContent([], {
+        ...request,
+        names: [],
+        chartProperties: [],
+        notes: 'Site <b>visit</b> & photos',
+      }),
+    );
+    expect(html).toContain(
+      '<p class="notes">Site &lt;b&gt;visit&lt;/b&gt; &amp; photos</p>',
+    );
+  });
+
+  it('keeps the portrait page when the report asks for it', () => {
+    const html = reportHtml(
+      buildReportContent([], {
+        ...request,
+        names: [],
+        chartProperties: [],
+        orientation: 'portrait',
+      }),
+    );
+    expect(html).not.toContain('size: landscape');
   });
 
   it('names the models whose properties are unavailable', () => {

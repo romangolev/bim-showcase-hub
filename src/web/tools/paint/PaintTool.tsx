@@ -1,15 +1,22 @@
+import { formatShortcut } from '../../commands/shortcuts.js';
+import { VIEWER_SHORTCUTS } from '../../commands/viewerCommands.js';
 import type { FormDefinition } from '../../components/SettingsForm.js';
+import { SettingsForm } from '../../components/SettingsForm.js';
 import {
   DEFAULT_PAINT_INTENSITY,
   DEFAULT_PAINT_PALETTE,
+  DEFAULT_PAINT_PALETTE_ID,
   MAX_PAINT_SWATCHES,
   NEW_SWATCH_COLOR,
+  PAINT_PALETTES,
   PALETTE_ICON,
   paintSelection,
   paletteToPresets,
   RESET_PAINT_LABEL,
   resetPaint,
+  resolvePaintPalette,
 } from '../../extensions/paintBrushes.js';
+import { usePersisted } from '../../storage.js';
 import type { Rgba, ViewerAdapter } from '../../viewer/ViewerAdapter.js';
 import {
   type ToolContext,
@@ -27,9 +34,19 @@ export const PAINT_FORM: FormDefinition<PaintSettings> = {
   intro: 'The swatches in the viewer toolbar paint menu follow this palette.',
   fields: [
     {
+      key: 'paletteId',
+      kind: 'select',
+      label: 'Palette',
+      options: PAINT_PALETTES.map((palette) => ({
+        value: palette.id,
+        label: palette.label,
+      })),
+      hint: 'Okabe–Ito and Viridis stay distinguishable with common colour-vision deficiencies. High contrast favours strong light and dark pairs.',
+    },
+    {
       key: 'palette',
       kind: 'list',
-      label: 'Swatches',
+      label: 'Custom swatches',
       itemType: 'color',
       newItem: NEW_SWATCH_COLOR,
       min: 1,
@@ -37,6 +54,7 @@ export const PAINT_FORM: FormDefinition<PaintSettings> = {
       addLabel: 'Add swatch',
       itemLabel: (index) => `Swatch ${index + 1}`,
       removeLabel: (index) => `Remove swatch ${index + 1}`,
+      hint: 'These swatches are used when the palette is Custom swatches.',
     },
     {
       key: 'intensity',
@@ -47,12 +65,20 @@ export const PAINT_FORM: FormDefinition<PaintSettings> = {
       slider: { step: 0.05, format: (value) => `${Math.round(value * 100)}%` },
       hint: "How strongly the colour replaces the model's own colour. This is theming intensity, not transparency.",
     },
+    {
+      key: 'ghostRest',
+      kind: 'toggle',
+      label: 'Ghost the rest when isolating',
+      hint: 'Non-isolated elements stay visible but faded. Off hides non-isolated elements instead of fading them.',
+    },
   ],
   reset: {
     label: 'Reset palette',
     patch: {
+      paletteId: DEFAULT_PAINT_PALETTE_ID,
       palette: [...DEFAULT_PAINT_PALETTE],
       intensity: DEFAULT_PAINT_INTENSITY,
+      ghostRest: true,
     },
   },
 };
@@ -71,15 +97,16 @@ export class PaintTool extends ViewerTool<PaintSettings> {
       paint: {
         id: ctx.id('paint'),
         tooltip: PAINT_TOOLTIP,
-        swatches: paletteToPresets(settings.palette, settings.intensity).map(
-          (preset) => ({
-            id: ctx.id(preset.id),
-            icon: PALETTE_ICON,
-            label: preset.label,
-            swatch: preset.swatch,
-            color: preset.color,
-          }),
-        ),
+        swatches: paletteToPresets(
+          resolvePaintPalette(settings.paletteId, settings.palette),
+          settings.intensity,
+        ).map((preset) => ({
+          id: ctx.id(preset.id),
+          icon: PALETTE_ICON,
+          label: preset.label,
+          swatch: preset.swatch,
+          color: preset.color,
+        })),
         reset: { id: ctx.id('paint-reset'), label: RESET_PAINT_LABEL },
         selectHint: PAINT_SELECT_HINT,
         resetHint: PAINT_RESET_HINT,
@@ -90,10 +117,85 @@ export class PaintTool extends ViewerTool<PaintSettings> {
   }
 
   override toolbarSignature(settings: PaintSettings): unknown {
-    return [settings.enabled, settings.palette, settings.intensity];
+    return [
+      settings.enabled,
+      settings.paletteId,
+      settings.palette,
+      settings.intensity,
+      settings.ghostRest,
+    ];
+  }
+
+  override onSettingsChanged(
+    adapter: ViewerAdapter,
+    previous: PaintSettings | undefined,
+    next: PaintSettings,
+  ): void {
+    if (!next.enabled) return;
+    const before = previous?.enabled ? previous.ghostRest : true;
+    if (next.ghostRest !== before) adapter.setGhosting?.(next.ghostRest);
+  }
+
+  protected override renderFields() {
+    return <PaintFields />;
   }
 
   override onDisabled(adapter: ViewerAdapter): void {
+    adapter.setGhosting?.(true);
     resetPaint(adapter);
   }
+}
+
+function PaintFields() {
+  const [settings, setSettings] = usePersisted(PAINT_SETTINGS);
+  const presets = paletteToPresets(
+    resolvePaintPalette(settings.paletteId, settings.palette),
+    settings.intensity,
+  );
+  return (
+    <>
+      <SettingsForm
+        form={PAINT_FORM}
+        value={settings}
+        onChange={(patch) =>
+          setSettings((current) => ({ ...current, ...patch }))
+        }
+      />
+      <section className="settings__section" aria-label="Active palette">
+        <h3 className="settings__heading">Active palette</h3>
+        <ul className="settings__palette">
+          {presets.map((preset) => (
+            <li key={preset.id} className="settings__palette-item">
+              <span
+                aria-hidden="true"
+                style={{
+                  width: 16,
+                  height: 16,
+                  borderRadius: 4,
+                  background: preset.swatch,
+                  boxShadow: 'inset 0 0 0 0.5px currentColor',
+                }}
+              />
+              <span>{preset.marker}</span>
+              <span>{preset.colorName}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="settings__hint">
+          Swatches are numbered in the settings and in the viewer toolbar
+          tooltip, so colour is not the only cue.
+        </p>
+      </section>
+      <section className="settings__section" aria-label="Viewer shortcuts">
+        <h3 className="settings__heading">Viewer shortcuts</h3>
+        <ul>
+          {VIEWER_SHORTCUTS.map((shortcut) => (
+            <li key={shortcut.command}>
+              <kbd>{formatShortcut(shortcut.keys)}</kbd> {shortcut.label}
+            </li>
+          ))}
+        </ul>
+      </section>
+    </>
+  );
 }

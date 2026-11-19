@@ -754,7 +754,7 @@ describe('DocumentTree multi-select', () => {
     expect(onOpenTabs).not.toHaveBeenCalled();
   });
 
-  it('counts the open tabs against the tab limit', async () => {
+  it('counts the loaded models against the limit', async () => {
     await openVersions(3, { openCount: 6, onOpenTabs: vi.fn() });
     fireEvent.click(row(1), { ctrlKey: true });
     fireEvent.click(row(3), { shiftKey: true });
@@ -762,7 +762,7 @@ describe('DocumentTree multi-select', () => {
     const openTabs = screen.getByRole('button', { name: 'Open 3 in viewer' });
     expect(openTabs).toBeDisabled();
     expect(screen.getByRole('alert')).toHaveTextContent(
-      '6 tabs are already open',
+      '6 models are already loaded',
     );
     expect(screen.getByRole('alert')).toHaveTextContent('Select 2 or fewer');
   });
