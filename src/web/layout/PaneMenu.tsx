@@ -19,7 +19,6 @@ import {
   paneById,
   paneCommandsFor,
 } from './paneRegistry.js';
-import { setSummarySettingsTarget } from './summaryTarget.js';
 
 export const RESET_LAYOUT_DESCRIPTION =
   'Resets the arrangement. Open models stay open; remembered viewer position and closed panes are cleared.';
@@ -74,7 +73,6 @@ function toggleEntry(
 
 function settingsEntry(
   schema: PaneSettingsSchema,
-  kind: PaneId,
   host: PaneMenuHost,
 ): MenuEntry {
   return {
@@ -82,8 +80,8 @@ function settingsEntry(
     label: 'Settings',
     description: schema.description,
     onSelect: () => {
+      schema.onOpen?.();
       if (schema.modalId) {
-        if (kind === 'summary') setSummarySettingsTarget(null);
         host.openModal(schema.modalId);
         return;
       }
@@ -117,7 +115,7 @@ export function paneMenuEntries(
   if (layout.locked)
     return [maximizeEntry, { kind: 'separator', id: 'sep' }, lockEntry];
   const entries: MenuEntry[] = [
-    ...(schema ? [settingsEntry(schema, kind, host)] : []),
+    ...(schema ? [settingsEntry(schema, host)] : []),
     {
       id: 'left',
       label: 'Move left',
