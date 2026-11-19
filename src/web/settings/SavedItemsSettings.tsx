@@ -79,11 +79,8 @@ export function SavedItemsSettings() {
     const dropped = result.dropped
       ? `, dropped ${plural(result.dropped, 'item')} over the limit of ${MAX_ITEMS}`
       : '';
-    const upgraded = result.migrated
-      ? `, upgraded ${plural(result.migrated, 'item')}`
-      : '';
     report({
-      text: `Imported ${plural(result.accepted, 'item')}${upgraded}${skipped}${older}${dropped}.`,
+      text: `Imported ${plural(result.accepted, 'item')}${skipped}${older}${dropped}.`,
       error: false,
     });
   };

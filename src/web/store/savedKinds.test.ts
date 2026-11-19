@@ -7,15 +7,13 @@ import {
   exportSaved,
   importSaved,
   readSaved,
-  SAVED,
   type SavedItem,
   upsertSaved,
 } from './savedStore.js';
 
 type PresetData = { columns: string[] };
 
-function preset(options: { version?: number; migrate?: boolean } = {}) {
-  const migrations: Array<[unknown, number]> = [];
+function preset(options: { version?: number } = {}) {
   const handle = defineSavedKind<PresetData>({
     kind: 'summary-preset',
     version: options.version ?? 2,
@@ -27,18 +25,8 @@ function preset(options: { version?: number; migrate?: boolean } = {}) {
       );
       return columns.length > 0 ? { columns } : null;
     },
-    ...(options.migrate === false
-      ? {}
-      : {
-          migrate: (raw: unknown, from: number) => {
-            migrations.push([raw, from]);
-            const source = isRecord(raw) ? raw : {};
-            const columns = Array.isArray(source.columns) ? source.columns : [];
-            return { columns: [...columns, 'Level'] };
-          },
-        }),
   });
-  return { handle, migrations };
+  return { handle };
 }
 
 function oldItem(over: Partial<SavedItem> = {}): SavedItem {
@@ -138,26 +126,6 @@ describe('typed saved kinds', () => {
     ).toThrow(/already registered at version 2/);
   });
 
-  it('migrates older stored entries when a handle reads them', () => {
-    const { handle, migrations } = preset();
-    SAVED.write([oldItem()]);
-    expect(handle.list()[0]?.data).toEqual({
-      columns: ['Category', 'Level'],
-    });
-    expect(migrations).toEqual([[{ columns: ['Category'] }, 1]]);
-    expect(readSaved()[0]?.version).toBe(1);
-  });
-
-  it('upgrades an older entry when it is written again', () => {
-    const { handle } = preset();
-    expect(upsertSaved(oldItem())).toBe(true);
-    expect(readSaved()[0]).toMatchObject({
-      version: 2,
-      data: { columns: ['Category', 'Level'] },
-    });
-    expect(handle.list()).toHaveLength(1);
-  });
-
   it('refuses a registered kind entry that is newer than the spec', () => {
     preset();
     expect(upsertSaved(oldItem({ version: 3 }))).toBe(false);
@@ -169,23 +137,7 @@ describe('typed saved kinds', () => {
           items: [oldItem({ version: 3 })],
         }),
       ),
-    ).toMatchObject({ accepted: 0, rejected: 1, migrated: 0 });
-  });
-
-  it('migrates imported entries and reports the count', () => {
-    preset();
-    const result = importSaved(
-      JSON.stringify({
-        format: 'bsh-saved',
-        version: 2,
-        items: [oldItem()],
-      }),
-    );
-    expect(result).toMatchObject({ accepted: 1, migrated: 1, rejected: 0 });
-    expect(readSaved()[0]).toMatchObject({
-      version: 2,
-      data: { columns: ['Category', 'Level'] },
-    });
+    ).toMatchObject({ accepted: 0, rejected: 1 });
   });
 
   it('exports the current version of every registered kind', () => {
@@ -204,8 +156,8 @@ describe('typed saved kinds', () => {
     expect(file.kinds).toEqual({ 'colour-rule': 4, 'summary-preset': 2 });
   });
 
-  it('rejects an old entry whose kind has no migration path', () => {
-    preset({ migrate: false });
+  it('rejects an entry older than the registered kind', () => {
+    preset();
     expect(upsertSaved(oldItem())).toBe(false);
   });
 
@@ -219,31 +171,6 @@ describe('typed saved kinds', () => {
       data: { anything: true },
     };
     expect(upsertSaved(item)).toBe(true);
-    expect(importSaved(exportSaved())).toMatchObject({
-      accepted: 1,
-      migrated: 0,
-    });
-  });
-
-  it('strips a migration that throws instead of importing the entry', () => {
-    defineSavedKind({
-      kind: 'broken-kind',
-      version: 2,
-      label: 'Broken',
-      sanitize: (raw) => (isRecord(raw) ? raw : null),
-      migrate: () => {
-        throw new Error('no');
-      },
-    });
-    expect(
-      upsertSaved({
-        id: 'b',
-        kind: 'broken-kind',
-        name: 'B',
-        version: 1,
-        updatedAt: 1,
-        data: {},
-      }),
-    ).toBe(false);
+    expect(importSaved(exportSaved())).toMatchObject({ accepted: 1 });
   });
 });
