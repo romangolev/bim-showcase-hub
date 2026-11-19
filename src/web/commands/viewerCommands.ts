@@ -40,6 +40,24 @@ export function viewerCommands(adapter: ViewerAdapter | null): Command[] {
     make('selectAll', 'Select all visible elements', noModel, async (viewer) =>
       viewer.selectModelIds(await viewer.getVisible()),
     ),
+    make(
+      'invertSelection',
+      'Invert selection',
+      needsSelection,
+      async (viewer) => {
+        const selected = new Set(
+          viewer
+            .getModelSelection()
+            .map(({ modelId, dbId }) => `${modelId}:${dbId}`),
+        );
+        const visible = await viewer.getVisible();
+        viewer.selectModelIds(
+          visible.filter(
+            ({ modelId, dbId }) => !selected.has(`${modelId}:${dbId}`),
+          ),
+        );
+      },
+    ),
     make('isolate', 'Isolate selection', needsSelection, (viewer) =>
       viewer.isolateModelIds(viewer.getModelSelection()),
     ),
