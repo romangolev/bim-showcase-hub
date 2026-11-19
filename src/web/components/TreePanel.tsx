@@ -17,6 +17,7 @@ import { useModelContext } from '../api/useModelContext.js';
 import { useOpenModels, useOpenModelsStore } from '../api/useOpenModels.js';
 import { LayoutContext } from '../layout/layoutContext.js';
 import { PANE_SETTINGS, usePaneSetting } from '../settings/paneSettings.js';
+import { notify } from '../tasks/notifications.js';
 import { DocumentsHome } from './tree/DocumentsHome.js';
 import {
   type AddTarget,
@@ -32,6 +33,14 @@ export interface TreePanelProps {
   onNavigate?: () => void;
 }
 
+export interface OpenTarget {
+  urn: string;
+  context: ModelContext;
+  notice?: string;
+}
+
+export const COMBINED_FULL_NOTICE = 'The open viewer is full; opened a new tab';
+
 export function openPickedAsTabs(
   store: OpenModelsStore | null,
   models: readonly PickedModel[],
@@ -44,19 +53,36 @@ export function openPickedAsTabs(
   return admitted;
 }
 
+export function openAsTab(
+  store: OpenModelsStore | null,
+  urn: string,
+  context: ModelContext,
+): OpenTarget {
+  openPickedAsTabs(store, [{ urn, context }]);
+  return { urn, context };
+}
+
 export function openWithMode(
   mode: TreeOpenMode,
   store: OpenModelsStore | null,
   state: OpenModelsState,
   urn: string,
   context: ModelContext,
-): { urn: string; context: ModelContext } {
+): OpenTarget {
   if (!store) return { urn, context };
   const active = state.active;
   if (mode === 'replace' && active && active !== urn) {
+    const dropped = modelUrnsOf(state, active);
     store.open(urn, context);
     store.close(active);
-    return { urn, context };
+    return {
+      urn,
+      context,
+      notice:
+        dropped.length > 1
+          ? `Closed the combined tab and its ${dropped.length} models`
+          : undefined,
+    };
   }
   if (mode === 'combined' && active && active !== urn) {
     if (modelUrnsOf(state, active).length < MAX_COMBINED_MODELS) {
@@ -67,6 +93,8 @@ export function openWithMode(
         context: contextOf(store.getState(), active) ?? {},
       };
     }
+    store.open(urn, context);
+    return { urn, context, notice: COMBINED_FULL_NOTICE };
   }
   store.open(urn, context);
   return { urn, context };
@@ -121,8 +149,8 @@ export function TreePanel({ onNavigate }: TreePanelProps) {
     };
   }
 
-  const open = (next: string, context: ModelContext) => {
-    const target = openWithMode(view.openMode, store, state, next, context);
+  const reveal = (target: OpenTarget) => {
+    if (target.notice) notify(target.notice);
     void navigate({
       to: '/model/$urn',
       params: { urn: target.urn },
@@ -131,21 +159,18 @@ export function TreePanel({ onNavigate }: TreePanelProps) {
     onNavigate?.();
   };
 
+  const open = (next: string, context: ModelContext) => {
+    reveal(openWithMode(view.openMode, store, state, next, context));
+  };
+
   const openTabs = (models: PickedModel[]) => {
-    const admitted = openPickedAsTabs(store, models);
-    const last = admitted[admitted.length - 1];
-    if (!last) return;
-    void navigate({
-      to: '/model/$urn',
-      params: { urn: last.urn },
-      search: last.context,
-    });
-    onNavigate?.();
+    const last = openPickedAsTabs(store, models).at(-1);
+    if (last) reveal(last);
   };
 
   const openModal = (next: string, context: ModelContext) => {
     layout?.floatNext(next);
-    open(next, context);
+    reveal(openAsTab(store, next, context));
   };
 
   return (
@@ -177,6 +202,7 @@ export function TreePanel({ onNavigate }: TreePanelProps) {
         root={root}
         selectedUrn={urn}
         revealTrail={trail}
+        openCount={state.models.length}
         onOpenModel={open}
         onOpenTabs={openTabs}
         onOpenModal={openModal}

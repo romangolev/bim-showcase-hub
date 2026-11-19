@@ -59,8 +59,9 @@ export const TREE_SETTINGS_FORM: FormDefinition<TreeView> = {
 };
 
 const TREE_SHORTCUTS: readonly [string, string][] = [
-  ['Ctrl or Cmd click, Shift click, Space', 'Select versions'],
-  ['Enter or Space', 'Open the focused version'],
+  ['Ctrl or Cmd click, Shift click', 'Select versions'],
+  ['Space', 'Select the version'],
+  ['Enter', 'Open the focused version'],
   ['Arrow keys', 'Move, expand and collapse'],
   ['/', 'Focus the filter'],
   ['Type a name', 'Jump to the next matching row'],

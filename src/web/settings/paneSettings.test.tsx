@@ -78,6 +78,11 @@ describe('pane settings', () => {
     expect(screen.getByText('Keyboard shortcuts')).toBeInTheDocument();
     expect(screen.getByText('/')).toBeInTheDocument();
     expect(screen.getByText('Focus the filter')).toBeInTheDocument();
+    expect(screen.getByText('Enter')).toBeInTheDocument();
+    expect(screen.getByText('Open the focused version')).toBeInTheDocument();
+    expect(screen.getByText('Space')).toBeInTheDocument();
+    expect(screen.getByText('Select the version')).toBeInTheDocument();
+    expect(screen.queryByText('Enter or Space')).toBeNull();
     fireEvent.change(screen.getByRole('combobox', { name: /Open models in/ }), {
       target: { value: 'combined' },
     });

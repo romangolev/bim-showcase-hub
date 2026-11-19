@@ -27,6 +27,7 @@ export interface ModelMenuSource {
   addTarget?: AddTarget | null;
   pinned?: boolean;
   onOpen: () => void;
+  onOpenTab?: () => void;
   onOpenModal?: () => void;
   onAdd?: () => void;
   onTogglePin?: () => void;
@@ -40,6 +41,13 @@ export function modelMenuEntries(source: ModelMenuSource): MenuEntry[] {
   const entries: MenuEntry[] = [
     { id: 'open', label: 'Open', onSelect: source.onOpen },
   ];
+  if (urn && source.onOpenTab) {
+    entries.push({
+      id: 'open-tab',
+      label: 'Open in new tab',
+      onSelect: source.onOpenTab,
+    });
+  }
   if (urn && source.onOpenModal) {
     entries.push({
       id: 'modal',

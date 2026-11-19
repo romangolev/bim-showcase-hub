@@ -27,6 +27,7 @@ import { childrenQueryOptions } from '../../api/hooks.js';
 import { type ModelContext, versionTag } from '../../api/modelContext.js';
 import { childScope, type NodeScope, scopeKey } from '../../api/scope.js';
 import { PANE_SETTINGS, usePaneSetting } from '../../settings/paneSettings.js';
+import { notify } from '../../tasks/notifications.js';
 import { MODEL_LIMIT_MESSAGE } from '../../viewer/modelSet.js';
 import { Icon } from '../icons.js';
 import { Menu, type MenuEntry } from '../Menu.js';
@@ -60,6 +61,7 @@ export interface AddTarget {
 export interface DocumentTreeProps {
   selectedUrn?: string;
   revealTrail?: readonly string[];
+  openCount?: number;
   onOpenModel: (urn: string, context: ModelContext) => void;
   onOpenTabs?: (models: PickedModel[]) => void;
   onOpenTogether?: (models: PickedModel[]) => void;
@@ -69,7 +71,16 @@ export interface DocumentTreeProps {
   pollMs?: number;
 }
 
-export const TAB_LIMIT_MESSAGE = `A viewer loads up to ${MAX_LOADED_MEMBERS} models. Select ${MAX_LOADED_MEMBERS} or fewer to open them as tabs.`;
+export function tabLimitMessage(openCount: number): string {
+  const room = MAX_LOADED_MEMBERS - openCount;
+  const open =
+    openCount === 0
+      ? ''
+      : `${openCount} ${openCount === 1 ? 'tab is' : 'tabs are'} already open. `;
+  return room < 1
+    ? `A viewer loads up to ${MAX_LOADED_MEMBERS} models. ${open}Close a tab to open another.`
+    : `A viewer loads up to ${MAX_LOADED_MEMBERS} models. ${open}Select ${room} or fewer to open them as tabs.`;
+}
 
 export function skippedNotice(nodes: readonly TreeNode[]): {
   title: string;
@@ -192,6 +203,7 @@ async function until(check: () => boolean, timeoutMs: number) {
 export function DocumentTree({
   selectedUrn,
   revealTrail,
+  openCount = 0,
   onOpenModel,
   onOpenTabs,
   onOpenTogether,
@@ -563,9 +575,9 @@ export function DocumentTree({
     const href = modelHref(urn, context);
     try {
       await navigator.clipboard.writeText(href);
-      setNotice({ title: 'Link copied', message: href });
+      notify('Link copied', { detail: href });
     } catch {
-      setNotice({ title: 'Could not copy the link', message: href });
+      notify('Could not copy the link', { tone: 'error', detail: href });
     }
   };
 
@@ -612,6 +624,8 @@ export function DocumentTree({
         addTarget,
         pinned: pinsApi.pins.some((pin) => pin.urn === urn),
         onOpen: () => openNode(node),
+        onOpenTab:
+          onOpenTabs && urn ? () => onOpenTabs([{ urn, context }]) : undefined,
         onOpenModal:
           onOpenModal && urn ? () => onOpenModal(urn, context) : undefined,
         onAdd: () => addNode(node),
@@ -777,6 +791,17 @@ export function DocumentTree({
       return;
     }
     if (event.metaKey || event.ctrlKey || event.altKey) return;
+    if (event.key === 'Enter') {
+      if (!target?.closest('[role="treeitem"]')) return;
+      if (target.closest('button, a')) return;
+      const item = tree
+        .getItems()
+        .find((entry) => entry.getElement() === target);
+      if (!item) return;
+      event.preventDefault();
+      activate(item);
+      return;
+    }
     if (event.key === '/') {
       event.preventDefault();
       searchRef.current?.focus();
@@ -1296,6 +1321,7 @@ export function DocumentTree({
       {onOpenTogether ? (
         <PickBar
           picked={picked}
+          openCount={openCount}
           addTarget={addTarget ?? null}
           onOpenTabs={
             onOpenTabs
@@ -1364,19 +1390,21 @@ export function DocumentTree({
 
 function PickBar({
   picked,
+  openCount,
   addTarget,
   onOpenTabs,
   onOpenTogether,
   onClear,
 }: {
   picked: PickedModel[];
+  openCount: number;
   addTarget: AddTarget | null;
   onOpenTabs?: (models: PickedModel[]) => void;
   onOpenTogether: (models: PickedModel[]) => void;
   onClear: () => void;
 }) {
   const tooManyCombined = picked.length > MAX_COMBINED_MODELS;
-  const tooManyTabs = picked.length > MAX_LOADED_MEMBERS;
+  const tooManyTabs = openCount + picked.length > MAX_LOADED_MEMBERS;
   const addable = addTarget
     ? picked.filter((model) => addTarget.canAdd(model.urn))
     : [];
@@ -1435,7 +1463,7 @@ function PickBar({
           </button>
           {tooManyTabs ? (
             <span className="doc-tree__picks-limit" role="alert">
-              {TAB_LIMIT_MESSAGE}
+              {tabLimitMessage(openCount)}
             </span>
           ) : tooManyCombined ? (
             <span className="doc-tree__picks-limit" role="alert">
