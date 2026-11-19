@@ -262,15 +262,6 @@ describe('session and auth', () => {
     expect((await agent.get('/api/session')).status).toBe(401);
   });
 
-  it('signout clears the session', async () => {
-    const agent = request.agent(realApp());
-    await signIn(agent);
-    const out = await agent.post('/api/auth/signout');
-    expect(out.status).toBe(204);
-    expect((await agent.get('/api/session')).status).toBe(401);
-    expect((await agent.get('/api/hubs')).status).toBe(401);
-  });
-
   it('keeps a session older than an hour but younger than 12 hours', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     try {
@@ -295,6 +286,7 @@ describe('session and auth', () => {
     expect(auth.revoke).toHaveBeenCalledTimes(1);
     expect(auth.revoke).toHaveBeenCalledWith('refresh-1');
     expect((await agent.get('/api/session')).status).toBe(401);
+    expect((await agent.get('/api/hubs')).status).toBe(401);
   });
 
   it('signout still succeeds and logs no token when revoke fails', async () => {
@@ -310,7 +302,9 @@ describe('session and auth', () => {
     expect((await agent.get('/api/session')).status).toBe(401);
   });
 
-  it('mock mode signout makes no revoke call', async () => {
+  it('signout is fine when never signed in and in mock mode makes no revoke call', async () => {
+    const res = await request(realApp()).post('/api/auth/signout');
+    expect(res.status).toBe(204);
     const auth = fakeAuth();
     const app = createApp(loadConfig({ MOCK_APS: '1' }), {
       auth,
@@ -318,11 +312,6 @@ describe('session and auth', () => {
     });
     expect((await request(app).post('/api/auth/signout')).status).toBe(204);
     expect(auth.revoke).not.toHaveBeenCalled();
-  });
-
-  it('signout is fine when never signed in', async () => {
-    const res = await request(realApp()).post('/api/auth/signout');
-    expect(res.status).toBe(204);
   });
 
   it('answers 401 and keeps the cookie when refresh is rejected', async () => {
