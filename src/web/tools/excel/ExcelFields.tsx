@@ -102,7 +102,9 @@ export function ExcelFields() {
       <p className="settings__hint">
         Exported data stays in your browser. Text that starts with =, +, - or @
         is prefixed with an apostrophe so it cannot run as a spreadsheet
-        formula.
+        formula. Excel files write numbers as numbers and end with a totals row:
+        sums for number columns, value counts for text columns. CSV, JSON and
+        copy keep plain values and have no totals row.
       </p>
       <SelectField<ExportFormat>
         label="Format"

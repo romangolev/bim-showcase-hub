@@ -135,6 +135,90 @@ export function buildExportSheets(
   }));
 }
 
+const PLAIN_DECIMAL = /^-?(0|[1-9]\d*)(\.\d+)?$/;
+
+export const TOTAL_ROW_PREFIX = 'Total';
+export const TOTAL_ROW_SKIP_COLUMN = 0;
+
+function numericCell(value: ExportCell): number | null {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (typeof value === 'string' && PLAIN_DECIMAL.test(value)) {
+    return Number(value);
+  }
+  return null;
+}
+
+export function totalsRow(
+  header: readonly string[],
+  rows: readonly ExportCell[][],
+): ExportCell[] | null {
+  if (header.length === 0 || rows.length === 0) return null;
+  const skip = new Set([TOTAL_ROW_SKIP_COLUMN]);
+  const dbId = header.indexOf('dbId');
+  if (dbId >= 0) skip.add(dbId);
+  const cells: ExportCell[] = [
+    `${TOTAL_ROW_PREFIX} (${rows.length.toLocaleString('en-US')})`,
+  ];
+  for (let column = 1; column < header.length; column++) {
+    const values = rows
+      .map((row) => row[column] ?? '')
+      .filter((value) => value !== '');
+    const numbers = values.map(numericCell);
+    if (skip.has(column) || values.length === 0) {
+      cells.push('');
+    } else if (numbers.every((value): value is number => value !== null)) {
+      const sum = numbers.reduce((total, value) => total + value, 0);
+      cells.push(Number(sum.toFixed(6)));
+    } else {
+      cells.push(values.length);
+    }
+  }
+  return cells;
+}
+
+export interface XlsxCellStyle {
+  value: ExportCell;
+  type?: NumberConstructor;
+  format?: string;
+  fontWeight?: 'bold';
+}
+
+export type XlsxCell = ExportCell | XlsxCellStyle;
+
+export function xlsxCell(value: ExportCell, bold = false): XlsxCell {
+  const number = numericCell(value);
+  if (number === null) {
+    return bold ? { value, fontWeight: 'bold' } : value;
+  }
+  return {
+    value: number,
+    type: Number,
+    format: Number.isInteger(number) ? '#,##0' : '#,##0.00',
+    ...(bold ? { fontWeight: 'bold' as const } : {}),
+  };
+}
+
+export interface XlsxSheet {
+  sheet: string;
+  data: XlsxCell[][];
+  stickyRowsCount: number;
+}
+
+export function xlsxSheet(sheet: ExportSheet): XlsxSheet {
+  const totals = totalsRow(sheet.header, sheet.rows);
+  return {
+    sheet: sheet.name,
+    data: [
+      sheet.header.map((value) => xlsxCell(value, true)),
+      ...sheet.rows.map((row) => row.map((value) => xlsxCell(value))),
+      ...(totals ? [totals.map((value) => xlsxCell(value, true))] : []),
+    ],
+    stickyRowsCount: 1,
+  };
+}
+
 export interface ExportOptions {
   propertyNames?: readonly string[];
   groupBy?: string | null;
@@ -293,16 +377,7 @@ export async function exportToXlsx(
           ]
         : [];
       const blob = await writeXlsxFile([
-        ...sheets.map((sheet) => ({
-          sheet: sheet.name,
-          data: [
-            sheet.header.map((value) => ({
-              value,
-              fontWeight: 'bold' as const,
-            })),
-            ...sheet.rows,
-          ],
-        })),
+        ...sheets.map(xlsxSheet),
         ...summary,
         ...aboutSheet,
       ]).toBlob();
