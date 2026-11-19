@@ -80,6 +80,8 @@ export class ExcelExportTool extends ViewerTool<ExcelToolSettings> {
               metadata: settings.metadata,
               exporterName: settings.exporterName,
               summarySheet: settings.summarySheet,
+              groupBy: settings.groupBy,
+              emptyText: settings.emptyLabel === 'blank' ? '' : '(empty)',
               table: {
                 delimiter: settings.csvDelimiter,
                 decimal: settings.decimalMark,

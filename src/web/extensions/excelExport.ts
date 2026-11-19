@@ -10,6 +10,7 @@ import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import {
   type AboutInfo,
   aboutRows,
+  DEFAULT_GROUP_BY,
   type ExportFormat,
   type ExportScope,
   type TableOptions,
@@ -17,6 +18,8 @@ import {
   toJsonRecords,
 } from './exportFormats.js';
 import { formatValue, summarize } from './modelSummary.js';
+
+export { DEFAULT_GROUP_BY } from './exportFormats.js';
 
 export const DEFAULT_EXPORT_PROPERTIES: readonly string[] = [
   'Category',
@@ -26,7 +29,6 @@ export const DEFAULT_EXPORT_PROPERTIES: readonly string[] = [
   'Level',
 ];
 
-export const DEFAULT_GROUP_BY = 'Category';
 export const DEFAULT_FILE_NAME = 'model-properties.xlsx';
 export const MODEL_COLUMN = 'Model';
 
@@ -85,8 +87,9 @@ export function sheetNameFor(value: string, used: Set<string>): string {
 
 function cellOf(
   value: string | number | boolean | null | undefined,
+  emptyText = '',
 ): ExportCell {
-  if (value === null || value === undefined) return '';
+  if (value === null || value === undefined || value === '') return emptyText;
   return value;
 }
 
@@ -94,10 +97,11 @@ export function buildExportRows(
   rows: readonly PropertyRow[],
   propertyNames: readonly string[],
   withModel = false,
+  emptyText = '',
 ): { header: string[]; rows: ExportCell[][] } {
   const values = (row: PropertyRow): ExportCell[] => [
     row.dbId,
-    ...propertyNames.map((name) => cellOf(row.properties[name])),
+    ...propertyNames.map((name) => cellOf(row.properties[name], emptyText)),
   ];
   if (!withModel) {
     return { header: ['dbId', ...propertyNames], rows: rows.map(values) };
@@ -115,12 +119,13 @@ export function buildExportSheets(
   rows: readonly PropertyRow[],
   propertyNames: readonly string[],
   groupBy: string | null = DEFAULT_GROUP_BY,
+  emptyText = '',
 ): ExportSheet[] {
   if (rows.length === 0) return [];
   const used = new Set<string>();
   const withModel = distinctModelCount(rows) > 1;
   if (!groupBy || !propertyNames.includes(groupBy)) {
-    const built = buildExportRows(rows, propertyNames, withModel);
+    const built = buildExportRows(rows, propertyNames, withModel, emptyText);
     return [{ name: sheetNameFor(FALLBACK_SHEET_NAME, used), ...built }];
   }
   const groups = new Map<string, PropertyRow[]>();
@@ -132,7 +137,7 @@ export function buildExportSheets(
   }
   return [...groups.entries()].map(([key, bucket]) => ({
     name: sheetNameFor(key, used),
-    ...buildExportRows(bucket, propertyNames, withModel),
+    ...buildExportRows(bucket, propertyNames, withModel, emptyText),
   }));
 }
 
@@ -239,6 +244,34 @@ export interface XlsxSheet {
   sheet: string;
   data: XlsxCell[][];
   stickyRowsCount: number;
+  columns: { width: number }[];
+}
+
+const MIN_COLUMN_WIDTH = 8;
+const MAX_COLUMN_WIDTH = 60;
+
+function cellText(cell: XlsxCell | undefined): string {
+  if (cell === undefined) return '';
+  const value = typeof cell === 'object' ? cell.value : cell;
+  return value === null || value === undefined ? '' : String(value);
+}
+
+function columnWidths(
+  data: readonly XlsxCell[][],
+  count: number,
+): { width: number }[] {
+  return Array.from({ length: count }, (_, column) => {
+    let longest = 0;
+    for (const row of data) {
+      longest = Math.max(longest, cellText(row[column]).length);
+    }
+    return {
+      width: Math.min(
+        MAX_COLUMN_WIDTH,
+        Math.max(MIN_COLUMN_WIDTH, longest + 2),
+      ),
+    };
+  });
 }
 
 export function xlsxSheet(sheet: ExportSheet): XlsxSheet {
@@ -248,18 +281,20 @@ export function xlsxSheet(sheet: ExportSheet): XlsxSheet {
       isIdentifierColumn(name) ? [index] : [],
     ),
   );
+  const data = [
+    sheet.header.map((value) => xlsxCell(value, true, true)),
+    ...sheet.rows.map((row) =>
+      row.map((value, column) =>
+        xlsxCell(value, false, textColumns.has(column)),
+      ),
+    ),
+    ...(totals ? [totals.map((value) => xlsxCell(value, true))] : []),
+  ];
   return {
     sheet: sheet.name,
-    data: [
-      sheet.header.map((value) => xlsxCell(value, true, true)),
-      ...sheet.rows.map((row) =>
-        row.map((value, column) =>
-          xlsxCell(value, false, textColumns.has(column)),
-        ),
-      ),
-      ...(totals ? [totals.map((value) => xlsxCell(value, true))] : []),
-    ],
+    data,
     stickyRowsCount: 1,
+    columns: columnWidths(data, sheet.header.length),
   };
 }
 
@@ -273,6 +308,7 @@ export interface ExportOptions {
   metadata?: boolean;
   exporterName?: boolean;
   summarySheet?: boolean;
+  emptyText?: string;
   table?: Partial<TableOptions>;
   confirm?: (rowCount: number) => boolean;
   copy?: (text: Promise<string>) => Promise<void>;
@@ -307,6 +343,7 @@ export async function exportToXlsx(
     metadata = false,
     exporterName = true,
     summarySheet = false,
+    emptyText = '',
     table = {},
     confirm,
     copy = (text) =>
@@ -376,7 +413,7 @@ export async function exportToXlsx(
     });
     let delivered = fileName;
     if (format === 'xlsx') {
-      const sheets = buildExportSheets(rows, propertyNames, groupBy);
+      const sheets = buildExportSheets(rows, propertyNames, groupBy, emptyText);
       if (sheets.length === 0) return emit({ phase: 'empty' });
       rowCount = sheets.reduce((total, sheet) => total + sheet.rows.length, 0);
       const { default: writeXlsxFile } = await import(
@@ -433,6 +470,7 @@ export async function exportToXlsx(
         rows,
         propertyNames,
         distinctModelCount(rows) > 1,
+        format === 'json' ? '' : emptyText,
       );
       throwIfAborted(signal);
       if (format === 'copy') {
