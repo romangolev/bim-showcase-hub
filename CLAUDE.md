@@ -15,6 +15,8 @@ bim-showcase-hub is a React single-page client and a thin Express server for bro
 
 ## Architecture
 
+Terms such as Layout, Workspace, Preset and Incoming link are defined in `GLOSSARY.md`.
+
 The longer guides are `docs/architecture.md`, `docs/layout.md`, `docs/extensions.md` and `docs/development.md`. The points below need several files to see.
 
 - **Server is a thin proxy.** `createApp` in `src/server/index.ts` serves both the local process and the Vercel function (`api/index.ts`). The client talks only to `/api`. The session is a sealed cookie with no server store: tokens are AES-GCM sealed in it, the 12 hour window renews only together with a token refresh, and 7 days is the absolute cap. Autodesk ids never leave the server raw: `ids.ts` base64url-encodes them and `decodeId` validates them.

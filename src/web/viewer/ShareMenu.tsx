@@ -19,13 +19,8 @@ import {
   reportHtml,
 } from './report.js';
 import {
-  clearLinkView,
   LINK_DEGRADED_TEXT,
-  LINK_RESTORED_TEXT,
   LINK_TRIMMED_TEXT,
-  linkViewerState,
-  linkViewFromUrl,
-  restoreLinkView,
   sharedView,
 } from './shareLink.js';
 import {
@@ -36,8 +31,7 @@ import {
   snapshotSize,
   takeSnapshot,
 } from './snapshot.js';
-import { useModels } from './useModels.js';
-import type { ViewerAdapter, ViewerState } from './ViewerAdapter.js';
+import type { ViewerAdapter } from './ViewerAdapter.js';
 import {
   goToViewpoint,
   nextViewpointName,
@@ -246,31 +240,6 @@ export function ShareMenu({
   const viewpoints = useViewpoints();
   const layout = useContext(LayoutContext);
   const [report, setReport] = useState<ReportOptions | null>(null);
-  const pendingState = useRef<ViewerState | null>(null);
-  useEffect(() => {
-    const restored = restoreLinkView(
-      window.location.search,
-      modelIds,
-      layout ?? null,
-    );
-    if (linkViewFromUrl(window.location.search)) clearLinkView();
-    if (!restored) return;
-    pendingState.current = linkViewerState(restored.link, modelIds);
-    if (restored.panes || restored.charts > 0) {
-      onResult(LINK_RESTORED_TEXT, false);
-    }
-  }, [layout, modelIds, onResult]);
-  const loaded = useModels(adapter);
-  useEffect(() => {
-    const state = pendingState.current;
-    if (!state) return;
-    const ids = Object.keys(state.models);
-    const expected = loaded.filter((model) => ids.includes(model.id));
-    if (expected.length === 0) return;
-    if (expected.some((model) => model.status === 'loading')) return;
-    pendingState.current = null;
-    void adapter.restoreState(state);
-  }, [adapter, loaded]);
   const takeImage = async (): Promise<Blob> => {
     const frame = frameSize?.() ?? null;
     const settings = SNAPSHOT.read();

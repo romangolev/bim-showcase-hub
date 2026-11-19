@@ -16,12 +16,7 @@ import {
   ShareMenu,
   snapshotName,
 } from './ShareMenu.js';
-import {
-  LINK_DEGRADED_TEXT,
-  LINK_RESTORED_TEXT,
-  LINK_TRIMMED_TEXT,
-  resetAppliedLinks,
-} from './shareLink.js';
+import { LINK_DEGRADED_TEXT, LINK_TRIMMED_TEXT } from './shareLink.js';
 import { SNAPSHOT, SNAPSHOT_DEFAULTS } from './snapshot.js';
 import type { ViewerAdapter, ViewerAdapterFactory } from './ViewerAdapter.js';
 import { ViewerPane } from './ViewerPane.js';
@@ -42,7 +37,6 @@ beforeEach(() => {
   restoreStorage = setStorageAdapter(memoryAdapter());
   notifications.clear();
   notifications.clearHistory();
-  resetAppliedLinks();
   window.history.replaceState({}, '', '/');
 });
 
@@ -123,6 +117,38 @@ describe('Share menu', () => {
     expect(adapter()?.getModelSelection()).toEqual([
       { modelId: 'urn-a', dbId: 101 },
     ]);
+  });
+
+  it('restores the panes of a link once and hands the address back', async () => {
+    const { factory } = setup();
+    const layout = fakeLayout();
+    const onViewConsumed = vi.fn();
+    render(
+      <LayoutContext.Provider value={layout}>
+        <ViewerPane
+          urn="urn-a"
+          factory={factory}
+          initialView={encodeView(
+            {
+              camera: CAMERA,
+              selection: [],
+              panes: { open: ['summary'], collapsed: [] },
+            },
+            ['urn-a'],
+          )}
+          onViewConsumed={onViewConsumed}
+        />
+      </LayoutContext.Provider>,
+    );
+    await waitFor(() => expect(layout.togglePane).toHaveBeenCalled());
+    expect(layout.togglePane).toHaveBeenCalledTimes(1);
+    expect(layout.togglePane).toHaveBeenCalledWith('summary');
+    expect(onViewConsumed).toHaveBeenCalledTimes(1);
+    expect(
+      announced(
+        'Restored the panes and charts from the link; the summary columns stay local',
+      ),
+    ).toBe(true);
   });
 
   it('applies the camera of a crafted link that names an unknown pane', async () => {
@@ -404,79 +430,6 @@ describe('Share menu links', () => {
     ).toBeNull();
   });
 
-  it('restores the hidden and isolated elements of a link', async () => {
-    const { factory } = setup();
-    const live = await factory(document.createElement('div'));
-    await live.load('urn-a');
-    const visible = await live.getVisible();
-    const [first, second] = visible;
-    if (!first || !second) throw new Error('no elements');
-    const view = encodeView(
-      {
-        camera: CAMERA,
-        selection: [],
-        nodes: [
-          { modelId: 'urn-a', hidden: [first.dbId], isolated: [second.dbId] },
-        ],
-      },
-      ['urn-a'],
-    );
-    window.history.replaceState(
-      {},
-      '',
-      `/model/urn-a?view=${encodeURIComponent(view)}`,
-    );
-    render(
-      <ShareMenu
-        adapter={live}
-        modelIds={['urn-a']}
-        combined={false}
-        onResult={vi.fn()}
-      />,
-    );
-    await waitFor(() =>
-      expect(live.getState().models['urn-a']?.hidden).toEqual([first.dbId]),
-    );
-    expect(live.getState().models['urn-a']?.isolated).toEqual([second.dbId]);
-  });
-
-  it('keeps the hidden elements of a link until the models are listed', async () => {
-    const { factory } = setup();
-    const live = await factory(document.createElement('div'));
-    const source = await factory(document.createElement('div'));
-    await source.load('urn-a');
-    const [first, second] = await source.getVisible();
-    if (!first || !second) throw new Error('no elements');
-    const view = encodeView(
-      {
-        camera: CAMERA,
-        selection: [],
-        nodes: [
-          { modelId: 'urn-a', hidden: [first.dbId], isolated: [second.dbId] },
-        ],
-      },
-      ['urn-a'],
-    );
-    window.history.replaceState(
-      {},
-      '',
-      `/model/urn-a?view=${encodeURIComponent(view)}`,
-    );
-    render(
-      <ShareMenu
-        adapter={live}
-        modelIds={['urn-a']}
-        combined={false}
-        onResult={vi.fn()}
-      />,
-    );
-    await live.load('urn-a');
-    await waitFor(() =>
-      expect(live.getState().models['urn-a']?.hidden).toEqual([first.dbId]),
-    );
-    expect(live.getState().models['urn-a']?.isolated).toEqual([second.dbId]);
-  });
-
   it('copies the panes and charts of the layout', async () => {
     const write = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText: write } });
@@ -537,86 +490,6 @@ describe('Share menu links', () => {
     );
     expect(view?.startsWith('1~')).toBe(true);
     expect(parseView(view, ['urn-a'])?.charts).toBeUndefined();
-  });
-
-  it('restores the panes and charts of a link in the address', async () => {
-    const view = encodeView(
-      {
-        camera: CAMERA,
-        selection: [],
-        panes: { open: ['summary'], collapsed: [] },
-        charts: [
-          {
-            id: 'dashboard',
-            view: { property: 'Level', properties: ['Level'] },
-          },
-        ],
-      },
-      ['urn-a'],
-    );
-    window.history.replaceState(
-      {},
-      '',
-      `/model/urn-a?view=${encodeURIComponent(view)}`,
-    );
-    const layout = fakeLayout();
-    const onResult = vi.fn();
-    render(
-      <LayoutContext.Provider value={layout}>
-        <ShareMenu
-          adapter={linkAdapter()}
-          modelIds={['urn-a']}
-          combined={false}
-          onResult={onResult}
-        />
-      </LayoutContext.Provider>,
-    );
-    await waitFor(() =>
-      expect(onResult).toHaveBeenCalledWith(LINK_RESTORED_TEXT, false),
-    );
-    expect(layout.togglePane).toHaveBeenCalledWith('summary');
-    expect(PANE_SETTINGS.dashboard.view.read().property).toBe('Level');
-    expect(new URLSearchParams(window.location.search).has('view')).toBe(false);
-  });
-
-  it('removes a malformed link from the address', async () => {
-    window.history.replaceState({}, '', '/model/urn-a?view=garbage');
-    const onResult = vi.fn();
-    render(
-      <ShareMenu
-        adapter={linkAdapter()}
-        modelIds={['urn-a']}
-        combined={false}
-        onResult={onResult}
-      />,
-    );
-    expect(await screen.findByRole('button', { name: 'Share' })).toBeTruthy();
-    expect(new URLSearchParams(window.location.search).has('view')).toBe(false);
-    expect(onResult).not.toHaveBeenCalled();
-  });
-
-  it('restores a crafted link without touching the pane it names', async () => {
-    window.history.replaceState(
-      {},
-      '',
-      '/model/urn-a?view=2~1,2,3~0,0,0~0,0,1~p~~%7Cfoo',
-    );
-    const layout = fakeLayout();
-    const onResult = vi.fn();
-    render(
-      <LayoutContext.Provider value={layout}>
-        <ShareMenu
-          adapter={linkAdapter()}
-          modelIds={['urn-a']}
-          combined={false}
-          onResult={onResult}
-        />
-      </LayoutContext.Provider>,
-    );
-    expect(await screen.findByRole('button', { name: 'Share' })).toBeTruthy();
-    expect(layout.setCollapsed).not.toHaveBeenCalled();
-    expect(layout.togglePane).not.toHaveBeenCalled();
-    expect(onResult).not.toHaveBeenCalled();
   });
 
   it('says which chart panes did not fit in the link', async () => {

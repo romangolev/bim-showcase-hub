@@ -170,6 +170,14 @@ export function ModelPaneBody({ instance }: { instance: string }) {
             initialView={
               active && typeof routeView === 'string' ? routeView : null
             }
+            onViewConsumed={() =>
+              void router.navigate({
+                to: '/model/$urn',
+                params: { urn: instance },
+                search: context ?? {},
+                replace: true,
+              })
+            }
             onManageViewpoints={() => modal.open(VIEWPOINTS_MODAL_ID)}
             onPresent={() => layout.setPresenting(true)}
             shareHref={
