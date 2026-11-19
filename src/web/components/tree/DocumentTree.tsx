@@ -5,7 +5,6 @@ import {
   selectionFeature,
 } from '@headless-tree/core';
 import { useTree } from '@headless-tree/react';
-import { useQueryClient } from '@tanstack/react-query';
 import { useVirtualizer, type Virtualizer } from '@tanstack/react-virtual';
 import {
   type DragEvent,
@@ -19,13 +18,9 @@ import {
   MAX_COMBINED_MODELS,
   MAX_LOADED_MEMBERS,
 } from '../../../shared/combined.js';
-import type { TreeNode, VersionViewState } from '../../../shared/types.js';
-import { viewableFor } from '../../../shared/viewState.js';
-import { fetchVersionViewState } from '../../api/client.js';
-import { friendlyError } from '../../api/friendlyError.js';
-import { childrenQueryOptions } from '../../api/hooks.js';
+import type { TreeNode } from '../../../shared/types.js';
 import { type ModelContext, versionTag } from '../../api/modelContext.js';
-import { childScope, type NodeScope, scopeKey } from '../../api/scope.js';
+import type { NodeScope } from '../../api/scope.js';
 import { PANE_SETTINGS, usePaneSetting } from '../../settings/paneSettings.js';
 import { notify } from '../../tasks/notifications.js';
 import { MODEL_LIMIT_MESSAGE } from '../../viewer/modelSet.js';
@@ -38,7 +33,14 @@ import { NoHubsHint, PersonalHubNotice } from './NoHubsHint.js';
 import { usePins } from './pins.js';
 import { modelHref, modelMenuEntries, useRowMenu } from './rowMenu.js';
 import { INDENT, rowHeightFor, TreeRowView } from './TreeRowView.js';
-import { metaText, sortChildren } from './treeView.js';
+import {
+  openableUrn,
+  sleep,
+  TRAIL_SEPARATOR,
+  VERSION_POLL_MS,
+} from './treeState.js';
+import { metaText } from './treeView.js';
+import { useTreeState } from './useTreeState.js';
 import {
   blockedNotice,
   VIEW_STATE_COPY,
@@ -99,9 +101,7 @@ function pickLabel(model: PickedModel): string {
   return model.context.file ?? model.urn;
 }
 
-export const VERSION_POLL_MS = 15_000;
-export const CHECK_CONCURRENCY = 4;
-const UNCHECKED_POLL_LIMIT = 3;
+export { CHECK_CONCURRENCY, VERSION_POLL_MS } from './treeState.js';
 
 type StatusVariant = 'loading' | 'error' | 'empty';
 
@@ -128,22 +128,6 @@ const LOADING_NODE: TreeNode = {
   hasChildren: false,
   viewable: false,
 };
-
-function openableUrn(node: TreeNode): string | null {
-  if (node.kind === 'version' && viewableFor(viewStateOf(node)) && node.urn) {
-    return node.urn;
-  }
-  return null;
-}
-
-interface NodeError {
-  message: string;
-  detail?: string;
-}
-
-function toNodeError(error: unknown): NodeError {
-  return friendlyError(error, 'We could not load this. Try again.');
-}
 
 const STATUS_COPY: Record<StatusVariant, string> = {
   loading: 'Loading',
@@ -181,24 +165,7 @@ function rootCopy(scope: NodeScope): RootCopy {
 
 const MIN_ROW_HEIGHT = 30;
 
-const TRAIL_SEPARATOR = '|';
-const REVEAL_TIMEOUT_MS = 5000;
 const TYPEAHEAD_MS = 600;
-
-function sleep(ms: number) {
-  return new Promise<void>((resolve) => setTimeout(resolve, ms));
-}
-
-async function until(check: () => boolean, timeoutMs: number) {
-  const deadline = Date.now() + timeoutMs;
-  while (!check()) {
-    if (Date.now() > deadline) {
-      return false;
-    }
-    await sleep(40);
-  }
-  return true;
-}
 
 export function DocumentTree({
   selectedUrn,
@@ -212,13 +179,11 @@ export function DocumentTree({
   root = DEFAULT_TREE_ROOT,
   pollMs = VERSION_POLL_MS,
 }: DocumentTreeProps) {
-  const queryClient = useQueryClient();
   const rootId = root.node.id;
   const rootScope = root.scope;
   const copy = rootCopy(rootScope);
   const [picked, setPicked] = useState<PickedModel[]>([]);
   const anchorRef = useRef<string | null>(null);
-  const [errors, setErrors] = useState<Record<string, NodeError>>({});
   const [filter, setFilter] = useState('');
   const [notice, setNotice] = useState<{
     title: string;
@@ -235,12 +200,6 @@ export function DocumentTree({
   const virtualizerRef = useRef<Virtualizer<HTMLDivElement, Element> | null>(
     null,
   );
-  const registry = useRef({
-    nodes: new Map<string, TreeNode>([[rootId, root.node]]),
-    scopes: new Map<string, NodeScope>([[rootId, rootScope]]),
-    loaded: new Set<string>(),
-    stale: new Set<string>(),
-  }).current;
 
   const [view, setView] = usePaneSetting(PANE_SETTINGS.tree.view);
   const viewEntries = (): MenuEntry[] => [
@@ -267,116 +226,15 @@ export function DocumentTree({
 
   const viewRef = useRef(view);
   viewRef.current = view;
+  const { state, snapshot } = useTreeState({
+    root,
+    sort: () => viewRef.current.sort,
+  });
+  const { errors } = snapshot;
+  const { contextFor, resolved, needsCheck, ensureChecked, parentName } = state;
 
   const selectedUrnRef = useRef(selectedUrn);
   selectedUrnRef.current = selectedUrn;
-
-  const parentName = (node: TreeNode): string | undefined =>
-    node.parentId ? registry.nodes.get(node.parentId)?.name : undefined;
-
-  const contextFor = (node: TreeNode): ModelContext => {
-    const ancestors: TreeNode[] = [];
-    let parentId = node.parentId;
-    while (parentId && ancestors.length < 64) {
-      const parent = registry.nodes.get(parentId);
-      if (!parent) {
-        break;
-      }
-      ancestors.unshift(parent);
-      parentId = parent.parentId;
-    }
-    const owner = ancestors[ancestors.length - 1];
-    const container =
-      owner?.kind === 'item' ? ancestors.slice(0, -1) : ancestors;
-    const context: ModelContext = {
-      trail: ancestors.map((ancestor) => ancestor.id),
-      crumbs: container.map((ancestor) => ancestor.name),
-    };
-    if (owner?.kind === 'item') {
-      context.file = owner.name;
-    }
-    const tag = versionTag(node.name);
-    if (tag) {
-      context.v = tag;
-    }
-    return context;
-  };
-
-  const [, setCheckVersion] = useState(0);
-  const checks = useRef({
-    results: new Map<string, { base: TreeNode; state: VersionViewState }>(),
-    inflight: new Map<string, Promise<TreeNode>>(),
-    waiting: [] as (() => void)[],
-    active: 0,
-  }).current;
-
-  const resolved = (node: TreeNode): TreeNode => {
-    const found = checks.results.get(node.id);
-    if (!found) return node;
-    if (registry.nodes.get(node.id) !== found.base) {
-      checks.results.delete(node.id);
-      return node;
-    }
-    return { ...node, ...found.state, checked: true };
-  };
-
-  const forgetChecks = (parentId: string) => {
-    for (const [id, entry] of checks.results) {
-      if (entry.base.parentId === parentId) checks.results.delete(id);
-    }
-  };
-
-  const needsCheck = (node: TreeNode) =>
-    node.kind === 'version' && node.checked === false;
-
-  const slot = async (): Promise<void> => {
-    if (checks.active < CHECK_CONCURRENCY) {
-      checks.active += 1;
-      return;
-    }
-    await new Promise<void>((resolve) => checks.waiting.push(resolve));
-  };
-
-  const freeSlot = () => {
-    const next = checks.waiting.shift();
-    if (next) next();
-    else checks.active -= 1;
-  };
-
-  const runCheck = async (node: TreeNode): Promise<TreeNode> => {
-    const scope = registry.scopes.get(node.id);
-    const projectId =
-      scope && scope.kind !== 'root' ? scope.projectId : undefined;
-    if (!projectId || !node.parentId) return node;
-    const base = registry.nodes.get(node.id);
-    await slot();
-    let state: VersionViewState | null = null;
-    try {
-      state = await fetchVersionViewState(projectId, node.parentId, node.id);
-    } catch {
-      state = null;
-    } finally {
-      freeSlot();
-    }
-    if (!state || state.viewState === 'unknown') return node;
-    if (base) {
-      checks.results.set(node.id, { base, state });
-      setCheckVersion((version) => version + 1);
-    }
-    return { ...node, ...state, checked: true };
-  };
-
-  const ensureChecked = (input: TreeNode): Promise<TreeNode> => {
-    const node = resolved(input);
-    if (!needsCheck(node)) return Promise.resolve(node);
-    const pending = checks.inflight.get(node.id);
-    if (pending) return pending;
-    const started = runCheck(node).finally(() => {
-      checks.inflight.delete(node.id);
-    });
-    checks.inflight.set(node.id, started);
-    return started;
-  };
 
   const openNode = (input: TreeNode) => {
     const node = resolved(input);
@@ -539,32 +397,6 @@ export function DocumentTree({
   const pinsApi = usePins();
   const rowMenu = useRowMenu();
 
-  const ancestorIds = (node: TreeNode): string[] => {
-    const ids: string[] = [];
-    let parentId = node.parentId;
-    for (let guard = 0; parentId && guard < 64; guard += 1) {
-      ids.unshift(parentId);
-      parentId = registry.nodes.get(parentId)?.parentId;
-    }
-    return ids;
-  };
-
-  const revealTrailTo = async (node: TreeNode): Promise<boolean> => {
-    for (const id of ancestorIds(node)) {
-      if (!(await until(() => registry.nodes.has(id), REVEAL_TIMEOUT_MS))) {
-        return false;
-      }
-      const item = tree.getItemInstance(id);
-      if (!item.isExpanded()) {
-        item.expand();
-      }
-      if (!(await until(() => registry.loaded.has(id), REVEAL_TIMEOUT_MS))) {
-        return false;
-      }
-    }
-    return true;
-  };
-
   const focusItem = (id: string) => {
     const item = tree.getItemInstance(id);
     item.setFocused();
@@ -584,7 +416,7 @@ export function DocumentTree({
   const revealPath = (node: TreeNode) => {
     void (async () => {
       if (query) setFilter('');
-      if (!(await revealTrailTo(node))) return;
+      if (!(await state.revealTo(node))) return;
       await sleep(80);
       focusItem(node.id);
     })();
@@ -595,7 +427,7 @@ export function DocumentTree({
     if (!parentId) return;
     void (async () => {
       if (query) setFilter('');
-      if (!(await revealTrailTo(node))) return;
+      if (!(await state.revealTo(node))) return;
       const parent = tree.getItemInstance(parentId);
       if (parent.isFolder() && !parent.isExpanded()) parent.expand();
       await sleep(80);
@@ -695,49 +527,34 @@ export function DocumentTree({
       }
     },
     dataLoader: {
-      getItem: (id) => registry.nodes.get(id) ?? LOADING_NODE,
-      getChildrenWithData: async (id) => {
-        const scope = registry.scopes.get(id);
-        if (!scope) {
-          return [];
-        }
-        try {
-          const nodes = await queryClient.fetchQuery(
-            childrenQueryOptions(scope),
-          );
-          registry.loaded.add(id);
-          setErrors((prev) => {
-            if (!(id in prev)) {
-              return prev;
-            }
-            const next = { ...prev };
-            delete next[id];
-            return next;
-          });
-          return sortChildren(nodes, viewRef.current.sort).map((node) => {
-            registry.nodes.set(node.id, node);
-            registry.scopes.set(node.id, childScope(scope, node));
-            return { id: node.id, data: node };
-          });
-        } catch (error) {
-          setErrors((prev) => ({ ...prev, [id]: toNodeError(error) }));
-          return [];
-        }
-      },
+      getItem: (id) => state.node(id) ?? LOADING_NODE,
+      getChildrenWithData: async (id) =>
+        (await state.children(id)).map((node) => ({ id: node.id, data: node })),
     },
     features: [asyncDataLoaderFeature, selectionFeature, hotkeysCoreFeature],
+  });
+
+  state.bind({
+    folders: () =>
+      tree
+        .getItems()
+        .filter((item) => item.isFolder())
+        .map((item) => ({ id: item.getId(), expanded: item.isExpanded() })),
+    isExpanded: (id) => tree.getItemInstance(id).isExpanded(),
+    expand: (id) => {
+      const item = tree.getItemInstance(id);
+      if (!item.isExpanded()) item.expand();
+    },
+    invalidate: (id, keepChildren) =>
+      void tree.getItemInstance(id).invalidateChildrenIds(keepChildren),
   });
 
   const seenSort = useRef(view.sort);
   useEffect(() => {
     if (seenSort.current === view.sort) return;
     seenSort.current = view.sort;
-    for (const item of tree.getItems()) {
-      if (item.isFolder() && registry.loaded.has(item.getId())) {
-        void item.invalidateChildrenIds();
-      }
-    }
-  }, [view.sort, tree, registry]);
+    state.resort();
+  }, [view.sort, state]);
 
   const revealKey = revealTrail?.join(TRAIL_SEPARATOR) ?? '';
   useEffect(() => {
@@ -747,22 +564,13 @@ export function DocumentTree({
     let cancelled = false;
     (async () => {
       try {
-        for (const id of revealKey.split(TRAIL_SEPARATOR)) {
-          if (!(await until(() => registry.nodes.has(id), REVEAL_TIMEOUT_MS))) {
-            return;
-          }
-          if (cancelled) {
-            return;
-          }
-          const item = tree.getItemInstance(id);
-          if (!item.isExpanded()) {
-            item.expand();
-          }
-          if (
-            !(await until(() => registry.loaded.has(id), REVEAL_TIMEOUT_MS))
-          ) {
-            return;
-          }
+        if (
+          !(await state.revealIds(
+            revealKey.split(TRAIL_SEPARATOR),
+            () => cancelled,
+          ))
+        ) {
+          return;
         }
         await sleep(80);
         const target = selectedUrnRef.current;
@@ -781,7 +589,7 @@ export function DocumentTree({
     return () => {
       cancelled = true;
     };
-  }, [revealKey, registry, tree]);
+  }, [revealKey, state]);
 
   const query = filter.trim().toLowerCase();
 
@@ -849,10 +657,8 @@ export function DocumentTree({
 
   const rows: Row[] = [];
   if (query) {
-    for (const [id, node] of registry.nodes) {
-      if (id !== rootId && node.name.toLowerCase().includes(query)) {
-        rows.push({ type: 'result', key: `result:${id}`, node });
-      }
+    for (const node of state.search(query)) {
+      rows.push({ type: 'result', key: `result:${node.id}`, node });
     }
     if (rows.length === 0) {
       rows.push({
@@ -894,7 +700,7 @@ export function DocumentTree({
             level: level + 1,
             parentId: id,
           });
-        } else if (registry.loaded.has(id) && childCount === 0) {
+        } else if (state.isLoaded(id) && childCount === 0) {
           rows.push({
             type: 'status',
             key: `status:${id}`,
@@ -918,7 +724,7 @@ export function DocumentTree({
           message: errors[rootId]?.message,
           detail: errors[rootId]?.detail,
         });
-      } else if (registry.loaded.has(rootId)) {
+      } else if (state.isLoaded(rootId)) {
         rows.push({
           type: 'status',
           key: 'status:root',
@@ -929,7 +735,7 @@ export function DocumentTree({
           message: copy.emptyMessage,
           noHubs: rootScope.kind === 'root',
         });
-      } else if (rootItem.isLoading() || !registry.loaded.has(rootId)) {
+      } else if (rootItem.isLoading() || !state.isLoaded(rootId)) {
         rows.push({
           type: 'status',
           key: 'status:root',
@@ -971,119 +777,22 @@ export function DocumentTree({
   });
   virtualizerRef.current = virtualizer;
 
-  const retry = (id: string) => {
-    setErrors((prev) => {
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
-    void tree.getItemInstance(id).invalidateChildrenIds();
-  };
-
-  const refresh = (id: string) => {
-    registry.loaded.delete(id);
-    registry.stale.delete(id);
-    queryClient.removeQueries({
-      queryKey: scopeKey(registry.scopes.get(id) ?? rootScope),
-      exact: true,
-    });
-    retry(id);
-  };
-
-  const refreshAll = () => {
-    const ids = new Set<string>([rootId, ...Object.keys(errors)]);
-    for (const item of tree.getItems()) {
-      if (item.isFolder() && item.isExpanded()) ids.add(item.getId());
-    }
-    for (const id of registry.loaded) {
-      if (!ids.has(id)) registry.stale.add(id);
-    }
-    for (const id of ids) {
-      forgetChecks(id);
-      refresh(id);
-    }
-  };
+  const { retry, refresh, refreshAll } = state;
 
   useEffect(() => {
-    if (registry.stale.size === 0) return;
-    for (const item of tree.getItems()) {
-      const id = item.getId();
-      if (registry.stale.has(id) && item.isFolder() && item.isExpanded()) {
-        refresh(id);
-      }
-    }
+    state.refreshStale();
   });
 
-  const recheck = (id: string) => {
-    forgetChecks(id);
-    queryClient.removeQueries({
-      queryKey: scopeKey(registry.scopes.get(id) ?? rootScope),
-      exact: true,
-    });
-    void tree.getItemInstance(id).invalidateChildrenIds(true);
-  };
-
-  const pendingParents = new Set<string>();
-  const processingParents = new Set<string>();
-  for (const stored of registry.nodes.values()) {
-    const node = resolved(stored);
-    if (node.kind !== 'version' || !node.parentId) {
-      continue;
-    }
-    if (node.checked === false) {
-      continue;
-    }
-    const state = viewStateOf(node);
-    if (state === 'processing') {
-      processingParents.add(node.parentId);
-      pendingParents.add(node.parentId);
-    } else if (state === 'unknown') {
-      pendingParents.add(node.parentId);
-    }
-  }
-  const pendingKey = [...pendingParents].sort().join(TRAIL_SEPARATOR);
-  const recheckRef = useRef(recheck);
-  recheckRef.current = recheck;
-  const processingRef = useRef(processingParents);
-  processingRef.current = processingParents;
-  const attemptsRef = useRef(new Map<string, number>());
+  const pendingKey = state.pendingKey();
   const expandedKey = (tree.getState().expandedItems ?? []).join(
     TRAIL_SEPARATOR,
   );
 
   useEffect(() => {
-    const expanded = new Set(expandedKey.split(TRAIL_SEPARATOR));
-    for (const id of [...attemptsRef.current.keys()]) {
-      if (!expanded.has(id)) attemptsRef.current.delete(id);
-    }
-  }, [expandedKey]);
+    state.forgetCollapsed(expandedKey.split(TRAIL_SEPARATOR));
+  }, [expandedKey, state]);
 
-  useEffect(() => {
-    if (!pendingKey) {
-      return;
-    }
-    const ids = pendingKey.split(TRAIL_SEPARATOR);
-    const timer = setInterval(() => {
-      if (document.visibilityState === 'hidden') {
-        return;
-      }
-      for (const id of ids) {
-        if (!tree.getItemInstance(id).isExpanded()) {
-          continue;
-        }
-        const attempts = attemptsRef.current.get(id) ?? 0;
-        if (
-          !processingRef.current.has(id) &&
-          attempts >= UNCHECKED_POLL_LIMIT
-        ) {
-          continue;
-        }
-        attemptsRef.current.set(id, attempts + 1);
-        recheckRef.current(id);
-      }
-    }, pollMs);
-    return () => clearInterval(timer);
-  }, [pendingKey, pollMs, tree]);
+  useEffect(() => state.poll(pendingKey, pollMs), [pendingKey, pollMs, state]);
 
   const filterDisabled = !query && !rows.some((row) => row.type === 'node');
 
@@ -1351,7 +1060,7 @@ export function DocumentTree({
                 ? {
                     label: 'Check again',
                     onClick: () => {
-                      recheck(notice.itemId as string);
+                      state.recheck(notice.itemId as string);
                       setNotice(null);
                     },
                   }
