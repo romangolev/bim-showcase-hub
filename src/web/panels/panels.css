@@ -572,19 +572,7 @@
   font-size: var(--text-13);
 }
 
-.bsh-summary__options,
 .bsh-summary__shares {
-  flex-basis: 100%;
-}
-
-.bsh-summary__options[open] {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.bsh-summary__options > summary {
   flex-basis: 100%;
 }
 
@@ -706,12 +694,6 @@
 
 .bsh-boards .bsh-chart-frame {
   height: 220px;
-}
-
-.bsh-summary__options .bsh-field {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
 }
 
 .bsh-models__list {
