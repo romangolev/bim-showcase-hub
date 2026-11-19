@@ -18,8 +18,8 @@ import {
   scopeElementItems,
   scopeNoteFor,
 } from '../viewer/propertyScope.js';
-import { useSelectionSets } from '../viewer/selectionSets.js';
 import { readScopedRows } from '../viewer/scopedRows.js';
+import { useSelectionSets } from '../viewer/selectionSets.js';
 import { forgetLeafRows } from '../viewer/sharedLeafRows.js';
 import { useModels } from '../viewer/useModels.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
@@ -181,7 +181,11 @@ export function useScopedRows(
     }).then(
       (result) => {
         if (!cancelled && !controller.signal.aborted)
-          setRead({ status: 'ready', rows: result.rows, failed: result.failed });
+          setRead({
+            status: 'ready',
+            rows: result.rows,
+            failed: result.failed,
+          });
       },
       (err: unknown) => {
         if (cancelled || controller.signal.aborted) return;
