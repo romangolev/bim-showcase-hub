@@ -57,16 +57,8 @@ export function getSavedKind(kind: string): SavedKindEntry | undefined {
   return registry.get(kind);
 }
 
-export function hasSavedKind(kind: string): boolean {
-  return registry.has(kind);
-}
-
 export function unregisterSavedKind(kind: string): void {
   registry.delete(kind);
-}
-
-export function resetSavedKinds(): void {
-  registry.clear();
 }
 
 export function savedKindVersions(): Record<string, number> {

@@ -124,13 +124,6 @@ export function setPaneColor(
   );
 }
 
-export function paneColorOf(
-  appearances: PaneAppearances,
-  id: PanelId,
-): PaneColor | undefined {
-  return appearances[id]?.color;
-}
-
 export function paneTags(
   appearances: PaneAppearances,
 ): Record<PanelId, PaneColor> {

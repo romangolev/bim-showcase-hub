@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { isRecord } from '../../shared/guards.js';
 import { installMemoryStorage } from '../test/mockApi.js';
-import { resetSavedKinds } from './savedKindRegistry.js';
+import { unregisterSavedKind } from './savedKindRegistry.js';
 import { defineSavedKind } from './savedKinds.js';
 import {
   exportSaved,
@@ -55,7 +55,7 @@ function oldItem(over: Partial<SavedItem> = {}): SavedItem {
 
 beforeEach(() => {
   installMemoryStorage();
-  resetSavedKinds();
+  unregisterSavedKind('summary-preset');
 });
 
 describe('typed saved kinds', () => {

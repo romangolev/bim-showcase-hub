@@ -50,10 +50,6 @@ export function withHidden(catalog: PaneCatalog, id: PaneId): PaneCatalog {
   };
 }
 
-export function readPaneCatalog(): PaneCatalog {
-  return CATALOG.read();
-}
-
 export function usePaneCatalog(): [PaneCatalog, (next: PaneCatalog) => void] {
   const [catalog, update] = usePersisted(CATALOG);
   return [catalog, update];

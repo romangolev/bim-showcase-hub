@@ -3,7 +3,6 @@ import { installMemoryStorage } from '../test/mockApi.js';
 import {
   PANE_APPEARANCE_KEY,
   PANE_TITLE_MAX,
-  paneColorOf,
   paneTags,
   readPaneAppearances,
   sanitizePaneAppearances,
@@ -61,7 +60,6 @@ describe('pane appearance', () => {
   it('sets and removes a color tag without touching the title', () => {
     let appearances = setPaneTitle('summary', 'Roof', {});
     appearances = setPaneColor('summary', 'blue', appearances);
-    expect(paneColorOf(appearances, 'summary')).toBe('blue');
     expect(paneTags(appearances)).toEqual({ summary: 'blue' });
     appearances = setPaneColor('summary', null, appearances);
     expect(appearances).toEqual({ summary: { title: 'Roof' } });
