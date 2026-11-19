@@ -90,4 +90,12 @@ describe('metaText and view', () => {
     expect(sanitizeTreeView({ openMode: 'replace' }).openMode).toBe('replace');
     expect(sanitizeTreeView({ openMode: 'nope' }).openMode).toBe('tab');
   });
+
+  it('shows every home section until one is switched off', () => {
+    expect(DEFAULT_TREE_VIEW.homeRecent).toBe(true);
+    expect(DEFAULT_TREE_VIEW.homePinned).toBe(true);
+    expect(DEFAULT_TREE_VIEW.homeSets).toBe(true);
+    expect(sanitizeTreeView({ homeSets: false }).homeSets).toBe(false);
+    expect(sanitizeTreeView({ homeSets: 'no' }).homeSets).toBe(true);
+  });
 });

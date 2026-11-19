@@ -8,6 +8,7 @@ import { useTree } from '@headless-tree/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useVirtualizer, type Virtualizer } from '@tanstack/react-virtual';
 import {
+  type DragEvent,
   type KeyboardEvent,
   type MouseEvent,
   useEffect,
@@ -30,6 +31,7 @@ import { MODEL_LIMIT_MESSAGE } from '../../viewer/modelSet.js';
 import { Icon } from '../icons.js';
 import { Menu, type MenuEntry } from '../Menu.js';
 import { StateBlock } from '../StateBlock.js';
+import { startModelDrag } from './docDrag.js';
 import { DEFAULT_TREE_ROOT, type TreeRoot } from './docRoot.js';
 import { NoHubsHint, PersonalHubNotice } from './NoHubsHint.js';
 import { usePins } from './pins.js';
@@ -589,6 +591,16 @@ export function DocumentTree({
     })();
   };
 
+  const dragProps = (node: TreeNode) => {
+    const urn = openableUrn(node);
+    if (!urn || needsCheck(node)) return {};
+    return {
+      draggable: true,
+      onDragStart: (event: DragEvent<HTMLDivElement>) =>
+        startModelDrag(event, { urn, context: contextFor(node) }),
+    };
+  };
+
   const menuProps = (node: TreeNode) => {
     if (node.kind !== 'version') return undefined;
     return rowMenu.bind(() => {
@@ -1104,6 +1116,7 @@ export function DocumentTree({
           rowProps={{
             ...props,
             ...menuProps(node),
+            ...dragProps(node),
             'data-index': index,
             'aria-checked':
               urn !== null && onOpenTogether ? pickedUrns.has(urn) : undefined,
@@ -1155,6 +1168,7 @@ export function DocumentTree({
           added={urn !== null && addTarget?.has(urn)}
           rowProps={{
             ...menuProps(resultNode),
+            ...dragProps(resultNode),
             role: 'option',
             'aria-checked':
               urn !== null && onOpenTogether ? pickedUrns.has(urn) : undefined,

@@ -107,6 +107,9 @@ describe('DocumentTree metadata', () => {
       author: true,
       size: false,
       openMode: 'tab',
+      homeRecent: true,
+      homePinned: true,
+      homeSets: true,
     });
     expect(screen.getByText('2025-03-04 · Sam')).toBeInTheDocument();
     const rows = screen.getAllByRole('treeitem').map((row) => row.textContent);

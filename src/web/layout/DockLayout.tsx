@@ -10,6 +10,7 @@ import {
   type IDockviewPanelProps,
 } from 'dockview-react';
 import 'dockview-react/dist/styles/dockview.css';
+import { useNavigate } from '@tanstack/react-router';
 import {
   createContext,
   type ReactNode,
@@ -20,6 +21,12 @@ import {
   useRef,
   useState,
 } from 'react';
+import { useOpenModelsStore } from '../api/useOpenModels.js';
+import {
+  type DraggedModel,
+  handleModelDrop,
+  hasModelDrag,
+} from '../components/tree/docDrag.js';
 import { applyCollapse, GAP, steady as steadyOn } from './collapse.js';
 import {
   addPane,
@@ -167,6 +174,19 @@ export interface DockLayoutProps {
 export function DockLayout(props: DockLayoutProps) {
   const latest = useRef(props);
   latest.current = props;
+  const navigate = useNavigate();
+  const models = useOpenModelsStore();
+  const [modelOver, setModelOver] = useState(false);
+  const openDropped = (model: DraggedModel) => {
+    models?.open(model.urn, model.context);
+    void navigate({
+      to: '/model/$urn',
+      params: { urn: model.urn },
+      search: model.context,
+    });
+  };
+  const openDroppedRef = useRef(openDropped);
+  openDroppedRef.current = openDropped;
   const apiRef = useRef<DockviewApi | null>(null);
   const kept = useRef<DockviewApi | null>(null);
   const live = useRef(false);
@@ -452,8 +472,30 @@ export function DockLayout(props: DockLayoutProps) {
     if (!root) return;
     const doc = root.ownerDocument;
     const onKey = (event: KeyboardEvent) => cycleGroups(root, event);
+    const onDragOver = (event: DragEvent) => {
+      if (!hasModelDrag(event.dataTransfer)) return;
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+      setModelOver(true);
+    };
+    const onDragLeave = (event: DragEvent) => {
+      if (root.contains(event.relatedTarget as Node | null)) return;
+      setModelOver(false);
+    };
+    const onDrop = (event: DragEvent) => {
+      setModelOver(false);
+      handleModelDrop(event, (model) => openDroppedRef.current(model));
+    };
     doc.addEventListener('keydown', onKey);
-    return () => doc.removeEventListener('keydown', onKey);
+    root.addEventListener('dragover', onDragOver);
+    root.addEventListener('dragleave', onDragLeave);
+    root.addEventListener('drop', onDrop);
+    return () => {
+      doc.removeEventListener('keydown', onKey);
+      root.removeEventListener('dragover', onDragOver);
+      root.removeEventListener('dragleave', onDragLeave);
+      root.removeEventListener('drop', onDrop);
+    };
   }, []);
 
   const emitRef = useRef(emit);
@@ -526,7 +568,11 @@ export function DockLayout(props: DockLayoutProps) {
 
   return (
     <SlotContext.Provider value={slotValue}>
-      <div className="dock-root" ref={rootRef}>
+      <div
+        className="dock-root"
+        ref={rootRef}
+        data-model-drop={modelOver || undefined}
+      >
         <DockviewReact
           theme={DOCK_THEME}
           components={COMPONENTS}

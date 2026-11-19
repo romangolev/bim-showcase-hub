@@ -17,6 +17,7 @@ import { useModelContext } from '../api/useModelContext.js';
 import { useOpenModels, useOpenModelsStore } from '../api/useOpenModels.js';
 import { LayoutContext } from '../layout/layoutContext.js';
 import { PANE_SETTINGS, usePaneSetting } from '../settings/paneSettings.js';
+import { DocumentsHome } from './tree/DocumentsHome.js';
 import {
   type AddTarget,
   DocumentTree,
@@ -82,6 +83,7 @@ export function TreePanel({ onNavigate }: TreePanelProps) {
   const layout = useContext(LayoutContext);
   const [view] = usePaneSetting(PANE_SETTINGS.tree.view);
   const [root, setRoot] = useState<TreeRoot>(DEFAULT_TREE_ROOT);
+  const home = active === null;
 
   const openTogether = (models: PickedModel[]) => {
     const [first, ...rest] = models.slice(0, MAX_COMBINED_MODELS);
@@ -154,12 +156,22 @@ export function TreePanel({ onNavigate }: TreePanelProps) {
       <div className="docs-toolbar">
         <HubProjectSwitcher onChange={setRoot} />
       </div>
-      <RecentStrip
-        selectedUrn={urn}
-        onOpen={open}
-        onOpenModal={openModal}
-        addTarget={addTarget}
-      />
+      {home ? (
+        <DocumentsHome
+          selectedUrn={urn}
+          onOpen={open}
+          onOpenModal={openModal}
+          onOpenTabs={openTabs}
+          addTarget={addTarget}
+        />
+      ) : (
+        <RecentStrip
+          selectedUrn={urn}
+          onOpen={open}
+          onOpenModal={openModal}
+          addTarget={addTarget}
+        />
+      )}
       <DocumentTree
         key={`${root.scope.kind}:${root.node.id}`}
         root={root}

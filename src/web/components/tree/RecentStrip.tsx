@@ -29,6 +29,8 @@ export interface RecentStripProps {
   onOpen: (urn: string, context: ModelContext) => void;
   onOpenModal?: (urn: string, context: ModelContext) => void;
   addTarget?: AddTarget | null;
+  variant?: 'strip' | 'home';
+  show?: { pinned?: boolean; recent?: boolean };
 }
 
 interface Entry {
@@ -41,7 +43,10 @@ export function RecentStrip({
   onOpen,
   onOpenModal,
   addTarget,
+  variant = 'strip',
+  show,
 }: RecentStripProps) {
+  const home = variant === 'home';
   const { settings } = useSettings();
   const version = useSyncExternalStore(
     subscribeModelStore,
@@ -74,7 +79,7 @@ export function RecentStrip({
   const fromPointer = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const panelId = useId();
-  const open = expanded || sticky || rowMenu.active;
+  const open = home || expanded || sticky || rowMenu.active;
 
   const clearTimer = () => {
     if (timer.current) clearTimeout(timer.current);
@@ -118,7 +123,7 @@ export function RecentStrip({
     return () => document.removeEventListener('pointerdown', onPointer);
   }, [open]);
 
-  if (pinned.length === 0 && recent.length === 0) return null;
+  if (!home && pinned.length === 0 && recent.length === 0) return null;
 
   const row = (entry: Entry) => {
     const title = modelTabTitle(entry.urn, entry.context);
@@ -186,15 +191,46 @@ export function RecentStrip({
     );
   };
 
-  const section = (heading: string, entries: Entry[]) =>
-    entries.length > 0 ? (
+  const section = (
+    heading: string,
+    entries: Entry[],
+    emptyCopy: string,
+    visible = true,
+  ) => {
+    if (!visible || (!home && entries.length === 0)) return null;
+    return (
       <section aria-label={heading} className="recent-strip__section">
         <h3 className="recent-strip__heading">{heading}</h3>
-        <ul className="recent-strip__list">{entries.map(row)}</ul>
+        {entries.length > 0 ? (
+          <ul className="recent-strip__list">{entries.map(row)}</ul>
+        ) : (
+          <p className="recent-strip__empty">{emptyCopy}</p>
+        )}
       </section>
-    ) : null;
+    );
+  };
 
   const mouse = (event: ReactPointerEvent) => event.pointerType === 'mouse';
+
+  if (home) {
+    return (
+      <div className="recent-strip recent-strip--home" data-open="true">
+        {section(
+          'Pinned',
+          pinned,
+          'Pinned models appear here. Pin one from its row menu.',
+          show?.pinned ?? true,
+        )}
+        {section(
+          'Recent',
+          recent,
+          'Models you open appear here.',
+          show?.recent ?? true,
+        )}
+        {rowMenu.menu}
+      </div>
+    );
+  }
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: hover and focus tracking only, the toggle button is the control
@@ -247,8 +283,8 @@ export function RecentStrip({
         <Icon name="chevron" size={12} />
       </button>
       <div id={panelId} className="recent-strip__panel" hidden={!open}>
-        {section('Pinned', pinned)}
-        {section('Recent', recent)}
+        {section('Pinned', pinned, '')}
+        {section('Recent', recent, '')}
       </div>
       {rowMenu.menu}
     </div>
