@@ -9,6 +9,8 @@ import { rememberModel } from '../api/modelStore.js';
 import { modelTabTitle } from '../api/modelTitles.js';
 import {
   contextOf,
+  isOpen,
+  liveWeight,
   modelUrnsOf,
   type OpenModelsState,
   type OpenModelsStore,
@@ -23,6 +25,7 @@ import {
   type AddTarget,
   DocumentTree,
   type PickedModel,
+  tabLimitMessage,
 } from './tree/DocumentTree.js';
 import { DOC_ROOT, type TreeRoot, treeRootOf } from './tree/docRoot.js';
 import { HubProjectSwitcher } from './tree/HubProjectSwitcher.js';
@@ -40,6 +43,21 @@ export interface OpenTarget {
 }
 
 export const COMBINED_FULL_NOTICE = 'The open viewer is full; opened a new tab';
+
+export function loadedMembers(state: OpenModelsState): number {
+  return state.models.reduce(
+    (sum, model) => sum + liveWeight(state, model.urn),
+    0,
+  );
+}
+
+export function exceedsTabLimit(
+  state: OpenModelsState,
+  models: readonly PickedModel[],
+): boolean {
+  const fresh = models.filter((model) => !isOpen(state, model.urn)).length;
+  return loadedMembers(state) + fresh > MAX_LOADED_MEMBERS;
+}
 
 export function openPickedAsTabs(
   store: OpenModelsStore | null,
@@ -73,6 +91,7 @@ export function openWithMode(
   const active = state.active;
   if (mode === 'replace' && active && active !== urn) {
     const dropped = modelUrnsOf(state, active);
+    rememberModel(urn, context);
     store.open(urn, context);
     store.close(active);
     return {
@@ -84,7 +103,7 @@ export function openWithMode(
           : undefined,
     };
   }
-  if (mode === 'combined' && active && active !== urn) {
+  if (mode === 'combined' && active && active !== urn && !isOpen(state, urn)) {
     if (modelUrnsOf(state, active).length < MAX_COMBINED_MODELS) {
       rememberModel(urn, context);
       store.addTo(active, urn);
@@ -166,6 +185,10 @@ export function TreePanel({ onNavigate }: TreePanelProps) {
   };
 
   const openTabs = (models: PickedModel[]) => {
+    if (exceedsTabLimit(state, models)) {
+      notify(tabLimitMessage(loadedMembers(state)));
+      return;
+    }
     const last = openPickedAsTabs(store, models).at(-1);
     if (last) reveal(last);
   };
@@ -204,7 +227,7 @@ export function TreePanel({ onNavigate }: TreePanelProps) {
         root={root}
         selectedUrn={urn}
         revealTrail={trail}
-        openCount={state.models.length}
+        openCount={loadedMembers(state)}
         onOpenModel={open}
         onOpenTabs={openTabs}
         onOpenModal={openModal}

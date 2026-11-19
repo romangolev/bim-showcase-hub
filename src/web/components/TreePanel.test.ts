@@ -1,11 +1,17 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { listRecentModels } from '../api/modelStore.js';
 import {
   contextOf,
   createOpenModelsStore,
   modelUrnsOf,
 } from '../api/openModels.js';
 import { installMemoryStorage } from '../test/mockApi.js';
-import { openAsTab, openPickedAsTabs, openWithMode } from './TreePanel.js';
+import {
+  exceedsTabLimit,
+  openAsTab,
+  openPickedAsTabs,
+  openWithMode,
+} from './TreePanel.js';
 
 const picked = (count: number) =>
   Array.from({ length: count }, (_, index) => ({
@@ -37,7 +43,48 @@ describe('openPickedAsTabs', () => {
   });
 });
 
+describe('exceedsTabLimit', () => {
+  it('counts loaded members of a combined tab, not tabs', () => {
+    const store = createOpenModelsStore(null);
+    store.open('urn-a', { file: 'A.rvt' });
+    for (let index = 1; index < 6; index += 1) {
+      store.addTo('urn-a', `urn-x-${index}`);
+    }
+    expect(store.getState().models).toHaveLength(1);
+    expect(exceedsTabLimit(store.getState(), picked(2))).toBe(false);
+    expect(exceedsTabLimit(store.getState(), picked(3))).toBe(true);
+  });
+
+  it('ignores models that are already open', () => {
+    const store = createOpenModelsStore(null);
+    store.open('urn-0', { file: 'A.rvt' });
+    expect(exceedsTabLimit(store.getState(), picked(8))).toBe(false);
+    expect(exceedsTabLimit(store.getState(), picked(9))).toBe(true);
+  });
+});
+
 describe('openWithMode', () => {
+  it('remembers the model when replacing', () => {
+    const store = createOpenModelsStore(null);
+    store.open('urn-a', { file: 'A.rvt' });
+    openWithMode('replace', store, store.getState(), 'urn-z', {
+      file: 'Z.rvt',
+      v: 'vz',
+    });
+    expect(listRecentModels().map((entry) => entry.urn)).toContain('urn-z');
+  });
+
+  it('activates a model that is already its own tab instead of combining', () => {
+    const store = createOpenModelsStore(null);
+    store.open('urn-a', { file: 'A.rvt' });
+    store.open('urn-b', { file: 'B.rvt' });
+    const target = openWithMode('combined', store, store.getState(), 'urn-a', {
+      file: 'A.rvt',
+    });
+    expect(target.urn).toBe('urn-a');
+    expect(modelUrnsOf(store.getState(), 'urn-b')).toEqual(['urn-b']);
+  });
+
   const state = (store: ReturnType<typeof createOpenModelsStore>) =>
     store.getState();
 
