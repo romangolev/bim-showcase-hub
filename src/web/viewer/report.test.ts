@@ -191,13 +191,17 @@ describe('printing', () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
-  function fakeWindow(readyState: DocumentReadyState = 'complete') {
+  function fakeWindow(
+    readyState: DocumentReadyState = 'complete',
+    images: { decode: () => Promise<void> }[] = [],
+  ) {
     const write = vi.fn();
     const print = vi.fn();
     const listeners: (() => void)[] = [];
     const win = {
       document: {
         readyState,
+        images,
         open: vi.fn(),
         write,
         close: vi.fn(),
@@ -223,6 +227,37 @@ describe('printing', () => {
     expect(print).not.toHaveBeenCalled();
     listeners[0]?.();
     expect(print).toHaveBeenCalledTimes(1);
+  });
+
+  it('waits for the report images to decode before printing', async () => {
+    let finish: () => void = () => {};
+    const decode = () => new Promise<void>((resolve) => (finish = resolve));
+    const { win, print } = fakeWindow('complete', [{ decode }]);
+    printReport('<html></html>', () => win);
+    await Promise.resolve();
+    expect(print).not.toHaveBeenCalled();
+    finish();
+    await vi.waitFor(() => expect(print).toHaveBeenCalledTimes(1));
+  });
+
+  it('prints anyway when an image fails to decode', async () => {
+    const decode = () => Promise.reject(new Error('broken'));
+    const { win, print } = fakeWindow('complete', [{ decode }]);
+    printReport('<html></html>', () => win);
+    await vi.waitFor(() => expect(print).toHaveBeenCalledTimes(1));
+  });
+
+  it('prints when an image never settles', async () => {
+    vi.useFakeTimers();
+    try {
+      const decode = () => new Promise<void>(() => {});
+      const { win, print } = fakeWindow('complete', [{ decode }]);
+      printReport('<html></html>', () => win);
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(print).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('reports a blocked window', () => {

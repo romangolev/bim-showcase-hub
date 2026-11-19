@@ -246,12 +246,27 @@ function writeDocument(win: Window, html: string): void {
   win.document.close();
 }
 
-function printWhenReady(win: Window): void {
-  if (win.document.readyState === 'complete') {
+const IMAGE_WAIT_MS = 3000;
+
+function printAfterImages(win: Window): void {
+  const images = Array.from(win.document.images ?? []);
+  if (images.length === 0) {
     win.print();
     return;
   }
-  win.addEventListener('load', () => win.print(), { once: true });
+  const decoded = Promise.all(
+    images.map((image) => image.decode().catch(() => undefined)),
+  );
+  const timeout = new Promise((resolve) => setTimeout(resolve, IMAGE_WAIT_MS));
+  void Promise.race([decoded, timeout]).then(() => win.print());
+}
+
+function printWhenReady(win: Window): void {
+  if (win.document.readyState === 'complete') {
+    printAfterImages(win);
+    return;
+  }
+  win.addEventListener('load', () => printAfterImages(win), { once: true });
 }
 
 export function printReport(
