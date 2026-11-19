@@ -3,6 +3,7 @@ import {
   listSets,
   saveSelectionSet,
   selectSet,
+  stableKeysFor,
 } from '../viewer/selectionSets.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import {
@@ -71,9 +72,14 @@ export function viewerCommands(adapter: ViewerAdapter | null): Command[] {
     make('fit', 'Zoom to selection', needsSelection, (viewer) =>
       viewer.fitToView(),
     ),
-    make('saveSet', 'Save selection as set', needsSelection, (viewer) => {
+    make('saveSet', 'Save selection as set', needsSelection, async (viewer) => {
       const name = `Selection ${listSets().length + 1}`;
-      const result = saveSelectionSet(name, viewer.getModelSelection());
+      const items = viewer.getModelSelection();
+      const result = saveSelectionSet(
+        name,
+        items,
+        await stableKeysFor(viewer, items),
+      );
       notify(
         result === 'ok'
           ? `Saved the selection set "${name}"`
@@ -103,8 +109,8 @@ export function viewerCommands(adapter: ViewerAdapter | null): Command[] {
         `selectSet.${set.id}`,
         `Select set ${set.name}`,
         noModel,
-        (viewer) => {
-          selectSet(viewer, set.id);
+        async (viewer) => {
+          await selectSet(viewer, set.id);
         },
       ),
     ),

@@ -660,6 +660,19 @@ export class RealViewerAdapter implements ViewerAdapter {
     return this.models.handle(modelId)?.getFragmentList?.().getCount() ?? null;
   }
 
+  async getExternalIdMap(modelId: string): Promise<Record<string, number>> {
+    const model = this.models.handle(modelId);
+    const read = model?.getExternalIdMapping;
+    if (!model || typeof read !== 'function') return {};
+    try {
+      return await new Promise<Record<string, number>>((resolve, reject) =>
+        read.call(model, resolve, reject),
+      );
+    } catch {
+      return {};
+    }
+  }
+
   getIsolated(): ModelDbId[] {
     const viewer = this.viewer;
     if (!viewer?.getIsolatedNodes) return [];

@@ -486,6 +486,14 @@ export class MockViewerAdapter implements ViewerAdapter {
     return this.models.handle(modelId)?.nodes.size ?? null;
   }
 
+  async getExternalIdMap(modelId: string): Promise<Record<string, number>> {
+    const scene = this.models.handle(modelId);
+    if (!scene) return {};
+    const map: Record<string, number> = {};
+    for (const dbId of scene.nodes.keys()) map[`mock-${dbId}`] = dbId;
+    return map;
+  }
+
   async getScreenshot(
     targetWidth?: number,
     targetHeight?: number,

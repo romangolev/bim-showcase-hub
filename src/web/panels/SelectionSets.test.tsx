@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { viewerCommands } from '../commands/viewerCommands.js';
 import { installMemoryStorage } from '../test/mockApi.js';
@@ -34,12 +34,14 @@ describe('SelectionSets', () => {
       target: { value: 'Walls' },
     });
     fireEvent.click(screen.getByText('Save selection as set'));
-    expect(screen.getByRole('alert').textContent).toMatch(/Select elements/);
+    expect((await screen.findByRole('alert')).textContent).toMatch(
+      /Select elements/,
+    );
 
     adapter.selectModelIds(await pick(adapter));
     fireEvent.click(screen.getByText('Save selection as set'));
-    expect(listSets()[0]?.items).toHaveLength(2);
     expect(await screen.findByText('2 elements')).toBeTruthy();
+    expect(listSets()[0]?.items).toHaveLength(2);
 
     fireEvent.change(screen.getByLabelText('Rename Walls'), {
       target: { value: 'Façade' },
@@ -49,11 +51,41 @@ describe('SelectionSets', () => {
 
     adapter.clearSelection();
     fireEvent.click(await screen.findByLabelText('Select Façade'));
-    expect(adapter.getModelSelection()).toHaveLength(2);
+    await waitFor(() => expect(adapter.getModelSelection()).toHaveLength(2));
 
     fireEvent.click(await screen.findByLabelText('Delete Façade'));
     expect(listSets()).toHaveLength(0);
     expect(await screen.findByText('No selection sets yet.')).toBeTruthy();
+    adapter.destroy();
+  });
+
+  it('unions and intersects two saved sets', async () => {
+    const adapter = await loaded();
+    saveSelectionSet('First', [{ modelId: 'urn-a', dbId: 1 }]);
+    saveSelectionSet('Second', [
+      { modelId: 'urn-a', dbId: 1 },
+      { modelId: 'urn-a', dbId: 2 },
+    ]);
+    render(<SelectionSets adapter={adapter} />);
+    const union = screen.getByRole('button', { name: 'Union' });
+    expect(union).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Merge set A'), {
+      target: { value: listSets()[0]?.id },
+    });
+    fireEvent.change(screen.getByLabelText('Merge set B'), {
+      target: { value: listSets()[1]?.id },
+    });
+    expect(union).toBeEnabled();
+    fireEvent.click(union);
+    expect(await screen.findByLabelText('Rename First ∪ Second')).toBeTruthy();
+    expect(listSets().map((set) => set.name)).toContain('First ∪ Second');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Intersect' }));
+    await waitFor(() =>
+      expect(listSets().map((set) => set.name)).toContain('First ∩ Second'),
+    );
+    const shared = listSets().find((set) => set.name === 'First ∩ Second');
+    expect(shared?.items).toEqual([{ modelId: 'urn-a', dbId: 1 }]);
     adapter.destroy();
   });
 });
@@ -88,12 +120,16 @@ describe('set commands', () => {
     await onlyA.loadModels([{ urn: 'urn-a' }]);
     const view = render(<SelectionSets adapter={onlyA} />);
     fireEvent.click(await screen.findByLabelText('Select Walls'));
-    expect(screen.getByRole('alert').textContent).toMatch(/of 2 elements/);
+    expect((await screen.findByRole('alert')).textContent).toMatch(
+      /of 2 elements/,
+    );
     view.unmount();
     const other = new MockViewerAdapter(document.createElement('div'));
     await other.loadModels([{ urn: 'urn-z' }]);
     render(<SelectionSets adapter={other} />);
     fireEvent.click(await screen.findByLabelText('Select Walls'));
-    expect(screen.getByRole('alert').textContent).toMatch(/None of this set/);
+    expect((await screen.findByRole('alert')).textContent).toMatch(
+      /None of this set/,
+    );
   });
 });

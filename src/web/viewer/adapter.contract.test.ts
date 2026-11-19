@@ -127,6 +127,16 @@ describe('ViewerAdapter contract (mock)', () => {
     expect(elementNode(id).style.fill).toBe('');
   });
 
+  it('maps external ids to dbIds for saved selections', async () => {
+    await setup();
+    const modelId = adapter.getModels()[0]?.id ?? '';
+    const [first] = buildMockElements();
+    const map = await adapter.getExternalIdMap(modelId);
+    const dbId = first?.dbId ?? 0;
+    expect(map[`mock-${dbId}`]).toBe(dbId);
+    expect(await adapter.getExternalIdMap('missing-model')).toEqual({});
+  });
+
   it('returns deterministic leaf properties filtered by name', async () => {
     await setup();
     const names = ['Name', 'Assembly Code', 'Classification Code', 'Level'];

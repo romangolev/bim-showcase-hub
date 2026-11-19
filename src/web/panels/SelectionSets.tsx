@@ -1,13 +1,17 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { MAX_NAME_LENGTH } from '../store/savedStore.js';
 import { notify } from '../tasks/notifications.js';
 import {
   deleteSet,
   MAX_SET_ELEMENTS,
+  type MergeMode,
+  mergeSets,
+  migrateSelectionSets,
   renameSet,
   type SaveSetResult,
   saveSelectionSet,
   selectSet,
+  stableKeysFor,
   useSelectionSets,
 } from '../viewer/selectionSets.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
@@ -19,14 +23,28 @@ export const SET_MESSAGES: Record<Exclude<SaveSetResult, 'ok'>, string> = {
     'Could not save the set. Saved items hold up to 4 MB; delete some and try again.',
 };
 
+export const MERGE_MESSAGES: Record<MergeMode, string> = {
+  union: 'Union keeps every element that is in either set.',
+  intersect: 'Intersect keeps only the elements that are in both sets.',
+};
+
 export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
   const sets = useSelectionSets();
   const [name, setName] = useState('');
   const [problem, setProblem] = useState<string | null>(null);
+  const [firstId, setFirstId] = useState('');
+  const [secondId, setSecondId] = useState('');
 
-  const save = () => {
+  useEffect(() => {
     if (!adapter) return;
-    const result = saveSelectionSet(name, adapter.getModelSelection());
+    void migrateSelectionSets(adapter).catch(() => undefined);
+  }, [adapter, sets.length]);
+
+  const save = async () => {
+    if (!adapter) return;
+    const items = adapter.getModelSelection();
+    const stable = await stableKeysFor(adapter, items);
+    const result = saveSelectionSet(name, items, stable);
     if (result === 'ok') {
       notify(`Saved the selection set "${name.trim()}"`, { tone: 'success' });
       setName('');
@@ -37,15 +55,40 @@ export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
     }
   };
 
-  const select = (adapter: ViewerAdapter, id: string, total: number) => {
-    const count = selectSet(adapter, id);
+  const select = async (adapter: ViewerAdapter, id: string, total: number) => {
+    const count = await selectSet(adapter, id);
     if (count === 0 && total > 0) {
       setProblem("None of this set's models are open.");
     } else if (count < total) {
       setProblem(
-        `Selected ${count.toLocaleString('en-US')} of ${total.toLocaleString('en-US')} elements. The rest belong to models that are not open.`,
+        `Selected ${count.toLocaleString('en-US')} of ${total.toLocaleString('en-US')} elements. The rest belong to models that are not open or no longer exist in the model.`,
       );
     } else setProblem(null);
+  };
+
+  const ids = new Set(sets.map((set) => set.id));
+  const first = ids.has(firstId) ? firstId : '';
+  const second = ids.has(secondId) ? secondId : '';
+  const canMerge = first !== '' && second !== '' && first !== second;
+
+  const merge = (mode: MergeMode) => {
+    const left = sets.find((set) => set.id === first);
+    const right = sets.find((set) => set.id === second);
+    if (!canMerge || !left || !right) return;
+    const label =
+      name.trim() ||
+      `${left.name} ${mode === 'union' ? '∪' : '∩'} ${right.name}`;
+    const result = mergeSets(label, first, second, mode);
+    if (result === 'ok') {
+      notify(`Saved the merged set "${label}"`, { tone: 'success' });
+      setName('');
+      setProblem(null);
+    } else if (result === 'empty') {
+      setProblem('No elements are in both sets.');
+    } else {
+      setProblem(SET_MESSAGES[result]);
+      notify(SET_MESSAGES[result], { tone: 'error' });
+    }
   };
 
   return (
@@ -61,14 +104,14 @@ export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
           value={name}
           onChange={(event) => setName(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === 'Enter') save();
+            if (event.key === 'Enter') void save();
           }}
         />
         <button
           type="button"
           className="bsh-button"
           disabled={!adapter || !name.trim()}
-          onClick={save}
+          onClick={() => void save()}
         >
           Save selection as set
         </button>
@@ -77,6 +120,61 @@ export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
         <p role="alert" className="settings__hint">
           {problem}
         </p>
+      ) : null}
+      {sets.length > 0 ? (
+        <div className="bsh-presets">
+          <label className="bsh-field">
+            <span>Merge set A</span>
+            <select
+              className="bsh-select"
+              aria-label="Merge set A"
+              value={first}
+              onChange={(event) => setFirstId(event.target.value)}
+            >
+              <option value="">Choose a set</option>
+              {sets.map((set) => (
+                <option key={set.id} value={set.id}>
+                  {set.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="bsh-field">
+            <span>Merge set B</span>
+            <select
+              className="bsh-select"
+              aria-label="Merge set B"
+              value={second}
+              onChange={(event) => setSecondId(event.target.value)}
+            >
+              <option value="">Choose a set</option>
+              {sets.map((set) => (
+                <option key={set.id} value={set.id}>
+                  {set.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            className="bsh-button"
+            disabled={!canMerge}
+            onClick={() => merge('union')}
+          >
+            Union
+          </button>
+          <button
+            type="button"
+            className="bsh-button"
+            disabled={!canMerge}
+            onClick={() => merge('intersect')}
+          >
+            Intersect
+          </button>
+          <p className="settings__hint">
+            {MERGE_MESSAGES.union} {MERGE_MESSAGES.intersect}
+          </p>
+        </div>
       ) : null}
       {sets.length === 0 ? (
         <p className="settings__hint">No selection sets yet.</p>
@@ -111,9 +209,9 @@ export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
                 className="bsh-button"
                 aria-label={`Select ${set.name}`}
                 disabled={!adapter}
-                onClick={() =>
-                  adapter && select(adapter, set.id, set.items.length)
-                }
+                onClick={() => {
+                  if (adapter) void select(adapter, set.id, set.items.length);
+                }}
               >
                 Select
               </button>
