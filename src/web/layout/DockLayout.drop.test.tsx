@@ -121,4 +121,22 @@ describe('dock drop target', () => {
     expect(storedUrns()).toEqual(before);
     expect(appRouter.state.location.pathname).toBe('/model/abc123');
   });
+
+  it('keeps the indicator while the drag moves between children without relatedTarget', async () => {
+    renderApp();
+    const root = await dockRoot();
+    const child = root.firstElementChild as HTMLElement;
+    const row = await openVersionRow();
+    const transfer = dragData();
+    fireEvent.dragStart(row, { dataTransfer: transfer });
+
+    fireEvent.dragEnter(root, { dataTransfer: transfer });
+    fireEvent.dragOver(root, { dataTransfer: transfer });
+    fireEvent.dragEnter(child, { dataTransfer: transfer });
+    fireEvent.dragLeave(root, { dataTransfer: transfer });
+    expect(root).toHaveAttribute('data-model-drop');
+
+    fireEvent.dragLeave(child, { dataTransfer: transfer });
+    expect(root).not.toHaveAttribute('data-model-drop');
+  });
 });

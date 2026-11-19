@@ -472,6 +472,10 @@ export function DockLayout(props: DockLayoutProps) {
     if (!root) return;
     const doc = root.ownerDocument;
     const onKey = (event: KeyboardEvent) => cycleGroups(root, event);
+    let depth = 0;
+    const onDragEnter = (event: DragEvent) => {
+      if (hasModelDrag(event.dataTransfer)) depth += 1;
+    };
     const onDragOver = (event: DragEvent) => {
       if (!hasModelDrag(event.dataTransfer)) return;
       event.preventDefault();
@@ -479,19 +483,23 @@ export function DockLayout(props: DockLayoutProps) {
       setModelOver(true);
     };
     const onDragLeave = (event: DragEvent) => {
-      if (root.contains(event.relatedTarget as Node | null)) return;
-      setModelOver(false);
+      if (!hasModelDrag(event.dataTransfer)) return;
+      depth = Math.max(0, depth - 1);
+      if (depth === 0) setModelOver(false);
     };
     const onDrop = (event: DragEvent) => {
+      depth = 0;
       setModelOver(false);
       handleModelDrop(event, (model) => openDroppedRef.current(model));
     };
     doc.addEventListener('keydown', onKey);
+    root.addEventListener('dragenter', onDragEnter);
     root.addEventListener('dragover', onDragOver);
     root.addEventListener('dragleave', onDragLeave);
     root.addEventListener('drop', onDrop);
     return () => {
       doc.removeEventListener('keydown', onKey);
+      root.removeEventListener('dragenter', onDragEnter);
       root.removeEventListener('dragover', onDragOver);
       root.removeEventListener('dragleave', onDragLeave);
       root.removeEventListener('drop', onDrop);
