@@ -104,6 +104,40 @@ describe('typed saved kinds', () => {
     expect(readSaved()).toHaveLength(1);
   });
 
+  it('accepts the same kind being defined twice at the same version', () => {
+    const first = preset();
+    const again = defineSavedKind<PresetData>({
+      kind: 'summary-preset',
+      version: 2,
+      label: 'Summary preset',
+      sanitize: (raw) =>
+        isRecord(raw) && Array.isArray(raw.columns)
+          ? {
+              columns: raw.columns.filter(
+                (c): c is string => typeof c === 'string',
+              ),
+            }
+          : null,
+    });
+    expect(again.version).toBe(2);
+    expect(again.save('Mine', { columns: ['Category'] })).not.toBeNull();
+    expect(first.handle.list()).toHaveLength(1);
+    expect(again.save('Empty', { columns: [] })).not.toBeNull();
+    expect(first.handle.list()).toHaveLength(2);
+  });
+
+  it('refuses to redefine a kind at a different version', () => {
+    preset();
+    expect(() =>
+      defineSavedKind({
+        kind: 'summary-preset',
+        version: 3,
+        label: 'Summary preset',
+        sanitize: (raw) => (isRecord(raw) ? raw : null),
+      }),
+    ).toThrow(/already registered at version 2/);
+  });
+
   it('migrates older stored entries when a handle reads them', () => {
     const { handle, migrations } = preset();
     SAVED.write([oldItem()]);

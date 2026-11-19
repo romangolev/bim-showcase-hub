@@ -10,11 +10,13 @@ import {
   useState,
 } from 'react';
 import { flushSync } from 'react-dom';
+import type { ModelContext } from '../api/modelContext.js';
 import { useModal } from '../modal/index.js';
 import { notify } from '../tasks/notifications.js';
 import { startTask } from '../tasks/taskStore.js';
 import { filterCommands } from './fuzzy.js';
 import { PIN_LIMIT, readPins, togglePin } from './pins.js';
+import { recentModelCommands } from './recentModels.js';
 import { readRecents, recordRecent } from './recents.js';
 import { COMMANDS } from './registry.js';
 import {
@@ -25,6 +27,10 @@ import {
 import type { Command } from './types.js';
 
 export const RECENT_GROUP = 'Recent';
+
+export interface CommandPaletteProps {
+  openModel?: (urn: string, context: ModelContext) => void;
+}
 export const PINNED_GROUP = 'Pinned';
 
 export function arrange(
@@ -252,10 +258,15 @@ function typingOutsidePalette(target: EventTarget | null): boolean {
   );
 }
 
-export function CommandPalette() {
+export function CommandPalette({ openModel }: CommandPaletteProps) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const modal = useModal();
+
+  useEffect(() => {
+    if (!openModel) return;
+    return COMMANDS.register('models', () => recentModelCommands(openModel));
+  }, [openModel]);
 
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => {

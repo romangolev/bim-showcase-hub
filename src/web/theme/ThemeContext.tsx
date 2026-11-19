@@ -8,48 +8,48 @@ import {
   useMemo,
   useState,
 } from 'react';
+import { useSettings } from '../settings/SettingsContext.js';
 import {
   applyTheme,
   LIGHT_SCHEME_QUERY,
-  readStoredTheme,
   readSystemTheme,
+  resolveTheme,
   type Theme,
-  writeStoredTheme,
+  type ThemePreference,
 } from './theme.js';
-
-export type ThemeSource = 'system' | 'user';
 
 export interface ThemeContextValue {
   theme: Theme;
-  source: ThemeSource;
-  setTheme: (theme: Theme) => void;
+  preference: ThemePreference;
+  setTheme: (preference: ThemePreference) => void;
   toggleTheme: () => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [explicit, setExplicit] = useState<Theme | null>(readStoredTheme);
+  const { settings, setSetting } = useSettings();
+  const preference = settings.theme;
   const [system, setSystem] = useState<Theme>(readSystemTheme);
-  const theme = explicit ?? system;
+  const theme = resolveTheme(preference, system);
 
   useLayoutEffect(() => {
     applyTheme(theme, document.documentElement);
   }, [theme]);
 
   useEffect(() => {
-    if (explicit !== null || !window.matchMedia) return;
+    if (preference !== 'system' || !window.matchMedia) return;
     const list = window.matchMedia(LIGHT_SCHEME_QUERY);
     const onChange = () => setSystem(readSystemTheme());
     onChange();
     list.addEventListener('change', onChange);
     return () => list.removeEventListener('change', onChange);
-  }, [explicit]);
+  }, [preference]);
 
-  const setTheme = useCallback((next: Theme) => {
-    writeStoredTheme(next);
-    setExplicit(next);
-  }, []);
+  const setTheme = useCallback(
+    (next: ThemePreference) => setSetting('theme', next),
+    [setSetting],
+  );
 
   const toggleTheme = useCallback(
     () => setTheme(theme === 'dark' ? 'light' : 'dark'),
@@ -59,11 +59,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const value = useMemo<ThemeContextValue>(
     () => ({
       theme,
-      source: explicit === null ? 'system' : 'user',
+      preference,
       setTheme,
       toggleTheme,
     }),
-    [theme, explicit, setTheme, toggleTheme],
+    [theme, preference, setTheme, toggleTheme],
   );
 
   return (

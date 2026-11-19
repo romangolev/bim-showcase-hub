@@ -1,15 +1,14 @@
 import type { Command } from '../commands/types.js';
 import type { LayoutApi } from './layoutContext.js';
-import { paneCommands } from './paneRegistry.js';
+import { type PaneCommandContext, paneCommands } from './paneRegistry.js';
 
 export const LOCKED_REASON = 'Unlock the layout first';
 export const DOCK_ONLY_REASON = 'Available in the wide layout';
 
-export function layoutCommands(layout: LayoutApi): Command[] {
-  const docked = layout.mode === 'dock';
+export function paneCommandContext(layout: LayoutApi): PaneCommandContext {
   const editable = layout.locked
     ? LOCKED_REASON
-    : docked
+    : layout.mode === 'dock'
       ? undefined
       : DOCK_ONLY_REASON;
   const createReason = layout.locked
@@ -17,23 +16,29 @@ export function layoutCommands(layout: LayoutApi): Command[] {
     : layout.canAddInstance
       ? undefined
       : 'Open a model first';
+  return {
+    isOpen: layout.isOpen,
+    toggle: layout.togglePane,
+    create: layout.addInstance,
+    focus: layout.focusPane,
+    ...(editable ? { toggleDisabled: editable } : {}),
+    ...(createReason ? { createDisabled: createReason } : {}),
+  };
+}
+
+export function layoutCommands(layout: LayoutApi): Command[] {
+  const docked = layout.mode === 'dock';
   const reason = (disabled: string | undefined) =>
     disabled ? { disabled } : {};
   return [
-    ...paneCommands({
-      isOpen: layout.isOpen,
-      toggle: layout.togglePane,
-      create: layout.addInstance,
-      focus: layout.focusPane,
-      ...(editable ? { toggleDisabled: editable } : {}),
-      ...(createReason ? { createDisabled: createReason } : {}),
-    }),
+    ...paneCommands(paneCommandContext(layout)),
     {
       id: 'layout.present',
       title: layout.presenting ? 'Exit present mode' : 'Present',
       group: 'Layout',
       keywords: 'presentation fullscreen',
       keys: ['mod+alt+p'],
+      menu: 'present',
       ...reason(
         layout.presenting
           ? undefined
@@ -50,12 +55,14 @@ export function layoutCommands(layout: LayoutApi): Command[] {
       title: layout.locked ? 'Unlock layout' : 'Lock layout',
       group: 'Layout',
       keys: ['mod+alt+l'],
+      menu: 'lock',
       run: () => layout.setLocked(!layout.locked),
     },
     {
       id: 'layout.reset',
       title: 'Reset layout',
       group: 'Layout',
+      menu: 'reset',
       ...reason(layout.locked ? LOCKED_REASON : undefined),
       run: () => layout.resetLayout(),
     },

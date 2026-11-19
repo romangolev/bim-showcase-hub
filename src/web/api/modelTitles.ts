@@ -1,12 +1,8 @@
-import {
-  describeModel,
-  type ModelContext,
-  withUrns,
-} from '../api/modelContext.js';
-import { recallModel } from '../api/modelStore.js';
 import { composeTitle } from '../components/useDocumentTitle.js';
 import type { PaneTitle } from '../layout/layoutContext.js';
 import { farApartMessage, type ModelMeta } from '../viewer/modelSet.js';
+import { describeModel, type ModelContext, withUrns } from './modelContext.js';
+import { recallModel } from './modelStore.js';
 
 export function viewerTabTitle(
   urn: string,

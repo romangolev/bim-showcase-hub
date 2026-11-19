@@ -5,6 +5,7 @@ import {
   registerSavedKind,
   type SavedData,
   type SavedKindSpec,
+  unregisterSavedKind,
 } from './savedKindRegistry.js';
 import {
   getSaved,
@@ -54,9 +55,17 @@ function toItem<T extends SavedData>(item: SavedItem): SavedKindItem<T> | null {
 export function defineSavedKind<T extends SavedData>(
   spec: SavedKindSpec<T>,
 ): SavedKindHandle<T> {
+  const existing = getSavedKind(spec.kind);
+  if (existing && existing.version !== spec.version) {
+    throw new Error(
+      `Saved kind ${spec.kind} is already registered at version ${existing.version}`,
+    );
+  }
+  if (existing) unregisterSavedKind(spec.kind);
   registerSavedKind(spec);
   const entry = getSavedKind(spec.kind);
   if (!entry) throw new Error(`Saved kind not registered: ${spec.kind}`);
+  const sanitize = entry.sanitize as (data: unknown) => T | null;
   const list = (): SavedKindItem<T>[] =>
     readSaved(spec.kind).flatMap((item) => toItem<T>(item) ?? []);
   return {
@@ -68,7 +77,7 @@ export function defineSavedKind<T extends SavedData>(
       return list().find((item) => item.id === id);
     },
     save(name, data, id) {
-      const clean = spec.sanitize(data);
+      const clean = sanitize(data);
       if (!clean) return null;
       const trimmed = name.trim().slice(0, MAX_NAME_LENGTH);
       if (!trimmed) return null;

@@ -6,6 +6,7 @@ import {
   waitFor,
 } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { rememberModel } from '../api/modelStore.js';
 import { ModalProvider } from '../modal/index.js';
 import type { ModalDefinition } from '../modal/types.js';
 import { notifications } from '../tasks/notifications.js';
@@ -145,6 +146,26 @@ describe('CommandPalette', () => {
     openPalette();
     press('Enter');
     expect(screen.getByText('Demo body')).toBeInTheDocument();
+  });
+
+  it('jumps to a recent model through the host navigation handle', () => {
+    rememberModel('urn:tower', { file: 'Tower.rvt' });
+    const openModel = vi.fn();
+    render(
+      <ModalProvider definitions={MODALS}>
+        <CommandPalette openModel={openModel} />
+      </ModalProvider>,
+    );
+    openPalette();
+    fireEvent.click(screen.getByRole('option', { name: /Open Tower\.rvt/ }));
+    expect(openModel).toHaveBeenCalledWith('urn:tower', { file: 'Tower.rvt' });
+  });
+
+  it('shows no recent-model commands without a navigation handle', () => {
+    rememberModel('urn:tower', { file: 'Tower.rvt' });
+    setup([{ id: 'a', title: 'Alpha', group: 'G', run: () => undefined }]);
+    openPalette();
+    expect(screen.queryByRole('option', { name: /Open Tower/ })).toBeNull();
   });
 
   it('closes on Escape and restores focus to the previous element', () => {

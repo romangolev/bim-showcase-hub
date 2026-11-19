@@ -52,6 +52,7 @@ export class ExcelExportTool extends ViewerTool<ExcelToolSettings> {
       ...settings,
       modelScope: 'all',
       scope: setIdOf(settings.scope) === undefined ? settings.scope : 'all',
+      properties: DEFAULT_EXPORT_PROPERTIES,
     };
   }
 
@@ -71,7 +72,7 @@ export class ExcelExportTool extends ViewerTool<ExcelToolSettings> {
           ({ task, signal }) => {
             const settings = ctx.current(this);
             return exportToXlsx(ctx.adapter, {
-              propertyNames: DEFAULT_EXPORT_PROPERTIES,
+              propertyNames: settings.properties,
               fileName: excelFileNameFrom(ctx.fileName(), settings),
               format: settings.format,
               scope: settings.scope,

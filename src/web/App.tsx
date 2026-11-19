@@ -15,16 +15,24 @@ export interface AppProps {
 
 export function App({ appRouter = router, client = queryClient }: AppProps) {
   return (
-    <ThemeProvider>
-      <SettingsProvider>
+    <SettingsProvider>
+      <ThemeProvider>
         <QueryClientProvider client={client}>
           <ModalProvider>
             <RouterProvider router={appRouter} />
             <AppCommands />
-            <CommandPalette />
+            <CommandPalette
+              openModel={(urn, context) => {
+                void appRouter.navigate({
+                  to: '/model/$urn',
+                  params: { urn },
+                  search: context,
+                });
+              }}
+            />
           </ModalProvider>
         </QueryClientProvider>
-      </SettingsProvider>
-    </ThemeProvider>
+      </ThemeProvider>
+    </SettingsProvider>
   );
 }

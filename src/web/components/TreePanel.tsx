@@ -3,11 +3,11 @@ import { useContext } from 'react';
 import { MAX_COMBINED_MODELS } from '../../shared/combined.js';
 import { joinWith, type ModelContext } from '../api/modelContext.js';
 import { rememberModel } from '../api/modelStore.js';
+import { modelTabTitle } from '../api/modelTitles.js';
 import { contextOf, modelUrnsOf } from '../api/openModels.js';
 import { useModelContext } from '../api/useModelContext.js';
 import { useOpenModels, useOpenModelsStore } from '../api/useOpenModels.js';
 import { LayoutContext } from '../layout/layoutContext.js';
-import { modelTabTitle } from '../routes/ModelPage.js';
 import {
   type AddTarget,
   DocumentTree,

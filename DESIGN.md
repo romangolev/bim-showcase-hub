@@ -98,7 +98,7 @@ Depth comes from 0.5px translucent white hairline borders and 1px inset white hi
 
 The dark palette above is the reference. The light theme keeps every token role and changes only the values, so components never branch on theme. It is derived, not part of the Refero source.
 
-Theme is set by `data-theme="dark|light"` on `<html>`, together with `color-scheme`. The default follows `prefers-color-scheme` (dark when unsupported). The top bar toggle (sun and moon icon button, placed before the user menu, also on the signed-out landing) stores an explicit choice in localStorage under `bsh-theme`. The system scheme is followed live only while no choice is stored. A tiny inline script in `index.html` applies the theme before first paint.
+Theme is set by `data-theme="dark|light"` on `<html>`, together with `color-scheme`. The default follows `prefers-color-scheme` (dark when unsupported). The top bar toggle (sun and moon icon button, placed before the user menu, also on the signed-out landing) stores the choice as `theme` in app settings (`bsh-settings-v1`): `light`, `dark` or `system`, which keeps following the OS. A tiny inline script in `index.html` reads that setting, and the old `bsh-theme` key until it is migrated, then applies the theme before first paint.
 
 ### Light neutrals
 

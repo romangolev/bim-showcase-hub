@@ -1,12 +1,12 @@
 import { useNavigate, useRouterState, useSearch } from '@tanstack/react-router';
 import { useEffect, useRef } from 'react';
 import type { ModelContext } from '../api/modelContext.js';
+import { modelDocumentTitle } from '../api/modelTitles.js';
 import { contextOf } from '../api/openModels.js';
 import { useModelContext } from '../api/useModelContext.js';
 import { useOpenModels, useOpenModelsStore } from '../api/useOpenModels.js';
 import { useDocumentTitle } from '../components/useDocumentTitle.js';
 import { useModelUrn } from '../layout/panes.js';
-import { modelDocumentTitle } from './ModelPage.js';
 
 export function ModelRouteSync() {
   const store = useOpenModelsStore();

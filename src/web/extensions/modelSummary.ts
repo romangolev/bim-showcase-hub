@@ -8,20 +8,6 @@ export const DEFAULT_SUMMARY_PROPERTIES: readonly string[] = [
   'Name',
 ];
 
-export function sanitizeProperties(raw: unknown): readonly string[] {
-  const names = Array.isArray(raw)
-    ? [
-        ...new Set(
-          raw.filter(
-            (name): name is string =>
-              typeof name === 'string' && name.trim() !== '',
-          ),
-        ),
-      ]
-    : [];
-  return names.length > 0 ? names : DEFAULT_SUMMARY_PROPERTIES;
-}
-
 export const EMPTY_VALUE_LABEL = '(empty)';
 
 export interface SummaryEntry {

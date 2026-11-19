@@ -1,7 +1,7 @@
 import {
   type DashboardView,
   DEFAULT_DASHBOARD_VIEW,
-  sanitizeDashboardView,
+  sanitizeStoredDashboardView,
 } from '../extensions/dashboardPresets.js';
 import {
   type ElementAction,
@@ -11,15 +11,24 @@ import {
   DEFAULT_SUMMARY_PROPERTIES,
   DEFAULT_SUMMARY_VIEW,
   type SummaryView,
-  sanitizeProperties,
   sanitizeView,
 } from '../extensions/modelSummary.js';
-import { PANE_SETTINGS } from '../settings/paneSettings.js';
-import { defineRecordFamily, type PersistedRecord } from '../storage.js';
+import { sanitizePropertyNames } from '../extensions/propertyNames.js';
+import {
+  LEGACY_DASHBOARD_PROPERTIES,
+  PANE_SETTINGS,
+  withLegacyDashboardProperties,
+} from '../settings/paneSettings.js';
+import {
+  defineRecordFamily,
+  getStorageAdapter,
+  type PersistedRecord,
+} from '../storage.js';
 import {
   type ElementScope,
   sanitizeElementScope,
 } from '../viewer/propertyScope.js';
+import { dropDashboardSettingsTarget } from './dashboardTarget.js';
 import { type PanelId, parsePanelId } from './paneRegistry.js';
 import { dropSummarySettingsTarget } from './summaryTarget.js';
 
@@ -49,7 +58,10 @@ const charts = defineRecordFamily<DashboardView, PanelId>({
   prefix: INSTANCE_PREFIX,
   keyOf: instanceSettingKey,
   initial: { ...DEFAULT_DASHBOARD_VIEW },
-  sanitize: (raw) => ({ ...sanitizeDashboardView(raw), preset: null }),
+  sanitize: (raw) => ({
+    ...sanitizeStoredDashboardView(raw, LEGACY_DASHBOARD_PROPERTIES.read()),
+    preset: null,
+  }),
 });
 
 export function sanitizeSummarySpec(raw: unknown): SummarySpec {
@@ -57,7 +69,10 @@ export function sanitizeSummarySpec(raw: unknown): SummarySpec {
   return {
     scope: typeof spec?.scope === 'string' && spec.scope ? spec.scope : 'all',
     elements: sanitizeElementScope(spec?.elements),
-    properties: sanitizeProperties(spec?.properties),
+    properties: sanitizePropertyNames(
+      spec?.properties,
+      DEFAULT_SUMMARY_PROPERTIES,
+    ),
     view: sanitizeView(spec?.view),
     action: sanitizeAction(spec?.action),
   };
@@ -94,8 +109,15 @@ export function propertiesSetting(
   return propertyPanes.get(id);
 }
 
+const chartRecords = new Map<PanelId, PersistedRecord<DashboardView>>();
+
 export function chartSetting(id: PanelId): PersistedRecord<DashboardView> {
-  return charts.get(id);
+  let record = chartRecords.get(id);
+  if (!record) {
+    record = withLegacyDashboardProperties(charts.get(id));
+    chartRecords.set(id, record);
+  }
+  return record;
 }
 
 export function summarySetting(id: PanelId): PersistedRecord<SummarySpec> {
@@ -105,6 +127,8 @@ export function summarySetting(id: PanelId): PersistedRecord<SummarySpec> {
 export function forgetInstanceSetting(id: PanelId): void {
   if (!parsePanelId(id)?.instance) return;
   dropSummarySettingsTarget(id);
+  dropDashboardSettingsTarget(id);
+  chartRecords.delete(id);
   charts.forget(id);
   summaries.forget(id);
   propertyPanes.forget(id);
@@ -124,5 +148,27 @@ export function seedInstanceSetting(
   }
   if (parsePanelId(id)?.kind === 'properties' && activeModel) {
     propertyPanes.get(id).write({ scope: activeModel });
+  }
+}
+
+function lacksStoredProperties(key: string): boolean {
+  const text = getStorageAdapter().get('local', key);
+  if (text === null) return false;
+  try {
+    const raw = JSON.parse(text) as { properties?: unknown } | null;
+    return !Array.isArray(raw?.properties) || raw.properties.length === 0;
+  } catch {
+    return false;
+  }
+}
+
+export function migrateDashboardProperties(): void {
+  const main = PANE_SETTINGS.dashboard.view;
+  if (lacksStoredProperties(main.key)) main.write(main.read());
+  for (const key of getStorageAdapter().keys('local')) {
+    const instance = /^bsh\.pane\.chart\.(.+)\.v1$/.exec(key)?.[1];
+    if (!instance) continue;
+    const record = chartSetting(`chart:${instance}`);
+    if (lacksStoredProperties(key)) record.write(record.read());
   }
 }

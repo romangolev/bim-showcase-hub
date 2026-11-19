@@ -1,16 +1,7 @@
 import type { PropertyRow } from '../../shared/types.js';
-import {
-  ALL_MODELS,
-  type ModelScope,
-  resolveScope,
-  scopeRows,
-  unavailableModels,
-} from './modelScope.js';
+import { ALL_MODELS, type ModelScope, scopeRows } from './modelScope.js';
 import type { ModelDbId } from './modelSet.js';
-import type { ReadOptions } from './propertyReads.js';
 import { getSet, setIdOf } from './selectionSets.js';
-import { readLeafRows } from './sharedLeafRows.js';
-import type { ViewerAdapter } from './ViewerAdapter.js';
 
 export type BaseElementScope = 'all' | 'selected' | 'visible' | 'isolated';
 export type ElementScope = BaseElementScope | `set:${string}`;
@@ -47,17 +38,6 @@ export interface PropertyScope {
   elements: ElementScope;
 }
 
-export async function scopeElementItems(
-  adapter: ViewerAdapter,
-  elements: ElementScope,
-): Promise<ModelDbId[]> {
-  if (elements === 'selected') return adapter.getModelSelection();
-  if (elements === 'isolated') return adapter.getIsolated();
-  if (elements === 'visible') return adapter.getVisible();
-  const id = setIdOf(elements);
-  return id === undefined ? [] : (getSet(id)?.items ?? []);
-}
-
 export function filterByElementScope<
   T extends { modelId?: string | undefined; dbId: number },
 >(
@@ -74,65 +54,18 @@ export function filterByElementScope<
 }
 
 export function applyScope<T extends PropertyRow>(
-  rows: readonly T[],
+  rows: T[],
   scope: Partial<PropertyScope>,
   items: readonly ModelDbId[],
   primaryId?: string,
 ): T[] {
+  const models = scope.models ?? ALL_MODELS;
+  const elements = scope.elements ?? 'all';
+  if (models === ALL_MODELS && elements === 'all') return rows;
   return filterByElementScope(
-    scopeRows(rows, scope.models ?? ALL_MODELS),
-    scope.elements ?? 'all',
+    scopeRows(rows, models),
+    elements,
     items,
     primaryId,
   );
-}
-
-export type FailurePolicy = 'throw' | 'report';
-
-export interface ScopedRowsRequest extends ReadOptions {
-  names: readonly string[];
-  scope?: Partial<PropertyScope>;
-  onFailure?: FailurePolicy;
-}
-
-export interface ScopedRows {
-  rows: PropertyRow[];
-  total: number;
-  failed: string[];
-  scopeNote?: string;
-}
-
-export async function readScopedRows(
-  adapter: ViewerAdapter,
-  { names, scope, onFailure = 'throw', ...options }: ScopedRowsRequest,
-): Promise<ScopedRows> {
-  const models = adapter.getModels();
-  const model = resolveScope(scope?.models ?? ALL_MODELS, models);
-  let failed: string[] = [];
-  const read = await readLeafRows(adapter, names, {
-    ...options,
-    ...(model === ALL_MODELS ? {} : { modelIds: [model] }),
-    onFailed: (failedNames) => {
-      failed = failedNames;
-    },
-  });
-  if (onFailure === 'throw') {
-    const known = new Set(
-      unavailableModels(adapter.getModels()).map((m) => m.name),
-    );
-    const unexpected = failed.filter((name) => !known.has(name));
-    if (unexpected.length > 0) {
-      throw new Error(`Could not read properties of ${unexpected.join(', ')}`);
-    }
-  }
-  const requested = scope?.elements ?? 'all';
-  const elements = resolveElementScope(requested);
-  const items = await scopeElementItems(adapter, elements);
-  const scopeNote = scopeNoteFor(requested);
-  return {
-    rows: applyScope(read, { elements }, items, models[0]?.id),
-    total: read.length,
-    failed,
-    ...(scopeNote ? { scopeNote } : {}),
-  };
 }

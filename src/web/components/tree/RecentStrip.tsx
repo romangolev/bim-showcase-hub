@@ -13,7 +13,7 @@ import {
   modelStoreVersion,
   subscribeModelStore,
 } from '../../api/modelStore.js';
-import { modelTabTitle } from '../../routes/ModelPage.js';
+import { modelTabTitle } from '../../api/modelTitles.js';
 import { useSettings } from '../../settings/SettingsContext.js';
 import { Icon } from '../icons.js';
 import type { AddTarget } from './DocumentTree.js';

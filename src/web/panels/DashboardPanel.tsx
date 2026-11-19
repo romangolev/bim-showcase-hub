@@ -5,7 +5,6 @@ import {
   availableProperties,
   bucketLabels,
   type ChartData,
-  DEFAULT_DASHBOARD_PROPERTIES,
   selectedBuckets,
   shapeChartData,
 } from '../extensions/dashboardData.js';
@@ -48,7 +47,6 @@ import './panels.css';
 
 export interface DashboardPanelProps {
   adapter?: ViewerAdapter | null;
-  propertyNames?: readonly string[];
   onOpenSettings?: () => void;
   collapsed?: boolean;
   defaultCollapsed?: boolean;
@@ -61,7 +59,6 @@ export interface DashboardPanelProps {
 
 export function DashboardPanel({
   adapter,
-  propertyNames = DEFAULT_DASHBOARD_PROPERTIES,
   onOpenSettings,
   collapsed,
   defaultCollapsed = false,
@@ -76,6 +73,7 @@ export function DashboardPanel({
   const [view, setView] = usePaneSetting(
     setting ?? PANE_SETTINGS.dashboard.view,
   );
+  const propertyNames = view.properties;
   const { maxCategories } = view;
   const activePreset = DASHBOARD_PRESETS.find((p) => p.id === view.preset);
   const readNames = useMemo(
@@ -370,7 +368,8 @@ export function DashboardPanel({
         )}
         {!activePreset && chart && options.length > 0 && (
           <>
-            {selected !== view.property ? (
+            {selected !== view.property &&
+            propertyNames.includes(view.property) ? (
               <p className="bsh-muted">
                 This model has no {view.property} values, so the chart groups by{' '}
                 {selected}.

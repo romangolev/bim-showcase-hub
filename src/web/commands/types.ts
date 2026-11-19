@@ -4,6 +4,14 @@ export interface CommandHost {
   openModal: (id: string) => void;
 }
 
+export type CommandMenu =
+  | 'toggle'
+  | 'create'
+  | 'hook'
+  | 'present'
+  | 'lock'
+  | 'reset';
+
 export interface Command {
   id: string;
   title: string;
@@ -12,6 +20,8 @@ export interface Command {
   icon?: IconName;
   keys?: readonly string[];
   disabled?: string;
+  menu?: CommandMenu;
+  pane?: string;
   run: (host: CommandHost) => void | Promise<void>;
 }
 

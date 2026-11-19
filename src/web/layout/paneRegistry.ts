@@ -89,6 +89,7 @@ export const PANES: readonly PaneDefinition[] = [
         title: 'Go to Documents',
         group: 'Panes',
         icon: 'folder',
+        menu: 'hook',
         run: () => ctx.focus('tree'),
       },
     ],
@@ -305,6 +306,8 @@ function toggleCommand(
     group: 'Panes',
     icon: pane.icon,
     keywords: 'show hide toggle',
+    menu: 'toggle',
+    pane: pane.id,
     ...(ctx.toggleDisabled ? { disabled: ctx.toggleDisabled } : {}),
     run: () => ctx.toggle(pane.id),
   };
@@ -320,6 +323,8 @@ function createCommand(
     title: `New ${pane.title.toLowerCase()}`,
     group: 'Panes',
     icon: pane.icon,
+    menu: 'create',
+    pane: pane.id,
     ...(ctx.createDisabled ? { disabled: ctx.createDisabled } : {}),
     run: () => ctx.create(pane.id),
   };

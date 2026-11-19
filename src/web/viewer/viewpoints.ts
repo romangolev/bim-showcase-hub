@@ -1,15 +1,10 @@
 import { useMemo } from 'react';
+import { isRecord } from '../../shared/guards.js';
 import {
-  MAX_NAME_LENGTH,
-  moveSaved,
-  newSavedId,
-  readSaved,
-  removeSaved,
-  renameSaved,
-  type SavedItem,
-  upsertSaved,
-  useSavedItems,
-} from '../store/savedStore.js';
+  defineSavedKind,
+  type SavedKindItem,
+  useSavedKindItems,
+} from '../store/savedKinds.js';
 import type {
   RestoreReport,
   ViewerAdapter,
@@ -18,6 +13,18 @@ import type {
 import { sanitizeViewerState } from './viewerState.js';
 
 export const VIEWPOINT_KIND = 'viewpoint';
+
+export type ViewpointData = { state: ViewerState };
+
+export const VIEWPOINTS = defineSavedKind<ViewpointData>({
+  kind: VIEWPOINT_KIND,
+  version: 1,
+  label: 'Viewpoint',
+  sanitize: (raw) => {
+    const state = sanitizeViewerState(isRecord(raw) ? raw.state : null);
+    return state ? { state } : null;
+  },
+});
 
 export interface Viewpoint {
   id: string;
@@ -39,26 +46,22 @@ export const VIEWPOINT_MESSAGES: Record<
     'Could not save the viewpoint. Saved items hold up to 4 MB; delete some and try again.',
 };
 
-function toViewpoint(item: SavedItem): Viewpoint | null {
-  const state = sanitizeViewerState(item.data.state);
-  return state
-    ? { id: item.id, name: item.name, updatedAt: item.updatedAt, state }
-    : null;
-}
-
-function fromItems(items: readonly SavedItem[]): Viewpoint[] {
-  return items
-    .filter((item) => item.kind === VIEWPOINT_KIND)
-    .flatMap((item) => toViewpoint(item) ?? []);
+function toViewpoint(item: SavedKindItem<ViewpointData>): Viewpoint {
+  return {
+    id: item.id,
+    name: item.name,
+    updatedAt: item.updatedAt,
+    state: item.data.state,
+  };
 }
 
 export function listViewpoints(): Viewpoint[] {
-  return fromItems(readSaved(VIEWPOINT_KIND));
+  return VIEWPOINTS.list().map(toViewpoint);
 }
 
 export function useViewpoints(): Viewpoint[] {
-  const saved = useSavedItems(VIEWPOINT_KIND);
-  return useMemo(() => fromItems(saved), [saved]);
+  const items = useSavedKindItems(VIEWPOINTS);
+  return useMemo(() => items.map(toViewpoint), [items]);
 }
 
 export function nextViewpointName(): string {
@@ -75,30 +78,19 @@ export function saveViewpoint(
   state: ViewerState,
 ): SaveViewpointResult {
   if (!state.camera && Object.keys(state.models).length === 0) return 'empty';
-  const trimmed = name.trim().slice(0, MAX_NAME_LENGTH);
-  if (!trimmed) return 'failed';
-  return upsertSaved({
-    id: newSavedId('vp'),
-    kind: VIEWPOINT_KIND,
-    name: trimmed,
-    version: 1,
-    updatedAt: Date.now(),
-    data: { state },
-  })
-    ? 'ok'
-    : 'failed';
+  return VIEWPOINTS.save(name, { state }) ? 'ok' : 'failed';
 }
 
 export function renameViewpoint(id: string, name: string): boolean {
-  return renameSaved(VIEWPOINT_KIND, id, name);
+  return VIEWPOINTS.rename(id, name);
 }
 
 export function deleteViewpoint(id: string): boolean {
-  return removeSaved(id);
+  return VIEWPOINTS.remove(id);
 }
 
 export function moveViewpoint(id: string, delta: -1 | 1): boolean {
-  return moveSaved(id, delta);
+  return VIEWPOINTS.move(id, delta);
 }
 
 export interface GoOutcome {

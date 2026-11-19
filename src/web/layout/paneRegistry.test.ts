@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Command } from '../commands/types.js';
+import { layoutCommands } from './layoutCommandList.js';
+import type { LayoutApi } from './layoutContext.js';
+import { layoutMenuEntries } from './PaneMenu.js';
 import {
   FOLLOWERS,
   followersOf,
@@ -190,5 +193,107 @@ describe('pane registry', () => {
     expect(isPanelClosable('chart:3')).toBe(true);
     expect(hasPlainPanel('chart')).toBe(false);
     expect(FOLLOWERS).not.toContain('chart');
+  });
+});
+
+function menuLayout(over: Partial<LayoutApi> = {}): LayoutApi {
+  return {
+    mode: 'dock',
+    locked: false,
+    presenting: false,
+    canAddInstance: true,
+    canPresent: true,
+    isOpen: (id: string) => id === 'summary',
+    togglePane: vi.fn(),
+    addInstance: vi.fn(),
+    focusPane: vi.fn(),
+    setPresenting: vi.fn(),
+    setLocked: vi.fn(),
+    resetLayout: vi.fn(),
+    ...over,
+  } as unknown as LayoutApi;
+}
+
+function entryIds(entries: ReturnType<typeof layoutMenuEntries>): string[] {
+  return entries.flatMap((entry) =>
+    entry.kind === 'separator' ? [] : [entry.id],
+  );
+}
+
+function select(entries: ReturnType<typeof layoutMenuEntries>, id: string) {
+  const entry = entries.find((candidate) => candidate.id === id);
+  if (!entry || entry.kind === 'separator') {
+    throw new Error(`Missing menu entry ${id}`);
+  }
+  entry.onSelect();
+}
+
+describe('Panes menu entries', () => {
+  it('maps every command to one entry and keeps the pane labels', () => {
+    const layout = menuLayout();
+    const commands = layoutCommands(layout);
+    const entries = layoutMenuEntries(layout, undefined, commands);
+    const ids = entryIds(entries);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const command of commands) {
+      expect(ids).toContain(command.id);
+    }
+    const summary = entries.find((entry) => entry.id === 'pane.toggle.summary');
+    expect(summary).toMatchObject({ label: 'Model summary', checked: true });
+    const dashboard = entries.find(
+      (entry) => entry.id === 'pane.toggle.dashboard',
+    );
+    expect(dashboard).toMatchObject({
+      label: 'Dashboard',
+      checked: false,
+    });
+  });
+
+  it('reflects a pane commands() hook without dropping generated entries', () => {
+    const layout = menuLayout();
+    const entries = layoutMenuEntries(
+      layout,
+      undefined,
+      layoutCommands(layout),
+    );
+    expect(
+      entries.find((entry) => entry.id === 'pane.focus.tree'),
+    ).toMatchObject({ label: 'Go to Documents' });
+    expect(entryIds(entries)).toEqual(
+      expect.arrayContaining([
+        'pane.toggle.summary',
+        'pane.new.chart',
+        'pane.focus.tree',
+      ]),
+    );
+  });
+
+  it('keeps the menu-only labels and descriptions for layout actions', () => {
+    const entries = layoutMenuEntries(menuLayout(), undefined);
+    expect(
+      entries.find((entry) => entry.id === 'layout.present'),
+    ).toMatchObject({ label: 'Present' });
+    expect(entries.find((entry) => entry.id === 'layout.lock')).toMatchObject({
+      label: 'Lock layout',
+      checked: false,
+    });
+    expect(entries.find((entry) => entry.id === 'layout.reset')).toMatchObject({
+      label: 'Reset layout',
+      description:
+        'Resets the arrangement. Open models stay open; remembered viewer position and closed panes are cleared.',
+    });
+  });
+
+  it('runs the command behind the entry', () => {
+    const layout = menuLayout();
+    const entries = layoutMenuEntries(
+      layout,
+      undefined,
+      layoutCommands(layout),
+    );
+    select(entries, 'layout.present');
+    expect(layout.setPresenting).toHaveBeenCalledWith(true);
+    select(entries, 'pane.toggle.dashboard');
+    expect(layout.togglePane).toHaveBeenCalledWith('dashboard');
   });
 });

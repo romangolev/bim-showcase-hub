@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { modelTabTitle } from '../routes/ModelPage.js';
 import { setStorageAdapter } from '../storage.js';
 import { memoryAdapter, type StorageAdapter } from '../storageAdapter.js';
 import {
@@ -10,6 +9,7 @@ import {
   withUrns,
 } from './modelContext.js';
 import { recallModel, rememberModel } from './modelStore.js';
+import { modelTabTitle } from './modelTitles.js';
 import {
   addToModel,
   createOpenModelsStore,

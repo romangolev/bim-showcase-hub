@@ -1,15 +1,10 @@
 import { useMemo } from 'react';
 import { isRecord } from '../../shared/guards.js';
 import {
-  MAX_NAME_LENGTH,
-  newSavedId,
-  readSaved,
-  removeSaved,
-  renameSaved,
-  type SavedItem,
-  upsertSaved,
-  useSavedItems,
-} from '../store/savedStore.js';
+  defineSavedKind,
+  type SavedKindItem,
+  useSavedKindItems,
+} from '../store/savedKinds.js';
 import type { ModelDbId } from './modelSet.js';
 import type { ViewerAdapter } from './ViewerAdapter.js';
 
@@ -26,6 +21,8 @@ export interface SelectionSet {
 }
 
 export type SaveSetResult = 'ok' | 'empty' | 'too-big' | 'failed';
+
+export type SelectionSetData = { models: Record<string, number[]> };
 
 function readItems(raw: unknown): ModelDbId[] {
   if (!isRecord(raw) || !isRecord(raw.models)) return [];
@@ -44,16 +41,7 @@ function readItems(raw: unknown): ModelDbId[] {
   return items;
 }
 
-function toSet(item: SavedItem): SelectionSet {
-  return {
-    id: item.id,
-    name: item.name,
-    updatedAt: item.updatedAt,
-    items: readItems(item.data),
-  };
-}
-
-function dataOf(items: readonly ModelDbId[]): Record<string, unknown> {
+function dataOf(items: readonly ModelDbId[]): SelectionSetData {
   const models: Record<string, number[]> = {};
   const seen = new Set<string>();
   for (const { modelId, dbId } of items) {
@@ -67,8 +55,24 @@ function dataOf(items: readonly ModelDbId[]): Record<string, unknown> {
   return { models };
 }
 
+export const SELECTION_SETS = defineSavedKind<SelectionSetData>({
+  kind: SELECTION_SET_KIND,
+  version: 1,
+  label: 'Selection set',
+  sanitize: (raw) => (isRecord(raw) ? dataOf(readItems(raw)) : null),
+});
+
+function toSet(item: SavedKindItem<SelectionSetData>): SelectionSet {
+  return {
+    id: item.id,
+    name: item.name,
+    updatedAt: item.updatedAt,
+    items: readItems(item.data),
+  };
+}
+
 export function listSets(): SelectionSet[] {
-  return readSaved(SELECTION_SET_KIND).map(toSet);
+  return SELECTION_SETS.list().map(toSet);
 }
 
 export function getSet(id: string): SelectionSet | undefined {
@@ -76,8 +80,8 @@ export function getSet(id: string): SelectionSet | undefined {
 }
 
 export function useSelectionSets(): SelectionSet[] {
-  const saved = useSavedItems(SELECTION_SET_KIND);
-  return useMemo(() => saved.map(toSet), [saved]);
+  const items = useSavedKindItems(SELECTION_SETS);
+  return useMemo(() => items.map(toSet), [items]);
 }
 
 export function saveSelectionSet(
@@ -85,31 +89,21 @@ export function saveSelectionSet(
   items: readonly ModelDbId[],
 ): SaveSetResult {
   const data = dataOf(items);
-  const count = Object.values(data.models as Record<string, number[]>).reduce(
+  const count = Object.values(data.models).reduce(
     (sum, ids) => sum + ids.length,
     0,
   );
   if (count === 0) return 'empty';
   if (count > MAX_SET_ELEMENTS) return 'too-big';
-  const trimmed = name.trim().slice(0, MAX_NAME_LENGTH);
-  if (!trimmed) return 'failed';
-  const ok = upsertSaved({
-    id: newSavedId('ss'),
-    kind: SELECTION_SET_KIND,
-    name: trimmed,
-    version: 1,
-    updatedAt: Date.now(),
-    data,
-  });
-  return ok ? 'ok' : 'failed';
+  return SELECTION_SETS.save(name, data) ? 'ok' : 'failed';
 }
 
 export function renameSet(id: string, name: string): boolean {
-  return renameSaved(SELECTION_SET_KIND, id, name);
+  return SELECTION_SETS.rename(id, name);
 }
 
 export function deleteSet(id: string): boolean {
-  return removeSaved(id);
+  return SELECTION_SETS.remove(id);
 }
 
 export function selectSet(adapter: ViewerAdapter, id: string): number {

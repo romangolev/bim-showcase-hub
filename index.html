@@ -8,12 +8,29 @@
     <title>BIM Showcase Hub</title>
     <script>
       (() => {
-        let theme = null;
+        let preference = null;
         try {
-          theme = localStorage.getItem("bsh-theme");
+          const raw = localStorage.getItem("bsh-settings-v1");
+          const stored = raw === null ? null : JSON.parse(raw);
+          if (stored && typeof stored === "object") {
+            if (stored.theme === "light" || stored.theme === "dark") {
+              preference = stored.theme;
+            } else if (stored.theme === "system") {
+              preference = "system";
+            }
+          }
         } catch {
-          theme = null;
+          preference = null;
         }
+        if (preference === null) {
+          try {
+            const legacy = localStorage.getItem("bsh-theme");
+            if (legacy === "light" || legacy === "dark") preference = legacy;
+          } catch {
+            preference = null;
+          }
+        }
+        let theme = preference;
         if (theme !== "light" && theme !== "dark") {
           const light = window.matchMedia?.("(prefers-color-scheme: light)");
           theme = light?.matches ? "light" : "dark";

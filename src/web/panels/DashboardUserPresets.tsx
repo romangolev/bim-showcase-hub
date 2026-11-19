@@ -1,31 +1,12 @@
 import { useState } from 'react';
 import {
+  DASHBOARD_USER_PRESETS,
   type DashboardView,
   sanitizeDashboardView,
+  saveDashboardPreset,
 } from '../extensions/dashboardPresets.js';
-import {
-  MAX_NAME_LENGTH,
-  newSavedId,
-  removeSaved,
-  renameSaved,
-  type SavedItem,
-  upsertSaved,
-  useSavedItems,
-} from '../store/savedStore.js';
-
-export const DASHBOARD_PRESET_KIND = 'dashboard-preset';
-
-export function saveDashboardPreset(name: string, view: DashboardView) {
-  const item: SavedItem = {
-    id: newSavedId('dp'),
-    kind: DASHBOARD_PRESET_KIND,
-    name,
-    version: 1,
-    updatedAt: Date.now(),
-    data: { ...sanitizeDashboardView(view) },
-  };
-  return upsertSaved(item);
-}
+import { useSavedKindItems } from '../store/savedKinds.js';
+import { MAX_NAME_LENGTH } from '../store/savedStore.js';
 
 interface DashboardUserPresetsProps {
   view: DashboardView;
@@ -36,7 +17,7 @@ export function DashboardUserPresets({
   view,
   apply,
 }: DashboardUserPresetsProps) {
-  const items = useSavedItems(DASHBOARD_PRESET_KIND);
+  const items = useSavedKindItems(DASHBOARD_USER_PRESETS);
   const [name, setName] = useState('');
   const [failed, setFailed] = useState(false);
   const [renameFailed, setRenameFailed] = useState(false);
@@ -97,8 +78,7 @@ export function DashboardUserPresets({
                 maxLength={MAX_NAME_LENGTH}
                 defaultValue={item.name}
                 onBlur={(e) => {
-                  const ok = renameSaved(
-                    DASHBOARD_PRESET_KIND,
+                  const ok = DASHBOARD_USER_PRESETS.rename(
                     item.id,
                     e.target.value,
                   );
@@ -121,7 +101,7 @@ export function DashboardUserPresets({
                 type="button"
                 className="bsh-button"
                 aria-label={`Delete ${item.name}`}
-                onClick={() => removeSaved(item.id)}
+                onClick={() => DASHBOARD_USER_PRESETS.remove(item.id)}
               >
                 Delete
               </button>

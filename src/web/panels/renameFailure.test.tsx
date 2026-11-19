@@ -1,11 +1,13 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { DEFAULT_DASHBOARD_VIEW } from '../extensions/dashboardPresets.js';
+import {
+  DEFAULT_DASHBOARD_VIEW,
+  saveDashboardPreset,
+} from '../extensions/dashboardPresets.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { saveSelectionSet } from '../viewer/selectionSets.js';
 import { DashboardGallery } from './DashboardGallery.js';
 import { DashboardSettingsBody } from './DashboardSettings.js';
-import { saveDashboardPreset } from './DashboardUserPresets.js';
 import { SelectionSets } from './SelectionSets.js';
 
 beforeEach(() => {

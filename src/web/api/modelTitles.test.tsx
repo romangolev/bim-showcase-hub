@@ -3,7 +3,7 @@ import {
   modelDocumentTitle,
   modelTabTitle,
   viewerTabTitle,
-} from './ModelPage.js';
+} from './modelTitles.js';
 
 const LONG_URN =
   'dXJuOmFkc2sud2lwcHJvZDpmcy5maWxlOnZmLmFCY0RlRmdIaUprTG1ObzE_dmVyc2lvbj0y';

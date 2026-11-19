@@ -15,11 +15,12 @@ import {
   applyScope,
   type ElementScope,
   resolveElementScope,
-  scopeElementItems,
   scopeNoteFor,
 } from '../viewer/propertyScope.js';
+import { readScopedRows } from '../viewer/scopedRows.js';
+import { scopeElementItems } from '../viewer/scopeItems.js';
 import { useSelectionSets } from '../viewer/selectionSets.js';
-import { forgetLeafRows, readLeafRows } from '../viewer/sharedLeafRows.js';
+import { forgetLeafRows } from '../viewer/sharedLeafRows.js';
 import { useModels } from '../viewer/useModels.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { useViewer } from '../viewer/ViewerContext.js';
@@ -172,17 +173,19 @@ export function useScopedRows(
         prev.status === 'loading' ? { ...prev, progress } : prev,
       );
     };
-    let failed: string[] = [];
-    readLeafRows(adapter, names, {
+    readScopedRows(adapter, {
+      names,
+      elements: 'all',
       signal: controller.signal,
       onProgress,
-      onFailed: (failedNames) => {
-        failed = failedNames;
-      },
     }).then(
-      (rows) => {
+      (result) => {
         if (!cancelled && !controller.signal.aborted)
-          setRead({ status: 'ready', rows, failed });
+          setRead({
+            status: 'ready',
+            rows: result.rows,
+            failed: result.failed,
+          });
       },
       (err: unknown) => {
         if (cancelled || controller.signal.aborted) return;

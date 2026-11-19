@@ -220,8 +220,15 @@ describe('DashboardPanel', () => {
       BSH_KEYS.personal.dashboardView,
       JSON.stringify({ property: 'Level' }),
     );
+    window.localStorage.setItem(
+      BSH_KEYS.personal.dashboardProperties,
+      JSON.stringify(['Category', 'Level']),
+    );
     const adapter = await loaded();
-    render(<DashboardPanel adapter={adapter} propertyNames={['Category']} />);
+    vi.spyOn(adapter, 'getLeafProperties').mockResolvedValue([
+      { dbId: 1, name: 'Wall', properties: { Category: 'Walls' } },
+    ]);
+    render(<DashboardPanel adapter={adapter} />);
     expect(
       await screen.findByText(
         'This model has no Level values, so the chart groups by Category.',

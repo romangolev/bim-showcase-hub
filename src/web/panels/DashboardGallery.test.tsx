@@ -7,12 +7,14 @@ import {
   within,
 } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_DASHBOARD_VIEW } from '../extensions/dashboardPresets.js';
+import {
+  DEFAULT_DASHBOARD_VIEW,
+  saveDashboardPreset,
+} from '../extensions/dashboardPresets.js';
 import { forgetPersonal } from '../storage.js';
 import { readSaved } from '../store/savedStore.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { DashboardGallery } from './DashboardGallery.js';
-import { saveDashboardPreset } from './DashboardUserPresets.js';
 
 describe('DashboardGallery', () => {
   beforeEach(() => {
@@ -119,6 +121,27 @@ describe('DashboardGallery', () => {
     await waitFor(() => expect(screen.queryByLabelText('Rename P')).toBeNull());
     expect(readSaved('dashboard-preset')).toEqual([]);
     expect(readSaved().find((item) => item.id === id)).toBeUndefined();
+  });
+
+  it('hides a preset written by a newer build', () => {
+    window.localStorage.setItem(
+      'bsh.saved.v1',
+      JSON.stringify({
+        version: 1,
+        items: [
+          {
+            id: 'future',
+            kind: 'dashboard-preset',
+            name: 'Future',
+            version: 2,
+            updatedAt: 1,
+            data: {},
+          },
+        ],
+      }),
+    );
+    render(<DashboardGallery view={DEFAULT_DASHBOARD_VIEW} apply={vi.fn()} />);
+    expect(screen.queryByLabelText('Rename Future')).toBeNull();
   });
 
   it('shows no preset after a forget while mounted', async () => {

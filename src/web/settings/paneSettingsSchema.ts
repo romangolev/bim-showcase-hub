@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react';
 import type { PaneId } from '../layout/paneRegistry.js';
+import { setSummarySettingsTarget } from '../layout/summaryTarget.js';
 import { DASHBOARD_SETTINGS_ID } from '../panels/DashboardSettings.js';
 import { SUMMARY_SETTINGS_ID } from '../panels/SummarySettings.js';
 import { TreeSettingsForm } from './PaneSettingsForms.js';
@@ -10,6 +11,7 @@ export interface PaneSettingsSchema {
   windowTitle: string;
   modalId?: string;
   Body?: ComponentType;
+  onOpen?: () => void;
 }
 
 export const PANE_SETTINGS_SCHEMA: Partial<Record<PaneId, PaneSettingsSchema>> =
@@ -25,6 +27,7 @@ export const PANE_SETTINGS_SCHEMA: Partial<Record<PaneId, PaneSettingsSchema>> =
       description: 'Columns, sorting, density and the row click action.',
       windowTitle: 'Summary settings',
       modalId: SUMMARY_SETTINGS_ID,
+      onOpen: () => setSummarySettingsTarget(null),
     },
     dashboard: {
       label: 'Dashboard',
@@ -39,3 +42,7 @@ export const PANE_SETTINGS_ORDER: readonly PaneId[] = [
   'summary',
   'dashboard',
 ];
+
+export function paneSettingsSchema(kind: PaneId): PaneSettingsSchema | null {
+  return PANE_SETTINGS_SCHEMA[kind] ?? null;
+}

@@ -11,6 +11,7 @@ import {
   useSyncExternalStore,
 } from 'react';
 import { useSession } from '../api/hooks.js';
+import { modelTabTitle } from '../api/modelTitles.js';
 import {
   claimModels,
   createOpenModelsStore,
@@ -23,7 +24,6 @@ import { OpenModelsContext } from '../api/useOpenModels.js';
 import { TopBar } from '../components/TopBar.js';
 import { TreeControlContext } from '../components/TreeControl.js';
 import { useMediaQuery } from '../components/useMediaQuery.js';
-import { modelTabTitle } from '../routes/ModelPage.js';
 import { ModelRouteSync } from '../routes/ModelRouteSync.js';
 import {
   BSH_KEYS,
