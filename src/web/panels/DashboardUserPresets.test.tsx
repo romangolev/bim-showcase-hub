@@ -55,6 +55,28 @@ describe('dashboard user presets', () => {
     expect(await screen.findByText('No saved presets yet.')).toBeTruthy();
   });
 
+  it('keeps a catalog property when a saved preset is applied', () => {
+    window.localStorage.setItem(
+      'bsh.saved.v1',
+      JSON.stringify({
+        version: 1,
+        items: [
+          {
+            id: 'x',
+            kind: 'dashboard-preset',
+            name: 'Catalog',
+            version: 1,
+            updatedAt: 1,
+            data: { property: 'Type Name' },
+          },
+        ],
+      }),
+    );
+    render(<DashboardSettingsBody />);
+    fireEvent.click(screen.getByRole('button', { name: 'Apply Catalog' }));
+    expect(viewStored().property).toBe('Type Name');
+  });
+
   it('applies a malformed saved preset through the sanitizer', () => {
     window.localStorage.setItem(
       'bsh.saved.v1',

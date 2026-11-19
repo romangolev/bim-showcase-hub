@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { BSH_KEYS } from '../storage.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { fireEvent, render, screen } from '../test/render.js';
 import { publishActiveAdapter } from '../viewer/activeAdapterStore.js';
@@ -104,6 +105,19 @@ describe('dashboard chart properties', () => {
     await screen.findByRole('img', {
       name: 'Bar chart of element counts by Name',
     });
+  });
+
+  it('keeps a catalog property as the stored group by on reload', () => {
+    window.localStorage.setItem(
+      BSH_KEYS.personal.dashboardView,
+      JSON.stringify({ property: 'Type Name' }),
+    );
+    window.localStorage.setItem(
+      DASHBOARD_PROPERTIES_KEY,
+      JSON.stringify(['Category', 'Type Name']),
+    );
+    render(<DashboardSettingsBody />);
+    expect(screen.getByLabelText('Group by')).toHaveDisplayValue('Type Name');
   });
 
   it('charts by a property picked in the group by list', async () => {

@@ -96,8 +96,7 @@ export function sanitizeDashboardView(raw: unknown): DashboardView {
       ? (source.preset as string)
       : null,
     property:
-      typeof source.property === 'string' &&
-      DEFAULT_DASHBOARD_PROPERTIES.includes(source.property)
+      typeof source.property === 'string' && source.property.trim() !== ''
         ? source.property
         : DEFAULT_DASHBOARD_VIEW.property,
     maxCategories:
