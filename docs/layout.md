@@ -34,6 +34,7 @@ Everything lives in `src/web/layout`.
 | `userInstances.ts`, `instanceSettings.ts` | User-added panes and their per-instance settings |
 | `PanesMenu.tsx` | The searchable top bar Panes menu |
 | `PaneMenu.tsx` | The pane header menu and the entry builder for the Panes menu footer |
+| `layoutApply.ts` | Applying a preset, saved, imported or shared layout, Revert and the active-workspace label, with no React or dockview in it; owns the lock and dock-only wording |
 | `workspaces.ts` | Built-in presets, saved workspaces, their storage and JSON |
 | `WorkspaceSwitcher.tsx` | The top bar Workspaces menu, its save, rename and import dialogs, Revert and the JSON and share actions |
 | `layoutShare.ts` | The `#layout=` share encoding |
@@ -147,6 +148,8 @@ A preset is a list of pane placements, so it tolerates whichever models are open
 Saved workspaces live in `bsh.workspaces.v1` (`{ version: 1, items }`) and are personal: sign-out clears them like the layout. A workspace stores the full arrangement — `dock`, `collapsed`, `treeWidth`, `dismissed`, `lastViewerArrangement` — plus the pane appearance map (custom titles and colour tags). Applying a saved or imported workspace replaces the titles and colours when the payload carries any; built-in presets and payloads without appearances leave them alone. The payload is read through `parseLayout` and `sanitizeDock`, so a corrupt entry or a newer version reads as no workspaces, and one broken entry is dropped without losing the rest. Names are trimmed to 40 characters, at most 20 workspaces are kept, and saving an existing name updates it.
 
 Applying a workspace is undoable once: the previous arrangement is snapshotted and the menu offers **Revert layout**. Revert also puts back the titles and colours the workspace replaced. A full history is not kept, and Revert is disabled while the layout is locked.
+
+All apply paths go through `layoutApply.ts`. The lifecycle guard (`applyWorkspace` returns `applied`, `locked` or `dock-only`) is the only check. The module applies the layout first and only then replaces appearances, sets the active label and reports success. A blocked apply says `Unlock the layout first` or `Available in the wide layout`, the same texts the palette and the menu show. The layout snapshot and the appearance snapshot are one undo: Revert restores both and, while locked, neither.
 
 Limits:
 

@@ -208,6 +208,27 @@ describe('paneLifecycle model tabs', () => {
     expect(dock.movePane).toHaveBeenCalledTimes(2);
   });
 
+  it('reports applied, locked and dock-only results and reverts only when allowed', () => {
+    const open = setup();
+    expect(open.lifecycle.applyWorkspace({ layout: defaultModel() }, 'A')).toBe(
+      'applied',
+    );
+    open.lifecycle.setLocked(true);
+    expect(open.lifecycle.revertWorkspace()).toBe(false);
+    expect(open.lifecycle.applyWorkspace({ layout: defaultModel() }, 'B')).toBe(
+      'locked',
+    );
+    open.lifecycle.setLocked(false);
+    expect(open.lifecycle.revertWorkspace()).toBe(true);
+    expect(open.lifecycle.revertWorkspace()).toBe(false);
+    expect(
+      setup({ mode: 'stacked' }).lifecycle.applyWorkspace(
+        { layout: defaultModel() },
+        'C',
+      ),
+    ).toBe('dock-only');
+  });
+
   it('drops a queued preset when a newer layout-only workspace applies', () => {
     const { lifecycle, dock, attachDock } = setup({ withDock: false });
     lifecycle.applyWorkspace({ steps: [] } as never, 'Review');

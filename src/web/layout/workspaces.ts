@@ -161,7 +161,6 @@ export interface WorkspaceApi {
   items: readonly Workspace[];
   active: string | null;
   canRevert: boolean;
-  locked: boolean;
   canPresent: boolean;
   dialog: WorkspaceDialog;
   openDialog: (dialog: WorkspaceDialog) => void;

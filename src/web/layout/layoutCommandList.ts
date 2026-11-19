@@ -1,9 +1,7 @@
 import type { Command } from '../commands/types.js';
+import { DOCK_ONLY_REASON, LOCKED_REASON } from './layoutApply.js';
 import type { LayoutApi } from './layoutContext.js';
 import { type PaneCommandContext, paneCommands } from './paneRegistry.js';
-
-export const LOCKED_REASON = 'Unlock the layout first';
-export const DOCK_ONLY_REASON = 'Available in the wide layout';
 
 export function paneCommandContext(layout: LayoutApi): PaneCommandContext {
   const editable = layout.locked

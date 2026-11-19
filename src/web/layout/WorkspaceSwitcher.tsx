@@ -10,6 +10,7 @@ import {
 import { createPortal } from 'react-dom';
 import { Icon } from '../components/icons.js';
 import { ModalHost } from '../modal/ModalHost.js';
+import { LOCKED_REASON } from './layoutApply.js';
 import { useLayout } from './layoutContext.js';
 import {
   cleanWorkspaceName,
@@ -275,7 +276,7 @@ export function WorkspaceSwitcher() {
     else if (event.key === 'End') move(buttons.length - 1);
   };
 
-  const lockReason = locked ? 'Unlock the layout first' : undefined;
+  const lockReason = locked ? LOCKED_REASON : undefined;
   const dialog = workspace.dialog;
   const renaming =
     dialog?.kind === 'rename'
