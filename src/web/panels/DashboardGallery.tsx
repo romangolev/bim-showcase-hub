@@ -2,19 +2,14 @@ import { useState } from 'react';
 import type { PropertyRow } from '../../shared/types.js';
 import { availableProperties } from '../extensions/dashboardData.js';
 import {
-  DASHBOARD_PRESET_KIND,
   DASHBOARD_PRESETS,
+  DASHBOARD_USER_PRESETS,
   type DashboardView,
-  sanitizeDashboardView,
   saveDashboardPreset,
   viewProperties,
 } from '../extensions/dashboardPresets.js';
-import {
-  MAX_NAME_LENGTH,
-  removeSaved,
-  renameSaved,
-  useSavedItems,
-} from '../store/savedStore.js';
+import { useSavedKindItems } from '../store/savedKinds.js';
+import { MAX_NAME_LENGTH } from '../store/savedStore.js';
 
 interface DashboardGalleryProps {
   view: DashboardView;
@@ -49,7 +44,7 @@ function Preview({ properties }: { properties: readonly string[] }) {
 }
 
 export function DashboardGallery({ view, apply, rows }: DashboardGalleryProps) {
-  const items = useSavedItems(DASHBOARD_PRESET_KIND);
+  const items = useSavedKindItems(DASHBOARD_USER_PRESETS);
   const [failed, setFailed] = useState(false);
   const [renameFailed, setRenameFailed] = useState(false);
 
@@ -109,7 +104,7 @@ export function DashboardGallery({ view, apply, rows }: DashboardGalleryProps) {
           </li>
         ))}
         {items.map((item) => {
-          const own = sanitizeDashboardView(item.data);
+          const own = item.data;
           const properties = viewProperties(own);
           return (
             <li key={`${item.id}:${item.name}`} className="bsh-gallery__card">
@@ -120,8 +115,7 @@ export function DashboardGallery({ view, apply, rows }: DashboardGalleryProps) {
                 maxLength={MAX_NAME_LENGTH}
                 defaultValue={item.name}
                 onBlur={(e) => {
-                  const ok = renameSaved(
-                    DASHBOARD_PRESET_KIND,
+                  const ok = DASHBOARD_USER_PRESETS.rename(
                     item.id,
                     e.target.value,
                   );
@@ -148,7 +142,7 @@ export function DashboardGallery({ view, apply, rows }: DashboardGalleryProps) {
                   type="button"
                   className="bsh-button"
                   aria-label={`Delete ${item.name}`}
-                  onClick={() => removeSaved(item.id)}
+                  onClick={() => DASHBOARD_USER_PRESETS.remove(item.id)}
                 >
                   Delete
                 </button>

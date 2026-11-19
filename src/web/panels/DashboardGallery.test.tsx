@@ -123,6 +123,27 @@ describe('DashboardGallery', () => {
     expect(readSaved().find((item) => item.id === id)).toBeUndefined();
   });
 
+  it('hides a preset written by a newer build', () => {
+    window.localStorage.setItem(
+      'bsh.saved.v1',
+      JSON.stringify({
+        version: 1,
+        items: [
+          {
+            id: 'future',
+            kind: 'dashboard-preset',
+            name: 'Future',
+            version: 2,
+            updatedAt: 1,
+            data: {},
+          },
+        ],
+      }),
+    );
+    render(<DashboardGallery view={DEFAULT_DASHBOARD_VIEW} apply={vi.fn()} />);
+    expect(screen.queryByLabelText('Rename Future')).toBeNull();
+  });
+
   it('shows no preset after a forget while mounted', async () => {
     saveDashboardPreset('P', DEFAULT_DASHBOARD_VIEW);
     render(<DashboardGallery view={DEFAULT_DASHBOARD_VIEW} apply={vi.fn()} />);
