@@ -53,9 +53,9 @@ Each docked pane body is a `pane` size container, so pane CSS uses `@container p
 
 Dark and light share every token role and change only values, so components never branch on theme.
 
-- `theme/theme.ts` holds the `Theme` type and storage key `bsh-theme`. `ThemeContext.tsx` provides `useTheme()` (`theme`, `toggleTheme`). It throws outside the provider.
+- `theme/theme.ts` holds the `Theme` type and the legacy `bsh-theme` key. `ThemeContext.tsx` provides `useTheme()` (`theme`, `preference`, `setTheme`, `toggleTheme`). It throws outside the provider.
 - The theme is the `data-theme` attribute on `<html>`, together with `color-scheme`.
-- Without a stored choice it follows `prefers-color-scheme`. The top bar toggle stores an explicit choice. An inline script in `index.html` sets the theme before first paint.
+- The choice is `theme` in app settings (`bsh-settings-v1`): `system`, `light` or `dark`. `system` follows `prefers-color-scheme` live; the top bar toggle stores an explicit choice. An inline script in `index.html` reads the setting, and the legacy `bsh-theme` key until it is migrated, then sets the theme before first paint.
 - Tests that render themed components import `render` from `src/web/test/render.tsx`.
 
 ## Viewer styling
