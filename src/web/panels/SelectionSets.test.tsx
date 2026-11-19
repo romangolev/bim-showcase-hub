@@ -1,10 +1,17 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { viewerCommands } from '../commands/viewerCommands.js';
+import { readSaved } from '../store/savedStore.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
 import { readScopedRows } from '../viewer/scopedRows.js';
-import { listSets, saveSelectionSet } from '../viewer/selectionSets.js';
+import {
+  listSets,
+  SELECTION_SET_KIND,
+  type SelectionSetData,
+  saveSelectionSet,
+} from '../viewer/selectionSets.js';
+import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { SelectionSets } from './SelectionSets.js';
 
 beforeEach(() => {
@@ -87,6 +94,78 @@ describe('SelectionSets', () => {
     const shared = listSets().find((set) => set.name === 'First ∩ Second');
     expect(shared?.items).toEqual([{ modelId: 'urn-a', dbId: 1 }]);
     adapter.destroy();
+  });
+});
+
+function mergeAdapter(open: boolean): ViewerAdapter {
+  return {
+    getModels: () => (open ? [{ id: 'urn-a', status: 'ready' }] : []),
+    getExternalIdMap: async () => ({ 'ext-1': 1 }),
+  } as unknown as ViewerAdapter;
+}
+
+async function mergeRawWithKeyed(open: boolean, mode: 'Union' | 'Intersect') {
+  saveSelectionSet('Raw', [{ modelId: 'urn-a', dbId: 1 }]);
+  saveSelectionSet(
+    'Keyed',
+    [{ modelId: 'urn-a', dbId: 1 }],
+    new Map([['urn-a:1', 'ext-1']]),
+  );
+  const [raw, keyed] = listSets();
+  render(<SelectionSets adapter={mergeAdapter(open)} />);
+  fireEvent.change(screen.getByLabelText('Merge set A'), {
+    target: { value: raw?.id },
+  });
+  fireEvent.change(screen.getByLabelText('Merge set B'), {
+    target: { value: keyed?.id },
+  });
+  fireEvent.click(screen.getByRole('button', { name: mode }));
+  const sign = mode === 'Union' ? '∪' : '∩';
+  await waitFor(() =>
+    expect(listSets().map((set) => set.name)).toContain(`Raw ${sign} Keyed`),
+  );
+  const id = listSets().find((set) => set.name === `Raw ${sign} Keyed`)?.id;
+  return readSaved(SELECTION_SET_KIND).find((item) => item.id === id)
+    ?.data as SelectionSetData;
+}
+
+describe('merging raw and keyed sets', () => {
+  it('counts the same element once in a union when the model is open', async () => {
+    const merged = await mergeRawWithKeyed(true, 'Union');
+    expect(merged).toEqual({
+      models: {},
+      keys: { 'urn-a': [{ dbId: 1, key: 'ext-1' }] },
+    });
+  });
+
+  it('finds the overlap in an intersect when the model is open', async () => {
+    const merged = await mergeRawWithKeyed(true, 'Intersect');
+    expect(merged).toEqual({
+      models: {},
+      keys: { 'urn-a': [{ dbId: 1, key: 'ext-1' }] },
+    });
+  });
+
+  it('finds no overlap in an intersect when the model is closed', async () => {
+    saveSelectionSet('Raw', [{ modelId: 'urn-a', dbId: 1 }]);
+    saveSelectionSet(
+      'Keyed',
+      [{ modelId: 'urn-a', dbId: 1 }],
+      new Map([['urn-a:1', 'ext-1']]),
+    );
+    const [raw, keyed] = listSets();
+    render(<SelectionSets adapter={mergeAdapter(false)} />);
+    fireEvent.change(screen.getByLabelText('Merge set A'), {
+      target: { value: raw?.id },
+    });
+    fireEvent.change(screen.getByLabelText('Merge set B'), {
+      target: { value: keyed?.id },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Intersect' }));
+    expect((await screen.findByRole('alert')).textContent).toMatch(
+      /No elements are in both sets/,
+    );
+    expect(listSets()).toHaveLength(2);
   });
 });
 

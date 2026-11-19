@@ -6,6 +6,7 @@ import {
   MAX_SET_ELEMENTS,
   type MergeMode,
   mergeSets,
+  migrateSelectionSet,
   migrateSelectionSets,
   renameSet,
   type SaveSetResult,
@@ -34,6 +35,7 @@ export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
   const [problem, setProblem] = useState<string | null>(null);
   const [firstId, setFirstId] = useState('');
   const [secondId, setSecondId] = useState('');
+  const [merging, setMerging] = useState(false);
 
   useEffect(() => {
     if (!adapter) return;
@@ -69,17 +71,30 @@ export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
   const ids = new Set(sets.map((set) => set.id));
   const first = ids.has(firstId) ? firstId : '';
   const second = ids.has(secondId) ? secondId : '';
-  const canMerge = first !== '' && second !== '' && first !== second;
+  const canMerge =
+    first !== '' && second !== '' && first !== second && !merging;
 
-  const merge = (mode: MergeMode) => {
+  const merge = async (mode: MergeMode) => {
     const left = sets.find((set) => set.id === first);
     const right = sets.find((set) => set.id === second);
     if (!canMerge || !left || !right) return;
+    setMerging(true);
+    if (adapter) {
+      try {
+        await migrateSelectionSet(adapter, first);
+        await migrateSelectionSet(adapter, second);
+      } catch {
+        setMerging(false);
+        setProblem('Could not read the sets. Try again.');
+        return;
+      }
+    }
     const label = (
       name.trim() ||
       `${left.name} ${mode === 'union' ? '∪' : '∩'} ${right.name}`
     ).slice(0, MAX_NAME_LENGTH);
     const result = mergeSets(label, first, second, mode);
+    setMerging(false);
     if (result === 'ok') {
       notify(`Saved the merged set "${label}"`, { tone: 'success' });
       setName('');
@@ -160,7 +175,7 @@ export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
             type="button"
             className="bsh-button"
             disabled={!canMerge}
-            onClick={() => merge('union')}
+            onClick={() => void merge('union')}
           >
             Union
           </button>
@@ -168,7 +183,7 @@ export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
             type="button"
             className="bsh-button"
             disabled={!canMerge}
-            onClick={() => merge('intersect')}
+            onClick={() => void merge('intersect')}
           >
             Intersect
           </button>
