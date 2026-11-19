@@ -20,7 +20,7 @@ import { SavedItemsSettings } from './SavedItemsSettings.js';
 
 const saved = vi.hoisted(() => ({ calls: [] as [Blob, string][] }));
 
-vi.mock('../extensions/excelExport.js', () => ({
+vi.mock('../extensions/download.js', () => ({
   saveBlob: (blob: Blob, name: string) => saved.calls.push([blob, name]),
 }));
 

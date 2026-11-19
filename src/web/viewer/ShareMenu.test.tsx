@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { encodeView, parseView } from '../api/viewLink.js';
 import { DEFAULT_DASHBOARD_VIEW } from '../extensions/dashboardPresets.js';
-import * as excel from '../extensions/excelExport.js';
+import * as excel from '../extensions/download.js';
 import { chartSetting } from '../layout/instanceSettings.js';
 import { type LayoutApi, LayoutContext } from '../layout/layoutContext.js';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';

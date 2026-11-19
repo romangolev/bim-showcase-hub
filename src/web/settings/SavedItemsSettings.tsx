@@ -1,5 +1,5 @@
 import { type ChangeEvent, useRef, useState } from 'react';
-import { saveBlob } from '../extensions/excelExport.js';
+import { saveBlob } from '../extensions/download.js';
 import { usePersisted } from '../storage.js';
 import {
   exportSaved,

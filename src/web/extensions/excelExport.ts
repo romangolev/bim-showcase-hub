@@ -7,6 +7,7 @@ import {
 import { isAbortError, throwIfAborted } from '../viewer/propertyReads.js';
 import { readScopedRows } from '../viewer/scopedRows.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
+import { saveBlob } from './download.js';
 import {
   type AboutInfo,
   aboutRows,
@@ -316,17 +317,6 @@ export interface ExportOptions {
   onProgress?: (fraction: number) => void;
   signal?: AbortSignal;
   save?: (blob: Blob, fileName: string) => void;
-}
-
-export function saveBlob(blob: Blob, fileName: string): void {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = fileName;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
 }
 
 export async function exportToXlsx(

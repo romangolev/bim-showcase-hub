@@ -2,7 +2,7 @@ import { useContext, useEffect, useRef, useState } from 'react';
 import { type ViewLink, viewFileJson, withViewParam } from '../api/viewLink.js';
 import { Icon } from '../components/icons.js';
 import { Menu, type MenuEntry } from '../components/Menu.js';
-import { saveBlob } from '../extensions/excelExport.js';
+import { saveBlob } from '../extensions/download.js';
 import { type LayoutApi, LayoutContext } from '../layout/layoutContext.js';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import {

@@ -3,7 +3,7 @@ import { mapToIfc } from '../ifc/mapToIfc.js';
 import { DEFAULT_IFC_SETTINGS } from '../ifc/settings.js';
 import type { IfcSettings } from '../ifc/types.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
-import { saveBlob } from './excelExport.js';
+import { saveBlob } from './download.js';
 import {
   formatCount,
   missingModels,

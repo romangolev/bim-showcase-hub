@@ -1,13 +1,13 @@
 import { useId, useMemo, useState } from 'react';
 import { Icon } from '../components/icons.js';
 import { StateBlock } from '../components/StateBlock.js';
+import { saveBlob } from '../extensions/download.js';
 import type { ElementAction } from '../extensions/elementActions.js';
 import {
   itemsWithValues,
   runElementAction,
   showAllElements,
 } from '../extensions/elementActions.js';
-import { saveBlob } from '../extensions/excelExport.js';
 import { applyNamePattern, toDelimited } from '../extensions/exportFormats.js';
 import {
   emptyShares,
