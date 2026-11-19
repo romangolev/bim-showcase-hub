@@ -6,7 +6,7 @@ import {
   unavailableModels,
 } from '../viewer/modelScope.js';
 import { isAbortError, throwIfAborted } from '../viewer/propertyReads.js';
-import { readScopedRows } from '../viewer/propertyScope.js';
+import { readScopedRows } from '../viewer/scopedRows.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import {
   type AboutInfo,
@@ -219,13 +219,17 @@ export async function exportToXlsx(
       copied.catch(() => undefined);
     }
     emit({ phase: 'reading' });
-    const { rows, scopeNote } = await readScopedRows(adapter, {
+    const { rows, scopeNote, failed } = await readScopedRows(adapter, {
       names: propertyNames,
-      scope: { models: modelScope, elements: scope },
+      models: modelScope,
+      elements: scope,
       signal,
       onProgress: ({ done, total }) => onProgress?.(total ? done / total : 0),
     });
     throwIfAborted(signal);
+    if (failed.length > 0) {
+      throw new Error(`Could not read properties of ${failed.join(', ')}`);
+    }
     if (rows.length === 0) {
       copyText.reject();
       return emit({ phase: 'empty' });

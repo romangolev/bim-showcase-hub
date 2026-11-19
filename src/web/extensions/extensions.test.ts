@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { PropertyRow } from '../../shared/types.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
-import { readScopedRows } from '../viewer/propertyScope.js';
+import { readScopedRows } from '../viewer/scopedRows.js';
 import {
   deleteSet,
   listSets,
@@ -184,6 +184,26 @@ describe('export rows', () => {
     expect(stale).toMatchObject({ phase: 'done' });
     expect((stale as { rowCount: number }).rowCount).toBeGreaterThan(1);
     expect(describeStatus(stale)).toContain('no longer exists');
+    adapter.destroy();
+  });
+
+  it('fails the export when a model could not be read', async () => {
+    const adapter = new MockViewerAdapter(document.createElement('div'));
+    await adapter.loadModels([
+      { urn: 'urn-a', name: 'Arch' },
+      { urn: 'urn-b', name: 'MEP' },
+    ]);
+    vi.spyOn(adapter, 'getLeafProperties').mockImplementation(
+      async (_names, ids) => {
+        if (ids?.includes('urn-b')) throw new Error('timeout');
+        return [row(1, { Category: 'Walls' })];
+      },
+    );
+    const status = await exportToXlsx(adapter, { save: vi.fn() });
+    expect(status).toMatchObject({
+      phase: 'error',
+      message: 'Could not read properties of MEP',
+    });
     adapter.destroy();
   });
 
