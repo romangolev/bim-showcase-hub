@@ -18,12 +18,9 @@ import {
   type ThemePreference,
 } from './theme.js';
 
-export type ThemeSource = 'system' | 'user';
-
 export interface ThemeContextValue {
   theme: Theme;
   preference: ThemePreference;
-  source: ThemeSource;
   setTheme: (preference: ThemePreference) => void;
   toggleTheme: () => void;
 }
@@ -63,7 +60,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     () => ({
       theme,
       preference,
-      source: preference === 'system' ? 'system' : 'user',
       setTheme,
       toggleTheme,
     }),

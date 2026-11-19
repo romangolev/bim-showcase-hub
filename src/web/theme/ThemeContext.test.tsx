@@ -35,12 +35,11 @@ function stubScheme(initial: 'light' | 'dark') {
 }
 
 function Probe() {
-  const { theme, preference, source, setTheme, toggleTheme } = useTheme();
+  const { theme, preference, setTheme, toggleTheme } = useTheme();
   return (
     <div>
       <output data-testid="theme">{theme}</output>
       <output data-testid="preference">{preference}</output>
-      <output data-testid="source">{source}</output>
       <button type="button" onClick={toggleTheme}>
         toggle
       </button>
@@ -92,7 +91,6 @@ describe('ThemeProvider', () => {
     renderProbe();
     expect(screen.getByTestId('theme')).toHaveTextContent('light');
     expect(screen.getByTestId('preference')).toHaveTextContent('system');
-    expect(screen.getByTestId('source')).toHaveTextContent('system');
     expect(document.documentElement.dataset.theme).toBe('light');
     expect(document.documentElement.style.colorScheme).toBe('light');
   });
@@ -112,14 +110,12 @@ describe('ThemeProvider', () => {
     press('toggle');
     expect(screen.getByTestId('theme')).toHaveTextContent('light');
     expect(screen.getByTestId('preference')).toHaveTextContent('light');
-    expect(screen.getByTestId('source')).toHaveTextContent('user');
     expect(storedSettings().theme).toBe('light');
     expect(storage.getItem(THEME_STORAGE_KEY)).toBeNull();
     expect(document.documentElement.dataset.theme).toBe('light');
     unmount();
     renderProbe();
     expect(screen.getByTestId('theme')).toHaveTextContent('light');
-    expect(screen.getByTestId('source')).toHaveTextContent('user');
   });
 
   it('reads an existing bsh-theme value after the startup migration', () => {
@@ -142,7 +138,6 @@ describe('ThemeProvider', () => {
     stubScheme('dark');
     renderProbe();
     expect(screen.getByTestId('theme')).toHaveTextContent('dark');
-    expect(screen.getByTestId('source')).toHaveTextContent('system');
     expect(storage.getItem(THEME_STORAGE_KEY)).toBe('sepia');
   });
 
