@@ -11,27 +11,52 @@ import {
 import {
   ACTION_LABELS,
   ELEMENT_ACTIONS,
+  type ElementAction,
   sanitizeAction,
 } from '../extensions/elementActions.js';
+import {
+  setDashboardSettingsTarget,
+  useDashboardSettingsTarget,
+} from '../layout/dashboardTarget.js';
+import { chartSetting } from '../layout/instanceSettings.js';
+import type { PanelId } from '../layout/paneRegistry.js';
 import type { ModalDefinition } from '../modal/types.js';
 import { PANE_SETTINGS, usePaneSetting } from '../settings/paneSettings.js';
 import { usePublishedAdapter } from '../viewer/activeAdapterStore.js';
+import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { DashboardUserPresets } from './DashboardUserPresets.js';
 import { PropertyPicker } from './PropertyPicker.js';
 import { useResolvedAdapter } from './useScopedRows.js';
 
 export const DASHBOARD_SETTINGS_ID = 'dashboard-settings';
 
+type ViewSetter = (
+  next: DashboardView | ((prev: DashboardView) => DashboardView),
+) => void;
+
 export function useDashboardView() {
   return usePaneSetting(PANE_SETTINGS.dashboard.view);
 }
 
-export function DashboardSettingsBody() {
-  const [view, setView, resetView] = useDashboardView();
-  const [action, setAction, resetAction] = usePaneSetting(
-    PANE_SETTINGS.dashboard.action,
-  );
-  const adapter = useResolvedAdapter(usePublishedAdapter());
+interface DashboardFieldsProps {
+  adapter: ViewerAdapter | null;
+  view: DashboardView;
+  setView: ViewSetter;
+  resetView: () => void;
+  action?: ElementAction;
+  setAction?: (action: ElementAction) => void;
+  resetAction?: () => void;
+}
+
+function DashboardFields({
+  adapter,
+  view,
+  setView,
+  resetView,
+  action,
+  setAction,
+  resetAction,
+}: DashboardFieldsProps) {
   const properties = view.properties;
   const groupBy = properties.includes(view.property)
     ? view.property
@@ -120,20 +145,22 @@ export function DashboardSettingsBody() {
           ))}
         </select>
       </label>
-      <label className="bsh-field">
-        Chart click
-        <select
-          className="bsh-select"
-          value={action}
-          onChange={(e) => setAction(sanitizeAction(e.target.value))}
-        >
-          {ELEMENT_ACTIONS.map((name) => (
-            <option key={name} value={name}>
-              {ACTION_LABELS[name]}
-            </option>
-          ))}
-        </select>
-      </label>
+      {action !== undefined && setAction ? (
+        <label className="bsh-field">
+          Chart click
+          <select
+            className="bsh-select"
+            value={action}
+            onChange={(e) => setAction(sanitizeAction(e.target.value))}
+          >
+            {ELEMENT_ACTIONS.map((name) => (
+              <option key={name} value={name}>
+                {ACTION_LABELS[name]}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
       <label className="bsh-field">
         <input
           type="checkbox"
@@ -155,12 +182,62 @@ export function DashboardSettingsBody() {
         className="bsh-button"
         onClick={() => {
           resetView();
-          resetAction();
+          resetAction?.();
         }}
       >
-        Reset dashboard
+        {resetAction ? 'Reset dashboard' : 'Reset chart'}
       </button>
     </div>
+  );
+}
+
+function GlobalDashboardSettings({
+  adapter,
+}: {
+  adapter: ViewerAdapter | null;
+}) {
+  const [view, setView, resetView] = useDashboardView();
+  const [action, setAction, resetAction] = usePaneSetting(
+    PANE_SETTINGS.dashboard.action,
+  );
+  return (
+    <DashboardFields
+      adapter={adapter}
+      view={view}
+      setView={setView}
+      resetView={resetView}
+      action={action}
+      setAction={setAction}
+      resetAction={resetAction}
+    />
+  );
+}
+
+function InstanceDashboardSettings({
+  target,
+  adapter,
+}: {
+  target: PanelId;
+  adapter: ViewerAdapter | null;
+}) {
+  const [view, setView, resetView] = usePaneSetting(chartSetting(target));
+  return (
+    <DashboardFields
+      adapter={adapter}
+      view={view}
+      setView={setView}
+      resetView={resetView}
+    />
+  );
+}
+
+export function DashboardSettingsBody() {
+  const target = useDashboardSettingsTarget();
+  const adapter = useResolvedAdapter(usePublishedAdapter());
+  return target ? (
+    <InstanceDashboardSettings target={target} adapter={adapter} />
+  ) : (
+    <GlobalDashboardSettings adapter={adapter} />
   );
 }
 
@@ -169,4 +246,5 @@ export const DASHBOARD_SETTINGS_MODAL: ModalDefinition = {
   title: 'Dashboard settings',
   size: 'lg',
   Body: DashboardSettingsBody,
+  onClose: () => setDashboardSettingsTarget(null),
 };

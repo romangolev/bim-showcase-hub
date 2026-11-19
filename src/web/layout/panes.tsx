@@ -32,6 +32,7 @@ import { usePaneSetting } from '../settings/paneSettings.js';
 import { exportFileName, exportStem } from '../tools/kernel/exportKit.js';
 import { ViewerPane } from '../viewer/index.js';
 import { page } from '../viewer/region.js';
+import { setDashboardSettingsTarget } from './dashboardTarget.js';
 import {
   chartSetting,
   propertiesSetting,
@@ -279,7 +280,10 @@ export function DashboardPane() {
   return (
     <div className="pane-dashboard">
       <DashboardPanel
-        onOpenSettings={() => modal.open(DASHBOARD_SETTINGS_ID)}
+        onOpenSettings={() => {
+          setDashboardSettingsTarget(null);
+          modal.open(DASHBOARD_SETTINGS_ID);
+        }}
         collapsed={layout.mode === 'stacked' && layout.isCollapsed('dashboard')}
         toggleable={layout.mode === 'stacked'}
         onCollapsedChange={(next) => layout.setCollapsed('dashboard', next)}
@@ -290,6 +294,7 @@ export function DashboardPane() {
 
 export function ChartInstancePane({ instance }: { instance: string }) {
   const layout = useLayout();
+  const modal = useModal();
   const panel = instancePanelId('chart', instance);
   return (
     <div className="pane-dashboard">
@@ -297,6 +302,10 @@ export function ChartInstancePane({ instance }: { instance: string }) {
         setting={chartSetting(panel)}
         title={layout.paneTitle(panel).label}
         toggleable={false}
+        onOpenSettings={() => {
+          setDashboardSettingsTarget(panel);
+          modal.open(DASHBOARD_SETTINGS_ID);
+        }}
       />
     </div>
   );

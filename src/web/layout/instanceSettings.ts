@@ -28,6 +28,7 @@ import {
   type ElementScope,
   sanitizeElementScope,
 } from '../viewer/propertyScope.js';
+import { dropDashboardSettingsTarget } from './dashboardTarget.js';
 import { type PanelId, parsePanelId } from './paneRegistry.js';
 import { dropSummarySettingsTarget } from './summaryTarget.js';
 
@@ -126,6 +127,7 @@ export function summarySetting(id: PanelId): PersistedRecord<SummarySpec> {
 export function forgetInstanceSetting(id: PanelId): void {
   if (!parsePanelId(id)?.instance) return;
   dropSummarySettingsTarget(id);
+  dropDashboardSettingsTarget(id);
   chartRecords.delete(id);
   charts.forget(id);
   summaries.forget(id);
