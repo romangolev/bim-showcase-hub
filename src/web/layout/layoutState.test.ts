@@ -94,7 +94,6 @@ describe('layoutReducer', () => {
 
   it('starts with the dashboard collapsed and nothing closed', () => {
     expect(defaultModel().collapsed).toEqual(['dashboard']);
-    expect(defaultModel().collapsed).toEqual(['dashboard']);
     expect(defaultModel().dock).toBeNull();
     expect(defaultModel().dismissed).toEqual([]);
   });
@@ -165,26 +164,24 @@ describe('serialize and parse', () => {
     expect(parseLayout(JSON.stringify([1, 2]))).toBeNull();
   });
 
-  it('drops unknown collapsed ids and clamps the tree width', () => {
-    const raw = JSON.stringify({
-      version: 2,
-      layout: { dock: null, collapsed: ['summary', 'terminal'], treeWidth: 9 },
-    });
+  it.each([
+    [
+      'drops unknown collapsed ids and clamps the tree width',
+      { dock: null, collapsed: ['summary', 'terminal'], treeWidth: 9 },
+      { dock: null, collapsed: ['summary'], treeWidth: 260 },
+    ],
+    [
+      'falls back to the default dock when the stored dock is unusable',
+      { dock: { grid: 'x' }, collapsed: [], treeWidth: 320 },
+      { dock: null, collapsed: [], treeWidth: 320 },
+    ],
+  ])('%s', (_name, layout, expected) => {
+    const raw = JSON.stringify({ version: 2, layout });
     expect(parseLayout(raw)).toEqual({
-      dock: null,
-      collapsed: ['summary'],
-      treeWidth: 260,
+      ...expected,
       dismissed: [],
       lastViewerArrangement: null,
     });
-  });
-
-  it('falls back to the default dock when the stored dock is unusable', () => {
-    const raw = JSON.stringify({
-      version: 2,
-      layout: { dock: { grid: 'x' }, collapsed: [], treeWidth: 320 },
-    });
-    expect(parseLayout(raw)?.dock).toBeNull();
   });
 });
 
@@ -347,21 +344,22 @@ describe('sanitizeDock', () => {
 });
 
 describe('splitAxisOf', () => {
-  it('alternates the split axis with depth', () => {
-    const dock = sampleDock();
-    expect(splitAxisOf(dock, '1')).toBe('width');
-    expect(splitAxisOf(dock, '4')).toBe('width');
-    expect(splitAxisOf(dock, '2')).toBe('height');
-    expect(splitAxisOf(dock, '3')).toBe('height');
-    expect(splitAxisOf(dock, '42')).toBeNull();
-  });
-
-  it('starts from the root orientation', () => {
-    const dock = sampleDock();
-    dock.grid.orientation = 'VERTICAL';
-    expect(splitAxisOf(dock, '1')).toBe('height');
-    expect(splitAxisOf(dock, '2')).toBe('width');
-  });
+  it.each([
+    [
+      'HORIZONTAL',
+      { '1': 'width', '4': 'width', '2': 'height', '3': 'height', '42': null },
+    ],
+    ['VERTICAL', { '1': 'height', '2': 'width' }],
+  ] as const)(
+    'alternates the split axis with depth from the %s root',
+    (orientation, axes) => {
+      const dock = sampleDock();
+      dock.grid.orientation = orientation;
+      for (const [group, axis] of Object.entries(axes)) {
+        expect(splitAxisOf(dock, group)).toBe(axis);
+      }
+    },
+  );
 });
 
 describe('siblingCountOf', () => {
@@ -394,22 +392,19 @@ describe('storage', () => {
     expect(readLayout(storage).dismissed).toEqual(['models']);
   });
 
-  it('falls back to the default when the stored record is corrupt', () => {
-    const storage = installMemoryStorage();
-    storage.setItem(LAYOUT_KEY, '{broken');
-    expect(readLayout(storage)).toEqual(defaultModel());
-  });
-
-  it('falls back to the default for a v1 record and for nothing stored', () => {
-    const storage = installMemoryStorage();
-    expect(readLayout(storage)).toEqual(defaultModel());
-    storage.setItem(
-      LAYOUT_KEY,
+  it.each([
+    ['a corrupt record', '{broken'],
+    [
+      'a v1 record',
       JSON.stringify({
         version: 1,
         layout: { dock: sampleDock('viewer'), collapsed: [], treeWidth: 360 },
       }),
-    );
+    ],
+    ['nothing stored', null],
+  ])('falls back to the default for %s', (_name, stored) => {
+    const storage = installMemoryStorage();
+    if (stored !== null) storage.setItem(LAYOUT_KEY, stored);
     expect(readLayout(storage)).toEqual(defaultModel());
   });
 
@@ -471,23 +466,23 @@ function viewsOf(dock: SerializedDock | undefined, group: string): string[] {
 }
 
 describe('model tabs in the dock', () => {
-  it('keeps model tabs that are open and drops the others', () => {
-    const dock = modelDock(['viewer:a', 'viewer:b', 'viewer:c']);
-    const result = sanitizeDock(dock, ['viewer:a', 'viewer:c']);
-    expect(viewsOf(result?.dock, '2')).toEqual(['viewer:a', 'viewer:c']);
-    expect(Object.keys(result?.dock.panels ?? {})).not.toContain('viewer:b');
-    expect(result?.missing).toEqual([]);
-  });
-
-  it('drops every model tab when no model is open and asks for nothing', () => {
-    const dock = modelDock(['viewer:a', 'viewer:b']);
-    const result = sanitizeDock(dock, []);
-    expect(viewsOf(result?.dock, '2')).toEqual([]);
-    expect(Object.keys(result?.dock.panels ?? {}).sort()).toEqual([
-      'dashboard',
-      'summary',
-      'tree',
-    ]);
+  it.each([
+    [
+      'keeps model tabs that are open and drops the others',
+      ['viewer:a', 'viewer:b', 'viewer:c'],
+      ['viewer:a', 'viewer:c'],
+    ],
+    [
+      'drops every model tab when no model is open and asks for nothing',
+      ['viewer:a', 'viewer:b'],
+      [],
+    ],
+  ])('%s', (_name, tabs, open) => {
+    const result = sanitizeDock(modelDock(tabs), open);
+    expect(viewsOf(result?.dock, '2')).toEqual(open);
+    expect(Object.keys(result?.dock.panels ?? {}).sort()).toEqual(
+      ['dashboard', 'summary', 'tree', ...open].sort(),
+    );
     expect(result?.missing).toEqual([]);
   });
 
