@@ -76,9 +76,9 @@ export function tabLimitMessage(openCount: number): string {
   const open =
     openCount === 0
       ? ''
-      : `${openCount} ${openCount === 1 ? 'tab is' : 'tabs are'} already open. `;
+      : `${openCount} ${openCount === 1 ? 'model is' : 'models are'} already loaded. `;
   return room < 1
-    ? `A viewer loads up to ${MAX_LOADED_MEMBERS} models. ${open}Close a tab to open another.`
+    ? `A viewer loads up to ${MAX_LOADED_MEMBERS} models. ${open}Close a model to open another.`
     : `A viewer loads up to ${MAX_LOADED_MEMBERS} models. ${open}Select ${room} or fewer to open them as tabs.`;
 }
 
