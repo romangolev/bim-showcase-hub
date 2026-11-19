@@ -57,7 +57,7 @@ Every `PaneDefinition` carries `description`, `category` and `keywords` beside `
 
 - Palettes: **Default** (red, green, blue), **Okabe–Ito**, **Viridis**, **High contrast** and **Custom swatches** (1 to 8 colours). Each swatch becomes a paint entry with a numbered marker, which appears in the entry's tooltip and in the settings list, so colour is not the only cue.
 - Intensity (0.1 to 1) is theming strength, not transparency. Painting colours the current selection and clears it, per `(modelId, dbId)`.
-- `ghostRest` turns on `adapter.setGhosting`: isolating then leaves the rest of the model visible but faded instead of hidden, and painted colours are unaffected. Turning the tool off resets ghosting and clears the paint.
+- `ghostRest` is on by default, like the viewer's own `ghosting` setting: isolating leaves the rest of the model visible but faded, and painted colours are unaffected. Turning it off hides the rest through `adapter.setGhosting(false)`. Turning the tool off puts ghosting back on and clears the paint.
 - Reset appearance clears every theming colour in the active viewer, including every model a combined scene holds, not the last stroke: there is no paint undo stack.
 - `VIEWER_SHORTCUTS` (`commands/viewerCommands.ts`) is listed in Paint settings and gives each command its `keys`: `mod+alt+i` isolate, `mod+alt+h` hide selection, `mod+alt+shift+h` show all, `mod+alt+shift+i` invert selection, `mod+alt+b` paint with the first swatch, `mod+alt+shift+r` reset appearance. The bindings are fixed in code; there is no rebinding UI.
 

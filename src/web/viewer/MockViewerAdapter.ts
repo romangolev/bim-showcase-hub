@@ -257,7 +257,7 @@ export class MockViewerAdapter implements ViewerAdapter {
   private status: HTMLDivElement | null = null;
   private selection = new Set<string>();
   private isolated: Set<string> | null = null;
-  private ghosting = false;
+  private ghosting = true;
   private hiddenKeys = new Set<string>();
   private readonly models = new ModelSet<MockScene>();
   private readonly placement = new Placement<MockScene>(this.models, {

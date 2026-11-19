@@ -336,15 +336,15 @@ describe('mock selecting and isolating', () => {
     expect(adapter.getIsolated()).toHaveLength(2);
     expect(await adapter.getVisible()).toHaveLength(2);
     const total = buildMockElements().length;
+    expect(host.querySelectorAll('.bsh-mock__el--dim')).toHaveLength(total - 2);
+    expect(host.querySelectorAll('.bsh-mock__el--hidden')).toHaveLength(0);
+    adapter.setGhosting(false);
     expect(host.querySelectorAll('.bsh-mock__el--dim')).toHaveLength(0);
     expect(host.querySelectorAll('.bsh-mock__el--hidden')).toHaveLength(
       total - 2,
     );
     adapter.setGhosting(true);
     expect(host.querySelectorAll('.bsh-mock__el--dim')).toHaveLength(total - 2);
-    expect(host.querySelectorAll('.bsh-mock__el--hidden')).toHaveLength(0);
-    adapter.setGhosting(false);
-    expect(host.querySelectorAll('.bsh-mock__el--dim')).toHaveLength(0);
     adapter.isolateModelIds([]);
     expect(adapter.getIsolated()).toEqual([]);
     expect(await adapter.getVisible()).toHaveLength(total);
