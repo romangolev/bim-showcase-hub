@@ -592,31 +592,26 @@ describe('treeState open decisions', () => {
 });
 
 describe('tab and combined limits', () => {
-  it('reports no message below both limits', () => {
+  it('reports no message below both limits and a tab or combined message above', () => {
     expect(pickLimit(0, 1)).toEqual({
       tooManyTabs: false,
       tooManyCombined: false,
       message: null,
     });
-  });
 
-  it('reports the tab limit message when the loaded members would overflow', () => {
-    const limit = pickLimit(MAX_LOADED_MEMBERS - 1, 2);
-    expect(limit.tooManyTabs).toBe(true);
-    expect(limit.message).toBe(tabLimitMessage(MAX_LOADED_MEMBERS - 1));
-    expect(limit.message).toContain('Select 1 or fewer');
-  });
-
-  it('asks to close a model when there is no room left', () => {
+    const tabs = pickLimit(MAX_LOADED_MEMBERS - 1, 2);
+    expect(tabs.tooManyTabs).toBe(true);
+    expect(tabs.message).toBe(tabLimitMessage(MAX_LOADED_MEMBERS - 1));
+    expect(tabs.message).toContain('Select 1 or fewer');
     expect(tabLimitMessage(MAX_LOADED_MEMBERS)).toContain('Close a model');
     expect(tabLimitMessage(1)).toContain('1 model is already loaded');
-  });
 
-  it('reports the combined limit message otherwise', () => {
     const picked = MAX_COMBINED_MODELS + 1;
-    const limit = pickLimit(0, picked);
-    expect(limit.tooManyCombined).toBe(picked > MAX_COMBINED_MODELS);
-    if (!limit.tooManyTabs) expect(limit.message).toBe(MODEL_LIMIT_MESSAGE);
+    const combined = pickLimit(0, picked);
+    expect(combined.tooManyCombined).toBe(picked > MAX_COMBINED_MODELS);
+    if (!combined.tooManyTabs) {
+      expect(combined.message).toBe(MODEL_LIMIT_MESSAGE);
+    }
   });
 
   it('shares one rule with the tab-open check', () => {
