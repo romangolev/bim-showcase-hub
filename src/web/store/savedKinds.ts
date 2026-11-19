@@ -5,6 +5,7 @@ import {
   registerSavedKind,
   type SavedData,
   type SavedKindSpec,
+  unregisterSavedKind,
 } from './savedKindRegistry.js';
 import {
   getSaved,
@@ -55,13 +56,13 @@ export function defineSavedKind<T extends SavedData>(
   spec: SavedKindSpec<T>,
 ): SavedKindHandle<T> {
   const existing = getSavedKind(spec.kind);
-  if (!existing) {
-    registerSavedKind(spec);
-  } else if (existing.version !== spec.version) {
+  if (existing && existing.version !== spec.version) {
     throw new Error(
       `Saved kind ${spec.kind} is already registered at version ${existing.version}`,
     );
   }
+  if (existing) unregisterSavedKind(spec.kind);
+  registerSavedKind(spec);
   const entry = getSavedKind(spec.kind);
   if (!entry) throw new Error(`Saved kind not registered: ${spec.kind}`);
   const sanitize = entry.sanitize as (data: unknown) => T | null;

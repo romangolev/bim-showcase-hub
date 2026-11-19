@@ -122,6 +122,8 @@ describe('typed saved kinds', () => {
     expect(again.version).toBe(2);
     expect(again.save('Mine', { columns: ['Category'] })).not.toBeNull();
     expect(first.handle.list()).toHaveLength(1);
+    expect(again.save('Empty', { columns: [] })).not.toBeNull();
+    expect(first.handle.list()).toHaveLength(2);
   });
 
   it('refuses to redefine a kind at a different version', () => {
