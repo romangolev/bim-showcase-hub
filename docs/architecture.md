@@ -86,7 +86,7 @@ A derivative URN does not prove a model opens: the manifest can hold only a thum
 - **Router** (`routes/router.tsx`): `/` shows the empty state, `/model/$urn` opens a model through `ModelRouteSync`. Search parameters are parsed by `parseModelContext`.
 - **Query** (`src/web/api/hooks.ts`): the `['session']` query picks the landing page or the app. Tree children are queries keyed by `scopeKey`.
 - **Tree** (`components/tree/DocumentTree.tsx`): `@headless-tree/core` with `@tanstack/react-virtual`. Only versions in state `ready` or `unknown` open a model. Others show an explanation and a Check again button.
-- **Layout** (`src/web/layout`): `AppShell` loads `LayoutProvider` when signed in. Panes come from `paneRegistry.ts`. Details in [layout.md](layout.md).
+- **Layout** (`src/web/layout`): `AppShell` loads `LayoutProvider` when signed in. Panes come from `paneRegistry.ts`. Named workspaces live in one personal record (`bsh.workspaces.v1`): each item is a `LayoutModel` plus a pane appearance map. `paneLifecycle.applyWorkspace` snapshots the previous layout for the one-step Revert and leaves the open-models store alone, so the dock rebuilds around the same viewers. `layoutShare.ts` encodes the same payload for `#layout=`. Details in [layout.md](layout.md).
 - **Viewer** (`src/web/viewer`): `ViewerPane` creates one `ViewerAdapter` per model tab and publishes it through context. `useViewer()` returns the active tab's adapter.
 
 ### Open models
@@ -98,6 +98,8 @@ A derivative URN does not prove a model opens: the manifest can hold only a thum
 - A combined tab holds up to `MAX_COMBINED_MODELS` (6) models in one scene.
 - `ModelRouteSync` keeps the URL and the store in step.
 
+Share links (`api/viewLink.ts`) carry the camera and selection (version 1), the pane and chart state (version 2) and per-model hidden and isolated node ids (version 3). `viewer/shareLink.ts` captures them from `adapter.getState()` and restores through `restoreState` after the models load. Nothing is stored on the server.
+
 ### Persisted records
 
 `src/web/storage.ts` is the only code that touches browser storage.
@@ -105,7 +107,7 @@ A derivative URN does not prove a model opens: the manifest can hold only a thum
 - `defineRecord({ key, initial, sanitize, area?, codec? })` returns a record with `read`, `write`, `remove`. Reads are always sanitized.
 - `usePersisted(record)` is the React hook: `[value, update, reset]`. It re-reads when the record's key changes, so one component can serve several panels.
 - `defineRecordFamily` makes one record per argument. Its prefix must be in `BSH_PERSONAL_PREFIXES`, and `get` and `forget` throw for a key outside that prefix.
-- `BSH_KEYS` lists every key as `personal` (cleared on sign-out) or `preference` (kept).
+- `BSH_KEYS` lists the fixed keys as `personal` (cleared on sign-out) or `preference` (kept). Keys under `BSH_PERSONAL_PREFIXES` are personal too, so a new `bsh.pane.*` key is forgotten even when it is not in the list.
 - `forgetPersonal()` runs on sign-out and when the owner changes.
 - Tests swap in `memoryAdapter()` with `setStorageAdapter`.
 
@@ -114,6 +116,8 @@ The keys are listed in [development.md](development.md#storage-keys).
 ### User-made items
 
 `src/web/store/savedStore.ts` holds viewpoints, selection sets, dashboard presets and export presets in one personal record (`bsh.saved.v1`). Each kind is declared once with `defineSavedKind` (`store/savedKinds.ts`), which registers it through `registerSavedKind` (`store/savedKindRegistry.ts`) and returns a typed handle. The production kinds are `viewpoint` (`viewer/viewpoints.ts`), `selection-set` (`viewer/selectionSets.ts`), `dashboard-preset` (`extensions/dashboardPresets.ts`) and `export-preset` (`tools/excel/exportPresets.ts`), all at version 1. The export envelope is `bsh-saved` version 2 with a per-kind version map; import migrates older items and merges by id.
+
+A selection set stores dbIds per model plus optional stable external ids (`keys`). `resolveSetItems` maps a key back through `adapter.getExternalIdMap`, and reading a set against an open model (`migrateSelectionSet`) moves its dbIds into keys. `mergeSetData` keeps the union or the intersection by identity (model plus key or dbId).
 
 ### Scoped rows
 

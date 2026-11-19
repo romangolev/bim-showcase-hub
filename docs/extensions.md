@@ -19,35 +19,73 @@ Read rows with `useScopedRows` in panels and `readScopedRows` (`viewer/scopedRow
 | Extension | Where | Notes |
 |---|---|---|
 | Viewer tools | `tools/` | `PaintTool`, `ExcelExportTool`, `GlbExportTool`, `IfcExportTool`, registered in `tools/index.ts` |
-| Paint | `paintBrushes.ts`, `tools/paint/` | Up to 8 swatches and an intensity. Paints per `(modelId, dbId)` |
+| Paint | `paintBrushes.ts`, `tools/paint/` | Named palettes with numbered markers, ghost-rest isolate and the viewer shortcuts ([Paint](#paint)) |
 | Model summary | `modelSummary.ts`, `panels/ModelSummaryPanel.tsx` | Counts values per property. Row click selects, isolates, hides or zooms |
 | Dashboard | `dashboardData.ts`, `panels/DashboardPanel.tsx` | Chart.js bar and doughnut charts, presets, PNG, CSV and copy. Each view (the main Dashboard and every chart instance) carries its own property list |
-| Excel export | `excelExport.ts`, `exportFormats.ts` | XLSX, CSV, JSON or copy. Cells starting with `=`, `+`, `-` or `@` are guarded in CSV and copied text. XLSX writes numeric values as numbers with a number format, freezes the bold header, and ends each sheet with a bold totals row: sums for number columns and labelled counts for text columns. Columns named like `Type Id` or `Workset ID` stay text and are left out of the totals. CSV, JSON and copy keep plain values and have no totals row |
+| Excel export | `excelExport.ts`, `exportFormats.ts`, `tools/excel/` | XLSX, CSV, JSON or copy, with built-in and saved presets, group-by, content-sized columns and optional `(empty)` text ([Table export](#table-export)) |
 | GLB export | `glbExport.ts`, `viewer/viewerGeometry.ts` | Binary glTF 2.0 from `adapter.getGeometryParts()`. Capped at 256 MB |
 | IFC export | `ifcExport.ts`, `ifc/` | IFC4 STEP file from `adapter.getIfcSource()`. A mesh-based coordination view, not a Revit IFC export |
 | Properties | `panels/PropertiesPanel.tsx` | Read-only property list of the selected elements |
-| Selection sets, viewpoints | `viewer/selectionSets.ts`, `viewer/viewpoints.ts` | Saved items of kind `selection-set` and `viewpoint` |
+| Selection sets, viewpoints | `viewer/selectionSets.ts`, `viewer/viewpoints.ts` | Saved items of kind `selection-set` and `viewpoint`. A set holds up to 10,000 elements, keeps stable external ids where the model has them, and merges two sets as a union or an intersection |
 
 Exports over 20,000 rows ask for confirmation with a browser dialog. End-to-end scripts must accept dialogs.
 
+## Panes menu and appearance
+
+Every `PaneDefinition` carries `description`, `category` and `keywords` beside `title` (`layout/paneRegistry.ts`). `matchesPane` searches all four, and `orderPanes` turns the result into pinned rows, category groups and hidden rows (`layout/paneCatalog.ts`).
+
+- The top bar Panes menu (`layout/PanesMenu.tsx`) is a search dialog. Each row comes from `paneCommandsFor`: Open/Close for a normal pane, New for a user kind, and any `PaneDefinition.commands` hooks. Focus, Pin and Hide sit beside the main action. The footer holds the rest of `layoutCommands`: the workspace actions (save, import, download, copy JSON, share link, revert), Present, Lock and Reset. A kind with no command at all, such as the Viewer, has no row.
+- With a query the category groups collapse into one "Matching panes" list. Without one, pinned panes come first, then the categories, then the Hidden section behind `Show hidden panes (N)`.
+- Pins and hidden panes are per pane kind, not per copy, and live in the personal `bsh.pane.catalog.v1` (`{ pins, hidden }`). Hiding a pinned pane unpins it. Hiding only removes the row from this menu: palette commands still run and an open pane stays open.
+- Titles and colour tags are per panel id, so a plain pane uses `summary` and a copy uses `chart:1`, and each copy keeps its own. They live in the personal `bsh.pane.appearance.v1`. A title is trimmed to 48 characters; an empty title restores the registry title. A colour is red, orange, yellow, green, blue or purple and shows as a dot on the pane's tab. Both survive closing the pane and a reload, and a saved workspace carries them ([layout.md](layout.md#workspaces)).
+
+## Table export
+
+`excelExport.ts` reads one scoped set of rows and writes XLSX, CSV, JSON or clipboard text. Settings live in `bsh.tool.excel.v1`.
+
+- Cells starting with `=`, `+`, `-` or `@` are guarded in CSV and copied text. XLSX writes numeric values as numbers with a number format and freezes the bold header.
+- Every element sheet ends with a bold totals row: sums for number columns and labelled counts for text columns. Columns named like `Type Id`, `Workset ID` or `TypeId` stay text and are left out of the totals. CSV, JSON and copy keep plain values and have no totals row.
+- A preset stores its columns, format, scope, name pattern, header toggle and group-by (`tools/excel/exportPresets.ts`, saved kind `export-preset`). Three built-ins sit beside the user presets: **Classification audit** (Category, Name, Assembly Code, Classification Code; grouped by Category), **Levels and categories** (Level, Category, Name; grouped by Level) and **Everything** (every discovered column, one sheet; disabled while the property catalog is empty). Applying a preset writes its group-by too.
+- Group by is also a settings field: one sheet, or one sheet per value of any exported column. A group-by that is not among the chosen columns falls back to one sheet, and sheet names are made unique within Excel's 31-character limit.
+- XLSX columns size to their content, clamped to 8–60, and the totals row is measured with them. There is no manual width.
+- Empty cells are blank by default; `(empty)` writes that text instead. It applies to XLSX, CSV and copy, not JSON, which keeps an empty string.
+- A property row carries a value per property and no unit field, so exports still have no unit column.
+
+## Paint
+
+`PaintTool` (`tools/paint/`) turns a palette into viewer toolbar paint entries and stores its settings in `bsh.tool.paint.v1`.
+
+- Palettes: **Default** (red, green, blue), **Okabe–Ito**, **Viridis**, **High contrast** and **Custom swatches** (1 to 8 colours). Each swatch becomes a paint entry with a numbered marker, which appears in the entry's tooltip and in the settings list, so colour is not the only cue.
+- Intensity (0.1 to 1) is theming strength, not transparency. Painting colours the current selection and clears it, per `(modelId, dbId)`.
+- `ghostRest` turns on `adapter.setGhosting`: isolating then leaves the rest of the model visible but faded instead of hidden, and painted colours are unaffected. Turning the tool off resets ghosting and clears the paint.
+- Reset appearance clears every theming colour in the active viewer, including every model a combined scene holds, not the last stroke: there is no paint undo stack.
+- `VIEWER_SHORTCUTS` (`commands/viewerCommands.ts`) is listed in Paint settings and gives each command its `keys`: `mod+alt+i` isolate, `mod+alt+h` hide selection, `mod+alt+shift+h` show all, `mod+alt+shift+i` invert selection, `mod+alt+b` paint with the first swatch, `mod+alt+shift+r` reset appearance. The bindings are fixed in code; there is no rebinding UI.
+
 ## Share links
 
-The Share menu copies a link to the model with or without the current view. The view travels as `?view=` on the model URL. The encoded value starts with its format version, so a current link reads `?view=2~...`. Version 1 carries the camera and the selection; version 2 adds the open and collapsed panes and the chart views, and a build that does not know a pane id ignores it while still applying the camera. Opening a link only opens panes and sets collapsed state, never closes a pane, puts its charts into newly added chart panes, overwrites the dashboard view, and then removes `?view=` from the address so a reload does not apply it again.
+The Share menu copies a link to the model with or without the current view. The view travels as `?view=` on the model URL. The encoded value starts with its format version: version 1 carries the camera and the selection, version 2 adds the open and collapsed panes and the chart views, and version 3 adds the hidden and isolated node ids. A build that does not know a pane id ignores it while still applying the camera. Opening a link only opens panes and sets collapsed state, never closes a pane, puts its charts into newly added chart panes, overwrites the dashboard view, and then removes `?view=` from the address so a reload does not apply it again. A current link reads `?view=3~...` when it carries node ids and stays at version 2 otherwise.
 
 - Version 2 names the open pane kinds and the collapsed panes. Collapsing exists only for Documents, Model summary, Dashboard and Models. Chart, Model summary and Properties are instance kinds: a link leaves them to the chart views instead of opening a blank pane.
+- Version 3 adds `nodes`: per model, the isolated dbIds and the hidden dbIds (`-1` is the hide-all sentinel). A link carries at most 400 node ids; a larger set is left out and the link falls back to version 2, or version 1 without panes and charts. Models the node list does not name are restored with nothing hidden or isolated and keep the selection the link gives them.
 - The chart views are the Dashboard view plus up to three chart pane views, each with its own property list. A view scoped to a personal selection set travels without its `elements` scope, because the set itself is not shared.
 - The summary pane's properties, element scope and view are not part of the link.
-- A link over 4,000 characters is cut to the camera and selection, and the Share menu says so. Chart panes beyond the first three are left out with their own notice.
+- A link over 4,000 characters is cut to the camera and selection (version 1) and the Share menu says so. When it is, the menu also offers **Save view data (JSON)**: a `bsh-view` version 1 file with the model list and the whole view, named `<model>-view.json`. Chart panes beyond the first three are left out with their own notice.
 - Panes are restored only in the dock layout. In the stacked (narrow) layout the link applies the camera and the selection and leaves the stored layout alone.
 
 ## Print report
 
-Share > Print report... writes a printable page into a new window, so the browser has to allow the pop-up. The page holds:
+Share > Print report... opens an options dialog first, then writes a printable page into a new window, so the browser has to allow the pop-up. The dialog sets:
+
+- **Title** (up to 120 characters, filled with the model name) and **notes** (up to 2000 characters), printed under the header.
+- **Sections**: Snapshot, Summary and Dashboard. These checkboxes cover the three top-level sections only; there is no per-property or per-chart include list.
+- **Orientation**: portrait or landscape.
+
+The dialog opens with all sections on, no notes and portrait every time; the options are not remembered. The page holds:
 
 - the title and version, the number of elements in the summary scope, the number of models and today's date;
-- the model snapshot at the resolution chosen in Snapshot settings;
+- the model snapshot at the resolution chosen in Snapshot settings, when Snapshot is on;
 - up to six summary properties with eight values each and a "N more values" line, filtered and sorted by the summary pane's view;
-- up to three Dashboard properties as value and count tables;
+- up to three Dashboard properties as value and count tables, when Dashboard is on. The charts print as tables, not as chart images, a property that is also in the summary list is not charted, and a property with no values is skipped;
 - the names of models whose properties could not be read.
 
 ## Add a tool
@@ -85,7 +123,7 @@ Ctrl or Cmd+K opens the palette (`src/web/commands`).
 - When two sources give the same id, the higher priority wins.
 - A tool adds commands by overriding `ViewerTool.commands(ctx, settings)`.
 - Panes contribute commands through the registry: `paneCommands(ctx)` in `layout/paneRegistry.ts` returns the generated Open/Close (`pane.toggle.<id>`) and New (`pane.new.<id>`) commands and appends each definition's `commands(ctx)` hook (`PaneDefinition.commands`), so a hook never replaces the generated entries. Hook commands with an existing id override that entry.
-- The Panes menu and the palette read the same `layoutCommands(layout)` list, and a pane header menu offers the same commands for its kind minus the Open/Close and New entries the pane itself already covers. `layoutMenuEntries` in `layout/PaneMenu.tsx` turns each command into one entry: a pane toggle becomes a checked item, a disabled command keeps its reason, and selecting the entry runs `command.run(host)`. Menu-only entries (Move left, right or below, Float or Dock, Collapse and Close) stay local to the pane header menu and are not palette commands.
+- The Panes menu is built from the same data: one row per pane via `paneCommandsFor`, with the Open/Close (or New) entry as the row's main action, and the remaining `layoutCommands(layout)` in the footer (workspace actions, Present, Lock, Reset; pane hook commands are already on their rows). A pane header menu offers the same hook commands for its kind, plus Settings, Rename pane…, Color tag… and the local move, float, resize, collapse and close entries. `layoutMenuEntries` in `layout/PaneMenu.tsx` turns a command into a footer entry: a toggle becomes a checked item, a disabled command keeps its reason, and selecting the entry runs `command.run(host)`.
 - `CommandPalette` takes an `openModel(urn, context)` handle from `App` (it navigates to `/model/$urn`) and registers `recentModelCommands(openModel)`: the five most recent models become `model.recent.<urn>` commands in the Recent models group.
 - Shortcuts (`commands/shortcuts.ts`) parse `mod`, `ctrl`/`cmd`/`meta`, `alt`/`option` and `shift` plus one key. `mod` means Ctrl on Windows and Linux and Cmd on macOS. Matching also accepts `event.code`, so a bare Option chord on macOS still runs its command. The global listener ignores editable targets, open dialogs and key presses without a modifier.
 - `commands/pins.ts` keeps up to 8 pinned command ids in `bsh.commands.pinned.v1`; pinning a ninth drops the oldest and the palette says which one. `commands/recents.ts` records the last run commands in `bsh.commands.recent.v1`. Shift+Enter in the palette pins or unpins the highlighted command.
@@ -122,7 +160,7 @@ All browser storage goes through `src/web/storage.ts`. Do not call `localStorage
 - Settings has Export and Import for a `bsh-saved.json` file (imports are capped at 1 MB). Import merges by id and the newer `updatedAt` wins. An id that already exists under another kind is never merged: `upsertSaved` fails and Import counts it as rejected.
 - The store budget is `MAX_TOTAL_BYTES` (4 MB) across at most `MAX_ITEMS` (500) items and `MAX_ITEM_BYTES` (100 KB) per item. Settings shows the used bytes against the budget, and a save or import that would exceed it fails with a message instead of a silent no-op.
 - A store written by a newer build (a higher `SAVED_VERSION`) is read-only: reading works, and `upsertSaved`, `renameSaved`, `removeSaved`, `moveSaved` and `importSaved` fail without writing.
-- Production kinds, each registered once at version 1 with a typed handle: `viewpoint` (`viewer/viewpoints.ts`, `VIEWPOINTS`), `selection-set` (`viewer/selectionSets.ts`, `SELECTION_SETS`), `dashboard-preset` (`panels/DashboardUserPresets.tsx`, `DASHBOARD_USER_PRESETS`) and `export-preset` (`tools/excel/exportPresets.ts`, `EXPORT_PRESETS`). A kind that is not registered still round-trips through storage and export, but its data is neither sanitized nor migrated.
+- Production kinds, each registered once at version 1 with a typed handle: `viewpoint` (`viewer/viewpoints.ts`, `VIEWPOINTS`), `selection-set` (`viewer/selectionSets.ts`, `SELECTION_SETS`), `dashboard-preset` (`extensions/dashboardPresets.ts`, `DASHBOARD_USER_PRESETS`) and `export-preset` (`tools/excel/exportPresets.ts`, `EXPORT_PRESETS`). A kind that is not registered still round-trips through storage and export, but its data is neither sanitized nor migrated.
 
 ## Notifications
 
