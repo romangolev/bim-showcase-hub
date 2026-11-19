@@ -7,17 +7,21 @@ import {
 } from './layoutState.js';
 import { type PaneId, parsePanelId } from './paneRegistry.js';
 import {
+  activeNameOf,
   emptyWorkspaces,
   MAX_WORKSPACES,
   PRESETS,
+  parseWorkspace,
   removeWorkspace,
   renameWorkspace,
   sanitizeWorkspaces,
   saveWorkspace,
+  serializeWorkspace,
   WORKSPACES_KEY,
   WORKSPACES_RECORD,
   type Workspace,
   type WorkspaceStore,
+  workspaceFileName,
 } from './workspaces.js';
 
 const dock: SerializedDock = {
@@ -142,6 +146,66 @@ describe('workspace store', () => {
     expect(clean.items).toHaveLength(1);
     expect(clean.items[0]?.name).toBe('House');
     expect(clean.items[0]?.id).toBe('kept');
+  });
+
+  it('names the active workspace and the export file', () => {
+    const result = saveWorkspace(emptyWorkspaces(), 'House Design', model, {});
+    if (!result) throw new Error('save failed');
+    expect(activeNameOf(result.store.items, result.workspace.id)).toBe(
+      'House Design',
+    );
+    expect(activeNameOf(result.store.items, null)).toBeNull();
+    expect(workspaceFileName('House Design')).toBe('house-design.json');
+    expect(workspaceFileName(null)).toBe('layout.json');
+  });
+});
+
+describe('workspace JSON', () => {
+  it('round-trips a workspace with its appearances', () => {
+    const text = serializeWorkspace({
+      name: 'House',
+      layout: model,
+      appearances: { summary: { title: 'Key values', color: 'green' } },
+    });
+    const parsed = parseWorkspace(text);
+    expect('workspace' in parsed).toBe(true);
+    if (!('workspace' in parsed)) return;
+    expect(parsed.workspace.name).toBe('House');
+    expect(parsed.workspace.layout.treeWidth).toBe(320);
+    expect(parsed.workspace.appearances.summary).toEqual({
+      title: 'Key values',
+      color: 'green',
+    });
+  });
+
+  it('rejects invalid JSON, another file and an old version', () => {
+    expect(parseWorkspace('{nope')).toEqual({
+      error: 'This is not valid JSON.',
+    });
+    expect(parseWorkspace('{"version":1}')).toEqual({
+      error: 'This is not a BIM Showcase Hub workspace.',
+    });
+    const old = parseWorkspace(
+      JSON.stringify({
+        kind: 'bsh.workspace',
+        version: 0,
+        name: 'Old',
+        layout: model,
+      }),
+    );
+    expect('error' in old && old.error).toContain('version 0');
+  });
+
+  it('rejects a workspace without a readable layout', () => {
+    const parsed = parseWorkspace(
+      JSON.stringify({
+        kind: 'bsh.workspace',
+        version: 1,
+        name: 'Broken',
+        layout: { dock: { panels: {} } },
+      }),
+    );
+    expect(parsed).toEqual({ error: 'This workspace has no valid layout.' });
   });
 });
 

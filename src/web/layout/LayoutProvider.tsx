@@ -46,6 +46,7 @@ import {
   type PaneTitle,
   type PaneTitles,
 } from './layoutContext.js';
+import { decodeShare, shareLinkFor, shareParamIn } from './layoutShare.js';
 import {
   defaultModel,
   type LayoutModel,
@@ -58,6 +59,7 @@ import { PresentControls } from './PresentControls.js';
 import {
   type PaneAppearances,
   paneTags,
+  readPaneAppearances,
   replacePaneAppearances,
   usePaneAppearances,
   withPaneTitles,
@@ -81,14 +83,19 @@ import {
 } from './userInstances.js';
 import { createHostStore, PaneHosts } from './ViewerHost.js';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher.js';
+import { downloadText, writeClipboard } from './workspaceFiles.js';
 import {
+  activeNameOf,
   PRESETS,
+  parseWorkspace,
   removeWorkspace,
   renameWorkspace,
   saveWorkspace,
+  serializeWorkspace,
   WORKSPACES_RECORD,
   type WorkspaceApi,
   type WorkspaceDialog,
+  workspaceFileName,
 } from './workspaces.js';
 
 const DockLayout = lazy(() =>
@@ -336,8 +343,53 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
 
   useDebouncedWrite(model);
 
+  const shareRead = useRef(false);
+  useEffect(() => {
+    if (shareRead.current) return;
+    shareRead.current = true;
+    const param = shareParamIn(window.location.hash);
+    if (!param) return;
+    const url = new URL(window.location.href);
+    url.hash = '';
+    window.history.replaceState(
+      window.history.state,
+      '',
+      `${url.pathname}${url.search}`,
+    );
+    void decodeShare(param).then((text) => {
+      if (!text) {
+        lifecycle.notify('This share link is not a readable layout.');
+        return;
+      }
+      const parsed = parseWorkspace(text);
+      if ('error' in parsed) {
+        lifecycle.notify(parsed.error);
+        return;
+      }
+      if (lifecycle.getState().locked) {
+        lifecycle.notify('Unlock the layout to apply a shared layout.');
+        return;
+      }
+      const shared = parsed.workspace.appearances;
+      if (Object.keys(shared).length > 0) {
+        undoAppearances.current = readPaneAppearances();
+        replacePaneAppearances(shared);
+      }
+      lifecycle.applyWorkspace(
+        { layout: parsed.workspace.layout },
+        parsed.workspace.name,
+      );
+    });
+  }, [lifecycle]);
+
   const workspaceApi = useMemo<WorkspaceApi>(() => {
     const { notify, getState } = lifecycle;
+    const exportText = () =>
+      serializeWorkspace({
+        name: activeNameOf(workspaces.items, activeWorkspace) ?? 'Layout',
+        layout: model,
+        appearances,
+      });
     const applyLayout = (
       layout: LayoutModel,
       name: string,
@@ -411,6 +463,56 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
         }
         lifecycle.revertWorkspace();
         setActiveWorkspace(null);
+      },
+      importText: (text) => {
+        const parsed = parseWorkspace(text);
+        if ('error' in parsed) return parsed.error;
+        if (state.locked) return 'Unlock the layout first.';
+        applyLayout(
+          parsed.workspace.layout,
+          parsed.workspace.name,
+          parsed.workspace.appearances,
+        );
+        setActiveWorkspace(null);
+        setWorkspaceDialog(null);
+        notify(`Layout ${parsed.workspace.name} imported`);
+        return null;
+      },
+      exportText,
+      download: () => {
+        const name = activeNameOf(workspaces.items, activeWorkspace);
+        const saved = downloadText(workspaceFileName(name), exportText());
+        notify(saved ? 'Workspace downloaded' : 'Downloads are unavailable');
+      },
+      copyJson: () => {
+        void writeClipboard(exportText()).then((copied) =>
+          notify(
+            copied
+              ? 'Workspace JSON copied'
+              : 'Clipboard is unavailable; use Download layout',
+          ),
+        );
+      },
+      copyLink: () => {
+        void (async () => {
+          const text = exportText();
+          const link = await shareLinkFor(window.location.href, text);
+          if (!link) {
+            const copied = await writeClipboard(text);
+            notify(
+              copied
+                ? 'Layout too long for a link; workspace JSON copied instead'
+                : 'Layout too long for a link; use Download layout',
+            );
+            return;
+          }
+          const copied = await writeClipboard(link);
+          notify(
+            copied
+              ? 'Share link copied'
+              : 'Clipboard is unavailable; use Download layout',
+          );
+        })();
       },
     };
   }, [

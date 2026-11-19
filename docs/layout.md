@@ -33,6 +33,7 @@ Everything lives in `src/web/layout`.
 | `PaneMenu.tsx` | Pane header menu and the top bar Panes menu |
 | `workspaces.ts` | Built-in presets, saved workspaces, their storage and JSON |
 | `WorkspaceSwitcher.tsx` | The top bar Workspaces menu and its save, rename and import dialogs |
+| `layoutShare.ts` | The `#layout=` share encoding |
 | `dockTheme.css` | The `bsh-dock` theme, see [design-system.md](design-system.md#dock-theme) |
 
 Layouts never render pane content. They attach host elements to slots, so React never sees a move. A pane is unmounted only when it is closed. A viewer is destroyed only when its tab closes, when it is paused for the loaded-model budget, or on sign-out.
@@ -119,7 +120,7 @@ The Workspaces menu in the top bar switches the whole arrangement. It lists four
 
 A preset is a list of pane placements, so it tolerates whichever models are open. Applying any workspace keeps the open models: model tabs are rebuilt in the new arrangement and the viewers are attached again, never reloaded.
 
-Saved workspaces live in `bsh.workspaces.v1` (`{ version: 1, items }`) and are personal: sign-out clears them like the layout. A workspace stores the full arrangement — `dock`, `collapsed`, `treeWidth`, `dismissed`, `lastViewerArrangement` — plus the pane titles and colors it names. Applying a saved workspace restores those titles and colors when it carries any; built-in presets leave them alone. The payload is read through `parseLayout` and `sanitizeDock`, so a corrupt entry or a newer version reads as no workspaces, and one broken entry is dropped without losing the rest. Names are trimmed to 40 characters, at most 20 workspaces are kept, and saving an existing name updates it.
+Saved workspaces live in `bsh.workspaces.v1` (`{ version: 1, items }`) and are personal: sign-out clears them like the layout. A workspace stores the full arrangement — `dock`, `collapsed`, `treeWidth`, `dismissed`, `lastViewerArrangement` — plus the pane titles and colors it names. Applying a saved or imported workspace restores those titles and colors when the workspace carries any; built-in presets and payloads without appearances leave them alone. The payload is read through `parseLayout` and `sanitizeDock`, so a corrupt entry or a newer version reads as no workspaces, and one broken entry is dropped without losing the rest. Names are trimmed to 40 characters, at most 20 workspaces are kept, and saving an existing name updates it.
 
 Applying a workspace is undoable once: the previous arrangement is snapshotted and the menu offers **Revert layout**. A full history is not kept.
 
@@ -128,3 +129,43 @@ Limits:
 - User-added panes (`chart:2`, `properties:1`, `modelSummary:3`) are not part of a workspace. The instances that exist now are kept and placed by the usual reconciliation.
 - Pinned and hidden panes in the Panes menu are a global preference and do not travel with a workspace.
 - Applying needs the wide layout and an unlocked layout.
+
+## Sharing a layout
+
+The Panes menu, the Workspaces menu and the palette export and import arrangements. There is no server: a layout travels as JSON or in the URL.
+
+- **Download layout** writes `{ kind: 'bsh.workspace', version: 1, name, layout, appearances }` as a file. **Copy layout JSON** puts the same text on the clipboard.
+- **Import layout…** accepts pasted JSON, a chosen file or a dropped file. It validates with `parseLayout` and `sanitizeDock`; invalid JSON, another file type and another version are rejected with a message, and the layout is unchanged.
+- **Copy share link** builds `<current URL>#layout=<payload>`. The payload is base64url with `deflate-raw` compression when the browser has `CompressionStream` (prefix `z`) and plain base64url otherwise (prefix `j`). A payload longer than 6000 characters is not made into a link; the JSON is copied instead and the notice says so.
+- The hash is read once at startup, applied like an imported workspace and removed from the URL. Later navigation does not re-read it, and a stored layout is only replaced by that one application.
+
+Importing applies the arrangement but does not add it to the saved list; save it from the switcher if it should stay.
+
+## Keyboard and screen readers
+
+Every drag has a menu path.
+
+- Pane menu: Move left, right or below, Float or Dock, Maximize or Restore, Resize with arrow keys, Collapse or Expand, Close, Lock, Reset.
+- Maximize (also a double click on a tab) fills the dock. Escape restores. It is not saved.
+- Present (Panes menu, palette or Share menu) shows the viewer alone. Arrows and Space step through saved viewpoints and Escape leaves. Present needs an open model (the entries are disabled with a reason otherwise), restores the pane it maximized, and ends when the layout switches between wide and narrow. A Float request waits for its model to attach, per model, and is dropped if that model closes first.
+- Lock layout (`bsh.layout.locked`) turns off dragging, floating and closing. It does not apply to the stacked layout.
+- Resize mode: arrow keys change size by 16 px (64 px with Shift). Escape, Enter or Tab finish.
+- `F6` and `Shift+F6` move focus between pane groups.
+- In Documents, `/` focuses the filter and typing letters moves focus to the next matching row. Enter opens the focused version and Space picks it. Shift+F10 or the context menu key opens the row menu.
+- After a move, focus goes to the moved tab. A live region announces moves, collapse and reset.
+
+## Narrow screens
+
+Below 876 px (`STACKED_QUERY`, `src/web/layout/LayoutProvider.tsx`) the dock is not rendered.
+
+- With no model open, Documents is the main section. With a model open, a tab strip switches models above a column of viewer, dashboard and summary.
+- Documents is an overlay from the top bar button.
+- The saved dock returns when the window is wide again. User-added panes are not shown.
+
+## Limits
+
+- Floating groups stay inside the page. There are no pop-out windows.
+- One stored layout per browser and no server sync. Named workspaces are local to the browser.
+- At most 8 models are loaded across all tabs (`MAX_LOADED_MEMBERS`). A combined tab counts every model it holds. Visible tabs are never paused. A paused tab offers Load model.
+- A combined tab holds at most 6 models (`MAX_COMBINED_MODELS`).
+- All open models must come from one Autodesk region, because the viewer initializes once per page. `viewer/region.ts` records the region. A model from the other region shows an error with Close other models and reload.

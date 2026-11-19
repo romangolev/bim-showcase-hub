@@ -83,6 +83,82 @@ function NameForm({
   );
 }
 
+function ImportForm({
+  workspace,
+  close,
+}: FormProps & { workspace: WorkspaceApi }) {
+  const [text, setText] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const readFile = async (file: File | undefined) => {
+    if (!file) return;
+    setText(await file.text());
+    setError(null);
+  };
+  return (
+    <form
+      className="workspaces__form"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const message = workspace.importText(text);
+        if (message) setError(message);
+      }}
+    >
+      <label className="settings__field">
+        Workspace JSON
+        <textarea
+          aria-label="Workspace JSON"
+          rows={7}
+          spellCheck={false}
+          value={text}
+          onChange={(event) => {
+            setText(event.target.value);
+            setError(null);
+          }}
+        />
+      </label>
+      <label className="settings__field">
+        Open a file
+        <input
+          type="file"
+          accept=".json,application/json"
+          aria-label="Import a workspace file"
+          onChange={(event) => {
+            void readFile(event.target.files?.[0]);
+          }}
+        />
+      </label>
+      <fieldset
+        className="workspaces__drop"
+        onDragOver={(event) => event.preventDefault()}
+        onDrop={(event) => {
+          event.preventDefault();
+          void readFile(event.dataTransfer.files[0]);
+        }}
+      >
+        <legend className="visually-hidden">Drop a workspace file</legend>
+        Or drop a workspace JSON file here
+      </fieldset>
+      {error ? (
+        <p className="settings__hint" role="alert">
+          {error}
+        </p>
+      ) : null}
+      <div className="settings__actions">
+        <button
+          className="btn btn-primary"
+          type="submit"
+          disabled={!text.trim()}
+        >
+          Apply layout
+        </button>
+        <button className="btn" type="button" onClick={close}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
 export function WorkspaceSwitcher() {
   const layout = useLayout();
   const workspace = layout.workspaces;
@@ -328,6 +404,38 @@ export function WorkspaceSwitcher() {
                 >
                   Save current as…
                 </button>
+                <button
+                  type="button"
+                  className="workspaces__command"
+                  disabled={locked}
+                  title={lockReason}
+                  onClick={() =>
+                    run(() => workspace.openDialog({ kind: 'import' }))
+                  }
+                >
+                  Import layout…
+                </button>
+                <button
+                  type="button"
+                  className="workspaces__command"
+                  onClick={() => run(workspace.download)}
+                >
+                  Download layout
+                </button>
+                <button
+                  type="button"
+                  className="workspaces__command"
+                  onClick={() => run(workspace.copyJson)}
+                >
+                  Copy layout JSON
+                </button>
+                <button
+                  type="button"
+                  className="workspaces__command"
+                  onClick={() => run(workspace.copyLink)}
+                >
+                  Copy share link
+                </button>
                 {workspace.canRevert ? (
                   <button
                     type="button"
@@ -377,6 +485,19 @@ export function WorkspaceSwitcher() {
                 close={done}
                 onSubmit={(name) => workspace.rename(renaming.id, name)}
               />
+            ),
+          }}
+          onClose={workspace.closeDialog}
+        />
+      ) : null}
+      {dialog?.kind === 'import' ? (
+        <ModalHost
+          definition={{
+            id: 'workspace-import',
+            title: 'Import layout',
+            size: 'md',
+            Body: ({ close: done }) => (
+              <ImportForm workspace={workspace} close={done} />
             ),
           }}
           onClose={workspace.closeDialog}

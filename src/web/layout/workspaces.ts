@@ -16,6 +16,7 @@ export const WORKSPACES_KEY = BSH_KEYS.personal.workspaces;
 export const WORKSPACES_VERSION = 1;
 export const WORKSPACE_NAME_MAX = 40;
 export const MAX_WORKSPACES = 20;
+export const WORKSPACE_KIND = 'bsh.workspace';
 
 export interface Workspace {
   id: string;
@@ -151,6 +152,7 @@ export interface WorkspaceApplyTarget {
 
 export type WorkspaceDialog =
   | { kind: 'save' }
+  | { kind: 'import' }
   | { kind: 'rename'; id: string }
   | null;
 
@@ -170,6 +172,11 @@ export interface WorkspaceApi {
   rename: (id: string, name: string) => boolean;
   remove: (id: string) => void;
   revert: () => void;
+  importText: (text: string) => string | null;
+  exportText: () => string;
+  download: () => void;
+  copyJson: () => void;
+  copyLink: () => void;
 }
 
 export function cleanWorkspaceName(raw: unknown): string | null {
@@ -286,4 +293,66 @@ export function removeWorkspace(
 ): WorkspaceStore {
   const items = store.items.filter((item) => item.id !== id);
   return items.length === store.items.length ? store : { ...store, items };
+}
+
+export function activeNameOf(
+  items: readonly Workspace[],
+  active: string | null,
+): string | null {
+  return items.find((item) => item.id === active)?.name ?? null;
+}
+
+export function serializeWorkspace(workspace: {
+  name: string;
+  layout: LayoutModel;
+  appearances: PaneAppearances;
+}): string {
+  return JSON.stringify({
+    kind: WORKSPACE_KIND,
+    version: WORKSPACES_VERSION,
+    name: workspace.name,
+    layout: workspace.layout,
+    appearances: workspace.appearances,
+  });
+}
+
+export type ParsedWorkspace = { workspace: Workspace } | { error: string };
+
+export function parseWorkspace(raw: string): ParsedWorkspace {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { error: 'This is not valid JSON.' };
+  }
+  if (!isRecord(parsed) || parsed.kind !== WORKSPACE_KIND) {
+    return { error: 'This is not a BIM Showcase Hub workspace.' };
+  }
+  if (parsed.version !== WORKSPACES_VERSION) {
+    return {
+      error: `This workspace is version ${String(parsed.version)}; this app reads version ${WORKSPACES_VERSION}.`,
+    };
+  }
+  const name = cleanWorkspaceName(parsed.name) ?? 'Imported layout';
+  const layout = parseLayout(
+    JSON.stringify({ version: LAYOUT_VERSION, layout: parsed.layout }),
+  );
+  if (!layout?.dock) return { error: 'This workspace has no valid layout.' };
+  return {
+    workspace: {
+      id: newWorkspaceId(),
+      name,
+      layout,
+      appearances: sanitizePaneAppearances(parsed.appearances),
+    },
+  };
+}
+
+export function workspaceFileName(name: string | null): string {
+  const base = cleanWorkspaceName(name) ?? 'layout';
+  const slug = base
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+  return `${slug || 'layout'}.json`;
 }

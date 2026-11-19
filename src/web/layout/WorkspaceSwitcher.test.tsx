@@ -30,6 +30,11 @@ function fakeWorkspaces(over: Partial<WorkspaceApi> = {}): WorkspaceApi {
     rename: vi.fn(() => true),
     remove: vi.fn(),
     revert: vi.fn(),
+    importText: vi.fn(() => null),
+    exportText: vi.fn(() => '{}'),
+    download: vi.fn(),
+    copyJson: vi.fn(),
+    copyLink: vi.fn(),
     ...over,
   };
 }
@@ -139,6 +144,23 @@ describe('workspace switcher', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save workspace' }));
     expect(save).toHaveBeenCalledWith('House');
     expect(workspaces.closeDialog).toHaveBeenCalled();
+  });
+
+  it('reports a rejected import inline', () => {
+    const importText = vi.fn(() => 'This is not valid JSON.');
+    const workspaces = fakeWorkspaces({
+      dialog: { kind: 'import' },
+      importText,
+    });
+    renderSwitcher(workspaces);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Workspace JSON' }), {
+      target: { value: '{nope' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Apply layout' }));
+    expect(importText).toHaveBeenCalledWith('{nope');
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'This is not valid JSON.',
+    );
   });
 
   it('is hidden outside the dock layout', () => {

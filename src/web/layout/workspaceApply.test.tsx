@@ -12,10 +12,17 @@ import {
   treeRoutes,
 } from '../test/mockApi.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
-import { LAYOUT_KEY, type LayoutModel, parseLayout } from './layoutState.js';
+import { encodeShare } from './layoutShare.js';
+import {
+  defaultModel,
+  LAYOUT_KEY,
+  type LayoutModel,
+  parseLayout,
+  type SerializedDock,
+} from './layoutState.js';
 import type { PaneId } from './paneRegistry.js';
 import type { WorkspaceApi } from './workspaces.js';
-import { WORKSPACES_KEY } from './workspaces.js';
+import { serializeWorkspace, WORKSPACES_KEY } from './workspaces.js';
 
 interface LayoutHandle {
   togglePane: (id: PaneId) => void;
@@ -62,6 +69,60 @@ async function dockReady() {
 
 function announcer() {
   return document.querySelector('.layout-announcer');
+}
+
+function sharedDock(): SerializedDock {
+  return {
+    grid: {
+      root: {
+        type: 'branch',
+        size: 900,
+        data: [
+          {
+            type: 'leaf',
+            size: 320,
+            data: { id: '1', views: ['tree'], activeView: 'tree' },
+          },
+          {
+            type: 'branch',
+            size: 580,
+            data: [
+              {
+                type: 'leaf',
+                size: 360,
+                data: {
+                  id: '2',
+                  views: ['viewer:abc123'],
+                  activeView: 'viewer:abc123',
+                },
+              },
+              {
+                type: 'leaf',
+                size: 220,
+                data: {
+                  id: '3',
+                  views: ['summary'],
+                  activeView: 'summary',
+                },
+              },
+            ],
+          },
+        ],
+      },
+      width: 1440,
+      height: 844,
+      orientation: 'HORIZONTAL',
+    },
+    panels: {
+      tree: { id: 'tree', contentComponent: 'pane', title: 'Documents' },
+      'viewer:abc123': {
+        id: 'viewer:abc123',
+        contentComponent: 'pane',
+        title: 'Model',
+      },
+      summary: { id: 'summary', contentComponent: 'pane', title: 'Summary' },
+    },
+  };
 }
 
 beforeEach(() => {
@@ -160,6 +221,73 @@ describe('named workspaces', () => {
     await waitFor(() => expect(announcer()).toHaveTextContent('House applied'));
     await waitFor(() =>
       expect(handle().openPanes()).not.toContain('dashboard'),
+    );
+  });
+
+  it('imports a workspace from JSON and rejects an older one', async () => {
+    renderPath();
+    await dockReady();
+    await screen.findByLabelText('Mock building model');
+    const current = handle().workspaces();
+    const older = JSON.stringify({
+      kind: 'bsh.workspace',
+      version: 0,
+      name: 'Old',
+      layout: defaultModel(),
+    });
+    expect(current.importText(older)).toContain('version 0');
+
+    const text = serializeWorkspace({
+      name: 'Shared',
+      layout: { ...defaultModel(), dock: sharedDock(), collapsed: [] },
+      appearances: { summary: { title: 'Key values' } },
+    });
+    act(() => {
+      expect(handle().workspaces().importText(text)).toBeNull();
+    });
+    await waitFor(() => expect(announcer()).toHaveTextContent('imported'));
+    expect(
+      await screen.findByRole('tab', { name: 'Key values' }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe('shared layout link', () => {
+  it('applies the hash once, clears it and keeps the layout on navigation', async () => {
+    const payload = serializeWorkspace({
+      name: 'Shared',
+      layout: { ...defaultModel(), dock: sharedDock(), collapsed: [] },
+      appearances: {},
+    });
+    window.location.hash = `#layout=${await encodeShare(payload)}`;
+    const { appRouter } = renderPath();
+    await dockReady();
+    await waitFor(() =>
+      expect(announcer()).toHaveTextContent('Shared applied'),
+    );
+    expect(window.location.hash).toBe('');
+    expect(handle().read().collapsed).toEqual([]);
+
+    await act(() =>
+      appRouter.navigate({
+        to: '/model/$urn',
+        params: { urn: 'xyz789' },
+        search: {},
+      }),
+    );
+    await waitFor(() =>
+      expect(savedLayout()?.dock?.panels).toHaveProperty('viewer:xyz789'),
+    );
+    expect(handle().read().collapsed).toEqual([]);
+    expect(announcer()).toHaveTextContent('Shared applied');
+  });
+
+  it('says so when the hash payload is unreadable', async () => {
+    window.location.hash = '#layout=j%%%';
+    renderPath();
+    await dockReady();
+    await waitFor(() =>
+      expect(announcer()).toHaveTextContent('not a readable layout'),
     );
   });
 });
