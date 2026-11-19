@@ -859,6 +859,19 @@ export class RealViewerAdapter implements ViewerAdapter {
     }
   }
 
+  setGhosting(enabled: boolean): void {
+    const viewer = this.viewer as
+      | (GuiViewer3D & { setGhosting?(value: boolean): void })
+      | null;
+    const ghost = viewer?.setGhosting;
+    if (!viewer || typeof ghost !== 'function') return;
+    try {
+      ghost.call(viewer, enabled);
+    } catch {
+      return;
+    }
+  }
+
   private fetchDocument(urn: string): Promise<ViewingDocument> {
     const promise =
       apiForRegion(detectRegion(urn)) === this.api

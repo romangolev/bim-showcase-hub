@@ -47,12 +47,19 @@ export const PAINT_FORM: FormDefinition<PaintSettings> = {
       slider: { step: 0.05, format: (value) => `${Math.round(value * 100)}%` },
       hint: "How strongly the colour replaces the model's own colour. This is theming intensity, not transparency.",
     },
+    {
+      key: 'ghostRest',
+      kind: 'toggle',
+      label: 'Ghost the rest when isolating',
+      hint: 'Non-isolated elements stay visible but faded. Off hides them.',
+    },
   ],
   reset: {
     label: 'Reset palette',
     patch: {
       palette: [...DEFAULT_PAINT_PALETTE],
       intensity: DEFAULT_PAINT_INTENSITY,
+      ghostRest: false,
     },
   },
 };
@@ -67,6 +74,7 @@ export class PaintTool extends ViewerTool<PaintSettings> {
 
   contribute(ctx: ToolContext, settings: PaintSettings): ToolContribution {
     const { adapter } = ctx;
+    adapter.setGhosting?.(settings.ghostRest);
     return {
       paint: {
         id: ctx.id('paint'),
@@ -90,10 +98,16 @@ export class PaintTool extends ViewerTool<PaintSettings> {
   }
 
   override toolbarSignature(settings: PaintSettings): unknown {
-    return [settings.enabled, settings.palette, settings.intensity];
+    return [
+      settings.enabled,
+      settings.palette,
+      settings.intensity,
+      settings.ghostRest,
+    ];
   }
 
   override onDisabled(adapter: ViewerAdapter): void {
+    adapter.setGhosting?.(false);
     resetPaint(adapter);
   }
 }

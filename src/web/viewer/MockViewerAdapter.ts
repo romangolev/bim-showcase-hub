@@ -257,6 +257,7 @@ export class MockViewerAdapter implements ViewerAdapter {
   private status: HTMLDivElement | null = null;
   private selection = new Set<string>();
   private isolated: Set<string> | null = null;
+  private ghosting = false;
   private hiddenKeys = new Set<string>();
   private readonly models = new ModelSet<MockScene>();
   private readonly placement = new Placement<MockScene>(this.models, {
@@ -636,14 +637,21 @@ export class MockViewerAdapter implements ViewerAdapter {
     for (const { info, handle } of this.models.ready()) {
       for (const [dbId, node] of handle.nodes) {
         const key = selectionKey(info.id, dbId);
+        const outside = this.isolated !== null && !this.isolated.has(key);
+        node.classList.toggle('bsh-mock__el--dim', this.ghosting && outside);
         node.classList.toggle(
-          'bsh-mock__el--dim',
-          this.isolated !== null && !this.isolated.has(key),
+          'bsh-mock__el--hidden',
+          this.hiddenKeys.has(key) || (!this.ghosting && outside),
         );
-        node.classList.toggle('bsh-mock__el--hidden', this.hiddenKeys.has(key));
       }
     }
     this.visibility.emit([]);
+  }
+
+  setGhosting(enabled: boolean): void {
+    if (this.ghosting === enabled) return;
+    this.ghosting = enabled;
+    this.applyIsolation();
   }
 
   setModelThemingColor(items: readonly ModelDbId[], color: Rgba): void {

@@ -335,13 +335,21 @@ describe('mock selecting and isolating', () => {
     adapter.isolateModelIds(items);
     expect(adapter.getIsolated()).toHaveLength(2);
     expect(await adapter.getVisible()).toHaveLength(2);
-    expect(host.querySelectorAll('.bsh-mock__el--dim').length).toBe(
-      buildMockElements().length - 2,
+    const total = buildMockElements().length;
+    expect(host.querySelectorAll('.bsh-mock__el--dim')).toHaveLength(0);
+    expect(host.querySelectorAll('.bsh-mock__el--hidden')).toHaveLength(
+      total - 2,
     );
+    adapter.setGhosting(true);
+    expect(host.querySelectorAll('.bsh-mock__el--dim')).toHaveLength(total - 2);
+    expect(host.querySelectorAll('.bsh-mock__el--hidden')).toHaveLength(0);
+    adapter.setGhosting(false);
+    expect(host.querySelectorAll('.bsh-mock__el--dim')).toHaveLength(0);
     adapter.isolateModelIds([]);
     expect(adapter.getIsolated()).toEqual([]);
-    expect(await adapter.getVisible()).toHaveLength(buildMockElements().length);
+    expect(await adapter.getVisible()).toHaveLength(total);
     expect(host.querySelectorAll('.bsh-mock__el--dim')).toHaveLength(0);
+    expect(host.querySelectorAll('.bsh-mock__el--hidden')).toHaveLength(0);
   });
 
   it('hides elements and shows all again', async () => {

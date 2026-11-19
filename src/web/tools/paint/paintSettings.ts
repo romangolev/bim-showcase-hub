@@ -11,6 +11,7 @@ import { readEnabled, type ToolSettings } from '../kernel/ViewerTool.js';
 export interface PaintSettings extends ToolSettings {
   palette: string[];
   intensity: number;
+  ghostRest: boolean;
 }
 
 export const PAINT_SETTINGS_KEY = 'bsh.tool.paint.v1';
@@ -19,6 +20,7 @@ export const DEFAULT_PAINT_SETTINGS: PaintSettings = {
   enabled: true,
   palette: [...DEFAULT_PAINT_PALETTE],
   intensity: DEFAULT_PAINT_INTENSITY,
+  ghostRest: false,
 };
 
 export function readPaintSettings(raw: unknown): PaintSettings {
@@ -27,6 +29,7 @@ export function readPaintSettings(raw: unknown): PaintSettings {
     enabled: readEnabled(source),
     palette: sanitizePalette(source.palette),
     intensity: sanitizeIntensity(source.intensity),
+    ghostRest: source.ghostRest === true,
   };
 }
 

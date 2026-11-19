@@ -45,6 +45,7 @@ describe('readPaintSettings', () => {
       enabled: false,
       palette: ['#abcdef', '#123456'],
       intensity: 1,
+      ghostRest: false,
     });
     expect(
       readPaintSettings({ enabled: 'no', palette: [], intensity: 'x' }),
@@ -88,9 +89,25 @@ describe('PaintTool', () => {
       enabled: true,
       palette: ['#000000'],
       intensity: 0.8,
+      ghostRest: false,
     });
     expect(paint?.swatches).toHaveLength(1);
     expect(paint?.swatches[0]?.color).toEqual([0, 0, 0, 0.8]);
+  });
+
+  it('applies ghosting from the setting and clears it when disabled', () => {
+    const setGhosting = vi.fn();
+    tool.contribute(context({ setGhosting }), {
+      ...DEFAULT_PAINT_SETTINGS,
+      ghostRest: true,
+    });
+    expect(setGhosting).toHaveBeenCalledWith(true);
+    const off = vi.fn();
+    tool.onDisabled({
+      setGhosting: off,
+      clearThemingColors: vi.fn(),
+    } as unknown as ViewerAdapter);
+    expect(off).toHaveBeenCalledWith(false);
   });
 
   it('paints the selection and resets through the adapter', () => {
@@ -149,6 +166,14 @@ describe('Paint settings window', () => {
     expect(stored().palette).toHaveLength(3);
     fireEvent.click(screen.getByRole('button', { name: 'Reset palette' }));
     expect(stored().palette[0]).toBe('#ef4444');
+  });
+
+  it('stores the ghosting setting', () => {
+    renderWindow();
+    fireEvent.click(
+      screen.getByRole('switch', { name: 'Ghost the rest when isolating' }),
+    );
+    expect(stored().ghostRest).toBe(true);
   });
 
   it('labels the slider as intensity and stores it', () => {
