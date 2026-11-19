@@ -137,7 +137,7 @@ export function buildExportSheets(
 }
 
 const PLAIN_DECIMAL = /^-?(0|[1-9]\d*)(\.\d+)?$/;
-const IDENTIFIER_COLUMN = /(?:^|[\s_-])id$/i;
+const IDENTIFIER_COLUMN = /(?:^|[\s_-])[Ii][Dd]$|[a-z0-9][A-Z][Dd]$/;
 
 export const TOTAL_ROW_PREFIX = 'Total';
 export const TOTAL_ROW_SKIP_COLUMN = 0;

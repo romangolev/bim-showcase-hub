@@ -93,6 +93,18 @@ describe('totalsRow', () => {
       ),
     ).toEqual(['Total (2)', '', '', 30]);
   });
+
+  it('recognizes camelCase identifiers without swallowing ordinary names', () => {
+    expect(
+      totalsRow(
+        ['dbId', 'ElementId', 'ModelID', 'uniqueId', 'Area', 'Grid'],
+        [
+          [1, '123456', '77', '9001', '10', '4'],
+          [2, '123457', '78', '9002', '20', '6'],
+        ],
+      ),
+    ).toEqual(['Total (2)', '', '', '', 30, 10]);
+  });
 });
 
 describe('xlsxCell', () => {
@@ -162,6 +174,21 @@ describe('xlsxSheet', () => {
     const built = xlsxSheet(sheet);
     expect(built.data[1]?.[1]).toBe('11001');
     expect(built.data[1]?.[2]).toMatchObject({ value: 10, type: Number });
+    expect(built.data.at(-1)?.[1]).toEqual({
+      value: '',
+      fontWeight: 'bold',
+    });
+  });
+
+  it('keeps a camelCase identifier column as text in the sheet', () => {
+    const [sheet] = buildExportSheets(
+      [row(1, { ElementId: '11001' })],
+      ['ElementId'],
+      null,
+    );
+    if (!sheet) throw new Error('no sheet');
+    const built = xlsxSheet(sheet);
+    expect(built.data[1]?.[1]).toBe('11001');
     expect(built.data.at(-1)?.[1]).toEqual({
       value: '',
       fontWeight: 'bold',
