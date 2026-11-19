@@ -1,4 +1,10 @@
+import {
+  hexToRgba,
+  paintSelection,
+  resolvePaintPalette,
+} from '../extensions/paintBrushes.js';
 import { notify } from '../tasks/notifications.js';
+import { PAINT_SETTINGS } from '../tools/paint/paintSettings.js';
 import {
   listSets,
   saveSelectionSet,
@@ -18,6 +24,45 @@ import type { Command } from './types.js';
 export const NO_MODEL_REASON = 'Open a model first';
 export const NO_SELECTION_REASON = 'Select elements first';
 
+export interface ViewerShortcut {
+  command: string;
+  keys: string;
+  label: string;
+}
+
+export const VIEWER_SHORTCUTS: readonly ViewerShortcut[] = [
+  {
+    command: 'viewer.isolate',
+    keys: 'mod+alt+i',
+    label: 'Isolate selection',
+  },
+  { command: 'viewer.hide', keys: 'mod+alt+h', label: 'Hide selection' },
+  {
+    command: 'viewer.showAll',
+    keys: 'mod+alt+shift+h',
+    label: 'Show all elements',
+  },
+  {
+    command: 'viewer.invertSelection',
+    keys: 'mod+alt+shift+i',
+    label: 'Invert selection',
+  },
+  {
+    command: 'viewer.paint',
+    keys: 'mod+alt+b',
+    label: 'Paint selection with the first swatch',
+  },
+  {
+    command: 'viewer.resetPaint',
+    keys: 'mod+alt+shift+r',
+    label: 'Reset appearance',
+  },
+];
+
+const SHORTCUT_KEYS = new Map(
+  VIEWER_SHORTCUTS.map((shortcut) => [shortcut.command, shortcut.keys]),
+);
+
 export function viewerCommands(adapter: ViewerAdapter | null): Command[] {
   const noModel = adapter ? undefined : NO_MODEL_REASON;
   const needsSelection =
@@ -30,13 +75,18 @@ export function viewerCommands(adapter: ViewerAdapter | null): Command[] {
     title: string,
     disabled: string | undefined,
     run: (viewer: ViewerAdapter) => void | Promise<void>,
-  ): Command => ({
-    id: `viewer.${id}`,
-    title,
-    group: 'Viewer',
-    ...(disabled ? { disabled } : {}),
-    run: () => (adapter ? run(adapter) : undefined),
-  });
+  ): Command => {
+    const commandId = `viewer.${id}`;
+    const keys = SHORTCUT_KEYS.get(commandId);
+    return {
+      id: commandId,
+      title,
+      group: 'Viewer',
+      ...(keys ? { keys: [keys] } : {}),
+      ...(disabled ? { disabled } : {}),
+      run: () => (adapter ? run(adapter) : undefined),
+    };
+  };
   return [
     make('selectAll', 'Select all visible elements', noModel, async (viewer) =>
       viewer.selectModelIds(await viewer.getVisible()),
@@ -113,6 +163,19 @@ export function viewerCommands(adapter: ViewerAdapter | null): Command[] {
           await selectSet(viewer, set.id);
         },
       ),
+    ),
+    make(
+      'paint',
+      'Paint selection with the first swatch',
+      needsSelection,
+      (viewer) => {
+        const settings = PAINT_SETTINGS.read();
+        const [first] = resolvePaintPalette(
+          settings.paletteId,
+          settings.palette,
+        );
+        if (first) paintSelection(viewer, hexToRgba(first, settings.intensity));
+      },
     ),
     make('resetPaint', 'Reset appearance', noModel, (viewer) =>
       viewer.clearThemingColors(),

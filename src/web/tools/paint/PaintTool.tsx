@@ -1,3 +1,5 @@
+import { formatShortcut } from '../../commands/shortcuts.js';
+import { VIEWER_SHORTCUTS } from '../../commands/viewerCommands.js';
 import type { FormDefinition } from '../../components/SettingsForm.js';
 import { SettingsForm } from '../../components/SettingsForm.js';
 import {
@@ -174,6 +176,16 @@ function PaintFields() {
           Swatches are numbered in the settings and in the viewer toolbar
           tooltip, so colour is not the only cue.
         </p>
+      </section>
+      <section className="settings__section" aria-label="Viewer shortcuts">
+        <h3 className="settings__heading">Viewer shortcuts</h3>
+        <ul>
+          {VIEWER_SHORTCUTS.map((shortcut) => (
+            <li key={shortcut.command}>
+              <kbd>{formatShortcut(shortcut.keys)}</kbd> {shortcut.label}
+            </li>
+          ))}
+        </ul>
       </section>
     </>
   );
