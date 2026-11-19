@@ -4,7 +4,6 @@ import { ModalProvider } from '../modal/index.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { type LayoutApi, LayoutContext } from './layoutContext.js';
 import { PanesMenu } from './PanesMenu.js';
-import { PANE_CATALOG_KEY } from './paneCatalog.js';
 import type { PaneId } from './paneRegistry.js';
 
 function fakeLayout(over: Partial<LayoutApi> = {}): LayoutApi {
@@ -67,7 +66,6 @@ describe('Panes menu', () => {
     expect(
       within(menu).getByText('Chart the properties of the active model.'),
     ).toBeInTheDocument();
-    expect(within(menu).queryByText('Pinned')).toBeNull();
   });
 
   it('opens and closes a pane through the row action', () => {
@@ -133,65 +131,14 @@ describe('Panes menu', () => {
     expect(layout.focusPane).toHaveBeenCalledWith('dashboard');
   });
 
-  it('pins favourites first, in pin order, and remembers them', () => {
-    const { unmount } = renderMenu();
-    let menu = openMenu();
-    fireEvent.click(
-      within(menu).getByRole('menuitem', { name: 'Pin Dashboard' }),
-    );
-    fireEvent.click(
-      within(
-        menu.querySelector('[data-kind="summary"]') as HTMLElement,
-      ).getByRole('menuitem', { name: 'Pin Model summary' }),
-    );
-    expect(
-      Array.from(
-        document.querySelectorAll('[aria-label="Pinned panes"] [data-kind]'),
-      ).map((row) => row.getAttribute('data-kind')),
-    ).toEqual(['dashboard', 'summary']);
-    expect(window.localStorage.getItem(PANE_CATALOG_KEY)).toContain(
-      'dashboard',
-    );
-    fireEvent.keyDown(menu, { key: 'Escape' });
-
-    unmount();
-    renderMenu();
-    menu = openMenu();
-    expect(
-      Array.from(
-        document.querySelectorAll('[aria-label="Pinned panes"] [data-kind]'),
-      ).map((row) => row.getAttribute('data-kind')),
-    ).toEqual(['dashboard', 'summary']);
-  });
-
-  it('hides a pane and shows it again from the hidden section', () => {
+  it('groups the rows by category without a query', () => {
     renderMenu();
     const menu = openMenu();
-    fireEvent.click(
-      within(menu).getByRole('menuitem', { name: 'Hide Dashboard' }),
-    );
     expect(
-      within(menu).queryByRole('menuitemcheckbox', { name: 'Dashboard' }),
-    ).toBeNull();
-    const manage = within(menu).getByRole('menuitemcheckbox', {
-      name: 'Show hidden panes (1)',
-    });
-    fireEvent.click(manage);
-    const hidden = screen.getByRole('group', { name: 'Hidden panes' });
-    expect(
-      within(hidden).getByText('Chart the properties of the active model.'),
-    ).toBeInTheDocument();
-    fireEvent.click(
-      within(hidden).getByRole('menuitem', { name: 'Show Dashboard' }),
-    );
-    expect(
-      within(menu).getByRole('menuitemcheckbox', { name: 'Dashboard' }),
-    ).toBeInTheDocument();
-    expect(
-      within(menu).queryByRole('menuitemcheckbox', {
-        name: 'Show hidden panes (1)',
-      }),
-    ).toBeNull();
+      Array.from(menu.querySelectorAll('.panes-menu__heading')).map(
+        (heading) => heading.textContent,
+      ),
+    ).toEqual(['Workspace', 'Viewer', 'Analysis', 'Data']);
   });
 
   it('opens from the keyboard, moves to the rows and closes with Escape', () => {

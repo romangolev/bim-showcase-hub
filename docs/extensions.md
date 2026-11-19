@@ -31,11 +31,10 @@ Exports over 20,000 rows ask for confirmation with a browser dialog. End-to-end 
 
 ## Panes menu and appearance
 
-Every `PaneDefinition` carries `description`, `category` and `keywords` beside `title` (`layout/paneRegistry.ts`). `matchesPane` searches all four, and `orderPanes` turns the result into pinned rows, category groups and hidden rows (`layout/paneCatalog.ts`).
+Every `PaneDefinition` carries `description`, `category` and `keywords` beside `title` (`layout/paneRegistry.ts`). `PanesMenu.tsx` searches all four and groups the result by category.
 
-- The top bar Panes menu (`layout/PanesMenu.tsx`) is a search dialog. Each row comes from `paneCommandsFor`: Open/Close for a normal pane, New for a user kind, and any `PaneDefinition.commands` hooks. Focus, Pin and Hide sit beside the main action. The footer holds the rest of `layoutCommands`: the workspace actions (save, import, download, copy JSON, share link, revert), Present, Lock and Reset. A kind with no command at all, such as the Viewer, has no row.
-- With a query the category groups collapse into one "Matching panes" list. Without one, pinned panes come first, then the categories, then the Hidden section behind `Show hidden panes (N)`.
-- Pins and hidden panes are per pane kind, not per copy, and live in the personal `bsh.pane.catalog.v1` (`{ pins, hidden }`). Hiding a pinned pane unpins it. Hiding only removes the row from this menu: palette commands still run and an open pane stays open.
+- The top bar Panes menu (`layout/PanesMenu.tsx`) is a search dialog. Each row comes from `paneCommandsFor`: Open/Close for a normal pane, New for a user kind, and any `PaneDefinition.commands` hooks. Focus and the extra commands sit beside the main action. The footer holds the rest of `layoutCommands`: the workspace actions (save, import, download, copy JSON, share link, revert), Present, Lock and Reset. A kind with no command at all, such as the Viewer, has no row.
+- With a query the category groups collapse into one "Matching panes" list. Without one, the rows are grouped by category.
 - Titles and colour tags are per panel id, so a plain pane uses `summary` and a copy uses `chart:1`, and each copy keeps its own. They live in the personal `bsh.pane.appearance.v1`. A title is trimmed to 48 characters; an empty title restores the registry title. A colour is red, orange, yellow, green, blue or purple and shows as a dot on the pane's tab. Both survive closing the pane and a reload, and a saved workspace carries them ([layout.md](layout.md#workspaces)).
 
 ## Table export

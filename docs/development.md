@@ -79,7 +79,6 @@ All browser storage goes through `src/web/storage.ts`. `BSH_KEYS` lists the fixe
 | `bsh.summary.*`, `bsh.dashboard.*` | personal | View, properties, scope and click action of the main panes. The dashboard view includes its property list |
 | `bsh.pane.<kind>.<n>.v1` | personal | Spec of a chart, summary or properties pane instance. A chart spec includes its property list |
 | `bsh.pane.docs.root.v1` | personal | Documents root: the hub and project the tree starts at |
-| `bsh.pane.catalog.v1` | personal | Panes menu state: `{ pins, hidden }`, by pane kind. Under the `bsh.pane.` prefix |
 | `bsh.pane.appearance.v1` | personal | Pane titles and colour tags, keyed by panel id (`summary`, `chart:1`). Under the `bsh.pane.` prefix |
 | `bsh.saved.v1` | personal | Saved items: dashboard presets, export presets, selection sets, viewpoints |
 | `bsh.workspaces.v1` | personal | Named workspaces: `{ version: 1, items }`, each with a name, a layout and pane appearances |

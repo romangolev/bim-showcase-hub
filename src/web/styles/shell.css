@@ -662,10 +662,6 @@
   background: var(--color-ghost-fill-hover);
 }
 
-.panes-menu__row[data-hidden="true"] {
-  opacity: 0.72;
-}
-
 .panes-menu__main {
   display: flex;
   flex: 1 1 auto;
@@ -763,24 +759,6 @@
 .panes-menu__action:disabled {
   color: var(--color-ash);
   cursor: not-allowed;
-}
-
-.panes-menu__manage {
-  flex: none;
-  min-height: var(--hit-target);
-  padding: 0 var(--space-2);
-  border: 0;
-  border-top: var(--border-hairline);
-  background: transparent;
-  color: var(--color-arc-blue);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.panes-menu__manage:hover,
-.panes-menu__manage:focus-visible {
-  background: var(--color-ghost-fill);
 }
 
 .panes-menu__footer {

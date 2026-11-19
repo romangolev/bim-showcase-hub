@@ -22,7 +22,6 @@ Everything lives in `src/web/layout`.
 | File | Job |
 |---|---|
 | `paneRegistry.ts` | `PANES`: every pane, its catalog text, placement rules and commands |
-| `paneCatalog.ts` | Pinned and hidden panes, search matching and ordering for the Panes menu |
 | `paneAppearance.ts` | Custom pane titles and colour tags |
 | `panes.tsx` | The pane bodies |
 | `paneLifecycle.ts` | Pane behavior (instances, open, close, move, collapse, maximize, reset, lock, present, workspaces) with no React or dockview in it |
@@ -60,9 +59,8 @@ The Viewer pane has one instance per open model, a panel `viewer:<urn>` with its
 The top bar Panes menu is a searchable dialog over every pane.
 
 - The entries sit in a `role="menu"` inside the dialog; the search field stays outside it. A pane toggle and Lock are `menuitemcheckbox` entries with `aria-checked`; the other entries are `menuitem`.
-- A row's main action is its command: Open/Close with a checked state for a normal pane, New for a user kind, or a pane hook such as Go to Documents. Focus, Pin and Hide sit beside it. The footer holds the workspace actions (save, import, download, copy JSON, share link, revert), Present, Lock and Reset layout. A pane with no command, such as the Viewer, has no row.
-- Search matches the pane's title, description, category and keywords. Without a query the rows are Pinned first, then grouped by category (Workspace, Viewer, Analysis, Data), then Hidden. With a query they become one list, and hidden matches stay behind `Show hidden panes (N)`.
-- Pin and Hide apply to the pane kind, so hiding Chart hides the whole family. Hiding removes the menu row only: palette commands still run and an open pane stays open. Hiding a pinned pane unpins it. The state is personal, in `bsh.pane.catalog.v1`, and is separate from the layout, so Reset layout does not unhide a pane.
+- A row's main action is its command: Open/Close with a checked state for a normal pane, New for a user kind, or a pane hook such as Go to Documents. Focus and the pane's extra commands sit beside it. The footer holds the workspace actions (save, import, download, copy JSON, share link, revert), Present, Lock and Reset layout. A pane with no command, such as the Viewer, has no row.
+- Search matches the pane's title, description, category and keywords. Without a query the rows are grouped by category (Workspace, Viewer, Analysis, Data). With a query they become one list.
 
 ## Rename and colour
 
@@ -154,7 +152,6 @@ All apply paths go through `layoutApply.ts`. The lifecycle guard (`applyWorkspac
 Limits:
 
 - User-added panes (`chart:2`, `properties:1`, `modelSummary:3`) are not part of a workspace: their placement and instance list stay out of it. The instances that exist now are kept and placed by the usual reconciliation. The appearance map can still name an instance id, so applying a workspace that carries one restores that copy's title and colour.
-- Pinned and hidden panes in the Panes menu are a separate personal record and do not travel with a workspace.
 - The switcher exists only in the dock layout, and applying a preset or saved workspace is disabled while the layout is locked.
 
 ## Sharing a layout
