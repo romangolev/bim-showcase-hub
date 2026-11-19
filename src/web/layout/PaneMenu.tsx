@@ -168,9 +168,7 @@ export function paneMenuEntries(
     });
   }
   const commandEntries = paneCommandsFor(definition, paneCommandContext(layout))
-    .filter(
-      (command) => command.menu !== 'toggle' && command.menu !== 'create',
-    )
+    .filter((command) => command.menu !== 'toggle' && command.menu !== 'create')
     .map((command) => commandEntry(command, host));
   if (commandEntries.length > 0) {
     entries.push({ kind: 'separator', id: 'sep.commands' }, ...commandEntries);
