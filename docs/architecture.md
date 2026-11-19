@@ -117,7 +117,7 @@ The keys are listed in [development.md](development.md#storage-keys).
 
 `src/web/store/savedStore.ts` holds viewpoints, selection sets, dashboard presets and export presets in one personal record (`bsh.saved.v1`). Each kind is declared once with `defineSavedKind` (`store/savedKinds.ts`), which registers it through `registerSavedKind` (`store/savedKindRegistry.ts`) and returns a typed handle. The production kinds are `viewpoint` (`viewer/viewpoints.ts`), `selection-set` (`viewer/selectionSets.ts`), `dashboard-preset` (`extensions/dashboardPresets.ts`) and `export-preset` (`tools/excel/exportPresets.ts`), all at version 1. The export envelope is `bsh-saved` version 2 with a per-kind version map; import migrates older items and merges by id.
 
-A selection set stores dbIds per model plus optional stable external ids (`keys`). `resolveSetItems` maps a key back through `adapter.getExternalIdMap`, and reading a set against an open model (`migrateSelectionSet`) moves its dbIds into keys. `mergeSetData` keeps the union or the intersection by identity (model plus key or dbId).
+A selection set stores dbIds per model plus optional stable external ids (`keys`). `viewer/setResolution.ts` owns resolving a set: `resolveSet` and `scopeElementItems` map keys back through `adapter.getExternalIdMap` (cached per model version) and never write, with `undefined` meaning the set is gone. Only `selectSet` and `migrateSelectionSet(s)` persist the move of dbIds into keys. `mergeSetData` keeps the union or the intersection by identity (model plus key or dbId).
 
 ### Scoped rows
 

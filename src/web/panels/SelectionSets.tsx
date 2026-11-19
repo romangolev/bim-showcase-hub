@@ -6,15 +6,17 @@ import {
   MAX_SET_ELEMENTS,
   type MergeMode,
   mergeSets,
-  migrateSelectionSet,
-  migrateSelectionSets,
   renameSet,
   type SaveSetResult,
   saveSelectionSet,
-  selectSet,
-  stableKeysFor,
   useSelectionSets,
 } from '../viewer/selectionSets.js';
+import {
+  migrateSelectionSet,
+  migrateSelectionSets,
+  selectSet,
+  stableKeysFor,
+} from '../viewer/setResolution.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 
 export const SET_MESSAGES: Record<Exclude<SaveSetResult, 'ok'>, string> = {

@@ -13,7 +13,7 @@ import {
   resolveElementScope,
   scopeNoteFor,
 } from './propertyScope.js';
-import { scopeElementItems } from './scopeItems.js';
+import { scopeElementItems } from './setResolution.js';
 import { peekLeafRows, readLeafRows } from './sharedLeafRows.js';
 import type { ViewerAdapter } from './ViewerAdapter.js';
 

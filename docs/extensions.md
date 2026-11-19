@@ -26,7 +26,7 @@ Read rows with `useScopedRows` in panels and `readScopedRows` (`viewer/scopedRow
 | GLB export | `glbExport.ts`, `viewer/viewerGeometry.ts` | Binary glTF 2.0 from `adapter.getGeometryParts()`. Capped at 256 MB |
 | IFC export | `ifcExport.ts`, `ifc/` | IFC4 STEP file from `adapter.getIfcSource()`. A mesh-based coordination view, not a Revit IFC export |
 | Properties | `panels/PropertiesPanel.tsx` | Read-only property list of the selected elements |
-| Selection sets, viewpoints | `viewer/selectionSets.ts`, `viewer/viewpoints.ts` | Saved items of kind `selection-set` and `viewpoint`. A set holds up to 10,000 elements, keeps stable external ids where the model has them, and merges two sets as a union or an intersection |
+| Selection sets, viewpoints | `viewer/selectionSets.ts`, `viewer/setResolution.ts`, `viewer/viewpoints.ts` | Saved items of kind `selection-set` and `viewpoint`. A set holds up to 10,000 elements, keeps stable external ids where the model has them, and merges two sets as a union or an intersection |
 
 Exports over 20,000 rows ask for confirmation with a browser dialog. End-to-end scripts must accept dialogs.
 

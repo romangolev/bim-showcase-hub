@@ -1,9 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { forgetPersonal } from '../storage.js';
-import { readSaved, renameSaved, upsertSaved } from '../store/savedStore.js';
+import { readSaved, upsertSaved } from '../store/savedStore.js';
 import { installMemoryStorage } from '../test/mockApi.js';
-import { filterByElementScope } from './propertyScope.js';
-import { scopeElementItems } from './scopeItems.js';
 import {
   deleteSet,
   getSet,
@@ -11,17 +9,13 @@ import {
   MAX_SET_ELEMENTS,
   mergeSetData,
   mergeSets,
-  migrateSelectionSet,
-  migrateSelectionSets,
   renameSet,
   SELECTION_SET_KIND,
   type SelectionSetData,
   saveSelectionSet,
-  selectSet,
   setIdOf,
   withSetLabels,
 } from './selectionSets.js';
-import type { ViewerAdapter } from './ViewerAdapter.js';
 
 beforeEach(() => {
   installMemoryStorage();
@@ -38,18 +32,6 @@ const stable = new Map([
   ['a:1', 'ext-1'],
   ['a:2', 'ext-2'],
 ]);
-
-function fakeAdapter(
-  maps: Record<string, Record<string, number>>,
-  selectModelIds = vi.fn(),
-): ViewerAdapter {
-  return {
-    getModels: () =>
-      Object.keys(maps).map((id) => ({ id, status: 'ready' as const })),
-    getExternalIdMap: async (modelId: string) => maps[modelId] ?? {},
-    selectModelIds,
-  } as unknown as ViewerAdapter;
-}
 
 function storedData(id: string): SelectionSetData {
   return readSaved(SELECTION_SET_KIND).find((item) => item.id === id)
@@ -122,31 +104,6 @@ describe('selection sets', () => {
     ]);
   });
 
-  it('selects only items of open models', async () => {
-    saveSelectionSet('Mixed', items);
-    const selectModelIds = vi.fn();
-    const adapter = {
-      getModels: () => [{ id: 'a', status: 'ready' }],
-      selectModelIds,
-    } as unknown as ViewerAdapter;
-    expect(await selectSet(adapter, listSets()[0]?.id ?? '')).toBe(2);
-    expect(selectModelIds).toHaveBeenCalledWith([
-      { modelId: 'a', dbId: 1 },
-      { modelId: 'a', dbId: 2 },
-    ]);
-  });
-
-  it('leaves the selection alone when none of its models are open', async () => {
-    saveSelectionSet('Walls', items);
-    const selectModelIds = vi.fn();
-    const adapter = {
-      getModels: () => [{ id: 'z', status: 'ready' }],
-      selectModelIds,
-    } as unknown as ViewerAdapter;
-    expect(await selectSet(adapter, listSets()[0]?.id ?? '')).toBe(0);
-    expect(selectModelIds).not.toHaveBeenCalled();
-  });
-
   it('is removed by forgetPersonal', () => {
     saveSelectionSet('Gone', items);
     forgetPersonal();
@@ -164,132 +121,6 @@ describe('selection sets', () => {
   });
 });
 
-describe('stable selection set keys', () => {
-  it('migrates a dbId set to external ids on read', async () => {
-    upsertSaved({
-      id: 'legacy',
-      kind: SELECTION_SET_KIND,
-      name: 'Walls',
-      version: 1,
-      updatedAt: 1,
-      data: { models: { a: [1, 2] } },
-    });
-    const before = fakeAdapter({ a: { 'ext-1': 1, 'ext-2': 2 } });
-    expect(await migrateSelectionSet(before, 'legacy')).toMatchObject({
-      keys: [
-        { modelId: 'a', dbId: 1, key: 'ext-1' },
-        { modelId: 'a', dbId: 2, key: 'ext-2' },
-      ],
-    });
-    expect(storedData('legacy')).toEqual({
-      models: {},
-      keys: {
-        a: [
-          { dbId: 1, key: 'ext-1' },
-          { dbId: 2, key: 'ext-2' },
-        ],
-      },
-    });
-    expect(await migrateSelectionSets(before)).toBe(0);
-  });
-
-  it('skips the migration when the set changes while ids load', async () => {
-    upsertSaved({
-      id: 'race',
-      kind: SELECTION_SET_KIND,
-      name: 'Walls',
-      version: 1,
-      updatedAt: 1,
-      data: { models: { a: [1] } },
-    });
-    const adapter = {
-      getModels: () => [{ id: 'a', status: 'ready' as const }],
-      getExternalIdMap: async () => {
-        renameSaved(SELECTION_SET_KIND, 'race', 'Renamed');
-        return { 'ext-1': 1 };
-      },
-    } as unknown as ViewerAdapter;
-    const result = await migrateSelectionSet(adapter, 'race');
-    expect(result?.name).toBe('Renamed');
-    expect(storedData('race')).toEqual({ models: { a: [1] } });
-  });
-
-  it('keeps dbIds when the model has no mapping', async () => {
-    upsertSaved({
-      id: 'plain',
-      kind: SELECTION_SET_KIND,
-      name: 'Sheet',
-      version: 1,
-      updatedAt: 1,
-      data: { models: { a: [1, 2] } },
-    });
-    const selectModelIds = vi.fn();
-    const adapter = fakeAdapter({ a: {} }, selectModelIds);
-    expect(await selectSet(adapter, 'plain')).toBe(2);
-    expect(selectModelIds).toHaveBeenCalledWith([
-      { modelId: 'a', dbId: 1 },
-      { modelId: 'a', dbId: 2 },
-    ]);
-    expect(storedData('plain')).toEqual({ models: { a: [1, 2] } });
-  });
-
-  it('selects the new dbIds after a re-translation', async () => {
-    upsertSaved({
-      id: 'legacy',
-      kind: SELECTION_SET_KIND,
-      name: 'Walls',
-      version: 1,
-      updatedAt: 1,
-      data: { models: { a: [1, 2] } },
-    });
-    const before = fakeAdapter({ a: { 'ext-1': 1, 'ext-2': 2 } });
-    await migrateSelectionSet(before, 'legacy');
-    const selectModelIds = vi.fn();
-    const after = fakeAdapter(
-      { a: { 'ext-1': 101, 'ext-2': 102 } },
-      selectModelIds,
-    );
-    expect(await selectSet(after, 'legacy')).toBe(2);
-    expect(selectModelIds).toHaveBeenCalledWith([
-      { modelId: 'a', dbId: 101 },
-      { modelId: 'a', dbId: 102 },
-    ]);
-  });
-
-  it('applies the set scope through the new dbIds', async () => {
-    upsertSaved({
-      id: 'legacy',
-      kind: SELECTION_SET_KIND,
-      name: 'Walls',
-      version: 1,
-      updatedAt: 1,
-      data: { models: { a: [1, 2] } },
-    });
-    const before = fakeAdapter({ a: { 'ext-1': 1, 'ext-2': 2 } });
-    expect(await scopeElementItems(before, 'set:legacy')).toEqual([
-      { modelId: 'a', dbId: 1 },
-      { modelId: 'a', dbId: 2 },
-    ]);
-    expect(storedData('legacy').keys?.a).toHaveLength(2);
-    const after = fakeAdapter({ a: { 'ext-1': 101, 'ext-2': 102 } });
-    const elements = await scopeElementItems(after, 'set:legacy');
-    expect(elements).toEqual([
-      { modelId: 'a', dbId: 101 },
-      { modelId: 'a', dbId: 102 },
-    ]);
-    const rows = [
-      { modelId: 'a', dbId: 1 },
-      { modelId: 'a', dbId: 101 },
-      { modelId: 'a', dbId: 102 },
-    ];
-    expect(
-      filterByElementScope(rows, 'set:legacy', elements, 'a').map(
-        (row) => row.dbId,
-      ),
-    ).toEqual([101, 102]);
-  });
-});
-
 describe('selection set edge cases', () => {
   it('keeps an element with an over-long key as a dbId', () => {
     const long = 'k'.repeat(513);
@@ -301,72 +132,6 @@ describe('selection set edge cases', () => {
       ),
     ).toBe('ok');
     expect(listSets()[0]?.items).toEqual([{ modelId: 'a', dbId: 7 }]);
-  });
-
-  it('skips a keyed element missing from a readable map', async () => {
-    upsertSaved({
-      id: 'gone',
-      kind: SELECTION_SET_KIND,
-      name: 'Gone',
-      version: 1,
-      updatedAt: 1,
-      data: {
-        models: {},
-        keys: {
-          a: [
-            { dbId: 1, key: 'ext-1' },
-            { dbId: 2, key: 'ext-2' },
-          ],
-        },
-      },
-    });
-    const adapter = fakeAdapter({ a: { 'ext-1': 11, 'ext-9': 2 } });
-    expect(await scopeElementItems(adapter, 'set:gone')).toEqual([
-      { modelId: 'a', dbId: 11 },
-    ]);
-  });
-
-  it('keeps the stored dbId when the map cannot be read', async () => {
-    upsertSaved({
-      id: 'err',
-      kind: SELECTION_SET_KIND,
-      name: 'Err',
-      version: 1,
-      updatedAt: 1,
-      data: { models: {}, keys: { a: [{ dbId: 2, key: 'ext-2' }] } },
-    });
-    const adapter = {
-      getModels: () => [{ id: 'a', status: 'ready' as const }],
-      getExternalIdMap: async () => {
-        throw new Error('boom');
-      },
-    } as unknown as ViewerAdapter;
-    expect(await scopeElementItems(adapter, 'set:err')).toEqual([
-      { modelId: 'a', dbId: 2 },
-    ]);
-  });
-
-  it('reads the external id map once per model until the version changes', async () => {
-    upsertSaved({
-      id: 'c',
-      kind: SELECTION_SET_KIND,
-      name: 'C',
-      version: 1,
-      updatedAt: 1,
-      data: { models: { a: [1] } },
-    });
-    const read = vi.fn(async () => ({ 'ext-1': 1 }));
-    let version = 'v1';
-    const adapter = {
-      getModels: () => [{ id: 'a', status: 'ready' as const, version }],
-      getExternalIdMap: read,
-    } as unknown as ViewerAdapter;
-    await scopeElementItems(adapter, 'set:c');
-    await scopeElementItems(adapter, 'set:c');
-    expect(read).toHaveBeenCalledTimes(1);
-    version = 'v2';
-    await scopeElementItems(adapter, 'set:c');
-    expect(read).toHaveBeenCalledTimes(2);
   });
 });
 
