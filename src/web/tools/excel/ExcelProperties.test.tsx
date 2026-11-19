@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DEFAULT_EXPORT_PROPERTIES } from '../../extensions/excelExport.js';
+import { sanitizePropertyNames } from '../../extensions/propertyNames.js';
 import { installMemoryStorage } from '../../test/mockApi.js';
 import { publishActiveAdapter } from '../../viewer/activeAdapterStore.js';
 import { MockViewerAdapter } from '../../viewer/MockViewerAdapter.js';
@@ -9,7 +10,6 @@ import {
   DEFAULT_EXCEL_TOOL_SETTINGS,
   EXCEL_SETTINGS_KEY,
   readExcelToolSettings,
-  sanitizeExportProperties,
 } from './excelSettings.js';
 
 function stored(): Record<string, unknown> {
@@ -48,11 +48,14 @@ describe('export columns', () => {
   });
 
   it('keeps a chosen list, drops blanks and duplicates, and never empties', () => {
-    expect(sanitizeExportProperties(['Name', 'Name', 7, ' ', 'Level'])).toEqual(
-      ['Name', 'Level'],
-    );
-    expect(sanitizeExportProperties([])).toEqual(DEFAULT_EXPORT_PROPERTIES);
-    expect(sanitizeExportProperties('Name')).toEqual(DEFAULT_EXPORT_PROPERTIES);
+    const sanitize = (raw: unknown) =>
+      sanitizePropertyNames(raw, DEFAULT_EXPORT_PROPERTIES);
+    expect(sanitize(['Name', 'Name', 7, ' ', 'Level'])).toEqual([
+      'Name',
+      'Level',
+    ]);
+    expect(sanitize([])).toEqual(DEFAULT_EXPORT_PROPERTIES);
+    expect(sanitize('Name')).toEqual(DEFAULT_EXPORT_PROPERTIES);
   });
 
   it('lists the discovered catalog and stores the chosen columns', async () => {

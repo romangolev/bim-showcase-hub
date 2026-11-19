@@ -16,9 +16,9 @@ import {
   DEFAULT_SUMMARY_PROPERTIES,
   DEFAULT_SUMMARY_VIEW,
   type SummaryView,
-  sanitizeProperties,
   sanitizeView,
 } from '../extensions/modelSummary.js';
+import { sanitizePropertyNames } from '../extensions/propertyNames.js';
 import {
   BSH_KEYS,
   defineRecord,
@@ -46,7 +46,7 @@ export const PANE_SETTINGS = {
     properties: setting<readonly string[]>(
       BSH_KEYS.personal.summaryProperties,
       DEFAULT_SUMMARY_PROPERTIES,
-      sanitizeProperties,
+      (raw) => sanitizePropertyNames(raw, DEFAULT_SUMMARY_PROPERTIES),
     ),
     scope: setting<ElementScope>(
       BSH_KEYS.personal.summaryScope,

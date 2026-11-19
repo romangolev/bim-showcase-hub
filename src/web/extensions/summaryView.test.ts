@@ -11,11 +11,11 @@ import {
   DEFAULT_SUMMARY_PROPERTIES,
   DEFAULT_SUMMARY_VIEW,
   emptyShares,
-  sanitizeProperties,
   sanitizeView,
   summaryTable,
   viewEntries,
 } from './modelSummary.js';
+import { sanitizePropertyNames } from './propertyNames.js';
 
 const entries = [
   { property: 'A', value: 'zeta', count: 5 },
@@ -138,9 +138,11 @@ describe('element actions', () => {
 
 describe('summary property and scope settings', () => {
   it('sanitizes the chosen properties', () => {
-    expect(sanitizeProperties(['A', 'A', ' ', 3, 'B'])).toEqual(['A', 'B']);
-    expect(sanitizeProperties([])).toBe(DEFAULT_SUMMARY_PROPERTIES);
-    expect(sanitizeProperties('x')).toBe(DEFAULT_SUMMARY_PROPERTIES);
+    const sanitize = (raw: unknown) =>
+      sanitizePropertyNames(raw, DEFAULT_SUMMARY_PROPERTIES);
+    expect(sanitize(['A', 'A', ' ', 3, 'B'])).toEqual(['A', 'B']);
+    expect(sanitize([])).toBe(DEFAULT_SUMMARY_PROPERTIES);
+    expect(sanitize('x')).toBe(DEFAULT_SUMMARY_PROPERTIES);
   });
 
   it('falls back to all elements for an unknown scope', () => {

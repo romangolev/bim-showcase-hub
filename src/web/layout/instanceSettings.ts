@@ -11,9 +11,9 @@ import {
   DEFAULT_SUMMARY_PROPERTIES,
   DEFAULT_SUMMARY_VIEW,
   type SummaryView,
-  sanitizeProperties,
   sanitizeView,
 } from '../extensions/modelSummary.js';
+import { sanitizePropertyNames } from '../extensions/propertyNames.js';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import { defineRecordFamily, type PersistedRecord } from '../storage.js';
 import {
@@ -57,7 +57,10 @@ export function sanitizeSummarySpec(raw: unknown): SummarySpec {
   return {
     scope: typeof spec?.scope === 'string' && spec.scope ? spec.scope : 'all',
     elements: sanitizeElementScope(spec?.elements),
-    properties: sanitizeProperties(spec?.properties),
+    properties: sanitizePropertyNames(
+      spec?.properties,
+      DEFAULT_SUMMARY_PROPERTIES,
+    ),
     view: sanitizeView(spec?.view),
     action: sanitizeAction(spec?.action),
   };

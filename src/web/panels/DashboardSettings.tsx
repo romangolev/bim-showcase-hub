@@ -14,6 +14,7 @@ import {
   ELEMENT_ACTIONS,
   sanitizeAction,
 } from '../extensions/elementActions.js';
+import { sanitizePropertyNames } from '../extensions/propertyNames.js';
 import type { ModalDefinition } from '../modal/types.js';
 import { PANE_SETTINGS, usePaneSetting } from '../settings/paneSettings.js';
 import { defineRecord } from '../storage.js';
@@ -26,24 +27,11 @@ export const DASHBOARD_SETTINGS_ID = 'dashboard-settings';
 
 export const DASHBOARD_PROPERTIES_KEY = 'bsh.pane.dashboard.properties.v1';
 
-export function sanitizeDashboardProperties(raw: unknown): readonly string[] {
-  const names = Array.isArray(raw)
-    ? [
-        ...new Set(
-          raw.filter(
-            (name): name is string =>
-              typeof name === 'string' && name.trim() !== '',
-          ),
-        ),
-      ]
-    : [];
-  return names.length > 0 ? names : DEFAULT_DASHBOARD_PROPERTIES;
-}
-
 export const DASHBOARD_PROPERTIES = defineRecord({
   key: DASHBOARD_PROPERTIES_KEY,
   initial: DEFAULT_DASHBOARD_PROPERTIES,
-  sanitize: sanitizeDashboardProperties,
+  sanitize: (raw) =>
+    sanitizePropertyNames(raw, DEFAULT_DASHBOARD_PROPERTIES),
 });
 
 export function useDashboardView() {
