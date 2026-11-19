@@ -43,6 +43,7 @@ describe('readPaintSettings', () => {
       }),
     ).toEqual({
       enabled: false,
+      paletteId: 'default',
       palette: ['#abcdef', '#123456'],
       intensity: 1,
       ghostRest: false,
@@ -84,15 +85,29 @@ describe('PaintTool', () => {
     );
   });
 
-  it('follows the palette and intensity', () => {
+  it('follows the custom palette and intensity', () => {
     const { paint } = tool.contribute(context({}), {
       enabled: true,
+      paletteId: 'custom',
       palette: ['#000000'],
       intensity: 0.8,
       ghostRest: false,
     });
     expect(paint?.swatches).toHaveLength(1);
     expect(paint?.swatches[0]?.color).toEqual([0, 0, 0, 0.8]);
+  });
+
+  it('uses a named palette over the custom swatches', () => {
+    const { paint } = tool.contribute(context({}), {
+      ...DEFAULT_PAINT_SETTINGS,
+      paletteId: 'okabe-ito',
+      palette: ['#000000'],
+    });
+    expect(paint?.swatches).toHaveLength(8);
+    expect(paint?.swatches[0]?.swatch).toBe('#e69f00');
+    expect(paint?.swatches[0]?.label).toBe(
+      'Paint selected items in orange (1)',
+    );
   });
 
   it('applies ghosting from the setting and clears it when disabled', () => {
@@ -140,6 +155,14 @@ describe('PaintTool', () => {
         tool.toolbarSignature({ ...DEFAULT_PAINT_SETTINGS, intensity: 0.9 }),
       ),
     );
+    expect(JSON.stringify(a)).not.toBe(
+      JSON.stringify(
+        tool.toolbarSignature({
+          ...DEFAULT_PAINT_SETTINGS,
+          paletteId: 'viridis',
+        }),
+      ),
+    );
   });
 });
 
@@ -165,6 +188,29 @@ describe('Paint settings window', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Remove swatch 1' }));
     expect(stored().palette).toHaveLength(3);
     fireEvent.click(screen.getByRole('button', { name: 'Reset palette' }));
+    expect(stored().palette[0]).toBe('#ef4444');
+  });
+
+  it('stores the chosen palette and shows numbered labels for it', () => {
+    renderWindow();
+    fireEvent.change(screen.getByLabelText(/Palette/), {
+      target: { value: 'okabe-ito' },
+    });
+    expect(stored().paletteId).toBe('okabe-ito');
+    const legend = screen.getByRole('region', { name: 'Active palette' });
+    expect(legend).toHaveTextContent('Orange');
+    expect(legend).toHaveTextContent('1');
+    expect(legend).toHaveTextContent('Black');
+    expect(legend).toHaveTextContent('8');
+  });
+
+  it('resets the palette choice and the custom swatches together', () => {
+    renderWindow();
+    fireEvent.change(screen.getByLabelText(/Palette/), {
+      target: { value: 'viridis' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Reset palette' }));
+    expect(stored().paletteId).toBe('default');
     expect(stored().palette[0]).toBe('#ef4444');
   });
 

@@ -47,7 +47,7 @@ describe('mock toolbar tool group', () => {
       expect(button(id).className).toContain('bsh-mock__button');
     }
     expect(button('paint-ef4444').getAttribute('aria-label')).toBe(
-      'Paint selected items in red',
+      'Paint selected items in red (1)',
     );
     expect(button('paint-reset').getAttribute('aria-label')).toBe(
       'Reset appearance',
@@ -113,7 +113,9 @@ describe('mock toolbar tool group', () => {
     for (const id of SWATCHES) {
       expect(button(id)).not.toHaveAttribute('aria-disabled');
     }
-    expect(button('paint-22c55e').title).toBe('Paint selected items in green');
+    expect(button('paint-22c55e').title).toBe(
+      'Paint selected items in green (2)',
+    );
 
     button('paint').click();
     button('paint-3b82f6').click();

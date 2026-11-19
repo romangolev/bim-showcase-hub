@@ -1276,7 +1276,7 @@ def check_combined(page, checks, notes):
     page.locator(f"[data-active='true'] [data-model-id='{first}'] polygon").nth(10).dispatch_event("click")
     page.locator(f"[data-active='true'] [data-model-id='{second}'] polygon").nth(10).dispatch_event("click", {"ctrlKey": True})
     page.locator("[data-active='true'] .bsh-mock__button[title='Paint selection']").click()
-    page.locator("[data-active='true'] .bsh-mock__button[title='Paint selected items in red']").click()
+    page.locator("[data-active='true'] .bsh-mock__button[title='Paint selected items in red (1)']").click()
     settle(page, 400)
     painted = [group["themed"] for group in combined_groups(page)]
     checks.add("combined: paint covers the selection in both models", painted[:2] == [1, 1], painted)

@@ -455,7 +455,7 @@ describe('RealViewerAdapter tool group extension', () => {
 
     viewer.select([11, 12]);
     for (const swatch of swatches) expect(swatch.state).toBe(STATE.INACTIVE);
-    expect(swatches[0]?.tooltip).toBe('Paint selected items in red');
+    expect(swatches[0]?.tooltip).toBe('Paint selected items in red (1)');
 
     swatches[0]?.click();
     expect(viewer.themed.map((t) => t.id)).toEqual([11, 12]);
