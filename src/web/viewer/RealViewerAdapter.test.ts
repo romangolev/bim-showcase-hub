@@ -1090,6 +1090,17 @@ describe('RealViewerAdapter geometry export', () => {
     return model as ViewerModel;
   }
 
+  it('reads the external id map for saved selections', async () => {
+    const one = makeAdapter();
+    await one.load('urn-a', 'Tower.rvt');
+    Object.assign((viewers[0] as FakeViewer).model, fakeSourceModel('a'));
+    const info = one.getModels()[0];
+    expect(await one.getExternalIdMap(info?.id ?? '')).toEqual({
+      'guid-a': 1,
+    });
+    expect(await one.getExternalIdMap('missing')).toEqual({});
+  });
+
   it('reads properties and external ids as an IFC source', async () => {
     const one = makeAdapter();
     await one.load('urn-a', 'Tower.rvt');
