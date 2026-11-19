@@ -70,11 +70,14 @@ describe('pane settings', () => {
     ).toMatchObject({ openMode: 'tab' });
   });
 
-  it('offers the open mode in Documents settings', () => {
+  it('offers the open mode and the shortcut map in Documents settings', () => {
     render(<TreeSettingsForm />);
     expect(
       screen.getByRole('combobox', { name: /Open models in/ }),
     ).toBeInTheDocument();
+    expect(screen.getByText('Keyboard shortcuts')).toBeInTheDocument();
+    expect(screen.getByText('/')).toBeInTheDocument();
+    expect(screen.getByText('Focus the filter')).toBeInTheDocument();
     fireEvent.change(screen.getByRole('combobox', { name: /Open models in/ }), {
       target: { value: 'combined' },
     });

@@ -867,7 +867,15 @@ describe('DocumentTree multi-select', () => {
       within(first)
         .getAllByRole('menuitem')
         .map((item) => item.textContent),
-    ).toEqual(['Open', 'Open as modal', 'Add to open model', 'Pin']);
+    ).toEqual([
+      'Open',
+      'Open as modal',
+      'Add to open model',
+      'Pin',
+      'Copy link',
+      'Reveal path',
+      'Show versions',
+    ]);
     fireEvent.click(within(first).getByText('Open as modal'));
     expect(onOpenModal).toHaveBeenCalledWith(
       'urn-0',
@@ -884,6 +892,80 @@ describe('DocumentTree multi-select', () => {
     await openVersions(1);
     fireEvent.contextMenu(screen.getByRole('treeitem', { name: /Tower\.rvt/ }));
     expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('copies the app link of the version from the row menu', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    await openVersions(1);
+    fireEvent.contextMenu(row(1));
+    fireEvent.click(within(screen.getByRole('menu')).getByText('Copy link'));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    const url = new URL(writeText.mock.calls[0]?.[0] as string);
+    expect(url.origin).toBe(window.location.origin);
+    expect(url.pathname).toBe('/model/urn-0');
+    expect(url.searchParams.get('file')).toBe('Tower.rvt');
+    expect(url.searchParams.get('v')).toBe('v1');
+    expect(JSON.parse(url.searchParams.get('trail') ?? '[]')).toEqual([
+      'h1',
+      'p1',
+      'f1',
+      'i1',
+    ]);
+  });
+
+  it('reveals the path of a filtered version and expands its trail', async () => {
+    await openVersions(1);
+    fireEvent.click(screen.getByText('Tower.rvt'));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('treeitem', { name: 'v1: Issue 1' }),
+      ).not.toBeInTheDocument(),
+    );
+    fireEvent.change(
+      screen.getByRole('searchbox', { name: 'Filter loaded nodes' }),
+      { target: { value: 'Issue 1' } },
+    );
+    const result = screen.getByRole('option', { name: /v1: Issue 1/ });
+    fireEvent.contextMenu(result);
+    fireEvent.click(within(screen.getByRole('menu')).getByText('Reveal path'));
+    const revealed = await screen.findByRole('treeitem', {
+      name: 'v1: Issue 1',
+    });
+    expect(revealed).toBeInTheDocument();
+    await waitFor(() => expect(revealed).toHaveFocus());
+  });
+
+  it('focuses the item from Show versions', async () => {
+    await openVersions(1);
+    fireEvent.contextMenu(row(1));
+    fireEvent.click(
+      within(screen.getByRole('menu')).getByText('Show versions'),
+    );
+    const parent = screen.getByRole('treeitem', { name: /Tower\.rvt/ });
+    await waitFor(() => expect(parent).toHaveFocus());
+  });
+});
+
+describe('DocumentTree keyboard', () => {
+  it('focuses the filter with /', async () => {
+    await openVersions(1);
+    const target = row(1);
+    target.focus();
+    fireEvent.keyDown(target, { key: '/' });
+    expect(
+      screen.getByRole('searchbox', { name: 'Filter loaded nodes' }),
+    ).toHaveFocus();
+  });
+
+  it('moves focus to the next row that matches what was typed', async () => {
+    await openVersions(3);
+    const first = row(1);
+    first.focus();
+    fireEvent.keyDown(first, { key: 'v' });
+    await waitFor(() => expect(row(2)).toHaveFocus());
+    fireEvent.keyDown(row(2), { key: '3' });
+    await waitFor(() => expect(row(3)).toHaveFocus());
   });
 });
 

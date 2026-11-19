@@ -104,6 +104,7 @@ Every drag has a menu path.
 - Lock layout (`bsh.layout.locked`) turns off dragging, floating and closing. It does not apply to the stacked layout.
 - Resize mode: arrow keys change size by 16 px (64 px with Shift). Escape, Enter or Tab finish.
 - `F6` and `Shift+F6` move focus between pane groups.
+- In Documents, `/` focuses the filter and typing letters moves focus to the next matching row. Shift+F10 or the context menu key opens the row menu.
 - After a move, focus goes to the moved tab. A live region announces moves, collapse and reset.
 
 ## Narrow screens

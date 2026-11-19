@@ -39,7 +39,7 @@ import { Menu, type MenuEntry } from '../Menu.js';
 import { StateBlock } from '../StateBlock.js';
 import { NoHubsHint, PersonalHubNotice } from './NoHubsHint.js';
 import { usePins } from './pins.js';
-import { modelMenuEntries, useRowMenu } from './rowMenu.js';
+import { modelHref, modelMenuEntries, useRowMenu } from './rowMenu.js';
 import { INDENT, rowHeightFor, TreeRowView } from './TreeRowView.js';
 import { metaText, sortChildren } from './treeView.js';
 import {
@@ -147,6 +147,7 @@ const MIN_ROW_HEIGHT = 30;
 
 const TRAIL_SEPARATOR = '|';
 const REVEAL_TIMEOUT_MS = 5000;
+const TYPEAHEAD_MS = 600;
 
 function sleep(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -184,6 +185,11 @@ export function DocumentTree({
     itemId?: string;
   } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const typeahead = useRef({
+    text: '',
+    timer: null as ReturnType<typeof setTimeout> | null,
+  });
   const rowsRef = useRef<Row[]>([]);
   const virtualizerRef = useRef<Virtualizer<HTMLDivElement, Element> | null>(
     null,
@@ -492,6 +498,70 @@ export function DocumentTree({
   const pinsApi = usePins();
   const rowMenu = useRowMenu();
 
+  const ancestorIds = (node: TreeNode): string[] => {
+    const ids: string[] = [];
+    let parentId = node.parentId;
+    for (let guard = 0; parentId && guard < 64; guard += 1) {
+      ids.unshift(parentId);
+      parentId = registry.nodes.get(parentId)?.parentId;
+    }
+    return ids;
+  };
+
+  const revealTrailTo = async (node: TreeNode): Promise<boolean> => {
+    for (const id of ancestorIds(node)) {
+      if (!(await until(() => registry.nodes.has(id), REVEAL_TIMEOUT_MS))) {
+        return false;
+      }
+      const item = tree.getItemInstance(id);
+      if (!item.isExpanded()) {
+        item.expand();
+      }
+      if (!(await until(() => registry.loaded.has(id), REVEAL_TIMEOUT_MS))) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const focusItem = (id: string) => {
+    const item = tree.getItemInstance(id);
+    item.setFocused();
+    tree.updateDomFocus();
+  };
+
+  const copyLink = async (urn: string, context: ModelContext) => {
+    const href = modelHref(urn, context);
+    try {
+      await navigator.clipboard.writeText(href);
+      setNotice({ title: 'Link copied', message: href });
+    } catch {
+      setNotice({ title: 'Could not copy the link', message: href });
+    }
+  };
+
+  const revealPath = (node: TreeNode) => {
+    void (async () => {
+      if (query) setFilter('');
+      if (!(await revealTrailTo(node))) return;
+      await sleep(80);
+      focusItem(node.id);
+    })();
+  };
+
+  const showVersions = (node: TreeNode) => {
+    const parentId = node.parentId;
+    if (!parentId) return;
+    void (async () => {
+      if (query) setFilter('');
+      if (!(await revealTrailTo(node))) return;
+      const parent = tree.getItemInstance(parentId);
+      if (parent.isFolder() && !parent.isExpanded()) parent.expand();
+      await sleep(80);
+      focusItem(parentId);
+    })();
+  };
+
   const menuProps = (node: TreeNode) => {
     if (node.kind !== 'version') return undefined;
     return rowMenu.bind(() => {
@@ -509,6 +579,9 @@ export function DocumentTree({
         onTogglePin: () => {
           if (urn) pinsApi.toggle(urn, context);
         },
+        onCopyLink: urn ? () => void copyLink(urn, context) : undefined,
+        onRevealPath: () => revealPath(node),
+        onShowVersions: () => showVersions(node),
       });
     });
   };
@@ -658,6 +731,57 @@ export function DocumentTree({
   }, [revealKey, registry, tree]);
 
   const query = filter.trim().toLowerCase();
+
+  const onTreeKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('input, textarea, select, [contenteditable="true"]')) {
+      return;
+    }
+    if (event.metaKey || event.ctrlKey || event.altKey) return;
+    if (event.key === '/') {
+      event.preventDefault();
+      searchRef.current?.focus();
+      return;
+    }
+    if (query || event.key.length !== 1 || event.key === ' ') return;
+    if (!target?.closest('[role="treeitem"], [role="option"]')) return;
+    const items = tree.getItems();
+    if (items.length === 0) return;
+    const typed = typeahead.current;
+    typed.text += event.key.toLowerCase();
+    if (typed.timer) clearTimeout(typed.timer);
+    typed.timer = setTimeout(() => {
+      typed.text = '';
+      typed.timer = null;
+    }, TYPEAHEAD_MS);
+    const focused = tree.getState().focusedItem;
+    const element = document.activeElement;
+    const onElement = items.findIndex(
+      (item) => element !== null && item.getElement() === element,
+    );
+    const current =
+      onElement >= 0
+        ? onElement
+        : items.findIndex((item) => item.getId() === focused);
+    const start = typed.text.length === 1 ? current + 1 : Math.max(current, 0);
+    for (let offset = 0; offset < items.length; offset += 1) {
+      const item = items[(start + offset) % items.length];
+      if (!item) continue;
+      if (item.getItemName().toLowerCase().startsWith(typed.text)) {
+        event.preventDefault();
+        item.setFocused();
+        tree.updateDomFocus();
+        return;
+      }
+    }
+  };
+
+  useEffect(
+    () => () => {
+      if (typeahead.current.timer) clearTimeout(typeahead.current.timer);
+    },
+    [],
+  );
 
   const rows: Row[] = [];
   if (query) {
@@ -1079,11 +1203,12 @@ export function DocumentTree({
   };
 
   return (
-    <div className="doc-tree">
+    <div className="doc-tree" onKeyDownCapture={onTreeKeyDown}>
       <PersonalHubNotice onCheckAgain={() => refresh(ROOT_ID)} />
       <div className="doc-tree__search">
         <Icon name="search" size={14} />
         <input
+          ref={searchRef}
           type="search"
           value={filter}
           onChange={(event) => setFilter(event.target.value)}

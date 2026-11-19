@@ -1,3 +1,4 @@
+import { defaultStringifySearch } from '@tanstack/react-router';
 import {
   type KeyboardEvent,
   type MouseEvent,
@@ -12,6 +13,14 @@ import type { AddTarget } from './DocumentTree.js';
 
 export const LONG_PRESS_MS = 500;
 
+export function modelHref(
+  urn: string,
+  context: ModelContext,
+  origin = window.location.origin,
+): string {
+  return `${origin}/model/${encodeURIComponent(urn)}${defaultStringifySearch(context)}`;
+}
+
 export interface ModelMenuSource {
   urn: string | null;
   context: ModelContext;
@@ -21,6 +30,9 @@ export interface ModelMenuSource {
   onOpenModal?: () => void;
   onAdd?: () => void;
   onTogglePin?: () => void;
+  onCopyLink?: () => void;
+  onRevealPath?: () => void;
+  onShowVersions?: () => void;
 }
 
 export function modelMenuEntries(source: ModelMenuSource): MenuEntry[] {
@@ -67,6 +79,32 @@ export function modelMenuEntries(source: ModelMenuSource): MenuEntry[] {
       label: source.pinned ? 'Unpin' : 'Pin',
       onSelect: source.onTogglePin,
     });
+  }
+  if (source.onCopyLink || source.onRevealPath || source.onShowVersions) {
+    entries.push({ kind: 'separator', id: 'locate-separator' });
+    if (urn && source.onCopyLink) {
+      entries.push({
+        id: 'copy-link',
+        label: 'Copy link',
+        onSelect: source.onCopyLink,
+      });
+    }
+    if (source.onRevealPath) {
+      entries.push({
+        id: 'reveal-path',
+        label: 'Reveal path',
+        description: 'Expand the folders that contain this version',
+        onSelect: source.onRevealPath,
+      });
+    }
+    if (source.onShowVersions) {
+      entries.push({
+        id: 'show-versions',
+        label: 'Show versions',
+        description: 'Expand the item so its versions are visible',
+        onSelect: source.onShowVersions,
+      });
+    }
   }
   return entries;
 }
