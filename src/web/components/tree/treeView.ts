@@ -3,11 +3,21 @@ import type { TreeNode } from '../../../shared/types.js';
 
 export type TreeSort = 'name' | 'modified';
 
+export type TreeOpenMode = 'tab' | 'replace' | 'combined';
+
+export function sanitizeOpenMode(raw: unknown): TreeOpenMode {
+  return raw === 'replace' || raw === 'combined' ? raw : 'tab';
+}
+
 export interface TreeView {
   sort: TreeSort;
   modified: boolean;
   author: boolean;
   size: boolean;
+  openMode: TreeOpenMode;
+  homeRecent: boolean;
+  homePinned: boolean;
+  homeSets: boolean;
 }
 
 export const DEFAULT_TREE_VIEW: TreeView = {
@@ -15,6 +25,10 @@ export const DEFAULT_TREE_VIEW: TreeView = {
   modified: true,
   author: false,
   size: false,
+  openMode: 'tab',
+  homeRecent: true,
+  homePinned: true,
+  homeSets: true,
 };
 
 export function sanitizeTreeView(raw: unknown): TreeView {
@@ -27,6 +41,10 @@ export function sanitizeTreeView(raw: unknown): TreeView {
     modified: flag(source.modified, DEFAULT_TREE_VIEW.modified),
     author: flag(source.author, DEFAULT_TREE_VIEW.author),
     size: flag(source.size, DEFAULT_TREE_VIEW.size),
+    openMode: sanitizeOpenMode(source.openMode),
+    homeRecent: flag(source.homeRecent, DEFAULT_TREE_VIEW.homeRecent),
+    homePinned: flag(source.homePinned, DEFAULT_TREE_VIEW.homePinned),
+    homeSets: flag(source.homeSets, DEFAULT_TREE_VIEW.homeSets),
   };
 }
 

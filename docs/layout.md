@@ -2,7 +2,18 @@
 
 The signed-in app is a dock. Every part of the screen is a pane that can be moved, resized, tabbed, collapsed, floated inside the page and, except Documents, closed.
 
-Documents is the main pane. With no model open it fills the dock alone with a hint. Opening a model adds a viewer tab, plus Model summary and Dashboard (collapsed), and a Models tab beside Documents.
+Documents is the main pane. With no model open it shows Home and fills the dock alone. Opening a model adds a viewer tab, plus Model summary and Dashboard (collapsed), and a Models tab beside Documents.
+
+## Documents
+
+The tree of hubs, projects, folders, items and versions, with the shortcuts around it: `src/web/components/tree` and `TreePanel.tsx`.
+
+- The hub menu and, once a hub is chosen, the project menu above the tree choose its root: one hub and one project. The choice is saved in `bsh.pane.docs.root.v1`; a hub or project that disappears falls back to All hubs.
+- With no model open the panel shows Home: pinned models, recent models and saved selection sets. The Home menu hides any of the three.
+- With a model open, a pinned and recent strip sits above the tree.
+- The filter matches loaded nodes only, so expanding more folders widens it. Sort and columns are in the Documents view menu.
+- A version row can be dragged onto the dock. The dock highlights while a model is over it, and the drop opens the version in its own tab whatever the open mode is.
+- The row menu opens the version, opens it in a new tab, opens it as a modal (a floating viewer pane), adds it to or removes it from the open viewer, pins it, copies its link, reveals its path or shows its versions.
 
 ## Pieces
 
@@ -33,7 +44,9 @@ The Viewer pane has one instance per open model, a panel `viewer:<urn>` with its
 - Dropping a tab on the edge of the viewer group puts two models side by side.
 - Closing the last tab closes the viewer group and its companions, and the URL returns to `/`.
 - A combined tab is one panel titled `N models`. Its first URN is the key and the others are in the `with` URL parameter.
-- In Documents, Ctrl or Cmd click and Space pick versions and Shift click picks a range. The pick bar offers Open together (2 to 6), Add to the open viewer and Clear.
+- In Documents, Ctrl or Cmd click and Space pick versions and Shift click picks a range. The pick bar offers Open N in viewer (up to 8 models across the open tabs, so it counts the tabs already open), Open together (2 to 6, one combined scene), Add to the open viewer and Clear.
+- A single click opens a version according to the Documents open mode, saved with the tree view: a new tab (the default), the active tab, or the active viewer as a combined scene. A combined click adds a model while the tab holds fewer than 6; at 6 it opens a new tab and says so in a toast.
+- Replacing closes the active tab. When that tab is a combined scene it closes every model in it, and the tree says how many. The row menu's Open in new tab bypasses the open mode.
 
 ## User pane families
 
@@ -103,6 +116,7 @@ Every drag has a menu path.
 - Lock layout (`bsh.layout.locked`) turns off dragging, floating and closing. It does not apply to the stacked layout.
 - Resize mode: arrow keys change size by 16 px (64 px with Shift). Escape, Enter or Tab finish.
 - `F6` and `Shift+F6` move focus between pane groups.
+- In Documents, `/` focuses the filter and typing letters moves focus to the next matching row. Enter opens the focused version and Space picks it. Shift+F10 or the context menu key opens the row menu.
 - After a move, focus goes to the moved tab. A live region announces moves, collapse and reset.
 
 ## Narrow screens

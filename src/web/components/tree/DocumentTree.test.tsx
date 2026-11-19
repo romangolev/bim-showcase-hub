@@ -8,6 +8,7 @@ import {
 } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BSH_KEYS } from '../../storage.js';
+import { notifications } from '../../tasks/notifications.js';
 import {
   createTestClient,
   folder,
@@ -101,7 +102,16 @@ describe('DocumentTree metadata', () => {
   });
 
   it('sorts by modified date and shows the author when asked', async () => {
-    await open({ sort: 'modified', modified: true, author: true, size: false });
+    await open({
+      sort: 'modified',
+      modified: true,
+      author: true,
+      size: false,
+      openMode: 'tab',
+      homeRecent: true,
+      homePinned: true,
+      homeSets: true,
+    });
     expect(screen.getByText('2025-03-04 · Sam')).toBeInTheDocument();
     const rows = screen.getAllByRole('treeitem').map((row) => row.textContent);
     expect(rows.findIndex((t) => t?.includes('b.rvt'))).toBeLessThan(
@@ -711,6 +721,62 @@ const row = (n: number) =>
   screen.getByRole('treeitem', { name: `v${n}: Issue ${n}` });
 
 describe('DocumentTree multi-select', () => {
+  it('opens picked versions as separate tabs', async () => {
+    const onOpenTabs = vi.fn();
+    await openVersions(3, { onOpenTabs });
+    fireEvent.click(row(1), { ctrlKey: true });
+    fireEvent.click(row(3), { metaKey: true });
+    fireEvent.click(screen.getByRole('button', { name: 'Open 2 in viewer' }));
+    expect(onOpenTabs).toHaveBeenCalledTimes(1);
+    const picked = onOpenTabs.mock.calls[0]?.[0] as {
+      urn: string;
+      context: { file?: string; v?: string };
+    }[];
+    expect(picked.map((model) => model.urn)).toEqual(['urn-0', 'urn-2']);
+    expect(picked[1]?.context).toMatchObject({ file: 'Tower.rvt', v: 'v3' });
+    expect(screen.queryByText(/selected$/)).toBeNull();
+  });
+
+  it('blocks opening more than eight versions as tabs and says why', async () => {
+    const onOpenTabs = vi.fn();
+    await openVersions(9, { onOpenTabs });
+    fireEvent.click(row(1), { ctrlKey: true });
+    fireEvent.click(row(9), { shiftKey: true });
+    expect(screen.getByText('9 selected')).toBeInTheDocument();
+    const openTabs = screen.getByRole('button', {
+      name: 'Open 9 in viewer',
+    });
+    expect(openTabs).toBeDisabled();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'A viewer loads up to 8 models',
+    );
+    fireEvent.click(openTabs);
+    expect(onOpenTabs).not.toHaveBeenCalled();
+  });
+
+  it('counts the open tabs against the tab limit', async () => {
+    await openVersions(3, { openCount: 6, onOpenTabs: vi.fn() });
+    fireEvent.click(row(1), { ctrlKey: true });
+    fireEvent.click(row(3), { shiftKey: true });
+    expect(screen.getByText('3 selected')).toBeInTheDocument();
+    const openTabs = screen.getByRole('button', { name: 'Open 3 in viewer' });
+    expect(openTabs).toBeDisabled();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      '6 tabs are already open',
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent('Select 2 or fewer');
+  });
+
+  it('allows picks while the open tabs leave room', async () => {
+    await openVersions(3, { openCount: 5, onOpenTabs: vi.fn() });
+    fireEvent.click(row(1), { ctrlKey: true });
+    fireEvent.click(row(3), { shiftKey: true });
+    expect(
+      screen.getByRole('button', { name: 'Open 3 in viewer' }),
+    ).toBeEnabled();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
   it('picks with Ctrl or Cmd click and Space and opens them together', async () => {
     const { onOpenModel, onOpenTogether } = await openVersions(3);
     expect(row(1)).toHaveAttribute('aria-checked', 'false');
@@ -814,6 +880,7 @@ describe('DocumentTree multi-select', () => {
     const onOpenModal = vi.fn();
     await openVersions(2, {
       onOpenModal,
+      onOpenTabs: vi.fn(),
       addTarget: {
         label: 'the open viewer',
         canAdd: () => true,
@@ -828,7 +895,16 @@ describe('DocumentTree multi-select', () => {
       within(first)
         .getAllByRole('menuitem')
         .map((item) => item.textContent),
-    ).toEqual(['Open', 'Open as modal', 'Add to open model', 'Pin']);
+    ).toEqual([
+      'Open',
+      'Open in new tab',
+      'Open as modal',
+      'Add to open model',
+      'Pin',
+      'Copy link',
+      'Reveal path',
+      'Show versions',
+    ]);
     fireEvent.click(within(first).getByText('Open as modal'));
     expect(onOpenModal).toHaveBeenCalledWith(
       'urn-0',
@@ -841,10 +917,121 @@ describe('DocumentTree multi-select', () => {
     expect(onRemove).toHaveBeenCalledWith('urn-1');
   });
 
+  it('opens a version in a new tab from the row menu', async () => {
+    const onOpenTabs = vi.fn();
+    await openVersions(2, { onOpenTabs });
+    fireEvent.contextMenu(row(1));
+    fireEvent.click(
+      within(screen.getByRole('menu')).getByText('Open in new tab'),
+    );
+    expect(onOpenTabs).toHaveBeenCalledWith([
+      expect.objectContaining({
+        urn: 'urn-0',
+        context: expect.objectContaining({ file: 'Tower.rvt', v: 'v1' }),
+      }),
+    ]);
+  });
+
   it('gives folders no context menu', async () => {
     await openVersions(1);
     fireEvent.contextMenu(screen.getByRole('treeitem', { name: /Tower\.rvt/ }));
     expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('copies the app link of the version from the row menu', async () => {
+    notifications.clear();
+    notifications.clearHistory();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    await openVersions(1);
+    fireEvent.contextMenu(row(1));
+    fireEvent.click(within(screen.getByRole('menu')).getByText('Copy link'));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    const url = new URL(writeText.mock.calls[0]?.[0] as string);
+    expect(url.origin).toBe(window.location.origin);
+    expect(url.pathname).toBe('/model/urn-0');
+    expect(url.searchParams.get('file')).toBe('Tower.rvt');
+    expect(url.searchParams.get('v')).toBe('v1');
+    expect(JSON.parse(url.searchParams.get('trail') ?? '[]')).toEqual([
+      'h1',
+      'p1',
+      'f1',
+      'i1',
+    ]);
+    const toast = notifications.getSnapshot().items.at(-1);
+    expect(toast?.message).toBe('Link copied');
+    expect(toast?.detail).toBe(url.href);
+    expect(notice()).toBe('');
+  });
+
+  it('reveals the path of a filtered version and expands its trail', async () => {
+    await openVersions(1);
+    fireEvent.click(screen.getByText('Tower.rvt'));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('treeitem', { name: 'v1: Issue 1' }),
+      ).not.toBeInTheDocument(),
+    );
+    fireEvent.change(
+      screen.getByRole('searchbox', { name: 'Filter loaded nodes' }),
+      { target: { value: 'Issue 1' } },
+    );
+    const result = screen.getByRole('option', { name: /v1: Issue 1/ });
+    fireEvent.contextMenu(result);
+    fireEvent.click(within(screen.getByRole('menu')).getByText('Reveal path'));
+    const revealed = await screen.findByRole('treeitem', {
+      name: 'v1: Issue 1',
+    });
+    expect(revealed).toBeInTheDocument();
+    await waitFor(() => expect(revealed).toHaveFocus());
+  });
+
+  it('focuses the item from Show versions', async () => {
+    await openVersions(1);
+    fireEvent.contextMenu(row(1));
+    fireEvent.click(
+      within(screen.getByRole('menu')).getByText('Show versions'),
+    );
+    const parent = screen.getByRole('treeitem', { name: /Tower\.rvt/ });
+    await waitFor(() => expect(parent).toHaveFocus());
+  });
+});
+
+describe('DocumentTree keyboard', () => {
+  it('focuses the filter with /', async () => {
+    await openVersions(1);
+    const target = row(1);
+    target.focus();
+    fireEvent.keyDown(target, { key: '/' });
+    expect(
+      screen.getByRole('searchbox', { name: 'Filter loaded nodes' }),
+    ).toHaveFocus();
+  });
+
+  it('opens the focused version with Enter and keeps Space for picking', async () => {
+    const { onOpenModel } = await openVersions(2);
+    const target = row(1);
+    target.focus();
+    fireEvent.keyDown(target, { key: 'Enter' });
+    expect(onOpenModel).toHaveBeenCalledTimes(1);
+    expect(onOpenModel).toHaveBeenCalledWith(
+      'urn-0',
+      expect.objectContaining({ file: 'Tower.rvt', v: 'v1' }),
+    );
+    fireEvent.keyDown(target, { key: ' ' });
+    expect(onOpenModel).toHaveBeenCalledTimes(1);
+    expect(target).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
+  });
+
+  it('moves focus to the next row that matches what was typed', async () => {
+    await openVersions(3);
+    const first = row(1);
+    first.focus();
+    fireEvent.keyDown(first, { key: 'v' });
+    await waitFor(() => expect(row(2)).toHaveFocus());
+    fireEvent.keyDown(row(2), { key: '3' });
+    await waitFor(() => expect(row(3)).toHaveFocus());
   });
 });
 

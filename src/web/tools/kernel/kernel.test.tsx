@@ -327,6 +327,9 @@ describe('export tasks', () => {
       { state: 'warning' },
     );
     expect(
+      report({ phase: 'done', missingColumns: ['Ghost'] } as never),
+    ).toMatchObject({ state: 'warning' });
+    expect(
       report({ phase: 'done', levelsUnavailable: 1 } as never),
     ).toMatchObject({ state: 'warning' });
     expect(report({ phase: 'done', generatedIds: 2 } as never)).toMatchObject({

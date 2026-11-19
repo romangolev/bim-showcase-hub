@@ -1,6 +1,24 @@
-import { encodeView, withViewParam } from '../api/viewLink.js';
+import { useContext, useEffect } from 'react';
+import { withViewParam } from '../api/viewLink.js';
 import { Menu, type MenuEntry } from '../components/Menu.js';
 import { saveBlob } from '../extensions/excelExport.js';
+import { type LayoutApi, LayoutContext } from '../layout/layoutContext.js';
+import { PANE_SETTINGS } from '../settings/paneSettings.js';
+import {
+  blobToDataUrl,
+  collectReport,
+  openReportWindow,
+  printReport,
+  reportHtml,
+} from './report.js';
+import {
+  clearLinkView,
+  LINK_DEGRADED_TEXT,
+  LINK_RESTORED_TEXT,
+  LINK_TRIMMED_TEXT,
+  restoreLinkView,
+  sharedView,
+} from './shareLink.js';
 import {
   type Caption,
   type Size,
@@ -26,6 +44,9 @@ export const SAVED_IMAGE_TEXT = 'Image saved';
 export const SAVED_VIEWPOINT_TEXT = 'Viewpoint saved';
 export const MAX_LISTED_VIEWPOINTS = 10;
 export const IMAGE_FAILED_TEXT = 'Could not take the snapshot';
+export const REPORT_READY_TEXT = 'Report opened for printing';
+export const REPORT_BLOCKED_TEXT = 'Allow pop-ups to print the report';
+export const REPORT_FAILED_TEXT = 'Could not build the report';
 export const FRAME_UNKNOWN_TEXT =
   'Could not read the size of the viewer. Choose 1x in Settings or try again.';
 
@@ -47,18 +68,32 @@ export interface ShareMenuProps {
   onResult: (text: string, error: boolean) => void;
 }
 
+export interface ShareHref {
+  href: string;
+  degraded: boolean;
+  trimmed: boolean;
+}
+
 export function shareHref(
   adapter: ViewerAdapter,
   modelIds: readonly string[],
   baseHref: string,
   withView: boolean,
-): string {
-  const camera = withView ? adapter.getCamera() : null;
-  if (!camera) return withViewParam(baseHref, null);
-  return withViewParam(
-    baseHref,
-    encodeView({ camera, selection: adapter.getModelSelection() }, modelIds),
-  );
+  layout: Pick<LayoutApi, 'openPanes' | 'isCollapsed'> | null = null,
+): ShareHref {
+  const shared = withView ? sharedView(adapter, modelIds, layout) : null;
+  if (!shared) {
+    return {
+      href: withViewParam(baseHref, null),
+      degraded: false,
+      trimmed: false,
+    };
+  }
+  return {
+    href: withViewParam(baseHref, shared.view),
+    degraded: shared.degraded,
+    trimmed: shared.trimmed,
+  };
 }
 
 export function ShareMenu({
@@ -74,25 +109,39 @@ export function ShareMenu({
   onPresent,
 }: ShareMenuProps) {
   const viewpoints = useViewpoints();
+  const layout = useContext(LayoutContext);
+  useEffect(() => {
+    const restored = restoreLinkView(
+      window.location.search,
+      modelIds,
+      layout ?? null,
+    );
+    if (restored) clearLinkView();
+    if (restored && (restored.panes || restored.charts > 0)) {
+      onResult(LINK_RESTORED_TEXT, false);
+    }
+  }, [layout, modelIds, onResult]);
+  const takeImage = async (): Promise<Blob> => {
+    const frame = frameSize?.() ?? null;
+    const settings = SNAPSHOT.read();
+    if (settings.resolution !== '1x') {
+      if (!frame || frame.width <= 0 || frame.height <= 0) {
+        throw new SnapshotError(FRAME_UNKNOWN_TEXT);
+      }
+      snapshotSize(frame, settings);
+    }
+    return takeSnapshot({ adapter, frame, settings, caption });
+  };
   const snapshot = async (mode: 'copy' | 'save') => {
     try {
-      const frame = frameSize?.() ?? null;
-      const settings = SNAPSHOT.read();
-      if (settings.resolution !== '1x') {
-        if (!frame || frame.width <= 0 || frame.height <= 0) {
-          throw new SnapshotError(FRAME_UNKNOWN_TEXT);
-        }
-        snapshotSize(frame, settings);
-      }
-      const request = { adapter, frame, settings, caption };
-      const image = takeSnapshot(request);
+      const image = await takeImage();
       if (mode === 'copy') {
         await navigator.clipboard.write([
           new ClipboardItem({ 'image/png': image }),
         ]);
         onResult(COPIED_IMAGE_TEXT, false);
       } else {
-        saveBlob(await image, snapshotName(fileName));
+        saveBlob(image, snapshotName(fileName));
         onResult(SAVED_IMAGE_TEXT, false);
       }
     } catch (err) {
@@ -102,16 +151,53 @@ export function ShareMenu({
       );
     }
   };
+  const printModelReport = async () => {
+    const win = openReportWindow();
+    if (!win) {
+      onResult(REPORT_BLOCKED_TEXT, true);
+      return;
+    }
+    try {
+      const image = await blobToDataUrl(await takeImage());
+      const dashboard = PANE_SETTINGS.dashboard.view.read();
+      const content = await collectReport(adapter, {
+        title: caption.name,
+        ...(caption.version ? { version: caption.version } : {}),
+        image,
+        names: PANE_SETTINGS.summary.properties.read(),
+        chartProperties: dashboard.properties,
+        maxCategories: dashboard.maxCategories,
+        elements: PANE_SETTINGS.summary.scope.read(),
+        view: PANE_SETTINGS.summary.view.read(),
+      });
+      printReport(reportHtml(content), () => win);
+      onResult(REPORT_READY_TEXT, false);
+    } catch (err) {
+      win.close();
+      onResult(
+        err instanceof SnapshotError ? err.message : REPORT_FAILED_TEXT,
+        true,
+      );
+    }
+  };
   const copy = async (withView: boolean) => {
-    const href = shareHref(
+    const { href, degraded, trimmed } = shareHref(
       adapter,
       modelIds,
       baseHref ?? window.location.href,
       withView,
+      layout ?? null,
     );
     try {
       await navigator.clipboard.writeText(href);
-      onResult(COPIED_LINK_TEXT, false);
+      onResult(
+        degraded
+          ? LINK_DEGRADED_TEXT
+          : trimmed
+            ? LINK_TRIMMED_TEXT
+            : COPIED_LINK_TEXT,
+        false,
+      );
     } catch {
       onResult(COPY_FAILED_TEXT, true);
     }
@@ -150,6 +236,11 @@ export function ShareMenu({
         label: 'Save image (PNG)',
         onSelect: () => void snapshot('save'),
       },
+      {
+        id: 'print-report',
+        label: 'Print report...',
+        onSelect: () => void printModelReport(),
+      },
       { kind: 'separator', id: 'viewpoint-separator' },
       { id: 'save-viewpoint', label: 'Save viewpoint', onSelect: saveView },
       ...viewpoints.slice(0, MAX_LISTED_VIEWPOINTS).map((point) => ({
@@ -178,7 +269,7 @@ export function ShareMenu({
     <div className="bsh-viewer-share">
       <Menu
         label="Share"
-        title="Copy a link"
+        title="Share a link, an image or a print report"
         triggerClassName="bsh-viewer-models__trigger"
         trigger={<span>Share</span>}
         items={items}

@@ -34,20 +34,59 @@ export const TREE_SETTINGS_FORM: FormDefinition<TreeView> = {
       kind: 'toggle',
       label: 'Show size',
     },
+    {
+      key: 'openMode',
+      kind: 'select',
+      label: 'Open models in',
+      hint: 'What a single click on a version does. Picking several versions and using Open in viewer always opens separate tabs.',
+      options: [
+        { value: 'tab', label: 'A new tab' },
+        { value: 'replace', label: 'The active tab' },
+        { value: 'combined', label: 'The open viewer, combined' },
+      ],
+    },
   ],
   reset: {
     label: 'Reset Documents settings',
-    patch: { sort: 'name', modified: true, author: false, size: false },
+    patch: {
+      sort: 'name',
+      modified: true,
+      author: false,
+      size: false,
+      openMode: 'tab',
+    },
   },
 };
+
+const TREE_SHORTCUTS: readonly [string, string][] = [
+  ['Ctrl or Cmd click, Shift click', 'Select versions'],
+  ['Space', 'Select the version'],
+  ['Enter', 'Open the focused version'],
+  ['Arrow keys', 'Move, expand and collapse'],
+  ['/', 'Focus the filter'],
+  ['Type a name', 'Jump to the next matching row'],
+  ['Shift+F10', 'Open the row menu'],
+];
 
 export function TreeSettingsForm() {
   const [view, setView] = usePersisted(PANE_SETTINGS.tree.view);
   return (
-    <SettingsForm
-      form={TREE_SETTINGS_FORM}
-      value={view}
-      onChange={(patch) => setView((current) => ({ ...current, ...patch }))}
-    />
+    <>
+      <SettingsForm
+        form={TREE_SETTINGS_FORM}
+        value={view}
+        onChange={(patch) => setView((current) => ({ ...current, ...patch }))}
+      />
+      <section className="settings__section" aria-label="Keyboard shortcuts">
+        <h3 className="settings__heading">Keyboard shortcuts</h3>
+        <ul>
+          {TREE_SHORTCUTS.map(([keys, action]) => (
+            <li key={keys}>
+              <span className="settings__hint">{keys}</span> {action}
+            </li>
+          ))}
+        </ul>
+      </section>
+    </>
   );
 }

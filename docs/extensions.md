@@ -22,13 +22,33 @@ Read rows with `useScopedRows` in panels and `readScopedRows` (`viewer/scopedRow
 | Paint | `paintBrushes.ts`, `tools/paint/` | Up to 8 swatches and an intensity. Paints per `(modelId, dbId)` |
 | Model summary | `modelSummary.ts`, `panels/ModelSummaryPanel.tsx` | Counts values per property. Row click selects, isolates, hides or zooms |
 | Dashboard | `dashboardData.ts`, `panels/DashboardPanel.tsx` | Chart.js bar and doughnut charts, presets, PNG, CSV and copy. Each view (the main Dashboard and every chart instance) carries its own property list |
-| Excel export | `excelExport.ts`, `exportFormats.ts` | XLSX, CSV, JSON or copy. Cells starting with `=`, `+`, `-` or `@` are guarded in CSV and copied text |
+| Excel export | `excelExport.ts`, `exportFormats.ts` | XLSX, CSV, JSON or copy. Cells starting with `=`, `+`, `-` or `@` are guarded in CSV and copied text. XLSX writes numeric values as numbers with a number format, freezes the bold header, and ends each sheet with a bold totals row: sums for number columns and labelled counts for text columns. Columns named like `Type Id` or `Workset ID` stay text and are left out of the totals. CSV, JSON and copy keep plain values and have no totals row |
 | GLB export | `glbExport.ts`, `viewer/viewerGeometry.ts` | Binary glTF 2.0 from `adapter.getGeometryParts()`. Capped at 256 MB |
 | IFC export | `ifcExport.ts`, `ifc/` | IFC4 STEP file from `adapter.getIfcSource()`. A mesh-based coordination view, not a Revit IFC export |
 | Properties | `panels/PropertiesPanel.tsx` | Read-only property list of the selected elements |
 | Selection sets, viewpoints | `viewer/selectionSets.ts`, `viewer/viewpoints.ts` | Saved items of kind `selection-set` and `viewpoint` |
 
 Exports over 20,000 rows ask for confirmation with a browser dialog. End-to-end scripts must accept dialogs.
+
+## Share links
+
+The Share menu copies a link to the model with or without the current view. The view travels as `?view=` on the model URL. The encoded value starts with its format version, so a current link reads `?view=2~...`. Version 1 carries the camera and the selection; version 2 adds the open and collapsed panes and the chart views, and a build that does not know a pane id ignores it while still applying the camera. Opening a link only opens panes and sets collapsed state, never closes a pane, puts its charts into newly added chart panes, overwrites the dashboard view, and then removes `?view=` from the address so a reload does not apply it again.
+
+- Version 2 names the open pane kinds and the collapsed panes. Collapsing exists only for Documents, Model summary, Dashboard and Models. Chart, Model summary and Properties are instance kinds: a link leaves them to the chart views instead of opening a blank pane.
+- The chart views are the Dashboard view plus up to three chart pane views, each with its own property list. A view scoped to a personal selection set travels without its `elements` scope, because the set itself is not shared.
+- The summary pane's properties, element scope and view are not part of the link.
+- A link over 4,000 characters is cut to the camera and selection, and the Share menu says so. Chart panes beyond the first three are left out with their own notice.
+- Panes are restored only in the dock layout. In the stacked (narrow) layout the link applies the camera and the selection and leaves the stored layout alone.
+
+## Print report
+
+Share > Print report... writes a printable page into a new window, so the browser has to allow the pop-up. The page holds:
+
+- the title and version, the number of elements in the summary scope, the number of models and today's date;
+- the model snapshot at the resolution chosen in Snapshot settings;
+- up to six summary properties with eight values each and a "N more values" line, filtered and sorted by the summary pane's view;
+- up to three Dashboard properties as value and count tables;
+- the names of models whose properties could not be read.
 
 ## Add a tool
 
@@ -102,7 +122,7 @@ All browser storage goes through `src/web/storage.ts`. Do not call `localStorage
 - Settings has Export and Import for a `bsh-saved.json` file (imports are capped at 1 MB). Import merges by id and the newer `updatedAt` wins. An id that already exists under another kind is never merged: `upsertSaved` fails and Import counts it as rejected.
 - The store budget is `MAX_TOTAL_BYTES` (4 MB) across at most `MAX_ITEMS` (500) items and `MAX_ITEM_BYTES` (100 KB) per item. Settings shows the used bytes against the budget, and a save or import that would exceed it fails with a message instead of a silent no-op.
 - A store written by a newer build (a higher `SAVED_VERSION`) is read-only: reading works, and `upsertSaved`, `renameSaved`, `removeSaved`, `moveSaved` and `importSaved` fail without writing.
-- Production kinds, each registered once at version 1 with a typed handle: `viewpoint` (`viewer/viewpoints.ts`, `VIEWPOINTS`), `selection-set` (`viewer/selectionSets.ts`, `SELECTION_SETS`) and `dashboard-preset` (`panels/DashboardUserPresets.tsx`, `DASHBOARD_USER_PRESETS`). A kind that is not registered still round-trips through storage and export, but its data is neither sanitized nor migrated.
+- Production kinds, each registered once at version 1 with a typed handle: `viewpoint` (`viewer/viewpoints.ts`, `VIEWPOINTS`), `selection-set` (`viewer/selectionSets.ts`, `SELECTION_SETS`), `dashboard-preset` (`panels/DashboardUserPresets.tsx`, `DASHBOARD_USER_PRESETS`) and `export-preset` (`tools/excel/exportPresets.ts`, `EXPORT_PRESETS`). A kind that is not registered still round-trips through storage and export, but its data is neither sanitized nor migrated.
 
 ## Notifications
 

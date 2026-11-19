@@ -60,6 +60,7 @@ export type ExportStatus =
       fileName: string;
       rowCount: number;
       missing?: string[];
+      missingColumns?: string[];
       scopeNote?: string;
     }
   | { phase: 'empty' }
@@ -133,6 +134,133 @@ export function buildExportSheets(
     name: sheetNameFor(key, used),
     ...buildExportRows(bucket, propertyNames, withModel),
   }));
+}
+
+const PLAIN_DECIMAL = /^-?(0|[1-9]\d*)(\.\d+)?$/;
+const IDENTIFIER_COLUMN =
+  /(?:^|[\s_-])(?:[Ii][Dd]|[Nn]umber|[Mm]ark|[Cc]ode|[Tt]ag)$|[a-z0-9](?:[A-Z][Dd]|Number|Mark|Code|Tag)$/;
+const MAX_SAFE_DIGITS = 15;
+
+export const TOTAL_ROW_PREFIX = 'Total';
+export const TOTAL_ROW_SKIP_COLUMN = 0;
+
+function isIdentifierColumn(header: string): boolean {
+  return IDENTIFIER_COLUMN.test(header.trim());
+}
+
+function blankColumns(
+  rows: readonly PropertyRow[],
+  propertyNames: readonly string[],
+): string[] {
+  return propertyNames.filter((name) =>
+    rows.every((row) => {
+      const value = row.properties[name];
+      return value === null || value === undefined || value === '';
+    }),
+  );
+}
+
+function numericCell(value: ExportCell): number | null {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (
+    typeof value === 'string' &&
+    PLAIN_DECIMAL.test(value) &&
+    value.replace(/^-|\./g, '').replace(/^0+/, '').length <= MAX_SAFE_DIGITS
+  ) {
+    return Number(value);
+  }
+  return null;
+}
+
+export function totalsRow(
+  header: readonly string[],
+  rows: readonly ExportCell[][],
+): ExportCell[] | null {
+  if (header.length === 0 || rows.length === 0) return null;
+  const skip = new Set([TOTAL_ROW_SKIP_COLUMN]);
+  const dbId = header.indexOf('dbId');
+  if (dbId >= 0) skip.add(dbId);
+  const cells: ExportCell[] = [
+    `${TOTAL_ROW_PREFIX} (${rows.length.toLocaleString('en-US')})`,
+  ];
+  for (let column = 1; column < header.length; column++) {
+    const values = rows
+      .map((row) => row[column] ?? '')
+      .filter((value) => value !== '');
+    const numbers = values.map(numericCell);
+    if (
+      skip.has(column) ||
+      isIdentifierColumn(header[column] ?? '') ||
+      values.length === 0
+    ) {
+      cells.push('');
+    } else if (numbers.every((value): value is number => value !== null)) {
+      const sum = numbers.reduce((total, value) => total + value, 0);
+      cells.push(Number(sum.toFixed(6)));
+    } else {
+      cells.push(
+        `${values.length} ${values.length === 1 ? 'value' : 'values'}`,
+      );
+    }
+  }
+  return cells;
+}
+
+export interface XlsxCellStyle {
+  value: ExportCell;
+  type?: NumberConstructor;
+  format?: string;
+  fontWeight?: 'bold';
+}
+
+export type XlsxCell = ExportCell | XlsxCellStyle;
+
+export function xlsxCell(
+  value: ExportCell,
+  bold = false,
+  textOnly = false,
+): XlsxCell {
+  const number = textOnly ? null : numericCell(value);
+  if (number === null) {
+    const text = textOnly && typeof value === 'number' ? String(value) : value;
+    return bold ? { value: text, fontWeight: 'bold' } : text;
+  }
+  return {
+    value: number,
+    type: Number,
+    format: Number.isInteger(number) ? '#,##0' : '#,##0.00',
+    ...(bold ? { fontWeight: 'bold' as const } : {}),
+  };
+}
+
+export interface XlsxSheet {
+  sheet: string;
+  data: XlsxCell[][];
+  stickyRowsCount: number;
+}
+
+export function xlsxSheet(sheet: ExportSheet): XlsxSheet {
+  const totals = totalsRow(sheet.header, sheet.rows);
+  const textColumns = new Set(
+    sheet.header.flatMap((name, index) =>
+      isIdentifierColumn(name) ? [index] : [],
+    ),
+  );
+  return {
+    sheet: sheet.name,
+    data: [
+      sheet.header.map((value) => xlsxCell(value, true, true)),
+      ...sheet.rows.map((row) =>
+        row.map((value, column) =>
+          xlsxCell(value, false, textColumns.has(column)),
+        ),
+      ),
+      ...(totals ? [totals.map((value) => xlsxCell(value, true))] : []),
+    ],
+    stickyRowsCount: 1,
+  };
 }
 
 export interface ExportOptions {
@@ -238,6 +366,7 @@ export async function exportToXlsx(
     }
     throwIfAborted(signal);
     emit({ phase: 'building' });
+    const missingColumns = blankColumns(rows, propertyNames);
     let rowCount = rows.length;
     const about = (): AboutInfo => ({
       models: shownModels(adapter),
@@ -293,16 +422,7 @@ export async function exportToXlsx(
           ]
         : [];
       const blob = await writeXlsxFile([
-        ...sheets.map((sheet) => ({
-          sheet: sheet.name,
-          data: [
-            sheet.header.map((value) => ({
-              value,
-              fontWeight: 'bold' as const,
-            })),
-            ...sheet.rows,
-          ],
-        })),
+        ...sheets.map(xlsxSheet),
         ...summary,
         ...aboutSheet,
       ]).toBlob();
@@ -361,6 +481,7 @@ export async function exportToXlsx(
       fileName: delivered,
       rowCount,
       ...(missing.length > 0 ? { missing } : {}),
+      ...(missingColumns.length > 0 ? { missingColumns } : {}),
       ...(scopeNote ? { scopeNote } : {}),
     });
   } catch (err) {
@@ -385,6 +506,9 @@ export function describeStatus(status: ExportStatus): string {
       const notes = [
         status.missing?.length
           ? `Missing ${status.missing.join(', ')}: properties could not be read`
+          : '',
+        status.missingColumns?.length
+          ? `No values for ${status.missingColumns.join(', ')}: the columns are blank`
           : '',
         status.scopeNote ?? '',
       ].filter(Boolean);

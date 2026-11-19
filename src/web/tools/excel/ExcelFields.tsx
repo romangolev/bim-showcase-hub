@@ -19,6 +19,7 @@ import { useSelectionSets, withSetLabels } from '../../viewer/selectionSets.js';
 import { useModels } from '../../viewer/useModels.js';
 import { useActiveViewer } from '../../viewer/ViewerContext.js';
 import { EXCEL_SETTINGS, type ExcelToolSettings } from './excelSettings.js';
+import { PresetFields } from './PresetFields.js';
 
 interface SelectFieldProps<T extends string> {
   label: string;
@@ -102,7 +103,9 @@ export function ExcelFields() {
       <p className="settings__hint">
         Exported data stays in your browser. Text that starts with =, +, - or @
         is prefixed with an apostrophe so it cannot run as a spreadsheet
-        formula.
+        formula. Excel files write numbers as numbers and end with a totals row:
+        sums for number columns, value counts for text columns. CSV, JSON and
+        copy keep plain values and have no totals row.
       </p>
       <SelectField<ExportFormat>
         label="Format"
@@ -147,6 +150,7 @@ export function ExcelFields() {
           onChange={(properties) => update({ properties })}
         />
       </fieldset>
+      <PresetFields current={excel} apply={update} />
       <div className="settings__field">
         <label htmlFor={patternId}>File name pattern</label>
         <input

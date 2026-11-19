@@ -81,4 +81,21 @@ describe('metaText and view', () => {
       DEFAULT_TREE_VIEW,
     );
   });
+
+  it('keeps a known open mode and falls back to a new tab', () => {
+    expect(DEFAULT_TREE_VIEW.openMode).toBe('tab');
+    expect(sanitizeTreeView({ openMode: 'combined' }).openMode).toBe(
+      'combined',
+    );
+    expect(sanitizeTreeView({ openMode: 'replace' }).openMode).toBe('replace');
+    expect(sanitizeTreeView({ openMode: 'nope' }).openMode).toBe('tab');
+  });
+
+  it('shows every home section until one is switched off', () => {
+    expect(DEFAULT_TREE_VIEW.homeRecent).toBe(true);
+    expect(DEFAULT_TREE_VIEW.homePinned).toBe(true);
+    expect(DEFAULT_TREE_VIEW.homeSets).toBe(true);
+    expect(sanitizeTreeView({ homeSets: false }).homeSets).toBe(false);
+    expect(sanitizeTreeView({ homeSets: 'no' }).homeSets).toBe(true);
+  });
 });

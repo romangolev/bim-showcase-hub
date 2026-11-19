@@ -1,22 +1,122 @@
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
-import { useContext } from 'react';
-import { MAX_COMBINED_MODELS } from '../../shared/combined.js';
+import { useContext, useState } from 'react';
+import {
+  MAX_COMBINED_MODELS,
+  MAX_LOADED_MEMBERS,
+} from '../../shared/combined.js';
 import { joinWith, type ModelContext } from '../api/modelContext.js';
 import { rememberModel } from '../api/modelStore.js';
 import { modelTabTitle } from '../api/modelTitles.js';
-import { contextOf, modelUrnsOf } from '../api/openModels.js';
+import {
+  contextOf,
+  isOpen,
+  liveWeight,
+  modelUrnsOf,
+  type OpenModelsState,
+  type OpenModelsStore,
+} from '../api/openModels.js';
 import { useModelContext } from '../api/useModelContext.js';
 import { useOpenModels, useOpenModelsStore } from '../api/useOpenModels.js';
 import { LayoutContext } from '../layout/layoutContext.js';
+import { PANE_SETTINGS, usePaneSetting } from '../settings/paneSettings.js';
+import { notify } from '../tasks/notifications.js';
+import { DocumentsHome } from './tree/DocumentsHome.js';
 import {
   type AddTarget,
   DocumentTree,
   type PickedModel,
+  tabLimitMessage,
 } from './tree/DocumentTree.js';
+import { DOC_ROOT, type TreeRoot, treeRootOf } from './tree/docRoot.js';
+import { HubProjectSwitcher } from './tree/HubProjectSwitcher.js';
 import { RecentStrip } from './tree/RecentStrip.js';
+import type { TreeOpenMode } from './tree/treeView.js';
 
 export interface TreePanelProps {
   onNavigate?: () => void;
+}
+
+export interface OpenTarget {
+  urn: string;
+  context: ModelContext;
+  notice?: string;
+}
+
+export const COMBINED_FULL_NOTICE = 'The open viewer is full; opened a new tab';
+
+export function loadedMembers(state: OpenModelsState): number {
+  return state.models.reduce(
+    (sum, model) => sum + liveWeight(state, model.urn),
+    0,
+  );
+}
+
+export function exceedsTabLimit(
+  state: OpenModelsState,
+  models: readonly PickedModel[],
+): boolean {
+  const fresh = models.filter((model) => !isOpen(state, model.urn)).length;
+  return loadedMembers(state) + fresh > MAX_LOADED_MEMBERS;
+}
+
+export function openPickedAsTabs(
+  store: OpenModelsStore | null,
+  models: readonly PickedModel[],
+): PickedModel[] {
+  const admitted = models.slice(0, MAX_LOADED_MEMBERS);
+  for (const model of admitted) {
+    rememberModel(model.urn, model.context);
+    store?.open(model.urn, model.context);
+  }
+  return admitted;
+}
+
+export function openAsTab(
+  store: OpenModelsStore | null,
+  urn: string,
+  context: ModelContext,
+): OpenTarget {
+  openPickedAsTabs(store, [{ urn, context }]);
+  return { urn, context };
+}
+
+export function openWithMode(
+  mode: TreeOpenMode,
+  store: OpenModelsStore | null,
+  state: OpenModelsState,
+  urn: string,
+  context: ModelContext,
+): OpenTarget {
+  if (!store) return { urn, context };
+  const active = state.active;
+  if (mode === 'replace' && active && active !== urn) {
+    const dropped = modelUrnsOf(state, active);
+    rememberModel(urn, context);
+    store.open(urn, context);
+    store.close(active);
+    return {
+      urn,
+      context,
+      notice:
+        dropped.length > 1
+          ? `Closed the combined tab and its ${dropped.length} models`
+          : undefined,
+    };
+  }
+  if (mode === 'combined' && active && active !== urn && !isOpen(state, urn)) {
+    if (modelUrnsOf(state, active).length < MAX_COMBINED_MODELS) {
+      rememberModel(urn, context);
+      store.addTo(active, urn);
+      return {
+        urn: active,
+        context: contextOf(store.getState(), active) ?? {},
+      };
+    }
+    store.open(urn, context);
+    return { urn, context, notice: COMBINED_FULL_NOTICE };
+  }
+  store.open(urn, context);
+  return { urn, context };
 }
 
 export function TreePanel({ onNavigate }: TreePanelProps) {
@@ -28,6 +128,11 @@ export function TreePanel({ onNavigate }: TreePanelProps) {
   const state = useOpenModels();
   const active = state.active;
   const layout = useContext(LayoutContext);
+  const [view] = usePaneSetting(PANE_SETTINGS.tree.view);
+  const [root, setRoot] = useState<TreeRoot>(() =>
+    treeRootOf(DOC_ROOT.read(), undefined, undefined),
+  );
+  const home = active === null;
 
   const openTogether = (models: PickedModel[]) => {
     const [first, ...rest] = models.slice(0, MAX_COMBINED_MODELS);
@@ -65,18 +170,32 @@ export function TreePanel({ onNavigate }: TreePanelProps) {
     };
   }
 
-  const open = (next: string, context: ModelContext) => {
+  const reveal = (target: OpenTarget) => {
+    if (target.notice) notify(target.notice);
     void navigate({
       to: '/model/$urn',
-      params: { urn: next },
-      search: context,
+      params: { urn: target.urn },
+      search: target.context,
     });
     onNavigate?.();
   };
 
+  const open = (next: string, context: ModelContext) => {
+    reveal(openWithMode(view.openMode, store, state, next, context));
+  };
+
+  const openTabs = (models: PickedModel[]) => {
+    if (exceedsTabLimit(state, models)) {
+      notify(tabLimitMessage(loadedMembers(state)));
+      return;
+    }
+    const last = openPickedAsTabs(store, models).at(-1);
+    if (last) reveal(last);
+  };
+
   const openModal = (next: string, context: ModelContext) => {
     layout?.floatNext(next);
-    open(next, context);
+    reveal(openAsTab(store, next, context));
   };
 
   return (
@@ -84,16 +203,33 @@ export function TreePanel({ onNavigate }: TreePanelProps) {
       <div className="tree-panel__head">
         <h2 className="tree-panel__title">Documents</h2>
       </div>
-      <RecentStrip
-        selectedUrn={urn}
-        onOpen={open}
-        onOpenModal={openModal}
-        addTarget={addTarget}
-      />
+      <div className="docs-toolbar">
+        <HubProjectSwitcher onChange={setRoot} />
+      </div>
+      {home ? (
+        <DocumentsHome
+          selectedUrn={urn}
+          onOpen={open}
+          onOpenModal={openModal}
+          onOpenTabs={openTabs}
+          addTarget={addTarget}
+        />
+      ) : (
+        <RecentStrip
+          selectedUrn={urn}
+          onOpen={open}
+          onOpenModal={openModal}
+          addTarget={addTarget}
+        />
+      )}
       <DocumentTree
+        key={`${root.scope.kind}:${root.node.id}`}
+        root={root}
         selectedUrn={urn}
         revealTrail={trail}
+        openCount={loadedMembers(state)}
         onOpenModel={open}
+        onOpenTabs={openTabs}
         onOpenModal={openModal}
         onOpenTogether={openTogether}
         addTarget={addTarget}

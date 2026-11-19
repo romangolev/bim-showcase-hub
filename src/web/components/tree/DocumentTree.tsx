@@ -8,35 +8,35 @@ import { useTree } from '@headless-tree/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useVirtualizer, type Virtualizer } from '@tanstack/react-virtual';
 import {
+  type DragEvent,
   type KeyboardEvent,
   type MouseEvent,
   useEffect,
   useRef,
   useState,
 } from 'react';
-import { MAX_COMBINED_MODELS } from '../../../shared/combined.js';
+import {
+  MAX_COMBINED_MODELS,
+  MAX_LOADED_MEMBERS,
+} from '../../../shared/combined.js';
 import type { TreeNode, VersionViewState } from '../../../shared/types.js';
 import { viewableFor } from '../../../shared/viewState.js';
 import { fetchVersionViewState } from '../../api/client.js';
 import { friendlyError } from '../../api/friendlyError.js';
 import { childrenQueryOptions } from '../../api/hooks.js';
 import { type ModelContext, versionTag } from '../../api/modelContext.js';
-import {
-  childScope,
-  type NodeScope,
-  ROOT_ID,
-  ROOT_NODE,
-  ROOT_SCOPE,
-  scopeKey,
-} from '../../api/scope.js';
+import { childScope, type NodeScope, scopeKey } from '../../api/scope.js';
 import { PANE_SETTINGS, usePaneSetting } from '../../settings/paneSettings.js';
+import { notify } from '../../tasks/notifications.js';
 import { MODEL_LIMIT_MESSAGE } from '../../viewer/modelSet.js';
 import { Icon } from '../icons.js';
 import { Menu, type MenuEntry } from '../Menu.js';
 import { StateBlock } from '../StateBlock.js';
+import { startModelDrag } from './docDrag.js';
+import { DEFAULT_TREE_ROOT, type TreeRoot } from './docRoot.js';
 import { NoHubsHint, PersonalHubNotice } from './NoHubsHint.js';
 import { usePins } from './pins.js';
-import { modelMenuEntries, useRowMenu } from './rowMenu.js';
+import { modelHref, modelMenuEntries, useRowMenu } from './rowMenu.js';
 import { INDENT, rowHeightFor, TreeRowView } from './TreeRowView.js';
 import { metaText, sortChildren } from './treeView.js';
 import {
@@ -61,11 +61,25 @@ export interface AddTarget {
 export interface DocumentTreeProps {
   selectedUrn?: string;
   revealTrail?: readonly string[];
+  openCount?: number;
   onOpenModel: (urn: string, context: ModelContext) => void;
+  onOpenTabs?: (models: PickedModel[]) => void;
   onOpenTogether?: (models: PickedModel[]) => void;
   onOpenModal?: (urn: string, context: ModelContext) => void;
   addTarget?: AddTarget | null;
+  root?: TreeRoot;
   pollMs?: number;
+}
+
+export function tabLimitMessage(openCount: number): string {
+  const room = MAX_LOADED_MEMBERS - openCount;
+  const open =
+    openCount === 0
+      ? ''
+      : `${openCount} ${openCount === 1 ? 'tab is' : 'tabs are'} already open. `;
+  return room < 1
+    ? `A viewer loads up to ${MAX_LOADED_MEMBERS} models. ${open}Close a tab to open another.`
+    : `A viewer loads up to ${MAX_LOADED_MEMBERS} models. ${open}Select ${room} or fewer to open them as tabs.`;
 }
 
 export function skippedNotice(nodes: readonly TreeNode[]): {
@@ -137,10 +151,39 @@ const STATUS_COPY: Record<StatusVariant, string> = {
   empty: 'Nothing here yet.',
 };
 
+interface RootCopy {
+  error: string;
+  empty: string;
+  emptyMessage: string;
+}
+
+function rootCopy(scope: NodeScope): RootCopy {
+  if (scope.kind === 'hub') {
+    return {
+      error: 'Could not load this hub',
+      empty: 'No projects here yet',
+      emptyMessage: 'Ask a hub admin to add a project, then refresh.',
+    };
+  }
+  if (scope.kind === 'project') {
+    return {
+      error: 'Could not load this project',
+      empty: 'No folders here yet',
+      emptyMessage: 'This project has no top folders to browse.',
+    };
+  }
+  return {
+    error: 'Could not load hubs',
+    empty: 'No hubs found',
+    emptyMessage: 'Add your Autodesk account to a hub, then refresh.',
+  };
+}
+
 const MIN_ROW_HEIGHT = 30;
 
 const TRAIL_SEPARATOR = '|';
 const REVEAL_TIMEOUT_MS = 5000;
+const TYPEAHEAD_MS = 600;
 
 function sleep(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -160,13 +203,19 @@ async function until(check: () => boolean, timeoutMs: number) {
 export function DocumentTree({
   selectedUrn,
   revealTrail,
+  openCount = 0,
   onOpenModel,
+  onOpenTabs,
   onOpenTogether,
   onOpenModal,
   addTarget,
+  root = DEFAULT_TREE_ROOT,
   pollMs = VERSION_POLL_MS,
 }: DocumentTreeProps) {
   const queryClient = useQueryClient();
+  const rootId = root.node.id;
+  const rootScope = root.scope;
+  const copy = rootCopy(rootScope);
   const [picked, setPicked] = useState<PickedModel[]>([]);
   const anchorRef = useRef<string | null>(null);
   const [errors, setErrors] = useState<Record<string, NodeError>>({});
@@ -177,13 +226,18 @@ export function DocumentTree({
     itemId?: string;
   } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const typeahead = useRef({
+    text: '',
+    timer: null as ReturnType<typeof setTimeout> | null,
+  });
   const rowsRef = useRef<Row[]>([]);
   const virtualizerRef = useRef<Virtualizer<HTMLDivElement, Element> | null>(
     null,
   );
   const registry = useRef({
-    nodes: new Map<string, TreeNode>([[ROOT_ID, ROOT_NODE]]),
-    scopes: new Map<string, NodeScope>([[ROOT_ID, ROOT_SCOPE]]),
+    nodes: new Map<string, TreeNode>([[rootId, root.node]]),
+    scopes: new Map<string, NodeScope>([[rootId, rootScope]]),
     loaded: new Set<string>(),
     stale: new Set<string>(),
   }).current;
@@ -485,6 +539,80 @@ export function DocumentTree({
   const pinsApi = usePins();
   const rowMenu = useRowMenu();
 
+  const ancestorIds = (node: TreeNode): string[] => {
+    const ids: string[] = [];
+    let parentId = node.parentId;
+    for (let guard = 0; parentId && guard < 64; guard += 1) {
+      ids.unshift(parentId);
+      parentId = registry.nodes.get(parentId)?.parentId;
+    }
+    return ids;
+  };
+
+  const revealTrailTo = async (node: TreeNode): Promise<boolean> => {
+    for (const id of ancestorIds(node)) {
+      if (!(await until(() => registry.nodes.has(id), REVEAL_TIMEOUT_MS))) {
+        return false;
+      }
+      const item = tree.getItemInstance(id);
+      if (!item.isExpanded()) {
+        item.expand();
+      }
+      if (!(await until(() => registry.loaded.has(id), REVEAL_TIMEOUT_MS))) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const focusItem = (id: string) => {
+    const item = tree.getItemInstance(id);
+    item.setFocused();
+    tree.updateDomFocus();
+  };
+
+  const copyLink = async (urn: string, context: ModelContext) => {
+    const href = modelHref(urn, context);
+    try {
+      await navigator.clipboard.writeText(href);
+      notify('Link copied', { detail: href });
+    } catch {
+      notify('Could not copy the link', { tone: 'error', detail: href });
+    }
+  };
+
+  const revealPath = (node: TreeNode) => {
+    void (async () => {
+      if (query) setFilter('');
+      if (!(await revealTrailTo(node))) return;
+      await sleep(80);
+      focusItem(node.id);
+    })();
+  };
+
+  const showVersions = (node: TreeNode) => {
+    const parentId = node.parentId;
+    if (!parentId) return;
+    void (async () => {
+      if (query) setFilter('');
+      if (!(await revealTrailTo(node))) return;
+      const parent = tree.getItemInstance(parentId);
+      if (parent.isFolder() && !parent.isExpanded()) parent.expand();
+      await sleep(80);
+      focusItem(parentId);
+    })();
+  };
+
+  const dragProps = (node: TreeNode) => {
+    const urn = openableUrn(node);
+    if (!urn || needsCheck(node)) return {};
+    return {
+      draggable: true,
+      onDragStart: (event: DragEvent<HTMLDivElement>) =>
+        startModelDrag(event, { urn, context: contextFor(node) }),
+    };
+  };
+
   const menuProps = (node: TreeNode) => {
     if (node.kind !== 'version') return undefined;
     return rowMenu.bind(() => {
@@ -496,12 +624,17 @@ export function DocumentTree({
         addTarget,
         pinned: pinsApi.pins.some((pin) => pin.urn === urn),
         onOpen: () => openNode(node),
+        onOpenTab:
+          onOpenTabs && urn ? () => onOpenTabs([{ urn, context }]) : undefined,
         onOpenModal:
           onOpenModal && urn ? () => onOpenModal(urn, context) : undefined,
         onAdd: () => addNode(node),
         onTogglePin: () => {
           if (urn) pinsApi.toggle(urn, context);
         },
+        onCopyLink: urn ? () => void copyLink(urn, context) : undefined,
+        onRevealPath: () => revealPath(node),
+        onShowVersions: () => showVersions(node),
       });
     });
   };
@@ -548,7 +681,7 @@ export function DocumentTree({
   };
 
   const tree = useTree<TreeNode>({
-    rootItemId: ROOT_ID,
+    rootItemId: rootId,
     getItemName: (item) => item.getItemData().name,
     isItemFolder: (item) => item.getItemData().hasChildren,
     createLoadingItemData: () => LOADING_NODE,
@@ -652,10 +785,72 @@ export function DocumentTree({
 
   const query = filter.trim().toLowerCase();
 
+  const onTreeKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('input, textarea, select, [contenteditable="true"]')) {
+      return;
+    }
+    if (event.metaKey || event.ctrlKey || event.altKey) return;
+    if (event.key === 'Enter') {
+      if (!target?.closest('[role="treeitem"]')) return;
+      if (target.closest('button, a')) return;
+      const item = tree
+        .getItems()
+        .find((entry) => entry.getElement() === target);
+      if (!item) return;
+      event.preventDefault();
+      activate(item);
+      return;
+    }
+    if (event.key === '/') {
+      event.preventDefault();
+      searchRef.current?.focus();
+      return;
+    }
+    if (query || event.key.length !== 1 || event.key === ' ') return;
+    if (!target?.closest('[role="treeitem"], [role="option"]')) return;
+    const items = tree.getItems();
+    if (items.length === 0) return;
+    const typed = typeahead.current;
+    typed.text += event.key.toLowerCase();
+    if (typed.timer) clearTimeout(typed.timer);
+    typed.timer = setTimeout(() => {
+      typed.text = '';
+      typed.timer = null;
+    }, TYPEAHEAD_MS);
+    const focused = tree.getState().focusedItem;
+    const element = document.activeElement;
+    const onElement = items.findIndex(
+      (item) => element !== null && item.getElement() === element,
+    );
+    const current =
+      onElement >= 0
+        ? onElement
+        : items.findIndex((item) => item.getId() === focused);
+    const start = typed.text.length === 1 ? current + 1 : Math.max(current, 0);
+    for (let offset = 0; offset < items.length; offset += 1) {
+      const item = items[(start + offset) % items.length];
+      if (!item) continue;
+      if (item.getItemName().toLowerCase().startsWith(typed.text)) {
+        event.preventDefault();
+        item.setFocused();
+        tree.updateDomFocus();
+        return;
+      }
+    }
+  };
+
+  useEffect(
+    () => () => {
+      if (typeahead.current.timer) clearTimeout(typeahead.current.timer);
+    },
+    [],
+  );
+
   const rows: Row[] = [];
   if (query) {
     for (const [id, node] of registry.nodes) {
-      if (id !== ROOT_ID && node.name.toLowerCase().includes(query)) {
+      if (id !== rootId && node.name.toLowerCase().includes(query)) {
         rows.push({ type: 'result', key: `result:${id}`, node });
       }
     }
@@ -665,14 +860,14 @@ export function DocumentTree({
         key: 'status:search',
         variant: 'empty',
         level: 0,
-        parentId: ROOT_ID,
+        parentId: rootId,
         title: 'Nothing found',
         message: `No matches for “${filter.trim()}” in loaded folders. Expand more folders to search deeper.`,
         clearFilter: true,
       });
     }
   } else {
-    const rootItem = tree.getItemInstance(ROOT_ID);
+    const rootItem = tree.getItemInstance(rootId);
     const items = tree.getItems();
     for (const item of items) {
       const id = item.getId();
@@ -712,35 +907,35 @@ export function DocumentTree({
       }
     }
     if (items.length === 0) {
-      if (errors[ROOT_ID]) {
+      if (errors[rootId]) {
         rows.push({
           type: 'status',
           key: 'status:root',
           variant: 'error',
           level: 0,
-          parentId: ROOT_ID,
-          title: 'Could not load hubs',
-          message: errors[ROOT_ID]?.message,
-          detail: errors[ROOT_ID]?.detail,
+          parentId: rootId,
+          title: copy.error,
+          message: errors[rootId]?.message,
+          detail: errors[rootId]?.detail,
         });
-      } else if (registry.loaded.has(ROOT_ID)) {
+      } else if (registry.loaded.has(rootId)) {
         rows.push({
           type: 'status',
           key: 'status:root',
           variant: 'empty',
           level: 0,
-          parentId: ROOT_ID,
-          title: 'No hubs found',
-          message: 'Add your Autodesk account to a hub, then refresh.',
-          noHubs: true,
+          parentId: rootId,
+          title: copy.empty,
+          message: copy.emptyMessage,
+          noHubs: rootScope.kind === 'root',
         });
-      } else if (rootItem.isLoading() || !registry.loaded.has(ROOT_ID)) {
+      } else if (rootItem.isLoading() || !registry.loaded.has(rootId)) {
         rows.push({
           type: 'status',
           key: 'status:root',
           variant: 'loading',
           level: 0,
-          parentId: ROOT_ID,
+          parentId: rootId,
         });
       }
     }
@@ -789,14 +984,14 @@ export function DocumentTree({
     registry.loaded.delete(id);
     registry.stale.delete(id);
     queryClient.removeQueries({
-      queryKey: scopeKey(registry.scopes.get(id) ?? ROOT_SCOPE),
+      queryKey: scopeKey(registry.scopes.get(id) ?? rootScope),
       exact: true,
     });
     retry(id);
   };
 
   const refreshAll = () => {
-    const ids = new Set<string>([ROOT_ID, ...Object.keys(errors)]);
+    const ids = new Set<string>([rootId, ...Object.keys(errors)]);
     for (const item of tree.getItems()) {
       if (item.isFolder() && item.isExpanded()) ids.add(item.getId());
     }
@@ -822,7 +1017,7 @@ export function DocumentTree({
   const recheck = (id: string) => {
     forgetChecks(id);
     queryClient.removeQueries({
-      queryKey: scopeKey(registry.scopes.get(id) ?? ROOT_SCOPE),
+      queryKey: scopeKey(registry.scopes.get(id) ?? rootScope),
       exact: true,
     });
     void tree.getItemInstance(id).invalidateChildrenIds(true);
@@ -946,6 +1141,7 @@ export function DocumentTree({
           rowProps={{
             ...props,
             ...menuProps(node),
+            ...dragProps(node),
             'data-index': index,
             'aria-checked':
               urn !== null && onOpenTogether ? pickedUrns.has(urn) : undefined,
@@ -997,6 +1193,7 @@ export function DocumentTree({
           added={urn !== null && addTarget?.has(urn)}
           rowProps={{
             ...menuProps(resultNode),
+            ...dragProps(resultNode),
             role: 'option',
             'aria-checked':
               urn !== null && onOpenTogether ? pickedUrns.has(urn) : undefined,
@@ -1049,7 +1246,7 @@ export function DocumentTree({
           <StateBlock
             variant="loading"
             compact
-            rows={row.parentId === ROOT_ID ? 4 : 2}
+            rows={row.parentId === rootId ? 4 : 2}
           />
         ) : row.noHubs ? (
           <NoHubsHint onCheckAgain={() => refresh(row.parentId)} />
@@ -1072,11 +1269,12 @@ export function DocumentTree({
   };
 
   return (
-    <div className="doc-tree">
-      <PersonalHubNotice onCheckAgain={() => refresh(ROOT_ID)} />
+    <div className="doc-tree" onKeyDownCapture={onTreeKeyDown}>
+      <PersonalHubNotice onCheckAgain={() => refresh(rootId)} />
       <div className="doc-tree__search">
         <Icon name="search" size={14} />
         <input
+          ref={searchRef}
           type="search"
           value={filter}
           onChange={(event) => setFilter(event.target.value)}
@@ -1123,7 +1321,16 @@ export function DocumentTree({
       {onOpenTogether ? (
         <PickBar
           picked={picked}
+          openCount={openCount}
           addTarget={addTarget ?? null}
+          onOpenTabs={
+            onOpenTabs
+              ? (models) => {
+                  onOpenTabs(models);
+                  setPicked([]);
+                }
+              : undefined
+          }
           onOpenTogether={(models) => {
             onOpenTogether(models);
             setPicked([]);
@@ -1183,16 +1390,21 @@ export function DocumentTree({
 
 function PickBar({
   picked,
+  openCount,
   addTarget,
+  onOpenTabs,
   onOpenTogether,
   onClear,
 }: {
   picked: PickedModel[];
+  openCount: number;
   addTarget: AddTarget | null;
+  onOpenTabs?: (models: PickedModel[]) => void;
   onOpenTogether: (models: PickedModel[]) => void;
   onClear: () => void;
 }) {
-  const tooMany = picked.length > MAX_COMBINED_MODELS;
+  const tooManyCombined = picked.length > MAX_COMBINED_MODELS;
+  const tooManyTabs = openCount + picked.length > MAX_LOADED_MEMBERS;
   const addable = addTarget
     ? picked.filter((model) => addTarget.canAdd(model.urn))
     : [];
@@ -1204,15 +1416,26 @@ function PickBar({
     >
       <span className="doc-tree__picks-count" aria-live="polite">
         {picked.length === 0
-          ? 'Ctrl or Cmd click, Shift click or Space selects versions to open together'
+          ? 'Ctrl or Cmd click, Shift click or Space selects versions to open'
           : `${picked.length} selected`}
       </span>
       {picked.length > 0 ? (
         <>
+          {onOpenTabs ? (
+            <button
+              type="button"
+              className="bsh-button doc-tree__pick-action"
+              disabled={tooManyTabs}
+              title={picked.map(pickLabel).join('\n')}
+              onClick={() => onOpenTabs(picked)}
+            >
+              Open {picked.length} in viewer
+            </button>
+          ) : null}
           <button
             type="button"
             className="bsh-button doc-tree__pick-action"
-            disabled={picked.length < 2 || tooMany}
+            disabled={picked.length < 2 || tooManyCombined}
             title={picked.map(pickLabel).join('\n')}
             onClick={() => onOpenTogether(picked)}
           >
@@ -1238,7 +1461,11 @@ function PickBar({
           >
             Clear
           </button>
-          {tooMany ? (
+          {tooManyTabs ? (
+            <span className="doc-tree__picks-limit" role="alert">
+              {tabLimitMessage(openCount)}
+            </span>
+          ) : tooManyCombined ? (
             <span className="doc-tree__picks-limit" role="alert">
               {MODEL_LIMIT_MESSAGE}
             </span>

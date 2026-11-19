@@ -12,6 +12,8 @@ import { ViewpointsBody } from '../panels/Viewpoints.js';
 import { SavedItemsSettings } from '../settings/SavedItemsSettings.js';
 import { getStorageAdapter } from '../storage.js';
 import { installMemoryStorage } from '../test/mockApi.js';
+import { DEFAULT_EXCEL_TOOL_SETTINGS } from '../tools/excel/excelSettings.js';
+import { EXPORT_PRESETS } from '../tools/excel/exportPresets.js';
 import { publishActiveAdapter } from '../viewer/activeAdapterStore.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
 import {
@@ -44,7 +46,7 @@ beforeEach(() => {
 });
 
 describe('production saved kinds', () => {
-  it('registers the three existing kinds at version 1', () => {
+  it('registers each production kind at version 1', () => {
     expect(getSavedKind('viewpoint')).toMatchObject({
       version: 1,
       label: 'Viewpoint',
@@ -57,10 +59,15 @@ describe('production saved kinds', () => {
       version: 1,
       label: 'Dashboard preset',
     });
+    expect(getSavedKind('export-preset')).toMatchObject({
+      version: 1,
+      label: 'Export preset',
+    });
     expect(savedKindVersions()).toMatchObject({
       viewpoint: 1,
       'selection-set': 1,
       'dashboard-preset': 1,
+      'export-preset': 1,
     });
   });
 
@@ -99,6 +106,16 @@ describe('production saved kinds', () => {
       true,
     );
     expect(DASHBOARD_USER_PRESETS.remove(board?.id ?? '')).toBe(true);
+
+    const preset = EXPORT_PRESETS.save('Weekly', DEFAULT_EXCEL_TOOL_SETTINGS);
+    expect(preset?.data).toMatchObject({
+      format: 'xlsx',
+      scope: 'all',
+      includeHeader: true,
+    });
+    expect(preset?.data).not.toHaveProperty('modelScope');
+    expect(EXPORT_PRESETS.rename(preset?.id ?? '', 'Monthly')).toBe(true);
+    expect(EXPORT_PRESETS.remove(preset?.id ?? '')).toBe(true);
     expect(readSaved()).toEqual([]);
   });
 

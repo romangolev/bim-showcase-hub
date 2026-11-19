@@ -113,7 +113,7 @@ The keys are listed in [development.md](development.md#storage-keys).
 
 ### User-made items
 
-`src/web/store/savedStore.ts` holds viewpoints, selection sets and dashboard presets in one personal record (`bsh.saved.v1`). Each kind is declared once with `defineSavedKind` (`store/savedKinds.ts`), which registers it through `registerSavedKind` (`store/savedKindRegistry.ts`) and returns a typed handle. The production kinds are `viewpoint` (`viewer/viewpoints.ts`), `selection-set` (`viewer/selectionSets.ts`) and `dashboard-preset` (`extensions/dashboardPresets.ts`), all at version 1. The export envelope is `bsh-saved` version 2 with a per-kind version map; import migrates older items and merges by id.
+`src/web/store/savedStore.ts` holds viewpoints, selection sets, dashboard presets and export presets in one personal record (`bsh.saved.v1`). Each kind is declared once with `defineSavedKind` (`store/savedKinds.ts`), which registers it through `registerSavedKind` (`store/savedKindRegistry.ts`) and returns a typed handle. The production kinds are `viewpoint` (`viewer/viewpoints.ts`), `selection-set` (`viewer/selectionSets.ts`), `dashboard-preset` (`extensions/dashboardPresets.ts`) and `export-preset` (`tools/excel/exportPresets.ts`), all at version 1. The export envelope is `bsh-saved` version 2 with a per-kind version map; import migrates older items and merges by id.
 
 ### Scoped rows
 
