@@ -19,6 +19,7 @@ import { useSelectionSets, withSetLabels } from '../../viewer/selectionSets.js';
 import { useModels } from '../../viewer/useModels.js';
 import { useActiveViewer } from '../../viewer/ViewerContext.js';
 import { EXCEL_SETTINGS, type ExcelToolSettings } from './excelSettings.js';
+import { PresetFields } from './PresetFields.js';
 
 interface SelectFieldProps<T extends string> {
   label: string;
@@ -149,6 +150,7 @@ export function ExcelFields() {
           onChange={(properties) => update({ properties })}
         />
       </fieldset>
+      <PresetFields current={excel} apply={update} />
       <div className="settings__field">
         <label htmlFor={patternId}>File name pattern</label>
         <input
