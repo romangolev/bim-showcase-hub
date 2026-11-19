@@ -99,7 +99,7 @@ A tool is a viewer toolbar entry with its own settings window.
    - For options, set `form` (a `FormDefinition`) or override `renderFields()`.
    - For exports, use `exportEntry`, `exportStem`, `exportFileName`, `confirmLargeExport` and `statusReporter` from `tools/kernel/exportKit.ts`. Set `exportTitle` to get a palette command.
    - `ctx.current(this)` returns the settings run through the record's sanitizer, so an export never sees a field the user has just cleared. Storage keeps the raw text while the field is edited.
-   - Override `toolbarSignature`, `onDisabled` and `scrub` only when needed. `scrub` blanks personal text on sign-out. If the scrubbed write fails, the record is removed.
+   - Override `toolbarSignature`, `onDisabled`, `onSettingsChanged` and `scrub` only when needed. `onSettingsChanged(adapter, previous, next)` runs when the toolbar-relevant settings change, and once on the first run with `previous` undefined. Put adapter side effects there, never in `contribute`. `scrub` blanks personal text on sign-out. If the scrubbed write fails, the record is removed.
 3. Register it in `src/web/tools/index.ts` with `.register(new YourTool())`. The registry rejects duplicate ids and settings keys.
 4. Test the class with a fake `ToolContext` (see `tools/glb/GlbExportTool.test.tsx`).
 

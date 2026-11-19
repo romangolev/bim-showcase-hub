@@ -25,7 +25,7 @@ export const DEFAULT_PAINT_SETTINGS: PaintSettings = {
   paletteId: DEFAULT_PAINT_PALETTE_ID,
   palette: [...DEFAULT_PAINT_PALETTE],
   intensity: DEFAULT_PAINT_INTENSITY,
-  ghostRest: false,
+  ghostRest: true,
 };
 
 export function readPaintSettings(raw: unknown): PaintSettings {
@@ -35,7 +35,7 @@ export function readPaintSettings(raw: unknown): PaintSettings {
     paletteId: readPaletteId(source),
     palette: sanitizePalette(source.palette),
     intensity: sanitizeIntensity(source.intensity),
-    ghostRest: source.ghostRest === true,
+    ghostRest: typeof source.ghostRest === 'boolean' ? source.ghostRest : true,
   };
 }
 

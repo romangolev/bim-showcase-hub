@@ -30,6 +30,7 @@ function fakeSettings(key: string) {
 class FakeTool extends ViewerTool<FakeSettings> {
   readonly settings;
   readonly disabled = vi.fn();
+  readonly changed = vi.fn();
   constructor(
     readonly id: string,
     readonly title = id,
@@ -39,6 +40,14 @@ class FakeTool extends ViewerTool<FakeSettings> {
   ) {
     super();
     this.settings = fakeSettings(key);
+  }
+
+  override onSettingsChanged(
+    adapter: ViewerAdapter,
+    previous: FakeSettings | undefined,
+    next: FakeSettings,
+  ) {
+    this.changed(adapter, previous, next);
   }
 
   contribute(ctx: ToolContext) {
@@ -395,6 +404,19 @@ describe('useViewerTools', () => {
     expect(tool.disabled).not.toHaveBeenCalled();
     fireEvent.click(view.getByText('off'));
     expect(tool.disabled).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls onSettingsChanged with no previous snapshot first, then on each change', () => {
+    const { adapter } = fakeAdapter();
+    const tool = new FakeTool('a');
+    const registry = new ToolRegistry().register(tool);
+    const view = render(<Probe registry={registry} adapter={adapter} />);
+    expect(tool.changed).toHaveBeenCalledTimes(1);
+    expect(tool.changed.mock.calls[0]?.[1]).toBeUndefined();
+    fireEvent.click(view.getByText('off'));
+    expect(tool.changed).toHaveBeenCalledTimes(2);
+    expect(tool.changed.mock.calls[1]?.[1]).toMatchObject({ enabled: true });
+    expect(tool.changed.mock.calls[1]?.[2]).toMatchObject({ enabled: false });
   });
 });
 

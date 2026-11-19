@@ -46,7 +46,7 @@ describe('readPaintSettings', () => {
       paletteId: 'custom',
       palette: ['#abcdef', '#123456'],
       intensity: 1,
-      ghostRest: false,
+      ghostRest: true,
     });
     expect(
       readPaintSettings({ enabled: 'no', palette: [], intensity: 'x' }),
@@ -120,19 +120,69 @@ describe('PaintTool', () => {
     );
   });
 
-  it('applies ghosting from the setting and clears it when disabled', () => {
-    const setGhosting = vi.fn();
-    tool.contribute(context({ setGhosting }), {
-      ...DEFAULT_PAINT_SETTINGS,
-      ghostRest: true,
+  describe('ghosting', () => {
+    const on = DEFAULT_PAINT_SETTINGS;
+    const off = { ...DEFAULT_PAINT_SETTINGS, ghostRest: false };
+
+    it('defaults to the viewer default and leaves the viewer alone', () => {
+      const setGhosting = vi.fn();
+      expect(DEFAULT_PAINT_SETTINGS.ghostRest).toBe(true);
+      tool.onSettingsChanged(
+        { setGhosting } as unknown as ViewerAdapter,
+        undefined,
+        on,
+      );
+      expect(setGhosting).not.toHaveBeenCalled();
     });
-    expect(setGhosting).toHaveBeenCalledWith(true);
-    const off = vi.fn();
-    tool.onDisabled({
-      setGhosting: off,
-      clearThemingColors: vi.fn(),
-    } as unknown as ViewerAdapter);
-    expect(off).toHaveBeenCalledWith(false);
+
+    it('applies a stored false once when the tool first runs', () => {
+      const setGhosting = vi.fn();
+      tool.onSettingsChanged(
+        { setGhosting } as unknown as ViewerAdapter,
+        undefined,
+        off,
+      );
+      expect(setGhosting).toHaveBeenCalledExactlyOnceWith(false);
+    });
+
+    it('calls the adapter once when the setting changes, not for other changes', () => {
+      const setGhosting = vi.fn();
+      const adapter = { setGhosting } as unknown as ViewerAdapter;
+      tool.onSettingsChanged(adapter, on, off);
+      expect(setGhosting).toHaveBeenCalledExactlyOnceWith(false);
+      tool.onSettingsChanged(adapter, off, { ...off, intensity: 0.5 });
+      expect(setGhosting).toHaveBeenCalledOnce();
+    });
+
+    it('re-applies a stored false after the tool is turned back on', () => {
+      const setGhosting = vi.fn();
+      tool.onSettingsChanged(
+        { setGhosting } as unknown as ViewerAdapter,
+        { ...off, enabled: false },
+        off,
+      );
+      expect(setGhosting).toHaveBeenCalledExactlyOnceWith(false);
+    });
+
+    it('restores the viewer default when disabled', () => {
+      const setGhosting = vi.fn();
+      tool.onDisabled({
+        setGhosting,
+        clearThemingColors: vi.fn(),
+      } as unknown as ViewerAdapter);
+      expect(setGhosting).toHaveBeenCalledExactlyOnceWith(true);
+    });
+
+    it('has no adapter side effect when contributing', () => {
+      const setGhosting = vi.fn();
+      tool.contribute(context({ setGhosting }), off);
+      expect(setGhosting).not.toHaveBeenCalled();
+    });
+  });
+
+  it('keeps a stored ghostRest false and defaults garbage to true', () => {
+    expect(readPaintSettings({ ghostRest: false }).ghostRest).toBe(false);
+    expect(readPaintSettings({ ghostRest: 'no' }).ghostRest).toBe(true);
   });
 
   it('paints the selection and resets through the adapter', () => {
@@ -229,7 +279,7 @@ describe('Paint settings window', () => {
     fireEvent.click(
       screen.getByRole('switch', { name: 'Ghost the rest when isolating' }),
     );
-    expect(stored().ghostRest).toBe(true);
+    expect(stored().ghostRest).toBe(false);
   });
 
   it('labels the slider as intensity and stores it', () => {

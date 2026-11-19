@@ -69,7 +69,7 @@ export const PAINT_FORM: FormDefinition<PaintSettings> = {
       key: 'ghostRest',
       kind: 'toggle',
       label: 'Ghost the rest when isolating',
-      hint: 'Non-isolated elements stay visible but faded. Off hides them.',
+      hint: 'Non-isolated elements stay visible but faded. Off hides non-isolated elements instead of fading them.',
     },
   ],
   reset: {
@@ -78,7 +78,7 @@ export const PAINT_FORM: FormDefinition<PaintSettings> = {
       paletteId: DEFAULT_PAINT_PALETTE_ID,
       palette: [...DEFAULT_PAINT_PALETTE],
       intensity: DEFAULT_PAINT_INTENSITY,
-      ghostRest: false,
+      ghostRest: true,
     },
   },
 };
@@ -93,7 +93,6 @@ export class PaintTool extends ViewerTool<PaintSettings> {
 
   contribute(ctx: ToolContext, settings: PaintSettings): ToolContribution {
     const { adapter } = ctx;
-    adapter.setGhosting?.(settings.ghostRest);
     return {
       paint: {
         id: ctx.id('paint'),
@@ -127,12 +126,22 @@ export class PaintTool extends ViewerTool<PaintSettings> {
     ];
   }
 
+  override onSettingsChanged(
+    adapter: ViewerAdapter,
+    previous: PaintSettings | undefined,
+    next: PaintSettings,
+  ): void {
+    if (!next.enabled) return;
+    const before = previous?.enabled ? previous.ghostRest : true;
+    if (next.ghostRest !== before) adapter.setGhosting?.(next.ghostRest);
+  }
+
   protected override renderFields() {
     return <PaintFields />;
   }
 
   override onDisabled(adapter: ViewerAdapter): void {
-    adapter.setGhosting?.(false);
+    adapter.setGhosting?.(true);
     resetPaint(adapter);
   }
 }

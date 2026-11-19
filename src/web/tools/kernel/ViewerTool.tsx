@@ -84,6 +84,12 @@ export abstract class ViewerTool<S extends ToolSettings = ToolSettings> {
 
   onDisabled(_adapter: ViewerAdapter): void {}
 
+  onSettingsChanged(
+    _adapter: ViewerAdapter,
+    _previous: S | undefined,
+    _next: S,
+  ): void {}
+
   scrub(settings: S): S {
     return settings;
   }
