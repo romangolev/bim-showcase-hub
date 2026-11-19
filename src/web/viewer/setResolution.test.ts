@@ -83,6 +83,10 @@ describe('stable selection set keys', () => {
       data: { models: { a: [1, 2] } },
     });
     const before = fakeAdapter({ a: { 'ext-1': 1, 'ext-2': 2 } });
+    expect(await scopeElementItems(before, 'set:legacy')).toEqual([
+      { modelId: 'a', dbId: 1 },
+      { modelId: 'a', dbId: 2 },
+    ]);
     expect(await migrateSelectionSet(before, 'legacy')).toMatchObject({
       keys: [
         { modelId: 'a', dbId: 1, key: 'ext-1' },
@@ -99,6 +103,31 @@ describe('stable selection set keys', () => {
       },
     });
     expect(await migrateSelectionSets(before)).toBe(0);
+    const selectModelIds = vi.fn();
+    const after = fakeAdapter(
+      { a: { 'ext-1': 101, 'ext-2': 102 } },
+      selectModelIds,
+    );
+    expect(await selectSet(after, 'legacy')).toBe(2);
+    expect(selectModelIds).toHaveBeenCalledWith([
+      { modelId: 'a', dbId: 101 },
+      { modelId: 'a', dbId: 102 },
+    ]);
+    const elements = await scopeElementItems(after, 'set:legacy');
+    expect(elements).toEqual([
+      { modelId: 'a', dbId: 101 },
+      { modelId: 'a', dbId: 102 },
+    ]);
+    const rows = [
+      { modelId: 'a', dbId: 1 },
+      { modelId: 'a', dbId: 101 },
+      { modelId: 'a', dbId: 102 },
+    ];
+    expect(
+      filterByElementScope(rows, 'set:legacy', elements, 'a').map(
+        (row) => row.dbId,
+      ),
+    ).toEqual([101, 102]);
   });
 
   it('skips the migration when the set changes while ids load', async () => {
@@ -139,63 +168,6 @@ describe('stable selection set keys', () => {
       { modelId: 'a', dbId: 2 },
     ]);
     expect(storedData('plain')).toEqual({ models: { a: [1, 2] } });
-  });
-
-  it('selects the new dbIds after a re-translation', async () => {
-    upsertSaved({
-      id: 'legacy',
-      kind: SELECTION_SET_KIND,
-      name: 'Walls',
-      version: 1,
-      updatedAt: 1,
-      data: { models: { a: [1, 2] } },
-    });
-    const before = fakeAdapter({ a: { 'ext-1': 1, 'ext-2': 2 } });
-    await migrateSelectionSet(before, 'legacy');
-    const selectModelIds = vi.fn();
-    const after = fakeAdapter(
-      { a: { 'ext-1': 101, 'ext-2': 102 } },
-      selectModelIds,
-    );
-    expect(await selectSet(after, 'legacy')).toBe(2);
-    expect(selectModelIds).toHaveBeenCalledWith([
-      { modelId: 'a', dbId: 101 },
-      { modelId: 'a', dbId: 102 },
-    ]);
-  });
-
-  it('applies the set scope through the new dbIds', async () => {
-    upsertSaved({
-      id: 'legacy',
-      kind: SELECTION_SET_KIND,
-      name: 'Walls',
-      version: 1,
-      updatedAt: 1,
-      data: { models: { a: [1, 2] } },
-    });
-    const before = fakeAdapter({ a: { 'ext-1': 1, 'ext-2': 2 } });
-    expect(await scopeElementItems(before, 'set:legacy')).toEqual([
-      { modelId: 'a', dbId: 1 },
-      { modelId: 'a', dbId: 2 },
-    ]);
-    await migrateSelectionSet(before, 'legacy');
-    expect(storedData('legacy').keys?.a).toHaveLength(2);
-    const after = fakeAdapter({ a: { 'ext-1': 101, 'ext-2': 102 } });
-    const elements = await scopeElementItems(after, 'set:legacy');
-    expect(elements).toEqual([
-      { modelId: 'a', dbId: 101 },
-      { modelId: 'a', dbId: 102 },
-    ]);
-    const rows = [
-      { modelId: 'a', dbId: 1 },
-      { modelId: 'a', dbId: 101 },
-      { modelId: 'a', dbId: 102 },
-    ];
-    expect(
-      filterByElementScope(rows, 'set:legacy', elements, 'a').map(
-        (row) => row.dbId,
-      ),
-    ).toEqual([101, 102]);
   });
 });
 
