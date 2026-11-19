@@ -9,7 +9,6 @@ import {
   useState,
 } from 'react';
 import { useSettings } from '../settings/SettingsContext.js';
-import { readSettings, writeSettings } from '../settings/settings.js';
 import {
   applyTheme,
   LIGHT_SCHEME_QUERY,
@@ -32,11 +31,8 @@ export interface ThemeContextValue {
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const { settings, setSetting, provided } = useSettings();
-  const [standalone, setStandalone] = useState<ThemePreference>(
-    () => readSettings().theme,
-  );
-  const preference = provided ? settings.theme : standalone;
+  const { settings, setSetting } = useSettings();
+  const preference = settings.theme;
   const [system, setSystem] = useState<Theme>(readSystemTheme);
   const theme = resolveTheme(preference, system);
 
@@ -54,15 +50,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [preference]);
 
   const setTheme = useCallback(
-    (next: ThemePreference) => {
-      if (provided) {
-        setSetting('theme', next);
-        return;
-      }
-      writeSettings({ ...readSettings(), theme: next });
-      setStandalone(next);
-    },
-    [provided, setSetting],
+    (next: ThemePreference) => setSetting('theme', next),
+    [setSetting],
   );
 
   const toggleTheme = useCallback(
