@@ -117,7 +117,7 @@ The keys are listed in [development.md](development.md#storage-keys).
 
 ### Scoped rows
 
-Summary, Dashboard and exports read property rows the same way: `useScopedRows` in panels and `readScopedRows` / `peekScopedRows` (`viewer/scopedRows.ts`) in async code. The seam owns model resolution, element scope, the failure report and the scope note; the hook adds live scope signals and status.
+Summary, Dashboard and exports read property rows the same way: `useScopedRows` in panels and `readScopedRows` (`viewer/scopedRows.ts`) in async code. The seam owns model resolution, element scope, the failure report and the scope note. `readScopedRows` returns partial rows with `failed` naming the models it could not read, so callers check it. `peekScopedRows` is the count-path probe: it takes no property names, returns `null` on a cold cache, and returns the columns that were already cached. The hook keeps its own live element scope — it reads with `elements: 'all'` and applies selection and visibility changes without restarting the read — so the status does not flicker.
 
 - Dashboard and Excel choose their columns from the shared property catalog: `PropertyPicker` (`panels/PropertyPicker.tsx`) lists what `usePropertyCatalog` discovered, and the chosen names become the `names` of the scoped read. The Dashboard stores them in `bsh.pane.dashboard.properties.v1`, Excel in its tool settings (`bsh.tool.excel.v1`), and the export drops columns from the same rows rather than reading the model again.
 - Scope is a model (`ALL_MODELS` or one model id) plus elements (`all`, `selected`, `visible`, `isolated` or `set:<id>`).
