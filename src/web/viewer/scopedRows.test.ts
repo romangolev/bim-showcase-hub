@@ -78,16 +78,71 @@ describe('readScopedRows', () => {
     adapter.destroy();
   });
 
-  it('uses the element items it is given without asking the adapter', async () => {
+  it('uses the selection the adapter reports', async () => {
     const adapter = await combined();
-    const spy = vi.spyOn(adapter, 'getModelSelection');
+    const selection = vi.spyOn(adapter, 'getModelSelection');
     const read = await readScopedRows(adapter, {
       names: ['Category'],
       elements: 'selected',
-      items: [],
     });
-    expect(spy).not.toHaveBeenCalled();
+    expect(selection).toHaveBeenCalled();
     expect(read.rows).toEqual([]);
+    adapter.destroy();
+  });
+
+  it('rejects an already aborted read and caches nothing', async () => {
+    const adapter = await combined();
+    const read = vi.spyOn(adapter, 'getLeafProperties');
+    const controller = new AbortController();
+    controller.abort();
+    await expect(
+      readScopedRows(adapter, {
+        names: ['Category'],
+        signal: controller.signal,
+      }),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+    expect(read).not.toHaveBeenCalled();
+    expect(await peekScopedRows(adapter, {})).toBeNull();
+    adapter.destroy();
+  });
+
+  it('takes the element scope when the read starts', async () => {
+    const adapter = await combined();
+    const { rows: all } = await readScopedRows(adapter, {
+      names: ['Category'],
+    });
+    const first = all[0];
+    const second = all[1];
+    if (!first?.modelId || !second?.modelId) throw new Error('no rows');
+    adapter.selectModelIds([{ modelId: first.modelId, dbId: first.dbId }]);
+    forgetLeafRows(adapter);
+    const original = adapter.getLeafProperties.bind(adapter);
+    let enter = () => {};
+    const entered = new Promise<void>((resolve) => {
+      enter = resolve;
+    });
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    vi.spyOn(adapter, 'getLeafProperties').mockImplementation(
+      async (names, ids, options) => {
+        enter();
+        await gate;
+        return original(names, ids, options);
+      },
+    );
+    const pending = readScopedRows(adapter, {
+      names: ['Category'],
+      elements: 'selected',
+    });
+    await entered;
+    adapter.selectModelIds([{ modelId: second.modelId, dbId: second.dbId }]);
+    release();
+    const read = await pending;
+    expect(
+      read.rows.map((row) => ({ modelId: row.modelId, dbId: row.dbId })),
+    ).toEqual([{ modelId: first.modelId, dbId: first.dbId }]);
     adapter.destroy();
   });
 });

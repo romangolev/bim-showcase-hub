@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { filterByElementScope, sanitizeElementScope } from './propertyScope.js';
+import type { PropertyRow } from '../../shared/types.js';
+import {
+  applyScope,
+  filterByElementScope,
+  sanitizeElementScope,
+} from './propertyScope.js';
 
 describe('filterByElementScope', () => {
   const rows = [
@@ -22,6 +27,26 @@ describe('filterByElementScope', () => {
       { modelId: 'b', dbId: 1 },
       { dbId: 2 },
     ]);
+  });
+});
+
+describe('applyScope', () => {
+  const rows: PropertyRow[] = [
+    { modelId: 'a', dbId: 1, name: 'A', properties: {} },
+    { modelId: 'b', dbId: 2, name: 'B', properties: {} },
+  ];
+
+  it('returns the input rows untouched when no scope applies', () => {
+    expect(applyScope(rows, {}, [])).toBe(rows);
+    expect(applyScope(rows, { models: 'all', elements: 'all' }, [])).toBe(rows);
+  });
+
+  it('still narrows the model and element scope', () => {
+    expect(applyScope(rows, { models: 'b' }, [])).toEqual([rows[1]]);
+    expect(
+      applyScope(rows, { elements: 'selected' }, [{ modelId: 'a', dbId: 1 }]),
+    ).toEqual([rows[0]]);
+    expect(applyScope(rows, { elements: 'selected' }, [])).toEqual([]);
   });
 });
 

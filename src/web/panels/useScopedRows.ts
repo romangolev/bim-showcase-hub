@@ -15,10 +15,10 @@ import {
   applyScope,
   type ElementScope,
   resolveElementScope,
-  scopeElementItems,
   scopeNoteFor,
 } from '../viewer/propertyScope.js';
 import { readScopedRows } from '../viewer/scopedRows.js';
+import { scopeElementItems } from '../viewer/scopeItems.js';
 import { useSelectionSets } from '../viewer/selectionSets.js';
 import { forgetLeafRows } from '../viewer/sharedLeafRows.js';
 import { useModels } from '../viewer/useModels.js';

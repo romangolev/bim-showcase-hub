@@ -3,7 +3,6 @@ import {
   ALL_MODELS,
   distinctModelCount,
   type ModelScope,
-  unavailableModels,
 } from '../viewer/modelScope.js';
 import { isAbortError, throwIfAborted } from '../viewer/propertyReads.js';
 import { readScopedRows } from '../viewer/scopedRows.js';
@@ -45,10 +44,6 @@ function shownModels(adapter: ViewerAdapter): AboutInfo['models'] {
       ...(version ? { version } : {}),
       ...(path ? { path } : {}),
     }));
-}
-
-function unavailableModelNames(adapter: ViewerAdapter): string[] {
-  return unavailableModels(adapter.getModels()).map((model) => model.name);
 }
 
 export interface ExportSheet {
@@ -219,13 +214,16 @@ export async function exportToXlsx(
       copied.catch(() => undefined);
     }
     emit({ phase: 'reading' });
-    const { rows, scopeNote, failed } = await readScopedRows(adapter, {
-      names: propertyNames,
-      models: modelScope,
-      elements: scope,
-      signal,
-      onProgress: ({ done, total }) => onProgress?.(total ? done / total : 0),
-    });
+    const { rows, scopeNote, failed, unavailable } = await readScopedRows(
+      adapter,
+      {
+        names: propertyNames,
+        models: modelScope,
+        elements: scope,
+        signal,
+        onProgress: ({ done, total }) => onProgress?.(total ? done / total : 0),
+      },
+    );
     throwIfAborted(signal);
     if (failed.length > 0) {
       throw new Error(`Could not read properties of ${failed.join(', ')}`);
@@ -357,7 +355,7 @@ export async function exportToXlsx(
         );
       }
     }
-    const missing = unavailableModelNames(adapter);
+    const missing = unavailable.map((model) => model.name);
     return emit({
       phase: 'done',
       fileName: delivered,

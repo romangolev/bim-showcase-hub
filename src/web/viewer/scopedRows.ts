@@ -11,9 +11,9 @@ import {
   applyScope,
   type ElementScope,
   resolveElementScope,
-  scopeElementItems,
   scopeNoteFor,
 } from './propertyScope.js';
+import { scopeElementItems } from './scopeItems.js';
 import { peekLeafRows, readLeafRows } from './sharedLeafRows.js';
 import type { ViewerAdapter } from './ViewerAdapter.js';
 
@@ -21,7 +21,6 @@ export interface ScopedReadRequest extends ReadOptions {
   names: readonly string[];
   models?: ModelScope;
   elements?: ElementScope;
-  items?: readonly ModelDbId[];
 }
 
 export interface ScopedRead {
@@ -40,7 +39,7 @@ interface ResolvedScope {
   scopeNote: string | undefined;
 }
 
-type ScopingRequest = Pick<ScopedReadRequest, 'models' | 'elements' | 'items'>;
+type ScopingRequest = Pick<ScopedReadRequest, 'models' | 'elements'>;
 
 function modelIdsFor(
   adapter: ViewerAdapter,
@@ -52,7 +51,7 @@ function modelIdsFor(
 
 async function resolveScoped(
   adapter: ViewerAdapter,
-  { models, elements, items }: ScopingRequest,
+  { models, elements }: ScopingRequest,
   modelIds = modelIdsFor(adapter, models),
 ): Promise<ResolvedScope> {
   const requested = elements ?? 'all';
@@ -60,7 +59,7 @@ async function resolveScoped(
   return {
     modelIds,
     elements: resolved,
-    items: items ?? (await scopeElementItems(adapter, resolved)),
+    items: await scopeElementItems(adapter, resolved),
     scopeNote: scopeNoteFor(requested),
   };
 }
