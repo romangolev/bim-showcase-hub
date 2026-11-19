@@ -21,7 +21,7 @@ Read rows with `useScopedRows` in panels and `readScopedRows` (`viewer/scopedRow
 | Viewer tools | `tools/` | `PaintTool`, `ExcelExportTool`, `GlbExportTool`, `IfcExportTool`, registered in `tools/index.ts` |
 | Paint | `paintBrushes.ts`, `tools/paint/` | Up to 8 swatches and an intensity. Paints per `(modelId, dbId)` |
 | Model summary | `modelSummary.ts`, `panels/ModelSummaryPanel.tsx` | Counts values per property. Row click selects, isolates, hides or zooms |
-| Dashboard | `dashboardData.ts`, `panels/DashboardPanel.tsx` | Chart.js bar and doughnut charts, presets, PNG, CSV and copy |
+| Dashboard | `dashboardData.ts`, `panels/DashboardPanel.tsx` | Chart.js bar and doughnut charts, presets, PNG, CSV and copy. Each view (the main Dashboard and every chart instance) carries its own property list |
 | Excel export | `excelExport.ts`, `exportFormats.ts` | XLSX, CSV, JSON or copy. Cells starting with `=`, `+`, `-` or `@` are guarded in CSV and copied text |
 | GLB export | `glbExport.ts`, `viewer/viewerGeometry.ts` | Binary glTF 2.0 from `adapter.getGeometryParts()`. Capped at 256 MB |
 | IFC export | `ifcExport.ts`, `ifc/` | IFC4 STEP file from `adapter.getIfcSource()`. A mesh-based coordination view, not a Revit IFC export |
@@ -79,7 +79,7 @@ Ctrl or Cmd+K opens the palette (`src/web/commands`).
 - Generated forms: `components/SettingsForm.tsx` renders a `FormDefinition` with field kinds `toggle`, `number`, `select`, `text`, `multi` and `list`.
 - Pane settings live in `settings/paneSettings.ts` and `layout/instanceSettings.ts`. `settings/paneSettingsSchema.ts` maps a pane kind to a `PaneSettingsSchema` (`label`, `description`, `windowTitle`, optional `modalId`, `Body` and `onOpen`) in `PANE_SETTINGS_SCHEMA`; `paneSettingsSchema(kind)` returns `null` for a pane with no entry, and `PANE_SETTINGS_ORDER` fixes the order in Settings.
 - A pane with a schema entry gets a Settings item at the top of its header menu (`PaneMenu.tsx`; the menu is reduced to Maximize and Unlock while the layout is locked). `onOpen` runs first (the summary pane clears its per-pane target this way); a `modalId` opens that registered modal, and a `Body` opens the same modal host with that body. Entries with a `modalId` also appear in Settings under Panes as a row with a Settings button, and a `Body` renders there as its own section rather than nested under Panes.
-- Entries today: Documents (`tree`, `TreeSettingsForm` body), Model summary (`summary`, the summary modal) and Dashboard (`dashboard`, the dashboard modal). The viewer, Models and the user-added chart, model-summary and properties panes have none.
+- Entries today: Documents (`tree`, `TreeSettingsForm` body), Model summary (`summary`, the summary modal) and Dashboard (`dashboard`, the dashboard modal). The viewer, Models and the user-added chart, model-summary and properties panes have none. A chart instance stores its own dashboard view and property list, but without a settings entry that list has no editor yet; the main Dashboard settings only edit the main view.
 
 
 ## Persisted records
