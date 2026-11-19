@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useSavedKindItems } from '../../store/savedKinds.js';
 import { MAX_NAME_LENGTH } from '../../store/savedStore.js';
 import {
+  BUILT_IN_EXPORT_PRESETS,
+  builtInSettings,
   EXPORT_PRESETS,
   type ExportPresetSettings,
   presetFromSettings,
@@ -11,9 +13,14 @@ import {
 interface PresetFieldsProps {
   current: ExportPresetSettings;
   apply: (settings: ExportPresetSettings) => void;
+  catalog?: readonly string[];
 }
 
-export function PresetFields({ current, apply }: PresetFieldsProps) {
+export function PresetFields({
+  current,
+  apply,
+  catalog = [],
+}: PresetFieldsProps) {
   const items = useSavedKindItems(EXPORT_PRESETS);
   const [name, setName] = useState('');
   const [failed, setFailed] = useState(false);
@@ -54,6 +61,32 @@ export function PresetFields({ current, apply }: PresetFieldsProps) {
       {failed ? (
         <p role="alert" className="settings__hint">
           Could not save the preset. Delete some saved items and try again.
+        </p>
+      ) : null}
+      <ul className="settings__palette" aria-label="Built-in presets">
+        {BUILT_IN_EXPORT_PRESETS.map((preset) => {
+          const needsCatalog =
+            preset.everyColumn === true && catalog.length === 0;
+          return (
+            <li key={preset.id} className="bsh-presets">
+              <span>{preset.name}</span>
+              <button
+                type="button"
+                className="bsh-button"
+                aria-label={`Apply ${preset.name}`}
+                disabled={needsCatalog}
+                onClick={() => apply(builtInSettings(preset, catalog))}
+              >
+                Apply
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      {catalog.length === 0 ? (
+        <p className="settings__hint">
+          Everything uses every column discovered in the open model. Open a
+          model to enable it.
         </p>
       ) : null}
       {items.length === 0 ? (

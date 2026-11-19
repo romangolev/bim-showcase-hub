@@ -20,6 +20,8 @@ import {
   EXCEL_SETTINGS_KEY,
 } from './excelSettings.js';
 import {
+  BUILT_IN_EXPORT_PRESETS,
+  builtInSettings,
   EXPORT_PRESETS,
   presetFromSettings,
   presetSettings,
@@ -32,6 +34,7 @@ const DEFAULTS = {
   scope: 'all' as const,
   namePattern: DEFAULT_NAME_PATTERN,
   includeHeader: true,
+  groupBy: 'Category',
 };
 
 function stored(): Record<string, unknown> {
@@ -92,6 +95,46 @@ describe('sanitizeExportPreset', () => {
         includeHeader: 'yes',
       }),
     ).toEqual(DEFAULTS);
+  });
+  it('keeps a group-by column, a none choice and falls back on a missing one', () => {
+    expect(sanitizeExportPreset({ groupBy: 'Level' }).groupBy).toBe('Level');
+    expect(sanitizeExportPreset({ groupBy: null }).groupBy).toBeNull();
+    expect(sanitizeExportPreset({ groupBy: '' }).groupBy).toBe('Category');
+  });
+});
+
+describe('built-in presets', () => {
+  it('has the three read-only presets from the roadmap', () => {
+    expect(BUILT_IN_EXPORT_PRESETS.map((preset) => preset.name)).toEqual([
+      'Classification audit',
+      'Levels and categories',
+      'Everything',
+    ]);
+    expect(
+      BUILT_IN_EXPORT_PRESETS.map((preset) => preset.data.groupBy),
+    ).toEqual(['Category', 'Level', null]);
+  });
+
+  it('gives Everything every discovered column and a fallback while cold', () => {
+    const everything = BUILT_IN_EXPORT_PRESETS.find(
+      (preset) => preset.id === 'everything',
+    );
+    const levels = BUILT_IN_EXPORT_PRESETS.find(
+      (preset) => preset.id === 'levels-and-categories',
+    );
+    if (!everything || !levels) throw new Error('missing built-in presets');
+    expect(builtInSettings(everything, []).properties).toEqual(
+      DEFAULT_EXPORT_PROPERTIES,
+    );
+    expect(builtInSettings(everything, ['Name', 'Area']).properties).toEqual([
+      'Name',
+      'Area',
+    ]);
+    expect(builtInSettings(levels, ['Name']).properties).toEqual([
+      'Level',
+      'Category',
+      'Name',
+    ]);
   });
 });
 
@@ -241,5 +284,21 @@ describe('presets in the Excel settings', () => {
       scope: 'selected',
       namePattern: '{model}-selection',
     });
+  });
+
+  it('applies a built-in preset and does not save it as a user preset', () => {
+    render(new ExcelExportTool().renderSettings());
+    fireEvent.click(screen.getByLabelText('Apply Levels and categories'));
+    expect(stored()).toMatchObject({
+      groupBy: 'Level',
+      properties: ['Level', 'Category', 'Name'],
+    });
+    expect(EXPORT_PRESETS.list()).toEqual([]);
+  });
+
+  it('disables Everything until the model lists its columns', () => {
+    render(new ExcelExportTool().renderSettings());
+    expect(screen.getByLabelText('Apply Everything')).toBeDisabled();
+    expect(screen.getByText(/Open a model to enable/)).toBeInTheDocument();
   });
 });
