@@ -139,4 +139,25 @@ describe('dock drop target', () => {
     fireEvent.dragLeave(child, { dataTransfer: transfer });
     expect(root).not.toHaveAttribute('data-model-drop');
   });
+
+  it('clears the indicator and the depth when the drag ends without a leave', async () => {
+    renderApp();
+    const root = await dockRoot();
+    const row = await openVersionRow();
+    const transfer = dragData();
+    fireEvent.dragStart(row, { dataTransfer: transfer });
+
+    fireEvent.dragEnter(root, { dataTransfer: transfer });
+    fireEvent.dragOver(root, { dataTransfer: transfer });
+    expect(root).toHaveAttribute('data-model-drop');
+
+    fireEvent.dragEnd(row, { dataTransfer: transfer });
+    expect(root).not.toHaveAttribute('data-model-drop');
+
+    fireEvent.dragStart(row, { dataTransfer: transfer });
+    fireEvent.dragEnter(root, { dataTransfer: transfer });
+    fireEvent.dragOver(root, { dataTransfer: transfer });
+    fireEvent.dragLeave(root, { dataTransfer: transfer });
+    expect(root).not.toHaveAttribute('data-model-drop');
+  });
 });

@@ -507,13 +507,19 @@ export function DockLayout(props: DockLayoutProps) {
       setModelOver(false);
       handleModelDrop(event, (model) => openDroppedRef.current(model));
     };
+    const onDragEnd = () => {
+      depth = 0;
+      setModelOver(false);
+    };
     doc.addEventListener('keydown', onKey);
+    doc.addEventListener('dragend', onDragEnd);
     root.addEventListener('dragenter', onDragEnter);
     root.addEventListener('dragover', onDragOver);
     root.addEventListener('dragleave', onDragLeave);
     root.addEventListener('drop', onDrop);
     return () => {
       doc.removeEventListener('keydown', onKey);
+      doc.removeEventListener('dragend', onDragEnd);
       root.removeEventListener('dragenter', onDragEnter);
       root.removeEventListener('dragover', onDragOver);
       root.removeEventListener('dragleave', onDragLeave);
