@@ -1,4 +1,4 @@
-import { decodeBase64Url } from '../../shared/urn.js';
+import { decodeBase64UrlText, encodeBase64UrlText } from '../../shared/urn.js';
 import type { ModelDbId } from '../viewer/modelSet.js';
 
 export interface ViewCamera {
@@ -174,28 +174,6 @@ function validPaneIds(values: unknown): string[] {
     .slice(0, MAX_LINK_PANES);
 }
 
-function toBase64Url(text: string): string {
-  const bytes = new TextEncoder().encode(text);
-  let binary = '';
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary)
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
-}
-
-function fromBase64Url(value: string): string | null {
-  const binary = decodeBase64Url(value);
-  if (binary === null) return null;
-  try {
-    return new TextDecoder().decode(
-      Uint8Array.from(binary, (char) => char.charCodeAt(0)),
-    );
-  } catch {
-    return null;
-  }
-}
-
 function encodePanes(panes: ViewPanes | undefined): string | null {
   if (!panes) return null;
   const open = validPaneIds(panes.open);
@@ -220,12 +198,12 @@ function encodeCharts(charts: readonly ViewChart[] | undefined): string | null {
     .filter((chart) => typeof chart.id === 'string' && CHART_ID.test(chart.id))
     .slice(0, MAX_LINK_CHARTS)
     .map(({ id, view }) => ({ id, view }));
-  return kept.length === 0 ? null : toBase64Url(JSON.stringify(kept));
+  return kept.length === 0 ? null : encodeBase64UrlText(JSON.stringify(kept));
 }
 
 function decodeCharts(raw: string | undefined): ViewChart[] | null {
   if (!raw) return null;
-  const text = fromBase64Url(raw);
+  const text = decodeBase64UrlText(raw);
   if (text === null) return null;
   let parsed: unknown;
   try {

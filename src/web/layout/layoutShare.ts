@@ -1,3 +1,10 @@
+import {
+  decodeBase64UrlBytes,
+  decodeBase64UrlText,
+  encodeBase64UrlBytes,
+  encodeBase64UrlText,
+} from '../../shared/urn.js';
+
 const SHARE_PARAM = 'layout';
 export const SHARE_MAX_LENGTH = 6000;
 const COMPRESSED = 'z';
@@ -14,43 +21,10 @@ function bounded<T>(task: Promise<T>, fallback: T): Promise<T> {
   ]);
 }
 
-function bytesToBase64Url(bytes: Uint8Array<ArrayBufferLike>): string {
-  let binary = '';
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary)
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
-}
-
-function base64UrlToBytes(text: string): Uint8Array<ArrayBuffer> | null {
-  if (!/^[A-Za-z0-9_-]+$/.test(text)) return null;
-  const padded = text.replace(/-/g, '+').replace(/_/g, '/');
-  const fill = '='.repeat((4 - (padded.length % 4)) % 4);
-  try {
-    const binary = atob(padded + fill);
-    const bytes = new Uint8Array(binary.length);
-    for (let at = 0; at < binary.length; at += 1) {
-      bytes[at] = binary.charCodeAt(at);
-    }
-    return bytes;
-  } catch {
-    return null;
-  }
-}
-
-export function base64UrlEncode(text: string): string {
-  return bytesToBase64Url(new TextEncoder().encode(text));
-}
+export const base64UrlEncode = encodeBase64UrlText;
 
 export function base64UrlDecode(text: string): string | null {
-  const bytes = base64UrlToBytes(text);
-  if (!bytes) return null;
-  try {
-    return new TextDecoder().decode(bytes);
-  } catch {
-    return null;
-  }
+  return decodeBase64UrlText(text, true);
 }
 
 async function readAll(
@@ -84,7 +58,7 @@ async function deflateNow(text: string): Promise<string | null> {
   const writer = stream.writable.getWriter();
   await writer.write(new TextEncoder().encode(text));
   await writer.close();
-  return bytesToBase64Url(await readAll(stream.readable));
+  return encodeBase64UrlBytes(await readAll(stream.readable));
 }
 
 async function deflate(text: string): Promise<string | null> {
@@ -97,7 +71,7 @@ async function deflate(text: string): Promise<string | null> {
 }
 
 async function inflateNow(body: string): Promise<string | null> {
-  const bytes = base64UrlToBytes(body);
+  const bytes = decodeBase64UrlBytes(body, true);
   if (!bytes) return null;
   const stream = new DecompressionStream('deflate-raw');
   const writer = stream.writable.getWriter();
