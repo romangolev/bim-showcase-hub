@@ -40,7 +40,6 @@ describe('app settings', () => {
   it('hold only app-level fields', () => {
     expect(Object.keys(DEFAULT_SETTINGS).sort()).toEqual([
       'density',
-      'language',
       'recentsLength',
       'reducedMotion',
       'sessionWarnMinutes',
@@ -67,6 +66,14 @@ describe('readSettings', () => {
     expect(
       JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY) ?? ''),
     ).toEqual({ version: SETTINGS_VERSION + 1, recentsLength: 3 });
+  });
+
+  it('ignores a stored language field and keeps the other values', () => {
+    window.localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({ language: 'en', recentsLength: 7 }),
+    );
+    expect(readSettings()).toEqual({ ...DEFAULT_SETTINGS, recentsLength: 7 });
   });
 
   it('falls back to defaults for corrupt storage', () => {

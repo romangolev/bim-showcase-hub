@@ -84,7 +84,7 @@ All browser storage goes through `src/web/storage.ts`. `BSH_KEYS` lists the fixe
 | `bsh.workspaces.v1` | personal | Named workspaces: `{ version: 1, items }`, each with a name, a layout and pane appearances |
 | `bsh.commands.recent.v1` | personal | Recent palette commands |
 | `bsh.hint.hubs.dismissed.v1` | personal | No-hubs notice dismissed |
-| `bsh-settings-v1` | preference | App settings, version 3: theme (`system`, `light`, `dark`), density, text size, reduced motion, language, session warning, recents length |
+| `bsh-settings-v1` | preference | App settings, version 3: theme (`system`, `light`, `dark`), density, text size, reduced motion, session warning, recents length |
 | `bsh.layout.locked` | preference | Layout lock |
 | `bsh.tree.view` | preference | Tree sort and metadata columns |
 | `bsh.snapshot.v1` | preference | Snapshot and Present options |

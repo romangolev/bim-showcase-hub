@@ -6,7 +6,6 @@ export const SETTINGS_VERSION = 3;
 
 export type Density = 'comfortable' | 'compact';
 type TextSize = 'small' | 'medium' | 'large';
-type Language = 'en';
 
 export interface Settings {
   version: number;
@@ -16,12 +15,10 @@ export interface Settings {
   textSize: TextSize;
   theme: ThemePreference;
   reducedMotion: boolean;
-  language: Language;
 }
 
 export const DENSITIES: readonly Density[] = ['comfortable', 'compact'];
 export const TEXT_SIZES: readonly TextSize[] = ['small', 'medium', 'large'];
-const LANGUAGES: readonly Language[] = ['en'];
 
 export const DEFAULT_SETTINGS: Settings = {
   version: SETTINGS_VERSION,
@@ -31,7 +28,6 @@ export const DEFAULT_SETTINGS: Settings = {
   textSize: 'medium',
   theme: 'system',
   reducedMotion: false,
-  language: 'en',
 };
 
 export const SETTINGS_STORAGE_KEY = BSH_KEYS.preference.settings;
@@ -74,7 +70,6 @@ export function readSettings(): Settings {
     textSize: pick(source.textSize, TEXT_SIZES, DEFAULT_SETTINGS.textSize),
     theme: pick(source.theme, THEME_PREFERENCES, DEFAULT_SETTINGS.theme),
     reducedMotion: flag(source.reducedMotion, DEFAULT_SETTINGS.reducedMotion),
-    language: pick(source.language, LANGUAGES, DEFAULT_SETTINGS.language),
   };
 }
 
@@ -104,7 +99,6 @@ export function applyAppSettings(settings: Settings, root: HTMLElement): void {
   root.dataset.density = settings.density;
   root.dataset.textSize = settings.textSize;
   root.dataset.reducedMotion = settings.reducedMotion ? 'true' : 'false';
-  root.lang = settings.language;
 }
 
 const APP_FIELDS = new Set(Object.keys(DEFAULT_SETTINGS));
