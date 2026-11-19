@@ -52,6 +52,12 @@ function storedList(): string[] {
   );
 }
 
+function storedView(): { property?: string } {
+  return JSON.parse(
+    window.localStorage.getItem(BSH_KEYS.personal.dashboardView) ?? '{}',
+  );
+}
+
 beforeEach(() => {
   installMemoryStorage();
 });
@@ -84,6 +90,7 @@ describe('dashboard chart properties', () => {
       'Name',
     ]);
     expect(screen.getByLabelText('Group by')).toHaveDisplayValue('Level');
+    expect(storedView().property).toBe('Level');
     expect(screen.queryByText(/This model has no Category values/)).toBeNull();
     view.unmount();
     render(<DashboardPanel adapter={adapter} />);

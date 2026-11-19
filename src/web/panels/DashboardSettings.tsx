@@ -40,6 +40,12 @@ export function DashboardSettingsBody() {
     : (properties[0] ?? view.property);
   const patch = (next: Partial<DashboardView>) =>
     setView((prev) => ({ ...prev, ...next }));
+  const pickProperties = (next: readonly string[]) => {
+    setProperties(next);
+    if (!next.includes(view.property)) {
+      patch({ property: next[0] ?? view.property });
+    }
+  };
 
   return (
     <div className="bsh-summary-settings">
@@ -73,7 +79,7 @@ export function DashboardSettingsBody() {
         <PropertyPicker
           adapter={adapter}
           value={properties}
-          onChange={setProperties}
+          onChange={pickProperties}
         />
       </fieldset>
       <label className="bsh-field">
