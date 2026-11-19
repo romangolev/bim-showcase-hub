@@ -52,7 +52,8 @@ import {
   readLayout,
   writeLayout,
 } from './layoutState.js';
-import { LayoutMenu, PaneActions } from './PaneMenu.js';
+import { PaneActions } from './PaneMenu.js';
+import { LayoutMenu } from './PanesMenu.js';
 import { PresentControls } from './PresentControls.js';
 import { createPaneLifecycle, type PaneLifecycle } from './paneLifecycle.js';
 import {

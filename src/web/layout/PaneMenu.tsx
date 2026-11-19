@@ -322,16 +322,3 @@ export function layoutMenuEntries(
   }
   return entries;
 }
-
-export function LayoutMenu() {
-  const layout = useLayout();
-  const modal = useModal();
-  if (layout.mode !== 'dock') return null;
-  return (
-    <Menu
-      label="Panes"
-      trigger={<Icon name="dock" size={18} />}
-      items={() => layoutMenuEntries(layout, { openModal: modal.open })}
-    />
-  );
-}

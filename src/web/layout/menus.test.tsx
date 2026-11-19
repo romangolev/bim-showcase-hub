@@ -302,35 +302,26 @@ describe('panes menu in the top bar', () => {
     renderModel();
     const trigger = await screen.findByRole('button', { name: 'Panes' });
     fireEvent.click(trigger);
-    let menu = screen.getByRole('menu', { name: 'Panes' });
-    expect(
-      within(menu)
-        .getAllByRole('menuitemcheckbox')
-        .map((item) => item.textContent),
-    ).toEqual(['Model summary', 'Dashboard', 'Models', 'Lock layout']);
-    const dashboard = within(menu).getByRole('menuitemcheckbox', {
-      name: 'Dashboard',
-    });
-    expect(dashboard).toHaveAttribute('aria-checked', 'true');
+    let menu = screen.getByRole('dialog', { name: 'Panes' });
+    const dashboard = within(menu).getByRole('button', { name: 'Dashboard' });
+    expect(dashboard).toHaveAttribute('aria-pressed', 'true');
     fireEvent.click(dashboard);
     await waitFor(() =>
       expect(screen.queryByRole('tab', { name: 'Dashboard' })).toBeNull(),
     );
 
     fireEvent.click(trigger);
-    menu = screen.getByRole('menu', { name: 'Panes' });
+    menu = screen.getByRole('dialog', { name: 'Panes' });
     expect(
-      within(menu).getByRole('menuitemcheckbox', { name: 'Dashboard' }),
-    ).toHaveAttribute('aria-checked', 'false');
-    fireEvent.click(
-      within(menu).getByRole('menuitemcheckbox', { name: 'Dashboard' }),
-    );
+      within(menu).getByRole('button', { name: 'Dashboard' }),
+    ).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(within(menu).getByRole('button', { name: 'Dashboard' }));
     expect(
       await screen.findByRole('tab', { name: 'Dashboard' }),
     ).toBeInTheDocument();
 
     fireEvent.click(trigger);
-    const reset = screen.getByRole('menuitem', { name: 'Reset layout' });
+    const reset = screen.getByRole('button', { name: 'Reset layout' });
     expect(reset).toHaveAccessibleDescription(
       'Resets the arrangement. Open models stay open; remembered viewer position and closed panes are cleared.',
     );
@@ -343,7 +334,7 @@ describe('panes menu in the top bar', () => {
   it('presents the viewer alone and Escape restores the chrome', async () => {
     renderModel();
     fireEvent.click(await screen.findByRole('button', { name: 'Panes' }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Present' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Present' }));
     expect(document.documentElement).toHaveAttribute('data-presenting');
     expect(
       screen.getByRole('button', { name: 'Exit presentation' }),
@@ -451,9 +442,9 @@ describe('registry-driven pane menus', () => {
   it('shows the same hook command in the Panes menu', async () => {
     renderModel();
     fireEvent.click(await screen.findByRole('button', { name: 'Panes' }));
-    const menu = screen.getByRole('menu', { name: 'Panes' });
+    const menu = screen.getByRole('dialog', { name: 'Panes' });
     expect(
-      within(menu).getByRole('menuitem', { name: 'Go to Documents' }),
+      within(menu).getByRole('button', { name: 'Go to Documents' }),
     ).toBeInTheDocument();
   });
 
