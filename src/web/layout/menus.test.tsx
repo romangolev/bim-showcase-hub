@@ -467,7 +467,7 @@ describe('registry-driven pane menus', () => {
     expect(within(dialog).getByText('Density')).toBeInTheDocument();
   });
 
-  it('renders the inline Body for a pane without a modal', async () => {
+  it('opens the Documents settings dialog from its pane Body', async () => {
     renderModel();
     const menu = await openPaneMenu('Documents');
     fireEvent.click(within(menu).getByRole('menuitem', { name: 'Settings' }));

@@ -1,15 +1,15 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { Command, CommandHost } from '../commands/types.js';
 import { Icon } from '../components/icons.js';
 import { Menu, type MenuEntry } from '../components/Menu.js';
 import { useModal } from '../modal/index.js';
+import { ModalHost } from '../modal/ModalHost.js';
 import {
   type PaneSettingsSchema,
   paneSettingsSchema,
 } from '../settings/paneSettingsSchema.js';
 import { layoutCommands, paneCommandContext } from './layoutCommandList.js';
 import { type LayoutApi, useLayout } from './layoutContext.js';
-import { PaneSettingsDialog } from './PaneSettingsDialog.js';
 import {
   definitionOf,
   isPaneId,
@@ -195,6 +195,10 @@ export function PaneMenu({ pane }: { pane: PanelId }) {
   const layout = useLayout();
   const modal = useModal();
   const [inline, setInline] = useState<PaneSettingsSchema | null>(null);
+  const inlineBody = useMemo(() => {
+    const Body = inline?.Body;
+    return Body ? () => <Body /> : null;
+  }, [inline]);
   const title = layout.paneTitle(pane).label;
   return (
     <>
@@ -209,8 +213,16 @@ export function PaneMenu({ pane }: { pane: PanelId }) {
           })
         }
       />
-      {inline ? (
-        <PaneSettingsDialog schema={inline} onClose={() => setInline(null)} />
+      {inline && inlineBody ? (
+        <ModalHost
+          definition={{
+            id: 'pane-settings',
+            title: inline.windowTitle,
+            size: 'md',
+            Body: inlineBody,
+          }}
+          onClose={() => setInline(null)}
+        />
       ) : null}
     </>
   );
