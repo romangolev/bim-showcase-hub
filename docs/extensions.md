@@ -30,6 +30,26 @@ Read rows with `useScopedRows` in panels and `readScopedRows` (`viewer/scopedRow
 
 Exports over 20,000 rows ask for confirmation with a browser dialog. End-to-end scripts must accept dialogs.
 
+## Share links
+
+The Share menu copies a link to the model with or without the current view. The view travels as `?view=` on the model URL. The encoded value starts with its format version, so a current link reads `?view=2~...`. Version 1 carries the camera and the selection; version 2 adds the open and collapsed panes and the chart views, and a build that does not know a pane id ignores it while still applying the camera.
+
+- Version 2 names the open pane kinds and the collapsed panes. Collapsing exists only for Documents, Model summary, Dashboard and Models. Chart, Model summary and Properties are instance kinds: a link leaves them to the chart views instead of opening a blank pane.
+- The chart views are the Dashboard view plus up to three chart pane views, each with its own property list. A view scoped to a personal selection set travels without its `elements` scope, because the set itself is not shared.
+- The summary pane's properties, element scope and view are not part of the link.
+- A link over 4,000 characters is cut to the camera and selection, and the Share menu says so. Chart panes beyond the first three are left out with their own notice.
+- Panes are restored only in the dock layout. In the stacked (narrow) layout the link applies the camera and the selection and leaves the stored layout alone.
+
+## Print report
+
+Share > Print report... writes a printable page into a new window, so the browser has to allow the pop-up. The page holds:
+
+- the title and version, the number of elements in the summary scope, the number of models and today's date;
+- the model snapshot at the resolution chosen in Snapshot settings;
+- up to six summary properties with eight values each and a "N more values" line, filtered and sorted by the summary pane's view;
+- up to three Dashboard properties as value and count tables;
+- the names of models whose properties could not be read.
+
 ## Add a tool
 
 A tool is a viewer toolbar entry with its own settings window.
