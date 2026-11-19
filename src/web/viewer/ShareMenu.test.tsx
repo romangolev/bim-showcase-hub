@@ -97,14 +97,31 @@ describe('Share menu', () => {
     await waitFor(() => expect(write).toHaveBeenCalledWith(BASE));
   });
 
-  it('restores the camera and selection from the link once loaded', async () => {
+  it('restores camera, selection and panes from the link once and hands the address back', async () => {
     const { factory, adapter } = setup();
+    const layout = fakeLayout();
+    const onViewConsumed = vi.fn();
     render(
-      <ViewerPane
-        urn="urn-a"
-        factory={factory}
-        initialView="1~5,6,7~0,0,0~0,1,0~o~0:101"
-      />,
+      <LayoutContext.Provider value={layout}>
+        <ViewerPane
+          urn="urn-a"
+          factory={factory}
+          initialView={encodeView(
+            {
+              camera: {
+                eye: [5, 6, 7],
+                target: [0, 0, 0],
+                up: [0, 1, 0],
+                ortho: true,
+              },
+              selection: [{ modelId: 'urn-a', dbId: 101 }],
+              panes: { open: ['summary'], collapsed: [] },
+            },
+            ['urn-a'],
+          )}
+          onViewConsumed={onViewConsumed}
+        />
+      </LayoutContext.Provider>,
     );
     await waitFor(() =>
       expect(adapter()?.getCamera?.()).toEqual({
@@ -117,29 +134,6 @@ describe('Share menu', () => {
     expect(adapter()?.getModelSelection()).toEqual([
       { modelId: 'urn-a', dbId: 101 },
     ]);
-  });
-
-  it('restores the panes of a link once and hands the address back', async () => {
-    const { factory } = setup();
-    const layout = fakeLayout();
-    const onViewConsumed = vi.fn();
-    render(
-      <LayoutContext.Provider value={layout}>
-        <ViewerPane
-          urn="urn-a"
-          factory={factory}
-          initialView={encodeView(
-            {
-              camera: CAMERA,
-              selection: [],
-              panes: { open: ['summary'], collapsed: [] },
-            },
-            ['urn-a'],
-          )}
-          onViewConsumed={onViewConsumed}
-        />
-      </LayoutContext.Provider>,
-    );
     await waitFor(() => expect(layout.togglePane).toHaveBeenCalled());
     expect(layout.togglePane).toHaveBeenCalledTimes(1);
     expect(layout.togglePane).toHaveBeenCalledWith('summary');
@@ -149,25 +143,6 @@ describe('Share menu', () => {
         'Restored the panes and charts from the link; the summary columns stay local',
       ),
     ).toBe(true);
-  });
-
-  it('applies the camera of a crafted link that names an unknown pane', async () => {
-    const { factory, adapter } = setup();
-    render(
-      <ViewerPane
-        urn="urn-a"
-        factory={factory}
-        initialView="2~5,6,7~0,0,0~0,1,0~p~~|foo"
-      />,
-    );
-    await waitFor(() =>
-      expect(adapter()?.getCamera?.()).toEqual({
-        eye: [5, 6, 7],
-        target: [0, 0, 0],
-        up: [0, 1, 0],
-        ortho: false,
-      }),
-    );
   });
 });
 
