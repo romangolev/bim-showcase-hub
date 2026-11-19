@@ -5,8 +5,6 @@ import {
   DEFAULT_NOTIFICATION_SETTINGS,
   NOTIFICATION_SETTINGS,
   NOTIFICATION_SETTINGS_KEY,
-  readNotificationSettings,
-  writeNotificationSettings,
 } from './notificationSettings.js';
 
 beforeEach(() => {
@@ -15,7 +13,7 @@ beforeEach(() => {
 
 describe('notification settings', () => {
   it('starts from the defaults', () => {
-    expect(readNotificationSettings()).toEqual(DEFAULT_NOTIFICATION_SETTINGS);
+    expect(NOTIFICATION_SETTINGS.read()).toEqual(DEFAULT_NOTIFICATION_SETTINGS);
   });
 
   it('falls back for invalid stored values and clamps the duration', () => {
@@ -24,7 +22,7 @@ describe('notification settings', () => {
       NOTIFICATION_SETTINGS_KEY,
       JSON.stringify({ position: 'middle', durationMs: 900_000, quiet: 'yes' }),
     );
-    expect(readNotificationSettings()).toEqual({
+    expect(NOTIFICATION_SETTINGS.read()).toEqual({
       position: 'bottom-right',
       durationMs: 60_000,
       quiet: false,
@@ -34,7 +32,7 @@ describe('notification settings', () => {
       durationMs: -5,
       quiet: true,
     });
-    expect(readNotificationSettings()).toEqual({
+    expect(NOTIFICATION_SETTINGS.read()).toEqual({
       position: 'top-left',
       durationMs: 0,
       quiet: true,
@@ -43,14 +41,14 @@ describe('notification settings', () => {
 
   it('round-trips and survives sign-out as a preference', () => {
     expect(
-      writeNotificationSettings({
+      NOTIFICATION_SETTINGS.write({
         position: 'bottom-left',
         durationMs: 2000,
         quiet: true,
       }),
     ).toBe(true);
     forgetPersonal();
-    expect(readNotificationSettings()).toEqual({
+    expect(NOTIFICATION_SETTINGS.read()).toEqual({
       position: 'bottom-left',
       durationMs: 2000,
       quiet: true,

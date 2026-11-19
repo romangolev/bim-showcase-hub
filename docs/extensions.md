@@ -167,7 +167,7 @@ All browser storage goes through `src/web/storage.ts`. Do not call `localStorage
 Toasts and the single polite live region share one store (`src/web/tasks/notifications.ts`).
 
 - `notify(message, { tone, detail, duration, action })` shows a toast and announces it. `announce(message)` only updates the live region. Both are safe to call from event handlers, promises and effects.
-- `useNotify()` returns the bound `notify`, `dismiss` and `clear` for components. `NotificationHost` renders the toasts and the live region once, mounted by the Task Center and portalled to `document.body`; it is the only polite live region for outcomes. Pane-local status text must not add another.
+- `NotificationHost` renders the toasts and the live region once, mounted by the Task Center and portalled to `document.body`; it is the only polite live region for outcomes. Pane-local status text must not add another.
 - Position, duration and quiet mode are preferences in `bsh.notify.v1` (`NotificationSettingsSection.tsx`, mounted in Settings). Duration 0 keeps a toast until it is dismissed, and an error always stays until dismissed. Quiet mode hides toasts and still announces.
 - Task outcomes are forwarded into the same live region. A toast stays for its duration, at most 5 are live and the last 50 go to history. Sign-out (`FORGET_EVENT`) clears the live toasts, the history and the live text.
 - Real outcomes raise a toast: a saved viewpoint, a saved selection set, a snapshot or share result, a saved-items import result and a failed command.
