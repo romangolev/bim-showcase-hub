@@ -130,10 +130,6 @@ function countOf(data: SelectionSetData): number {
   return count;
 }
 
-export function selectionSetCount(data: SelectionSetData): number {
-  return countOf(data);
-}
-
 export const SELECTION_SETS = defineSavedKind<SelectionSetData>({
   kind: SELECTION_SET_KIND,
   version: 1,
