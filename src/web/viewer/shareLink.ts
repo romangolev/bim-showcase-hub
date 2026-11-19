@@ -5,6 +5,7 @@ import {
   type ViewChart,
   type ViewLink,
   type ViewPanes,
+  withViewParam,
 } from '../api/viewLink.js';
 import {
   type DashboardView,
@@ -47,9 +48,12 @@ function chartInstanceIds(): string[] {
     const instance = CHART_INSTANCE_KEY.exec(key)?.[1];
     if (instance) ids.push(`chart:${instance}`);
   }
-  return ids.sort(
-    (a, b) =>
-      Number(CHART_PANEL.exec(a)?.[1]) - Number(CHART_PANEL.exec(b)?.[1]),
+  return ids.sort((a, b) =>
+    (CHART_PANEL.exec(a)?.[1] ?? a).localeCompare(
+      CHART_PANEL.exec(b)?.[1] ?? b,
+      undefined,
+      { numeric: true },
+    ),
   );
 }
 
@@ -121,11 +125,6 @@ function applyPanes(panes: ViewPanes | undefined, layout: LayoutApi | null) {
   if (!panes || !layout || layout.mode === 'stacked') return false;
   let changed = false;
   const open = new Set<PaneId>(panes.open.filter(isLinkPane));
-  for (const id of [...layout.openPanes]) {
-    if (open.has(id) || !isLinkPane(id)) continue;
-    layout.togglePane(id);
-    changed = true;
-  }
   for (const id of open) {
     if (!layout.openPanes.includes(id)) {
       layout.togglePane(id);
@@ -152,8 +151,6 @@ function applyCharts(
 ): number {
   if (!charts || charts.length === 0) return 0;
   let applied = 0;
-  const slots = chartInstanceIds();
-  let next = 0;
   for (const chart of charts) {
     const view = sanitizeDashboardView(chart.view);
     if (chart.id === 'dashboard') {
@@ -161,15 +158,9 @@ function applyCharts(
       applied += 1;
       continue;
     }
-    let id: string | undefined = slots[next];
-    if (!id) {
-      const created = layout?.addInstance('chart');
-      if (!created) continue;
-      id = created;
-      slots.push(id);
-    }
-    next += 1;
-    chartSetting(id as PaneId).write(view);
+    const created = layout?.addInstance('chart');
+    if (!created) continue;
+    chartSetting(created as PaneId).write(view);
     applied += 1;
   }
   return applied;
@@ -196,6 +187,14 @@ export function resetAppliedLinks(): void {
   applied.clear();
 }
 
+export function clearLinkView(): void {
+  window.history.replaceState(
+    window.history.state,
+    '',
+    withViewParam(window.location.href, null),
+  );
+}
+
 export function restoreLinkView(
   search: string,
   modelIds: readonly string[],
@@ -203,8 +202,8 @@ export function restoreLinkView(
 ): LinkApplyReport | null {
   const raw = linkViewFromUrl(search);
   if (!raw || applied.has(raw)) return null;
-  applied.add(raw);
   const link = parseView(raw, modelIds);
   if (!link) return null;
+  applied.add(raw);
   return applyViewLink(link, layout);
 }

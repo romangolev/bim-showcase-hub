@@ -12,6 +12,7 @@ import {
   reportHtml,
 } from './report.js';
 import {
+  clearLinkView,
   LINK_DEGRADED_TEXT,
   LINK_RESTORED_TEXT,
   LINK_TRIMMED_TEXT,
@@ -115,6 +116,7 @@ export function ShareMenu({
       modelIds,
       layout ?? null,
     );
+    if (restored) clearLinkView();
     if (restored && (restored.panes || restored.charts > 0)) {
       onResult(LINK_RESTORED_TEXT, false);
     }

@@ -32,7 +32,7 @@ Exports over 20,000 rows ask for confirmation with a browser dialog. End-to-end 
 
 ## Share links
 
-The Share menu copies a link to the model with or without the current view. The view travels as `?view=` on the model URL. The encoded value starts with its format version, so a current link reads `?view=2~...`. Version 1 carries the camera and the selection; version 2 adds the open and collapsed panes and the chart views, and a build that does not know a pane id ignores it while still applying the camera.
+The Share menu copies a link to the model with or without the current view. The view travels as `?view=` on the model URL. The encoded value starts with its format version, so a current link reads `?view=2~...`. Version 1 carries the camera and the selection; version 2 adds the open and collapsed panes and the chart views, and a build that does not know a pane id ignores it while still applying the camera. Opening a link only opens panes and sets collapsed state, never closes a pane, puts its charts into newly added chart panes, overwrites the dashboard view, and then removes `?view=` from the address so a reload does not apply it again.
 
 - Version 2 names the open pane kinds and the collapsed panes. Collapsing exists only for Documents, Model summary, Dashboard and Models. Chart, Model summary and Properties are instance kinds: a link leaves them to the chart views instead of opening a blank pane.
 - The chart views are the Dashboard view plus up to three chart pane views, each with its own property list. A view scoped to a personal selection set travels without its `elements` scope, because the set itself is not shared.

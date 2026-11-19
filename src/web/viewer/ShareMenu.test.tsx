@@ -437,6 +437,7 @@ describe('Share menu links', () => {
     );
     expect(layout.togglePane).toHaveBeenCalledWith('summary');
     expect(PANE_SETTINGS.dashboard.view.read().property).toBe('Level');
+    expect(new URLSearchParams(window.location.search).has('view')).toBe(false);
   });
 
   it('restores a crafted link without touching the pane it names', async () => {

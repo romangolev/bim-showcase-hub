@@ -148,15 +148,15 @@ describe('share link capture', () => {
 });
 
 describe('share link restore', () => {
-  it('opens, closes and collapses panes to match the link', () => {
-    const layout = fakeLayout({ openPanes: ['dashboard'] });
+  it('opens and collapses panes without closing the others', () => {
+    const layout = fakeLayout({ openPanes: ['dashboard', 'models'] });
     const report = applyViewLink(
       linkWith({ panes: { open: ['summary'], collapsed: ['dashboard'] } }),
       layout,
     );
     expect(report.panes).toBe(true);
+    expect(layout.togglePane).toHaveBeenCalledTimes(1);
     expect(layout.togglePane).toHaveBeenCalledWith('summary');
-    expect(layout.togglePane).toHaveBeenCalledWith('dashboard');
     expect(layout.setCollapsed).toHaveBeenCalledWith('dashboard', true);
     expect(layout.setCollapsed).toHaveBeenCalledTimes(1);
   });
@@ -240,6 +240,47 @@ describe('share link restore', () => {
     expect(report).toEqual({ panes: false, charts: 2 });
     expect(PANE_SETTINGS.dashboard.view.read().property).toBe('Level');
     expect(chartSetting('chart:1').read().property).toBe('Type Name');
+  });
+
+  it('puts link charts in new panes and keeps the local ones', () => {
+    chartSetting('chart:1').write({
+      property: 'Mine',
+      properties: ['Mine'],
+    } as never);
+    const layout = fakeLayout({ addInstance: vi.fn(() => 'chart:2') });
+    applyViewLink(
+      linkWith({
+        charts: [
+          { id: 'chart:1', view: { property: 'Level', properties: ['Level'] } },
+        ],
+      }),
+      layout,
+    );
+    expect(chartSetting('chart:1').read().property).toBe('Mine');
+    expect(chartSetting('chart:2').read().property).toBe('Level');
+  });
+
+  it('sorts chart ids that are not numeric without NaN', () => {
+    for (const id of ['chart:b', 'chart:10', 'chart:2', 'chart:a']) {
+      chartSetting(id as never).write({
+        property: 'P',
+        properties: ['P'],
+      } as never);
+    }
+    expect(captureCharts().map((c) => c.id)).toEqual([
+      'dashboard',
+      'chart:2',
+      'chart:10',
+      'chart:a',
+    ]);
+  });
+
+  it('retries a link that failed to parse', () => {
+    expect(restoreLinkView('?view=junk', ['urn-a'], fakeLayout())).toBeNull();
+    const view = fitView(linkWith({}), ['urn-a']).view;
+    expect(
+      restoreLinkView(`?view=${view}`, ['urn-a'], fakeLayout()),
+    ).not.toBeNull();
   });
 
   it('does not create a chart pane when the layout refuses', () => {
