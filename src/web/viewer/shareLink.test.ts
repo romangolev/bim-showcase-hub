@@ -178,7 +178,7 @@ describe('share link capture', () => {
       ['urn-a'],
     );
     if (!link) throw new Error('no link');
-    expect(linkViewerState(link)).toEqual({
+    expect(linkViewerState(link, ['urn-a'])).toEqual({
       version: 1,
       camera: CAMERA,
       cutplanes: [],
@@ -188,8 +188,28 @@ describe('share link capture', () => {
     });
   });
 
+  it('keeps the selection of the models without hidden elements', () => {
+    const link = parseView(
+      fitView(
+        {
+          camera: CAMERA,
+          selection: [{ modelId: 'urn-b', dbId: 9 }],
+          nodes: [{ modelId: 'urn-a', hidden: [3], isolated: [] }],
+        },
+        ['urn-a', 'urn-b'],
+      ).view,
+      ['urn-a', 'urn-b'],
+    );
+    if (!link) throw new Error('no link');
+    expect(linkViewerState(link, ['urn-a', 'urn-b'])?.models['urn-b']).toEqual({
+      hidden: [],
+      isolated: [],
+      selection: [9],
+    });
+  });
+
   it('has no viewer state to restore without nodes', () => {
-    expect(linkViewerState(linkWith({}))).toBeNull();
+    expect(linkViewerState(linkWith({}), ['urn-a'])).toBeNull();
   });
 });
 

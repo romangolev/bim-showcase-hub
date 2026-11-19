@@ -133,13 +133,17 @@ export function sharedView(
   };
 }
 
-export function linkViewerState(link: ViewLink): ViewerState | null {
+export function linkViewerState(
+  link: ViewLink,
+  modelIds: readonly string[],
+): ViewerState | null {
   if (!link.nodes || link.nodes.length === 0) return null;
   const models: ViewerState['models'] = {};
-  for (const { modelId, hidden, isolated } of link.nodes) {
+  for (const modelId of modelIds) {
+    const entry = link.nodes.find((nodes) => nodes.modelId === modelId);
     models[modelId] = {
-      hidden: [...hidden],
-      isolated: [...isolated],
+      hidden: entry ? [...entry.hidden] : [],
+      isolated: entry ? [...entry.isolated] : [],
       selection: link.selection
         .filter((item) => item.modelId === modelId)
         .map((item) => item.dbId),

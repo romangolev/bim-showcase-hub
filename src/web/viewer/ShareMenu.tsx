@@ -254,7 +254,7 @@ export function ShareMenu({
     );
     if (!restored) return;
     clearLinkView();
-    pendingState.current = linkViewerState(restored.link);
+    pendingState.current = linkViewerState(restored.link, modelIds);
     if (restored.panes || restored.charts > 0) {
       onResult(LINK_RESTORED_TEXT, false);
     }
