@@ -24,7 +24,7 @@ import {
   DocumentTree,
   type PickedModel,
 } from './tree/DocumentTree.js';
-import { DEFAULT_TREE_ROOT, type TreeRoot } from './tree/docRoot.js';
+import { DOC_ROOT, type TreeRoot, treeRootOf } from './tree/docRoot.js';
 import { HubProjectSwitcher } from './tree/HubProjectSwitcher.js';
 import { RecentStrip } from './tree/RecentStrip.js';
 import type { TreeOpenMode } from './tree/treeView.js';
@@ -110,7 +110,9 @@ export function TreePanel({ onNavigate }: TreePanelProps) {
   const active = state.active;
   const layout = useContext(LayoutContext);
   const [view] = usePaneSetting(PANE_SETTINGS.tree.view);
-  const [root, setRoot] = useState<TreeRoot>(DEFAULT_TREE_ROOT);
+  const [root, setRoot] = useState<TreeRoot>(() =>
+    treeRootOf(DOC_ROOT.read(), undefined, undefined),
+  );
   const home = active === null;
 
   const openTogether = (models: PickedModel[]) => {
