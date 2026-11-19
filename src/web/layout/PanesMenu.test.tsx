@@ -60,8 +60,10 @@ describe('Panes menu', () => {
   it('lists panes with an icon, description and open state', () => {
     renderMenu();
     const menu = openMenu();
-    const dashboard = within(menu).getByRole('button', { name: 'Dashboard' });
-    expect(dashboard).toHaveAttribute('aria-pressed', 'true');
+    const dashboard = within(menu).getByRole('menuitemcheckbox', {
+      name: 'Dashboard',
+    });
+    expect(dashboard).toHaveAttribute('aria-checked', 'true');
     expect(
       within(menu).getByText('Chart the properties of the active model.'),
     ).toBeInTheDocument();
@@ -71,7 +73,9 @@ describe('Panes menu', () => {
   it('opens and closes a pane through the row action', () => {
     const { layout } = renderMenu();
     const menu = openMenu();
-    fireEvent.click(within(menu).getByRole('button', { name: 'Dashboard' }));
+    fireEvent.click(
+      within(menu).getByRole('menuitemcheckbox', { name: 'Dashboard' }),
+    );
     expect(layout.togglePane).toHaveBeenCalledWith('dashboard');
     expect(screen.queryByRole('dialog', { name: 'Panes' })).toBeNull();
   });
@@ -89,20 +93,20 @@ describe('Panes menu', () => {
       ),
     ).toBeInTheDocument();
     expect(
-      within(menu).queryByRole('button', { name: 'Dashboard' }),
+      within(menu).queryByRole('menuitemcheckbox', { name: 'Dashboard' }),
     ).toBeNull();
 
     fireEvent.change(search, { target: { value: 'graph' } });
     expect(
-      within(menu).getByRole('button', { name: 'Dashboard' }),
+      within(menu).getByRole('menuitemcheckbox', { name: 'Dashboard' }),
     ).toBeInTheDocument();
     expect(
-      within(menu).getByRole('button', { name: 'Chart' }),
+      within(menu).getByRole('menuitem', { name: 'New chart' }),
     ).toBeInTheDocument();
 
     fireEvent.change(search, { target: { value: 'selection attributes' } });
     expect(
-      within(menu).getByRole('button', { name: 'Properties' }),
+      within(menu).getByRole('menuitem', { name: 'New properties' }),
     ).toBeInTheDocument();
 
     fireEvent.change(search, { target: { value: 'zzz' } });
@@ -116,10 +120,7 @@ describe('Panes menu', () => {
       within(menu).getByRole('searchbox', { name: 'Search panes' }),
       { target: { value: 'chart' } },
     );
-    expect(
-      within(menu).queryByRole('button', { name: 'New chart' }),
-    ).toBeNull();
-    fireEvent.click(within(menu).getByRole('button', { name: 'Chart' }));
+    fireEvent.click(within(menu).getByRole('menuitem', { name: 'New chart' }));
     expect(layout.addInstance).toHaveBeenCalledWith('chart');
   });
 
@@ -127,7 +128,7 @@ describe('Panes menu', () => {
     const { layout } = renderMenu();
     const menu = openMenu();
     fireEvent.click(
-      within(menu).getByRole('button', { name: 'Focus Dashboard' }),
+      within(menu).getByRole('menuitem', { name: 'Focus Dashboard' }),
     );
     expect(layout.focusPane).toHaveBeenCalledWith('dashboard');
   });
@@ -136,12 +137,12 @@ describe('Panes menu', () => {
     const { unmount } = renderMenu();
     let menu = openMenu();
     fireEvent.click(
-      within(menu).getByRole('button', { name: 'Pin Dashboard' }),
+      within(menu).getByRole('menuitem', { name: 'Pin Dashboard' }),
     );
     fireEvent.click(
       within(
         menu.querySelector('[data-kind="summary"]') as HTMLElement,
-      ).getByRole('button', { name: 'Pin Model summary' }),
+      ).getByRole('menuitem', { name: 'Pin Model summary' }),
     );
     expect(
       Array.from(
@@ -167,27 +168,29 @@ describe('Panes menu', () => {
     renderMenu();
     const menu = openMenu();
     fireEvent.click(
-      within(menu).getByRole('button', { name: 'Hide Dashboard' }),
+      within(menu).getByRole('menuitem', { name: 'Hide Dashboard' }),
     );
     expect(
-      within(menu).queryByRole('button', { name: 'Dashboard' }),
+      within(menu).queryByRole('menuitemcheckbox', { name: 'Dashboard' }),
     ).toBeNull();
-    const manage = within(menu).getByRole('button', {
+    const manage = within(menu).getByRole('menuitemcheckbox', {
       name: 'Show hidden panes (1)',
     });
     fireEvent.click(manage);
-    const hidden = screen.getByRole('region', { name: 'Hidden panes' });
+    const hidden = screen.getByRole('group', { name: 'Hidden panes' });
     expect(
       within(hidden).getByText('Chart the properties of the active model.'),
     ).toBeInTheDocument();
     fireEvent.click(
-      within(hidden).getByRole('button', { name: 'Show Dashboard' }),
+      within(hidden).getByRole('menuitem', { name: 'Show Dashboard' }),
     );
     expect(
-      within(menu).getByRole('button', { name: 'Dashboard' }),
+      within(menu).getByRole('menuitemcheckbox', { name: 'Dashboard' }),
     ).toBeInTheDocument();
     expect(
-      within(menu).queryByRole('button', { name: 'Show hidden panes (1)' }),
+      within(menu).queryByRole('menuitemcheckbox', {
+        name: 'Show hidden panes (1)',
+      }),
     ).toBeNull();
   });
 
@@ -202,24 +205,43 @@ describe('Panes menu', () => {
     expect(search).toHaveFocus();
     fireEvent.keyDown(search, { key: 'ArrowDown' });
     expect(document.activeElement).toBe(
-      within(menu).getByRole('button', { name: 'Go to Documents' }),
+      within(menu).getByRole('menuitem', { name: 'Go to Documents' }),
     );
     fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'End' });
     expect(document.activeElement).toBe(
-      within(menu).getByRole('button', { name: 'Reset layout' }),
+      within(menu).getByRole('menuitem', { name: 'Reset layout' }),
     );
     fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'Escape' });
     expect(screen.queryByRole('dialog', { name: 'Panes' })).toBeNull();
     expect(trigger).toHaveFocus();
   });
 
+  it('exposes menu semantics for pane rows and layout actions', () => {
+    renderMenu();
+    const menu = openMenu();
+    const list = within(menu).getByRole('menu', { name: 'Panes' });
+    const dashboard = within(list).getByRole('menuitemcheckbox', {
+      name: 'Dashboard',
+    });
+    expect(dashboard).toHaveAttribute('aria-checked', 'true');
+    expect(
+      within(list).getByRole('menuitem', { name: 'New chart' }),
+    ).toBeInTheDocument();
+    expect(
+      within(menu).getByRole('menuitem', { name: 'Present' }),
+    ).toBeInTheDocument();
+    expect(
+      within(menu).getByRole('menuitemcheckbox', { name: 'Lock layout' }),
+    ).toHaveAttribute('aria-checked', 'false');
+  });
+
   it('keeps the layout actions and blocked reasons', () => {
     renderMenu({ locked: true });
     const menu = openMenu();
     expect(
-      within(menu).getByRole('button', { name: 'Unlock layout' }),
+      within(menu).getByRole('menuitemcheckbox', { name: 'Unlock layout' }),
     ).toBeInTheDocument();
-    const reset = within(menu).getByRole('button', { name: 'Reset layout' });
+    const reset = within(menu).getByRole('menuitem', { name: 'Reset layout' });
     expect(reset).toBeDisabled();
     expect(reset).toHaveAccessibleDescription('Unlock the layout first');
   });

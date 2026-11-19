@@ -614,11 +614,25 @@
   outline: none;
 }
 
+.panes-menu__body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .panes-menu__list {
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
   padding: var(--space-1) 0;
+}
+
+.panes-menu__group {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 
 .panes-menu__heading {

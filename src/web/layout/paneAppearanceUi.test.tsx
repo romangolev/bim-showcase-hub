@@ -190,7 +190,7 @@ describe('pane title and color tag', () => {
     fireEvent.click(
       within(
         panes.querySelector('[data-kind="summary"]') as HTMLElement,
-      ).getByRole('button', { name: 'Model summary' }),
+      ).getByRole('menuitemcheckbox', { name: 'Model summary' }),
     );
     expect(
       await screen.findByRole('tab', { name: 'Roof' }),

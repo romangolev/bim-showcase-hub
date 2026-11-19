@@ -58,7 +58,8 @@ The Viewer pane has one instance per open model, a panel `viewer:<urn>` with its
 
 The top bar Panes menu is a searchable dialog over every pane.
 
-- A row's main action is its command: Open/Close with a pressed state for a normal pane, New for a user kind, or a pane hook such as Go to Documents. Focus, Pin and Hide sit beside it. The footer holds the workspace actions (save, import, download, copy JSON, share link, revert), Present, Lock and Reset layout. A pane with no command, such as the Viewer, has no row.
+- The entries sit in a `role="menu"` inside the dialog; the search field stays outside it. A pane toggle and Lock are `menuitemcheckbox` entries with `aria-checked`; the other entries are `menuitem`.
+- A row's main action is its command: Open/Close with a checked state for a normal pane, New for a user kind, or a pane hook such as Go to Documents. Focus, Pin and Hide sit beside it. The footer holds the workspace actions (save, import, download, copy JSON, share link, revert), Present, Lock and Reset layout. A pane with no command, such as the Viewer, has no row.
 - Search matches the pane's title, description, category and keywords. Without a query the rows are Pinned first, then grouped by category (Workspace, Viewer, Analysis, Data), then Hidden. With a query they become one list, and hidden matches stay behind `Show hidden panes (N)`.
 - Pin and Hide apply to the pane kind, so hiding Chart hides the whole family. Hiding removes the menu row only: palette commands still run and an open pane stays open. Hiding a pinned pane unpins it. The state is personal, in `bsh.pane.catalog.v1`, and is separate from the layout, so Reset layout does not unhide a pane.
 

@@ -86,10 +86,10 @@ function PinAction({ pane, pinned, onToggle }: PinProps) {
   return (
     <button
       type="button"
+      role="menuitem"
       className="panes-menu__action"
       aria-label={label}
       title={label}
-      aria-pressed={pinned}
       onClick={onToggle}
     >
       <Icon name="star" size={14} />
@@ -121,12 +121,19 @@ function PaneRowItem({
   const primary = toggle ?? create;
   const state = toggle ? (row.open ? 'Open' : 'Closed') : create ? 'New' : null;
   return (
-    <li className="panes-menu__row" data-kind={pane.id} data-hidden={hidden}>
+    <li
+      className="panes-menu__row"
+      role="none"
+      data-kind={pane.id}
+      data-hidden={hidden}
+    >
       {primary && !hidden ? (
+        // biome-ignore lint/a11y/useAriaPropsSupportedByRole: the role follows the command kind
         <button
           type="button"
-          aria-pressed={toggle ? row.open : undefined}
-          aria-label={pane.title}
+          role={toggle ? 'menuitemcheckbox' : 'menuitem'}
+          aria-checked={toggle ? row.open : undefined}
+          aria-label={toggle ? pane.title : primary.title}
           aria-describedby={descriptionId}
           className="panes-menu__main"
           disabled={Boolean(primary.disabled)}
@@ -162,6 +169,7 @@ function PaneRowItem({
         {!hidden && toggle && row.open ? (
           <button
             type="button"
+            role="menuitem"
             className="panes-menu__action"
             aria-label={`Focus ${pane.title}`}
             title={`Focus ${pane.title}`}
@@ -175,6 +183,7 @@ function PaneRowItem({
               <button
                 key={command.id}
                 type="button"
+                role="menuitem"
                 className="panes-menu__action"
                 aria-label={command.title}
                 title={command.disabled ?? command.title}
@@ -190,6 +199,7 @@ function PaneRowItem({
         ) : null}
         <button
           type="button"
+          role="menuitem"
           className="panes-menu__action"
           aria-label={hidden ? `Show ${pane.title}` : `Hide ${pane.title}`}
           title={hidden ? `Show ${pane.title}` : `Hide ${pane.title}`}
@@ -211,9 +221,11 @@ function FooterEntry({
 }) {
   const checked = entry.checked;
   return (
+    // biome-ignore lint/a11y/useAriaPropsSupportedByRole: the role follows the command kind
     <button
       type="button"
-      aria-pressed={checked === undefined ? undefined : checked}
+      role={checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
+      aria-checked={checked}
       className="menu__item"
       disabled={entry.disabled}
       title={entry.description}
@@ -342,21 +354,23 @@ export function PanesMenu() {
     const box = popoverRef.current;
     if (!box) return;
     const buttons = Array.from(
-      box.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'),
+      box.querySelectorAll<HTMLButtonElement>(
+        '[role^="menuitem"]:not(:disabled)',
+      ),
     );
     if (buttons.length === 0) return;
     const target = event.target as HTMLElement;
-    const isButton = target.tagName === 'BUTTON';
-    const index = buttons.indexOf(target as HTMLButtonElement);
+    const item = target.closest<HTMLButtonElement>('[role^="menuitem"]');
+    const index = item ? buttons.indexOf(item) : -1;
     const focusAt = (next: number) => {
       event.preventDefault();
       buttons[(next + buttons.length) % buttons.length]?.focus();
     };
-    if (!isButton && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+    if (!item && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
       focusAt(event.key === 'ArrowDown' ? 0 : buttons.length - 1);
       return;
     }
-    if (!isButton) return;
+    if (!item) return;
     if (event.key === 'ArrowDown') focusAt(index + 1);
     else if (event.key === 'ArrowUp') focusAt(index - 1);
     else if (event.key === 'Home') focusAt(0);
@@ -416,132 +430,144 @@ export function PanesMenu() {
                   onChange={(event) => setQuery(event.target.value)}
                 />
               </div>
-              <div className="panes-menu__list">
-                {ordered.pinned.length > 0 ? (
-                  <section aria-label="Pinned panes">
-                    <h3 className="panes-menu__heading">Pinned</h3>
-                    <ul className="panes-menu__rows">
-                      {ordered.pinned.map((pane) => {
-                        const row = rowById.get(pane.id);
-                        if (!row) return null;
-                        return (
-                          <PaneRowItem
-                            key={pane.id}
-                            row={row}
-                            pinned
-                            hidden={false}
-                            onRun={run}
-                            onPin={() =>
-                              toggleCatalog(withPin(catalog, pane.id))
-                            }
-                            onHide={() =>
-                              toggleCatalog(withHidden(catalog, pane.id))
-                            }
-                            onFocus={() => {
-                              close(true);
-                              layout.focusPane(pane.id);
-                            }}
-                          />
-                        );
-                      })}
-                    </ul>
-                  </section>
-                ) : null}
-                {ordered.groups.map((group) => (
-                  <section
-                    key={group.category || 'matches'}
-                    aria-label={group.category || 'Matching panes'}
+              <div className="panes-menu__body" role="menu" aria-label="Panes">
+                <div className="panes-menu__list">
+                  {ordered.pinned.length > 0 ? (
+                    <fieldset
+                      className="panes-menu__group"
+                      aria-label="Pinned panes"
+                    >
+                      <h3 className="panes-menu__heading">Pinned</h3>
+                      <ul role="none" className="panes-menu__rows">
+                        {ordered.pinned.map((pane) => {
+                          const row = rowById.get(pane.id);
+                          if (!row) return null;
+                          return (
+                            <PaneRowItem
+                              key={pane.id}
+                              row={row}
+                              pinned
+                              hidden={false}
+                              onRun={run}
+                              onPin={() =>
+                                toggleCatalog(withPin(catalog, pane.id))
+                              }
+                              onHide={() =>
+                                toggleCatalog(withHidden(catalog, pane.id))
+                              }
+                              onFocus={() => {
+                                close(true);
+                                layout.focusPane(pane.id);
+                              }}
+                            />
+                          );
+                        })}
+                      </ul>
+                    </fieldset>
+                  ) : null}
+                  {ordered.groups.map((group) => (
+                    <fieldset
+                      key={group.category || 'matches'}
+                      className="panes-menu__group"
+                      aria-label={group.category || 'Matching panes'}
+                    >
+                      {group.category ? (
+                        <h3 className="panes-menu__heading">
+                          {group.category}
+                        </h3>
+                      ) : null}
+                      <ul role="none" className="panes-menu__rows">
+                        {group.panes.map((pane) => {
+                          const row = rowById.get(pane.id);
+                          if (!row) return null;
+                          return (
+                            <PaneRowItem
+                              key={pane.id}
+                              row={row}
+                              pinned={catalog.pins.includes(pane.id)}
+                              hidden={false}
+                              onRun={run}
+                              onPin={() =>
+                                toggleCatalog(withPin(catalog, pane.id))
+                              }
+                              onHide={() =>
+                                toggleCatalog(withHidden(catalog, pane.id))
+                              }
+                              onFocus={() => {
+                                close(true);
+                                layout.focusPane(pane.id);
+                              }}
+                            />
+                          );
+                        })}
+                      </ul>
+                    </fieldset>
+                  ))}
+                  {ordered.groups.length === 0 &&
+                  ordered.pinned.length === 0 &&
+                  ordered.hidden.length === 0 ? (
+                    <p className="panes-menu__empty">No panes match</p>
+                  ) : null}
+                  {ordered.hidden.length > 0 ? (
+                    <fieldset
+                      className="panes-menu__group"
+                      aria-label="Hidden panes"
+                    >
+                      <h3 className="panes-menu__heading">Hidden</h3>
+                      <ul role="none" className="panes-menu__rows">
+                        {ordered.hidden.map((pane) => {
+                          const row = rowById.get(pane.id);
+                          if (!row) return null;
+                          return (
+                            <PaneRowItem
+                              key={pane.id}
+                              row={row}
+                              pinned={false}
+                              hidden
+                              onRun={run}
+                              onPin={() =>
+                                toggleCatalog(withPin(catalog, pane.id))
+                              }
+                              onHide={() =>
+                                toggleCatalog(withHidden(catalog, pane.id))
+                              }
+                              onFocus={() => undefined}
+                            />
+                          );
+                        })}
+                      </ul>
+                    </fieldset>
+                  ) : null}
+                </div>
+                {hiddenCount > 0 || showHidden ? (
+                  <button
+                    type="button"
+                    role="menuitemcheckbox"
+                    aria-checked={showHidden}
+                    className="panes-menu__manage"
+                    onClick={() => setShowHidden((value) => !value)}
                   >
-                    {group.category ? (
-                      <h3 className="panes-menu__heading">{group.category}</h3>
-                    ) : null}
-                    <ul className="panes-menu__rows">
-                      {group.panes.map((pane) => {
-                        const row = rowById.get(pane.id);
-                        if (!row) return null;
-                        return (
-                          <PaneRowItem
-                            key={pane.id}
-                            row={row}
-                            pinned={catalog.pins.includes(pane.id)}
-                            hidden={false}
-                            onRun={run}
-                            onPin={() =>
-                              toggleCatalog(withPin(catalog, pane.id))
-                            }
-                            onHide={() =>
-                              toggleCatalog(withHidden(catalog, pane.id))
-                            }
-                            onFocus={() => {
-                              close(true);
-                              layout.focusPane(pane.id);
-                            }}
-                          />
-                        );
-                      })}
-                    </ul>
-                  </section>
-                ))}
-                {ordered.groups.length === 0 &&
-                ordered.pinned.length === 0 &&
-                ordered.hidden.length === 0 ? (
-                  <p className="panes-menu__empty">No panes match</p>
+                    {showHidden
+                      ? 'Hide hidden panes'
+                      : `Show hidden panes (${hiddenCount})`}
+                  </button>
                 ) : null}
-                {ordered.hidden.length > 0 ? (
-                  <section aria-label="Hidden panes">
-                    <h3 className="panes-menu__heading">Hidden</h3>
-                    <ul className="panes-menu__rows">
-                      {ordered.hidden.map((pane) => {
-                        const row = rowById.get(pane.id);
-                        if (!row) return null;
-                        return (
-                          <PaneRowItem
-                            key={pane.id}
-                            row={row}
-                            pinned={false}
-                            hidden
-                            onRun={run}
-                            onPin={() =>
-                              toggleCatalog(withPin(catalog, pane.id))
-                            }
-                            onHide={() =>
-                              toggleCatalog(withHidden(catalog, pane.id))
-                            }
-                            onFocus={() => undefined}
-                          />
-                        );
-                      })}
-                    </ul>
-                  </section>
+                {footer.length > 0 ? (
+                  <div className="panes-menu__footer">
+                    {footer.map((entry) =>
+                      entry.kind === 'separator' ? (
+                        <hr key={entry.id} className="menu__separator" />
+                      ) : (
+                        <FooterEntry
+                          key={entry.id}
+                          entry={entry}
+                          onRun={runEntry}
+                        />
+                      ),
+                    )}
+                  </div>
                 ) : null}
               </div>
-              {hiddenCount > 0 || showHidden ? (
-                <button
-                  type="button"
-                  className="panes-menu__manage"
-                  aria-pressed={showHidden}
-                  onClick={() => setShowHidden((value) => !value)}
-                >
-                  {showHidden
-                    ? 'Hide hidden panes'
-                    : `Show hidden panes (${hiddenCount})`}
-                </button>
-              ) : null}
-              {footer.length > 0 ? (
-                <div className="panes-menu__footer">
-                  {footer.map((entry) =>
-                    entry.kind === 'separator' ? (
-                      <hr key={entry.id} className="menu__separator" />
-                    ) : (
-                      <FooterEntry
-                        key={entry.id}
-                        entry={entry}
-                        onRun={runEntry}
-                      />
-                    ),
-                  )}
-                </div>
-              ) : null}
             </div>,
             document.body,
           )
