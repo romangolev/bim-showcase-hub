@@ -1,14 +1,9 @@
 import { useEffect, useState } from 'react';
-import { ALL_MODELS, type ModelScope, resolveScope } from './modelScope.js';
+import { ALL_MODELS, type ModelScope } from './modelScope.js';
 import type { ModelInfo } from './modelSet.js';
-import {
-  applyScope,
-  type ElementScope,
-  resolveElementScope,
-  scopeElementItems,
-} from './propertyScope.js';
+import type { ElementScope } from './propertyScope.js';
+import { peekScopedRows, readScopedRows } from './scopedRows.js';
 import { useSelectionSets } from './selectionSets.js';
-import { peekLeafRows, readLeafRows } from './sharedLeafRows.js';
 import { useModels } from './useModels.js';
 import type { ViewerAdapter } from './ViewerAdapter.js';
 
@@ -24,21 +19,16 @@ export async function countScopedRows(
   scope: ScopeScope,
   read?: { names: readonly string[]; signal: AbortSignal },
 ): Promise<number | null> {
-  const models = adapter.getModels();
-  const model = resolveScope(scope.models ?? ALL_MODELS, models);
-  const modelIds = model === ALL_MODELS ? undefined : [model];
-  const rows =
-    peekLeafRows(adapter, modelIds) ??
-    (read
-      ? await readLeafRows(adapter, read.names, {
-          signal: read.signal,
-          ...(modelIds ? { modelIds } : {}),
-        })
-      : null);
-  if (!rows) return null;
-  const elements = resolveElementScope(scope.elements ?? 'all');
-  const items = await scopeElementItems(adapter, elements);
-  return applyScope(rows, { elements }, items, models[0]?.id).length;
+  const request = { models: scope.models, elements: scope.elements };
+  const peeked = await peekScopedRows(adapter, request);
+  if (peeked) return peeked.rows.length;
+  if (!read) return null;
+  const result = await readScopedRows(adapter, {
+    ...request,
+    names: read.names,
+    signal: read.signal,
+  });
+  return result.rows.length;
 }
 
 export type ScopeCount =

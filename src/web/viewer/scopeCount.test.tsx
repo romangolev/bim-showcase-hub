@@ -11,7 +11,7 @@ import { installMemoryStorage } from '../test/mockApi.js';
 import { ExcelExportTool } from '../tools/excel/ExcelExportTool.js';
 import { EXCEL_SETTINGS_KEY } from '../tools/excel/excelSettings.js';
 import { MockViewerAdapter } from './MockViewerAdapter.js';
-import { readScopedRows } from './propertyScope.js';
+import { readScopedRows } from './scopedRows.js';
 import { countScopedRows, useScopeCount } from './scopeCount.js';
 import { deleteSet, listSets, saveSelectionSet } from './selectionSets.js';
 import { forgetLeafRows } from './sharedLeafRows.js';
@@ -52,7 +52,8 @@ describe('countScopedRows', () => {
       for (const models of ['all', 'urn-a', 'urn-b']) {
         const exported = await readScopedRows(adapter, {
           names: ['Category'],
-          scope: { models, elements },
+          models,
+          elements,
         });
         expect(await countScopedRows(adapter, { models, elements })).toBe(
           exported.rows.length,
