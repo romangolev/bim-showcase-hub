@@ -3,6 +3,7 @@ export const SHARE_MAX_LENGTH = 6000;
 const COMPRESSED = 'z';
 const PLAIN = 'j';
 export const STREAM_TIMEOUT_MS = 1200;
+export const INFLATE_MAX_BYTES = 256 * 1024;
 
 function bounded<T>(task: Promise<T>, fallback: T): Promise<T> {
   return Promise.race([
@@ -54,6 +55,7 @@ export function base64UrlDecode(text: string): string | null {
 
 async function readAll(
   stream: ReadableStream<Uint8Array>,
+  maxBytes = Number.POSITIVE_INFINITY,
 ): Promise<Uint8Array<ArrayBuffer>> {
   const reader = stream.getReader();
   const chunks: Uint8Array[] = [];
@@ -63,6 +65,10 @@ async function readAll(
     if (done) break;
     chunks.push(value);
     total += value.length;
+    if (total > maxBytes) {
+      await reader.cancel();
+      throw new RangeError('stream too large');
+    }
   }
   const bytes = new Uint8Array(total);
   let at = 0;
@@ -95,9 +101,11 @@ async function inflateNow(body: string): Promise<string | null> {
   if (!bytes) return null;
   const stream = new DecompressionStream('deflate-raw');
   const writer = stream.writable.getWriter();
-  await writer.write(bytes);
-  await writer.close();
-  return new TextDecoder().decode(await readAll(stream.readable));
+  const [out] = await Promise.all([
+    readAll(stream.readable, INFLATE_MAX_BYTES),
+    writer.write(bytes).then(() => writer.close()),
+  ]);
+  return new TextDecoder().decode(out);
 }
 
 async function inflate(body: string): Promise<string | null> {
@@ -115,7 +123,7 @@ export async function encodeShare(text: string): Promise<string> {
 }
 
 export async function decodeShare(value: string): Promise<string | null> {
-  if (value.length < 2) return null;
+  if (value.length < 2 || value.length > SHARE_MAX_LENGTH) return null;
   const body = value.slice(1);
   if (value.startsWith(COMPRESSED)) return inflate(body);
   if (value.startsWith(PLAIN)) return base64UrlDecode(body);
