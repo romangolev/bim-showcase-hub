@@ -1,8 +1,16 @@
-import { act, renderHook } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+} from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { DEFAULT_TREE_VIEW } from '../components/tree/treeView.js';
 import { FORGET_EVENT } from '../storage.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { readJson, writeJson } from '../test/storageJson.js';
+import { TreeSettingsForm } from './PaneSettingsForms.js';
 import { PANE_SETTINGS, usePaneSetting } from './paneSettings.js';
 
 beforeEach(() => {
@@ -42,5 +50,36 @@ describe('pane settings', () => {
       window.dispatchEvent(new Event(FORGET_EVENT));
     });
     expect(result.current[0]).toBe('select');
+  });
+
+  it('persists the Documents open mode and rejects unknown values', () => {
+    writeJson(PANE_SETTINGS.tree.view.key, {
+      ...DEFAULT_TREE_VIEW,
+      openMode: 'combined',
+    });
+    const { result } = renderHook(() =>
+      usePaneSetting(PANE_SETTINGS.tree.view),
+    );
+    expect(result.current[0].openMode).toBe('combined');
+    act(() => result.current[1]({ ...result.current[0], openMode: 'replace' }));
+    expect(readJson(PANE_SETTINGS.tree.view.key, null)).toMatchObject({
+      openMode: 'replace',
+    });
+    expect(
+      PANE_SETTINGS.tree.view.sanitize({ openMode: 'nope' }),
+    ).toMatchObject({ openMode: 'tab' });
+  });
+
+  it('offers the open mode in Documents settings', () => {
+    render(<TreeSettingsForm />);
+    expect(
+      screen.getByRole('combobox', { name: /Open models in/ }),
+    ).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('combobox', { name: /Open models in/ }), {
+      target: { value: 'combined' },
+    });
+    expect(readJson(PANE_SETTINGS.tree.view.key, null)).toMatchObject({
+      openMode: 'combined',
+    });
   });
 });

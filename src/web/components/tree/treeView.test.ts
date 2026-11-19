@@ -81,4 +81,13 @@ describe('metaText and view', () => {
       DEFAULT_TREE_VIEW,
     );
   });
+
+  it('keeps a known open mode and falls back to a new tab', () => {
+    expect(DEFAULT_TREE_VIEW.openMode).toBe('tab');
+    expect(sanitizeTreeView({ openMode: 'combined' }).openMode).toBe(
+      'combined',
+    );
+    expect(sanitizeTreeView({ openMode: 'replace' }).openMode).toBe('replace');
+    expect(sanitizeTreeView({ openMode: 'nope' }).openMode).toBe('tab');
+  });
 });

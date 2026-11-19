@@ -101,7 +101,13 @@ describe('DocumentTree metadata', () => {
   });
 
   it('sorts by modified date and shows the author when asked', async () => {
-    await open({ sort: 'modified', modified: true, author: true, size: false });
+    await open({
+      sort: 'modified',
+      modified: true,
+      author: true,
+      size: false,
+      openMode: 'tab',
+    });
     expect(screen.getByText('2025-03-04 · Sam')).toBeInTheDocument();
     const rows = screen.getAllByRole('treeitem').map((row) => row.textContent);
     expect(rows.findIndex((t) => t?.includes('b.rvt'))).toBeLessThan(
@@ -711,6 +717,39 @@ const row = (n: number) =>
   screen.getByRole('treeitem', { name: `v${n}: Issue ${n}` });
 
 describe('DocumentTree multi-select', () => {
+  it('opens picked versions as separate tabs', async () => {
+    const onOpenTabs = vi.fn();
+    await openVersions(3, { onOpenTabs });
+    fireEvent.click(row(1), { ctrlKey: true });
+    fireEvent.click(row(3), { metaKey: true });
+    fireEvent.click(screen.getByRole('button', { name: 'Open 2 in viewer' }));
+    expect(onOpenTabs).toHaveBeenCalledTimes(1);
+    const picked = onOpenTabs.mock.calls[0]?.[0] as {
+      urn: string;
+      context: { file?: string; v?: string };
+    }[];
+    expect(picked.map((model) => model.urn)).toEqual(['urn-0', 'urn-2']);
+    expect(picked[1]?.context).toMatchObject({ file: 'Tower.rvt', v: 'v3' });
+    expect(screen.queryByText(/selected$/)).toBeNull();
+  });
+
+  it('blocks opening more than eight versions as tabs and says why', async () => {
+    const onOpenTabs = vi.fn();
+    await openVersions(9, { onOpenTabs });
+    fireEvent.click(row(1), { ctrlKey: true });
+    fireEvent.click(row(9), { shiftKey: true });
+    expect(screen.getByText('9 selected')).toBeInTheDocument();
+    const openTabs = screen.getByRole('button', {
+      name: 'Open 9 in viewer',
+    });
+    expect(openTabs).toBeDisabled();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'A viewer loads up to 8 models',
+    );
+    fireEvent.click(openTabs);
+    expect(onOpenTabs).not.toHaveBeenCalled();
+  });
+
   it('picks with Ctrl or Cmd click and Space and opens them together', async () => {
     const { onOpenModel, onOpenTogether } = await openVersions(3);
     expect(row(1)).toHaveAttribute('aria-checked', 'false');

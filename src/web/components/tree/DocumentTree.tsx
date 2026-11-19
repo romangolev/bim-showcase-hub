@@ -14,7 +14,10 @@ import {
   useRef,
   useState,
 } from 'react';
-import { MAX_COMBINED_MODELS } from '../../../shared/combined.js';
+import {
+  MAX_COMBINED_MODELS,
+  MAX_LOADED_MEMBERS,
+} from '../../../shared/combined.js';
 import type { TreeNode, VersionViewState } from '../../../shared/types.js';
 import { viewableFor } from '../../../shared/viewState.js';
 import { fetchVersionViewState } from '../../api/client.js';
@@ -62,11 +65,14 @@ export interface DocumentTreeProps {
   selectedUrn?: string;
   revealTrail?: readonly string[];
   onOpenModel: (urn: string, context: ModelContext) => void;
+  onOpenTabs?: (models: PickedModel[]) => void;
   onOpenTogether?: (models: PickedModel[]) => void;
   onOpenModal?: (urn: string, context: ModelContext) => void;
   addTarget?: AddTarget | null;
   pollMs?: number;
 }
+
+export const TAB_LIMIT_MESSAGE = `A viewer loads up to ${MAX_LOADED_MEMBERS} models. Select ${MAX_LOADED_MEMBERS} or fewer to open them as tabs.`;
 
 export function skippedNotice(nodes: readonly TreeNode[]): {
   title: string;
@@ -161,6 +167,7 @@ export function DocumentTree({
   selectedUrn,
   revealTrail,
   onOpenModel,
+  onOpenTabs,
   onOpenTogether,
   onOpenModal,
   addTarget,
@@ -1124,6 +1131,14 @@ export function DocumentTree({
         <PickBar
           picked={picked}
           addTarget={addTarget ?? null}
+          onOpenTabs={
+            onOpenTabs
+              ? (models) => {
+                  onOpenTabs(models);
+                  setPicked([]);
+                }
+              : undefined
+          }
           onOpenTogether={(models) => {
             onOpenTogether(models);
             setPicked([]);
@@ -1184,15 +1199,18 @@ export function DocumentTree({
 function PickBar({
   picked,
   addTarget,
+  onOpenTabs,
   onOpenTogether,
   onClear,
 }: {
   picked: PickedModel[];
   addTarget: AddTarget | null;
+  onOpenTabs?: (models: PickedModel[]) => void;
   onOpenTogether: (models: PickedModel[]) => void;
   onClear: () => void;
 }) {
-  const tooMany = picked.length > MAX_COMBINED_MODELS;
+  const tooManyCombined = picked.length > MAX_COMBINED_MODELS;
+  const tooManyTabs = picked.length > MAX_LOADED_MEMBERS;
   const addable = addTarget
     ? picked.filter((model) => addTarget.canAdd(model.urn))
     : [];
@@ -1204,15 +1222,26 @@ function PickBar({
     >
       <span className="doc-tree__picks-count" aria-live="polite">
         {picked.length === 0
-          ? 'Ctrl or Cmd click, Shift click or Space selects versions to open together'
+          ? 'Ctrl or Cmd click, Shift click or Space selects versions to open'
           : `${picked.length} selected`}
       </span>
       {picked.length > 0 ? (
         <>
+          {onOpenTabs ? (
+            <button
+              type="button"
+              className="bsh-button doc-tree__pick-action"
+              disabled={tooManyTabs}
+              title={picked.map(pickLabel).join('\n')}
+              onClick={() => onOpenTabs(picked)}
+            >
+              Open {picked.length} in viewer
+            </button>
+          ) : null}
           <button
             type="button"
             className="bsh-button doc-tree__pick-action"
-            disabled={picked.length < 2 || tooMany}
+            disabled={picked.length < 2 || tooManyCombined}
             title={picked.map(pickLabel).join('\n')}
             onClick={() => onOpenTogether(picked)}
           >
@@ -1238,7 +1267,11 @@ function PickBar({
           >
             Clear
           </button>
-          {tooMany ? (
+          {tooManyTabs ? (
+            <span className="doc-tree__picks-limit" role="alert">
+              {TAB_LIMIT_MESSAGE}
+            </span>
+          ) : tooManyCombined ? (
             <span className="doc-tree__picks-limit" role="alert">
               {MODEL_LIMIT_MESSAGE}
             </span>

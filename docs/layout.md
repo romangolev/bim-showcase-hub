@@ -33,7 +33,8 @@ The Viewer pane has one instance per open model, a panel `viewer:<urn>` with its
 - Dropping a tab on the edge of the viewer group puts two models side by side.
 - Closing the last tab closes the viewer group and its companions, and the URL returns to `/`.
 - A combined tab is one panel titled `N models`. Its first URN is the key and the others are in the `with` URL parameter.
-- In Documents, Ctrl or Cmd click and Space pick versions and Shift click picks a range. The pick bar offers Open together (2 to 6), Add to the open viewer and Clear.
+- In Documents, Ctrl or Cmd click and Space pick versions and Shift click picks a range. The pick bar offers Open N in viewer (up to 8 loaded models), Open together (2 to 6, one combined scene), Add to the open viewer and Clear.
+- A single click opens a version according to the Documents open mode, saved with the tree view: a new tab (the default), the active tab, or the active viewer as a combined scene. A combined click adds a model while the tab holds fewer than 6; at 6 it opens a new tab.
 
 ## User pane families
 

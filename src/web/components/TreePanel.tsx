@@ -1,22 +1,72 @@
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { useContext } from 'react';
-import { MAX_COMBINED_MODELS } from '../../shared/combined.js';
+import {
+  MAX_COMBINED_MODELS,
+  MAX_LOADED_MEMBERS,
+} from '../../shared/combined.js';
 import { joinWith, type ModelContext } from '../api/modelContext.js';
 import { rememberModel } from '../api/modelStore.js';
 import { modelTabTitle } from '../api/modelTitles.js';
-import { contextOf, modelUrnsOf } from '../api/openModels.js';
+import {
+  contextOf,
+  modelUrnsOf,
+  type OpenModelsState,
+  type OpenModelsStore,
+} from '../api/openModels.js';
 import { useModelContext } from '../api/useModelContext.js';
 import { useOpenModels, useOpenModelsStore } from '../api/useOpenModels.js';
 import { LayoutContext } from '../layout/layoutContext.js';
+import { PANE_SETTINGS, usePaneSetting } from '../settings/paneSettings.js';
 import {
   type AddTarget,
   DocumentTree,
   type PickedModel,
 } from './tree/DocumentTree.js';
 import { RecentStrip } from './tree/RecentStrip.js';
+import type { TreeOpenMode } from './tree/treeView.js';
 
 export interface TreePanelProps {
   onNavigate?: () => void;
+}
+
+export function openPickedAsTabs(
+  store: OpenModelsStore | null,
+  models: readonly PickedModel[],
+): PickedModel[] {
+  const admitted = models.slice(0, MAX_LOADED_MEMBERS);
+  for (const model of admitted) {
+    rememberModel(model.urn, model.context);
+    store?.open(model.urn, model.context);
+  }
+  return admitted;
+}
+
+export function openWithMode(
+  mode: TreeOpenMode,
+  store: OpenModelsStore | null,
+  state: OpenModelsState,
+  urn: string,
+  context: ModelContext,
+): { urn: string; context: ModelContext } {
+  if (!store) return { urn, context };
+  const active = state.active;
+  if (mode === 'replace' && active && active !== urn) {
+    store.open(urn, context);
+    store.close(active);
+    return { urn, context };
+  }
+  if (mode === 'combined' && active && active !== urn) {
+    if (modelUrnsOf(state, active).length < MAX_COMBINED_MODELS) {
+      rememberModel(urn, context);
+      store.addTo(active, urn);
+      return {
+        urn: active,
+        context: contextOf(store.getState(), active) ?? {},
+      };
+    }
+  }
+  store.open(urn, context);
+  return { urn, context };
 }
 
 export function TreePanel({ onNavigate }: TreePanelProps) {
@@ -28,6 +78,7 @@ export function TreePanel({ onNavigate }: TreePanelProps) {
   const state = useOpenModels();
   const active = state.active;
   const layout = useContext(LayoutContext);
+  const [view] = usePaneSetting(PANE_SETTINGS.tree.view);
 
   const openTogether = (models: PickedModel[]) => {
     const [first, ...rest] = models.slice(0, MAX_COMBINED_MODELS);
@@ -66,10 +117,23 @@ export function TreePanel({ onNavigate }: TreePanelProps) {
   }
 
   const open = (next: string, context: ModelContext) => {
+    const target = openWithMode(view.openMode, store, state, next, context);
     void navigate({
       to: '/model/$urn',
-      params: { urn: next },
-      search: context,
+      params: { urn: target.urn },
+      search: target.context,
+    });
+    onNavigate?.();
+  };
+
+  const openTabs = (models: PickedModel[]) => {
+    const admitted = openPickedAsTabs(store, models);
+    const last = admitted[admitted.length - 1];
+    if (!last) return;
+    void navigate({
+      to: '/model/$urn',
+      params: { urn: last.urn },
+      search: last.context,
     });
     onNavigate?.();
   };
@@ -94,6 +158,7 @@ export function TreePanel({ onNavigate }: TreePanelProps) {
         selectedUrn={urn}
         revealTrail={trail}
         onOpenModel={open}
+        onOpenTabs={openTabs}
         onOpenModal={openModal}
         onOpenTogether={openTogether}
         addTarget={addTarget}
