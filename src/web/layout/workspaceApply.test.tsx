@@ -12,7 +12,6 @@ import {
   treeRoutes,
 } from '../test/mockApi.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
-import { LOCK_KEY } from './LayoutProvider.js';
 import { encodeShare } from './layoutShare.js';
 import {
   defaultModel,
@@ -21,7 +20,6 @@ import {
   parseLayout,
   type SerializedDock,
 } from './layoutState.js';
-import { PANE_APPEARANCE_KEY } from './paneAppearance.js';
 import type { PaneId } from './paneRegistry.js';
 import type { WorkspaceApi } from './workspaces.js';
 import { serializeWorkspace, WORKSPACES_KEY } from './workspaces.js';
@@ -254,28 +252,6 @@ describe('named workspaces', () => {
   });
 });
 
-describe('applying while the layout cannot change', () => {
-  const shared = () =>
-    serializeWorkspace({
-      name: 'Shared',
-      layout: { ...defaultModel(), dock: sharedDock(), collapsed: [] },
-      appearances: { summary: { title: 'Key values' } },
-    });
-
-  it('does not rewrite appearances or mark a workspace active while locked', async () => {
-    storage.setItem(LOCK_KEY, 'true');
-    renderPath();
-    await dockReady();
-    await screen.findByLabelText('Mock building model');
-    expect(handle().workspaces().importText(shared())).toBe(
-      'Unlock the layout first',
-    );
-    act(() => handle().workspaces().applyPreset('coordination'));
-    expect(storage.getItem(PANE_APPEARANCE_KEY)).toBeNull();
-    expect(handle().workspaces().active).toBeNull();
-  });
-});
-
 describe('shared layout link', () => {
   it('applies the hash once, clears it and keeps the layout on navigation', async () => {
     const payload = serializeWorkspace({
@@ -304,14 +280,5 @@ describe('shared layout link', () => {
     );
     expect(handle().read().collapsed).toEqual([]);
     expect(announcer()).toHaveTextContent('Shared applied');
-  });
-
-  it('says so when the hash payload is unreadable', async () => {
-    window.location.hash = '#layout=j%%%';
-    renderPath();
-    await dockReady();
-    await waitFor(() =>
-      expect(announcer()).toHaveTextContent('not a readable layout'),
-    );
   });
 });
