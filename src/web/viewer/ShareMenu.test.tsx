@@ -10,6 +10,7 @@ import { memoryAdapter } from '../storageAdapter.js';
 import { notifications } from '../tasks/notifications.js';
 import { fireEvent, render, screen, waitFor } from '../test/render.js';
 import { createMockViewerAdapter } from './MockViewerAdapter.js';
+import { REPORT_TEMPLATES } from './reportTemplates.js';
 import {
   REPORT_BLOCKED_TEXT,
   REPORT_READY_TEXT,
@@ -17,6 +18,7 @@ import {
   ShareMenu,
   snapshotName,
 } from './ShareMenu.js';
+import { SHARE_INCLUDE } from './shareInclude.js';
 import { LINK_DEGRADED_TEXT, LINK_TRIMMED_TEXT } from './shareLink.js';
 import { SNAPSHOT, SNAPSHOT_DEFAULTS } from './snapshot.js';
 import type { ViewerAdapter, ViewerAdapterFactory } from './ViewerAdapter.js';
@@ -351,6 +353,22 @@ function fakeLayout(overrides: Partial<LayoutApi> = {}): LayoutApi {
   } as unknown as LayoutApi;
 }
 
+function renderShareMenu(adapter: ViewerAdapter) {
+  render(
+    <ShareMenu
+      adapter={adapter}
+      modelIds={['urn-a']}
+      baseHref="https://app.test/model/urn-a"
+      combined={false}
+      onResult={vi.fn()}
+    />,
+  );
+}
+
+function openMenu() {
+  fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+}
+
 describe('Share menu links', () => {
   it('says the link needs Autodesk access to the files', () => {
     render(
@@ -515,6 +533,36 @@ describe('Share menu links', () => {
   });
 });
 
+describe('Share menu include options', () => {
+  function selectionAdapter(): ViewerAdapter {
+    return partialAdapter({
+      getCamera: () => CAMERA,
+      getModelSelection: () => [{ modelId: 'urn-a', dbId: 7 }],
+    });
+  }
+
+  it('copies a link without the selection when Include selection is off', async () => {
+    const write = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText: write } });
+    renderShareMenu(selectionAdapter());
+    await openMenu();
+    fireEvent.click(
+      screen.getByRole('menuitemcheckbox', { name: 'Include selection' }),
+    );
+    await openMenu();
+    fireEvent.click(
+      screen.getByRole('menuitem', { name: 'Copy link to this view' }),
+    );
+    await waitFor(() => expect(write).toHaveBeenCalled());
+    const href = String(write.mock.calls.at(-1)?.[0]);
+    const parsed = parseView(new URL(href).searchParams.get('view') ?? '', [
+      'urn-a',
+    ]);
+    expect(parsed?.selection).toEqual([]);
+    expect(SHARE_INCLUDE.read().selection).toBe(false);
+  });
+});
+
 describe('Share menu report', () => {
   function fakeWindow() {
     const write = vi.fn();
@@ -530,6 +578,11 @@ describe('Share menu report', () => {
       addEventListener: vi.fn(),
     };
     return { win: win as unknown as Window, write, print };
+  }
+
+  function openReportDialog() {
+    openMenu();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Print report...' }));
   }
 
   it('prints the snapshot, the title and the summary of the model', async () => {
@@ -623,6 +676,31 @@ describe('Share menu report', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(print).not.toHaveBeenCalled();
+  });
+
+  it('saves the report options as a template and applies it next time', async () => {
+    renderShareMenu(linkAdapter());
+    await openReportDialog();
+    fireEvent.change(screen.getByLabelText('Notes'), {
+      target: { value: 'Weekly' },
+    });
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Dashboard' }));
+    fireEvent.change(screen.getByLabelText('Template name'), {
+      target: { value: 'Weekly' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save template' }));
+    expect(REPORT_TEMPLATES.list().map((item) => item.name)).toEqual([
+      'Weekly',
+    ]);
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await openReportDialog();
+    fireEvent.change(screen.getByLabelText('Template'), {
+      target: { value: REPORT_TEMPLATES.list()[0]?.id },
+    });
+    expect(screen.getByLabelText('Notes')).toHaveValue('Weekly');
+    expect(
+      screen.getByRole('checkbox', { name: 'Dashboard' }),
+    ).not.toBeChecked();
   });
 
   it('asks for pop-ups when the report window is blocked', async () => {

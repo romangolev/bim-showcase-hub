@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import '../viewer/reportTemplates.js';
 import {
   DASHBOARD_USER_PRESETS,
   DEFAULT_DASHBOARD_VIEW,
@@ -59,6 +60,10 @@ describe('production saved kinds', () => {
     expect(getSavedKind('export-preset')).toMatchObject({
       version: 1,
       label: 'Export preset',
+    });
+    expect(getSavedKind('report-template')).toMatchObject({
+      version: 1,
+      label: 'Report template',
     });
     expect(savedKindVersions()).toMatchObject({
       viewpoint: 1,

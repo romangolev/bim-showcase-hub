@@ -5,6 +5,8 @@ import { Menu, type MenuEntry } from '../components/Menu.js';
 import { saveBlob } from '../extensions/download.js';
 import { type LayoutApi, LayoutContext } from '../layout/layoutContext.js';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
+import { usePersisted } from '../storage.js';
+import { useSavedKindItems } from '../store/savedKinds.js';
 import {
   blobToDataUrl,
   collectReport,
@@ -17,10 +19,15 @@ import {
   type ReportOptions,
   type ReportSections,
   reportHtml,
+  sanitizeReportOptions,
 } from './report.js';
+import { REPORT_TEMPLATES } from './reportTemplates.js';
+import { SHARE_INCLUDE } from './shareInclude.js';
 import {
   LINK_DEGRADED_TEXT,
   LINK_TRIMMED_TEXT,
+  SHARE_INCLUDE_ALL,
+  type ShareInclude,
   sharedView,
 } from './shareLink.js';
 import {
@@ -100,6 +107,9 @@ interface ReportDialogProps {
 
 function ReportDialog({ initial, onPrint, onClose }: ReportDialogProps) {
   const [options, setOptions] = useState(initial);
+  const [templateId, setTemplateId] = useState('');
+  const [templateName, setTemplateName] = useState('');
+  const templates = useSavedKindItems(REPORT_TEMPLATES);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -118,6 +128,19 @@ function ReportDialog({ initial, onPrint, onClose }: ReportDialogProps) {
       ...current,
       sections: { ...current.sections, [key]: value },
     }));
+  const applyTemplate = (id: string) => {
+    setTemplateId(id);
+    const item = templates.find((entry) => entry.id === id);
+    if (!item) return;
+    const clean = sanitizeReportOptions(item.data) ?? item.data;
+    setOptions({ ...clean, title: options.title || clean.title });
+  };
+  const saveTemplate = () => {
+    const saved = REPORT_TEMPLATES.save(templateName.trim(), options);
+    if (!saved) return;
+    setTemplateId(saved.id);
+    setTemplateName('');
+  };
   return (
     <dialog
       ref={dialogRef}
@@ -137,6 +160,42 @@ function ReportDialog({ initial, onPrint, onClose }: ReportDialogProps) {
           </button>
         </header>
         <div className="modal__body settings">
+          <div className="settings__section">
+            <h3 className="settings__heading">Template</h3>
+            <label className="settings__field">
+              <span>Template</span>
+              <select
+                value={templateId}
+                aria-label="Template"
+                onChange={(event) => applyTemplate(event.target.value)}
+              >
+                <option value="">None</option>
+                {templates.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="settings__field">
+              <span>Template name</span>
+              <input
+                type="text"
+                value={templateName}
+                onChange={(event) => setTemplateName(event.target.value)}
+              />
+            </label>
+            <div className="settings__actions">
+              <button
+                type="button"
+                className="btn"
+                disabled={templateName.trim() === ''}
+                onClick={saveTemplate}
+              >
+                Save template
+              </button>
+            </div>
+          </div>
           <label className="settings__field">
             <span>Title</span>
             <input
@@ -211,8 +270,11 @@ export function shareHref(
   baseHref: string,
   withView: boolean,
   layout: Pick<LayoutApi, 'openPanes' | 'isCollapsed'> | null = null,
+  include: ShareInclude = SHARE_INCLUDE_ALL,
 ): ShareHref {
-  const shared = withView ? sharedView(adapter, modelIds, layout) : null;
+  const shared = withView
+    ? sharedView(adapter, modelIds, layout, include)
+    : null;
   if (!shared) {
     return {
       href: withViewParam(baseHref, null),
@@ -241,6 +303,7 @@ export function ShareMenu({
 }: ShareMenuProps) {
   const viewpoints = useViewpoints();
   const layout = useContext(LayoutContext);
+  const [include, setInclude] = usePersisted(SHARE_INCLUDE);
   const [report, setReport] = useState<ReportOptions | null>(null);
   const takeImage = async (): Promise<Blob> => {
     const frame = frameSize?.() ?? null;
@@ -329,6 +392,7 @@ export function ShareMenu({
       baseHref ?? window.location.href,
       withView,
       layout ?? null,
+      include,
     );
     try {
       await navigator.clipboard.writeText(href);
@@ -354,7 +418,7 @@ export function ShareMenu({
     onResult(outcome.text, outcome.result !== 'ok');
   };
   const items = (): MenuEntry[] => {
-    const shared = sharedView(adapter, modelIds, layout ?? null);
+    const shared = sharedView(adapter, modelIds, layout ?? null, include);
     return [
       {
         id: 'copy-view',
@@ -377,6 +441,19 @@ export function ShareMenu({
           : 'Copy link to this model',
         onSelect: () => void copy(false),
       },
+      { kind: 'separator', id: 'include-separator' },
+      ...(
+        [
+          ['selection', 'Include selection'],
+          ['panes', 'Include panes and charts'],
+          ['nodes', 'Include hidden and isolated'],
+        ] as const
+      ).map(([key, label]) => ({
+        id: `include-${key}`,
+        label,
+        checked: include[key],
+        onSelect: () => setInclude({ ...include, [key]: !include[key] }),
+      })),
       { kind: 'separator', id: 'image-separator' },
       {
         id: 'copy-image',

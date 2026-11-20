@@ -1,3 +1,4 @@
+import { isRecord } from '../../shared/guards.js';
 import type { PropertyRow } from '../../shared/types.js';
 import { type ChartData, shapeChartData } from '../extensions/dashboardData.js';
 import {
@@ -18,7 +19,7 @@ export const REPORT_VALUES_PER_PROPERTY = 8;
 export const REPORT_TITLE_MAX = 120;
 export const REPORT_NOTES_MAX = 2000;
 
-type ReportOrientation = 'portrait' | 'landscape';
+export type ReportOrientation = 'portrait' | 'landscape';
 
 export interface ReportSections {
   snapshot: boolean;
@@ -32,12 +33,12 @@ export const REPORT_SECTIONS: ReportSections = {
   dashboard: true,
 };
 
-export interface ReportOptions {
+export type ReportOptions = {
   title: string;
   notes: string;
   orientation: ReportOrientation;
   sections: ReportSections;
-}
+};
 
 export const REPORT_DEFAULTS: ReportOptions = {
   title: '',
@@ -45,6 +46,23 @@ export const REPORT_DEFAULTS: ReportOptions = {
   orientation: 'portrait',
   sections: { ...REPORT_SECTIONS },
 };
+
+export function sanitizeReportOptions(raw: unknown): ReportOptions | null {
+  if (!isRecord(raw)) return null;
+  const sections = isRecord(raw.sections) ? raw.sections : {};
+  return {
+    title:
+      typeof raw.title === 'string' ? raw.title.slice(0, REPORT_TITLE_MAX) : '',
+    notes:
+      typeof raw.notes === 'string' ? raw.notes.slice(0, REPORT_NOTES_MAX) : '',
+    orientation: raw.orientation === 'landscape' ? 'landscape' : 'portrait',
+    sections: {
+      snapshot: sections.snapshot !== false,
+      summary: sections.summary !== false,
+      dashboard: sections.dashboard !== false,
+    },
+  };
+}
 
 interface ReportSection {
   property: string;
@@ -181,6 +199,8 @@ const REPORT_PRINT_STYLE = `
   th.count, td.count { width: 80px; text-align: right }
   .more { color: #5a6572 }
   section, tr { break-inside: avoid }
+  thead { display: table-header-group }
+  h2, h3 { break-after: avoid }
   @page { margin: 16mm }
 `;
 
