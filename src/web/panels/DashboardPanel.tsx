@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useState } from 'react';
 import { Icon } from '../components/icons.js';
 import { StateBlock } from '../components/StateBlock.js';
+import { colorByChart } from '../extensions/colorBy.js';
 import {
   AGGREGATE_LABELS,
   availableProperties,
@@ -27,6 +28,8 @@ import {
 import { type HealthKpiTile, healthKpis } from '../extensions/healthKpis.js';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import { type PersistedRecord, usePersisted } from '../storage.js';
+import { notify } from '../tasks/notifications.js';
+import { applyColoring } from '../viewer/modelColoring.js';
 import { ALL_MODELS } from '../viewer/modelScope.js';
 import type { ModelDbId } from '../viewer/modelSet.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
@@ -256,6 +259,11 @@ export function DashboardPanel({
         bucketLabels(state.rows, chartData, label),
       ),
     );
+  };
+  const colorModel = (chartData: ChartData) => (colors: readonly string[]) => {
+    if (!resolved) return;
+    applyColoring(resolved, colorByChart(state.rows, chartData, colors));
+    notify(`Model coloured by ${chartData.property}`);
   };
 
   const kpiTiles = useMemo(
@@ -528,6 +536,7 @@ export function DashboardPanel({
                 pngTitle={view.pngTitle}
                 pngLegend={view.pngLegend}
                 onSelectLabel={crossFilter(item)}
+                onColorModel={colorModel(item)}
               />
             ))}
           </div>
@@ -578,6 +587,7 @@ export function DashboardPanel({
                       label={chartLabel(chart, 'table')}
                       highlight={highlightFor(chart)}
                       onSelectLabel={crossFilter(chart)}
+                      onColorModel={colorModel(chart)}
                     />
                   ) : legacyPair ? (
                     <>
@@ -589,6 +599,7 @@ export function DashboardPanel({
                         pngTitle={view.pngTitle}
                         pngLegend={view.pngLegend}
                         onSelectLabel={crossFilter(chart)}
+                        onColorModel={colorModel(chart)}
                       />
                       <ChartBlock
                         chart={chart}
@@ -598,6 +609,7 @@ export function DashboardPanel({
                         pngTitle={view.pngTitle}
                         pngLegend={view.pngLegend}
                         onSelectLabel={crossFilter(chart)}
+                        onColorModel={colorModel(chart)}
                       />
                     </>
                   ) : (
@@ -609,6 +621,7 @@ export function DashboardPanel({
                       pngTitle={view.pngTitle}
                       pngLegend={view.pngLegend}
                       onSelectLabel={crossFilter(chart)}
+                      onColorModel={colorModel(chart)}
                     />
                   )}
                 </div>
@@ -683,6 +696,7 @@ interface ChartBlockProps {
   pngTitle: boolean;
   pngLegend: boolean;
   onSelectLabel: (label: string) => void;
+  onColorModel?: (colors: readonly string[]) => void;
 }
 
 function ChartBlock({
@@ -693,6 +707,7 @@ function ChartBlock({
   pngTitle,
   pngLegend,
   onSelectLabel,
+  onColorModel,
 }: ChartBlockProps) {
   if (type === 'table') {
     return (
@@ -701,6 +716,7 @@ function ChartBlock({
         label={chartLabel(chart, 'table')}
         highlight={highlight}
         onSelectLabel={onSelectLabel}
+        onColorModel={onColorModel}
       />
     );
   }
@@ -714,6 +730,7 @@ function ChartBlock({
       pngTitle={pngTitle}
       pngLegend={pngLegend}
       onSelectLabel={onSelectLabel}
+      onColorModel={onColorModel}
     />
   );
 }

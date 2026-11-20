@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PropertyRow } from '../../shared/types.js';
+import { buildChart } from '../extensions/dashboardData.js';
 import { BSH_KEYS } from '../storage.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { fireEvent, render, screen, waitFor, within } from '../test/render.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
 import { buildMockElements, MOCK_PROPERTY_INFOS } from '../viewer/mockModel.js';
+import { currentColoring } from '../viewer/modelColoring.js';
 import { DashboardPanel } from './DashboardPanel.js';
 import { DashboardSettingsBody } from './DashboardSettings.js';
 
@@ -265,6 +267,63 @@ describe('dashboard honest units', () => {
     render(<DashboardPanel adapter={adapter} />);
     expect(await screen.findByText('No numeric values')).toBeVisible();
     expect(screen.queryByRole('img')).toBeNull();
+  });
+});
+
+describe('dashboard color the model by a chart', () => {
+  it('colours the model by the chart buckets from the chart menu', async () => {
+    seed({ properties: ['Category'] });
+    const adapter = await loaded();
+    render(<DashboardPanel adapter={adapter} />);
+    await screen.findByRole('img', {
+      name: 'Bar chart of element counts by Category',
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Export Bar chart of element counts by Category',
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('menuitem', { name: 'Color the model by this chart' }),
+    );
+
+    const coloring = currentColoring(adapter);
+    const buckets = buildChart(rows, {
+      property: 'Category',
+      aggregate: 'count',
+    });
+    expect(coloring?.origin).toBe('chart');
+    expect(coloring?.legend.map((entry) => entry.label)).toEqual(
+      buckets.data.map((datum) => datum.label),
+    );
+    expect(currentColoring(adapter)).not.toBeNull();
+  });
+
+  it('colours the model from the table chart menu', async () => {
+    seed({ properties: ['Category'], chartType: 'table' });
+    const adapter = await loaded();
+    render(<DashboardPanel adapter={adapter} />);
+    await screen.findByRole('table', { name: 'Element counts by Category' });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Export Element counts by Category',
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('menuitem', { name: 'Color the model by this chart' }),
+    );
+
+    const coloring = currentColoring(adapter);
+    const buckets = buildChart(rows, {
+      property: 'Category',
+      aggregate: 'count',
+    });
+    expect(coloring?.origin).toBe('chart');
+    expect(coloring?.legend.map((entry) => entry.label)).toEqual(
+      buckets.data.map((datum) => datum.label),
+    );
   });
 });
 

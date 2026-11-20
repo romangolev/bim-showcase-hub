@@ -54,6 +54,7 @@ export interface ChartCanvasProps {
   pngTitle?: boolean;
   pngLegend?: boolean;
   onSelectLabel?: (label: string) => void;
+  onColorModel?: (colors: readonly string[]) => void;
 }
 
 function shorten(text: string): string {
@@ -71,6 +72,7 @@ export function ChartCanvas({
   pngTitle = true,
   pngLegend = true,
   onSelectLabel,
+  onColorModel,
 }: ChartCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const selectRef = useRef(onSelectLabel);
@@ -285,6 +287,15 @@ export function ChartCanvas({
               onSelect: () => saveChartCsv(chart, exportName),
             },
             { id: 'copy', label: 'Copy data', onSelect: copyChart },
+            ...(onColorModel
+              ? [
+                  {
+                    id: 'color-model',
+                    label: 'Color the model by this chart',
+                    onSelect: () => onColorModel(colors),
+                  },
+                ]
+              : []),
           ]}
         />
       </div>
@@ -326,6 +337,7 @@ export interface ChartTableProps {
   label: string;
   highlight?: ReadonlySet<string>;
   onSelectLabel?: (label: string) => void;
+  onColorModel?: (colors: readonly string[]) => void;
 }
 
 export function ChartTable({
@@ -333,6 +345,7 @@ export function ChartTable({
   label,
   highlight,
   onSelectLabel,
+  onColorModel,
 }: ChartTableProps) {
   const { theme: pageTheme } = useTheme();
   const [chartSettings] = usePersisted(CHART_SETTINGS);
@@ -353,6 +366,23 @@ export function ChartTable({
 
   return (
     <div className="bsh-chart-frame bsh-chart-frame--table">
+      {onColorModel ? (
+        <div className="bsh-chart__tools">
+          <Menu
+            label={`Export ${label}`}
+            title="Export chart"
+            trigger={<Icon name="more" size={16} />}
+            triggerClassName="bsh-icon-button"
+            items={() => [
+              {
+                id: 'color-model',
+                label: 'Color the model by this chart',
+                onSelect: () => onColorModel(colors),
+              },
+            ]}
+          />
+        </div>
+      ) : null}
       <div className="bsh-chart-table__wrap">
         <table className="bsh-table bsh-chart-table">
           <caption className="bsh-chart-table__caption">{label}</caption>
