@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { paintSelection } from '../../extensions/paintBrushes.js';
 import { installMemoryStorage } from '../../test/mockApi.js';
 import type { ViewerAdapter } from '../../viewer/ViewerAdapter.js';
 import type { ToolContext } from '../kernel/ViewerTool.js';
@@ -178,19 +179,30 @@ describe('PaintTool', () => {
       getModelSelection: vi.fn(() => [{ modelId: 'a', dbId: 1 }]),
       setModelThemingColor: vi.fn(),
       clearSelection: vi.fn(),
-      clearThemingColors: vi.fn(),
+      clearModelThemingColors: vi.fn(),
     };
     const { paint } = tool.contribute(context(adapter), DEFAULT_PAINT_SETTINGS);
     expect(paint?.onPaint([1, 0, 0, 0.5])).toBe(true);
-    expect(adapter.setModelThemingColor).toHaveBeenCalledOnce();
+    expect(adapter.setModelThemingColor).toHaveBeenCalledExactlyOnceWith(
+      [{ modelId: 'a', dbId: 1 }],
+      [1, 0, 0, 0.5],
+    );
     paint?.onReset();
-    expect(adapter.clearThemingColors).toHaveBeenCalledOnce();
+    expect(adapter.clearModelThemingColors).toHaveBeenCalledExactlyOnceWith([
+      { modelId: 'a', dbId: 1 },
+    ]);
   });
 
   it('clears the colours when it is disabled', () => {
-    const adapter = { clearThemingColors: vi.fn() };
+    const adapter = {
+      getModelSelection: vi.fn(() => [{ modelId: 'a', dbId: 1 }]),
+      setModelThemingColor: vi.fn(),
+      clearSelection: vi.fn(),
+      clearModelThemingColors: vi.fn(),
+    };
+    paintSelection(adapter as unknown as ViewerAdapter, [1, 0, 0, 0.5]);
     tool.onDisabled(adapter as unknown as ViewerAdapter);
-    expect(adapter.clearThemingColors).toHaveBeenCalledOnce();
+    expect(adapter.clearModelThemingColors).toHaveBeenCalledOnce();
   });
 
   it('only rebuilds the toolbar for a palette, intensity or enabled change', () => {

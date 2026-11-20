@@ -46,6 +46,7 @@ describe('storage keys', () => {
         recentModels: 'bsh.models.recent',
         pinned: 'bsh.docs.pinned',
         hiddenModels: 'bsh.models.hidden',
+        modelTints: 'bsh.models.tints.v1',
         hubHint: 'bsh.hint.hubs.dismissed.v1',
         summaryView: 'bsh.summary.view.v1',
         summaryProperties: 'bsh.summary.properties.v1',

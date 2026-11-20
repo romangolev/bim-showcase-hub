@@ -154,7 +154,8 @@ export class FakeFederatedViewer implements GuiViewer3D {
   hidden = new Set<FakeModel>();
   unloaded: FakeModel[] = [];
   selections = new Map<FakeModel, number[]>();
-  themed: { model: ViewerModel | undefined; dbId: number }[] = [];
+  themed: { model: ViewerModel | undefined; dbId: number; color: unknown }[] =
+    [];
   cleared: (ViewerModel | undefined)[] = [];
   fits = 0;
   isolated = new Map<FakeModel, number[]>();
@@ -394,10 +395,11 @@ export class FakeFederatedViewer implements GuiViewer3D {
     this.fire();
   }
 
-  setThemingColor(dbId: number, _color: unknown, model?: ViewerModel): void {
+  setThemingColor(dbId: number, color: unknown, model?: ViewerModel): void {
     this.themed.push({
       model: model === undefined ? this.models[0] : this.own(model),
       dbId,
+      color,
     });
   }
 

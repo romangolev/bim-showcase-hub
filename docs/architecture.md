@@ -159,6 +159,20 @@ One adapter holds several models in one scene (`viewer/modelSet.ts`). `load(urn)
 
 The real adapter mounts tools as the Autodesk extension `BimShowcaseHub.Tools` (`viewer/autodeskTools.ts`). The mock adapter shares `viewer/toolGroupController.ts`.
 
+### Colour layers
+
+`viewer/colorLayers.ts` is the only path from UI state to `viewer.setThemingColor`, and `RealViewerAdapter.setModelThemingColor` / `clearModelThemingColors` are the only two methods that call it. The module is pure data and resolution with no React and no Autodesk types.
+
+- A layer is `{ source, assignments: Map<modelId, Map<dbId, Color>> }`. The sources are `paint`, `chart` and `modelTint`, in that priority order: the first layer that assigns an element owns its colour. The resolver sorts the layers by that order itself, so a caller cannot reorder them by accident.
+- The owner resets: `clearSource(source)` removes only that layer's assignments, so clearing paint falls back to a chart colour, and clearing that falls back to the model tint. Nothing clears another layer's data.
+- One controller per adapter (`colorLayersFor`, a `WeakMap`) keeps the last applied resolution. Applying resolves, diffs exactly (`sameColor`), sets only changed elements and clears only elements no lower layer covers, so re-applying an identical resolution calls the viewer zero times. Work is chunked by `THEMING_CHUNK_SIZE` (2048).
+- Per-element clearing uses `setThemingColor(dbId, null, model)`, the Viewer 7 selective reset. Sets call `model.setThemingColor` and invalidate once per chunk when the model exposes it, and fall back to `viewer.setThemingColor` for each id otherwise.
+- The adapter drops the layer state on `unload` and for a removed model, because the viewer drops the colours there too.
+- The Models pane owns the `modelTint` layer: a swatch per model, a palette per model set (else the global palette), "tint strength" as the alpha of the theming colour (0.1 to 1, clamped to 0.05 steps), and a reset that clears only that layer. Paint uses the `paint` layer through `paintSelection` / `resetPaint`.
+- Ghost others is viewer-wide, not per model: the pinned Viewer 7 API has `setGhosting` plus isolation, so the pane isolates the focus model and turns ghosting on, and turns both off again for its reset.
+
+Issue #61 writes the `chart` layer, #67 adds a pane over the same sources, #68 generates `chart` assignments from rules, #71 persists and re-applies layers, #73 reads the resolution for the colour column.
+
 ### Resize, full screen and theme
 
 Each adapter has one resize scheduler (`viewer/resizeScheduler.ts`) that merges requests from the host `ResizeObserver`, the window and full-screen events. Moving a pane moves its host element, so the adapter and canvas are never recreated. `ViewerPane` also calls `adapter.setTheme` on creation and on every theme change.

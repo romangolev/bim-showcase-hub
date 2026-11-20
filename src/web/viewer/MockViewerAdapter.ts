@@ -6,6 +6,7 @@ import {
   RESET_ICON_CLASS,
   swatchIconClass,
 } from './autodeskTools.js';
+import { colorLayersFor, resetColorLayers } from './colorLayers.js';
 import { NO_GEOMETRY_MESSAGE, STILL_PROCESSING_MESSAGE } from './federation.js';
 import type { GeometryPart, GeometryRead } from './geometryTypes.js';
 import {
@@ -363,6 +364,7 @@ export class MockViewerAdapter implements ViewerAdapter {
     if (!removed) return;
     removed.handle?.group.remove();
     this.forgetModel(modelId);
+    colorLayersFor(this).forgetModel(modelId);
     this.refresh();
   }
 
@@ -664,9 +666,19 @@ export class MockViewerAdapter implements ViewerAdapter {
     }
   }
 
+  clearModelThemingColors(items: readonly ModelDbId[]): void {
+    for (const { modelId, dbId } of items) {
+      if (!this.themed.delete(selectionKey(modelId, dbId))) continue;
+      const node = this.nodeOf(modelId, dbId);
+      node?.style.removeProperty('fill');
+      node?.classList.remove('bsh-mock__el--themed');
+    }
+  }
+
   unload(): void {
     for (const scene of this.models.clear()) scene.group.remove();
     this.svg?.replaceChildren();
+    resetColorLayers(this);
     this.themed.clear();
     this.isolated = null;
     this.hiddenKeys.clear();

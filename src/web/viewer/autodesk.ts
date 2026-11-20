@@ -101,6 +101,7 @@ export interface ViewerModel {
   getBoundingBox?(): ViewerBox;
   getPlacementTransform?(): PlacementMatrix;
   getFragmentList?(): FragmentList;
+  setThemingColor?(dbId: number, color: unknown, recursive?: boolean): void;
 }
 
 export interface ViewerGeometry {
@@ -197,6 +198,7 @@ export interface GuiViewer3D {
     resize?(width: number, height: number): void;
     setPlacementTransform?(model: ViewerModel, matrix: PlacementMatrix): void;
     setCutPlanes?(planes: unknown[]): void;
+    invalidate?(hard?: boolean, force?: boolean, updateRender?: boolean): void;
     selector?: {
       setAggregateSelection?(
         entries: { model: ViewerModel; ids: number[] }[],

@@ -13,6 +13,7 @@ import {
   type ViewingDocument,
 } from './autodesk.js';
 import { ensureToolsExtension, TOOLS_EXTENSION_ID } from './autodeskTools.js';
+import { colorLayersFor, resetColorLayers } from './colorLayers.js';
 import {
   anchorOf,
   documentLoadError,
@@ -474,6 +475,7 @@ export class RealViewerAdapter implements ViewerAdapter {
       viewer.clearThemingColors(model);
       viewer.unloadModel?.(model);
     }
+    colorLayersFor(this).forgetModel(modelId);
     this.boxes.delete(modelId);
     if (model) this.placements.delete(model);
     if (modelId === this.anchorId || this.models.size === 0) {
@@ -842,14 +844,36 @@ export class RealViewerAdapter implements ViewerAdapter {
   }
 
   setModelThemingColor(items: readonly ModelDbId[], color: Rgba): void {
-    const viewer = this.viewer;
     const THREE = autodeskWindow().THREE;
-    if (!viewer || !THREE) return;
+    if (!this.viewer || !THREE) return;
     const vector = new THREE.Vector4(color[0], color[1], color[2], color[3]);
+    this.applyTheming(items, vector, true);
+  }
+
+  clearModelThemingColors(items: readonly ModelDbId[]): void {
+    if (!this.viewer) return;
+    this.applyTheming(items, null, false);
+  }
+
+  private applyTheming(
+    items: readonly ModelDbId[],
+    color: unknown,
+    defer: boolean,
+  ): void {
+    const viewer = this.viewer;
+    if (!viewer) return;
+    let deferred = false;
     for (const { modelId, dbId } of items) {
       const model = this.models.handle(modelId);
-      if (model) viewer.setThemingColor(dbId, vector, model);
+      if (!model) continue;
+      if (defer && typeof model.setThemingColor === 'function') {
+        model.setThemingColor(dbId, color);
+        deferred = true;
+      } else {
+        viewer.setThemingColor(dbId, color, model);
+      }
     }
+    if (deferred) viewer.impl?.invalidate?.(true);
   }
 
   setGhosting(enabled: boolean): void {
@@ -1020,6 +1044,7 @@ export class RealViewerAdapter implements ViewerAdapter {
   unload(): void {
     this.epoch += 1;
     this.starting = null;
+    resetColorLayers(this);
     this.models.clear();
     this.anchor = null;
     this.anchoring = null;

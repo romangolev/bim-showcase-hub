@@ -40,8 +40,8 @@ function fakeAdapter() {
     hideModelIds: vi.fn(),
     showAll: vi.fn(),
     clearSelection: vi.fn(),
-    clearThemingColors: vi.fn(),
     setModelThemingColor: vi.fn(),
+    clearModelThemingColors: vi.fn(),
   } as unknown as ViewerAdapter;
 }
 
@@ -115,7 +115,9 @@ describe('viewer shortcuts', () => {
         DEFAULT_PAINT_SETTINGS.intensity,
       ),
     );
-    expect(adapter.clearThemingColors).toHaveBeenCalledOnce();
+    expect(adapter.clearModelThemingColors).toHaveBeenCalledWith([
+      { modelId: 'a', dbId: 1 },
+    ]);
   });
 
   it('skips editable targets and open dialogs', () => {

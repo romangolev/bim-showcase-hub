@@ -367,6 +367,25 @@ describe('federated selection, paint and properties', () => {
     expect(viewer().cleared).toEqual(viewer().models);
   });
 
+  it('clears theming for one element at a time', async () => {
+    await adapter.loadModels([{ urn: 'a' }, { urn: 'b' }]);
+    adapter.clearModelThemingColors([
+      { modelId: 'a', dbId: 11 },
+      { modelId: 'b', dbId: 12 },
+    ]);
+    expect(
+      viewer().themed.map((entry) => [
+        (entry.model as FakeModel | undefined)?.urn,
+        entry.dbId,
+        entry.color,
+      ]),
+    ).toEqual([
+      ['a', 11, null],
+      ['b', 12, null],
+    ]);
+    expect(viewer().cleared).toEqual([]);
+  });
+
   it('reads properties of every model and keeps the rest when one fails', async () => {
     env.specs.set('a', { categories: ['Walls', 'Doors'] });
     env.specs.set('b', { categories: ['Ducts'] });

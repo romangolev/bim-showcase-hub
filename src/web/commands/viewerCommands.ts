@@ -1,6 +1,7 @@
 import {
   hexToRgba,
   paintSelection,
+  resetPaint,
   resolvePaintPalette,
 } from '../extensions/paintBrushes.js';
 import { notify } from '../tasks/notifications.js';
@@ -174,7 +175,7 @@ export function viewerCommands(adapter: ViewerAdapter | null): Command[] {
       },
     ),
     make('resetPaint', 'Reset appearance', noModel, (viewer) =>
-      viewer.clearThemingColors(),
+      resetPaint(viewer),
     ),
   ];
 }

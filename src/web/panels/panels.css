@@ -763,6 +763,117 @@
   opacity: 0.7;
 }
 
+.bsh-models__tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.bsh-models__ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--color-ash);
+  font-size: var(--text-13);
+}
+
+.bsh-models__tint {
+  display: inline-flex;
+  flex: none;
+}
+
+.bsh-models__swatch {
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: var(--border-hairline);
+  border-radius: 3px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.bsh-models__swatch[aria-expanded="true"] {
+  outline: 2px solid var(--color-iris);
+  outline-offset: 1px;
+}
+
+.bsh-tint {
+  position: fixed;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 216px;
+  padding: var(--space-2);
+  border: var(--border-hairline);
+  border-radius: var(--radius-card);
+  background: var(--color-graphite);
+  box-shadow: var(--shadow-inset);
+  color: var(--color-chalk);
+  font-size: var(--text-13);
+}
+
+.bsh-tint:focus-visible {
+  outline: none;
+}
+
+.bsh-tint__title {
+  margin: 0;
+  overflow: hidden;
+  color: var(--color-snow);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bsh-tint__swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.bsh-tint__swatch {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: var(--border-hairline);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.bsh-tint__swatch[aria-pressed="true"] {
+  outline: 2px solid var(--color-snow);
+  outline-offset: 1px;
+}
+
+.bsh-tint__strength {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.bsh-tint__strength input {
+  flex: 1;
+  min-width: 0;
+}
+
+.bsh-tint__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.bsh-tint__palette summary {
+  color: var(--color-ash);
+  cursor: pointer;
+}
+
+.bsh-tint__inputs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-1);
+  margin: var(--space-1) 0;
+}
+
 .bsh-summary-settings {
   display: flex;
   flex-direction: column;
