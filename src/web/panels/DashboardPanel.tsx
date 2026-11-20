@@ -81,6 +81,7 @@ export function DashboardPanel({
   const state = useScopedRows(resolved, {
     names: readNames,
     elements: view.elements ?? 'all',
+    autoRefresh: false,
     ...(setting
       ? {
           models: {
@@ -255,6 +256,14 @@ export function DashboardPanel({
             Presets
           </button>
         ) : null}
+        <button
+          type="button"
+          className="bsh-button"
+          onClick={state.refresh}
+          disabled={!resolved}
+        >
+          Refresh
+        </button>
         {onOpenSettings ? (
           <button
             type="button"
@@ -288,23 +297,50 @@ export function DashboardPanel({
             message={HIDDEN_MESSAGE}
           />
         )}
-        {resolved &&
-          (state.status === 'loading' ||
-            (state.status === 'ready' && state.pending)) && (
-            <StateBlock
-              variant="loading"
-              compact
-              message="Reading element properties"
-              rows={3}
+        {resolved && state.status === 'loading' ? (
+          <div className="bsh-summary__progress">
+            <progress
+              aria-label="Reading element properties"
+              max={state.progress?.total || undefined}
+              value={state.progress ? state.progress.loaded : undefined}
             />
-          )}
+            <span role="status">
+              {state.progress && state.progress.total > 0
+                ? `Reading element properties: ${state.progress.loaded.toLocaleString('en-US')} of ${state.progress.total.toLocaleString('en-US')}${state.progress.partial ? ' (partial data)' : ''}`
+                : 'Reading element properties'}
+            </span>
+            <button type="button" className="bsh-button" onClick={state.cancel}>
+              Cancel
+            </button>
+          </div>
+        ) : null}
+        {resolved && state.status === 'ready' && state.pending ? (
+          <StateBlock
+            variant="loading"
+            compact
+            message="Reading element properties"
+            rows={3}
+          />
+        ) : null}
+        {state.status === 'ready' && state.stale ? (
+          <div className="bsh-summary__partial" role="status">
+            <span>Data may be stale.</span>
+            <button
+              type="button"
+              className="bsh-button"
+              onClick={state.refresh}
+            >
+              Refresh
+            </button>
+          </div>
+        ) : null}
         {state.status === 'error' && (
           <StateBlock
             variant="error"
             compact
             message="We could not read this model's properties. Try again."
             detail={state.message}
-            action={{ label: 'Retry', onClick: state.reload }}
+            action={{ label: 'Retry', onClick: state.refresh }}
           />
         )}
         {state.status === 'ready' ? (

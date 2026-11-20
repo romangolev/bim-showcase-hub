@@ -12,7 +12,12 @@ class SlowAdapter extends MockViewerAdapter {
     _ids?: readonly string[],
     options?: ReadOptions,
   ): Promise<PropertyRow[]> {
-    options?.onProgress?.({ done: 2000, total: 8000 });
+    options?.onProgress?.({
+      phase: 'rows',
+      loaded: 2000,
+      total: 8000,
+      partial: true,
+    });
     return new Promise((_resolve, reject) => {
       options?.signal?.addEventListener('abort', () => reject(abortError()));
     });
@@ -37,7 +42,9 @@ describe('summary progress and cancel', () => {
     render(
       <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />,
     );
-    await screen.findByText('Reading element properties: 2,000 of 8,000');
+    await screen.findByText(
+      'Reading element properties: 2,000 of 8,000 (partial data)',
+    );
     expect(
       screen.getByRole('progressbar', { name: 'Reading element properties' }),
     ).toHaveAttribute('value', '2000');

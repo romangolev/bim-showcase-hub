@@ -274,7 +274,12 @@ export class MockViewerAdapter implements ViewerAdapter {
       const bulk = import.meta.env.MODE === 'test' ? 0 : LARGE_FIXTURE_ROWS;
       const extra = bulk ? bulk + mockRowVariant(info.urn) : 0;
       const rows = buildMockRows(propertyNames, extra);
-      options.onProgress?.({ done: rows.length, total: rows.length });
+      options.onProgress?.({
+        phase: 'rows',
+        loaded: rows.length,
+        total: rows.length,
+        partial: false,
+      });
       return rows;
     },
     infos: async ({ info }) => {

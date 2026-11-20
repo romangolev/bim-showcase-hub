@@ -2,11 +2,15 @@ import { describe, expect, it, vi } from 'vitest';
 import type { PropertyRow } from '../../shared/types.js';
 import { MockViewerAdapter } from './MockViewerAdapter.js';
 import type { ModelInfo } from './modelSet.js';
+import type { ReadOptions, ReadProgress } from './propertyReads.js';
+import { readInChunks } from './propertyReads.js';
 import {
   discoverLeafProperties,
   forgetLeafRows,
+  leafRowsStale,
   peekLeafRows,
   readLeafRows,
+  refreshLeafRows,
 } from './sharedLeafRows.js';
 import type { ViewerAdapter } from './ViewerAdapter.js';
 
@@ -231,9 +235,14 @@ describe('readLeafRows with a model set', () => {
       async (
         _names: string[],
         _ids?: string[],
-        options?: { onProgress?: (p: { done: number; total: number }) => void },
+        options?: { onProgress?: (p: ReadProgress) => void },
       ) => {
-        options?.onProgress?.({ done: 0, total: 0 });
+        options?.onProgress?.({
+          phase: 'rows',
+          loaded: 0,
+          total: 0,
+          partial: false,
+        });
         return [] as PropertyRow[];
       },
     );
@@ -263,7 +272,7 @@ describe('readLeafRows with a model set', () => {
 });
 
 describe('readLeafRows cancel and progress', () => {
-  type Progress = { done: number; total: number };
+  type Progress = ReadProgress;
   function gated() {
     const signals: AbortSignal[] = [];
     let release: (rows: PropertyRow[]) => void = () => {};
@@ -337,15 +346,15 @@ describe('readLeafRows cancel and progress', () => {
     const g = gated();
     const seen: number[] = [];
     const a = readLeafRows(g.adapter, ['Name'], {
-      onProgress: (p) => seen.push(p.done / p.total),
+      onProgress: (p) => seen.push(p.loaded / p.total),
     });
     await tick();
-    g.report({ done: 1, total: 4 });
+    g.report({ phase: 'rows', loaded: 1, total: 4, partial: true });
     const late: number[] = [];
     const b = readLeafRows(g.adapter, ['Name'], {
-      onProgress: (p) => late.push(p.done / p.total),
+      onProgress: (p) => late.push(p.loaded / p.total),
     });
-    g.report({ done: 4, total: 4 });
+    g.report({ phase: 'rows', loaded: 4, total: 4, partial: false });
     g.release([row]);
     await Promise.all([a, b]);
     expect(seen).toEqual([0.25, 1]);
@@ -444,9 +453,14 @@ describe('discovery progress', () => {
     const discoverProperties = vi.fn(
       async (
         _ids?: readonly string[],
-        options?: { onProgress?: (p: { done: number; total: number }) => void },
+        options?: { onProgress?: (p: ReadProgress) => void },
       ) => {
-        options?.onProgress?.({ done: 2, total: 2 });
+        options?.onProgress?.({
+          phase: 'discovery',
+          loaded: 2,
+          total: 2,
+          partial: false,
+        });
         return [{ name: 'Level', category: 'Constraints' }];
       },
     );
@@ -457,11 +471,16 @@ describe('discovery progress', () => {
         { id: 'b', urn: 'b', name: 'b', visible: true, status: 'ready' },
       ],
     } as unknown as ViewerAdapter;
-    const seen: { done: number; total: number }[] = [];
+    const seen: ReadProgress[] = [];
     await discoverLeafProperties(adapter, {
       onProgress: (progress) => seen.push(progress),
     });
-    expect(seen.at(-1)).toEqual({ done: 4, total: 4 });
+    expect(seen.at(-1)).toEqual({
+      phase: 'discovery',
+      loaded: 4,
+      total: 4,
+      partial: false,
+    });
   });
 });
 
@@ -499,5 +518,115 @@ describe('cache version', () => {
     await discoverLeafProperties(adapter);
     expect(getLeafProperties).toHaveBeenCalledTimes(2);
     expect(discoverProperties).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('large model reads', () => {
+  const TOTAL = 60_000;
+
+  function chunkedAdapter(abort?: {
+    controller: AbortController;
+    after: number;
+  }) {
+    const ids = Array.from({ length: TOTAL }, (_, i) => i + 1);
+    let chunks = 0;
+    const getLeafProperties = vi.fn(
+      (names: string[], _ids?: readonly string[], options?: ReadOptions) =>
+        readInChunks(
+          ids,
+          async (chunk) => {
+            chunks += 1;
+            if (abort && chunks === abort.after) abort.controller.abort();
+            return chunk.map((dbId) => ({
+              dbId,
+              name: `El ${dbId}`,
+              properties: Object.fromEntries(names.map((n) => [n, 'v'])),
+            }));
+          },
+          options,
+        ),
+    );
+    const adapter = {
+      getLeafProperties,
+      getModels,
+    } as unknown as ViewerAdapter;
+    return { adapter, getLeafProperties, chunks: () => chunks };
+  }
+
+  it('reports progress, stops on cancel and completes the cache on the next read', async () => {
+    const controller = new AbortController();
+    const fake = chunkedAdapter({ controller, after: 2 });
+    const seen: ReadProgress[] = [];
+    const read = readLeafRows(fake.adapter, ['Name'], {
+      signal: controller.signal,
+      onProgress: (progress) => seen.push(progress),
+    });
+    await expect(read).rejects.toMatchObject({ name: 'AbortError' });
+    expect(fake.chunks()).toBe(2);
+    expect(seen[0]).toMatchObject({
+      phase: 'rows',
+      loaded: 0,
+      total: TOTAL,
+      partial: true,
+    });
+    expect(peekLeafRows(fake.adapter)).toBeNull();
+    const rows = await readLeafRows(fake.adapter, ['Name']);
+    expect(rows).toHaveLength(TOTAL);
+    expect(peekLeafRows(fake.adapter)).toHaveLength(TOTAL);
+    const completed = fake.chunks();
+    await readLeafRows(fake.adapter, ['Name']);
+    expect(fake.chunks()).toBe(completed);
+    expect(fake.getLeafProperties).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('stale cache entries', () => {
+  it('keeps the rows, marks them stale and replaces them on the next read', async () => {
+    const { adapter, getLeafProperties } = fakeAdapter();
+    await readLeafRows(adapter, ['Name']);
+    expect(leafRowsStale(adapter)).toBe(false);
+    refreshLeafRows(adapter);
+    expect(leafRowsStale(adapter)).toBe(true);
+    expect(peekLeafRows(adapter)).toHaveLength(1);
+    const rows = await readLeafRows(adapter, ['Name']);
+    expect(getLeafProperties).toHaveBeenCalledTimes(2);
+    expect(leafRowsStale(adapter)).toBe(false);
+    expect(rows).toHaveLength(1);
+  });
+
+  it('marks cached rows stale when the model version changes', async () => {
+    let version = 'v1';
+    const getLeafProperties = vi.fn(async () => [
+      { dbId: 1, name: 'El', properties: { Name: 'n' } },
+    ]);
+    const adapter = {
+      getLeafProperties,
+      getModels: () => [
+        {
+          id: 'm',
+          urn: 'm',
+          name: 'm',
+          visible: true,
+          status: 'ready',
+          version,
+        },
+      ],
+    } as unknown as ViewerAdapter;
+    await readLeafRows(adapter, ['Name']);
+    expect(leafRowsStale(adapter)).toBe(false);
+    version = 'v2';
+    expect(leafRowsStale(adapter)).toBe(true);
+    expect(peekLeafRows(adapter)).toHaveLength(1);
+    await readLeafRows(adapter, ['Name']);
+    expect(getLeafProperties).toHaveBeenCalledTimes(2);
+    expect(leafRowsStale(adapter)).toBe(false);
+  });
+
+  it('does not serve a stale entry while it is being refreshed', async () => {
+    const { adapter, getLeafProperties } = fakeAdapter();
+    await readLeafRows(adapter, ['Name']);
+    refreshLeafRows(adapter);
+    await readLeafRows(adapter, ['Level']);
+    expect(getLeafProperties).toHaveBeenCalledTimes(2);
   });
 });

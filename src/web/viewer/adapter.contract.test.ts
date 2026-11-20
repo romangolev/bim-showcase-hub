@@ -170,11 +170,20 @@ describe('ViewerAdapter contract (mock)', () => {
 
   it('reports read progress and rejects once aborted', async () => {
     await setup();
-    const seen: { done: number; total: number }[] = [];
+    const seen: {
+      phase: string;
+      loaded: number;
+      total: number;
+      partial: boolean;
+    }[] = [];
     const rows = await adapter.getLeafProperties(['Name'], undefined, {
       onProgress: (progress) => seen.push(progress),
     });
-    expect(seen.at(-1)).toEqual({ done: rows.length, total: rows.length });
+    expect(seen.at(-1)).toMatchObject({
+      loaded: rows.length,
+      total: rows.length,
+      partial: false,
+    });
     const controller = new AbortController();
     controller.abort();
     await expect(

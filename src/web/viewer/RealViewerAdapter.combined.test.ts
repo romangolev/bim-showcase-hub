@@ -459,12 +459,17 @@ describe('federated selection, paint and properties', () => {
         );
       },
     );
-    const seen: { done: number; total: number }[] = [];
+    const seen: {
+      phase: string;
+      loaded: number;
+      total: number;
+      partial: boolean;
+    }[] = [];
     const found = await adapter.discoverProperties(undefined, {
       onProgress: (progress) => seen.push(progress),
     });
     expect(chunks).toEqual([5000, 1]);
-    expect(seen.at(-1)).toEqual({ done: 5001, total: 5001 });
+    expect(seen.at(-1)).toMatchObject({ loaded: 5001, total: 5001 });
     expect(found).toEqual([{ name: 'Level', category: 'Constraints' }]);
   });
 
@@ -516,14 +521,28 @@ describe('federated selection, paint and properties', () => {
         );
       },
     );
-    const seen: { done: number; total: number }[] = [];
+    const seen: {
+      phase: string;
+      loaded: number;
+      total: number;
+      partial: boolean;
+    }[] = [];
     const found = await adapter.discoverProperties(undefined, {
       onProgress: (progress) => seen.push(progress),
     });
     expect(chunks).toEqual(Array.from({ length: 20 }, () => 5000));
-    expect(seen[0]).toEqual({ done: 0, total: 100_000 });
-    expect(seen.at(-1)).toEqual({ done: 100_000, total: 100_000 });
-    expect(seen).toHaveLength(21);
+    expect(seen[0]).toMatchObject({
+      phase: 'discovery',
+      loaded: 0,
+      total: 100_000,
+      partial: true,
+    });
+    expect(seen.at(-1)).toMatchObject({
+      loaded: 100_000,
+      total: 100_000,
+      partial: false,
+    });
+    expect(seen.length).toBeLessThan(21);
     expect(found).toEqual([{ name: 'Level', category: 'Constraints' }]);
   });
 

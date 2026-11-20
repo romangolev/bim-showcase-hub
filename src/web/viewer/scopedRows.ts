@@ -14,7 +14,7 @@ import {
   scopeNoteFor,
 } from './propertyScope.js';
 import { scopeElementItems } from './setResolution.js';
-import { peekLeafRows, readLeafRows } from './sharedLeafRows.js';
+import { leafRowsStale, peekLeafRows, readLeafRows } from './sharedLeafRows.js';
 import type { ViewerAdapter } from './ViewerAdapter.js';
 
 interface ScopedReadRequest extends ReadOptions {
@@ -29,6 +29,7 @@ interface ScopedRead {
   failed: string[];
   unavailable: ModelInfo[];
   elements: ElementScope;
+  stale: boolean;
   scopeNote?: string;
 }
 
@@ -69,6 +70,7 @@ function scopedResult(
   rows: PropertyRow[],
   scope: ResolvedScope,
   failedNames: readonly string[],
+  stale = false,
 ): ScopedRead {
   const models = adapter.getModels();
   const unavailable = unavailableModels(models);
@@ -84,6 +86,7 @@ function scopedResult(
     failed: failedNames.filter((name) => !unavailableNames.has(name)),
     unavailable,
     elements: scope.elements,
+    stale,
     ...(scope.scopeNote ? { scopeNote: scope.scopeNote } : {}),
   };
 }
@@ -113,5 +116,11 @@ export async function peekScopedRows(
   const rows = peekLeafRows(adapter, modelIds);
   if (!rows) return null;
   const scope = await resolveScoped(adapter, request, modelIds);
-  return scopedResult(adapter, rows, scope, []);
+  return scopedResult(
+    adapter,
+    rows,
+    scope,
+    [],
+    leafRowsStale(adapter, modelIds),
+  );
 }

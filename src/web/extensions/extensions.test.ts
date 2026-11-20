@@ -288,24 +288,34 @@ describe('export rows', () => {
         _names: unknown,
         _models: unknown,
         options: {
-          onProgress?: (p: { done: number; total: number }) => void;
+          onProgress?: (p: {
+            phase: string;
+            loaded: number;
+            total: number;
+            partial: boolean;
+          }) => void;
         },
       ) => {
-        options.onProgress?.({ done: 1, total: 1 });
+        options.onProgress?.({
+          phase: 'rows',
+          loaded: 1,
+          total: 1,
+          partial: false,
+        });
         return Promise.resolve([row(1, { Category: 'Walls' })]);
       },
       getModels: () => [
         { id: 'm', urn: 'm', name: 'm', visible: true, status: 'ready' },
       ],
     } as unknown as MockViewerAdapter;
-    const progress: number[] = [];
+    const progress: string[] = [];
     const done = await exportToXlsx(adapter, {
       propertyNames: ['Category'],
       save: vi.fn(),
-      onProgress: (fraction) => progress.push(fraction),
+      onProgress: (value) => progress.push(`${value.loaded}/${value.total}`),
     });
     expect(done.phase).toBe('done');
-    expect(progress.at(-1)).toBe(1);
+    expect(progress.at(-1)).toBe('1/1');
     const controller = new AbortController();
     controller.abort();
     const copy = vi.fn(() => Promise.resolve());

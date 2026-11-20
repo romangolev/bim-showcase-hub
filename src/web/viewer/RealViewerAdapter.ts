@@ -1138,7 +1138,7 @@ export class RealViewerAdapter implements ViewerAdapter {
         new Promise<BulkPropertyItem[]>((resolve, reject) =>
           model.getBulkProperties(chunk, {}, resolve, reject),
         ),
-      options,
+      { ...options, phase: 'discovery' },
     );
     return mergeInfos([
       items.flatMap((item) =>
@@ -1170,7 +1170,7 @@ export class RealViewerAdapter implements ViewerAdapter {
             reject,
           ),
         ),
-      options,
+      { ...options, phase: 'rows' },
     );
     return items.map((item) => {
       const properties: PropertyRow['properties'] = {};

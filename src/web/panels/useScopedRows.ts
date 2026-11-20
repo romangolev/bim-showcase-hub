@@ -17,10 +17,10 @@ import {
   resolveElementScope,
   scopeNoteFor,
 } from '../viewer/propertyScope.js';
-import { readScopedRows } from '../viewer/scopedRows.js';
+import { peekScopedRows, readScopedRows } from '../viewer/scopedRows.js';
 import { useSelectionSets } from '../viewer/selectionSets.js';
 import { scopeElementItems } from '../viewer/setResolution.js';
-import { forgetLeafRows } from '../viewer/sharedLeafRows.js';
+import { leafRowsStale, refreshLeafRows } from '../viewer/sharedLeafRows.js';
 import { useModels } from '../viewer/useModels.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { useViewer } from '../viewer/ViewerContext.js';
@@ -49,6 +49,7 @@ export interface ScopedRowsRequest {
   names: readonly string[];
   elements?: ElementScope;
   models?: { value: ModelScope; onChange: (scope: ModelScope) => void };
+  autoRefresh?: boolean;
 }
 
 export type ScopedRows = ReadStatus & {
@@ -56,9 +57,10 @@ export type ScopedRows = ReadStatus & {
   total: number;
   pending: boolean;
   elements: ElementScope;
+  stale: boolean;
   scopeNote?: string;
   models: ModelScopeControl;
-  reload: () => void;
+  refresh: () => void;
   cancel: () => void;
 };
 
@@ -70,6 +72,13 @@ export function useResolvedAdapter(
 }
 
 const EMPTY_ITEMS: ModelDbId[] = [];
+
+function cacheKeyOf(models: readonly ModelInfo[]): string {
+  return models
+    .filter((model) => model.status === 'ready' && model.visible)
+    .map((model) => `${model.id}:${model.version ?? ''}`)
+    .join('\n');
+}
 
 function useElementItems(
   adapter: ViewerAdapter | null,
@@ -136,6 +145,7 @@ export function useScopedRows(
     names: nameList,
     elements: requested = 'all',
     models: controlled,
+    autoRefresh = true,
   }: ScopedRowsRequest,
 ): ScopedRows {
   useSelectionSets();
@@ -147,47 +157,72 @@ export function useScopedRows(
     status: 'idle',
     rows: [],
   });
+  const [stale, setStale] = useState(false);
   const [version, setVersion] = useState(0);
   const controllerRef = useRef<AbortController | null>(null);
+  const forceRef = useRef(false);
   const all = useModels(adapter);
   const signature = readySignature(all);
+  const cacheKey = cacheKeyOf(all);
   const hidden =
     !signature && all.some((m) => m.status === 'ready' && !m.visible);
-  const reload = useCallback(() => {
-    if (adapter) forgetLeafRows(adapter);
+  const refresh = useCallback(() => {
+    if (adapter) refreshLeafRows(adapter);
+    forceRef.current = true;
     setVersion((v) => v + 1);
   }, [adapter]);
 
   useEffect(() => {
     if (!adapter || !signature) {
       setRead({ status: hidden ? 'hidden' : 'idle', rows: [] });
+      setStale(false);
       return;
     }
     let cancelled = false;
-    setRead((prev) => ({ status: 'loading', rows: prev.rows, progress: null }));
     const controller = new AbortController();
     controllerRef.current = controller;
-    const onProgress = (progress: ReadProgress) => {
-      if (cancelled) return;
-      setRead((prev) =>
-        prev.status === 'loading' ? { ...prev, progress } : prev,
-      );
-    };
-    readScopedRows(adapter, {
-      names,
-      elements: 'all',
-      signal: controller.signal,
-      onProgress,
-    }).then(
-      (result) => {
-        if (!cancelled && !controller.signal.aborted)
+    const forced = forceRef.current;
+    forceRef.current = false;
+    setRead((prev) => ({
+      status: 'loading',
+      rows: prev.rows,
+      progress: null,
+    }));
+    const load = async () => {
+      if (!forced) {
+        const cached = await peekScopedRows(adapter, { elements: 'all' });
+        if (cancelled) return;
+        if (cached && (!cached.stale || !autoRefresh)) {
           setRead({
             status: 'ready',
-            rows: result.rows,
-            failed: result.failed,
+            rows: cached.rows,
+            failed: [],
           });
-      },
-      (err: unknown) => {
+          setStale(cached.stale);
+          return;
+        }
+      }
+      const onProgress = (progress: ReadProgress) => {
+        if (cancelled) return;
+        setRead((prev) =>
+          prev.status === 'loading' ? { ...prev, progress } : prev,
+        );
+      };
+      try {
+        const result = await readScopedRows(adapter, {
+          names,
+          elements: 'all',
+          signal: controller.signal,
+          onProgress,
+        });
+        if (cancelled || controller.signal.aborted) return;
+        setRead({
+          status: 'ready',
+          rows: result.rows,
+          failed: result.failed,
+        });
+        setStale(false);
+      } catch (err) {
         if (cancelled || controller.signal.aborted) return;
         setRead({
           status: 'error',
@@ -195,13 +230,15 @@ export function useScopedRows(
           message:
             err instanceof Error ? err.message : 'Could not read properties',
         });
-      },
-    );
+        setStale(leafRowsStale(adapter));
+      }
+    };
+    void load();
     return () => {
       cancelled = true;
       controller.abort();
     };
-  }, [adapter, names, signature, version, hidden]);
+  }, [adapter, names, signature, cacheKey, version, hidden, autoRefresh]);
 
   const cancel = useCallback(() => {
     controllerRef.current?.abort();
@@ -217,7 +254,7 @@ export function useScopedRows(
   const chosen = controlled?.value ?? inner;
   const scope = options.length > 0 ? resolveScope(chosen, all) : ALL_MODELS;
   const unavailable = useMemo(() => unavailableModels(all), [all]);
-  const items = useElementItems(adapter, elements, signature, version);
+  const items = useElementItems(adapter, elements, cacheKey, version);
   const primaryId = all[0]?.id;
 
   const modelRows = useMemo(
@@ -239,6 +276,7 @@ export function useScopedRows(
     total: modelRows.length,
     pending: items.pending,
     elements,
+    stale,
     ...(scopeNote ? { scopeNote } : {}),
     models: {
       options,
@@ -246,7 +284,7 @@ export function useScopedRows(
       setScope: controlled?.onChange ?? setInner,
       unavailable,
     },
-    reload,
+    refresh,
     cancel,
   };
 }
