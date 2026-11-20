@@ -2,8 +2,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   formatShortcut,
   isEditableTarget,
+  isMacPlatform,
   matchShortcut,
   parseShortcut,
+  shortcutFromEvent,
   shortcutMatches,
 } from './shortcuts.js';
 import type { Command } from './types.js';
@@ -108,6 +110,72 @@ describe('shortcutMatches', () => {
         shiftKey: false,
       }),
     ).toBe(false);
+  });
+});
+
+describe('shortcutFromEvent', () => {
+  it('builds a normalized chord and ignores bare modifiers', () => {
+    agent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)');
+    expect(
+      shortcutFromEvent({
+        key: 'I',
+        ctrlKey: true,
+        metaKey: false,
+        altKey: false,
+        shiftKey: true,
+      }),
+    ).toBe('ctrl+shift+i');
+    agent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
+    expect(
+      shortcutFromEvent({
+        key: 'I',
+        ctrlKey: true,
+        metaKey: false,
+        altKey: false,
+        shiftKey: true,
+      }),
+    ).toBe('mod+shift+i');
+    expect(
+      shortcutFromEvent({
+        key: 'Shift',
+        ctrlKey: false,
+        metaKey: false,
+        altKey: false,
+        shiftKey: true,
+      }),
+    ).toBeNull();
+    expect(
+      shortcutFromEvent({
+        key: 'h',
+        ctrlKey: false,
+        metaKey: false,
+        altKey: false,
+        shiftKey: false,
+      }),
+    ).toBe('h');
+  });
+
+  it('reads an Option chord from the key code on a mac', () => {
+    agent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)');
+    expect(
+      shortcutFromEvent({
+        key: '∫',
+        code: 'KeyB',
+        ctrlKey: false,
+        metaKey: true,
+        altKey: true,
+        shiftKey: false,
+      }),
+    ).toBe('mod+alt+b');
+  });
+});
+
+describe('isMacPlatform', () => {
+  it('follows the user agent', () => {
+    agent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)');
+    expect(isMacPlatform()).toBe(true);
+    agent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
+    expect(isMacPlatform()).toBe(false);
   });
 });
 

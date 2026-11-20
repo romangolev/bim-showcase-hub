@@ -1,4 +1,5 @@
 import { useId } from 'react';
+import { ShortcutEditor } from '../commands/ShortcutEditor.js';
 import type { ModalDefinition } from '../modal/types.js';
 import { THEME_PREFERENCES, type ThemePreference } from '../theme/theme.js';
 import { DefaultsSettings } from './DefaultsSettings.js';
@@ -137,6 +138,7 @@ export function SettingsBody() {
           </span>
         </div>
       </section>
+      <ShortcutEditor />
       <section className="settings__section" aria-labelledby="settings-region">
         <h3 id="settings-region" className="settings__heading">
           Language and units

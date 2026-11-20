@@ -12,18 +12,23 @@ export {
   EDITABLE_SELECTOR,
   formatShortcut,
   isEditableTarget,
+  isMacPlatform,
   isViewerContext,
   matchShortcut,
   parseShortcut,
   type ShortcutEvent,
   type ShortcutSpec,
+  shortcutFromEvent,
   shortcutMatches,
 } from './shortcuts.js';
 export type { Command, CommandHost, CommandProvider } from './types.js';
 export {
+  checkViewerShortcut,
   DEFAULT_VIEWER_SHORTCUTS,
   RESERVED_SHORTCUTS,
+  resetViewerShortcut,
   resetViewerShortcuts,
+  type ShortcutCheck,
   setViewerShortcut,
   VIEWER_SHORTCUT_KEYS,
   type ViewerShortcut,

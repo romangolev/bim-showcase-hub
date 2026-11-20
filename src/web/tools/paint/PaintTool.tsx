@@ -341,7 +341,7 @@ function PaintFields() {
         </div>
         <p className="settings__hint">
           Isolate, hide, show all and invert use plain keys only while the
-          viewer has focus. The shortcut map is stored in the browser.
+          viewer has focus. Change keys in Settings &gt; Shortcuts.
         </p>
       </section>
     </>
