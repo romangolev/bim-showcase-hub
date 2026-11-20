@@ -264,6 +264,7 @@ describe('dock layout', () => {
     await waitFor(() =>
       expect(handle().openPanes().sort()).toEqual([
         'dashboard',
+        'measurements',
         'models',
         'summary',
         'tree',

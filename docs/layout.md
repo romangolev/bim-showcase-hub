@@ -61,6 +61,7 @@ The top bar Panes menu is a searchable dialog over every pane.
 - The entries sit in a `role="menu"` inside the dialog; the search field stays outside it. A pane toggle and Lock are `menuitemcheckbox` entries with `aria-checked`; the other entries are `menuitem`.
 - A row's main action is its command: Open/Close with a checked state for a normal pane, New for a user kind, or a pane hook such as Go to Documents. Focus and the pane's extra commands sit beside it. The footer holds the workspace actions (save, import, download, copy JSON, share link, revert), Present, Lock and Reset layout. A pane with no command, such as the Viewer, has no row.
 - Search matches the pane's title, description, category and keywords. Without a query the rows are grouped by category (Workspace, Viewer, Analysis, Data). With a query they become one list.
+- Measurements is a Viewer pane next to Models. It is not part of the default arrangement: it starts closed, opens from the Panes menu or the palette, and lists distances, angles and areas from the active viewer ([extensions.md](extensions.md#built-in)).
 
 ## Rename and colour
 

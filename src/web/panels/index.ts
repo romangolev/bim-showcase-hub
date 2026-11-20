@@ -1,5 +1,9 @@
 export { DashboardPanel, type DashboardPanelProps } from './DashboardPanel.js';
 export {
+  MeasurementsPanel,
+  type MeasurementsPanelProps,
+} from './MeasurementsPanel.js';
+export {
   ModelSummaryPanel,
   type ModelSummaryPanelProps,
 } from './ModelSummaryPanel.js';

@@ -17,7 +17,7 @@ Read rows with `useScopedRows` in panels and `readScopedRows` (`viewer/scopedRow
 
 | Extension | Where | Notes |
 |---|---|---|
-| Viewer tools | `tools/` | `PaintTool`, `ExcelExportTool`, `GlbExportTool`, `IfcExportTool`, registered in `tools/index.ts` |
+| Viewer tools | `tools/` | `PaintTool`, `ExcelExportTool`, `GlbExportTool`, `IfcExportTool`, `ToolbarProfileTool`, `DisplayTool`, registered in `tools/index.ts` |
 | Paint | `paintBrushes.ts`, `tools/paint/` | Named palettes with numbered markers, ghost-rest isolate and the viewer shortcuts ([Paint](#paint)) |
 | Model summary | `modelSummary.ts`, `panels/ModelSummaryPanel.tsx` | Counts values per property. Row click selects, isolates, hides or zooms |
 | Dashboard | `dashboardData.ts`, `panels/DashboardPanel.tsx` | Chart.js bar and doughnut charts, presets, PNG, CSV and copy. Each view (the main Dashboard and every chart instance) carries its own property list. Split by model stacks a bar chart per model, counts only, with one data table column per model |
@@ -25,6 +25,9 @@ Read rows with `useScopedRows` in panels and `readScopedRows` (`viewer/scopedRow
 | GLB export | `glbExport.ts`, `viewer/viewerGeometry.ts` | Binary glTF 2.0 from `adapter.getGeometryParts()`. Capped at 256 MB |
 | IFC export | `ifcExport.ts`, `ifc/` | IFC4 STEP file from `adapter.getIfcSource()`. A mesh-based coordination view, not a Revit IFC export |
 | Properties | `panels/PropertiesPanel.tsx` | Read-only property list of the selected elements |
+| Toolbar profile | `viewer/nativeControls.ts`, `tools/toolbar/` | Profiles **Full**, **Review**, **Present**, **Minimal** and **Custom** hide native viewer tools through `adapter.setHiddenControls`. A control id the viewer build does not offer is listed as "Not in this viewer version". Reordering and per-role defaults are not built |
+| Viewer display | `tools/display/` | Light preset, ground shadow, ground reflection, edges, ambient occlusion, antialiasing and optimise navigation through `adapter.applyDisplaySettings`. Background stays with the theme, ghosting with paint, units with the app setting; there is no per-tab override |
+| Measurements | `panels/MeasurementsPanel.tsx`, `viewer/measurements.ts` | Distance, angle and area from `adapter.startMeasure`, read back as type and value and copied as CSV. The Measure tool owns units and precision. The pane is not part of the default arrangement and its list is never saved with the tab |
 | Selection sets, viewpoints | `viewer/selectionSets.ts`, `viewer/setResolution.ts`, `viewer/viewpoints.ts` | Saved items of kind `selection-set` and `viewpoint`. A set holds up to 10,000 elements, keeps stable external ids where the model has them, and merges two sets as a union or an intersection |
 
 Exports over 20,000 rows ask for confirmation with a browser dialog. End-to-end scripts must accept dialogs.

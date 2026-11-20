@@ -88,9 +88,30 @@ describe('pane registry', () => {
   });
 
   it('derives the viewer followers from the registry in one place', () => {
-    expect(FOLLOWERS).toEqual(['summary', 'dashboard', 'models']);
-    expect(followersOf('viewer')).toEqual(['summary', 'dashboard', 'models']);
+    expect(FOLLOWERS).toEqual([
+      'summary',
+      'dashboard',
+      'models',
+      'measurements',
+    ]);
+    expect(followersOf('viewer')).toEqual([
+      'summary',
+      'dashboard',
+      'models',
+      'measurements',
+    ]);
     expect(followersOf('tree')).toEqual([]);
+  });
+
+  it('registers Measurements as a Viewer pane tabbed beside Models', () => {
+    const pane = paneById('measurements');
+    expect(pane.category).toBe('Viewer');
+    expect(pane.defaultPlacement).toEqual({
+      kind: 'tab',
+      reference: 'models',
+    });
+    expect(pane.closable).toBe(true);
+    expect(hasPlainPanel('measurements')).toBe(true);
   });
 
   it('adds a pane hook’s commands after the generated toggle and create entries', () => {

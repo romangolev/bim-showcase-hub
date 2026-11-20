@@ -5,6 +5,7 @@ import { PANEL_SEPARATOR, type PanelId } from './panelIds.js';
 import {
   ChartInstancePane,
   DashboardPane,
+  MeasurementsPane,
   ModelPaneBody,
   ModelsPane,
   PropertiesInstancePane,
@@ -19,6 +20,7 @@ export type PaneId =
   | 'summary'
   | 'dashboard'
   | 'models'
+  | 'measurements'
   | 'chart'
   | 'modelSummary'
   | 'properties';
@@ -156,6 +158,19 @@ export const PANES: readonly PaneDefinition[] = [
     component: ModelsPane,
     minSize: { width: 240, height: 160 },
     defaultPlacement: { kind: 'tab', reference: 'tree' },
+    closable: true,
+    requires: 'viewer',
+  },
+  {
+    id: 'measurements',
+    title: 'Measurements',
+    description: 'Distances, angles and areas measured in the active viewer.',
+    category: 'Viewer',
+    keywords: 'measure distance angle area length dimension',
+    icon: 'table',
+    component: MeasurementsPane,
+    minSize: { width: 240, height: 160 },
+    defaultPlacement: { kind: 'tab', reference: 'models' },
     closable: true,
     requires: 'viewer',
   },

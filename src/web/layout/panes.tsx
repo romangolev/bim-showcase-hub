@@ -22,6 +22,7 @@ import { useModal } from '../modal/ModalContext.js';
 import { DASHBOARD_SETTINGS_ID } from '../panels/DashboardSettings.js';
 import {
   DashboardPanel,
+  MeasurementsPanel,
   ModelSummaryPanel,
   ModelsPanel,
   PropertiesPanel,
@@ -332,6 +333,14 @@ export function PropertiesInstancePane({ instance }: { instance: string }) {
           onChange: (scope) => setSpec({ scope }),
         }}
       />
+    </div>
+  );
+}
+
+export function MeasurementsPane() {
+  return (
+    <div className="pane-measurements">
+      <MeasurementsPanel />
     </div>
   );
 }
