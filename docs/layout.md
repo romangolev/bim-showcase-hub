@@ -53,6 +53,8 @@ The Viewer pane has one instance per open model, a panel `viewer:<urn>` with its
 - In Documents, Ctrl or Cmd click and Space pick versions and Shift click picks a range. The pick bar offers Open N in viewer (up to 8 models across the open tabs, so it counts the tabs already open), Open together (2 to 6, one combined scene), Add to the open viewer and Clear.
 - A single click opens a version according to the Documents open mode, saved with the tree view: a new tab (the default), the active tab, or the active viewer as a combined scene. A combined click adds a model while the tab holds fewer than 6; at 6 it opens a new tab and says so in a toast.
 - Replacing closes the active tab. When that tab is a combined scene it closes every model in it, and the tree says how many. The row menu's Open in new tab bypasses the open mode.
+- A tab keeps its view: camera, section planes, explode and per-model hidden, isolated and selected elements. The state is saved when the tab is paused or the page reloads and restored once after the next load. A state with more than 5,000 node ids keeps the camera, planes and explode and drops the node lists. Measurements are not part of it.
+- **Remember view state** in the model tab's pane menu turns this off for that tab and clears its state. An incoming `?view=` link always wins over a restored state.
 
 ## Panes menu
 
@@ -129,7 +131,7 @@ One layout per browser in `localStorage` under `bsh.layout.v2`: `{ version: 2, l
 
 A corrupt record or a dock with no known pane falls back to the default layout. Model tabs are reconciled with the open-models store on restore.
 
-Open tabs are in `sessionStorage` under `bsh.models.open`. Sign-out clears them with recent and pinned models. Other keys are in [development.md](development.md#storage-keys).
+Open tabs are in `sessionStorage` under `bsh.models.open` as `{ models, active }`. Each model holds its context plus optional offsets, spread, a capped `state`, `remember: false` and `pinned: true`. Sign-out clears them with recent and pinned models. Other keys are in [development.md](development.md#storage-keys).
 
 Reset layout (every pane menu and the Panes menu) rebuilds the default arrangement without remounting any pane. Open models stay open.
 

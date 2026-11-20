@@ -36,12 +36,14 @@ import {
   type ViewerRegion,
 } from './region.js';
 import { ShareMenu } from './ShareMenu.js';
+import { shouldRestore } from './tabState.js';
 import { useModels } from './useModels.js';
 import { useModelVisibilityMemory } from './useModelVisibilityMemory.js';
 import type {
   LoadStage,
   ViewerAdapter,
   ViewerAdapterFactory,
+  ViewerState,
 } from './ViewerAdapter.js';
 import { ActiveViewerContext, ModelViewerContext } from './ViewerContext.js';
 import './viewer.css';
@@ -65,6 +67,8 @@ export interface ViewerPaneProps {
   onSpreadChange?: (distanceMeters: number | null) => void;
   initialView?: string | null;
   onViewConsumed?: () => void;
+  savedState?: ViewerState | null;
+  onSaveState?: (state: ViewerState) => void;
   shareHref?: string;
   onManageViewpoints?: () => void;
   onPresent?: () => void;
@@ -97,6 +101,18 @@ function detailOf(err: unknown): string {
   return err instanceof Error ? err.message : '';
 }
 
+function saveTabState(
+  adapter: ViewerAdapter,
+  save: ((state: ViewerState) => void) | undefined,
+): void {
+  if (!save) return;
+  try {
+    save(adapter.getState());
+  } catch {
+    return;
+  }
+}
+
 export function ViewerPane({
   urn,
   onReady,
@@ -115,6 +131,8 @@ export function ViewerPane({
   onSpreadChange,
   initialView = null,
   onViewConsumed,
+  savedState = null,
+  onSaveState,
   shareHref,
   onManageViewpoints,
   onPresent,
@@ -126,6 +144,10 @@ export function ViewerPane({
   nameRef.current = name;
   const metaRef = useRef(meta);
   metaRef.current = meta;
+  const savedStateRef = useRef(savedState);
+  savedStateRef.current = savedState;
+  const onSaveStateRef = useRef(onSaveState);
+  onSaveStateRef.current = onSaveState;
   const [setNotice, setSetNotice] = useState<string | null>(null);
   const registry = useContext(ActiveViewerContext);
   const publish = registry?.publish;
@@ -261,6 +283,9 @@ export function ViewerPane({
       cancelled = true;
       task.discard();
       stopStage?.();
+      if (created && adapterRef.current === created) {
+        saveTabState(created, onSaveStateRef.current);
+      }
       adapterRef.current = null;
       created?.destroy();
       if (instanceRef.current === created) instanceRef.current = null;
@@ -268,6 +293,13 @@ export function ViewerPane({
       if (created) withdraw?.(urn, created);
     };
   }, [urn, factory, publish, withdraw, attempt]);
+
+  useEffect(() => {
+    if (!adapter) return;
+    const save = () => saveTabState(adapter, onSaveStateRef.current);
+    window.addEventListener('pagehide', save);
+    return () => window.removeEventListener('pagehide', save);
+  }, [adapter]);
 
   useViewerTools(TOOLS, {
     adapter,
@@ -339,6 +371,16 @@ export function ViewerPane({
 
   const loaded = useModels(adapter);
   useModelVisibilityMemory(adapter, loaded);
+  const restoredFor = useRef<ViewerAdapter | null>(null);
+  useEffect(() => {
+    if (!adapter || restoredFor.current === adapter) return;
+    if (loaded.length === 0) return;
+    if (loaded.some((model) => model.status === 'loading')) return;
+    restoredFor.current = adapter;
+    const saved = savedStateRef.current;
+    if (!shouldRestore(saved, initialView)) return;
+    void adapter.restoreState(saved);
+  }, [adapter, loaded, initialView]);
   const labelKey = JSON.stringify([
     name ? [urn, name] : null,
     ...members.map((member) =>

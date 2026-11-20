@@ -215,12 +215,13 @@ describe('pane menus', () => {
       'Resize with arrow keys',
       'Collapse',
       'Close',
+      'Remember view state',
       'Lock layout',
       'Reset layout',
     ]);
   });
 
-  it('offers only Maximize and Unlock once the layout is locked', async () => {
+  it('offers only Maximize, Unlock and the tab switch once the layout is locked', async () => {
     renderModel();
     let menu = await openPaneMenu('Untitled model');
     fireEvent.click(
@@ -230,7 +231,11 @@ describe('pane menus', () => {
       expect(window.localStorage.getItem('bsh.layout.locked')).toBe('true'),
     );
     menu = await openPaneMenu('Untitled model');
-    expect(itemNames(menu)).toEqual(['Maximize', 'Unlock layout']);
+    expect(itemNames(menu)).toEqual([
+      'Maximize',
+      'Unlock layout',
+      'Remember view state',
+    ]);
     expect(screen.queryByRole('button', { name: /^Close / })).toBeNull();
   });
 

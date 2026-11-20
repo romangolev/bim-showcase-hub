@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { MAX_LOADED_MEMBERS } from '../../shared/combined.js';
 import { forgetPersonal } from '../storage.js';
 import { installMemoryStorage } from '../test/mockApi.js';
+import type { ViewerState } from '../viewer/ViewerAdapter.js';
 import { MODEL_STORE_KEY } from './modelStore.js';
 import {
   activateModel,
@@ -18,6 +19,9 @@ import {
   openModel,
   ownerKey,
   parseOpenModels,
+  removeFromModel,
+  serializeOpenModels,
+  setModelView,
   setVisible,
   touchLive,
 } from './openModels.js';
@@ -338,5 +342,84 @@ describe('open models persistence', () => {
         active: 'a',
       },
     );
+  });
+});
+
+describe('tab view state', () => {
+  const state: ViewerState = {
+    version: 1,
+    camera: null,
+    cutplanes: [],
+    explode: 0.2,
+    models: {},
+  };
+
+  it('stores, serializes and parses a tab state', () => {
+    const opened = openModel(EMPTY_OPEN_MODELS, 'u1');
+    const next = setModelView(opened, 'u1', { state });
+    expect(parseOpenModels(serializeOpenModels(next)).models[0]?.state).toEqual(
+      state,
+    );
+  });
+
+  it('turning remember off drops the state and stays off after a reload', () => {
+    const opened = setModelView(openModel(EMPTY_OPEN_MODELS, 'u1'), 'u1', {
+      state,
+    });
+    const off = setModelView(opened, 'u1', { remember: false });
+    const parsed = parseOpenModels(serializeOpenModels(off)).models[0];
+    expect(parsed?.state).toBeUndefined();
+    expect(parsed?.remember).toBe(false);
+    expect(setModelView(off, 'u1', { state }).models[0]?.state).toBeUndefined();
+  });
+
+  it('keeps the state and remember flag on a tab that loses a member', () => {
+    const combined = setModelView(
+      openModel(EMPTY_OPEN_MODELS, 'u1', { with: 'u2' }),
+      'u1',
+      { state },
+    );
+    const single = removeFromModel(combined, 'u1', 'u2');
+    expect(single.models[0]).toMatchObject({ urn: 'u1', state });
+    const off = setModelView(combined, 'u1', { remember: false });
+    expect(removeFromModel(off, 'u1', 'u2').models[0]?.remember).toBe(false);
+  });
+
+  it('ignores a corrupt stored state', () => {
+    const raw = JSON.stringify({
+      models: [{ urn: 'u1', context: {}, state: { version: 9 } }],
+      active: 'u1',
+    });
+    expect(parseOpenModels(raw).models[0]?.state).toBeUndefined();
+  });
+
+  it('reads remember and pinned only when they are the exact flag', () => {
+    const raw = JSON.stringify({
+      models: [
+        { urn: 'u1', context: {}, remember: false, pinned: true },
+        { urn: 'u2', context: {}, remember: 'no', pinned: 1 },
+      ],
+      active: 'u1',
+    });
+    const [first, second] = parseOpenModels(raw).models;
+    expect(first).toMatchObject({ remember: false, pinned: true });
+    expect(second).not.toHaveProperty('remember');
+    expect(second).not.toHaveProperty('pinned');
+  });
+
+  it('persists a state change through the store', () => {
+    const memory = {
+      value: EMPTY_OPEN_MODELS,
+      read: () => memory.value,
+      write: (value: OpenModelsState) => {
+        memory.value = value;
+        return true;
+      },
+      remove: () => {},
+    };
+    const store = createOpenModelsStore(memory);
+    store.open('u1');
+    store.setView('u1', { state });
+    expect(memory.value.models[0]?.state).toEqual(state);
   });
 });

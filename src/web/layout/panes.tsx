@@ -168,6 +168,12 @@ export function ModelPaneBody({ instance }: { instance: string }) {
               store?.setView(instance, { offsets: next })
             }
             onSpreadChange={(spread) => store?.setView(instance, { spread })}
+            savedState={entry?.state ?? null}
+            onSaveState={
+              entry?.remember === false
+                ? undefined
+                : (state) => store?.setView(instance, { state })
+            }
             initialView={
               active && typeof routeView === 'string' ? routeView : null
             }

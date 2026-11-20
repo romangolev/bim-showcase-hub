@@ -10,6 +10,9 @@ import {
   type PersistedRecord,
   RAW_STRING,
 } from '../storage.js';
+import { capTabState } from '../viewer/tabState.js';
+import type { ViewerState } from '../viewer/ViewerAdapter.js';
+import { sanitizeViewerState } from '../viewer/viewerState.js';
 import {
   joinWith,
   type ModelContext,
@@ -40,6 +43,17 @@ export interface OpenModel {
   context: ModelContext;
   offsets?: Record<string, Vec3>;
   spread?: number;
+  state?: ViewerState;
+  remember?: false;
+  pinned?: true;
+}
+
+export interface ModelView {
+  offsets?: Record<string, Vec3> | null;
+  spread?: number | null;
+  state?: ViewerState | null;
+  remember?: boolean;
+  pinned?: boolean;
 }
 
 export function sanitizeOffsets(
@@ -59,16 +73,32 @@ export function sanitizeOffsets(
   return Object.keys(out).length > 0 ? out : undefined;
 }
 
-function withView(
-  model: OpenModel,
-  view: { offsets?: Record<string, Vec3> | null; spread?: number | null },
-): OpenModel {
+function withView(model: OpenModel, view: ModelView): OpenModel {
   const next: OpenModel = { urn: model.urn, context: model.context };
   const offsets = view.offsets === undefined ? model.offsets : view.offsets;
   const spread = view.spread === undefined ? model.spread : view.spread;
   if (offsets && Object.keys(offsets).length > 0) next.offsets = offsets;
   if (typeof spread === 'number') next.spread = spread;
+  const remember =
+    view.remember === undefined ? model.remember !== false : view.remember;
+  const state = remember
+    ? view.state === undefined
+      ? model.state
+      : view.state
+    : null;
+  if (state) next.state = capTabState(state);
+  if (!remember) next.remember = false;
+  const pinned =
+    view.pinned === undefined ? model.pinned === true : view.pinned;
+  if (pinned) next.pinned = true;
   return next;
+}
+
+function sameView(a: OpenModel, b: OpenModel): boolean {
+  return (
+    JSON.stringify([a.offsets, a.spread, a.state, a.remember, a.pinned]) ===
+    JSON.stringify([b.offsets, b.spread, b.state, b.remember, b.pinned])
+  );
 }
 
 function dropMember(
@@ -83,24 +113,21 @@ function dropMember(
         )
       : null,
     spread: model.spread ?? null,
+    state: model.state ?? null,
+    remember: model.remember !== false,
   });
 }
 
 export function setModelView(
   state: OpenModelsState,
   urn: string,
-  view: { offsets?: Record<string, Vec3> | null; spread?: number | null },
+  view: ModelView,
 ): OpenModelsState {
   const index = state.models.findIndex((model) => model.urn === urn);
   const current = state.models[index];
   if (!current) return state;
   const next = withView(current, view);
-  if (
-    JSON.stringify(next.offsets) === JSON.stringify(current.offsets) &&
-    next.spread === current.spread
-  ) {
-    return state;
-  }
+  if (sameView(next, current)) return state;
   const models = [...state.models];
   models[index] = next;
   return { ...state, models };
@@ -384,10 +411,8 @@ export function parseOpenModels(raw: string | null): OpenModelsState {
   if (Array.isArray(record.models)) {
     for (const entry of record.models) {
       if (typeof entry !== 'object' || entry === null) continue;
-      const { urn, context, offsets, spread } = entry as Record<
-        string,
-        unknown
-      >;
+      const { urn, context, offsets, spread, state, remember, pinned } =
+        entry as Record<string, unknown>;
       if (typeof urn !== 'string' || !urn) continue;
       if (models.some((model) => model.urn === urn)) continue;
       models.push(
@@ -396,6 +421,9 @@ export function parseOpenModels(raw: string | null): OpenModelsState {
           {
             offsets: sanitizeOffsets(offsets) ?? null,
             spread: typeof spread === 'number' ? spread : null,
+            state: sanitizeViewerState(state),
+            remember: remember !== false,
+            pinned: pinned === true,
           },
         ),
       );
@@ -445,10 +473,7 @@ export interface OpenModelsStore {
   keepOnly: (urn: string) => void;
   addTo: (target: string, urn: string) => void;
   removeFrom: (target: string, urn: string) => void;
-  setView: (
-    urn: string,
-    view: { offsets?: Record<string, Vec3> | null; spread?: number | null },
-  ) => void;
+  setView: (urn: string, view: ModelView) => void;
   clear: () => void;
 }
 

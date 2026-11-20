@@ -73,7 +73,7 @@ All browser storage goes through `src/web/storage.ts`. `BSH_KEYS` lists the fixe
 |---|---|---|
 | `bsh.layout.v2` | personal | Dock arrangement (see [layout.md](layout.md#persistence)) |
 | `bsh.layout.instances.v1` | personal | Added pane instances |
-| `bsh.models.open` | personal | Open model tabs (`sessionStorage`) |
+| `bsh.models.open` | personal | Open model tabs (`sessionStorage`): the URN and context of each tab, the active one, and per-tab offsets, spread, view state, `remember: false` and `pinned: true` |
 | `bsh.models.owner`, `bsh.models.recent`, `bsh.models.hidden` | personal | Owner id, recent models, hidden models |
 | `bsh.models.tints.v1` | personal | Per-model tint colour and strength, the global tint palette, a palette per model set, and ghost others |
 | `bsh.docs.pinned` | personal | Pinned model URNs |

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useOpenModels, useOpenModelsStore } from '../api/useOpenModels.js';
 import type { Command, CommandHost } from '../commands/types.js';
 import { Icon } from '../components/icons.js';
 import { Menu, type MenuEntry } from '../components/Menu.js';
@@ -18,6 +19,7 @@ import {
   setPaneColor,
   setPaneTitle,
 } from './paneAppearance.js';
+import { modelOf } from './paneLifecycle.js';
 import {
   definitionOf,
   isPaneId,
@@ -27,6 +29,7 @@ import {
   paneById,
   paneCommandsFor,
 } from './paneRegistry.js';
+import { modelTabEntries } from './tabMenu.js';
 
 export const RESET_LAYOUT_DESCRIPTION =
   'Resets the arrangement. Open models stay open; remembered viewer position and closed panes are cleared.';
@@ -102,10 +105,15 @@ function settingsEntry(
   };
 }
 
+function tabWithSeparator(tab: readonly MenuEntry[]): MenuEntry[] {
+  return tab.length > 0 ? [{ kind: 'separator', id: 'sep.tab' }, ...tab] : [];
+}
+
 export function paneMenuEntries(
   layout: LayoutApi,
   pane: PanelId,
   host: PaneMenuHost = NO_MODALS,
+  tab: MenuEntry[] = [],
 ): MenuEntry[] {
   const definition = definitionOf(pane);
   const kind = definition.id;
@@ -125,7 +133,12 @@ export function paneMenuEntries(
     onSelect: () => layout.toggleMaximize(pane),
   };
   if (layout.locked)
-    return [maximizeEntry, { kind: 'separator', id: 'sep' }, lockEntry];
+    return [
+      maximizeEntry,
+      { kind: 'separator', id: 'sep' },
+      lockEntry,
+      ...tabWithSeparator(tab),
+    ];
   const entries: MenuEntry[] = [
     ...(schema ? [settingsEntry(schema, host)] : []),
     {
@@ -190,6 +203,7 @@ export function paneMenuEntries(
       onSelect: () => layout.togglePane(pane),
     });
   }
+  entries.push(...tabWithSeparator(tab));
   const commandEntries = paneCommandsFor(definition, paneCommandContext(layout))
     .filter((command) => command.menu !== 'toggle' && command.menu !== 'create')
     .map((command) => commandEntry(command, host));
@@ -321,6 +335,9 @@ function ColorPaneDialog({
 export function PaneMenu({ pane }: { pane: PanelId }) {
   const layout = useLayout();
   const modal = useModal();
+  const store = useOpenModelsStore();
+  const models = useOpenModels();
+  const urn = modelOf(pane);
   const [inline, setInline] = useState<PaneSettingsSchema | null>(null);
   const [appearance, setAppearance] = useState<'rename' | 'color' | null>(null);
   const inlineBody = useMemo(() => {
@@ -335,12 +352,17 @@ export function PaneMenu({ pane }: { pane: PanelId }) {
         trigger={<Icon name="more" size={16} />}
         triggerClassName="dock-action"
         items={() =>
-          paneMenuEntries(layout, pane, {
-            openModal: modal.open,
-            openPaneSettings: setInline,
-            renamePane: () => setAppearance('rename'),
-            tagPane: () => setAppearance('color'),
-          })
+          paneMenuEntries(
+            layout,
+            pane,
+            {
+              openModal: modal.open,
+              openPaneSettings: setInline,
+              renamePane: () => setAppearance('rename'),
+              tagPane: () => setAppearance('color'),
+            },
+            urn && store ? modelTabEntries(store, models, urn) : [],
+          )
         }
       />
       {inline && inlineBody ? (
