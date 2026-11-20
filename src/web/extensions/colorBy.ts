@@ -41,6 +41,17 @@ export interface ColorBySpec {
 
 export type PaletteFn = (labels: readonly string[]) => string[];
 
+const RGB = /^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/;
+
+export function toHexColor(color: string): string {
+  const rgb = RGB.exec(color.trim());
+  if (!rgb) return color;
+  return `#${rgb
+    .slice(1)
+    .map((channel) => Number(channel).toString(16).padStart(2, '0'))
+    .join('')}`;
+}
+
 export const COLOR_TOP_N_MIN = 3;
 export const COLOR_TOP_N_MAX = 24;
 export const RANGE_BINS = 6;
@@ -116,7 +127,7 @@ export function buildColoring(
     legend: labels.map((label, i) => ({
       key: label,
       label,
-      color: colors[i] ?? OTHER_COLOR,
+      color: toHexColor(colors[i] ?? OTHER_COLOR),
       count: counts[i] ?? 0,
     })),
   };

@@ -88,9 +88,16 @@ describe('pane registry', () => {
   });
 
   it('derives the viewer followers from the registry in one place', () => {
-    expect(FOLLOWERS).toEqual(['summary', 'dashboard', 'models']);
-    expect(followersOf('viewer')).toEqual(['summary', 'dashboard', 'models']);
+    expect(FOLLOWERS).toEqual(['summary', 'dashboard', 'models', 'colors']);
+    expect(followersOf('viewer')).toEqual([
+      'summary',
+      'dashboard',
+      'models',
+      'colors',
+    ]);
     expect(followersOf('tree')).toEqual([]);
+    expect(paneById('colors').opensWithModel).toBe(false);
+    expect(paneById('summary').opensWithModel).toBeUndefined();
   });
 
   it('adds a pane hook’s commands after the generated toggle and create entries', () => {

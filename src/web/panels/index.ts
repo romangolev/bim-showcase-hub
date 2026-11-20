@@ -1,3 +1,6 @@
+export { ColorLegend, type ColorLegendProps } from './ColorLegend.js';
+export { ColorRules, type ColorRulesProps } from './ColorRules.js';
+export { ColorsPanel, type ColorsPanelProps } from './ColorsPanel.js';
 export { DashboardPanel, type DashboardPanelProps } from './DashboardPanel.js';
 export {
   ModelSummaryPanel,

@@ -302,7 +302,9 @@ export function DockLayout(props: DockLayoutProps) {
       rebuild((api) =>
         buildDefault(api, treeWidth, {
           ...sync(),
-          companions: FOLLOWERS,
+          companions: FOLLOWERS.filter(
+            (id) => paneById(id).opensWithModel !== false,
+          ),
           treeWidth,
           arrangement: null,
         }),

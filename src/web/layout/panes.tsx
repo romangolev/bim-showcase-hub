@@ -21,6 +21,7 @@ import { DEFAULT_FILE_NAME } from '../extensions/excelExport.js';
 import { useModal } from '../modal/ModalContext.js';
 import { DASHBOARD_SETTINGS_ID } from '../panels/DashboardSettings.js';
 import {
+  ColorsPanel,
   DashboardPanel,
   ModelSummaryPanel,
   ModelsPanel,
@@ -349,6 +350,14 @@ export function ModelsPane() {
         }
         onAdd={tree ? () => tree.reveal() : undefined}
       />
+    </div>
+  );
+}
+
+export function ColorsPane() {
+  return (
+    <div className="pane-colors">
+      <ColorsPanel />
     </div>
   );
 }

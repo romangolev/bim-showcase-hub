@@ -167,4 +167,18 @@ describe('colorByChart', () => {
     };
     expect(colorByChart(rows, chart, ['#111111']).legend[0]?.count).toBe(1);
   });
+
+  it('normalizes a mixed chart colour to hex for theming and export', () => {
+    const rows = [row(1, { Category: 'A' })];
+    const chart: ChartData = {
+      property: 'Category',
+      total: 1,
+      data: [{ label: 'A', count: 1 }],
+    };
+    const coloring = colorByChart(rows, chart, ['rgb(255, 0, 0)']);
+    expect(coloring.legend[0]?.color).toBe('#ff0000');
+    expect(coloringAssignments(coloring, 1).get('m')?.get(1)).toEqual([
+      1, 0, 0, 1,
+    ]);
+  });
 });

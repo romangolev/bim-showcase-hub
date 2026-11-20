@@ -161,7 +161,9 @@ export function deriveView(
     ...(stacked && home ? [] : userPanels),
   ];
   const companions = FOLLOWERS.filter(
-    (id) => !state.layout.dismissed.includes(id),
+    (id) =>
+      !state.layout.dismissed.includes(id) &&
+      (paneById(id).opensWithModel !== false || state.openPanes.includes(id)),
   );
   return {
     instances,

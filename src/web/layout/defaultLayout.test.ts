@@ -9,6 +9,7 @@ describe('default layout', () => {
       'dashboard',
       'tree',
       'models',
+      'colors',
     ]);
   });
 

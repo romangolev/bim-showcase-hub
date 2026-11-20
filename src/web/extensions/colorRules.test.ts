@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { PropertyRow } from '../../shared/types.js';
+import { setStorageAdapter } from '../storage.js';
+import { memoryAdapter } from '../storageAdapter.js';
 import { entryOf } from './colorBy.js';
+import { COLOR_RULE_PRESETS, duplicateRulePreset } from './colorRulePresets.js';
 import {
   type ColorRule,
   colorByRules,
@@ -110,5 +113,21 @@ describe('sanitizeRuleSet', () => {
         ghostRest: false,
       }),
     ).toEqual(['Category', 'Level']);
+  });
+});
+
+describe('color rule presets', () => {
+  it('duplicates a preset under a copy name', () => {
+    setStorageAdapter(memoryAdapter());
+    const saved = COLOR_RULE_PRESETS.save('Fire', {
+      rules: [rule({})],
+      fallback: null,
+      ghostRest: true,
+    });
+    expect(duplicateRulePreset(saved?.id ?? '')).toBe(true);
+    expect(COLOR_RULE_PRESETS.list().map((item) => item.name)).toEqual([
+      'Fire',
+      'Fire copy',
+    ]);
   });
 });
