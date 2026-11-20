@@ -124,6 +124,7 @@ describe('parseMeasure', () => {
       factor: 0.001,
     });
     expect(parseMeasure('-4 m')).toMatchObject({ value: -4, unit: 'm' });
+    expect(parseMeasure('0.125 m')).toMatchObject({ value: 0.125, unit: 'm' });
     expect(parseMeasure(42)).toMatchObject({
       value: 42,
       unit: '',

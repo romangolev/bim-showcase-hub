@@ -1,5 +1,7 @@
 import type { PropertyRow } from '../../shared/types.js';
 
+import { parseMeasure as parseQuantity } from './measureParse.js';
+
 export { formatCount } from './exportCommon.js';
 
 export const DEFAULT_SUMMARY_PROPERTIES: readonly string[] = [
@@ -141,22 +143,6 @@ export interface ParsedMeasure {
   factor: number;
 }
 
-const MEASURE_UNITS: Record<
-  string,
-  { unit: string; family: MeasureFamily; factor: number }
-> = {
-  'm²': { unit: 'm²', family: 'area', factor: 1 },
-  'm³': { unit: 'm³', family: 'volume', factor: 1 },
-  m: { unit: 'm', family: 'length', factor: 1 },
-  mm: { unit: 'm', family: 'length', factor: 0.001 },
-};
-
-const UNITLESS: Pick<ParsedMeasure, 'unit' | 'family' | 'factor'> = {
-  unit: '',
-  family: 'none',
-  factor: 1,
-};
-
 const FAMILY_UNITS: Record<MeasureFamily, string> = {
   area: 'm²',
   volume: 'm³',
@@ -164,45 +150,23 @@ const FAMILY_UNITS: Record<MeasureFamily, string> = {
   none: '',
 };
 
-const MEASURE_NUMBER =
-  /^[+-]?(?:(?:\d{1,3}(?:[,\u00a0\u202f ]\d{3})+|\d+)(?:\.\d+)?|\d+,[0-9]{1,2})$/;
-
-const AMBIGUOUS_NUMBER = /^[+-]?\d{1,3}(?:\.\d{3})+$/;
-
-function canonicalUnit(text: string): string {
-  const lower = text.toLowerCase();
-  if (lower === 'm2' || text === 'm²') return 'm²';
-  if (lower === 'm3' || text === 'm³') return 'm³';
-  return lower;
-}
+const PARSED_FAMILIES: Record<string, MeasureFamily> = {
+  unitless: 'none',
+  length: 'length',
+  area: 'area',
+  volume: 'volume',
+};
 
 export function parseMeasure(raw: unknown): ParsedMeasure | null {
-  if (typeof raw === 'number') {
-    return Number.isFinite(raw) ? { value: raw, ...UNITLESS } : null;
-  }
-  if (typeof raw !== 'string') return null;
-  let text = raw.trim();
-  if (!text) return null;
-  let unit = UNITLESS;
-  const suffix = /^(.*?)\s*(m³|m3|m²|m2|mm|m)$/i.exec(text);
-  const suffixUnit = suffix?.[2];
-  if (suffix && suffixUnit) {
-    const parsedUnit = MEASURE_UNITS[canonicalUnit(suffixUnit)];
-    if (parsedUnit) {
-      unit = parsedUnit;
-      text = suffix[1] ?? '';
-    }
-  }
-  text = text.trim();
-  if (AMBIGUOUS_NUMBER.test(text)) return null;
-  if (!MEASURE_NUMBER.test(text)) return null;
-  const value = Number(
-    text
-      .replace(/^([+-]?\d+),([0-9]{1,2})$/, '$1.$2')
-      .replace(/[,\u00a0\u202f ]/g, ''),
-  );
-  if (!Number.isFinite(value)) return null;
-  return { value, ...unit };
+  const parsed = parseQuantity(raw);
+  const family = parsed && PARSED_FAMILIES[parsed.family];
+  if (!parsed || !family) return null;
+  return {
+    value: parsed.value,
+    unit: FAMILY_UNITS[family],
+    family,
+    factor: parsed.factor,
+  };
 }
 
 export type MeasureCell =
@@ -283,10 +247,8 @@ export function formatMeasure(
     maximumFractionDigits: precision,
   });
   const unit = options.unitLabel.trim() || cell.unit;
-  const exact = unit ? `${number} ${unit}` : number;
   if (cell.measured === 0) return 'n/a';
-  if (cell.skipped === 0) return exact;
-  return `${exact} (${cell.skipped.toLocaleString('en-US')} missing)`;
+  return unit ? `${number} ${unit}` : number;
 }
 
 export interface PivotNode {

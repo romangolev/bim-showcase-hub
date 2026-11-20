@@ -269,6 +269,15 @@ describe('measure parsing edge cases', () => {
     });
     expect(parseMeasure('1,000.5 m²')).toMatchObject({ value: 1000.5 });
     expect(parseMeasure('1.234')).toBeNull();
+    expect(parseMeasure('0.125 m')).toMatchObject({ value: 0.125 });
+    expect(parseMeasure('12 кг')).toMatchObject({
+      value: 12,
+      family: 'unit:кг',
+    });
+    expect(parseMeasure('2.5 kg/m³')).toMatchObject({
+      value: 2.5,
+      family: 'unit:kg/m3',
+    });
     expect(parseMeasure('2:30')).toBeNull();
     expect(parseMeasure('1e5')).toBeNull();
   });

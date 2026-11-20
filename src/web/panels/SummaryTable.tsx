@@ -35,10 +35,13 @@ function measureText(
   cell: MeasureCell | undefined,
   view: SummaryView | undefined,
 ): string {
-  return formatMeasure(cell ?? MISSING_MEASURE, {
+  const resolved = cell ?? MISSING_MEASURE;
+  const text = formatMeasure(resolved, {
     precision: view?.precision ?? 0,
     unitLabel: view?.unitLabel ?? '',
   });
+  if (resolved.status !== 'ok' || resolved.skipped === 0) return text;
+  return `${text} (${resolved.skipped.toLocaleString('en-US')} missing)`;
 }
 
 function TitleInput({
