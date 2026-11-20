@@ -19,6 +19,7 @@ import {
 import {
   type ChartData,
   mixColors,
+  OTHER_COLOR,
   readChartTheme,
   seriesColors,
 } from '../extensions/dashboardData.js';
@@ -93,34 +94,66 @@ export function ChartCanvas({
     Chart.defaults.font.weight = Number(theme.fontWeight) || 420;
     Chart.defaults.color = theme.text;
     const labels = chart.data.map((d) => d.label);
-    const styleFor = (key: string) => {
-      const lit = key ? new Set<string>(JSON.parse(key)) : null;
+    const models =
+      kind === 'bar' && chart.series && chart.series.length >= 2
+        ? chart.series
+        : null;
+    const stacked = models !== null;
+    const modelColors = models
+      ? seriesColors(
+          theme,
+          models.map((series) => series.label),
+        )
+      : [];
+    const categoryStyle = (lit: Set<string> | null) => ({
+      backgroundColor: lit
+        ? colors.map((color, index) =>
+            lit.has(labels[index] ?? '')
+              ? color
+              : mixColors(color, theme.surface, DIM_WEIGHT),
+          )
+        : colors,
+      borderWidth: labels.map((name) => (lit?.has(name) ? 2 : 0)),
+    });
+    const modelStyle = (index: number, lit: Set<string> | null) => {
+      const color = modelColors[index] ?? OTHER_COLOR;
       return {
-        backgroundColor: lit
-          ? colors.map((color, index) =>
-              lit.has(labels[index] ?? '')
-                ? color
-                : mixColors(color, theme.surface, DIM_WEIGHT),
-            )
-          : colors,
+        backgroundColor: labels.map((name) =>
+          lit && !lit.has(name)
+            ? mixColors(color, theme.surface, DIM_WEIGHT)
+            : color,
+        ),
         borderWidth: labels.map((name) => (lit?.has(name) ? 2 : 0)),
       };
     };
+    const styleFor = (index: number, key: string) => {
+      const lit = key ? new Set<string>(JSON.parse(key)) : null;
+      return stacked ? modelStyle(index, lit) : categoryStyle(lit);
+    };
     const counts = chart.data.map((d) => d.count);
-    const instance = new Chart(canvas, {
-      type: kind,
-      data: {
-        labels,
-        datasets: [
+    const datasets = models
+      ? models.map((series, index) => ({
+          label: series.label,
+          data: series.counts,
+          ...styleFor(index, litKeyRef.current),
+          borderColor: theme.label,
+          minBarLength: 2,
+        }))
+      : [
           {
             label: chart.property,
             data: counts,
-            ...styleFor(litKeyRef.current),
+            ...styleFor(0, litKeyRef.current),
             borderColor: theme.label,
             ...(kind === 'bar' ? { minBarLength: 2 } : {}),
             ...(kind === 'doughnut' ? { spacing: 2, borderRadius: 2 } : {}),
           },
-        ],
+        ];
+    const instance = new Chart(canvas, {
+      type: kind,
+      data: {
+        labels,
+        datasets,
       },
       options: {
         responsive: true,
@@ -133,13 +166,14 @@ export function ChartCanvas({
         },
         ...(kind === 'doughnut' ? { cutout: '64%' } : {}),
         plugins: {
-          legend: { display: false },
+          legend: { display: stacked },
           tooltip: { enabled: true },
         },
         scales:
           kind === 'bar'
             ? {
                 x: {
+                  ...(stacked ? { stacked: true } : {}),
                   border: { display: false },
                   ticks: {
                     color: theme.text,
@@ -154,6 +188,7 @@ export function ChartCanvas({
                   grid: { display: false },
                 },
                 y: {
+                  ...(stacked ? { stacked: true } : {}),
                   beginAtZero: true,
                   border: { display: false },
                   ticks: { color: theme.text, precision: 0, maxTicksLimit: 4 },
@@ -167,7 +202,9 @@ export function ChartCanvas({
     paintRef.current = (key) => {
       if (key === painted) return;
       painted = key;
-      Object.assign(instance.data.datasets[0] ?? {}, styleFor(key));
+      instance.data.datasets.forEach((dataset, index) => {
+        Object.assign(dataset, styleFor(index, key));
+      });
       instance.update('none');
     };
     return () => {

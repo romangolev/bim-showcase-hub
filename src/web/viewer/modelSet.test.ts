@@ -274,11 +274,19 @@ const combined: PropertyRow[] = [
 describe('model scope', () => {
   it('offers All models plus every ready model when there are several', () => {
     expect(modelScopeOptions(models)).toEqual([
-      { id: ALL_MODELS, label: 'All models' },
+      { id: ALL_MODELS, label: 'All visible models' },
       { id: 'a', label: 'Arch' },
       { id: 's', label: 'Struct' },
     ]);
     expect(modelScopeOptions(models.slice(0, 1))).toEqual([]);
+  });
+
+  it('keeps the plain label while every ready model is visible', () => {
+    expect(
+      modelScopeOptions(
+        models.map((model) => ({ ...model, visible: true })),
+      )[0],
+    ).toEqual({ id: ALL_MODELS, label: 'All models' });
   });
 
   it('falls back to All models when the scoped model is gone', () => {

@@ -24,6 +24,7 @@ import {
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import { type PersistedRecord, usePersisted } from '../storage.js';
 import { ALL_MODELS } from '../viewer/modelScope.js';
+import { splitByModel } from '../viewer/modelSeries.js';
 import type { ModelDbId } from '../viewer/modelSet.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { ChartCanvas } from './ChartCanvas.js';
@@ -108,13 +109,18 @@ export function DashboardPanel({
 
   const selected = options.includes(view.property) ? view.property : options[0];
 
-  const chart = useMemo(
-    () =>
-      usable && selected && !activePreset
-        ? shapeChartData(state.rows, selected, maxCategories)
-        : null,
-    [usable, state.rows, selected, maxCategories, activePreset],
-  );
+  const chart = useMemo(() => {
+    if (!usable || !selected || activePreset) return null;
+    const shaped = shapeChartData(state.rows, selected, maxCategories);
+    return view.splitByModel ? splitByModel(shaped, state.rows) : shaped;
+  }, [
+    usable,
+    state.rows,
+    selected,
+    maxCategories,
+    activePreset,
+    view.splitByModel,
+  ]);
 
   const [action] = usePersisted(PANE_SETTINGS.dashboard.action);
   const board = useMemo(
@@ -458,15 +464,25 @@ export function DashboardPanel({
                 <thead>
                   <tr>
                     <th scope="col">{chart.property}</th>
+                    {chart.series?.map((series) => (
+                      <th key={series.modelId} scope="col" className="bsh-num">
+                        {series.label}
+                      </th>
+                    ))}
                     <th scope="col" className="bsh-num">
                       Count
                     </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {chart.data.map((d) => (
+                  {chart.data.map((d, index) => (
                     <tr key={d.label}>
                       <td>{d.label}</td>
+                      {chart.series?.map((series) => (
+                        <td key={series.modelId} className="bsh-num">
+                          {series.counts[index] ?? 0}
+                        </td>
+                      ))}
                       <td className="bsh-num">{d.count}</td>
                     </tr>
                   ))}

@@ -18,10 +18,17 @@ export interface ChartDatum {
   count: number;
 }
 
+export interface ChartSeries {
+  modelId: string;
+  label: string;
+  counts: number[];
+}
+
 export interface ChartData {
   property: string;
   total: number;
   data: ChartDatum[];
+  series?: ChartSeries[];
 }
 
 export function countByProperty(
