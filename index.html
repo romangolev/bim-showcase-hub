@@ -8,27 +8,47 @@
     <title>BIM Showcase Hub</title>
     <script>
       (() => {
-        let preference = null;
+        let stored = null;
         try {
           const raw = localStorage.getItem("bsh-settings-v1");
-          const stored = raw === null ? null : JSON.parse(raw);
-          if (stored && typeof stored === "object") {
-            if (stored.theme === "light" || stored.theme === "dark") {
-              preference = stored.theme;
-            } else if (stored.theme === "system") {
-              preference = "system";
-            }
-          }
+          const parsed = raw === null ? null : JSON.parse(raw);
+          if (parsed && typeof parsed === "object") stored = parsed;
         } catch {
-          preference = null;
+          stored = null;
+        }
+        let preference = null;
+        if (stored) {
+          if (stored.theme === "light" || stored.theme === "dark") {
+            preference = stored.theme;
+          } else if (stored.theme === "system") {
+            preference = "system";
+          }
         }
         let theme = preference;
         if (theme !== "light" && theme !== "dark") {
           const light = window.matchMedia?.("(prefers-color-scheme: light)");
           theme = light?.matches ? "light" : "dark";
         }
-        document.documentElement.dataset.theme = theme;
-        document.documentElement.style.colorScheme = theme;
+        const root = document.documentElement;
+        root.dataset.theme = theme;
+        root.style.colorScheme = theme;
+        if (stored && (stored.density === "compact" || stored.density === "comfortable")) {
+          root.dataset.density = stored.density;
+        }
+        if (stored) {
+          const size =
+            stored.textSize === 100 || stored.textSize === 112 || stored.textSize === 125
+              ? String(stored.textSize)
+              : stored.textSize === "large"
+                ? "112"
+                : stored.textSize === "small" || stored.textSize === "medium"
+                  ? "100"
+                  : null;
+          if (size) root.dataset.textSize = size;
+        }
+        if (stored && stored.reducedMotion === true) {
+          root.dataset.reducedMotion = "true";
+        }
       })();
     </script>
   </head>

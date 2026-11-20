@@ -9,6 +9,7 @@
 - Color tokens are declared per theme, on `:root, :root[data-theme="dark"]` and `:root[data-theme="light"]`.
 - Everything else sits on `:root`: fonts, text sizes, spacing (`--space-*`), radii, density (`--gutter`, `--gutter-page`, `--nav-height`, `--hit-target`), `--border-hairline` and shadows.
 - The density values are tighter than the published spec so the viewer gets more of the screen.
+- Text size sets the root font size (`100%`, `112%` or `125%`). Text, spacing, control and row tokens are rem values, so the shell and the dock scale with it. Density multiplies the same tokens through `--density`.
 
 Other stylesheets (`src/web/styles/*.css`, `panels/panels.css`, `layout/dockTheme.css`) read these variables. Components do not use raw hex colors or pixel values that have a token.
 

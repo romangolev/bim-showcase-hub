@@ -20,6 +20,12 @@ export function appCommands(state: AppCommandState): Command[] {
       title: modal.id === 'settings' ? 'Open settings' : modal.title,
       group: 'Settings',
       icon: 'settings',
+      ...(modal.id === 'settings'
+        ? {
+            keywords:
+              'preferences appearance theme density text size language units local data',
+          }
+        : {}),
       run: (host) => host.openModal(modal.id),
     }),
   );

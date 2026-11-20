@@ -2,10 +2,12 @@ import { flag, isRecord } from '../../shared/guards.js';
 import { BSH_KEYS, defineRecord, getStorageAdapter } from '../storage.js';
 import { THEME_PREFERENCES, type ThemePreference } from '../theme/theme.js';
 
-export const SETTINGS_VERSION = 3;
+export const SETTINGS_VERSION = 4;
 
 export type Density = 'comfortable' | 'compact';
-type TextSize = 'small' | 'medium' | 'large';
+export type TextSize = 100 | 112 | 125;
+export type Language = 'en' | 'ru';
+export type Units = 'metric' | 'imperial';
 
 export interface Settings {
   version: number;
@@ -15,19 +17,25 @@ export interface Settings {
   textSize: TextSize;
   theme: ThemePreference;
   reducedMotion: boolean;
+  language: Language;
+  units: Units;
 }
 
 export const DENSITIES: readonly Density[] = ['comfortable', 'compact'];
-export const TEXT_SIZES: readonly TextSize[] = ['small', 'medium', 'large'];
+export const TEXT_SIZES: readonly TextSize[] = [100, 112, 125];
+export const LANGUAGES: readonly Language[] = ['en', 'ru'];
+export const UNITS: readonly Units[] = ['metric', 'imperial'];
 
 export const DEFAULT_SETTINGS: Settings = {
   version: SETTINGS_VERSION,
   sessionWarnMinutes: 10,
   recentsLength: 5,
   density: 'comfortable',
-  textSize: 'medium',
+  textSize: 100,
   theme: 'system',
   reducedMotion: false,
+  language: 'en',
+  units: 'metric',
 };
 
 export const SETTINGS_STORAGE_KEY = BSH_KEYS.preference.settings;
@@ -52,6 +60,21 @@ function pick<T extends string>(
   return options.includes(value as T) ? (value as T) : fallback;
 }
 
+const LEGACY_TEXT_SIZES: Record<string, TextSize> = {
+  small: 100,
+  medium: 100,
+  large: 112,
+};
+
+function textSize(value: unknown): TextSize {
+  if (value === 100 || value === 112 || value === 125) return value;
+  if (typeof value === 'string') {
+    const migrated = LEGACY_TEXT_SIZES[value];
+    if (migrated) return migrated;
+  }
+  return DEFAULT_SETTINGS.textSize;
+}
+
 export function readSettings(): Settings {
   const parsed = APP_SETTINGS_BLOB.read();
   if (parsed === undefined) return DEFAULT_SETTINGS;
@@ -67,9 +90,11 @@ export function readSettings(): Settings {
       DEFAULT_SETTINGS.recentsLength,
     ),
     density: pick(source.density, DENSITIES, DEFAULT_SETTINGS.density),
-    textSize: pick(source.textSize, TEXT_SIZES, DEFAULT_SETTINGS.textSize),
+    textSize: textSize(source.textSize),
     theme: pick(source.theme, THEME_PREFERENCES, DEFAULT_SETTINGS.theme),
     reducedMotion: flag(source.reducedMotion, DEFAULT_SETTINGS.reducedMotion),
+    language: pick(source.language, LANGUAGES, DEFAULT_SETTINGS.language),
+    units: pick(source.units, UNITS, DEFAULT_SETTINGS.units),
   };
 }
 
@@ -97,7 +122,7 @@ function storedFromNewerBuild(): boolean {
 
 export function applyAppSettings(settings: Settings, root: HTMLElement): void {
   root.dataset.density = settings.density;
-  root.dataset.textSize = settings.textSize;
+  root.dataset.textSize = String(settings.textSize);
   root.dataset.reducedMotion = settings.reducedMotion ? 'true' : 'false';
 }
 

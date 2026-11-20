@@ -1,9 +1,20 @@
 import { useId } from 'react';
 import type { ModalDefinition } from '../modal/types.js';
 import { THEME_PREFERENCES, type ThemePreference } from '../theme/theme.js';
+import { DefaultsSettings } from './DefaultsSettings.js';
+import { LocalDataSettings } from './LocalDataSettings.js';
 import { useSettings } from './SettingsContext.js';
 import { SettingsEntries } from './SettingsEntries.js';
-import { DENSITIES, type Settings, TEXT_SIZES } from './settings.js';
+import {
+  DENSITIES,
+  LANGUAGES,
+  type Language,
+  type Settings,
+  TEXT_SIZES,
+  type TextSize,
+  UNITS,
+  type Units,
+} from './settings.js';
 
 const DENSITY_LABELS: Record<Settings['density'], string> = {
   comfortable: 'Comfortable',
@@ -11,15 +22,25 @@ const DENSITY_LABELS: Record<Settings['density'], string> = {
 };
 
 const TEXT_SIZE_LABELS: Record<Settings['textSize'], string> = {
-  small: 'Small',
-  medium: 'Medium',
-  large: 'Large',
+  100: '100%',
+  112: '112%',
+  125: '125%',
 };
 
 const THEME_LABELS: Record<ThemePreference, string> = {
   system: 'System',
   light: 'Light',
   dark: 'Dark',
+};
+
+const LANGUAGE_LABELS: Record<Language, string> = {
+  en: 'English',
+  ru: 'Русский',
+};
+
+const UNITS_LABELS: Record<Units, string> = {
+  metric: 'Metric',
+  imperial: 'Imperial',
 };
 
 export function SettingsBody() {
@@ -30,6 +51,8 @@ export function SettingsBody() {
   const densityId = useId();
   const textSizeId = useId();
   const motionId = useId();
+  const languageId = useId();
+  const unitsId = useId();
   return (
     <div className="settings">
       <section
@@ -74,7 +97,7 @@ export function SettingsBody() {
             ))}
           </select>
           <span className="settings__hint">
-            Compact fits more rows and tighter gutters.
+            Compact tightens gutters, rows, controls and dock tabs.
           </span>
         </div>
         <div className="settings__field">
@@ -83,7 +106,7 @@ export function SettingsBody() {
             id={textSizeId}
             value={settings.textSize}
             onChange={(event) =>
-              setSetting('textSize', event.target.value as Settings['textSize'])
+              setSetting('textSize', Number(event.target.value) as TextSize)
             }
           >
             {TEXT_SIZES.map((size) => (
@@ -92,6 +115,9 @@ export function SettingsBody() {
               </option>
             ))}
           </select>
+          <span className="settings__hint">
+            Scales text and the spacing that follows it.
+          </span>
         </div>
         <div className="settings__field">
           <label htmlFor={motionId} className="settings__check">
@@ -106,8 +132,52 @@ export function SettingsBody() {
             Reduce motion
           </label>
           <span className="settings__hint">
-            Stops decorative animation in this app, in addition to your system
-            setting.
+            Stops animation in this app even when your device does not ask for
+            it.
+          </span>
+        </div>
+      </section>
+      <section className="settings__section" aria-labelledby="settings-region">
+        <h3 id="settings-region" className="settings__heading">
+          Language and units
+        </h3>
+        <div className="settings__field">
+          <label htmlFor={languageId}>Language</label>
+          <select
+            id={languageId}
+            value={settings.language}
+            onChange={(event) =>
+              setSetting('language', event.target.value as Language)
+            }
+          >
+            {LANGUAGES.map((language) => (
+              <option key={language} value={language}>
+                {LANGUAGE_LABELS[language]}
+              </option>
+            ))}
+          </select>
+          <span className="settings__hint">
+            Saved with your settings. The interface stays in English for now.
+          </span>
+        </div>
+        <div className="settings__field">
+          <label htmlFor={unitsId}>Units</label>
+          <select
+            id={unitsId}
+            value={settings.units}
+            onChange={(event) =>
+              setSetting('units', event.target.value as Units)
+            }
+          >
+            {UNITS.map((units) => (
+              <option key={units} value={units}>
+                {UNITS_LABELS[units]}
+              </option>
+            ))}
+          </select>
+          <span className="settings__hint">
+            Saved with your settings. Property values keep the model's own
+            units.
           </span>
         </div>
       </section>
@@ -166,6 +236,8 @@ export function SettingsBody() {
         </div>
       </section>
       <SettingsEntries />
+      <DefaultsSettings />
+      <LocalDataSettings />
     </div>
   );
 }

@@ -37,6 +37,8 @@ export const BSH_KEYS = {
 
 export const BSH_PERSONAL_PREFIXES: readonly string[] = ['bsh.pane.'];
 
+export const BSH_PREFERENCE_PREFIXES: readonly string[] = ['bsh.tool.'];
+
 export const FORGET_EVENT = 'bsh:forget';
 
 let adapter: StorageAdapter = browserAdapter;
@@ -52,11 +54,19 @@ export function getStorageAdapter(): StorageAdapter {
 }
 
 const personalKeys = new Set<string>(Object.values(BSH_KEYS.personal));
+const preferenceKeys = new Set<string>(Object.values(BSH_KEYS.preference));
 
-function isPersonal(key: string): boolean {
+export function isPersonalKey(key: string): boolean {
   return (
     personalKeys.has(key) ||
     BSH_PERSONAL_PREFIXES.some((prefix) => key.startsWith(prefix))
+  );
+}
+
+export function isPreferenceKey(key: string): boolean {
+  return (
+    preferenceKeys.has(key) ||
+    BSH_PREFERENCE_PREFIXES.some((prefix) => key.startsWith(prefix))
   );
 }
 
@@ -214,7 +224,7 @@ export function onForgetPersonal(hook: () => void): void {
 export function forgetPersonal(): void {
   for (const which of ['local', 'session'] as const) {
     for (const key of adapter.keys(which)) {
-      if (isPersonal(key)) adapter.remove(which, key);
+      if (isPersonalKey(key)) adapter.remove(which, key);
     }
     for (const key of personalKeys) adapter.remove(which, key);
   }
@@ -241,7 +251,7 @@ export function usePersisted<T>(
   }, []);
   useEffect(() => {
     const onForget = () => {
-      if (isPersonal(record.key)) {
+      if (isPersonalKey(record.key)) {
         setValue(record.initial);
         return;
       }

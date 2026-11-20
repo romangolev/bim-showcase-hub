@@ -45,7 +45,7 @@ Green and red are reserved for success and destructive signals. Never decorative
 - Family: Inter variable, with `font-feature-settings: "ss01", "ss03"`.
 - Headlines: weight 400 at 32px and above. Display sizes 52 to 64px.
 - Body and UI: weights 420 to 480, sizes 13 to 18px. Weight 500 for small labels, 580 rarely.
-- Scale: 8, 13, 14, 16, 18, 24, 32, 42, 52, 64px. The 24px step is the model page title.
+- Scale: 8, 13, 14, 16, 18, 24, 32, 42, 52, 64px. The 24px step is the model page title. These are the 100% base; the text size preference scales the root to 112% or 125%.
 - Tracking: about -0.02 to -0.03em at body sizes, slightly looser at display sizes.
 
 ## Spacing and shape

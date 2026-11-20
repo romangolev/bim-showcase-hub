@@ -84,7 +84,7 @@ All browser storage goes through `src/web/storage.ts`. `BSH_KEYS` lists the fixe
 | `bsh.workspaces.v1` | personal | Named workspaces: `{ version: 1, items }`, each with a name, a layout and pane appearances |
 | `bsh.commands.recent.v1` | personal | Recent palette commands |
 | `bsh.hint.hubs.dismissed.v1` | personal | No-hubs notice dismissed |
-| `bsh-settings-v1` | preference | App settings, version 3: theme (`system`, `light`, `dark`), density, text size, reduced motion, session warning, recents length |
+| `bsh-settings-v1` | preference | App settings, version 4: theme (`system`, `light`, `dark`), density, text size (100, 112, 125), reduced motion, language (`en`, `ru`), units (`metric`, `imperial`), session warning, recents length |
 | `bsh.layout.locked` | preference | Layout lock |
 | `bsh.tree.view` | preference | Tree sort and metadata columns |
 | `bsh.snapshot.v1` | preference | Snapshot and Present options |
@@ -92,7 +92,7 @@ All browser storage goes through `src/web/storage.ts`. `BSH_KEYS` lists the fixe
 | `bsh.commands.pinned.v1` | preference | Pinned palette commands |
 | `bsh.tool.<id>.v1` | preference | Per-tool settings (`paint`, `excel`, `glb`, `ifc`). Excel stores its chosen columns in `properties` |
 
-To reset the layout, run `localStorage.removeItem('bsh.layout.v2')` or use Reset layout in the Panes menu. In mock mode `window.__bshLayout` exposes the layout API for tests. It does not exist in production builds.
+To reset the layout, run `localStorage.removeItem('bsh.layout.v2')` or use Reset layout in the Panes menu or Settings > Defaults. In mock mode `window.__bshLayout` exposes the layout API for tests. It does not exist in production builds.
 
 ## CSP
 

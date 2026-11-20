@@ -22,6 +22,9 @@ describe('pre-paint theme', () => {
   beforeEach(() => {
     installMemoryStorage();
     document.documentElement.removeAttribute('data-theme');
+    document.documentElement.removeAttribute('data-density');
+    document.documentElement.removeAttribute('data-text-size');
+    document.documentElement.removeAttribute('data-reduced-motion');
     document.documentElement.style.colorScheme = '';
   });
 
@@ -49,9 +52,45 @@ describe('pre-paint theme', () => {
     runPrepaint(true);
     expect(document.documentElement.dataset.theme).toBe('light');
   });
+
+  it('applies density, text size and reduced motion before React', () => {
+    window.localStorage.setItem(
+      BSH_KEYS.preference.settings,
+      JSON.stringify({
+        density: 'compact',
+        textSize: 125,
+        reducedMotion: true,
+      }),
+    );
+    runPrepaint(false);
+    const root = document.documentElement;
+    expect(root.dataset.density).toBe('compact');
+    expect(root.dataset.textSize).toBe('125');
+    expect(root.dataset.reducedMotion).toBe('true');
+  });
+
+  it('migrates the old named text size before paint', () => {
+    window.localStorage.setItem(
+      BSH_KEYS.preference.settings,
+      JSON.stringify({ textSize: 'large' }),
+    );
+    runPrepaint(false);
+    expect(document.documentElement.dataset.textSize).toBe('112');
+  });
+
+  it('leaves the defaults to the stylesheet', () => {
+    runPrepaint(false);
+    const root = document.documentElement;
+    expect(root.dataset.density).toBeUndefined();
+    expect(root.dataset.textSize).toBeUndefined();
+    expect(root.dataset.reducedMotion).toBeUndefined();
+  });
 });
 
 afterEach(() => {
   document.documentElement.removeAttribute('data-theme');
+  document.documentElement.removeAttribute('data-density');
+  document.documentElement.removeAttribute('data-text-size');
+  document.documentElement.removeAttribute('data-reduced-motion');
   document.documentElement.style.colorScheme = '';
 });
