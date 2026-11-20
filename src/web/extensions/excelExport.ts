@@ -182,6 +182,21 @@ export function buildExportRows(
   };
 }
 
+export const PREVIEW_ROWS = 20;
+
+export function exportPreview(
+  rows: readonly PropertyRow[],
+  propertyNames: readonly string[],
+  emptyText = '',
+): { header: string[]; rows: ExportCell[][] } {
+  return buildExportRows(
+    rows.slice(0, PREVIEW_ROWS),
+    propertyNames,
+    distinctModelCount(rows) > 1,
+    emptyText,
+  );
+}
+
 export function buildExportSheets(
   rows: readonly PropertyRow[],
   propertyNames: readonly string[],

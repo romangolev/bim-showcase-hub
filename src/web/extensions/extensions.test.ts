@@ -22,8 +22,10 @@ import {
   buildExportRows,
   buildExportSheets,
   describeStatus,
+  exportPreview,
   exportToXlsx,
   MODEL_COLUMN,
+  PREVIEW_ROWS,
   sheetNameFor,
 } from './excelExport.js';
 import {
@@ -148,6 +150,19 @@ describe('export rows', () => {
       ['Arch', 1, 'Walls', 'W1'],
       ['s', 1, 'Walls', 'W1'],
     ]);
+  });
+
+  it('previews the first 20 export rows with the model column for several models', () => {
+    const many: PropertyRow[] = Array.from({ length: 30 }, (_, i) => ({
+      dbId: i,
+      name: `e${i}`,
+      properties: { Category: 'Walls' },
+      modelId: i % 2 ? 'a' : 'b',
+      modelName: i % 2 ? 'A' : 'B',
+    }));
+    const preview = exportPreview(many, ['Category']);
+    expect(preview.rows).toHaveLength(PREVIEW_ROWS);
+    expect(preview.header).toEqual([MODEL_COLUMN, 'dbId', 'Category']);
   });
 
   it('names the models whose properties are missing from an export', async () => {

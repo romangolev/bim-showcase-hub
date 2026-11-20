@@ -33,10 +33,24 @@ export interface ExcelSettings {
   summarySheet: boolean;
   groupBy: string | null;
   emptyLabel: EmptyLabel;
+  confirmAbove: number;
 }
 
 export const DEFAULT_NAME_PATTERN = '{model}-properties';
 export const DEFAULT_GROUP_BY = 'Category';
+
+export const DEFAULT_CONFIRM_ABOVE = 20000;
+const CONFIRM_ABOVE_MIN = 1000;
+export const CONFIRM_ABOVE_MAX = 1_000_000;
+
+export function sanitizeConfirmAbove(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return DEFAULT_CONFIRM_ABOVE;
+  }
+  const rows = Math.floor(value);
+  if (rows === 0) return 0;
+  return Math.min(CONFIRM_ABOVE_MAX, Math.max(CONFIRM_ABOVE_MIN, rows));
+}
 
 export const DEFAULT_EXCEL_SETTINGS: ExcelSettings = {
   format: 'xlsx',
@@ -51,6 +65,7 @@ export const DEFAULT_EXCEL_SETTINGS: ExcelSettings = {
   summarySheet: false,
   groupBy: DEFAULT_GROUP_BY,
   emptyLabel: 'blank',
+  confirmAbove: DEFAULT_CONFIRM_ABOVE,
 };
 
 export function readExcelSettings(value: unknown): ExcelSettings {
@@ -78,6 +93,7 @@ export function readExcelSettings(value: unknown): ExcelSettings {
         ? null
         : required(source.groupBy, d.groupBy ?? DEFAULT_GROUP_BY),
     emptyLabel: source.emptyLabel === '(empty)' ? '(empty)' : d.emptyLabel,
+    confirmAbove: sanitizeConfirmAbove(source.confirmAbove),
   };
 }
 

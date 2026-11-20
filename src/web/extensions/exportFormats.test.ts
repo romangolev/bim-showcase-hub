@@ -471,6 +471,12 @@ describe('readExcelSettings', () => {
     expect(readExcelSettings([])).toEqual(DEFAULT_EXCEL_SETTINGS);
   });
 
+  it('clamps the confirmation threshold and keeps 0 as never ask', () => {
+    expect(readExcelSettings({ confirmAbove: 5 }).confirmAbove).toBe(1000);
+    expect(readExcelSettings({ confirmAbove: 0 }).confirmAbove).toBe(0);
+    expect(readExcelSettings({}).confirmAbove).toBe(20000);
+  });
+
   it('keeps valid choices and defaults the rest', () => {
     expect(
       readExcelSettings({

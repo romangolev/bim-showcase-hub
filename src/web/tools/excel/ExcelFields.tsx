@@ -1,5 +1,7 @@
 import { useId } from 'react';
+import { NumberField } from '../../components/NumberField.js';
 import {
+  CONFIRM_ABOVE_MAX,
   type CsvDelimiter,
   DECIMAL_LABELS,
   DELIMITER_LABELS,
@@ -189,6 +191,23 @@ export function ExcelFields() {
         />
         <span className="settings__hint">
           Use {'{model}'} and {'{date}'}.
+        </span>
+      </div>
+      <div className="settings__field">
+        <label>
+          Ask before exporting over rows
+          <NumberField
+            min={0}
+            max={CONFIRM_ABOVE_MAX}
+            className="bsh-input bsh-input--narrow"
+            value={excel.confirmAbove}
+            onCommit={(confirmAbove) => update({ confirmAbove })}
+          />
+        </label>
+        <span className="settings__hint">
+          {excel.confirmAbove === 0
+            ? 'Never asks.'
+            : `Asks above ${excel.confirmAbove.toLocaleString('en-US')} rows.`}
         </span>
       </div>
       <SelectField<CsvDelimiter>
