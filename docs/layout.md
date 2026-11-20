@@ -61,6 +61,7 @@ The top bar Panes menu is a searchable dialog over every pane.
 - The entries sit in a `role="menu"` inside the dialog; the search field stays outside it. A pane toggle and Lock are `menuitemcheckbox` entries with `aria-checked`; the other entries are `menuitem`.
 - A row's main action is its command: Open/Close with a checked state for a normal pane, New for a user kind, or a pane hook such as Go to Documents. Focus and the pane's extra commands sit beside it. The footer holds the workspace actions (save, import, download, copy JSON, share link, revert), Present, Lock and Reset layout. A pane with no command, such as the Viewer, has no row.
 - Search matches the pane's title, description, category and keywords. Without a query the rows are grouped by category (Workspace, Viewer, Analysis, Data). With a query they become one list.
+- Colors (Analysis) and Export (Data) are opt-in viewer followers: they are left out of the companions that follow a model (`opensWithModel: false`) and open from the menu, the palette or an explicit Reset. They are dock panes, not part of the stacked column.
 
 ## Rename and colour
 
@@ -114,6 +115,7 @@ The default layout, menus, persistence and stack read the registry.
 | `closable` | `false` makes the pane required. Only Documents is |
 | `canFloat` | Offers Float in the pane menu |
 | `requires` | `'viewer'` hides the pane in the stacked layout outside the model route |
+| `opensWithModel` | Defaults to on. `false` keeps a viewer follower out of the companions until the user opens it |
 | `commands` | Extra palette commands for this pane. `paneCommands` keeps the generated Open/Close and New entries and appends these ([extensions.md](extensions.md#add-a-command)) |
 
 ## Persistence
