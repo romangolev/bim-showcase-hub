@@ -28,6 +28,7 @@ export type MenuEntry =
 interface MenuBaseProps {
   title?: string;
   items: () => MenuEntry[];
+  hint?: string;
   className?: string;
   triggerClassName?: string;
   align?: 'start' | 'end';
@@ -57,6 +58,7 @@ export function Menu({
   title,
   trigger,
   items,
+  hint,
   className,
   triggerClassName = 'icon-button',
   align = 'end',
@@ -189,6 +191,16 @@ export function Menu({
               }
               onKeyDown={onMenuKeyDown}
             >
+              {hint ? (
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="menu__item menu__item--hint"
+                  disabled
+                >
+                  {hint}
+                </button>
+              ) : null}
               {entries.map((entry) => {
                 if (entry.kind === 'separator') {
                   return <hr key={entry.id} className="menu__separator" />;

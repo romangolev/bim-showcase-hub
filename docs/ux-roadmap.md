@@ -29,5 +29,5 @@ Planned work lives in GitHub issues, tracked by [#108](https://github.com/romang
 ## Open questions
 
 1. Browser-local user data with file sharing (the current choice), or per-user server storage?
-2. Do shared links go to colleagues with Autodesk access only, or also to people without accounts?
+2. Resolved: shared links stay for people who already have Autodesk access. Public sharing is skipped for now, and the Share menu and this page say so.
 3. Resolved: 100k discovery is chunked, cancellable and cached. Real latency stays a live-model check, and no new warning threshold is added.

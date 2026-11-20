@@ -98,7 +98,7 @@ A derivative URN does not prove a model opens: the manifest can hold only a thum
 - A combined tab holds up to `MAX_COMBINED_MODELS` (6) models in one scene.
 - `ModelRouteSync` keeps the URL and the store in step.
 
-Share links (`api/viewLink.ts`) carry the camera and selection (version 1), the pane and chart state (version 2) and per-model hidden and isolated node ids (version 3). `viewer/shareLink.ts` captures them from `adapter.getState()`; `viewer/incomingLink.ts` restores an opened link (read from the router search, applied once, cleared through the router) and calls `restoreState` after the models load. Nothing is stored on the server.
+Share links (`api/viewLink.ts`) carry the camera and selection (version 1), the pane and chart state (version 2) and per-model hidden and isolated node ids (version 3). `viewer/shareLink.ts` captures them from `adapter.getState()`; `viewer/incomingLink.ts` restores an opened link (read from the router search, applied once, cleared through the router) and calls `restoreState` after the models load. Nothing is stored on the server. A link opens only for people who already have Autodesk access to the files: there is no public token route, public viewer or copy of a hub model, and the Share menu says so.
 
 ### Persisted records
 
