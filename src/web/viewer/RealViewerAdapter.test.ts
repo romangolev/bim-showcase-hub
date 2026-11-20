@@ -30,6 +30,7 @@ class FakeButton implements ControlButton {
   state = STATE.INACTIVE;
   tooltip = '';
   iconClass = '';
+  visible = true;
   onClick: (ev?: unknown) => void = () => {};
 
   constructor(readonly id: string) {}
@@ -49,6 +50,10 @@ class FakeButton implements ControlButton {
 
   getState(): number {
     return this.state;
+  }
+
+  setVisible(visible: boolean): void {
+    this.visible = visible;
   }
 
   click(): void {
@@ -85,6 +90,10 @@ class FakeGroup implements ControlGroup {
 
   getNumberOfControls(): number {
     return this.controls.length;
+  }
+
+  getControl(id: string): ControlButton | undefined {
+    return this.controls.find((control) => control.id === id);
   }
 }
 
@@ -123,19 +132,40 @@ const registry = new Map<string, ViewerExtensionClass>();
 const registerSpy = vi.fn();
 const viewers: FakeViewer[] = [];
 const mainLoop: FakeViewer[] = [];
+const nativeGroups: FakeGroup[] = [];
 const startPlan: { code?: number; error?: Error } = {};
+
+class FakeMeasure {
+  list: unknown[] = [];
+  activated: string[] = [];
+
+  activate(mode: string): boolean {
+    this.activated.push(mode);
+    return true;
+  }
+
+  getMeasurementList(): unknown[] {
+    return this.list;
+  }
+
+  deleteMeasurements(): void {
+    this.list = [];
+  }
+}
 
 class FakeViewer implements GuiViewer3D {
   toolbar = new FakeToolbar();
   model: ViewerModel = {
     getBulkProperties: (_ids, _opts, ok) => ok([]),
   };
+  measure: FakeMeasure | null = new FakeMeasure();
   selection: number[] = [];
   resizeCalls = 0;
   canvas?: HTMLCanvasElement;
   impl?: { resize?(width: number, height: number): void };
   themed: { id: number; color: unknown }[] = [];
   clearThemingCalls = 0;
+  display: { name: string; args: unknown[] }[] = [];
   extensions = new Map<string, ViewerExtension>();
   private readonly listeners = new Map<
     string,
@@ -143,6 +173,7 @@ class FakeViewer implements GuiViewer3D {
   >();
 
   constructor(public container: HTMLElement) {
+    for (const group of nativeGroups) this.toolbar.addControl(group);
     viewers.push(this);
   }
 
@@ -155,6 +186,43 @@ class FakeViewer implements GuiViewer3D {
     if (startPlan.code) return startPlan.code;
     mainLoop.push(this);
     return 0;
+  }
+
+  getExtension(id: string): unknown {
+    return id === 'Autodesk.Measure' ? (this.measure ?? undefined) : undefined;
+  }
+
+  setLightPreset(preset: number): void {
+    this.display.push({ name: 'setLightPreset', args: [preset] });
+  }
+
+  setGroundShadow(value: boolean): void {
+    this.display.push({ name: 'setGroundShadow', args: [value] });
+  }
+
+  setDisplayEdges(value: boolean): void {
+    this.display.push({ name: 'setDisplayEdges', args: [value] });
+  }
+
+  setQualityLevel(ambientOcclusion: boolean, antialiasing: boolean): void {
+    this.display.push({
+      name: 'setQualityLevel',
+      args: [ambientOcclusion, antialiasing],
+    });
+  }
+
+  setOptimizeNavigation(value: boolean): void {
+    this.display.push({ name: 'setOptimizeNavigation', args: [value] });
+  }
+
+  setProgressiveRendering(value: boolean): void {
+    this.display.push({ name: 'setProgressiveRendering', args: [value] });
+  }
+
+  calls(name: string): unknown[][] {
+    return this.display
+      .filter((call) => call.name === name)
+      .map((call) => call.args);
   }
 
   setTheme(): void {}
@@ -249,6 +317,7 @@ function installFakeAutodesk(): void {
   registerSpy.mockClear();
   viewers.length = 0;
   mainLoop.length = 0;
+  nativeGroups.length = 0;
   delete startPlan.code;
   delete startPlan.error;
   const manager = {
@@ -1329,5 +1398,176 @@ describe('RealViewerAdapter geometry export', () => {
       expect(of(infoA)).toEqual(expectedA);
       expect(of(infoB)).toEqual(expectedB);
     });
+  });
+});
+
+describe('RealViewerAdapter measurements', () => {
+  it('reads measurements from the Measure extension and reports a missing one', async () => {
+    makeAdapter();
+    await adapter.load('dXJu');
+    const viewer = viewers[0] as FakeViewer;
+    const measure = viewer.measure;
+    if (!measure) throw new Error('measure extension missing');
+    measure.list = [{ type: 'distance', distance: '2 m' }];
+    expect(adapter.listMeasurements()).toEqual([
+      { id: 'm0', type: 'distance', value: '2 m' },
+    ]);
+    const seen = vi.fn();
+    const off = adapter.onMeasurementsChange(seen);
+    expect(await adapter.startMeasure('distance')).toBe(true);
+    expect(measure.activated).toEqual(['distance']);
+    expect(seen).not.toHaveBeenCalled();
+    adapter.clearMeasurements();
+    expect(measure.list).toEqual([]);
+    expect(seen).toHaveBeenCalledTimes(1);
+    off();
+    viewer.measure = null;
+    expect(adapter.listMeasurements()).toEqual([]);
+    expect(await adapter.startMeasure('area')).toBe(false);
+    adapter.clearMeasurements();
+    expect(seen).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses to measure without a viewer', async () => {
+    makeAdapter();
+    expect(await adapter.startMeasure('distance')).toBe(false);
+    expect(adapter.listMeasurements()).toEqual([]);
+  });
+
+  it('notifies when the Measure extension reports an event', async () => {
+    const viewing = autodeskWindow().Autodesk?.Viewing;
+    if (!viewing) throw new Error('no viewing');
+    viewing.MeasureCommon = {
+      Events: {
+        MEASUREMENT_COMPLETED_EVENT: 'measurement-completed',
+        DELETE_MEASUREMENT_EVENT: 'measurement-deleted',
+      },
+    };
+    makeAdapter();
+    await adapter.load('dXJu');
+    const seen = vi.fn();
+    adapter.onMeasurementsChange(seen);
+    const viewer = viewers[0] as FakeViewer;
+    viewer.emit('measurement-completed');
+    viewer.emit('measurement-deleted');
+    delete viewing.MeasureCommon;
+    expect(seen).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('RealViewerAdapter hidden controls', () => {
+  it('hides known controls after the load and reports unknown ids', async () => {
+    const nav = new FakeGroup('navTools');
+    const section = new FakeButton('toolbar-sectionTool');
+    const orbit = new FakeButton('toolbar-orbitTools');
+    nav.addControl(section);
+    nav.addControl(orbit);
+    nativeGroups.push(nav);
+    makeAdapter();
+    expect(adapter.setHiddenControls(['toolbar-sectionTool'])).toEqual([]);
+    await adapter.load('dXJu');
+    expect(section.visible).toBe(false);
+    expect(orbit.visible).toBe(true);
+    expect(
+      adapter.setHiddenControls(['toolbar-sectionTool', 'toolbar-nope']),
+    ).toEqual(['toolbar-nope']);
+    expect(section.visible).toBe(false);
+    adapter.setHiddenControls([]);
+    expect(section.visible).toBe(true);
+  });
+
+  it('reapplies the hidden controls after a later model load', async () => {
+    makeAdapter();
+    await adapter.load('dXJu');
+    const viewer = viewers[0] as FakeViewer;
+    const nav = new FakeGroup('navTools');
+    const section = new FakeButton('toolbar-sectionTool');
+    nav.addControl(section);
+    viewer.toolbar.addControl(nav);
+    expect(adapter.setHiddenControls(['toolbar-sectionTool'])).toEqual([]);
+    expect(section.visible).toBe(false);
+    section.visible = true;
+    await adapter.addModel({ urn: 'dXJuLXR3bw' });
+    expect(section.visible).toBe(false);
+  });
+
+  it('hides controls that only appear when the toolbar is created', async () => {
+    makeAdapter();
+    await adapter.load('dXJu');
+    const viewer = viewers[0] as FakeViewer;
+    const settings = new FakeGroup('settingsTools');
+    const fullscreen = new FakeButton('toolbar-fullscreenTool');
+    settings.addControl(fullscreen);
+    expect(adapter.setHiddenControls(['toolbar-fullscreenTool'])).toEqual([
+      'toolbar-fullscreenTool',
+    ]);
+    viewer.toolbar.addControl(settings);
+    expect(fullscreen.visible).toBe(true);
+    viewer.emit('toolbar-created');
+    expect(fullscreen.visible).toBe(false);
+  });
+
+  it('ignores the hidden list before a viewer exists', () => {
+    makeAdapter();
+    expect(adapter.setHiddenControls(['toolbar-panTool'])).toEqual([]);
+  });
+});
+
+describe('RealViewerAdapter display settings', () => {
+  it('applies every supported option and reports the unsupported ones', async () => {
+    makeAdapter();
+    await adapter.load('dXJu');
+    const viewer = viewers[0] as FakeViewer;
+    expect(
+      adapter.applyDisplaySettings({
+        lightPreset: 2,
+        groundShadow: false,
+        groundReflection: true,
+        edges: true,
+        ambientOcclusion: false,
+        antialiasing: true,
+        performance: true,
+      }),
+    ).toEqual(['groundReflection']);
+    expect(viewer.calls('setLightPreset')).toEqual([[2]]);
+    expect(viewer.calls('setGroundShadow')).toEqual([[false]]);
+    expect(viewer.calls('setDisplayEdges')).toEqual([[true]]);
+    expect(viewer.calls('setQualityLevel')).toEqual([[false, true]]);
+    expect(viewer.calls('setOptimizeNavigation')).toEqual([[true]]);
+    expect(viewer.calls('setProgressiveRendering')).toEqual([[false]]);
+  });
+
+  it('reapplies the last display settings after each model load', async () => {
+    makeAdapter();
+    await adapter.load('dXJu');
+    const viewer = viewers[0] as FakeViewer;
+    adapter.applyDisplaySettings({
+      lightPreset: null,
+      groundShadow: true,
+      groundReflection: true,
+      edges: false,
+      ambientOcclusion: true,
+      antialiasing: true,
+      performance: false,
+    });
+    expect(viewer.calls('setDisplayEdges')).toEqual([[false]]);
+    await adapter.addModel({ urn: 'dXJuLXR3bw' });
+    expect(viewer.calls('setDisplayEdges')).toEqual([[false], [false]]);
+    expect(viewer.calls('setLightPreset')).toEqual([]);
+  });
+
+  it('applies nothing before the viewer starts', () => {
+    makeAdapter();
+    expect(
+      adapter.applyDisplaySettings({
+        lightPreset: 1,
+        groundShadow: true,
+        groundReflection: false,
+        edges: true,
+        ambientOcclusion: true,
+        antialiasing: true,
+        performance: false,
+      }),
+    ).toEqual([]);
   });
 });

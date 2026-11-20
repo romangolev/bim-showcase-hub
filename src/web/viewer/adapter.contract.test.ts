@@ -271,6 +271,115 @@ describe('ViewerAdapter contract (mock)', () => {
     const typed: ViewerAdapter = adapter;
     expect(typeof typed.load).toBe('function');
   });
+
+  it('lists, notifies and clears measurements', async () => {
+    await setup();
+    const seen = vi.fn();
+    const off = adapter.onMeasurementsChange(seen);
+    expect(adapter.listMeasurements()).toEqual([]);
+    expect(await adapter.startMeasure('distance')).toBe(true);
+    expect(adapter.listMeasurements()).toEqual([
+      { id: '1', type: 'distance', value: '3.50 m' },
+    ]);
+    adapter.clearMeasurements();
+    expect(adapter.listMeasurements()).toEqual([]);
+    expect(seen).toHaveBeenCalledTimes(2);
+    off();
+    await adapter.startMeasure('area');
+    expect(seen).toHaveBeenCalledTimes(2);
+  });
+
+  it('drops measurements on unload and destroy', async () => {
+    await setup();
+    await adapter.startMeasure('angle');
+    adapter.unload();
+    expect(adapter.listMeasurements()).toEqual([]);
+    await adapter.load('dXJuOmFkc2s');
+    await adapter.startMeasure('area');
+    adapter.destroy();
+    expect(adapter.listMeasurements()).toEqual([]);
+  });
+
+  it('applies and records display settings', async () => {
+    await setup();
+    const settings = {
+      lightPreset: 2,
+      groundShadow: false,
+      groundReflection: true,
+      edges: true,
+      ambientOcclusion: false,
+      antialiasing: true,
+      performance: true,
+    };
+    expect(adapter.applyDisplaySettings(settings)).toEqual([]);
+    const root = host.querySelector<HTMLElement>('.bsh-mock');
+    expect(JSON.parse(root?.dataset.display ?? 'null')).toEqual(settings);
+  });
+
+  it('hides native controls by id and reports unknown ids', async () => {
+    await setup();
+    expect(
+      adapter.setHiddenControls(['toolbar-orbitTools', 'toolbar-nope']),
+    ).toEqual(['toolbar-nope']);
+    expect(
+      host.querySelector<HTMLElement>('[data-native-id="toolbar-orbitTools"]')
+        ?.hidden,
+    ).toBe(true);
+    adapter.setHiddenControls([]);
+    expect(
+      host.querySelector<HTMLElement>('[data-native-id="toolbar-orbitTools"]')
+        ?.hidden,
+    ).toBe(false);
+    expect(
+      host.querySelector<HTMLElement>('[data-native-id="toolbar-orbitTools"]')
+        ?.style.display,
+    ).toBe('');
+  });
+
+  it('keeps hidden controls hidden after a later model load', async () => {
+    await setup();
+    adapter.setHiddenControls(['toolbar-measurementSubmenuTool']);
+    await adapter.addModel({ urn: 'urn-second' });
+    expect(
+      host.querySelector<HTMLElement>(
+        '[data-native-id="toolbar-measurementSubmenuTool"]',
+      )?.hidden,
+    ).toBe(true);
+  });
+
+  it('lists two views and follows the chosen one', async () => {
+    await setup();
+    const modelId = adapter.getModels()[0]?.id ?? '';
+    expect(await adapter.listViews(modelId)).toEqual([
+      { id: 'mock-3d', name: '{3D}', role: '3d', current: true },
+      { id: 'mock-a101', name: 'A101 - Plans', role: '2d', current: false },
+    ]);
+    await adapter.loadModels([{ urn: 'dXJuOmFkc2s', view: 'mock-a101' }]);
+    expect(adapter.getModels()[0]?.view).toBe('mock-a101');
+    expect(await adapter.listViews(modelId)).toEqual([
+      { id: 'mock-3d', name: '{3D}', role: '3d', current: false },
+      { id: 'mock-a101', name: 'A101 - Plans', role: '2d', current: true },
+    ]);
+    expect(host.querySelector<HTMLElement>('.bsh-mock')?.dataset.view).toBe(
+      'mock-a101',
+    );
+    expect(await adapter.listViews('gone')).toEqual([]);
+  });
+
+  it('reports placement info with the anchor distance in metres', async () => {
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    adapter = new MockViewerAdapter(host);
+    await adapter.loadModels([{ urn: 'urn-a' }, { urn: 'urn-far' }]);
+    const info = adapter.getPlacementInfo();
+    expect(info.map((model) => model.anchor)).toEqual([true, false]);
+    expect(info[0]?.unit).toBe('m');
+    expect(info[0]?.sharedCoordinates).toBeNull();
+    expect(info[0]?.distanceMeters).toBe(0);
+    expect(info[1]?.distanceMeters ?? 0).toBeGreaterThan(0);
+    adapter.setModelOffsets(adapter.getTogetherOffsets());
+    expect(adapter.getPlacementInfo()[1]?.distanceMeters).toBeCloseTo(0, 5);
+  });
 });
 
 describe('mock bulk fixture rows', () => {
@@ -430,6 +539,7 @@ describe('mock fitting, screenshot and state', () => {
     });
     const saved = adapter.getState();
     expect(JSON.parse(JSON.stringify(saved))).toEqual(saved);
+    expect(saved.explode ?? 0).toBe(0);
     expect(saved.models[modelId]).toEqual({
       isolated: [a?.dbId, b?.dbId],
       hidden: [b?.dbId],
@@ -446,6 +556,10 @@ describe('mock fitting, screenshot and state', () => {
     await adapter.restoreState(saved);
     expect(adapter.getState()).toEqual(saved);
     expect(await adapter.getVisible()).toEqual([at(a)]);
+    await adapter.restoreState({ ...saved, explode: 0.5 });
+    expect(adapter.getState().explode).toBe(0.5);
+    await adapter.restoreState(saved);
+    expect(adapter.getState().explode).toBeUndefined();
   });
 
   it('skips unknown models and ids and ignores garbage', async () => {

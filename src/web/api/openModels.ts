@@ -42,7 +42,9 @@ export interface OpenModel {
   spread?: number;
 }
 
-function parseOffsets(value: unknown): Record<string, Vec3> | undefined {
+export function sanitizeOffsets(
+  value: unknown,
+): Record<string, Vec3> | undefined {
   if (typeof value !== 'object' || value === null) return undefined;
   const out: Record<string, Vec3> = {};
   for (const [id, raw] of Object.entries(value as Record<string, unknown>)) {
@@ -392,7 +394,7 @@ export function parseOpenModels(raw: string | null): OpenModelsState {
         withView(
           { urn, context: parseModelContext(context) },
           {
-            offsets: parseOffsets(offsets) ?? null,
+            offsets: sanitizeOffsets(offsets) ?? null,
             spread: typeof spread === 'number' ? spread : null,
           },
         ),

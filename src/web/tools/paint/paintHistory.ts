@@ -79,7 +79,10 @@ export function clampHistoryDepth(value: unknown): number {
 }
 
 export function targetOf(model: ModelInfo): PaintTarget {
-  return { urn: model.urn || model.id, version: model.version ?? '' };
+  const version = model.view
+    ? `${model.version ?? ''}#${model.view}`
+    : (model.version ?? '');
+  return { urn: model.urn || model.id, version };
 }
 
 function emptyRecord(target: PaintTarget): PaintModelRecord {

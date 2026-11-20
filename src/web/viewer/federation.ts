@@ -56,11 +56,44 @@ export function documentLoadError(
   );
 }
 
+export function nodeGuid(node: unknown): string | undefined {
+  const bubble = node as BubbleNode | null | undefined;
+  if (!bubble) return undefined;
+  const read = bubble.guid?.();
+  if (typeof read === 'string' && read) return read;
+  const data = bubble.data?.guid;
+  return typeof data === 'string' && data ? data : undefined;
+}
+
+export function nodeName(node: unknown): string {
+  const bubble = node as BubbleNode | null | undefined;
+  if (!bubble) return '';
+  const read = bubble.name?.();
+  if (typeof read === 'string' && read) return read;
+  return bubble.data?.name ?? '';
+}
+
+function matchesAnchor(
+  node: unknown,
+  anchor: FederationAnchor | null,
+): boolean {
+  if (!anchor) return true;
+  const dimension = nodeIs2d(node);
+  return dimension === undefined || dimension === anchor.is2d;
+}
+
 export function pickGeometryNode(
   doc: ViewingDocument,
   anchor: FederationAnchor | null,
+  view?: string,
 ): unknown {
   const root = doc.getRoot();
+  if (view) {
+    const wanted = root
+      .search?.({ type: 'geometry' })
+      .find((node) => nodeGuid(node) === view);
+    if (wanted && matchesAnchor(wanted, anchor)) return wanted;
+  }
   const preferred = root.getDefaultGeometry();
   if (!preferred) {
     const any = root.search?.({ type: 'geometry' })[0];
@@ -82,6 +115,13 @@ function pickFrom(
   const match = root.search?.({ type: 'geometry', role })[0];
   if (match) return match;
   throw new ModelLoadError('dimension', NO_MATCHING_VIEW_MESSAGE[role]);
+}
+
+export function nodeRole(node: unknown): '2d' | '3d' {
+  const bubble = node as BubbleNode | null | undefined;
+  const twoD = nodeIs2d(bubble);
+  if (twoD !== undefined) return twoD ? '2d' : '3d';
+  return bubble?.data?.role === '2d' ? '2d' : '3d';
 }
 
 export function anchorOf(model: ViewerModel): FederationAnchor {

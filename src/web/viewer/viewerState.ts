@@ -52,6 +52,12 @@ function sanitizeCamera(raw: unknown): CameraState | null {
   return result;
 }
 
+function sanitizeExplode(raw: unknown): number | undefined {
+  return typeof raw === 'number' && Number.isFinite(raw) && raw > 0 && raw <= 1
+    ? raw
+    : undefined;
+}
+
 export function sanitizeViewerState(raw: unknown): ViewerState | null {
   const state = raw as Partial<ViewerState> | null;
   if (!state || typeof state !== 'object' || state.version !== 1) return null;
@@ -78,10 +84,12 @@ export function sanitizeViewerState(raw: unknown): ViewerState | null {
         )
         .map((plane) => [...plane])
     : [];
+  const explode = sanitizeExplode(state.explode);
   return {
     version: 1,
     camera: sanitizeCamera(state.camera),
     cutplanes,
+    ...(explode !== undefined ? { explode } : {}),
     models,
   };
 }
@@ -146,6 +154,8 @@ export function captureViewerState(
     cutplanes: readCutplanes(viewer),
     models: {},
   };
+  const explode = sanitizeExplode(viewer.getExplodeScale?.());
+  if (explode !== undefined) state.explode = explode;
   for (const { id, handle } of models) {
     state.models[id] = {
       isolated: [...(viewer.getIsolatedNodes?.(handle) ?? [])],
@@ -252,9 +262,12 @@ export async function restoreViewerState(
       next.viewport = viewportFor(current.viewport, state.camera);
     }
     if (state.cutplanes.length > 0) next.cutplanes = state.cutplanes;
-    if (next.viewport || next.cutplanes) {
+    if (next.viewport || next.cutplanes || viewer.explode) {
       try {
-        viewer.restoreState(next, VIEWER_STATE_FILTER, true);
+        if (next.viewport || next.cutplanes) {
+          viewer.restoreState(next, VIEWER_STATE_FILTER, true);
+        }
+        viewer.explode?.(state.explode ?? 0);
       } catch {
         report.viewerFailed = true;
       }

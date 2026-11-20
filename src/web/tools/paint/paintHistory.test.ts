@@ -10,6 +10,7 @@ import {
   recordPaint,
   redoPaint,
   replayPaint,
+  targetOf,
   undoPaint,
 } from './paintHistory.js';
 
@@ -228,5 +229,40 @@ describe('paint history', () => {
     expect(undoPaint(adapter)).toBe(true);
     expect(canUndoPaint(adapter)).toBe(false);
     adapter.destroy();
+  });
+});
+
+describe('paint target per view', () => {
+  const model: ModelInfo = {
+    id: 'urn-view',
+    urn: 'urn-view',
+    name: 'Model',
+    visible: true,
+    status: 'ready',
+  };
+
+  it('keeps paint made on one view away from another view', () => {
+    expect(targetOf({ ...model, version: '3', view: 'g2' }).version).toBe(
+      '3#g2',
+    );
+    expect(targetOf({ ...model, version: '3' }).version).toBe('3');
+    expect(targetOf({ ...model, view: 'g2' }).version).toBe('#g2');
+    expect(targetOf(model).version).toBe('');
+  });
+
+  it('does not replay paint saved on another view of the same version', async () => {
+    const first = new MockViewerAdapter(document.createElement('div'));
+    await first.load(URN, 'Model', { version: '1', view: 'g2' });
+    const ids = await visibleIds(first);
+    first.selectModelIds([{ modelId: URN, dbId: ids[0] as number }]);
+    recordPaint(first, RED, 20);
+    first.destroy();
+
+    const second = new MockViewerAdapter(document.createElement('div'));
+    await second.load(URN, 'Model', { version: '1' });
+    const spy = vi.spyOn(second, 'setModelThemingColor');
+    expect(await replayPaint(second)).toBe(0);
+    expect(spy).not.toHaveBeenCalled();
+    second.destroy();
   });
 });

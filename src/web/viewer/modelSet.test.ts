@@ -81,6 +81,14 @@ describe('ModelSet', () => {
     expect(set.get('a')?.name).toBe('A');
   });
 
+  it('keeps the chosen view on the model info', () => {
+    const set = new ModelSet<string>();
+    set.add({ urn: 'a', name: 'A', view: 'g2' });
+    set.resolve('a', 'handle');
+    expect(set.get('a')?.view).toBe('g2');
+    expect(set.add({ urn: 'b' })).not.toHaveProperty('view');
+  });
+
   it('caps the set at six models', () => {
     expect(MAX_COMBINED_MODELS).toBe(6);
     const set = new ModelSet<string>();
