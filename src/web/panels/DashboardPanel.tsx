@@ -96,35 +96,37 @@ export function DashboardPanel({
   const [galleryOpen, setGalleryOpen] = useState(false);
   const isCollapsed = collapsed ?? innerCollapsed;
 
+  const usable = state.status === 'ready' || state.status === 'cancelled';
+
   const options = useMemo(
     () =>
-      state.status === 'ready'
+      state.rows.length > 0
         ? availableProperties(state.rows, propertyNames)
         : [],
-    [state.status, state.rows, propertyNames],
+    [state.rows, propertyNames],
   );
 
   const selected = options.includes(view.property) ? view.property : options[0];
 
   const chart = useMemo(
     () =>
-      state.status === 'ready' && selected && !activePreset
+      usable && selected && !activePreset
         ? shapeChartData(state.rows, selected, maxCategories)
         : null,
-    [state.status, state.rows, selected, maxCategories, activePreset],
+    [usable, state.rows, selected, maxCategories, activePreset],
   );
 
   const [action] = usePersisted(PANE_SETTINGS.dashboard.action);
   const board = useMemo(
     () =>
-      state.status === 'ready' && activePreset
+      usable && activePreset
         ? presetCharts(activePreset, state.rows).map((property) =>
             shapeChartData(state.rows, property, maxCategories),
           )
         : [],
-    [state.status, activePreset, state.rows, maxCategories],
+    [usable, activePreset, state.rows, maxCategories],
   );
-  const settled = state.status === 'ready' && !state.pending;
+  const settled = usable && !state.pending;
   const hasRows = settled && state.rows.length > 0;
   const emptyScope =
     settled && state.rows.length === 0 && state.elements !== 'all';
@@ -343,7 +345,19 @@ export function DashboardPanel({
             action={{ label: 'Retry', onClick: state.refresh }}
           />
         )}
-        {state.status === 'ready' ? (
+        {state.status === 'cancelled' ? (
+          <div className="bsh-summary__partial" role="status">
+            <span>Partial data: the read was cancelled.</span>
+            <button
+              type="button"
+              className="bsh-button"
+              onClick={state.refresh}
+            >
+              Read again
+            </button>
+          </div>
+        ) : null}
+        {usable ? (
           <>
             <UnavailableModels models={state.models.unavailable} />
             <FailedModels

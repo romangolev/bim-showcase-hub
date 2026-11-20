@@ -17,6 +17,7 @@ import {
   PALETTE_ICON,
   paletteToPresets,
   RESET_PAINT_LABEL,
+  resetPaint,
   resolvePaintPalette,
 } from '../../extensions/paintBrushes.js';
 import { usePersisted } from '../../storage.js';
@@ -32,6 +33,7 @@ import {
   canUndoPaint,
   clearPaintState,
   DEFAULT_HISTORY_DEPTH,
+  forgetAppliedPaint,
   MAX_HISTORY_DEPTH,
   MAX_HISTORY_ENTRIES,
   paintHistoryEntries,
@@ -165,8 +167,11 @@ export class PaintTool extends ViewerTool<PaintSettings> {
     adapter: ViewerAdapter,
     settings: PaintSettings,
   ): void {
-    if (!settings.enabled || !settings.restoreOnOpen) return;
-    void replayPaint(adapter);
+    if (!settings.enabled || !settings.restoreOnOpen) {
+      forgetAppliedPaint(adapter);
+      return;
+    }
+    replayPaint(adapter).catch(() => {});
   }
 
   override onSettingsChanged(
@@ -177,6 +182,9 @@ export class PaintTool extends ViewerTool<PaintSettings> {
     if (!next.enabled) return;
     const before = previous?.enabled ? previous.ghostRest : true;
     if (next.ghostRest !== before) adapter.setGhosting?.(next.ghostRest);
+    if (!previous?.enabled && next.restoreOnOpen) {
+      replayPaint(adapter).catch(() => {});
+    }
   }
 
   protected override renderFields() {
@@ -185,7 +193,8 @@ export class PaintTool extends ViewerTool<PaintSettings> {
 
   override onDisabled(adapter: ViewerAdapter): void {
     adapter.setGhosting?.(true);
-    clearPaintState(adapter);
+    forgetAppliedPaint(adapter);
+    resetPaint(adapter);
   }
 }
 

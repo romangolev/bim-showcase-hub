@@ -74,6 +74,12 @@ const RULES: readonly FamilyRule[] = [
     matches: (key) => key === 'bsh.saved.v1',
   },
   {
+    id: 'paint',
+    label: 'Paint marks and history',
+    kind: 'personal',
+    matches: (key) => key.startsWith('bsh.paint.'),
+  },
+  {
     id: 'commands',
     label: 'Recent commands',
     kind: 'personal',

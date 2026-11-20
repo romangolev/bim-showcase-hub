@@ -411,6 +411,20 @@ describe('excel sheet limit', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
+  it('falls back to CSV when the summary sheet alone overflows', async () => {
+    const save = vi.fn();
+    const status = await exportToXlsx(adapterOf(many), {
+      propertyNames: ['Name'],
+      fileName: 'a.xlsx',
+      rowLimit: 2,
+      summarySheet: true,
+      askOverflow: () => 'split',
+      save,
+    });
+    expect(status).toMatchObject({ phase: 'done', fileName: 'a.csv' });
+    expect(savedBlob(save).type).toContain('text/csv');
+  });
+
   it('leaves no partial file when the read is cancelled', async () => {
     const ids = Array.from({ length: 20_000 }, (_, index) => index + 1);
     const controller = new AbortController();

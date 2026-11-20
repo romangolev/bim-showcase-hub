@@ -1032,7 +1032,7 @@ html .bsh-viewer-surface .adsk-viewing-viewer .docking-panel.menu .menu-item {
   align-items: center;
   flex: none;
   box-sizing: border-box;
-  height: 32px;
+  min-height: var(--hit-target);
   margin: 0;
   padding: 0 var(--space-3);
   color: var(--color-chalk);

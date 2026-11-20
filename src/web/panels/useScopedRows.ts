@@ -35,7 +35,7 @@ type ReadStatus =
   | { status: 'hidden' }
   | { status: 'loading'; progress: ReadProgress | null }
   | { status: 'ready'; failed: string[] }
-  | { status: 'cancelled' }
+  | { status: 'cancelled'; failed: string[] }
   | { status: 'error'; message: string };
 
 export interface ModelScopeControl {
@@ -190,7 +190,10 @@ export function useScopedRows(
     }));
     const load = async () => {
       if (!forced) {
-        const cached = await peekScopedRows(adapter, { elements: 'all' });
+        const cached = await peekScopedRows(adapter, {
+          names,
+          elements: 'all',
+        });
         if (cancelled) return;
         if (cached && (!cached.stale || !autoRefresh)) {
           setRead({
@@ -224,12 +227,12 @@ export function useScopedRows(
         setStale(false);
       } catch (err) {
         if (cancelled || controller.signal.aborted) return;
-        setRead({
+        setRead((prev) => ({
           status: 'error',
-          rows: [],
+          rows: prev.rows,
           message:
             err instanceof Error ? err.message : 'Could not read properties',
-        });
+        }));
         setStale(leafRowsStale(adapter));
       }
     };
@@ -244,7 +247,7 @@ export function useScopedRows(
     controllerRef.current?.abort();
     setRead((prev) =>
       prev.status === 'loading'
-        ? { status: 'cancelled', rows: prev.rows }
+        ? { status: 'cancelled', rows: prev.rows, failed: [] }
         : prev,
     );
   }, []);

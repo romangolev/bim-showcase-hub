@@ -341,6 +341,7 @@ export async function readLeafRows(
 
 export function peekLeafRows(
   adapter: ViewerAdapter,
+  names?: readonly string[],
   modelIds?: readonly string[],
 ): PropertyRow[] | null {
   const entry = reads.get(adapter);
@@ -352,6 +353,7 @@ export function peekLeafRows(
   for (const model of models) {
     const key = entry.keys.get(model.id);
     if (!key?.settled) return null;
+    if (names && !covers(key.settled.names, names)) return null;
     parts.push(key.settled.rows);
   }
   return parts.flat();

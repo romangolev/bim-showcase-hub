@@ -84,7 +84,7 @@ All browser storage goes through `src/web/storage.ts`. `BSH_KEYS` lists the fixe
 | `bsh.saved.v1` | personal | Saved items: dashboard presets, export presets, selection sets, viewpoints |
 | `bsh.workspaces.v1` | personal | Named workspaces: `{ version: 1, items }`, each with a name, a layout and pane appearances |
 | `bsh.commands.recent.v1` | personal | Recent palette commands |
-| `bsh.paint.<model>.<version>` | personal | One paint record per model version: an ordered, bounded list of paint actions and the undo cursor. The hash covers the URN and the model version |
+| `bsh.paint.<hash>` | personal | One paint record per model version: an ordered, bounded list of paint actions and the undo cursor. The hash covers the URN and the model version |
 | `bsh.hint.hubs.dismissed.v1` | personal | No-hubs notice dismissed |
 | `bsh-settings-v1` | preference | App settings, version 4: theme (`system`, `light`, `dark`), density, text size (100, 112, 125), reduced motion, language (`en`, `ru`), units (`metric`, `imperial`), session warning, recents length |
 | `bsh.layout.locked` | preference | Layout lock |

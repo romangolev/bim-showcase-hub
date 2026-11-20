@@ -715,6 +715,7 @@ export class MockViewerAdapter implements ViewerAdapter {
   }
 
   clearThemingColors(): void {
+    colorLayersFor(this).clearAll();
     for (const key of this.themed.keys()) {
       const { modelId, dbId } = parseKey(key);
       const node = this.nodeOf(modelId, dbId);

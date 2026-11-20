@@ -47,8 +47,17 @@ export const APP_SETTINGS_BLOB = defineRecord<unknown>({
 });
 
 function minutes(value: unknown, fallback: number): number {
+  return clampNumber(value, fallback, 0, 120);
+}
+
+function clampNumber(
+  value: unknown,
+  fallback: number,
+  min: number,
+  max: number,
+): number {
   return typeof value === 'number' && Number.isFinite(value)
-    ? Math.min(120, Math.max(0, Math.round(value)))
+    ? Math.min(max, Math.max(min, Math.round(value)))
     : fallback;
 }
 
@@ -85,9 +94,11 @@ export function readSettings(): Settings {
       source.sessionWarnMinutes,
       DEFAULT_SETTINGS.sessionWarnMinutes,
     ),
-    recentsLength: minutes(
+    recentsLength: clampNumber(
       source.recentsLength,
       DEFAULT_SETTINGS.recentsLength,
+      0,
+      20,
     ),
     density: pick(source.density, DENSITIES, DEFAULT_SETTINGS.density),
     textSize: textSize(source.textSize),

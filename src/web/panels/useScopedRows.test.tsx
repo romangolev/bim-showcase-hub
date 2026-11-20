@@ -204,4 +204,21 @@ describe('useScopedRows shared cache', () => {
     expect(result.current.stale).toBe(false);
     adapter.destroy();
   });
+
+  it('reads again when the requested property names grow', async () => {
+    const adapter = new MockViewerAdapter(document.createElement('div'));
+    await adapter.load('urn');
+    const spy = vi.spyOn(adapter, 'getLeafProperties');
+    const { result, rerender } = renderHook(
+      ({ names }: { names: string[] }) => useScopedRows(adapter, { names }),
+      { initialProps: { names: ['Category'] } },
+    );
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+    expect(spy).toHaveBeenCalledTimes(1);
+    rerender({ names: ['Category', 'Name'] });
+    await waitFor(() => expect(spy).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+    expect(result.current.rows[0]?.properties).toHaveProperty('Name');
+    adapter.destroy();
+  });
 });

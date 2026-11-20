@@ -110,10 +110,12 @@ export async function readScopedRows(
 
 export async function peekScopedRows(
   adapter: ViewerAdapter,
-  request: Omit<ScopedReadRequest, 'names' | 'signal' | 'onProgress'>,
+  request: Omit<ScopedReadRequest, 'names' | 'signal' | 'onProgress'> & {
+    names?: readonly string[];
+  },
 ): Promise<ScopedRead | null> {
   const modelIds = modelIdsFor(adapter, request.models);
-  const rows = peekLeafRows(adapter, modelIds);
+  const rows = peekLeafRows(adapter, request.names, modelIds);
   if (!rows) return null;
   const scope = await resolveScoped(adapter, request, modelIds);
   return scopedResult(

@@ -10,12 +10,13 @@ function readoutLines(report: ReturnType<typeof storageReport>) {
 }
 
 export function LocalDataSettings() {
-  const [report, setReport] = useState(storageReport);
+  const report = storageReport();
   const [confirming, setConfirming] = useState(false);
   const [preferences, setPreferences] = useState(false);
   const [notice, setNotice] = useState('');
   const confirmRef = useRef<HTMLFieldSetElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const statusRef = useRef<HTMLParagraphElement>(null);
   const wasConfirming = useRef(false);
   const families = readoutLines(report);
   const canClear =
@@ -29,13 +30,16 @@ export function LocalDataSettings() {
     }
     if (wasConfirming.current) {
       wasConfirming.current = false;
-      triggerRef.current?.focus();
+      if (triggerRef.current && !triggerRef.current.disabled) {
+        triggerRef.current.focus();
+      } else {
+        statusRef.current?.focus();
+      }
     }
   }, [confirming]);
 
   const clear = () => {
     const result = clearLocalData({ preferences });
-    setReport(storageReport());
     setConfirming(false);
     setNotice(
       `Cleared ${result.keys} ${result.keys === 1 ? 'key' : 'keys'} (${formatStorageBytes(result.bytes)}). ${
@@ -55,10 +59,11 @@ export function LocalDataSettings() {
         Local data
       </h3>
       <p className="settings__hint">
-        This browser uses about {formatStorageBytes(report.total.bytes)} across{' '}
+        This app stores about {formatStorageBytes(report.total.bytes)} across{' '}
         {report.total.keys} {report.total.keys === 1 ? 'key' : 'keys'}.{' '}
         {formatStorageBytes(report.personal.bytes)} is personal data and{' '}
-        {formatStorageBytes(report.preference.bytes)} is preferences.
+        {formatStorageBytes(report.preference.bytes)} is preferences. The viewer
+        keeps its own model cache, which is not counted or cleared here.
       </p>
       {families.length > 0 ? (
         <ul className="settings__readout" aria-label="Storage use by data type">
@@ -84,13 +89,20 @@ export function LocalDataSettings() {
           tabIndex={-1}
           className="settings__confirm"
           aria-label="Confirm clearing local data"
+          onKeyDown={(event) => {
+            if (event.key !== 'Escape') return;
+            event.preventDefault();
+            event.stopPropagation();
+            setConfirming(false);
+          }}
         >
           <p className="settings__total">
             Clear {report.personal.keys} personal{' '}
             {report.personal.keys === 1 ? 'key' : 'keys'} (
             {formatStorageBytes(report.personal.bytes)}) from this browser?
-            Saved items, workspaces, pane setup and the stored open-model list
-            are removed. Open tabs stay open until a reload. You stay signed in.
+            Saved items, workspaces, pane setup, paint marks and the stored
+            open-model list are removed. Open tabs stay open until a reload. You
+            stay signed in.
           </p>
           <label className="settings__check">
             <input
@@ -134,7 +146,7 @@ export function LocalDataSettings() {
           </button>
         </div>
       )}
-      <p role="status" className="settings__hint">
+      <p ref={statusRef} role="status" tabIndex={-1} className="settings__hint">
         {notice}
       </p>
     </section>

@@ -1123,6 +1123,7 @@ export class RealViewerAdapter implements ViewerAdapter {
   }
 
   clearThemingColors(): void {
+    colorLayersFor(this).clearAll();
     const viewer = this.viewer;
     if (!viewer) return;
     const ready = this.models.ready();

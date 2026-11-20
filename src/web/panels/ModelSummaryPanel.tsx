@@ -103,10 +103,8 @@ export function ModelSummaryPanel({
   });
   const entries = useMemo(
     () =>
-      state.status === 'ready' || state.status === 'cancelled'
-        ? summarize(state.rows, propertyNames)
-        : EMPTY,
-    [state.status, state.rows, propertyNames],
+      state.rows.length > 0 ? summarize(state.rows, propertyNames) : EMPTY,
+    [state.rows, propertyNames],
   );
 
   const [savedAction] = usePersisted(PANE_SETTINGS.summary.action);

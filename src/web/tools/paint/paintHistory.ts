@@ -14,7 +14,9 @@ export const PAINT_KEY_PREFIX = 'bsh.paint.';
 export const DEFAULT_HISTORY_DEPTH = 20;
 export const MIN_HISTORY_DEPTH = 1;
 export const MAX_HISTORY_DEPTH = 50;
-export const MAX_PAINT_ITEMS = 20_000;
+export const MAX_PAINT_ITEMS = 200_000;
+export const MAX_RECORD_BYTES = 1_000_000;
+export const ID_BYTES = 7;
 export const MAX_HISTORY_ENTRIES = 5;
 export const REPLAY_TREE_TIMEOUT_MS = 2000;
 
@@ -110,6 +112,17 @@ function readDbIds(value: unknown): number[] {
   return out;
 }
 
+function paintIds(value: readonly number[]): number[] {
+  const seen = new Set<number>();
+  const out: number[] = [];
+  for (const entry of value) {
+    if (!Number.isInteger(entry) || entry <= 0 || seen.has(entry)) continue;
+    seen.add(entry);
+    out.push(entry);
+  }
+  return out;
+}
+
 function readRgba(value: unknown): Rgba | null {
   if (!Array.isArray(value) || value.length !== 4) return null;
   const channels: number[] = [];
@@ -191,11 +204,34 @@ function newPaintAction(): string {
     .slice(2, 8)}`;
 }
 
-function batchesFor(records: readonly ModelRecord[]): PaintBatch[] {
+const APPLIED_ACTIONS = new WeakMap<ViewerAdapter, Set<string>>();
+
+function appliedActions(adapter: ViewerAdapter): Set<string> {
+  let set = APPLIED_ACTIONS.get(adapter);
+  if (!set) {
+    set = new Set();
+    APPLIED_ACTIONS.set(adapter, set);
+  }
+  return set;
+}
+
+export function forgetAppliedPaint(adapter: ViewerAdapter): void {
+  APPLIED_ACTIONS.delete(adapter);
+}
+
+function applied(adapter: ViewerAdapter, op: PaintOp): boolean {
+  return appliedActions(adapter).has(op.action);
+}
+
+function batchesFor(
+  adapter: ViewerAdapter,
+  records: readonly ModelRecord[],
+): PaintBatch[] {
   const byColor = new Map<string, PaintBatch>();
   for (const { model, record } of records) {
     const final = new Map<number, Rgba>();
     for (const op of record.ops.slice(0, record.cursor)) {
+      if (!applied(adapter, op)) continue;
       for (const dbId of op.dbIds) final.set(dbId, op.rgba);
     }
     for (const [dbId, color] of final) {
@@ -214,9 +250,22 @@ function applyRecords(
   records: readonly ModelRecord[],
   clear: boolean,
 ): number {
-  const batches = batchesFor(records);
+  const batches = batchesFor(adapter, records);
   applyPaintPlan(adapter, batches, clear);
   return batches.reduce((total, batch) => total + batch.items.length, 0);
+}
+
+function trimToBudget(ops: PaintOp[]): PaintOp[] {
+  let bytes = 0;
+  for (const op of ops) bytes += op.dbIds.length * ID_BYTES + 80;
+  let start = 0;
+  while (bytes > MAX_RECORD_BYTES && start < ops.length - 1) {
+    const dropped = ops[start];
+    if (!dropped) break;
+    bytes -= dropped.dbIds.length * ID_BYTES + 80;
+    start += 1;
+  }
+  return start === 0 ? ops : ops.slice(start);
 }
 
 export function recordPaint(
@@ -243,16 +292,18 @@ export function recordPaint(
   const limit = clampHistoryDepth(depth);
   const at = nextPaintAt();
   const action = newPaintAction();
+  const appliedSet = appliedActions(adapter);
+  appliedSet.add(action);
   const batches: PaintBatch[] = [];
   for (const [modelId, selected] of grouped) {
     const model = models.get(modelId);
     if (!model) continue;
-    const ids = readDbIds(selected);
+    const ids = paintIds(selected);
     if (ids.length === 0) continue;
     const current = stored(model);
     const applied = current.ops.slice(0, current.cursor);
     applied.push({ action, at, rgba, dbIds: ids });
-    const ops = applied.slice(-limit);
+    const ops = trimToBudget(applied.slice(-limit));
     save(model, { ...current, ops, cursor: ops.length });
     batches.push({
       color: rgba,
@@ -266,12 +317,14 @@ export function recordPaint(
 }
 
 export function canUndoPaint(adapter: ViewerAdapter): boolean {
-  return modelRecords(adapter).some(({ record }) => record.cursor > 0);
+  return modelRecords(adapter).some(({ record }) =>
+    record.ops.slice(0, record.cursor).some((op) => applied(adapter, op)),
+  );
 }
 
 export function canRedoPaint(adapter: ViewerAdapter): boolean {
-  return modelRecords(adapter).some(
-    ({ record }) => record.cursor < record.ops.length,
+  return modelRecords(adapter).some(({ record }) =>
+    record.ops.slice(record.cursor).some((op) => applied(adapter, op)),
   );
 }
 
@@ -279,9 +332,10 @@ export function undoPaint(adapter: ViewerAdapter): boolean {
   const records = modelRecords(adapter);
   let latest: PaintOp | undefined;
   for (const { record } of records) {
-    const op = record.ops[record.cursor - 1];
-    if (!op) continue;
-    if (!latest || op.at >= latest.at) latest = op;
+    for (const op of record.ops.slice(0, record.cursor)) {
+      if (!applied(adapter, op)) continue;
+      if (!latest || op.at >= latest.at) latest = op;
+    }
   }
   if (!latest) return false;
   const action = latest.action;
@@ -310,9 +364,10 @@ export function redoPaint(adapter: ViewerAdapter): boolean {
   const records = modelRecords(adapter);
   let earliest: PaintOp | undefined;
   for (const { record } of records) {
-    const op = record.ops[record.cursor];
-    if (!op) continue;
-    if (!earliest || op.at <= earliest.at) earliest = op;
+    for (const op of record.ops.slice(record.cursor)) {
+      if (!applied(adapter, op)) continue;
+      if (!earliest || op.at <= earliest.at) earliest = op;
+    }
   }
   if (!earliest) return false;
   const action = earliest.action;
@@ -379,47 +434,8 @@ export function clearPaintState(adapter: ViewerAdapter): void {
   for (const model of adapter.getModels()) {
     PAINT_RECORDS.forget(targetOf(model));
   }
+  forgetAppliedPaint(adapter);
   resetPaint(adapter);
-}
-
-function pruneRecord(
-  record: PaintModelRecord,
-  modelId: string,
-  visible: Map<string, Set<number>> | null,
-): { record: PaintModelRecord; changed: boolean } {
-  const known = visible?.get(modelId);
-  if (!known || known.size === 0) return { record, changed: false };
-  let changed = false;
-  const ops: PaintOp[] = [];
-  let cursor = 0;
-  record.ops.forEach((op, index) => {
-    const dbIds = op.dbIds.filter((dbId) => known.has(dbId));
-    if (dbIds.length !== op.dbIds.length) changed = true;
-    if (dbIds.length === 0) return;
-    if (index < record.cursor) cursor += 1;
-    ops.push({ ...op, dbIds });
-  });
-  if (!changed) return { record, changed: false };
-  return { record: { ...record, ops, cursor }, changed: true };
-}
-
-async function visibleIds(
-  adapter: ViewerAdapter,
-): Promise<Map<string, Set<number>> | null> {
-  let items: ModelDbId[];
-  try {
-    items = await withTimeout(adapter.getVisible(), REPLAY_TREE_TIMEOUT_MS);
-  } catch {
-    return null;
-  }
-  if (items.length === 0) return null;
-  const byModel = new Map<string, Set<number>>();
-  for (const { modelId, dbId } of items) {
-    const ids = byModel.get(modelId) ?? new Set<number>();
-    ids.add(dbId);
-    byModel.set(modelId, ids);
-  }
-  return byModel;
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
@@ -438,19 +454,26 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   });
 }
 
+function waitForTree(adapter: ViewerAdapter): Promise<void> {
+  return withTimeout(adapter.getVisible(), REPLAY_TREE_TIMEOUT_MS).then(
+    () => undefined,
+    () => undefined,
+  );
+}
+
 export async function replayPaint(adapter: ViewerAdapter): Promise<number> {
   const records = modelRecords(adapter).filter(
     ({ record }) => record.cursor > 0,
   );
   if (records.length === 0) return 0;
-  const visible = await visibleIds(adapter);
-  const kept: ModelRecord[] = [];
-  for (const { model, record } of records) {
-    const pruned = pruneRecord(record, model.id, visible);
-    if (pruned.changed) save(model, pruned.record);
-    if (pruned.record.cursor > 0) kept.push({ model, record: pruned.record });
+  await waitForTree(adapter);
+  const appliedSet = appliedActions(adapter);
+  for (const { record } of records) {
+    for (const op of record.ops.slice(0, record.cursor)) {
+      appliedSet.add(op.action);
+    }
   }
-  return applyRecords(adapter, kept, false);
+  return applyRecords(adapter, records, false);
 }
 
 export function paintSwatch(rgba: Rgba): string {

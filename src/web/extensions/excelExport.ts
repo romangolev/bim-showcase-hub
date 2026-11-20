@@ -480,13 +480,20 @@ export async function exportToXlsx(
     if (format === 'xlsx') {
       if (sheets.length === 0) return emit({ phase: 'empty' });
       rowCount = sheets.reduce((total, sheet) => total + sheet.rows.length, 0);
-      if (overSheetLimit(sheets, rowLimit)) {
-        const choice = chooseOverflow({ rowCount, limit: rowLimit });
+      const summaryRows = summarySheet
+        ? summarize(rows, propertyNames).length + 1
+        : 0;
+      const summaryOver = summaryRows > rowLimit;
+      if (overSheetLimit(sheets, rowLimit) || summaryOver) {
+        const choice = chooseOverflow({
+          rowCount: Math.max(rowCount, summaryRows),
+          limit: rowLimit,
+        });
         if (choice === 'cancel') {
           copyText.reject();
           return emit({ phase: 'cancelled' });
         }
-        if (choice === 'csv') {
+        if (choice === 'csv' || summaryOver) {
           target = 'csv';
           delivered = withExtension(fileName, 'csv');
         } else {

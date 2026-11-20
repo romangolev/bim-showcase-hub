@@ -250,9 +250,9 @@ describe('readLeafRows with a model set', () => {
       getLeafProperties,
       getModels,
     } as unknown as ViewerAdapter;
-    expect(peekLeafRows(adapter)).toBeNull();
+    expect(peekLeafRows(adapter, ['Name'])).toBeNull();
     expect(await readLeafRows(adapter, ['Name'])).toEqual([]);
-    expect(peekLeafRows(adapter)).toEqual([]);
+    expect(peekLeafRows(adapter, ['Name'])).toEqual([]);
     expect(await readLeafRows(adapter, ['Name'])).toEqual([]);
     expect(getLeafProperties).toHaveBeenCalledTimes(1);
   });
@@ -569,10 +569,10 @@ describe('large model reads', () => {
       total: TOTAL,
       partial: true,
     });
-    expect(peekLeafRows(fake.adapter)).toBeNull();
+    expect(peekLeafRows(fake.adapter, ['Name'])).toBeNull();
     const rows = await readLeafRows(fake.adapter, ['Name']);
     expect(rows).toHaveLength(TOTAL);
-    expect(peekLeafRows(fake.adapter)).toHaveLength(TOTAL);
+    expect(peekLeafRows(fake.adapter, ['Name'])).toHaveLength(TOTAL);
     const completed = fake.chunks();
     await readLeafRows(fake.adapter, ['Name']);
     expect(fake.chunks()).toBe(completed);
@@ -587,7 +587,7 @@ describe('stale cache entries', () => {
     expect(leafRowsStale(adapter)).toBe(false);
     refreshLeafRows(adapter);
     expect(leafRowsStale(adapter)).toBe(true);
-    expect(peekLeafRows(adapter)).toHaveLength(1);
+    expect(peekLeafRows(adapter, ['Name'])).toHaveLength(1);
     const rows = await readLeafRows(adapter, ['Name']);
     expect(getLeafProperties).toHaveBeenCalledTimes(2);
     expect(leafRowsStale(adapter)).toBe(false);
@@ -616,7 +616,7 @@ describe('stale cache entries', () => {
     expect(leafRowsStale(adapter)).toBe(false);
     version = 'v2';
     expect(leafRowsStale(adapter)).toBe(true);
-    expect(peekLeafRows(adapter)).toHaveLength(1);
+    expect(peekLeafRows(adapter, ['Name'])).toHaveLength(1);
     await readLeafRows(adapter, ['Name']);
     expect(getLeafProperties).toHaveBeenCalledTimes(2);
     expect(leafRowsStale(adapter)).toBe(false);

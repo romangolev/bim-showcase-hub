@@ -117,7 +117,7 @@ describe('paint history', () => {
     adapter.destroy();
   });
 
-  it('drops ids that no longer resolve and keeps the readable ones', async () => {
+  it('replays every stored id and never rewrites the record', async () => {
     const adapter = await loaded();
     const [dbId] = await visibleIds(adapter);
     record().write({
@@ -126,7 +126,7 @@ describe('paint history', () => {
       version: '1',
       ops: [
         {
-          action: 'stale-action',
+          action: 'kept-action',
           at: 1,
           rgba: RED,
           dbIds: [999_999, dbId as number],
@@ -136,11 +136,56 @@ describe('paint history', () => {
     });
     const spy = vi.spyOn(adapter, 'setModelThemingColor');
 
-    expect(await replayPaint(adapter)).toBe(1);
-    expect(spy).toHaveBeenCalledWith([{ modelId: URN, dbId }], RED);
-    expect(record().read().ops[0]?.dbIds).toEqual([dbId]);
-    expect(record().read().ops[0]?.dbIds).not.toContain(999_999);
+    expect(await replayPaint(adapter)).toBe(2);
+    expect(spy).toHaveBeenCalledWith(
+      [
+        { modelId: URN, dbId: 999_999 },
+        { modelId: URN, dbId },
+      ],
+      RED,
+    );
+    expect(record().read().ops[0]?.dbIds).toEqual([999_999, dbId]);
     adapter.destroy();
+  });
+
+  it('keeps paint made before an isolation out of the saved record', async () => {
+    const adapter = await loaded();
+    const ids = await visibleIds(adapter);
+    adapter.selectModelIds(
+      ids.slice(0, 2).map((dbId) => ({ modelId: URN, dbId })),
+    );
+    recordPaint(adapter, RED, 20);
+    const saved = record().read().ops[0]?.dbIds.slice();
+    adapter.selectModelIds([{ modelId: URN, dbId: ids[0] as number }]);
+    adapter.isolateModelIds([{ modelId: URN, dbId: ids[0] as number }]);
+
+    await replayPaint(adapter);
+    expect(record().read().ops[0]?.dbIds).toEqual(saved);
+    adapter.destroy();
+  });
+
+  it('does not resurrect saved paint when the session never replayed it', async () => {
+    const first = await loaded();
+    const ids = await visibleIds(first);
+    first.selectModelIds(
+      ids.slice(0, 2).map((dbId) => ({ modelId: URN, dbId })),
+    );
+    recordPaint(first, RED, 20);
+    first.destroy();
+
+    const second = await loaded();
+    const items = [{ modelId: URN, dbId: ids[0] as number }];
+    second.selectModelIds(items);
+    recordPaint(second, BLUE, 20);
+    const spy = vi.spyOn(second, 'setModelThemingColor');
+
+    expect(canUndoPaint(second)).toBe(true);
+    expect(undoPaint(second)).toBe(true);
+    expect(spy).not.toHaveBeenCalled();
+    expect(canRedoPaint(second)).toBe(true);
+    expect(redoPaint(second)).toBe(true);
+    expect(spy).toHaveBeenCalledWith(items, BLUE);
+    second.destroy();
   });
 
   it('lists applied actions newest first', async () => {
