@@ -24,7 +24,10 @@ import {
   readChartTheme,
   seriesColors,
 } from '../extensions/dashboardData.js';
+import { usePersisted } from '../storage.js';
 import { useTheme } from '../theme/ThemeContext.js';
+import { patternFill } from './chartPatterns.js';
+import { CHART_SETTINGS } from './chartSettings.js';
 
 Chart.register(
   ArcElement,
@@ -74,6 +77,9 @@ export function ChartCanvas({
   selectRef.current = onSelectLabel;
   const [notice, setNotice] = useState('');
   const { theme: pageTheme } = useTheme();
+  const [chartSettings] = usePersisted(CHART_SETTINGS);
+  const palette = chartSettings.palette;
+  const patterns = chartSettings.patterns;
   const litKey = highlight?.size ? JSON.stringify([...highlight].sort()) : '';
   const [colors, setColors] = useState<string[]>([]);
   const litKeyRef = useRef(litKey);
@@ -88,6 +94,7 @@ export function ChartCanvas({
     const colors = seriesColors(
       theme,
       chart.data.map((d) => d.label),
+      palette,
     );
     setColors(colors);
     Chart.defaults.font.family = theme.fontFamily;
@@ -95,16 +102,17 @@ export function ChartCanvas({
     Chart.defaults.font.weight = Number(theme.fontWeight) || 420;
     Chart.defaults.color = theme.text;
     const labels = chart.data.map((d) => d.label);
+    const patternCtx = patterns ? canvas.getContext('2d') : null;
     const styleFor = (key: string) => {
       const lit = key ? new Set<string>(JSON.parse(key)) : null;
       return {
-        backgroundColor: lit
-          ? colors.map((color, index) =>
-              lit.has(labels[index] ?? '')
-                ? color
-                : mixColors(color, theme.surface, DIM_WEIGHT),
-            )
-          : colors,
+        backgroundColor: colors.map((color, index) => {
+          const shown =
+            lit && !lit.has(labels[index] ?? '')
+              ? mixColors(color, theme.surface, DIM_WEIGHT)
+              : color;
+          return patternCtx ? patternFill(patternCtx, shown, index) : shown;
+        }),
         borderWidth: labels.map((name) => (lit?.has(name) ? 2 : 0)),
       };
     };
@@ -211,7 +219,7 @@ export function ChartCanvas({
       paintRef.current = null;
       instance.destroy();
     };
-  }, [kind, chart, pageTheme]);
+  }, [kind, chart, pageTheme, palette, patterns]);
 
   useEffect(() => {
     paintRef.current?.(litKey);
@@ -327,13 +335,16 @@ export function ChartTable({
   onSelectLabel,
 }: ChartTableProps) {
   const { theme: pageTheme } = useTheme();
+  const [chartSettings] = usePersisted(CHART_SETTINGS);
+  const palette = chartSettings.palette;
   const colors = useMemo(
     () =>
       seriesColors(
         readChartTheme(),
         chart.data.map((d) => d.label),
+        palette,
       ),
-    [chart.data, pageTheme],
+    [chart.data, palette, pageTheme],
   );
   const numeric = chart.aggregate !== undefined && chart.aggregate !== 'count';
   const valueLabel = `${AGGREGATE_LABELS[chart.aggregate ?? 'count']}${

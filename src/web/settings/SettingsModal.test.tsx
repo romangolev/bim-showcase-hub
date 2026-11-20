@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { COMMANDS } from '../commands/registry.js';
 import { ModalProvider } from '../modal/ModalContext.js';
 import { MODALS } from '../modal/registry.js';
+import { CHART_SETTINGS } from '../panels/chartSettings.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { ThemeProvider } from '../theme/ThemeContext.js';
 import { TOOLS } from '../tools/index.js';
@@ -255,5 +256,34 @@ describe('SettingsBody', () => {
       ]),
     );
     expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('turns on chart patterns and the always-open data table', () => {
+    renderBody();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Pattern fills' }));
+    fireEvent.click(
+      screen.getByRole('checkbox', { name: 'Always show the data table' }),
+    );
+    expect(CHART_SETTINGS.read()).toMatchObject({
+      patterns: true,
+      dataTable: true,
+    });
+  });
+
+  it('picks the chart palette', () => {
+    renderBody();
+    const palette = screen.getByLabelText('Chart palette');
+    expect(
+      within(palette)
+        .getAllByRole('option')
+        .map((option) => option.textContent),
+    ).toEqual([
+      'Default',
+      'Okabe–Ito (colour-blind safe)',
+      'Viridis (colour-blind safe)',
+      'High contrast',
+    ]);
+    fireEvent.change(palette, { target: { value: 'viridis' } });
+    expect(CHART_SETTINGS.read().palette).toBe('viridis');
   });
 });

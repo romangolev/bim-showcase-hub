@@ -2,6 +2,7 @@ import type { PropertyRow } from '../../shared/types.js';
 import type { ModelDbId } from '../viewer/modelSet.js';
 import { type ParsedMeasure, parseMeasure } from './measureParse.js';
 import { EMPTY_VALUE_LABEL, formatValue } from './modelSummary.js';
+import { PAINT_PALETTES } from './paintBrushes.js';
 
 export const DEFAULT_DASHBOARD_PROPERTIES: readonly string[] = [
   'Category',
@@ -443,6 +444,21 @@ export const CHART_PALETTES: Record<ChartTheme['scheme'], readonly string[]> = {
 export const OTHER_COLOR = '#8A8F98';
 const REPEAT_WEIGHT = 0.6;
 
+export type ChartPaletteId = 'default' | 'okabe-ito' | 'viridis' | 'contrast';
+
+function paletteSwatches(
+  theme: ChartTheme,
+  palette: ChartPaletteId,
+): readonly string[] {
+  const fallback = CHART_PALETTES[theme.scheme];
+  if (palette === 'default') return fallback;
+  return (
+    PAINT_PALETTES.find((item) => item.id === palette)?.swatches.map(
+      (swatch) => swatch.hex,
+    ) ?? fallback
+  );
+}
+
 function hashLabel(label: string): number {
   let hash = 2166136261;
   for (let i = 0; i < label.length; i += 1) {
@@ -454,19 +470,20 @@ function hashLabel(label: string): number {
 export function seriesColors(
   theme: ChartTheme,
   labels: readonly string[],
+  palette: ChartPaletteId = 'default',
 ): string[] {
-  const palette = CHART_PALETTES[theme.scheme];
+  const swatches = paletteSwatches(theme, palette);
   const cycles: Set<number>[] = [];
   return labels.map((label) => {
     if (label === OTHER_LABEL) return OTHER_COLOR;
     let cycle = 0;
-    while (cycles[cycle]?.size === palette.length) cycle += 1;
+    while (cycles[cycle]?.size === swatches.length) cycle += 1;
     const taken = cycles[cycle] ?? new Set<number>();
     cycles[cycle] = taken;
-    let slot = hashLabel(label) % palette.length;
-    while (taken.has(slot)) slot = (slot + 1) % palette.length;
+    let slot = hashLabel(label) % swatches.length;
+    while (taken.has(slot)) slot = (slot + 1) % swatches.length;
     taken.add(slot);
-    const base = palette[slot] ?? OTHER_COLOR;
+    const base = swatches[slot] ?? OTHER_COLOR;
     return cycle === 0 ? base : mixColors(base, theme.surface, REPEAT_WEIGHT);
   });
 }

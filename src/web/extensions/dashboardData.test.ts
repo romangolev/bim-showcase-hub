@@ -2,11 +2,17 @@ import { describe, expect, it } from 'vitest';
 import type { PropertyRow } from '../../shared/types.js';
 import {
   buildChart,
+  CHART_PALETTES,
+  type ChartPaletteId,
+  type ChartTheme,
   formatMeasure,
+  OTHER_COLOR,
   OTHER_LABEL,
   parseMeasure,
+  seriesColors,
   shapeChartData,
 } from './dashboardData.js';
+import { PAINT_PALETTES } from './paintBrushes.js';
 
 const row = (dbId: number, properties: PropertyRow['properties']) => ({
   dbId,
@@ -258,6 +264,44 @@ describe('chart units', () => {
     );
     expect(chart.mixed).toBe(true);
     expect(chart.units).toEqual(['kg', 'm']);
+  });
+});
+
+describe('seriesColors palette', () => {
+  const theme: ChartTheme = {
+    scheme: 'dark',
+    text: '#858687',
+    label: '#cececf',
+    grid: 'rgba(255,255,255,0.06)',
+    surface: '#131416',
+    fontFamily: 'Inter',
+    fontWeight: '420',
+    fontSize: 12,
+  };
+
+  it('keeps the theme palette by default', () => {
+    const labels = ['Walls', 'Doors'];
+    expect(seriesColors(theme, labels)).toEqual(
+      seriesColors(theme, labels, 'default'),
+    );
+    for (const color of seriesColors(theme, labels)) {
+      expect(CHART_PALETTES.dark).toContain(color);
+    }
+  });
+
+  it('takes its colours from the chosen palette and keeps Other grey', () => {
+    const colors = seriesColors(theme, ['A', OTHER_LABEL], 'okabe-ito');
+    const okabe = PAINT_PALETTES.find(
+      (p) => p.id === 'okabe-ito',
+    )?.swatches.map((s) => s.hex.toLowerCase());
+    expect(okabe).toContain(colors[0]?.toLowerCase());
+    expect(colors[1]).toBe(OTHER_COLOR);
+  });
+
+  it('falls back to the theme palette for an unknown id', () => {
+    expect(seriesColors(theme, ['Walls'], 'nope' as ChartPaletteId)).toEqual(
+      seriesColors(theme, ['Walls']),
+    );
   });
 });
 

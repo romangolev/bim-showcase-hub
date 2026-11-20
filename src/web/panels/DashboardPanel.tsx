@@ -31,6 +31,7 @@ import { ALL_MODELS } from '../viewer/modelScope.js';
 import type { ModelDbId } from '../viewer/modelSet.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { ChartCanvas, type ChartKind, ChartTable } from './ChartCanvas.js';
+import { CHART_SETTINGS } from './chartSettings.js';
 import { DashboardGallery } from './DashboardGallery.js';
 import { ElementScopeSelect, scopeName } from './ElementScope.js';
 import { HEALTH_KPI_SETTINGS, HealthKpis } from './HealthKpis.js';
@@ -115,6 +116,7 @@ export function DashboardPanel({
   const resolved = useResolvedAdapter(adapter);
   const [view, setView] = usePersisted(setting ?? PANE_SETTINGS.dashboard.view);
   const [health] = usePersisted(HEALTH_KPI_SETTINGS);
+  const [chartSettings] = usePersisted(CHART_SETTINGS);
   const spec = viewSpec(view);
   const propertyNames = view.properties;
   const activePreset = DASHBOARD_PRESETS.find((p) => p.id === view.preset);
@@ -611,7 +613,10 @@ export function DashboardPanel({
                   )}
                 </div>
                 {chartType !== 'table' ? (
-                  <details className="bsh-details">
+                  <details
+                    className="bsh-details"
+                    open={chartSettings.dataTable}
+                  >
                     <summary>Data table</summary>
                     <table className="bsh-table">
                       <caption className="bsh-sr-only">
