@@ -34,6 +34,8 @@ export const BSH_KEYS = {
     notifications: 'bsh.notify.v1',
     commandPins: 'bsh.commands.pinned.v1',
     viewerKeys: 'bsh.commands.viewer.keys.v1',
+    shareInclude: 'bsh.share.v1',
+    charts: 'bsh.charts.v1',
   },
 } as const;
 
