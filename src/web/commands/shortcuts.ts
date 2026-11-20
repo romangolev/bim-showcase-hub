@@ -81,6 +81,18 @@ export function isEditableTarget(target: EventTarget | null): boolean {
   );
 }
 
+export const VIEWER_CONTEXT_SELECTOR = '.bsh-viewer-pane';
+export const FLOATING_PANE_SELECTOR = '.dv-resize-container';
+
+export function isViewerContext(target: EventTarget | null): boolean {
+  if (target === null || target instanceof Document) return true;
+  if (!(target instanceof Element)) return false;
+  if (target.closest(FLOATING_PANE_SELECTOR)) return false;
+  if (isEditableTarget(target)) return false;
+  if (target.closest(VIEWER_CONTEXT_SELECTOR)) return true;
+  return target === document.body || target === document.documentElement;
+}
+
 export function matchShortcut(
   commands: readonly Command[],
   event: ShortcutEvent,

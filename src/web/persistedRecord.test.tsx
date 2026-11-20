@@ -66,9 +66,10 @@ describe('storage keys', () => {
         snapshot: 'bsh.snapshot.v1',
         notifications: 'bsh.notify.v1',
         commandPins: 'bsh.commands.pinned.v1',
+        viewerKeys: 'bsh.commands.viewer.keys.v1',
       },
     });
-    expect(BSH_PERSONAL_PREFIXES).toEqual(['bsh.pane.']);
+    expect(BSH_PERSONAL_PREFIXES).toEqual(['bsh.pane.', 'bsh.paint.']);
     expect(instanceSettingKey('chart:2')).toBe('bsh.pane.chart.2.v1');
     expect([
       PAINT_SETTINGS_KEY,

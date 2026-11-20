@@ -12,6 +12,7 @@ export {
   EDITABLE_SELECTOR,
   formatShortcut,
   isEditableTarget,
+  isViewerContext,
   matchShortcut,
   parseShortcut,
   type ShortcutEvent,
@@ -19,3 +20,13 @@ export {
   shortcutMatches,
 } from './shortcuts.js';
 export type { Command, CommandHost, CommandProvider } from './types.js';
+export {
+  DEFAULT_VIEWER_SHORTCUTS,
+  RESERVED_SHORTCUTS,
+  resetViewerShortcuts,
+  setViewerShortcut,
+  VIEWER_SHORTCUT_KEYS,
+  type ViewerShortcut,
+  viewerShortcutKeys,
+  viewerShortcuts,
+} from './viewerShortcutMap.js';

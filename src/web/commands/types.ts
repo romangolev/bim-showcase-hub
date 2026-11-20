@@ -4,7 +4,14 @@ export interface CommandHost {
   openModal: (id: string) => void;
 }
 
-type CommandMenu = 'toggle' | 'create' | 'hook' | 'present' | 'lock' | 'reset';
+export type CommandMenu =
+  | 'toggle'
+  | 'create'
+  | 'hook'
+  | 'present'
+  | 'lock'
+  | 'reset';
+export type CommandScope = 'viewer';
 
 export interface Command {
   id: string;
@@ -13,6 +20,7 @@ export interface Command {
   keywords?: string;
   icon?: IconName;
   keys?: readonly string[];
+  scope?: CommandScope;
   disabled?: string;
   menu?: CommandMenu;
   pane?: string;

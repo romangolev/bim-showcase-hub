@@ -33,10 +33,14 @@ export const BSH_KEYS = {
     snapshot: 'bsh.snapshot.v1',
     notifications: 'bsh.notify.v1',
     commandPins: 'bsh.commands.pinned.v1',
+    viewerKeys: 'bsh.commands.viewer.keys.v1',
   },
 } as const;
 
-export const BSH_PERSONAL_PREFIXES: readonly string[] = ['bsh.pane.'];
+export const BSH_PERSONAL_PREFIXES: readonly string[] = [
+  'bsh.pane.',
+  'bsh.paint.',
+];
 
 export const BSH_PREFERENCE_PREFIXES: readonly string[] = ['bsh.tool.'];
 

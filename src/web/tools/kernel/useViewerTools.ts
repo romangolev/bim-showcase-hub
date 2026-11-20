@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { COMMANDS } from '../../commands/registry.js';
 import { viewerCommands } from '../../commands/viewerCommands.js';
 import { usePersisted } from '../../storage.js';
+import type { ModelInfo } from '../../viewer/modelSet.js';
 import type { ViewerAdapter } from '../../viewer/ViewerAdapter.js';
 import { useActiveViewer } from '../../viewer/ViewerContext.js';
 import type { ToolRegistry, ToolSnapshot } from './ToolRegistry.js';
@@ -77,6 +78,36 @@ export function useViewerTools(
     const group = registry.buildGroup(ctx, snapshot);
     return group ? adapter.registerToolGroup(group) : undefined;
   }, [adapter, active, suffix, registry, snapshot]);
+
+  useEffect(() => {
+    if (!adapter || !active) return;
+    if (
+      typeof adapter.getModels !== 'function' ||
+      typeof adapter.onModelsChange !== 'function'
+    ) {
+      return;
+    }
+    const readyKey = (models: readonly ModelInfo[]) =>
+      models
+        .filter((model) => model.status === 'ready')
+        .map((model) => `${model.id}@${model.version ?? ''}`)
+        .join('|');
+    let signature = '';
+    const notifyTools = (models: readonly ModelInfo[]) => {
+      const next = readyKey(models);
+      if (next === signature) return;
+      signature = next;
+      if (!next) return;
+      for (const tool of registry.all()) {
+        tool.onModelsReady(
+          adapter,
+          liveRef.current[tool.id] ?? tool.settings.initial,
+        );
+      }
+    };
+    notifyTools(adapter.getModels());
+    return adapter.onModelsChange(notifyTools);
+  }, [adapter, active, registry]);
 
   const wasEnabled = useRef<Record<string, boolean>>({});
   const seen = useRef<

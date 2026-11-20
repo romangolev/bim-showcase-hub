@@ -1,4 +1,5 @@
 import { colorLayersFor } from '../viewer/colorLayers.js';
+import type { ModelDbId } from '../viewer/modelSet.js';
 import type { Rgba, ViewerAdapter } from '../viewer/ViewerAdapter.js';
 
 export interface PaintPreset {
@@ -187,6 +188,24 @@ export function paletteToPresets(
 }
 
 export const RESET_PAINT_LABEL = 'Reset appearance';
+
+export interface PaintBatch {
+  items: ModelDbId[];
+  color: Rgba;
+}
+
+export function applyPaintPlan(
+  adapter: ViewerAdapter,
+  batches: readonly PaintBatch[],
+  clear = false,
+): void {
+  const controller = colorLayersFor(adapter);
+  if (clear) controller.clearSource('paint');
+  for (const batch of batches) {
+    if (batch.items.length === 0) continue;
+    controller.setColors('paint', batch.items, batch.color);
+  }
+}
 
 export function paintSelection(adapter: ViewerAdapter, color: Rgba): boolean {
   const selection = adapter.getModelSelection();

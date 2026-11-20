@@ -109,6 +109,7 @@ Share links (`api/viewLink.ts`) carry the camera and selection (version 1), the 
 - `defineRecordFamily` makes one record per argument. Its prefix must be in `BSH_PERSONAL_PREFIXES`, and `get` and `forget` throw for a key outside that prefix.
 - `BSH_KEYS` lists the fixed keys as `personal` (cleared on sign-out) or `preference` (kept). Keys under `BSH_PERSONAL_PREFIXES` are personal too, so a new `bsh.pane.*` key is forgotten even when it is not in the list.
 - `forgetPersonal()` runs on sign-out and when the owner changes.
+- Paint history (`tools/paint/paintHistory.ts`) is one personal record per model version with the ordered paint actions and an undo cursor. `.onModelsReady` on the paint tool replays it after the object tree answers, dropping ids that no longer resolve.
 - Tests swap in `memoryAdapter()` with `setStorageAdapter`.
 
 The keys are listed in [development.md](development.md#storage-keys).

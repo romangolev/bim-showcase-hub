@@ -67,7 +67,7 @@ Helpers:
 
 ## Storage keys
 
-All browser storage goes through `src/web/storage.ts`. `BSH_KEYS` lists the fixed keys and `BSH_PERSONAL_PREFIXES` the personal families (`bsh.pane.`). Personal keys are cleared on sign-out. Preference keys stay.
+All browser storage goes through `src/web/storage.ts`. `BSH_KEYS` lists the fixed keys and `BSH_PERSONAL_PREFIXES` the personal families (`bsh.pane.`, `bsh.paint.`). Personal keys are cleared on sign-out. Preference keys stay.
 
 | Key | Class | Holds |
 |---|---|---|
@@ -84,6 +84,7 @@ All browser storage goes through `src/web/storage.ts`. `BSH_KEYS` lists the fixe
 | `bsh.saved.v1` | personal | Saved items: dashboard presets, export presets, selection sets, viewpoints |
 | `bsh.workspaces.v1` | personal | Named workspaces: `{ version: 1, items }`, each with a name, a layout and pane appearances |
 | `bsh.commands.recent.v1` | personal | Recent palette commands |
+| `bsh.paint.<model>.<version>` | personal | One paint record per model version: an ordered, bounded list of paint actions and the undo cursor. The hash covers the URN and the model version |
 | `bsh.hint.hubs.dismissed.v1` | personal | No-hubs notice dismissed |
 | `bsh-settings-v1` | preference | App settings, version 4: theme (`system`, `light`, `dark`), density, text size (100, 112, 125), reduced motion, language (`en`, `ru`), units (`metric`, `imperial`), session warning, recents length |
 | `bsh.layout.locked` | preference | Layout lock |
@@ -91,7 +92,8 @@ All browser storage goes through `src/web/storage.ts`. `BSH_KEYS` lists the fixe
 | `bsh.snapshot.v1` | preference | Snapshot and Present options |
 | `bsh.notify.v1` | preference | Toast position, duration and quiet mode |
 | `bsh.commands.pinned.v1` | preference | Pinned palette commands |
-| `bsh.tool.<id>.v1` | preference | Per-tool settings (`paint`, `excel`, `glb`, `ifc`). Excel stores its chosen columns in `properties` |
+| `bsh.commands.viewer.keys.v1` | preference | Rebound viewer shortcuts, keyed by command id. Commands missing here use the defaults |
+| `bsh.tool.<id>.v1` | preference | Per-tool settings (`paint`, `excel`, `glb`, `ifc`). Excel stores its chosen columns in `properties`; paint stores the palette, restore-on-open and history depth |
 
 To reset the layout, run `localStorage.removeItem('bsh.layout.v2')` or use Reset layout in the Panes menu or Settings > Defaults. In mock mode `window.__bshLayout` exposes the layout API for tests. It does not exist in production builds.
 

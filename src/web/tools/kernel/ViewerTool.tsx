@@ -84,6 +84,8 @@ export abstract class ViewerTool<S extends ToolSettings = ToolSettings> {
 
   onDisabled(_adapter: ViewerAdapter): void {}
 
+  onModelsReady(_adapter: ViewerAdapter, _settings: S): void {}
+
   onSettingsChanged(
     _adapter: ViewerAdapter,
     _previous: S | undefined,
