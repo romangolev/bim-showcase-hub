@@ -95,7 +95,7 @@ function thresholdTone(
     ? { tone: 'bad', text: `Above the ${threshold}% threshold` }
     : {
         tone: 'good',
-        text: `${Math.round(share * 100)}% is within the ${threshold}% threshold`,
+        text: `Within the ${threshold}% threshold`,
       };
 }
 
@@ -135,7 +135,7 @@ export function healthKpis(
       value: total,
       share: total > 0 ? 1 : 0,
       tone: 'neutral',
-      text: `${formatCount(total)} in the current scope`,
+      text: 'In the current scope',
       offenders: [],
     },
   ];
@@ -210,7 +210,7 @@ export function healthKpis(
     const verdict = thresholdTone(share, threshold);
     tiles.push({
       id: `duplicate:${property}`,
-      label: `Duplicate ${property}`,
+      label: `Elements with a duplicate ${property}`,
       value,
       share,
       tone: total === 0 ? 'neutral' : verdict.tone,

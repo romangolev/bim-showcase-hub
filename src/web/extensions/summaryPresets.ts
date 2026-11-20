@@ -2,8 +2,11 @@ import { isRecord } from '../../shared/guards.js';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import { defineSavedKind } from '../store/savedKinds.js';
 import { MAX_ITEM_BYTES } from '../store/savedStore.js';
-import type { SummaryView } from './modelSummary.js';
-import { DEFAULT_SUMMARY_VIEW } from './modelSummary.js';
+import {
+  DEFAULT_SUMMARY_VIEW,
+  type SummaryView,
+  sanitizeView,
+} from './modelSummary.js';
 import { sanitizePropertyNames } from './propertyNames.js';
 
 export type JsonValue =
@@ -116,9 +119,15 @@ export function applySummaryPreset(data: SummaryPresetData): boolean {
   const clean = sanitizeSummaryPreset(data);
   if (!clean) return false;
   const properties = PANE_SETTINGS.summary.properties.write(clean.properties);
-  const view = PANE_SETTINGS.summary.view.write(
-    clean.view as unknown as SummaryView,
+  const source = clean.view as Record<string, unknown>;
+  const sanitized = sanitizeView(source);
+  const extra = Object.fromEntries(
+    Object.entries(source).filter(([key]) => !(key in sanitized)),
   );
+  const view = PANE_SETTINGS.summary.view.write({
+    ...sanitized,
+    ...extra,
+  } as SummaryView);
   return properties && view;
 }
 

@@ -260,3 +260,16 @@ describe('chart units', () => {
     expect(chart.units).toEqual(['kg', 'm']);
   });
 });
+
+describe('measure parsing edge cases', () => {
+  it('reads locale grouping and rejects values it cannot read', () => {
+    expect(parseMeasure('1.000,5 m²')).toMatchObject({
+      value: 1000.5,
+      family: 'area',
+    });
+    expect(parseMeasure('1,000.5 m²')).toMatchObject({ value: 1000.5 });
+    expect(parseMeasure('1.234')).toBeNull();
+    expect(parseMeasure('2:30')).toBeNull();
+    expect(parseMeasure('1e5')).toBeNull();
+  });
+});

@@ -6,6 +6,7 @@ import {
   countShare,
   formatCount,
   formatMeasure,
+  MAX_TITLE_LENGTH,
   type MeasureCell,
   measureByValue,
   type PivotNode,
@@ -63,6 +64,7 @@ function TitleInput({
       type="text"
       className="bsh-input bsh-table-block__input"
       aria-label={`Title for ${property}`}
+      maxLength={MAX_TITLE_LENGTH}
       value={value}
       onChange={(event) => setValue(event.target.value)}
       onBlur={() => onCommit(value)}
@@ -138,6 +140,7 @@ export function SummaryTable({
   hiddenColumns = [],
   activeKey,
   onPick,
+  propertyNames,
   view,
   rows,
   onTitleChange,
@@ -147,6 +150,7 @@ export function SummaryTable({
   hiddenColumns?: readonly SummaryColumn[];
   activeKey?: string | null;
   onPick?: (entry: SummaryEntry) => void;
+  propertyNames?: readonly string[];
   view?: SummaryView;
   rows?: readonly PropertyRow[];
   onTitleChange?: (property: string, title: string) => void;
@@ -163,15 +167,23 @@ export function SummaryTable({
   const [editing, setEditing] = useState<string | null>(null);
 
   const layout = view?.layout ?? 'flat';
+  const available = useMemo(
+    () => new Set(propertyNames ?? entries.map((entry) => entry.property)),
+    [propertyNames, entries],
+  );
   const measureProperty = view?.measure ?? null;
-  const groupBy = view?.groupBy ?? [];
+  const groupBy = propertyNames
+    ? (view?.groupBy ?? []).filter((name) => available.has(name))
+    : (view?.groupBy ?? []);
   const groupByKey = groupBy.join('\u0000');
+  const propertiesKey = [...available].join('\u0000');
   const titles = view?.titles ?? {};
 
   const measures = useMemo(() => {
-    if (!measureProperty) return null;
+    if (!measureProperty || layout === 'pivot') return null;
     const cells = new Map<string, MeasureCell>();
-    for (const property of new Set(entries.map((entry) => entry.property))) {
+    for (const property of propertiesKey.split('\u0000')) {
+      if (!property) continue;
       for (const [value, cell] of measureByValue(
         rows ?? [],
         property,
@@ -181,7 +193,7 @@ export function SummaryTable({
       }
     }
     return cells;
-  }, [rows, entries, measureProperty]);
+  }, [rows, propertiesKey, measureProperty, layout]);
   const measureFor = (entry: SummaryEntry) =>
     measures?.get(`${entry.property}\u0000${entry.value}`);
   const blocks = useMemo(() => summaryBlocks(entries), [entries]);

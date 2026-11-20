@@ -279,7 +279,9 @@ describe('dashboard model health tiles', () => {
       screen.getByRole('button', { name: /^Classification Code missing/ }),
     ).toBeVisible();
     expect(
-      screen.getByRole('button', { name: /^Duplicate Name: 67%/ }),
+      screen.getByRole('button', {
+        name: /^Elements with a duplicate Name: 67%/,
+      }),
     ).toBeVisible();
     expect(screen.getByRole('button', { name: /^Empty values/ })).toBeVisible();
     expect(screen.getByText('Model health')).toBeVisible();

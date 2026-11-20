@@ -62,7 +62,7 @@ describe('healthKpis', () => {
     const level = tile(tiles, 'missing:Level');
     expect(level).toMatchObject({ value: 1, tone: 'good' });
     expect(level.share).toBeCloseTo(1 / 3);
-    expect(level.text).toMatch(/within the 50% threshold/);
+    expect(level.text).toMatch(/within the 50% threshold/i);
     expect(level.offenders).toEqual([{ modelId: 'm', dbId: 2 }]);
 
     const classification = tile(tiles, 'missing:Classification Code');
@@ -109,7 +109,7 @@ describe('healthKpis', () => {
       'missing:Level',
     );
     expect(loose.tone).toBe('good');
-    expect(loose.text).toMatch(/within the 80% threshold/);
+    expect(loose.text).toMatch(/within the 80% threshold/i);
   });
 
   it('is sane on an empty model, an all-empty property and one value', () => {

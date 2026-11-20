@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
-import { readSaved, SAVED_KEY } from '../store/savedStore.js';
+import {
+  exportSaved,
+  importSaved,
+  readSaved,
+  SAVED_KEY,
+} from '../store/savedStore.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { DEFAULT_SUMMARY_VIEW } from './modelSummary.js';
 import {
@@ -126,6 +131,31 @@ describe('summary preset storage', () => {
       window.localStorage.getItem('bsh.summary.view.v1') ?? '{}',
     ) as Record<string, unknown>;
     expect(stored.futureField).toBe('kept');
+  });
+
+  it('survives a JSON export and import round trip with unknown fields', () => {
+    const view = { ...DEFAULT_SUMMARY_VIEW, futureField: 'kept' };
+    expect(saveSummaryPreset('Shared', ['Category'], view)).toBe(true);
+    const file = exportSaved('summary-preset');
+    window.localStorage.removeItem(SAVED_KEY);
+    const result = importSaved(file);
+    expect(result.accepted).toBe(1);
+    expect(SUMMARY_PRESETS.list()[0]?.data).toEqual({
+      properties: ['Category'],
+      view,
+    });
+  });
+
+  it('applies a partial view without writing an unusable one', () => {
+    expect(
+      applySummaryPreset({ properties: ['Level'], view: { futureField: 1 } }),
+    ).toBe(true);
+    expect(PANE_SETTINGS.summary.view.read()).toMatchObject({
+      layout: 'flat',
+      groupBy: [],
+      measure: null,
+      text: '',
+    });
   });
 
   it('skips a corrupt stored preset instead of half-building it', () => {

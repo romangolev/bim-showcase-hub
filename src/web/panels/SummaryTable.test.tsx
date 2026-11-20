@@ -62,7 +62,7 @@ describe('SummaryTable flat layout', () => {
       screen.getByRole('columnheader', { name: 'Measure' }),
     ).toBeInTheDocument();
     expect(screen.getByText('1,212.5 m²')).toBeInTheDocument();
-    expect(screen.getByText('3 m²')).toBeInTheDocument();
+    expect(screen.getByText('3 m² (1 missing)')).toBeInTheDocument();
     expect(screen.queryByText('n/a')).toBeNull();
   });
 });

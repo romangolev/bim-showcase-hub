@@ -109,7 +109,9 @@ export function ChartCanvas({
       };
     };
     const counts = chart.data.map((d) =>
-      chart.aggregate && chart.aggregate !== 'count' ? (d.value ?? 0) : d.count,
+      chart.aggregate && chart.aggregate !== 'count'
+        ? (d.value ?? null)
+        : d.count,
     );
     const horizontal = kind === 'hbar';
     const instance = new Chart(canvas, {

@@ -175,7 +175,10 @@ export function ModelSummaryPanel({
       aria-labelledby={titleId}
       data-collapsed={isCollapsed}
       data-density={view.density}
-      data-rows-collapsed={!showAll && shown.length > STACKED_ROW_LIMIT}
+      data-rows-collapsed={
+        !showAll &&
+        (view.layout === 'pivot' ? false : shown.length > STACKED_ROW_LIMIT)
+      }
     >
       <header className="bsh-card__header bsh-summary__header">
         <h2 id={titleId} className="bsh-card__title bsh-summary__title">
@@ -347,14 +350,16 @@ export function ModelSummaryPanel({
             )}
           {entries.length > 0 && (
             <div className="bsh-summary__tools">
-              <input
-                type="search"
-                className="bsh-input"
-                aria-label="Filter summary rows"
-                placeholder="Filter"
-                value={view.text}
-                onChange={(e) => patch({ text: e.target.value })}
-              />
+              {view.layout === 'pivot' ? null : (
+                <input
+                  type="search"
+                  className="bsh-input"
+                  aria-label="Filter summary rows"
+                  placeholder="Filter"
+                  value={view.text}
+                  onChange={(e) => patch({ text: e.target.value })}
+                />
+              )}
               <button type="button" className="bsh-button" onClick={copyTable}>
                 Copy table
               </button>
@@ -386,21 +391,26 @@ export function ModelSummaryPanel({
               )}
             </div>
           )}
-          {entries.length > 0 && shown.length === 0 && (
-            <StateBlock
-              variant="empty"
-              compact
-              title="No rows match"
-              message="Change the filter, or reset the view in Summary settings."
-            />
-          )}
-          {shown.length > 0 && (
+          {entries.length > 0 &&
+            shown.length === 0 &&
+            view.layout !== 'pivot' && (
+              <StateBlock
+                variant="empty"
+                compact
+                title="No rows match"
+                message="Change the filter, or reset the view in Summary settings."
+              />
+            )}
+          {(view.layout === 'pivot'
+            ? entries.length > 0
+            : shown.length > 0) && (
             <SummaryTable
               entries={shown}
               hiddenColumns={view.hiddenColumns}
               activeKey={active}
               onPick={pick}
               view={view}
+              propertyNames={propertyNames}
               rows={state.rows}
               onTitleChange={(property, title) =>
                 patch({

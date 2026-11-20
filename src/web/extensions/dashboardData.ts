@@ -155,6 +155,8 @@ const UNIT_SPECS: Record<string, UnitSpec> = {
 
 const NUMBER_PREFIX = /^[+-]?[\d.,\u00A0\u202F_ ]+/;
 const GROUPED_COMMA = 3;
+const AMBIGUOUS_GROUP = /^[+-]?\d{1,3}\.\d{3}$/;
+const UNIT_TOKEN = /^[a-z°%€£₽$]{1,6}[²³23]?$/;
 
 function numericValue(text: string): number | null {
   let body = text.replace(/[\s\u00A0\u202F_]/g, '');
@@ -164,10 +166,19 @@ function numericValue(text: string): number | null {
     body = body.slice(1);
   }
   if (!body || !/\d/.test(body)) return null;
+  if (AMBIGUOUS_GROUP.test(body)) return null;
+  const lastDot = body.lastIndexOf('.');
+  const lastComma = body.lastIndexOf(',');
+  const last = Math.max(lastDot, lastComma);
+  if (lastDot >= 0 && lastComma >= 0 && last === lastComma) {
+    body = `${body.slice(0, last).replace(/[.,]/g, '')}.${body.slice(last + 1)}`;
+  } else if (lastDot >= 0 && lastComma >= 0) {
+    body = `${body.slice(0, last).replace(/[.,]/g, '')}.${body.slice(last + 1)}`;
+  }
   const dots = (body.match(/\./g) ?? []).length;
   if (!body.includes(',') && dots > 1) {
-    const last = body.lastIndexOf('.');
-    body = `${body.slice(0, last).replace(/\./g, '')}.${body.slice(last + 1)}`;
+    const only = body.lastIndexOf('.');
+    body = `${body.slice(0, only).replace(/\./g, '')}.${body.slice(only + 1)}`;
   }
   let whole = body;
   let fraction = '';
@@ -223,6 +234,7 @@ export function parseMeasure(raw: unknown): ParsedMeasure | null {
   if (spec) {
     return { value, unit: unitText, family: spec.family, factor: spec.factor };
   }
+  if (!UNIT_TOKEN.test(key)) return null;
   return { value, unit: unitText, family: `unit:${key}`, factor: 1 };
 }
 

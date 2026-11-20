@@ -165,7 +165,9 @@ const FAMILY_UNITS: Record<MeasureFamily, string> = {
 };
 
 const MEASURE_NUMBER =
-  /^[+-]?(?:\d{1,3}(?:[,\u00a0\u202f ]\d{3})+|\d+)(?:\.\d+)?$/;
+  /^[+-]?(?:(?:\d{1,3}(?:[,\u00a0\u202f ]\d{3})+|\d+)(?:\.\d+)?|\d+,[0-9]{1,2})$/;
+
+const AMBIGUOUS_NUMBER = /^[+-]?\d{1,3}(?:\.\d{3})+$/;
 
 function canonicalUnit(text: string): string {
   const lower = text.toLowerCase();
@@ -192,8 +194,13 @@ export function parseMeasure(raw: unknown): ParsedMeasure | null {
     }
   }
   text = text.trim();
+  if (AMBIGUOUS_NUMBER.test(text)) return null;
   if (!MEASURE_NUMBER.test(text)) return null;
-  const value = Number(text.replace(/[,\u00a0\u202f ]/g, ''));
+  const value = Number(
+    text
+      .replace(/^([+-]?\d+),([0-9]{1,2})$/, '$1.$2')
+      .replace(/[,\u00a0\u202f ]/g, ''),
+  );
   if (!Number.isFinite(value)) return null;
   return { value, ...unit };
 }
@@ -276,7 +283,10 @@ export function formatMeasure(
     maximumFractionDigits: precision,
   });
   const unit = options.unitLabel.trim() || cell.unit;
-  return unit ? `${number} ${unit}` : number;
+  const exact = unit ? `${number} ${unit}` : number;
+  if (cell.measured === 0) return 'n/a';
+  if (cell.skipped === 0) return exact;
+  return `${exact} (${cell.skipped.toLocaleString('en-US')} missing)`;
 }
 
 export interface PivotNode {

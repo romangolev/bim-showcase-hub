@@ -135,7 +135,8 @@ describe('parseMeasure', () => {
     expect(parseMeasure('n/a')).toBeNull();
     expect(parseMeasure('(empty)')).toBeNull();
     expect(parseMeasure('')).toBeNull();
-    expect(parseMeasure('1,23')).toBeNull();
+    expect(parseMeasure('1,2345')).toBeNull();
+    expect(parseMeasure('1.234')).toBeNull();
     expect(parseMeasure(Number.POSITIVE_INFINITY)).toBeNull();
     expect(parseMeasure(null)).toBeNull();
   });
@@ -168,6 +169,7 @@ describe('measures', () => {
       measured: 1,
       skipped: 1,
     });
+    expect(parseMeasure('12,5 m')).toMatchObject({ value: 12.5, unit: 'm' });
   });
 
   it('converts millimetres to metres inside the length family', () => {
