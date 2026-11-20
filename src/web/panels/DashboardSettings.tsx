@@ -10,11 +10,8 @@ import {
   TOP_N_MIN,
 } from '../extensions/dashboardData.js';
 import {
-  CHART_KINDS,
   DASHBOARD_PRESETS,
-  type DashboardKind,
   type DashboardView,
-  KIND_LABELS,
   kindForChartType,
   MAX_CATEGORIES,
   MIN_CATEGORIES,

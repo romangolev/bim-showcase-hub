@@ -400,6 +400,13 @@ export function ModelSummaryPanel({
               hiddenColumns={view.hiddenColumns}
               activeKey={active}
               onPick={pick}
+              view={view}
+              rows={state.rows}
+              onTitleChange={(property, title) =>
+                patch({
+                  titles: { ...view.titles, [property]: title },
+                })
+              }
             />
           )}
           {shown.length > STACKED_ROW_LIMIT && (
