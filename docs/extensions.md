@@ -49,6 +49,16 @@ Every `PaneDefinition` carries `description`, `category` and `keywords` beside `
 - Empty cells are blank by default; `(empty)` writes that text instead. It applies to XLSX, CSV and copy, not JSON, which keeps an empty string.
 - A property row carries a value per property and no unit field, so exports still have no unit column.
 
+## Model summary view
+
+The summary view (`extensions/modelSummary.ts`) also carries a `layout` (`flat`, `grouped` or `pivot`), an ordered `groupBy`, a `measure` with `unitLabel` and `precision`, and per-block `titles`. `sanitizeView` fills every one of them from an older blob. `SummaryTable` renders them from props; a `flat` view with no measure keeps the original table. The pure helpers are:
+
+- `summaryBlocks(entries)` splits flat entries into one block per property in entry order.
+- `pivotTree(rows, groupBy, { measure })` nests rows by the ordered properties. A node is `{ value, count, children, measure }`, and `count` is the subtree total.
+- `parseMeasure(cell)` reads a number with thousands separators, an optional sign and an optional `m²`, `m³`, `m` or `mm` suffix. `measureOf(rows, property)` and `measureByValue(rows, valueProperty, measureProperty)` sum it per group, converting millimetres to metres; a group with mixed unit families, or none of the values numeric, is `mixed` or `missing` and renders `n/a`.
+- `formatMeasure(cell, { precision, unitLabel })` formats a cell, and `countShare(count, max)` gives the count bar's percentage.
+- `blockTitle(titles, property)` falls back to the property name, and `sanitizeGroupBy` and `sanitizeTitles` guard the stored view.
+
 ## Paint
 
 `PaintTool` (`tools/paint/`) turns a palette into viewer toolbar paint entries and stores its settings in `bsh.tool.paint.v1`.
