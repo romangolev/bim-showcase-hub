@@ -749,6 +749,16 @@ export class RealViewerAdapter implements ViewerAdapter {
     }
   }
 
+  showModelIds(items: readonly ModelDbId[]): void {
+    const viewer = this.viewer;
+    if (!viewer?.show) return;
+    const byModel = groupByModel(items);
+    for (const { info, handle } of this.models.shown()) {
+      const ids = byModel.get(info.id);
+      if (ids) viewer.show(ids, handle);
+    }
+  }
+
   showAll(): void {
     const viewer = this.viewer;
     if (viewer) resetNodes(viewer, this.stateModels());

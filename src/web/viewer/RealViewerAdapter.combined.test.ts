@@ -786,6 +786,16 @@ describe('selecting and isolating by model', () => {
     expect(viewer().isolated.get(str)).toEqual([]);
   });
 
+  it('shows hidden elements of one model again', async () => {
+    await adapter.loadModels([{ urn: 'arch' }]);
+    adapter.hideModelIds([{ modelId: 'arch', dbId: 11 }]);
+    adapter.showModelIds([{ modelId: 'arch', dbId: 11 }]);
+    expect(await adapter.getVisible()).toContainEqual({
+      modelId: 'arch',
+      dbId: 11,
+    });
+  });
+
   it('signals visibility changes from hide, show and isolate', async () => {
     await adapter.loadModels([{ urn: 'arch' }]);
     const seen = vi.fn();

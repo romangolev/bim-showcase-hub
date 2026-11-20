@@ -380,6 +380,19 @@ describe('mock selecting and isolating', () => {
     expect(await adapter.getVisible()).toHaveLength(total);
     expect(host.querySelectorAll('.bsh-mock__el--hidden')).toHaveLength(0);
   });
+
+  it('shows hidden elements again one group at a time', async () => {
+    await setup();
+    const [first, second] = buildMockElements();
+    const modelId = adapter.getModels()[0]?.id ?? '';
+    const total = buildMockElements().length;
+    const a = { modelId, dbId: first?.dbId ?? 0 };
+    const b = { modelId, dbId: second?.dbId ?? 0 };
+    adapter.hideModelIds([a, b]);
+    adapter.showModelIds([a]);
+    expect(await adapter.getVisible()).toHaveLength(total - 1);
+    expect(host.querySelectorAll('.bsh-mock__el--hidden')).toHaveLength(1);
+  });
 });
 
 describe('mock fitting, screenshot and state', () => {

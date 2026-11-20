@@ -118,6 +118,7 @@ export interface ViewerAdapter {
   selectModelIds(items: readonly ModelDbId[]): void;
   isolateModelIds(items: readonly ModelDbId[]): void;
   hideModelIds(items: readonly ModelDbId[]): void;
+  showModelIds(items: readonly ModelDbId[]): void;
   showAll(): void;
   fitToView(items?: readonly ModelDbId[]): void;
   getState(): ViewerState;

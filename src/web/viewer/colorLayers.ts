@@ -46,6 +46,10 @@ export interface ColorLayerController {
     dbIds: readonly number[],
     color: Color,
   ): void;
+  replaceSource(
+    source: ColorSource,
+    assignments: ReadonlyMap<string, ReadonlyMap<number, Color>>,
+  ): void;
   clearModel(source: ColorSource, modelId: string): void;
   clearSource(source: ColorSource): void;
   clearAll(): void;
@@ -280,6 +284,14 @@ export function createColorLayerController(
     },
     replaceModel(source, modelId, dbIds, color) {
       replaceLayerModel(layerOf(source), modelId, dbIds, color);
+      sync();
+    },
+    replaceSource(source, assignments) {
+      const layer = layerOf(source);
+      clearLayer(layer);
+      for (const [modelId, colors] of assignments) {
+        if (colors.size > 0) layer.assignments.set(modelId, new Map(colors));
+      }
       sync();
     },
     clearModel(source, modelId) {

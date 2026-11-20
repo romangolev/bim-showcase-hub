@@ -629,6 +629,13 @@ export class MockViewerAdapter implements ViewerAdapter {
     this.applyIsolation();
   }
 
+  showModelIds(items: readonly ModelDbId[]): void {
+    for (const item of items) {
+      this.hiddenKeys.delete(selectionKey(item.modelId, item.dbId));
+    }
+    this.applyIsolation();
+  }
+
   showAll(): void {
     this.hiddenKeys.clear();
     this.isolated = null;
