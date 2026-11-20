@@ -58,6 +58,7 @@ export interface SummaryView {
   sort: SummarySort;
   density: SummaryDensity;
   hiddenColumns: SummaryColumn[];
+  autoRefresh: boolean;
 }
 
 export const DEFAULT_SUMMARY_VIEW: SummaryView = {
@@ -67,6 +68,7 @@ export const DEFAULT_SUMMARY_VIEW: SummaryView = {
   sort: 'count',
   density: 'comfortable',
   hiddenColumns: [],
+  autoRefresh: true,
 };
 
 export function viewEntries(
@@ -128,6 +130,8 @@ export function sanitizeView(raw: unknown): SummaryView {
           (source.hiddenColumns as unknown[]).includes(column),
         )
       : [],
+    autoRefresh:
+      typeof source.autoRefresh === 'boolean' ? source.autoRefresh : true,
   };
 }
 

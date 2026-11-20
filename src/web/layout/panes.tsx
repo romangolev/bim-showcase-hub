@@ -343,6 +343,7 @@ export function ModelsPane() {
   return (
     <div className="pane-models">
       <ModelsPanel
+        setKey={active}
         onRemove={
           store && active ? (urn) => store.removeFrom(active, urn) : undefined
         }

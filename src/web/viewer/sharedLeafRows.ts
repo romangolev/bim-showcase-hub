@@ -13,6 +13,7 @@ import {
 import type { ViewerAdapter } from './ViewerAdapter.js';
 
 interface Pending {
+  generation: number;
   names: Set<string>;
   controller: AbortController;
   waiters: number;
@@ -22,6 +23,7 @@ interface Pending {
 }
 
 interface Discovery {
+  generation: number;
   controller: AbortController;
   waiters: number;
   listeners: Set<(progress: ReadProgress) => void>;
@@ -29,11 +31,19 @@ interface Discovery {
   promise: Promise<PropertyInfo[]>;
 }
 
+interface Settled {
+  names: Set<string>;
+  rows: PropertyRow[];
+  stale: boolean;
+}
+
 interface KeyReads {
   version: string | undefined;
+  generation: number;
+  discoveryGeneration: number;
   inFlight: Pending | null;
   batch: Pending | null;
-  settled: { names: Set<string>; rows: PropertyRow[] } | null;
+  settled: Settled | null;
   discovery: Discovery | null;
   discovered: PropertyInfo[] | null;
 }
@@ -81,21 +91,39 @@ function readsFor(adapter: ViewerAdapter): AdapterReads {
   return entry;
 }
 
+function newKeyReads(version: string | undefined): KeyReads {
+  return {
+    version,
+    generation: 0,
+    discoveryGeneration: 0,
+    inFlight: null,
+    batch: null,
+    settled: null,
+    discovery: null,
+    discovered: null,
+  };
+}
+
+function invalidateKey(reads: KeyReads): void {
+  reads.generation += 1;
+  if (reads.settled) reads.settled.stale = true;
+}
+
 function keyReads(
   entry: AdapterReads,
   model: Pick<ModelInfo, 'id' | 'version'>,
 ): KeyReads {
   let reads = entry.keys.get(model.id);
-  if (!reads || reads.version !== model.version) {
-    reads = {
-      version: model.version,
-      inFlight: null,
-      batch: null,
-      settled: null,
-      discovery: null,
-      discovered: null,
-    };
+  if (!reads) {
+    reads = newKeyReads(model.version);
     entry.keys.set(model.id, reads);
+    return reads;
+  }
+  if (reads.version !== model.version) {
+    reads.version = model.version;
+    reads.discovered = null;
+    reads.discoveryGeneration += 1;
+    invalidateKey(reads);
   }
   return reads;
 }
@@ -132,7 +160,9 @@ function startBatch(
   model: ModelInfo,
 ): Pending {
   const generation = entry.generation;
+  const keyGeneration = key.generation;
   const pending: Pending = {
+    generation: key.generation,
     names: new Set<string>(key.settled?.names),
     controller: new AbortController(),
     waiters: 0,
@@ -160,9 +190,10 @@ function startBatch(
       release();
       if (
         entry.generation === generation &&
+        key.generation === keyGeneration &&
         (rows.length > 0 || pending.last?.total === 0)
       ) {
-        key.settled = { names: pending.names, rows };
+        key.settled = { names: new Set(pending.names), rows, stale: false };
       }
     }, release);
     return read;
@@ -218,19 +249,29 @@ function readKey(
   options: ReadOptions,
 ): Promise<PropertyRow[]> {
   const key = keyReads(entry, model);
-  if (key.settled && covers(key.settled.names, names)) {
+  if (key.settled && !key.settled.stale && covers(key.settled.names, names)) {
     const { rows } = key.settled;
-    options.onProgress?.({ done: rows.length, total: rows.length });
+    options.onProgress?.({
+      phase: 'rows',
+      loaded: rows.length,
+      total: rows.length,
+      partial: false,
+    });
     return Promise.resolve(rows);
   }
   if (
     key.inFlight &&
+    key.inFlight.generation === key.generation &&
     !key.inFlight.controller.signal.aborted &&
     covers(key.inFlight.names, names)
   ) {
     return attach(key.inFlight, options);
   }
-  if (!key.batch || key.batch.controller.signal.aborted) {
+  if (
+    !key.batch ||
+    key.batch.generation !== key.generation ||
+    key.batch.controller.signal.aborted
+  ) {
     key.batch = startBatch(adapter, entry, key, model);
   }
   for (const name of names) key.batch.names.add(name);
@@ -267,10 +308,11 @@ export async function readLeafRows(
     models.map((model) =>
       readKey(adapter, entry, model, propertyNames, {
         ...options,
-        onProgress: progress(model.id),
+        onProgress: progress.report(model.id),
       }),
     ),
   );
+  progress.flush();
   throwIfAborted(options.signal);
   const parts: PropertyRow[][] = [];
   const failed: string[] = [];
@@ -299,6 +341,7 @@ export async function readLeafRows(
 
 export function peekLeafRows(
   adapter: ViewerAdapter,
+  names?: readonly string[],
   modelIds?: readonly string[],
 ): PropertyRow[] | null {
   const entry = reads.get(adapter);
@@ -309,10 +352,52 @@ export function peekLeafRows(
   const parts: PropertyRow[][] = [];
   for (const model of models) {
     const key = entry.keys.get(model.id);
-    if (!key || key.version !== model.version || !key.settled) return null;
+    if (!key?.settled) return null;
+    if (names && !covers(key.settled.names, names)) return null;
     parts.push(key.settled.rows);
   }
   return parts.flat();
+}
+
+export function leafRowsStale(
+  adapter: ViewerAdapter,
+  modelIds?: readonly string[],
+): boolean {
+  const entry = reads.get(adapter);
+  if (!entry) return false;
+  return shownModels(adapter)
+    .filter((model) => !modelIds || modelIds.includes(model.id))
+    .some((model) => {
+      const key = entry.keys.get(model.id);
+      return (
+        key !== undefined &&
+        key.settled !== null &&
+        (key.settled.stale || key.version !== model.version)
+      );
+    });
+}
+
+export function refreshLeafRows(
+  adapter: ViewerAdapter,
+  modelIds?: readonly string[],
+): void {
+  const entry = reads.get(adapter);
+  if (!entry) return;
+  for (const model of shownModels(adapter).filter(
+    (item) => !modelIds || modelIds.includes(item.id),
+  )) {
+    const key = entry.keys.get(model.id);
+    if (key) invalidateKey(key);
+  }
+}
+
+export function refreshLeafProperties(adapter: ViewerAdapter): void {
+  const entry = reads.get(adapter);
+  if (!entry) return;
+  for (const key of entry.keys.values()) {
+    key.discoveryGeneration += 1;
+    key.discovered = null;
+  }
 }
 
 export function forgetLeafRows(adapter: ViewerAdapter): void {
@@ -333,10 +418,16 @@ function discoverKey(
   if (key.discovered) return Promise.resolve(key.discovered);
   if (signal?.aborted) return Promise.reject(abortError());
   let discovery = key.discovery;
-  if (!discovery || discovery.controller.signal.aborted) {
+  if (
+    !discovery ||
+    discovery.generation !== key.discoveryGeneration ||
+    discovery.controller.signal.aborted
+  ) {
     const generation = entry.generation;
+    const keyGeneration = key.discoveryGeneration;
     const controller = new AbortController();
     const created: Discovery = {
+      generation: keyGeneration,
       controller,
       waiters: 0,
       listeners: new Set(),
@@ -359,6 +450,7 @@ function discoverKey(
       release();
       if (
         entry.generation === generation &&
+        key.discoveryGeneration === keyGeneration &&
         !controller.signal.aborted &&
         infos.length > 0
       ) {
@@ -415,10 +507,13 @@ export async function discoverLeafProperties(
     shownModels(adapter).map((model) =>
       discoverKey(adapter, entry, model, {
         ...options,
-        ...(options.onProgress ? { onProgress: progress(model.id) } : {}),
+        ...(options.onProgress
+          ? { onProgress: progress.report(model.id) }
+          : {}),
       }),
     ),
   );
+  progress.flush();
   throwIfAborted(options.signal);
   const lists: PropertyInfo[][] = [];
   let failure: unknown = null;

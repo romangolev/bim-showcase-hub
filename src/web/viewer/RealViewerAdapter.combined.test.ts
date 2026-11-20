@@ -367,6 +367,25 @@ describe('federated selection, paint and properties', () => {
     expect(viewer().cleared).toEqual(viewer().models);
   });
 
+  it('clears theming for one element at a time', async () => {
+    await adapter.loadModels([{ urn: 'a' }, { urn: 'b' }]);
+    adapter.clearModelThemingColors([
+      { modelId: 'a', dbId: 11 },
+      { modelId: 'b', dbId: 12 },
+    ]);
+    expect(
+      viewer().themed.map((entry) => [
+        (entry.model as FakeModel | undefined)?.urn,
+        entry.dbId,
+        entry.color,
+      ]),
+    ).toEqual([
+      ['a', 11, null],
+      ['b', 12, null],
+    ]);
+    expect(viewer().cleared).toEqual([]);
+  });
+
   it('reads properties of every model and keeps the rest when one fails', async () => {
     env.specs.set('a', { categories: ['Walls', 'Doors'] });
     env.specs.set('b', { categories: ['Ducts'] });
@@ -459,12 +478,17 @@ describe('federated selection, paint and properties', () => {
         );
       },
     );
-    const seen: { done: number; total: number }[] = [];
+    const seen: {
+      phase: string;
+      loaded: number;
+      total: number;
+      partial: boolean;
+    }[] = [];
     const found = await adapter.discoverProperties(undefined, {
       onProgress: (progress) => seen.push(progress),
     });
     expect(chunks).toEqual([5000, 1]);
-    expect(seen.at(-1)).toEqual({ done: 5001, total: 5001 });
+    expect(seen.at(-1)).toMatchObject({ loaded: 5001, total: 5001 });
     expect(found).toEqual([{ name: 'Level', category: 'Constraints' }]);
   });
 
@@ -516,14 +540,28 @@ describe('federated selection, paint and properties', () => {
         );
       },
     );
-    const seen: { done: number; total: number }[] = [];
+    const seen: {
+      phase: string;
+      loaded: number;
+      total: number;
+      partial: boolean;
+    }[] = [];
     const found = await adapter.discoverProperties(undefined, {
       onProgress: (progress) => seen.push(progress),
     });
     expect(chunks).toEqual(Array.from({ length: 20 }, () => 5000));
-    expect(seen[0]).toEqual({ done: 0, total: 100_000 });
-    expect(seen.at(-1)).toEqual({ done: 100_000, total: 100_000 });
-    expect(seen).toHaveLength(21);
+    expect(seen[0]).toMatchObject({
+      phase: 'discovery',
+      loaded: 0,
+      total: 100_000,
+      partial: true,
+    });
+    expect(seen.at(-1)).toMatchObject({
+      loaded: 100_000,
+      total: 100_000,
+      partial: false,
+    });
+    expect(seen.length).toBeLessThan(21);
     expect(found).toEqual([{ name: 'Level', category: 'Constraints' }]);
   });
 

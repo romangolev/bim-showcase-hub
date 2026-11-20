@@ -12,7 +12,12 @@ class SlowAdapter extends MockViewerAdapter {
     _ids?: readonly string[],
     options?: ReadOptions,
   ): Promise<PropertyRow[]> {
-    options?.onProgress?.({ done: 2000, total: 8000 });
+    options?.onProgress?.({
+      phase: 'rows',
+      loaded: 2000,
+      total: 8000,
+      partial: true,
+    });
     return new Promise((_resolve, reject) => {
       options?.signal?.addEventListener('abort', () => reject(abortError()));
     });
@@ -20,6 +25,28 @@ class SlowAdapter extends MockViewerAdapter {
 }
 
 const adapters: MockViewerAdapter[] = [];
+
+class SlowFirstAdapter extends MockViewerAdapter {
+  private reads = 0;
+
+  override getLeafProperties(
+    names: string[],
+    ids?: readonly string[],
+    options?: ReadOptions,
+  ): Promise<PropertyRow[]> {
+    this.reads += 1;
+    if (this.reads === 1) return super.getLeafProperties(names, ids, options);
+    return new Promise((_resolve, reject) => {
+      options?.onProgress?.({
+        phase: 'rows',
+        loaded: 1000,
+        total: 3000,
+        partial: true,
+      });
+      options?.signal?.addEventListener('abort', () => reject(abortError()));
+    });
+  }
+}
 
 beforeEach(() => {
   installMemoryStorage();
@@ -37,7 +64,9 @@ describe('summary progress and cancel', () => {
     render(
       <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />,
     );
-    await screen.findByText('Reading element properties: 2,000 of 8,000');
+    await screen.findByText(
+      'Reading element properties: 2,000 of 8,000 (partial data)',
+    );
     expect(
       screen.getByRole('progressbar', { name: 'Reading element properties' }),
     ).toHaveAttribute('value', '2000');
@@ -51,5 +80,24 @@ describe('summary progress and cancel', () => {
     expect(
       screen.getByRole('button', { name: 'Read again' }),
     ).toBeInTheDocument();
+  });
+
+  it('keeps the table on screen while a refresh reads again', async () => {
+    const adapter = new SlowFirstAdapter(document.createElement('div'));
+    await adapter.load('urn');
+    adapters.push(adapter);
+    render(
+      <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />,
+    );
+    await waitFor(() =>
+      expect(screen.getByLabelText('Filter summary rows')).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+    await waitFor(() =>
+      expect(
+        screen.getByText(/Reading element properties/),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.getByLabelText('Filter summary rows')).toBeInTheDocument();
   });
 });

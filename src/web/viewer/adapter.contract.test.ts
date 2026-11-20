@@ -117,14 +117,22 @@ describe('ViewerAdapter contract (mock)', () => {
 
   it('applies and clears theming colours', async () => {
     await setup();
-    const id = buildMockElements()[0]?.dbId ?? 0;
+    const ids = buildMockElements()
+      .slice(0, 2)
+      .map((element) => element.dbId);
+    const modelId = adapter.getModels()[0]?.id ?? '';
     adapter.setModelThemingColor(
-      [{ modelId: 'dXJuOmFkc2s', dbId: id }],
+      ids.map((dbId) => ({ modelId, dbId })),
       [1, 0, 0, 0.5],
     );
-    expect(elementNode(id).style.fill).toContain('rgba(255, 0, 0');
+    for (const dbId of ids) {
+      expect(elementNode(dbId).style.fill).toContain('rgba(255, 0, 0');
+    }
+    adapter.clearModelThemingColors([{ modelId, dbId: ids[0] ?? 0 }]);
+    expect(elementNode(ids[0] ?? 0).style.fill).toBe('');
+    expect(elementNode(ids[1] ?? 0).style.fill).toContain('rgba(255, 0, 0');
     adapter.clearThemingColors();
-    expect(elementNode(id).style.fill).toBe('');
+    expect(elementNode(ids[1] ?? 0).style.fill).toBe('');
   });
 
   it('maps external ids to dbIds for saved selections', async () => {
@@ -170,11 +178,20 @@ describe('ViewerAdapter contract (mock)', () => {
 
   it('reports read progress and rejects once aborted', async () => {
     await setup();
-    const seen: { done: number; total: number }[] = [];
+    const seen: {
+      phase: string;
+      loaded: number;
+      total: number;
+      partial: boolean;
+    }[] = [];
     const rows = await adapter.getLeafProperties(['Name'], undefined, {
       onProgress: (progress) => seen.push(progress),
     });
-    expect(seen.at(-1)).toEqual({ done: rows.length, total: rows.length });
+    expect(seen.at(-1)).toMatchObject({
+      loaded: rows.length,
+      total: rows.length,
+      partial: false,
+    });
     const controller = new AbortController();
     controller.abort();
     await expect(

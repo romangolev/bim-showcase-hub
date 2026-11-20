@@ -93,7 +93,7 @@ describe('mock toolbar tool group', () => {
   it('disables swatches until the selection is non-empty and reset until something is painted', async () => {
     await setup();
     const spy = vi.spyOn(adapter, 'setModelThemingColor');
-    const clear = vi.spyOn(adapter, 'clearThemingColors');
+    const clear = vi.spyOn(adapter, 'clearModelThemingColors');
     adapter.registerToolGroup(buildToolGroup(adapter));
     for (const id of SWATCHES) {
       expect(button(id)).toHaveAttribute('aria-disabled', 'true');

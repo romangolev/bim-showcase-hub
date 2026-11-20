@@ -126,6 +126,7 @@ export interface ViewerAdapter {
   getCamera(): CameraState | null;
   setCamera(camera: CameraState): void;
   setModelThemingColor(items: readonly ModelDbId[], color: Rgba): void;
+  clearModelThemingColors(items: readonly ModelDbId[]): void;
   getSpread(): ModelSpread | null;
   getTogetherOffsets(): Record<string, Vec3>;
   setModelOffsets(offsets: Readonly<Record<string, Vec3>> | null): void;

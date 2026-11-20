@@ -42,6 +42,8 @@ import {
 
 export const COPIED_LINK_TEXT = 'Link copied';
 export const COPY_FAILED_TEXT = 'Could not copy the link';
+export const SHARE_ACCESS_HINT =
+  'The link opens only for people who already have Autodesk access to these files.';
 
 export const COPIED_IMAGE_TEXT = 'Image copied';
 export const SAVED_IMAGE_TEXT = 'Image saved';
@@ -420,6 +422,7 @@ export function ShareMenu({
       <Menu
         label="Share"
         title="Share a link, an image or a print report"
+        hint={SHARE_ACCESS_HINT}
         triggerClassName="bsh-viewer-models__trigger"
         trigger={<span>Share</span>}
         items={items}

@@ -2,7 +2,12 @@ import { describe, expect, it, vi } from 'vitest';
 import type { PropertyRow } from '../../shared/types.js';
 import { excelFileNameFrom } from '../tools/excel/ExcelExportTool.js';
 import { exportFileName, exportStem } from '../tools/kernel/exportKit.js';
-import { DEFAULT_FILE_NAME, exportToXlsx } from './excelExport.js';
+import { readInChunks } from '../viewer/propertyReads.js';
+import {
+  DEFAULT_FILE_NAME,
+  exportToXlsx,
+  splitExportSheets,
+} from './excelExport.js';
 import {
   aboutRows,
   applyNamePattern,
@@ -344,6 +349,118 @@ describe('exportToXlsx formats', () => {
     });
     expect(status).toEqual({ phase: 'cancelled' });
     expect(written).not.toHaveBeenCalled();
+  });
+});
+
+describe('excel sheet limit', () => {
+  const many = Array.from({ length: 5 }, (_, index) =>
+    row(index + 1, `Name ${index + 1}`),
+  );
+
+  function sheetOf(count: number) {
+    return {
+      name: 'Elements',
+      header: ['dbId'],
+      rows: Array.from({ length: count }, (_, index) => [String(index)]),
+    };
+  }
+
+  it('splits a sheet over the limit into named parts with the header', () => {
+    const parts = splitExportSheets([sheetOf(5)], 2);
+    expect(parts.map((part) => part.rows.length)).toEqual([2, 2, 1]);
+    expect(new Set(parts.map((part) => part.name)).size).toBe(3);
+    expect(parts.every((part) => part.header[0] === 'dbId')).toBe(true);
+  });
+
+  it('splits the workbook when the choice is split', async () => {
+    const save = vi.fn();
+    const status = await exportToXlsx(adapterOf(many), {
+      propertyNames: ['Name'],
+      fileName: 'a.xlsx',
+      rowLimit: 2,
+      askOverflow: () => 'split',
+      save,
+    });
+    expect(status).toMatchObject({ phase: 'done', fileName: 'a.xlsx' });
+    expect(savedBlob(save).size).toBeGreaterThan(0);
+  });
+
+  it('saves a CSV file when the choice is CSV', async () => {
+    const save = vi.fn();
+    const status = await exportToXlsx(adapterOf(many), {
+      propertyNames: ['Name'],
+      fileName: 'a.xlsx',
+      rowLimit: 2,
+      askOverflow: () => 'csv',
+      save,
+    });
+    expect(status).toMatchObject({ phase: 'done', fileName: 'a.csv' });
+    expect(savedBlob(save).type).toContain('text/csv');
+  });
+
+  it('writes nothing when the choice is cancel', async () => {
+    const save = vi.fn();
+    const status = await exportToXlsx(adapterOf(many), {
+      propertyNames: ['Name'],
+      fileName: 'a.xlsx',
+      rowLimit: 2,
+      askOverflow: () => 'cancel',
+      save,
+    });
+    expect(status).toEqual({ phase: 'cancelled' });
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it('falls back to CSV when the summary sheet alone overflows', async () => {
+    const save = vi.fn();
+    const status = await exportToXlsx(adapterOf(many), {
+      propertyNames: ['Name'],
+      fileName: 'a.xlsx',
+      rowLimit: 2,
+      summarySheet: true,
+      askOverflow: () => 'split',
+      save,
+    });
+    expect(status).toMatchObject({ phase: 'done', fileName: 'a.csv' });
+    expect(savedBlob(save).type).toContain('text/csv');
+  });
+
+  it('leaves no partial file when the read is cancelled', async () => {
+    const ids = Array.from({ length: 20_000 }, (_, index) => index + 1);
+    const controller = new AbortController();
+    let chunks = 0;
+    const adapter = {
+      getLeafProperties: (
+        names: string[],
+        _ids?: readonly string[],
+        options?: { signal?: AbortSignal },
+      ) =>
+        readInChunks(
+          ids,
+          async (chunk) => {
+            chunks += 1;
+            if (chunks === 2) controller.abort();
+            return chunk.map((dbId) => ({
+              dbId,
+              name: `El ${dbId}`,
+              properties: Object.fromEntries(names.map((n) => [n, 'v'])),
+            }));
+          },
+          options,
+        ),
+      getModels: () => [
+        { id: 'm', urn: 'm', name: 'm', visible: true, status: 'ready' },
+      ],
+    } as never;
+    const save = vi.fn();
+    const status = await exportToXlsx(adapter, {
+      propertyNames: ['Name'],
+      signal: controller.signal,
+      save,
+    });
+    expect(status).toEqual({ phase: 'cancelled' });
+    expect(save).not.toHaveBeenCalled();
+    expect(chunks).toBe(2);
   });
 });
 

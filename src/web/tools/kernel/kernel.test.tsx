@@ -1,4 +1,5 @@
 import { fireEvent, render, renderHook, screen } from '@testing-library/react';
+import { act } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { isRecord } from '../../../shared/guards.js';
 import { defineRecord } from '../../storage.js';
@@ -31,6 +32,7 @@ class FakeTool extends ViewerTool<FakeSettings> {
   readonly settings;
   readonly disabled = vi.fn();
   readonly changed = vi.fn();
+  readonly ready = vi.fn();
   constructor(
     readonly id: string,
     readonly title = id,
@@ -48,6 +50,10 @@ class FakeTool extends ViewerTool<FakeSettings> {
     next: FakeSettings,
   ) {
     this.changed(adapter, previous, next);
+  }
+
+  override onModelsReady(adapter: ViewerAdapter, settings: FakeSettings) {
+    this.ready(adapter, settings);
   }
 
   contribute(ctx: ToolContext) {
@@ -417,6 +423,48 @@ describe('useViewerTools', () => {
     expect(tool.changed).toHaveBeenCalledTimes(2);
     expect(tool.changed.mock.calls[1]?.[1]).toMatchObject({ enabled: true });
     expect(tool.changed.mock.calls[1]?.[2]).toMatchObject({ enabled: false });
+  });
+
+  it('calls onModelsReady once per ready model signature', () => {
+    const models: Array<{
+      id: string;
+      urn: string;
+      name: string;
+      version: string;
+      visible: boolean;
+      status: 'ready';
+    }> = [];
+    let listener: ((next: typeof models) => void) | undefined;
+    const adapter = {
+      registerToolGroup: () => () => undefined,
+      getModels: () => models,
+      onModelsChange: (cb: (next: typeof models) => void) => {
+        listener = cb;
+        return () => undefined;
+      },
+    } as unknown as ViewerAdapter;
+    const tool = new FakeTool('a');
+    const registry = new ToolRegistry().register(tool);
+    renderHook(() =>
+      useViewerTools(registry, { ...base, adapter, active: true }),
+    );
+    expect(tool.ready).not.toHaveBeenCalled();
+    act(() => {
+      models.push({
+        id: 'm',
+        urn: 'm',
+        name: 'M',
+        version: '1',
+        visible: true,
+        status: 'ready',
+      });
+      listener?.(models);
+    });
+    expect(tool.ready).toHaveBeenCalledOnce();
+    act(() => {
+      listener?.(models);
+    });
+    expect(tool.ready).toHaveBeenCalledOnce();
   });
 });
 

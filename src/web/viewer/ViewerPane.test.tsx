@@ -10,6 +10,7 @@ import { EXCEL_SETTINGS } from '../tools/excel/excelSettings.js';
 import { GLB_SETTINGS } from '../tools/glb/GlbExportTool.js';
 import { IFC_SETTINGS } from '../tools/ifc/ifcSettings.js';
 import { PAINT_SETTINGS } from '../tools/paint/paintSettings.js';
+import { colorLayersFor } from './colorLayers.js';
 import { createMockViewerAdapter } from './MockViewerAdapter.js';
 import type { ViewerAdapter, ViewerAdapterFactory } from './ViewerAdapter.js';
 import { ViewerProvider } from './ViewerContext.js';
@@ -657,7 +658,11 @@ describe('ViewerPane tool settings', () => {
       document.querySelector('[data-dbid]')?.getAttribute('data-dbid'),
     );
     const modelId = adapter.getModels()[0]?.id ?? '';
-    adapter.setModelThemingColor([{ modelId, dbId }], [1, 0, 0, 1]);
+    colorLayersFor(adapter).setColors(
+      'paint',
+      [{ modelId, dbId }],
+      [1, 0, 0, 1],
+    );
     const themed = () => document.querySelectorAll('.bsh-mock__el--themed');
     expect(themed().length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole('button', { name: 'flip excel' }));

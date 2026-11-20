@@ -555,6 +555,19 @@
   cursor: not-allowed;
 }
 
+.menu__item--hint,
+.menu__item--hint:disabled {
+  min-height: 0;
+  max-width: 260px;
+  padding: var(--space-1) var(--space-2) var(--space-2)
+    calc(var(--space-2) + 24px);
+  color: var(--color-ash);
+  font-size: var(--text-13);
+  line-height: 1.4;
+  white-space: normal;
+  cursor: default;
+}
+
 .menu__check {
   display: inline-grid;
   flex: none;
@@ -970,13 +983,13 @@ html[data-presenting] .stack .stack__pane--viewer .model-viewer {
   position: absolute;
   top: -4px;
   right: -4px;
-  min-width: 16px;
+  min-width: 1rem;
   padding: 0 4px;
   border-radius: var(--radius-badge);
   background: var(--color-arc-blue);
   color: var(--color-snow);
-  font-size: 11px;
-  line-height: 16px;
+  font-size: 0.6875rem;
+  line-height: 1rem;
   text-align: center;
 }
 

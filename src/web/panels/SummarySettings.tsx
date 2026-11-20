@@ -37,6 +37,7 @@ interface SummaryForm {
   sort: string;
   density: string;
   action: ElementAction;
+  autoRefresh: boolean;
   columns: SummaryColumn[];
 }
 
@@ -70,6 +71,11 @@ export const SUMMARY_FORM: FormDefinition<SummaryForm> = {
         value: name,
         label: ACTION_LABELS[name],
       })),
+    },
+    {
+      key: 'autoRefresh',
+      kind: 'toggle',
+      label: 'Refresh when the model changes',
     },
     {
       key: 'columns',
@@ -134,6 +140,7 @@ function SummaryFields({
     sort: view.sort,
     density: view.density,
     action,
+    autoRefresh: view.autoRefresh,
     columns: SUMMARY_COLUMNS.filter((c) => !view.hiddenColumns.includes(c)),
   };
   const onChange = (patch: Partial<SummaryForm>) => {

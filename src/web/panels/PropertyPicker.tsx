@@ -76,7 +76,7 @@ export function PropertyPicker({
             compact
             message={
               state.progress
-                ? `Discovering properties, ${state.progress.done} of ${state.progress.total} elements`
+                ? `Discovering properties, ${state.progress.loaded} of ${state.progress.total} elements`
                 : 'Discovering properties'
             }
             rows={3}

@@ -44,7 +44,12 @@ describe('PropertyReader', () => {
   it('sums progress across models', async () => {
     const { reader } = setup({
       rows: async (_model, _names, options) => {
-        options.onProgress?.({ done: 2, total: 2 });
+        options.onProgress?.({
+          phase: 'rows',
+          loaded: 2,
+          total: 2,
+          partial: false,
+        });
         return [];
       },
     });

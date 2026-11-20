@@ -193,15 +193,25 @@ describe('ExcelExportTool', () => {
     exports?.[0]?.onExport();
     const call = exportToXlsx.mock.calls.at(-1)?.[1] as {
       onStatus: (status: unknown) => void;
-      onProgress: (fraction: number) => void;
+      onProgress: (progress: {
+        phase: string;
+        loaded: number;
+        total: number;
+        partial: boolean;
+      }) => void;
     };
     call.onStatus({ phase: 'reading' });
-    call.onProgress(0.5);
+    call.onProgress({
+      phase: 'rows',
+      loaded: 500,
+      total: 1000,
+      partial: true,
+    });
     expect(last()).toMatchObject({
       label: 'Exporting Excel',
       state: 'running',
       progress: 0.5,
-      detail: 'Reading element properties',
+      detail: '500 of 1,000 elements',
       cancellable: true,
     });
     call.onStatus({

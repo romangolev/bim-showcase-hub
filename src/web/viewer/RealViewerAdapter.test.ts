@@ -484,7 +484,9 @@ describe('RealViewerAdapter tool group extension', () => {
     viewer.select([5]);
     swatches[1]?.click();
     reset.click();
-    expect(viewer.clearThemingCalls).toBe(1);
+    expect(
+      viewer.themed.filter((entry) => entry.color === null).map((t) => t.id),
+    ).toEqual([5]);
     exportButton.click();
     expect(onExport).toHaveBeenCalledTimes(1);
   });

@@ -40,11 +40,13 @@ describe('app settings', () => {
   it('hold only app-level fields', () => {
     expect(Object.keys(DEFAULT_SETTINGS).sort()).toEqual([
       'density',
+      'language',
       'recentsLength',
       'reducedMotion',
       'sessionWarnMinutes',
       'textSize',
       'theme',
+      'units',
       'version',
     ]);
   });
@@ -68,12 +70,44 @@ describe('readSettings', () => {
     ).toEqual({ version: SETTINGS_VERSION + 1, recentsLength: 3 });
   });
 
-  it('ignores a stored language field and keeps the other values', () => {
+  it('reads the language and units preferences and keeps the other values', () => {
     window.localStorage.setItem(
       SETTINGS_STORAGE_KEY,
-      JSON.stringify({ language: 'en', recentsLength: 7 }),
+      JSON.stringify({
+        language: 'ru',
+        units: 'imperial',
+        recentsLength: 7,
+      }),
     );
-    expect(readSettings()).toEqual({ ...DEFAULT_SETTINGS, recentsLength: 7 });
+    expect(readSettings()).toEqual({
+      ...DEFAULT_SETTINGS,
+      language: 'ru',
+      units: 'imperial',
+      recentsLength: 7,
+    });
+  });
+
+  it('drops a language or units value it does not know', () => {
+    window.localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({ language: 'fr', units: 'cubits' }),
+    );
+    expect(readSettings()).toEqual(DEFAULT_SETTINGS);
+  });
+
+  it('migrates the old named text sizes and reads the percentage sizes', () => {
+    const read = (textSize: unknown) => {
+      window.localStorage.setItem(
+        SETTINGS_STORAGE_KEY,
+        JSON.stringify({ textSize }),
+      );
+      return readSettings().textSize;
+    };
+    expect(read('small')).toBe(100);
+    expect(read('medium')).toBe(100);
+    expect(read('large')).toBe(112);
+    expect(read(125)).toBe(125);
+    expect(read(99)).toBe(100);
   });
 
   it('falls back to defaults for corrupt storage', () => {

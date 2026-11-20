@@ -1,5 +1,10 @@
+import { useMemo, useState } from 'react';
 import { formatShortcut } from '../../commands/shortcuts.js';
-import { VIEWER_SHORTCUTS } from '../../commands/viewerCommands.js';
+import {
+  resetViewerShortcuts,
+  VIEWER_SHORTCUT_KEYS,
+  viewerShortcuts,
+} from '../../commands/viewerShortcutMap.js';
 import type { FormDefinition } from '../../components/SettingsForm.js';
 import { SettingsForm } from '../../components/SettingsForm.js';
 import {
@@ -10,19 +15,34 @@ import {
   NEW_SWATCH_COLOR,
   PAINT_PALETTES,
   PALETTE_ICON,
-  paintSelection,
   paletteToPresets,
   RESET_PAINT_LABEL,
   resetPaint,
   resolvePaintPalette,
 } from '../../extensions/paintBrushes.js';
 import { usePersisted } from '../../storage.js';
+import { usePublishedAdapter } from '../../viewer/activeAdapterStore.js';
 import type { Rgba, ViewerAdapter } from '../../viewer/ViewerAdapter.js';
 import {
   type ToolContext,
   type ToolContribution,
   ViewerTool,
 } from '../kernel/ViewerTool.js';
+import {
+  canRedoPaint,
+  canUndoPaint,
+  clearPaintState,
+  DEFAULT_HISTORY_DEPTH,
+  forgetAppliedPaint,
+  MAX_HISTORY_DEPTH,
+  MAX_HISTORY_ENTRIES,
+  paintHistoryEntries,
+  paintSwatch,
+  recordPaint,
+  redoPaint,
+  replayPaint,
+  undoPaint,
+} from './paintHistory.js';
 import { PAINT_SETTINGS, type PaintSettings } from './paintSettings.js';
 
 export const PAINT_TOOLTIP = 'Paint selection';
@@ -71,6 +91,20 @@ export const PAINT_FORM: FormDefinition<PaintSettings> = {
       label: 'Ghost the rest when isolating',
       hint: 'Non-isolated elements stay visible but faded. Off hides non-isolated elements instead of fading them.',
     },
+    {
+      key: 'restoreOnOpen',
+      kind: 'toggle',
+      label: 'Restore paint on open',
+      hint: 'Repaint a model with its saved colours when it finishes loading. Off keeps the saved history but does not apply it.',
+    },
+    {
+      key: 'historyDepth',
+      kind: 'number',
+      label: 'History depth',
+      min: 1,
+      max: MAX_HISTORY_DEPTH,
+      hint: `How many paint actions each model remembers for undo. Default ${DEFAULT_HISTORY_DEPTH}.`,
+    },
   ],
   reset: {
     label: 'Reset palette',
@@ -79,6 +113,8 @@ export const PAINT_FORM: FormDefinition<PaintSettings> = {
       palette: [...DEFAULT_PAINT_PALETTE],
       intensity: DEFAULT_PAINT_INTENSITY,
       ghostRest: true,
+      restoreOnOpen: true,
+      historyDepth: DEFAULT_HISTORY_DEPTH,
     },
   },
 };
@@ -110,8 +146,9 @@ export class PaintTool extends ViewerTool<PaintSettings> {
         reset: { id: ctx.id('paint-reset'), label: RESET_PAINT_LABEL },
         selectHint: PAINT_SELECT_HINT,
         resetHint: PAINT_RESET_HINT,
-        onPaint: (color: Rgba) => paintSelection(adapter, color),
-        onReset: () => resetPaint(adapter),
+        onPaint: (color: Rgba) =>
+          recordPaint(adapter, color, settings.historyDepth),
+        onReset: () => clearPaintState(adapter),
       },
     };
   }
@@ -126,6 +163,17 @@ export class PaintTool extends ViewerTool<PaintSettings> {
     ];
   }
 
+  override onModelsReady(
+    adapter: ViewerAdapter,
+    settings: PaintSettings,
+  ): void {
+    if (!settings.enabled || !settings.restoreOnOpen) {
+      forgetAppliedPaint(adapter);
+      return;
+    }
+    replayPaint(adapter).catch(() => {});
+  }
+
   override onSettingsChanged(
     adapter: ViewerAdapter,
     previous: PaintSettings | undefined,
@@ -134,6 +182,9 @@ export class PaintTool extends ViewerTool<PaintSettings> {
     if (!next.enabled) return;
     const before = previous?.enabled ? previous.ghostRest : true;
     if (next.ghostRest !== before) adapter.setGhosting?.(next.ghostRest);
+    if (!previous?.enabled && next.restoreOnOpen) {
+      replayPaint(adapter).catch(() => {});
+    }
   }
 
   protected override renderFields() {
@@ -142,16 +193,38 @@ export class PaintTool extends ViewerTool<PaintSettings> {
 
   override onDisabled(adapter: ViewerAdapter): void {
     adapter.setGhosting?.(true);
+    forgetAppliedPaint(adapter);
     resetPaint(adapter);
   }
 }
 
 function PaintFields() {
   const [settings, setSettings] = usePersisted(PAINT_SETTINGS);
+  const [shortcutOverrides] = usePersisted(VIEWER_SHORTCUT_KEYS);
+  const shortcuts = viewerShortcuts(shortcutOverrides);
+  const adapter = usePublishedAdapter();
+  const [revision, setRevision] = useState(0);
+  const history = useMemo(
+    () => (adapter ? paintHistoryEntries(adapter, MAX_HISTORY_ENTRIES) : []),
+    [adapter, revision],
+  );
+  const undoable = useMemo(
+    () => (adapter ? canUndoPaint(adapter) : false),
+    [adapter, revision],
+  );
+  const redoable = useMemo(
+    () => (adapter ? canRedoPaint(adapter) : false),
+    [adapter, revision],
+  );
   const presets = paletteToPresets(
     resolvePaintPalette(settings.paletteId, settings.palette),
     settings.intensity,
   );
+  const apply = (run: (target: ViewerAdapter) => boolean) => {
+    if (!adapter) return;
+    run(adapter);
+    setRevision((value) => value + 1);
+  };
   return (
     <>
       <SettingsForm
@@ -186,15 +259,90 @@ function PaintFields() {
           tooltip, so colour is not the only cue.
         </p>
       </section>
+      <section className="settings__section" aria-label="Paint history">
+        <h3 className="settings__heading">Paint history</h3>
+        {adapter ? (
+          <>
+            <div className="settings__actions">
+              <button
+                type="button"
+                className="btn"
+                disabled={!undoable}
+                onClick={() => apply(undoPaint)}
+              >
+                Undo paint
+              </button>
+              <button
+                type="button"
+                className="btn"
+                disabled={!redoable}
+                onClick={() => apply(redoPaint)}
+              >
+                Redo paint
+              </button>
+            </div>
+            {history.length > 0 ? (
+              <ul className="settings__palette">
+                {history.map((entry) => (
+                  <li key={entry.action} className="settings__palette-item">
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        width: 16,
+                        height: 16,
+                        borderRadius: 4,
+                        background: paintSwatch(entry.rgba),
+                        boxShadow: 'inset 0 0 0 0.5px currentColor',
+                      }}
+                    />
+                    <span>
+                      {entry.count === 1
+                        ? '1 element'
+                        : `${entry.count} elements`}
+                    </span>
+                    <span className="settings__entry-state">
+                      {entry.models === 1
+                        ? '1 model'
+                        : `${entry.models} models`}
+                    </span>
+                    <span className="settings__entry-state">
+                      {new Date(entry.at).toLocaleTimeString()}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="settings__hint">No paint actions yet.</p>
+            )}
+          </>
+        ) : (
+          <p className="settings__hint">
+            Open a model to see and undo its paint history.
+          </p>
+        )}
+      </section>
       <section className="settings__section" aria-label="Viewer shortcuts">
         <h3 className="settings__heading">Viewer shortcuts</h3>
         <ul>
-          {VIEWER_SHORTCUTS.map((shortcut) => (
+          {shortcuts.map((shortcut) => (
             <li key={shortcut.command}>
               <kbd>{formatShortcut(shortcut.keys)}</kbd> {shortcut.label}
             </li>
           ))}
         </ul>
+        <div className="settings__actions">
+          <button
+            type="button"
+            className="btn"
+            onClick={() => resetViewerShortcuts()}
+          >
+            Reset shortcuts
+          </button>
+        </div>
+        <p className="settings__hint">
+          Isolate, hide, show all and invert use plain keys only while the
+          viewer has focus. The shortcut map is stored in the browser.
+        </p>
       </section>
     </>
   );

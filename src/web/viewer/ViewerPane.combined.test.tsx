@@ -120,13 +120,19 @@ describe('ViewerPane with several models', () => {
     render(<ViewerPane urn="urn-a" members={[broken]} factory={factory} />);
     await screen.findByRole('list', { name: 'Models that failed' });
     add.mockClear();
-    resetRegion();
-    claimRegion('US');
-    await waitFor(() => expect(add).toHaveBeenCalledWith(broken));
-    await screen.findByRole('list', { name: 'Models that failed' });
-    resetRegion();
-    claimRegion('US');
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await act(async () => {});
+    act(() => {
+      resetRegion();
+      claimRegion('US');
+    });
+    expect(add).toHaveBeenCalledWith(broken);
+    expect(
+      screen.getByRole('list', { name: 'Models that failed' }),
+    ).toBeTruthy();
+    act(() => {
+      resetRegion();
+      claimRegion('US');
+    });
     expect(add).toHaveBeenCalledTimes(1);
     add.mockRestore();
   });

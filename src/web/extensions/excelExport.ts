@@ -4,7 +4,11 @@ import {
   distinctModelCount,
   type ModelScope,
 } from '../viewer/modelScope.js';
-import { isAbortError, throwIfAborted } from '../viewer/propertyReads.js';
+import {
+  isAbortError,
+  type ReadProgress,
+  throwIfAborted,
+} from '../viewer/propertyReads.js';
 import { readScopedRows } from '../viewer/scopedRows.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { saveBlob } from './download.js';
@@ -34,6 +38,68 @@ export const DEFAULT_FILE_NAME = 'model-properties.xlsx';
 export const MODEL_COLUMN = 'Model';
 
 export const FALLBACK_SHEET_NAME = 'Elements';
+
+export const XLSX_ROW_LIMIT = 1_048_576;
+export const SHEET_RESERVED_ROWS = 2;
+export const MAX_SHEET_ROWS = XLSX_ROW_LIMIT - SHEET_RESERVED_ROWS;
+
+export type OverflowChoice = 'split' | 'csv' | 'cancel';
+
+export interface OverflowRequest {
+  rowCount: number;
+  limit: number;
+}
+
+export function splitExportSheets(
+  sheets: readonly ExportSheet[],
+  maxRows = MAX_SHEET_ROWS,
+): ExportSheet[] {
+  const used = new Set(sheets.map((sheet) => sheet.name.toLowerCase()));
+  return sheets.flatMap((sheet) => {
+    if (sheet.rows.length <= maxRows) return [sheet];
+    const parts: ExportSheet[] = [];
+    const count = Math.ceil(sheet.rows.length / maxRows);
+    for (let part = 0; part < count; part++) {
+      const rows = sheet.rows.slice(part * maxRows, (part + 1) * maxRows);
+      parts.push({
+        ...sheet,
+        name:
+          part === 0
+            ? sheet.name
+            : sheetNameFor(`${sheet.name} ${part + 1}`, used),
+        rows,
+      });
+    }
+    return parts;
+  });
+}
+
+export function overSheetLimit(
+  sheets: readonly ExportSheet[],
+  maxRows = MAX_SHEET_ROWS,
+): boolean {
+  return sheets.some((sheet) => sheet.rows.length > maxRows);
+}
+
+export function askOverflow({
+  rowCount,
+  limit,
+}: OverflowRequest): OverflowChoice {
+  const count = rowCount.toLocaleString('en-US');
+  const perSheet = limit.toLocaleString('en-US');
+  if (
+    window.confirm(
+      `This export has ${count} rows. One Excel sheet holds ${perSheet}. Split it across several sheets?`,
+    )
+  ) {
+    return 'split';
+  }
+  return window.confirm('Export it as a CSV file instead?') ? 'csv' : 'cancel';
+}
+
+function withExtension(name: string, extension: string): string {
+  return `${name.replace(/\.[A-Za-z0-9]{1,5}$/, '')}.${extension}`;
+}
 
 export type ExportCell = string | number | boolean;
 
@@ -312,9 +378,11 @@ export interface ExportOptions {
   emptyText?: string;
   table?: Partial<TableOptions>;
   confirm?: (rowCount: number) => boolean;
+  askOverflow?: (request: OverflowRequest) => OverflowChoice;
+  rowLimit?: number;
   copy?: (text: Promise<string>) => Promise<void>;
   onStatus?: (status: ExportStatus) => void;
-  onProgress?: (fraction: number) => void;
+  onProgress?: (progress: ReadProgress) => void;
   signal?: AbortSignal;
   save?: (blob: Blob, fileName: string) => void;
 }
@@ -336,6 +404,8 @@ export async function exportToXlsx(
     emptyText = '',
     table = {},
     confirm,
+    askOverflow: chooseOverflow = askOverflow,
+    rowLimit = MAX_SHEET_ROWS,
     copy = (text) =>
       navigator.clipboard.write([
         new ClipboardItem({
@@ -376,7 +446,7 @@ export async function exportToXlsx(
         models: modelScope,
         elements: scope,
         signal,
-        onProgress: ({ done, total }) => onProgress?.(total ? done / total : 0),
+        onProgress: (progress) => onProgress?.(progress),
       },
     );
     throwIfAborted(signal);
@@ -402,10 +472,36 @@ export async function exportToXlsx(
       exporter: exporterName,
     });
     let delivered = fileName;
+    let target = format;
+    let sheets =
+      format === 'xlsx'
+        ? buildExportSheets(rows, propertyNames, groupBy, emptyText)
+        : [];
     if (format === 'xlsx') {
-      const sheets = buildExportSheets(rows, propertyNames, groupBy, emptyText);
       if (sheets.length === 0) return emit({ phase: 'empty' });
       rowCount = sheets.reduce((total, sheet) => total + sheet.rows.length, 0);
+      const summaryRows = summarySheet
+        ? summarize(rows, propertyNames).length + 1
+        : 0;
+      const summaryOver = summaryRows > rowLimit;
+      if (overSheetLimit(sheets, rowLimit) || summaryOver) {
+        const choice = chooseOverflow({
+          rowCount: Math.max(rowCount, summaryRows),
+          limit: rowLimit,
+        });
+        if (choice === 'cancel') {
+          copyText.reject();
+          return emit({ phase: 'cancelled' });
+        }
+        if (choice === 'csv' || summaryOver) {
+          target = 'csv';
+          delivered = withExtension(fileName, 'csv');
+        } else {
+          sheets = splitExportSheets(sheets, rowLimit);
+        }
+      }
+    }
+    if (target === 'xlsx') {
       const { default: writeXlsxFile } = await import(
         'write-excel-file/browser'
       );
@@ -454,22 +550,22 @@ export async function exportToXlsx(
         ...aboutSheet,
       ]).toBlob();
       throwIfAborted(signal);
-      save(blob, fileName);
+      save(blob, delivered);
     } else {
       const flat = buildExportRows(
         rows,
         propertyNames,
         distinctModelCount(rows) > 1,
-        format === 'json' ? '' : emptyText,
+        target === 'json' ? '' : emptyText,
       );
       throwIfAborted(signal);
-      if (format === 'copy') {
+      if (target === 'copy') {
         copyText.resolve(
           toDelimited(flat.header, flat.rows, table.delimiter ?? '\t', table),
         );
         await copied;
         delivered = 'the clipboard';
-      } else if (format === 'csv') {
+      } else if (target === 'csv') {
         save(
           new Blob(
             [
@@ -485,7 +581,7 @@ export async function exportToXlsx(
               type: 'text/csv;charset=utf-8',
             },
           ),
-          fileName,
+          delivered,
         );
       } else {
         const elements = toJsonRecords(flat.header, flat.rows);

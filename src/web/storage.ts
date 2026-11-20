@@ -13,6 +13,7 @@ export const BSH_KEYS = {
     recentModels: 'bsh.models.recent',
     pinned: 'bsh.docs.pinned',
     hiddenModels: 'bsh.models.hidden',
+    modelTints: 'bsh.models.tints.v1',
     hubHint: 'bsh.hint.hubs.dismissed.v1',
     summaryView: 'bsh.summary.view.v1',
     summaryProperties: 'bsh.summary.properties.v1',
@@ -32,10 +33,16 @@ export const BSH_KEYS = {
     snapshot: 'bsh.snapshot.v1',
     notifications: 'bsh.notify.v1',
     commandPins: 'bsh.commands.pinned.v1',
+    viewerKeys: 'bsh.commands.viewer.keys.v1',
   },
 } as const;
 
-export const BSH_PERSONAL_PREFIXES: readonly string[] = ['bsh.pane.'];
+export const BSH_PERSONAL_PREFIXES: readonly string[] = [
+  'bsh.pane.',
+  'bsh.paint.',
+];
+
+export const BSH_PREFERENCE_PREFIXES: readonly string[] = ['bsh.tool.'];
 
 export const FORGET_EVENT = 'bsh:forget';
 
@@ -52,11 +59,19 @@ export function getStorageAdapter(): StorageAdapter {
 }
 
 const personalKeys = new Set<string>(Object.values(BSH_KEYS.personal));
+const preferenceKeys = new Set<string>(Object.values(BSH_KEYS.preference));
 
-function isPersonal(key: string): boolean {
+export function isPersonalKey(key: string): boolean {
   return (
     personalKeys.has(key) ||
     BSH_PERSONAL_PREFIXES.some((prefix) => key.startsWith(prefix))
+  );
+}
+
+export function isPreferenceKey(key: string): boolean {
+  return (
+    preferenceKeys.has(key) ||
+    BSH_PREFERENCE_PREFIXES.some((prefix) => key.startsWith(prefix))
   );
 }
 
@@ -214,7 +229,7 @@ export function onForgetPersonal(hook: () => void): void {
 export function forgetPersonal(): void {
   for (const which of ['local', 'session'] as const) {
     for (const key of adapter.keys(which)) {
-      if (isPersonal(key)) adapter.remove(which, key);
+      if (isPersonalKey(key)) adapter.remove(which, key);
     }
     for (const key of personalKeys) adapter.remove(which, key);
   }
@@ -241,7 +256,7 @@ export function usePersisted<T>(
   }, []);
   useEffect(() => {
     const onForget = () => {
-      if (isPersonal(record.key)) {
+      if (isPersonalKey(record.key)) {
         setValue(record.initial);
         return;
       }

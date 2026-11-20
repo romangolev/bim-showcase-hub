@@ -13,6 +13,7 @@ import { createMockViewerAdapter } from './MockViewerAdapter.js';
 import {
   REPORT_BLOCKED_TEXT,
   REPORT_READY_TEXT,
+  SHARE_ACCESS_HINT,
   ShareMenu,
   snapshotName,
 } from './ShareMenu.js';
@@ -351,6 +352,23 @@ function fakeLayout(overrides: Partial<LayoutApi> = {}): LayoutApi {
 }
 
 describe('Share menu links', () => {
+  it('says the link needs Autodesk access to the files', () => {
+    render(
+      <ShareMenu
+        adapter={linkAdapter()}
+        modelIds={['urn-a']}
+        baseHref="https://app.test/model/urn-a"
+        combined={false}
+        onResult={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText(SHARE_ACCESS_HINT)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+    const hint = screen.getByRole('menuitem', { name: SHARE_ACCESS_HINT });
+    expect(hint).toBeVisible();
+    expect(hint).toBeDisabled();
+  });
+
   it('offers the full view as a JSON file when the link is too long', async () => {
     const save = vi.spyOn(excel, 'saveBlob').mockImplementation(() => {});
     PANE_SETTINGS.dashboard.view.write({

@@ -22,6 +22,7 @@ import { COMMANDS } from './registry.js';
 import {
   formatShortcut,
   isEditableTarget,
+  isViewerContext,
   matchShortcut,
 } from './shortcuts.js';
 import type { Command } from './types.js';
@@ -311,11 +312,17 @@ export function CommandPalette({ openModel }: CommandPaletteProps) {
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => {
       if (event.defaultPrevented || event.isComposing) return;
-      if (!(event.ctrlKey || event.metaKey || event.altKey)) return;
       if (document.querySelector('dialog[open]')) return;
       if (isEditableTarget(event.target)) return;
+      const modified = event.ctrlKey || event.metaKey || event.altKey;
+      if (!modified) {
+        if (event.key.length !== 1) return;
+        if (!isViewerContext(event.target)) return;
+      }
       const command = matchShortcut(COMMANDS.list(), event);
       if (!command || command.disabled) return;
+      if (!modified && command.scope !== 'viewer') return;
+      if (command.scope === 'viewer' && !isViewerContext(event.target)) return;
       event.preventDefault();
       run(command);
     };

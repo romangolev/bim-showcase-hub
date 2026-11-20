@@ -98,7 +98,7 @@ A derivative URN does not prove a model opens: the manifest can hold only a thum
 - A combined tab holds up to `MAX_COMBINED_MODELS` (6) models in one scene.
 - `ModelRouteSync` keeps the URL and the store in step.
 
-Share links (`api/viewLink.ts`) carry the camera and selection (version 1), the pane and chart state (version 2) and per-model hidden and isolated node ids (version 3). `viewer/shareLink.ts` captures them from `adapter.getState()`; `viewer/incomingLink.ts` restores an opened link (read from the router search, applied once, cleared through the router) and calls `restoreState` after the models load. Nothing is stored on the server.
+Share links (`api/viewLink.ts`) carry the camera and selection (version 1), the pane and chart state (version 2) and per-model hidden and isolated node ids (version 3). `viewer/shareLink.ts` captures them from `adapter.getState()`; `viewer/incomingLink.ts` restores an opened link (read from the router search, applied once, cleared through the router) and calls `restoreState` after the models load. Nothing is stored on the server. A link opens only for people who already have Autodesk access to the files: there is no public token route, public viewer or copy of a hub model, and the Share menu says so.
 
 ### Persisted records
 
@@ -109,6 +109,7 @@ Share links (`api/viewLink.ts`) carry the camera and selection (version 1), the 
 - `defineRecordFamily` makes one record per argument. Its prefix must be in `BSH_PERSONAL_PREFIXES`, and `get` and `forget` throw for a key outside that prefix.
 - `BSH_KEYS` lists the fixed keys as `personal` (cleared on sign-out) or `preference` (kept). Keys under `BSH_PERSONAL_PREFIXES` are personal too, so a new `bsh.pane.*` key is forgotten even when it is not in the list.
 - `forgetPersonal()` runs on sign-out and when the owner changes.
+- Paint history (`tools/paint/paintHistory.ts`) is one personal record per model version with the ordered paint actions and an undo cursor. `.onModelsReady` on the paint tool replays it after the object tree answers, dropping ids that no longer resolve.
 - Tests swap in `memoryAdapter()` with `setStorageAdapter`.
 
 The keys are listed in [development.md](development.md#storage-keys).
@@ -121,13 +122,16 @@ A selection set stores dbIds per model plus optional stable external ids (`keys`
 
 ### Scoped rows
 
-Summary, Dashboard and exports read property rows the same way: `useScopedRows` in panels and `readScopedRows` (`viewer/scopedRows.ts`) in async code. The seam owns model resolution, element scope, the failure report and the scope note. `readScopedRows` returns partial rows with `failed` naming the models it could not read, so callers check it. `peekScopedRows` is the count-path probe: it takes no property names, returns `null` on a cold cache, and returns the columns that were already cached. The hook keeps its own live element scope — it reads with `elements: 'all'` and applies selection and visibility changes without restarting the read — so the status does not flicker.
+Summary, Dashboard and exports read property rows the same way: `useScopedRows` in panels and `readScopedRows` (`viewer/scopedRows.ts`) in async code. The seam owns model resolution, element scope, the failure report and the scope note. `readScopedRows` returns partial rows with `failed` naming the models it could not read, so callers check it. `peekScopedRows` is the cache-first reopen path for Summary and Dashboard and the count probe. It takes the requested property names optionally: with names it returns `null` unless the cache is complete for exactly those names, so a pane that grows its column list re-reads instead of showing `(empty)`; without names the count path accepts any cached rows. The hook keeps its own live element scope — it reads with `elements: 'all'` and applies selection and visibility changes without restarting the read — so the status does not flicker.
 
 - Dashboard and Excel choose their columns from the shared property catalog: `PropertyPicker` (`panels/PropertyPicker.tsx`) lists what `usePropertyCatalog` discovered, and the chosen names become the `names` of the scoped read. A dashboard view carries its own list in `properties`: the main Dashboard in `bsh.dashboard.view.v1`, each chart instance in `bsh.pane.chart.<n>.v1`, so two charts can chart different properties. Excel keeps its columns in its tool settings (`bsh.tool.excel.v1`). The export drops columns from the same rows rather than reading the model again.
 - Scope is a model (`ALL_MODELS` or one model id) plus elements (`all`, `selected`, `visible`, `isolated` or `set:<id>`).
-- `viewer/sharedLeafRows.ts` keeps one cache per adapter and model. Refresh clears it. An empty read is cached only when the adapter reported a complete tree (`onProgress` with `total: 0`), so a transient empty read is read again; `peekLeafRows` then returns `[]`.
-- The hook returns status, progress, `reload` and `cancel`.
-- The `selected` scope refreshes live (the selection event, debounced; the latest result wins). `visible` and `isolated` refresh on the adapter's visibility event (debounced). `set:<id>` is read once per read or reload; use Refresh after editing a set.
+- `viewer/sharedLeafRows.ts` keeps one cache per adapter and model. A read reports progress as `{ phase, loaded, total, partial }` (`propertyReads.ts`), where `partial` means `loaded < total`. The adapters report every 5,000-element chunk and `throttleProgress` coalesces it to at most one event per 100 ms, always emitting the first and the final one; `sumProgress` does the same across models, so Summary, Dashboard and Export share one shape and one cadence.
+- Cancelling a read rejects at once instead of waiting for the batch in flight: `readInChunks` races each chunk against the signal and checks it before issuing the next. A cancelled or failed model read writes nothing to the cache, so partial rows never look complete.
+- A cache entry is either complete for the names it holds or absent. `refreshLeafRows` (the pane Refresh) and a model version change do not drop rows: they mark the entry `stale`, keep it for display, and the next read replaces it. A failed refresh leaves the stale rows in place. `peekLeafRows` returns stale rows, `leafRowsStale` reports them, and `forgetLeafRows` is the only hard drop; nothing in the app calls it today except tests, so a cache lives as long as its adapter. An empty read is cached only when the adapter reported a complete tree (`total: 0`).
+- The hook is cache-first: opening a pane on a complete cache shows the rows without reading. A stale cache is re-read only when `autoRefresh` is on (the Summary setting); otherwise the pane shows "Data may be stale" next to Refresh. Dashboard always refreshes manually.
+- The hook returns status, progress, `stale`, `refresh` and `cancel`. Two panes that ask for covered property names share one in-flight read per model.
+- The `selected` scope refreshes live (the selection event, debounced; the latest result wins). `visible` and `isolated` refresh on the adapter's visibility event (debounced). `set:<id>` is read once per read or refresh; use Refresh after editing a set.
 
 ## ViewerAdapter
 
@@ -155,6 +159,20 @@ One adapter holds several models in one scene (`viewer/modelSet.ts`). `load(urn)
 ### Toolbar group
 
 The real adapter mounts tools as the Autodesk extension `BimShowcaseHub.Tools` (`viewer/autodeskTools.ts`). The mock adapter shares `viewer/toolGroupController.ts`.
+
+### Colour layers
+
+`viewer/colorLayers.ts` is the only path from UI state to `viewer.setThemingColor`, and `RealViewerAdapter.setModelThemingColor` / `clearModelThemingColors` are the only two methods that call it. The module is pure data and resolution with no React and no Autodesk types.
+
+- A layer is `{ source, assignments: Map<modelId, Map<dbId, Color>> }`. The sources are `paint`, `chart` and `modelTint`, in that priority order: the first layer that assigns an element owns its colour. The resolver sorts the layers by that order itself, so a caller cannot reorder them by accident.
+- The owner resets: `clearSource(source)` removes only that layer's assignments, so clearing paint falls back to a chart colour, and clearing that falls back to the model tint. Nothing clears another layer's data.
+- One controller per adapter (`colorLayersFor`, a `WeakMap`) keeps the last applied resolution. Applying resolves, diffs exactly (`sameColor`), sets only changed elements and clears only elements no lower layer covers, so re-applying an identical resolution calls the viewer zero times. Work is chunked by `THEMING_CHUNK_SIZE` (2048).
+- Per-element clearing uses `setThemingColor(dbId, null, model)`, the Viewer 7 selective reset. Sets call `model.setThemingColor` and invalidate once per chunk when the model exposes it, and fall back to `viewer.setThemingColor` for each id otherwise.
+- The adapter drops the layer state on `unload` and for a removed model, because the viewer drops the colours there too.
+- The Models pane owns the `modelTint` layer: a swatch per model, a palette per model set (else the global palette), "tint strength" as the alpha of the theming colour (0.1 to 1, clamped to 0.05 steps), and a reset that clears only that layer. Paint uses the `paint` layer through `paintSelection` / `resetPaint`.
+- Ghost others is viewer-wide, not per model: the pinned Viewer 7 API has `setGhosting` plus isolation, so the pane isolates the focus model and turns ghosting on, and turns both off again for its reset.
+
+Issue #61 writes the `chart` layer, #67 adds a pane over the same sources, #68 generates `chart` assignments from rules, #71 persists and re-applies layers, #73 reads the resolution for the colour column.
 
 ### Resize, full screen and theme
 

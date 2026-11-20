@@ -102,7 +102,7 @@ describe('readScopedRows', () => {
       }),
     ).rejects.toMatchObject({ name: 'AbortError' });
     expect(read).not.toHaveBeenCalled();
-    expect(await peekScopedRows(adapter, {})).toBeNull();
+    expect(await peekScopedRows(adapter, { names: ['Category'] })).toBeNull();
     adapter.destroy();
   });
 
@@ -206,7 +206,12 @@ describe('peekScopedRows', () => {
     const adapter = await combined();
     const read = vi.spyOn(adapter, 'getLeafProperties');
     const visible = vi.spyOn(adapter, 'getVisible');
-    expect(await peekScopedRows(adapter, { elements: 'visible' })).toBeNull();
+    expect(
+      await peekScopedRows(adapter, {
+        names: ['Category'],
+        elements: 'visible',
+      }),
+    ).toBeNull();
     expect(read).not.toHaveBeenCalled();
     expect(visible).not.toHaveBeenCalled();
     adapter.destroy();
@@ -216,7 +221,7 @@ describe('peekScopedRows', () => {
     const adapter = await combined();
     const { rows } = await readScopedRows(adapter, { names: ['Category'] });
     const read = vi.spyOn(adapter, 'getLeafProperties');
-    const peeked = await peekScopedRows(adapter, {});
+    const peeked = await peekScopedRows(adapter, { names: ['Category'] });
     expect(peeked?.rows).toHaveLength(rows.length);
     expect(peeked?.total).toBe(rows.length);
     expect(read).not.toHaveBeenCalled();
@@ -226,13 +231,19 @@ describe('peekScopedRows', () => {
   it('honours the model and element scope from the cache', async () => {
     const adapter = await combined();
     const { rows } = await readScopedRows(adapter, { names: ['Category'] });
-    const oneModel = await peekScopedRows(adapter, { models: 'urn-a' });
+    const oneModel = await peekScopedRows(adapter, {
+      names: ['Category'],
+      models: 'urn-a',
+    });
     expect(oneModel?.rows).toHaveLength(rows.length / 2);
     expect(oneModel?.rows.every((row) => row.modelId === 'urn-a')).toBe(true);
     const first = rows[0];
     if (!first?.modelId) throw new Error('no rows');
     adapter.selectModelIds([{ modelId: first.modelId, dbId: first.dbId }]);
-    const picked = await peekScopedRows(adapter, { elements: 'selected' });
+    const picked = await peekScopedRows(adapter, {
+      names: ['Category'],
+      elements: 'selected',
+    });
     expect(picked?.rows.map((row) => row.dbId)).toEqual([first.dbId]);
     expect(picked?.total).toBe(rows.length);
     adapter.destroy();
@@ -246,7 +257,10 @@ describe('peekScopedRows', () => {
     ]);
     const scope = `set:${listSets()[0]?.id}` as const;
     deleteSet(listSets()[0]?.id ?? '');
-    const peeked = await peekScopedRows(adapter, { elements: scope });
+    const peeked = await peekScopedRows(adapter, {
+      names: ['Category'],
+      elements: scope,
+    });
     expect(peeked?.scopeNote).toMatch(/no longer exists/);
     expect(peeked?.elements).toBe('all');
     expect(peeked?.rows).toHaveLength(rows.length);
@@ -263,7 +277,7 @@ describe('peekScopedRows', () => {
         model.id === 'urn-b' ? { ...model, propertiesError: 'timeout' } : model,
       ),
     );
-    const peeked = await peekScopedRows(adapter, {});
+    const peeked = await peekScopedRows(adapter, { names: ['Category'] });
     expect(peeked?.unavailable.map((model) => model.name)).toEqual([
       models[1]?.name,
     ]);
@@ -275,7 +289,7 @@ describe('peekScopedRows', () => {
     const adapter = await combined();
     await readScopedRows(adapter, { names: ['Category'] });
     forgetLeafRows(adapter);
-    expect(await peekScopedRows(adapter, {})).toBeNull();
+    expect(await peekScopedRows(adapter, { names: ['Category'] })).toBeNull();
     adapter.destroy();
   });
 });

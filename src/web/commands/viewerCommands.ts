@@ -1,9 +1,15 @@
-import {
-  hexToRgba,
-  paintSelection,
-  resolvePaintPalette,
-} from '../extensions/paintBrushes.js';
+import { hexToRgba, resolvePaintPalette } from '../extensions/paintBrushes.js';
 import { notify } from '../tasks/notifications.js';
+import {
+  clearPaintState,
+  NOTHING_TO_REDO_MESSAGE,
+  NOTHING_TO_UNDO_MESSAGE,
+  REDO_PAINT_MESSAGE,
+  recordPaint,
+  redoPaint,
+  UNDO_PAINT_MESSAGE,
+  undoPaint,
+} from '../tools/paint/paintHistory.js';
 import { PAINT_SETTINGS } from '../tools/paint/paintSettings.js';
 import { listSets, saveSelectionSet } from '../viewer/selectionSets.js';
 import { selectSet, stableKeysFor } from '../viewer/setResolution.js';
@@ -16,48 +22,10 @@ import {
   VIEWPOINT_MESSAGES,
 } from '../viewer/viewpoints.js';
 import type { Command } from './types.js';
+import { viewerShortcuts } from './viewerShortcutMap.js';
 
 export const NO_MODEL_REASON = 'Open a model first';
 export const NO_SELECTION_REASON = 'Select elements first';
-
-interface ViewerShortcut {
-  command: string;
-  keys: string;
-  label: string;
-}
-
-export const VIEWER_SHORTCUTS: readonly ViewerShortcut[] = [
-  {
-    command: 'viewer.isolate',
-    keys: 'mod+alt+i',
-    label: 'Isolate selection',
-  },
-  { command: 'viewer.hide', keys: 'mod+alt+h', label: 'Hide selection' },
-  {
-    command: 'viewer.showAll',
-    keys: 'mod+alt+shift+h',
-    label: 'Show all elements',
-  },
-  {
-    command: 'viewer.invertSelection',
-    keys: 'mod+alt+shift+i',
-    label: 'Invert selection',
-  },
-  {
-    command: 'viewer.paint',
-    keys: 'mod+alt+b',
-    label: 'Paint selection with the first swatch',
-  },
-  {
-    command: 'viewer.resetPaint',
-    keys: 'mod+alt+shift+r',
-    label: 'Reset appearance',
-  },
-];
-
-const SHORTCUT_KEYS = new Map(
-  VIEWER_SHORTCUTS.map((shortcut) => [shortcut.command, shortcut.keys]),
-);
 
 export function viewerCommands(adapter: ViewerAdapter | null): Command[] {
   const noModel = adapter ? undefined : NO_MODEL_REASON;
@@ -66,6 +34,9 @@ export function viewerCommands(adapter: ViewerAdapter | null): Command[] {
     (adapter && adapter.getModelSelection().length === 0
       ? NO_SELECTION_REASON
       : undefined);
+  const bindings = new Map(
+    viewerShortcuts().map((shortcut) => [shortcut.command, shortcut.keys]),
+  );
   const make = (
     id: string,
     title: string,
@@ -73,11 +44,12 @@ export function viewerCommands(adapter: ViewerAdapter | null): Command[] {
     run: (viewer: ViewerAdapter) => void | Promise<void>,
   ): Command => {
     const commandId = `viewer.${id}`;
-    const keys = SHORTCUT_KEYS.get(commandId);
+    const keys = bindings.get(commandId);
     return {
       id: commandId,
       title,
       group: 'Viewer',
+      scope: 'viewer',
       ...(keys ? { keys: [keys] } : {}),
       ...(disabled ? { disabled } : {}),
       run: () => (adapter ? run(adapter) : undefined),
@@ -170,11 +142,27 @@ export function viewerCommands(adapter: ViewerAdapter | null): Command[] {
           settings.paletteId,
           settings.palette,
         );
-        if (first) paintSelection(viewer, hexToRgba(first, settings.intensity));
+        if (first) {
+          recordPaint(
+            viewer,
+            hexToRgba(first, settings.intensity),
+            settings.historyDepth,
+          );
+        }
       },
     ),
+    make('undoPaint', 'Undo paint', noModel, (viewer) => {
+      notify(undoPaint(viewer) ? UNDO_PAINT_MESSAGE : NOTHING_TO_UNDO_MESSAGE, {
+        tone: 'info',
+      });
+    }),
+    make('redoPaint', 'Redo paint', noModel, (viewer) => {
+      notify(redoPaint(viewer) ? REDO_PAINT_MESSAGE : NOTHING_TO_REDO_MESSAGE, {
+        tone: 'info',
+      });
+    }),
     make('resetPaint', 'Reset appearance', noModel, (viewer) =>
-      viewer.clearThemingColors(),
+      clearPaintState(viewer),
     ),
   ];
 }

@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { COMMANDS } from '../commands/registry.js';
 import { ModalProvider } from '../modal/ModalContext.js';
 import { MODALS } from '../modal/registry.js';
 import { installMemoryStorage } from '../test/mockApi.js';
@@ -57,6 +58,126 @@ describe('SettingsBody', () => {
     }
     expect(screen.queryByLabelText('Density')).toBeNull();
     expect(screen.queryByLabelText('Maximum categories')).toBeNull();
+  });
+
+  it('offers the three text sizes, two languages and two unit systems', () => {
+    renderBody();
+    expect(
+      within(screen.getByLabelText('Text size') as HTMLElement)
+        .getAllByRole('option')
+        .map((option) => option.textContent),
+    ).toEqual(['100%', '112%', '125%']);
+    expect(
+      within(screen.getByLabelText('Language') as HTMLElement)
+        .getAllByRole('option')
+        .map((option) => option.textContent),
+    ).toEqual(['English', 'Русский']);
+    expect(
+      within(screen.getByLabelText('Units') as HTMLElement)
+        .getAllByRole('option')
+        .map((option) => option.textContent),
+    ).toEqual(['Metric', 'Imperial']);
+    fireEvent.change(screen.getByLabelText('Language'), {
+      target: { value: 'ru' },
+    });
+    fireEvent.change(screen.getByLabelText('Units'), {
+      target: { value: 'imperial' },
+    });
+    const stored = JSON.parse(
+      window.localStorage.getItem('bsh-settings-v1') ?? '{}',
+    );
+    expect(stored).toMatchObject({ language: 'ru', units: 'imperial' });
+  });
+
+  it('resets app settings to their defaults', () => {
+    renderBody();
+    fireEvent.change(screen.getByLabelText('Theme'), {
+      target: { value: 'light' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Reset settings' }));
+    expect(screen.getByLabelText('Theme')).toHaveValue('system');
+    expect(screen.getByLabelText('Text size')).toHaveValue('100');
+    expect(
+      screen.getByText('App settings are back to their defaults.'),
+    ).toBeTruthy();
+  });
+
+  it('runs the layout reset command from the layout layer', () => {
+    const run = vi.fn();
+    const off = COMMANDS.register('test.layout-reset', () => [
+      {
+        id: 'layout.reset',
+        title: 'Reset layout',
+        group: 'Layout',
+        run,
+      },
+    ]);
+    try {
+      renderBody();
+      fireEvent.click(screen.getByRole('button', { name: 'Reset layout' }));
+      expect(run).toHaveBeenCalledWith({
+        openModal: expect.any(Function),
+      });
+      expect(
+        screen.getByText('Layout reset to the default arrangement.'),
+      ).toBeTruthy();
+    } finally {
+      off();
+    }
+  });
+
+  it('shows the storage readout and clears personal data only after a confirm', () => {
+    window.localStorage.setItem('bsh.saved.v1', JSON.stringify([{ id: 'x' }]));
+    window.localStorage.setItem(
+      'bsh.tree.view',
+      JSON.stringify({ sort: 'name' }),
+    );
+    renderBody();
+    const readout = screen.getByRole('list', {
+      name: 'Storage use by data type',
+    });
+    expect(within(readout).getByText('Saved items')).toBeTruthy();
+    expect(within(readout).getByText('Documents view')).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Clear all local data…' }),
+    );
+    const group = screen.getByRole('group', {
+      name: 'Confirm clearing local data',
+    });
+    expect(within(group).getByText(/Clear 1 personal key/)).toBeTruthy();
+    fireEvent.click(
+      within(group).getByRole('button', { name: 'Clear all local data' }),
+    );
+    expect(window.localStorage.getItem('bsh.saved.v1')).toBeNull();
+    expect(window.localStorage.getItem('bsh.tree.view')).toBe(
+      JSON.stringify({ sort: 'name' }),
+    );
+    expect(screen.getByText(/Cleared 1 key/)).toBeTruthy();
+    expect(screen.getByText(/Preferences were kept/)).toBeTruthy();
+  });
+
+  it('resets preferences only when the confirm box says so', () => {
+    window.localStorage.setItem(
+      'bsh.tree.view',
+      JSON.stringify({ sort: 'name' }),
+    );
+    renderBody();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Clear all local data…' }),
+    );
+    const group = screen.getByRole('group', {
+      name: 'Confirm clearing local data',
+    });
+    fireEvent.click(
+      within(group).getByRole('checkbox', { name: /Also reset preferences/ }),
+    );
+    fireEvent.click(
+      within(group).getByRole('button', { name: 'Clear all local data' }),
+    );
+    expect(window.localStorage.getItem('bsh.tree.view')).toBeNull();
+    expect(
+      screen.getByText(/Preferences are back to their defaults/),
+    ).toBeTruthy();
   });
 
   it('offers System, Light and Dark and applies the choice', () => {

@@ -10,12 +10,15 @@ import {
 } from '../../extensions/paintBrushes.js';
 import { defineRecord } from '../../storage.js';
 import { readEnabled, type ToolSettings } from '../kernel/ViewerTool.js';
+import { clampHistoryDepth, DEFAULT_HISTORY_DEPTH } from './paintHistory.js';
 
 export interface PaintSettings extends ToolSettings {
   paletteId: PaintPaletteId;
   palette: string[];
   intensity: number;
   ghostRest: boolean;
+  restoreOnOpen: boolean;
+  historyDepth: number;
 }
 
 export const PAINT_SETTINGS_KEY = 'bsh.tool.paint.v1';
@@ -26,6 +29,8 @@ export const DEFAULT_PAINT_SETTINGS: PaintSettings = {
   palette: [...DEFAULT_PAINT_PALETTE],
   intensity: DEFAULT_PAINT_INTENSITY,
   ghostRest: true,
+  restoreOnOpen: true,
+  historyDepth: DEFAULT_HISTORY_DEPTH,
 };
 
 export function readPaintSettings(raw: unknown): PaintSettings {
@@ -36,6 +41,9 @@ export function readPaintSettings(raw: unknown): PaintSettings {
     palette: sanitizePalette(source.palette),
     intensity: sanitizeIntensity(source.intensity),
     ghostRest: typeof source.ghostRest === 'boolean' ? source.ghostRest : true,
+    restoreOnOpen:
+      typeof source.restoreOnOpen === 'boolean' ? source.restoreOnOpen : true,
+    historyDepth: clampHistoryDepth(source.historyDepth),
   };
 }
 

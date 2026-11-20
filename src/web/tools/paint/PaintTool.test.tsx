@@ -1,9 +1,13 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { paintSelection } from '../../extensions/paintBrushes.js';
 import { installMemoryStorage } from '../../test/mockApi.js';
+import { publishActiveAdapter } from '../../viewer/activeAdapterStore.js';
+import { MockViewerAdapter } from '../../viewer/MockViewerAdapter.js';
 import type { ViewerAdapter } from '../../viewer/ViewerAdapter.js';
 import type { ToolContext } from '../kernel/ViewerTool.js';
 import { PaintTool } from './PaintTool.js';
+import { recordPaint } from './paintHistory.js';
 import {
   DEFAULT_PAINT_SETTINGS,
   PAINT_SETTINGS_KEY,
@@ -13,6 +17,10 @@ import {
 
 beforeEach(() => {
   installMemoryStorage();
+});
+
+afterEach(() => {
+  publishActiveAdapter(null);
 });
 
 function stored() {
@@ -62,6 +70,18 @@ describe('readPaintSettings', () => {
     ],
     ['a stored ghostRest false', { ghostRest: false }, { ghostRest: false }],
     ['a garbage ghostRest', { ghostRest: 'no' }, { ghostRest: true }],
+    [
+      'restore on open and a bounded depth',
+      { restoreOnOpen: false, historyDepth: 3.4 },
+      { restoreOnOpen: false, historyDepth: 3 },
+    ],
+    [
+      'garbage restore and depth values',
+      { restoreOnOpen: 'yes', historyDepth: 0 },
+      { restoreOnOpen: true, historyDepth: 1 },
+    ],
+    ['an unbounded depth', { historyDepth: 5000 }, { historyDepth: 50 }],
+    ['a non-numeric depth', { historyDepth: 'deep' }, { historyDepth: 20 }],
   ])('reads %s', (_name, input, expected) => {
     expect(readPaintSettings(input)).toMatchObject(expected);
   });
@@ -100,7 +120,7 @@ describe('PaintTool', () => {
 
   it('follows the custom palette and intensity', () => {
     const { paint } = tool.contribute(context({}), {
-      enabled: true,
+      ...DEFAULT_PAINT_SETTINGS,
       paletteId: 'custom',
       palette: ['#000000'],
       intensity: 0.8,
@@ -161,6 +181,7 @@ describe('PaintTool', () => {
       const setGhosting = vi.fn();
       tool.onDisabled({
         setGhosting,
+        getModels: () => [],
         clearThemingColors: vi.fn(),
       } as unknown as ViewerAdapter);
       expect(setGhosting).toHaveBeenCalledExactlyOnceWith(true);
@@ -175,22 +196,44 @@ describe('PaintTool', () => {
 
   it('paints the selection and resets through the adapter', () => {
     const adapter = {
+      getModels: () => [
+        {
+          id: 'a',
+          urn: 'a',
+          name: 'A',
+          version: '1',
+          visible: true,
+          status: 'ready' as const,
+        },
+      ],
       getModelSelection: vi.fn(() => [{ modelId: 'a', dbId: 1 }]),
       setModelThemingColor: vi.fn(),
       clearSelection: vi.fn(),
-      clearThemingColors: vi.fn(),
+      clearModelThemingColors: vi.fn(),
     };
     const { paint } = tool.contribute(context(adapter), DEFAULT_PAINT_SETTINGS);
     expect(paint?.onPaint([1, 0, 0, 0.5])).toBe(true);
-    expect(adapter.setModelThemingColor).toHaveBeenCalledOnce();
+    expect(adapter.setModelThemingColor).toHaveBeenCalledExactlyOnceWith(
+      [{ modelId: 'a', dbId: 1 }],
+      [1, 0, 0, 0.5],
+    );
     paint?.onReset();
-    expect(adapter.clearThemingColors).toHaveBeenCalledOnce();
+    expect(adapter.clearModelThemingColors).toHaveBeenCalledExactlyOnceWith([
+      { modelId: 'a', dbId: 1 },
+    ]);
   });
 
   it('clears the colours when it is disabled', () => {
-    const adapter = { clearThemingColors: vi.fn() };
+    const adapter = {
+      getModels: () => [],
+      getModelSelection: vi.fn(() => [{ modelId: 'a', dbId: 1 }]),
+      setModelThemingColor: vi.fn(),
+      clearSelection: vi.fn(),
+      clearModelThemingColors: vi.fn(),
+    };
+    paintSelection(adapter as unknown as ViewerAdapter, [1, 0, 0, 0.5]);
     tool.onDisabled(adapter as unknown as ViewerAdapter);
-    expect(adapter.clearThemingColors).toHaveBeenCalledOnce();
+    expect(adapter.clearModelThemingColors).toHaveBeenCalledOnce();
   });
 
   it('only rebuilds the toolbar for a palette, intensity or enabled change', () => {
@@ -276,5 +319,44 @@ describe('Paint settings window', () => {
       target: { value: '0.8' },
     });
     expect(stored().intensity).toBe(0.8);
+  });
+
+  it('stores restore on open and the history depth', () => {
+    renderWindow();
+    fireEvent.click(
+      screen.getByRole('switch', { name: 'Restore paint on open' }),
+    );
+    expect(stored().restoreOnOpen).toBe(false);
+    fireEvent.change(screen.getByLabelText(/History depth/), {
+      target: { value: '5' },
+    });
+    fireEvent.blur(screen.getByLabelText(/History depth/));
+    expect(stored().historyDepth).toBe(5);
+  });
+
+  it('shows the short history of the active viewer and undo it', async () => {
+    const adapter = new MockViewerAdapter(document.createElement('div'));
+    await adapter.load('urn-history', 'Model', { version: '1' });
+    publishActiveAdapter(adapter);
+    const [first] = await adapter.getVisible();
+    if (!first) throw new Error('The mock model has no elements');
+    adapter.selectModelIds([first]);
+    recordPaint(adapter, [1, 0, 0, 0.5], 20);
+
+    renderWindow();
+    const section = screen.getByRole('region', { name: 'Paint history' });
+    expect(section).toHaveTextContent('1 element');
+    fireEvent.click(screen.getByRole('button', { name: 'Undo paint' }));
+    expect(section).toHaveTextContent('No paint actions yet.');
+    expect(screen.getByRole('button', { name: 'Undo paint' })).toBeDisabled();
+    adapter.destroy();
+  });
+
+  it('resets the shortcut map from the settings', () => {
+    renderWindow();
+    fireEvent.click(screen.getByRole('button', { name: 'Reset shortcuts' }));
+    expect(
+      window.localStorage.getItem('bsh.commands.viewer.keys.v1'),
+    ).toBeNull();
   });
 });

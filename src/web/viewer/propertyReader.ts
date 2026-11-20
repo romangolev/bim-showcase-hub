@@ -47,12 +47,13 @@ export class PropertyReader<H> {
         tagRows(
           await this.source.rows(model, propertyNames, {
             ...options,
-            onProgress: progress(model.info.id),
+            onProgress: progress.report(model.info.id),
           }),
           model.info,
         ),
       ),
     );
+    progress.flush();
     throwIfAborted(options.signal);
     const rows: PropertyRow[] = [];
     let failure: unknown = null;
@@ -80,10 +81,11 @@ export class PropertyReader<H> {
       this.shown(modelIds).map((model) =>
         this.source.infos(model, {
           ...options,
-          onProgress: progress(model.info.id),
+          onProgress: progress.report(model.info.id),
         }),
       ),
     );
+    progress.flush();
     throwIfAborted(options.signal);
     const lists: PropertyInfo[][] = [];
     let failure: unknown = null;

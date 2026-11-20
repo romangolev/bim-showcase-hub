@@ -33,11 +33,21 @@ describe('useScopedRows progress and cancel', () => {
       useScopedRows(adapter, { names: ['Name'] }),
     );
     await waitFor(() => expect(reads).toHaveLength(1));
-    reads[0]?.onProgress?.({ done: 2, total: 8 });
+    reads[0]?.onProgress?.({
+      phase: 'rows',
+      loaded: 2,
+      total: 8,
+      partial: true,
+    });
     await waitFor(() =>
       expect(result.current).toMatchObject({
         status: 'loading',
-        progress: { done: 2, total: 8 },
+        progress: {
+          phase: 'rows',
+          loaded: 2,
+          total: 8,
+          partial: true,
+        },
       }),
     );
     release([{ dbId: 1, name: 'El', properties: { Name: 'n' } }]);
@@ -141,6 +151,74 @@ describe('useScopedRows scope', () => {
     expect(result.current.rows).toEqual([]);
     await waitFor(() => expect(result.current.rows).toHaveLength(2));
     expect(result.current.total).toBe(all);
+    adapter.destroy();
+  });
+});
+
+describe('useScopedRows shared cache', () => {
+  it('shares one in-flight read between two panes', async () => {
+    const { adapter, reads, release } = slowAdapter();
+    const first = renderHook(() => useScopedRows(adapter, { names: ['Name'] }));
+    const second = renderHook(() =>
+      useScopedRows(adapter, { names: ['Name'] }),
+    );
+    await waitFor(() => expect(reads).toHaveLength(1));
+    release([{ dbId: 1, name: 'El', properties: { Name: 'n' } }]);
+    await waitFor(() => expect(first.result.current.status).toBe('ready'));
+    await waitFor(() => expect(second.result.current.status).toBe('ready'));
+    expect(reads).toHaveLength(1);
+  });
+
+  it('reuses the cache when the pane reopens', async () => {
+    const adapter = new MockViewerAdapter(document.createElement('div'));
+    await adapter.load('urn');
+    const spy = vi.spyOn(adapter, 'getLeafProperties');
+    const first = renderHook(() =>
+      useScopedRows(adapter, { names: ['Category'] }),
+    );
+    await waitFor(() => expect(first.result.current.status).toBe('ready'));
+    const total = first.result.current.rows.length;
+    expect(spy).toHaveBeenCalledTimes(1);
+    first.unmount();
+    const second = renderHook(() =>
+      useScopedRows(adapter, { names: ['Category'] }),
+    );
+    await waitFor(() => expect(second.result.current.status).toBe('ready'));
+    expect(second.result.current.rows).toHaveLength(total);
+    expect(spy).toHaveBeenCalledTimes(1);
+    adapter.destroy();
+  });
+
+  it('refresh marks the cache stale and reads the model again', async () => {
+    const adapter = new MockViewerAdapter(document.createElement('div'));
+    await adapter.load('urn');
+    const spy = vi.spyOn(adapter, 'getLeafProperties');
+    const { result } = renderHook(() =>
+      useScopedRows(adapter, { names: ['Category'] }),
+    );
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+    expect(spy).toHaveBeenCalledTimes(1);
+    act(() => result.current.refresh());
+    await waitFor(() => expect(spy).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+    expect(result.current.stale).toBe(false);
+    adapter.destroy();
+  });
+
+  it('reads again when the requested property names grow', async () => {
+    const adapter = new MockViewerAdapter(document.createElement('div'));
+    await adapter.load('urn');
+    const spy = vi.spyOn(adapter, 'getLeafProperties');
+    const { result, rerender } = renderHook(
+      ({ names }: { names: string[] }) => useScopedRows(adapter, { names }),
+      { initialProps: { names: ['Category'] } },
+    );
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+    expect(spy).toHaveBeenCalledTimes(1);
+    rerender({ names: ['Category', 'Name'] });
+    await waitFor(() => expect(spy).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+    expect(result.current.rows[0]?.properties).toHaveProperty('Name');
     adapter.destroy();
   });
 });

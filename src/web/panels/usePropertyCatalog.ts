@@ -3,7 +3,7 @@ import { readySignature } from '../viewer/modelSet.js';
 import type { PropertyInfo, ReadProgress } from '../viewer/propertyReads.js';
 import {
   discoverLeafProperties,
-  forgetLeafRows,
+  refreshLeafProperties,
 } from '../viewer/sharedLeafRows.js';
 import { useModels } from '../viewer/useModels.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
@@ -30,7 +30,7 @@ export function usePropertyCatalog(
   const controllerRef = useRef<AbortController | null>(null);
   const models = readySignature(useModels(adapter));
   const reload = useCallback(() => {
-    if (adapter) forgetLeafRows(adapter);
+    if (adapter) refreshLeafProperties(adapter);
     setVersion((v) => v + 1);
   }, [adapter]);
   const cancel = useCallback(() => {

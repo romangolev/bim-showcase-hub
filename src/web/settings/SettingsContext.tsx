@@ -20,11 +20,13 @@ import {
 export interface SettingsApi {
   settings: Settings;
   setSetting: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
+  resetSettings: () => void;
 }
 
 const FALLBACK: SettingsApi = {
   settings: DEFAULT_SETTINGS,
   setSetting: () => undefined,
+  resetSettings: () => undefined,
 };
 
 const SettingsContext = createContext<SettingsApi>(FALLBACK);
@@ -49,9 +51,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     },
     [],
   );
+  const resetSettings = useCallback(() => {
+    writeSettings(DEFAULT_SETTINGS);
+    setSettings(DEFAULT_SETTINGS);
+  }, []);
   const value = useMemo(
-    () => ({ settings, setSetting }),
-    [settings, setSetting],
+    () => ({ settings, setSetting, resetSettings }),
+    [settings, setSetting, resetSettings],
   );
   return (
     <SettingsContext.Provider value={value}>

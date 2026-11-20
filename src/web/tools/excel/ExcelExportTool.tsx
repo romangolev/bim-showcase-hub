@@ -89,7 +89,13 @@ export class ExcelExportTool extends ViewerTool<ExcelToolSettings> {
               },
               confirm: (rows) => confirmLargeExport(rows),
               signal,
-              onProgress: (fraction) => task.progress(fraction),
+              onProgress: (progress) =>
+                task.progress(
+                  progress.total ? progress.loaded / progress.total : null,
+                  progress.total
+                    ? `${progress.loaded.toLocaleString('en-US')} of ${progress.total.toLocaleString('en-US')} elements`
+                    : 'Reading element properties',
+                ),
               onStatus: statusReporter(task, describeStatus),
             });
           },

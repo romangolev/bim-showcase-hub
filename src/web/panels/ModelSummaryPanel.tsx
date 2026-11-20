@@ -93,23 +93,21 @@ export function ModelSummaryPanel({
   );
   const elementsScope = controlledElements?.value ?? savedElements;
   const setElementsScope = controlledElements?.onChange ?? setSavedElements;
+  const [savedView, setSavedView] = usePersisted(PANE_SETTINGS.summary.view);
+  const view = controlledView?.value ?? savedView;
   const state = useScopedRows(resolved, {
     names: propertyNames,
     elements: elementsScope,
+    autoRefresh: view.autoRefresh,
     ...(controlledScope ? { models: controlledScope } : {}),
   });
   const entries = useMemo(
     () =>
-      state.status === 'ready' || state.status === 'cancelled'
-        ? summarize(state.rows, propertyNames)
-        : EMPTY,
-    [state.status, state.rows, propertyNames],
+      state.rows.length > 0 ? summarize(state.rows, propertyNames) : EMPTY,
+    [state.rows, propertyNames],
   );
-  const reload = state.reload;
 
-  const [savedView, setSavedView] = usePersisted(PANE_SETTINGS.summary.view);
   const [savedAction] = usePersisted(PANE_SETTINGS.summary.action);
-  const view = controlledView?.value ?? savedView;
   const action = controlledAction ?? savedAction;
   const [active, setActive] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
@@ -187,7 +185,7 @@ export function ModelSummaryPanel({
         <button
           type="button"
           className="bsh-button bsh-summary__refresh"
-          onClick={reload}
+          onClick={state.refresh}
           disabled={!resolved}
         >
           Refresh
@@ -255,16 +253,28 @@ export function ModelSummaryPanel({
               message={HIDDEN_MESSAGE}
             />
           )}
+          {state.status === 'ready' && state.stale ? (
+            <div className="bsh-summary__partial" role="status">
+              <span>Data may be stale.</span>
+              <button
+                type="button"
+                className="bsh-button"
+                onClick={state.refresh}
+              >
+                Refresh
+              </button>
+            </div>
+          ) : null}
           {resolved && state.status === 'loading' && (
             <div className="bsh-summary__progress">
               <progress
                 aria-label="Reading element properties"
                 max={state.progress?.total || undefined}
-                value={state.progress ? state.progress.done : undefined}
+                value={state.progress ? state.progress.loaded : undefined}
               />
               <span role="status">
                 {state.progress && state.progress.total > 0
-                  ? `Reading element properties: ${state.progress.done.toLocaleString('en-US')} of ${state.progress.total.toLocaleString('en-US')}`
+                  ? `Reading element properties: ${state.progress.loaded.toLocaleString('en-US')} of ${state.progress.total.toLocaleString('en-US')}${state.progress.partial ? ' (partial data)' : ''}`
                   : 'Reading element properties'}
               </span>
               <button
@@ -286,7 +296,11 @@ export function ModelSummaryPanel({
                   ? 'Partial data: the read was cancelled, so these counts may be out of date.'
                   : 'The read was cancelled, so there is nothing to summarize yet.'}
               </span>
-              <button type="button" className="bsh-button" onClick={reload}>
+              <button
+                type="button"
+                className="bsh-button"
+                onClick={state.refresh}
+              >
                 Read again
               </button>
             </div>
@@ -296,7 +310,7 @@ export function ModelSummaryPanel({
               variant="error"
               message="We could not read this model's properties. Try again."
               detail={state.message}
-              action={{ label: 'Retry', onClick: state.reload }}
+              action={{ label: 'Retry', onClick: state.refresh }}
             />
           )}
           {state.status === 'ready' &&
@@ -314,7 +328,7 @@ export function ModelSummaryPanel({
                     ? 'This version has no readable elements. Try another version.'
                     : 'Change the element scope, or pick elements in the viewer.'
                 }
-                action={{ label: 'Refresh', onClick: reload }}
+                action={{ label: 'Refresh', onClick: state.refresh }}
               />
             )}
           {entries.length > 0 && (
