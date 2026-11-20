@@ -6,9 +6,16 @@ import {
   sanitizeElementScope,
 } from '../viewer/propertyScope.js';
 import {
+  type Aggregate,
   availableProperties,
+  CHART_TYPES,
+  type ChartType,
   DEFAULT_DASHBOARD_PROPERTIES,
   DEFAULT_MAX_CATEGORIES,
+  DEFAULT_TOP_N,
+  sanitizeAggregate,
+  TOP_N_MAX,
+  TOP_N_MIN,
 } from './dashboardData.js';
 import { sanitizePropertyNames } from './propertyNames.js';
 
@@ -67,7 +74,15 @@ export const KIND_LABELS: Record<DashboardKind, string> = {
 export const MIN_CATEGORIES = 3;
 export const MAX_CATEGORIES = 30;
 
-export interface DashboardView {
+export interface DashboardChartSpec {
+  chartType: ChartType;
+  aggregate: Aggregate;
+  measure: string;
+  topN: number;
+  otherBucket: boolean;
+}
+
+export interface DashboardView extends Partial<DashboardChartSpec> {
   preset: string | null;
   property: string;
   properties: readonly string[];
@@ -85,9 +100,32 @@ export const DEFAULT_DASHBOARD_VIEW: DashboardView = {
   properties: DEFAULT_DASHBOARD_PROPERTIES,
   maxCategories: DEFAULT_MAX_CATEGORIES,
   kind: 'both',
+  chartType: 'bar',
+  aggregate: 'count',
+  measure: '',
+  topN: DEFAULT_TOP_N,
+  otherBucket: true,
   pngTitle: true,
   pngLegend: true,
 };
+
+export function kindForChartType(type: ChartType): DashboardKind {
+  return type === 'doughnut' ? 'doughnut' : 'bar';
+}
+
+export function chartTypeForKind(kind: DashboardKind): ChartType {
+  return kind === 'doughnut' ? 'doughnut' : 'bar';
+}
+
+export function viewSpec(view: DashboardView): DashboardChartSpec {
+  return {
+    chartType: view.chartType ?? chartTypeForKind(view.kind),
+    aggregate: view.aggregate ?? 'count',
+    measure: view.measure ?? '',
+    topN: view.topN ?? view.maxCategories,
+    otherBucket: view.otherBucket ?? true,
+  };
+}
 
 export function sanitizeDashboardView(raw: unknown): DashboardView {
   const source =
@@ -95,6 +133,12 @@ export function sanitizeDashboardView(raw: unknown): DashboardView {
       ? (raw as Record<string, unknown>)
       : {};
   const max = Math.floor(Number(source.maxCategories));
+  const maxCategories =
+    Number.isFinite(max) && max >= MIN_CATEGORIES
+      ? Math.min(max, MAX_CATEGORIES)
+      : DEFAULT_MAX_CATEGORIES;
+  const kind = CHART_KINDS.find((k) => k === source.kind) ?? 'both';
+  const top = Math.floor(Number(source.topN));
   return {
     preset: DASHBOARD_PRESETS.some((p) => p.id === source.preset)
       ? (source.preset as string)
@@ -107,11 +151,18 @@ export function sanitizeDashboardView(raw: unknown): DashboardView {
       source.properties,
       DEFAULT_DASHBOARD_PROPERTIES,
     ),
-    maxCategories:
-      Number.isFinite(max) && max >= MIN_CATEGORIES
-        ? Math.min(max, MAX_CATEGORIES)
-        : DEFAULT_MAX_CATEGORIES,
-    kind: CHART_KINDS.find((k) => k === source.kind) ?? 'both',
+    maxCategories,
+    kind,
+    chartType:
+      CHART_TYPES.find((type) => type === source.chartType) ??
+      chartTypeForKind(kind),
+    aggregate: sanitizeAggregate(source.aggregate),
+    measure: typeof source.measure === 'string' ? source.measure.trim() : '',
+    topN:
+      Number.isFinite(top) && top > 0
+        ? Math.min(Math.max(top, TOP_N_MIN), TOP_N_MAX)
+        : maxCategories,
+    otherBucket: flag(source.otherBucket, true),
     pngTitle: flag(source.pngTitle, true),
     pngLegend: flag(source.pngLegend, true),
     ...(typeof source.scope === 'string' && source.scope

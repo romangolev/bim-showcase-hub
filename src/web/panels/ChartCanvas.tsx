@@ -8,7 +8,7 @@ import {
   LinearScale,
   Tooltip,
 } from 'chart.js';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '../components/icons.js';
 import { Menu } from '../components/Menu.js';
 import {
@@ -17,7 +17,9 @@ import {
   saveChartPng,
 } from '../extensions/chartExport.js';
 import {
+  AGGREGATE_LABELS,
   type ChartData,
+  formatMeasure,
   mixColors,
   readChartTheme,
   seriesColors,
@@ -34,7 +36,7 @@ Chart.register(
   Tooltip,
 );
 
-export type ChartKind = 'bar' | 'doughnut';
+export type ChartKind = 'bar' | 'hbar' | 'doughnut';
 
 export const LEGEND_LIMIT = 8;
 const TICK_LABEL_LIMIT = 10;
@@ -106,18 +108,21 @@ export function ChartCanvas({
         borderWidth: labels.map((name) => (lit?.has(name) ? 2 : 0)),
       };
     };
-    const counts = chart.data.map((d) => d.count);
+    const counts = chart.data.map((d) =>
+      chart.aggregate && chart.aggregate !== 'count' ? (d.value ?? 0) : d.count,
+    );
+    const horizontal = kind === 'hbar';
     const instance = new Chart(canvas, {
-      type: kind,
+      type: kind === 'doughnut' ? 'doughnut' : 'bar',
       data: {
         labels,
         datasets: [
           {
-            label: chart.property,
+            label: chart.measure || chart.property,
             data: counts,
             ...styleFor(litKeyRef.current),
             borderColor: theme.label,
-            ...(kind === 'bar' ? { minBarLength: 2 } : {}),
+            ...(kind !== 'doughnut' ? { minBarLength: 2 } : {}),
             ...(kind === 'doughnut' ? { spacing: 2, borderRadius: 2 } : {}),
           },
         ],
@@ -126,6 +131,7 @@ export function ChartCanvas({
         responsive: true,
         maintainAspectRatio: false,
         animation: false,
+        ...(horizontal ? { indexAxis: 'y' } : {}),
         onClick: (_event, elements) => {
           const index = elements[0]?.index;
           const picked = index === undefined ? undefined : labels[index];
@@ -137,30 +143,59 @@ export function ChartCanvas({
           tooltip: { enabled: true },
         },
         scales:
-          kind === 'bar'
-            ? {
-                x: {
-                  border: { display: false },
-                  ticks: {
-                    color: theme.text,
-                    maxRotation: 0,
-                    autoSkip: true,
-                    callback(value) {
-                      return shorten(
-                        String(this.getLabelForValue(Number(value))),
-                      );
+          kind === 'doughnut'
+            ? {}
+            : {
+                x: horizontal
+                  ? {
+                      beginAtZero: true,
+                      border: { display: false },
+                      ticks: {
+                        color: theme.text,
+                        precision: 0,
+                        maxTicksLimit: 4,
+                      },
+                      grid: { color: theme.grid },
+                    }
+                  : {
+                      border: { display: false },
+                      ticks: {
+                        color: theme.text,
+                        maxRotation: 0,
+                        autoSkip: true,
+                        callback(value) {
+                          return shorten(
+                            String(this.getLabelForValue(Number(value))),
+                          );
+                        },
+                      },
+                      grid: { display: false },
                     },
-                  },
-                  grid: { display: false },
-                },
-                y: {
-                  beginAtZero: true,
-                  border: { display: false },
-                  ticks: { color: theme.text, precision: 0, maxTicksLimit: 4 },
-                  grid: { color: theme.grid },
-                },
-              }
-            : {},
+                y: horizontal
+                  ? {
+                      border: { display: false },
+                      ticks: {
+                        color: theme.text,
+                        autoSkip: true,
+                        callback(value) {
+                          return shorten(
+                            String(this.getLabelForValue(Number(value))),
+                          );
+                        },
+                      },
+                      grid: { display: false },
+                    }
+                  : {
+                      beginAtZero: true,
+                      border: { display: false },
+                      ticks: {
+                        color: theme.text,
+                        precision: 0,
+                        maxTicksLimit: 4,
+                      },
+                      grid: { color: theme.grid },
+                    },
+              },
       },
     });
     let painted = litKeyRef.current;
@@ -271,6 +306,94 @@ export function ChartCanvas({
             ) : null}
           </ul>
         ) : null}
+      </div>
+    </div>
+  );
+}
+
+export interface ChartTableProps {
+  chart: ChartData;
+  label: string;
+  highlight?: ReadonlySet<string>;
+  onSelectLabel?: (label: string) => void;
+}
+
+export function ChartTable({
+  chart,
+  label,
+  highlight,
+  onSelectLabel,
+}: ChartTableProps) {
+  const { theme: pageTheme } = useTheme();
+  const colors = useMemo(
+    () =>
+      seriesColors(
+        readChartTheme(),
+        chart.data.map((d) => d.label),
+      ),
+    [chart.data, pageTheme],
+  );
+  const numeric = chart.aggregate !== undefined && chart.aggregate !== 'count';
+  const valueLabel = `${AGGREGATE_LABELS[chart.aggregate ?? 'count']}${
+    chart.unit ? ` (${chart.unit})` : ''
+  }`;
+
+  return (
+    <div className="bsh-chart-frame bsh-chart-frame--table">
+      <div className="bsh-chart-table__wrap">
+        <table className="bsh-table bsh-chart-table">
+          <caption className="bsh-chart-table__caption">{label}</caption>
+          <thead>
+            <tr>
+              <th scope="col">{chart.property}</th>
+              {numeric ? (
+                <th scope="col" className="bsh-num">
+                  {valueLabel}
+                </th>
+              ) : null}
+              <th scope="col" className="bsh-num">
+                {numeric ? 'Elements' : 'Count'}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {chart.data.map((datum, index) => (
+              <tr
+                key={datum.label}
+                data-active={highlight?.has(datum.label) || undefined}
+              >
+                <th scope="row">
+                  <span className="bsh-chart-table__label">
+                    <span
+                      className="bsh-legend__swatch"
+                      style={{ background: colors[index] ?? 'transparent' }}
+                      aria-hidden="true"
+                    />
+                    {onSelectLabel ? (
+                      <button
+                        type="button"
+                        className="bsh-chart-table__pick"
+                        onClick={() => onSelectLabel(datum.label)}
+                      >
+                        {datum.label}
+                      </button>
+                    ) : (
+                      datum.label
+                    )}
+                  </span>
+                </th>
+                {numeric ? (
+                  <td className="bsh-num">
+                    {datum.value === undefined
+                      ? '—'
+                      : formatMeasure(datum.value, chart.unit)}
+                  </td>
+                ) : null}
+                <td className="bsh-num">{datum.count}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

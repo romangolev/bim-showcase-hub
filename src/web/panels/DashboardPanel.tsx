@@ -2,11 +2,13 @@ import { useEffect, useId, useMemo, useState } from 'react';
 import { Icon } from '../components/icons.js';
 import { StateBlock } from '../components/StateBlock.js';
 import {
+  AGGREGATE_LABELS,
   availableProperties,
   bucketLabels,
+  buildChart,
   type ChartData,
+  type ChartType,
   selectedBuckets,
-  shapeChartData,
 } from '../extensions/dashboardData.js';
 import {
   CHART_KINDS,
@@ -16,19 +18,22 @@ import {
   KIND_LABELS,
   PRESET_PROPERTIES,
   presetCharts,
+  viewSpec,
 } from '../extensions/dashboardPresets.js';
 import {
   itemsWithValues,
   runElementAction,
 } from '../extensions/elementActions.js';
+import { type HealthKpiTile, healthKpis } from '../extensions/healthKpis.js';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import { type PersistedRecord, usePersisted } from '../storage.js';
 import { ALL_MODELS } from '../viewer/modelScope.js';
 import type { ModelDbId } from '../viewer/modelSet.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
-import { ChartCanvas } from './ChartCanvas.js';
+import { ChartCanvas, type ChartKind, ChartTable } from './ChartCanvas.js';
 import { DashboardGallery } from './DashboardGallery.js';
 import { ElementScopeSelect, scopeName } from './ElementScope.js';
+import { HEALTH_KPI_SETTINGS, HealthKpis } from './HealthKpis.js';
 import {
   FailedModels,
   ModelScopeSelect,
@@ -54,6 +59,47 @@ export interface DashboardPanelProps {
   setting?: PersistedRecord<DashboardView>;
 }
 
+const CANVAS_KIND: Record<Exclude<ChartType, 'table'>, ChartKind> = {
+  bar: 'bar',
+  hbar: 'hbar',
+  doughnut: 'doughnut',
+};
+
+const AGGREGATE_PAST: Record<string, string> = {
+  sum: 'total',
+  avg: 'average',
+  min: 'minimum',
+  max: 'maximum',
+};
+
+function chartLabel(chart: ChartData, type: ChartType): string {
+  const aggregate = chart.aggregate ?? 'count';
+  const measure = chart.measure ?? chart.property;
+  const unit = chart.unit ? ` (${chart.unit})` : '';
+  if (type === 'table') {
+    return aggregate === 'count'
+      ? `Element counts by ${chart.property}`
+      : `${AGGREGATE_LABELS[aggregate]} of ${measure}${unit} by ${chart.property}`;
+  }
+  if (aggregate === 'count') {
+    if (type === 'hbar') {
+      return `Horizontal bar chart of element counts by ${chart.property}`;
+    }
+    if (type === 'doughnut') {
+      return `Doughnut chart of element share by ${chart.property}`;
+    }
+    return `Bar chart of element counts by ${chart.property}`;
+  }
+  const what = `${AGGREGATE_PAST[aggregate] ?? aggregate} ${measure}${unit}`;
+  if (type === 'hbar') {
+    return `Horizontal bar chart of ${what} by ${chart.property}`;
+  }
+  if (type === 'doughnut') {
+    return `Doughnut chart of ${what} by ${chart.property}`;
+  }
+  return `Bar chart of ${what} by ${chart.property}`;
+}
+
 export function DashboardPanel({
   adapter,
   onOpenSettings,
@@ -68,16 +114,30 @@ export function DashboardPanel({
   const uid = useId();
   const resolved = useResolvedAdapter(adapter);
   const [view, setView] = usePersisted(setting ?? PANE_SETTINGS.dashboard.view);
+  const [health] = usePersisted(HEALTH_KPI_SETTINGS);
+  const spec = viewSpec(view);
   const propertyNames = view.properties;
-  const { maxCategories } = view;
   const activePreset = DASHBOARD_PRESETS.find((p) => p.id === view.preset);
-  const readNames = useMemo(
-    () =>
-      activePreset
-        ? [...new Set([...propertyNames, ...PRESET_PROPERTIES])]
-        : propertyNames,
-    [activePreset, propertyNames],
-  );
+  const readNames = useMemo(() => {
+    const names = new Set(propertyNames);
+    if (view.property) names.add(view.property);
+    if (spec.aggregate !== 'count' && spec.measure) names.add(spec.measure);
+    if (!setting) {
+      for (const name of health.mustHave) names.add(name);
+      for (const name of health.unique) names.add(name);
+      if (health.measure) names.add(health.measure);
+    }
+    if (activePreset) for (const name of PRESET_PROPERTIES) names.add(name);
+    return [...names];
+  }, [
+    propertyNames,
+    view.property,
+    spec.aggregate,
+    spec.measure,
+    setting,
+    health,
+    activePreset,
+  ]);
   const state = useScopedRows(resolved, {
     names: readNames,
     elements: view.elements ?? 'all',
@@ -111,9 +171,24 @@ export function DashboardPanel({
   const chart = useMemo(
     () =>
       usable && selected && !activePreset
-        ? shapeChartData(state.rows, selected, maxCategories)
+        ? buildChart(state.rows, {
+            property: selected,
+            aggregate: spec.aggregate,
+            measure: spec.measure,
+            topN: spec.topN,
+            otherBucket: spec.otherBucket,
+          })
         : null,
-    [usable, state.rows, selected, maxCategories, activePreset],
+    [
+      usable,
+      state.rows,
+      selected,
+      activePreset,
+      spec.aggregate,
+      spec.measure,
+      spec.topN,
+      spec.otherBucket,
+    ],
   );
 
   const [action] = usePersisted(PANE_SETTINGS.dashboard.action);
@@ -121,10 +196,24 @@ export function DashboardPanel({
     () =>
       usable && activePreset
         ? presetCharts(activePreset, state.rows).map((property) =>
-            shapeChartData(state.rows, property, maxCategories),
+            buildChart(state.rows, {
+              property,
+              aggregate: spec.aggregate,
+              measure: spec.measure,
+              topN: spec.topN,
+              otherBucket: spec.otherBucket,
+            }),
           )
         : [],
-    [usable, activePreset, state.rows, maxCategories],
+    [
+      usable,
+      activePreset,
+      state.rows,
+      spec.aggregate,
+      spec.measure,
+      spec.topN,
+      spec.otherBucket,
+    ],
   );
   const settled = usable && !state.pending;
   const hasRows = settled && state.rows.length > 0;
@@ -167,11 +256,33 @@ export function DashboardPanel({
     );
   };
 
+  const kpiTiles = useMemo(
+    () =>
+      settled && !setting && state.rows.length > 0
+        ? healthKpis(state.rows, health)
+        : [],
+    [settled, setting, state.rows, health],
+  );
+  const pickKpi = (tile: HealthKpiTile) => {
+    if (!resolved) return;
+    runElementAction(resolved, action, tile.offenders);
+  };
+
   const toggle = () => {
     const next = !isCollapsed;
     if (collapsed === undefined) setInnerCollapsed(next);
     onCollapsedChange?.(next);
   };
+
+  const setKind = (kind: DashboardKind) =>
+    setView((prev) => ({
+      ...prev,
+      kind,
+      chartType: kind === 'doughnut' ? 'doughnut' : 'bar',
+    }));
+
+  const legacyPair = view.kind === 'both' && spec.chartType === 'bar';
+  const chartType: ChartType = spec.chartType;
 
   const bodyId = `${uid}-body`;
 
@@ -240,7 +351,7 @@ export function DashboardPanel({
                 type="button"
                 className="bsh-button"
                 aria-pressed={view.kind === kind}
-                onClick={() => setView((prev) => ({ ...prev, kind }))}
+                onClick={() => setKind(kind)}
               >
                 {KIND_LABELS[kind]}
               </button>
@@ -382,6 +493,9 @@ export function DashboardPanel({
             message={`This model has none of the properties ${activePreset.label} uses.`}
           />
         )}
+        {kpiTiles.length > 0 ? (
+          <HealthKpis tiles={kpiTiles} onSelect={pickKpi} />
+        ) : null}
         {showGallery && !isCollapsed ? (
           <div id={`${uid}-gallery`}>
             <DashboardGallery
@@ -397,11 +511,16 @@ export function DashboardPanel({
         {activePreset && board.length > 0 && (
           <div className="bsh-boards">
             {board.map((item) => (
-              <ChartCanvas
+              <ChartBlock
                 key={item.property}
-                kind={view.kind === 'doughnut' ? 'doughnut' : 'bar'}
                 chart={item}
-                label={`${view.kind === 'doughnut' ? 'Doughnut' : 'Bar'} chart of element ${view.kind === 'doughnut' ? 'share' : 'counts'} by ${item.property}`}
+                type={
+                  chartType === 'table'
+                    ? 'table'
+                    : legacyPair
+                      ? 'bar'
+                      : chartType
+                }
                 exportName={exportName}
                 highlight={highlightFor(item)}
                 pngTitle={view.pngTitle}
@@ -420,59 +539,122 @@ export function DashboardPanel({
                 {selected}.
               </p>
             ) : null}
-            <div
-              className="bsh-charts"
-              data-single={view.kind !== 'both' || undefined}
-            >
-              {view.kind !== 'doughnut' ? (
-                <ChartCanvas
-                  kind="bar"
-                  chart={chart}
-                  label={`Bar chart of element counts by ${chart.property}`}
-                  exportName={exportName}
-                  highlight={highlightFor(chart)}
-                  pngTitle={view.pngTitle}
-                  pngLegend={view.pngLegend}
-                  onSelectLabel={crossFilter(chart)}
-                />
-              ) : null}
-              {view.kind !== 'bar' ? (
-                <ChartCanvas
-                  kind="doughnut"
-                  chart={chart}
-                  label={`Doughnut chart of element share by ${chart.property}`}
-                  exportName={exportName}
-                  highlight={highlightFor(chart)}
-                  pngTitle={view.pngTitle}
-                  pngLegend={view.pngLegend}
-                  onSelectLabel={crossFilter(chart)}
-                />
-              ) : null}
-            </div>
-            <details className="bsh-details">
-              <summary>Data table</summary>
-              <table className="bsh-table">
-                <caption className="bsh-sr-only">
-                  Element counts by {chart.property}
-                </caption>
-                <thead>
-                  <tr>
-                    <th scope="col">{chart.property}</th>
-                    <th scope="col" className="bsh-num">
-                      Count
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {chart.data.map((d) => (
-                    <tr key={d.label}>
-                      <td>{d.label}</td>
-                      <td className="bsh-num">{d.count}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </details>
+            {chart.mixed ? (
+              <StateBlock
+                variant="empty"
+                compact
+                title="Mixed units"
+                message={`These values carry different units (${(chart.units ?? []).join(', ')}), so they are not summed.`}
+              />
+            ) : chart.unavailable ? (
+              <StateBlock
+                variant="empty"
+                compact
+                title={
+                  spec.measure
+                    ? 'No numeric values'
+                    : 'Choose a numeric property'
+                }
+                message={
+                  spec.measure
+                    ? `The ${AGGREGATE_LABELS[spec.aggregate].toLowerCase()} needs numbers in ${spec.measure}.`
+                    : 'Pick a property to aggregate in Dashboard settings.'
+                }
+              />
+            ) : (
+              <>
+                <div
+                  className="bsh-charts"
+                  data-single={
+                    chartType !== 'table' && legacyPair ? undefined : true
+                  }
+                  data-table={chartType === 'table' || undefined}
+                >
+                  {chartType === 'table' ? (
+                    <ChartTable
+                      chart={chart}
+                      label={chartLabel(chart, 'table')}
+                      highlight={highlightFor(chart)}
+                      onSelectLabel={crossFilter(chart)}
+                    />
+                  ) : legacyPair ? (
+                    <>
+                      <ChartBlock
+                        chart={chart}
+                        type="bar"
+                        exportName={exportName}
+                        highlight={highlightFor(chart)}
+                        pngTitle={view.pngTitle}
+                        pngLegend={view.pngLegend}
+                        onSelectLabel={crossFilter(chart)}
+                      />
+                      <ChartBlock
+                        chart={chart}
+                        type="doughnut"
+                        exportName={exportName}
+                        highlight={highlightFor(chart)}
+                        pngTitle={view.pngTitle}
+                        pngLegend={view.pngLegend}
+                        onSelectLabel={crossFilter(chart)}
+                      />
+                    </>
+                  ) : (
+                    <ChartBlock
+                      chart={chart}
+                      type={chartType}
+                      exportName={exportName}
+                      highlight={highlightFor(chart)}
+                      pngTitle={view.pngTitle}
+                      pngLegend={view.pngLegend}
+                      onSelectLabel={crossFilter(chart)}
+                    />
+                  )}
+                </div>
+                {chartType !== 'table' ? (
+                  <details className="bsh-details">
+                    <summary>Data table</summary>
+                    <table className="bsh-table">
+                      <caption className="bsh-sr-only">
+                        {chart.measure
+                          ? `${AGGREGATE_LABELS[chart.aggregate ?? 'count']} of ${chart.measure} by ${chart.property}`
+                          : `Element counts by ${chart.property}`}
+                      </caption>
+                      <thead>
+                        <tr>
+                          <th scope="col">{chart.property}</th>
+                          {chart.aggregate && chart.aggregate !== 'count' ? (
+                            <th scope="col" className="bsh-num">
+                              {AGGREGATE_LABELS[chart.aggregate]}
+                              {chart.unit ? ` (${chart.unit})` : ''}
+                            </th>
+                          ) : null}
+                          <th scope="col" className="bsh-num">
+                            Count
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {chart.data.map((d) => (
+                          <tr key={d.label}>
+                            <td>{d.label}</td>
+                            {chart.aggregate && chart.aggregate !== 'count' ? (
+                              <td className="bsh-num">
+                                {d.value === undefined
+                                  ? '—'
+                                  : d.value.toLocaleString('en-US', {
+                                      maximumFractionDigits: 2,
+                                    })}
+                              </td>
+                            ) : null}
+                            <td className="bsh-num">{d.count}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </details>
+                ) : null}
+              </>
+            )}
           </>
         )}
         {settled && options.length === 0 && !emptyScope && (
@@ -485,5 +667,48 @@ export function DashboardPanel({
         )}
       </div>
     </section>
+  );
+}
+
+interface ChartBlockProps {
+  chart: ChartData;
+  type: ChartType;
+  exportName: string;
+  highlight?: ReadonlySet<string>;
+  pngTitle: boolean;
+  pngLegend: boolean;
+  onSelectLabel: (label: string) => void;
+}
+
+function ChartBlock({
+  chart,
+  type,
+  exportName,
+  highlight,
+  pngTitle,
+  pngLegend,
+  onSelectLabel,
+}: ChartBlockProps) {
+  if (type === 'table') {
+    return (
+      <ChartTable
+        chart={chart}
+        label={chartLabel(chart, 'table')}
+        highlight={highlight}
+        onSelectLabel={onSelectLabel}
+      />
+    );
+  }
+  return (
+    <ChartCanvas
+      kind={CANVAS_KIND[type]}
+      chart={chart}
+      label={chartLabel(chart, type)}
+      exportName={exportName}
+      highlight={highlight}
+      pngTitle={pngTitle}
+      pngLegend={pngLegend}
+      onSelectLabel={onSelectLabel}
+    />
   );
 }
