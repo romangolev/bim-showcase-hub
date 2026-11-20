@@ -2149,6 +2149,73 @@ def check_command_palette(page, checks):
     settle(page, 300)
 
 
+def close_pane(page, pane_id):
+    page.evaluate(
+        "mw: (id) => { const api = window.__bshLayout; if (api.openPanes().includes(id)) api.togglePane(id); }",
+        pane_id,
+    )
+    settle(page, 400)
+
+
+def check_colors_pane(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page)
+    if not models(page)["models"]:
+        expand_to_viewable(page).click()
+        wait_until(page, lambda: models(page)["active"])
+        settle(page, 1000)
+    box = open_palette(page)
+    box.fill("Open Colors")
+    page.keyboard.press("Enter")
+    pane = page.locator(".pane-colors")
+    try:
+        pane.wait_for(state="visible", timeout=8000)
+        pane.get_by_role("button", name="Color the model").click()
+        legend = pane.get_by_role("list", name=re.compile("^Legend for "))
+        legend.wait_for(state="visible", timeout=45000)
+        rows = legend.get_by_role("listitem").count()
+        checks.add("colors pane shows a legend with several values", rows > 1, f"{rows} rows")
+        pane.get_by_role("button", name="Clear colours").click()
+        settle(page, 400)
+        checks.add("clear colours removes the legend", legend.count() == 0)
+    finally:
+        close_pane(page, "colors")
+
+
+def check_export_pane(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page)
+    if not models(page)["models"]:
+        expand_to_viewable(page).click()
+        wait_until(page, lambda: models(page)["active"])
+        settle(page, 1000)
+    box = open_palette(page)
+    box.fill("Open Export pane")
+    page.keyboard.press("Enter")
+    pane = page.locator(".pane-export")
+    target = OUTPUT_DIR / "export-pane.xlsx"
+    accept = lambda dialog: dialog.accept()
+    try:
+        pane.wait_for(state="visible", timeout=8000)
+        table = pane.locator('table[aria-label="Export preview"]')
+        table.wait_for(state="visible", timeout=90000)
+        rows = table.locator("tbody tr").count()
+        checks.add("export pane previews between 2 and 21 rows", 2 <= rows <= 21, f"{rows} rows")
+        checks.add("export pane shows the file name and the settings", "File:" in pane.inner_text() and pane.get_by_text("Table export").count() == 1, "")
+        page.on("dialog", accept)
+        with page.expect_download(timeout=180000) as download_info:
+            pane.get_by_role("button", name="Export", exact=True).click()
+        download = download_info.value
+        checks.add("export pane downloads an xlsx", download.suggested_filename.endswith(".xlsx"), download.suggested_filename)
+        download.save_as(str(target))
+        size = target.stat().st_size if target.exists() else 0
+        magic = target.read_bytes()[:2] if target.exists() else b""
+        checks.add("export pane file is a non-empty xlsx", size > 1000 and magic == XLSX_MAGIC, f"{size} bytes")
+    finally:
+        page.remove_listener("dialog", accept)
+        close_pane(page, "export")
+
+
 def run_interaction_checks(page, checks, notes):
     try:
         check_layout(page, checks, notes)
@@ -2185,6 +2252,16 @@ def run_interaction_checks(page, checks, notes):
     except Exception as exc:
         page.screenshot(path=str(OUTPUT_DIR / "mock-command-palette-failure.png"))
         checks.add("check_command_palette", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+    try:
+        check_colors_pane(page, checks)
+    except Exception as exc:
+        page.screenshot(path=str(OUTPUT_DIR / "mock-colors-pane-failure.png"))
+        checks.add("check_colors_pane", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+    try:
+        check_export_pane(page, checks)
+    except Exception as exc:
+        page.screenshot(path=str(OUTPUT_DIR / "mock-export-pane-failure.png"))
+        checks.add("check_export_pane", False, f"{type(exc).__name__}: {str(exc)[:160]}")
     try:
         check_blocked_picks(page, checks)
     except Exception as exc:

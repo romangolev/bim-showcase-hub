@@ -8,6 +8,7 @@ import {
   ChartInstancePane,
   ColorsPane,
   DashboardPane,
+  ExportPane,
   ModelPaneBody,
   ModelsPane,
   PropertiesInstancePane,
@@ -23,6 +24,7 @@ export type PaneId =
   | 'dashboard'
   | 'models'
   | 'colors'
+  | 'export'
   | 'chart'
   | 'modelSummary'
   | 'properties';
@@ -191,6 +193,26 @@ export const PANES: readonly PaneDefinition[] = [
         },
       },
     ],
+  },
+  {
+    id: 'export',
+    title: 'Export',
+    description:
+      'Choose the properties, scope and format, then export the model data.',
+    category: 'Data',
+    keywords: 'export excel csv json table properties download',
+    icon: 'table',
+    component: ExportPane,
+    minSize: { width: 300, height: 160 },
+    defaultPlacement: {
+      kind: 'beside',
+      reference: 'viewer',
+      direction: 'right',
+      size: 380,
+    },
+    closable: true,
+    requires: 'viewer',
+    opensWithModel: false,
   },
   {
     id: 'chart',

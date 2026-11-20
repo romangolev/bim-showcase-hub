@@ -5,7 +5,7 @@ import {
   useSearch,
 } from '@tanstack/react-router';
 import { useMemo, useSyncExternalStore } from 'react';
-import { withUrns } from '../api/modelContext.js';
+import { type ModelContext, withUrns } from '../api/modelContext.js';
 import {
   modelStoreVersion,
   recallModel,
@@ -23,6 +23,7 @@ import { DASHBOARD_SETTINGS_ID } from '../panels/DashboardSettings.js';
 import {
   ColorsPanel,
   DashboardPanel,
+  ExportPanel,
   ModelSummaryPanel,
   ModelsPanel,
   PropertiesPanel,
@@ -44,6 +45,20 @@ import { instancePanelId } from './panelIds.js';
 import { setSummarySettingsTarget } from './summaryTarget.js';
 
 export const MODEL_KIND = 'viewer';
+
+export function exportNameOf(
+  context: ModelContext | null,
+  memberCount: number,
+): string {
+  return exportFileName(
+    memberCount > 0
+      ? exportStem(`${memberCount + 1} models`)
+      : exportStem(context?.file, context?.v),
+    DEFAULT_FILE_NAME,
+    '-properties',
+    'xlsx',
+  );
+}
 
 export function modelPanelId(urn: string): string {
   return instancePanelId(MODEL_KIND, urn);
@@ -133,14 +148,7 @@ export function ModelPaneBody({ instance }: { instance: string }) {
     () => memberMeta({ v: version, crumbs: path ? [path] : [] }),
     [version, path],
   );
-  const exportName = exportFileName(
-    members.length > 0
-      ? exportStem(`${members.length + 1} models`)
-      : exportStem(context?.file, context?.v),
-    DEFAULT_FILE_NAME,
-    '-properties',
-    'xlsx',
-  );
+  const exportName = exportNameOf(context, members.length);
   return (
     <section
       id={active ? 'main' : undefined}
@@ -358,6 +366,16 @@ export function ColorsPane() {
   return (
     <div className="pane-colors">
       <ColorsPanel />
+    </div>
+  );
+}
+
+export function ExportPane() {
+  const state = useOpenModels();
+  const context = state.active ? contextOf(state, state.active) : null;
+  return (
+    <div className="pane-export">
+      <ExportPanel fileName={exportNameOf(context, withUrns(context).length)} />
     </div>
   );
 }

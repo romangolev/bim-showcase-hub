@@ -11,10 +11,12 @@ import {
 } from '../viewer/propertyReads.js';
 import { readScopedRows } from '../viewer/scopedRows.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
+import { type Coloring, entryOf } from './colorBy.js';
 import { saveBlob } from './download.js';
 import {
   type AboutInfo,
   aboutRows,
+  type ColumnFormat,
   DEFAULT_GROUP_BY,
   type ExportFormat,
   type ExportScope,
@@ -22,6 +24,7 @@ import {
   toDelimited,
   toJsonRecords,
 } from './exportFormats.js';
+import { parseMeasure } from './measureParse.js';
 import { formatValue, summarize } from './modelSummary.js';
 
 export { DEFAULT_GROUP_BY } from './exportFormats.js';
@@ -36,6 +39,9 @@ export const DEFAULT_EXPORT_PROPERTIES: readonly string[] = [
 
 export const DEFAULT_FILE_NAME = 'model-properties.xlsx';
 export const MODEL_COLUMN = 'Model';
+export const COLOR_COLUMN = 'Color';
+export const COLOR_HEX_COLUMN = 'Color hex';
+export const UNIT_SUFFIX = ' unit';
 
 export const FALLBACK_SHEET_NAME = 'Elements';
 
@@ -115,10 +121,14 @@ function shownModels(adapter: ViewerAdapter): AboutInfo['models'] {
     }));
 }
 
-export interface ExportSheet {
-  name: string;
+export interface ExportRows {
   header: string[];
   rows: ExportCell[][];
+  textColumns?: number[];
+}
+
+export interface ExportSheet extends ExportRows {
+  name: string;
 }
 
 export type ExportStatus =
@@ -160,25 +170,90 @@ function cellOf(
   return value;
 }
 
+function textCell(
+  value: string | number | boolean | null | undefined,
+  emptyText: string,
+): string {
+  const resolved = value ?? emptyText;
+  return typeof resolved === 'string' ? resolved : String(resolved);
+}
+
+function propertyCells(
+  raw: string | number | boolean | null | undefined,
+  format: ColumnFormat | undefined,
+  emptyText: string,
+): ExportCell[] {
+  if (format === 'measure') {
+    const parsed = parseMeasure(raw);
+    return parsed
+      ? [parsed.value, parsed.unit ?? '']
+      : [cellOf(raw, emptyText), ''];
+  }
+  if (format === 'text') return [textCell(raw, emptyText)];
+  if (format === 'number') {
+    const value = cellOf(raw, emptyText);
+    return [numericCell(value) ?? value];
+  }
+  return [cellOf(raw, emptyText)];
+}
+
+function exportColumns(
+  propertyNames: readonly string[],
+  formats: Readonly<Record<string, ColumnFormat>>,
+): { header: string[]; textColumns: number[] } {
+  const header: string[] = [];
+  const textColumns: number[] = [];
+  let offset = 1;
+  for (const name of propertyNames) {
+    const format = formats[name];
+    header.push(name);
+    if (format === 'text') textColumns.push(offset);
+    offset += 1;
+    if (format === 'measure') {
+      header.push(`${name}${UNIT_SUFFIX}`);
+      offset += 1;
+    }
+  }
+  return { header, textColumns };
+}
+
 export function buildExportRows(
   rows: readonly PropertyRow[],
   propertyNames: readonly string[],
   withModel = false,
   emptyText = '',
-): { header: string[]; rows: ExportCell[][] } {
-  const values = (row: PropertyRow): ExportCell[] => [
-    row.dbId,
-    ...propertyNames.map((name) => cellOf(row.properties[name], emptyText)),
-  ];
-  if (!withModel) {
-    return { header: ['dbId', ...propertyNames], rows: rows.map(values) };
-  }
+  coloring: Coloring | null = null,
+  formats: Readonly<Record<string, ColumnFormat>> = {},
+): ExportRows {
+  const { header, textColumns } = exportColumns(propertyNames, formats);
+  const prefix = withModel ? 1 : 0;
+  const values = (row: PropertyRow): ExportCell[] => {
+    const cells: ExportCell[] = [row.dbId];
+    for (const name of propertyNames) {
+      cells.push(
+        ...propertyCells(row.properties[name], formats[name], emptyText),
+      );
+    }
+    if (coloring) {
+      const entry = entryOf(coloring, row.modelId ?? '', row.dbId);
+      cells.push(entry?.label ?? '', entry?.color ?? '');
+    }
+    return cells;
+  };
+  const colourHeader = coloring ? [COLOR_COLUMN, COLOR_HEX_COLUMN] : [];
+  const shifted = textColumns.map((index) => index + prefix);
   return {
-    header: [MODEL_COLUMN, 'dbId', ...propertyNames],
+    header: [
+      ...(withModel ? [MODEL_COLUMN] : []),
+      'dbId',
+      ...header,
+      ...colourHeader,
+    ],
     rows: rows.map((row) => [
-      cellOf(row.modelName ?? row.modelId),
+      ...(withModel ? [cellOf(row.modelName ?? row.modelId)] : []),
       ...values(row),
     ]),
+    ...(shifted.length > 0 ? { textColumns: shifted } : {}),
   };
 }
 
@@ -188,12 +263,16 @@ export function exportPreview(
   rows: readonly PropertyRow[],
   propertyNames: readonly string[],
   emptyText = '',
-): { header: string[]; rows: ExportCell[][] } {
+  coloring: Coloring | null = null,
+  formats: Readonly<Record<string, ColumnFormat>> = {},
+): ExportRows {
   return buildExportRows(
     rows.slice(0, PREVIEW_ROWS),
     propertyNames,
     distinctModelCount(rows) > 1,
     emptyText,
+    coloring,
+    formats,
   );
 }
 
@@ -202,12 +281,21 @@ export function buildExportSheets(
   propertyNames: readonly string[],
   groupBy: string | null = DEFAULT_GROUP_BY,
   emptyText = '',
+  coloring: Coloring | null = null,
+  formats: Readonly<Record<string, ColumnFormat>> = {},
 ): ExportSheet[] {
   if (rows.length === 0) return [];
   const used = new Set<string>();
   const withModel = distinctModelCount(rows) > 1;
   if (!groupBy || !propertyNames.includes(groupBy)) {
-    const built = buildExportRows(rows, propertyNames, withModel, emptyText);
+    const built = buildExportRows(
+      rows,
+      propertyNames,
+      withModel,
+      emptyText,
+      coloring,
+      formats,
+    );
     return [{ name: sheetNameFor(FALLBACK_SHEET_NAME, used), ...built }];
   }
   const groups = new Map<string, PropertyRow[]>();
@@ -219,7 +307,14 @@ export function buildExportSheets(
   }
   return [...groups.entries()].map(([key, bucket]) => ({
     name: sheetNameFor(key, used),
-    ...buildExportRows(bucket, propertyNames, withModel, emptyText),
+    ...buildExportRows(
+      bucket,
+      propertyNames,
+      withModel,
+      emptyText,
+      coloring,
+      formats,
+    ),
   }));
 }
 
@@ -232,7 +327,11 @@ const TOTAL_ROW_PREFIX = 'Total';
 const TOTAL_ROW_SKIP_COLUMN = 0;
 
 function isIdentifierColumn(header: string): boolean {
-  return IDENTIFIER_COLUMN.test(header.trim());
+  return (
+    header === COLOR_COLUMN ||
+    header === COLOR_HEX_COLUMN ||
+    IDENTIFIER_COLUMN.test(header.trim())
+  );
 }
 
 function blankColumns(
@@ -300,9 +399,10 @@ interface XlsxCellStyle {
   type?: NumberConstructor;
   format?: string;
   fontWeight?: 'bold';
+  backgroundColor?: string;
 }
 
-type XlsxCell = ExportCell | XlsxCellStyle;
+export type XlsxCell = ExportCell | XlsxCellStyle;
 
 export function xlsxCell(
   value: ExportCell,
@@ -356,18 +456,50 @@ function columnWidths(
   });
 }
 
+const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+
+function swatchCell(color: string): XlsxCellStyle {
+  return HEX_COLOR.test(color)
+    ? { value: color, backgroundColor: color }
+    : { value: color };
+}
+
+function filledColorCell(value: ExportCell): XlsxCell | null {
+  return typeof value === 'string' && HEX_COLOR.test(value)
+    ? { value, backgroundColor: value }
+    : null;
+}
+
+export function legendSheetData(coloring: Coloring): XlsxCellStyle[][] {
+  return [
+    ['Value', 'Color', 'Count'].map((value) => ({
+      value,
+      fontWeight: 'bold' as const,
+    })),
+    ...coloring.legend.map((entry) => [
+      { value: entry.label },
+      swatchCell(entry.color),
+      { value: entry.count },
+    ]),
+  ];
+}
+
 export function xlsxSheet(sheet: ExportSheet): XlsxSheet {
   const totals = totalsRow(sheet.header, sheet.rows);
-  const textColumns = new Set(
-    sheet.header.flatMap((name, index) =>
+  const textColumns = new Set([
+    ...sheet.header.flatMap((name, index) =>
       isIdentifierColumn(name) ? [index] : [],
     ),
-  );
+    ...(sheet.textColumns ?? []),
+  ]);
+  const colorIndex = sheet.header.indexOf(COLOR_HEX_COLUMN);
   const data = [
     sheet.header.map((value) => xlsxCell(value, true, true)),
     ...sheet.rows.map((row) =>
-      row.map((value, column) =>
-        xlsxCell(value, false, textColumns.has(column)),
+      row.map(
+        (value, column) =>
+          (column === colorIndex ? filledColorCell(value) : null) ??
+          xlsxCell(value, false, textColumns.has(column)),
       ),
     ),
     ...(totals ? [totals.map((value) => xlsxCell(value, true))] : []),
@@ -400,6 +532,10 @@ export interface ExportOptions {
   onProgress?: (progress: ReadProgress) => void;
   signal?: AbortSignal;
   save?: (blob: Blob, fileName: string) => void;
+  coloring?: Coloring | null;
+  colorColumn?: boolean;
+  legendSheet?: boolean;
+  columnFormats?: Readonly<Record<string, ColumnFormat>>;
 }
 
 export async function exportToXlsx(
@@ -433,7 +569,12 @@ export async function exportToXlsx(
     onProgress,
     signal,
     save = saveBlob,
+    coloring = null,
+    colorColumn = true,
+    legendSheet = false,
+    columnFormats = {},
   } = options;
+  const rowColoring = colorColumn ? coloring : null;
   const emit = (status: ExportStatus): ExportStatus => {
     onStatus?.(status);
     return status;
@@ -490,7 +631,14 @@ export async function exportToXlsx(
     let target = format;
     let sheets =
       format === 'xlsx'
-        ? buildExportSheets(rows, propertyNames, groupBy, emptyText)
+        ? buildExportSheets(
+            rows,
+            propertyNames,
+            groupBy,
+            emptyText,
+            rowColoring,
+            columnFormats,
+          )
         : [];
     if (format === 'xlsx') {
       if (sheets.length === 0) return emit({ phase: 'empty' });
@@ -517,6 +665,18 @@ export async function exportToXlsx(
       }
     }
     if (target === 'xlsx') {
+      const legend =
+        legendSheet && coloring
+          ? [
+              {
+                sheet: sheetNameFor(
+                  'Legend',
+                  new Set(sheets.map((sheet) => sheet.name.toLowerCase())),
+                ),
+                data: legendSheetData(coloring),
+              },
+            ]
+          : [];
       const { default: writeXlsxFile } = await import(
         'write-excel-file/browser'
       );
@@ -561,6 +721,7 @@ export async function exportToXlsx(
         : [];
       const blob = await writeXlsxFile([
         ...sheets.map(xlsxSheet),
+        ...legend,
         ...summary,
         ...aboutSheet,
       ]).toBlob();
@@ -572,6 +733,8 @@ export async function exportToXlsx(
         propertyNames,
         distinctModelCount(rows) > 1,
         target === 'json' ? '' : emptyText,
+        rowColoring,
+        columnFormats,
       );
       throwIfAborted(signal);
       if (target === 'copy') {

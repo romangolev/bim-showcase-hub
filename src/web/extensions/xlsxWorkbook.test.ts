@@ -1,8 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { PropertyRow } from '../../shared/types.js';
+import { buildColoring } from './colorBy.js';
 import {
   buildExportSheets,
+  COLOR_COLUMN,
+  COLOR_HEX_COLUMN,
   exportToXlsx,
+  legendSheetData,
   totalsRow,
   xlsxCell,
   xlsxSheet,
@@ -235,6 +239,134 @@ describe('xlsxSheet', () => {
     expect(built.columns[1]?.width).toBe(60);
     const narrow = xlsxSheet({ name: 'S', header: ['dbId'], rows: [] });
     expect(narrow.columns[0]?.width).toBe(8);
+  });
+});
+
+describe('colour columns and the Legend sheet', () => {
+  const colored = [
+    { dbId: 1, name: 'a', properties: { Category: 'Walls' }, modelId: 'm' },
+    { dbId: 2, name: 'b', properties: { Category: 'Doors' }, modelId: 'm' },
+  ];
+  const coloringFixture = buildColoring(
+    'property',
+    'Category',
+    colored.slice(0, 1),
+    () => 'Walls',
+    ['Walls', 'Doors'],
+    ['#ff0000', '#00ff00'],
+  );
+
+  it('fills the hex cells with their colour and writes a Legend sheet', () => {
+    const sheet = xlsxSheet({
+      name: 'Elements',
+      header: ['dbId', COLOR_COLUMN, COLOR_HEX_COLUMN],
+      rows: [[1, 'Walls', '#ff0000']],
+    });
+    expect(sheet.data[1]?.[2]).toMatchObject({
+      value: '#ff0000',
+      backgroundColor: '#ff0000',
+    });
+    const legend = legendSheetData(coloringFixture);
+    expect(legend[0]?.map((cell) => cell.value)).toEqual([
+      'Value',
+      'Color',
+      'Count',
+    ]);
+    expect(legend[1]?.map((cell) => cell.value)).toEqual([
+      'Walls',
+      '#ff0000',
+      1,
+    ]);
+  });
+
+  it('writes the colour columns and an optional Legend sheet', async () => {
+    await exportToXlsx(
+      adapterOf([row(1, { Category: 'Walls' }), row(2, { Category: 'Doors' })]),
+      {
+        propertyNames: ['Category'],
+        groupBy: null,
+        format: 'xlsx',
+        fileName: 'a.xlsx',
+        coloring: coloringFixture,
+        legendSheet: true,
+        save: () => undefined,
+      },
+    );
+    const sheets = written.at(-1) as Array<{
+      sheet: string;
+      data: Array<Array<{ value: unknown }>>;
+    }>;
+    expect(sheets.map((sheet) => sheet.sheet)).toEqual(['Elements', 'Legend']);
+    expect(sheets[0]?.data[0]?.[2]).toMatchObject({ value: COLOR_COLUMN });
+    expect(sheets[0]?.data[0]?.[3]).toMatchObject({ value: COLOR_HEX_COLUMN });
+    expect(sheets[0]?.data[1]?.[3]).toMatchObject({
+      value: '#ff0000',
+      backgroundColor: '#ff0000',
+    });
+  });
+
+  it('writes only the Legend sheet when the colour column is off', async () => {
+    await exportToXlsx(adapterOf([row(1, { Category: 'Walls' })]), {
+      propertyNames: ['Category'],
+      groupBy: null,
+      format: 'xlsx',
+      fileName: 'a.xlsx',
+      coloring: coloringFixture,
+      colorColumn: false,
+      legendSheet: true,
+      save: () => undefined,
+    });
+    const sheets = written.at(-1) as Array<{
+      sheet: string;
+      data: Array<Array<{ value: unknown }>>;
+    }>;
+    expect(sheets.map((sheet) => sheet.sheet)).toEqual(['Elements', 'Legend']);
+    expect(sheets[0]?.data[0]?.map((cell) => cell.value)).toEqual([
+      'dbId',
+      'Category',
+    ]);
+  });
+
+  it('keeps the colour labels as text in CSV', async () => {
+    const saved: Blob[] = [];
+    await exportToXlsx(adapterOf([row(1, { Category: 'Walls' })]), {
+      propertyNames: ['Category'],
+      groupBy: null,
+      format: 'csv',
+      fileName: 'a.csv',
+      coloring: coloringFixture,
+      save: (blob) => {
+        saved.push(blob);
+      },
+    });
+    expect(await textOf(saved[0] as Blob)).toContain(
+      'dbId,Category,Color,Color hex',
+    );
+    expect(await textOf(saved[0] as Blob)).toContain('1,Walls,Walls,#ff0000');
+  });
+});
+
+describe('column formats in the workbook', () => {
+  it('keeps a forced text column as text and appends the unit column', async () => {
+    await exportToXlsx(adapterOf([row(1, { Area: '12.5 m²', Mark: '007' })]), {
+      propertyNames: ['Area', 'Mark'],
+      groupBy: null,
+      format: 'xlsx',
+      fileName: 'a.xlsx',
+      columnFormats: { Area: 'measure', Mark: 'text' },
+      save: () => undefined,
+    });
+    const sheets = written.at(-1) as Array<{ data: unknown[][] }>;
+    const header = sheets[0]?.data[0] as Array<{ value: unknown }>;
+    expect(header.map((cell) => cell.value)).toEqual([
+      'dbId',
+      'Area',
+      'Area unit',
+      'Mark',
+    ]);
+    expect(sheets[0]?.data[1]?.[1]).toMatchObject({ value: 12.5 });
+    expect(sheets[0]?.data[1]?.[2]).toBe('m²');
+    expect(sheets[0]?.data[1]?.[3]).toBe('007');
   });
 });
 

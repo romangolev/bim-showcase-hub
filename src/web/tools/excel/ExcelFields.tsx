@@ -1,7 +1,10 @@
-import { useId } from 'react';
+import { useContext, useId } from 'react';
 import { NumberField } from '../../components/NumberField.js';
 import {
+  COLUMN_FORMAT_LABELS,
+  COLUMN_FORMATS,
   CONFIRM_ABOVE_MAX,
+  type ColumnFormat,
   type CsvDelimiter,
   DECIMAL_LABELS,
   DELIMITER_LABELS,
@@ -13,11 +16,13 @@ import {
   FORMAT_LABELS,
   SCOPE_LABELS,
 } from '../../extensions/exportFormats.js';
+import { LayoutContext } from '../../layout/layoutContext.js';
 import { PropertyPicker } from '../../panels/PropertyPicker.js';
 import { SelectionSets } from '../../panels/SelectionSets.js';
 import { usePropertyCatalog } from '../../panels/usePropertyCatalog.js';
 import { usePersisted } from '../../storage.js';
 import { usePublishedAdapter } from '../../viewer/activeAdapterStore.js';
+import { useModelColoring } from '../../viewer/modelColoring.js';
 import { modelScopeOptions, resolveScope } from '../../viewer/modelScope.js';
 import { type ScopeCount, useScopeCount } from '../../viewer/scopeCount.js';
 import { useSelectionSets, withSetLabels } from '../../viewer/selectionSets.js';
@@ -73,8 +78,20 @@ function rowsMessage(count: ScopeCount): string {
   }
 }
 
+function withFormat(
+  formats: Record<string, ColumnFormat>,
+  name: string,
+  format: ColumnFormat,
+): Record<string, ColumnFormat> {
+  const next = { ...formats };
+  if (format === 'auto') delete next[name];
+  else next[name] = format;
+  return next;
+}
+
 export function ExcelFields() {
   const [excel, setExcel] = usePersisted(EXCEL_SETTINGS);
+  const layout = useContext(LayoutContext);
   const active = useActiveViewer();
   const published = usePublishedAdapter();
   const viewer = active ?? published;
@@ -99,7 +116,11 @@ export function ExcelFields() {
   const headerId = useId();
   const exporterId = useId();
   const summaryId = useId();
+  const colorId = useId();
+  const legendId = useId();
+  const formatId = useId();
   const catalogState = usePropertyCatalog(viewer);
+  const coloring = useModelColoring(viewer);
   const catalog = [...new Set(catalogState.catalog.map((info) => info.name))];
   const groupBy =
     excel.groupBy !== null && excel.properties.includes(excel.groupBy)
@@ -112,6 +133,17 @@ export function ExcelFields() {
       <h3 id="settings-excel" className="settings__heading">
         Table export
       </h3>
+      {layout && !layout.isOpen('export') ? (
+        <div className="settings__field">
+          <button
+            type="button"
+            className="bsh-button"
+            onClick={() => layout.togglePane('export')}
+          >
+            Open Export pane
+          </button>
+        </div>
+      ) : null}
       <p className="settings__hint">
         Exported data stays in your browser. Text that starts with =, +, - or @
         is prefixed with an apostrophe so it cannot run as a spreadsheet
@@ -162,6 +194,65 @@ export function ExcelFields() {
           onChange={(properties) => update({ properties })}
         />
       </fieldset>
+      <details className="bsh-fieldset">
+        <summary>Column formats</summary>
+        {excel.properties.map((name, index) => {
+          const id = `${formatId}-${index}`;
+          return (
+            <div className="settings__field" key={name}>
+              <label htmlFor={id}>Format of {name}</label>
+              <select
+                id={id}
+                value={excel.columnFormats[name] ?? 'auto'}
+                onChange={(event) =>
+                  update({
+                    columnFormats: withFormat(
+                      excel.columnFormats,
+                      name,
+                      event.target.value as ColumnFormat,
+                    ),
+                  })
+                }
+              >
+                {COLUMN_FORMATS.map((format) => (
+                  <option key={format} value={format}>
+                    {COLUMN_FORMAT_LABELS[format]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          );
+        })}
+      </details>
+      <div className="settings__field">
+        <label htmlFor={colorId}>
+          <input
+            id={colorId}
+            type="checkbox"
+            checked={excel.colorColumn}
+            disabled={!coloring}
+            onChange={(event) => update({ colorColumn: event.target.checked })}
+          />{' '}
+          Add a Color column and a Color hex column
+        </label>
+      </div>
+      <div className="settings__field">
+        <label htmlFor={legendId}>
+          <input
+            id={legendId}
+            type="checkbox"
+            checked={excel.legendSheet}
+            disabled={!coloring}
+            onChange={(event) => update({ legendSheet: event.target.checked })}
+          />{' '}
+          Add a Legend sheet to the Excel file
+        </label>
+        {coloring ? null : (
+          <span className="settings__hint">
+            Color the model in the Colors pane first
+          </span>
+        )}
+      </div>
       <PresetFields current={excel} apply={update} catalog={catalog} />
       <div className="settings__field">
         <label htmlFor={groupId}>Group by</label>

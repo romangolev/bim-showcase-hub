@@ -8,6 +8,7 @@ import { MockViewerAdapter } from '../../viewer/MockViewerAdapter.js';
 import { ExcelExportTool } from './ExcelExportTool.js';
 import {
   DEFAULT_EXCEL_TOOL_SETTINGS,
+  EXCEL_SETTINGS,
   EXCEL_SETTINGS_KEY,
   readExcelToolSettings,
 } from './excelSettings.js';
@@ -19,6 +20,10 @@ function stored(): Record<string, unknown> {
 }
 
 const adapters: MockViewerAdapter[] = [];
+
+function renderFields() {
+  render(new ExcelExportTool().renderSettings());
+}
 
 beforeEach(() => {
   installMemoryStorage();
@@ -90,5 +95,18 @@ describe('export columns', () => {
     }
     expect(stored().properties).toEqual(['Name']);
     expect(screen.getByRole('button', { name: 'Remove Name' })).toBeDisabled();
+  });
+
+  it('sets a column format per chosen property', () => {
+    EXCEL_SETTINGS.write({ ...EXCEL_SETTINGS.read(), properties: ['Area'] });
+    renderFields();
+    fireEvent.change(screen.getByLabelText('Format of Area'), {
+      target: { value: 'measure' },
+    });
+    expect(EXCEL_SETTINGS.read().columnFormats).toEqual({ Area: 'measure' });
+    fireEvent.change(screen.getByLabelText('Format of Area'), {
+      target: { value: 'auto' },
+    });
+    expect(EXCEL_SETTINGS.read().columnFormats).toEqual({});
   });
 });

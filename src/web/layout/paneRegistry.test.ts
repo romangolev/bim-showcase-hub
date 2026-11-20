@@ -88,15 +88,23 @@ describe('pane registry', () => {
   });
 
   it('derives the viewer followers from the registry in one place', () => {
-    expect(FOLLOWERS).toEqual(['summary', 'dashboard', 'models', 'colors']);
+    expect(FOLLOWERS).toEqual([
+      'summary',
+      'dashboard',
+      'models',
+      'colors',
+      'export',
+    ]);
     expect(followersOf('viewer')).toEqual([
       'summary',
       'dashboard',
       'models',
       'colors',
+      'export',
     ]);
     expect(followersOf('tree')).toEqual([]);
     expect(paneById('colors').opensWithModel).toBe(false);
+    expect(paneById('export').opensWithModel).toBe(false);
     expect(paneById('summary').opensWithModel).toBeUndefined();
   });
 

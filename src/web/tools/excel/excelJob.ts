@@ -9,6 +9,7 @@ import {
   DEFAULT_NAME_PATTERN,
   type ExcelSettings,
 } from '../../extensions/exportFormats.js';
+import { currentColoring } from '../../viewer/modelColoring.js';
 import type { ViewerAdapter } from '../../viewer/ViewerAdapter.js';
 import {
   confirmLargeExport,
@@ -53,6 +54,13 @@ export async function excelJob(
     summarySheet: settings.summarySheet,
     groupBy: settings.groupBy,
     emptyText: settings.emptyLabel === 'blank' ? '' : '(empty)',
+    coloring:
+      settings.colorColumn || settings.legendSheet
+        ? currentColoring(adapter)
+        : null,
+    legendSheet: settings.legendSheet,
+    colorColumn: settings.colorColumn,
+    columnFormats: settings.columnFormats,
     table: {
       delimiter: settings.csvDelimiter,
       decimal: settings.decimalMark,
