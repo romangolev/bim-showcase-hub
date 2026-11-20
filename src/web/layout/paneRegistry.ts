@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react';
 import type { Command } from '../commands/types.js';
 import type { IconName } from '../components/icons.js';
+import { COLORS_SETTINGS } from '../panels/colorsSettings.js';
 import { currentAdapter } from '../viewer/activeAdapterStore.js';
 import { clearColoring } from '../viewer/modelColoring.js';
 import { PANEL_SEPARATOR, type PanelId } from './panelIds.js';
@@ -190,6 +191,7 @@ export const PANES: readonly PaneDefinition[] = [
         run: () => {
           const adapter = currentAdapter();
           if (adapter) clearColoring(adapter);
+          COLORS_SETTINGS.write({ ...COLORS_SETTINGS.read(), active: false });
         },
       },
     ],
