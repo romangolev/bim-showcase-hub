@@ -1,5 +1,6 @@
 import { useId, useMemo, useState } from 'react';
 import { StateBlock } from '../components/StateBlock.js';
+import { announce } from '../tasks/notifications.js';
 import { groupCatalog } from '../viewer/propertyCatalog.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { usePropertyCatalog } from './usePropertyCatalog.js';
@@ -31,13 +32,44 @@ export function PropertyPicker({
     onChange(
       chosen.has(name) ? value.filter((v) => v !== name) : [...value, name],
     );
+  const move = (name: string, delta: -1 | 1) => {
+    const from = value.indexOf(name);
+    const to = from + delta;
+    const destination = value[to];
+    if (from < 0 || destination === undefined) return;
+    const next = [...value];
+    next[from] = destination;
+    next[to] = name;
+    onChange(next);
+    announce(`Moved ${name} to position ${to + 1} of ${value.length}`);
+  };
 
   return (
     <div className="bsh-picker">
       <ul className="bsh-picker__chosen" aria-label="Chosen properties">
-        {value.map((name) => (
+        {value.map((name, index) => (
           <li key={name} className="bsh-badge">
             {name}
+            <span className="bsh-picker__arrange">
+              <button
+                type="button"
+                className="bsh-picker__move"
+                disabled={index === 0}
+                aria-label={`Move ${name} up`}
+                onClick={() => move(name, -1)}
+              >
+                <span aria-hidden="true">↑</span>
+              </button>
+              <button
+                type="button"
+                className="bsh-picker__move"
+                disabled={index === value.length - 1}
+                aria-label={`Move ${name} down`}
+                onClick={() => move(name, 1)}
+              >
+                <span aria-hidden="true">↓</span>
+              </button>
+            </span>
             <button
               type="button"
               className="bsh-picker__remove"
