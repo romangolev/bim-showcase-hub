@@ -204,6 +204,16 @@ describe('ViewerAdapter contract (mock)', () => {
     ).rejects.toMatchObject({ name: 'AbortError' });
   });
 
+  it('reports the rows of each chunk while the read runs', async () => {
+    await setup();
+    const sizes: number[] = [];
+    const rows = await adapter.getLeafProperties(['Category'], undefined, {
+      onRows: (part) => sizes.push(part.length),
+    });
+    expect(sizes.length).toBeGreaterThan(0);
+    expect(sizes.reduce((sum, size) => sum + size, 0)).toBe(rows.length);
+  });
+
   it('reads the full property set of one element', async () => {
     await setup();
     const modelId = adapter.getModels()[0]?.id ?? '';

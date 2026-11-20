@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { PropertyRow } from '../../shared/types.js';
 import { installMemoryStorage } from '../test/mockApi.js';
-import { fireEvent, render, screen, waitFor } from '../test/render.js';
+import { fireEvent, render, screen, waitFor, within } from '../test/render.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
 import { abortError, type ReadOptions } from '../viewer/propertyReads.js';
 import { ModelSummaryPanel } from './ModelSummaryPanel.js';
@@ -16,6 +16,28 @@ class SlowAdapter extends MockViewerAdapter {
       phase: 'rows',
       loaded: 2000,
       total: 8000,
+      partial: true,
+    });
+    return new Promise((_resolve, reject) => {
+      options?.signal?.addEventListener('abort', () => reject(abortError()));
+    });
+  }
+}
+
+class PartialAdapter extends MockViewerAdapter {
+  override getLeafProperties(
+    _names: string[],
+    _ids?: readonly string[],
+    options?: ReadOptions,
+  ): Promise<PropertyRow[]> {
+    options?.onRows?.([
+      { dbId: 1, name: 'Wall 1', properties: { Category: 'Walls' } },
+      { dbId: 2, name: 'Wall 2', properties: { Category: 'Walls' } },
+    ]);
+    options?.onProgress?.({
+      phase: 'rows',
+      loaded: 2,
+      total: 5,
       partial: true,
     });
     return new Promise((_resolve, reject) => {
@@ -80,6 +102,19 @@ describe('summary progress and cancel', () => {
     expect(
       screen.getByRole('button', { name: 'Read again' }),
     ).toBeInTheDocument();
+  });
+
+  it('shows partial counts while the rows load', async () => {
+    const adapter = new PartialAdapter(document.createElement('div'));
+    await adapter.load('urn');
+    adapters.push(adapter);
+    render(
+      <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />,
+    );
+    await screen.findByText('Partial: 2 of 5 elements');
+    const table = screen.getByRole('table');
+    expect(within(table).getByText('Walls')).toBeInTheDocument();
+    expect(within(table).getByText('2')).toBeInTheDocument();
   });
 
   it('keeps the table on screen while a refresh reads again', async () => {

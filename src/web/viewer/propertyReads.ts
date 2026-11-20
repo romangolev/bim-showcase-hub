@@ -1,3 +1,5 @@
+import type { PropertyRow } from '../../shared/types.js';
+
 export const READ_CHUNK = 5000;
 export const PROGRESS_INTERVAL_MS = 100;
 export const UNCATEGORIZED = 'Other';
@@ -14,6 +16,7 @@ export interface ReadProgress {
 export interface ReadOptions {
   signal?: AbortSignal;
   onProgress?: (progress: ReadProgress) => void;
+  onRows?: (rows: PropertyRow[]) => void;
 }
 
 export interface PropertyInfo {
@@ -110,9 +113,10 @@ function abortable<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
   });
 }
 
-export interface ChunkReadOptions extends ReadOptions {
+export interface ChunkReadOptions<T> extends Omit<ReadOptions, 'onRows'> {
   phase?: ReadPhase;
   size?: number;
+  onRows?: (rows: T[]) => void;
 }
 
 export async function readInChunks<T>(
@@ -121,9 +125,10 @@ export async function readInChunks<T>(
   {
     signal,
     onProgress,
+    onRows,
     phase = 'rows',
     size = READ_CHUNK,
-  }: ChunkReadOptions = {},
+  }: ChunkReadOptions<T> = {},
 ): Promise<T[]> {
   const progress = throttleProgress(onProgress);
   const out: T[] = [];
@@ -139,10 +144,13 @@ export async function readInChunks<T>(
   try {
     for (let start = 0; start < ids.length; start += size) {
       throwIfAborted(signal);
-      out.push(
-        ...(await abortable(read(ids.slice(start, start + size)), signal)),
+      const chunk = await abortable(
+        read(ids.slice(start, start + size)),
+        signal,
       );
+      out.push(...chunk);
       loaded = Math.min(start + size, ids.length);
+      onRows?.(chunk);
       report();
     }
     throwIfAborted(signal);

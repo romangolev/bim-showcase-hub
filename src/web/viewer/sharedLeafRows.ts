@@ -18,6 +18,7 @@ interface Pending {
   controller: AbortController;
   waiters: number;
   listeners: Set<(progress: ReadProgress) => void>;
+  rowListeners: Set<(rows: PropertyRow[]) => void>;
   last: ReadProgress | null;
   promise: Promise<PropertyRow[]>;
 }
@@ -167,6 +168,7 @@ function startBatch(
     controller: new AbortController(),
     waiters: 0,
     listeners: new Set(),
+    rowListeners: new Set(),
     last: null,
     promise: Promise.resolve([]),
   };
@@ -180,6 +182,11 @@ function startBatch(
         onProgress: (progress) => {
           pending.last = progress;
           for (const listener of pending.listeners) listener(progress);
+        },
+        onRows: (rows) => {
+          if (pending.rowListeners.size === 0) return;
+          const tagged = tagRows(rows, model);
+          for (const listener of pending.rowListeners) listener(tagged);
         },
       })
       .then((rows) => tagRows(rows, model));
@@ -203,7 +210,7 @@ function startBatch(
 
 function attach(
   pending: Pending,
-  { signal, onProgress }: ReadOptions,
+  { signal, onProgress, onRows }: ReadOptions,
 ): Promise<PropertyRow[]> {
   if (signal?.aborted) return Promise.reject(abortError());
   pending.waiters += 1;
@@ -211,12 +218,14 @@ function attach(
     pending.listeners.add(onProgress);
     if (pending.last) onProgress(pending.last);
   }
+  if (onRows) pending.rowListeners.add(onRows);
   return new Promise((resolve, reject) => {
     let done = false;
     const leave = () => {
       done = true;
       pending.waiters -= 1;
       if (onProgress) pending.listeners.delete(onProgress);
+      if (onRows) pending.rowListeners.delete(onRows);
       signal?.removeEventListener('abort', onAbort);
     };
     const onAbort = () => {

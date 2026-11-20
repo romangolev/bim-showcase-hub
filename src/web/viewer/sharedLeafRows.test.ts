@@ -553,6 +553,21 @@ describe('large model reads', () => {
     return { adapter, getLeafProperties, chunks: () => chunks };
   }
 
+  it('reports partial rows and never caches a cancelled read', async () => {
+    const controller = new AbortController();
+    const fake = chunkedAdapter({ controller, after: 2 });
+    const chunks: PropertyRow[][] = [];
+    const read = readLeafRows(fake.adapter, ['Name'], {
+      signal: controller.signal,
+      onRows: (rows) => chunks.push(rows),
+    });
+    await expect(read).rejects.toMatchObject({ name: 'AbortError' });
+    expect(chunks.length).toBeGreaterThan(0);
+    expect(chunks[0]?.[0]?.modelId).toBe('m');
+    expect(chunks[0]?.length).toBe(5000);
+    expect(peekLeafRows(fake.adapter, ['Name'])).toBeNull();
+  });
+
   it('reports progress, stops on cancel and completes the cache on the next read', async () => {
     const controller = new AbortController();
     const fake = chunkedAdapter({ controller, after: 2 });

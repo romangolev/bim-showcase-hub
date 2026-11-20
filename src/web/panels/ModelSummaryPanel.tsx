@@ -102,10 +102,19 @@ export function ModelSummaryPanel({
     autoRefresh: view.autoRefresh,
     ...(controlledScope ? { models: controlledScope } : {}),
   });
+  const partialEntries = useMemo(
+    () =>
+      state.partialRows.length > 0
+        ? summarize(state.partialRows, propertyNames)
+        : EMPTY,
+    [state.partialRows, propertyNames],
+  );
   const entries = useMemo(
     () =>
-      state.rows.length > 0 ? summarize(state.rows, propertyNames) : EMPTY,
-    [state.rows, propertyNames],
+      state.rows.length > 0
+        ? summarize(state.rows, propertyNames)
+        : partialEntries,
+    [state.rows, propertyNames, partialEntries],
   );
 
   const [savedAction] = usePersisted(PANE_SETTINGS.summary.action);
@@ -294,6 +303,11 @@ export function ModelSummaryPanel({
                   ? `Reading element properties: ${state.progress.loaded.toLocaleString('en-US')} of ${state.progress.total.toLocaleString('en-US')}${state.progress.partial ? ' (partial data)' : ''}`
                   : 'Reading element properties'}
               </span>
+              {state.partialRows.length > 0 && state.progress ? (
+                <span role="status">
+                  {`Partial: ${state.partialRows.length.toLocaleString('en-US')} of ${state.progress.total.toLocaleString('en-US')} elements`}
+                </span>
+              ) : null}
               <button
                 type="button"
                 className="bsh-button"
@@ -303,9 +317,10 @@ export function ModelSummaryPanel({
               </button>
             </div>
           )}
-          {resolved && state.status === 'loading' && state.total === 0 && (
-            <StateBlock variant="loading" rows={5} />
-          )}
+          {resolved &&
+            state.status === 'loading' &&
+            state.total === 0 &&
+            entries.length === 0 && <StateBlock variant="loading" rows={5} />}
           {state.status === 'cancelled' && (
             <div className="bsh-summary__partial" role="status">
               <span>
