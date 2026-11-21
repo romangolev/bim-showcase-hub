@@ -197,6 +197,7 @@
   --z-popover: 1000;
   --z-modal: 1200;
   --hit-target: var(--control-height);
+  --target-min: 1.5rem;
 }
 
 :root[data-density="compact"] {

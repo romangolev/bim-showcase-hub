@@ -925,8 +925,8 @@
   flex: none;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: var(--target-min);
+  height: var(--target-min);
   margin-inline-start: auto;
   border: var(--border-hairline);
   border-radius: var(--radius-button);

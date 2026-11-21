@@ -577,12 +577,12 @@ select.field {
   justify-content: flex-end;
   gap: var(--space-1);
   min-width: 0;
-  height: 24px;
+  height: var(--target-min);
 }
 
 .bsh-chart__tools .icon-button {
-  width: 24px;
-  height: 24px;
+  width: var(--target-min);
+  height: var(--target-min);
   padding: 0;
 }
 
@@ -709,8 +709,8 @@ select.field {
 }
 
 .bsh-models__swatch {
-  width: 1.5rem;
-  height: 1.5rem;
+  width: var(--target-min);
+  height: var(--target-min);
   padding: 0.3125rem;
   border: 0;
   border-radius: var(--radius-badge);
@@ -1086,8 +1086,8 @@ select.field {
 
 .bsh-table-block__toggle {
   flex: none;
-  width: 24px;
-  height: 24px;
+  width: var(--target-min);
+  height: var(--target-min);
   padding: 0;
   color: var(--color-fog);
 }
