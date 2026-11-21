@@ -76,7 +76,7 @@ export function sanitizeTintPalette(value: unknown): string[] {
   return palette.length > 0 ? palette : [...DEFAULT_TINT_PALETTE];
 }
 
-function sanitizeTint(value: unknown): ModelTint | null {
+export function sanitizeTint(value: unknown): ModelTint | null {
   if (typeof value !== 'object' || value === null) return null;
   const entry = value as Record<string, unknown>;
   if (typeof entry.color !== 'string' || !HEX.test(entry.color)) return null;

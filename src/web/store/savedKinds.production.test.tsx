@@ -14,6 +14,7 @@ import { DEFAULT_EXCEL_TOOL_SETTINGS } from '../tools/excel/excelSettings.js';
 import { EXPORT_PRESETS } from '../tools/excel/exportPresets.js';
 import { publishActiveAdapter } from '../viewer/activeAdapterStore.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
+import { FEDERATIONS } from '../viewer/savedFederations.js';
 import {
   listSets,
   SELECTION_SETS,
@@ -60,11 +61,16 @@ describe('production saved kinds', () => {
       version: 1,
       label: 'Export preset',
     });
+    expect(getSavedKind('federation')).toMatchObject({
+      version: 1,
+      label: 'Combination',
+    });
     expect(savedKindVersions()).toMatchObject({
       viewpoint: 1,
       'selection-set': 1,
       'dashboard-preset': 1,
       'export-preset': 1,
+      federation: 1,
     });
   });
 
@@ -113,6 +119,16 @@ describe('production saved kinds', () => {
     expect(preset?.data).not.toHaveProperty('modelScope');
     expect(EXPORT_PRESETS.rename(preset?.id ?? '', 'Monthly')).toBe(true);
     expect(EXPORT_PRESETS.remove(preset?.id ?? '')).toBe(true);
+
+    const federation = FEDERATIONS.save('Site', {
+      members: [
+        { urn: 'a', context: {}, latest: false, hidden: false },
+        { urn: 'b', context: {}, latest: false, hidden: false },
+      ],
+    });
+    expect(federation?.data.members).toHaveLength(2);
+    expect(FEDERATIONS.rename(federation?.id ?? '', 'Campus')).toBe(true);
+    expect(FEDERATIONS.remove(federation?.id ?? '')).toBe(true);
     expect(readSaved()).toEqual([]);
   });
 

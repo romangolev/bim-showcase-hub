@@ -5,10 +5,18 @@ import { colorLayersFor } from '../viewer/colorLayers.js';
 import { createMockViewerAdapter } from '../viewer/MockViewerAdapter.js';
 import { buildMockElements } from '../viewer/mockModel.js';
 import type { ModelInfo } from '../viewer/modelSet.js';
+import { FEDERATIONS } from '../viewer/savedFederations.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { ModelsPanel } from './ModelsPanel.js';
 import { isolatedModel, isolateVisibility } from './modelRows.js';
 import { MODEL_TINTS } from './modelTint.js';
+
+const COMBINATION = {
+  members: [
+    { urn: 'urn-a', context: {}, latest: false, hidden: false },
+    { urn: 'urn-b', context: {}, latest: false, hidden: false },
+  ],
+};
 
 function info(id: string, patch: Partial<ModelInfo> = {}): ModelInfo {
   return { id, urn: id, name: id, visible: true, status: 'ready', ...patch };
@@ -230,5 +238,57 @@ describe('ModelsPanel', () => {
     fireEvent.click(toggle);
     await waitFor(() => expect(painted('bsh-mock__el--dim')).toBe(0));
     expect(painted('bsh-mock__el--hidden')).toBe(0);
+  });
+
+  it('saves the open models as a named combination', async () => {
+    const adapter = await load(['urn-a', 'urn-b']);
+    const onSaveFederation = vi.fn();
+    render(
+      <ModelsPanel adapter={adapter} onSaveFederation={onSaveFederation} />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Save combination…' }));
+    fireEvent.change(screen.getByLabelText('Combination name'), {
+      target: { value: 'Site' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save combination' }));
+    expect(onSaveFederation).toHaveBeenCalledWith('Site');
+    expect(
+      screen.queryByRole('button', { name: 'Save combination' }),
+    ).toBeNull();
+  });
+
+  it('offers no save with a single model', async () => {
+    const adapter = await load(['urn-a']);
+    render(<ModelsPanel adapter={adapter} onSaveFederation={vi.fn()} />);
+    expect(
+      screen.queryByRole('button', { name: 'Save combination…' }),
+    ).toBeNull();
+  });
+
+  it('lists saved combinations and opens, renames and deletes them', async () => {
+    const adapter = await load(['urn-a', 'urn-b']);
+    const saved = FEDERATIONS.save('Site', COMBINATION);
+    const onOpenFederation = vi.fn();
+    render(
+      <ModelsPanel adapter={adapter} onOpenFederation={onOpenFederation} />,
+    );
+    expect(screen.getByText('Saved combinations')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Open Site' }));
+    expect(onOpenFederation).toHaveBeenCalledWith(saved?.id);
+    const input = screen.getByLabelText('Rename Site');
+    fireEvent.change(input, { target: { value: 'Site B' } });
+    fireEvent.blur(input);
+    await waitFor(() => expect(FEDERATIONS.list()[0]?.name).toBe('Site B'));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Site B' }));
+    await waitFor(() => expect(FEDERATIONS.list()).toHaveLength(0));
+  });
+
+  it('shows a combination saved while the pane is open', async () => {
+    const adapter = await load(['urn-a', 'urn-b']);
+    render(<ModelsPanel adapter={adapter} onOpenFederation={vi.fn()} />);
+    FEDERATIONS.save('Later', COMBINATION);
+    expect(
+      await screen.findByRole('button', { name: 'Open Later' }),
+    ).toBeInTheDocument();
   });
 });

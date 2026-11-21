@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react';
 import type { Command } from '../commands/types.js';
 import type { IconName } from '../components/icons.js';
+import { federationCommands } from '../viewer/savedFederations.js';
 import { PANEL_SEPARATOR, type PanelId } from './panelIds.js';
 import {
   ChartInstancePane,
@@ -160,6 +161,7 @@ export const PANES: readonly PaneDefinition[] = [
     defaultPlacement: { kind: 'tab', reference: 'tree' },
     closable: true,
     requires: 'viewer',
+    commands: () => federationCommands(),
   },
   {
     id: 'measurements',
