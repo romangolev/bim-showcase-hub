@@ -20,14 +20,18 @@ export class RateLimited extends HttpError {
   }
 }
 
+export function retryAfterSeconds(raw: unknown): number {
+  const value = Number(raw);
+  return Number.isFinite(value) && value > 0 ? Math.min(value, 120) : 5;
+}
+
 function retryAfterOf(err: unknown): number {
   const headers = (
     err as
       | { axiosError?: { response?: { headers?: Record<string, unknown> } } }
       | undefined
   )?.axiosError?.response?.headers;
-  const value = Number(headers?.['retry-after']);
-  return Number.isFinite(value) && value > 0 ? Math.min(value, 120) : 5;
+  return retryAfterSeconds(headers?.['retry-after']);
 }
 
 function upstreamStatus(err: unknown): number | null {

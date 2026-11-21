@@ -62,6 +62,35 @@ describe('createThumbnailFetcher', () => {
     ).rejects.toMatchObject({ status: 502 });
   });
 
+  it('returns null while the thumbnail is still pending', async () => {
+    expect(
+      await createThumbnailFetcher({
+        fetchImpl: vi.fn().mockResolvedValue(reply(202)),
+      }).fetch('t', URN, 100),
+    ).toBeNull();
+  });
+
+  it('caps concurrent upstream calls per token', async () => {
+    let active = 0;
+    let peak = 0;
+    const fetchImpl = vi.fn(async () => {
+      active += 1;
+      peak = Math.max(peak, active);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      active -= 1;
+      return png();
+    });
+    const thumbs = createThumbnailFetcher({
+      fetchImpl,
+      perTokenConcurrency: 2,
+    });
+    await Promise.all(
+      Array.from({ length: 6 }, () => thumbs.fetch('t', URN, 100)),
+    );
+    expect(fetchImpl).toHaveBeenCalledTimes(6);
+    expect(peak).toBe(2);
+  });
+
   it('refuses bodies over 512 KB', async () => {
     const big = reply(
       200,
