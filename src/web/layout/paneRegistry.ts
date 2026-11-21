@@ -190,8 +190,15 @@ export const PANES: readonly PaneDefinition[] = [
         menu: 'hook',
         run: () => {
           const adapter = currentAdapter();
-          if (adapter) clearColoring(adapter);
-          COLORS_SETTINGS.write({ ...COLORS_SETTINGS.read(), active: false });
+          const settings = COLORS_SETTINGS.read();
+          if (adapter) {
+            clearColoring(adapter);
+            if (settings.source === 'rules' && settings.rules.ghostRest) {
+              adapter.isolateModelIds([]);
+              adapter.setGhosting?.(false);
+            }
+          }
+          COLORS_SETTINGS.write({ ...settings, active: false });
         },
       },
     ],

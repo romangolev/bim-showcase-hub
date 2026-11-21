@@ -11,6 +11,7 @@ import {
 } from '../tools/excel/excelJob.js';
 import { EXCEL_SETTINGS } from '../tools/excel/excelSettings.js';
 import { useExcelStatus } from '../tools/excel/excelStatus.js';
+import { useModelColoring } from '../viewer/modelColoring.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { useResolvedAdapter, useScopedRows } from './useScopedRows.js';
 import './panels.css';
@@ -33,10 +34,17 @@ export function ExportPanel({ adapter, fileName }: ExportPanelProps) {
     },
   });
   const status = useExcelStatus(resolved);
+  const coloring = useModelColoring(resolved);
   const emptyText = excel.emptyLabel === 'blank' ? '' : '(empty)';
   const preview =
     state.status === 'ready'
-      ? exportPreview(state.rows, excel.properties, emptyText)
+      ? exportPreview(
+          state.rows,
+          excel.properties,
+          emptyText,
+          excel.colorColumn ? coloring : null,
+          excel.columnFormats,
+        )
       : null;
   return (
     <section className="bsh-card bsh-drawer" aria-labelledby="export-panel">

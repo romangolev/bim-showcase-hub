@@ -1581,7 +1581,8 @@ button.bsh-kpi:focus-visible {
   text-decoration: underline;
 }
 
-.pane-colors {
+.pane-colors,
+.pane-export {
   display: flex;
   flex: 1;
   flex-direction: column;

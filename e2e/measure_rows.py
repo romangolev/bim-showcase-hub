@@ -12,8 +12,8 @@ from common import (
     HOST_OS,
     OUTPUT_DIR,
     app_reachable,
-    expand_to_viewable,
 )
+import mock_smoke as smoke
 
 STEP_TIMEOUT_MS = 180000
 LOAD_TIMEOUT_MS = 300000
@@ -71,10 +71,19 @@ def open_command(page, text):
 
 
 def open_first_model(page):
-    version_row = expand_to_viewable(page)
-    version_row.click()
+    smoke.expand_to_viewable(page).click()
     page.wait_for_url(re.compile(r"/model/"), timeout=STEP_TIMEOUT_MS)
-    page.locator("table tbody tr").first.wait_for(timeout=LOAD_TIMEOUT_MS)
+    smoke.wait_until(page, lambda: smoke.models(page)["active"])
+    smoke.settle(page, 1500)
+
+
+def reopen_summary(page):
+    page.reload(wait_until="networkidle")
+    page.evaluate(MONITOR)
+    page.locator(".pane-summary tbody tr").first.wait_for(
+        state="visible", timeout=LOAD_TIMEOUT_MS
+    )
+    return {"reloaded": True}
 
 
 def refresh_dashboard(page):
@@ -115,12 +124,17 @@ def run(context, result):
     if not os.environ.get("E2E_MEASURE_URL"):
         open_first_model(page)
     else:
-        page.locator("table tbody tr").first.wait_for(timeout=LOAD_TIMEOUT_MS)
+        page.locator(".pane-summary tbody tr").first.wait_for(
+            state="visible", timeout=LOAD_TIMEOUT_MS
+        )
     page.evaluate(MONITOR)
-    result["clone"] = page.evaluate(CLONE)
     record(result, "dashboard_refresh", page, lambda: refresh_dashboard(page))
+    result["clone"] = page.evaluate(CLONE)
+    if not result["clone"].get("rows"):
+        result["clone"]["error"] = "no settled rows to clone"
     record(result, "colors", page, lambda: color_the_model(page))
     record(result, "excel_export", page, lambda: export_from_pane(page))
+    record(result, "reopen", page, lambda: reopen_summary(page))
 
 
 def main():
@@ -156,7 +170,10 @@ def main():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     (OUTPUT_DIR / "measure-rows.json").write_text(json.dumps(result, indent=2))
     print(json.dumps(result, indent=2))
-    return 0
+    failed = any(
+        isinstance(value, dict) and "error" in value for value in result.values()
+    )
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":

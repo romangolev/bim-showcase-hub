@@ -58,6 +58,14 @@ describe('ColorLegend', () => {
     expect(fake.showModelIds).toHaveBeenCalledWith([{ modelId: 'm', dbId: 2 }]);
   });
 
+  it('shows a hidden group again when the colours are cleared', () => {
+    const fake = adapter();
+    render(<ColorLegend adapter={fake} coloring={coloring} />);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Show Walls' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Clear colours' }));
+    expect(fake.showModelIds).toHaveBeenCalledWith([{ modelId: 'm', dbId: 1 }]);
+  });
+
   it('reports a colour override', () => {
     const onOverride = vi.fn();
     render(

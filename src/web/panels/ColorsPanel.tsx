@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo } from 'react';
+import { useEffect, useId, useMemo, useRef } from 'react';
 import { NumberField } from '../components/NumberField.js';
 import { StateBlock } from '../components/StateBlock.js';
 import {
@@ -39,6 +39,7 @@ export function ColorsPanel({ adapter }: ColorsPanelProps) {
   const [settings, setSettings] = usePersisted(COLORS_SETTINGS);
   const [chartSettings] = usePersisted(CHART_SETTINGS);
   const catalog = usePropertyCatalog(resolved);
+  const ghostedRef = useRef(false);
   const rulesMode = settings.source === 'rules';
   const names = useMemo(
     () =>
@@ -62,13 +63,20 @@ export function ColorsPanel({ adapter }: ColorsPanelProps) {
           seriesColors(readChartTheme(), labels, chartSettings.palette),
         );
     applyColoring(resolved, next);
-    if (rulesMode && settings.rules.ghostRest && next.legend.length > 0) {
-      const items = next.legend.flatMap((entry, index) =>
-        entry.label === FALLBACK_LABEL ? [] : entryItems(next, index),
-      );
-      resolved.isolateModelIds(items);
-      resolved.setGhosting?.(true);
+    if (!rulesMode || !settings.rules.ghostRest || next.legend.length === 0) {
+      if (ghostedRef.current) {
+        resolved.isolateModelIds([]);
+        resolved.setGhosting?.(false);
+        ghostedRef.current = false;
+      }
+      return;
     }
+    const items = next.legend.flatMap((entry, index) =>
+      entry.label === FALLBACK_LABEL ? [] : entryItems(next, index),
+    );
+    resolved.isolateModelIds(items);
+    resolved.setGhosting?.(true);
+    ghostedRef.current = true;
   }, [
     resolved,
     settings.active,
@@ -80,16 +88,18 @@ export function ColorsPanel({ adapter }: ColorsPanelProps) {
     state.rows,
   ]);
 
+  useEffect(() => {
+    if (!resolved || !ghostedRef.current) return;
+    if (settings.active && rulesMode && settings.rules.ghostRest) return;
+    resolved.isolateModelIds([]);
+    resolved.setGhosting?.(false);
+    ghostedRef.current = false;
+  }, [resolved, settings.active, rulesMode, settings.rules.ghostRest]);
+
   const update = (patch: Partial<ColorsSettings>) =>
     setSettings((prev) => ({ ...prev, ...patch }));
 
-  const clear = () => {
-    update({ active: false });
-    if (rulesMode && resolved) {
-      resolved.isolateModelIds([]);
-      resolved.setGhosting?.(false);
-    }
-  };
+  const clear = () => update({ active: false });
 
   const override =
     !rulesMode && coloring?.origin === 'property'

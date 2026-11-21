@@ -72,6 +72,39 @@ describe('ColorsPanel', () => {
     expect(ghosting).toHaveBeenCalledWith(true);
   });
 
+  it('shows the whole model again when ghosting is turned off', async () => {
+    const adapter = await loadedMockAdapter();
+    const ghosting = vi.spyOn(adapter, 'setGhosting');
+    COLORS_SETTINGS.write({
+      ...COLORS_SETTINGS.read(),
+      source: 'rules',
+      active: true,
+      rules: {
+        rules: [
+          {
+            id: 'w',
+            property: 'Category',
+            op: 'equals',
+            value: 'Walls',
+            min: null,
+            max: null,
+            color: '#ff0000',
+            label: 'Walls',
+          },
+        ],
+        fallback: null,
+        ghostRest: true,
+      },
+    });
+    render(<ColorsPanel adapter={adapter} />);
+    await waitFor(() =>
+      expect(adapter.getIsolated().length).toBeGreaterThan(0),
+    );
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Ghost the rest' }));
+    await waitFor(() => expect(adapter.getIsolated()).toEqual([]));
+    expect(ghosting).toHaveBeenLastCalledWith(false);
+  });
+
   it('saves the rules as a preset and duplicates it', async () => {
     const adapter = await loadedMockAdapter();
     render(<ColorsPanel adapter={adapter} />);

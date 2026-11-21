@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { type Coloring, entryItems, legendCsv } from '../extensions/colorBy.js';
 import { saveBlob } from '../extensions/download.js';
 import { runElementAction } from '../extensions/elementActions.js';
@@ -21,6 +21,16 @@ export function ColorLegend({
   onCleared,
 }: ColorLegendProps) {
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
+  useEffect(() => {
+    setHidden(new Set());
+  }, [coloring.title]);
+  const showHidden = () => {
+    for (const key of hidden) {
+      const index = coloring.legend.findIndex((entry) => entry.key === key);
+      if (index >= 0) adapter.showModelIds(entryItems(coloring, index));
+    }
+    setHidden(new Set());
+  };
   const toggle = (index: number, key: string) => {
     const items = entryItems(coloring, index);
     const next = new Set(hidden);
@@ -93,6 +103,7 @@ export function ColorLegend({
           type="button"
           className="bsh-button"
           onClick={() => {
+            showHidden();
             clearColoring(adapter);
             onCleared?.();
           }}

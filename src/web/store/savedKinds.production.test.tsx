@@ -75,6 +75,7 @@ describe('production saved kinds', () => {
       'selection-set': 1,
       'dashboard-preset': 1,
       'export-preset': 1,
+      'report-template': 1,
       'color-rules': 1,
     });
   });

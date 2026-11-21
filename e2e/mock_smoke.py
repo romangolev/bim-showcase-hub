@@ -2197,7 +2197,6 @@ def check_export_pane(page, checks):
     page.keyboard.press("Enter")
     pane = page.locator(".pane-export")
     target = OUTPUT_DIR / "export-pane.xlsx"
-    accept = lambda dialog: dialog.accept()
     try:
         pane.wait_for(state="visible", timeout=8000)
         table = pane.locator('table[aria-label="Export preview"]')
@@ -2205,7 +2204,6 @@ def check_export_pane(page, checks):
         rows = table.locator("tbody tr").count()
         checks.add("export pane previews between 2 and 21 rows", 2 <= rows <= 21, f"{rows} rows")
         checks.add("export pane shows the file name and the settings", "File:" in pane.inner_text() and pane.get_by_text("Table export").count() == 1, "")
-        page.on("dialog", accept)
         with page.expect_download(timeout=180000) as download_info:
             pane.get_by_role("button", name="Export", exact=True).click()
         download = download_info.value
@@ -2215,7 +2213,6 @@ def check_export_pane(page, checks):
         magic = target.read_bytes()[:2] if target.exists() else b""
         checks.add("export pane file is a non-empty xlsx", size > 1000 and magic == XLSX_MAGIC, f"{size} bytes")
     finally:
-        page.remove_listener("dialog", accept)
         close_pane(page, "export")
 
 

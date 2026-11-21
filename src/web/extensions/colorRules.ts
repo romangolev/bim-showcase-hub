@@ -94,6 +94,17 @@ export function sanitizeRuleSet(raw: unknown): RuleSet | null {
     .map(sanitizeRule)
     .filter((item): item is ColorRule => item !== null)
     .slice(0, MAX_RULES);
+  const seen = new Set<string>();
+  for (const rule of rules) {
+    let id = rule.id;
+    let suffix = 2;
+    while (seen.has(id)) {
+      id = `${rule.id}-${suffix}`;
+      suffix += 1;
+    }
+    rule.id = id;
+    seen.add(id);
+  }
   return {
     rules,
     fallback:

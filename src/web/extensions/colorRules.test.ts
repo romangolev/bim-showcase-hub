@@ -105,6 +105,18 @@ describe('sanitizeRuleSet', () => {
     expect(clean?.ghostRest).toBe(true);
   });
 
+  it('gives duplicate ids a unique suffix', () => {
+    const clean = sanitizeRuleSet({
+      rules: [
+        { id: 'same', property: 'A', op: 'equals', color: '#00ff00' },
+        { id: 'same', property: 'B', op: 'equals', color: '#00ff00' },
+      ],
+      fallback: null,
+      ghostRest: false,
+    });
+    expect(new Set(clean?.rules.map((item) => item.id)).size).toBe(2);
+  });
+
   it('lists the properties the rules read, once each', () => {
     expect(
       ruleProperties({
