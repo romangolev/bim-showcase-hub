@@ -66,13 +66,17 @@ export async function runElementSearch(
   const items = result.items.slice(0, MAX_SEARCH_RESULTS);
   const names = new Map<string, string>();
   const named = items.slice(0, NAMED_RESULTS);
-  if (named.length > 0) {
-    const properties = await adapter.getElementsProperties(named);
-    properties.forEach((entry, index) => {
-      const item = named[index];
-      if (!item || !entry?.name) return;
-      names.set(elementId(item), entry.name);
-    });
+  if (named.length > 0 && !signal?.aborted) {
+    try {
+      const properties = await adapter.getElementsProperties(named);
+      properties.forEach((entry, index) => {
+        const item = named[index];
+        if (!item || !entry?.name) return;
+        names.set(elementId(item), entry.name);
+      });
+    } catch {
+      names.clear();
+    }
   }
   return {
     items,

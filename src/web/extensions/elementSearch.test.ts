@@ -36,6 +36,34 @@ describe('runElementSearch', () => {
     expect(out.names.get('m:3')).toBe('E3');
   });
 
+  it('keeps the results when naming them fails', async () => {
+    const items = [{ modelId: 'm', dbId: 1 }];
+    const adapter = {
+      searchElements: vi.fn().mockResolvedValue({ items, failedModels: [] }),
+      getElementsProperties: vi.fn().mockRejectedValue(new Error('boom')),
+    } as unknown as ViewerAdapter;
+    const out = await runElementSearch(adapter, { text: 'a', attributes: [] });
+    expect(out.items).toEqual(items);
+    expect(out.names.size).toBe(0);
+  });
+
+  it('skips naming when the search was cancelled', async () => {
+    const controller = new AbortController();
+    const adapter = {
+      searchElements: vi.fn(async () => {
+        controller.abort();
+        return { items: [{ modelId: 'm', dbId: 1 }], failedModels: [] };
+      }),
+      getElementsProperties: vi.fn(),
+    } as unknown as ViewerAdapter;
+    await runElementSearch(
+      adapter,
+      { text: 'a', attributes: [] },
+      controller.signal,
+    );
+    expect(adapter.getElementsProperties).not.toHaveBeenCalled();
+  });
+
   it('passes the chosen attributes to the adapter only when there are some', async () => {
     const searchElements = vi
       .fn()
