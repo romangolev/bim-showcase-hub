@@ -1,6 +1,5 @@
 import { MAX_COMBINED_MODELS, type Vec3 } from '../../shared/combined.js';
 import { isRecord } from '../../shared/guards.js';
-import { viewableFor } from '../../shared/viewState.js';
 import { fetchChildren } from '../api/client.js';
 import {
   joinWith,
@@ -10,6 +9,8 @@ import {
 } from '../api/modelContext.js';
 import { type OpenModel, sanitizeOffsets } from '../api/openModels.js';
 import type { Command } from '../commands/types.js';
+import { openableUrn } from '../components/tree/treeState.js';
+import { pickLatest } from '../components/tree/versionPick.js';
 import {
   type ModelTint,
   type ModelTintState,
@@ -129,7 +130,9 @@ export async function resolveFederation(
       const found = await latest(member);
       if (!found) {
         stale.push(member.context.file ?? member.urn);
-      } else if (found !== member.urn && !taken.has(found)) {
+      } else if (found !== member.urn && taken.has(found)) {
+        stale.push(member.context.file ?? member.urn);
+      } else if (found !== member.urn) {
         taken.delete(member.urn);
         taken.add(found);
         remapped.set(member.urn, found);
@@ -224,12 +227,8 @@ export async function latestVersionUrn(
       hubId,
       projectId,
     });
-    const found = versions.find(
-      (node) =>
-        node.kind === 'version' &&
-        typeof node.urn === 'string' &&
-        node.urn !== '' &&
-        viewableFor(node.viewState ?? 'unknown'),
+    const found = pickLatest(
+      versions.filter((node) => openableUrn(node) !== null),
     );
     return found?.urn ?? null;
   } catch {

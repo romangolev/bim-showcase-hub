@@ -1,11 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { TreeNode } from '../../shared/types.js';
 import type { OpenModel } from '../api/openModels.js';
 import { paneById } from '../layout/paneRegistry.js';
 import { INITIAL_MODEL_TINTS } from '../panels/modelTint.js';
+import { resolveModelSet } from '../store/openModelSet.js';
 import {
   installMemoryStorage,
   mockFetch,
+  plainVersion,
   treeRoutes,
+  viewableVersion,
 } from '../test/mockApi.js';
 import {
   captureFederation,
@@ -15,6 +19,7 @@ import {
   federationCommands,
   federationOpenPlan,
   latestVersionUrn,
+  openSavedFederation,
   resolveFederation,
   sanitizeFederation,
   setFederationOpener,
@@ -163,6 +168,21 @@ describe('resolveFederation', () => {
     });
   });
 
+  it('keeps the saved urn and reports a latest that another member already holds', async () => {
+    const twins: FederationData = {
+      members: [
+        { urn: 'a1', context: { file: 'A.rvt' }, latest: true, hidden: false },
+        { urn: 'b1', context: { file: 'B.rvt' }, latest: false, hidden: false },
+      ],
+    };
+    const { data: next, stale } = await resolveFederation(
+      twins,
+      async () => 'b1',
+    );
+    expect(stale).toEqual(['A.rvt']);
+    expect(next.members.map((member) => member.urn)).toEqual(['a1', 'b1']);
+  });
+
   it('keeps the saved urn and reports a failed latest lookup', async () => {
     const first: FederationData = {
       members: [
@@ -263,7 +283,13 @@ describe('latestVersionUrn', () => {
   });
 
   it('reads the item versions and takes the first viewable one', async () => {
-    mockFetch(treeRoutes);
+    mockFetch({
+      ...treeRoutes,
+      '/api/projects/p1/items/i1/versions': [
+        { ...viewableVersion, versionNumber: 2 },
+        { ...plainVersion, versionNumber: 1 },
+      ],
+    });
     await expect(
       latestVersionUrn({
         urn: 'old',
@@ -292,6 +318,89 @@ describe('latestVersionUrn', () => {
         hidden: false,
       }),
     ).resolves.toBeNull();
+  });
+});
+
+describe('latest version rule shared by model sets and combinations', () => {
+  const version = (n: number, patch: Partial<TreeNode> = {}): TreeNode => ({
+    id: `v${n}`,
+    kind: 'version',
+    name: `v${n}: 2025-01-01 10:00 by Sam`,
+    hasChildren: false,
+    viewable: true,
+    viewState: 'ready',
+    urn: `u${n}`,
+    versionNumber: n,
+    ...patch,
+  });
+  const unviewable = version(4, {
+    viewable: false,
+    viewState: 'not-translated',
+  });
+  const fixtures: Record<string, TreeNode[]> = {
+    'newest first': [version(3), version(2), version(1)],
+    shuffled: [version(1), version(3), version(2)],
+    'unviewable newest': [unviewable, version(3), version(2)],
+    'unviewable newest, shuffled': [version(2), unviewable, version(3)],
+  };
+
+  beforeEach(() => {
+    installMemoryStorage();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it.each(Object.entries(fixtures))('agree for %s', async (_name, versions) => {
+    mockFetch({ '/api/projects/p1/items/i1/versions': versions });
+    const set = await resolveModelSet(
+      {
+        members: [
+          {
+            urn: 'u0',
+            follow: 'latest',
+            projectId: 'p1',
+            itemId: 'i1',
+          },
+        ],
+      },
+      async () => versions,
+    );
+    const combined = await latestVersionUrn({
+      urn: 'u0',
+      context: { trail: ['h1', 'p1', 'i1'] },
+      latest: true,
+      hidden: false,
+    });
+    expect(combined).toBe('u3');
+    expect(set.models[0]?.urn).toBe('u3');
+  });
+});
+
+describe('the federation opener', () => {
+  afterEach(() => {
+    setFederationOpener(null);
+  });
+
+  it('does nothing without a mounted opener', () => {
+    expect(() => openSavedFederation('x')).not.toThrow();
+  });
+
+  it('routes to the last registered opener and survives an earlier cleanup', () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    const clearFirst = setFederationOpener(first);
+    const clearSecond = setFederationOpener(second);
+    openSavedFederation('x');
+    expect(first).not.toHaveBeenCalled();
+    expect(second).toHaveBeenCalledWith('x');
+    clearFirst();
+    openSavedFederation('y');
+    expect(second).toHaveBeenCalledWith('y');
+    clearSecond();
+    openSavedFederation('z');
+    expect(second).not.toHaveBeenCalledWith('z');
   });
 });
 
