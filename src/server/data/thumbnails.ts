@@ -21,7 +21,7 @@ type Fetch = (
   ok: boolean;
   status: number;
   headers: { get(name: string): string | null };
-  arrayBuffer(): Promise<ArrayBuffer>;
+  body: ReadableStream<Uint8Array> | null;
 }>;
 
 export function createThumbnailFetcher(
@@ -60,11 +60,24 @@ export function createThumbnailFetcher(
         if (!res.ok || !TYPES.has(contentType)) {
           throw new HttpError(502, 'Upstream service error');
         }
-        const body = Buffer.from(await res.arrayBuffer());
-        if (body.byteLength > MAX_BYTES) {
+        const declared = Number(res.headers.get('content-length'));
+        if (declared > MAX_BYTES || !res.body) {
           throw new HttpError(502, 'Upstream service error');
         }
-        return { contentType, body };
+        const reader = res.body.getReader();
+        const chunks: Uint8Array[] = [];
+        let received = 0;
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          received += value.byteLength;
+          if (received > MAX_BYTES) {
+            await reader.cancel();
+            throw new HttpError(502, 'Upstream service error');
+          }
+          chunks.push(value);
+        }
+        return { contentType, body: Buffer.concat(chunks) };
       } catch (err) {
         if (err instanceof HttpError) throw err;
         throw new HttpError(502, 'Upstream service error');

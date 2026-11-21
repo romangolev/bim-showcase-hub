@@ -19,7 +19,12 @@ function reply(
     ok: status >= 200 && status < 300,
     status,
     headers: { get: (name: string) => headers[name.toLowerCase()] ?? null },
-    arrayBuffer: async () => new Uint8Array(bytes).buffer,
+    body: new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array(bytes));
+        controller.close();
+      },
+    }),
   };
 }
 
@@ -68,6 +73,42 @@ describe('createThumbnailFetcher', () => {
         fetchImpl: vi.fn().mockResolvedValue(big),
       }).fetch('t', URN, 400),
     ).rejects.toMatchObject({ status: 502 });
+  });
+
+  it('refuses on content-length without reading the body', async () => {
+    const getReader = vi.fn();
+    const res = {
+      ...reply(200, {
+        'content-type': 'image/png',
+        'content-length': String(600 * 1024),
+      }),
+      body: { getReader } as unknown as ReadableStream<Uint8Array>,
+    };
+    await expect(
+      createThumbnailFetcher({
+        fetchImpl: vi.fn().mockResolvedValue(res),
+      }).fetch('t', URN, 400),
+    ).rejects.toMatchObject({ status: 502 });
+    expect(getReader).not.toHaveBeenCalled();
+  });
+
+  it('stops reading a streamed body once it exceeds the cap', async () => {
+    let pulls = 0;
+    const res = {
+      ...reply(200, { 'content-type': 'image/png' }),
+      body: new ReadableStream<Uint8Array>({
+        pull(controller) {
+          pulls += 1;
+          controller.enqueue(new Uint8Array(100 * 1024));
+        },
+      }),
+    };
+    await expect(
+      createThumbnailFetcher({
+        fetchImpl: vi.fn().mockResolvedValue(res),
+      }).fetch('t', URN, 400),
+    ).rejects.toMatchObject({ status: 502 });
+    expect(pulls).toBeLessThan(10);
   });
 
   it('maps 401 and 403 to 401 and 429 to 429 with retry after', async () => {
