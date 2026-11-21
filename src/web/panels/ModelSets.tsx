@@ -143,12 +143,12 @@ function SaveSetDialog({
             set
           </p>
           <div className="bsh-presets">
-            <button type="button" className="bsh-button" onClick={onDone}>
+            <button type="button" className="btn" onClick={onDone}>
               Cancel
             </button>
             <button
               type="button"
-              className="bsh-button"
+              className="btn"
               disabled={!name.trim()}
               onClick={save}
             >
@@ -444,7 +444,7 @@ export function ModelSets({ openers }: { openers: ModelOpeners }) {
                     {staleText(stale)}
                     <button
                       type="button"
-                      className="bsh-button"
+                      className="btn"
                       onClick={() => void updateToLatest(set)}
                     >
                       Update to latest
@@ -456,7 +456,7 @@ export function ModelSets({ openers }: { openers: ModelOpeners }) {
                     {`Delete "${set.name}"?`}
                     <button
                       type="button"
-                      className="bsh-button"
+                      className="btn"
                       aria-label="Confirm delete"
                       onClick={() => {
                         MODEL_SETS.remove(set.id);
@@ -467,7 +467,7 @@ export function ModelSets({ openers }: { openers: ModelOpeners }) {
                     </button>
                     <button
                       type="button"
-                      className="bsh-button"
+                      className="btn"
                       aria-label="Cancel delete"
                       onClick={() => setConfirming(null)}
                     >

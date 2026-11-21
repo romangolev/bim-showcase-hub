@@ -74,12 +74,12 @@ export function SaveSearchDialog({
             A saved search applies to the project you have open.
           </p>
           <div className="bsh-presets">
-            <button type="button" className="bsh-button" onClick={onDone}>
+            <button type="button" className="btn" onClick={onDone}>
               Cancel
             </button>
             <button
               type="button"
-              className="bsh-button"
+              className="btn"
               disabled={!name.trim()}
               onClick={save}
             >

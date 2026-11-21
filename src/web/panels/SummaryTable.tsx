@@ -284,10 +284,10 @@ export function SummaryTable({
   const tools = (show: boolean) =>
     show ? (
       <div className="bsh-summary-blocks__tools">
-        <button type="button" className="bsh-button" onClick={expandAll}>
+        <button type="button" className="btn" onClick={expandAll}>
           Expand all
         </button>
-        <button type="button" className="bsh-button" onClick={collapseAll}>
+        <button type="button" className="btn" onClick={collapseAll}>
           Collapse all
         </button>
       </div>
@@ -347,7 +347,7 @@ export function SummaryTable({
             <td colSpan={columns.length + (measureProperty ? 1 : 0)}>
               <button
                 type="button"
-                className="bsh-button"
+                className="btn"
                 onClick={() => expandProps(flat.hidden.keys())}
               >
                 Show {formatCount(hiddenTotal)} more
@@ -380,7 +380,7 @@ export function SummaryTable({
             <div className="bsh-table-block__header">
               <button
                 type="button"
-                className="bsh-icon-button bsh-table-block__toggle"
+                className="icon-button bsh-table-block__toggle"
                 aria-expanded={!collapsed}
                 aria-controls={bodyId}
                 onClick={() => toggleBlock(block.property)}
@@ -412,7 +412,7 @@ export function SummaryTable({
                 ) : (
                   <button
                     type="button"
-                    className="bsh-button bsh-table-block__rename"
+                    className="btn bsh-table-block__rename"
                     onClick={() => setEditing(block.property)}
                   >
                     Rename
@@ -500,7 +500,7 @@ export function SummaryTable({
                       <td colSpan={2 + (measureProperty ? 1 : 0)}>
                         <button
                           type="button"
-                          className="bsh-button"
+                          className="btn"
                           onClick={() => expandProps([block.property])}
                         >
                           Show {formatCount(block.entries.length - ENTRY_CAP)}{' '}
@@ -550,7 +550,7 @@ export function SummaryTable({
                   {hasChildren ? (
                     <button
                       type="button"
-                      className="bsh-icon-button bsh-pivot__toggle"
+                      className="icon-button bsh-pivot__toggle"
                       aria-expanded={!collapsed}
                       onClick={() => toggleNode(key)}
                     >

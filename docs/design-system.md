@@ -21,7 +21,7 @@ Other stylesheets (`src/web/styles/*.css`, `panels/panels.css`, `layout/dockThem
 - Borders are 0.5px hairlines. No gradients and no heavy shadows.
 - Headlines use weight 400. The primary button is the neutral bone fill.
 - Use `StateBlock` for loading, empty and error states.
-- Pressed toggle buttons (`aria-pressed="true"` on `.btn` or `.bsh-button`) show an arc-blue border and an 18% arc-blue tint. No chromatic fills.
+- Buttons are `.btn` (with `.btn-primary` and `.btn-small`) and `.icon-button` everywhere, panes included. Pressed toggle buttons (`aria-pressed="true"`) show an arc-blue border and an 18% arc-blue tint. No chromatic fills.
 - Every interactive control needs an accessible name and a visible focus ring.
 
 ### Accessibility
@@ -48,7 +48,7 @@ Tree badges show the view state ([architecture.md](architecture.md#view-state)).
 
 Task Center (`.task-center`), the command palette (`.cmdk`) and settings windows (`.settings` blocks in `styles/modal.css`) have shared styles.
 
-Every settings window body is a `.settings` block of `.settings__section` groups (a `fieldset` with a `legend.settings__heading` where the controls form a group). A field is a `.settings__field` row: label on the left, control on the right, hint under the control; below 32rem of window width the row stacks. On and off settings use `SwitchRow` (label and hint on the left, switch on the right). Buttons are `.btn` in a `.settings__actions` row, and saved-item lists use `.settings__override-list`. Do not use the pane toolbar classes (`.bsh-field`, `.bsh-button`, `.bsh-select`) inside a settings window. The in-viewer badge (`.bsh-viewer-badge`) is for Share results only. Slow work reports in the Task Center.
+Every settings window body is a `.settings` block of `.settings__section` groups (a `fieldset` with a `legend.settings__heading` where the controls form a group). A field is a `.settings__field` row: label on the left, control on the right, hint under the control; below 32rem of window width the row stacks. On and off settings use `SwitchRow` (label and hint on the left, switch on the right). Buttons are `.btn` in a `.settings__actions` row, and saved-item lists use `.settings__override-list`. Do not use the pane toolbar classes (`.bsh-field`, `.bsh-select`) inside a settings window. The in-viewer badge (`.bsh-viewer-badge`) is for Share results only. Slow work reports in the Task Center.
 
 ## Layout breakpoint
 

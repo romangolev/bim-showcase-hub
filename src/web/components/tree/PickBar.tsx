@@ -55,7 +55,7 @@ export function PickBar({
           {onOpenTabs ? (
             <button
               type="button"
-              className="bsh-button doc-tree__pick-action"
+              className="btn doc-tree__pick-action"
               disabled={tabs.blocked}
               title={picked.map(pickLabel).join('\n')}
               onClick={() => onOpenTabs(picked)}
@@ -65,7 +65,7 @@ export function PickBar({
           ) : null}
           <button
             type="button"
-            className="bsh-button doc-tree__pick-action"
+            className="btn doc-tree__pick-action"
             disabled={picked.length < 2 || together.blocked}
             title={picked.map(pickLabel).join('\n')}
             onClick={() => onOpenTogether(picked)}
@@ -74,7 +74,7 @@ export function PickBar({
           </button>
           <button
             type="button"
-            className="bsh-button doc-tree__pick-action"
+            className="btn doc-tree__pick-action"
             disabled={picked.length > MAX_SET_MEMBERS}
             title={
               picked.length > MAX_SET_MEMBERS
@@ -88,7 +88,7 @@ export function PickBar({
           {addTarget ? (
             <button
               type="button"
-              className="bsh-button doc-tree__pick-action"
+              className="btn doc-tree__pick-action"
               disabled={addable.length === 0}
               onClick={() => {
                 addTarget.onAdd(addable);
@@ -100,7 +100,7 @@ export function PickBar({
           ) : null}
           <button
             type="button"
-            className="bsh-button doc-tree__pick-action"
+            className="btn doc-tree__pick-action"
             onClick={onClear}
           >
             Clear

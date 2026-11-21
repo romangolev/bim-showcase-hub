@@ -206,7 +206,7 @@ export function ModelSummaryPanel({
         <ElementScopeSelect value={elementsScope} onChange={setElementsScope} />
         <button
           type="button"
-          className="bsh-button bsh-summary__refresh"
+          className="btn bsh-summary__refresh"
           onClick={state.refresh}
           disabled={!resolved}
         >
@@ -215,7 +215,7 @@ export function ModelSummaryPanel({
         {onOpenSettings ? (
           <button
             type="button"
-            className="bsh-icon-button"
+            className="icon-button"
             onClick={onOpenSettings}
           >
             <Icon name="settings" size={16} />
@@ -225,7 +225,7 @@ export function ModelSummaryPanel({
         {toggleable ? (
           <button
             type="button"
-            className="bsh-icon-button bsh-summary__toggle"
+            className="icon-button bsh-summary__toggle"
             aria-expanded={!isCollapsed}
             aria-controls={bodyId}
             onClick={toggle}
@@ -285,11 +285,7 @@ export function ModelSummaryPanel({
           {state.status === 'ready' && state.stale ? (
             <div className="bsh-summary__partial" role="status">
               <span>Data may be stale.</span>
-              <button
-                type="button"
-                className="bsh-button"
-                onClick={state.refresh}
-              >
+              <button type="button" className="btn" onClick={state.refresh}>
                 Refresh
               </button>
             </div>
@@ -311,11 +307,7 @@ export function ModelSummaryPanel({
                   {`Partial: ${formatCount(state.partialRows.length, language)} of ${formatCount(state.progress.total, language)} elements`}
                 </span>
               ) : null}
-              <button
-                type="button"
-                className="bsh-button"
-                onClick={state.cancel}
-              >
+              <button type="button" className="btn" onClick={state.cancel}>
                 Cancel
               </button>
             </div>
@@ -331,11 +323,7 @@ export function ModelSummaryPanel({
                   ? 'Partial data: the read was cancelled, so these counts may be out of date.'
                   : 'The read was cancelled, so there is nothing to summarize yet.'}
               </span>
-              <button
-                type="button"
-                className="bsh-button"
-                onClick={state.refresh}
-              >
+              <button type="button" className="btn" onClick={state.refresh}>
                 Read again
               </button>
             </div>
@@ -378,14 +366,10 @@ export function ModelSummaryPanel({
                   onChange={(e) => patch({ text: e.target.value })}
                 />
               )}
-              <button type="button" className="bsh-button" onClick={copyTable}>
+              <button type="button" className="btn" onClick={copyTable}>
                 Copy table
               </button>
-              <button
-                type="button"
-                className="bsh-button"
-                onClick={downloadCsv}
-              >
+              <button type="button" className="btn" onClick={downloadCsv}>
                 Download CSV
               </button>
               <span role="status" className="bsh-summary__notice">
@@ -393,7 +377,7 @@ export function ModelSummaryPanel({
               </span>
               <button
                 type="button"
-                className="bsh-button"
+                className="btn"
                 onClick={() => resolved && showAllElements(resolved)}
               >
                 Show all elements
@@ -440,7 +424,7 @@ export function ModelSummaryPanel({
           {shown.length > STACKED_ROW_LIMIT && (
             <button
               type="button"
-              className="bsh-button summary-toggle"
+              className="btn summary-toggle"
               aria-expanded={showAll}
               onClick={() => setShowAll((value) => !value)}
             >

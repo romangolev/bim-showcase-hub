@@ -88,7 +88,7 @@ export function DashboardGallery({ view, apply, rows }: DashboardGalleryProps) {
               </button>
               <button
                 type="button"
-                className="bsh-button"
+                className="btn"
                 aria-label={`Save ${preset.label} as my preset`}
                 onClick={() => {
                   setFailed(
@@ -141,7 +141,7 @@ export function DashboardGallery({ view, apply, rows }: DashboardGalleryProps) {
                 </button>
                 <button
                   type="button"
-                  className="bsh-button"
+                  className="btn"
                   aria-label={`Delete ${item.name}`}
                   onClick={() => {
                     if (!DASHBOARD_USER_PRESETS.remove(item.id)) {

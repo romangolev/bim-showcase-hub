@@ -1407,7 +1407,7 @@ export function DocumentTree({
           {crawl?.status === 'running' ? (
             <button
               type="button"
-              className="bsh-button doc-tree__crawl-action"
+              className="btn doc-tree__crawl-action"
               onClick={cancelCrawl}
             >
               Cancel
@@ -1415,7 +1415,7 @@ export function DocumentTree({
           ) : (
             <button
               type="button"
-              className="bsh-button doc-tree__crawl-action"
+              className="btn doc-tree__crawl-action"
               disabled={!crawlRootId}
               title={
                 crawlRootId ? 'Read every folder in this project' : PICK_PROJECT

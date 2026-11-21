@@ -116,7 +116,7 @@ export function PropertyPicker({
             }
             rows={3}
           />
-          <button type="button" className="bsh-button" onClick={state.cancel}>
+          <button type="button" className="btn" onClick={state.cancel}>
             Cancel
           </button>
         </>

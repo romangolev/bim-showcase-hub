@@ -14,7 +14,7 @@ export function PaintSwatch({ preset }: { preset: PaintPreset }) {
 export function StaticPaintChip({ preset }: { preset: PaintPreset }) {
   return (
     <span
-      className="bsh-icon-button bsh-paint__chip"
+      className="icon-button bsh-paint__chip"
       role="img"
       aria-label={`${preset.colorName} paint`}
       title={`${preset.colorName} paint`}

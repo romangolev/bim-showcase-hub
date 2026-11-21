@@ -43,7 +43,6 @@
   color: var(--color-coral);
 }
 
-.bsh-button,
 .bsh-select {
   min-height: var(--hit-target);
   padding: 0 var(--space-3);
@@ -56,58 +55,11 @@
   font-weight: var(--weight-ui);
 }
 
-.bsh-button {
-  cursor: pointer;
-  transition:
-    background-color var(--transition-ui),
-    color var(--transition-ui);
-}
-
-.bsh-button:hover:not(:disabled) {
-  background: var(--color-ghost-fill-hover);
-}
-
-.bsh-button:active:not(:disabled) {
-  background: var(--color-ghost-fill-active);
-}
-
-.bsh-button:disabled {
-  color: var(--color-ash);
-  cursor: not-allowed;
-}
-
 .bsh-select {
   max-width: 240px;
   border: var(--border-field);
   background: var(--color-charcoal);
   text-overflow: ellipsis;
-}
-
-.bsh-icon-button {
-  display: grid;
-  place-items: center;
-  width: var(--hit-target);
-  height: var(--hit-target);
-  padding: 0;
-  background: var(--color-ghost-fill);
-  border: var(--border-hairline);
-  border-radius: var(--radius-tile);
-  cursor: pointer;
-  transition: background-color var(--transition-ui);
-}
-
-.bsh-icon-button:hover:not(:disabled):not([aria-disabled="true"]) {
-  background: var(--color-ghost-fill-hover);
-}
-
-.bsh-icon-button:active:not(:disabled):not([aria-disabled="true"]) {
-  background: var(--color-ghost-fill-active);
-}
-
-.bsh-icon-button:disabled,
-.bsh-icon-button[aria-disabled="true"] {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .bsh-paint__swatch {
@@ -241,7 +193,7 @@
   border-radius: var(--radius-card);
 }
 
-.bsh-drawer__header .bsh-button[aria-expanded] {
+.bsh-drawer__header .btn[aria-expanded] {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -411,7 +363,7 @@
     order: -1;
   }
 
-  .bsh-drawer__header .bsh-button[aria-expanded] {
+  .bsh-drawer__header .btn[aria-expanded] {
     order: 2;
     width: 32px;
     padding: 0;
@@ -652,7 +604,7 @@
   height: 24px;
 }
 
-.bsh-chart__tools .bsh-icon-button {
+.bsh-chart__tools .icon-button {
   width: 24px;
   height: 24px;
   padding: 0;
@@ -1121,8 +1073,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bsh-button,
-  .bsh-icon-button,
+  .btn,
+  .icon-button,
   .bsh-summary,
   .bsh-summary__wrap,
   .bsh-summary[data-collapsed="true"] .bsh-summary__wrap,
@@ -1304,7 +1256,7 @@
   border-bottom: var(--border-hairline);
 }
 
-.bsh-summary-presets > .bsh-button {
+.bsh-summary-presets > .btn {
   align-self: flex-start;
 }
 
@@ -1688,7 +1640,7 @@ button.bsh-kpi:focus-visible {
   gap: var(--space-2);
 }
 
-.bsh-versions__actions .bsh-button {
+.bsh-versions__actions .btn {
   padding: 0 var(--space-2);
 }
 

@@ -59,8 +59,7 @@
   color: var(--color-ash);
 }
 
-.btn[aria-pressed="true"],
-.bsh-button[aria-pressed="true"] {
+.btn[aria-pressed="true"] {
   border-color: var(--color-arc-blue);
   background: color-mix(in srgb, var(--color-arc-blue) 18%, transparent);
   color: var(--color-snow);
@@ -94,6 +93,7 @@
   justify-content: center;
   width: var(--hit-target);
   height: var(--hit-target);
+  padding: 0;
   border: var(--border-hairline);
   border-radius: var(--radius-button);
   background: transparent;
@@ -101,16 +101,17 @@
   cursor: pointer;
 }
 
-.icon-button:hover:not(:disabled) {
+.icon-button:hover:not(:disabled):not([aria-disabled="true"]) {
   background: var(--color-ghost-fill);
   color: var(--color-snow);
 }
 
-.icon-button:active:not(:disabled) {
+.icon-button:active:not(:disabled):not([aria-disabled="true"]) {
   background: var(--color-ghost-fill-active);
 }
 
-.icon-button:disabled {
+.icon-button:disabled,
+.icon-button[aria-disabled="true"] {
   color: var(--color-ash);
   cursor: not-allowed;
 }

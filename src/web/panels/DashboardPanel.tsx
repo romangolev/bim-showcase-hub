@@ -321,7 +321,7 @@ export function DashboardPanel({
         {toggleable ? (
           <button
             type="button"
-            className="bsh-button"
+            className="btn"
             aria-expanded={!isCollapsed}
             aria-controls={bodyId}
             onClick={toggle}
@@ -371,7 +371,7 @@ export function DashboardPanel({
               <button
                 key={kind}
                 type="button"
-                className="bsh-button"
+                className="btn"
                 aria-pressed={view.kind === kind}
                 onClick={() => setKind(kind)}
               >
@@ -383,7 +383,7 @@ export function DashboardPanel({
         {!isCollapsed && resolved && !emptyBoard ? (
           <button
             type="button"
-            className="bsh-button"
+            className="btn"
             aria-expanded={galleryOpen}
             aria-controls={`${uid}-gallery`}
             onClick={() => setGalleryOpen((open) => !open)}
@@ -393,7 +393,7 @@ export function DashboardPanel({
         ) : null}
         <button
           type="button"
-          className="bsh-button"
+          className="btn"
           onClick={state.refresh}
           disabled={!resolved}
         >
@@ -402,7 +402,7 @@ export function DashboardPanel({
         {onOpenSettings ? (
           <button
             type="button"
-            className="bsh-icon-button"
+            className="icon-button"
             onClick={onOpenSettings}
           >
             <Icon name="settings" size={16} />
@@ -444,7 +444,7 @@ export function DashboardPanel({
                 ? `Reading element properties: ${formatCount(state.progress.loaded, language)} of ${formatCount(state.progress.total, language)}${state.progress.partial ? ' (partial data)' : ''}`
                 : 'Reading element properties'}
             </span>
-            <button type="button" className="bsh-button" onClick={state.cancel}>
+            <button type="button" className="btn" onClick={state.cancel}>
               Cancel
             </button>
           </div>
@@ -460,11 +460,7 @@ export function DashboardPanel({
         {state.status === 'ready' && state.stale ? (
           <div className="bsh-summary__partial" role="status">
             <span>Data may be stale.</span>
-            <button
-              type="button"
-              className="bsh-button"
-              onClick={state.refresh}
-            >
+            <button type="button" className="btn" onClick={state.refresh}>
               Refresh
             </button>
           </div>
@@ -481,11 +477,7 @@ export function DashboardPanel({
         {state.status === 'cancelled' ? (
           <div className="bsh-summary__partial" role="status">
             <span>Partial data: the read was cancelled.</span>
-            <button
-              type="button"
-              className="bsh-button"
-              onClick={state.refresh}
-            >
+            <button type="button" className="btn" onClick={state.refresh}>
               Read again
             </button>
           </div>

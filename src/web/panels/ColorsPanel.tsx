@@ -110,7 +110,7 @@ export function ColorsPanel({ adapter }: ColorsPanelProps) {
         {resolved ? (
           <>
             <fieldset className="bsh-kinds" aria-label="Colour by">
-              <label className="bsh-button">
+              <label className="btn">
                 <input
                   type="radio"
                   name={uid}
@@ -119,7 +119,7 @@ export function ColorsPanel({ adapter }: ColorsPanelProps) {
                 />
                 By property
               </label>
-              <label className="bsh-button">
+              <label className="btn">
                 <input
                   type="radio"
                   name={uid}
@@ -189,7 +189,7 @@ export function ColorsPanel({ adapter }: ColorsPanelProps) {
             <div className="bsh-presets">
               <button
                 type="button"
-                className="bsh-button"
+                className="btn"
                 onClick={() => setRequested(true)}
               >
                 Color the model
@@ -223,11 +223,7 @@ export function ColorsPanel({ adapter }: ColorsPanelProps) {
                     ? `Reading element properties: ${formatCount(state.progress.loaded, language)} of ${formatCount(state.progress.total, language)}${state.progress.partial ? ' (partial data)' : ''}`
                     : 'Reading element properties'}
                 </span>
-                <button
-                  type="button"
-                  className="bsh-button"
-                  onClick={state.cancel}
-                >
+                <button type="button" className="btn" onClick={state.cancel}>
                   Cancel
                 </button>
               </div>
@@ -243,11 +239,7 @@ export function ColorsPanel({ adapter }: ColorsPanelProps) {
             {state.status === 'ready' && state.stale ? (
               <div className="bsh-summary__partial" role="status">
                 <span>Data may be stale.</span>
-                <button
-                  type="button"
-                  className="bsh-button"
-                  onClick={state.refresh}
-                >
+                <button type="button" className="btn" onClick={state.refresh}>
                   Refresh
                 </button>
               </div>
