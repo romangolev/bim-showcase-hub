@@ -849,18 +849,7 @@
 }
 
 .bsh-picker__remove {
-  min-width: 1.5rem;
-  min-height: 1.5rem;
   margin-left: var(--space-1-5);
-  border: 0;
-  background: none;
-  color: inherit;
-  cursor: pointer;
-}
-
-.bsh-picker__remove:disabled {
-  cursor: not-allowed;
-  opacity: 0.4;
 }
 
 .bsh-picker__groups {
@@ -1719,10 +1708,5 @@ button.bsh-kpi:focus-visible {
 
   .bsh-picker__arrange {
     margin-left: auto;
-  }
-
-  .bsh-picker__remove {
-    min-width: var(--hit-target);
-    min-height: var(--hit-target);
   }
 }

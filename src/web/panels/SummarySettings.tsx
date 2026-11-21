@@ -178,7 +178,7 @@ function GroupByEditor({
               <span>{name}</span>
               <button
                 type="button"
-                className="reorder-button"
+                className="inline-action"
                 aria-label={`Move ${name} up`}
                 disabled={index === 0}
                 onClick={() => move(index, index - 1)}
@@ -187,7 +187,7 @@ function GroupByEditor({
               </button>
               <button
                 type="button"
-                className="reorder-button"
+                className="inline-action"
                 aria-label={`Move ${name} down`}
                 disabled={index === value.length - 1}
                 onClick={() => move(index, index + 1)}

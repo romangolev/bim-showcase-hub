@@ -109,7 +109,7 @@ export function ViewpointsBody() {
               </button>
               <button
                 type="button"
-                className="reorder-button"
+                className="inline-action"
                 aria-label={`Move ${point.name} up`}
                 disabled={index === 0}
                 onClick={() => moveViewpoint(point.id, -1)}
@@ -118,7 +118,7 @@ export function ViewpointsBody() {
               </button>
               <button
                 type="button"
-                className="reorder-button"
+                className="inline-action"
                 aria-label={`Move ${point.name} down`}
                 disabled={index === points.length - 1}
                 onClick={() => moveViewpoint(point.id, 1)}

@@ -56,7 +56,7 @@ export function PropertyPicker({
             <span className="bsh-picker__arrange">
               <button
                 type="button"
-                className="reorder-button"
+                className="inline-action"
                 disabled={index === 0}
                 aria-label={`Move ${name} up`}
                 onClick={() => move(name, -1)}
@@ -65,7 +65,7 @@ export function PropertyPicker({
               </button>
               <button
                 type="button"
-                className="reorder-button"
+                className="inline-action"
                 disabled={index === value.length - 1}
                 aria-label={`Move ${name} down`}
                 onClick={() => move(name, 1)}
@@ -75,7 +75,7 @@ export function PropertyPicker({
             </span>
             <button
               type="button"
-              className="bsh-picker__remove"
+              className="inline-action bsh-picker__remove"
               disabled={locked(name)}
               aria-label={`Remove ${name}`}
               onClick={() => toggle(name)}
