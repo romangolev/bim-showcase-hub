@@ -1,22 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  MAX_COMBINED_MODELS,
-  MAX_LOADED_MEMBERS,
-} from '../../../shared/combined.js';
 import type { TreeNode, VersionViewState } from '../../../shared/types.js';
 import type { NodeScope } from '../../api/scope.js';
-import { MODEL_LIMIT_MESSAGE } from '../../viewer/modelSet.js';
 import { NO_FILTERS } from './deepSearch.js';
 import { DEFAULT_TREE_ROOT } from './docRoot.js';
 import {
   CHECK_CONCURRENCY,
   createTreeState,
-  overTabLimit,
-  pickLimit,
   skippedNotice,
   type TreeData,
   type TreeHost,
-  tabLimitMessage,
 } from './treeState.js';
 
 function node(id: string, extra: Partial<TreeNode> = {}): TreeNode {
@@ -739,43 +731,5 @@ describe('treeState versions of an item', () => {
     const folder = state.node('f');
     if (!folder) throw new Error('fixture folder missing');
     expect(await state.versionsOf(folder)).toEqual([]);
-  });
-});
-
-describe('tab and combined limits', () => {
-  it('reports no message below both limits and a tab or combined message above', () => {
-    expect(pickLimit(0, 1)).toEqual({
-      tooManyTabs: false,
-      tooManyCombined: false,
-      message: null,
-    });
-
-    const tabs = pickLimit(MAX_LOADED_MEMBERS - 1, 2);
-    expect(tabs.tooManyTabs).toBe(true);
-    expect(tabs.message).toBe(tabLimitMessage(MAX_LOADED_MEMBERS - 1));
-    expect(tabs.message).toContain('Select 1 or fewer');
-    expect(tabLimitMessage(MAX_LOADED_MEMBERS)).toContain('Close a model');
-    expect(tabLimitMessage(1)).toContain('1 model is already loaded');
-
-    const picked = MAX_COMBINED_MODELS + 1;
-    const combined = pickLimit(0, picked);
-    expect(combined.tooManyCombined).toBe(picked > MAX_COMBINED_MODELS);
-    if (!combined.tooManyTabs) {
-      expect(combined.message).toBe(MODEL_LIMIT_MESSAGE);
-    }
-  });
-
-  it('shares one rule with the tab-open check', () => {
-    for (
-      let loadedCount = 0;
-      loadedCount <= MAX_LOADED_MEMBERS;
-      loadedCount += 1
-    ) {
-      for (let picked = 0; picked <= MAX_LOADED_MEMBERS + 1; picked += 1) {
-        expect(pickLimit(loadedCount, picked).tooManyTabs).toBe(
-          overTabLimit(loadedCount, picked),
-        );
-      }
-    }
   });
 });

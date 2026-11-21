@@ -71,7 +71,6 @@ import {
   skippedNotice,
   sleep,
   TRAIL_SEPARATOR,
-  tabLimitMessage,
   VERSION_POLL_MS,
 } from './treeState.js';
 import { type ItemOpen, metaText } from './treeView.js';
@@ -110,7 +109,7 @@ export interface DocumentTreeProps {
   pollMs?: number;
 }
 
-export { skippedNotice, tabLimitMessage };
+export { skippedNotice };
 
 function pickLabel(model: PickedModel): string {
   return model.context.file ?? model.urn;

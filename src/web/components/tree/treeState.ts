@@ -6,12 +6,7 @@ import { childScope, type NodeScope } from '../../api/scope.js';
 import type { VersionTarget } from '../../panels/versionHistory.js';
 import { openableUrn } from '../../viewer/openLimits.js';
 
-export {
-  openableUrn,
-  overTabLimit,
-  pickLimit,
-  tabLimitMessage,
-} from '../../viewer/openLimits.js';
+export { openableUrn } from '../../viewer/openLimits.js';
 
 import {
   type CrawlProgress,

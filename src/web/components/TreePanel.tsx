@@ -9,14 +9,6 @@ import { HubProjectSwitcher } from './tree/HubProjectSwitcher.js';
 import { RecentStrip } from './tree/RecentStrip.js';
 import { useModelOpeners } from './tree/useModelOpeners.js';
 
-export {
-  exceedsTabLimit,
-  loadedMembers,
-  openAsTab,
-  openPickedAsTabs,
-  openWithMode,
-} from './tree/openHelpers.js';
-
 export interface TreePanelProps {
   onNavigate?: () => void;
 }

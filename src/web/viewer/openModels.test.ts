@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { parseModelContext } from '../api/modelContext.js';
+import { listRecentModels } from '../api/modelStore.js';
 import {
+  contextOf,
   createOpenModelsStore,
   modelUrnsOf,
   type OpenModelsState,
@@ -242,5 +244,181 @@ describe('the with clamp', () => {
       store.open('a', parseModelContext({ with: many.join(',') })),
     ).not.toThrow();
     expect(modelUrnsOf(store.getState(), 'a')).toHaveLength(6);
+  });
+});
+
+describe('openModels against the real store', () => {
+  const urnsOf = (store: OpenModelsStore) =>
+    store.getState().models.map((model) => model.urn);
+
+  const combinedOf = (size: number) => {
+    const store = createOpenModelsStore(null);
+    store.open('urn-a', { file: 'A.rvt' });
+    for (let index = 1; index < size; index += 1) {
+      store.addTo('urn-a', `urn-x-${index}`);
+    }
+    return store;
+  };
+
+  it('opens each picked model as its own tab and activates the last', () => {
+    const store = createOpenModelsStore(null);
+    const out = openModels(store, { models: picked(3, 'urn-'), mode: 'tabs' });
+    expect(out.opened).toHaveLength(3);
+    expect(urnsOf(store)).toEqual(['urn-0', 'urn-1', 'urn-2']);
+    expect(store.getState().active).toBe('urn-2');
+  });
+
+  it('admits at most the loaded-model limit when partial', () => {
+    const store = createOpenModelsStore(null);
+    openModels(store, {
+      models: picked(10, 'urn-'),
+      mode: 'tabs',
+      partial: true,
+    });
+    expect(store.getState().models).toHaveLength(8);
+  });
+
+  it('counts loaded members of a combined tab, not tabs', () => {
+    const store = combinedOf(6);
+    expect(store.getState().models).toHaveLength(1);
+    const room = previewOpen(store.getState(), {
+      models: picked(2),
+      mode: 'tabs',
+    });
+    const over = previewOpen(store.getState(), {
+      models: picked(3),
+      mode: 'tabs',
+    });
+    expect([room.blocked, over.blocked]).toEqual([false, true]);
+  });
+
+  it('ignores models that are already open when counting', () => {
+    const store = createOpenModelsStore(null);
+    store.open('urn-0', { file: 'A.rvt' });
+    const at = (count: number) =>
+      previewOpen(store.getState(), {
+        models: picked(count, 'urn-'),
+        mode: 'tabs',
+      }).blocked;
+    expect([at(8), at(9)]).toEqual([false, true]);
+  });
+
+  it('remembers the model when replacing', () => {
+    const store = createOpenModelsStore(null);
+    store.open('urn-a', { file: 'A.rvt' });
+    openModels(store, {
+      models: [{ urn: 'urn-z', context: { file: 'Z.rvt', v: 'vz' } }],
+      mode: 'replace',
+    });
+    expect(listRecentModels().map((entry) => entry.urn)).toContain('urn-z');
+  });
+
+  it('leaves a model that is its own tab alone when adding to the viewer', () => {
+    const store = createOpenModelsStore(null);
+    store.open('urn-a', {});
+    store.open('urn-b', {});
+    const out = openModels(store, {
+      models: [{ urn: 'urn-a', context: {} }],
+      mode: 'add-to-active',
+    });
+    expect(out.skipped.map((entry) => entry.reason)).toEqual(['already-open']);
+    expect(modelUrnsOf(store.getState(), 'urn-b')).toEqual(['urn-b']);
+  });
+
+  it('adds a tab beside the others', () => {
+    const store = createOpenModelsStore(null);
+    store.open('urn-a', {});
+    openModels(store, {
+      models: [{ urn: 'urn-b', context: { file: 'B.rvt' } }],
+      mode: 'tabs',
+    });
+    expect(urnsOf(store)).toEqual(['urn-a', 'urn-b']);
+  });
+
+  it('replaces the active tab', () => {
+    const store = createOpenModelsStore(null);
+    store.open('urn-a', {});
+    store.open('urn-b', {});
+    const out = openModels(store, {
+      models: [{ urn: 'urn-c', context: {} }],
+      mode: 'replace',
+    });
+    expect(out.reveal?.urn).toBe('urn-c');
+    expect(urnsOf(store)).toEqual(['urn-a', 'urn-c']);
+    expect(store.getState().active).toBe('urn-c');
+  });
+
+  it('adds to the active viewer and reveals it with the with list', () => {
+    const store = createOpenModelsStore(null);
+    store.open('urn-a', {});
+    store.open('urn-b', {});
+    const out = openModels(store, {
+      models: [{ urn: 'urn-c', context: {} }],
+      mode: 'add-to-active',
+    });
+    expect(out.reveal?.urn).toBe('urn-b');
+    expect(contextOf(store.getState(), 'urn-b')?.with).toBe('urn-c');
+  });
+
+  it('says nothing when replacing a single tab', () => {
+    const store = createOpenModelsStore(null);
+    store.open('urn-a', {});
+    const out = openModels(store, {
+      models: [{ urn: 'urn-b', context: {} }],
+      mode: 'replace',
+    });
+    expect(out.notice).toBeNull();
+  });
+
+  it('opens a model of a combined tab as its own tab', () => {
+    const store = createOpenModelsStore(null);
+    store.open('a', {});
+    store.addTo('a', 'b');
+    openModels(store, {
+      models: [{ urn: 'b', context: { file: 'B' } }],
+      mode: 'tabs',
+    });
+    expect(urnsOf(store)).toEqual(['a', 'b']);
+    expect(store.getState().active).toBe('b');
+    expect(modelUrnsOf(store.getState(), 'a')).toEqual(['a', 'b']);
+  });
+
+  it('opens a tab beside a combined viewer and leaves it unchanged', () => {
+    const store = createOpenModelsStore(null);
+    store.open('urn-a', {});
+    store.open('urn-b', {});
+    store.addTo('urn-b', 'urn-c');
+    openModels(store, {
+      models: [{ urn: 'urn-d', context: {} }],
+      mode: 'tabs',
+    });
+    expect(modelUrnsOf(store.getState(), 'urn-b')).toEqual(['urn-b', 'urn-c']);
+    expect(urnsOf(store)).toEqual(['urn-a', 'urn-b', 'urn-d']);
+  });
+});
+
+describe('previewOpen for add-to-active', () => {
+  const state = (active: string) => {
+    const store = createOpenModelsStore(null);
+    store.open('x', {});
+    store.open('y', {});
+    store.open('c', {});
+    store.addTo('c', 'm');
+    store.activate(active);
+    return store.getState();
+  };
+
+  it.each([
+    ['a fresh model', 'x', 'n', false],
+    ['a model that is its own tab', 'x', 'y', true],
+    ['a model already in the active viewer', 'c', 'm', true],
+    ['the active tab itself', 'x', 'x', true],
+  ])('%s', (_name, active, urn, blocked) => {
+    expect(
+      previewOpen(state(active), {
+        models: [{ urn, context: {} }],
+        mode: 'add-to-active',
+      }).blocked,
+    ).toBe(blocked);
   });
 });
