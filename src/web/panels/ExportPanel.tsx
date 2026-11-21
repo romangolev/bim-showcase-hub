@@ -1,4 +1,3 @@
-import { StateBlock } from '../components/StateBlock.js';
 import {
   describeStatus,
   exportPreview,
@@ -14,12 +13,8 @@ import { EXCEL_SETTINGS } from '../tools/excel/excelSettings.js';
 import { useExcelStatus } from '../tools/excel/excelStatus.js';
 import { useModelColoring } from '../viewer/modelColoring.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
-import {
-  HIDDEN_MESSAGE,
-  HIDDEN_TITLE,
-  useResolvedAdapter,
-  useScopedRows,
-} from './useScopedRows.js';
+import { ScopedRowsStatus } from './ScopedRowsStatus.js';
+import { useResolvedAdapter, useScopedRows } from './useScopedRows.js';
 import './panels.css';
 
 export interface ExportPanelProps {
@@ -81,33 +76,7 @@ export function ExportPanel({ adapter, fileName }: ExportPanelProps) {
         {status ? (
           <p className="settings__hint">{describeStatus(status)}</p>
         ) : null}
-        {!resolved ? (
-          <StateBlock
-            variant="empty"
-            title="No model loaded"
-            message="Open a model to preview and export its rows."
-            compact
-          />
-        ) : null}
-        {state.status === 'hidden' ? (
-          <StateBlock
-            variant="empty"
-            title={HIDDEN_TITLE}
-            message={HIDDEN_MESSAGE}
-            compact
-          />
-        ) : null}
-        {state.status === 'loading' ? (
-          <StateBlock variant="loading" message="Reading rows" />
-        ) : null}
-        {state.status === 'error' ? (
-          <StateBlock
-            variant="error"
-            message="We could not read the rows to export."
-            detail={state.message}
-            compact
-          />
-        ) : null}
+        <ScopedRowsStatus state={state} resolved={resolved} />
         {preview ? (
           <>
             <p className="settings__hint">
