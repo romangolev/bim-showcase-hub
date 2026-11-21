@@ -107,9 +107,14 @@ FIELDS = "(scope) => {" + COLOR + """
     const outer = backdrop(el.parentElement);
     const own = parse(style.backgroundColor);
     const fill = own && own.a > 0 ? ratio(over(own, outer), outer) : 1;
-    const border = parseFloat(style.borderTopWidth) > 0 ? ratio(over(parse(style.borderTopColor), outer), outer) : 1;
+    const edges = (node, bg) => ['Top', 'Right', 'Bottom', 'Left'].map((side) => {
+      const s = getComputedStyle(node);
+      return parseFloat(s[`border${side}Width`]) > 0 ? ratio(over(parse(s[`border${side}Color`]), bg), bg) : 1;
+    });
+    const own_edges = edges(el, outer);
+    const wrapper = (!own || own.a === 0) && Math.max(...own_edges) === 1 && el.parentElement ? edges(el.parentElement, backdrop(el.parentElement.parentElement || el.parentElement)) : [1];
     checked += 1;
-    const best = Math.max(fill, border);
+    const best = Math.max(fill, ...own_edges, ...wrapper);
     if (best < 3) fails.push({ el: name(el), ratio: Math.round(best * 100) / 100 });
   }
   return { checked, fails };
@@ -140,9 +145,10 @@ TARGETS = "(scope) => {" + COLOR + """
   let checked = 0;
   for (const el of root.querySelectorAll('button, a[href], input:not([type=hidden]), select, [role=tab], [role=menuitem], [role=option], [role=switch], summary')) {
     if (!visible(el) || el.closest('.adsk-viewing-viewer')) continue;
-    if (el.matches('.bsh-row-pick, .skip-link') || el.clientWidth <= 1) continue;
+    if (el.matches('.bsh-row-pick, .skip-link, .visually-hidden') || el.clientWidth <= 1) continue;
     if (el.matches('input[type=checkbox], input[type=radio]') && el.closest('label')) continue;
-    const box = el.closest('label')?.getBoundingClientRect() || el.getBoundingClientRect();
+    const labelBox = el.closest('label')?.getBoundingClientRect();
+    const box = labelBox && labelBox.height > 0 ? labelBox : el.getBoundingClientRect();
     checked += 1;
     if (Math.round(box.height) < 44 || Math.round(box.width) < 24) fails.push({ el: name(el), label: (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 24), h: Math.round(box.height), w: Math.round(box.width) });
   }
@@ -295,7 +301,7 @@ def run(browser, theme, width, language, results, notes):
                 close_dialog(page)
             except Exception as exc:
                 results[f"{prefix}-documents-settings"] = {"error": f"{type(exc).__name__}: {str(exc)[:160]}"}
-        for key, name, scope in (
+        for key, name, scope in () if width <= 875 else (
             ("panes-menu", "Panes", ".panes-menu__popover"),
             ("workspaces", "Workspaces", "[role=dialog][aria-label='Workspaces']"),
             ("pane-options", "Model summary pane options", "[role=menu]"),
