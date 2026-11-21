@@ -153,3 +153,9 @@ export async function fetchChildren(
   const res = await request(path, { signal });
   return (await res.json()) as TreeNode[];
 }
+
+export type ThumbnailSize = 100 | 200 | 400;
+
+export function thumbnailPath(urn: string, size: ThumbnailSize = 200): string {
+  return `/api/thumbnails/${encodeURIComponent(urn)}?size=${size}`;
+}

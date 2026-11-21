@@ -122,6 +122,7 @@ export interface ItemMenuSource {
   onOpenLatest: () => void;
   onOpenLastOpened?: () => void;
   onShowVersions: () => void;
+  onPreview?: () => void;
   onVersionHistory?: () => void;
 }
 
@@ -138,6 +139,14 @@ export function itemMenuEntries(source: ItemMenuSource): MenuEntry[] {
       id: 'open-last',
       label: 'Open last opened version',
       onSelect: source.onOpenLastOpened,
+    });
+  }
+  if (source.onPreview) {
+    entries.push({
+      id: 'preview',
+      label: 'Preview',
+      description: 'Show the file without opening it',
+      onSelect: source.onPreview,
     });
   }
   entries.push({ kind: 'separator', id: 'item-separator' });

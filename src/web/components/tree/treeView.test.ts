@@ -106,4 +106,13 @@ describe('metaText and view', () => {
     expect(sanitizeTreeView({ itemOpen: 'nope' }).itemOpen).toBe('expand');
     expect(sanitizeTreeView({}).itemOpen).toBe('expand');
   });
+
+  it('keeps thumbnails off and list rows until asked', () => {
+    expect(DEFAULT_TREE_VIEW.thumbnails).toBe(false);
+    expect(DEFAULT_TREE_VIEW.rows).toBe('list');
+    expect(sanitizeTreeView({ thumbnails: true }).thumbnails).toBe(true);
+    expect(sanitizeTreeView({ thumbnails: 'yes' }).thumbnails).toBe(false);
+    expect(sanitizeTreeView({ rows: 'thumbnails' }).rows).toBe('thumbnails');
+    expect(sanitizeTreeView({ rows: 'grid' }).rows).toBe('list');
+  });
 });

@@ -7,6 +7,7 @@ import {
   within,
 } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { thumbnailPath } from '../../api/client.js';
 import { BSH_KEYS } from '../../storage.js';
 import { notifications } from '../../tasks/notifications.js';
 import {
@@ -109,6 +110,8 @@ describe('DocumentTree metadata', () => {
       size: false,
       openMode: 'tab',
       itemOpen: 'expand',
+      thumbnails: false,
+      rows: 'list',
       homeRecent: true,
       homePinned: true,
       homeSets: true,
@@ -662,7 +665,10 @@ describe('DocumentTree file rows', () => {
     },
   ];
 
-  async function setup(view: Partial<TreeView> = {}) {
+  async function setup(
+    view: Partial<TreeView> = {},
+    routes: Record<string, unknown> = {},
+  ) {
     installMemoryStorage();
     window.localStorage.setItem(
       BSH_KEYS.preference.treeView,
@@ -670,6 +676,7 @@ describe('DocumentTree file rows', () => {
     );
     mockFetch({
       ...treeRoutes,
+      ...routes,
       '/api/projects/p1/items/i1/versions': versions,
     });
     const onOpenModel = vi.fn();
@@ -730,6 +737,43 @@ describe('DocumentTree file rows', () => {
     expect(
       await screen.findByRole('treeitem', { name: /^v2:/ }),
     ).toHaveTextContent('Latest');
+  });
+
+  it('renders no thumbnail images by default', async () => {
+    await setup();
+    expect(document.querySelector('.doc-tree img')).toBeNull();
+  });
+
+  it('renders a thumbnail on each file row when asked', async () => {
+    await setup(
+      { thumbnails: true, rows: 'thumbnails' },
+      {
+        '/api/projects/p1/folders/f1/contents': () =>
+          json([{ ...item, tipUrn: 'urn-tip' }]),
+      },
+    );
+    expect(fileRow().querySelector('img')?.getAttribute('src')).toBe(
+      thumbnailPath('urn-tip', 100),
+    );
+  });
+
+  it('previews a focused file row with Space', async () => {
+    await setup();
+    const row = fileRow();
+    row.focus();
+    fireEvent.keyDown(row, { key: ' ' });
+    expect(
+      await screen.findByRole('dialog', { name: 'Preview of Tower.rvt' }),
+    ).toBeInTheDocument();
+  });
+
+  it('opens the preview from the file row menu', async () => {
+    await setup();
+    fireEvent.contextMenu(fileRow());
+    fireEvent.click(within(screen.getByRole('menu')).getByText('Preview'));
+    expect(
+      await screen.findByRole('dialog', { name: 'Preview of Tower.rvt' }),
+    ).toBeInTheDocument();
   });
 });
 
