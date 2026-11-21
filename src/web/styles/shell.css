@@ -14,7 +14,7 @@
   position: fixed;
   top: var(--space-2);
   left: var(--space-2);
-  z-index: 100;
+  z-index: var(--z-skip);
   padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-button);
   background: var(--color-bone);
@@ -230,7 +230,7 @@
 .topbar {
   position: sticky;
   top: 0;
-  z-index: 50;
+  z-index: var(--z-bar);
   flex: none;
   height: var(--nav-height);
   border-bottom: var(--border-hairline);
@@ -561,7 +561,7 @@
 .stack .tree-backdrop {
   position: fixed;
   inset: var(--nav-height) 0 0;
-  z-index: 39;
+  z-index: var(--z-drawer-backdrop);
   display: block;
   border: 0;
   background: var(--color-scrim);
@@ -633,7 +633,7 @@
 
 .menu__popover {
   position: fixed;
-  z-index: 1200;
+  z-index: var(--z-modal);
   max-height: calc(100vh - 2 * var(--space-2));
   overflow-y: auto;
   min-width: 200px;
@@ -720,7 +720,7 @@
 
 .panes-menu__popover {
   position: fixed;
-  z-index: 1000;
+  z-index: var(--z-popover);
   display: flex;
   flex-direction: column;
   width: min(380px, calc(100vw - 8px));
@@ -1041,7 +1041,7 @@ html[data-presenting] .bsh-viewer-surface .adsk-viewing-viewer .adsk-toolbar {
   position: fixed;
   top: var(--space-2);
   right: var(--space-2);
-  z-index: 50;
+  z-index: var(--z-bar);
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -1130,7 +1130,7 @@ html[data-presenting] .stack .stack__pane--viewer .model-viewer {
   position: absolute;
   top: calc(100% + var(--space-1));
   right: 0;
-  z-index: 1000;
+  z-index: var(--z-popover);
   display: flex;
   width: min(360px, calc(100vw - 2 * var(--space-4)));
   flex-direction: column;

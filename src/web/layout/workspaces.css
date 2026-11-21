@@ -1,6 +1,6 @@
 .workspaces {
   position: fixed;
-  z-index: 1000;
+  z-index: var(--z-popover);
   display: flex;
   flex-direction: column;
   gap: var(--space-1);

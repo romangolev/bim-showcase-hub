@@ -235,7 +235,7 @@
   position: absolute;
   bottom: calc(100% + var(--space-2));
   left: 50%;
-  z-index: 6;
+  z-index: var(--z-float);
   display: flex;
   gap: var(--space-1);
   padding: var(--space-1);
@@ -283,7 +283,7 @@
   position: absolute;
   top: var(--space-3);
   left: var(--space-3);
-  z-index: 6;
+  z-index: var(--z-float);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -295,7 +295,7 @@
   position: absolute;
   top: var(--space-3);
   right: var(--space-3);
-  z-index: 6;
+  z-index: var(--z-float);
 }
 
 .bsh-viewer-models__trigger {
@@ -389,7 +389,7 @@
   position: absolute;
   bottom: var(--space-8);
   left: 50%;
-  z-index: 6;
+  z-index: var(--z-float);
   margin: 0;
   padding: var(--space-2) var(--space-3);
   border: 0.5px solid var(--color-coral);

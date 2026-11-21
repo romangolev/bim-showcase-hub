@@ -184,6 +184,16 @@
   --ring-width: 2px;
   --ring-offset: 2px;
   --transition-ui: 120ms ease;
+
+  --z-raised: 1;
+  --z-sticky: 2;
+  --z-float: 6;
+  --z-drawer-backdrop: 39;
+  --z-drawer: 40;
+  --z-bar: 50;
+  --z-skip: 100;
+  --z-popover: 1000;
+  --z-modal: 1200;
   --hit-target: var(--control-height);
 }
 

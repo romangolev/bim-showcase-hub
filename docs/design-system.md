@@ -7,7 +7,7 @@
 `src/web/styles/tokens.css` declares every token as a CSS custom property.
 
 - Color tokens are declared per theme, on `:root, :root[data-theme="dark"]` and `:root[data-theme="light"]`.
-- Everything else sits on `:root`: fonts, text sizes, spacing (`--space-*`), radii, density (`--gutter`, `--gutter-page`, `--nav-height`, `--hit-target`), `--border-hairline` and shadows.
+- Everything else sits on `:root`: fonts, text sizes, spacing (`--space-*`), radii, density (`--gutter`, `--gutter-page`, `--nav-height`, `--hit-target`), `--border-hairline`, shadows and the z-index scale (`--z-raised` and `--z-sticky` inside a component, then `--z-float`, `--z-drawer-backdrop`, `--z-drawer`, `--z-bar`, `--z-skip`, `--z-popover`, `--z-modal`).
 - The density values are tighter than the published spec so the viewer gets more of the screen.
 - Text size sets the root font size (`100%`, `112%` or `125%`). Text, spacing, control and row tokens are rem values, so the shell and the dock scale with it. Density multiplies the same tokens through `--density`.
 
