@@ -6,7 +6,7 @@ import {
   type SummaryView,
   summarize,
 } from '../extensions/modelSummary.js';
-import { SummaryTable } from './SummaryTable.js';
+import { ENTRY_CAP, SummaryTable } from './SummaryTable.js';
 
 const rows: PropertyRow[] = [
   {
@@ -210,5 +210,29 @@ describe('SummaryTable pivot layout', () => {
     );
     expect(container.querySelector('.bsh-table--pivot')).toBeNull();
     expect(container.querySelectorAll('table')).toHaveLength(1);
+  });
+});
+
+describe('SummaryTable entry cap', () => {
+  const many = Array.from({ length: ENTRY_CAP + 25 }, (_, i) => ({
+    property: 'Name',
+    value: `v${i}`,
+    count: 1,
+  }));
+
+  it('caps flat rows and reveals the rest on request', () => {
+    const { container } = render(<SummaryTable entries={many} />);
+    expect(container.querySelectorAll('tbody tr')).toHaveLength(ENTRY_CAP + 1);
+    fireEvent.click(screen.getByRole('button', { name: 'Show 25 more' }));
+    expect(container.querySelectorAll('tbody tr')).toHaveLength(ENTRY_CAP + 25);
+  });
+
+  it('caps each grouped block', () => {
+    const { container } = render(
+      <SummaryTable entries={many} view={view({ layout: 'grouped' })} />,
+    );
+    expect(container.querySelectorAll('tbody tr')).toHaveLength(ENTRY_CAP + 1);
+    fireEvent.click(screen.getByRole('button', { name: 'Show 25 more' }));
+    expect(container.querySelectorAll('tbody tr')).toHaveLength(ENTRY_CAP + 25);
   });
 });
