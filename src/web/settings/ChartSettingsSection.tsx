@@ -1,6 +1,7 @@
 import { useId } from 'react';
 import { SwitchRow } from '../components/SwitchRow.js';
 import type { ChartPaletteId } from '../extensions/dashboardData.js';
+import { useT } from '../i18n/i18n.js';
 import {
   CHART_PALETTE_IDS,
   CHART_PALETTE_LABELS,
@@ -8,12 +9,13 @@ import {
 } from '../panels/chartSettings.js';
 
 export function ChartSettingsSection() {
+  const t = useT();
   const [settings, update] = useChartSettings();
   const paletteId = useId();
   return (
     <section className="settings__section" aria-labelledby="settings-charts">
       <h3 id="settings-charts" className="settings__heading">
-        Charts
+        {t('settings.charts')}
       </h3>
       <div className="settings__field">
         <label htmlFor={paletteId}>Chart palette</label>

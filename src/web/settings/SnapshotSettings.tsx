@@ -1,6 +1,7 @@
 import { useId } from 'react';
 import { NumberField } from '../components/NumberField.js';
 import { SwitchRow } from '../components/SwitchRow.js';
+import { useT } from '../i18n/i18n.js';
 import { usePersisted } from '../storage.js';
 import {
   MAX_ADVANCE_SECONDS,
@@ -17,12 +18,13 @@ const RESOLUTIONS: readonly { id: SnapshotResolution; label: string }[] = [
 ];
 
 export function SnapshotSettings() {
+  const t = useT();
   const [settings, update] = usePersisted(SNAPSHOT);
   const resolutionId = useId();
   return (
     <section className="settings__section" aria-labelledby="settings-snapshot">
       <h3 id="settings-snapshot" className="settings__heading">
-        Snapshots and presentation
+        {t('settings.snapshots')}
       </h3>
       <div className="settings__field">
         <label htmlFor={resolutionId}>Snapshot resolution</label>

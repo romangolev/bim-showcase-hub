@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useT } from '../i18n/i18n.js';
 import {
   clearLocalData,
   formatStorageBytes,
@@ -10,6 +11,7 @@ function readoutLines(report: ReturnType<typeof storageReport>) {
 }
 
 export function LocalDataSettings() {
+  const t = useT();
   const report = storageReport();
   const [confirming, setConfirming] = useState(false);
   const [preferences, setPreferences] = useState(false);
@@ -56,7 +58,7 @@ export function LocalDataSettings() {
       aria-labelledby="settings-local-data"
     >
       <h3 id="settings-local-data" className="settings__heading">
-        Local data
+        {t('settings.localData')}
       </h3>
       <p className="settings__hint">
         This app stores about {formatStorageBytes(report.total.bytes)} across{' '}
