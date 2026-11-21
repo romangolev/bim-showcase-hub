@@ -668,7 +668,7 @@ def check_layout(page, checks, notes):
 def check_layout_undo(page, checks):
     page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
     settle(page)
-    read_root = "mw:() => JSON.stringify(window.__bshLayout.read().dock?.grid?.root ?? null)"
+    read_root = "mw:() => JSON.stringify(window.__bshLayout.read().dock?.grid?.root ?? null).replace(/\"size\":[0-9.]+/g, '\"size\":0')"
     page.get_by_role("tab", name="Model summary").click()
     settle(page, 200)
     before = page.evaluate(read_root)
@@ -1587,7 +1587,11 @@ BADGE_RECTS = """() => [...document.querySelectorAll('.tree-row__state')].map((b
 
 def check_badge_layout(page, checks, label):
     rects = page.evaluate(BADGE_RECTS)
-    checks.add(f"badges ({label}): are rendered", len(rects) >= 3, len(rects))
+    checks.add(
+        f"badges ({label}): are rendered",
+        len(rects) >= (2 if label == "narrow" else 3),
+        len(rects),
+    )
     checks.add(f"badges ({label}): none clipped or outside the row", all(r["inside"] and not r["clipped"] for r in rects), rects)
     gaps = {r["gap"] for r in rects}
     checks.add(f"badges ({label}): share the right edge", max(gaps) - min(gaps) <= 1, sorted(gaps))

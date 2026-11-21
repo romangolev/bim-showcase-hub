@@ -171,4 +171,22 @@ describe('scopeAllows', () => {
     expect(scopeAllows('viewer', by('canvas'))).toBe(true);
     expect(scopeAllows(undefined, by('tab'))).toBe(true);
   });
+
+  it('treats the whole viewer pane body as the viewer, not the dock', () => {
+    document.body.innerHTML = `
+      <div class="bsh-dock">
+        <button id="tab">Summary</button>
+        <section class="pane-main pane-model" tabindex="-1">
+          <div class="bsh-viewer-pane"><svg id="svg"></svg></div>
+        </section>
+      </div>`;
+    const by = (id: string) => document.getElementById(id);
+    expect(scopeAllows('viewer', by('svg'))).toBe(true);
+    expect(scopeAllows('dock', document.querySelector('.pane-model'))).toBe(
+      false,
+    );
+    expect(scopeAllows('viewer', document.querySelector('.pane-model'))).toBe(
+      true,
+    );
+  });
 });

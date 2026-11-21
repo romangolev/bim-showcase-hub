@@ -81,7 +81,7 @@ export function isEditableTarget(target: EventTarget | null): boolean {
   );
 }
 
-export const VIEWER_CONTEXT_SELECTOR = '.bsh-viewer-pane';
+export const VIEWER_CONTEXT_SELECTOR = '.bsh-viewer-pane, .pane-model';
 export const FLOATING_PANE_SELECTOR = '.dv-resize-container';
 
 export function isViewerContext(target: EventTarget | null): boolean {
