@@ -116,7 +116,7 @@ const RULES: readonly FamilyRule[] = [
     id: 'topbar',
     label: 'Top bar',
     kind: 'preference',
-    matches: (key) => key === 'bsh.topbar.v1',
+    matches: (key) => key === BSH_KEYS.preference.topbar,
   },
   {
     id: 'snapshot',
