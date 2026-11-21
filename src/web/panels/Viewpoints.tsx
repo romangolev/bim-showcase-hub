@@ -46,7 +46,7 @@ export function ViewpointsBody() {
   };
 
   return (
-    <div className="settings">
+    <>
       <div className="settings__actions">
         <input
           type="text"
@@ -137,7 +137,7 @@ export function ViewpointsBody() {
           ))}
         </ul>
       )}
-    </div>
+    </>
   );
 }
 

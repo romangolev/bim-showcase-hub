@@ -150,7 +150,7 @@ function DashboardFields({
   const numeric = spec.aggregate !== 'count';
 
   return (
-    <div className="settings">
+    <>
       <fieldset className="settings__section">
         <legend className="settings__heading">Preset</legend>
         <div className="settings__actions">
@@ -388,7 +388,7 @@ function DashboardFields({
           {resetAction ? 'Reset dashboard' : 'Reset chart'}
         </button>
       </div>
-    </div>
+    </>
   );
 }
 

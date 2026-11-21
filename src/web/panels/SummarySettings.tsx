@@ -346,7 +346,7 @@ function SummaryFields({
   };
   const groupBy = view.groupBy.filter((name) => propertyNames.includes(name));
   return (
-    <div className="settings">
+    <>
       <fieldset className="settings__section">
         <legend className="settings__heading">Properties</legend>
         <PropertyPicker
@@ -379,7 +379,7 @@ function SummaryFields({
           Reset view
         </button>
       </div>
-    </div>
+    </>
   );
 }
 

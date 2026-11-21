@@ -64,7 +64,7 @@ export function SettingsBody() {
   const [topbar, setTopbar] = usePersisted(TOPBAR_PREFS);
   const t = useT();
   return (
-    <div className="settings">
+    <>
       <section
         className="settings__section"
         aria-labelledby="settings-appearance"
@@ -294,7 +294,7 @@ export function SettingsBody() {
       <SettingsEntries />
       <DefaultsSettings />
       <LocalDataSettings />
-    </div>
+    </>
   );
 }
 

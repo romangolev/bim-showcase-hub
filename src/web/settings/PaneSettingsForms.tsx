@@ -113,7 +113,7 @@ const TREE_SHORTCUTS: readonly [string, string][] = [
 export function TreeSettingsForm() {
   const [view, setView] = usePersisted(PANE_SETTINGS.tree.view);
   return (
-    <div className="settings">
+    <>
       <SettingsForm
         form={TREE_SETTINGS_FORM}
         value={view}
@@ -130,6 +130,6 @@ export function TreeSettingsForm() {
           ))}
         </ul>
       </section>
-    </div>
+    </>
   );
 }
