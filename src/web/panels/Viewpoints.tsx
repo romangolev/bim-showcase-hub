@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Icon } from '../components/icons.js';
 import type { ModalDefinition } from '../modal/types.js';
 import { MAX_NAME_LENGTH } from '../store/savedStore.js';
 import { notify } from '../tasks/notifications.js';
@@ -99,7 +100,7 @@ export function ViewpointsBody() {
               />
               <button
                 type="button"
-                className="btn"
+                className="btn btn-small"
                 aria-label={`Go to ${point.name}`}
                 disabled={!adapter}
                 onClick={() => void go(point.id)}
@@ -108,25 +109,25 @@ export function ViewpointsBody() {
               </button>
               <button
                 type="button"
-                className="btn"
+                className="reorder-button"
                 aria-label={`Move ${point.name} up`}
                 disabled={index === 0}
                 onClick={() => moveViewpoint(point.id, -1)}
               >
-                Up
+                <Icon name="arrowUp" size={14} />
               </button>
               <button
                 type="button"
-                className="btn"
+                className="reorder-button"
                 aria-label={`Move ${point.name} down`}
                 disabled={index === points.length - 1}
                 onClick={() => moveViewpoint(point.id, 1)}
               >
-                Down
+                <Icon name="arrowDown" size={14} />
               </button>
               <button
                 type="button"
-                className="btn"
+                className="btn btn-small"
                 aria-label={`Delete ${point.name}`}
                 onClick={() => deleteViewpoint(point.id)}
               >

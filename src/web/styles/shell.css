@@ -116,6 +116,37 @@
   cursor: not-allowed;
 }
 
+.reorder-button {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.5rem;
+  min-height: 1.5rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-badge);
+  background: none;
+  color: var(--color-fog);
+  cursor: pointer;
+}
+
+.reorder-button:hover:not(:disabled) {
+  background: var(--color-ghost-fill-hover);
+  color: var(--color-snow);
+}
+
+.reorder-button:disabled {
+  color: var(--color-ash);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+@media (pointer: coarse), (max-width: 875px) {
+  .reorder-button {
+    min-width: var(--hit-target);
+    min-height: var(--hit-target);
+  }
+}
+
 .icon-tile {
   display: inline-flex;
   align-items: center;

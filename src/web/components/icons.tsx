@@ -2,6 +2,8 @@ import type { SVGProps } from 'react';
 
 const PATHS = {
   chevron: ['m9 18 6-6-6-6'],
+  arrowUp: ['m5 12 7-7 7 7', 'M12 19V5'],
+  arrowDown: ['M12 5v14', 'm19 12-7 7-7-7'],
   hub: [
     'M3 21h18',
     'M5 21V7l8-4v18',

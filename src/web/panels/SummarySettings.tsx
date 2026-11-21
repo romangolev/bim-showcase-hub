@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Icon } from '../components/icons.js';
 import {
   type FormDefinition,
   SettingsForm,
@@ -177,21 +178,21 @@ function GroupByEditor({
               <span>{name}</span>
               <button
                 type="button"
-                className="btn btn-small"
+                className="reorder-button"
                 aria-label={`Move ${name} up`}
                 disabled={index === 0}
                 onClick={() => move(index, index - 1)}
               >
-                Up
+                <Icon name="arrowUp" size={14} />
               </button>
               <button
                 type="button"
-                className="btn btn-small"
+                className="reorder-button"
                 aria-label={`Move ${name} down`}
                 disabled={index === value.length - 1}
                 onClick={() => move(index, index + 1)}
               >
-                Down
+                <Icon name="arrowDown" size={14} />
               </button>
               <button
                 type="button"

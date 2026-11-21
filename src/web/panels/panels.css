@@ -1328,27 +1328,6 @@
   margin-left: var(--space-1-5);
 }
 
-.bsh-picker__move {
-  min-width: 1.5rem;
-  min-height: 1.5rem;
-  padding: 0 var(--space-0-5);
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.bsh-picker__move:hover {
-  color: var(--color-snow);
-}
-
-.bsh-picker__move:disabled {
-  cursor: not-allowed;
-  opacity: 0.4;
-}
-
 .bsh-kpis {
   display: flex;
   flex-direction: column;
@@ -1742,7 +1721,6 @@ button.bsh-kpi:focus-visible {
     margin-left: auto;
   }
 
-  .bsh-picker__move,
   .bsh-picker__remove {
     min-width: var(--hit-target);
     min-height: var(--hit-target);

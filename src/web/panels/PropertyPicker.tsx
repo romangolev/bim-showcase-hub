@@ -56,21 +56,21 @@ export function PropertyPicker({
             <span className="bsh-picker__arrange">
               <button
                 type="button"
-                className="bsh-picker__move"
+                className="reorder-button"
                 disabled={index === 0}
                 aria-label={`Move ${name} up`}
                 onClick={() => move(name, -1)}
               >
-                <span aria-hidden="true">↑</span>
+                <Icon name="arrowUp" size={14} />
               </button>
               <button
                 type="button"
-                className="bsh-picker__move"
+                className="reorder-button"
                 disabled={index === value.length - 1}
                 aria-label={`Move ${name} down`}
                 onClick={() => move(name, 1)}
               >
-                <span aria-hidden="true">↓</span>
+                <Icon name="arrowDown" size={14} />
               </button>
             </span>
             <button
