@@ -314,6 +314,18 @@ describe('ModelsPanel', () => {
     await waitFor(() => expect(FEDERATIONS.list()).toHaveLength(0));
   });
 
+  it('clears the rename error when the combination is deleted', async () => {
+    const adapter = await load(['urn-a', 'urn-b']);
+    FEDERATIONS.save('Site', COMBINATION);
+    render(<ModelsPanel adapter={adapter} onOpenFederation={vi.fn()} />);
+    const input = screen.getByLabelText('Rename Site');
+    fireEvent.change(input, { target: { value: '' } });
+    fireEvent.blur(input);
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Site' }));
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
   it('shows a combination saved while the pane is open', async () => {
     const adapter = await load(['urn-a', 'urn-b']);
     render(<ModelsPanel adapter={adapter} onOpenFederation={vi.fn()} />);

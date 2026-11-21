@@ -450,6 +450,7 @@ export function ModelsPanel({
                     aria-label={`Rename ${item.name}`}
                     maxLength={MAX_NAME_LENGTH}
                     defaultValue={item.name}
+                    onFocus={() => setRenameFailed(false)}
                     onBlur={(event) => {
                       const ok = FEDERATIONS.rename(
                         item.id,
@@ -476,6 +477,7 @@ export function ModelsPanel({
                     className="bsh-button"
                     aria-label={`Delete ${item.name}`}
                     onClick={() => {
+                      setRenameFailed(false);
                       if (!FEDERATIONS.remove(item.id)) {
                         notify('Could not delete the combination.', {
                           tone: 'error',
