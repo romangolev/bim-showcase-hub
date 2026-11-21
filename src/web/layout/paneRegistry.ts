@@ -12,6 +12,7 @@ import {
   ModelPaneBody,
   ModelsPane,
   PropertiesInstancePane,
+  SearchPane,
   SummaryInstancePane,
   SummaryPane,
   TreePane,
@@ -27,6 +28,7 @@ export type PaneId =
   | 'versions'
   | 'colors'
   | 'export'
+  | 'search'
   | 'chart'
   | 'modelSummary'
   | 'properties';
@@ -231,6 +233,38 @@ export const PANES: readonly PaneDefinition[] = [
     closable: true,
     requires: 'viewer',
     opensWithModel: false,
+  },
+  {
+    id: 'search',
+    title: 'Search elements',
+    description:
+      'Find elements by name or property value and save them as a set.',
+    category: 'Data',
+    keywords: 'find search elements query selection set filter',
+    icon: 'search',
+    component: SearchPane,
+    minSize: { width: 260, height: 160 },
+    defaultPlacement: {
+      kind: 'beside',
+      reference: 'viewer',
+      direction: 'right',
+      size: 320,
+    },
+    closable: true,
+    requires: 'viewer',
+    opensWithModel: false,
+    commands: (ctx) => [
+      {
+        id: 'pane.focus.search',
+        title: 'Search elements',
+        group: 'Panes',
+        icon: 'search',
+        keywords: 'find element',
+        menu: 'hook',
+        run: () =>
+          ctx.isOpen('search') ? ctx.focus('search') : ctx.toggle('search'),
+      },
+    ],
   },
   {
     id: 'chart',

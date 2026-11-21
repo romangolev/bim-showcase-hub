@@ -64,6 +64,44 @@ describe('pane registry', () => {
     ]);
   });
 
+  it('registers the element search pane as a viewer follower', () => {
+    expect(isPaneId('search')).toBe(true);
+    expect(paneById('search')).toMatchObject({
+      title: 'Search elements',
+      category: 'Data',
+      closable: true,
+      requires: 'viewer',
+    });
+    expect(FOLLOWERS).toContain('search');
+    expect(isRequired('search')).toBe(false);
+    expect(paneById('search').opensWithModel).toBe(false);
+  });
+
+  it('focuses or opens the search pane from its command', () => {
+    const closed = {
+      isOpen: () => false,
+      toggle: vi.fn(),
+      create: vi.fn(),
+      focus: vi.fn(),
+    };
+    const opening = paneCommandsFor(paneById('search'), closed).find(
+      (command) => command.id === 'pane.focus.search',
+    );
+    opening?.run({} as CommandHost);
+    expect(closed.toggle).toHaveBeenCalledWith('search');
+    const open = {
+      isOpen: () => true,
+      toggle: vi.fn(),
+      create: vi.fn(),
+      focus: vi.fn(),
+    };
+    paneCommandsFor(paneById('search'), open)
+      .find((command) => command.id === 'pane.focus.search')
+      ?.run({} as CommandHost);
+    expect(open.focus).toHaveBeenCalledWith('search');
+    expect(open.toggle).not.toHaveBeenCalled();
+  });
+
   it('places exactly one pane at the root and references only known panes', () => {
     expect(
       PANES.filter((pane) => pane.defaultPlacement.kind === 'root'),
@@ -117,6 +155,7 @@ describe('pane registry', () => {
       'models',
       'colors',
       'export',
+      'search',
     ]);
     expect(followersOf('viewer')).toEqual([
       'summary',
@@ -124,6 +163,7 @@ describe('pane registry', () => {
       'models',
       'colors',
       'export',
+      'search',
     ]);
     expect(followersOf('tree')).toEqual([]);
     expect(paneById('colors').opensWithModel).toBe(false);

@@ -9,6 +9,7 @@ describe('default layout', () => {
       'summary',
       'dashboard',
       'export',
+      'search',
       'tree',
       'models',
       'colors',

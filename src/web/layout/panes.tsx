@@ -28,6 +28,7 @@ import {
   ModelSummaryPanel,
   ModelsPanel,
   PropertiesPanel,
+  SearchResultsPanel,
   VersionHistoryPanel,
 } from '../panels/index.js';
 import { SUMMARY_SETTINGS_ID } from '../panels/SummarySettings.js';
@@ -377,6 +378,14 @@ export function VersionsPane() {
   return (
     <div className="pane-versions">
       <VersionHistoryPanel openers={openers} />
+    </div>
+  );
+}
+
+export function SearchPane() {
+  return (
+    <div className="pane-search">
+      <SearchResultsPanel />
     </div>
   );
 }
