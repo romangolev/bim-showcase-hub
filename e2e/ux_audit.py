@@ -295,6 +295,19 @@ def run(browser, theme, width, language, results, notes):
                 close_dialog(page)
             except Exception as exc:
                 results[f"{prefix}-documents-settings"] = {"error": f"{type(exc).__name__}: {str(exc)[:160]}"}
+        for key, name, scope in (
+            ("panes-menu", "Panes", ".panes-menu__popover"),
+            ("workspaces", "Workspaces", "[role=dialog][aria-label='Workspaces']"),
+            ("pane-options", "Model summary pane options", "[role=menu]"),
+        ):
+            try:
+                page.get_by_role("button", name=name, exact=True).first.click(timeout=5000)
+                page.locator(scope).first.wait_for(timeout=3000)
+                measure(page, scope, f"{prefix}-{key}", results, shots)
+                close_dialog(page)
+            except Exception as exc:
+                results[f"{prefix}-{key}"] = {"error": f"{type(exc).__name__}: {str(exc)[:160]}"}
+                close_dialog(page)
         try:
             page.locator(".user-menu__trigger").first.click()
             page.locator("[role=menu]").first.wait_for(timeout=3000)
