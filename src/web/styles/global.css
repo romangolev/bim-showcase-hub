@@ -98,7 +98,9 @@ a:hover {
   }
 
   .tree-row[data-selected="true"],
-  .menu__item[aria-checked="true"] {
+  .menu__item[aria-checked="true"],
+  .btn[aria-pressed="true"],
+  .bsh-button[aria-pressed="true"] {
     forced-color-adjust: none;
     background: Highlight;
     color: HighlightText;
