@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { notifications } from '../tasks/notifications.js';
+import { tasks } from '../tasks/taskStore.js';
 import { installMemoryStorage, stubLayout } from '../test/mockApi.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
 import { buildMockElements } from '../viewer/mockModel.js';
@@ -125,5 +126,43 @@ describe('SearchResultsPanel', () => {
     expect(
       await screen.findByText('Showing the first 5,000 results'),
     ).toBeInTheDocument();
+  });
+
+  it('stops showing the search as running when its task is cancelled', async () => {
+    const adapter = {
+      searchElements: vi.fn(
+        (_text: string, options?: { signal?: AbortSignal }) =>
+          new Promise((resolve) =>
+            options?.signal?.addEventListener('abort', () =>
+              resolve({ items: [], failedModels: [] }),
+            ),
+          ),
+      ),
+      getModels: () => [
+        {
+          id: 'm',
+          urn: 'm',
+          name: 'Tower.rvt',
+          visible: true,
+          status: 'ready',
+        },
+      ],
+      getModelSelection: () => [],
+      onModelsChange: () => () => undefined,
+    } as unknown as ViewerAdapter;
+    render(<SearchResultsPanel adapter={adapter} />);
+    fireEvent.change(
+      screen.getByRole('searchbox', { name: 'Search elements' }),
+      { target: { value: 'door' } },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    expect(await screen.findByText('Searching elements')).toBeInTheDocument();
+    const running = tasks
+      .getSnapshot()
+      .tasks.find((task) => task.state === 'running');
+    tasks.cancel(running?.id ?? -1);
+    await waitFor(() =>
+      expect(screen.queryByText('Searching elements')).not.toBeInTheDocument(),
+    );
   });
 });

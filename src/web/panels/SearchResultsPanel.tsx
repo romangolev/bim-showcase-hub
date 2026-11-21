@@ -75,6 +75,7 @@ export function SearchResultsPanel({ adapter }: SearchResultsPanelProps) {
       const result = await runElementSearch(resolved, spec, controller.signal);
       if (controller.signal.aborted) {
         task.finish('Cancelled');
+        if (controllerRef.current === controller) setStatus('idle');
         return;
       }
       setOutcome(result);
@@ -84,6 +85,7 @@ export function SearchResultsPanel({ adapter }: SearchResultsPanelProps) {
     } catch (err: unknown) {
       if (controller.signal.aborted) {
         task.finish('Cancelled');
+        if (controllerRef.current === controller) setStatus('idle');
         return;
       }
       const message = err instanceof Error ? err.message : 'Search failed';
