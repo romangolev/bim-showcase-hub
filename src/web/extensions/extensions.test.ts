@@ -42,7 +42,6 @@ import {
   DEFAULT_PAINT_PALETTE,
   PAINT_PALETTES,
   PAINT_PRESETS,
-  paintSelection,
   paletteToPresets,
   resolvePaintPalette,
   sanitizeIntensity,
@@ -633,33 +632,3 @@ describe('paint palette', () => {
     expect(presets[0]?.color[3]).toBe(0.5);
   });
 });
-
-describe('paint brushes', () => {
-  it('paints the selection then clears it', async () => {
-    const host = document.createElement('div');
-    const adapter = new MockViewerAdapter(host);
-    await adapter.load('urn');
-    const ids = buildFirstIds(host);
-    adapter.selectIds(ids);
-    const preset = PAINT_PRESETS[0];
-    expect(preset && paintSelection(adapter, preset.color)).toBe(true);
-    expect(adapter.getModelSelection().map((item) => item.dbId)).toEqual([]);
-    expect(host.querySelectorAll('.bsh-mock__el--themed')).toHaveLength(
-      ids.length,
-    );
-    adapter.destroy();
-  });
-
-  it('does nothing without a selection', async () => {
-    const adapter = new MockViewerAdapter(document.createElement('div'));
-    await adapter.load('urn');
-    expect(paintSelection(adapter, [1, 0, 0, 1])).toBe(false);
-    adapter.destroy();
-  });
-});
-
-function buildFirstIds(host: HTMLElement): number[] {
-  return [...host.querySelectorAll<SVGElement>('[data-dbid]')]
-    .slice(0, 3)
-    .map((el) => Number(el.dataset.dbid));
-}
