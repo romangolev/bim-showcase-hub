@@ -100,13 +100,14 @@ export function sortChildren(nodes: TreeNode[], sort: TreeSort): TreeNode[] {
   );
   if (!contents) return nodes;
   const rank = (node: TreeNode) => (node.kind === 'folder' ? 0 : 1);
+  const compare = collator();
   return [...nodes].sort((a, b) => {
     if (rank(a) !== rank(b)) return rank(a) - rank(b);
     if (sort === 'modified') {
       const diff = time(b) - time(a);
       if (diff !== 0 && !Number.isNaN(diff)) return diff;
     }
-    return collator().compare(a.name, b.name);
+    return compare.compare(a.name, b.name);
   });
 }
 
