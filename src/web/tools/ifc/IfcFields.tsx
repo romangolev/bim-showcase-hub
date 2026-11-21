@@ -153,7 +153,7 @@ export function IfcFields() {
   return (
     <section className="settings__section" aria-labelledby="settings-ifc">
       <h3 id="settings-ifc" className="settings__heading">
-        IFC export
+        IFC file
       </h3>
       {TEXT_FIELDS.map(({ key, label }) => (
         <TextField
