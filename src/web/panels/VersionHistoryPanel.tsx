@@ -87,6 +87,9 @@ export function VersionHistoryPanel({ openers }: VersionHistoryPanelProps) {
   const pickedRows = rows.filter(
     (version) => picked.includes(version.id) && openable(version),
   );
+  const pickedShown = rows.filter((version) =>
+    picked.includes(version.id),
+  ).length;
   const compareReady = pickedRows.length === 2;
   const compareReason = compareReady
     ? undefined
@@ -95,8 +98,10 @@ export function VersionHistoryPanel({ openers }: VersionHistoryPanelProps) {
   const togglePick = (id: string) => {
     setPicked((current) => {
       if (current.includes(id)) return current.filter((entry) => entry !== id);
-      if (current.length >= 2) return current;
-      return [...current, id];
+      const shown = new Set(rows.map((version) => version.id));
+      const live = current.filter((entry) => shown.has(entry));
+      if (live.length >= 2) return current;
+      return [...live, id];
     });
   };
 
@@ -227,7 +232,7 @@ export function VersionHistoryPanel({ openers }: VersionHistoryPanelProps) {
                         type="checkbox"
                         aria-label={`Pick ${label}`}
                         checked={isPicked}
-                        disabled={!isPicked && picked.length >= 2}
+                        disabled={!isPicked && pickedShown >= 2}
                         onChange={() => togglePick(version.id)}
                       />
                     </td>

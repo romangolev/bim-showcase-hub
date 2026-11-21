@@ -156,6 +156,35 @@ describe('VersionHistoryPanel', () => {
     expect(screen.getByText('v1: 2025-01-01 10:00 by Sam')).toBeInTheDocument();
   });
 
+  it('lets a third version be picked after the picked ones are filtered out', async () => {
+    installMemoryStorage();
+    VERSION_TARGET.write(target);
+    VERSION_HISTORY_VIEW.write({ filter: '', viewableOnly: false });
+    mockFetch({
+      '/api/projects/p1/items/i1/versions': [
+        ...versions,
+        {
+          ...viewableVersion,
+          id: 'v3',
+          name: 'v3: 2025-01-03 10:00 by Kim',
+          versionNumber: 3,
+          urn: 'u3',
+          modifiedAt: '2025-01-03T10:00:00.000Z',
+          modifiedBy: 'Kim',
+        },
+      ],
+    });
+    renderPanel();
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Pick v1' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Pick v2' }));
+    fireEvent.change(
+      screen.getByRole('searchbox', { name: 'Filter versions' }),
+      { target: { value: 'kim' } },
+    );
+    const third = screen.getByRole('checkbox', { name: 'Pick v3' });
+    expect(third).toBeEnabled();
+  });
+
   it('says what to do when no file is chosen', () => {
     VERSION_TARGET.write(null);
     renderPanel();
