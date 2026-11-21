@@ -913,8 +913,8 @@
 }
 
 .bsh-gallery__preview svg {
-  fill: var(--color-iris);
-  stroke: var(--color-iris);
+  fill: var(--color-arc-blue);
+  stroke: var(--color-arc-blue);
 }
 
 .bsh-gallery__preview svg rect {
@@ -1588,7 +1588,7 @@ button.bsh-kpi:focus-visible {
 }
 
 .bsh-versions__latest {
-  border-color: var(--color-iris);
+  border-color: var(--color-arc-blue);
   color: var(--color-snow);
 }
 
