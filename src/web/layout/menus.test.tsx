@@ -216,6 +216,9 @@ describe('pane menus', () => {
       'Collapse',
       'Close',
       'Remember view state',
+      'Pin tab',
+      'Close other tabs',
+      'Reopen closed tab',
       'Lock layout',
       'Reset layout',
     ]);
@@ -235,6 +238,9 @@ describe('pane menus', () => {
       'Maximize',
       'Unlock layout',
       'Remember view state',
+      'Pin tab',
+      'Close other tabs',
+      'Reopen closed tab',
     ]);
     expect(screen.queryByRole('button', { name: /^Close / })).toBeNull();
   });

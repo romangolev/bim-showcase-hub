@@ -74,6 +74,7 @@ All browser storage goes through `src/web/storage.ts`. `BSH_KEYS` lists the fixe
 | `bsh.layout.v2` | personal | Dock arrangement (see [layout.md](layout.md#persistence)) |
 | `bsh.layout.instances.v1` | personal | Added pane instances |
 | `bsh.models.open` | personal | Open model tabs (`sessionStorage`): the URN and context of each tab, the active one, and per-tab offsets, spread, view state, `remember: false` and `pinned: true` |
+| `bsh.models.session.v1` | personal | Tabs from the last visit (`localStorage`) without view state. Read at start when "Reopen my tabs after the browser restarts" is on; removed when the switch turns off or on sign-out |
 | `bsh.models.owner`, `bsh.models.recent`, `bsh.models.hidden` | personal | Owner id, recent models, hidden models |
 | `bsh.models.tints.v1` | personal | Per-model tint colour and strength, the global tint palette, a palette per model set, and ghost others |
 | `bsh.docs.pinned` | personal | Pinned model URNs |
@@ -86,7 +87,7 @@ All browser storage goes through `src/web/storage.ts`. `BSH_KEYS` lists the fixe
 | `bsh.commands.recent.v1` | personal | Recent palette commands |
 | `bsh.paint.<hash>` | personal | One paint record per model version: an ordered, bounded list of paint actions and the undo cursor. The hash covers the URN and the model version |
 | `bsh.hint.hubs.dismissed.v1` | personal | No-hubs notice dismissed |
-| `bsh-settings-v1` | preference | App settings, version 4: theme (`system`, `light`, `dark`), density, text size (100, 112, 125), reduced motion, language (`en`, `ru`), units (`metric`, `imperial`), session warning, recents length |
+| `bsh-settings-v1` | preference | App settings, version 4: theme (`system`, `light`, `dark`), density, text size (100, 112, 125), reduced motion, reopen last session, language (`en`, `ru`), units (`metric`, `imperial`), session warning, recents length |
 | `bsh.layout.locked` | preference | Layout lock |
 | `bsh.tree.view` | preference | Tree sort and metadata columns |
 | `bsh.snapshot.v1` | preference | Snapshot and Present options |

@@ -58,6 +58,7 @@ describe('storage keys', () => {
         recentCommands: 'bsh.commands.recent.v1',
         layoutInstances: 'bsh.layout.instances.v1',
         workspaces: 'bsh.workspaces.v1',
+        lastSession: 'bsh.models.session.v1',
       },
       preference: {
         settings: 'bsh-settings-v1',

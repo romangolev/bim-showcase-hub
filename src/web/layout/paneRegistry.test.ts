@@ -231,6 +231,10 @@ function menuLayout(over: Partial<LayoutApi> = {}): LayoutApi {
     setPresenting: vi.fn(),
     setLocked: vi.fn(),
     resetLayout: vi.fn(),
+    activeModel: null,
+    closeOthers: vi.fn(),
+    reopenClosed: vi.fn(() => null),
+    canReopen: () => false,
     workspaces: {
       canRevert: false,
       openDialog: vi.fn(),

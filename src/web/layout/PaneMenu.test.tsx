@@ -25,6 +25,10 @@ const layout = {
   movePane: vi.fn(),
   startResize: vi.fn(),
   focusPane: vi.fn(),
+  activeModel: null,
+  closeOthers: vi.fn(),
+  reopenClosed: vi.fn(() => null),
+  canReopen: () => false,
   workspaces: {
     canRevert: false,
     openDialog: vi.fn(),

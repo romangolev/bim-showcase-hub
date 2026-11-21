@@ -9,6 +9,7 @@ export const BSH_KEYS = {
   personal: {
     layout: 'bsh.layout.v2',
     openModels: 'bsh.models.open',
+    lastSession: 'bsh.models.session.v1',
     modelOwner: 'bsh.models.owner',
     recentModels: 'bsh.models.recent',
     pinned: 'bsh.docs.pinned',

@@ -256,4 +256,25 @@ describe('SettingsBody', () => {
     );
     expect(new Set(ids).size).toBe(ids.length);
   });
+
+  it('stops restoring the last session and drops the stored record', () => {
+    window.localStorage.setItem(
+      'bsh.models.session.v1',
+      JSON.stringify({
+        models: [{ urn: 'a', context: {} }],
+        active: 'a',
+      }),
+    );
+    renderBody();
+    const restore = screen.getByLabelText(
+      'Reopen my tabs after the browser restarts',
+    );
+    expect(restore).toBeChecked();
+    fireEvent.click(restore);
+    expect(restore).not.toBeChecked();
+    expect(window.localStorage.getItem('bsh.models.session.v1')).toBeNull();
+    expect(
+      JSON.parse(window.localStorage.getItem('bsh-settings-v1') ?? '{}'),
+    ).toMatchObject({ restoreSession: false });
+  });
 });

@@ -24,7 +24,9 @@ import {
 import { hasModelContext, recallModel } from './modelStore.js';
 
 export const OPEN_MODELS_KEY = BSH_KEYS.personal.openModels;
+export const LAST_SESSION_KEY = BSH_KEYS.personal.lastSession;
 export const MODEL_OWNER_KEY = BSH_KEYS.personal.modelOwner;
+export const MAX_CLOSED_TABS = 10;
 
 export type OpenModelsPersist = Pick<
   PersistedRecord<OpenModelsState>,
@@ -115,6 +117,7 @@ function dropMember(
     spread: model.spread ?? null,
     state: model.state ?? null,
     remember: model.remember !== false,
+    pinned: model.pinned === true,
   });
 }
 
@@ -169,10 +172,17 @@ function fitLive(
   limit: number,
 ): string[] {
   const kept = [...live];
+  const pinned = new Set(
+    state.models.filter((model) => model.pinned).map((model) => model.urn),
+  );
   let total = kept.reduce((sum, id) => sum + liveWeight(state, id), 0);
   while (total > limit) {
     const victim = kept.findIndex(
-      (id) => id !== keep && id !== state.active && !state.visible.includes(id),
+      (id) =>
+        id !== keep &&
+        id !== state.active &&
+        !state.visible.includes(id) &&
+        !pinned.has(id),
     );
     if (victim === -1) break;
     total -= liveWeight(state, kept[victim] as string);
@@ -393,6 +403,31 @@ export function keepOnlyModel(
   return { models: [model], active: urn, live: [], visible: [] };
 }
 
+export function closeOtherModels(
+  state: OpenModelsState,
+  urn: string,
+  limit = MAX_LOADED_MEMBERS,
+): OpenModelsState {
+  if (!isOpen(state, urn)) return state;
+  const models = state.models.filter(
+    (model) => model.urn === urn || model.pinned,
+  );
+  if (models.length === state.models.length) {
+    return activateModel(state, urn, limit);
+  }
+  const kept = new Set(models.map((model) => model.urn));
+  return activateModel(
+    {
+      models,
+      active: urn,
+      live: state.live.filter((id) => kept.has(id)),
+      visible: state.visible.filter((id) => kept.has(id)),
+    },
+    urn,
+    limit,
+  );
+}
+
 export function serializeOpenModels(state: OpenModelsState): string {
   return JSON.stringify({ models: state.models, active: state.active });
 }
@@ -470,7 +505,10 @@ export interface OpenModelsStore {
   show: (urn: string) => void;
   setVisible: (urns: readonly string[]) => void;
   close: (urn: string) => void;
+  closeOthers: (urn: string) => void;
   keepOnly: (urn: string) => void;
+  reopenClosed: () => string | null;
+  canReopen: () => boolean;
   addTo: (target: string, urn: string) => void;
   removeFrom: (target: string, urn: string) => void;
   setView: (urn: string, view: ModelView) => void;
@@ -485,18 +523,38 @@ export const OPEN_MODELS = defineRecord<OpenModelsState>({
   codec: { encode: serializeOpenModels, decode: RAW_STRING.decode },
 });
 
+export const LAST_SESSION = defineRecord<OpenModelsState>({
+  key: LAST_SESSION_KEY,
+  initial: EMPTY_OPEN_MODELS,
+  sanitize: (raw) => parseOpenModels(raw as string),
+  codec: { encode: serializeOpenModels, decode: RAW_STRING.decode },
+});
+
 export function createOpenModelsStore(
   persist: OpenModelsPersist | null = OPEN_MODELS,
   limit = MAX_LOADED_MEMBERS,
   contextFor: (urn: string) => ModelContext = (urn) => recallModel(urn) ?? {},
+  fallback: OpenModelsPersist | null = null,
 ): OpenModelsStore {
   let state = persist?.read() ?? EMPTY_OPEN_MODELS;
+  if (state.models.length === 0) {
+    const last = fallback?.read();
+    if (last && last.models.length > 0) {
+      state = last;
+      persist?.write(state);
+    }
+  }
+  let closed: OpenModel[] = [];
   const listeners = new Set<() => void>();
   const save = (previous: OpenModelsState) => {
     if (previous.models === state.models && previous.active === state.active) {
       return;
     }
     persist?.write(state);
+    fallback?.write({
+      ...state,
+      models: state.models.map(({ state: _view, ...rest }) => rest),
+    });
   };
   const apply = (next: OpenModelsState) => {
     if (next === state) return;
@@ -504,6 +562,21 @@ export function createOpenModelsStore(
     state = next;
     save(previous);
     for (const listener of [...listeners]) listener();
+  };
+  const remember = (previous: OpenModelsState) => {
+    const open = new Set(state.models.map((model) => model.urn));
+    const removed = previous.models.filter((model) => !open.has(model.urn));
+    if (removed.length === 0) return;
+    const urns = new Set(removed.map((model) => model.urn));
+    closed = [
+      ...removed,
+      ...closed.filter((model) => !urns.has(model.urn)),
+    ].slice(0, MAX_CLOSED_TABS);
+  };
+  const applyRemoving = (next: OpenModelsState) => {
+    const previous = state;
+    apply(next);
+    remember(previous);
   };
   return {
     getState: () => state,
@@ -517,14 +590,36 @@ export function createOpenModelsStore(
     activate: (urn) => apply(activateModel(state, urn, limit)),
     show: (urn) => apply(touchLive(state, urn, limit)),
     setVisible: (urns) => apply(setVisible(state, urns)),
-    close: (urn) => apply(closeModel(state, urn, limit)),
-    keepOnly: (urn) => apply(keepOnlyModel(state, urn)),
+    close: (urn) => applyRemoving(closeModel(state, urn, limit)),
+    closeOthers: (urn) => applyRemoving(closeOtherModels(state, urn, limit)),
+    keepOnly: (urn) => applyRemoving(keepOnlyModel(state, urn)),
+    reopenClosed: () => {
+      while (closed.length > 0) {
+        const entry = closed.shift() as OpenModel;
+        if (state.models.some((model) => model.urn === entry.urn)) continue;
+        const reopened = openModel(state, entry.urn, entry.context, limit);
+        apply(
+          setModelView(reopened, entry.urn, {
+            offsets: entry.offsets ?? null,
+            spread: entry.spread ?? null,
+            state: entry.state ?? null,
+            remember: entry.remember !== false,
+            pinned: entry.pinned === true,
+          }),
+        );
+        return entry.urn;
+      }
+      return null;
+    },
+    canReopen: () => closed.length > 0,
     addTo: (target, urn) => apply(addToModel(state, target, urn, limit)),
     removeFrom: (target, urn) =>
       apply(removeFromModel(state, target, urn, contextFor, limit)),
     setView: (urn, view) => apply(setModelView(state, urn, view)),
     clear: () => {
       persist?.remove();
+      fallback?.remove();
+      closed = [];
       if (state.models.length === 0) return;
       state = EMPTY_OPEN_MODELS;
       for (const listener of [...listeners]) listener();

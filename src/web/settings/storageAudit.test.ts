@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { forgetPersonal, setStorageAdapter } from '../storage.js';
+import {
+  forgetPersonal,
+  getStorageAdapter,
+  setStorageAdapter,
+} from '../storage.js';
 import { memoryAdapter, type StorageAdapter } from '../storageAdapter.js';
 import {
   clearLocalData,
@@ -77,5 +81,22 @@ describe('storage report', () => {
     expect(formatStorageBytes(900)).toBe('900 B');
     expect(formatStorageBytes(2400)).toBe('2.4 KB');
     expect(formatStorageBytes(1_500_000)).toBe('1.5 MB');
+  });
+
+  it('reports the last session record as a personal models key', () => {
+    getStorageAdapter().set(
+      'local',
+      'bsh.models.session.v1',
+      '{"models":[],"active":null}',
+    );
+    const report = storageReport();
+    expect(report.personal.keys).toBe(4);
+    expect(report.families.find((family) => family.id === 'models')?.keys).toBe(
+      2,
+    );
+    forgetPersonal();
+    expect(
+      getStorageAdapter().get('local', 'bsh.models.session.v1'),
+    ).toBeNull();
   });
 });

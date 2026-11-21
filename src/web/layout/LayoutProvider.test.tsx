@@ -11,6 +11,7 @@ import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../App.js';
 import { rememberModel } from '../api/modelStore.js';
+import { OPEN_MODELS_KEY, type OpenModelsState } from '../api/openModels.js';
 import { createAppRouter } from '../routes/router.js';
 import {
   createTestClient,
@@ -33,6 +34,10 @@ interface LayoutHandle {
   openPanes: () => PaneId[];
   location: (id: string) => string | null;
   read: () => LayoutModel;
+  models: () => OpenModelsState;
+  closeOthers: () => void;
+  reopenClosed: () => string | null;
+  canReopen: () => boolean;
 }
 
 class NoopResizeObserver {
@@ -333,6 +338,63 @@ describe('dock layout', () => {
         'true',
       ),
     );
+  });
+
+  it('closes the other tabs and reopens the last closed one', async () => {
+    sessionStorage.setItem(
+      OPEN_MODELS_KEY,
+      JSON.stringify({
+        models: [
+          { urn: 'abc123', context: { file: 'Tower.rvt' } },
+          { urn: 'def456', context: { file: 'House.rvt' } },
+        ],
+        active: 'abc123',
+      }),
+    );
+    renderPath();
+    await dockReady();
+    expect(
+      handle()
+        .models()
+        .models.map((model) => model.urn),
+    ).toEqual(['abc123', 'def456']);
+    act(() => handle().closeOthers());
+    expect(
+      handle()
+        .models()
+        .models.map((model) => model.urn),
+    ).toEqual(['abc123']);
+    expect(handle().canReopen()).toBe(true);
+    let reopened: string | null = null;
+    act(() => {
+      reopened = handle().reopenClosed();
+    });
+    expect(reopened).toBe('def456');
+    await waitFor(() =>
+      expect(
+        handle()
+          .models()
+          .models.map((model) => model.urn),
+      ).toEqual(['abc123', 'def456']),
+    );
+    expect(handle().canReopen()).toBe(false);
+  });
+
+  it('does not reopen the last session when the setting is off', async () => {
+    window.localStorage.setItem(
+      'bsh.models.session.v1',
+      JSON.stringify({
+        models: [{ urn: 'abc123', context: { file: 'Tower.rvt' } }],
+        active: 'abc123',
+      }),
+    );
+    window.localStorage.setItem(
+      'bsh-settings-v1',
+      JSON.stringify({ restoreSession: false }),
+    );
+    renderPath('/');
+    await dockReady();
+    expect(handle().models().models).toEqual([]);
   });
 
   it('restores a floating pane after a reload and never pops out', async () => {

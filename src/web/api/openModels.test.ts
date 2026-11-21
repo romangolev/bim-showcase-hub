@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MAX_LOADED_MEMBERS } from '../../shared/combined.js';
-import { forgetPersonal } from '../storage.js';
+import { forgetPersonal, isPersonalKey } from '../storage.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import type { ViewerState } from '../viewer/ViewerAdapter.js';
 import { MODEL_STORE_KEY } from './modelStore.js';
@@ -9,12 +9,16 @@ import {
   addToModel,
   claimModels,
   closeModel,
+  closeOtherModels,
   createOpenModelsStore,
   EMPTY_OPEN_MODELS,
   keepOnlyModel,
+  LAST_SESSION_KEY,
   liveWeight,
+  MAX_CLOSED_TABS,
   MODEL_OWNER_KEY,
   OPEN_MODELS_KEY,
+  type OpenModelsPersist,
   type OpenModelsState,
   openModel,
   ownerKey,
@@ -25,6 +29,25 @@ import {
   setVisible,
   touchLive,
 } from './openModels.js';
+
+function memoryPersist(value: OpenModelsState): OpenModelsPersist & {
+  value: OpenModelsState;
+  removed: boolean;
+} {
+  const memory = {
+    value,
+    removed: false,
+    read: () => memory.value,
+    write: (next: OpenModelsState) => {
+      memory.value = next;
+      return true;
+    },
+    remove: () => {
+      memory.removed = true;
+    },
+  };
+  return memory;
+}
 
 function openAll(...urns: string[]): OpenModelsState {
   return urns.reduce(
@@ -421,5 +444,152 @@ describe('tab view state', () => {
     store.open('u1');
     store.setView('u1', { state });
     expect(memory.value.models[0]?.state).toEqual(state);
+  });
+});
+
+describe('pinned tabs', () => {
+  it('never pauses a pinned tab for the loaded budget', () => {
+    let state = openModel(EMPTY_OPEN_MODELS, 'a', {}, 2);
+    state = setModelView(state, 'a', { pinned: true });
+    state = openModel(state, 'b', {}, 2);
+    state = openModel(state, 'c', {}, 2);
+    expect(state.live).toContain('a');
+    expect(state.live).toContain('c');
+    expect(state.live).not.toContain('b');
+  });
+
+  it('keeps the pin when a member is dropped from a combined tab', () => {
+    let state = openModel(EMPTY_OPEN_MODELS, 'u1', { with: 'u2' });
+    state = setModelView(state, 'u1', { pinned: true });
+    const single = removeFromModel(state, 'u1', 'u2');
+    expect(single.models[0]).toMatchObject({ urn: 'u1', pinned: true });
+    expect(single.models[0]).not.toHaveProperty('pinned', false);
+  });
+});
+
+describe('close others and reopen', () => {
+  it('closes every unpinned tab except the chosen one', () => {
+    let state = ['a', 'b', 'c'].reduce(
+      (next, urn) => openModel(next, urn),
+      EMPTY_OPEN_MODELS,
+    );
+    state = setModelView(state, 'a', { pinned: true });
+    const next = closeOtherModels(state, 'c');
+    expect(next.models.map((model) => model.urn)).toEqual(['a', 'c']);
+    expect(next.active).toBe('c');
+  });
+
+  it('leaves the state alone when every other tab is pinned', () => {
+    let state = openModel(EMPTY_OPEN_MODELS, 'a');
+    state = openModel(state, 'b');
+    state = setModelView(state, 'a', { pinned: true });
+    expect(closeOtherModels(state, 'b')).toBe(state);
+  });
+
+  it('reopens closed tabs newest first with their context and state', () => {
+    const store = createOpenModelsStore(null);
+    store.open('a', { file: 'A.rvt' });
+    store.open('b');
+    store.setView('a', {
+      state: { version: 1, camera: null, cutplanes: [], models: {} },
+    });
+    store.close('a');
+    store.close('b');
+    expect(store.reopenClosed()).toBe('b');
+    expect(store.reopenClosed()).toBe('a');
+    expect(
+      store.getState().models.find((model) => model.urn === 'a')?.context.file,
+    ).toBe('A.rvt');
+    expect(
+      store.getState().models.find((model) => model.urn === 'a')?.state,
+    ).toBeDefined();
+    expect(store.getState().active).toBe('a');
+    expect(store.canReopen()).toBe(false);
+  });
+
+  it('closes the other tabs through the store and keeps the pinned ones', () => {
+    const store = createOpenModelsStore(null);
+    store.open('a');
+    store.open('b');
+    store.open('c');
+    store.setView('a', { pinned: true });
+    store.closeOthers('c');
+    expect(store.getState().models.map((model) => model.urn)).toEqual([
+      'a',
+      'c',
+    ]);
+    expect(store.reopenClosed()).toBe('b');
+  });
+
+  it('remembers the tabs that Keep only closes', () => {
+    const store = createOpenModelsStore(null);
+    store.open('a');
+    store.open('b');
+    store.keepOnly('a');
+    expect(store.canReopen()).toBe(true);
+    expect(store.reopenClosed()).toBe('b');
+  });
+
+  it('keeps at most ten closed tabs', () => {
+    const store = createOpenModelsStore(null);
+    for (let index = 0; index < MAX_CLOSED_TABS + 2; index += 1) {
+      store.open(`t${index}`);
+      store.close(`t${index}`);
+    }
+    let reopened = 0;
+    while (store.reopenClosed()) reopened += 1;
+    expect(reopened).toBe(MAX_CLOSED_TABS);
+  });
+
+  it('empties the closed stack when the store is cleared', () => {
+    const store = createOpenModelsStore(null);
+    store.open('a');
+    store.open('b');
+    store.close('b');
+    store.clear();
+    expect(store.canReopen()).toBe(false);
+    expect(store.reopenClosed()).toBeNull();
+  });
+});
+
+describe('last session', () => {
+  it('seeds from the last session when the tab session is empty', () => {
+    const session = memoryPersist(EMPTY_OPEN_MODELS);
+    const last = memoryPersist(
+      openModel(EMPTY_OPEN_MODELS, 'u1', { file: 'A.rvt' }),
+    );
+    const store = createOpenModelsStore(session, 8, () => ({}), last);
+    expect(store.getState().models.map((model) => model.urn)).toEqual(['u1']);
+    expect(session.value.models.map((model) => model.urn)).toEqual(['u1']);
+  });
+
+  it('does not seed over a tab session that already has tabs', () => {
+    const session = memoryPersist(openModel(EMPTY_OPEN_MODELS, 'open'));
+    const last = memoryPersist(openModel(EMPTY_OPEN_MODELS, 'last'));
+    const store = createOpenModelsStore(session, 8, () => ({}), last);
+    expect(store.getState().models.map((model) => model.urn)).toEqual(['open']);
+  });
+
+  it('writes the last session without view state and clears it with the store', () => {
+    const last = memoryPersist(EMPTY_OPEN_MODELS);
+    const store = createOpenModelsStore(
+      memoryPersist(EMPTY_OPEN_MODELS),
+      8,
+      () => ({}),
+      last,
+    );
+    store.open('u1');
+    store.setView('u1', {
+      state: { version: 1, camera: null, cutplanes: [], models: {} },
+    });
+    expect(last.value.models[0]?.state).toBeUndefined();
+    expect(last.value.models[0]?.urn).toBe('u1');
+    store.clear();
+    expect(last.removed).toBe(true);
+  });
+
+  it('treats the last session key as personal', () => {
+    expect(isPersonalKey(LAST_SESSION_KEY)).toBe(true);
+    expect(LAST_SESSION_KEY).toBe('bsh.models.session.v1');
   });
 });
