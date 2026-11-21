@@ -171,7 +171,7 @@
   padding: var(--space-2) var(--gutter-page);
   border-bottom: var(--border-hairline);
   background: var(--color-graphite);
-  font-size: 0.875rem;
+  font-size: var(--text-14);
 }
 
 .session-banner__message {
@@ -1100,7 +1100,7 @@ html[data-presenting] .stack .stack__pane--viewer .model-viewer {
   border-radius: var(--radius-badge);
   background: var(--color-arc-blue);
   color: var(--color-snow);
-  font-size: 0.6875rem;
+  font-size: var(--text-12);
   line-height: 1rem;
   text-align: center;
 }

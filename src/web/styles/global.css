@@ -27,7 +27,7 @@ body,
 
 ::-webkit-scrollbar-thumb {
   border: 3px solid transparent;
-  border-radius: 5px;
+  border-radius: var(--radius-badge);
   background: var(--color-smoke);
   background-clip: content-box;
 }

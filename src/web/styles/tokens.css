@@ -128,6 +128,7 @@
   --tree-row-height-two-line: calc(2.875rem * var(--density));
 
   --text-8: 0.5rem;
+  --text-12: 0.75rem;
   --text-13: 0.8125rem;
   --text-14: 0.875rem;
   --text-16: 1rem;
@@ -175,6 +176,7 @@
   --radius-button: 8px;
   --radius-card: 8px;
   --radius-container: 12px;
+  --radius-pill: 999px;
 
   --border-hairline: 0.5px solid var(--color-hairline);
   --border-field: 0.5px solid var(--color-field-border);

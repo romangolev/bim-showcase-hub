@@ -245,14 +245,14 @@
 
 .preview__bar-track {
   height: 8px;
-  border-radius: 2px;
+  border-radius: var(--radius-badge);
   background: var(--color-charcoal);
 }
 
 .preview__bar-fill {
   display: block;
   height: 100%;
-  border-radius: 2px;
+  border-radius: var(--radius-badge);
   background: var(--color-signal-blue);
 }
 

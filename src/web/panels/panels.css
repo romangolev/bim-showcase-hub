@@ -353,7 +353,7 @@
   flex: none;
   width: 8px;
   height: 8px;
-  border-radius: 2px;
+  border-radius: var(--radius-badge);
 }
 
 .bsh-legend__label {
@@ -590,7 +590,7 @@
 .bsh-badge {
   padding: 2px var(--space-2);
   border: var(--border-hairline);
-  border-radius: var(--radius-pill, 999px);
+  border-radius: var(--radius-pill);
   color: var(--color-fog);
   font-size: var(--text-13);
 }
@@ -600,7 +600,7 @@
   min-height: var(--hit-target);
   padding: var(--space-1) var(--space-2);
   border: var(--border-field);
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-badge);
   background: transparent;
   color: var(--color-chalk);
   font: inherit;
@@ -784,7 +784,7 @@
   height: 14px;
   padding: 0;
   border: var(--border-hairline);
-  border-radius: 3px;
+  border-radius: var(--radius-badge);
   background: transparent;
   cursor: pointer;
 }
@@ -833,7 +833,7 @@
   height: 20px;
   padding: 0;
   border: var(--border-hairline);
-  border-radius: 4px;
+  border-radius: var(--radius-badge);
   cursor: pointer;
 }
 
@@ -942,20 +942,20 @@
   flex-direction: column;
   gap: var(--space-1);
   padding: var(--space-2);
-  border: 1px solid var(--color-ghost-fill-hover);
-  border-radius: 8px;
+  border: var(--border-hairline);
+  border-radius: var(--radius-card);
 }
 
 .bsh-gallery__name {
   margin: 0;
-  font-size: 1rem;
+  font-size: var(--text-16);
 }
 
 .bsh-gallery__tag,
 .bsh-gallery__note {
   margin: 0;
-  font-size: 0.8125rem;
-  opacity: 0.75;
+  color: var(--color-ash);
+  font-size: var(--text-13);
 }
 
 .bsh-gallery__preview {
@@ -965,7 +965,7 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  font-size: 0.75rem;
+  font-size: var(--text-12);
 }
 
 .bsh-gallery__preview li {
@@ -1151,7 +1151,7 @@
 
 .bsh-table-block {
   border: 0.5px solid var(--color-hairline);
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-badge);
   background: var(--color-graphite);
 }
 
@@ -1242,7 +1242,7 @@
   inset-block: 3px;
   inset-inline-start: 0;
   z-index: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--color-plan-fill);
   pointer-events: none;
 }
@@ -1411,7 +1411,7 @@
   margin: 0;
   color: var(--color-ash);
   font-size: var(--text-13);
-  font-weight: 500;
+  font-weight: var(--weight-label);
 }
 
 .bsh-kpis__list {
@@ -1592,7 +1592,7 @@ button.bsh-kpi:focus-visible {
   padding: 0;
   background: transparent;
   border: var(--border-hairline);
-  border-radius: 2px;
+  border-radius: var(--radius-badge);
 }
 
 .bsh-color-legend__label {

@@ -614,7 +614,7 @@
 }
 
 .tree-row__match {
-  border-radius: 2px;
+  border-radius: var(--radius-badge);
   background: var(--color-match);
   color: var(--color-snow);
 }
