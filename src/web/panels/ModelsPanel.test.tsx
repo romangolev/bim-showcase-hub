@@ -321,6 +321,33 @@ describe('ModelsPanel', () => {
     });
   });
 
+  it('nudges in the anchor unit when the model has another unit', async () => {
+    const adapter = await load(['urn-a', 'urn-b']);
+    vi.spyOn(adapter, 'getPlacementInfo').mockReturnValue([
+      {
+        modelId: 'urn-a',
+        anchor: true,
+        unit: 'm',
+        sharedCoordinates: null,
+        distanceMeters: 0,
+      },
+      {
+        modelId: 'urn-b',
+        anchor: false,
+        unit: 'mm',
+        sharedCoordinates: null,
+        distanceMeters: 5,
+      },
+    ]);
+    const onOffsetsChange = vi.fn();
+    render(<ModelsPanel adapter={adapter} onOffsetsChange={onOffsetsChange} />);
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Alignment for urn-b' }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Move +X 1 m' }));
+    expect(onOffsetsChange).toHaveBeenCalledWith({ 'urn-b': [1, 0, 0] });
+  });
+
   it('snaps one model to the anchor and resets it', async () => {
     const adapter = await load(['urn-a', 'urn-b']);
     const onOffsetsChange = vi.fn();

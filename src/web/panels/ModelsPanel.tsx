@@ -112,6 +112,7 @@ export function ModelsPanel({
   const placementOf = new Map(placement.map((entry) => [entry.modelId, entry]));
   const anchorName =
     models.find((model) => placementOf.get(model.id)?.anchor)?.name ?? null;
+  const anchorUnit = placement.find((entry) => entry.anchor)?.unit ?? null;
   const showAlignment = Boolean(
     resolved && onOffsetsChange && ready.length > 1,
   );
@@ -346,6 +347,7 @@ export function ModelsPanel({
                       model={model}
                       info={placementOf.get(model.id) ?? null}
                       anchorName={anchorName}
+                      anchorUnit={anchorUnit}
                       offsets={offsets}
                       onOffsetsChange={onOffsetsChange}
                     />
