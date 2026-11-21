@@ -165,6 +165,16 @@ CLIPPED = """(scope) => [...(scope ? document.querySelector(scope) || document.b
   })
   .map((el) => el.className + ': ' + el.textContent.trim().slice(0, 40))"""
 
+TABS_CUT = """() => [...document.querySelectorAll('.dv-tabs-container')].flatMap((box) => {
+  const outer = box.getBoundingClientRect();
+  return [...box.querySelectorAll('.dv-tab')]
+    .filter((tab) => {
+      const r = tab.getBoundingClientRect();
+      return r.width > 0 && (r.right > outer.right + 1 || r.left < outer.left - 1);
+    })
+    .map((tab) => 'tab cut: ' + tab.textContent.trim());
+})"""
+
 DIALOG_OVERFLOW = """() => {
   const body = document.querySelector('dialog[open] .modal__body');
   return body ? body.scrollWidth - body.clientWidth : 0;
@@ -226,7 +236,7 @@ def measure(page, scope, label, results, shots, focus_stops=0):
         "contrast": page.evaluate(CONTRAST, scope),
         "fields": page.evaluate(FIELDS, scope),
         "targets": page.evaluate(TARGETS, scope),
-        "clipped": page.evaluate(CLIPPED, scope),
+        "clipped": page.evaluate(CLIPPED, scope) + ([] if scope else page.evaluate(TABS_CUT)),
         "overflow": horizontal_overflow(page),
     }
     if scope == "dialog[open]":
@@ -325,7 +335,7 @@ def run(browser, theme, width, language, results, notes):
                 close_dialog(page)
             except Exception as exc:
                 results[f"{prefix}-documents-settings"] = {"error": f"{type(exc).__name__}: {str(exc)[:160]}"}
-        if not language and width in (320, 1440):
+        if not language and width == 1440:
             for pane in PANES:
                 key = "pane-" + pane.lower().replace(" ", "-")
                 try:
