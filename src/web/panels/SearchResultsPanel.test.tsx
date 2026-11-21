@@ -93,6 +93,30 @@ describe('SearchResultsPanel', () => {
     );
   });
 
+  it('reports an error and keeps the dialog when saving fails', async () => {
+    notifications.clear();
+    notifications.clearHistory();
+    const adapter = await loaded();
+    await search(adapter);
+    vi.spyOn(adapter, 'getModels').mockImplementation(() => {
+      throw new Error('boom');
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save as selection set' }),
+    );
+    fireEvent.change(
+      screen.getByRole('textbox', { name: 'Selection set name' }),
+      { target: { value: 'Walls' } },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(notifications.getSnapshot().items.at(-1)?.tone).toBe('error'),
+    );
+    expect(
+      screen.getByRole('textbox', { name: 'Selection set name' }),
+    ).toBeInTheDocument();
+  });
+
   it('says when the results are capped', async () => {
     const items = Array.from({ length: 5005 }, (_, dbId) => ({
       modelId: 'm',

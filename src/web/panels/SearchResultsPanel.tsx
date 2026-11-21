@@ -8,6 +8,7 @@ import {
   SEARCH_SPEC,
   type SearchOutcome,
 } from '../extensions/elementSearch.js';
+import { formatCount } from '../i18n/format.js';
 import { useSettings } from '../settings/SettingsContext.js';
 import { usePersisted } from '../storage.js';
 import { notify } from '../tasks/notifications.js';
@@ -83,7 +84,7 @@ export function SearchResultsPanel({ adapter }: SearchResultsPanelProps) {
       setOutcome(result);
       setStale(false);
       setStatus('idle');
-      task.finish(`${result.items.length.toLocaleString('en-US')} results`);
+      task.finish(`${formatCount(result.items.length, language)} results`);
     } catch (err: unknown) {
       if (controller.signal.aborted) {
         task.finish('Cancelled');
@@ -99,7 +100,18 @@ export function SearchResultsPanel({ adapter }: SearchResultsPanelProps) {
 
   const save = async () => {
     if (!resolved || !outcome || !saveName?.trim()) return;
-    const stable = await stableKeysFor(resolved, outcome.items);
+    let stable: Map<string, string>;
+    try {
+      stable = await stableKeysFor(resolved, outcome.items);
+    } catch (err: unknown) {
+      notify(
+        err instanceof Error ? err.message : 'Could not save the results',
+        {
+          tone: 'error',
+        },
+      );
+      return;
+    }
     const result = saveSelectionSet(saveName, outcome.items, stable);
     if (result === 'ok') {
       notify(`Saved the selection set "${saveName.trim()}"`, {
@@ -126,7 +138,7 @@ export function SearchResultsPanel({ adapter }: SearchResultsPanelProps) {
       <header className="bsh-card__header bsh-search__header">
         <h2 className="bsh-card__title">Search elements</h2>
         <span className="bsh-muted">
-          {outcome ? `${items.length.toLocaleString('en-US')} results` : ''}
+          {outcome ? `${formatCount(items.length, language)} results` : ''}
         </span>
       </header>
       <form
@@ -269,7 +281,7 @@ export function SearchResultsPanel({ adapter }: SearchResultsPanelProps) {
       ) : null}
       {outcome?.truncated ? (
         <p className="bsh-search__notice">
-          Showing the first {MAX_SEARCH_RESULTS.toLocaleString('en-US')} results
+          Showing the first {formatCount(MAX_SEARCH_RESULTS, language)} results
         </p>
       ) : null}
       {failed.length > 0 ? (
