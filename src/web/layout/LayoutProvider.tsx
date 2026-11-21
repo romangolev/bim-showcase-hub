@@ -169,6 +169,10 @@ function focusTreeTarget() {
   });
 }
 
+const paneFallback = (
+  <StateBlock variant="loading" compact message="Loading" rows={3} />
+);
+
 function titlesFor(models: OpenModelsState, language: Language): PaneTitles {
   const titles: Record<PanelId, PaneTitle> = {};
   for (const { urn, context, spread } of models.models) {
@@ -726,10 +730,18 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
     const pane = paneById(parsed.kind);
     if (parsed.instance && pane.instances) {
       const Instance = pane.instances.component;
-      return <Instance instance={parsed.instance} />;
+      return (
+        <Suspense fallback={paneFallback}>
+          <Instance instance={parsed.instance} />
+        </Suspense>
+      );
     }
     const Component = pane.component;
-    return Component ? <Component /> : null;
+    return Component ? (
+      <Suspense fallback={paneFallback}>
+        <Component />
+      </Suspense>
+    ) : null;
   }, []);
 
   const helpExtra = useCallback(

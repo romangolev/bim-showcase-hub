@@ -1,9 +1,4 @@
-import {
-  useParams,
-  useRouter,
-  useRouterState,
-  useSearch,
-} from '@tanstack/react-router';
+import { useRouter, useSearch } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
 import { type ModelContext, withUrns } from '../api/modelContext.js';
 import {
@@ -36,6 +31,7 @@ import {
 import { MODEL_TINTS } from '../panels/modelTint.js';
 import { SUMMARY_SETTINGS_ID } from '../panels/SummarySettings.js';
 import { VIEWPOINTS_MODAL_ID } from '../panels/Viewpoints.js';
+import { useModelUrn } from '../routes/useModelUrn.js';
 import { usePersisted } from '../storage.js';
 import { notify } from '../tasks/notifications.js';
 import { exportFileName, exportStem } from '../tools/kernel/exportKit.js';
@@ -77,14 +73,6 @@ export function exportNameOf(
     '-properties',
     'xlsx',
   );
-}
-
-export function useModelUrn(): string | null {
-  const { urn } = useParams({ strict: false }) as { urn?: string };
-  const onModel = useRouterState({
-    select: (state) => state.location.pathname.startsWith('/model/'),
-  });
-  return onModel && urn ? urn : null;
 }
 
 export function pausedCopy(count: number): {

@@ -6,7 +6,7 @@ import { contextOf } from '../api/openModels.js';
 import { useModelContext } from '../api/useModelContext.js';
 import { useOpenModels, useOpenModelsStore } from '../api/useOpenModels.js';
 import { useDocumentTitle } from '../components/useDocumentTitle.js';
-import { useModelUrn } from '../layout/panes.js';
+import { useModelUrn } from './useModelUrn.js';
 
 export function ModelRouteSync() {
   const store = useOpenModelsStore();
