@@ -92,19 +92,3 @@ export function versionContext(
   if (tag) context.v = tag;
   return context;
 }
-
-export function targetFromContext(
-  context: ModelContext,
-  projectId: string | null,
-): VersionTarget | null {
-  const trail = context.trail ?? [];
-  const itemId = trail[trail.length - 1];
-  if (!projectId || !itemId) return null;
-  return {
-    projectId,
-    itemId,
-    file: context.file ?? '',
-    trail: [...trail],
-    crumbs: [...(context.crumbs ?? [])],
-  };
-}

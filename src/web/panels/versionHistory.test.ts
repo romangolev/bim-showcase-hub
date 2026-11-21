@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import type { TreeNode } from '../../shared/types.js';
 import {
   sanitizeVersionTarget,
-  targetFromContext,
   versionContext,
   visibleVersions,
 } from './versionHistory.js';
@@ -87,28 +86,6 @@ describe('versionContext', () => {
       v: 'v2',
       trail: ['h', 'p', 'f', 'i'],
       crumbs: ['Hub', 'Proj', 'Files'],
-    });
-  });
-});
-
-describe('targetFromContext', () => {
-  it('needs a known project and a trail', () => {
-    expect(targetFromContext({ file: 'a.rvt' }, 'p')).toBeNull();
-    expect(targetFromContext({ trail: ['h', 'p', 'f', 'i'] }, null)).toBeNull();
-  });
-
-  it('takes the last trail id as the item', () => {
-    expect(
-      targetFromContext(
-        { file: 'a.rvt', trail: ['h', 'p', 'f', 'i'], crumbs: ['Hub'] },
-        'p',
-      ),
-    ).toEqual({
-      projectId: 'p',
-      itemId: 'i',
-      file: 'a.rvt',
-      trail: ['h', 'p', 'f', 'i'],
-      crumbs: ['Hub'],
     });
   });
 });

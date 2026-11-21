@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { type ModelInfo, readySignature } from './modelSet.js';
+import type { ModelInfo } from './modelSet.js';
 import type { ViewerAdapter } from './ViewerAdapter.js';
 
 const NO_MODELS: ModelInfo[] = [];
@@ -35,8 +35,4 @@ export function useModels(adapter: ViewerAdapter | null): ModelInfo[] {
     return adapter.onModelsChange(update);
   }, [adapter]);
   return state.adapter === adapter ? state.models : snapshot(adapter);
-}
-
-export function useReadySignature(adapter: ViewerAdapter | null): string {
-  return readySignature(useModels(adapter));
 }
