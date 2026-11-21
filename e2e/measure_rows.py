@@ -87,8 +87,14 @@ def reopen_summary(page):
 
 
 def refresh_dashboard(page):
+    expand = page.get_by_role("button", name="Expand Dashboard")
+    if expand.count():
+        expand.first.click()
+        smoke.settle(page, 600)
     page.get_by_role("button", name="Refresh").first.click()
-    page.locator(".bsh-chart canvas").first.wait_for(state="visible", timeout=STEP_TIMEOUT_MS)
+    page.locator(".bsh-chart canvas").first.wait_for(
+        state="visible", timeout=STEP_TIMEOUT_MS
+    )
 
 
 def color_the_model(page):
