@@ -35,6 +35,7 @@ export interface ModelAlignmentProps {
   model: ModelInfo;
   info: PlacementInfo | null;
   anchorName: string | null;
+  anchorUnit?: string | null;
   offsets?: Readonly<Record<string, Vec3>> | null;
   onOffsetsChange?: (next: Record<string, Vec3> | null) => void;
 }
@@ -44,6 +45,7 @@ export function ModelAlignment({
   model,
   info,
   anchorName,
+  anchorUnit = null,
   offsets,
   onOffsetsChange,
 }: ModelAlignmentProps) {
@@ -52,7 +54,7 @@ export function ModelAlignment({
   const bodyId = useId();
   const noteId = useId();
   const anchor = info?.anchor === true;
-  const unitMeters = metersPerUnit(info?.unit ?? null);
+  const unitMeters = metersPerUnit(anchorUnit);
   const disabled = !onOffsetsChange;
   const change = (next: Record<string, Vec3> | null) => {
     if (!onOffsetsChange) return;
