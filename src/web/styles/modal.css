@@ -190,6 +190,11 @@ fieldset.settings__field {
   min-width: 0;
 }
 
+.settings summary {
+  line-height: var(--hit-target);
+  cursor: pointer;
+}
+
 .settings__check {
   display: inline-flex;
   align-items: center;

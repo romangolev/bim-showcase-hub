@@ -50,7 +50,8 @@
 
 .cmdk__option {
   display: flex;
-  align-items: baseline;
+  align-items: center;
+  min-height: var(--hit-target);
   justify-content: space-between;
   gap: var(--space-3);
   padding: var(--space-2) var(--space-4);

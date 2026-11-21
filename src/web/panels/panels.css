@@ -597,6 +597,7 @@
 
 .bsh-input {
   min-width: 0;
+  min-height: var(--hit-target);
   padding: var(--space-1) var(--space-2);
   border: var(--border-field);
   border-radius: var(--radius-sm, 4px);
@@ -1775,4 +1776,12 @@ button.bsh-kpi:focus-visible {
   gap: var(--space-2);
   color: var(--color-fog);
   font-size: var(--text-13);
+}
+
+@media (pointer: coarse), (max-width: 875px) {
+  .bsh-picker__move,
+  .bsh-picker__remove {
+    min-width: var(--hit-target);
+    min-height: var(--hit-target);
+  }
 }
