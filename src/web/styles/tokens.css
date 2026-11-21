@@ -24,6 +24,7 @@
 
   --color-hairline: rgb(255 255 255 / 0.1);
   --color-hairline-faint: rgb(255 255 255 / 0.06);
+  --color-field-border: rgb(255 255 255 / 0.36);
   --color-ghost-fill: rgb(255 255 255 / 0.06);
   --color-ghost-fill-hover: rgb(255 255 255 / 0.14);
   --color-ghost-fill-active: rgb(255 255 255 / 0.2);
@@ -70,6 +71,7 @@
 
   --color-hairline: rgb(0 0 0 / 0.1);
   --color-hairline-faint: rgb(0 0 0 / 0.06);
+  --color-field-border: rgb(0 0 0 / 0.48);
   --color-ghost-fill: rgb(0 0 0 / 0.04);
   --color-ghost-fill-hover: rgb(0 0 0 / 0.08);
   --color-ghost-fill-active: rgb(0 0 0 / 0.12);
@@ -163,6 +165,7 @@
   --radius-container: 12px;
 
   --border-hairline: 0.5px solid var(--color-hairline);
+  --border-field: 0.5px solid var(--color-field-border);
   --shadow-inset: inset 0 1px 0 var(--color-inset-highlight);
   --ring-width: 2px;
   --ring-offset: 2px;

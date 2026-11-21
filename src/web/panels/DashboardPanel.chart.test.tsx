@@ -461,7 +461,7 @@ describe('dashboard settings split by model', () => {
     const adapter = await combined();
     publishActiveAdapter(adapter);
     render(<DashboardSettingsBody />);
-    const box = await screen.findByRole('checkbox', { name: 'Split by model' });
+    const box = await screen.findByRole('switch', { name: 'Split by model' });
     expect(box).toBeEnabled();
     fireEvent.click(box);
     expect(storedView().splitByModel).toBe(true);
@@ -472,7 +472,7 @@ describe('dashboard settings split by model', () => {
     publishActiveAdapter(adapter);
     render(<DashboardSettingsBody />);
     expect(
-      await screen.findByRole('checkbox', { name: 'Split by model' }),
+      await screen.findByRole('switch', { name: 'Split by model' }),
     ).toBeDisabled();
     expect(screen.getByText(/Open a second model/)).toBeInTheDocument();
   });

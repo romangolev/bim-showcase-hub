@@ -2,6 +2,7 @@ import { useId } from 'react';
 import { LAST_SESSION } from '../api/openModels.js';
 import { ShortcutEditor } from '../commands/ShortcutEditor.js';
 import type { BreadcrumbMode } from '../components/breadcrumb.js';
+import { SwitchRow } from '../components/SwitchRow.js';
 import { TOPBAR_PREFS } from '../components/topbarPrefs.js';
 import type { MessageId } from '../i18n/en.js';
 import { translateNow, useT } from '../i18n/i18n.js';
@@ -66,10 +67,8 @@ export function SettingsBody() {
   const recentsId = useId();
   const densityId = useId();
   const textSizeId = useId();
-  const motionId = useId();
   const languageId = useId();
   const unitsId = useId();
-  const restoreId = useId();
   const breadcrumbId = useId();
   const t = useT();
   return (
@@ -151,22 +150,12 @@ export function SettingsBody() {
           </select>
           <span className="settings__hint">{t('settings.textSizeHint')}</span>
         </div>
-        <div className="settings__field">
-          <label htmlFor={motionId} className="settings__check">
-            <input
-              id={motionId}
-              type="checkbox"
-              checked={settings.reducedMotion}
-              onChange={(event) =>
-                setSetting('reducedMotion', event.target.checked)
-              }
-            />
-            {t('settings.reduceMotion')}
-          </label>
-          <span className="settings__hint">
-            {t('settings.reduceMotionHint')}
-          </span>
-        </div>
+        <SwitchRow
+          label={t('settings.reduceMotion')}
+          description={t('settings.reduceMotionHint')}
+          checked={settings.reducedMotion}
+          onChange={() => setSetting('reducedMotion', !settings.reducedMotion)}
+        />
       </section>
       <ShortcutEditor />
       <section className="settings__section" aria-labelledby="settings-region">
@@ -231,24 +220,15 @@ export function SettingsBody() {
             {t('settings.warnBeforeEndHint')}
           </span>
         </div>
-        <div className="settings__field">
-          <label htmlFor={restoreId} className="settings__check">
-            <input
-              id={restoreId}
-              type="checkbox"
-              checked={settings.restoreSession}
-              onChange={(event) => {
-                setSetting('restoreSession', event.target.checked);
-                if (!event.target.checked) LAST_SESSION.remove();
-              }}
-            />
-            Reopen my tabs after the browser restarts
-          </label>
-          <span className="settings__hint">
-            Restores the tabs from your last visit. Their view state is not
-            kept.
-          </span>
-        </div>
+        <SwitchRow
+          label="Reopen my tabs after the browser restarts"
+          description="Restores the tabs from your last visit. Their view state is not kept."
+          checked={settings.restoreSession}
+          onChange={() => {
+            setSetting('restoreSession', !settings.restoreSession);
+            if (settings.restoreSession) LAST_SESSION.remove();
+          }}
+        />
       </section>
       <section
         className="settings__section"

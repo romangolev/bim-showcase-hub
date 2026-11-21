@@ -126,9 +126,11 @@ function OverrideEditor({
           ))}
         </select>
       </div>
-      <button type="button" className="btn" onClick={add}>
-        Add override
-      </button>
+      <div className="settings__actions">
+        <button type="button" className="btn" onClick={add}>
+          Add override
+        </button>
+      </div>
     </div>
   );
 }

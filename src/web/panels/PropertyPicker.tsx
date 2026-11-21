@@ -155,7 +155,7 @@ export function PropertyPicker({
               {visible.map((info) => (
                 <label
                   key={`${info.category}\u0000${info.name}`}
-                  className="bsh-field"
+                  className="settings__check"
                 >
                   <input
                     type="checkbox"
