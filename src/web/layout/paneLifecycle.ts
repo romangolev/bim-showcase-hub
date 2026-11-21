@@ -6,6 +6,13 @@ import type {
   PaneTitle,
 } from './layoutContext.js';
 import {
+  EMPTY_HISTORY,
+  type LayoutHistory,
+  recordLayout,
+  redoStep,
+  undoStep,
+} from './layoutHistory.js';
+import {
   clampTreeWidth,
   defaultModel,
   type LayoutModel,
@@ -47,6 +54,8 @@ export interface LifecycleState {
   user: UserInstances;
   locked: boolean;
   canRevert: boolean;
+  canUndo: boolean;
+  canRedo: boolean;
   openPanes: readonly PaneId[];
   attached: readonly PanelId[];
   signals: Readonly<Record<PanelId, number>>;
@@ -115,6 +124,9 @@ export interface PaneLifecycle {
     label: string,
   ) => WorkspaceApplyResult;
   revertWorkspace: () => boolean;
+  undoLayout: () => boolean;
+  redoLayout: () => boolean;
+  dragStarted: () => void;
   controllerReady: () => void;
   notify: (message: string) => void;
   setLocked: (locked: boolean) => void;
@@ -192,6 +204,8 @@ export function createPaneLifecycle(deps: LifecycleDeps): PaneLifecycle {
     user: deps.initial.user,
     locked: deps.initial.locked,
     canRevert: false,
+    canUndo: false,
+    canRedo: false,
     openPanes: openFromDock(deps.initial.layout.dock),
     attached: [],
     signals: {},
@@ -204,6 +218,7 @@ export function createPaneLifecycle(deps: LifecycleDeps): PaneLifecycle {
   const listeners = new Set<() => void>();
   const floatPending = new Map<string, boolean>();
   let undoLayout: LayoutModel | null = null;
+  let history: LayoutHistory = EMPTY_HISTORY;
   let pendingApply: { target: WorkspaceApplyTarget; label: string } | null =
     null;
   let presentRestore: { panel: PanelId; previous: PanelId | null } | null =
@@ -237,6 +252,34 @@ export function createPaneLifecycle(deps: LifecycleDeps): PaneLifecycle {
   };
   const label = (id: PanelId) => deps.title(id).label;
   const home = () => deps.models.getState().models.length === 0;
+  const canEdit = () => !state.locked && deps.mode() === 'dock';
+  const flags = () => ({
+    canUndo: history.past.length > 0,
+    canRedo: history.future.length > 0,
+  });
+  const remember = () => {
+    history = recordLayout(history, state.layout);
+    set(flags());
+  };
+  const replay = (step: ReturnType<typeof undoStep>, message: string) => {
+    if (!step || !canEdit()) return false;
+    history = step.history;
+    pendingApply = null;
+    const layout: LayoutModel = {
+      ...step.layout,
+      lastViewerArrangement: state.layout.lastViewerArrangement,
+    };
+    set({
+      layout,
+      openPanes: openFromDock(layout.dock),
+      maximized: null,
+      resizing: null,
+      ...flags(),
+    });
+    deps.dock()?.apply({ dock: layout.dock }, layout.treeWidth);
+    announce(message);
+    return true;
+  };
 
   const closeTree = () => {
     set({ overlayTreeOpen: false });
@@ -245,6 +288,7 @@ export function createPaneLifecycle(deps: LifecycleDeps): PaneLifecycle {
 
   const closePane = (id: PaneId) => {
     if (!paneById(id).closable) return;
+    remember();
     dispatch({ type: 'dismiss', id, dismissed: true });
     deps.dock()?.closePane(id);
   };
@@ -314,6 +358,7 @@ export function createPaneLifecycle(deps: LifecycleDeps): PaneLifecycle {
     if (state.locked) return 'locked';
     if (deps.mode() !== 'dock') return 'dock-only';
     if (state.presenting) setPresenting(false);
+    remember();
     undoLayout = state.layout;
     const base = target.layout ?? state.layout;
     const layout: LayoutModel = {
@@ -447,17 +492,20 @@ export function createPaneLifecycle(deps: LifecycleDeps): PaneLifecycle {
         closePane(id);
         return;
       }
+      remember();
       dispatch({ type: 'dismiss', id, dismissed: false });
       deps.dock()?.openPane(id);
     },
     closePane,
     setCollapsed: (id, collapsed) => {
       if (state.locked || !isPaneId(id)) return;
+      remember();
       dispatch({ type: 'setCollapsed', id, collapsed });
       announce(`${paneById(id).title} ${collapsed ? 'collapsed' : 'expanded'}`);
     },
     movePane: (id, target) => {
       if (state.locked) return;
+      remember();
       const kind = paneKind(id);
       if (kind) dispatch({ type: 'setCollapsed', id: kind, collapsed: false });
       deps.dock()?.movePane(id, target);
@@ -467,6 +515,7 @@ export function createPaneLifecycle(deps: LifecycleDeps): PaneLifecycle {
     },
     resetLayout: () => {
       if (state.locked) return;
+      remember();
       dispatch({ type: 'reset' });
       deps.dock()?.reset(TREE_WIDTH_DEFAULT);
       announce('Layout reset');
@@ -474,6 +523,19 @@ export function createPaneLifecycle(deps: LifecycleDeps): PaneLifecycle {
     },
     applyWorkspace,
     revertWorkspace,
+    undoLayout: () =>
+      replay(
+        canEdit() ? undoStep(history, state.layout) : null,
+        'Layout restored',
+      ),
+    redoLayout: () =>
+      replay(
+        canEdit() ? redoStep(history, state.layout) : null,
+        'Layout change redone',
+      ),
+    dragStarted: () => {
+      if (canEdit()) remember();
+    },
     controllerReady: () => {
       const pending = pendingApply;
       if (!pending) return;
@@ -574,12 +636,15 @@ export function createPaneLifecycle(deps: LifecycleDeps): PaneLifecycle {
     forgetOwner: () => {
       const layout = defaultModel();
       undoLayout = null;
+      history = EMPTY_HISTORY;
       pendingApply = null;
       state = {
         layout,
         user: {},
         locked: false,
         canRevert: false,
+        canUndo: false,
+        canRedo: false,
         openPanes: openFromDock(layout.dock),
         attached: [],
         signals: {},

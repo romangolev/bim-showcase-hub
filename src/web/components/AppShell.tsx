@@ -2,6 +2,7 @@ import { lazy, type ReactNode, Suspense } from 'react';
 import { useSession } from '../api/hooks.js';
 import { Landing } from './Landing.js';
 import { SessionBanner } from './SessionBanner.js';
+import { StateBlock } from './StateBlock.js';
 import { TopBar } from './TopBar.js';
 
 const LayoutProvider = lazy(() =>
@@ -16,9 +17,9 @@ function ShellMessage() {
       <TopBar />
       <div className="app-body">
         <main id="main" className="app-main" tabIndex={-1}>
-          <p className="app-loading" role="status">
-            Loading
-          </p>
+          <div className="app-loading">
+            <StateBlock variant="loading" message="Loading" rows={6} />
+          </div>
         </main>
       </div>
     </>

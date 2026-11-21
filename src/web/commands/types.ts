@@ -11,7 +11,7 @@ export type CommandMenu =
   | 'present'
   | 'lock'
   | 'reset';
-export type CommandScope = 'viewer';
+export type CommandScope = 'viewer' | 'dock';
 
 export interface Command {
   id: string;
@@ -24,6 +24,7 @@ export interface Command {
   disabled?: string;
   menu?: CommandMenu;
   pane?: string;
+  searchOnly?: boolean;
   run: (host: CommandHost) => void | Promise<void>;
 }
 

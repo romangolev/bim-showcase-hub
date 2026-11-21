@@ -1,12 +1,16 @@
 import { useState } from 'react';
 import { COMMANDS } from '../commands/registry.js';
 import type { Command } from '../commands/types.js';
+import { useT } from '../i18n/i18n.js';
 import { useModal } from '../modal/ModalContext.js';
+import { resetHints } from '../onboarding/hints.js';
+import { notify } from '../tasks/notifications.js';
 import { useSettings } from './SettingsContext.js';
 
 export function DefaultsSettings() {
   const { resetSettings } = useSettings();
   const modal = useModal();
+  const t = useT();
   const resetCommand: Command | undefined = COMMANDS.list().find(
     (command) => command.id === 'layout.reset',
   );
@@ -15,42 +19,56 @@ export function DefaultsSettings() {
   return (
     <section className="settings__section" aria-labelledby="settings-defaults">
       <h3 id="settings-defaults" className="settings__heading">
-        Defaults
+        {t('settings.defaults')}
       </h3>
       <div className="settings__field">
-        <span>App settings</span>
+        <span>{t('settings.appSettings')}</span>
         <button
           type="button"
           className="btn"
           onClick={() => {
             resetSettings();
-            setNotice('App settings are back to their defaults.');
+            setNotice(t('settings.resetSettingsDone'));
           }}
         >
-          Reset settings
+          {t('settings.resetSettings')}
         </button>
         <span className="settings__hint">
-          Theme, density, text size, motion, language and units.
+          {t('settings.resetSettingsHint')}
         </span>
       </div>
       <div className="settings__field">
-        <span>Layout</span>
+        <span>{t('settings.layout')}</span>
         <button
           type="button"
           className="btn"
           disabled={!resetCommand || Boolean(resetCommand.disabled)}
           onClick={() => {
             resetCommand?.run({ openModal: modal.open });
-            setNotice('Layout reset to the default arrangement.');
+            setNotice(t('settings.resetLayoutDone'));
           }}
         >
-          Reset layout
+          {t('settings.resetLayout')}
         </button>
         <span className="settings__hint">
           {resetCommand
-            ? (resetCommand.disabled ?? 'Open models stay open.')
-            : 'Layout is not available right now.'}
+            ? (resetCommand.disabled ?? t('settings.layoutHint'))
+            : t('settings.layoutUnavailable')}
         </span>
+      </div>
+      <div className="settings__field">
+        <span>{t('settings.hints')}</span>
+        <button
+          type="button"
+          className="btn"
+          onClick={() => {
+            resetHints();
+            notify(t('help.hintsWillShow'));
+          }}
+        >
+          {t('settings.showHintsAgain')}
+        </button>
+        <span className="settings__hint">{t('settings.hintsHint')}</span>
       </div>
       <p role="status" className="settings__hint">
         {notice}

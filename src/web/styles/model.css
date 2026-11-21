@@ -79,6 +79,7 @@
   flex: 0 1 auto;
   min-width: 0;
   max-width: 100%;
+  min-height: var(--hit-target);
   padding: var(--space-1) var(--space-2);
   overflow: hidden;
   border: var(--border-hairline);
@@ -103,8 +104,8 @@
   flex: none;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: var(--hit-target);
+  height: var(--hit-target);
   border: var(--border-hairline);
   border-radius: var(--radius-card);
   background: none;
@@ -115,6 +116,24 @@
 .stack__model-tab:focus-visible,
 .stack__model-close:focus-visible {
   outline-offset: calc(var(--ring-width) * -1);
+}
+
+.stack .bsh-mock__button {
+  width: var(--hit-target);
+  height: var(--hit-target);
+}
+
+.stack .bsh-viewer-models__trigger {
+  min-height: var(--hit-target);
+}
+
+.stack .bsh-chart__tools {
+  height: auto;
+}
+
+.stack .bsh-chart__tools .bsh-icon-button {
+  width: var(--hit-target);
+  height: var(--hit-target);
 }
 
 .stack__tree {

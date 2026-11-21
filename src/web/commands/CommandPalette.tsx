@@ -24,6 +24,7 @@ import {
   isEditableTarget,
   isViewerContext,
   matchShortcut,
+  scopeAllows,
 } from './shortcuts.js';
 import type { Command } from './types.js';
 
@@ -40,13 +41,16 @@ export function arrange(
   recents: readonly string[],
   pins: readonly string[] = [],
 ): Array<{ command: Command; group: string }> {
+  const visible = query.trim()
+    ? commands
+    : commands.filter((command) => !command.searchOnly);
   if (query.trim()) {
-    return filterCommands(commands, query).map((command) => ({
+    return filterCommands(visible, query).map((command) => ({
       command,
       group: command.group,
     }));
   }
-  const byId = new Map(commands.map((command) => [command.id, command]));
+  const byId = new Map(visible.map((command) => [command.id, command]));
   const pinned = pins
     .map((id) => byId.get(id))
     .filter((command): command is Command => command !== undefined);
@@ -59,7 +63,7 @@ export function arrange(
   return [
     ...pinned.map((command) => ({ command, group: PINNED_GROUP })),
     ...recent.map((command) => ({ command, group: RECENT_GROUP })),
-    ...commands
+    ...visible
       .filter(
         (command) => !pinnedIds.has(command.id) && !recentIds.has(command.id),
       )
@@ -319,10 +323,12 @@ export function CommandPalette({ openModel }: CommandPaletteProps) {
         if (event.key.length !== 1) return;
         if (!isViewerContext(event.target)) return;
       }
-      const command = matchShortcut(COMMANDS.list(), event);
+      const candidates = COMMANDS.list().filter((command) =>
+        scopeAllows(command.scope, event.target),
+      );
+      const command = matchShortcut(candidates, event);
       if (!command || command.disabled) return;
       if (!modified && command.scope !== 'viewer') return;
-      if (command.scope === 'viewer' && !isViewerContext(event.target)) return;
       event.preventDefault();
       run(command);
     };

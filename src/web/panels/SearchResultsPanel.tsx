@@ -8,6 +8,7 @@ import {
   SEARCH_SPEC,
   type SearchOutcome,
 } from '../extensions/elementSearch.js';
+import { useSettings } from '../settings/SettingsContext.js';
 import { usePersisted } from '../storage.js';
 import { notify } from '../tasks/notifications.js';
 import { startTask } from '../tasks/taskStore.js';
@@ -17,7 +18,7 @@ import { stableKeysFor } from '../viewer/setResolution.js';
 import { useModels } from '../viewer/useModels.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { PropertyPicker } from './PropertyPicker.js';
-import { SET_MESSAGES } from './SelectionSets.js';
+import { setMessages } from './SelectionSets.js';
 import { useResolvedAdapter } from './useScopedRows.js';
 import './panels.css';
 
@@ -32,6 +33,7 @@ function labelOf(model: ModelInfo): string {
 }
 
 export function SearchResultsPanel({ adapter }: SearchResultsPanelProps) {
+  const { language } = useSettings().settings;
   const resolved = useResolvedAdapter(adapter);
   const [spec, setSpec] = usePersisted(SEARCH_SPEC);
   const [outcome, setOutcome] = useState<SearchOutcome | null>(null);
@@ -105,7 +107,7 @@ export function SearchResultsPanel({ adapter }: SearchResultsPanelProps) {
       });
       setSaveName(null);
     } else {
-      notify(SET_MESSAGES[result], { tone: 'error' });
+      notify(setMessages(language)[result], { tone: 'error' });
     }
   };
 

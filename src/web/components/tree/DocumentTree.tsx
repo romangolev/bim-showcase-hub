@@ -22,6 +22,7 @@ import { friendlyError } from '../../api/friendlyError.js';
 import type { ModelContext } from '../../api/modelContext.js';
 import { listRecentModels } from '../../api/modelStore.js';
 import type { NodeScope } from '../../api/scope.js';
+import { COMMANDS } from '../../commands/registry.js';
 import { LayoutContext } from '../../layout/layoutContext.js';
 import { saveModelSetPrompt } from '../../panels/ModelSets.js';
 import { openVersionHistory } from '../../panels/VersionHistoryPanel.js';
@@ -56,6 +57,7 @@ import {
   useRowMenu,
 } from './rowMenu.js';
 import { INDENT, rowHeightFor, TreeRowView } from './TreeRowView.js';
+import { treeCommands } from './treeCommands.js';
 import {
   openableUrn,
   type PickedModel,
@@ -276,6 +278,17 @@ export function DocumentTree({
     root,
     sort: () => viewRef.current.sort,
   });
+  const openLatest = useRef(onOpenModel);
+  openLatest.current = onOpenModel;
+  useEffect(
+    () =>
+      COMMANDS.register('tree', () =>
+        treeCommands(state, (model) =>
+          openLatest.current(model.urn, model.context),
+        ),
+      ),
+    [state],
+  );
   const { errors, picked, notice } = snapshot;
   const { contextFor, resolved, needsCheck, parentName } = state;
 

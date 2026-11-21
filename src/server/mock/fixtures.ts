@@ -139,6 +139,11 @@ const STATE_FIXTURES: { name: string; viewState: ViewState }[] = [
   { name: 'STATE-failed.rvt', viewState: 'failed' },
 ];
 
+const CYRILLIC_ITEMS = [
+  'Жилой комплекс — АР.rvt',
+  'Многоквартирный дом, корпус 3, секция 2 — КЖ.rvt',
+];
+
 function pad(value: number, width: number): string {
   return String(value).padStart(width, '0');
 }
@@ -350,6 +355,35 @@ export function buildMockData(): MockData {
             i,
           );
         }
+
+        const cyrillicFolder = addFolder(
+          projectId,
+          filesFolder.id,
+          `${filesFolder.id}-cyrillic`,
+          'Рабочая документация',
+        );
+        filesFolder.folderIds.push(cyrillicFolder.id);
+        CYRILLIC_ITEMS.forEach((name, index) => {
+          itemCounter += 1;
+          const item: MockItem = {
+            id: `item-${pad(itemCounter, 5)}-cyr${index + 1}`,
+            folderId: cyrillicFolder.id,
+            projectId,
+            name,
+            versions: [],
+          };
+          item.versions.push({
+            id: `${item.id}~v1`,
+            number: 1,
+            modifiedAt: new Date(BASE_DATE + index * DAY_MS).toISOString(),
+            user: USERS[0] as string,
+            size: 8_400_000 + index * 1_200_000,
+            viewState: 'ready',
+            hasUrn: true,
+          });
+          data.items.set(item.id, item);
+          cyrillicFolder.itemIds.push(item.id);
+        });
       }
     });
   });

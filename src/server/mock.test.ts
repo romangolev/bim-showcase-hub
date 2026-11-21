@@ -207,6 +207,24 @@ describe('mock mode', () => {
     }
   });
 
+  it('lists the Cyrillic folder with two viewable drawings', async () => {
+    const tree = await walk();
+    const folder = tree.folders.find((f) => f.name === 'Рабочая документация');
+    expect(folder).toBeTruthy();
+    const items = tree.items.filter((item) => item.parentId === folder?.id);
+    expect(new Set(items.map((item) => item.name))).toEqual(
+      new Set([
+        'Жилой комплекс — АР.rvt',
+        'Многоквартирный дом, корпус 3, секция 2 — КЖ.rvt',
+      ]),
+    );
+    for (const item of items) {
+      const versions = tree.versions.filter((v) => v.parentId === item.id);
+      expect(versions.length).toBeGreaterThan(0);
+      expect(versions.every((v) => v.viewable)).toBe(true);
+    }
+  });
+
   it('reports the view state of a single version', async () => {
     const tree = await walk();
     const item = tree.items.find((i) => i.name === 'STATE-no-geometry.rvt');

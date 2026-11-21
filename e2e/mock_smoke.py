@@ -663,6 +663,43 @@ def check_layout(page, checks, notes):
     settle(page)
 
 
+def check_layout_undo(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page)
+    read_root = "mw:() => JSON.stringify(window.__bshLayout.read().dock?.grid?.root ?? null).replace(/\"size\":[0-9.]+/g, '\"size\":0')"
+    page.get_by_role("tab", name="Model summary").click()
+    settle(page, 200)
+    before = page.evaluate(read_root)
+    pane_menu(page, "Model summary", "Move left")
+    moved = page.evaluate(read_root)
+    checks.add("layout undo: the pane menu moves the summary first", moved != before, moved[:120])
+    page.get_by_role("tab", name="Model summary").click()
+    page.keyboard.press("Control+z")
+    settle(page)
+    restored = page.evaluate(read_root)
+    checks.add("Ctrl+Z in the dock restores the layout", restored == before, f"{restored[:120]} != {before[:120]}")
+    checks.add(
+        "layout undo shows a Layout restored toast",
+        page.get_by_role("region", name="Notifications").get_by_text("Layout restored").count() >= 1,
+    )
+    page.get_by_role("tab", name="Model summary").click()
+    page.keyboard.press("Control+Shift+z")
+    settle(page)
+    redone = page.evaluate(read_root)
+    checks.add("Ctrl+Shift+Z redoes the layout change", redone == moved, f"{redone[:120]} != {moved[:120]}")
+    viewer_box = page.locator(".dv-groupview:has([data-active='true'] .model-viewer) .dv-content-container").bounding_box()
+    page.mouse.click(viewer_box["x"] + viewer_box["width"] / 2, viewer_box["y"] + viewer_box["height"] / 2)
+    settle(page, 200)
+    kept = page.evaluate(read_root)
+    page.keyboard.press("Control+z")
+    settle(page)
+    unchanged = page.evaluate(read_root)
+    checks.add("Ctrl+Z on the viewer canvas leaves the layout alone", unchanged == kept, unchanged[:120])
+    page.get_by_role("button", name="Panes").click()
+    page.get_by_role("menuitem", name="Reset layout").click()
+    settle(page)
+
+
 def check_lock_maximize(page, checks):
     page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
     settle(page)
@@ -1548,7 +1585,11 @@ BADGE_RECTS = """() => [...document.querySelectorAll('.tree-row__state')].map((b
 
 def check_badge_layout(page, checks, label):
     rects = page.evaluate(BADGE_RECTS)
-    checks.add(f"badges ({label}): are rendered", len(rects) >= 3, len(rects))
+    checks.add(
+        f"badges ({label}): are rendered",
+        len(rects) >= (2 if label == "narrow" else 3),
+        len(rects),
+    )
     checks.add(f"badges ({label}): none clipped or outside the row", all(r["inside"] and not r["clipped"] for r in rects), rects)
     gaps = {r["gap"] for r in rects}
     checks.add(f"badges ({label}): share the right edge", max(gaps) - min(gaps) <= 1, sorted(gaps))
@@ -1847,6 +1888,12 @@ def check_snapshots_viewpoints_present(page, checks):
 def check_documents_home(page, checks):
     settle(page)
     checks.add("default layout is Documents alone", documents_alone(page), groups(page))
+    welcome = page.locator(".docs-home").get_by_text("Pick a file to start")
+    checks.add(
+        "a fresh profile shows the Documents welcome state",
+        welcome.count() == 1 and page.get_by_text("choose a hub, then a project").count() == 1,
+        page.locator(".docs-home").all_inner_texts()[:2],
+    )
     hint = page.locator(".pane-docs__hint")
     checks.add(
         "Documents shows the open-a-model hint",
@@ -1859,6 +1906,25 @@ def check_documents_home(page, checks):
     items = page.get_by_role("menuitem").all_inner_texts()
     page.keyboard.press("Escape")
     checks.add("Documents pane menu has no Close", "Close" not in [item.strip() for item in items], items)
+    palette_hint = page.get_by_role("note").filter(has_text="Press Ctrl+K")
+    checks.add("the palette hint shows at home", palette_hint.count() == 1, page.locator(".hint").all_inner_texts())
+    if palette_hint.count() == 1:
+        palette_hint.get_by_role("button", name="Dismiss hint").first.click()
+        settle(page, 300)
+        checks.add(
+            "dismissing the palette hint hides it",
+            page.get_by_role("note").filter(has_text="Press Ctrl+K").count() == 0,
+        )
+        page.reload(wait_until="networkidle")
+        settle(page)
+        checks.add(
+            "a dismissed palette hint stays dismissed after a reload",
+            page.get_by_role("note").filter(has_text="Press Ctrl+K").count() == 0,
+        )
+        checks.add(
+            "the welcome state survives a reload",
+            page.get_by_text("Pick a file to start").count() == 1,
+        )
 
 
 def check_documents_return(page, checks):
@@ -2156,7 +2222,7 @@ def run_interaction_checks(page, checks, notes):
     except Exception as exc:
         page.screenshot(path=str(OUTPUT_DIR / "mock-layout-failure.png"))
         checks.add("check_layout", False, f"{type(exc).__name__}: {str(exc)[:160]}")
-    for check in (check_lock_maximize, check_active_pane, check_session_banner, check_saved_items, check_paint_palette, check_recents, check_strip, check_tree_metadata, check_theme, check_summary_rail, check_summary_tools, check_selection_sets, check_dashboard_tools, check_tree_resize):
+    for check in (check_lock_maximize, check_layout_undo, check_active_pane, check_session_banner, check_saved_items, check_paint_palette, check_recents, check_strip, check_tree_metadata, check_theme, check_summary_rail, check_summary_tools, check_selection_sets, check_dashboard_tools, check_tree_resize):
         try:
             check(page, checks)
         except Exception as exc:

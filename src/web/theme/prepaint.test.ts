@@ -21,10 +21,19 @@ function runPrepaint(matchesLight: boolean): void {
 describe('pre-paint theme', () => {
   beforeEach(() => {
     installMemoryStorage();
+    for (const meta of document.head.querySelectorAll(
+      'meta[name="theme-color"]',
+    )) {
+      meta.remove();
+    }
+    const meta = document.createElement('meta');
+    meta.setAttribute('name', 'theme-color');
+    document.head.append(meta);
     document.documentElement.removeAttribute('data-theme');
     document.documentElement.removeAttribute('data-density');
     document.documentElement.removeAttribute('data-text-size');
     document.documentElement.removeAttribute('data-reduced-motion');
+    document.documentElement.lang = 'en';
     document.documentElement.style.colorScheme = '';
   });
 
@@ -36,6 +45,11 @@ describe('pre-paint theme', () => {
     runPrepaint(false);
     expect(document.documentElement.dataset.theme).toBe('light');
     expect(document.documentElement.style.colorScheme).toBe('light');
+    expect(
+      document
+        .querySelector('meta[name="theme-color"]')
+        ?.getAttribute('content'),
+    ).toBe('#ffffff');
   });
 
   it('follows the system for a stored system choice', () => {
@@ -76,6 +90,24 @@ describe('pre-paint theme', () => {
     );
     runPrepaint(false);
     expect(document.documentElement.dataset.textSize).toBe('112');
+  });
+
+  it('applies the stored language before React', () => {
+    window.localStorage.setItem(
+      BSH_KEYS.preference.settings,
+      JSON.stringify({ language: 'ru' }),
+    );
+    runPrepaint(false);
+    expect(document.documentElement.lang).toBe('ru');
+  });
+
+  it('keeps the document language for a language it does not know', () => {
+    window.localStorage.setItem(
+      BSH_KEYS.preference.settings,
+      JSON.stringify({ language: 'fr' }),
+    );
+    runPrepaint(false);
+    expect(document.documentElement.lang).toBe('en');
   });
 
   it('leaves the defaults to the stylesheet', () => {

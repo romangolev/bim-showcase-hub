@@ -10,11 +10,14 @@ import './styles/model.css';
 import './styles/modal.css';
 import './styles/commands.css';
 import { App } from './App.js';
+import { installErrorCapture } from './tasks/errorCapture.js';
 
 const container = document.getElementById('root');
 if (!container) {
   throw new Error('Missing #root element');
 }
+
+installErrorCapture();
 
 createRoot(container).render(
   <StrictMode>

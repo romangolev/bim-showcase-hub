@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory } from '@tanstack/react-router';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -47,9 +48,11 @@ function stubOpeners(): ModelOpeners {
 function renderHome() {
   const openers = stubOpeners();
   render(
-    <SettingsProvider>
-      <DocumentsHome openers={openers} />
-    </SettingsProvider>,
+    <QueryClientProvider client={new QueryClient()}>
+      <SettingsProvider>
+        <DocumentsHome openers={openers} />
+      </SettingsProvider>
+    </QueryClientProvider>,
   );
   return openers;
 }
@@ -104,8 +107,27 @@ describe('DocumentsHome', () => {
     expect(screen.getByText('2 elements')).toBeInTheDocument();
   });
 
-  it('shows an empty home without saved models or sets', () => {
+  it('welcomes a first-time user when there is nothing to show', () => {
     renderHome();
+    expect(screen.getByText('Pick a file to start')).toBeInTheDocument();
+    expect(
+      screen.getByText(/choose a hub, then a project/i),
+    ).toBeInTheDocument();
+  });
+
+  it('shows the usual sections once there is a recent model', () => {
+    seed();
+    renderHome();
+    expect(screen.queryByText('Pick a file to start')).toBeNull();
+  });
+
+  it('shows the empty section copy once only a pinned model exists', () => {
+    window.localStorage.setItem(
+      PINNED_KEY,
+      JSON.stringify([{ urn: 'urn-b', file: 'B.rvt' }]),
+    );
+    renderHome();
+    expect(screen.queryByText('Pick a file to start')).toBeNull();
     expect(
       screen.getByText('Models you open appear here.'),
     ).toBeInTheDocument();

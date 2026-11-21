@@ -25,7 +25,15 @@ export function resolveTheme(
   return preference === 'system' ? system : preference;
 }
 
+export const THEME_COLORS: Record<Theme, string> = {
+  dark: '#131416',
+  light: '#ffffff',
+};
+
 export function applyTheme(theme: Theme, root: HTMLElement): void {
   root.dataset.theme = theme;
   root.style.colorScheme = theme;
+  root.ownerDocument
+    .querySelector('meta[name="theme-color"]')
+    ?.setAttribute('content', THEME_COLORS[theme]);
 }

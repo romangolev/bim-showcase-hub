@@ -9,8 +9,10 @@ export {
 export { RECENT_LIMIT, readRecents, recordRecent } from './recents.js';
 export { COMMANDS, CommandRegistry } from './registry.js';
 export {
+  DOCK_CONTEXT_SELECTOR,
   EDITABLE_SELECTOR,
   formatShortcut,
+  isDockContext,
   isEditableTarget,
   isMacPlatform,
   isViewerContext,
@@ -18,10 +20,16 @@ export {
   parseShortcut,
   type ShortcutEvent,
   type ShortcutSpec,
+  scopeAllows,
   shortcutFromEvent,
   shortcutMatches,
 } from './shortcuts.js';
-export type { Command, CommandHost, CommandProvider } from './types.js';
+export type {
+  Command,
+  CommandHost,
+  CommandProvider,
+  CommandScope,
+} from './types.js';
 export {
   checkViewerShortcut,
   DEFAULT_VIEWER_SHORTCUTS,

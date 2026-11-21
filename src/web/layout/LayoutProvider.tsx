@@ -22,9 +22,15 @@ import {
   ownerKey,
 } from '../api/openModels.js';
 import { OpenModelsContext } from '../api/useOpenModels.js';
+import { Hint } from '../components/Hint.js';
+import type { MenuEntry } from '../components/Menu.js';
+import { ModelBreadcrumb } from '../components/ModelBreadcrumb.js';
+import { StateBlock } from '../components/StateBlock.js';
 import { TopBar } from '../components/TopBar.js';
 import { TreeControlContext } from '../components/TreeControl.js';
 import { useMediaQuery } from '../components/useMediaQuery.js';
+import { useT } from '../i18n/i18n.js';
+import { resetHints } from '../onboarding/hints.js';
 import { ModelRouteSync } from '../routes/ModelRouteSync.js';
 import { readSettings } from '../settings/settings.js';
 import {
@@ -34,10 +40,12 @@ import {
   getStorageAdapter,
   usePersisted,
 } from '../storage.js';
+import { notify } from '../tasks/notifications.js';
 import { currentAdapter } from '../viewer/activeAdapterStore.js';
 import { isMockViewer } from '../viewer/createViewerAdapter.js';
 import { peekLeafRows } from '../viewer/sharedLeafRows.js';
 import { ViewerProvider } from '../viewer/ViewerContext.js';
+import { STACKED_QUERY } from './breakpoint.js';
 import {
   forgetInstanceSetting,
   seedInstanceSetting,
@@ -109,8 +117,7 @@ const DockLayout = lazy(() =>
   })),
 );
 
-export const STACKED_MAX_WIDTH = 875;
-export const STACKED_QUERY = `(max-width: ${STACKED_MAX_WIDTH}px)`;
+export { STACKED_MAX_WIDTH, STACKED_QUERY } from './breakpoint.js';
 export const LAYOUT_WRITE_DELAY_MS = 300;
 export const LOCK_KEY = BSH_KEYS.preference.layoutLocked;
 
@@ -264,6 +271,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
   const user = useSession().data;
   const ownerId = user?.id;
   const ownerName = user?.name ?? '';
+  const t = useT();
   const lifecycleRef = useRef<PaneLifecycle | null>(null);
   const modelStore = useOwnedModels(
     ownerName ? { id: ownerId, name: ownerName } : null,
@@ -559,6 +567,10 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       setCollapsed: lifecycle.setCollapsed,
       canAddInstance: view.canAddInstance,
       canPresent: view.canPresent,
+      canUndo: state.canUndo,
+      canRedo: state.canRedo,
+      undoLayout: lifecycle.undoLayout,
+      redoLayout: lifecycle.redoLayout,
       addInstance: lifecycle.addInstance,
       togglePane: lifecycle.togglePane,
       movePane: lifecycle.movePane,
@@ -594,6 +606,8 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       model.collapsed,
       view.canAddInstance,
       view.canPresent,
+      state.canUndo,
+      state.canRedo,
       state.locked,
       state.signals,
       maximized,
@@ -710,6 +724,33 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
     return Component ? <Component /> : null;
   }, []);
 
+  const helpExtra = useCallback(
+    (): MenuEntry[] =>
+      api.mode === 'dock'
+        ? [
+            {
+              id: 'help.open-pane',
+              label: t('help.openPane'),
+              onSelect: () => api.togglePane('help'),
+            },
+            {
+              id: 'help.open-activity',
+              label: t('help.openActivity'),
+              onSelect: () => api.togglePane('activity'),
+            },
+            {
+              id: 'help.show-hints',
+              label: t('help.showHintsAgain'),
+              onSelect: () => {
+                resetHints();
+                notify(t('help.hintsWillShow'));
+              },
+            },
+          ]
+        : [],
+    [api.mode, api.togglePane, t],
+  );
+
   return (
     <OpenModelsContext.Provider value={modelStore}>
       <LayoutContext.Provider value={api}>
@@ -722,6 +763,8 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
                 treeOpen={treeOpen}
                 onToggleTree={lifecycle.toggleTree}
                 toggleRef={toggleRef}
+                context={<ModelBreadcrumb />}
+                helpExtra={helpExtra}
                 actions={
                   <>
                     <WorkspaceSwitcher />
@@ -729,6 +772,13 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
                   </>
                 }
               />
+              {!stacked && !state.locked ? (
+                view.home ? (
+                  <Hint id="palette">{t('hints.palette')}</Hint>
+                ) : (
+                  <Hint id="move-panes">{t('hints.movePanes')}</Hint>
+                )
+              ) : null}
               {stacked ? (
                 <StackedLayout
                   hosts={hosts}
@@ -748,9 +798,13 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
                 <div className="app-body app-body--dock">
                   <Suspense
                     fallback={
-                      <p className="app-loading" role="status">
-                        Loading layout
-                      </p>
+                      <div className="app-loading">
+                        <StateBlock
+                          variant="loading"
+                          message="Loading layout"
+                          rows={6}
+                        />
+                      </div>
                     }
                   >
                     <DockLayout
@@ -767,6 +821,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
                       onAttach={lifecycle.paneAttached}
                       onVisibility={lifecycle.visibility}
                       onMoved={lifecycle.moved}
+                      onDragStart={lifecycle.dragStarted}
                       onChange={lifecycle.dockChanged}
                       onTreeWidth={lifecycle.treeWidth}
                       onController={onController}

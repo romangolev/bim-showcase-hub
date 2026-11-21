@@ -27,6 +27,10 @@ A preview URL changes per deployment. Set the Preview `APS_CALLBACK_URL` to the 
 
 Sessions are sealed cookies, so the function needs no database. See [architecture.md](architecture.md#sessions).
 
+## Installable metadata
+
+`public/manifest.webmanifest` and the icons next to it (`icon-192.png`, `icon-512.png`, `icon-maskable.svg`) are static files that `vite build` copies to `dist/web`. `index.html` links the manifest and sets a `theme-color` meta that the pre-paint script and `applyTheme` keep in step with the chosen theme. There is deliberately no service worker: the app is not offline-capable and nothing is cached for offline use.
+
 ## APS app setup
 
 1. Sign in at https://aps.autodesk.com and create an application.

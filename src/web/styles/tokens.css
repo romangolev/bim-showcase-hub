@@ -5,7 +5,7 @@
   --color-graphite: #131416;
   --color-charcoal: #1f1f21;
   --color-smoke: #3c3d3e;
-  --color-steel: #71717a;
+  --color-steel: #8b8b94;
   --color-fog: #858687;
   --color-ash: #9d9e9f;
   --color-chalk: #cececf;
@@ -51,7 +51,7 @@
   --color-graphite: #ffffff;
   --color-charcoal: #eceef2;
   --color-smoke: #c9cdd5;
-  --color-steel: #6b7280;
+  --color-steel: #5b6170;
   --color-fog: #515867;
   --color-ash: #5f6675;
   --color-chalk: #272a31;
@@ -62,7 +62,7 @@
   --color-signal-blue: #2563eb;
   --color-arc-blue: #1d4ed8;
   --color-ring-blue: #3b82f6;
-  --color-mint: #15803d;
+  --color-mint: #137538;
   --color-fern: #16a34a;
   --color-coral: #c62828;
   --color-ember: #ea580c;
@@ -174,7 +174,7 @@
   --density: 0.8;
 }
 
-@media (pointer: coarse), (max-width: 700px) {
+@media (pointer: coarse), (max-width: 875px) {
   :root {
     --hit-target: max(44px, calc(44px * var(--density)));
   }

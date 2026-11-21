@@ -16,6 +16,9 @@ import {
   type SummaryView,
   summaryBlocks,
 } from '../extensions/modelSummary.js';
+import { formatCount as formatDisplayCount } from '../i18n/format.js';
+import { useSettings } from '../settings/SettingsContext.js';
+import { type Language, readSettings } from '../settings/settings.js';
 import { useScrollable } from './useScrollable.js';
 import './panels.css';
 
@@ -34,6 +37,7 @@ export function entryKey(entry: SummaryEntry): string {
 function measureText(
   cell: MeasureCell | undefined,
   view: SummaryView | undefined,
+  language: Language = readSettings().language,
 ): string {
   const resolved = cell ?? MISSING_MEASURE;
   const text = formatMeasure(resolved, {
@@ -41,7 +45,7 @@ function measureText(
     unitLabel: view?.unitLabel ?? '',
   });
   if (resolved.status !== 'ok' || resolved.skipped === 0) return text;
-  return `${text} (${resolved.skipped.toLocaleString('en-US')} missing)`;
+  return `${text} (${formatDisplayCount(resolved.skipped, language)} missing)`;
 }
 
 function TitleInput({
@@ -159,6 +163,7 @@ export function SummaryTable({
   onTitleChange?: (property: string, title: string) => void;
 }) {
   const uid = useId();
+  const { language } = useSettings().settings;
   const wrapRef = useRef<HTMLDivElement>(null);
   const scrollable = useScrollable(wrapRef);
   const [collapsedBlocks, setCollapsedBlocks] = useState<ReadonlySet<string>>(
@@ -304,10 +309,10 @@ export function SummaryTable({
               {measureProperty ? (
                 <td
                   className="bsh-num"
-                  title={measureText(measureFor(entry), view)}
+                  title={measureText(measureFor(entry), view, language)}
                 >
                   <span className="bsh-clamp bsh-measure">
-                    {measureText(measureFor(entry), view)}
+                    {measureText(measureFor(entry), view, language)}
                   </span>
                 </td>
               ) : null}
@@ -436,10 +441,14 @@ export function SummaryTable({
                         {measureProperty ? (
                           <td
                             className="bsh-num"
-                            title={measureText(measureFor(entry), view)}
+                            title={measureText(
+                              measureFor(entry),
+                              view,
+                              language,
+                            )}
                           >
                             <span className="bsh-clamp bsh-measure">
-                              {measureText(measureFor(entry), view)}
+                              {measureText(measureFor(entry), view, language)}
                             </span>
                           </td>
                         ) : null}
@@ -512,10 +521,14 @@ export function SummaryTable({
                 {measureProperty ? (
                   <td
                     className="bsh-num"
-                    title={measureText(node.measure ?? undefined, view)}
+                    title={measureText(
+                      node.measure ?? undefined,
+                      view,
+                      language,
+                    )}
                   >
                     <span className="bsh-clamp bsh-measure">
-                      {measureText(node.measure ?? undefined, view)}
+                      {measureText(node.measure ?? undefined, view, language)}
                     </span>
                   </td>
                 ) : null}

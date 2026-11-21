@@ -9,9 +9,10 @@ Documents is the main pane. With no model open it shows Home and fills the dock 
 The tree of hubs, projects, folders, items and versions, with the shortcuts around it: `src/web/components/tree` and `TreePanel.tsx`.
 
 - The hub menu and, once a hub is chosen, the project menu above the tree choose its root: one hub and one project. The choice is saved in `bsh.pane.docs.root.v1`; a hub or project that disappears falls back to All hubs.
-- With no model open the panel shows Home: pinned models, recent models and saved selection sets. The Home menu hides any of the three.
+- With no model open the panel shows Home: pinned models, recent models and saved selection sets. The Home menu hides any of the three. When all three are empty, Home shows a short welcome instead, telling the user to choose a hub, a project and a folder.
 - With a model open, a pinned and recent strip sits above the tree.
 - The filter matches loaded nodes only, so expanding more folders widens it. Sort and columns are in the Documents view menu.
+- The palette finds the same loaded versions: `DocumentTree` registers a `tree` command source, and its `tree.open.<id>` entries appear once the user types. Expanding a folder in Documents makes its children findable there.
 - A version row can be dragged onto the dock. The dock highlights while a model is over it, and the drop opens the version in its own tab whatever the open mode is.
 - The row menu opens the version, opens it in a new tab, opens it as a modal (a floating viewer pane), adds it to or removes it from the open viewer, pins it, copies its link, reveals its path or shows its versions.
 
@@ -24,7 +25,9 @@ Everything lives in `src/web/layout`.
 | `paneRegistry.ts` | `PANES`: every pane, its catalog text, placement rules and commands |
 | `paneAppearance.ts` | Custom pane titles and colour tags |
 | `panes.tsx` | The pane bodies |
-| `paneLifecycle.ts` | Pane behavior (instances, open, close, move, collapse, maximize, reset, lock, present, workspaces) with no React or dockview in it |
+| `paneLifecycle.ts` | Pane behavior (instances, open, close, move, collapse, maximize, reset, lock, present, workspaces, undo) with no React or dockview in it |
+| `layoutHistory.ts` | The bounded undo and redo stack of `LayoutModel` snapshots |
+| `breakpoint.ts` | `STACKED_MAX_WIDTH` and `STACKED_QUERY`, shared by the provider and the CSS tests |
 | `LayoutProvider.tsx` | Adapts the lifecycle to React: persistence, open-models store, dock or stacked switch, top bar, `useLayout()` |
 | `DockLayout.tsx` | The dockview adapter. The only file that imports `dockview-react`. Loaded lazily |
 | `StackedLayout.tsx` | The single column below 876 px |
@@ -111,7 +114,7 @@ Panes with `instances.source: 'user'` and `creatable: true` can be added many ti
 }
 ```
 
-3. Add the id to the `PaneId` union. To show it in the stacked layout, add it to `STACK_ORDER` in `StackedLayout.tsx`.
+3. Add the id to the `PaneId` union. To show it in the stacked layout, set `stackOrder` (lower comes first); panes without it stay out of the stacked column. Set `startsClosed` when the pane should stay out of the default dock until the user opens it.
 
 The default layout, menus, persistence and stack read the registry.
 
@@ -126,6 +129,8 @@ The default layout, menus, persistence and stack read the registry.
 | `canFloat` | Offers Float in the pane menu |
 | `requires` | `'viewer'` hides the pane in the stacked layout outside the model route |
 | `opensWithModel` | Defaults to on. `false` keeps a viewer follower out of the companions until the user opens it |
+| `stackOrder` | Its presence makes the pane part of the stacked column; lower numbers come first |
+| `startsClosed` | Keeps the pane out of the default dock; Help and Activity log use it |
 | `commands` | Extra palette commands for this pane. `paneCommands` keeps the generated Open/Close and New entries and appends these ([extensions.md](extensions.md#add-a-command)) |
 
 ## Persistence
@@ -157,7 +162,7 @@ A preset is a list of pane placements, so it tolerates whichever models are open
 
 Saved workspaces live in `bsh.workspaces.v1` (`{ version: 1, items }`) and are personal: sign-out clears them like the layout. A workspace stores the full arrangement — `dock`, `collapsed`, `treeWidth`, `dismissed`, `lastViewerArrangement` — plus the pane appearance map (custom titles and colour tags). Applying a saved or imported workspace replaces the titles and colours when the payload carries any; built-in presets and payloads without appearances leave them alone. The payload is read through `parseLayout` and `sanitizeDock`, so a corrupt entry or a newer version reads as no workspaces, and one broken entry is dropped without losing the rest. Names are trimmed to 40 characters, at most 20 workspaces are kept, and saving an existing name updates it.
 
-Applying a workspace is undoable once: the previous arrangement is snapshotted and the menu offers **Revert layout**. Revert also puts back the titles and colours the workspace replaced. A full history is not kept, and Revert is disabled while the layout is locked.
+Applying a workspace is undoable once: the previous arrangement is snapshotted and the menu offers **Revert layout**. Revert also puts back the titles and colours the workspace replaced. Revert is disabled while the layout is locked; the wider undo history below records the apply as well.
 
 All apply paths go through `layoutApply.ts`. The lifecycle guard (`applyWorkspace` returns `applied`, `locked` or `dock-only`) is the only check. The module applies the layout first and only then replaces appearances, sets the active label and reports success. A blocked apply says `Unlock the layout first` or `Available in the wide layout`, the same texts the palette and the menu show. The layout snapshot and the appearance snapshot are one undo: Revert restores both and, while locked, neither.
 
@@ -165,6 +170,16 @@ Limits:
 
 - User-added panes (`chart:2`, `properties:1`, `modelSummary:3`) are not part of a workspace: their placement and instance list stay out of it. The instances that exist now are kept and placed by the usual reconciliation. The appearance map can still name an instance id, so applying a workspace that carries one restores that copy's title and colour.
 - The switcher exists only in the dock layout, and applying a preset or saved workspace is disabled while the layout is locked.
+
+## Undo
+
+`Ctrl+Z` and `Ctrl+Shift+Z` (or `Cmd+Z` and `Cmd+Shift+Z`) undo and redo layout edits while the focus is inside the dock and outside the viewer pane. They are palette commands (`layout.undo`, `layout.redo`) with the `dock` scope; in the viewer pane the same chords are paint undo and redo.
+
+- Recorded: Move left, right or below, Float and Dock, close or reopen of a plain pane, collapse or expand, applying a workspace or preset, Reset layout, and the start of a mouse drag of a tab or group. A drag that docks nothing leaves only an equal snapshot, which undo skips.
+- Not recorded: model tabs opening or closing, user pane instances, tree width, sash sizes, maximize and present. History is per page and lives in memory only, so a reload starts clean.
+- The stack keeps the last 20 snapshots. Undo applies the snapshot through the dock controller, so a panel whose model has closed is dropped and open models keep their tabs; the viewer arrangement is kept from the current state.
+- Undo and redo are disabled while the layout is locked or in the stacked layout, with the same reasons the rest of the menu uses. Sign-out forgets the history. Undo raises a toast with a Redo action.
+- After a mouse drag the focus can land on the page body, where `Ctrl+Z` is paint undo; click a tab or use the palette entry to undo the layout. The shortcut is bound to the dock on purpose so the two undos never shadow each other.
 
 ## Sharing a layout
 
@@ -190,14 +205,21 @@ Every drag has a menu path.
 - `F6` and `Shift+F6` move focus between pane groups.
 - In Documents, `/` focuses the filter and typing letters moves focus to the next matching row. Enter opens the focused version and Space picks it. Shift+F10 or the context menu key opens the row menu.
 - After a move, focus goes to the moved tab. A live region announces moves, collapse and reset.
+- What `e2e/a11y_audit.py` checks: every visible button, link, input and menu item has an accessible name at 1440x900 with and without a model; no visible text is clipped and the top bar fits at 640x400 (200% zoom) and at 1280x800 with 125% text, in English and in Russian; the dock tab keeps its outline and the active tab keeps its border in forced colors; `F6` reaches a pane group, its pane menu opens from the keyboard, Move left changes the dock and focus stays on the moved tab; at 390x844 every `.stack button` and tree row is at least 44px tall.
+- Limits of the audit: the Autodesk Viewer canvas and its own toolbar stay outside the name, clipping and focus checks, because Autodesk owns that markup and we only reach it through `ViewerAdapter`. Dock tabs do not open the pane menu on `Shift+F10`; the audit focuses the tab's pane options button instead, and binding `Shift+F10` on tabs is still open.
 
 ## Narrow screens
 
-Below 876 px (`STACKED_QUERY`, `src/web/layout/LayoutProvider.tsx`) the dock is not rendered.
+Below 876 px (`STACKED_QUERY`, `src/web/layout/breakpoint.ts`) the dock is not rendered.
 
 - With no model open, Documents is the main section. With a model open, a tab strip switches models above a column of viewer, dashboard and summary.
 - Documents is an overlay from the top bar button.
+- Every control follows `--hit-target`, which is at least 44px under `(pointer: coarse), (max-width: 875px)`: model tabs, close buttons, tree rows with their row action, chart export buttons and the viewer chrome.
 - The saved dock returns when the window is wide again. User-added panes are not shown.
+
+## Hints
+
+Three one-line notes appear on first use and stay until dismissed: how to move panes (above the dock), the palette at Home, and the Panes menu. They are stored as personal ids in `bsh.hint.onboarding.v1`, so sign-out clears them. Settings > Defaults, the Help pane and the Help menu's **Show hints again** put them back.
 
 ## Limits
 
