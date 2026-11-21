@@ -340,6 +340,11 @@
   border-radius: 0;
 }
 
+.pane-slot--dock .bsh-drawer__header:has(> .bsh-card__title:only-child) {
+  min-height: 0;
+  padding: 0;
+}
+
 .pane-slot--dock .bsh-drawer__body {
   flex: 1;
   height: auto;
