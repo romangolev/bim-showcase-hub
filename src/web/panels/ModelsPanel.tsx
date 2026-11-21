@@ -7,6 +7,7 @@ import { StateBlock } from '../components/StateBlock.js';
 import { usePersisted } from '../storage.js';
 import { useSavedKindItems } from '../store/savedKinds.js';
 import { MAX_NAME_LENGTH } from '../store/savedStore.js';
+import { notify } from '../tasks/notifications.js';
 import { CostMeter } from '../viewer/CostMeter.js';
 import { colorLayersFor } from '../viewer/colorLayers.js';
 import { explainFailure } from '../viewer/failureExplainer.js';
@@ -110,6 +111,7 @@ export function ModelsPanel({
   const [tints, setTints] = usePersisted(MODEL_TINTS);
   const combinations = useSavedKindItems(FEDERATIONS);
   const [naming, setNaming] = useState(false);
+  const [renameFailed, setRenameFailed] = useState(false);
   const [name, setName] = useState('');
   useModelTints(resolved, models, tints);
   const palette = tintPaletteFor(tints, setKey);
@@ -431,6 +433,11 @@ export function ModelsPanel({
               </button>
             </div>
           ) : null}
+          {renameFailed ? (
+            <p role="alert" className="settings__hint">
+              Could not rename the combination. Use a non-empty name.
+            </p>
+          ) : null}
           {combinations.length === 0 ? (
             <p className="settings__hint">No saved combinations yet.</p>
           ) : (
@@ -443,9 +450,14 @@ export function ModelsPanel({
                     aria-label={`Rename ${item.name}`}
                     maxLength={MAX_NAME_LENGTH}
                     defaultValue={item.name}
-                    onBlur={(event) =>
-                      FEDERATIONS.rename(item.id, event.target.value)
-                    }
+                    onBlur={(event) => {
+                      const ok = FEDERATIONS.rename(
+                        item.id,
+                        event.target.value,
+                      );
+                      if (!ok) event.target.value = item.name;
+                      setRenameFailed(!ok);
+                    }}
                     onKeyDown={(event) => {
                       if (event.key === 'Enter') event.currentTarget.blur();
                     }}
@@ -463,7 +475,13 @@ export function ModelsPanel({
                     type="button"
                     className="bsh-button"
                     aria-label={`Delete ${item.name}`}
-                    onClick={() => FEDERATIONS.remove(item.id)}
+                    onClick={() => {
+                      if (!FEDERATIONS.remove(item.id)) {
+                        notify('Could not delete the combination.', {
+                          tone: 'error',
+                        });
+                      }
+                    }}
                   >
                     Delete
                   </button>
