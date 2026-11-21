@@ -93,6 +93,9 @@ export function highlightMatch(text: string, query?: string): ReactNode {
   }
   const end = index + needle.length;
   const from = starts.findIndex((start) => start >= index);
+  if (from < 0) {
+    return text;
+  }
   const to = starts.findIndex((start) => start >= end);
   const stop = to < 0 ? chars.length : to;
   return (
