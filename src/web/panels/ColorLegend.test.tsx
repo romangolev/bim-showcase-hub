@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { buildColoring } from '../extensions/colorBy.js';
 import { fireEvent, render, screen } from '../test/render.js';
+import { applyColoring, currentColoring } from '../viewer/modelColoring.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { ColorLegend } from './ColorLegend.js';
 
@@ -17,8 +18,8 @@ const coloring = buildColoring(
   ['#ff0000', '#0000ff'],
 );
 
-function adapter() {
-  return {
+function adapter(shown = coloring) {
+  const fake = {
     hideModelIds: vi.fn(),
     showModelIds: vi.fn(),
     isolateModelIds: vi.fn(),
@@ -26,7 +27,11 @@ function adapter() {
     selectModelIds: vi.fn(),
     setModelThemingColor: vi.fn(),
     clearModelThemingColors: vi.fn(),
+    setGhosting: vi.fn(),
+    getIsolated: () => [],
   } as unknown as ViewerAdapter;
+  applyColoring(fake, shown);
+  return fake;
 }
 
 describe('ColorLegend', () => {
@@ -91,21 +96,19 @@ describe('ColorLegend', () => {
       ['rgb(255, 0, 0)', '#0000ff'],
     );
     render(
-      <ColorLegend adapter={adapter()} coloring={mixed} onOverride={vi.fn()} />,
+      <ColorLegend
+        adapter={adapter(mixed)}
+        coloring={mixed}
+        onOverride={vi.fn()}
+      />,
     );
     expect(screen.getByLabelText('Colour for Walls')).toHaveValue('#ff0000');
   });
 
-  it('reports a clear after removing the colours', () => {
-    const onCleared = vi.fn();
-    render(
-      <ColorLegend
-        adapter={adapter()}
-        coloring={coloring}
-        onCleared={onCleared}
-      />,
-    );
+  it('removes the coloring from the viewer session', () => {
+    const fake = adapter();
+    render(<ColorLegend adapter={fake} coloring={coloring} />);
     fireEvent.click(screen.getByRole('button', { name: 'Clear colours' }));
-    expect(onCleared).toHaveBeenCalledTimes(1);
+    expect(currentColoring(fake)).toBeNull();
   });
 });

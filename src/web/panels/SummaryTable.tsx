@@ -17,8 +17,8 @@ import {
   summaryBlocks,
 } from '../extensions/modelSummary.js';
 import { formatCount as formatDisplayCount } from '../i18n/format.js';
-import { useSettings } from '../settings/SettingsContext.js';
 import { type Language, readSettings } from '../settings/settings.js';
+import { useSettings } from '../settings/SettingsContext.js';
 import { useScrollable } from './useScrollable.js';
 import './panels.css';
 
@@ -441,11 +441,7 @@ export function SummaryTable({
                         {measureProperty ? (
                           <td
                             className="bsh-num"
-                            title={measureText(
-                              measureFor(entry),
-                              view,
-                              language,
-                            )}
+                            title={measureText(measureFor(entry), view, language)}
                           >
                             <span className="bsh-clamp bsh-measure">
                               {measureText(measureFor(entry), view, language)}
@@ -521,11 +517,7 @@ export function SummaryTable({
                 {measureProperty ? (
                   <td
                     className="bsh-num"
-                    title={measureText(
-                      node.measure ?? undefined,
-                      view,
-                      language,
-                    )}
+                    title={measureText(node.measure ?? undefined, view, language)}
                   >
                     <span className="bsh-clamp bsh-measure">
                       {measureText(node.measure ?? undefined, view, language)}

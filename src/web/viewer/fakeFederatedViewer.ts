@@ -158,6 +158,7 @@ export class FakeFederatedViewer implements GuiViewer3D {
     [];
   cleared: (ViewerModel | undefined)[] = [];
   fits = 0;
+  ghosting = true;
   isolated = new Map<FakeModel, number[]>();
   hiddenNodes = new Map<FakeModel, number[]>();
   fitted: ViewerBox[] = [];
@@ -343,6 +344,10 @@ export class FakeFederatedViewer implements GuiViewer3D {
       z,
       w,
     }));
+  }
+
+  setGhosting(enabled: boolean): void {
+    this.ghosting = enabled;
   }
 
   getIsolatedNodes(model: ViewerModel): number[] {

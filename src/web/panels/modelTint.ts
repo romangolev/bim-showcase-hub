@@ -1,6 +1,7 @@
 import { hexToRgba } from '../extensions/paintBrushes.js';
 import { BSH_KEYS, defineRecord } from '../storage.js';
 import { colorLayersFor } from '../viewer/colorLayers.js';
+import { claimGhosting, releaseGhosting } from '../viewer/ghosting.js';
 import type { Rgba, ViewerAdapter } from '../viewer/ViewerAdapter.js';
 
 export interface TintSwatch {
@@ -228,14 +229,12 @@ export async function applyGhostOthers(
   adapter: ViewerAdapter,
   modelId: string,
 ): Promise<void> {
-  adapter.setGhosting?.(true);
   const items = (await adapter.getVisible()).filter(
     (item) => item.modelId === modelId,
   );
-  if (items.length > 0) adapter.isolateModelIds(items);
+  claimGhosting(adapter, 'tint', items);
 }
 
 export function resetGhostOthers(adapter: ViewerAdapter): void {
-  adapter.showAll();
-  adapter.setGhosting?.(false);
+  releaseGhosting(adapter, 'tint');
 }

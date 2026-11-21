@@ -2,7 +2,6 @@ import type { ComponentType } from 'react';
 import type { Command } from '../commands/types.js';
 import type { IconName } from '../components/icons.js';
 import { HelpPane } from '../help/HelpPane.js';
-import { COLORS_SETTINGS } from '../panels/colorsSettings.js';
 import { ActivityPane } from '../tasks/ActivityPane.js';
 import { currentAdapter } from '../viewer/activeAdapterStore.js';
 import { clearColoring } from '../viewer/modelColoring.js';
@@ -122,8 +121,8 @@ export const PANES: readonly PaneDefinition[] = [
     defaultPlacement: { kind: 'root' },
     closable: true,
     requires: 'none',
-    stackOrder: 0,
     instances: { component: ModelPaneBody, source: 'models' },
+    stackOrder: 0,
   },
   {
     id: 'summary',
@@ -199,15 +198,7 @@ export const PANES: readonly PaneDefinition[] = [
         menu: 'hook',
         run: () => {
           const adapter = currentAdapter();
-          const settings = COLORS_SETTINGS.read();
-          if (adapter) {
-            clearColoring(adapter);
-            if (settings.source === 'rules' && settings.rules.ghostRest) {
-              adapter.isolateModelIds([]);
-              adapter.setGhosting?.(false);
-            }
-          }
-          COLORS_SETTINGS.write({ ...settings, active: false });
+          if (adapter) clearColoring(adapter);
         },
       },
     ],
