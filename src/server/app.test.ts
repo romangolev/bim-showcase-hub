@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ApsAuth } from './auth/types.js';
 import { loadConfig } from './config.js';
 import type { DataService } from './data/types.js';
-import { HttpError } from './errors.js';
+import { HttpError, RateLimited } from './errors.js';
 import { createApp } from './index.js';
 import { createMockDataService } from './mock/index.js';
 
@@ -471,6 +471,21 @@ describe('error handler', () => {
     const res = await request(app).get('/api/hubs');
     expect(res.status).toBe(404);
     expect(res.body).toEqual({ error: 'Gone' });
+  });
+
+  it('sets Retry-After when a route is rate limited', async () => {
+    const data = {
+      ...createMockDataService(),
+      listHubs: () => Promise.reject(new RateLimited(12)),
+    } satisfies DataService;
+    const app = createApp(loadConfig({ MOCK_APS: '1' }), {
+      auth: fakeAuth(),
+      data,
+    });
+    const res = await request(app).get('/api/hubs');
+    expect(res.status).toBe(429);
+    expect(res.headers['retry-after']).toBe('12');
+    expect(res.body).toEqual({ error: 'Rate limited' });
   });
 });
 
