@@ -20,6 +20,24 @@ function installFakeViewing() {
     setGhosting(enabled: boolean) {
       calls.push(`ghosting:${enabled}`);
     }
+    setLightPreset(preset: number) {
+      calls.push(`lightPreset:${preset}`);
+    }
+    setGroundShadow(value: boolean) {
+      calls.push(`shadow:${value}`);
+    }
+    setDisplayEdges(value: boolean) {
+      calls.push(`edges:${value}`);
+    }
+    setQualityLevel(ambientOcclusion: boolean, antialiasing: boolean) {
+      calls.push(`quality:${ambientOcclusion}:${antialiasing}`);
+    }
+    setOptimizeNavigation(value: boolean) {
+      calls.push(`optimize:${value}`);
+    }
+    setProgressiveRendering(value: boolean) {
+      calls.push(`progressive:${value}`);
+    }
     addEventListener() {}
     removeEventListener() {}
     loadDocumentNode() {
@@ -114,6 +132,61 @@ describe('RealViewerAdapter theme', () => {
     adapter.setGhosting(true);
     adapter.setGhosting(false);
     expect(calls).toEqual(['ghosting:true', 'ghosting:false']);
+    adapter.destroy();
+  });
+
+  it('reapplies the theme background after a light preset', async () => {
+    const calls = installFakeViewing();
+    const adapter = new RealViewerAdapter(document.createElement('div'));
+    await adapter.load('dXJuOmFkc2s');
+    calls.length = 0;
+    expect(
+      adapter.applyDisplaySettings({
+        lightPreset: 2,
+        groundShadow: false,
+        groundReflection: true,
+        edges: true,
+        ambientOcclusion: false,
+        antialiasing: true,
+        performance: true,
+      }),
+    ).toEqual(['groundReflection']);
+    expect(calls).toEqual([
+      'lightPreset:2',
+      'dark-theme',
+      DARK_BACKGROUND,
+      'shadow:false',
+      'edges:true',
+      'quality:false:true',
+      'optimize:true',
+      'progressive:false',
+    ]);
+    adapter.destroy();
+  });
+
+  it('does not touch the theme without a light preset', async () => {
+    const calls = installFakeViewing();
+    const adapter = new RealViewerAdapter(document.createElement('div'));
+    await adapter.load('dXJuOmFkc2s');
+    calls.length = 0;
+    expect(
+      adapter.applyDisplaySettings({
+        lightPreset: null,
+        groundShadow: true,
+        groundReflection: false,
+        edges: true,
+        ambientOcclusion: true,
+        antialiasing: true,
+        performance: false,
+      }),
+    ).toEqual(['groundReflection']);
+    expect(calls).toEqual([
+      'shadow:true',
+      'edges:true',
+      'quality:true:true',
+      'optimize:false',
+      'progressive:true',
+    ]);
     adapter.destroy();
   });
 });

@@ -43,6 +43,7 @@ describe('app settings', () => {
       'language',
       'recentsLength',
       'reducedMotion',
+      'restoreSession',
       'sessionWarnMinutes',
       'textSize',
       'theme',
@@ -93,6 +94,21 @@ describe('readSettings', () => {
       JSON.stringify({ language: 'fr', units: 'cubits' }),
     );
     expect(readSettings()).toEqual(DEFAULT_SETTINGS);
+  });
+
+  it('reopens tabs by default and reads the switch as a boolean', () => {
+    expect(DEFAULT_SETTINGS.restoreSession).toBe(true);
+    expect(readSettings().restoreSession).toBe(true);
+    window.localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({ restoreSession: false }),
+    );
+    expect(readSettings().restoreSession).toBe(false);
+    window.localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({ restoreSession: 'no' }),
+    );
+    expect(readSettings().restoreSession).toBe(true);
   });
 
   it('migrates the old named text sizes and reads the percentage sizes', () => {

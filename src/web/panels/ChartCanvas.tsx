@@ -21,6 +21,7 @@ import {
   type ChartData,
   formatMeasure,
   mixColors,
+  OTHER_COLOR,
   readChartTheme,
   seriesColors,
 } from '../extensions/dashboardData.js';
@@ -105,39 +106,76 @@ export function ChartCanvas({
     Chart.defaults.color = theme.text;
     const labels = chart.data.map((d) => d.label);
     const patternCtx = patterns ? canvas.getContext('2d') : null;
-    const styleFor = (key: string) => {
-      const lit = key ? new Set<string>(JSON.parse(key)) : null;
+    const fillFor = (color: string, index: number) =>
+      patternCtx ? patternFill(patternCtx, color, index) : color;
+    const models =
+      kind !== 'doughnut' && chart.series && chart.series.length >= 2
+        ? chart.series
+        : null;
+    const stacked = models !== null;
+    const modelColors = models
+      ? seriesColors(
+          theme,
+          models.map((series) => series.label),
+        )
+      : [];
+    const categoryStyle = (lit: Set<string> | null) => ({
+      backgroundColor: colors.map((color, index) => {
+        const shown =
+          lit && !lit.has(labels[index] ?? '')
+            ? mixColors(color, theme.surface, DIM_WEIGHT)
+            : color;
+        return fillFor(shown, index);
+      }),
+      borderWidth: labels.map((name) => (lit?.has(name) ? 2 : 0)),
+    });
+    const modelStyle = (datasetIndex: number, lit: Set<string> | null) => {
+      const color = modelColors[datasetIndex] ?? OTHER_COLOR;
       return {
-        backgroundColor: colors.map((color, index) => {
-          const shown =
-            lit && !lit.has(labels[index] ?? '')
+        backgroundColor: labels.map((name, index) =>
+          fillFor(
+            lit && !lit.has(name)
               ? mixColors(color, theme.surface, DIM_WEIGHT)
-              : color;
-          return patternCtx ? patternFill(patternCtx, shown, index) : shown;
-        }),
+              : color,
+            index,
+          ),
+        ),
         borderWidth: labels.map((name) => (lit?.has(name) ? 2 : 0)),
       };
+    };
+    const styleFor = (datasetIndex: number, key: string) => {
+      const lit = key ? new Set<string>(JSON.parse(key)) : null;
+      return stacked ? modelStyle(datasetIndex, lit) : categoryStyle(lit);
     };
     const counts = chart.data.map((d) =>
       chart.aggregate && chart.aggregate !== 'count'
         ? (d.value ?? null)
         : d.count,
     );
+    const datasets = models
+      ? models.map((series, index) => ({
+          label: series.label,
+          data: series.counts,
+          ...styleFor(index, litKeyRef.current),
+          borderColor: theme.label,
+          minBarLength: 2,
+        }))
+      : [
+          {
+            label: chart.measure || chart.property,
+            data: counts,
+            ...styleFor(0, litKeyRef.current),
+            borderColor: theme.label,
+            ...(kind !== 'doughnut' ? { minBarLength: 2 } : {}),
+            ...(kind === 'doughnut' ? { spacing: 2, borderRadius: 2 } : {}),
+          },
+        ];
     const horizontal = kind === 'hbar';
     const instance = new Chart(canvas, {
       type: kind === 'doughnut' ? 'doughnut' : 'bar',
       data: {
         labels,
-        datasets: [
-          {
-            label: chart.measure || chart.property,
-            data: counts,
-            ...styleFor(litKeyRef.current),
-            borderColor: theme.label,
-            ...(kind !== 'doughnut' ? { minBarLength: 2 } : {}),
-            ...(kind === 'doughnut' ? { spacing: 2, borderRadius: 2 } : {}),
-          },
-        ],
+        datasets,
       },
       options: {
         responsive: true,
@@ -151,70 +189,77 @@ export function ChartCanvas({
         },
         ...(kind === 'doughnut' ? { cutout: '64%' } : {}),
         plugins: {
-          legend: { display: false },
+          legend: { display: stacked },
           tooltip: { enabled: true },
         },
         scales:
           kind === 'doughnut'
             ? {}
-            : {
-                x: horizontal
-                  ? {
-                      beginAtZero: true,
-                      border: { display: false },
-                      ticks: {
-                        color: theme.text,
-                        precision: 0,
-                        maxTicksLimit: 4,
-                      },
-                      grid: { color: theme.grid },
-                    }
-                  : {
-                      border: { display: false },
-                      ticks: {
-                        color: theme.text,
-                        maxRotation: 0,
-                        autoSkip: true,
-                        callback(value) {
-                          return shorten(
-                            String(this.getLabelForValue(Number(value))),
-                          );
-                        },
-                      },
-                      grid: { display: false },
+            : horizontal
+              ? {
+                  x: {
+                    ...(stacked ? { stacked: true } : {}),
+                    beginAtZero: true,
+                    border: { display: false },
+                    ticks: {
+                      color: theme.text,
+                      precision: 0,
+                      maxTicksLimit: 4,
                     },
-                y: horizontal
-                  ? {
-                      border: { display: false },
-                      ticks: {
-                        color: theme.text,
-                        autoSkip: true,
-                        callback(value) {
-                          return shorten(
-                            String(this.getLabelForValue(Number(value))),
-                          );
-                        },
+                    grid: { color: theme.grid },
+                  },
+                  y: {
+                    ...(stacked ? { stacked: true } : {}),
+                    border: { display: false },
+                    ticks: {
+                      color: theme.text,
+                      autoSkip: true,
+                      callback(value) {
+                        return shorten(
+                          String(this.getLabelForValue(Number(value))),
+                        );
                       },
-                      grid: { display: false },
-                    }
-                  : {
-                      beginAtZero: true,
-                      border: { display: false },
-                      ticks: {
-                        color: theme.text,
-                        precision: 0,
-                        maxTicksLimit: 4,
-                      },
-                      grid: { color: theme.grid },
                     },
-              },
+                    grid: { display: false },
+                  },
+                }
+              : {
+                  x: {
+                    ...(stacked ? { stacked: true } : {}),
+                    border: { display: false },
+                    ticks: {
+                      color: theme.text,
+                      maxRotation: 0,
+                      autoSkip: true,
+                      callback(value) {
+                        return shorten(
+                          String(this.getLabelForValue(Number(value))),
+                        );
+                      },
+                    },
+                    grid: { display: false },
+                  },
+                  y: {
+                    ...(stacked ? { stacked: true } : {}),
+                    beginAtZero: true,
+                    border: { display: false },
+                    ticks: {
+                      color: theme.text,
+                      precision: 0,
+                      maxTicksLimit: 4,
+                    },
+                    grid: { color: theme.grid },
+                  },
+                },
       },
     });
     let painted = litKeyRef.current;
     paintRef.current = (key) => {
       if (key === painted) return;
       painted = key;
-      Object.assign(instance.data.datasets[0] ?? {}, styleFor(key));
+      instance.data.datasets.forEach((dataset, index) => {
+        Object.assign(dataset, styleFor(index, key));
+      });
       instance.update('none');
     };
     return () => {

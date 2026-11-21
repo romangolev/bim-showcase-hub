@@ -78,4 +78,59 @@ describe('Placement', () => {
     expect(placement.offsetOf('b')).toBeUndefined();
     expect(applied).toEqual([]);
   });
+
+  it('reports unit, anchor and distance from the anchor after offsets', () => {
+    const { placement } = setup();
+    expect(
+      placement.info(
+        () => 'm',
+        () => null,
+      ),
+    ).toEqual([
+      {
+        modelId: 'a',
+        anchor: true,
+        unit: 'm',
+        sharedCoordinates: null,
+        distanceMeters: 0,
+      },
+      {
+        modelId: 'b',
+        anchor: false,
+        unit: 'm',
+        sharedCoordinates: null,
+        distanceMeters: 100,
+      },
+      {
+        modelId: 'c',
+        anchor: false,
+        unit: 'm',
+        sharedCoordinates: null,
+        distanceMeters: 200,
+      },
+    ]);
+    placement.set({ b: [-100, 0, 0] });
+    expect(
+      placement.info(
+        () => 'm',
+        () => null,
+      )[1]?.distanceMeters,
+    ).toBe(0);
+  });
+
+  it('keeps the named anchor and reports unknown values', () => {
+    const { placement } = setup('b');
+    const info = placement.info(
+      (id) => (id === 'a' ? 'ft' : null),
+      (id) => id === 'a',
+    );
+    expect(info.map((model) => model.anchor)).toEqual([false, true, false]);
+    expect(info.map((model) => model.unit)).toEqual(['ft', null, null]);
+    expect(info.map((model) => model.sharedCoordinates)).toEqual([
+      true,
+      false,
+      false,
+    ]);
+    expect(info.map((model) => model.distanceMeters)).toEqual([100, 0, 100]);
+  });
 });

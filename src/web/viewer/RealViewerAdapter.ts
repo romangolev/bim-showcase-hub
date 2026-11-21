@@ -3,6 +3,7 @@ import { notifyUnauthorized } from '../api/client.js';
 import type { IfcSourceRead } from '../ifc/types.js';
 import type { Theme } from '../theme/theme.js';
 import {
+  type AutodeskViewing,
   autodeskWindow,
   type BulkPropertyItem,
   type GuiViewer3D,
@@ -19,11 +20,19 @@ import {
   documentLoadError,
   type FederationAnchor,
   federatedLoadOptions,
+  nodeGuid,
+  nodeName,
+  nodeRole,
   OTHER_REGION_MESSAGE,
   pickGeometryNode,
 } from './federation.js';
 import { fullscreenElementOf, watchFullscreen } from './fullscreen.js';
 import type { GeometryRead } from './geometryTypes.js';
+import {
+  MEASURE_EXTENSION_ID,
+  type MeasureExtensionLike,
+  toMeasurements,
+} from './measurements.js';
 import {
   CANCELLED_MESSAGE,
   checkCapacity,
@@ -44,7 +53,8 @@ import {
   type Vec3,
   VIEWER_CLOSED_MESSAGE,
 } from './modelSet.js';
-import { Placement } from './placement.js';
+import { NATIVE_CONTROLS, TOOLBAR_GROUPS } from './nativeControls.js';
+import { Placement, type PlacementInfo } from './placement.js';
 import { PropertyReader } from './propertyReader.js';
 import {
   type ElementProperties,
@@ -68,12 +78,16 @@ import { SelectionHub } from './selectionHub.js';
 import { ToolGroupController } from './toolGroupController.js';
 import type {
   CameraState,
+  DisplaySettings,
   LoadStage,
+  MeasureMode,
+  MeasurementInfo,
   RestoreReport,
   Rgba,
   ToolGroupSpec,
   ViewerAdapter,
   ViewerState,
+  ViewNode,
 } from './ViewerAdapter.js';
 import { NOTHING_SKIPPED } from './ViewerAdapter.js';
 import { readViewerGeometry } from './viewerGeometry.js';
@@ -255,6 +269,21 @@ function visibilityEvents(viewing: {
   );
 }
 
+function measureEvents(viewing: AutodeskViewing): string[] {
+  const events = viewing.MeasureCommon?.Events;
+  return [
+    events?.MEASUREMENT_COMPLETED_EVENT,
+    events?.DELETE_MEASUREMENT_EVENT,
+  ].filter((event): event is string => typeof event === 'string');
+}
+
+function sharedCoordinatesOf(model: ViewerModel | undefined): boolean | null {
+  if (!model?.getData) return null;
+  const data = model.getData();
+  if (!data || typeof data !== 'object') return null;
+  return data.refPointTransform !== undefined;
+}
+
 const SCREENSHOT_TIMEOUT_MS = 10_000;
 
 export class RealViewerAdapter implements ViewerAdapter {
@@ -289,6 +318,12 @@ export class RealViewerAdapter implements ViewerAdapter {
   private anchor: FederationAnchor | null = null;
   private api = '';
   private selectionEvent = '';
+  private measureEventIds: string[] = [];
+  private hiddenControls: readonly string[] = [];
+  private displaySettings: DisplaySettings | null = null;
+  private readonly measureListeners = new Set<() => void>();
+  private readonly documents = new Map<string, ViewingDocument>();
+  private readonly loadedNodes = new Map<string, unknown>();
   private settling: Promise<void> = Promise.resolve();
   private starting: Promise<GuiViewer3D | null> | null = null;
   private epoch = 0;
@@ -316,6 +351,13 @@ export class RealViewerAdapter implements ViewerAdapter {
       frame.classList.remove(FILL_BROWSER_CLASS);
     }
     this.onFullscreenChange();
+  };
+  private readonly onMeasureChange = () => {
+    this.emitMeasurements();
+  };
+  private readonly onToolbarCreated = () => {
+    const viewer = this.viewer;
+    if (viewer) this.applyHiddenControls(viewer);
   };
 
   constructor(private readonly container: HTMLElement) {}
@@ -446,6 +488,14 @@ export class RealViewerAdapter implements ViewerAdapter {
     for (const event of visibilityEvents(viewing)) {
       viewer.addEventListener(event, this.onVisibility);
     }
+    this.measureEventIds = measureEvents(viewing);
+    for (const event of this.measureEventIds) {
+      viewer.addEventListener(event, this.onMeasureChange);
+    }
+    viewer.addEventListener(
+      viewing.TOOLBAR_CREATED_EVENT,
+      this.onToolbarCreated,
+    );
     let startCode: number | undefined;
     try {
       startCode = viewer.start();
@@ -477,6 +527,8 @@ export class RealViewerAdapter implements ViewerAdapter {
     }
     colorLayersFor(this).forgetModel(modelId);
     this.boxes.delete(modelId);
+    this.documents.delete(modelId);
+    this.loadedNodes.delete(modelId);
     if (model) this.placements.delete(model);
     if (modelId === this.anchorId || this.models.size === 0) {
       this.reanchor();
@@ -516,6 +568,147 @@ export class RealViewerAdapter implements ViewerAdapter {
     const viewer = this.viewer;
     if (!viewer) return;
     this.frameModels(viewer);
+  }
+
+  getPlacementInfo(): PlacementInfo[] {
+    return this.placement.info(
+      (modelId) => this.models.handle(modelId)?.getUnitString?.() || null,
+      (modelId) => sharedCoordinatesOf(this.models.handle(modelId)),
+    );
+  }
+
+  listMeasurements(): MeasurementInfo[] {
+    return toMeasurements(this.measure()?.getMeasurementList?.());
+  }
+
+  async startMeasure(mode: MeasureMode): Promise<boolean> {
+    const viewer = this.viewer;
+    if (!viewer) return false;
+    const loaded =
+      this.measure() ??
+      ((await viewer
+        .loadExtension(MEASURE_EXTENSION_ID)
+        .catch(() => null)) as MeasureExtensionLike | null);
+    return loaded?.activate?.(mode) === true;
+  }
+
+  clearMeasurements(): void {
+    this.measure()?.deleteMeasurements?.();
+    this.emitMeasurements();
+  }
+
+  onMeasurementsChange(cb: () => void): () => void {
+    this.measureListeners.add(cb);
+    return () => {
+      this.measureListeners.delete(cb);
+    };
+  }
+
+  private measure(): MeasureExtensionLike | null {
+    const extension = this.viewer?.getExtension?.(MEASURE_EXTENSION_ID);
+    return extension && typeof extension === 'object'
+      ? (extension as MeasureExtensionLike)
+      : null;
+  }
+
+  private emitMeasurements(): void {
+    for (const cb of [...this.measureListeners]) cb();
+  }
+
+  setHiddenControls(ids: readonly string[]): string[] {
+    this.hiddenControls = [...ids];
+    const viewer = this.viewer;
+    return viewer ? this.applyHiddenControls(viewer) : [];
+  }
+
+  private applyHiddenControls(viewer: GuiViewer3D): string[] {
+    const toolbar = viewer.toolbar;
+    if (!toolbar) return [];
+    const hidden = new Set(this.hiddenControls);
+    const ids = [
+      ...new Set([
+        ...NATIVE_CONTROLS.map((control) => control.id as string),
+        ...this.hiddenControls,
+      ]),
+    ];
+    const found = new Set<string>();
+    for (const groupId of TOOLBAR_GROUPS) {
+      const group = toolbar.getControl(groupId);
+      if (!group?.getControl) continue;
+      for (const id of ids) {
+        const control = group.getControl(id);
+        if (!control) continue;
+        found.add(id);
+        control.setVisible?.(!hidden.has(id));
+      }
+    }
+    return this.hiddenControls.filter((id) => !found.has(id));
+  }
+
+  applyDisplaySettings(settings: DisplaySettings): string[] {
+    this.displaySettings = { ...settings };
+    const viewer = this.viewer;
+    return viewer ? this.applyDisplay(viewer, settings) : [];
+  }
+
+  private applyDisplay(
+    viewer: GuiViewer3D,
+    settings: DisplaySettings,
+  ): string[] {
+    const missing: string[] = [];
+    if (settings.lightPreset !== null) {
+      if (viewer.setLightPreset) {
+        viewer.setLightPreset(settings.lightPreset);
+        this.applyTheme(viewer);
+      } else {
+        missing.push('lightPreset');
+      }
+    }
+    if (viewer.setGroundShadow) viewer.setGroundShadow(settings.groundShadow);
+    else missing.push('groundShadow');
+    if (viewer.setGroundReflection) {
+      viewer.setGroundReflection(settings.groundReflection);
+    } else {
+      missing.push('groundReflection');
+    }
+    if (viewer.setDisplayEdges) viewer.setDisplayEdges(settings.edges);
+    else missing.push('edges');
+    if (viewer.setQualityLevel) {
+      viewer.setQualityLevel(settings.ambientOcclusion, settings.antialiasing);
+    } else {
+      missing.push('ambientOcclusion', 'antialiasing');
+    }
+    if (viewer.setOptimizeNavigation) {
+      viewer.setOptimizeNavigation(settings.performance);
+    } else {
+      missing.push('performance');
+    }
+    if (viewer.setProgressiveRendering) {
+      viewer.setProgressiveRendering(!settings.performance);
+    } else if (!missing.includes('performance')) {
+      missing.push('performance');
+    }
+    return missing;
+  }
+
+  async listViews(modelId: string): Promise<ViewNode[]> {
+    const doc = this.documents.get(modelId);
+    if (!doc) return [];
+    const loaded = this.loadedNodes.get(modelId);
+    const currentId = nodeGuid(loaded);
+    const nodes = doc.getRoot().search?.({ type: 'geometry' }) ?? [];
+    const views: ViewNode[] = [];
+    for (const node of nodes) {
+      const id = nodeGuid(node);
+      if (!id) continue;
+      views.push({
+        id,
+        name: nodeName(node),
+        role: nodeRole(node),
+        current: currentId === undefined ? node === loaded : id === currentId,
+      });
+    }
+    return views;
   }
 
   private place(
@@ -968,7 +1161,9 @@ export class RealViewerAdapter implements ViewerAdapter {
           done();
         };
       }
-      const node = pickGeometryNode(doc, this.anchor);
+      const node = pickGeometryNode(doc, this.anchor, source.view);
+      this.documents.set(id, doc);
+      this.loadedNodes.set(id, node);
       this.emitStage('geometry');
       const model = await viewer.loadDocumentNode(
         doc,
@@ -999,11 +1194,15 @@ export class RealViewerAdapter implements ViewerAdapter {
       release?.();
       release = null;
       if (!this.models.get(id)?.visible) viewer.hideModel?.(model);
+      this.applyHiddenControls(viewer);
       if (!this.modelLoaded) {
         this.applyTheme(viewer);
         this.modelLoaded = true;
         await this.syncTools();
         this.resize();
+      }
+      if (this.displaySettings) {
+        this.applyDisplay(viewer, this.displaySettings);
       }
     } catch (err) {
       if (this.destroyed || this.viewer !== viewer) return;
@@ -1061,6 +1260,8 @@ export class RealViewerAdapter implements ViewerAdapter {
     this.anchorId = null;
     this.boxes.clear();
     this.placements.clear();
+    this.documents.clear();
+    this.loadedNodes.clear();
     this.placement.reset();
     this.settling = Promise.resolve();
     const viewer = this.viewer;
@@ -1074,6 +1275,14 @@ export class RealViewerAdapter implements ViewerAdapter {
       for (const event of visibilityEvents(viewing)) {
         viewer.removeEventListener(event, this.onVisibility);
       }
+      for (const event of this.measureEventIds) {
+        viewer.removeEventListener(event, this.onMeasureChange);
+      }
+      this.measureEventIds = [];
+      viewer.removeEventListener(
+        viewing.TOOLBAR_CREATED_EVENT,
+        this.onToolbarCreated,
+      );
       if (viewing.FULLSCREEN_MODE_EVENT) {
         viewer.removeEventListener(
           viewing.FULLSCREEN_MODE_EVENT,
@@ -1106,6 +1315,14 @@ export class RealViewerAdapter implements ViewerAdapter {
       for (const event of visibilityEvents(viewing)) {
         viewer.removeEventListener(event, this.onVisibility);
       }
+      for (const event of this.measureEventIds) {
+        viewer.removeEventListener(event, this.onMeasureChange);
+      }
+      this.measureEventIds = [];
+      viewer.removeEventListener(
+        viewing.TOOLBAR_CREATED_EVENT,
+        this.onToolbarCreated,
+      );
     }
     if (this.viewer === viewer) this.viewer = null;
     this.removeFrame(viewer);
@@ -1261,6 +1478,7 @@ export class RealViewerAdapter implements ViewerAdapter {
     this.controller = null;
     this.selection.clear();
     this.visibility.clear();
+    this.measureListeners.clear();
     this.models.dispose();
   }
 

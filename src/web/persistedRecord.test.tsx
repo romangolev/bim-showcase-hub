@@ -47,6 +47,7 @@ describe('storage keys', () => {
         pinned: 'bsh.docs.pinned',
         hiddenModels: 'bsh.models.hidden',
         modelTints: 'bsh.models.tints.v1',
+        modelViews: 'bsh.models.views.v1',
         hubHint: 'bsh.hint.hubs.dismissed.v1',
         summaryView: 'bsh.summary.view.v1',
         summaryProperties: 'bsh.summary.properties.v1',
@@ -58,6 +59,7 @@ describe('storage keys', () => {
         recentCommands: 'bsh.commands.recent.v1',
         layoutInstances: 'bsh.layout.instances.v1',
         workspaces: 'bsh.workspaces.v1',
+        lastSession: 'bsh.models.session.v1',
       },
       preference: {
         settings: 'bsh-settings-v1',

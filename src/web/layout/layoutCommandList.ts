@@ -57,6 +57,26 @@ export function layoutCommands(layout: LayoutApi): Command[] {
       run: () => layout.setLocked(!layout.locked),
     },
     {
+      id: 'tabs.reopen',
+      title: 'Reopen closed tab',
+      group: 'Tabs',
+      keywords: 'undo close restore model',
+      menu: 'hook',
+      ...reason(layout.canReopen() ? undefined : 'No closed tabs'),
+      run: () => {
+        layout.reopenClosed();
+      },
+    },
+    {
+      id: 'tabs.closeOthers',
+      title: 'Close other tabs',
+      group: 'Tabs',
+      keywords: 'pinned tabs close all but this model',
+      menu: 'hook',
+      ...reason(layout.activeModel ? undefined : 'Open a model first'),
+      run: () => layout.closeOthers(),
+    },
+    {
       id: 'layout.reset',
       title: 'Reset layout',
       group: 'Layout',

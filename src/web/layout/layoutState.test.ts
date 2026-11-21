@@ -92,10 +92,10 @@ describe('layoutReducer', () => {
     expect(layoutReducer(custom, { type: 'reset' })).toEqual(defaultModel());
   });
 
-  it('starts with the dashboard collapsed and nothing closed', () => {
+  it('starts with the dashboard collapsed and the optional panes closed', () => {
     expect(defaultModel().collapsed).toEqual(['dashboard']);
     expect(defaultModel().dock).toBeNull();
-    expect(defaultModel().dismissed).toEqual([]);
+    expect(defaultModel().dismissed).toEqual(['measurements', 'views']);
   });
 
   it('keeps the Documents width the user resized to, within limits', () => {
@@ -121,12 +121,12 @@ describe('layoutReducer', () => {
       id: 'summary',
       dismissed: true,
     });
-    expect(twice.dismissed).toEqual(['summary']);
+    expect(twice.dismissed).toEqual(['measurements', 'views', 'summary']);
     expect(twice).toBe(once);
     expect(
       layoutReducer(twice, { type: 'dismiss', id: 'summary', dismissed: false })
         .dismissed,
-    ).toEqual([]);
+    ).toEqual(['measurements', 'views']);
   });
 });
 
@@ -431,7 +431,7 @@ describe('storage', () => {
         dock: null,
         collapsed: ['dashboard'],
         treeWidth: 320,
-        dismissed: [],
+        dismissed: ['measurements', 'views'],
         lastViewerArrangement: null,
       },
     });

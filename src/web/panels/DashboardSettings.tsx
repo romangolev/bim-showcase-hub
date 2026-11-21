@@ -37,6 +37,7 @@ import type { ModalDefinition } from '../modal/types.js';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import { usePersisted } from '../storage.js';
 import { usePublishedAdapter } from '../viewer/activeAdapterStore.js';
+import { useModels } from '../viewer/useModels.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { DashboardUserPresets } from './DashboardUserPresets.js';
 import { HEALTH_KPI_SETTINGS } from './HealthKpis.js';
@@ -130,6 +131,10 @@ function DashboardFields({
   const groupBy = properties.includes(view.property)
     ? view.property
     : (properties[0] ?? view.property);
+  const readyModels = useModels(adapter).filter(
+    (model) => model.status === 'ready',
+  ).length;
+  const canSplit = readyModels >= 2;
   const patch = (next: Partial<DashboardView>) =>
     setView((prev) => ({ ...prev, ...next }));
   const pickProperties = (next: readonly string[]) =>
@@ -304,6 +309,22 @@ function DashboardFields({
           </select>
         </label>
       ) : null}
+      <label className="bsh-field">
+        <input
+          type="checkbox"
+          checked={view.splitByModel === true}
+          disabled={!canSplit}
+          onChange={(e) =>
+            patch({ splitByModel: e.target.checked || undefined })
+          }
+        />{' '}
+        Split by model
+      </label>
+      {canSplit ? null : (
+        <p className="bsh-muted">
+          Open a second model to split a chart by model.
+        </p>
+      )}
       <label className="bsh-field">
         <input
           type="checkbox"

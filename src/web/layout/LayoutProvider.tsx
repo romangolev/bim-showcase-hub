@@ -15,6 +15,7 @@ import { modelTabTitle } from '../api/modelTitles.js';
 import {
   claimModels,
   createOpenModelsStore,
+  LAST_SESSION,
   type ModelOwner,
   type OpenModelsState,
   type OpenModelsStore,
@@ -25,6 +26,7 @@ import { TopBar } from '../components/TopBar.js';
 import { TreeControlContext } from '../components/TreeControl.js';
 import { useMediaQuery } from '../components/useMediaQuery.js';
 import { ModelRouteSync } from '../routes/ModelRouteSync.js';
+import { readSettings } from '../settings/settings.js';
 import {
   BSH_KEYS,
   defineRecord,
@@ -187,7 +189,16 @@ export function useOwnedModels(
   provided?: OpenModelsStore,
   onOwnerChange?: () => void,
 ): OpenModelsStore {
-  const [store] = useState(() => provided ?? createOpenModelsStore());
+  const [store] = useState(
+    () =>
+      provided ??
+      createOpenModelsStore(
+        undefined,
+        undefined,
+        undefined,
+        readSettings().restoreSession ? LAST_SESSION : null,
+      ),
+  );
   const claimed = useRef<string | null>(null);
   const change = useRef(onOwnerChange);
   change.current = onOwnerChange;
@@ -564,6 +575,13 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       resizing,
       closeTreeOverlay: lifecycle.closeTreeOverlay,
       floatNext: lifecycle.floatNext,
+      activeModel: models.active,
+      closeOthers: () => {
+        const active = modelStore.getState().active;
+        if (active) modelStore.closeOthers(active);
+      },
+      reopenClosed: () => modelStore.reopenClosed(),
+      canReopen: () => modelStore.canReopen(),
       paneTitle,
       workspaces: workspaceApi,
       notify: lifecycle.notify,
@@ -582,6 +600,8 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       resizing,
       paneTitle,
       workspaceApi,
+      models.active,
+      modelStore,
     ],
   );
 
@@ -662,6 +682,9 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       models: () => modelStore.getState(),
       activateModel: modelStore.activate,
       closeModel: modelStore.close,
+      closeOthers: api.closeOthers,
+      reopenClosed: api.reopenClosed,
+      canReopen: api.canReopen,
       workspaces: () => api.workspaces,
     };
     target.__bshMeasureRows = () => {

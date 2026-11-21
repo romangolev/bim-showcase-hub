@@ -52,6 +52,10 @@ export interface LayoutApi {
   resizing: PanelId | null;
   closeTreeOverlay: () => void;
   floatNext: (urn: string) => void;
+  activeModel: string | null;
+  closeOthers: () => void;
+  reopenClosed: () => string | null;
+  canReopen: () => boolean;
   paneTitle: (id: PanelId) => PaneTitle;
   workspaces: WorkspaceApi;
   notify: (message: string) => void;

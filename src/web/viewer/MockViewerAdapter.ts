@@ -34,7 +34,8 @@ import {
   type Vec3,
   VIEWER_CLOSED_MESSAGE,
 } from './modelSet.js';
-import { Placement } from './placement.js';
+import { NATIVE_CONTROLS } from './nativeControls.js';
+import { Placement, type PlacementInfo } from './placement.js';
 import { PropertyReader } from './propertyReader.js';
 import {
   type ElementProperties,
@@ -57,13 +58,17 @@ import {
 } from './toolGroupController.js';
 import type {
   CameraState,
+  DisplaySettings,
   LoadStage,
+  MeasureMode,
+  MeasurementInfo,
   PaintSwatchSpec,
   RestoreReport,
   Rgba,
   ToolGroupSpec,
   ViewerAdapter,
   ViewerState,
+  ViewNode,
 } from './ViewerAdapter.js';
 import { NOTHING_SKIPPED } from './ViewerAdapter.js';
 import { sanitizeViewerState } from './viewerState.js';
@@ -71,7 +76,12 @@ import './viewer.css';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
-const FAKE_TOOLS: { id: string; label: string; icon: string }[] = [
+const FAKE_TOOLS: {
+  id: string;
+  label: string;
+  icon: string;
+  native?: string;
+}[] = [
   {
     id: 'home',
     label: 'Home',
@@ -80,13 +90,26 @@ const FAKE_TOOLS: { id: string; label: string; icon: string }[] = [
   {
     id: 'orbit',
     label: 'Orbit',
+    native: 'toolbar-orbitTools',
     icon: '<svg viewBox="0 0 24 24" width="18" height="18"><ellipse cx="12" cy="12" rx="9" ry="4" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>',
   },
   {
     id: 'measure',
     label: 'Measure',
+    native: 'toolbar-measurementSubmenuTool',
     icon: '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M3 15l12-12 6 6-12 12z" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>',
   },
+];
+
+const MOCK_MEASURES: Record<MeasureMode, string> = {
+  distance: '3.50 m',
+  angle: '90°',
+  area: '12.25 m²',
+};
+
+export const MOCK_VIEWS: ViewNode[] = [
+  { id: 'mock-3d', name: '{3D}', role: '3d', current: true },
+  { id: 'mock-a101', name: 'A101 - Plans', role: '2d', current: false },
 ];
 
 function pointsAttr(points: Point[]): string {
@@ -317,6 +340,12 @@ export class MockViewerAdapter implements ViewerAdapter {
   };
   private loaded = false;
   private destroyed = false;
+  private explodeScale = 0;
+  private measurements: MeasurementInfo[] = [];
+  private readonly measureListeners = new Set<() => void>();
+  private view = 'mock-3d';
+  private hiddenControls = new Set<string>();
+  private displaySettings: DisplaySettings | null = null;
   private readonly resizer = createResizeScheduler(() => this.resize());
 
   constructor(private readonly container: HTMLElement) {
@@ -385,6 +414,79 @@ export class MockViewerAdapter implements ViewerAdapter {
   setModelOffsets(offsets: Readonly<Record<string, Vec3>> | null): void {
     this.placement.set(offsets);
     this.refresh();
+  }
+
+  getPlacementInfo(): PlacementInfo[] {
+    return this.placement.info(
+      () => 'm',
+      () => null,
+    );
+  }
+
+  listMeasurements(): MeasurementInfo[] {
+    return this.measurements.map((entry) => ({ ...entry }));
+  }
+
+  async startMeasure(mode: MeasureMode): Promise<boolean> {
+    if (this.destroyed) return false;
+    this.measurements.push({
+      id: String(this.measurements.length + 1),
+      type: mode,
+      value: MOCK_MEASURES[mode],
+    });
+    this.emitMeasurements();
+    return true;
+  }
+
+  clearMeasurements(): void {
+    this.measurements = [];
+    this.emitMeasurements();
+  }
+
+  onMeasurementsChange(cb: () => void): () => void {
+    this.measureListeners.add(cb);
+    return () => {
+      this.measureListeners.delete(cb);
+    };
+  }
+
+  private emitMeasurements(): void {
+    for (const cb of [...this.measureListeners]) cb();
+  }
+
+  setHiddenControls(ids: readonly string[]): string[] {
+    this.hiddenControls = new Set(ids);
+    this.applyHiddenControls();
+    const known = new Set<string>(NATIVE_CONTROLS.map((control) => control.id));
+    return ids.filter((id) => !known.has(id));
+  }
+
+  private applyHiddenControls(): void {
+    const toolbar = this.toolbar;
+    if (!toolbar) return;
+    for (const button of toolbar.querySelectorAll<HTMLElement>(
+      '[data-native-id]',
+    )) {
+      const id = button.dataset.nativeId ?? '';
+      const hidden = this.hiddenControls.has(id);
+      button.hidden = hidden;
+      button.style.display = hidden ? 'none' : '';
+    }
+  }
+
+  applyDisplaySettings(settings: DisplaySettings): string[] {
+    this.displaySettings = { ...settings };
+    if (this.root) this.root.dataset.display = JSON.stringify(settings);
+    return [];
+  }
+
+  async listViews(modelId: string): Promise<ViewNode[]> {
+    if (!this.models.get(modelId)) return [];
+    const current = this.models.get(modelId)?.view ?? 'mock-3d';
+    return MOCK_VIEWS.map((view) => ({
+      ...view,
+      current: view.id === current,
+    }));
   }
 
   private applyOffset(scene: MockScene, offset: Vec3 | undefined): void {
@@ -561,6 +663,7 @@ export class MockViewerAdapter implements ViewerAdapter {
       cutplanes: [],
       models: {},
     };
+    if (this.explodeScale > 0) state.explode = this.explodeScale;
     for (const { info } of this.models.shown()) {
       state.models[info.id] = { isolated: [], hidden: [], selection: [] };
     }
@@ -596,6 +699,7 @@ export class MockViewerAdapter implements ViewerAdapter {
     this.applyIsolation();
     this.setSelectionKeys(keys('selection'));
     if (state.camera) this.setCamera(state.camera);
+    this.explodeScale = state.explode ?? 0;
     return NOTHING_SKIPPED;
   }
 
@@ -698,9 +802,12 @@ export class MockViewerAdapter implements ViewerAdapter {
     this.bounds = null;
     this.loaded = false;
     this.placed = 0;
+    this.view = 'mock-3d';
+    this.measurements = [];
     this.placement.reset();
     this.setSelectionKeys([]);
     this.controller?.clearPainted();
+    if (this.root) delete this.root.dataset.view;
     this.refresh();
   }
 
@@ -789,6 +896,8 @@ export class MockViewerAdapter implements ViewerAdapter {
     this.destroyed = true;
     this.hub.clear();
     this.visibility.clear();
+    this.measureListeners.clear();
+    this.measurements = [];
     this.models.clear();
     this.models.dispose();
     this.themed.clear();
@@ -826,9 +935,15 @@ export class MockViewerAdapter implements ViewerAdapter {
     toolbar.setAttribute('role', 'toolbar');
     toolbar.setAttribute('aria-label', 'Viewer toolbar');
     for (const tool of FAKE_TOOLS) {
-      const button = this.createToolbarButton(tool.id, tool.label, tool.icon);
+      const button = this.createToolbarButton(
+        tool.id,
+        tool.label,
+        tool.icon,
+        tool.native,
+      );
       button.addEventListener('click', () => {
         if (tool.id === 'home') this.setSelectionKeys([]);
+        if (tool.id === 'measure') void this.startMeasure('distance');
       });
       toolbar.appendChild(button);
     }
@@ -844,11 +959,13 @@ export class MockViewerAdapter implements ViewerAdapter {
     id: string,
     tooltip: string,
     icon: string,
+    native?: string,
   ): HTMLButtonElement {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'bsh-mock__button';
     button.dataset.buttonId = id;
+    if (native) button.dataset.nativeId = native;
     button.title = tooltip;
     button.setAttribute('aria-label', tooltip);
     button.innerHTML = icon;
@@ -1033,6 +1150,12 @@ export class MockViewerAdapter implements ViewerAdapter {
     if (offset) this.applyOffset(scene, offset);
     if (!this.models.get(id)?.visible) {
       scene.group.setAttribute('display', 'none');
+    }
+    this.view = source.view ?? 'mock-3d';
+    if (this.root) this.root.dataset.view = this.view;
+    this.applyHiddenControls();
+    if (this.displaySettings && this.root) {
+      this.root.dataset.display = JSON.stringify(this.displaySettings);
     }
     this.refresh();
   }

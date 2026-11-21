@@ -117,16 +117,51 @@ export function viewerShortcutKeys(command: string): string | undefined {
     ?.keys;
 }
 
-export function setViewerShortcut(command: string, keys: string): boolean {
-  if (!COMMANDS.has(command)) return false;
+export type ShortcutCheck =
+  | { ok: true; keys: string }
+  | {
+      ok: false;
+      reason: 'unknown' | 'invalid' | 'reserved' | 'taken';
+      by?: string;
+    };
+
+export function checkViewerShortcut(
+  command: string,
+  keys: string,
+  overrides: Record<string, string> = VIEWER_SHORTCUT_KEYS.read(),
+): ShortcutCheck {
+  if (!COMMANDS.has(command)) return { ok: false, reason: 'unknown' };
   const normalized = normalizeShortcut(keys);
-  if (!normalized) return false;
+  if (!normalized) return { ok: false, reason: 'invalid' };
+  if (RESERVED.has(normalized)) return { ok: false, reason: 'reserved' };
+  const owner = viewerShortcuts(overrides).find(
+    (shortcut) => shortcut.command !== command && shortcut.keys === normalized,
+  );
+  if (owner) return { ok: false, reason: 'taken', by: owner.label };
+  return { ok: true, keys: normalized };
+}
+
+export function setViewerShortcut(command: string, keys: string): boolean {
+  const check = checkViewerShortcut(command, keys);
+  if (!check.ok) return false;
   const next = readViewerShortcutOverrides({
     ...VIEWER_SHORTCUT_KEYS.read(),
-    [command]: normalized,
+    [command]: check.keys,
   });
   if (!VIEWER_SHORTCUT_KEYS.write(next)) return false;
-  return next[command] === normalized;
+  return (next[command] ?? viewerShortcutKeys(command)) === check.keys;
+}
+
+export function resetViewerShortcut(command: string): void {
+  const overrides = VIEWER_SHORTCUT_KEYS.read();
+  if (!(command in overrides)) return;
+  const rest = { ...overrides };
+  delete rest[command];
+  if (Object.keys(rest).length === 0) {
+    VIEWER_SHORTCUT_KEYS.remove();
+    return;
+  }
+  VIEWER_SHORTCUT_KEYS.write(rest);
 }
 
 export function resetViewerShortcuts(): void {

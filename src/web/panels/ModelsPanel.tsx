@@ -1,13 +1,20 @@
-import { useEffect, useId, useRef } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Icon } from '../components/icons.js';
 import { StateBlock } from '../components/StateBlock.js';
 import { usePersisted } from '../storage.js';
+import { useSavedKindItems } from '../store/savedKinds.js';
+import { MAX_NAME_LENGTH } from '../store/savedStore.js';
 import { CostMeter } from '../viewer/CostMeter.js';
 import { colorLayersFor } from '../viewer/colorLayers.js';
 import { explainFailure } from '../viewer/failureExplainer.js';
-import type { ModelInfo } from '../viewer/modelSet.js';
+import type { ModelInfo, Vec3 } from '../viewer/modelSet.js';
+import {
+  FEDERATIONS,
+  nextCombinationName,
+} from '../viewer/savedFederations.js';
 import { useModels } from '../viewer/useModels.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
+import { ModelAlignment } from './ModelAlignment.js';
 import { ModelTintSwatch } from './ModelTintSwatch.js';
 import { isolatedModel, isolateVisibility } from './modelRows.js';
 import {
@@ -33,6 +40,10 @@ export interface ModelsPanelProps {
   onRemove?: (id: string) => void;
   onAdd?: () => void;
   setKey?: string | null;
+  onSaveFederation?: (name: string) => void;
+  onOpenFederation?: (id: string) => void;
+  offsets?: Readonly<Record<string, Vec3>> | null;
+  onOffsetsChange?: (next: Record<string, Vec3> | null) => void;
 }
 
 function statusLabel(model: ModelInfo): string {
@@ -81,15 +92,29 @@ export function ModelsPanel({
   onRemove,
   onAdd,
   setKey,
+  onSaveFederation,
+  onOpenFederation,
+  offsets,
+  onOffsetsChange,
 }: ModelsPanelProps) {
   const titleId = useId();
   const resolved = useResolvedAdapter(adapter);
   const models = useModels(resolved);
   const isolated = isolatedModel(models);
   const [tints, setTints] = usePersisted(MODEL_TINTS);
+  const combinations = useSavedKindItems(FEDERATIONS);
+  const [naming, setNaming] = useState(false);
+  const [name, setName] = useState('');
   useModelTints(resolved, models, tints);
   const palette = tintPaletteFor(tints, setKey);
   const ready = models.filter((model) => model.status === 'ready');
+  const placement = resolved ? resolved.getPlacementInfo() : [];
+  const placementOf = new Map(placement.map((entry) => [entry.modelId, entry]));
+  const anchorName =
+    models.find((model) => placementOf.get(model.id)?.anchor)?.name ?? null;
+  const showAlignment = Boolean(
+    resolved && onOffsetsChange && ready.length > 1,
+  );
   const tinted = models.filter((model) => tintFor(tints, model.id));
   const ghostTarget =
     isolated ??
@@ -124,6 +149,21 @@ export function ModelsPanel({
         ? withModelTint(current, model.id, { ...tint, strength: value })
         : { ...current, strength: value };
     });
+  };
+  const canSave = Boolean(onSaveFederation) && ready.length > 1;
+  const startNaming = () => {
+    setName(nextCombinationName());
+    setNaming(true);
+  };
+  const cancelNaming = () => {
+    setNaming(false);
+    setName('');
+  };
+  const saveCombination = () => {
+    const clean = name.trim() || nextCombinationName();
+    onSaveFederation?.(clean);
+    setNaming(false);
+    setName('');
   };
   return (
     <section className="bsh-card bsh-models" aria-labelledby={titleId}>
@@ -292,6 +332,28 @@ export function ModelsPanel({
               );
             })}
           </ul>
+          {showAlignment ? (
+            <section
+              className="bsh-models__alignment-list"
+              aria-label="Model alignment"
+            >
+              <h3 className="bsh-models__subtitle">Alignment</h3>
+              <ul className="bsh-models__list">
+                {ready.map((model) => (
+                  <li key={model.id}>
+                    <ModelAlignment
+                      adapter={resolved}
+                      model={model}
+                      info={placementOf.get(model.id) ?? null}
+                      anchorName={anchorName}
+                      offsets={offsets}
+                      onOffsetsChange={onOffsetsChange}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
         </>
       ) : (
         <StateBlock
@@ -300,6 +362,95 @@ export function ModelsPanel({
           compact
         />
       )}
+      {canSave || combinations.length > 0 ? (
+        <section
+          className="bsh-models__combinations"
+          aria-label="Saved combinations"
+        >
+          <div className="bsh-models__tools">
+            <h3 className="bsh-models__subtitle">Saved combinations</h3>
+            {canSave ? (
+              <button
+                type="button"
+                className="bsh-button"
+                onClick={startNaming}
+              >
+                Save combination…
+              </button>
+            ) : null}
+          </div>
+          {naming ? (
+            <div className="bsh-presets">
+              <input
+                type="text"
+                className="bsh-input"
+                aria-label="Combination name"
+                maxLength={MAX_NAME_LENGTH}
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') saveCombination();
+                  if (event.key === 'Escape') cancelNaming();
+                }}
+              />
+              <button
+                type="button"
+                className="bsh-button"
+                onClick={saveCombination}
+              >
+                Save combination
+              </button>
+              <button
+                type="button"
+                className="bsh-button"
+                onClick={cancelNaming}
+              >
+                Cancel
+              </button>
+            </div>
+          ) : null}
+          {combinations.length === 0 ? (
+            <p className="settings__hint">No saved combinations yet.</p>
+          ) : (
+            <ul className="settings__palette">
+              {combinations.map((item) => (
+                <li key={`${item.id}:${item.name}`} className="bsh-presets">
+                  <input
+                    type="text"
+                    className="bsh-input"
+                    aria-label={`Rename ${item.name}`}
+                    maxLength={MAX_NAME_LENGTH}
+                    defaultValue={item.name}
+                    onBlur={(event) =>
+                      FEDERATIONS.rename(item.id, event.target.value)
+                    }
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') event.currentTarget.blur();
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="bsh-button"
+                    aria-label={`Open ${item.name}`}
+                    disabled={!onOpenFederation}
+                    onClick={() => onOpenFederation?.(item.id)}
+                  >
+                    Open
+                  </button>
+                  <button
+                    type="button"
+                    className="bsh-button"
+                    aria-label={`Delete ${item.name}`}
+                    onClick={() => FEDERATIONS.remove(item.id)}
+                  >
+                    Delete
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ) : null}
     </section>
   );
 }
