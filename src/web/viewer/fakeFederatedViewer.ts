@@ -2,6 +2,8 @@ import {
   type AutodeskViewing,
   autodeskWindow,
   type BulkPropertyItem,
+  type ControlButton,
+  type ControlGroup,
   type DocumentNodeLoadOptions,
   type GuiViewer3D,
   type InstanceTree,
@@ -32,6 +34,7 @@ export interface FakeModelSpec {
   noGeometry?: boolean;
   center?: [number, number, number];
   size?: number;
+  refPoint?: boolean;
 }
 
 let modelIds = 0;
@@ -56,19 +59,22 @@ export class FakeModel implements ViewerModel {
     onSuccess: (items: BulkPropertyItem[]) => void,
   ): void {
     const categories = this.spec.categories ?? ['Walls'];
+    const known = new Set([1, ...(this.spec.leaves ?? FAKE_LEAVES)]);
     onSuccess(
-      dbIds.map((dbId, index) => ({
-        dbId,
-        name: `${this.urn} ${dbId}`,
-        properties: (options.propFilter ?? []).includes('Category')
-          ? [
-              {
-                displayName: 'Category',
-                displayValue: categories[index % categories.length],
-              },
-            ]
-          : [],
-      })),
+      dbIds
+        .filter((dbId) => known.has(dbId))
+        .map((dbId, index) => ({
+          dbId,
+          name: `${this.urn} ${dbId}`,
+          properties: (options.propFilter ?? []).includes('Category')
+            ? [
+                {
+                  displayName: 'Category',
+                  displayValue: categories[index % categories.length],
+                },
+              ]
+            : [],
+        })),
     );
   }
 
@@ -85,14 +91,24 @@ export class FakeModel implements ViewerModel {
     onSuccess({
       getRootId: () => 1,
       getChildCount: (dbId) => (dbId === 1 ? leaves.length : 0),
-      enumNodeChildren: (_dbId, cb) => {
+      enumNodeChildren: (dbId, cb) => {
+        if (dbId !== 1) return;
         for (const leaf of leaves) cb(leaf);
       },
     });
   }
 
   getData() {
-    return { globalOffset: this.globalOffset };
+    return {
+      globalOffset: this.globalOffset,
+      ...(this.spec.refPoint
+        ? {
+            refPointTransform: {
+              elements: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+            },
+          }
+        : {}),
+    };
   }
 
   getUnitString(): string {
@@ -134,9 +150,150 @@ export class FakeModel implements ViewerModel {
 
 interface FakeNode {
   is2D(): boolean;
+  guid(): string;
+  name(): string;
+  data: { guid: string; name: string; role: string };
 }
 
-interface FakeDocument extends ViewingDocument {
+function viewNode(guid: string, name: string, twoD: boolean): FakeNode {
+  return {
+    is2D: () => twoD,
+    guid: () => guid,
+    name: () => name,
+    data: { guid, name, role: twoD ? '2d' : '3d' },
+  };
+}
+
+export function documentNodes(spec: FakeModelSpec): FakeNode[] {
+  if (spec.noGeometry) return [];
+  if (spec.only2d) return [viewNode('s1', 'Sheet', true)];
+  return [viewNode('g1', '{3D}', false), viewNode('g2', 'A101 - Plans', true)];
+}
+
+export class FakeControl implements ControlButton {
+  visible = true;
+
+  constructor(readonly id: string) {}
+
+  onClick(): void {}
+
+  setToolTip(): void {}
+
+  setIcon(): void {}
+
+  setState(): boolean {
+    return true;
+  }
+
+  getState(): number {
+    return 0;
+  }
+
+  setVisible(visible: boolean): void {
+    this.visible = visible;
+  }
+}
+
+export class FakeControlGroup implements ControlGroup {
+  readonly controls = new Map<string, FakeControl>();
+
+  constructor(readonly id: string) {}
+
+  addControl(control: ControlButton): void {
+    if (control instanceof FakeControl) this.controls.set(control.id, control);
+  }
+
+  add(id: string): FakeControl {
+    const control = new FakeControl(id);
+    this.controls.set(id, control);
+    return control;
+  }
+
+  removeControl(control: ControlButton | string): void {
+    const id = typeof control === 'string' ? control : undefined;
+    for (const [key, own] of this.controls) {
+      if (key === id || own === control) this.controls.delete(key);
+    }
+  }
+
+  getNumberOfControls(): number {
+    return this.controls.size;
+  }
+
+  getControl(id: string): ControlButton | undefined {
+    return this.controls.get(id);
+  }
+}
+
+export class FakeToolbar {
+  readonly groups = new Map<string, FakeControlGroup>();
+
+  constructor() {
+    for (const id of ['navTools', 'modelTools', 'settingsTools']) {
+      this.groups.set(id, new FakeControlGroup(id));
+    }
+    this.control('navTools', 'toolbar-orbitTools');
+    this.control('modelTools', 'toolbar-sectionTool');
+    this.control('settingsTools', 'toolbar-fullscreenTool');
+  }
+
+  control(groupId: string, id: string): FakeControl {
+    const group = this.groups.get(groupId);
+    if (!group) throw new Error(`no group ${groupId}`);
+    return group.add(id);
+  }
+
+  addControl(group: ControlGroup): void {
+    const own = group as FakeControlGroup;
+    this.groups.set(own.id, own);
+  }
+
+  removeControl(group: ControlGroup | string): void {
+    this.groups.delete(
+      typeof group === 'string' ? group : (group as FakeControlGroup).id,
+    );
+  }
+
+  getControl(id: string): ControlGroup | undefined {
+    return this.groups.get(id);
+  }
+
+  visible(id: string): boolean {
+    for (const group of this.groups.values()) {
+      const control = group.getControl(id);
+      if (control) return (control as FakeControl).visible;
+    }
+    return false;
+  }
+}
+
+export interface FakeMeasure {
+  list: unknown[];
+  activated: string[];
+  activate(mode: string): boolean;
+  getMeasurementList(): unknown[];
+  deleteMeasurements(): void;
+}
+
+export function fakeMeasure(): FakeMeasure {
+  const measure: FakeMeasure = {
+    list: [],
+    activated: [],
+    activate(mode: string): boolean {
+      measure.activated.push(mode);
+      return true;
+    },
+    getMeasurementList(): unknown[] {
+      return measure.list;
+    },
+    deleteMeasurements(): void {
+      measure.list = [];
+    },
+  };
+  return measure;
+}
+
+export interface FakeDocument extends ViewingDocument {
   urn: string;
 }
 
@@ -150,7 +307,11 @@ export interface FakeEnvironment {
 
 export class FakeFederatedViewer implements GuiViewer3D {
   container: HTMLElement;
+  toolbar = new FakeToolbar();
+  measure: FakeMeasure | null = fakeMeasure();
   models: FakeModel[] = [];
+  nodeGuids: string[] = [];
+  displayCalls: { name: string; args: unknown[] }[] = [];
   hidden = new Set<FakeModel>();
   unloaded: FakeModel[] = [];
   selections = new Map<FakeModel, number[]>();
@@ -175,6 +336,7 @@ export class FakeFederatedViewer implements GuiViewer3D {
     projection: 'perspective',
   };
   cutplanes: number[][] = [];
+  explodeScale = 0;
   restored: {
     state: unknown;
     filter: unknown;
@@ -239,6 +401,44 @@ export class FakeFederatedViewer implements GuiViewer3D {
     return true;
   }
 
+  getExtension(id: string): unknown {
+    return id === 'Autodesk.Measure' ? (this.measure ?? undefined) : undefined;
+  }
+
+  private record(name: string, ...args: unknown[]): void {
+    this.displayCalls.push({ name, args });
+  }
+
+  setLightPreset(preset: number): void {
+    this.record('setLightPreset', preset);
+  }
+
+  setGroundShadow(value: boolean): void {
+    this.record('setGroundShadow', value);
+  }
+
+  setDisplayEdges(value: boolean): void {
+    this.record('setDisplayEdges', value);
+  }
+
+  setQualityLevel(ambientOcclusion: boolean, antialiasing: boolean): void {
+    this.record('setQualityLevel', ambientOcclusion, antialiasing);
+  }
+
+  setOptimizeNavigation(value: boolean): void {
+    this.record('setOptimizeNavigation', value);
+  }
+
+  setProgressiveRendering(value: boolean): void {
+    this.record('setProgressiveRendering', value);
+  }
+
+  calls(name: string): unknown[][] {
+    return this.displayCalls
+      .filter((call) => call.name === name)
+      .map((call) => call.args);
+  }
+
   setTheme(): void {}
 
   setBackgroundColor(): void {}
@@ -252,6 +452,7 @@ export class FakeFederatedViewer implements GuiViewer3D {
     await this.env.gate.get(urn);
     const spec = this.env.specs.get(urn) ?? {};
     const model = new FakeModel(urn, options, spec, (node as FakeNode).is2D());
+    this.nodeGuids.push((node as FakeNode).guid?.() ?? '');
     this.models.push(model);
     return model;
   }
@@ -348,6 +549,14 @@ export class FakeFederatedViewer implements GuiViewer3D {
 
   setGhosting(enabled: boolean): void {
     this.ghosting = enabled;
+  }
+
+  explode(scale: number): void {
+    this.explodeScale = scale;
+  }
+
+  getExplodeScale(): number {
+    return this.explodeScale;
   }
 
   getIsolatedNodes(model: ViewerModel): number[] {
@@ -482,7 +691,6 @@ export function installFakeFederation(): FakeEnvironment {
       return true;
     }
   }
-  const node = (twoD: boolean): FakeNode => ({ is2D: () => twoD });
   const viewing: AutodeskViewing = {
     Initializer: (_options, cb) => cb(),
     GuiViewer3D: Viewer,
@@ -495,15 +703,16 @@ export function installFakeFederation(): FakeEnvironment {
           onError(404, spec.fail);
           return;
         }
+        const nodes = documentNodes(spec);
         const doc: FakeDocument = {
           urn,
           getRoot: () => ({
-            getDefaultGeometry: () =>
-              spec.noGeometry ? null : node(Boolean(spec.only2d)),
+            getDefaultGeometry: () => nodes[0] ?? null,
             search: (query) =>
-              spec.noGeometry || (spec.only2d && query.role === '3d')
-                ? []
-                : [node(query.role === '2d')],
+              nodes.filter(
+                (entry) =>
+                  !query.role || entry.is2D() === (query.role === '2d'),
+              ),
           }),
         };
         onSuccess(doc);

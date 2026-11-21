@@ -100,6 +100,8 @@ describe('pane registry', () => {
       'summary',
       'dashboard',
       'models',
+      'measurements',
+      'views',
       'colors',
       'export',
     ]);
@@ -107,6 +109,8 @@ describe('pane registry', () => {
       'summary',
       'dashboard',
       'models',
+      'measurements',
+      'views',
       'colors',
       'export',
     ]);
@@ -114,6 +118,30 @@ describe('pane registry', () => {
     expect(paneById('colors').opensWithModel).toBe(false);
     expect(paneById('export').opensWithModel).toBe(false);
     expect(paneById('summary').opensWithModel).toBeUndefined();
+  });
+
+  it('registers Measurements as a Viewer pane tabbed beside Models', () => {
+    const pane = paneById('measurements');
+    expect(pane.category).toBe('Viewer');
+    expect(pane.defaultPlacement).toEqual({
+      kind: 'tab',
+      reference: 'models',
+    });
+    expect(pane.closable).toBe(true);
+    expect(hasPlainPanel('measurements')).toBe(true);
+  });
+
+  it('registers Sheets and views as a Viewer pane tabbed beside Models', () => {
+    const pane = paneById('views');
+    expect(pane.title).toBe('Sheets and views');
+    expect(pane.category).toBe('Viewer');
+    expect(pane.requires).toBe('viewer');
+    expect(pane.defaultPlacement).toEqual({
+      kind: 'tab',
+      reference: 'models',
+    });
+    expect(pane.closable).toBe(true);
+    expect(hasPlainPanel('views')).toBe(true);
   });
 
   it('adds a pane hook’s commands after the generated toggle and create entries', () => {
@@ -233,6 +261,10 @@ function menuLayout(over: Partial<LayoutApi> = {}): LayoutApi {
     setPresenting: vi.fn(),
     setLocked: vi.fn(),
     resetLayout: vi.fn(),
+    activeModel: null,
+    closeOthers: vi.fn(),
+    reopenClosed: vi.fn(() => null),
+    canReopen: () => false,
     workspaces: {
       canRevert: false,
       openDialog: vi.fn(),

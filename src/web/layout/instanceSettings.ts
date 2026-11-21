@@ -15,7 +15,11 @@ import {
 } from '../extensions/modelSummary.js';
 import { sanitizePropertyNames } from '../extensions/propertyNames.js';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
-import { defineRecordFamily, type PersistedRecord } from '../storage.js';
+import {
+  BSH_PREFIXES,
+  defineRecordFamily,
+  type PersistedRecord,
+} from '../storage.js';
 import {
   type ElementScope,
   sanitizeElementScope,
@@ -40,7 +44,7 @@ const DEFAULT_SUMMARY_SPEC: SummarySpec = {
   action: 'select',
 };
 
-const INSTANCE_PREFIX = 'bsh.pane.';
+const INSTANCE_PREFIX = BSH_PREFIXES.pane;
 
 export function instanceSettingKey(id: PanelId): string {
   return `${INSTANCE_PREFIX}${id.replace(':', '.')}.v1`;

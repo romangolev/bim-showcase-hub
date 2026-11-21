@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { installMemoryStorage } from '../test/mockApi.js';
 import {
+  checkViewerShortcut,
   DEFAULT_VIEWER_SHORTCUTS,
+  resetViewerShortcut,
   resetViewerShortcuts,
   setViewerShortcut,
   VIEWER_SHORTCUT_KEYS,
+  viewerShortcutKeys,
   viewerShortcuts,
 } from './viewerShortcutMap.js';
 
@@ -57,5 +60,49 @@ describe('viewer shortcut map', () => {
     });
     expect(keysFor('viewer.isolate')).toBe('i');
     expect(keysFor('viewer.hide')).toBe('h');
+  });
+});
+
+describe('checkViewerShortcut', () => {
+  it('accepts a free chord and names the owner of a taken one', () => {
+    expect(checkViewerShortcut('viewer.isolate', 'mod+shift+i')).toEqual({
+      ok: true,
+      keys: 'mod+shift+i',
+    });
+    expect(checkViewerShortcut('viewer.isolate', 'h')).toEqual({
+      ok: false,
+      reason: 'taken',
+      by: 'Hide selection',
+    });
+  });
+
+  it('refuses reserved, unparsable and unknown entries', () => {
+    expect(checkViewerShortcut('viewer.isolate', 'mod+k')).toEqual({
+      ok: false,
+      reason: 'reserved',
+    });
+    expect(checkViewerShortcut('viewer.isolate', 'mod+')).toEqual({
+      ok: false,
+      reason: 'invalid',
+    });
+    expect(checkViewerShortcut('nope', 'x')).toEqual({
+      ok: false,
+      reason: 'unknown',
+    });
+  });
+
+  it('resets one binding and keeps the others', () => {
+    setViewerShortcut('viewer.isolate', 'mod+shift+i');
+    setViewerShortcut('viewer.hide', 'mod+shift+h');
+    resetViewerShortcut('viewer.isolate');
+    expect(viewerShortcutKeys('viewer.isolate')).toBe('i');
+    expect(viewerShortcutKeys('viewer.hide')).toBe('mod+shift+h');
+  });
+
+  it('lets a command keep its own chord', () => {
+    expect(checkViewerShortcut('viewer.isolate', 'i')).toEqual({
+      ok: true,
+      keys: 'i',
+    });
   });
 });

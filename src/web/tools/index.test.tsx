@@ -3,6 +3,7 @@ import { BSH_KEYS, forgetPersonal } from '../storage.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { buildToolGroup } from '../test/toolGroup.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
+import { DISPLAY_SETTINGS_KEY } from './display/displaySettings.js';
 import { EXCEL_SETTINGS_KEY } from './excel/excelSettings.js';
 import { GLB_SETTINGS_KEY } from './glb/GlbExportTool.js';
 import { IFC_SETTINGS_KEY } from './ifc/ifcSettings.js';
@@ -10,6 +11,7 @@ import { TOOLS } from './index.js';
 import { exportFileName } from './kernel/exportKit.js';
 import { modelKey } from './kernel/modelKey.js';
 import { PAINT_SETTINGS_KEY } from './paint/paintSettings.js';
+import { TOOLBAR_SETTINGS_KEY } from './toolbar/ToolbarProfileTool.js';
 
 const APP = BSH_KEYS.preference.settings;
 const adapter = {} as ViewerAdapter;
@@ -19,18 +21,22 @@ beforeEach(() => {
 });
 
 describe('the default tool registry', () => {
-  it('registers paint, excel, glb and ifc in toolbar order with own keys', () => {
+  it('registers paint, excel, glb, ifc, toolbar and display in toolbar order with own keys', () => {
     expect(TOOLS.all().map((tool) => tool.id)).toEqual([
       'paint',
       'excel',
       'glb',
       'ifc',
+      'toolbar',
+      'display',
     ]);
     expect(TOOLS.all().map((tool) => tool.settings.key)).toEqual([
       PAINT_SETTINGS_KEY,
       EXCEL_SETTINGS_KEY,
       GLB_SETTINGS_KEY,
       IFC_SETTINGS_KEY,
+      TOOLBAR_SETTINGS_KEY,
+      DISPLAY_SETTINGS_KEY,
     ]);
   });
 
@@ -44,12 +50,14 @@ describe('the default tool registry', () => {
 
   it('gives every tool a settings window with a unique id', () => {
     const ids = TOOLS.modals().map((modal) => modal.id);
-    expect(new Set(ids).size).toBe(4);
+    expect(new Set(ids).size).toBe(6);
     expect(TOOLS.modals().map((modal) => modal.title)).toEqual([
       'Paint brushes settings',
       'Excel export settings',
       'Geometry export settings',
       'IFC export settings',
+      'Toolbar profile settings',
+      'Viewer display settings',
     ]);
   });
 });

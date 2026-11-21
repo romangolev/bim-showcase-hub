@@ -71,6 +71,19 @@ const chart = {
   ],
 };
 
+const splitChart = {
+  property: 'Category',
+  total: 6,
+  data: [
+    { label: 'Walls', count: 4 },
+    { label: 'Doors', count: 2 },
+  ],
+  series: [
+    { modelId: 'a', label: 'A.rvt', counts: [3, 1] },
+    { modelId: 'b', label: 'B.rvt', counts: [1, 1] },
+  ],
+};
+
 function colorsOf(index: number): string[] {
   const entry = created.charts[index];
   if (!entry) throw new Error(`chart ${index} was not created`);
@@ -234,6 +247,56 @@ describe('ChartCanvas palette and patterns', () => {
     const got = colorsOf(0);
     expect(got).toHaveLength(2);
     for (const color of got) expect(typeof color).toBe('string');
+  });
+});
+
+describe('ChartCanvas split by model', () => {
+  it('stacks one dataset per model in a bar chart', () => {
+    render(<ChartCanvas kind="bar" chart={splitChart} label="Counts" />);
+    const config = created.charts[0]?.config as {
+      data: { datasets: { label: string; data: number[] }[] };
+      options: {
+        scales: { x: { stacked?: boolean }; y: { stacked?: boolean } };
+        plugins: { legend: { display: boolean } };
+      };
+    };
+    expect(config.data.datasets.map((d) => d.label)).toEqual([
+      'A.rvt',
+      'B.rvt',
+    ]);
+    expect(config.data.datasets.map((d) => d.data)).toEqual([
+      [3, 1],
+      [1, 1],
+    ]);
+    expect(config.options.scales.x.stacked).toBe(true);
+    expect(config.options.scales.y.stacked).toBe(true);
+    expect(config.options.plugins.legend.display).toBe(true);
+  });
+
+  it('dims an unlit category in every model', () => {
+    const { rerender } = render(
+      <ChartCanvas kind="bar" chart={splitChart} label="Counts" />,
+    );
+    const first = created.charts[0];
+    rerender(
+      <ChartCanvas
+        kind="bar"
+        chart={splitChart}
+        label="Counts"
+        highlight={new Set(['Walls'])}
+      />,
+    );
+    expect(created.charts).toHaveLength(1);
+    const second = first?.data.datasets[1] as { backgroundColor: string[] };
+    expect(second.backgroundColor[0]).not.toEqual(second.backgroundColor[1]);
+  });
+
+  it('ignores series in a doughnut', () => {
+    render(<ChartCanvas kind="doughnut" chart={splitChart} label="Share" />);
+    const config = created.charts[0]?.config as {
+      data: { datasets: unknown[] };
+    };
+    expect(config.data.datasets).toHaveLength(1);
   });
 });
 

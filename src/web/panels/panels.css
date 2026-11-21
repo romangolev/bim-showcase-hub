@@ -1110,6 +1110,50 @@
   color: var(--color-snow);
 }
 
+.bsh-measures__tools {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.bsh-measures__list {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.bsh-measures__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  border-bottom: var(--border-hairline);
+  font-size: var(--text-13);
+}
+
+.bsh-measures__type {
+  color: var(--color-ash);
+  overflow-wrap: anywhere;
+}
+
+.bsh-measures__value {
+  color: var(--color-chalk);
+  overflow-wrap: anywhere;
+}
+
+.bsh-measures__notice {
+  margin: 0;
+  color: var(--color-ash);
+  font-size: var(--text-13);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .bsh-button,
   .bsh-icon-button,

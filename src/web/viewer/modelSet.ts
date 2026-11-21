@@ -12,6 +12,7 @@ export type ModelStatus = 'loading' | 'ready' | 'error';
 export interface ModelMeta {
   version?: string;
   path?: string;
+  view?: string;
 }
 
 export interface ModelSource extends ModelMeta {
@@ -48,6 +49,7 @@ export interface ModelInfo {
   name: string;
   version?: string;
   path?: string;
+  view?: string;
   visible: boolean;
   status: ModelStatus;
   error?: string;
@@ -213,6 +215,7 @@ export class ModelSet<H> {
         source.name?.trim() || existing?.info.name || `Model ${this.serial}`,
       ...(source.version ? { version: source.version } : {}),
       ...(source.path ? { path: source.path } : {}),
+      ...(source.view ? { view: source.view } : {}),
       visible: true,
       status: 'loading',
     };

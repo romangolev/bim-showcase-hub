@@ -371,6 +371,11 @@ describe('ViewerPane export tasks', () => {
       <ViewerPane urn="abc" factory={tracked.factory} onReady={onReady} />,
     );
     await waitFor(() => expect(onReady).toHaveBeenCalled());
+    await screen.findByRole(
+      'button',
+      { name: 'Export to Excel' },
+      { timeout: 5000 },
+    );
     return { ...tracked, view };
   }
 

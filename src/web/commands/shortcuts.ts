@@ -42,15 +42,35 @@ export function parseShortcut(keys: string): ShortcutSpec | null {
   return spec.key ? spec : null;
 }
 
-function isMac(): boolean {
+export function isMacPlatform(): boolean {
   const agent = typeof navigator === 'undefined' ? '' : navigator.userAgent;
   return /Mac|iPhone|iPad/.test(agent);
+}
+
+const MODIFIER_KEYS = new Set(['Shift', 'Control', 'Alt', 'Meta', 'OS']);
+
+export function shortcutFromEvent(event: ShortcutEvent): string | null {
+  if (MODIFIER_KEYS.has(event.key)) return null;
+  const mac = isMacPlatform();
+  const parts: string[] = [];
+  if (mac ? event.metaKey : event.ctrlKey) parts.push('mod');
+  if (mac && event.ctrlKey) parts.push('ctrl');
+  if (event.altKey) parts.push('alt');
+  if (event.shiftKey) parts.push('shift');
+  const code = event.code ?? '';
+  parts.push(
+    event.altKey && /^Key[A-Z]$/.test(code)
+      ? code.slice(3).toLowerCase()
+      : event.key.toLowerCase(),
+  );
+  const keys = parts.join('+');
+  return parseShortcut(keys) ? keys : null;
 }
 
 export function formatShortcut(keys: string): string {
   const spec = parseShortcut(keys);
   if (!spec) return keys;
-  const mac = isMac();
+  const mac = isMacPlatform();
   const parts: string[] = [];
   if (spec.mod) parts.push(mac ? '⌘' : 'Ctrl');
   if (spec.alt) parts.push(mac ? '⌥' : 'Alt');

@@ -7,7 +7,11 @@ import {
 import { RealViewerAdapter } from './RealViewerAdapter.js';
 import { resetRegion } from './region.js';
 import type { ViewerState } from './ViewerAdapter.js';
-import { TREE_TIMEOUT_MS, VIEWER_STATE_FILTER } from './viewerState.js';
+import {
+  sanitizeViewerState,
+  TREE_TIMEOUT_MS,
+  VIEWER_STATE_FILTER,
+} from './viewerState.js';
 
 let env: FakeEnvironment;
 let host: HTMLElement;
@@ -139,6 +143,54 @@ describe('getVisible', () => {
 });
 
 describe('viewer state', () => {
+  it('captures and restores the explode level', () => {
+    const fake = viewer();
+    fake.explodeScale = 0.4;
+    const state = adapter.getState();
+    expect(state.explode).toBe(0.4);
+    fake.explodeScale = 0;
+    return adapter.restoreState(state).then(() => {
+      expect(fake.explodeScale).toBe(0.4);
+    });
+  });
+
+  it('clears a stale explode level when the state has none', async () => {
+    const state = adapter.getState();
+    viewer().explodeScale = 0.7;
+    await adapter.restoreState({ ...state, explode: undefined });
+    expect(viewer().explodeScale).toBe(0);
+  });
+
+  it('drops an invalid explode level', () => {
+    expect(
+      sanitizeViewerState({
+        version: 1,
+        camera: null,
+        cutplanes: [],
+        models: {},
+        explode: 3,
+      }),
+    ).not.toHaveProperty('explode');
+    expect(
+      sanitizeViewerState({
+        version: 1,
+        camera: null,
+        cutplanes: [],
+        models: {},
+        explode: 'no',
+      }),
+    ).not.toHaveProperty('explode');
+    expect(
+      sanitizeViewerState({
+        version: 1,
+        camera: null,
+        cutplanes: [],
+        models: {},
+        explode: 0.5,
+      })?.explode,
+    ).toBe(0.5);
+  });
+
   it('captures a serializable state keyed by model', () => {
     adapter.isolateModelIds([{ modelId: 'arch', dbId: 11 }]);
     adapter.hideModelIds([{ modelId: 'arch', dbId: 12 }]);

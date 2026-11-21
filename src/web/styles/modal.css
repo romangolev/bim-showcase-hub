@@ -79,6 +79,18 @@
   border-top: var(--border-hairline);
 }
 
+.settings__shortcuts {
+  border-collapse: collapse;
+  font-size: var(--text-13);
+}
+
+.settings__shortcuts th,
+.settings__shortcuts td {
+  padding: var(--space-1) var(--space-2) var(--space-1) 0;
+  text-align: left;
+  font-weight: inherit;
+}
+
 .switch-row {
   display: flex;
   align-items: center;

@@ -10,6 +10,7 @@ import type {
   ModelSpread,
   Vec3,
 } from './modelSet.js';
+import type { PlacementInfo } from './placement.js';
 import type {
   ElementProperties,
   PropertyInfo,
@@ -75,11 +76,39 @@ export interface ViewerState {
   version: 1;
   camera: CameraState | null;
   cutplanes: number[][];
+  explode?: number;
   models: Record<
     string,
     { isolated: number[]; hidden: number[]; selection: number[] }
   >;
 }
+
+export type MeasureMode = 'distance' | 'angle' | 'area';
+
+export interface MeasurementInfo {
+  id: string;
+  type: string;
+  value: string;
+}
+
+export interface ViewNode {
+  id: string;
+  name: string;
+  role: '2d' | '3d';
+  current: boolean;
+}
+
+export interface DisplaySettings {
+  lightPreset: number | null;
+  groundShadow: boolean;
+  groundReflection: boolean;
+  edges: boolean;
+  ambientOcclusion: boolean;
+  antialiasing: boolean;
+  performance: boolean;
+}
+
+export type { PlacementInfo } from './placement.js';
 
 export interface ViewerAdapter {
   load(urn: string, name?: string, meta?: ModelMeta): Promise<void>;
@@ -131,6 +160,14 @@ export interface ViewerAdapter {
   getSpread(): ModelSpread | null;
   getTogetherOffsets(): Record<string, Vec3>;
   setModelOffsets(offsets: Readonly<Record<string, Vec3>> | null): void;
+  getPlacementInfo(): PlacementInfo[];
+  listMeasurements(): MeasurementInfo[];
+  startMeasure(mode: MeasureMode): Promise<boolean>;
+  clearMeasurements(): void;
+  onMeasurementsChange(cb: () => void): () => void;
+  setHiddenControls(ids: readonly string[]): string[];
+  applyDisplaySettings(settings: DisplaySettings): string[];
+  listViews(modelId: string): Promise<ViewNode[]>;
   getGeometryParts(): Promise<GeometryRead>;
   getIfcSource(): Promise<IfcSourceRead>;
   getElementsProperties(

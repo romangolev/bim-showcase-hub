@@ -17,6 +17,7 @@ export interface Settings {
   textSize: TextSize;
   theme: ThemePreference;
   reducedMotion: boolean;
+  restoreSession: boolean;
   language: Language;
   units: Units;
 }
@@ -34,6 +35,7 @@ export const DEFAULT_SETTINGS: Settings = {
   textSize: 100,
   theme: 'system',
   reducedMotion: false,
+  restoreSession: true,
   language: 'en',
   units: 'metric',
 };
@@ -104,6 +106,10 @@ export function readSettings(): Settings {
     textSize: textSize(source.textSize),
     theme: pick(source.theme, THEME_PREFERENCES, DEFAULT_SETTINGS.theme),
     reducedMotion: flag(source.reducedMotion, DEFAULT_SETTINGS.reducedMotion),
+    restoreSession: flag(
+      source.restoreSession,
+      DEFAULT_SETTINGS.restoreSession,
+    ),
     language: pick(source.language, LANGUAGES, DEFAULT_SETTINGS.language),
     units: pick(source.units, UNITS, DEFAULT_SETTINGS.units),
   };

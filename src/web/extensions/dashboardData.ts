@@ -53,6 +53,12 @@ export interface ChartDatum {
   value?: number;
 }
 
+export interface ChartSeries {
+  modelId: string;
+  label: string;
+  counts: number[];
+}
+
 export interface ChartData {
   property: string;
   total: number;
@@ -65,6 +71,7 @@ export interface ChartData {
   mixed?: boolean;
   units?: string[];
   unavailable?: boolean;
+  series?: ChartSeries[];
 }
 
 export interface ChartSpec {

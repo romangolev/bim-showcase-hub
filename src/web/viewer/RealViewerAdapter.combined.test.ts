@@ -840,3 +840,100 @@ describe('ghosting', () => {
     expect(viewer().ghosting).toBe(true);
   });
 });
+
+describe('views', () => {
+  it('lists the geometry nodes and loads the chosen view', async () => {
+    await adapter.loadModels([{ urn: 'arch' }]);
+    const modelId = adapter.getModels()[0]?.id ?? '';
+    expect(viewer().nodeGuids).toEqual(['g1']);
+    expect(await adapter.listViews(modelId)).toEqual([
+      { id: 'g1', name: '{3D}', role: '3d', current: true },
+      { id: 'g2', name: 'A101 - Plans', role: '2d', current: false },
+    ]);
+    await adapter.loadModels([{ urn: 'arch', view: 'g2' }]);
+    expect(adapter.getModels()[0]?.view).toBe('g2');
+    expect(viewer().nodeGuids).toEqual(['g2']);
+    expect(await adapter.listViews(modelId)).toEqual([
+      { id: 'g1', name: '{3D}', role: '3d', current: false },
+      { id: 'g2', name: 'A101 - Plans', role: '2d', current: true },
+    ]);
+    expect(await adapter.listViews('gone')).toEqual([]);
+  });
+
+  it('lists the views of every model and forgets a removed one', async () => {
+    await adapter.loadModels([{ urn: 'arch' }, { urn: 'str' }]);
+    expect(await adapter.listViews('arch')).toHaveLength(2);
+    expect(await adapter.listViews('str')).toHaveLength(2);
+    adapter.removeModel('str');
+    expect(await adapter.listViews('str')).toEqual([]);
+  });
+});
+
+describe('placement info', () => {
+  it('reports the unit, shared coordinates and the distance from the anchor', async () => {
+    env.specs.set('arch', { unit: 'ft', refPoint: true });
+    env.specs.set('str', { unit: 'ft' });
+    await adapter.loadModels([{ urn: 'arch' }, { urn: 'str' }]);
+    expect(adapter.getPlacementInfo()).toEqual([
+      {
+        modelId: 'arch',
+        anchor: true,
+        unit: 'ft',
+        sharedCoordinates: true,
+        distanceMeters: 0,
+      },
+      {
+        modelId: 'str',
+        anchor: false,
+        unit: 'ft',
+        sharedCoordinates: false,
+        distanceMeters: 0,
+      },
+    ]);
+  });
+
+  it('measures the distance between box centres in metres', async () => {
+    env.specs.set('arch', { unit: 'ft', size: 10 });
+    env.specs.set('far', { unit: 'ft', size: 10, center: [100, 0, 0] });
+    await adapter.loadModels([{ urn: 'arch' }, { urn: 'far' }]);
+    expect(adapter.getPlacementInfo()[1]?.distanceMeters).toBeCloseTo(
+      100 * 0.3048,
+      5,
+    );
+    adapter.setModelOffsets(adapter.getTogetherOffsets());
+    expect(adapter.getPlacementInfo()[1]?.distanceMeters).toBeCloseTo(0, 5);
+  });
+});
+
+describe('hidden controls and display settings', () => {
+  it('hides native controls of the fake toolbar and reports unknown ids', async () => {
+    await adapter.loadModels([{ urn: 'arch' }]);
+    expect(
+      adapter.setHiddenControls(['toolbar-sectionTool', 'toolbar-nope']),
+    ).toEqual(['toolbar-nope']);
+    expect(viewer().toolbar.visible('toolbar-sectionTool')).toBe(false);
+    expect(viewer().toolbar.visible('toolbar-orbitTools')).toBe(true);
+    adapter.setHiddenControls([]);
+    expect(viewer().toolbar.visible('toolbar-sectionTool')).toBe(true);
+  });
+
+  it('reapplies display settings after a later model load', async () => {
+    await adapter.loadModels([{ urn: 'arch' }]);
+    const settings = {
+      lightPreset: 2,
+      groundShadow: false,
+      groundReflection: true,
+      edges: true,
+      ambientOcclusion: false,
+      antialiasing: true,
+      performance: true,
+    };
+    expect(adapter.applyDisplaySettings(settings)).toEqual([
+      'groundReflection',
+    ]);
+    expect(viewer().calls('setLightPreset')).toEqual([[2]]);
+    expect(viewer().calls('setProgressiveRendering')).toEqual([[false]]);
+    await adapter.addModel({ urn: 'str' });
+    expect(viewer().calls('setDisplayEdges')).toEqual([[true], [true]]);
+  });
+});
