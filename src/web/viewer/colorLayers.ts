@@ -161,21 +161,6 @@ export function resolveLayers(layers: readonly ColorLayer[]): ResolvedColor[] {
   return resolved;
 }
 
-export function resolveLayerColor(
-  layers: readonly ColorLayer[],
-  modelId: string,
-  dbId: number,
-): ResolvedColor | null {
-  const ordered = [...layers].sort(
-    (left, right) => sourceRank(left.source) - sourceRank(right.source),
-  );
-  for (const layer of ordered) {
-    const color = layer.assignments.get(modelId)?.get(dbId);
-    if (color) return { modelId, dbId, color, source: layer.source };
-  }
-  return null;
-}
-
 type AppliedColors = Map<string, Map<number, Color>>;
 
 function appliedFrom(resolved: readonly ResolvedColor[]): AppliedColors {
