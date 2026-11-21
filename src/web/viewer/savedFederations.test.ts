@@ -1,11 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { TreeNode } from '../../shared/types.js';
 import type { OpenModel } from '../api/openModels.js';
 import { paneById } from '../layout/paneRegistry.js';
 import { INITIAL_MODEL_TINTS } from '../panels/modelTint.js';
+import { resolveModelSet } from '../store/openModelSet.js';
 import {
   installMemoryStorage,
   mockFetch,
+  plainVersion,
   treeRoutes,
+  viewableVersion,
 } from '../test/mockApi.js';
 import {
   captureFederation,
@@ -263,7 +267,13 @@ describe('latestVersionUrn', () => {
   });
 
   it('reads the item versions and takes the first viewable one', async () => {
-    mockFetch(treeRoutes);
+    mockFetch({
+      ...treeRoutes,
+      '/api/projects/p1/items/i1/versions': [
+        { ...viewableVersion, versionNumber: 2 },
+        { ...plainVersion, versionNumber: 1 },
+      ],
+    });
     await expect(
       latestVersionUrn({
         urn: 'old',
@@ -292,6 +302,63 @@ describe('latestVersionUrn', () => {
         hidden: false,
       }),
     ).resolves.toBeNull();
+  });
+});
+
+describe('latest version rule shared by model sets and combinations', () => {
+  const version = (n: number, patch: Partial<TreeNode> = {}): TreeNode => ({
+    id: `v${n}`,
+    kind: 'version',
+    name: `v${n}: 2025-01-01 10:00 by Sam`,
+    hasChildren: false,
+    viewable: true,
+    viewState: 'ready',
+    urn: `u${n}`,
+    versionNumber: n,
+    ...patch,
+  });
+  const unviewable = version(4, {
+    viewable: false,
+    viewState: 'not-translated',
+  });
+  const fixtures: Record<string, TreeNode[]> = {
+    'newest first': [version(3), version(2), version(1)],
+    shuffled: [version(1), version(3), version(2)],
+    'unviewable newest': [unviewable, version(3), version(2)],
+    'unviewable newest, shuffled': [version(2), unviewable, version(3)],
+  };
+
+  beforeEach(() => {
+    installMemoryStorage();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it.each(Object.entries(fixtures))('agree for %s', async (_name, versions) => {
+    mockFetch({ '/api/projects/p1/items/i1/versions': versions });
+    const set = await resolveModelSet(
+      {
+        members: [
+          {
+            urn: 'u0',
+            follow: 'latest',
+            projectId: 'p1',
+            itemId: 'i1',
+          },
+        ],
+      },
+      async () => versions,
+    );
+    const combined = await latestVersionUrn({
+      urn: 'u0',
+      context: { trail: ['h1', 'p1', 'i1'] },
+      latest: true,
+      hidden: false,
+    });
+    expect(combined).toBe('u3');
+    expect(set.models[0]?.urn).toBe('u3');
   });
 });
 
