@@ -93,7 +93,9 @@
 
 .bsh-dock .dv-tab {
   display: flex;
+  flex-shrink: 1;
   align-items: center;
+  min-width: 4rem;
   gap: var(--space-2);
   padding: 0 var(--space-3);
   font-weight: var(--weight-label);
@@ -382,4 +384,15 @@
 :root[data-reduced-motion="true"] .bsh-dock .dv-drop-target-container,
 :root[data-reduced-motion="true"] .bsh-dock .dv-drop-target {
   --dv-transition-duration: 0ms;
+}
+
+.bsh-dock .dv-default-tab {
+  min-width: 0;
+}
+
+.bsh-dock .dv-default-tab-content {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
