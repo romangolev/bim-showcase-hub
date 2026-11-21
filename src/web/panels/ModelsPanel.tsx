@@ -7,13 +7,14 @@ import { MAX_NAME_LENGTH } from '../store/savedStore.js';
 import { CostMeter } from '../viewer/CostMeter.js';
 import { colorLayersFor } from '../viewer/colorLayers.js';
 import { explainFailure } from '../viewer/failureExplainer.js';
-import type { ModelInfo } from '../viewer/modelSet.js';
+import type { ModelInfo, Vec3 } from '../viewer/modelSet.js';
 import {
   FEDERATIONS,
   nextCombinationName,
 } from '../viewer/savedFederations.js';
 import { useModels } from '../viewer/useModels.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
+import { ModelAlignment } from './ModelAlignment.js';
 import { ModelTintSwatch } from './ModelTintSwatch.js';
 import { isolatedModel, isolateVisibility } from './modelRows.js';
 import {
@@ -41,6 +42,8 @@ export interface ModelsPanelProps {
   setKey?: string | null;
   onSaveFederation?: (name: string) => void;
   onOpenFederation?: (id: string) => void;
+  offsets?: Readonly<Record<string, Vec3>> | null;
+  onOffsetsChange?: (next: Record<string, Vec3> | null) => void;
 }
 
 function statusLabel(model: ModelInfo): string {
@@ -91,6 +94,8 @@ export function ModelsPanel({
   setKey,
   onSaveFederation,
   onOpenFederation,
+  offsets,
+  onOffsetsChange,
 }: ModelsPanelProps) {
   const titleId = useId();
   const resolved = useResolvedAdapter(adapter);
@@ -103,6 +108,13 @@ export function ModelsPanel({
   useModelTints(resolved, models, tints);
   const palette = tintPaletteFor(tints, setKey);
   const ready = models.filter((model) => model.status === 'ready');
+  const placement = resolved ? resolved.getPlacementInfo() : [];
+  const placementOf = new Map(placement.map((entry) => [entry.modelId, entry]));
+  const anchorName =
+    models.find((model) => placementOf.get(model.id)?.anchor)?.name ?? null;
+  const showAlignment = Boolean(
+    resolved && onOffsetsChange && ready.length > 1,
+  );
   const tinted = models.filter((model) => tintFor(tints, model.id));
   const ghostTarget =
     isolated ??
@@ -320,6 +332,28 @@ export function ModelsPanel({
               );
             })}
           </ul>
+          {showAlignment ? (
+            <section
+              className="bsh-models__alignment-list"
+              aria-label="Model alignment"
+            >
+              <h3 className="bsh-models__subtitle">Alignment</h3>
+              <ul className="bsh-models__list">
+                {ready.map((model) => (
+                  <li key={model.id}>
+                    <ModelAlignment
+                      adapter={resolved}
+                      model={model}
+                      info={placementOf.get(model.id) ?? null}
+                      anchorName={anchorName}
+                      offsets={offsets}
+                      onOffsetsChange={onOffsetsChange}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
         </>
       ) : (
         <StateBlock
