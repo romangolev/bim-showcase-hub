@@ -243,6 +243,22 @@ describe('dashboard table chart', () => {
   });
 });
 
+describe('dashboard selection highlight', () => {
+  it('waits for the selection to settle before highlighting buckets', async () => {
+    seed({ aggregate: 'sum', measure: 'Length', chartType: 'table' });
+    const adapter = await loaded();
+    render(<DashboardPanel adapter={adapter} />);
+    const table = await screen.findByRole('table', {
+      name: 'Sum of Length (m) by Category',
+    });
+    const walls = () =>
+      within(table).getByRole('button', { name: 'Walls' }).closest('tr');
+    fireEvent.click(within(table).getByRole('button', { name: 'Walls' }));
+    expect(walls()).not.toHaveAttribute('data-active');
+    await waitFor(() => expect(walls()).toHaveAttribute('data-active'));
+  });
+});
+
 describe('dashboard honest units', () => {
   it('says the units are mixed instead of summing them', async () => {
     seed({ aggregate: 'sum', measure: 'Length', chartType: 'bar' });

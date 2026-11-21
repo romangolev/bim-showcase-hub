@@ -49,6 +49,7 @@ import {
 import {
   HIDDEN_MESSAGE,
   HIDDEN_TITLE,
+  SELECTION_DEBOUNCE_MS,
   useResolvedAdapter,
   useScopedRows,
 } from './useScopedRows.js';
@@ -237,7 +238,15 @@ export function DashboardPanel({
       return;
     }
     setViewerSelection(resolved.getModelSelection());
-    return resolved.onSelectionChange(setViewerSelection);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const off = resolved.onSelectionChange((list) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => setViewerSelection(list), SELECTION_DEBOUNCE_MS);
+    });
+    return () => {
+      clearTimeout(timer);
+      off();
+    };
   }, [resolved]);
   const highlights = useMemo(
     () =>
