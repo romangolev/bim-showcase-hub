@@ -153,7 +153,7 @@ describe('appearance settings', () => {
     );
     expect(panels).toMatch(/padding: var\(--row-padding\);/);
     expect(dockTheme).toMatch(
-      /--dv-tabs-and-actions-container-height: var\(--control-height\);/,
+      /--dv-tabs-and-actions-container-height: calc\(var\(--hit-target\) \+ 1px\);/,
     );
     expect(dockTheme).toMatch(
       /--dv-tab-close-icon-size: calc\(0\.75rem \* var\(--density\)\);/,
