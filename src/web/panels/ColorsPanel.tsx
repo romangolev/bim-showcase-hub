@@ -131,7 +131,7 @@ export function ColorsPanel({ adapter }: ColorsPanelProps) {
             ) : (
               <>
                 <select
-                  className="bsh-select"
+                  className="field"
                   aria-label="Property"
                   value={settings.spec.property}
                   onChange={(event) =>
@@ -147,7 +147,7 @@ export function ColorsPanel({ adapter }: ColorsPanelProps) {
                   ))}
                 </select>
                 <select
-                  className="bsh-select"
+                  className="field"
                   aria-label="Mode"
                   value={settings.spec.mode}
                   onChange={(event) =>
@@ -173,7 +173,7 @@ export function ColorsPanel({ adapter }: ColorsPanelProps) {
                       onCommit={(topN) =>
                         update({ spec: { ...settings.spec, topN } })
                       }
-                      className="bsh-input bsh-input--narrow"
+                      className="field field--narrow"
                     />
                   </label>
                 ) : null}

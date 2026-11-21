@@ -164,7 +164,9 @@ fieldset.settings__field {
 .settings
   input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"]),
 .settings select,
-.settings textarea {
+.settings textarea,
+.field {
+  min-width: 0;
   min-height: var(--hit-target);
   padding: 0 var(--space-2);
   border: var(--border-field);

@@ -111,7 +111,7 @@ export function DashboardGallery({ view, apply, rows }: DashboardGalleryProps) {
             <li key={`${item.id}:${item.name}`} className="bsh-gallery__card">
               <input
                 type="text"
-                className="bsh-input bsh-gallery__name"
+                className="field bsh-gallery__name"
                 aria-label={`Rename ${item.name}`}
                 maxLength={MAX_NAME_LENGTH}
                 defaultValue={item.name}

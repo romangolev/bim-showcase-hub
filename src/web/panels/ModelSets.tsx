@@ -127,7 +127,7 @@ function SaveSetDialog({
             <span>Model set name</span>
             <input
               type="text"
-              className="bsh-input"
+              className="field"
               aria-label="Model set name"
               placeholder="Name this model set"
               maxLength={MAX_NAME_LENGTH}
@@ -194,7 +194,7 @@ function RenameField({
     <input
       ref={inputRef}
       type="text"
-      className="bsh-input"
+      className="field"
       aria-label={`Rename ${set.name}`}
       maxLength={MAX_NAME_LENGTH}
       defaultValue={set.name}

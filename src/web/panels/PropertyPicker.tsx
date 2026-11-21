@@ -91,7 +91,7 @@ export function PropertyPicker({
       <input
         id={searchId}
         type="search"
-        className="bsh-input"
+        className="field"
         placeholder="Search properties"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
@@ -151,7 +151,7 @@ export function PropertyPicker({
           );
           const hidden = group.properties.length - visible.length;
           return (
-            <fieldset key={group.category} className="bsh-fieldset">
+            <fieldset key={group.category} className="bsh-picker__group">
               <legend>{group.category}</legend>
               {visible.map((info) => (
                 <label

@@ -350,7 +350,7 @@ export function DashboardPanel({
         ) : null}
         {setting && !isCollapsed && !activePreset && options.length > 1 ? (
           <select
-            className="bsh-select"
+            className="field"
             aria-label="Group by"
             value={selected}
             onChange={(e) =>

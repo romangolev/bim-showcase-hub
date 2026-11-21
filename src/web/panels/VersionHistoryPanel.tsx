@@ -160,7 +160,7 @@ export function VersionHistoryPanel({ openers }: VersionHistoryPanelProps) {
       <div className="bsh-versions__tools">
         <input
           type="search"
-          className="bsh-input"
+          className="field"
           aria-label="Filter versions"
           placeholder="Filter by version or author"
           value={view.filter}

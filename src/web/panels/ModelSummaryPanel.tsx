@@ -359,7 +359,7 @@ export function ModelSummaryPanel({
               {view.layout === 'pivot' ? null : (
                 <input
                   type="search"
-                  className="bsh-input"
+                  className="field"
                   aria-label="Filter summary rows"
                   placeholder="Filter"
                   value={view.text}

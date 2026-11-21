@@ -191,7 +191,7 @@ export function ViewsPanel({ adapter: override }: ViewsPanelProps) {
         <label className="bsh-models__ghost">
           <span>Model</span>
           <select
-            className="bsh-input"
+            className="field"
             aria-label="Model"
             value={model.id}
             onChange={(event) => {

@@ -71,7 +71,7 @@ function TitleInput({
     <input
       ref={ref}
       type="text"
-      className="bsh-input bsh-table-block__input"
+      className="field bsh-table-block__input"
       aria-label={`Title for ${property}`}
       maxLength={MAX_TITLE_LENGTH}
       value={value}

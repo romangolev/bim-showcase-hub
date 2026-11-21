@@ -399,7 +399,7 @@ export function ModelsPanel({
             <div className="bsh-presets">
               <input
                 type="text"
-                className="bsh-input"
+                className="field"
                 aria-label="Combination name"
                 maxLength={MAX_NAME_LENGTH}
                 value={name}
@@ -430,7 +430,7 @@ export function ModelsPanel({
                 <li key={`${item.id}:${item.name}`} className="bsh-presets">
                   <input
                     type="text"
-                    className="bsh-input"
+                    className="field"
                     aria-label={`Rename ${item.name}`}
                     maxLength={MAX_NAME_LENGTH}
                     defaultValue={item.name}

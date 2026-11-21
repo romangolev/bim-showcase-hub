@@ -91,7 +91,7 @@ export function ColorRules({ value, onChange, properties }: ColorRulesProps) {
           <li key={rule.id} className="bsh-color-rules__row">
             <div className="bsh-color-rules__fields">
               <select
-                className="bsh-select"
+                className="field"
                 aria-label={`Property for ${rule.label}`}
                 value={rule.property}
                 onChange={(event) =>
@@ -108,7 +108,7 @@ export function ColorRules({ value, onChange, properties }: ColorRulesProps) {
                 ))}
               </select>
               <select
-                className="bsh-select"
+                className="field"
                 aria-label={`Operator for ${rule.label}`}
                 value={rule.op}
                 onChange={(event) =>
@@ -129,7 +129,7 @@ export function ColorRules({ value, onChange, properties }: ColorRulesProps) {
                       value={rule.min ?? 0}
                       min={Number.MIN_SAFE_INTEGER}
                       onCommit={(min) => update(rule.id, { min })}
-                      className="bsh-input bsh-input--narrow"
+                      className="field field--narrow"
                     />
                   </label>
                   <label className="bsh-field">
@@ -138,14 +138,14 @@ export function ColorRules({ value, onChange, properties }: ColorRulesProps) {
                       value={rule.max ?? 0}
                       min={Number.MIN_SAFE_INTEGER}
                       onCommit={(max) => update(rule.id, { max })}
-                      className="bsh-input bsh-input--narrow"
+                      className="field field--narrow"
                     />
                   </label>
                 </>
               ) : rule.op === 'empty' ? null : (
                 <input
                   type="text"
-                  className="bsh-input"
+                  className="field"
                   aria-label={`Value for ${rule.label}`}
                   value={rule.value}
                   onChange={(event) =>
@@ -163,7 +163,7 @@ export function ColorRules({ value, onChange, properties }: ColorRulesProps) {
               />
               <input
                 type="text"
-                className="bsh-input"
+                className="field"
                 aria-label={`Label for ${rule.label}`}
                 maxLength={80}
                 value={rule.label}
@@ -255,7 +255,7 @@ export function ColorRules({ value, onChange, properties }: ColorRulesProps) {
       </div>
       <div className="bsh-color-rules__presets">
         <select
-          className="bsh-select"
+          className="field"
           aria-label="Preset"
           value=""
           onChange={(event) => {
@@ -276,7 +276,7 @@ export function ColorRules({ value, onChange, properties }: ColorRulesProps) {
         </select>
         <input
           type="text"
-          className="bsh-input"
+          className="field"
           aria-label="Preset name"
           placeholder="Name these rules"
           maxLength={MAX_NAME_LENGTH}

@@ -150,7 +150,7 @@ export function SearchResultsPanel({ adapter }: SearchResultsPanelProps) {
       >
         <input
           type="search"
-          className="bsh-input"
+          className="field"
           aria-label="Search elements"
           placeholder="Name or property value"
           value={spec.text}
@@ -222,7 +222,7 @@ export function SearchResultsPanel({ adapter }: SearchResultsPanelProps) {
         >
           <input
             type="text"
-            className="bsh-input"
+            className="field"
             aria-label="Selection set name"
             placeholder="Name the results"
             value={saveName}

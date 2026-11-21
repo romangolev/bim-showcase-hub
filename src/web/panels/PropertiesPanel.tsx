@@ -127,7 +127,7 @@ export function PropertiesPanel({
           <div className="bsh-props__tools">
             {ready.length > 1 && (
               <select
-                className="bsh-select"
+                className="field"
                 aria-label="Model"
                 value={model.id}
                 onChange={(event) => scope?.onChange(event.target.value)}
@@ -141,7 +141,7 @@ export function PropertiesPanel({
             )}
             <input
               type="search"
-              className="bsh-input"
+              className="field"
               aria-label="Filter properties"
               placeholder="Filter"
               value={filter}

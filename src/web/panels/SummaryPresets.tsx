@@ -137,7 +137,7 @@ function PresetBody({ adapter, properties, view }: PresetBodyProps) {
       <div className="bsh-presets">
         <input
           type="text"
-          className="bsh-input"
+          className="field"
           aria-label="Summary preset name"
           placeholder="Name this summary"
           maxLength={MAX_NAME_LENGTH}
@@ -215,7 +215,7 @@ function PresetBody({ adapter, properties, view }: PresetBodyProps) {
             >
               <input
                 type="text"
-                className="bsh-input bsh-summary-presets__rename"
+                className="field bsh-summary-presets__rename"
                 aria-label={`Rename ${item.name}`}
                 maxLength={MAX_NAME_LENGTH}
                 defaultValue={item.name}

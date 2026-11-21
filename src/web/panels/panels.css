@@ -43,19 +43,7 @@
   color: var(--color-coral);
 }
 
-.bsh-select,
-.bsh-input {
-  min-height: var(--hit-target);
-  padding: 0 var(--space-2);
-  border: var(--border-field);
-  border-radius: var(--radius-tile);
-  background: var(--color-charcoal);
-  color: var(--color-snow);
-  font: inherit;
-  font-size: var(--text-14);
-}
-
-.bsh-select {
+select.field {
   max-width: 240px;
   text-overflow: ellipsis;
 }
@@ -374,7 +362,7 @@
     flex: 1 0 100%;
   }
 
-  .bsh-drawer__header .bsh-select {
+  .bsh-drawer__header .field {
     flex: 1;
     max-width: none;
   }
@@ -501,7 +489,7 @@
   align-self: flex-start;
 }
 
-.bsh-scope .bsh-select {
+.bsh-scope .field {
   max-width: 180px;
 }
 
@@ -545,15 +533,12 @@
   font-size: var(--text-13);
 }
 
-.bsh-input {
-  min-width: 0;
-}
-
-.bsh-input--narrow {
+.field--narrow {
   width: 5.5rem;
 }
 
-.bsh-fieldset {
+.bsh-fieldset,
+.bsh-picker__group {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
@@ -936,7 +921,7 @@
   gap: var(--space-2);
 }
 
-.bsh-props__tools .bsh-input {
+.bsh-props__tools .field {
   flex: 1;
   min-width: 8rem;
 }
@@ -1557,13 +1542,13 @@ button.bsh-kpi:focus-visible {
   align-items: center;
 }
 
-.bsh-color-rules__fields .bsh-select {
+.bsh-color-rules__fields .field {
   max-width: none;
   min-width: 0;
   flex: 1 1 8rem;
 }
 
-.bsh-color-rules__fields .bsh-input {
+.bsh-color-rules__fields .field {
   flex: 1 1 6rem;
 }
 
@@ -1579,7 +1564,7 @@ button.bsh-kpi:focus-visible {
   gap: var(--space-2);
 }
 
-.bsh-versions__tools .bsh-input {
+.bsh-versions__tools .field {
   flex: 1 1 10rem;
 }
 
@@ -1619,8 +1604,8 @@ button.bsh-kpi:focus-visible {
   gap: var(--space-2);
 }
 
-.bsh-search__form .bsh-input,
-.bsh-search__save .bsh-input {
+.bsh-search__form .field,
+.bsh-search__save .field {
   flex: 1 1 10rem;
 }
 
