@@ -1255,6 +1255,11 @@
   white-space: nowrap;
 }
 
+.tree-row[data-selected="true"] .tree-row__meta,
+.tree-row:hover:not([data-disabled="true"]) .tree-row__meta {
+  color: var(--color-chalk);
+}
+
 @container tree (max-width: 299px) {
   .tree-row__meta {
     display: none;
