@@ -29,6 +29,7 @@ export interface TreeView {
   homeRecent: boolean;
   homePinned: boolean;
   homeSets: boolean;
+  homeModelSets: boolean;
 }
 
 export const DEFAULT_TREE_VIEW: TreeView = {
@@ -43,6 +44,7 @@ export const DEFAULT_TREE_VIEW: TreeView = {
   homeRecent: true,
   homePinned: true,
   homeSets: true,
+  homeModelSets: true,
 };
 
 export function sanitizeTreeView(raw: unknown): TreeView {
@@ -62,6 +64,7 @@ export function sanitizeTreeView(raw: unknown): TreeView {
     homeRecent: flag(source.homeRecent, DEFAULT_TREE_VIEW.homeRecent),
     homePinned: flag(source.homePinned, DEFAULT_TREE_VIEW.homePinned),
     homeSets: flag(source.homeSets, DEFAULT_TREE_VIEW.homeSets),
+    homeModelSets: flag(source.homeModelSets, DEFAULT_TREE_VIEW.homeModelSets),
   };
 }
 

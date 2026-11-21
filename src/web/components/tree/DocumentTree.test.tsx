@@ -9,6 +9,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { thumbnailPath } from '../../api/client.js';
 import { BSH_KEYS } from '../../storage.js';
+import { MODEL_SETS } from '../../store/modelSets.js';
 import { notifications } from '../../tasks/notifications.js';
 import {
   createTestClient,
@@ -115,6 +116,7 @@ describe('DocumentTree metadata', () => {
       homeRecent: true,
       homePinned: true,
       homeSets: true,
+      homeModelSets: true,
     });
     expect(screen.getByText('2025-03-04 · Sam')).toBeInTheDocument();
     const rows = screen.getAllByRole('treeitem').map((row) => row.textContent);
@@ -863,6 +865,31 @@ describe('DocumentTree multi-select', () => {
     fireEvent.click(row(3), { shiftKey: true });
     expect(screen.getByText('3 selected')).toBeInTheDocument();
     expect(row(4)).toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('saves the picked versions as a model set with their tree reference', async () => {
+    installMemoryStorage();
+    await openVersions(2);
+    fireEvent.click(row(1), { ctrlKey: true });
+    fireEvent.click(row(2), { metaKey: true });
+    fireEvent.click(screen.getByRole('button', { name: 'Save as model set' }));
+    fireEvent.change(screen.getByLabelText('Model set name'), {
+      target: { value: 'Picked versions' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save model set' }));
+    const [set] = MODEL_SETS.list();
+    expect(set?.name).toBe('Picked versions');
+    expect(
+      set?.data.members.map((member) => [
+        member.urn,
+        member.projectId,
+        member.itemId,
+        member.follow,
+      ]),
+    ).toEqual([
+      ['urn-0', 'p1', 'i1', 'pinned'],
+      ['urn-1', 'p1', 'i1', 'pinned'],
+    ]);
   });
 
   it('refuses to open more than six together', async () => {

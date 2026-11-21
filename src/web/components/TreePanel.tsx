@@ -40,13 +40,7 @@ export function TreePanel({ onNavigate }: TreePanelProps) {
         <HubProjectSwitcher onChange={setRoot} />
       </div>
       {home ? (
-        <DocumentsHome
-          selectedUrn={urn}
-          onOpen={openers.open}
-          onOpenModal={openers.openModal}
-          onOpenTabs={openers.openTabs}
-          addTarget={openers.addTarget}
-        />
+        <DocumentsHome selectedUrn={urn} openers={openers} />
       ) : (
         <RecentStrip
           selectedUrn={urn}

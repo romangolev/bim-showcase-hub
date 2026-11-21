@@ -19,8 +19,11 @@ import { thumbnailPath } from '../../api/client.js';
 import type { ModelContext } from '../../api/modelContext.js';
 import { listRecentModels } from '../../api/modelStore.js';
 import type { NodeScope } from '../../api/scope.js';
+import { saveModelSetPrompt } from '../../panels/ModelSets.js';
+import type { VersionTarget } from '../../panels/versionHistory.js';
 import { PANE_SETTINGS } from '../../settings/paneSettings.js';
 import { usePersisted } from '../../storage.js';
+import { MAX_SET_MEMBERS } from '../../store/modelSets.js';
 import { notify } from '../../tasks/notifications.js';
 import { Icon } from '../icons.js';
 import { Menu, type MenuEntry } from '../Menu.js';
@@ -769,6 +772,22 @@ export function DocumentTree({
 
   const filterDisabled = !query && !rows.some((row) => row.type === 'node');
 
+  const savePickedAsSet = () => {
+    const refs = new Map<string, VersionTarget | null>();
+    for (const item of tree.getItems()) {
+      const node = resolved(item.getItemData());
+      const urn = openableUrn(node);
+      if (urn) refs.set(urn, state.itemRef(node));
+    }
+    saveModelSetPrompt(
+      picked.map((model) => ({
+        urn: model.urn,
+        context: model.context,
+        ref: refs.get(model.urn) ?? null,
+      })),
+    );
+  };
+
   const containerProps: Record<string, unknown> = query
     ? { role: 'listbox', 'aria-label': 'Filter results' }
     : tree.getContainerProps('Documents');
@@ -1034,6 +1053,7 @@ export function DocumentTree({
             onOpenTogether(models);
             state.clearPicked();
           }}
+          onSaveSet={savePickedAsSet}
           onClear={state.clearPicked}
         />
       ) : null}
@@ -1098,6 +1118,7 @@ function PickBar({
   addTarget,
   onOpenTabs,
   onOpenTogether,
+  onSaveSet,
   onClear,
 }: {
   picked: PickedModel[];
@@ -1105,6 +1126,7 @@ function PickBar({
   addTarget: AddTarget | null;
   onOpenTabs?: (models: PickedModel[]) => void;
   onOpenTogether: (models: PickedModel[]) => void;
+  onSaveSet: () => void;
   onClear: () => void;
 }) {
   const { tooManyCombined, tooManyTabs, message } = pickLimit(
@@ -1146,6 +1168,19 @@ function PickBar({
             onClick={() => onOpenTogether(picked)}
           >
             Open together
+          </button>
+          <button
+            type="button"
+            className="bsh-button doc-tree__pick-action"
+            disabled={picked.length > MAX_SET_MEMBERS}
+            title={
+              picked.length > MAX_SET_MEMBERS
+                ? `A model set holds up to ${MAX_SET_MEMBERS} models`
+                : picked.map(pickLabel).join('\n')
+            }
+            onClick={onSaveSet}
+          >
+            Save as model set
           </button>
           {addTarget ? (
             <button
