@@ -22,6 +22,17 @@ MODEL_TIMEOUT_MS = 30000
 SETTLE_MS = 1500
 SUMMARY_TAB = "Model summary"
 VIEWER = ".adsk-viewing-viewer"
+CYRILLIC_FOLDER = "Рабочая документация"
+CYRILLIC_TRAIL = [
+    "Northwind Architects",
+    "Riverside Tower",
+    "Project Files",
+    CYRILLIC_FOLDER,
+]
+TREE_EXPAND = {
+    "en": "Expand document tree",
+    "ru": "Развернуть дерево документов",
+}
 
 NAMELESS = """(exclude) => [...document.querySelectorAll('button, a[href], input, select, textarea, [role=button], [role=menuitem], [role=tab]')]
   .filter((el) => el.offsetParent !== null)
@@ -86,6 +97,18 @@ FOCUSED_TAB = """() => {
   const el = document.activeElement;
   const tab = el && el.closest ? el.closest('.dv-tab') : null;
   return tab ? tab.textContent.trim() : '';
+}"""
+
+CYRILLIC_ROW = """() => {
+  const row = [...document.querySelectorAll('[role=treeitem]')]
+    .find((el) => el.textContent.includes('Жилой комплекс'));
+  if (!row) return null;
+  const label = row.querySelector('.tree-row__mid-head') || row;
+  return {
+    available: document.fonts.check('14px "Inter Variable"', 'Жилой'),
+    family: getComputedStyle(label).fontFamily,
+    title: row.getAttribute('title') || '',
+  };
 }"""
 
 FORCED = """() => {
@@ -155,8 +178,59 @@ def check_layout(page, checks, label):
     )
 
 
+def check_cyrillic(page, checks, label):
+    page.evaluate("() => document.fonts.ready.then(() => true)")
+    for depth, name in enumerate(CYRILLIC_TRAIL, start=1):
+        row = page.locator(f"[role=treeitem][aria-level='{depth}']", has_text=name).first
+        row.wait_for(timeout=SHELL_TIMEOUT_MS)
+        if row.get_attribute("aria-expanded") != "true":
+            row.click()
+            page.keyboard.press("ArrowRight")
+        page.wait_for_timeout(500)
+    info = page.evaluate(CYRILLIC_ROW)
+    family = (info or {}).get("family", "").replace('"', "").replace("'", "")
+    checks.add(
+        f"{label}: the Cyrillic row renders in Inter Variable",
+        bool(info) and family.startswith("Inter Variable"),
+        info["family"] if info else "no Cyrillic row",
+    )
+    checks.add(
+        f"{label}: the Inter Variable Cyrillic face is available",
+        bool(info) and info["available"],
+        "" if info else "no Cyrillic row",
+    )
+    checks.add(
+        f"{label}: the long Cyrillic name keeps its full text as a title",
+        bool(info) and info["title"] == "Жилой комплекс — АР.rvt",
+        info["title"] if info else "no Cyrillic row",
+    )
+    clipped = page.evaluate(CLIPPED)
+    checks.add(
+        f"{label}: no clipped text with Cyrillic names",
+        not clipped,
+        "; ".join(clipped[:3]),
+    )
+
+
+def run_cyrillic(browser, checks, notes):
+    label = "ru, Cyrillic names"
+    context = browser.new_context(viewport={"width": DESKTOP[0], "height": DESKTOP[1]})
+    page = context.new_page()
+    watch(page, notes)
+    try:
+        seed(page, {"language": "ru"})
+        wait_for_shell(page)
+        check_cyrillic(page, checks, label)
+    except Exception as exc:
+        checks.add(label, False, f"{type(exc).__name__}: {str(exc)[:180]}")
+    finally:
+        page.close()
+        context.close()
+
+
 def check_targets(page, checks, notes, label):
-    page.get_by_role("button", name="Expand document tree").first.click()
+    expand = TREE_EXPAND.get(LANG, TREE_EXPAND["en"])
+    page.get_by_role("button", name=expand).first.click()
     page.wait_for_timeout(600)
     small = page.evaluate(STACK_BUTTONS)
     boxes = [row for row in small if not row["inline"]]
@@ -334,6 +408,8 @@ def main():
         run_case(browser, checks, notes, "125% text, no model", (1280, 800), {**language, "textSize": 125}, False)
         run_case(browser, checks, notes, "125% text, model open", (1280, 800), {**language, "textSize": 125}, True)
         run_case(browser, checks, notes, "stacked 390, model open", MOBILE, language, True, targets=True)
+        if LANG:
+            run_cyrillic(browser, checks, notes)
         if not LANG:
             run_case(
                 browser,

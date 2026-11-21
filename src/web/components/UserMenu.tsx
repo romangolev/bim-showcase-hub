@@ -7,6 +7,7 @@ import {
 } from 'react';
 import type { Session } from '../api/client.js';
 import { useSignOut } from '../api/hooks.js';
+import { useT } from '../i18n/i18n.js';
 import { useModal } from '../modal/index.js';
 import { Icon } from './icons.js';
 import { moveFocus, onEscape, useOutsidePointer } from './usePopover.js';
@@ -18,6 +19,7 @@ export function UserMenu({ user }: { user: Session }) {
   const menuRef = useRef<HTMLDivElement>(null);
   const signOut = useSignOut();
   const modal = useModal();
+  const t = useT();
 
   const items = useCallback(
     () =>
@@ -81,7 +83,7 @@ export function UserMenu({ user }: { user: Session }) {
           ref={menuRef}
           className="user-menu__popover"
           role="menu"
-          aria-label="Account"
+          aria-label={t('userMenu.account')}
           tabIndex={-1}
           onKeyDown={onMenuKeyDown}
         >
@@ -98,7 +100,7 @@ export function UserMenu({ user }: { user: Session }) {
             }}
           >
             <Icon name="settings" size={14} />
-            Settings
+            {t('topbar.settings')}
           </button>
           <button
             type="button"
@@ -108,11 +110,11 @@ export function UserMenu({ user }: { user: Session }) {
             onClick={() => signOut.mutate()}
           >
             <Icon name="logout" size={14} />
-            Sign out
+            {t('userMenu.signOut')}
           </button>
           {signOut.isError ? (
             <div className="user-menu__error" role="alert">
-              Could not sign out. Try again.
+              {t('userMenu.signOutFailed')}
             </div>
           ) : null}
         </div>

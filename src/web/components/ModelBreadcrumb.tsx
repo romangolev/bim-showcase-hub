@@ -1,5 +1,6 @@
 import { contextOf } from '../api/openModels.js';
 import { useOpenModels } from '../api/useOpenModels.js';
+import { useT } from '../i18n/i18n.js';
 import { usePersisted } from '../storage.js';
 import { breadcrumbOf } from './breadcrumb.js';
 import { useTreeControl } from './TreeControl.js';
@@ -9,6 +10,7 @@ export function ModelBreadcrumb() {
   const state = useOpenModels();
   const [prefs] = usePersisted(TOPBAR_PREFS);
   const tree = useTreeControl();
+  const t = useT();
   const urn = state.active;
   if (!urn) return null;
   const context = contextOf(state, urn);
@@ -18,7 +20,11 @@ export function ModelBreadcrumb() {
     ' / ',
   );
   return (
-    <nav className="topbar__crumbs" aria-label="Model location" title={full}>
+    <nav
+      className="topbar__crumbs"
+      aria-label={t('topbar.location')}
+      title={full}
+    >
       <ol>
         {crumbs.map((crumb, index) => (
           <li key={`${index}:${crumb.label}`}>
@@ -30,7 +36,7 @@ export function ModelBreadcrumb() {
               <button
                 type="button"
                 className="topbar__crumb"
-                title="Show in Documents"
+                title={t('topbar.showInDocuments')}
                 onClick={() => tree?.reveal()}
               >
                 {crumb.label}

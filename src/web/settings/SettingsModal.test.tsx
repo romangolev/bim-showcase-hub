@@ -79,11 +79,11 @@ describe('SettingsBody', () => {
         .getAllByRole('option')
         .map((option) => option.textContent),
     ).toEqual(['Metric', 'Imperial']);
-    fireEvent.change(screen.getByLabelText('Language'), {
-      target: { value: 'ru' },
-    });
     fireEvent.change(screen.getByLabelText('Units'), {
       target: { value: 'imperial' },
+    });
+    fireEvent.change(screen.getByLabelText('Language'), {
+      target: { value: 'ru' },
     });
     const stored = JSON.parse(
       window.localStorage.getItem('bsh-settings-v1') ?? '{}',
@@ -187,6 +187,20 @@ describe('SettingsBody', () => {
     expect(
       screen.getByText(/Preferences are back to their defaults/),
     ).toBeTruthy();
+  });
+
+  it('renders the settings window in Russian when chosen', () => {
+    renderBody();
+    fireEvent.change(screen.getByLabelText('Language'), {
+      target: { value: 'ru' },
+    });
+    expect(screen.getByRole('heading', { name: 'Внешний вид' })).toBeTruthy();
+    expect(
+      within(screen.getByLabelText('Язык') as HTMLElement)
+        .getAllByRole('option')
+        .map((option) => option.textContent),
+    ).toEqual(['English', 'Русский']);
+    expect(screen.getByText('Настройки приложения')).toBeTruthy();
   });
 
   it('offers System, Light and Dark and applies the choice', () => {

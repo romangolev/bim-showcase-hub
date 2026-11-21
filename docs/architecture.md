@@ -175,6 +175,10 @@ The real adapter mounts tools as the Autodesk extension `BimShowcaseHub.Tools` (
 
 - **Top bar** (`components/TopBar.tsx`): the brand, the active model's breadcrumb and the page actions, then the Help menu, Settings, theme and account. `LayoutProvider` passes the breadcrumb as `context` and `AppShell` renders the bar without one, so every prop is optional. The breadcrumb (`components/breadcrumb.ts`, `ModelBreadcrumb.tsx`) keeps the first folder and the last two around an ellipsis and ends with the file and version; a folder crumb reveals the model in Documents, and `bsh.topbar.v1` chooses full path, file only or nothing. The Help menu opens the keyboard shortcuts window, whose rows come from `COMMANDS` (`help/shortcutRows.ts`) plus the fixed shortcuts, and links to the docs.
 
+### Interface language
+
+`src/web/i18n` is the only source of display text: `en.ts` is the catalog (`as const`), `ru.ts` is a partial map with a per-message English fallback, and `useT()` / `translateNow()` are the two readers. Settings > Language writes `bsh-settings-v1`, `applyAppSettings` sets `<html lang>` and the pre-paint script does it before the first paint. Coverage is partial by design: the top bar, Help, Settings, the Panes menu, the onboarding hints and the Documents welcome state are translated, and the viewer, Summary, Dashboard, tools and exports are a follow-up. Exports stay English whatever the language, and the catalog test prints the coverage instead of failing on a gap. The Autodesk Viewer chrome keeps its own language, set by the viewer option at init, so switching it needs a viewer reload and is out of scope.
+
 ### Resize, full screen and theme
 
 Each adapter has one resize scheduler (`viewer/resizeScheduler.ts`) that merges requests from the host `ResizeObserver`, the window and full-screen events. Moving a pane moves its host element, so the adapter and canvas are never recreated. `ViewerPane` also calls `adapter.setTheme` on creation and on every theme change.

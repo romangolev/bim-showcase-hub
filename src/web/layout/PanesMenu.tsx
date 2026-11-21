@@ -12,6 +12,7 @@ import { Hint } from '../components/Hint.js';
 import { Icon } from '../components/icons.js';
 import type { MenuEntry } from '../components/Menu.js';
 import { moveFocus, onEscape, usePopover } from '../components/usePopover.js';
+import { useT } from '../i18n/i18n.js';
 import { useModal } from '../modal/index.js';
 import { layoutCommands, paneCommandContext } from './layoutCommandList.js';
 import { type LayoutApi, useLayout } from './layoutContext.js';
@@ -101,8 +102,15 @@ interface RowProps {
 function PaneRowItem({ row, onRun, onFocus }: RowProps) {
   const { pane, toggle, create, extras } = row;
   const descriptionId = useId();
+  const t = useT();
   const primary = toggle ?? create;
-  const state = toggle ? (row.open ? 'Open' : 'Closed') : create ? 'New' : null;
+  const state = toggle
+    ? row.open
+      ? t('panes.open')
+      : t('panes.closed')
+    : create
+      ? t('panes.new')
+      : null;
   return (
     <li className="panes-menu__row" role="none" data-kind={pane.id}>
       {primary ? (
@@ -118,7 +126,9 @@ function PaneRowItem({ row, onRun, onFocus }: RowProps) {
           title={
             primary.disabled ??
             (toggle
-              ? `${row.open ? 'Close' : 'Open'} ${pane.title}`
+              ? t(row.open ? 'panes.closePane' : 'panes.openPane', {
+                  title: pane.title,
+                })
               : primary.title)
           }
           onClick={() => onRun(primary)}
@@ -149,8 +159,8 @@ function PaneRowItem({ row, onRun, onFocus }: RowProps) {
             type="button"
             role="menuitem"
             className="panes-menu__action"
-            aria-label={`Focus ${pane.title}`}
-            title={`Focus ${pane.title}`}
+            aria-label={t('panes.focusPane', { title: pane.title })}
+            title={t('panes.focusPane', { title: pane.title })}
             onClick={onFocus}
           >
             <Icon name="locate" size={14} />
@@ -208,6 +218,7 @@ function FooterEntry({
 export function PanesMenu() {
   const layout = useLayout();
   const modal = useModal();
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -289,8 +300,8 @@ export function PanesMenu() {
         ref={triggerRef}
         type="button"
         className="icon-button"
-        aria-label="Panes"
-        title="Panes"
+        aria-label={t('panes.title')}
+        title={t('panes.title')}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? popoverId : undefined}
@@ -312,7 +323,7 @@ export function PanesMenu() {
               id={popoverId}
               className="panes-menu__popover"
               role="dialog"
-              aria-label="Panes"
+              aria-label={t('panes.title')}
               style={
                 position
                   ? { top: position.top, left: position.left }
@@ -324,24 +335,26 @@ export function PanesMenu() {
                 <Icon name="search" size={14} className="panes-menu__icon" />
                 <input
                   type="search"
-                  aria-label="Search panes"
-                  placeholder="Search panes"
+                  aria-label={t('panes.search')}
+                  placeholder={t('panes.search')}
                   autoComplete="off"
                   spellCheck={false}
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                 />
               </div>
-              <Hint id="panes-menu">
-                Open more panes, such as charts and properties, from Panes.
-              </Hint>
-              <div className="panes-menu__body" role="menu" aria-label="Panes">
+              <Hint id="panes-menu">{t('panes.hint')}</Hint>
+              <div
+                className="panes-menu__body"
+                role="menu"
+                aria-label={t('panes.title')}
+              >
                 <div className="panes-menu__list">
                   {groups.map((group) => (
                     <fieldset
                       key={group.category || 'matches'}
                       className="panes-menu__group"
-                      aria-label={group.category || 'Matching panes'}
+                      aria-label={group.category || t('panes.matching')}
                     >
                       {group.category ? (
                         <h3 className="panes-menu__heading">
@@ -368,7 +381,7 @@ export function PanesMenu() {
                     </fieldset>
                   ))}
                   {groups.length === 0 ? (
-                    <p className="panes-menu__empty">No panes match</p>
+                    <p className="panes-menu__empty">{t('panes.empty')}</p>
                   ) : null}
                 </div>
                 {footer.length > 0 ? (

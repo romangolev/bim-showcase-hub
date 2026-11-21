@@ -1,5 +1,6 @@
 import type { ReactNode, Ref } from 'react';
 import { useSession, useSignIn } from '../api/hooks.js';
+import { useT } from '../i18n/i18n.js';
 import { useModal } from '../modal/index.js';
 import { TaskCenter } from '../tasks/TaskCenter.js';
 import { ThemeToggle } from '../theme/ThemeToggle.js';
@@ -29,6 +30,7 @@ export function TopBar({
   const signIn = useSignIn();
   const user = session.data ?? null;
   const modal = useModal();
+  const t = useT();
 
   return (
     <header className="topbar">
@@ -39,7 +41,7 @@ export function TopBar({
             type="button"
             className="icon-button"
             aria-label={
-              treeOpen ? 'Collapse document tree' : 'Expand document tree'
+              treeOpen ? t('topbar.collapseTree') : t('topbar.expandTree')
             }
             aria-expanded={treeOpen}
             aria-controls="document-panel"
@@ -60,7 +62,7 @@ export function TopBar({
         <div className="topbar__spacer" />
         {session.isError ? (
           <span className="topbar__status" role="alert">
-            Session unavailable
+            {t('topbar.sessionUnavailable')}
           </span>
         ) : null}
         {user ? actions : null}
@@ -70,8 +72,8 @@ export function TopBar({
           <button
             type="button"
             className="icon-button"
-            aria-label="Settings"
-            title="Settings"
+            aria-label={t('topbar.settings')}
+            title={t('topbar.settings')}
             onClick={() => modal.open('settings')}
           >
             <Icon name="settings" size={18} />
@@ -87,7 +89,7 @@ export function TopBar({
             onClick={() => signIn.mutate()}
             disabled={signIn.isPending}
           >
-            Sign in
+            {t('topbar.signIn')}
           </button>
         )}
       </div>

@@ -1,37 +1,43 @@
-import { useState } from 'react';
 import { COMMANDS } from '../commands/registry.js';
 import { formatShortcut } from '../commands/shortcuts.js';
+import type { MessageId } from '../i18n/en.js';
+import { useT, type Vars } from '../i18n/i18n.js';
 import { type ShortcutRow, shortcutRows } from './shortcutRows.js';
 
-const FIXED_ROWS: readonly ShortcutRow[] = [
+const FIXED_ROWS: readonly {
+  id: string;
+  title: MessageId;
+  group: MessageId;
+  keys: string[];
+}[] = [
   {
     id: 'fixed.palette',
-    title: 'Command palette',
-    group: 'Anywhere',
+    title: 'help.commandPalette',
+    group: 'help.anywhere',
     keys: ['mod+k'],
   },
   {
     id: 'fixed.pane-groups',
-    title: 'Next pane group',
-    group: 'Anywhere',
+    title: 'help.nextPaneGroup',
+    group: 'help.anywhere',
     keys: ['f6'],
   },
   {
     id: 'fixed.pane-groups-back',
-    title: 'Previous pane group',
-    group: 'Anywhere',
+    title: 'help.previousPaneGroup',
+    group: 'help.anywhere',
     keys: ['shift+f6'],
   },
   {
     id: 'fixed.escape',
-    title: 'Restore or leave present',
-    group: 'Anywhere',
+    title: 'help.restoreOrLeavePresent',
+    group: 'help.anywhere',
     keys: ['escape'],
   },
   {
     id: 'fixed.documents-filter',
-    title: 'Filter Documents',
-    group: 'Documents',
+    title: 'help.filterDocuments',
+    group: 'help.groupDocuments',
     keys: ['/'],
   },
 ];
@@ -51,20 +57,27 @@ function grouped(rows: readonly ShortcutRow[]): Array<[string, ShortcutRow[]]> {
   return groups;
 }
 
+function fixedRows(t: (id: MessageId, vars?: Vars) => string): ShortcutRow[] {
+  return FIXED_ROWS.map((row) => ({
+    id: row.id,
+    title: t(row.title),
+    group: t(row.group),
+    keys: [...row.keys],
+  }));
+}
+
 export function ShortcutList() {
-  const [rows] = useState(() =>
-    [...shortcutRows(COMMANDS.list()), ...FIXED_ROWS].sort(
-      (a, b) =>
-        a.group.localeCompare(b.group) || a.title.localeCompare(b.title),
-    ),
+  const t = useT();
+  const rows = [...shortcutRows(COMMANDS.list()), ...fixedRows(t)].sort(
+    (a, b) => a.group.localeCompare(b.group) || a.title.localeCompare(b.title),
   );
   return (
     <table className="shortcut-list">
-      <caption>Keyboard shortcuts</caption>
+      <caption>{t('help.shortcuts')}</caption>
       <thead>
         <tr>
-          <th scope="col">Action</th>
-          <th scope="col">Keys</th>
+          <th scope="col">{t('help.action')}</th>
+          <th scope="col">{t('help.keys')}</th>
         </tr>
       </thead>
       {grouped(rows).map(([group, entries]) => (

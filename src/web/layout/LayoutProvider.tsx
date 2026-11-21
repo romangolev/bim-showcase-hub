@@ -28,6 +28,7 @@ import { StateBlock } from '../components/StateBlock.js';
 import { TopBar } from '../components/TopBar.js';
 import { TreeControlContext } from '../components/TreeControl.js';
 import { useMediaQuery } from '../components/useMediaQuery.js';
+import { useT } from '../i18n/i18n.js';
 import { resetHints } from '../onboarding/hints.js';
 import { ModelRouteSync } from '../routes/ModelRouteSync.js';
 import {
@@ -258,6 +259,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
   const user = useSession().data;
   const ownerId = user?.id;
   const ownerName = user?.name ?? '';
+  const t = useT();
   const lifecycleRef = useRef<PaneLifecycle | null>(null);
   const modelStore = useOwnedModels(
     ownerName ? { id: ownerId, name: ownerName } : null,
@@ -704,25 +706,25 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
         ? [
             {
               id: 'help.open-pane',
-              label: 'Open Help pane',
+              label: t('help.openPane'),
               onSelect: () => api.togglePane('help'),
             },
             {
               id: 'help.open-activity',
-              label: 'Open activity log',
+              label: t('help.openActivity'),
               onSelect: () => api.togglePane('activity'),
             },
             {
               id: 'help.show-hints',
-              label: 'Show hints again',
+              label: t('help.showHintsAgain'),
               onSelect: () => {
                 resetHints();
-                notify('Hints will show again');
+                notify(t('help.hintsWillShow'));
               },
             },
           ]
         : [],
-    [api.mode, api.togglePane],
+    [api.mode, api.togglePane, t],
   );
 
   return (
@@ -748,15 +750,9 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
               />
               {!stacked && !state.locked ? (
                 view.home ? (
-                  <Hint id="palette">
-                    Press Ctrl+K (Cmd+K on a Mac) to find any command or a
-                    loaded file.
-                  </Hint>
+                  <Hint id="palette">{t('hints.palette')}</Hint>
                 ) : (
-                  <Hint id="move-panes">
-                    Drag a tab to move a pane, or use its menu. Ctrl+Z inside
-                    the dock undoes a move.
-                  </Hint>
+                  <Hint id="move-panes">{t('hints.movePanes')}</Hint>
                 )
               ) : null}
               {stacked ? (

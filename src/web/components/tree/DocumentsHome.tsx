@@ -6,6 +6,7 @@ import {
   recallModel,
   subscribeModelStore,
 } from '../../api/modelStore.js';
+import { useT } from '../../i18n/i18n.js';
 import { PANE_SETTINGS } from '../../settings/paneSettings.js';
 import { usePersisted } from '../../storage.js';
 import { useSelectionSets } from '../../viewer/selectionSets.js';
@@ -40,6 +41,7 @@ export function DocumentsHome({
 }: DocumentsHomeProps) {
   const [view, setView] = usePersisted(PANE_SETTINGS.tree.view);
   const sets = useSelectionSets();
+  const t = useT();
   useSyncExternalStore(
     subscribeModelStore,
     modelStoreVersion,
@@ -52,19 +54,19 @@ export function DocumentsHome({
   const entries = (): MenuEntry[] => [
     {
       id: 'home-pinned',
-      label: 'Show pinned',
+      label: t('documents.showPinned'),
       checked: view.homePinned,
       onSelect: () => setView({ ...view, homePinned: !view.homePinned }),
     },
     {
       id: 'home-recent',
-      label: 'Show recent',
+      label: t('documents.showRecent'),
       checked: view.homeRecent,
       onSelect: () => setView({ ...view, homeRecent: !view.homeRecent }),
     },
     {
       id: 'home-sets',
-      label: 'Show selection sets',
+      label: t('documents.showSets'),
       checked: view.homeSets,
       onSelect: () => setView({ ...view, homeSets: !view.homeSets }),
     },
@@ -79,12 +81,12 @@ export function DocumentsHome({
   };
 
   return (
-    <section className="docs-home" aria-label="Documents home">
+    <section className="docs-home" aria-label={t('documents.homeAria')}>
       <div className="docs-home__head">
-        <h3 className="docs-home__title">Home</h3>
+        <h3 className="docs-home__title">{t('documents.homeTitle')}</h3>
         <Menu
-          label="Home sections"
-          title="Choose home sections"
+          label={t('documents.homeSections')}
+          title={t('documents.chooseHomeSections')}
           trigger={<Icon name="settings" size={14} />}
           triggerClassName="doc-tree__view"
           items={entries}
@@ -95,9 +97,9 @@ export function DocumentsHome({
           <StateBlock
             variant="empty"
             icon="folder"
-            title="Pick a file to start"
+            title={t('documents.emptyTitle')}
             titleAs="h3"
-            message="Below, choose a hub, then a project and a folder, and select a version to open it in the viewer."
+            message={t('documents.emptyMessage')}
             compact
           />
         ) : (
@@ -114,10 +116,12 @@ export function DocumentsHome({
             ) : null}
             {view.homeSets ? (
               <section
-                aria-label="Selection sets"
+                aria-label={t('documents.selectionSets')}
                 className="docs-home__section"
               >
-                <h3 className="docs-home__heading">Selection sets</h3>
+                <h3 className="docs-home__heading">
+                  {t('documents.selectionSets')}
+                </h3>
                 {sets.length > 0 ? (
                   <ul className="docs-home__list">
                     {sets.map((set) => (
@@ -133,17 +137,20 @@ export function DocumentsHome({
                             {set.name}
                           </span>
                           <span className="docs-home__set-meta">
-                            {set.items.length}{' '}
-                            {set.items.length === 1 ? 'element' : 'elements'}
+                            {set.items.length === 1
+                              ? t('documents.oneElement', {
+                                  count: set.items.length,
+                                })
+                              : t('documents.manyElements', {
+                                  count: set.items.length,
+                                })}
                           </span>
                         </button>
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <p className="docs-home__empty">
-                    Save a selection in the viewer to see it here.
-                  </p>
+                  <p className="docs-home__empty">{t('documents.noSets')}</p>
                 )}
               </section>
             ) : null}

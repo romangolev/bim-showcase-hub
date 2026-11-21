@@ -1,9 +1,11 @@
 import { DOCS_URL } from '../components/HelpMenu.js';
+import { useT } from '../i18n/i18n.js';
 import { resetHints } from '../onboarding/hints.js';
 import { notify } from '../tasks/notifications.js';
 import { ShortcutList } from './ShortcutList.js';
 
 export function HelpPane() {
+  const t = useT();
   return (
     <div
       className="pane-help"
@@ -20,7 +22,7 @@ export function HelpPane() {
       <ShortcutList />
       <p style={{ margin: 0 }}>
         <a href={DOCS_URL} target="_blank" rel="noopener">
-          Documentation
+          {t('help.docs')}
         </a>
       </p>
       <p style={{ margin: 0 }}>
@@ -29,10 +31,10 @@ export function HelpPane() {
           className="btn btn-small"
           onClick={() => {
             resetHints();
-            notify('Hints will show again');
+            notify(t('help.hintsWillShow'));
           }}
         >
-          Show hints again
+          {t('help.showHintsAgain')}
         </button>
       </p>
     </div>
