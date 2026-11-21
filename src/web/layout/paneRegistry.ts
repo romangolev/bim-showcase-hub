@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react';
 import type { Command } from '../commands/types.js';
 import type { IconName } from '../components/icons.js';
+import { requestDeepSearch } from '../components/tree/deepSearchSignal.js';
 import { currentAdapter } from '../viewer/activeAdapterStore.js';
 import { clearColoring } from '../viewer/modelColoring.js';
 import { PANEL_SEPARATOR, type PanelId } from './panelIds.js';
@@ -105,6 +106,18 @@ export const PANES: readonly PaneDefinition[] = [
         icon: 'folder',
         menu: 'hook',
         run: () => ctx.focus('tree'),
+      },
+      {
+        id: 'docs.search.deep',
+        title: 'Search project files',
+        group: 'Documents',
+        icon: 'search',
+        keywords: 'deep search whole project files filters',
+        menu: 'hook',
+        run: () => {
+          ctx.focus('tree');
+          requestDeepSearch();
+        },
       },
     ],
   },

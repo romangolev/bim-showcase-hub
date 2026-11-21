@@ -9,6 +9,8 @@ export type ItemOpen = 'expand' | 'latest' | 'last';
 
 export type TreeRows = 'list' | 'thumbnails';
 
+export type SearchScope = 'loaded' | 'project';
+
 function sanitizeOpenMode(raw: unknown): TreeOpenMode {
   return raw === 'replace' || raw === 'combined' ? raw : 'tab';
 }
@@ -26,6 +28,7 @@ export interface TreeView {
   itemOpen: ItemOpen;
   thumbnails: boolean;
   rows: TreeRows;
+  searchScope: SearchScope;
   homeRecent: boolean;
   homePinned: boolean;
   homeSets: boolean;
@@ -41,6 +44,7 @@ export const DEFAULT_TREE_VIEW: TreeView = {
   itemOpen: 'expand',
   thumbnails: false,
   rows: 'list',
+  searchScope: 'loaded',
   homeRecent: true,
   homePinned: true,
   homeSets: true,
@@ -61,6 +65,7 @@ export function sanitizeTreeView(raw: unknown): TreeView {
     itemOpen: sanitizeItemOpen(source.itemOpen),
     thumbnails: flag(source.thumbnails, DEFAULT_TREE_VIEW.thumbnails),
     rows: source.rows === 'thumbnails' ? 'thumbnails' : 'list',
+    searchScope: source.searchScope === 'project' ? 'project' : 'loaded',
     homeRecent: flag(source.homeRecent, DEFAULT_TREE_VIEW.homeRecent),
     homePinned: flag(source.homePinned, DEFAULT_TREE_VIEW.homePinned),
     homeSets: flag(source.homeSets, DEFAULT_TREE_VIEW.homeSets),

@@ -72,6 +72,16 @@ const TREE_SETTINGS_FORM: FormDefinition<TreeView> = {
         { value: 'thumbnails', label: 'Thumbnails' },
       ],
     },
+    {
+      key: 'searchScope',
+      kind: 'select',
+      label: 'Filter searches',
+      hint: 'Enter in the filter starts the search when it covers the whole project.',
+      options: [
+        { value: 'loaded', label: 'The folders you opened' },
+        { value: 'project', label: 'The whole project' },
+      ],
+    },
   ],
   reset: {
     label: 'Reset Documents settings',
@@ -84,6 +94,7 @@ const TREE_SETTINGS_FORM: FormDefinition<TreeView> = {
       itemOpen: 'expand',
       thumbnails: false,
       rows: 'list',
+      searchScope: 'loaded',
     },
   },
 };
@@ -94,6 +105,7 @@ const TREE_SHORTCUTS: readonly [string, string][] = [
   ['Enter', 'Open the focused version'],
   ['Arrow keys', 'Move, expand and collapse'],
   ['/', 'Focus the filter'],
+  ['Enter in the filter', 'Search the whole project'],
   ['Type a name', 'Jump to the next matching row'],
   ['Shift+F10', 'Open the row menu'],
 ];

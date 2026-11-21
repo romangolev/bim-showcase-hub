@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { TreeNode } from '../../../shared/types.js';
-import { matchesFilters, NO_FILTERS, sanitizeFilters } from './deepSearch.js';
+import { installMemoryStorage } from '../../test/mockApi.js';
+import {
+  DOC_SEARCHES,
+  matchesFilters,
+  NO_FILTERS,
+  sanitizeFilters,
+  sanitizeSearch,
+} from './deepSearch.js';
 
 const file = (name: string, extra: Partial<TreeNode> = {}): TreeNode => ({
   id: name,
@@ -89,5 +96,29 @@ describe('sanitizeFilters', () => {
         viewableOnly: 'yes',
       }),
     ).toEqual({ ...NO_FILTERS, types: ['rvt'] });
+  });
+});
+
+describe('saved searches', () => {
+  it('saves and reloads the same filters and scope', () => {
+    installMemoryStorage();
+    const filters = {
+      ...NO_FILTERS,
+      text: 'facade',
+      types: ['nwd'],
+      viewableOnly: true,
+      from: '2025-01-01',
+      scope: 'project' as const,
+    };
+    expect(DOC_SEARCHES.save('Facades', filters)?.data).toEqual(filters);
+    expect(DOC_SEARCHES.list()[0]?.data).toEqual(filters);
+    expect(DOC_SEARCHES.list()[0]?.name).toBe('Facades');
+  });
+
+  it('sanitizes an imported search with bad types and scope', () => {
+    expect(
+      sanitizeSearch({ types: ['EXE', 'RVT'], from: 'nope', scope: 'nope' }),
+    ).toEqual({ ...NO_FILTERS, types: ['rvt'], scope: 'loaded' });
+    expect(sanitizeSearch(null)).toBeNull();
   });
 });

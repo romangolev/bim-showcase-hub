@@ -1,5 +1,6 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -24,6 +25,9 @@ import {
   treeRoutes,
 } from '../../test/mockApi.js';
 import { DocumentTree } from './DocumentTree.js';
+import { DOC_SEARCHES } from './deepSearch.js';
+import { requestDeepSearch } from './deepSearchSignal.js';
+import type { TreeRoot } from './docRoot.js';
 import { DEFAULT_TREE_VIEW, type TreeView } from './treeView.js';
 
 function renderTree(
@@ -115,6 +119,7 @@ describe('DocumentTree metadata', () => {
       itemOpen: 'expand',
       thumbnails: false,
       rows: 'list',
+      searchScope: 'loaded',
       homeRecent: true,
       homePinned: true,
       homeSets: true,
@@ -327,9 +332,7 @@ describe('DocumentTree', () => {
     fireEvent.change(input, { target: { value: 'zzz' } });
     expect(screen.getByText('Nothing found')).toBeInTheDocument();
     expect(
-      screen.getByText(
-        'No matches for “zzz” in loaded folders. Expand more folders to search deeper.',
-      ),
+      screen.getByText('No matches for “zzz” in loaded folders.'),
     ).toBeInTheDocument();
     expect(input).toBeEnabled();
     fireEvent.click(screen.getByRole('button', { name: 'Show all' }));
@@ -1419,5 +1422,257 @@ describe('DocumentTree versions that were never checked', () => {
     fireEvent.click(row(1), { shiftKey: true });
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(screen.getByText('1 selected')).toBeInTheDocument();
+  });
+});
+
+const PROJECT_ROOT: TreeRoot = {
+  node: {
+    id: 'p1',
+    kind: 'project',
+    name: 'Riverside Tower',
+    hasChildren: true,
+    viewable: false,
+  },
+  scope: { kind: 'project', id: 'p1', hubId: 'h1', projectId: 'p1' },
+};
+
+const topFolder = {
+  ...folder,
+  id: 'f1',
+  name: 'Project Files',
+  parentId: 'p1',
+};
+
+const nestedFolder = {
+  ...folder,
+  id: 'f2',
+  name: 'Coordination',
+  parentId: 'f1',
+};
+
+const wallsFile = {
+  ...item,
+  id: 'i-rvt',
+  name: 'ARC-001_Walls.rvt',
+  parentId: 'f1',
+  tipUrn: 'urn-rvt',
+  modifiedAt: '2025-02-11T00:00:00.000Z',
+};
+
+const facadeFile = {
+  ...item,
+  id: 'i-nwd',
+  name: 'ARC-002_Facade.nwd',
+  parentId: 'f2',
+  tipUrn: 'urn-nwd',
+  modifiedAt: '2025-02-10T00:00:00.000Z',
+};
+
+function projectRoutes(
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    '/api/hubs/h1/projects/p1/folders': [topFolder],
+    '/api/projects/p1/folders/f1/contents': [nestedFolder, wallsFile],
+    '/api/projects/p1/folders/f2/contents': [facadeFile],
+    ...overrides,
+  };
+}
+
+const filterBox = () =>
+  screen.getByRole('searchbox', { name: 'Filter loaded nodes' });
+
+const callsTo = (mock: ReturnType<typeof mockFetch>, path: string) =>
+  mock.mock.calls.filter((call) => String(call[0]) === path).length;
+
+async function renderProject(
+  routes: Record<string, unknown> = projectRoutes(),
+  view: Partial<TreeView> = {},
+) {
+  installMemoryStorage();
+  window.localStorage.setItem(
+    BSH_KEYS.preference.treeView,
+    JSON.stringify({ ...DEFAULT_TREE_VIEW, ...view }),
+  );
+  const fetchMock = mockFetch(routes);
+  render(
+    <QueryClientProvider client={createTestClient()}>
+      <DocumentTree root={PROJECT_ROOT} onOpenModel={vi.fn()} pollMs={0} />
+    </QueryClientProvider>,
+  );
+  await screen.findByRole('treeitem', { name: 'Project Files' });
+  return fetchMock;
+}
+
+describe('DocumentTree deep search', () => {
+  it('finds a file two folders down after searching the whole project', async () => {
+    await renderProject();
+    fireEvent.change(filterBox(), { target: { value: 'nwd' } });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Search whole project' }),
+    );
+    expect(
+      await screen.findByRole('option', { name: /ARC-002_Facade\.nwd/ }),
+    ).toBeInTheDocument();
+    expect(await screen.findByText('Searched 3 folders')).toBeInTheDocument();
+  });
+
+  it('lists only the chosen types when a chip is pressed', async () => {
+    await renderProject();
+    fireEvent.change(filterBox(), { target: { value: 'arc' } });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Search whole project' }),
+    );
+    await screen.findByRole('option', { name: /ARC-002_Facade\.nwd/ });
+    expect(
+      screen.getByRole('option', { name: /ARC-001_Walls\.rvt/ }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
+    fireEvent.click(screen.getByRole('button', { name: 'rvt' }));
+    expect(
+      screen.queryByRole('option', { name: /ARC-002_Facade\.nwd/ }),
+    ).toBeNull();
+    expect(
+      screen.getByRole('option', { name: /ARC-001_Walls\.rvt/ }),
+    ).toBeInTheDocument();
+  });
+
+  it('cancels a crawl and makes no further requests', async () => {
+    const fetchMock = await renderProject(
+      projectRoutes({
+        '/api/projects/p1/folders/f2/contents': () => new Promise(() => {}),
+      }),
+    );
+    fireEvent.change(filterBox(), { target: { value: 'arc' } });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Search whole project' }),
+    );
+    await screen.findByRole('option', { name: /ARC-001_Walls\.rvt/ });
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.getByText('Search cancelled')).toBeInTheDocument();
+
+    const before = callsTo(fetchMock, '/api/projects/p1/folders/f2/contents');
+    expect(before).toBe(1);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    expect(callsTo(fetchMock, '/api/projects/p1/folders/f2/contents')).toBe(
+      before,
+    );
+  });
+
+  it('waits for Retry-After on a 429 and then reads the folder', async () => {
+    let attempts = 0;
+    await renderProject(
+      projectRoutes({
+        '/api/projects/p1/folders/f2/contents': () => {
+          attempts += 1;
+          return attempts === 1
+            ? new Response(JSON.stringify({ error: 'Rate limited' }), {
+                status: 429,
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Retry-After': '1',
+                },
+              })
+            : json([facadeFile]);
+        },
+      }),
+    );
+    vi.useFakeTimers();
+    try {
+      fireEvent.change(filterBox(), { target: { value: 'nwd' } });
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Search whole project' }),
+      );
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1000);
+        await vi.advanceTimersByTimeAsync(1000);
+      });
+      expect(
+        screen.getByRole('option', { name: /ARC-002_Facade\.nwd/ }),
+      ).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('asks for a project when two projects are loaded', async () => {
+    installMemoryStorage();
+    mockFetch({
+      '/api/hubs': treeRoutes['/api/hubs'],
+      '/api/hubs/h1/projects': [
+        treeRoutes['/api/hubs/h1/projects'][0],
+        {
+          ...treeRoutes['/api/hubs/h1/projects'][0],
+          id: 'p2',
+          name: 'Harbour',
+        },
+      ],
+    });
+    render(
+      <QueryClientProvider client={createTestClient()}>
+        <DocumentTree onOpenModel={vi.fn()} pollMs={0} />
+      </QueryClientProvider>,
+    );
+    await expandTo('Studio hub');
+    fireEvent.change(filterBox(), { target: { value: 'zzz' } });
+    expect(
+      screen.getByRole('button', { name: 'Search whole project' }),
+    ).toBeDisabled();
+    expect(
+      screen.getByText('Pick a project in the switcher to search all of it'),
+    ).toBeInTheDocument();
+  });
+
+  it('opens the filters from the palette command', async () => {
+    await renderProject();
+    act(() => requestDeepSearch());
+    expect(screen.getByRole('button', { name: 'Filters' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    expect(filterBox()).toHaveFocus();
+  });
+});
+
+describe('DocumentTree saved searches', () => {
+  it('applies a saved search and starts the crawl for a project scope', async () => {
+    const fetchMock = await renderProject(projectRoutes(), {
+      searchScope: 'project',
+    });
+    fireEvent.change(filterBox(), { target: { value: 'arc' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
+    fireEvent.click(screen.getByRole('button', { name: 'rvt' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Saved searches' }));
+    fireEvent.click(await screen.findByText('Save search'));
+    fireEvent.change(screen.getByLabelText('Search name'), {
+      target: { value: 'Facade plans' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save search' }));
+    await waitFor(() => expect(DOC_SEARCHES.list()).toHaveLength(1));
+    expect(DOC_SEARCHES.list()[0]?.data).toMatchObject({
+      text: 'arc',
+      types: ['rvt'],
+      scope: 'project',
+    });
+
+    fireEvent.change(filterBox(), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'rvt' }));
+    const before = callsTo(fetchMock, '/api/projects/p1/folders/f1/contents');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Saved searches' }));
+    fireEvent.click(await screen.findByText('Facade plans'));
+    expect(filterBox()).toHaveValue('arc');
+    expect(screen.getByRole('button', { name: 'rvt' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await waitFor(() =>
+      expect(callsTo(fetchMock, '/api/projects/p1/folders/f1/contents')).toBe(
+        before + 1,
+      ),
+    );
   });
 });

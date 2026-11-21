@@ -239,6 +239,99 @@
   color: var(--color-ash);
 }
 
+.doc-tree__tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 var(--space-3) var(--space-2);
+}
+
+.doc-tree__tool {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: 26px;
+  padding: 0 var(--space-2);
+  border: var(--border-hairline);
+  border-radius: var(--radius-button);
+  background: transparent;
+  color: var(--color-chalk);
+  font: inherit;
+  font-size: var(--text-13);
+  cursor: pointer;
+}
+
+.doc-tree__tool[aria-expanded="true"] {
+  background: var(--color-ghost-fill-hover);
+  color: var(--color-snow);
+}
+
+.doc-tree__chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 var(--space-3) var(--space-2);
+}
+
+.doc-tree__chip {
+  height: 26px;
+  padding: 0 var(--space-2);
+  border: var(--border-hairline);
+  border-radius: var(--radius-badge);
+  background: transparent;
+  color: var(--color-chalk);
+  font: inherit;
+  font-size: var(--text-13);
+  cursor: pointer;
+}
+
+.doc-tree__chip[aria-pressed="true"] {
+  border-color: var(--color-arc-blue);
+  background: color-mix(in srgb, var(--color-arc-blue) 18%, transparent);
+  color: var(--color-snow);
+}
+
+.doc-tree__date {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--color-ash);
+  font-size: var(--text-13);
+}
+
+.doc-tree__date input {
+  height: 26px;
+  padding: 0 var(--space-1);
+  border: var(--border-hairline);
+  border-radius: var(--radius-button);
+  background: var(--color-charcoal);
+  color: var(--color-snow);
+  font: inherit;
+  font-size: var(--text-13);
+}
+
+.doc-tree__crawl {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 var(--space-3) var(--space-2);
+  color: var(--color-chalk);
+  font-size: var(--text-13);
+}
+
+.doc-tree__crawl-text {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+
+.doc-tree__crawl-hint {
+  flex-basis: 100%;
+  color: var(--color-ash);
+}
+
 .doc-tree__scroll {
   flex: 1;
   min-height: 0;

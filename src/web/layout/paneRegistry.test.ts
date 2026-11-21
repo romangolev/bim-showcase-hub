@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Command, CommandHost } from '../commands/types.js';
+import { onDeepSearch } from '../components/tree/deepSearchSignal.js';
 import { buildColoring } from '../extensions/colorBy.js';
 import { COLORS_SETTINGS } from '../panels/colorsSettings.js';
 import { setStorageAdapter } from '../storage.js';
@@ -252,6 +253,28 @@ describe('pane registry', () => {
     expect(
       commands.find((command) => command.id === 'pane.focus.tree'),
     ).toBeDefined();
+  });
+
+  it('offers a deep search command for Documents', () => {
+    const ctx = {
+      isOpen: () => true,
+      toggle: vi.fn(),
+      create: vi.fn(),
+      focus: vi.fn(),
+    };
+    const seen = vi.fn();
+    const off = onDeepSearch(seen);
+    const command = paneCommands(ctx).find(
+      (entry) => entry.id === 'docs.search.deep',
+    );
+    expect(command).toMatchObject({
+      title: 'Search project files',
+      group: 'Documents',
+    });
+    command?.run({} as CommandHost);
+    expect(ctx.focus).toHaveBeenCalledWith('tree');
+    expect(seen).toHaveBeenCalledTimes(1);
+    off();
   });
 
   it('rejects instances of panes without instances', () => {
