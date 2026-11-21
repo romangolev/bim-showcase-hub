@@ -1779,6 +1779,20 @@ button.bsh-kpi:focus-visible {
 }
 
 @media (pointer: coarse), (max-width: 875px) {
+  .bsh-picker__chosen {
+    flex-direction: column;
+  }
+
+  .bsh-picker__chosen .bsh-badge {
+    display: flex;
+    align-items: center;
+    border-radius: var(--radius-card);
+  }
+
+  .bsh-picker__arrange {
+    margin-left: auto;
+  }
+
   .bsh-picker__move,
   .bsh-picker__remove {
     min-width: var(--hit-target);
