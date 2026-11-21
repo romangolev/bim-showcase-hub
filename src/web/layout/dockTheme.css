@@ -20,7 +20,7 @@
 .bsh-dock {
   --dv-group-view-background-color: var(--color-graphite);
   --dv-tabs-and-actions-container-background-color: var(--color-graphite);
-  --dv-tabs-and-actions-container-height: var(--control-height);
+  --dv-tabs-and-actions-container-height: calc(var(--hit-target) + 1px);
   --dv-tabs-and-actions-container-font-size: var(--text-13);
   --dv-activegroup-visiblepanel-tab-background-color: transparent;
   --dv-activegroup-hiddenpanel-tab-background-color: transparent;

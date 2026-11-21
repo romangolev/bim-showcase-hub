@@ -910,8 +910,8 @@
   display: inline-grid;
   flex: none;
   place-items: center;
-  width: 26px;
-  height: 26px;
+  width: var(--target-min);
+  height: var(--target-min);
   padding: 0;
   border: 0;
   border-radius: var(--radius-badge);
