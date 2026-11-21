@@ -7,6 +7,7 @@ import {
 import { useEffect, useSyncExternalStore } from 'react';
 import { forgetPersonal } from '../storage.js';
 import {
+  ApiError,
   fetchAuthUrl,
   fetchChildren,
   fetchSession,
@@ -70,7 +71,8 @@ export function childrenQueryOptions(scope: NodeScope) {
     queryFn: ({ signal }) => fetchChildren(scope, signal),
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
-    retry: 1,
+    retry: (count, error) =>
+      !(error instanceof ApiError && error.status === 429) && count < 1,
     retryDelay: 400,
   });
 }

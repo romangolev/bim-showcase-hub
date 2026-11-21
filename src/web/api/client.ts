@@ -9,11 +9,17 @@ export type Session = SessionUser;
 
 export class ApiError extends Error {
   readonly status: number;
+  readonly retryAfterMs: number | null;
 
-  constructor(status: number, message: string) {
+  constructor(
+    status: number,
+    message: string,
+    retryAfterMs: number | null = null,
+  ) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+    this.retryAfterMs = retryAfterMs;
   }
 }
 
@@ -53,6 +59,15 @@ async function readError(res: Response): Promise<string> {
 const SESSION_PATH = '/api/session';
 export const UNAUTHORIZED_RETRY_DELAY_MS = 300;
 
+function retryAfterMsOf(res: Response): number | null {
+  const header = res.headers.get('Retry-After');
+  if (!header) return null;
+  const seconds = Number(header);
+  return Number.isFinite(seconds) && seconds > 0
+    ? Math.round(seconds * 1000)
+    : null;
+}
+
 async function request(path: string, init?: RequestInit): Promise<Response> {
   const send = (extra?: Record<string, string>) =>
     fetch(path, {
@@ -79,7 +94,11 @@ async function request(path: string, init?: RequestInit): Promise<Response> {
     notifyUnauthorized();
   }
   if (!res.ok) {
-    throw new ApiError(res.status, await readError(res));
+    throw new ApiError(
+      res.status,
+      await readError(res),
+      res.status === 429 ? retryAfterMsOf(res) : null,
+    );
   }
   return res;
 }

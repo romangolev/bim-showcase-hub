@@ -4,7 +4,9 @@ import {
   MAX_LOADED_MEMBERS,
 } from '../../../shared/combined.js';
 import type { TreeNode, VersionViewState } from '../../../shared/types.js';
+import type { NodeScope } from '../../api/scope.js';
 import { MODEL_LIMIT_MESSAGE } from '../../viewer/modelSet.js';
+import { NO_FILTERS } from './deepSearch.js';
 import { DEFAULT_TREE_ROOT } from './docRoot.js';
 import {
   CHECK_CONCURRENCY,
@@ -588,6 +590,146 @@ describe('treeState open decisions', () => {
     state.checkAgain('doc.rvt');
     expect(invalidated).toContainEqual(['doc.rvt', true]);
     expect(state.getSnapshot().notice).toBeNull();
+  });
+});
+
+describe('treeState item references', () => {
+  it('builds a version target from an item and from its versions', async () => {
+    const { state } = make();
+    await loadAll(state);
+    const item = state.node('doc.rvt');
+    if (!item) throw new Error('item missing');
+    const target = state.itemRef(item);
+    expect(target).toEqual({
+      projectId: 'p',
+      itemId: 'doc.rvt',
+      file: 'doc.rvt',
+      trail: [...state.ancestorIds(item), 'doc.rvt'],
+      crumbs: ['Hubs', 'h', 'p', 'f'],
+    });
+    const versionNode = state.node('v1');
+    if (!versionNode) throw new Error('version missing');
+    expect(state.itemRef(versionNode)).toEqual(target);
+  });
+
+  it('returns null for a folder, a hub or an item without a project', async () => {
+    const { state } = make();
+    await loadAll(state);
+    const folder = state.node('f');
+    const root = state.node('root');
+    if (!folder || !root) throw new Error('fixtures missing');
+    expect(state.itemRef(folder)).toBeNull();
+    expect(state.itemRef(root)).toBeNull();
+  });
+});
+
+describe('treeState crawl', () => {
+  function makeProject() {
+    const { data, calls } = fakeData();
+    const state = createTreeState({
+      root: {
+        node: node('p', { kind: 'project', name: 'Project' }),
+        scope: { kind: 'project', id: 'p', hubId: 'h', projectId: 'p' },
+      },
+      data,
+      sort: () => 'name',
+    });
+    const fake = fakeHost();
+    state.bind(fake.host);
+    return { state, calls, ...fake };
+  }
+
+  it('crawls the project, registering folders, items and progress', async () => {
+    const { state } = makeProject();
+    const progress = vi.fn();
+    const out = await state.crawl(new AbortController().signal, progress);
+    expect(out.stop).toBe('done');
+    expect(state.node('doc.rvt')?.kind).toBe('item');
+    expect(state.isLoaded('f')).toBe(true);
+    expect(progress).toHaveBeenCalled();
+  });
+
+  it('searches crawled items from folders the tree never expanded', async () => {
+    const { state, open } = makeProject();
+    await state.crawl(new AbortController().signal);
+    expect(open.size).toBe(0);
+    expect(
+      state.search('', { ...NO_FILTERS, types: ['rvt'] }).map(({ id }) => id),
+    ).toEqual(['doc.rvt']);
+  });
+
+  it('builds the full trail of a version of a crawled item', async () => {
+    const { state } = makeProject();
+    await state.crawl(new AbortController().signal);
+    const item = state.node('doc.rvt');
+    if (!item) throw new Error('crawled item missing');
+    const [first] = await state.versionsOf(item);
+    if (!first) throw new Error('version missing');
+    expect(state.contextFor(first)).toEqual({
+      trail: ['p', 'f', 'doc.rvt'],
+      crumbs: ['Project', 'f'],
+      file: 'doc.rvt',
+      v: 'v1',
+    });
+  });
+
+  it('crawlRoot is the project for a project root and null with two projects', async () => {
+    const { state } = makeProject();
+    expect(state.crawlRoot()).toBe('p');
+
+    const single = make();
+    await single.state.children('root');
+    await single.state.children('h');
+    expect(single.state.crawlRoot()).toBe('p');
+
+    const many = make({
+      children: async (scope) => {
+        const id = scope.kind === 'root' ? 'root' : scope.id;
+        if (id === 'h') {
+          return [
+            node('p', { kind: 'project', parentId: 'h' }),
+            node('q', { kind: 'project', parentId: 'h' }),
+          ];
+        }
+        return TREE[id] ?? [];
+      },
+    });
+    await many.state.children('root');
+    await many.state.children('h');
+    expect(many.state.crawlRoot()).toBeNull();
+  });
+});
+
+describe('treeState versions of an item', () => {
+  it('loads and registers the versions of an item once', async () => {
+    const children = vi.fn(async (scope: NodeScope) => {
+      const id = scope.kind === 'root' ? 'root' : scope.id;
+      if (id === 'doc.rvt') {
+        return [
+          version('v1', 'doc.rvt'),
+          version('v2', 'doc.rvt', { latest: true }),
+        ];
+      }
+      return TREE[id] ?? [];
+    });
+    const { state } = make({ children });
+    for (const id of ['root', 'h', 'p', 'f']) {
+      await state.children(id);
+    }
+    const item = state.node('doc.rvt');
+    if (!item) throw new Error('fixture item missing');
+    const versions = await state.versionsOf(item);
+    expect(versions.map((entry) => entry.id)).toEqual(['v1', 'v2']);
+    expect(state.node('v2')?.latest).toBe(true);
+    await state.versionsOf(item);
+    expect(
+      children.mock.calls.filter(
+        ([scope]) => scope.kind !== 'root' && scope.id === 'doc.rvt',
+      ),
+    ).toHaveLength(1);
+    const folder = state.node('f');
+    if (!folder) throw new Error('fixture folder missing');
+    expect(await state.versionsOf(folder)).toEqual([]);
   });
 });
 
