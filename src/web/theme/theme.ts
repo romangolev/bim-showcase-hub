@@ -9,10 +9,6 @@ export const THEME_PREFERENCES: readonly ThemePreference[] = [
 
 export const LIGHT_SCHEME_QUERY = '(prefers-color-scheme: light)';
 
-export function isTheme(value: unknown): value is Theme {
-  return value === 'dark' || value === 'light';
-}
-
 export function readSystemTheme(): Theme {
   if (typeof window === 'undefined' || !window.matchMedia) return 'dark';
   return window.matchMedia(LIGHT_SCHEME_QUERY).matches ? 'light' : 'dark';

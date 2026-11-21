@@ -221,10 +221,6 @@ export function clearModelTint(adapter: ViewerAdapter, modelId: string): void {
   colorLayersFor(adapter).clearModel('modelTint', modelId);
 }
 
-export function resetTintLayer(adapter: ViewerAdapter): void {
-  colorLayersFor(adapter).clearSource('modelTint');
-}
-
 export async function applyGhostOthers(
   adapter: ViewerAdapter,
   modelId: string,

@@ -20,5 +20,3 @@ export const TOOLBAR_GROUPS = [
 ] as const;
 
 export type NativeControlId = (typeof NATIVE_CONTROLS)[number]['id'];
-
-export type ToolbarGroupId = (typeof TOOLBAR_GROUPS)[number];

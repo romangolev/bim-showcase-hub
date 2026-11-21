@@ -533,19 +533,3 @@ export function adoptArrangement(
   }
   return sanitizeDock({ ...mapped, panels }, instances)?.dock ?? null;
 }
-
-export function writeLayout(storage: Storage, model: LayoutModel) {
-  try {
-    storage.setItem(LAYOUT_KEY, serializeLayout(model));
-  } catch {
-    return;
-  }
-}
-
-export function readLayout(storage: Storage): LayoutModel {
-  try {
-    return parseLayout(storage.getItem(LAYOUT_KEY)) ?? defaultModel();
-  } catch {
-    return defaultModel();
-  }
-}

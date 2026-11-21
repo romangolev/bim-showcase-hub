@@ -43,10 +43,6 @@ export function sanitizeAggregate(raw: unknown): Aggregate {
   return AGGREGATES.find((aggregate) => aggregate === raw) ?? 'count';
 }
 
-export function sanitizeChartType(raw: unknown): ChartType {
-  return CHART_TYPES.find((type) => type === raw) ?? 'bar';
-}
-
 export interface ChartDatum {
   label: string;
   count: number;
