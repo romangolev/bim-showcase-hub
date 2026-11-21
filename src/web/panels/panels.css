@@ -408,7 +408,7 @@
 
   .bsh-drawer__header .bsh-card__title {
     flex: 1;
-    order: 1;
+    order: -1;
   }
 
   .bsh-drawer__header .bsh-button[aria-expanded] {
@@ -466,6 +466,7 @@
 }
 
 .bsh-summary__header {
+  flex-wrap: wrap;
   justify-content: flex-start;
 }
 
