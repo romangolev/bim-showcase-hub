@@ -7,6 +7,7 @@ import {
 } from '../extensions/dashboardPresets.js';
 import { useSavedKindItems } from '../store/savedKinds.js';
 import { MAX_NAME_LENGTH } from '../store/savedStore.js';
+import { notify } from '../tasks/notifications.js';
 
 interface DashboardUserPresetsProps {
   view: DashboardView;
@@ -101,7 +102,11 @@ export function DashboardUserPresets({
                 type="button"
                 className="bsh-button"
                 aria-label={`Delete ${item.name}`}
-                onClick={() => DASHBOARD_USER_PRESETS.remove(item.id)}
+                onClick={() => {
+                  if (!DASHBOARD_USER_PRESETS.remove(item.id)) {
+                    notify('Could not delete the preset.', { tone: 'error' });
+                  }
+                }}
               >
                 Delete
               </button>
