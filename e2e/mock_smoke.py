@@ -1408,12 +1408,12 @@ def check_combined(page, checks, notes):
         wait_until(page, lambda: len(combined_groups(page)) == 2)
     checks.add("combined: Add to open viewer adds a version to the active tab", addable >= 1 and len(combined_groups(page)) == 2 and len(models(page)["models"]) == 1, combined_groups(page))
 
-    six = ",".join(f"{urn}-extra{index}" for index in range(5))
-    page.goto(f"{BASE_URL}/model/{urn}?with={six}", wait_until="networkidle")
+    full = ",".join(f"{urn}-extra{index}" for index in range(41))
+    page.goto(f"{BASE_URL}/model/{urn}?with={full}", wait_until="networkidle")
     settle(page, 2000)
     models_trigger(page).click()
     add = page.get_by_role("menuitem", name=re.compile(r"^Add model"))
-    checks.add("combined: the menu explains the cap of six", add.count() == 1 and "limit of 6" in add.inner_text() and add.is_disabled(), add.inner_text() if add.count() else "")
+    checks.add("combined: the menu explains the cap of 42", add.count() == 1 and "limit of 42" in add.inner_text() and add.is_disabled(), add.inner_text() if add.count() else "")
     page.keyboard.press("Escape")
     close_all_models(page)
 
@@ -1476,7 +1476,7 @@ def check_viewer_links(page, checks):
 
     chip = page.locator(f"{ACTIVE_VIEWER} .bsh-viewer-models .bsh-viewer-models__trigger").first
     text = (chip.inner_text() if chip.count() else "") + " | " + (chip.get_attribute("title") or "")
-    checks.add("meter: the chip shows how many of six models are open and its tooltip the parts estimate", "2 of 6 models" in text and "parts (estimate)" in text, text)
+    checks.add("meter: the chip shows how many of 42 models are open and its tooltip the parts estimate", "2 of 42 models" in text and "parts (estimate)" in text, text)
     checks.add("meter: no plain summary text sits over the 3D scene", page.locator(f"{ACTIVE_VIEWER} .bsh-viewer-cost__count, {ACTIVE_VIEWER} .bsh-viewer-cost__parts").count() == 0)
 
     page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
@@ -1489,11 +1489,11 @@ def check_viewer_links(page, checks):
     page.screenshot(path=str(OUTPUT_DIR / "mock-share-narrow.png"))
     page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
 
-    five = ",".join(f"{urn}-m{index}" for index in range(4))
-    page.goto(f"{BASE_URL}/model/{urn}?with={five}", wait_until="networkidle")
+    nearly = ",".join(f"{urn}-m{index}" for index in range(40))
+    page.goto(f"{BASE_URL}/model/{urn}?with={nearly}", wait_until="networkidle")
     settle(page, 2000)
     text = page.locator(f"{ACTIVE_VIEWER} .bsh-viewer-cost").inner_text()
-    checks.add("meter: warns before the sixth model", "One more model fits" in text, text)
+    checks.add("meter: warns before the last model", "One more model fits" in text, text)
 
     page.goto(f"{BASE_URL}/model/{urn}?with={urn}-processing,{urn}-nogeom", wait_until="networkidle")
     settle(page, 2000)

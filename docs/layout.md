@@ -55,8 +55,8 @@ The Viewer pane has one instance per open model, a panel `viewer:<urn>` with its
 - Dropping a tab on the edge of the viewer group puts two models side by side.
 - Closing the last tab closes the viewer group and its companions, and the URL returns to `/`.
 - A combined tab is one panel titled `N models`. Its first URN is the key and the others are in the `with` URL parameter.
-- In Documents, Ctrl or Cmd click and Space pick versions and Shift click picks a range. The pick bar offers Open N in viewer (up to 8 models across the open tabs, so it counts the tabs already open), Open together (2 to 6, one combined scene), Add to the open viewer and Clear.
-- A single click opens a version according to the Documents open mode, saved with the tree view: a new tab (the default), the active tab, or the active viewer as a combined scene. A combined click adds a model while the tab holds fewer than 6; at 6 it opens a new tab and says so in a toast.
+- In Documents, Ctrl or Cmd click and Space pick versions and Shift click picks a range. The pick bar offers Open N in viewer (up to 8 models across the open tabs, so it counts the tabs already open), Open together (2 to 42, one combined scene), Add to the open viewer and Clear.
+- A single click opens a version according to the Documents open mode, saved with the tree view: a new tab (the default), the active tab, or the active viewer as a combined scene. A combined click adds a model while the tab holds fewer than 42. At 42 it tries a new tab, which the 8 loaded models limit refuses because the combined tab alone counts as 42, so it says so in a toast.
 - Replacing closes the active tab. When that tab is a combined scene it closes every model in it, and the tree says how many. The row menu's Open in new tab bypasses the open mode.
 - A tab keeps its view: camera, section planes, explode and per-model hidden, isolated and selected elements. The state is saved when the tab is paused or the page reloads and restored once after the next load. A state with more than 5,000 node ids keeps the camera, planes and explode and drops the node lists. Measurements are not part of it.
 - **Remember view state** in the model tab's pane menu turns this off for that tab and clears its state. An incoming `?view=` link always wins over a restored state.
@@ -230,5 +230,5 @@ Three one-line notes appear on first use and stay until dismissed: how to move p
 - One stored layout per browser and no server sync. Named workspaces are local to the browser.
 - At most 8 models are loaded across all tabs (`MAX_LOADED_MEMBERS`). A combined tab counts every model it holds. Visible tabs are never paused. A paused tab offers Load model. Pinned tabs count toward the budget but are never paused either, so pinning several combined tabs can hold more than 8 models loaded.
 - At most 10 closed tabs are remembered, newest first and in memory only. A reload forgets the closed stack.
-- A combined tab holds at most 6 models (`MAX_COMBINED_MODELS`).
+- A combined tab holds at most 42 models (`MAX_COMBINED_MODELS`).
 - All open models must come from one Autodesk region, because the viewer initializes once per page. `viewer/region.ts` records the region. A model from the other region shows an error with Close other models and reload.

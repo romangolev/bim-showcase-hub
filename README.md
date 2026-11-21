@@ -11,7 +11,7 @@ The screenshot uses built-in mock data, not a real account.
 - Autodesk sign-in. Tokens stay on the server.
 - Document tree for hubs, projects, folders and versions, with filter, Pinned and Recent.
 - Dockable workspace: move, resize, tab, float and collapse panes. The layout is saved per browser.
-- Several models at once in viewer tabs, or combined into one scene (up to six).
+- Several models at once in viewer tabs, or combined into one scene (up to 42).
 - Model summary and dashboard charts from element properties.
 - Viewer tools: paint, and export to Excel, CSV, JSON, GLB or IFC.
 - Command palette (Ctrl or Cmd+K), Task Center, dark and light themes.
