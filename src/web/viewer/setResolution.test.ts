@@ -51,6 +51,7 @@ describe('selecting a set', () => {
     const selectModelIds = vi.fn();
     const adapter = {
       getModels: () => [{ id: 'a', status: 'ready' }],
+      getExternalIdMap: async () => ({}),
       selectModelIds,
     } as unknown as ViewerAdapter;
     expect(await selectSet(adapter, listSets()[0]?.id ?? '')).toBe(2);

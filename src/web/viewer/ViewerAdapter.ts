@@ -150,7 +150,7 @@ export interface ViewerAdapter {
   onModelsChange(cb: (models: ModelInfo[]) => void): () => void;
   getModelSelection(): ModelDbId[];
   getModelWeight(modelId: string): number | null;
-  getExternalIdMap?(modelId: string): Promise<Record<string, number>>;
+  getExternalIdMap(modelId: string): Promise<Record<string, number>>;
   setGhosting(enabled: boolean): void;
   getIsolated(): ModelDbId[];
   getVisible(): Promise<ModelDbId[]>;
