@@ -1,15 +1,18 @@
-import {
-  MAX_COMBINED_MODELS,
-  MAX_LOADED_MEMBERS,
-} from '../../../shared/combined.js';
 import { fold } from '../../../shared/text.js';
 import type { TreeNode, VersionViewState } from '../../../shared/types.js';
-import { viewableFor } from '../../../shared/viewState.js';
 import { friendlyError } from '../../api/friendlyError.js';
 import { type ModelContext, versionTag } from '../../api/modelContext.js';
 import { childScope, type NodeScope } from '../../api/scope.js';
 import type { VersionTarget } from '../../panels/versionHistory.js';
-import { MODEL_LIMIT_MESSAGE } from '../../viewer/modelSet.js';
+import { openableUrn } from '../../viewer/openLimits.js';
+
+export {
+  openableUrn,
+  overTabLimit,
+  pickLimit,
+  tabLimitMessage,
+} from '../../viewer/openLimits.js';
+
 import {
   type CrawlProgress,
   type CrawlResult,
@@ -73,12 +76,6 @@ export interface TreeSnapshot {
   checkVersion: number;
   picked: PickedModel[];
   notice: TreeNotice | null;
-}
-
-interface PickLimit {
-  tooManyTabs: boolean;
-  tooManyCombined: boolean;
-  message: string | null;
 }
 
 export interface TreeState {
@@ -146,42 +143,6 @@ export async function until(check: () => boolean, timeoutMs: number) {
     await sleep(40);
   }
   return true;
-}
-
-export function openableUrn(node: TreeNode): string | null {
-  if (node.kind === 'version' && viewableFor(viewStateOf(node)) && node.urn) {
-    return node.urn;
-  }
-  return null;
-}
-
-export function tabLimitMessage(openCount: number): string {
-  const room = MAX_LOADED_MEMBERS - openCount;
-  const open =
-    openCount === 0
-      ? ''
-      : `${openCount} ${openCount === 1 ? 'model is' : 'models are'} already loaded. `;
-  return room < 1
-    ? `A viewer loads up to ${MAX_LOADED_MEMBERS} models. ${open}Close a model to open another.`
-    : `A viewer loads up to ${MAX_LOADED_MEMBERS} models. ${open}Select ${room} or fewer to open them as tabs.`;
-}
-
-export function overTabLimit(loaded: number, fresh: number): boolean {
-  return loaded + fresh > MAX_LOADED_MEMBERS;
-}
-
-export function pickLimit(openCount: number, picked: number): PickLimit {
-  const tooManyCombined = picked > MAX_COMBINED_MODELS;
-  const tooManyTabs = overTabLimit(openCount, picked);
-  return {
-    tooManyTabs,
-    tooManyCombined,
-    message: tooManyTabs
-      ? tabLimitMessage(openCount)
-      : tooManyCombined
-        ? MODEL_LIMIT_MESSAGE
-        : null,
-  };
 }
 
 export function skippedNotice(nodes: readonly TreeNode[]): {

@@ -12,3 +12,7 @@ export type ViewState = (typeof VIEW_STATES)[number];
 export function viewableFor(state: ViewState): boolean {
   return state === 'ready' || state === 'unknown';
 }
+
+export function viewStateOf(node: { viewState?: ViewState }): ViewState {
+  return node.viewState ?? 'not-translated';
+}

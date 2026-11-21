@@ -16,7 +16,6 @@ import {
   exceedsTabLimit,
   loadedMembers,
 } from '../components/tree/openHelpers.js';
-import { openableUrn, tabLimitMessage } from '../components/tree/treeState.js';
 import type { ModelOpeners } from '../components/tree/useModelOpeners.js';
 import { pickLatest } from '../components/tree/versionPick.js';
 import {
@@ -34,6 +33,7 @@ import {
 import { MAX_NAME_LENGTH } from '../store/savedStore.js';
 import { notify } from '../tasks/notifications.js';
 import { startTask } from '../tasks/taskStore.js';
+import { openableUrn, tabLimitMessage } from '../viewer/openLimits.js';
 import type { VersionTarget } from './versionHistory.js';
 
 export interface ModelSetDraft {

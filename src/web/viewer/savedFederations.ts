@@ -9,7 +9,6 @@ import {
 } from '../api/modelContext.js';
 import { type OpenModel, sanitizeOffsets } from '../api/openModels.js';
 import type { Command } from '../commands/types.js';
-import { openableUrn } from '../components/tree/treeState.js';
 import { pickLatest } from '../components/tree/versionPick.js';
 import {
   type ModelTint,
@@ -19,6 +18,7 @@ import {
   withModelTint,
 } from '../panels/modelTint.js';
 import { defineSavedKind } from '../store/savedKinds.js';
+import { openableUrn } from './openLimits.js';
 
 export const FEDERATION_KIND = 'federation';
 
