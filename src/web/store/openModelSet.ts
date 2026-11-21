@@ -1,7 +1,4 @@
-import {
-  MAX_COMBINED_MODELS,
-  MAX_LOADED_MEMBERS,
-} from '../../shared/combined.js';
+import { MAX_COMBINED_MODELS } from '../../shared/combined.js';
 import type { TreeNode } from '../../shared/types.js';
 import {
   joinWith,
@@ -21,7 +18,6 @@ export interface ResolvedSet {
   models: PickedModel[];
   stale: string[];
   failed: string[];
-  omitted: number;
 }
 
 const RESOLVE_CONCURRENCY = 4;
@@ -99,10 +95,9 @@ export async function resolveModelSet(
     models.push({ urn: member.urn, context: memberContext(member) });
   });
   return {
-    models: models.slice(0, MAX_LOADED_MEMBERS),
+    models,
     stale,
     failed,
-    omitted: Math.max(0, models.length - MAX_LOADED_MEMBERS),
   };
 }
 

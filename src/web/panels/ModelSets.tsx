@@ -2,20 +2,12 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useId, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
-import {
-  MAX_COMBINED_MODELS,
-  MAX_LOADED_MEMBERS,
-} from '../../shared/combined.js';
+import { MAX_COMBINED_MODELS } from '../../shared/combined.js';
 import { fetchChildren } from '../api/client.js';
 import { childrenQueryOptions } from '../api/hooks.js';
 import { type ModelContext, versionTag } from '../api/modelContext.js';
-import { useOpenModels } from '../api/useOpenModels.js';
 import { Icon } from '../components/icons.js';
 import { Menu, type MenuEntry } from '../components/Menu.js';
-import {
-  exceedsTabLimit,
-  loadedMembers,
-} from '../components/tree/openHelpers.js';
 import type { ModelOpeners } from '../components/tree/useModelOpeners.js';
 import { pickLatest } from '../components/tree/versionPick.js';
 import { writeClipboard } from '../extensions/clipboard.js';
@@ -34,7 +26,7 @@ import {
 import { MAX_NAME_LENGTH } from '../store/savedStore.js';
 import { notify } from '../tasks/notifications.js';
 import { startTask } from '../tasks/taskStore.js';
-import { openableUrn, tabLimitMessage } from '../viewer/openLimits.js';
+import { openableUrn } from '../viewer/openLimits.js';
 import type { VersionTarget } from './versionHistory.js';
 
 export interface ModelSetDraft {
@@ -229,7 +221,6 @@ export function ModelSets({ openers }: { openers: ModelOpeners }) {
   const [resolved, setResolved] = useState<Record<string, ResolvedSet>>({});
 
   const client = useQueryClient();
-  const openState = useOpenModels();
   const lookups = useRef(
     new Map<string, { key: string; set: Promise<ResolvedSet | null> }>(),
   );
@@ -285,8 +276,13 @@ export function ModelSets({ openers }: { openers: ModelOpeners }) {
         task.fail('This model set has no models to open');
         return;
       }
-      if (!together && exceedsTabLimit(openState, out.models)) {
-        task.fail(tabLimitMessage(loadedMembers(openState)));
+      const preview = openers.preview(
+        out.models,
+        together ? 'together' : 'tabs',
+        { partial: true },
+      );
+      if (preview.blocked) {
+        task.fail(preview.notice ?? 'Could not open this model set');
         return;
       }
       if (out.failed.length > 0) {
@@ -294,7 +290,7 @@ export function ModelSets({ openers }: { openers: ModelOpeners }) {
           `Could not read the latest version of ${out.failed.join(', ')}. Opened the pinned versions.`,
         );
       } else {
-        task.finish(`${plural(out.models.length, 'model')} opened`);
+        task.finish(`${plural(preview.admitted, 'model')} opened`);
       }
       if (out.stale.length > 0) {
         notify(
@@ -303,13 +299,9 @@ export function ModelSets({ openers }: { openers: ModelOpeners }) {
           }.`,
         );
       }
-      if (out.omitted > 0) {
-        notify(
-          `Opened ${out.models.length} of ${out.models.length + out.omitted} models. ${out.omitted} ${out.omitted === 1 ? 'was' : 'were'} left out: tabs hold ${MAX_LOADED_MEMBERS}.`,
-        );
-      }
-      if (together) openers.openTogether(out.models);
-      else openers.openTabs(out.models);
+      const options = { partial: true };
+      if (together) openers.openTogether(out.models, options);
+      else openers.openTabs(out.models, options);
     } catch (error) {
       task.fail(error);
     }
@@ -360,6 +352,10 @@ export function ModelSets({ openers }: { openers: ModelOpeners }) {
 
   const entries = (set: ModelSetItem, index: number): MenuEntry[] => {
     const count = set.data.members.length;
+    const together = openers.preview(
+      set.data.members.map((member) => ({ urn: member.urn, context: {} })),
+      'together',
+    );
     const tooManyCombined = count > MAX_COMBINED_MODELS;
     return [
       {
@@ -370,8 +366,8 @@ export function ModelSets({ openers }: { openers: ModelOpeners }) {
       {
         id: 'open-together',
         label: 'Open together',
-        disabled: tooManyCombined,
-        description: tooManyCombined
+        disabled: together.blocked,
+        description: together.blocked
           ? `A combined viewer holds ${MAX_COMBINED_MODELS} models`
           : undefined,
         onSelect: () => void openSet(set, true),

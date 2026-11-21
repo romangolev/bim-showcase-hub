@@ -39,6 +39,7 @@ function stubOpeners(): ModelOpeners {
     open: vi.fn(),
     openTabs: vi.fn(),
     openTogether: vi.fn(),
+    preview: vi.fn(() => ({ notice: null, blocked: false, admitted: 0 })),
     openModal: vi.fn(),
     addTarget: null,
     loaded: 0,

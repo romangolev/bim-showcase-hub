@@ -1,8 +1,6 @@
 import { useNavigate } from '@tanstack/react-router';
 import { useContext } from 'react';
-import { MAX_COMBINED_MODELS } from '../../../shared/combined.js';
-import { joinWith, type ModelContext } from '../../api/modelContext.js';
-import { rememberModel } from '../../api/modelStore.js';
+import type { ModelContext } from '../../api/modelContext.js';
 import { modelTabTitle } from '../../api/modelTitles.js';
 import { contextOf, modelUrnsOf } from '../../api/openModels.js';
 import { useOpenModels, useOpenModelsStore } from '../../api/useOpenModels.js';
@@ -10,22 +8,32 @@ import { LayoutContext } from '../../layout/layoutContext.js';
 import { PANE_SETTINGS } from '../../settings/paneSettings.js';
 import { usePersisted } from '../../storage.js';
 import { notify } from '../../tasks/notifications.js';
-import type { AddTarget, PickedModel } from './DocumentTree.js';
 import {
-  canJoinTab,
-  exceedsTabLimit,
   loadedMembers,
-  type OpenTarget,
-  openAsTab,
-  openPickedAsTabs,
-  openWithMode,
-} from './openHelpers.js';
-import { tabLimitMessage } from './treeState.js';
+  type OpenMode,
+  type OpenOutcome,
+  type OpenPreview,
+  type OpenReveal,
+  openModels,
+  previewOpen,
+} from '../../viewer/openModels.js';
+import type { AddTarget, PickedModel } from './DocumentTree.js';
+
+const COMBINED_FULL_NOTICE = 'The open viewer is full; opened a new tab';
+
+export interface OpenOptions {
+  partial?: boolean;
+}
 
 export interface ModelOpeners {
   open: (urn: string, context: ModelContext) => void;
-  openTabs: (models: PickedModel[]) => void;
-  openTogether: (models: PickedModel[]) => void;
+  openTabs: (models: PickedModel[], options?: OpenOptions) => OpenOutcome;
+  openTogether: (models: PickedModel[], options?: OpenOptions) => OpenOutcome;
+  preview: (
+    models: readonly PickedModel[],
+    mode: OpenMode,
+    options?: OpenOptions,
+  ) => OpenPreview;
   openModal: (urn: string, context: ModelContext) => void;
   addTarget: AddTarget | null;
   loaded: number;
@@ -39,19 +47,32 @@ export function useModelOpeners(onNavigate?: () => void): ModelOpeners {
   const layout = useContext(LayoutContext);
   const [view] = usePersisted(PANE_SETTINGS.tree.view);
 
-  const openTogether = (models: PickedModel[]) => {
-    const shown = models.slice(0, MAX_COMBINED_MODELS);
-    const [first, ...rest] = shown;
-    if (!first) return;
-    for (const model of shown) rememberModel(model.urn, model.context);
-    const extra = joinWith(rest.map((model) => model.urn));
+  const reveal = (target: OpenReveal | null, notice?: string | null) => {
+    if (notice) notify(notice);
+    if (!target) return;
     void navigate({
       to: '/model/$urn',
-      params: { urn: first.urn },
-      search: extra ? { ...first.context, with: extra } : first.context,
+      params: { urn: target.urn },
+      search: target.context,
     });
     onNavigate?.();
   };
+
+  const run = (
+    models: readonly PickedModel[],
+    mode: OpenMode,
+    options?: OpenOptions,
+  ) => {
+    const outcome = openModels(store, { models, mode, ...options });
+    reveal(outcome.reveal, outcome.notice);
+    return outcome;
+  };
+
+  const preview = (
+    models: readonly PickedModel[],
+    mode: OpenMode,
+    options?: OpenOptions,
+  ) => previewOpen(state, { models, mode, ...options });
 
   let addTarget: AddTarget | null = null;
   if (active && store) {
@@ -61,52 +82,48 @@ export function useModelOpeners(onNavigate?: () => void): ModelOpeners {
       label: `the open viewer (${modelTabTitle(active, context).label})`,
       has: (candidate) => members.includes(candidate),
       onRemove: (candidate) => store.removeFrom(active, candidate),
-      canAdd: (candidate) => canJoinTab(state, active, candidate),
+      canAdd: (candidate) =>
+        !preview([{ urn: candidate, context: {} }], 'add-to-active').blocked,
       onAdd: (models) => {
-        let count = members.length;
-        for (const model of models) {
-          if (count >= MAX_COMBINED_MODELS) break;
-          if (!canJoinTab(state, active, model.urn)) continue;
-          rememberModel(model.urn, model.context);
-          store.addTo(active, model.urn);
-          count += 1;
-        }
+        const outcome = openModels(store, { models, mode: 'add-to-active' });
+        if (outcome.notice) notify(outcome.notice);
       },
     };
   }
 
-  const reveal = (target: OpenTarget) => {
-    if (target.notice) notify(target.notice);
-    void navigate({
-      to: '/model/$urn',
-      params: { urn: target.urn },
-      search: target.context,
-    });
-    onNavigate?.();
-  };
-
   const open = (urn: string, context: ModelContext) => {
-    reveal(openWithMode(view.openMode, store, state, urn, context));
-  };
-
-  const openTabs = (models: PickedModel[]) => {
-    if (exceedsTabLimit(state, models)) {
-      notify(tabLimitMessage(loadedMembers(state)));
+    const models = [{ urn, context }];
+    const mode = view.openMode;
+    if (mode === 'replace') {
+      run(models, 'replace');
       return;
     }
-    const last = openPickedAsTabs(store, models).at(-1);
-    if (last) reveal(last);
+    if (mode === 'combined') {
+      const added = openModels(store, { models, mode: 'add-to-active' });
+      if (added.opened.length > 0) {
+        reveal(added.reveal);
+        return;
+      }
+      const full = added.skipped.some(
+        (entry) => entry.reason === 'combined-limit',
+      );
+      const tab = openModels(store, { models, mode: 'tabs' });
+      reveal(tab.reveal, full ? COMBINED_FULL_NOTICE : tab.notice);
+      return;
+    }
+    run(models, 'tabs');
   };
 
   const openModal = (urn: string, context: ModelContext) => {
     layout?.floatNext(urn);
-    reveal(openAsTab(store, urn, context));
+    run([{ urn, context }], 'tabs');
   };
 
   return {
     open,
-    openTabs,
-    openTogether,
+    openTabs: (models, options) => run(models, 'tabs', options),
+    openTogether: (models, options) => run(models, 'together', options),
+    preview,
     openModal,
     addTarget,
     loaded: loadedMembers(state),

@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from 'vitest';
-import { MAX_LOADED_MEMBERS } from '../../shared/combined.js';
 import type { TreeNode } from '../../shared/types.js';
 import { modelHref } from '../components/tree/rowMenu.js';
 import { resolveModelSet, setLink } from './openModelSet.js';
@@ -91,7 +90,7 @@ describe('resolveModelSet', () => {
     expect(out.models[0]?.urn).toBe('old');
   });
 
-  it('opens at most eight models', async () => {
+  it('resolves every member and leaves limits to the opener', async () => {
     const members = Array.from({ length: 10 }, (_, i) => ({
       urn: `u${i}`,
       file: `f${i}.rvt`,
@@ -101,7 +100,7 @@ describe('resolveModelSet', () => {
       { members },
       vi.fn(async () => []),
     );
-    expect(out.models).toHaveLength(MAX_LOADED_MEMBERS);
+    expect(out.models).toHaveLength(10);
   });
 });
 

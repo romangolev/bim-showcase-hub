@@ -7,24 +7,46 @@ import {
   within,
 } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createOpenModelsStore } from '../api/openModels.js';
+import {
+  createOpenModelsStore,
+  type OpenModelsStore,
+} from '../api/openModels.js';
 import { OpenModelsContext } from '../api/useOpenModels.js';
+import type { PickedModel } from '../components/tree/DocumentTree.js';
 import type { ModelOpeners } from '../components/tree/useModelOpeners.js';
 import { MODEL_SETS, type ModelSetMember } from '../store/modelSets.js';
-import { notifications } from '../tasks/notifications.js';
+import { notifications, notify } from '../tasks/notifications.js';
 import { tasks } from '../tasks/taskStore.js';
 import {
   createTestClient,
   installMemoryStorage,
   mockFetch,
 } from '../test/mockApi.js';
+import {
+  type OpenMode,
+  openModels,
+  previewOpen,
+} from '../viewer/openModels.js';
 import { ModelSets, saveModelSetPrompt } from './ModelSets.js';
 
-function stubOpeners(): ModelOpeners {
+function stubOpeners(
+  store: OpenModelsStore = createOpenModelsStore(null),
+): ModelOpeners {
+  const run = (
+    models: PickedModel[],
+    mode: OpenMode,
+    options?: { partial?: boolean },
+  ) => {
+    const outcome = openModels(store, { models, mode, ...options });
+    if (outcome.notice) notify(outcome.notice);
+    return outcome;
+  };
   return {
     open: vi.fn(),
-    openTabs: vi.fn(),
-    openTogether: vi.fn(),
+    openTabs: vi.fn((models, options) => run(models, 'tabs', options)),
+    openTogether: vi.fn((models, options) => run(models, 'together', options)),
+    preview: (models, mode, options) =>
+      previewOpen(store.getState(), { models, mode, ...options }),
     openModal: vi.fn(),
     addTarget: null,
     loaded: 0,
@@ -97,11 +119,14 @@ describe('ModelSets', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Open Coordination' }));
     await waitFor(() =>
-      expect(openers.openTabs).toHaveBeenCalledWith([
-        { urn: 'u1', context: {} },
-        { urn: 'u2', context: {} },
-        { urn: 'u3', context: {} },
-      ]),
+      expect(openers.openTabs).toHaveBeenCalledWith(
+        [
+          { urn: 'u1', context: {} },
+          { urn: 'u2', context: {} },
+          { urn: 'u3', context: {} },
+        ],
+        { partial: true },
+      ),
     );
 
     openMenu('Coordination');
@@ -207,7 +232,7 @@ describe('opening a set past the tab limit', () => {
     const store = createOpenModelsStore(null);
     for (let index = 0; index < 8; index += 1) store.open(`loaded${index}`);
     save('Extra', ['n1', 'n2']);
-    const openers = stubOpeners();
+    const openers = stubOpeners(store);
     render(
       <QueryClientProvider client={createTestClient()}>
         <OpenModelsContext.Provider value={store}>
@@ -237,7 +262,7 @@ describe('opening a set larger than the tab limit', () => {
     renderSets(openers);
     fireEvent.click(screen.getByRole('button', { name: 'Open Big' }));
     await waitFor(() => expect(openers.openTabs).toHaveBeenCalledTimes(1));
-    expect(vi.mocked(openers.openTabs).mock.calls[0]?.[0]).toHaveLength(8);
+    expect(vi.mocked(openers.openTabs).mock.calls[0]?.[0]).toHaveLength(24);
     expect(
       notifications.getSnapshot().items.map((item) => item.message),
     ).toContain('Opened 8 of 24 models. 16 were left out: tabs hold 8.');
