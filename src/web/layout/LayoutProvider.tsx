@@ -31,6 +31,7 @@ import {
   BSH_KEYS,
   defineRecord,
   FORGET_EVENT,
+  getStorageAdapter,
   usePersisted,
 } from '../storage.js';
 import { currentAdapter } from '../viewer/activeAdapterStore.js';
@@ -55,9 +56,10 @@ import {
 import { shareLinkFor, shareParamIn } from './layoutShare.js';
 import {
   defaultModel,
+  LAYOUT_KEY,
   type LayoutModel,
-  readLayout,
-  writeLayout,
+  parseLayout,
+  serializeLayout,
 } from './layoutState.js';
 import { PaneActions } from './PaneMenu.js';
 import { LayoutMenu } from './PanesMenu.js';
@@ -136,17 +138,15 @@ const RESIZE_KEYS: Record<
   ArrowUp: (step) => ({ height: -step }),
 };
 
-function storage(): Storage | null {
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
-}
-
 function initialModel(): LayoutModel {
-  const store = storage();
-  return store ? readLayout(store) : defaultModel();
+  try {
+    return (
+      parseLayout(getStorageAdapter().get('local', LAYOUT_KEY)) ??
+      defaultModel()
+    );
+  } catch {
+    return defaultModel();
+  }
 }
 
 function focusTreeTarget() {
@@ -223,8 +223,9 @@ export function useDebouncedWrite(model: LayoutModel) {
     timer.current = undefined;
     const next = pending.current;
     pending.current = null;
-    const store = storage();
-    if (next && store) writeLayout(store, next);
+    if (next) {
+      getStorageAdapter().set('local', LAYOUT_KEY, serializeLayout(next));
+    }
   }, []);
   useEffect(() => {
     const drop = () => {

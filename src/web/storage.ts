@@ -41,12 +41,22 @@ export const BSH_KEYS = {
   },
 } as const;
 
+export const BSH_PREFIXES = {
+  pane: 'bsh.pane.',
+  paint: 'bsh.paint.',
+  tool: 'bsh.tool.',
+  models: 'bsh.models.',
+  summary: 'bsh.summary.',
+  dashboard: 'bsh.dashboard.',
+  hint: 'bsh.hint.',
+} as const;
+
 export const BSH_PERSONAL_PREFIXES: readonly string[] = [
-  'bsh.pane.',
-  'bsh.paint.',
+  BSH_PREFIXES.pane,
+  BSH_PREFIXES.paint,
 ];
 
-export const BSH_PREFERENCE_PREFIXES: readonly string[] = ['bsh.tool.'];
+export const BSH_PREFERENCE_PREFIXES: readonly string[] = [BSH_PREFIXES.tool];
 
 export const FORGET_EVENT = 'bsh:forget';
 

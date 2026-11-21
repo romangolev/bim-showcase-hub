@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  BSH_PREFIXES,
   forgetPersonal,
   getStorageAdapter,
   setStorageAdapter,
@@ -98,5 +99,21 @@ describe('storage report', () => {
     expect(
       getStorageAdapter().get('local', 'bsh.models.session.v1'),
     ).toBeNull();
+  });
+});
+
+describe('prefix constants', () => {
+  it('classifies each shared prefix into a named family', () => {
+    const adapter = memoryAdapter();
+    const prefixes = [BSH_PREFIXES.pane, BSH_PREFIXES.paint, BSH_PREFIXES.tool];
+    for (const prefix of prefixes) {
+      adapter.set('local', `${prefix}probe`, '1');
+    }
+    setStorageAdapter(adapter);
+    const ids = storageReport().families.map((family) => family.id);
+    expect(ids).toEqual(expect.arrayContaining(['layout', 'paint', 'tools']));
+    expect(ids).not.toContain('personal-other');
+    expect(ids).not.toContain('preference-other');
+    expect(storageReport().total.keys).toBe(3);
   });
 });

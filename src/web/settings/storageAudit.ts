@@ -1,4 +1,6 @@
 import {
+  BSH_KEYS,
+  BSH_PREFIXES,
   FORGET_EVENT,
   forgetPersonal,
   getStorageAdapter,
@@ -43,95 +45,96 @@ const RULES: readonly FamilyRule[] = [
     label: 'Layout and pane setup',
     kind: 'personal',
     matches: (key) =>
-      key === 'bsh.layout.v2' ||
-      key === 'bsh.layout.instances.v1' ||
-      key.startsWith('bsh.pane.'),
+      key === BSH_KEYS.personal.layout ||
+      key === BSH_KEYS.personal.layoutInstances ||
+      key.startsWith(BSH_PREFIXES.pane),
   },
   {
     id: 'workspaces',
     label: 'Named workspaces',
     kind: 'personal',
-    matches: (key) => key === 'bsh.workspaces.v1',
+    matches: (key) => key === BSH_KEYS.personal.workspaces,
   },
   {
     id: 'models',
     label: 'Models, recents and pins',
     kind: 'personal',
     matches: (key) =>
-      key.startsWith('bsh.models.') || key === 'bsh.docs.pinned',
+      key.startsWith(BSH_PREFIXES.models) || key === BSH_KEYS.personal.pinned,
   },
   {
     id: 'views',
     label: 'Pane views',
     kind: 'personal',
     matches: (key) =>
-      key.startsWith('bsh.summary.') || key.startsWith('bsh.dashboard.'),
+      key.startsWith(BSH_PREFIXES.summary) ||
+      key.startsWith(BSH_PREFIXES.dashboard),
   },
   {
     id: 'saved',
     label: 'Saved items',
     kind: 'personal',
-    matches: (key) => key === 'bsh.saved.v1',
+    matches: (key) => key === BSH_KEYS.personal.saved,
   },
   {
     id: 'paint',
     label: 'Paint marks and history',
     kind: 'personal',
-    matches: (key) => key.startsWith('bsh.paint.'),
+    matches: (key) => key.startsWith(BSH_PREFIXES.paint),
   },
   {
     id: 'commands',
     label: 'Recent commands',
     kind: 'personal',
-    matches: (key) => key === 'bsh.commands.recent.v1',
+    matches: (key) => key === BSH_KEYS.personal.recentCommands,
   },
   {
     id: 'hints',
     label: 'Dismissed hints',
     kind: 'personal',
-    matches: (key) => key.startsWith('bsh.hint.'),
+    matches: (key) => key.startsWith(BSH_PREFIXES.hint),
   },
   {
     id: 'settings',
     label: 'App settings',
     kind: 'preference',
-    matches: (key) => key === 'bsh-settings-v1',
+    matches: (key) => key === BSH_KEYS.preference.settings,
   },
   {
     id: 'layout-lock',
     label: 'Layout lock',
     kind: 'preference',
-    matches: (key) => key === 'bsh.layout.locked',
+    matches: (key) => key === BSH_KEYS.preference.layoutLocked,
   },
   {
     id: 'tree',
     label: 'Documents view',
     kind: 'preference',
-    matches: (key) => key === 'bsh.tree.view',
+    matches: (key) => key === BSH_KEYS.preference.treeView,
   },
   {
     id: 'snapshot',
     label: 'Snapshot and present',
     kind: 'preference',
-    matches: (key) => key === 'bsh.snapshot.v1',
+    matches: (key) => key === BSH_KEYS.preference.snapshot,
   },
   {
     id: 'notifications',
     label: 'Notifications',
     kind: 'preference',
-    matches: (key) => key === 'bsh.notify.v1',
+    matches: (key) => key === BSH_KEYS.preference.notifications,
   },
   {
     id: 'command-pins',
     label: 'Pinned commands',
     kind: 'preference',
-    matches: (key) => key === 'bsh.commands.pinned.v1',
+    matches: (key) => key === BSH_KEYS.preference.commandPins,
   },
   {
     id: 'tools',
     label: 'Tool settings',
     kind: 'preference',
-    matches: (key) => key.startsWith('bsh.tool.'),
+    matches: (key) => key.startsWith(BSH_PREFIXES.tool),
   },
 ];
 
