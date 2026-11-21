@@ -40,9 +40,10 @@ export function useModelOpeners(onNavigate?: () => void): ModelOpeners {
   const [view] = usePersisted(PANE_SETTINGS.tree.view);
 
   const openTogether = (models: PickedModel[]) => {
-    const [first, ...rest] = models.slice(0, MAX_COMBINED_MODELS);
+    const shown = models.slice(0, MAX_COMBINED_MODELS);
+    const [first, ...rest] = shown;
     if (!first) return;
-    for (const model of models) rememberModel(model.urn, model.context);
+    for (const model of shown) rememberModel(model.urn, model.context);
     const extra = joinWith(rest.map((model) => model.urn));
     void navigate({
       to: '/model/$urn',
