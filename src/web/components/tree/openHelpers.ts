@@ -83,8 +83,14 @@ export function openWithMode(
           : undefined,
     };
   }
-  if (mode === 'combined' && active && active !== urn && !isOpen(state, urn)) {
-    if (modelUrnsOf(state, active).length < MAX_COMBINED_MODELS) {
+  const members = active ? modelUrnsOf(state, active) : [];
+  if (
+    mode === 'combined' &&
+    active &&
+    !members.includes(urn) &&
+    !isOpen(state, urn)
+  ) {
+    if (members.length < MAX_COMBINED_MODELS) {
       rememberModel(urn, context);
       store.addTo(active, urn);
       return {
