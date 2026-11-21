@@ -98,4 +98,12 @@ describe('metaText and view', () => {
     expect(sanitizeTreeView({ homeSets: false }).homeSets).toBe(false);
     expect(sanitizeTreeView({ homeSets: 'no' }).homeSets).toBe(true);
   });
+
+  it('keeps a valid itemOpen and defaults the rest to expand', () => {
+    expect(DEFAULT_TREE_VIEW.itemOpen).toBe('expand');
+    expect(sanitizeTreeView({ itemOpen: 'latest' }).itemOpen).toBe('latest');
+    expect(sanitizeTreeView({ itemOpen: 'last' }).itemOpen).toBe('last');
+    expect(sanitizeTreeView({ itemOpen: 'nope' }).itemOpen).toBe('expand');
+    expect(sanitizeTreeView({}).itemOpen).toBe('expand');
+  });
 });

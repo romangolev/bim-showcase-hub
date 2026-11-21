@@ -230,7 +230,11 @@ export function TreeRowView({
             )}
           </span>
           {latest ? (
-            <span className="tree-row__latest" aria-label="Latest version">
+            <span
+              className="tree-row__latest"
+              role="note"
+              aria-label="Latest version"
+            >
               Latest
             </span>
           ) : null}

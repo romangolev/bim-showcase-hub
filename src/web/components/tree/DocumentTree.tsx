@@ -16,6 +16,7 @@ import {
 } from 'react';
 import type { TreeNode } from '../../../shared/types.js';
 import type { ModelContext } from '../../api/modelContext.js';
+import { listRecentModels } from '../../api/modelStore.js';
 import type { NodeScope } from '../../api/scope.js';
 import { PANE_SETTINGS } from '../../settings/paneSettings.js';
 import { usePersisted } from '../../storage.js';
@@ -27,7 +28,12 @@ import { startModelDrag } from './docDrag.js';
 import { DEFAULT_TREE_ROOT, type TreeRoot } from './docRoot.js';
 import { NoHubsHint, PersonalHubNotice } from './NoHubsHint.js';
 import { usePins } from './pins.js';
-import { modelHref, modelMenuEntries, useRowMenu } from './rowMenu.js';
+import {
+  itemMenuEntries,
+  modelHref,
+  modelMenuEntries,
+  useRowMenu,
+} from './rowMenu.js';
 import { INDENT, rowHeightFor, TreeRowView } from './TreeRowView.js';
 import {
   openableUrn,
@@ -39,8 +45,9 @@ import {
   tabLimitMessage,
   VERSION_POLL_MS,
 } from './treeState.js';
-import { metaText } from './treeView.js';
+import { type ItemOpen, metaText } from './treeView.js';
 import { useTreeState } from './useTreeState.js';
+import { pickLastOpened, pickLatest } from './versionPick.js';
 import { viewStateOf } from './viewStateCopy.js';
 
 export type { PickedModel };
@@ -203,8 +210,30 @@ export function DocumentTree({
   const openNode = (node: TreeNode) =>
     state.open(node, (model) => onOpenModel(model.urn, model.context));
 
+  const recentUrns = () => listRecentModels().map((entry) => entry.urn);
+
+  const hasLastOpened = (node: TreeNode) =>
+    listRecentModels().some((entry) => entry.trail?.at(-1) === node.id);
+
+  const openItem = async (node: TreeNode, mode: ItemOpen) => {
+    const versions = await state.versionsOf(node);
+    const target =
+      mode === 'last'
+        ? (pickLastOpened(versions, recentUrns()) ?? pickLatest(versions))
+        : pickLatest(versions);
+    if (target) {
+      openNode(target);
+      return;
+    }
+    notify('This file has no versions to open', { tone: 'error' });
+  };
+
   const activate = (item: ItemInstance<TreeNode>) => {
     const node = item.getItemData();
+    if (node.kind === 'item' && view.itemOpen !== 'expand') {
+      void openItem(node, view.itemOpen);
+      return;
+    }
     if (item.isFolder()) {
       if (item.isExpanded()) {
         item.collapse();
@@ -304,6 +333,17 @@ export function DocumentTree({
     })();
   };
 
+  const showItemVersions = (node: TreeNode) => {
+    void (async () => {
+      if (query) setFilter('');
+      if (!(await state.revealTo(node))) return;
+      const item = tree.getItemInstance(node.id);
+      if (item.isFolder() && !item.isExpanded()) item.expand();
+      await sleep(80);
+      focusItem(node.id);
+    })();
+  };
+
   const dragProps = (node: TreeNode) => {
     const urn = openableUrn(node);
     if (!urn || needsCheck(node)) return {};
@@ -315,6 +355,16 @@ export function DocumentTree({
   };
 
   const menuProps = (node: TreeNode) => {
+    if (node.kind === 'item') {
+      return rowMenu.bind(() =>
+        itemMenuEntries({
+          hasLastOpened: hasLastOpened(node),
+          onOpenLatest: () => void openItem(node, 'latest'),
+          onOpenLastOpened: () => void openItem(node, 'last'),
+          onShowVersions: () => showItemVersions(node),
+        }),
+      );
+    }
     if (node.kind !== 'version') return undefined;
     return rowMenu.bind(() => {
       const urn = openableUrn(node);

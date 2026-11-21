@@ -14,8 +14,8 @@ import type { AddTarget, PickedModel } from './DocumentTree.js';
 import {
   exceedsTabLimit,
   loadedMembers,
-  openAsTab,
   type OpenTarget,
+  openAsTab,
   openPickedAsTabs,
   openWithMode,
 } from './openHelpers.js';

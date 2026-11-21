@@ -1,7 +1,7 @@
 import { useParams, useSearch } from '@tanstack/react-router';
 import { useState } from 'react';
-import { useOpenModels } from '../api/useOpenModels.js';
 import { useModelContext } from '../api/useModelContext.js';
+import { useOpenModels } from '../api/useOpenModels.js';
 import { DocumentsHome } from './tree/DocumentsHome.js';
 import { DocumentTree } from './tree/DocumentTree.js';
 import { DOC_ROOT, type TreeRoot, treeRootOf } from './tree/docRoot.js';

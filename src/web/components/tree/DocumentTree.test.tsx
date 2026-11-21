@@ -20,7 +20,7 @@ import {
   treeRoutes,
 } from '../../test/mockApi.js';
 import { DocumentTree } from './DocumentTree.js';
-import type { TreeView } from './treeView.js';
+import { DEFAULT_TREE_VIEW, type TreeView } from './treeView.js';
 
 function renderTree(
   onOpenModel = vi.fn(),
@@ -108,6 +108,7 @@ describe('DocumentTree metadata', () => {
       author: true,
       size: false,
       openMode: 'tab',
+      itemOpen: 'expand',
       homeRecent: true,
       homePinned: true,
       homeSets: true,
@@ -634,6 +635,104 @@ async function openVersions(count: number, props = {}) {
 const row = (n: number) =>
   screen.getByRole('treeitem', { name: `v${n}: Issue ${n}` });
 
+describe('DocumentTree file rows', () => {
+  const versions = [
+    {
+      id: 'vv1',
+      kind: 'version' as const,
+      name: 'v1: 2026-01-01 10:00 by Sam',
+      hasChildren: false,
+      viewable: true,
+      viewState: 'ready' as const,
+      urn: 'urn-old',
+      parentId: 'i1',
+      versionNumber: 1,
+    },
+    {
+      id: 'vv2',
+      kind: 'version' as const,
+      name: 'v2: 2026-02-01 10:00 by Mei',
+      hasChildren: false,
+      viewable: true,
+      viewState: 'ready' as const,
+      urn: 'urn-new',
+      parentId: 'i1',
+      versionNumber: 2,
+      latest: true,
+    },
+  ];
+
+  async function setup(view: Partial<TreeView> = {}) {
+    installMemoryStorage();
+    window.localStorage.setItem(
+      BSH_KEYS.preference.treeView,
+      JSON.stringify({ ...DEFAULT_TREE_VIEW, ...view }),
+    );
+    mockFetch({
+      ...treeRoutes,
+      '/api/projects/p1/items/i1/versions': versions,
+    });
+    const onOpenModel = vi.fn();
+    render(
+      <QueryClientProvider client={createTestClient()}>
+        <DocumentTree onOpenModel={onOpenModel} />
+      </QueryClientProvider>,
+    );
+    await expandTo('Studio hub');
+    await expandTo('Riverside Tower');
+    await expandTo('Project Files');
+    await screen.findByText('Tower.rvt');
+    return onOpenModel;
+  }
+
+  const fileRow = () => screen.getByRole('treeitem', { name: /Tower\.rvt/ });
+
+  it('keeps expanding a file row by default', async () => {
+    const onOpenModel = await setup();
+    fireEvent.click(fileRow());
+    expect(onOpenModel).not.toHaveBeenCalled();
+    expect(
+      await screen.findByRole('treeitem', { name: /^v1:/ }),
+    ).toBeInTheDocument();
+  });
+
+  it('opens the latest version when clicking a file row', async () => {
+    const onOpenModel = await setup({ itemOpen: 'latest' });
+    fireEvent.click(fileRow());
+    await waitFor(() =>
+      expect(onOpenModel).toHaveBeenCalledWith(
+        'urn-new',
+        expect.objectContaining({ file: 'Tower.rvt', v: 'v2' }),
+      ),
+    );
+  });
+
+  it('opens the latest version from the file row menu', async () => {
+    const onOpenModel = await setup();
+    fireEvent.contextMenu(fileRow());
+    fireEvent.click(
+      within(screen.getByRole('menu')).getByText('Open latest version'),
+    );
+    await waitFor(() =>
+      expect(onOpenModel).toHaveBeenCalledWith(
+        'urn-new',
+        expect.objectContaining({ file: 'Tower.rvt', v: 'v2' }),
+      ),
+    );
+  });
+
+  it('expands the versions of a file from Show versions', async () => {
+    await setup();
+    fireEvent.contextMenu(fileRow());
+    fireEvent.click(
+      within(screen.getByRole('menu')).getByText('Show versions'),
+    );
+    expect(
+      await screen.findByRole('treeitem', { name: /^v2:/ }),
+    ).toHaveTextContent('Latest');
+  });
+});
+
 describe('DocumentTree multi-select', () => {
   it('opens picked versions as separate tabs', async () => {
     const onOpenTabs = vi.fn();
@@ -848,7 +947,9 @@ describe('DocumentTree multi-select', () => {
 
   it('gives folders no context menu', async () => {
     await openVersions(1);
-    fireEvent.contextMenu(screen.getByRole('treeitem', { name: /Tower\.rvt/ }));
+    fireEvent.contextMenu(
+      screen.getByRole('treeitem', { name: 'Project Files' }),
+    );
     expect(screen.queryByRole('menu')).toBeNull();
   });
 
