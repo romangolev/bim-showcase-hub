@@ -436,7 +436,9 @@ def check_dashboard_tools(page, checks):
     page.get_by_role("menuitem", name="Copy data").click()
     settle(page, 200)
     checks.add("chart copy reports a result", bool(pane.locator("[role=status]").first.inner_text().strip()))
-    plot = pane.locator(".bsh-chart--doughnut canvas").first.bounding_box()
+    canvas = pane.locator(".bsh-chart--doughnut canvas").first
+    canvas.scroll_into_view_if_needed()
+    plot = canvas.bounding_box()
     page.mouse.click(plot["x"] + plot["width"] / 2 + 0.4 * min(plot["width"], plot["height"]), plot["y"] + plot["height"] / 2)
     settle(page, 300)
     selected = page.locator(".bsh-mock__el--selected").count()
@@ -795,7 +797,7 @@ def check_saved_items(page, checks):
     dialog.get_by_role("button", name="Delete Smoke renamed").click()
     dialog.get_by_role("button", name="Delete Smoke preset").click()
     checks.add("user presets can be deleted", dialog.get_by_text("No saved presets yet.").count() == 1)
-    dialog.get_by_label("Chart type").select_option("bar")
+    dialog.get_by_label("Chart type").select_option("doughnut")
     page.keyboard.press("Escape")
     settle(page, 300)
 
