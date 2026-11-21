@@ -238,6 +238,7 @@ export const PANES: readonly PaneDefinition[] = [
     defaultPlacement: { kind: 'tab', reference: 'tree' },
     closable: true,
     requires: 'none',
+    startsClosed: true,
   },
   {
     id: 'colors',

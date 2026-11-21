@@ -9,12 +9,14 @@ Documents is the main pane. With no model open it shows Home and fills the dock 
 The tree of hubs, projects, folders, items and versions, with the shortcuts around it: `src/web/components/tree` and `TreePanel.tsx`.
 
 - The hub menu and, once a hub is chosen, the project menu above the tree choose its root: one hub and one project. The choice is saved in `bsh.pane.docs.root.v1`; a hub or project that disappears falls back to All hubs.
-- With no model open the panel shows Home: pinned models, recent models and saved selection sets. The Home menu hides any of the three. When all three are empty, Home shows a short welcome instead, telling the user to choose a hub, a project and a folder.
+- With no model open the panel shows Home: pinned models, recent models, saved selection sets and saved model sets. The Home menu hides any of the four. When all four are empty, Home shows a short welcome instead, telling the user to choose a hub, a project and a folder.
 - With a model open, a pinned and recent strip sits above the tree.
-- The filter matches loaded nodes only, so expanding more folders widens it. Sort and columns are in the Documents view menu.
+- The filter matches loaded nodes only, so expanding more folders widens it. Sort and columns are in the Documents view menu. **Search whole project** in the same row reads every folder of the project instead (at most 400 folders, 10,000 nodes and 90 seconds, three at a time), and the chips beside it narrow the result by file type, "Has a viewable" and a date range. The crawl can be cancelled; the status row and the Task Center report the same count.
 - The palette finds the same loaded versions: `DocumentTree` registers a `tree` command source, and its `tree.open.<id>` entries appear once the user types. Expanding a folder in Documents makes its children findable there.
 - A version row can be dragged onto the dock. The dock highlights while a model is over it, and the drop opens the version in its own tab whatever the open mode is.
-- The row menu opens the version, opens it in a new tab, opens it as a modal (a floating viewer pane), adds it to or removes it from the open viewer, pins it, copies its link, reveals its path or shows its versions.
+- The row menu opens the version, opens it in a new tab, opens it as a modal (a floating viewer pane), adds it to or removes it from the open viewer, pins it, copies its link, reveals its path or shows its versions. A file row's menu also opens the latest or last opened version, previews the file, opens its Version history and shows its versions.
+- The newest version of a file is marked **Latest**; the server decides it, never the list order. A single click on a file row follows the Documents setting: it lists the versions (the default), opens the latest one or opens the one opened last.
+- Thumbnails are off by default. With **Show thumbnails** and **Rows: Thumbnails** in the Documents settings, a file row loads a small image from `/api/thumbnails`; a missing image stays empty and a preview card says "No thumbnail". The preview card opens from the row menu or from a 600 ms hover once thumbnails are on.
 
 ## Pieces
 
@@ -75,6 +77,7 @@ The top bar Panes menu is a searchable dialog over every pane.
 - Models is a Viewer pane beside Documents. It lists the models of the active tab with Show/Hide, Isolate, tint and Remove; with two or more models open, **Save combination…** stores them under **Saved combinations**, where Open, Rename and Delete work and the palette opens one through `federation.open.<id>` (group Combinations). A combination keeps the members, their tints, hidden models and offsets, and can follow the latest version of each file ([extensions.md](extensions.md#saved-items)).
 - With two or more ready models, each one also has an expandable **Alignment** row: its unit, whether its data carries shared coordinates, and its distance from the anchor. Every model but the anchor gets **0.1 m**, **1 m** and **10 m** steps on X, Y and Z, **Snap centre to anchor** and **Reset**. The moves are visual only: the files and their coordinates do not change, and the row says so. Offsets are saved with the tab and travel in a saved combination.
 - Sheets and views is a Viewer pane next to Models. It is not part of the default arrangement: it starts closed, opens from the Panes menu or the palette, and lists the views of the active model with Favorites first, then 3D views, then sheets; hidden views sit behind **Show hidden (N)**. A row offers Open, Favorite, Hide and Set as start view. Open asks first, because switching resets the selection and colours of that model, and a combined tab only offers views of the same dimension as the model it starts with. The start view is what the tab loads next time and is stored per document in `bsh.models.views.v1` ([development.md](development.md#storage-keys)); a model select appears when the tab holds several models.
+- Search elements (Data) is another opt-in viewer follower, placed beside the right edge of the viewer: it opens from the Panes menu, the palette or its own command, never as a companion of a new model. Version history (Workspace) is not a follower and is not in the default layout: it tabs with Documents and opens from a file or version row menu.
 
 ## Rename and colour
 
@@ -130,7 +133,7 @@ The default layout, menus, persistence and stack read the registry.
 | `requires` | `'viewer'` hides the pane in the stacked layout outside the model route |
 | `opensWithModel` | Defaults to on. `false` keeps a viewer follower out of the companions until the user opens it |
 | `stackOrder` | Its presence makes the pane part of the stacked column; lower numbers come first |
-| `startsClosed` | Keeps the pane out of the default dock; Help and Activity log use it |
+| `startsClosed` | Keeps the pane out of the default dock; Help, Activity log and Version history use it |
 | `commands` | Extra palette commands for this pane. `paneCommands` keeps the generated Open/Close and New entries and appends these ([extensions.md](extensions.md#add-a-command)) |
 
 ## Persistence

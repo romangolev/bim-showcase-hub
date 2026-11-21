@@ -8,3 +8,6 @@
 - **Coloring**: the one data colouring per viewer (by property, by chart or by rules) with its legend. `viewer/modelColoring.ts` owns it: applying, clearing, the legend's hidden groups and the ghosting claim of **Ghost the rest**. A viewer is coloured exactly when it holds a Coloring. It writes the `chart` source of `viewer/colorLayers.ts`; paint stays above it and the model tint below.
 - **Selection set**: a saved set of elements across models, identified by stable external id where the model has one and by `{ modelId, dbId }` otherwise. It is brought back as a selection or used as a scope (`set:<id>`); `viewer/setResolution.ts` resolves it against the open models.
 - **Scope**: which elements a property read covers, the model scope (`ALL_MODELS` or one model) plus the element scope (`all`, `selected`, `visible`, `isolated` or `set:<id>`, `viewer/propertyScope.ts`). A deleted set falls back to `all`.
+- **Latest version**: the version with the highest number, marked by the server (`latest`), never inferred from list order.
+- **Model set**: a saved, ordered list of model versions that opens as tabs or one combined viewer; members follow their pinned version or the latest one.
+- **Deep search**: a bounded crawl of one project's folders that fills the Documents registry, so the filter and its chips cover files in folders never expanded.

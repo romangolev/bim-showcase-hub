@@ -31,9 +31,10 @@ The app has:
 | `GET /api/projects/:projectId/folders/:folderId/contents` | Folders and items |
 | `GET /api/projects/:projectId/items/:itemId/versions` | Versions of an item |
 | `GET /api/projects/:projectId/items/:itemId/versions/:versionId/view-state` | View state of one version |
+| `GET /api/thumbnails/:urn` | Model Derivative thumbnail as image bytes, `?size=100\|200\|400` ([Thumbnails](#thumbnails)) |
 | `POST /api/csp-report` | CSP violation reports, see [deployment.md](deployment.md#csp-reports) |
 
-Upstream errors pass through `toHttpError`: 404 stays 404, 401 and 403 become 401, the rest become 502.
+Upstream errors pass through `toHttpError`: 404 stays 404, 401 and 403 become 401, 429 stays 429 with `Retry-After` (5 seconds when upstream gives none, capped at 120), the rest become 502. A 429 is never retried inside the server; the caller waits.
 
 ### Auth flow
 
@@ -58,7 +59,10 @@ There is no server-side store. The session is a signed cookie.
 
 ### Data mapping and ids
 
-`apsDataService.ts` wraps `@aps_sdk/data-management`. `mapping.ts` turns resources into one shape, `TreeNode` (`src/shared/types.ts`): `id`, `kind` (`hub`, `project`, `folder`, `item`, `version`), `name`, `hasChildren`, `viewState`, optional `urn`, `parentId`, `modifiedAt`, `modifiedBy`, `size`.
+`apsDataService.ts` wraps `@aps_sdk/data-management`. `mapping.ts` turns resources into one shape, `TreeNode` (`src/shared/types.ts`): `id`, `kind` (`hub`, `project`, `folder`, `item`, `version`), `name`, `hasChildren`, `viewState`, optional `urn`, `parentId`, `modifiedAt`, `modifiedBy`, `size`, `versionNumber`, `latest` and `tipUrn`.
+
+- A version node carries its `versionNumber`; `markLatest` marks the highest number of one item with `latest` (`true` on exactly one version), and the client never infers the latest from list order.
+- An item node carries the tip version's `versionNumber` and, when that tip has a derivative, its URN as `tipUrn`. This is what lets a file row show a thumbnail and filter by "has a viewable".
 
 Autodesk ids contain characters such as `:` and `/`. `ids.ts` encodes every id as base64url before it leaves the server and decodes it on the way in. Anything that does not round-trip is rejected with 400 "Invalid id".
 
@@ -79,6 +83,12 @@ A derivative URN does not prove a model opens: the manifest can hold only a thum
 - The `view-state` route checks one version on demand. Documents calls it before opening an unchecked version.
 - Results are cached per access token and URN for 10 to 60 seconds. The region comes from the URN (`src/shared/region.ts`).
 
+### Thumbnails
+
+`GET /api/thumbnails/:urn?size=100|200|400` proxies Model Derivative "Fetch Thumbnail" (`data/thumbnails.ts`). `size` defaults to 200. The route decodes the URN, sends the user's access token and the URN's region header, and relays only `image/png` or `image/jpeg` bodies up to 512 KB as `Cache-Control: private, max-age=3600` with `X-Content-Type-Options: nosniff`. An invalid URN or size is 400, an upstream 401 or 403 is 401, an upstream 429 is 429 with `Retry-After`, and anything else upstream is 502.
+
+A 404 means there is no thumbnail, usually because the version has not translated; the client shows a placeholder instead of retrying. Only rows the virtualizer renders mount an `img` with `loading="lazy"`, so a folder scrolls without a request per file. Mock mode serves an SVG per translated version, which is the one place `image/svg+xml` is allowed.
+
 ## Client
 
 `src/web/main.tsx` renders `App` with a TanStack Query client and Router.
@@ -86,6 +96,7 @@ A derivative URN does not prove a model opens: the manifest can hold only a thum
 - **Router** (`routes/router.tsx`): `/` shows the empty state, `/model/$urn` opens a model through `ModelRouteSync`. Search parameters are parsed by `parseModelContext`.
 - **Query** (`src/web/api/hooks.ts`): the `['session']` query picks the landing page or the app. Tree children are queries keyed by `scopeKey`.
 - **Tree** (`components/tree/DocumentTree.tsx`): `@headless-tree/core` with `@tanstack/react-virtual`. Only versions in state `ready` or `unknown` open a model. Others show an explanation and a Check again button. The tree state is `components/tree/treeState.ts`, with no React in it: the node registry, loading and polling, the view-state check, picking and the open decisions (view state, tab limit). It takes a `TreeData` seam (children, forget, view state) and a `TreeHost` bound by the component; `treeData.ts` wraps react-query and the APS client, tests use an in-memory fake. It decides and `DocumentTree` performs the open through its props. `useTreeState` reads it with `useSyncExternalStore`, one instance per mount.
+  - **Deep search** (`crawl.ts`, `deepSearch.ts`) walks the folders of one project through the same contents route and adds every node to the registry, ancestors included. It is a bounded crawl, not the APS folder search endpoint: three folder reads at once, at most 400 folders, 10,000 nodes and 90 seconds. A 429 pauses every worker for `Retry-After` (at most 30 s), a 502, 503 or network error backs off from 1 s, other errors fail that folder without a retry, and a 401 stops the crawl. The filter and its chips then match files in folders that were never expanded. Matching folds case and accents, folders match only on text, versions never match, and any type chip, "Has a viewable" or date range narrows the result to items. "Has a viewable" tests `tipUrn`, which approximates a derivative existing rather than a manifest that is `ready`. The crawl covers the project root, or the only project that was loaded; without either, the pane says to pick a project in the switcher.
 - **Layout** (`src/web/layout`): `AppShell` loads `LayoutProvider` when signed in. Panes come from `paneRegistry.ts`. Named workspaces live in one personal record (`bsh.workspaces.v1`): each item is a `LayoutModel` plus a pane appearance map. `paneLifecycle.applyWorkspace` snapshots the previous layout for the one-step Revert and leaves the open-models store alone, so the dock rebuilds around the same viewers. `layoutApply.ts` is the one place that applies a preset, saved, imported or shared layout, with Revert and the active label. `layoutShare.ts` encodes the same payload for `#layout=`. Details in [layout.md](layout.md).
 - **Viewer** (`src/web/viewer`): `ViewerPane` creates one `ViewerAdapter` per model tab and publishes it through context. `useViewer()` returns the active tab's adapter.
 
@@ -117,9 +128,11 @@ The keys are listed in [development.md](development.md#storage-keys).
 
 ### User-made items
 
-`src/web/store/savedStore.ts` holds viewpoints, selection sets, dashboard presets, export presets and saved combinations in one personal record (`bsh.saved.v1`). Each kind is declared once with `defineSavedKind` (`store/savedKinds.ts`), which registers it through `registerSavedKind` (`store/savedKindRegistry.ts`) and returns a typed handle. The production kinds are `viewpoint` (`viewer/viewpoints.ts`), `selection-set` (`viewer/selectionSets.ts`), `dashboard-preset` (`extensions/dashboardPresets.ts`), `export-preset` (`tools/excel/exportPresets.ts`), `summary-preset` (`extensions/summaryPresets.ts`), `report-template` (`viewer/reportTemplates.ts`), `color-rules` (`extensions/colorRulePresets.ts`) and `federation` (`viewer/savedFederations.ts`), all at version 1. A summary preset stores its property list and the summary view as opaque JSON, so a preset written by a newer build keeps fields this build does not know; applying one sanitises the view and leaves unknown keys in place. The export envelope is `bsh-saved` version 2 with a per-kind version map; import merges by id.
+`src/web/store/savedStore.ts` holds viewpoints, selection sets, dashboard presets, export presets, model sets and document searches in one personal record (`bsh.saved.v1`). Each kind is declared once with `defineSavedKind` (`store/savedKinds.ts`), which registers it through `registerSavedKind` (`store/savedKindRegistry.ts`) and returns a typed handle. The production kinds are `viewpoint` (`viewer/viewpoints.ts`), `selection-set` (`viewer/selectionSets.ts`), `dashboard-preset` (`extensions/dashboardPresets.ts`), `export-preset` (`tools/excel/exportPresets.ts`), `summary-preset` (`extensions/summaryPresets.ts`), `report-template` (`viewer/reportTemplates.ts`), `color-rules` (`extensions/colorRulePresets.ts`), `federation` (`viewer/savedFederations.ts`), `model-set` (`store/modelSets.ts`) and `doc-search` (`components/tree/deepSearch.ts`), all at version 1. A summary preset stores its property list and the summary view as opaque JSON, so a preset written by a newer build keeps fields this build does not know; applying one sanitises the view and leaves unknown keys in place. The export envelope is `bsh-saved` version 2 with a per-kind version map; import merges by id.
 
 A federation is a saved combination of open models (`viewer/savedFederations.ts`, saved kind `federation`). It keeps up to six members, primary first, with each member's recalled context without `with`, its tint, whether it was hidden and whether it follows the latest version. Offsets are keyed by member URN. `captureFederation` reads the open tab, `resolveFederation` asks `latestVersionUrn` for each `latest` member and remaps the URN, its offsets and its tint, and `federationOpenPlan` turns the result into the open call (`with`, offsets, tints, hidden URNs). The Models pane saves and lists them; the palette reopens them through a command hook on the pane, and the Models pane supplies the opener.
+
+A model set is an ordered list of at most 24 model versions, each pinned to its version or following the item's latest one; unknown fields on the set and on a member survive a round trip, so a later kind can add tints or offsets without a version bump. Opening a set resolves the "latest" members through the versions route and opens tabs, or one combined viewer of up to `MAX_COMBINED_MODELS`. A document search stores the deep search filters and whether the search covered the loaded folders or the whole project; it holds no project id, so it applies to the current root.
 
 A selection set stores dbIds per model plus optional stable external ids (`keys`). `viewer/setResolution.ts` owns resolving a set: `resolveSet` and `scopeElementItems` map keys back through `adapter.getExternalIdMap` (cached per model version) and never write, with `undefined` meaning the set is gone. Only `selectSet` and `migrateSelectionSet(s)` persist the move of dbIds into keys. `mergeSetData` keeps the union or the intersection by identity (model plus key or dbId).
 
@@ -140,7 +153,9 @@ Summary, Dashboard and exports read property rows the same way: `useScopedRows` 
 
 `viewer/ViewerAdapter.ts` is the only way panels and tools reach a viewer. It covers:
 
-Groups of methods: lifecycle (`load`, `resize`, `destroy`, `setTheme`), model sets (`loadModels`, `addModel`, `removeModel`, `getModels`), properties (`getLeafProperties`, `discoverProperties`), selection and actions (`getModelSelection`, `selectModelIds`, `isolateModelIds`, `fitToView`), state (`getState`, `restoreState`, `getScreenshot`), paint, measurements (`listMeasurements`, `startMeasure`, `clearMeasurements`), `registerToolGroup` and export sources (`getGeometryParts`, `getIfcSource`).
+Groups of methods: lifecycle (`load`, `resize`, `destroy`, `setTheme`), model sets (`loadModels`, `addModel`, `removeModel`, `getModels`), properties (`getLeafProperties`, `discoverProperties`, `searchElements`), selection and actions (`getModelSelection`, `selectModelIds`, `isolateModelIds`, `fitToView`), state (`getState`, `restoreState`, `getScreenshot`), paint, measurements (`listMeasurements`, `startMeasure`, `clearMeasurements`), `registerToolGroup` and export sources (`getGeometryParts`, `getIfcSource`).
+
+`searchElements(text, { attributes, signal })` asks every shown model for the dbIds whose name or property value matches, returns them as `{ modelId, dbId }` pairs and names in `failedModels` the models whose search threw or is unavailable. Hidden models are skipped, like `getLeafProperties`. A blank search resolves empty without calling the viewer. The Search elements pane caps the list at 5,000 and names the first 200 rows through `getElementsProperties`.
 
 `restoreState` resolves with a `RestoreReport` (`skippedModels` whose object tree could not be read, and `viewerFailed` when the viewer's own restore threw). `goToViewpoint` turns a non-empty report into a `partial` result with a notice instead of `ok`. Isolation with only the hide-all sentinel (`HIDE_ALL_NODE`, -1) means nothing is visible for that model; `getVisible` ignores the sentinel. Object tree reads share one guarded `readTree` (`viewer/viewerState.ts`) that rejects after `TREE_TIMEOUT_MS`.
 
