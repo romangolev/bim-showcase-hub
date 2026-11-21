@@ -108,6 +108,38 @@ describe('mapFolderContents', () => {
     ]);
     expect(nodes.every((n) => n.parentId === encodeId('f1'))).toBe(true);
   });
+
+  it('takes the tip number and derivative urn of each item from included', () => {
+    const nodes = mapFolderContents(
+      [
+        {
+          type: 'items',
+          id: 'i1',
+          attributes: { displayName: 'a.rvt' },
+          relationships: { tip: { data: { id: 'v?version=4' } } },
+        },
+      ],
+      'f1',
+      [
+        {
+          id: 'v?version=4',
+          attributes: { versionNumber: 4 },
+          relationships: { derivatives: { data: { id: 'dXJu' } } },
+        },
+      ],
+    );
+    expect(nodes[0]?.versionNumber).toBe(4);
+    expect(nodes[0]?.tipUrn).toBe('dXJu');
+  });
+
+  it('leaves items without an included tip unchanged', () => {
+    const nodes = mapFolderContents(
+      [{ type: 'items', id: 'i1', attributes: { displayName: 'a.rvt' } }],
+      'f1',
+      [],
+    );
+    expect(nodes[0]?.tipUrn).toBeUndefined();
+  });
 });
 
 describe('metadata', () => {

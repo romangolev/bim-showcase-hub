@@ -189,6 +189,24 @@ describe('mock mode', () => {
     }
   });
 
+  it('carries the tip version on every file row', async () => {
+    const tree = await walk();
+    for (const item of tree.items) {
+      const versions = tree.versions.filter(
+        (version) => version.parentId === item.id,
+      );
+      const latest = versions.reduce<TreeNode | undefined>(
+        (top, version) =>
+          (version.versionNumber ?? -1) > (top?.versionNumber ?? -1)
+            ? version
+            : top,
+        undefined,
+      );
+      expect(item.versionNumber).toBe(latest?.versionNumber);
+      expect(item.tipUrn).toBe(latest?.urn);
+    }
+  });
+
   it('reports the view state of a single version', async () => {
     const tree = await walk();
     const item = tree.items.find((i) => i.name === 'STATE-no-geometry.rvt');

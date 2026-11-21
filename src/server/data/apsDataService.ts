@@ -40,13 +40,17 @@ const MAX_PAGES = 200;
 async function allPages<T>(
   fetchPage: (
     pageNumber: number,
-  ) => Promise<{ data?: T[]; links?: unknown } | undefined>,
+  ) => Promise<
+    { data?: T[]; included?: unknown[]; links?: unknown } | undefined
+  >,
   paged = true,
+  included?: unknown[],
 ): Promise<T[]> {
   const all: T[] = [];
   for (let page = 0; page < MAX_PAGES; page++) {
     const res = await fetchPage(page);
     all.push(...(res?.data ?? []));
+    if (included) included.push(...(res?.included ?? []));
     const next = (res?.links as { next?: unknown } | undefined)?.next;
     if (!next || !paged) return all;
   }
@@ -86,13 +90,17 @@ export function createApsDataService(
       }),
     listFolderContents: (token, projectId, folderId) =>
       guarded(async () => {
-        const data = await allPages((pageNumber) =>
-          client.getFolderContents(projectId, folderId, {
-            accessToken: token,
-            pageNumber,
-          }),
+        const included: VersionResource[] = [];
+        const data = await allPages(
+          (pageNumber) =>
+            client.getFolderContents(projectId, folderId, {
+              accessToken: token,
+              pageNumber,
+            }),
+          true,
+          included,
         );
-        return mapFolderContents(data, folderId);
+        return mapFolderContents(data, folderId, included);
       }),
     listItemVersions: (token, projectId, itemId) =>
       guarded(async () => {

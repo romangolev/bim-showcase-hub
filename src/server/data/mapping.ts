@@ -31,6 +31,10 @@ export interface FolderContentResource {
     lastModifiedTime?: string;
     lastModifiedUserName?: string;
   };
+  relationships?: {
+    tip?: { data?: { id?: string } };
+    parent?: { data?: { id?: string } };
+  };
 }
 
 export interface VersionResource {
@@ -142,7 +146,14 @@ export function mapTopFolders(
 export function mapFolderContents(
   resources: FolderContentResource[],
   folderId: string,
+  included: VersionResource[] = [],
 ): TreeNode[] {
+  const tips = new Map<string, VersionResource>();
+  for (const version of included) {
+    if (version.id) {
+      tips.set(version.id, version);
+    }
+  }
   const nodes: TreeNode[] = [];
   for (const resource of resources) {
     const id = requireId(resource);
@@ -153,7 +164,7 @@ export function mapFolderContents(
     if (resource.type !== 'folders' && resource.type !== 'items') {
       continue;
     }
-    nodes.push({
+    const node: TreeNode = {
       id: encodeId(id),
       kind: resource.type === 'folders' ? 'folder' : 'item',
       name,
@@ -161,7 +172,22 @@ export function mapFolderContents(
       viewable: false,
       parentId: encodeId(folderId),
       ...metadataOf(resource.attributes),
-    });
+    };
+    if (resource.type === 'items') {
+      const tipId = resource.relationships?.tip?.data?.id;
+      const tip = tipId ? tips.get(tipId) : undefined;
+      if (tip) {
+        const number = versionNumberOf(tip);
+        if (number !== null) {
+          node.versionNumber = number;
+        }
+        const urn = tip.relationships?.derivatives?.data?.id;
+        if (urn) {
+          node.tipUrn = urn;
+        }
+      }
+    }
+    nodes.push(node);
   }
   return nodes;
 }

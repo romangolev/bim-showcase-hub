@@ -121,6 +121,7 @@ export function createMockDataService(
         if (!item) {
           throw notFound('Item');
         }
+        const latest = item.versions[item.versions.length - 1];
         return {
           id: encodeId(item.id),
           kind: 'item',
@@ -129,6 +130,10 @@ export function createMockDataService(
           viewable: false,
           parentId: encodeId(folderId),
           ...latestMeta(item),
+          ...(latest ? { versionNumber: latest.number } : {}),
+          ...(latest?.hasUrn
+            ? { tipUrn: encodeId(`urn:adsk.mock:${latest.id}`) }
+            : {}),
         };
       });
       return [...folders, ...items];
