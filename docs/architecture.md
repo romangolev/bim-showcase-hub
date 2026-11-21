@@ -171,7 +171,7 @@ The real adapter mounts tools as the Autodesk extension `BimShowcaseHub.Tools` (
 - The adapter drops the layer state on `unload` and for a removed model, because the viewer drops the colours there too.
 - The Models pane owns the `modelTint` layer: a swatch per model, a palette per model set (else the global palette), "tint strength" as the alpha of the theming colour (0.1 to 1, clamped to 0.05 steps), and a reset that clears only that layer. Paint uses the `paint` layer through `paintSelection` / `resetPaint`.
 - The `chart` layer has one owner: `viewer/modelColoring.ts` keeps at most one `Coloring` per adapter and writes it with `replaceSource`, so property colouring, chart colouring and rules replace each other instead of stacking. The Colors pane, the chart menu and the export read that same store; paint still wins above it and the model tint sits below.
-- Ghost others is viewer-wide, not per model: the pinned Viewer 7 API has `setGhosting` plus isolation, so the pane isolates the focus model and turns ghosting on, and turns both off again for its reset. Rules-based colouring uses the same pair when **Ghost the rest** is on.
+- Ghosting has one owner per adapter, `viewer/ghosting.ts`. Colors, the model tint and paint call `claimGhosting(adapter, claimant, solid?)` and `releaseGhosting(adapter, claimant)` instead of `setGhosting`: ghosting is on while any claim exists, and the union of the claims' solid sets is the one isolation. Releasing the last solid set un-isolates only when the isolation is still the one the owner set, and never touches hidden elements, so the user's own isolation and hiding survive. Ghost others isolates the focus model this way, and so does rules colouring with **Ghost the rest**.
 
 ### Resize, full screen and theme
 

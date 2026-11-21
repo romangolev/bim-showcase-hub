@@ -13,7 +13,6 @@ import { defineRecord } from '../storage.js';
 
 export interface ColorsSettings {
   source: 'property' | 'rules';
-  active: boolean;
   spec: ColorBySpec;
   rules: RuleSet;
 }
@@ -26,7 +25,6 @@ export function readColorsSettings(raw: unknown): ColorsSettings {
   const source = isRecord(raw) ? raw : {};
   return {
     source: source.source === 'rules' ? 'rules' : 'property',
-    active: source.active === true,
     spec: sanitizeColorBy(source.spec),
     rules: sanitizeRuleSet(source.rules) ?? DEFAULT_RULE_SET,
   };
@@ -36,7 +34,6 @@ export const COLORS_SETTINGS = defineRecord<ColorsSettings>({
   key: COLORS_SETTINGS_KEY,
   initial: {
     source: 'property',
-    active: false,
     spec: DEFAULT_COLOR_BY,
     rules: DEFAULT_RULE_SET,
   },

@@ -1,7 +1,6 @@
 import type { ComponentType } from 'react';
 import type { Command } from '../commands/types.js';
 import type { IconName } from '../components/icons.js';
-import { COLORS_SETTINGS } from '../panels/colorsSettings.js';
 import { currentAdapter } from '../viewer/activeAdapterStore.js';
 import { clearColoring } from '../viewer/modelColoring.js';
 import { PANEL_SEPARATOR, type PanelId } from './panelIds.js';
@@ -190,15 +189,7 @@ export const PANES: readonly PaneDefinition[] = [
         menu: 'hook',
         run: () => {
           const adapter = currentAdapter();
-          const settings = COLORS_SETTINGS.read();
-          if (adapter) {
-            clearColoring(adapter);
-            if (settings.source === 'rules' && settings.rules.ghostRest) {
-              adapter.isolateModelIds([]);
-              adapter.setGhosting?.(false);
-            }
-          }
-          COLORS_SETTINGS.write({ ...settings, active: false });
+          if (adapter) clearColoring(adapter);
         },
       },
     ],

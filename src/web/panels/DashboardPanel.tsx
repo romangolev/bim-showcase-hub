@@ -35,7 +35,6 @@ import type { ModelDbId } from '../viewer/modelSet.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { ChartCanvas, type ChartKind, ChartTable } from './ChartCanvas.js';
 import { CHART_SETTINGS } from './chartSettings.js';
-import { COLORS_SETTINGS } from './colorsSettings.js';
 import { DashboardGallery } from './DashboardGallery.js';
 import { ElementScopeSelect, scopeName } from './ElementScope.js';
 import { HEALTH_KPI_SETTINGS, HealthKpis } from './HealthKpis.js';
@@ -263,7 +262,6 @@ export function DashboardPanel({
   };
   const colorModel = (chartData: ChartData) => (colors: readonly string[]) => {
     if (!resolved) return;
-    COLORS_SETTINGS.write({ ...COLORS_SETTINGS.read(), active: false });
     applyColoring(resolved, colorByChart(state.rows, chartData, colors));
     notify(`Model coloured by ${chartData.property}`);
   };

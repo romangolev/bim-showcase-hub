@@ -830,3 +830,13 @@ describe('selecting and isolating by model', () => {
     expect(viewer().fits).toBe(before + 1);
   });
 });
+
+describe('ghosting', () => {
+  it('passes ghosting to the viewer', async () => {
+    await adapter.loadModels([{ urn: 'arch' }]);
+    adapter.setGhosting(false);
+    expect(viewer().ghosting).toBe(false);
+    adapter.setGhosting(true);
+    expect(viewer().ghosting).toBe(true);
+  });
+});

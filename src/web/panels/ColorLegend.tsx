@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react';
 import { type Coloring, entryItems, legendCsv } from '../extensions/colorBy.js';
 import { saveBlob } from '../extensions/download.js';
 import { runElementAction } from '../extensions/elementActions.js';
 import { formatCount } from '../extensions/exportCommon.js';
-import { clearColoring } from '../viewer/modelColoring.js';
+import {
+  clearColoring,
+  toggleColoringGroup,
+  useHiddenGroups,
+} from '../viewer/modelColoring.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { hexColor } from './colorsSettings.js';
 
@@ -11,38 +14,14 @@ export interface ColorLegendProps {
   adapter: ViewerAdapter;
   coloring: Coloring;
   onOverride?: (key: string, hex: string) => void;
-  onCleared?: () => void;
 }
 
 export function ColorLegend({
   adapter,
   coloring,
   onOverride,
-  onCleared,
 }: ColorLegendProps) {
-  const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
-  useEffect(() => {
-    setHidden(new Set());
-  }, [coloring.title]);
-  const showHidden = () => {
-    for (const key of hidden) {
-      const index = coloring.legend.findIndex((entry) => entry.key === key);
-      if (index >= 0) adapter.showModelIds(entryItems(coloring, index));
-    }
-    setHidden(new Set());
-  };
-  const toggle = (index: number, key: string) => {
-    const items = entryItems(coloring, index);
-    const next = new Set(hidden);
-    if (next.has(key)) {
-      next.delete(key);
-      adapter.showModelIds(items);
-    } else {
-      next.add(key);
-      adapter.hideModelIds(items);
-    }
-    setHidden(next);
-  };
+  const hidden = useHiddenGroups(adapter);
   return (
     <div className="bsh-color-legend">
       {coloring.note ? (
@@ -79,7 +58,7 @@ export function ColorLegend({
               type="checkbox"
               aria-label={`Show ${entry.label}`}
               checked={!hidden.has(entry.key)}
-              onChange={() => toggle(index, entry.key)}
+              onChange={() => toggleColoringGroup(adapter, entry.key)}
             />
             <button
               type="button"
@@ -102,11 +81,7 @@ export function ColorLegend({
         <button
           type="button"
           className="bsh-button"
-          onClick={() => {
-            showHidden();
-            clearColoring(adapter);
-            onCleared?.();
-          }}
+          onClick={() => clearColoring(adapter)}
         >
           Clear colours
         </button>

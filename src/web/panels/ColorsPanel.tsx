@@ -1,20 +1,19 @@
-import { useEffect, useId, useMemo, useRef } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { NumberField } from '../components/NumberField.js';
 import { StateBlock } from '../components/StateBlock.js';
 import {
   COLOR_TOP_N_MAX,
   COLOR_TOP_N_MIN,
   colorByProperty,
-  entryItems,
 } from '../extensions/colorBy.js';
-import {
-  colorByRules,
-  FALLBACK_LABEL,
-  ruleProperties,
-} from '../extensions/colorRules.js';
+import { colorByRules, ruleProperties } from '../extensions/colorRules.js';
 import { readChartTheme, seriesColors } from '../extensions/dashboardData.js';
 import { usePersisted } from '../storage.js';
-import { applyColoring, useModelColoring } from '../viewer/modelColoring.js';
+import {
+  applyColoring,
+  currentColoring,
+  useModelColoring,
+} from '../viewer/modelColoring.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { ColorLegend } from './ColorLegend.js';
 import { ColorRules } from './ColorRules.js';
@@ -39,7 +38,7 @@ export function ColorsPanel({ adapter }: ColorsPanelProps) {
   const [settings, setSettings] = usePersisted(COLORS_SETTINGS);
   const [chartSettings] = usePersisted(CHART_SETTINGS);
   const catalog = usePropertyCatalog(resolved);
-  const ghostedRef = useRef(false);
+  const [requested, setRequested] = useState(false);
   const rulesMode = settings.source === 'rules';
   const names = useMemo(
     () =>
@@ -55,31 +54,14 @@ export function ColorsPanel({ adapter }: ColorsPanelProps) {
     return [...list];
   }, [catalog.catalog, settings.rules, settings.spec.property]);
 
-  useEffect(() => {
-    if (!resolved || !settings.active || state.status !== 'ready') return;
-    const next = rulesMode
+  const next = useMemo(() => {
+    if (state.status !== 'ready') return null;
+    return rulesMode
       ? colorByRules(state.rows, settings.rules)
       : colorByProperty(state.rows, settings.spec, (labels) =>
           seriesColors(readChartTheme(), labels, chartSettings.palette),
         );
-    applyColoring(resolved, next);
-    if (!rulesMode || !settings.rules.ghostRest || next.legend.length === 0) {
-      if (ghostedRef.current) {
-        resolved.isolateModelIds([]);
-        resolved.setGhosting?.(false);
-        ghostedRef.current = false;
-      }
-      return;
-    }
-    const items = next.legend.flatMap((entry, index) =>
-      entry.label === FALLBACK_LABEL ? [] : entryItems(next, index),
-    );
-    resolved.isolateModelIds(items);
-    resolved.setGhosting?.(true);
-    ghostedRef.current = true;
   }, [
-    resolved,
-    settings.active,
     rulesMode,
     settings.rules,
     settings.spec,
@@ -87,19 +69,21 @@ export function ColorsPanel({ adapter }: ColorsPanelProps) {
     state.status,
     state.rows,
   ]);
+  const showsOwn =
+    coloring?.origin === 'property' || coloring?.origin === 'rules';
 
   useEffect(() => {
-    if (!resolved || !ghostedRef.current) return;
-    if (settings.active && rulesMode && settings.rules.ghostRest) return;
-    resolved.isolateModelIds([]);
-    resolved.setGhosting?.(false);
-    ghostedRef.current = false;
-  }, [resolved, settings.active, rulesMode, settings.rules.ghostRest]);
+    if (!resolved || !next || !(requested || showsOwn)) return;
+    if (currentColoring(resolved) !== next) {
+      applyColoring(resolved, next, {
+        ghostRest: rulesMode && settings.rules.ghostRest,
+      });
+    }
+    setRequested(false);
+  }, [resolved, next, requested, showsOwn, rulesMode, settings.rules]);
 
   const update = (patch: Partial<ColorsSettings>) =>
     setSettings((prev) => ({ ...prev, ...patch }));
-
-  const clear = () => update({ active: false });
 
   const override =
     !rulesMode && coloring?.origin === 'property'
@@ -128,13 +112,7 @@ export function ColorsPanel({ adapter }: ColorsPanelProps) {
                   type="radio"
                   name={uid}
                   checked={!rulesMode}
-                  onChange={() => {
-                    if (rulesMode && resolved) {
-                      resolved.isolateModelIds([]);
-                      resolved.setGhosting?.(false);
-                    }
-                    update({ source: 'property' });
-                  }}
+                  onChange={() => update({ source: 'property' })}
                 />
                 By property
               </label>
@@ -209,7 +187,7 @@ export function ColorsPanel({ adapter }: ColorsPanelProps) {
               <button
                 type="button"
                 className="bsh-button"
-                onClick={() => update({ active: true })}
+                onClick={() => setRequested(true)}
               >
                 Color the model
               </button>
@@ -285,7 +263,6 @@ export function ColorsPanel({ adapter }: ColorsPanelProps) {
                 adapter={resolved}
                 coloring={coloring}
                 onOverride={override}
-                onCleared={clear}
               />
             ) : null}
           </>

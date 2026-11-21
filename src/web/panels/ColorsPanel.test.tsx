@@ -27,17 +27,34 @@ describe('ColorsPanel', () => {
     ).toBeInTheDocument();
     const modelId = adapter.getModels()[0]?.id ?? '';
     expect(colorLayersFor(adapter).hasModel('chart', modelId)).toBe(true);
-    expect(COLORS_SETTINGS.read().active).toBe(true);
   });
 
-  it('clears the colours and remembers it', async () => {
+  it('clears the colours and does not colour again on its own', async () => {
     const adapter = await loadedMockAdapter();
     render(<ColorsPanel adapter={adapter} />);
     fireEvent.click(screen.getByRole('button', { name: 'Color the model' }));
     await screen.findByRole('list', { name: 'Legend for Category' });
     fireEvent.click(screen.getByRole('button', { name: 'Clear colours' }));
     expect(currentColoring(adapter)).toBeNull();
-    expect(COLORS_SETTINGS.read().active).toBe(false);
+    fireEvent.change(screen.getByRole('combobox', { name: 'Mode' }), {
+      target: { value: 'range' },
+    });
+    expect(currentColoring(adapter)).toBeNull();
+  });
+
+  it('follows its settings only while its own colouring is shown', async () => {
+    const adapter = await loadedMockAdapter();
+    render(<ColorsPanel adapter={adapter} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Color the model' }));
+    await waitFor(() =>
+      expect(currentColoring(adapter)?.origin).toBe('property'),
+    );
+    const first = currentColoring(adapter);
+    fireEvent.change(screen.getByRole('combobox', { name: 'Mode' }), {
+      target: { value: 'range' },
+    });
+    await waitFor(() => expect(currentColoring(adapter)).not.toBe(first));
+    expect(currentColoring(adapter)?.origin).toBe('property');
   });
 
   it('colours by rules and ghosts the rest', async () => {
@@ -78,7 +95,6 @@ describe('ColorsPanel', () => {
     COLORS_SETTINGS.write({
       ...COLORS_SETTINGS.read(),
       source: 'rules',
-      active: true,
       rules: {
         rules: [
           {
@@ -97,6 +113,7 @@ describe('ColorsPanel', () => {
       },
     });
     render(<ColorsPanel adapter={adapter} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Color the model' }));
     await waitFor(() =>
       expect(adapter.getIsolated().length).toBeGreaterThan(0),
     );

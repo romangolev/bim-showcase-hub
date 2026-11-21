@@ -1,5 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { Command } from '../commands/types.js';
+import type { Command, CommandHost } from '../commands/types.js';
+import { buildColoring } from '../extensions/colorBy.js';
+import { COLORS_SETTINGS } from '../panels/colorsSettings.js';
+import { setStorageAdapter } from '../storage.js';
+import { memoryAdapter } from '../storageAdapter.js';
+import { loadedMockAdapter } from '../test/mockAdapter.js';
+import { publishActiveAdapter } from '../viewer/activeAdapterStore.js';
+import { buildMockElements } from '../viewer/mockModel.js';
+import { applyColoring, currentColoring } from '../viewer/modelColoring.js';
 import { layoutCommands } from './layoutCommandList.js';
 import type { LayoutApi } from './layoutContext.js';
 import { layoutMenuEntries } from './PaneMenu.js';
@@ -318,5 +326,40 @@ describe('Panes menu entries', () => {
     expect(layout.setPresenting).toHaveBeenCalledWith(true);
     select(entries, 'pane.toggle.dashboard');
     expect(layout.togglePane).toHaveBeenCalledWith('dashboard');
+  });
+});
+
+describe('colors.clear command', () => {
+  it('clears a chart coloring and keeps the user’s own isolation', async () => {
+    setStorageAdapter(memoryAdapter());
+    COLORS_SETTINGS.write({
+      ...COLORS_SETTINGS.read(),
+      source: 'rules',
+      rules: { ...COLORS_SETTINGS.read().rules, ghostRest: true },
+    });
+    const adapter = await loadedMockAdapter();
+    const modelId = adapter.getModels()[0]?.id ?? '';
+    const [first, second] = buildMockElements().map(({ dbId }) => dbId);
+    const mine = [{ modelId, dbId: first ?? 0 }];
+    adapter.isolateModelIds(mine);
+    applyColoring(
+      adapter,
+      buildColoring(
+        'chart',
+        'Kind',
+        [{ dbId: second ?? 0, name: 'b', properties: { Kind: 'A' }, modelId }],
+        () => 'A',
+        ['A'],
+        ['#ff0000'],
+      ),
+    );
+    publishActiveAdapter(adapter);
+    const clear = paneById('colors')
+      .commands?.({} as never)
+      .find((command) => command.id === 'colors.clear');
+    await clear?.run({} as CommandHost);
+    publishActiveAdapter(null);
+    expect(currentColoring(adapter)).toBeNull();
+    expect(adapter.getIsolated()).toEqual(mine);
   });
 });

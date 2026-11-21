@@ -22,6 +22,7 @@ import {
 } from '../../extensions/paintBrushes.js';
 import { usePersisted } from '../../storage.js';
 import { usePublishedAdapter } from '../../viewer/activeAdapterStore.js';
+import { claimGhosting, releaseGhosting } from '../../viewer/ghosting.js';
 import type { Rgba, ViewerAdapter } from '../../viewer/ViewerAdapter.js';
 import {
   type ToolContext,
@@ -179,9 +180,9 @@ export class PaintTool extends ViewerTool<PaintSettings> {
     previous: PaintSettings | undefined,
     next: PaintSettings,
   ): void {
+    if (next.enabled && !next.ghostRest) releaseGhosting(adapter, 'paint');
+    else claimGhosting(adapter, 'paint');
     if (!next.enabled) return;
-    const before = previous?.enabled ? previous.ghostRest : true;
-    if (next.ghostRest !== before) adapter.setGhosting?.(next.ghostRest);
     if (!previous?.enabled && next.restoreOnOpen) {
       replayPaint(adapter).catch(() => {});
     }
@@ -192,7 +193,6 @@ export class PaintTool extends ViewerTool<PaintSettings> {
   }
 
   override onDisabled(adapter: ViewerAdapter): void {
-    adapter.setGhosting?.(true);
     forgetAppliedPaint(adapter);
     resetPaint(adapter);
   }
