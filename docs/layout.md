@@ -53,6 +53,12 @@ The Viewer pane has one instance per open model, a panel `viewer:<urn>` with its
 - In Documents, Ctrl or Cmd click and Space pick versions and Shift click picks a range. The pick bar offers Open N in viewer (up to 8 models across the open tabs, so it counts the tabs already open), Open together (2 to 6, one combined scene), Add to the open viewer and Clear.
 - A single click opens a version according to the Documents open mode, saved with the tree view: a new tab (the default), the active tab, or the active viewer as a combined scene. A combined click adds a model while the tab holds fewer than 6; at 6 it opens a new tab and says so in a toast.
 - Replacing closes the active tab. When that tab is a combined scene it closes every model in it, and the tree says how many. The row menu's Open in new tab bypasses the open mode.
+- A tab keeps its view: camera, section planes, explode and per-model hidden, isolated and selected elements. The state is saved when the tab is paused or the page reloads and restored once after the next load. A state with more than 5,000 node ids keeps the camera, planes and explode and drops the node lists. Measurements are not part of it.
+- **Remember view state** in the model tab's pane menu turns this off for that tab and clears its state. An incoming `?view=` link always wins over a restored state.
+- **Pin tab** keeps a tab loaded: a pinned tab counts toward the loaded-model budget but is never paused for it. Closing the tab removes the pin.
+- **Close other tabs** closes every unpinned tab and leaves this one and all pinned tabs open.
+- **Reopen closed tab** brings back the most recently closed tab with its context and view state, newest first. The store keeps the last 10 closed tabs in memory; a reload forgets them.
+- Tabs from the last visit reopen after a browser restart when Settings > Session > Reopen my tabs after the browser restarts is on (the default). Only the tabs, their order and their file context come back; view state does not.
 
 ## Panes menu
 
@@ -62,6 +68,10 @@ The top bar Panes menu is a searchable dialog over every pane.
 - A row's main action is its command: Open/Close with a checked state for a normal pane, New for a user kind, or a pane hook such as Go to Documents. Focus and the pane's extra commands sit beside it. The footer holds the workspace actions (save, import, download, copy JSON, share link, revert), Present, Lock and Reset layout. A pane with no command, such as the Viewer, has no row.
 - Search matches the pane's title, description, category and keywords. Without a query the rows are grouped by category (Workspace, Viewer, Analysis, Data). With a query they become one list.
 - Colors (Analysis) and Export (Data) are opt-in viewer followers: they are left out of the companions that follow a model (`opensWithModel: false`) and open from the menu or the palette. They are dock panes, not part of the stacked column.
+- Measurements is a Viewer pane next to Models. It is not part of the default arrangement: it starts closed, opens from the Panes menu or the palette, and lists distances, angles and areas from the active viewer ([extensions.md](extensions.md#built-in)).
+- Models is a Viewer pane beside Documents. It lists the models of the active tab with Show/Hide, Isolate, tint and Remove; with two or more models open, **Save combination…** stores them under **Saved combinations**, where Open, Rename and Delete work and the palette opens one through `federation.open.<id>` (group Combinations). A combination keeps the members, their tints, hidden models and offsets, and can follow the latest version of each file ([extensions.md](extensions.md#saved-items)).
+- With two or more ready models, each one also has an expandable **Alignment** row: its unit, whether its data carries shared coordinates, and its distance from the anchor. Every model but the anchor gets **0.1 m**, **1 m** and **10 m** steps on X, Y and Z, **Snap centre to anchor** and **Reset**. The moves are visual only: the files and their coordinates do not change, and the row says so. Offsets are saved with the tab and travel in a saved combination.
+- Sheets and views is a Viewer pane next to Models. It is not part of the default arrangement: it starts closed, opens from the Panes menu or the palette, and lists the views of the active model with Favorites first, then 3D views, then sheets; hidden views sit behind **Show hidden (N)**. A row offers Open, Favorite, Hide and Set as start view. Open asks first, because switching resets the selection and colours of that model, and a combined tab only offers views of the same dimension as the model it starts with. The start view is what the tab loads next time and is stored per document in `bsh.models.views.v1` ([development.md](development.md#storage-keys)); a model select appears when the tab holds several models.
 
 ## Rename and colour
 
@@ -130,7 +140,7 @@ One layout per browser in `localStorage` under `bsh.layout.v2`: `{ version: 2, l
 
 A corrupt record or a dock with no known pane falls back to the default layout. Model tabs are reconciled with the open-models store on restore.
 
-Open tabs are in `sessionStorage` under `bsh.models.open`. Sign-out clears them with recent and pinned models. Other keys are in [development.md](development.md#storage-keys).
+Open tabs are in `sessionStorage` under `bsh.models.open` as `{ models, active }`. Each model holds its context plus optional offsets, spread, a capped `state`, `remember: false` and `pinned: true`. Sign-out clears them with recent and pinned models. Other keys are in [development.md](development.md#storage-keys).
 
 Reset layout (every pane menu and the Panes menu) rebuilds the default arrangement without remounting any pane. Open models stay open.
 
@@ -193,6 +203,7 @@ Below 876 px (`STACKED_QUERY`, `src/web/layout/LayoutProvider.tsx`) the dock is 
 
 - Floating groups stay inside the page. There are no pop-out windows.
 - One stored layout per browser and no server sync. Named workspaces are local to the browser.
-- At most 8 models are loaded across all tabs (`MAX_LOADED_MEMBERS`). A combined tab counts every model it holds. Visible tabs are never paused. A paused tab offers Load model.
+- At most 8 models are loaded across all tabs (`MAX_LOADED_MEMBERS`). A combined tab counts every model it holds. Visible tabs are never paused. A paused tab offers Load model. Pinned tabs count toward the budget but are never paused either, so pinning several combined tabs can hold more than 8 models loaded.
+- At most 10 closed tabs are remembered, newest first and in memory only. A reload forgets the closed stack.
 - A combined tab holds at most 6 models (`MAX_COMBINED_MODELS`).
 - All open models must come from one Autodesk region, because the viewer initializes once per page. `viewer/region.ts` records the region. A model from the other region shows an error with Close other models and reload.

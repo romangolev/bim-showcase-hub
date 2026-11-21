@@ -4,6 +4,10 @@ export { ColorsPanel, type ColorsPanelProps } from './ColorsPanel.js';
 export { DashboardPanel, type DashboardPanelProps } from './DashboardPanel.js';
 export { ExportPanel, type ExportPanelProps } from './ExportPanel.js';
 export {
+  MeasurementsPanel,
+  type MeasurementsPanelProps,
+} from './MeasurementsPanel.js';
+export {
   ModelSummaryPanel,
   type ModelSummaryPanelProps,
 } from './ModelSummaryPanel.js';
@@ -20,3 +24,4 @@ export {
   VersionHistoryPanel,
   type VersionHistoryPanelProps,
 } from './VersionHistoryPanel.js';
+export { ViewsPanel, type ViewsPanelProps } from './ViewsPanel.js';

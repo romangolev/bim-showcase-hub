@@ -9,10 +9,18 @@ import { colorLayersFor } from '../viewer/colorLayers.js';
 import { createMockViewerAdapter } from '../viewer/MockViewerAdapter.js';
 import { buildMockElements } from '../viewer/mockModel.js';
 import type { ModelInfo } from '../viewer/modelSet.js';
+import { FEDERATIONS } from '../viewer/savedFederations.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { ModelsPanel } from './ModelsPanel.js';
 import { isolatedModel, isolateVisibility } from './modelRows.js';
 import { MODEL_TINTS } from './modelTint.js';
+
+const COMBINATION = {
+  members: [
+    { urn: 'urn-a', context: {}, latest: false, hidden: false },
+    { urn: 'urn-b', context: {}, latest: false, hidden: false },
+  ],
+};
 
 function info(id: string, patch: Partial<ModelInfo> = {}): ModelInfo {
   return { id, urn: id, name: id, visible: true, status: 'ready', ...patch };
@@ -261,5 +269,179 @@ describe('ModelsPanel', () => {
       ['urn-a', 'A.rvt'],
       ['urn-b', 'B.rvt'],
     ]);
+  });
+
+  it('saves the open models as a named combination', async () => {
+    const adapter = await load(['urn-a', 'urn-b']);
+    const onSaveFederation = vi.fn();
+    render(
+      <ModelsPanel adapter={adapter} onSaveFederation={onSaveFederation} />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Save combination…' }));
+    fireEvent.change(screen.getByLabelText('Combination name'), {
+      target: { value: 'Site' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save combination' }));
+    expect(onSaveFederation).toHaveBeenCalledWith('Site');
+    expect(
+      screen.queryByRole('button', { name: 'Save combination' }),
+    ).toBeNull();
+  });
+
+  it('offers no save with a single model', async () => {
+    const adapter = await load(['urn-a']);
+    render(<ModelsPanel adapter={adapter} onSaveFederation={vi.fn()} />);
+    expect(
+      screen.queryByRole('button', { name: 'Save combination…' }),
+    ).toBeNull();
+  });
+
+  it('lists saved combinations and opens, renames and deletes them', async () => {
+    const adapter = await load(['urn-a', 'urn-b']);
+    const saved = FEDERATIONS.save('Site', COMBINATION);
+    const onOpenFederation = vi.fn();
+    render(
+      <ModelsPanel adapter={adapter} onOpenFederation={onOpenFederation} />,
+    );
+    expect(screen.getByText('Saved combinations')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Open Site' }));
+    expect(onOpenFederation).toHaveBeenCalledWith(saved?.id);
+    const input = screen.getByLabelText('Rename Site');
+    fireEvent.change(input, { target: { value: 'Site B' } });
+    fireEvent.blur(input);
+    await waitFor(() => expect(FEDERATIONS.list()[0]?.name).toBe('Site B'));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Site B' }));
+    await waitFor(() => expect(FEDERATIONS.list()).toHaveLength(0));
+  });
+
+  it('shows a combination saved while the pane is open', async () => {
+    const adapter = await load(['urn-a', 'urn-b']);
+    render(<ModelsPanel adapter={adapter} onOpenFederation={vi.fn()} />);
+    FEDERATIONS.save('Later', COMBINATION);
+    expect(
+      await screen.findByRole('button', { name: 'Open Later' }),
+    ).toBeInTheDocument();
+  });
+
+  it('nudges one model in metres and keeps the other offsets', async () => {
+    const adapter = await load(['urn-a', 'urn-b']);
+    const onOffsetsChange = vi.fn();
+    render(
+      <ModelsPanel
+        adapter={adapter}
+        offsets={{ 'urn-a': [2, 0, 0] }}
+        onOffsetsChange={onOffsetsChange}
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Alignment for urn-b' }),
+    );
+    expect(screen.getByText(/Visual only/)).toBeInTheDocument();
+    expect(screen.getByText('Unit: m')).toBeInTheDocument();
+    expect(screen.getByText(/Distance from urn-a/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Move +X 1 m' }));
+    expect(onOffsetsChange).toHaveBeenCalledWith({
+      'urn-a': [2, 0, 0],
+      'urn-b': [1, 0, 0],
+    });
+    fireEvent.click(screen.getByRole('button', { name: '10 m' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Move +X 10 m' }));
+    expect(onOffsetsChange).toHaveBeenLastCalledWith({
+      'urn-a': [2, 0, 0],
+      'urn-b': [10, 0, 0],
+    });
+  });
+
+  it('nudges in the anchor unit when the model has another unit', async () => {
+    const adapter = await load(['urn-a', 'urn-b']);
+    vi.spyOn(adapter, 'getPlacementInfo').mockReturnValue([
+      {
+        modelId: 'urn-a',
+        anchor: true,
+        unit: 'm',
+        sharedCoordinates: null,
+        distanceMeters: 0,
+      },
+      {
+        modelId: 'urn-b',
+        anchor: false,
+        unit: 'mm',
+        sharedCoordinates: null,
+        distanceMeters: 5,
+      },
+    ]);
+    const onOffsetsChange = vi.fn();
+    render(<ModelsPanel adapter={adapter} onOffsetsChange={onOffsetsChange} />);
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Alignment for urn-b' }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Move +X 1 m' }));
+    expect(onOffsetsChange).toHaveBeenCalledWith({ 'urn-b': [1, 0, 0] });
+  });
+
+  it('snaps one model to the anchor and resets it', async () => {
+    const adapter = await load(['urn-a', 'urn-b']);
+    const onOffsetsChange = vi.fn();
+    render(
+      <ModelsPanel
+        adapter={adapter}
+        offsets={{ 'urn-b': [3, 0, 0] }}
+        onOffsetsChange={onOffsetsChange}
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Alignment for urn-b' }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Snap centre to anchor' }),
+    );
+    expect(onOffsetsChange).toHaveBeenLastCalledWith({
+      'urn-b': adapter.getTogetherOffsets()['urn-b'],
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
+    expect(onOffsetsChange).toHaveBeenLastCalledWith(null);
+  });
+
+  it('marks the anchor and offers no controls for it', async () => {
+    const adapter = await load(['urn-a', 'urn-b']);
+    render(<ModelsPanel adapter={adapter} onOffsetsChange={vi.fn()} />);
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Alignment for urn-a' }),
+    );
+    expect(screen.getByText('Anchor')).toBeInTheDocument();
+    expect(screen.getByText('Shared coordinates: unknown')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Move +X 1 m' })).toBeNull();
+  });
+
+  it('offers no alignment with a single model', async () => {
+    const adapter = await load(['urn-a']);
+    render(<ModelsPanel adapter={adapter} onOffsetsChange={vi.fn()} />);
+    expect(
+      screen.queryByRole('button', { name: 'Alignment for urn-a' }),
+    ).toBeNull();
+  });
+
+  it('applies the move before it reports the new distance', async () => {
+    const adapter = await load(['urn-a', 'urn-far']);
+    render(
+      <ModelsPanel adapter={adapter} offsets={{}} onOffsetsChange={vi.fn()} />,
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Alignment for urn-far' }),
+    );
+    expect(adapter.getPlacementInfo()[1]?.distanceMeters ?? 0).toBeGreaterThan(
+      0,
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Snap centre to anchor' }),
+    );
+    expect(adapter.getPlacementInfo()[1]?.distanceMeters ?? 0).toBeCloseTo(
+      0,
+      5,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
+    expect(adapter.getPlacementInfo()[1]?.distanceMeters ?? 0).toBeGreaterThan(
+      0,
+    );
   });
 });

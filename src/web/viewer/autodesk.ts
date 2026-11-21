@@ -20,6 +20,7 @@ export interface ControlButton {
   setIcon(iconClass: string): void;
   setState(state: number): boolean;
   getState(): number;
+  setVisible?(visible: boolean): void;
   icon?: HTMLElement;
   container?: HTMLElement;
 }
@@ -33,6 +34,7 @@ export interface ControlGroup {
   addControl(control: ControlButton | ComboButton): void;
   removeControl(control: ControlButton | ComboButton | string): void;
   getNumberOfControls(): number;
+  getControl?(id: string): ControlButton | undefined;
 }
 
 export interface ViewerExtension {
@@ -93,7 +95,9 @@ export interface ViewerModel {
     onSuccess: (tree: InstanceTree) => void,
     onError?: (err: unknown) => void,
   ): void;
-  getData?(): { globalOffset?: unknown } | undefined;
+  getData?():
+    | { globalOffset?: unknown; refPointTransform?: unknown }
+    | undefined;
   getUnitString?(): string | null | undefined;
   getUnitScale?(): number | null | undefined;
   is2d?(): boolean;
@@ -164,6 +168,9 @@ export interface PlacementMatrix {
 export interface BubbleNode {
   is2D?(): boolean;
   is3D?(): boolean;
+  guid?(): string;
+  name?(): string;
+  data?: { guid?: string; name?: string; role?: string };
 }
 
 export interface ViewingDocument {
@@ -216,6 +223,16 @@ export interface GuiViewer3D {
   resize(): void;
   loadExtension(id: string, options?: unknown): Promise<unknown>;
   unloadExtension(id: string): boolean;
+  getExtension?(id: string): unknown;
+  explode?(scale: number): void;
+  getExplodeScale?(): number;
+  setLightPreset?(preset: number): void;
+  setGroundShadow?(value: boolean): void;
+  setGroundReflection?(value: boolean): void;
+  setDisplayEdges?(value: boolean): void;
+  setQualityLevel?(ambientOcclusion: boolean, antialiasing: boolean): void;
+  setOptimizeNavigation?(value: boolean): void;
+  setProgressiveRendering?(value: boolean): void;
   setTheme(theme: string): void;
   setBackgroundColor(
     red: number,
@@ -308,6 +325,12 @@ export interface AutodeskViewing {
   HIDE_EVENT?: string;
   SHOW_EVENT?: string;
   ISOLATE_EVENT?: string;
+  MeasureCommon?: {
+    Events?: {
+      MEASUREMENT_COMPLETED_EVENT?: string;
+      DELETE_MEASUREMENT_EVENT?: string;
+    };
+  };
 }
 
 interface AutodeskWindow {

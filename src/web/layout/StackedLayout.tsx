@@ -2,6 +2,7 @@ import { Fragment, type KeyboardEvent, useEffect, useRef } from 'react';
 import type { OpenModelsState } from '../api/openModels.js';
 import { Icon } from '../components/icons.js';
 import type { PaneTags, PaneTitles } from './layoutContext.js';
+import { modelPanelId } from './panelIds.js';
 import {
   isFollower,
   PANES,
@@ -9,7 +10,6 @@ import {
   type PanelId,
   paneKind,
 } from './paneRegistry.js';
-import { modelPanelId } from './panes.js';
 import { type HostStore, PaneSlot } from './ViewerHost.js';
 
 export interface StackedLayoutProps {

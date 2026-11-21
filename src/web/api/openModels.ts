@@ -10,6 +10,9 @@ import {
   type PersistedRecord,
   RAW_STRING,
 } from '../storage.js';
+import { capTabState } from '../viewer/tabState.js';
+import type { ViewerState } from '../viewer/ViewerAdapter.js';
+import { sanitizeViewerState } from '../viewer/viewerState.js';
 import {
   joinWith,
   type ModelContext,
@@ -21,7 +24,9 @@ import {
 import { hasModelContext, recallModel } from './modelStore.js';
 
 export const OPEN_MODELS_KEY = BSH_KEYS.personal.openModels;
+export const LAST_SESSION_KEY = BSH_KEYS.personal.lastSession;
 export const MODEL_OWNER_KEY = BSH_KEYS.personal.modelOwner;
+export const MAX_CLOSED_TABS = 10;
 
 export type OpenModelsPersist = Pick<
   PersistedRecord<OpenModelsState>,
@@ -40,9 +45,22 @@ export interface OpenModel {
   context: ModelContext;
   offsets?: Record<string, Vec3>;
   spread?: number;
+  state?: ViewerState;
+  remember?: false;
+  pinned?: true;
 }
 
-function parseOffsets(value: unknown): Record<string, Vec3> | undefined {
+export interface ModelView {
+  offsets?: Record<string, Vec3> | null;
+  spread?: number | null;
+  state?: ViewerState | null;
+  remember?: boolean;
+  pinned?: boolean;
+}
+
+export function sanitizeOffsets(
+  value: unknown,
+): Record<string, Vec3> | undefined {
   if (typeof value !== 'object' || value === null) return undefined;
   const out: Record<string, Vec3> = {};
   for (const [id, raw] of Object.entries(value as Record<string, unknown>)) {
@@ -57,16 +75,32 @@ function parseOffsets(value: unknown): Record<string, Vec3> | undefined {
   return Object.keys(out).length > 0 ? out : undefined;
 }
 
-function withView(
-  model: OpenModel,
-  view: { offsets?: Record<string, Vec3> | null; spread?: number | null },
-): OpenModel {
+function withView(model: OpenModel, view: ModelView): OpenModel {
   const next: OpenModel = { urn: model.urn, context: model.context };
   const offsets = view.offsets === undefined ? model.offsets : view.offsets;
   const spread = view.spread === undefined ? model.spread : view.spread;
   if (offsets && Object.keys(offsets).length > 0) next.offsets = offsets;
   if (typeof spread === 'number') next.spread = spread;
+  const remember =
+    view.remember === undefined ? model.remember !== false : view.remember;
+  const state = remember
+    ? view.state === undefined
+      ? model.state
+      : view.state
+    : null;
+  if (state) next.state = capTabState(state);
+  if (!remember) next.remember = false;
+  const pinned =
+    view.pinned === undefined ? model.pinned === true : view.pinned;
+  if (pinned) next.pinned = true;
   return next;
+}
+
+function sameView(a: OpenModel, b: OpenModel): boolean {
+  return (
+    JSON.stringify([a.offsets, a.spread, a.state, a.remember, a.pinned]) ===
+    JSON.stringify([b.offsets, b.spread, b.state, b.remember, b.pinned])
+  );
 }
 
 function dropMember(
@@ -81,24 +115,22 @@ function dropMember(
         )
       : null,
     spread: model.spread ?? null,
+    state: model.state ?? null,
+    remember: model.remember !== false,
+    pinned: model.pinned === true,
   });
 }
 
 export function setModelView(
   state: OpenModelsState,
   urn: string,
-  view: { offsets?: Record<string, Vec3> | null; spread?: number | null },
+  view: ModelView,
 ): OpenModelsState {
   const index = state.models.findIndex((model) => model.urn === urn);
   const current = state.models[index];
   if (!current) return state;
   const next = withView(current, view);
-  if (
-    JSON.stringify(next.offsets) === JSON.stringify(current.offsets) &&
-    next.spread === current.spread
-  ) {
-    return state;
-  }
+  if (sameView(next, current)) return state;
   const models = [...state.models];
   models[index] = next;
   return { ...state, models };
@@ -140,10 +172,17 @@ function fitLive(
   limit: number,
 ): string[] {
   const kept = [...live];
+  const pinned = new Set(
+    state.models.filter((model) => model.pinned).map((model) => model.urn),
+  );
   let total = kept.reduce((sum, id) => sum + liveWeight(state, id), 0);
   while (total > limit) {
     const victim = kept.findIndex(
-      (id) => id !== keep && id !== state.active && !state.visible.includes(id),
+      (id) =>
+        id !== keep &&
+        id !== state.active &&
+        !state.visible.includes(id) &&
+        !pinned.has(id),
     );
     if (victim === -1) break;
     total -= liveWeight(state, kept[victim] as string);
@@ -364,6 +403,31 @@ export function keepOnlyModel(
   return { models: [model], active: urn, live: [], visible: [] };
 }
 
+export function closeOtherModels(
+  state: OpenModelsState,
+  urn: string,
+  limit = MAX_LOADED_MEMBERS,
+): OpenModelsState {
+  if (!isOpen(state, urn)) return state;
+  const models = state.models.filter(
+    (model) => model.urn === urn || model.pinned,
+  );
+  if (models.length === state.models.length) {
+    return activateModel(state, urn, limit);
+  }
+  const kept = new Set(models.map((model) => model.urn));
+  return activateModel(
+    {
+      models,
+      active: urn,
+      live: state.live.filter((id) => kept.has(id)),
+      visible: state.visible.filter((id) => kept.has(id)),
+    },
+    urn,
+    limit,
+  );
+}
+
 export function serializeOpenModels(state: OpenModelsState): string {
   return JSON.stringify({ models: state.models, active: state.active });
 }
@@ -382,18 +446,19 @@ export function parseOpenModels(raw: string | null): OpenModelsState {
   if (Array.isArray(record.models)) {
     for (const entry of record.models) {
       if (typeof entry !== 'object' || entry === null) continue;
-      const { urn, context, offsets, spread } = entry as Record<
-        string,
-        unknown
-      >;
+      const { urn, context, offsets, spread, state, remember, pinned } =
+        entry as Record<string, unknown>;
       if (typeof urn !== 'string' || !urn) continue;
       if (models.some((model) => model.urn === urn)) continue;
       models.push(
         withView(
           { urn, context: parseModelContext(context) },
           {
-            offsets: parseOffsets(offsets) ?? null,
+            offsets: sanitizeOffsets(offsets) ?? null,
             spread: typeof spread === 'number' ? spread : null,
+            state: sanitizeViewerState(state),
+            remember: remember !== false,
+            pinned: pinned === true,
           },
         ),
       );
@@ -440,13 +505,13 @@ export interface OpenModelsStore {
   show: (urn: string) => void;
   setVisible: (urns: readonly string[]) => void;
   close: (urn: string) => void;
+  closeOthers: (urn: string) => void;
   keepOnly: (urn: string) => void;
+  reopenClosed: () => string | null;
+  canReopen: () => boolean;
   addTo: (target: string, urn: string) => void;
   removeFrom: (target: string, urn: string) => void;
-  setView: (
-    urn: string,
-    view: { offsets?: Record<string, Vec3> | null; spread?: number | null },
-  ) => void;
+  setView: (urn: string, view: ModelView) => void;
   clear: () => void;
 }
 
@@ -458,18 +523,38 @@ export const OPEN_MODELS = defineRecord<OpenModelsState>({
   codec: { encode: serializeOpenModels, decode: RAW_STRING.decode },
 });
 
+export const LAST_SESSION = defineRecord<OpenModelsState>({
+  key: LAST_SESSION_KEY,
+  initial: EMPTY_OPEN_MODELS,
+  sanitize: (raw) => parseOpenModels(raw as string),
+  codec: { encode: serializeOpenModels, decode: RAW_STRING.decode },
+});
+
 export function createOpenModelsStore(
   persist: OpenModelsPersist | null = OPEN_MODELS,
   limit = MAX_LOADED_MEMBERS,
   contextFor: (urn: string) => ModelContext = (urn) => recallModel(urn) ?? {},
+  fallback: OpenModelsPersist | null = null,
 ): OpenModelsStore {
   let state = persist?.read() ?? EMPTY_OPEN_MODELS;
+  if (state.models.length === 0) {
+    const last = fallback?.read();
+    if (last && last.models.length > 0) {
+      state = last;
+      persist?.write(state);
+    }
+  }
+  let closed: OpenModel[] = [];
   const listeners = new Set<() => void>();
   const save = (previous: OpenModelsState) => {
     if (previous.models === state.models && previous.active === state.active) {
       return;
     }
     persist?.write(state);
+    fallback?.write({
+      ...state,
+      models: state.models.map(({ state: _view, ...rest }) => rest),
+    });
   };
   const apply = (next: OpenModelsState) => {
     if (next === state) return;
@@ -477,6 +562,21 @@ export function createOpenModelsStore(
     state = next;
     save(previous);
     for (const listener of [...listeners]) listener();
+  };
+  const remember = (previous: OpenModelsState) => {
+    const open = new Set(state.models.map((model) => model.urn));
+    const removed = previous.models.filter((model) => !open.has(model.urn));
+    if (removed.length === 0) return;
+    const urns = new Set(removed.map((model) => model.urn));
+    closed = [
+      ...removed,
+      ...closed.filter((model) => !urns.has(model.urn)),
+    ].slice(0, MAX_CLOSED_TABS);
+  };
+  const applyRemoving = (next: OpenModelsState) => {
+    const previous = state;
+    apply(next);
+    remember(previous);
   };
   return {
     getState: () => state,
@@ -490,14 +590,36 @@ export function createOpenModelsStore(
     activate: (urn) => apply(activateModel(state, urn, limit)),
     show: (urn) => apply(touchLive(state, urn, limit)),
     setVisible: (urns) => apply(setVisible(state, urns)),
-    close: (urn) => apply(closeModel(state, urn, limit)),
-    keepOnly: (urn) => apply(keepOnlyModel(state, urn)),
+    close: (urn) => applyRemoving(closeModel(state, urn, limit)),
+    closeOthers: (urn) => applyRemoving(closeOtherModels(state, urn, limit)),
+    keepOnly: (urn) => applyRemoving(keepOnlyModel(state, urn)),
+    reopenClosed: () => {
+      while (closed.length > 0) {
+        const entry = closed.shift() as OpenModel;
+        if (state.models.some((model) => model.urn === entry.urn)) continue;
+        const reopened = openModel(state, entry.urn, entry.context, limit);
+        apply(
+          setModelView(reopened, entry.urn, {
+            offsets: entry.offsets ?? null,
+            spread: entry.spread ?? null,
+            state: entry.state ?? null,
+            remember: entry.remember !== false,
+            pinned: entry.pinned === true,
+          }),
+        );
+        return entry.urn;
+      }
+      return null;
+    },
+    canReopen: () => closed.length > 0,
     addTo: (target, urn) => apply(addToModel(state, target, urn, limit)),
     removeFrom: (target, urn) =>
       apply(removeFromModel(state, target, urn, contextFor, limit)),
     setView: (urn, view) => apply(setModelView(state, urn, view)),
     clear: () => {
       persist?.remove();
+      fallback?.remove();
+      closed = [];
       if (state.models.length === 0) return;
       state = EMPTY_OPEN_MODELS;
       for (const listener of [...listeners]) listener();

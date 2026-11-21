@@ -73,9 +73,11 @@ All browser storage goes through `src/web/storage.ts`. `BSH_KEYS` lists the fixe
 |---|---|---|
 | `bsh.layout.v2` | personal | Dock arrangement (see [layout.md](layout.md#persistence)) |
 | `bsh.layout.instances.v1` | personal | Added pane instances |
-| `bsh.models.open` | personal | Open model tabs (`sessionStorage`) |
+| `bsh.models.open` | personal | Open model tabs (`sessionStorage`): the URN and context of each tab, the active one, and per-tab offsets, spread, view state, `remember: false` and `pinned: true` |
+| `bsh.models.session.v1` | personal | Tabs from the last visit (`localStorage`) without view state. Read at start when "Reopen my tabs after the browser restarts" is on; removed when the switch turns off or on sign-out |
 | `bsh.models.owner`, `bsh.models.recent`, `bsh.models.hidden` | personal | Owner id, recent models, hidden models |
 | `bsh.models.tints.v1` | personal | Per-model tint colour and strength, the global tint palette, a palette per model set, and ghost others |
+| `bsh.models.views.v1` | personal | Per-document view preferences: the start view, favorite view ids and hidden view ids. Holds up to 200 documents; the least recently changed is dropped |
 | `bsh.docs.pinned` | personal | Pinned model URNs |
 | `bsh.summary.*`, `bsh.dashboard.*` | personal | View, properties, scope and click action of the main panes. The dashboard view includes its property list |
 | `bsh.pane.<kind>.<n>.v1` | personal | Spec of a chart, summary or properties pane instance. A chart spec includes its property list |
@@ -87,7 +89,7 @@ All browser storage goes through `src/web/storage.ts`. `BSH_KEYS` lists the fixe
 | `bsh.commands.recent.v1` | personal | Recent palette commands |
 | `bsh.paint.<hash>` | personal | One paint record per model version: an ordered, bounded list of paint actions and the undo cursor. The hash covers the URN and the model version |
 | `bsh.hint.hubs.dismissed.v1` | personal | No-hubs notice dismissed |
-| `bsh-settings-v1` | preference | App settings, version 4: theme (`system`, `light`, `dark`), density, text size (100, 112, 125), reduced motion, language (`en`, `ru`), units (`metric`, `imperial`), session warning, recents length |
+| `bsh-settings-v1` | preference | App settings, version 4: theme (`system`, `light`, `dark`), density, text size (100, 112, 125), reduced motion, reopen last session, language (`en`, `ru`), units (`metric`, `imperial`), session warning, recents length |
 | `bsh.layout.locked` | preference | Layout lock |
 | `bsh.tree.view` | preference | Tree sort and metadata columns |
 | `bsh.snapshot.v1` | preference | Snapshot and Present options |
@@ -96,7 +98,7 @@ All browser storage goes through `src/web/storage.ts`. `BSH_KEYS` lists the fixe
 | `bsh.share.v1` | preference | Which parts a Share link carries (selection, panes and charts, hidden and isolated). The camera is always included |
 | `bsh.commands.pinned.v1` | preference | Pinned palette commands |
 | `bsh.commands.viewer.keys.v1` | preference | Rebound viewer shortcuts, keyed by command id. Commands missing here use the defaults |
-| `bsh.tool.<id>.v1` | preference | Per-tool settings (`paint`, `excel`, `glb`, `ifc`). Excel stores its chosen columns in `properties`, the column format per property in `columnFormats`, the colour toggles, the group-by, the empty label and the confirmation threshold; paint stores the palette, restore-on-open and history depth |
+| `bsh.tool.<id>.v1` | preference | Per-tool settings (`paint`, `excel`, `glb`, `ifc`, `toolbar`, `display`). Excel stores its chosen columns in `properties`, the column format per property in `columnFormats`, the colour toggles, the group-by, the empty label and the confirmation threshold; paint stores the palette, restore-on-open and history depth; toolbar stores the profile and its custom hidden-control list; display stores the light preset and the rendering toggles |
 
 To reset the layout, run `localStorage.removeItem('bsh.layout.v2')` or use Reset layout in the Panes menu or Settings > Defaults. In mock mode `window.__bshLayout` exposes the layout API for tests and `window.__bshMeasureRows()` returns the current adapter's cached leaf rows for `e2e/measure_rows.py`. Neither exists in production builds.
 

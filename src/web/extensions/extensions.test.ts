@@ -19,6 +19,7 @@ import {
   seriesColors,
   shapeChartData,
 } from './dashboardData.js';
+import { sanitizeDashboardView } from './dashboardPresets.js';
 import {
   buildExportRows,
   buildExportSheets,
@@ -467,6 +468,16 @@ describe('dashboard data', () => {
     expect(
       availableProperties(rows, ['Category', 'Level', 'Assembly Code']),
     ).toEqual(['Category', 'Assembly Code']);
+  });
+
+  it('keeps a saved split-by-model flag and drops a false one', () => {
+    expect(sanitizeDashboardView({ splitByModel: true })).toMatchObject({
+      splitByModel: true,
+    });
+    expect(sanitizeDashboardView({ splitByModel: false })).not.toHaveProperty(
+      'splitByModel',
+    );
+    expect(sanitizeDashboardView({})).not.toHaveProperty('splitByModel');
   });
 
   describe('series colours', () => {

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { isMockViewer } from './createViewerAdapter.js';
+import { installFakeFederation } from './fakeFederatedViewer.js';
 import { MockViewerAdapter } from './MockViewerAdapter.js';
 import {
   buildMockElements,
@@ -7,8 +8,238 @@ import {
   LARGE_FIXTURE_ROWS,
   levelName,
 } from './mockModel.js';
-import { apiForRegion, detectRegion } from './region.js';
+import { RealViewerAdapter } from './RealViewerAdapter.js';
+import { apiForRegion, detectRegion, resetRegion } from './region.js';
 import type { CameraState, ViewerAdapter } from './ViewerAdapter.js';
+
+interface Harness {
+  create(host: HTMLElement): ViewerAdapter;
+}
+
+const HARNESSES: [string, () => Harness][] = [
+  ['mock', () => ({ create: (host) => new MockViewerAdapter(host) })],
+  [
+    'real (fake viewer)',
+    () => {
+      resetRegion();
+      installFakeFederation();
+      return { create: (host) => new RealViewerAdapter(host) };
+    },
+  ],
+];
+
+describe.each(HARNESSES)(
+  'ViewerAdapter shared contract (%s)',
+  (_name, make) => {
+    let shared: HTMLElement;
+    let subject: ViewerAdapter;
+
+    async function ready(urns: string[] = ['urn-a']): Promise<ViewerAdapter> {
+      const harness = make();
+      shared = document.createElement('div');
+      document.body.appendChild(shared);
+      subject = harness.create(shared);
+      await subject.loadModels(urns.map((urn) => ({ urn })));
+      return subject;
+    }
+
+    async function firstItems(count: number) {
+      const rows = await subject.getLeafProperties(['Name']);
+      const modelId = subject.getModels()[0]?.id ?? '';
+      return rows.slice(0, count).map((row) => ({ modelId, dbId: row.dbId }));
+    }
+
+    afterEach(() => {
+      subject?.destroy();
+      shared?.remove();
+    });
+
+    it('rejects an empty urn', async () => {
+      const harness = make();
+      shared = document.createElement('div');
+      subject = harness.create(shared);
+      await expect(subject.load('')).rejects.toThrow();
+    });
+
+    it('selects, notifies and stops notifying after unsubscribe', async () => {
+      await ready();
+      const [a, b] = await firstItems(2);
+      const seen: number[][] = [];
+      const off = subject.onSelectionChange((items) =>
+        seen.push(items.map((item) => item.dbId)),
+      );
+      subject.selectModelIds(a ? [a] : []);
+      expect(subject.getModelSelection().map((item) => item.dbId)).toEqual([
+        a?.dbId,
+      ]);
+      expect(seen.at(-1)).toEqual([a?.dbId]);
+      subject.selectModelIds([a, b].flatMap((item) => (item ? [item] : [])));
+      expect(
+        subject
+          .getModelSelection()
+          .map((item) => item.dbId)
+          .sort(),
+      ).toEqual([a?.dbId, b?.dbId].sort());
+      subject.clearSelection();
+      expect(subject.getModelSelection()).toEqual([]);
+      off();
+      const count = seen.length;
+      subject.selectModelIds(a ? [a] : []);
+      expect(seen).toHaveLength(count);
+    });
+
+    it('isolates, hides and shows elements', async () => {
+      await ready();
+      const items = await firstItems(2);
+      const total = (await subject.getVisible()).length;
+      expect(total).toBeGreaterThanOrEqual(2);
+      subject.isolateModelIds(items);
+      expect(subject.getIsolated()).toHaveLength(2);
+      expect(await subject.getVisible()).toHaveLength(2);
+      subject.isolateModelIds([]);
+      expect(subject.getIsolated()).toEqual([]);
+      expect(await subject.getVisible()).toHaveLength(total);
+      subject.hideModelIds(items);
+      expect(await subject.getVisible()).toHaveLength(total - 2);
+      subject.showModelIds(items.slice(0, 1));
+      expect(await subject.getVisible()).toHaveLength(total - 1);
+      subject.showAll();
+      expect(await subject.getVisible()).toHaveLength(total);
+    });
+
+    it('returns deterministic leaf properties filtered by name', async () => {
+      await ready();
+      const first = await subject.getLeafProperties(['Name', 'Category']);
+      const second = await subject.getLeafProperties(['Name', 'Category']);
+      expect(first).toEqual(second);
+      expect(first.length).toBeGreaterThan(0);
+      expect(Object.keys(first[0]?.properties ?? {}).sort()).toEqual([
+        'Category',
+        'Name',
+      ]);
+    });
+
+    it('reports read progress and rejects once aborted', async () => {
+      await ready();
+      const seen: { loaded: number; total: number; partial: boolean }[] = [];
+      const rows = await subject.getLeafProperties(['Name'], undefined, {
+        onProgress: (progress) => seen.push(progress),
+      });
+      expect(seen.at(-1)).toMatchObject({
+        loaded: rows.length,
+        total: rows.length,
+        partial: false,
+      });
+      const controller = new AbortController();
+      controller.abort();
+      await expect(
+        subject.getLeafProperties(['Name'], undefined, {
+          signal: controller.signal,
+        }),
+      ).rejects.toMatchObject({ name: 'AbortError' });
+      await expect(
+        subject.discoverProperties(undefined, { signal: controller.signal }),
+      ).rejects.toMatchObject({ name: 'AbortError' });
+    });
+
+    it('reports the rows of each chunk while the read runs', async () => {
+      await ready();
+      const sizes: number[] = [];
+      const rows = await subject.getLeafProperties(['Category'], undefined, {
+        onRows: (part) => sizes.push(part.length),
+      });
+      expect(sizes.length).toBeGreaterThan(0);
+      expect(sizes.reduce((sum, size) => sum + size, 0)).toBe(rows.length);
+    });
+
+    it('keeps order and nulls when reading several elements', async () => {
+      await ready();
+      const [a, b] = await firstItems(2);
+      const modelId = a?.modelId ?? '';
+      const read = await subject.getElementsProperties([
+        b ?? { modelId, dbId: 0 },
+        { modelId, dbId: -1 },
+        { modelId: 'nope', dbId: 1 },
+        a ?? { modelId, dbId: 0 },
+      ]);
+      expect(read).toHaveLength(4);
+      expect(read[0]).not.toBeNull();
+      expect(read[1]).toBeNull();
+      expect(read[2]).toBeNull();
+      expect(read[3]).not.toBeNull();
+      expect(await subject.getElementsProperties([])).toEqual([]);
+    });
+
+    it('answers unknown model ids with empty results', async () => {
+      await ready();
+      expect(await subject.getExternalIdMap?.('missing-model')).toEqual({});
+      expect(await subject.listViews('gone')).toEqual([]);
+    });
+
+    it('clears rows on unload and tolerates a second destroy', async () => {
+      await ready();
+      subject.unload();
+      expect(await subject.getLeafProperties(['Name'])).toEqual([]);
+      subject.destroy();
+      subject.destroy();
+    });
+
+    it('reads and sets the camera', async () => {
+      await ready();
+      const camera: CameraState = {
+        eye: [1, 2, 3],
+        target: [0, 0, 0],
+        up: [0, 1, 0],
+        ortho: true,
+      };
+      subject.setCamera(camera);
+      expect(subject.getCamera()).toMatchObject(camera);
+    });
+
+    it('captures and restores hidden, isolated and selected nodes', async () => {
+      await ready();
+      const [a, b] = await firstItems(2);
+      const modelId = a?.modelId ?? '';
+      subject.isolateModelIds([a, b].flatMap((item) => (item ? [item] : [])));
+      subject.hideModelIds(b ? [b] : []);
+      subject.selectModelIds(a ? [a] : []);
+      const saved = subject.getState();
+      expect(JSON.parse(JSON.stringify(saved))).toEqual(saved);
+      expect(saved.models[modelId]).toEqual({
+        isolated: [a?.dbId, b?.dbId],
+        hidden: [b?.dbId],
+        selection: [a?.dbId],
+      });
+      subject.showAll();
+      subject.isolateModelIds([]);
+      subject.clearSelection();
+      await subject.restoreState(saved);
+      expect(subject.getState().models[modelId]).toEqual(saved.models[modelId]);
+    });
+
+    it('ignores garbage state', async () => {
+      await ready();
+      await expect(
+        subject.restoreState(
+          null as unknown as ReturnType<typeof subject.getState>,
+        ),
+      ).resolves.toEqual({ skippedModels: [], viewerFailed: false });
+      await expect(
+        subject.restoreState({ version: 9 } as unknown as ReturnType<
+          typeof subject.getState
+        >),
+      ).resolves.toEqual({ skippedModels: [], viewerFailed: false });
+    });
+
+    it('places the anchor first and reports others by distance', async () => {
+      await ready(['urn-a', 'urn-b']);
+      const info = subject.getPlacementInfo();
+      expect(info).toHaveLength(2);
+      expect(info.map((model) => model.anchor)).toEqual([true, false]);
+      expect(info[0]?.distanceMeters).toBe(0);
+    });
+  },
+);
 
 let host: HTMLElement;
 let adapter: MockViewerAdapter;
@@ -33,7 +264,7 @@ function elementNode(id: number): SVGElement {
   return node;
 }
 
-describe('ViewerAdapter contract (mock)', () => {
+describe('MockViewerAdapter specifics', () => {
   it('renders a few hundred elements and a toolbar', async () => {
     await setup();
     const count = host.querySelectorAll('[data-dbid]').length;
@@ -62,12 +293,6 @@ describe('ViewerAdapter contract (mock)', () => {
     expect(element?.dbId).toBeGreaterThan(0);
     expect(element?.parts.length).toBeGreaterThan(0);
     expect(element?.properties['Identity Data']?.Category).toBe('Revit Walls');
-  });
-
-  it('rejects an empty urn', async () => {
-    host = document.createElement('div');
-    adapter = new MockViewerAdapter(host);
-    await expect(adapter.load('')).rejects.toThrow();
   });
 
   it('fires onSelectionChange when an element is clicked', async () => {
@@ -105,15 +330,6 @@ describe('ViewerAdapter contract (mock)', () => {
       .querySelector('svg')
       ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     expect(adapter.getModelSelection().map((item) => item.dbId)).toEqual([]);
-  });
-
-  it('stops notifying after unsubscribe', async () => {
-    await setup();
-    const cb = vi.fn();
-    const off = adapter.onSelectionChange(cb);
-    off();
-    adapter.selectIds([buildMockElements()[0]?.dbId ?? 0]);
-    expect(cb).not.toHaveBeenCalled();
   });
 
   it('applies and clears theming colours', async () => {
@@ -315,6 +531,115 @@ describe('ViewerAdapter contract (mock)', () => {
     expect(typeof typed.load).toBe('function');
     expect(typeof typed.setGhosting).toBe('function');
   });
+
+  it('lists, notifies and clears measurements', async () => {
+    await setup();
+    const seen = vi.fn();
+    const off = adapter.onMeasurementsChange(seen);
+    expect(adapter.listMeasurements()).toEqual([]);
+    expect(await adapter.startMeasure('distance')).toBe(true);
+    expect(adapter.listMeasurements()).toEqual([
+      { id: '1', type: 'distance', value: '3.50 m' },
+    ]);
+    adapter.clearMeasurements();
+    expect(adapter.listMeasurements()).toEqual([]);
+    expect(seen).toHaveBeenCalledTimes(2);
+    off();
+    await adapter.startMeasure('area');
+    expect(seen).toHaveBeenCalledTimes(2);
+  });
+
+  it('drops measurements on unload and destroy', async () => {
+    await setup();
+    await adapter.startMeasure('angle');
+    adapter.unload();
+    expect(adapter.listMeasurements()).toEqual([]);
+    await adapter.load('dXJuOmFkc2s');
+    await adapter.startMeasure('area');
+    adapter.destroy();
+    expect(adapter.listMeasurements()).toEqual([]);
+  });
+
+  it('applies and records display settings', async () => {
+    await setup();
+    const settings = {
+      lightPreset: 2,
+      groundShadow: false,
+      groundReflection: true,
+      edges: true,
+      ambientOcclusion: false,
+      antialiasing: true,
+      performance: true,
+    };
+    expect(adapter.applyDisplaySettings(settings)).toEqual([]);
+    const root = host.querySelector<HTMLElement>('.bsh-mock');
+    expect(JSON.parse(root?.dataset.display ?? 'null')).toEqual(settings);
+  });
+
+  it('hides native controls by id and reports unknown ids', async () => {
+    await setup();
+    expect(
+      adapter.setHiddenControls(['toolbar-orbitTools', 'toolbar-nope']),
+    ).toEqual(['toolbar-nope']);
+    expect(
+      host.querySelector<HTMLElement>('[data-native-id="toolbar-orbitTools"]')
+        ?.hidden,
+    ).toBe(true);
+    adapter.setHiddenControls([]);
+    expect(
+      host.querySelector<HTMLElement>('[data-native-id="toolbar-orbitTools"]')
+        ?.hidden,
+    ).toBe(false);
+    expect(
+      host.querySelector<HTMLElement>('[data-native-id="toolbar-orbitTools"]')
+        ?.style.display,
+    ).toBe('');
+  });
+
+  it('keeps hidden controls hidden after a later model load', async () => {
+    await setup();
+    adapter.setHiddenControls(['toolbar-measurementSubmenuTool']);
+    await adapter.addModel({ urn: 'urn-second' });
+    expect(
+      host.querySelector<HTMLElement>(
+        '[data-native-id="toolbar-measurementSubmenuTool"]',
+      )?.hidden,
+    ).toBe(true);
+  });
+
+  it('lists two views and follows the chosen one', async () => {
+    await setup();
+    const modelId = adapter.getModels()[0]?.id ?? '';
+    expect(await adapter.listViews(modelId)).toEqual([
+      { id: 'mock-3d', name: '{3D}', role: '3d', current: true },
+      { id: 'mock-a101', name: 'A101 - Plans', role: '2d', current: false },
+    ]);
+    await adapter.loadModels([{ urn: 'dXJuOmFkc2s', view: 'mock-a101' }]);
+    expect(adapter.getModels()[0]?.view).toBe('mock-a101');
+    expect(await adapter.listViews(modelId)).toEqual([
+      { id: 'mock-3d', name: '{3D}', role: '3d', current: false },
+      { id: 'mock-a101', name: 'A101 - Plans', role: '2d', current: true },
+    ]);
+    expect(host.querySelector<HTMLElement>('.bsh-mock')?.dataset.view).toBe(
+      'mock-a101',
+    );
+    expect(await adapter.listViews('gone')).toEqual([]);
+  });
+
+  it('reports placement info with the anchor distance in metres', async () => {
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    adapter = new MockViewerAdapter(host);
+    await adapter.loadModels([{ urn: 'urn-a' }, { urn: 'urn-far' }]);
+    const info = adapter.getPlacementInfo();
+    expect(info.map((model) => model.anchor)).toEqual([true, false]);
+    expect(info[0]?.unit).toBe('m');
+    expect(info[0]?.sharedCoordinates).toBeNull();
+    expect(info[0]?.distanceMeters).toBe(0);
+    expect(info[1]?.distanceMeters ?? 0).toBeGreaterThan(0);
+    adapter.setModelOffsets(adapter.getTogetherOffsets());
+    expect(adapter.getPlacementInfo()[1]?.distanceMeters).toBeCloseTo(0, 5);
+  });
 });
 
 describe('mock bulk fixture rows', () => {
@@ -453,18 +778,6 @@ describe('mock fitting, screenshot and state', () => {
     );
   });
 
-  it('reads and sets the camera', async () => {
-    await setup();
-    const camera: CameraState = {
-      eye: [1, 2, 3],
-      target: [0, 0, 0],
-      up: [0, 1, 0],
-      ortho: true,
-    };
-    adapter.setCamera(camera);
-    expect(adapter.getCamera()).toEqual(camera);
-  });
-
   it('rejects a screenshot once the viewer is destroyed', async () => {
     await setup();
     adapter.destroy();
@@ -487,6 +800,7 @@ describe('mock fitting, screenshot and state', () => {
     });
     const saved = adapter.getState();
     expect(JSON.parse(JSON.stringify(saved))).toEqual(saved);
+    expect(saved.explode ?? 0).toBe(0);
     expect(saved.models[modelId]).toEqual({
       isolated: [a?.dbId, b?.dbId],
       hidden: [b?.dbId],
@@ -503,6 +817,10 @@ describe('mock fitting, screenshot and state', () => {
     await adapter.restoreState(saved);
     expect(adapter.getState()).toEqual(saved);
     expect(await adapter.getVisible()).toEqual([at(a)]);
+    await adapter.restoreState({ ...saved, explode: 0.5 });
+    expect(adapter.getState().explode).toBe(0.5);
+    await adapter.restoreState(saved);
+    expect(adapter.getState().explode).toBeUndefined();
   });
 
   it('skips unknown models and ids and ignores garbage', async () => {

@@ -1,4 +1,6 @@
 import { useId } from 'react';
+import type { PropertyRow } from '../../shared/types.js';
+import { formatModelCounts, modelCounts } from '../viewer/modelSeries.js';
 import {
   type BaseElementScope,
   type ElementScope,
@@ -58,12 +60,14 @@ export function ElementScopeSelect({
 
 export function elementScopeLabel(state: {
   elements: ElementScope;
-  rows: readonly unknown[];
+  rows: readonly PropertyRow[];
   total: number;
   pending: boolean;
 }): string {
   if (state.elements === 'all') return '';
   const name = scopeName(state.elements).toLowerCase();
   if (state.pending) return `Reading ${name} elements`;
-  return `Summarizing ${state.rows.length.toLocaleString('en-US')} ${name} of ${state.total.toLocaleString('en-US')} elements`;
+  const counts = modelCounts(state.rows);
+  const perModel = counts.length >= 2 ? ` (${formatModelCounts(counts)})` : '';
+  return `Summarizing ${state.rows.length.toLocaleString('en-US')} ${name} of ${state.total.toLocaleString('en-US')} elements${perModel}`;
 }

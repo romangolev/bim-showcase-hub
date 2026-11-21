@@ -81,6 +81,14 @@ describe('ModelSet', () => {
     expect(set.get('a')?.name).toBe('A');
   });
 
+  it('keeps the chosen view on the model info', () => {
+    const set = new ModelSet<string>();
+    set.add({ urn: 'a', name: 'A', view: 'g2' });
+    set.resolve('a', 'handle');
+    expect(set.get('a')?.view).toBe('g2');
+    expect(set.add({ urn: 'b' })).not.toHaveProperty('view');
+  });
+
   it('caps the set at six models', () => {
     expect(MAX_COMBINED_MODELS).toBe(6);
     const set = new ModelSet<string>();
@@ -274,11 +282,19 @@ const combined: PropertyRow[] = [
 describe('model scope', () => {
   it('offers All models plus every ready model when there are several', () => {
     expect(modelScopeOptions(models)).toEqual([
-      { id: ALL_MODELS, label: 'All models' },
+      { id: ALL_MODELS, label: 'All visible models' },
       { id: 'a', label: 'Arch' },
       { id: 's', label: 'Struct' },
     ]);
     expect(modelScopeOptions(models.slice(0, 1))).toEqual([]);
+  });
+
+  it('keeps the plain label while every ready model is visible', () => {
+    expect(
+      modelScopeOptions(
+        models.map((model) => ({ ...model, visible: true })),
+      )[0],
+    ).toEqual({ id: ALL_MODELS, label: 'All models' });
   });
 
   it('falls back to All models when the scoped model is gone', () => {

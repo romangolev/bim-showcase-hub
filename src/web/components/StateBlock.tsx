@@ -54,7 +54,6 @@ export function StateBlock({
         <div className="state-block__skeleton" aria-hidden="true">
           {Array.from({ length: rows }, (_, index) => (
             <span
-              // biome-ignore lint/suspicious/noArrayIndexKey: static placeholder rows
               key={index}
               className="state-block__bar"
               style={{ width: SKELETON_WIDTHS[index % SKELETON_WIDTHS.length] }}

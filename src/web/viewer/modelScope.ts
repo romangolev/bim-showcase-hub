@@ -3,6 +3,7 @@ import type { ModelInfo } from './modelSet.js';
 
 export const ALL_MODELS = 'all';
 export const ALL_MODELS_LABEL = 'All models';
+export const ALL_VISIBLE_MODELS_LABEL = 'All visible models';
 
 export type ModelScope = string;
 
@@ -17,7 +18,12 @@ export function modelScopeOptions(
   const ready = models.filter((model) => model.status === 'ready');
   if (ready.length < 2) return [];
   return [
-    { id: ALL_MODELS, label: ALL_MODELS_LABEL },
+    {
+      id: ALL_MODELS,
+      label: ready.some((model) => !model.visible)
+        ? ALL_VISIBLE_MODELS_LABEL
+        : ALL_MODELS_LABEL,
+    },
     ...ready.map((model) => ({ id: model.id, label: model.name })),
   ];
 }

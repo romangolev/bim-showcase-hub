@@ -1,4 +1,6 @@
 import { useId } from 'react';
+import { LAST_SESSION } from '../api/openModels.js';
+import { ShortcutEditor } from '../commands/ShortcutEditor.js';
 import type { ModalDefinition } from '../modal/types.js';
 import { THEME_PREFERENCES, type ThemePreference } from '../theme/theme.js';
 import { DefaultsSettings } from './DefaultsSettings.js';
@@ -53,6 +55,7 @@ export function SettingsBody() {
   const motionId = useId();
   const languageId = useId();
   const unitsId = useId();
+  const restoreId = useId();
   return (
     <div className="settings">
       <section
@@ -137,6 +140,7 @@ export function SettingsBody() {
           </span>
         </div>
       </section>
+      <ShortcutEditor />
       <section className="settings__section" aria-labelledby="settings-region">
         <h3 id="settings-region" className="settings__heading">
           Language and units
@@ -203,6 +207,24 @@ export function SettingsBody() {
             }
           />
           <span className="settings__hint">0 turns the notice off.</span>
+        </div>
+        <div className="settings__field">
+          <label htmlFor={restoreId} className="settings__check">
+            <input
+              id={restoreId}
+              type="checkbox"
+              checked={settings.restoreSession}
+              onChange={(event) => {
+                setSetting('restoreSession', event.target.checked);
+                if (!event.target.checked) LAST_SESSION.remove();
+              }}
+            />
+            Reopen my tabs after the browser restarts
+          </label>
+          <span className="settings__hint">
+            Restores the tabs from your last visit. Their view state is not
+            kept.
+          </span>
         </div>
       </section>
       <section

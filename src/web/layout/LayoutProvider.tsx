@@ -15,6 +15,7 @@ import { modelTabTitle } from '../api/modelTitles.js';
 import {
   claimModels,
   createOpenModelsStore,
+  LAST_SESSION,
   type ModelOwner,
   type OpenModelsState,
   type OpenModelsStore,
@@ -25,10 +26,12 @@ import { TopBar } from '../components/TopBar.js';
 import { TreeControlContext } from '../components/TreeControl.js';
 import { useMediaQuery } from '../components/useMediaQuery.js';
 import { ModelRouteSync } from '../routes/ModelRouteSync.js';
+import { readSettings } from '../settings/settings.js';
 import {
   BSH_KEYS,
   defineRecord,
   FORGET_EVENT,
+  getStorageAdapter,
   usePersisted,
 } from '../storage.js';
 import { currentAdapter } from '../viewer/activeAdapterStore.js';
@@ -53,9 +56,10 @@ import {
 import { shareLinkFor, shareParamIn } from './layoutShare.js';
 import {
   defaultModel,
+  LAYOUT_KEY,
   type LayoutModel,
-  readLayout,
-  writeLayout,
+  parseLayout,
+  serializeLayout,
 } from './layoutState.js';
 import { PaneActions } from './PaneMenu.js';
 import { LayoutMenu } from './PanesMenu.js';
@@ -68,6 +72,7 @@ import {
   withPaneTitles,
 } from './paneAppearance.js';
 import { createPaneLifecycle, type PaneLifecycle } from './paneLifecycle.js';
+import { modelPanelId } from './panelIds.js';
 import {
   definitionOf,
   FOLLOWERS,
@@ -76,7 +81,6 @@ import {
   paneKind,
   parsePanelId,
 } from './paneRegistry.js';
-import { modelPanelId } from './panes.js';
 import { StackedLayout } from './StackedLayout.js';
 import {
   sanitizeUserInstances,
@@ -134,17 +138,15 @@ const RESIZE_KEYS: Record<
   ArrowUp: (step) => ({ height: -step }),
 };
 
-function storage(): Storage | null {
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
-}
-
 function initialModel(): LayoutModel {
-  const store = storage();
-  return store ? readLayout(store) : defaultModel();
+  try {
+    return (
+      parseLayout(getStorageAdapter().get('local', LAYOUT_KEY)) ??
+      defaultModel()
+    );
+  } catch {
+    return defaultModel();
+  }
 }
 
 function focusTreeTarget() {
@@ -187,7 +189,16 @@ export function useOwnedModels(
   provided?: OpenModelsStore,
   onOwnerChange?: () => void,
 ): OpenModelsStore {
-  const [store] = useState(() => provided ?? createOpenModelsStore());
+  const [store] = useState(
+    () =>
+      provided ??
+      createOpenModelsStore(
+        undefined,
+        undefined,
+        undefined,
+        readSettings().restoreSession ? LAST_SESSION : null,
+      ),
+  );
   const claimed = useRef<string | null>(null);
   const change = useRef(onOwnerChange);
   change.current = onOwnerChange;
@@ -212,8 +223,9 @@ export function useDebouncedWrite(model: LayoutModel) {
     timer.current = undefined;
     const next = pending.current;
     pending.current = null;
-    const store = storage();
-    if (next && store) writeLayout(store, next);
+    if (next) {
+      getStorageAdapter().set('local', LAYOUT_KEY, serializeLayout(next));
+    }
   }, []);
   useEffect(() => {
     const drop = () => {
@@ -564,6 +576,13 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       resizing,
       closeTreeOverlay: lifecycle.closeTreeOverlay,
       floatNext: lifecycle.floatNext,
+      activeModel: models.active,
+      closeOthers: () => {
+        const active = modelStore.getState().active;
+        if (active) modelStore.closeOthers(active);
+      },
+      reopenClosed: () => modelStore.reopenClosed(),
+      canReopen: () => modelStore.canReopen(),
       paneTitle,
       workspaces: workspaceApi,
       notify: lifecycle.notify,
@@ -582,6 +601,8 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       resizing,
       paneTitle,
       workspaceApi,
+      models.active,
+      modelStore,
     ],
   );
 
@@ -662,6 +683,9 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       models: () => modelStore.getState(),
       activateModel: modelStore.activate,
       closeModel: modelStore.close,
+      closeOthers: api.closeOthers,
+      reopenClosed: api.reopenClosed,
+      canReopen: api.canReopen,
       workspaces: () => api.workspaces,
     };
     target.__bshMeasureRows = () => {

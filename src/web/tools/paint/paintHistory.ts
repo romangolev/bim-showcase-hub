@@ -4,13 +4,13 @@ import {
   type PaintBatch,
   resetPaint,
 } from '../../extensions/paintBrushes.js';
-import { defineRecordFamily } from '../../storage.js';
+import { BSH_PREFIXES, defineRecordFamily } from '../../storage.js';
 import type { ModelDbId, ModelInfo } from '../../viewer/modelSet.js';
 import type { Rgba, ViewerAdapter } from '../../viewer/ViewerAdapter.js';
 import { modelKey } from '../kernel/modelKey.js';
 
 export const PAINT_RECORD_FORMAT = 1;
-export const PAINT_KEY_PREFIX = 'bsh.paint.';
+export const PAINT_KEY_PREFIX = BSH_PREFIXES.paint;
 export const DEFAULT_HISTORY_DEPTH = 20;
 export const MIN_HISTORY_DEPTH = 1;
 export const MAX_HISTORY_DEPTH = 50;
@@ -79,7 +79,10 @@ export function clampHistoryDepth(value: unknown): number {
 }
 
 export function targetOf(model: ModelInfo): PaintTarget {
-  return { urn: model.urn || model.id, version: model.version ?? '' };
+  const version = model.view
+    ? `${model.version ?? ''}#${model.view}`
+    : (model.version ?? '');
+  return { urn: model.urn || model.id, version };
 }
 
 function emptyRecord(target: PaintTarget): PaintModelRecord {

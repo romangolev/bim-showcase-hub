@@ -31,6 +31,7 @@ import { type PersistedRecord, usePersisted } from '../storage.js';
 import { notify } from '../tasks/notifications.js';
 import { applyColoring } from '../viewer/modelColoring.js';
 import { ALL_MODELS } from '../viewer/modelScope.js';
+import { splitByModel } from '../viewer/modelSeries.js';
 import type { ModelDbId } from '../viewer/modelSet.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { ChartCanvas, type ChartKind, ChartTable } from './ChartCanvas.js';
@@ -173,28 +174,27 @@ export function DashboardPanel({
 
   const selected = options.includes(view.property) ? view.property : options[0];
 
-  const chart = useMemo(
-    () =>
-      usable && selected && !activePreset
-        ? buildChart(state.rows, {
-            property: selected,
-            aggregate: spec.aggregate,
-            measure: spec.measure,
-            topN: spec.topN,
-            otherBucket: spec.otherBucket,
-          })
-        : null,
-    [
-      usable,
-      state.rows,
-      selected,
-      activePreset,
-      spec.aggregate,
-      spec.measure,
-      spec.topN,
-      spec.otherBucket,
-    ],
-  );
+  const chart = useMemo(() => {
+    if (!usable || !selected || activePreset) return null;
+    const shaped = buildChart(state.rows, {
+      property: selected,
+      aggregate: spec.aggregate,
+      measure: spec.measure,
+      topN: spec.topN,
+      otherBucket: spec.otherBucket,
+    });
+    return view.splitByModel ? splitByModel(shaped, state.rows) : shaped;
+  }, [
+    usable,
+    state.rows,
+    selected,
+    activePreset,
+    spec.aggregate,
+    spec.measure,
+    spec.topN,
+    spec.otherBucket,
+    view.splitByModel,
+  ]);
 
   const [action] = usePersisted(PANE_SETTINGS.dashboard.action);
   const board = useMemo(
@@ -646,13 +646,22 @@ export function DashboardPanel({
                               {chart.unit ? ` (${chart.unit})` : ''}
                             </th>
                           ) : null}
+                          {chart.series?.map((series) => (
+                            <th
+                              key={series.modelId}
+                              scope="col"
+                              className="bsh-num"
+                            >
+                              {series.label}
+                            </th>
+                          ))}
                           <th scope="col" className="bsh-num">
                             Count
                           </th>
                         </tr>
                       </thead>
                       <tbody>
-                        {chart.data.map((d) => (
+                        {chart.data.map((d, index) => (
                           <tr key={d.label}>
                             <td>{d.label}</td>
                             {chart.aggregate && chart.aggregate !== 'count' ? (
@@ -664,6 +673,11 @@ export function DashboardPanel({
                                     })}
                               </td>
                             ) : null}
+                            {chart.series?.map((series) => (
+                              <td key={series.modelId} className="bsh-num">
+                                {series.counts[index] ?? 0}
+                              </td>
+                            ))}
                             <td className="bsh-num">{d.count}</td>
                           </tr>
                         ))}

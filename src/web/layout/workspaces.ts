@@ -1,6 +1,6 @@
 import { isRecord } from '../../shared/guards.js';
 import { BSH_KEYS, defineRecord } from '../storage.js';
-import type { LayoutStep } from './defaultLayout.js';
+import { DEFAULT_DISMISSED, type LayoutStep } from './defaultLayout.js';
 import {
   LAYOUT_VERSION,
   type LayoutModel,
@@ -70,7 +70,7 @@ export const PRESETS: readonly WorkspacePreset[] = [
       },
     ],
     collapsed: ['dashboard'],
-    dismissed: [],
+    dismissed: [...DEFAULT_DISMISSED],
   },
   {
     id: 'data',
@@ -100,7 +100,7 @@ export const PRESETS: readonly WorkspacePreset[] = [
       },
     ],
     collapsed: [],
-    dismissed: [],
+    dismissed: [...DEFAULT_DISMISSED],
   },
   {
     id: 'present',
@@ -108,7 +108,7 @@ export const PRESETS: readonly WorkspacePreset[] = [
     description: 'The viewer alone, with the present mode controls.',
     steps: null,
     collapsed: [],
-    dismissed: [],
+    dismissed: [...DEFAULT_DISMISSED],
   },
   {
     id: 'coordination',

@@ -540,6 +540,9 @@ describe('Documents first', () => {
     );
     await waitFor(() =>
       expect(parseLayout(storage.getItem(LAYOUT_KEY))?.dismissed).toEqual([
+        'measurements',
+        'views',
+        'versions',
         'summary',
       ]),
     );
@@ -558,14 +561,22 @@ describe('Documents first', () => {
     act(() => handle().togglePane('summary'));
     await screen.findByRole('tab', { name: 'Model summary' });
     await waitFor(() =>
-      expect(parseLayout(storage.getItem(LAYOUT_KEY))?.dismissed).toEqual([]),
+      expect(parseLayout(storage.getItem(LAYOUT_KEY))?.dismissed).toEqual([
+        'measurements',
+        'views',
+        'versions',
+      ]),
     );
     act(() => handle().togglePane('summary'));
     await waitFor(() => expect(handle().openPanes()).not.toContain('summary'));
     act(() => handle().resetLayout());
     await waitFor(() => expect(handle().openPanes()).toContain('summary'));
     await waitFor(() =>
-      expect(parseLayout(storage.getItem(LAYOUT_KEY))?.dismissed).toEqual([]),
+      expect(parseLayout(storage.getItem(LAYOUT_KEY))?.dismissed).toEqual([
+        'measurements',
+        'views',
+        'versions',
+      ]),
     );
   });
 

@@ -4,12 +4,14 @@ import type { IconName } from '../components/icons.js';
 import { requestDeepSearch } from '../components/tree/deepSearchSignal.js';
 import { currentAdapter } from '../viewer/activeAdapterStore.js';
 import { clearColoring } from '../viewer/modelColoring.js';
+import { federationCommands } from '../viewer/savedFederations.js';
 import { PANEL_SEPARATOR, type PanelId } from './panelIds.js';
 import {
   ChartInstancePane,
   ColorsPane,
   DashboardPane,
   ExportPane,
+  MeasurementsPane,
   ModelPaneBody,
   ModelsPane,
   PropertiesInstancePane,
@@ -18,6 +20,7 @@ import {
   SummaryPane,
   TreePane,
   VersionsPane,
+  ViewsPane,
 } from './panes.js';
 
 export type PaneId =
@@ -29,6 +32,8 @@ export type PaneId =
   | 'versions'
   | 'colors'
   | 'export'
+  | 'measurements'
+  | 'views'
   | 'search'
   | 'chart'
   | 'modelSummary'
@@ -74,7 +79,6 @@ export interface PaneDefinition {
   closable: boolean;
   requires: 'viewer' | 'none';
   opensWithModel?: boolean;
-  startsOpen?: boolean;
   instances?: PaneInstances;
   commands?: (ctx: PaneCommandContext) => readonly Command[];
 }
@@ -183,6 +187,34 @@ export const PANES: readonly PaneDefinition[] = [
     defaultPlacement: { kind: 'tab', reference: 'tree' },
     closable: true,
     requires: 'viewer',
+    commands: () => federationCommands(),
+  },
+  {
+    id: 'measurements',
+    title: 'Measurements',
+    description: 'Distances, angles and areas measured in the active viewer.',
+    category: 'Viewer',
+    keywords: 'measure distance angle area length dimension',
+    icon: 'table',
+    component: MeasurementsPane,
+    minSize: { width: 240, height: 160 },
+    defaultPlacement: { kind: 'tab', reference: 'models' },
+    closable: true,
+    requires: 'viewer',
+  },
+  {
+    id: 'views',
+    title: 'Sheets and views',
+    description:
+      'Sheets and 3D views of the active model, with favorites and a start view.',
+    category: 'Viewer',
+    keywords: 'sheets views plans levels 3d 2d start favorite',
+    icon: 'model',
+    component: ViewsPane,
+    minSize: { width: 240, height: 160 },
+    defaultPlacement: { kind: 'tab', reference: 'models' },
+    closable: true,
+    requires: 'viewer',
   },
   {
     id: 'versions',
@@ -197,7 +229,6 @@ export const PANES: readonly PaneDefinition[] = [
     defaultPlacement: { kind: 'tab', reference: 'tree' },
     closable: true,
     requires: 'none',
-    startsOpen: false,
   },
   {
     id: 'colors',

@@ -1,5 +1,6 @@
 import { isRecord } from '../../shared/guards.js';
 import { BSH_KEYS } from '../storage.js';
+import { DEFAULT_DISMISSED } from './defaultLayout.js';
 import {
   hasPlainPanel,
   isFollower,
@@ -81,7 +82,7 @@ export function defaultModel(): LayoutModel {
     dock: null,
     collapsed: ['dashboard'],
     treeWidth: TREE_WIDTH_DEFAULT,
-    dismissed: [],
+    dismissed: [...DEFAULT_DISMISSED],
     lastViewerArrangement: null,
   };
 }

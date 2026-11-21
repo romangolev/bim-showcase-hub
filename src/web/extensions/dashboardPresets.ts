@@ -92,6 +92,7 @@ export interface DashboardView extends Partial<DashboardChartSpec> {
   pngLegend: boolean;
   scope?: string;
   elements?: ElementScope;
+  splitByModel?: boolean;
 }
 
 export const DEFAULT_DASHBOARD_VIEW: DashboardView = {
@@ -171,6 +172,7 @@ export function sanitizeDashboardView(raw: unknown): DashboardView {
     ...(sanitizeElementScope(source.elements) !== 'all'
       ? { elements: sanitizeElementScope(source.elements) }
       : {}),
+    ...(flag(source.splitByModel, false) ? { splitByModel: true } : {}),
   };
 }
 

@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { defaultSteps, placementFor } from './defaultLayout.js';
-import { paneById } from './paneRegistry.js';
+import {
+  DEFAULT_DISMISSED,
+  defaultSteps,
+  placementFor,
+} from './defaultLayout.js';
 
 describe('default layout', () => {
   it('places the viewer first, panes beside it next and edges last', () => {
@@ -35,14 +38,16 @@ describe('default layout', () => {
     expect(steps.models).toEqual({ kind: 'tab', reference: 'tree' });
   });
 
-  it('leaves panes marked startsOpen false out of the default layout', () => {
-    expect(paneById('versions').startsOpen).toBe(false);
-    expect(defaultSteps(320).map((step) => step.id)).not.toContain('versions');
-  });
-
   it('uses the imported tree width', () => {
     const tree = defaultSteps(400).find((step) => step.id === 'tree');
     expect(tree?.placement).toMatchObject({ size: 400 });
+  });
+
+  it('starts the optional viewer panes closed', () => {
+    expect(DEFAULT_DISMISSED).toEqual(['measurements', 'views', 'versions']);
+    expect(defaultSteps(320).map((step) => step.id)).toEqual(
+      expect.not.arrayContaining(['measurements', 'views', 'versions']),
+    );
   });
 
   it('falls back to the dock edge when the reference pane is closed', () => {

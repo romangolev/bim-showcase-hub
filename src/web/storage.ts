@@ -9,11 +9,13 @@ export const BSH_KEYS = {
   personal: {
     layout: 'bsh.layout.v2',
     openModels: 'bsh.models.open',
+    lastSession: 'bsh.models.session.v1',
     modelOwner: 'bsh.models.owner',
     recentModels: 'bsh.models.recent',
     pinned: 'bsh.docs.pinned',
     hiddenModels: 'bsh.models.hidden',
     modelTints: 'bsh.models.tints.v1',
+    modelViews: 'bsh.models.views.v1',
     hubHint: 'bsh.hint.hubs.dismissed.v1',
     summaryView: 'bsh.summary.view.v1',
     summaryProperties: 'bsh.summary.properties.v1',
@@ -39,12 +41,22 @@ export const BSH_KEYS = {
   },
 } as const;
 
+export const BSH_PREFIXES = {
+  pane: 'bsh.pane.',
+  paint: 'bsh.paint.',
+  tool: 'bsh.tool.',
+  models: 'bsh.models.',
+  summary: 'bsh.summary.',
+  dashboard: 'bsh.dashboard.',
+  hint: 'bsh.hint.',
+} as const;
+
 export const BSH_PERSONAL_PREFIXES: readonly string[] = [
-  'bsh.pane.',
-  'bsh.paint.',
+  BSH_PREFIXES.pane,
+  BSH_PREFIXES.paint,
 ];
 
-export const BSH_PREFERENCE_PREFIXES: readonly string[] = ['bsh.tool.'];
+export const BSH_PREFERENCE_PREFIXES: readonly string[] = [BSH_PREFIXES.tool];
 
 export const FORGET_EVENT = 'bsh:forget';
 

@@ -9,6 +9,7 @@ function layout(over: Partial<LayoutApi> = {}): LayoutApi {
     presenting: false,
     canAddInstance: true,
     canPresent: true,
+    activeModel: 'u1',
     isOpen: (id: string) => id === 'summary',
     togglePane: vi.fn(),
     addInstance: vi.fn(),
@@ -16,6 +17,9 @@ function layout(over: Partial<LayoutApi> = {}): LayoutApi {
     setLocked: vi.fn(),
     resetLayout: vi.fn(),
     focusPane: vi.fn(),
+    closeOthers: vi.fn(),
+    reopenClosed: vi.fn(() => null),
+    canReopen: () => false,
     workspaces: {
       openDialog: vi.fn(),
       download: vi.fn(),
@@ -112,5 +116,34 @@ describe('layoutCommands', () => {
         (c) => c.id === 'pane.new.properties',
       )?.disabled,
     ).toBe('Open a model first');
+  });
+
+  it('reopens closed tabs and closes the other tabs from the palette', () => {
+    const api = layout({
+      activeModel: 'u1',
+      canReopen: () => true,
+      reopenClosed: vi.fn(() => 'u2'),
+    });
+    const list = layoutCommands(api);
+    const reopen = list.find((c) => c.id === 'tabs.reopen');
+    expect(reopen?.group).toBe('Tabs');
+    expect(reopen?.disabled).toBeUndefined();
+    reopen?.run(host);
+    const closeOthers = list.find((c) => c.id === 'tabs.closeOthers');
+    expect(closeOthers?.group).toBe('Tabs');
+    closeOthers?.run(host);
+    expect(api.reopenClosed).toHaveBeenCalled();
+    expect(api.closeOthers).toHaveBeenCalled();
+  });
+
+  it('says why there is nothing to reopen or close', () => {
+    const list = layoutCommands(layout({ canReopen: () => false }));
+    expect(list.find((c) => c.id === 'tabs.reopen')?.disabled).toBe(
+      'No closed tabs',
+    );
+    const idle = layoutCommands(layout({ activeModel: null }));
+    expect(idle.find((c) => c.id === 'tabs.closeOthers')?.disabled).toBe(
+      'Open a model first',
+    );
   });
 });
