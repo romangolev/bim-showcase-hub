@@ -1,5 +1,6 @@
 import { composeTitle } from '../components/useDocumentTitle.js';
 import type { PaneTitle } from '../layout/layoutContext.js';
+import type { Language } from '../settings/settings.js';
 import { farApartMessage, type ModelMeta } from '../viewer/modelSet.js';
 import { describeModel, type ModelContext, withUrns } from './modelContext.js';
 import { recallModel } from './modelStore.js';
@@ -39,11 +40,11 @@ export function modelTabTitle(
   urn: string,
   context: ModelContext,
   recall: (urn: string) => ModelContext | null = recallModel,
-  spread?: number,
+  spread?: { distanceMeters: number; language: Language },
 ): PaneTitle {
   const title = baseTabTitle(urn, context, recall);
   if (spread === undefined) return title;
-  const warning = farApartMessage({ distanceMeters: spread });
+  const warning = farApartMessage(spread, spread.language);
   return { ...title, tooltip: `${title.tooltip}\n${warning}` };
 }
 

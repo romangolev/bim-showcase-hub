@@ -203,12 +203,10 @@ describe('positions of a combined tab', () => {
   });
 
   it('adds the far apart warning to the tab tooltip', () => {
-    const title = modelTabTitle(
-      'a',
-      { file: 'A.rvt', with: 'b' },
-      undefined,
-      423_672,
-    );
+    const title = modelTabTitle('a', { file: 'A.rvt', with: 'b' }, undefined, {
+      distanceMeters: 423_672,
+      language: 'en',
+    });
     expect(title.tooltip).toContain(
       'Some models are far apart in model space (about 424 km).',
     );

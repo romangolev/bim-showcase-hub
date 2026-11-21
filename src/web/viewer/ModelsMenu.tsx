@@ -1,6 +1,7 @@
 import { MAX_COMBINED_MODELS } from '../../shared/combined.js';
 import { Icon } from '../components/icons.js';
 import { Menu, type MenuEntry } from '../components/Menu.js';
+import { useSettings } from '../settings/SettingsContext.js';
 import { CostMeter, partsDetail } from './CostMeter.js';
 import { explainFailure } from './failureExplainer.js';
 import {
@@ -114,6 +115,7 @@ export function modelsMenuEntries({
 }
 
 export function ModelsMenu(props: ModelsMenuProps) {
+  const { language } = useSettings().settings;
   const failed = props.models.filter((model) => model.status === 'error');
   const label = `Models in this viewer (${props.models.length})`;
   const parts = partsDetail(props.adapter ?? null, props.models);
@@ -142,7 +144,7 @@ export function ModelsMenu(props: ModelsMenuProps) {
       {props.spread?.farApart ? (
         <div className="bsh-viewer-models__far" role="status">
           <p className="bsh-viewer-models__far-text">
-            {farApartMessage(props.spread)}
+            {farApartMessage(props.spread, language)}
           </p>
           <p className="bsh-viewer-models__far-note">{VIEW_ONLY_NOTE}</p>
           {props.together && props.onRestorePositions ? (

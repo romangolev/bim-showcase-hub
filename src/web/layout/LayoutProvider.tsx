@@ -32,7 +32,8 @@ import { useMediaQuery } from '../components/useMediaQuery.js';
 import { useT } from '../i18n/i18n.js';
 import { resetHints } from '../onboarding/hints.js';
 import { ModelRouteSync } from '../routes/ModelRouteSync.js';
-import { readSettings } from '../settings/settings.js';
+import { useSettings } from '../settings/SettingsContext.js';
+import { type Language, readSettings } from '../settings/settings.js';
 import {
   BSH_KEYS,
   defineRecord,
@@ -167,10 +168,15 @@ function focusTreeTarget() {
   });
 }
 
-function titlesFor(models: OpenModelsState): PaneTitles {
+function titlesFor(models: OpenModelsState, language: Language): PaneTitles {
   const titles: Record<PanelId, PaneTitle> = {};
   for (const { urn, context, spread } of models.models) {
-    titles[modelPanelId(urn)] = modelTabTitle(urn, context, undefined, spread);
+    titles[modelPanelId(urn)] = modelTabTitle(
+      urn,
+      context,
+      undefined,
+      spread === undefined ? undefined : { distanceMeters: spread, language },
+    );
   }
   const active = models.active ? titles[modelPanelId(models.active)] : null;
   if (active) {
@@ -272,6 +278,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
   const ownerId = user?.id;
   const ownerName = user?.name ?? '';
   const t = useT();
+  const { language } = useSettings().settings;
   const lifecycleRef = useRef<PaneLifecycle | null>(null);
   const modelStore = useOwnedModels(
     ownerName ? { id: ownerId, name: ownerName } : null,
@@ -342,10 +349,10 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
   const titles = useMemo(
     () =>
       withPaneTitles(
-        { ...titlesFor(models), ...userInstanceTitles(state.user) },
+        { ...titlesFor(models, language), ...userInstanceTitles(state.user) },
         appearances,
       ),
-    [models, state.user, appearances],
+    [models, state.user, appearances, language],
   );
   const tags = useMemo(() => paneTags(appearances), [appearances]);
   titlesRef.current = titles;
