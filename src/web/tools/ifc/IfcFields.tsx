@@ -70,6 +70,7 @@ function OverrideEditor({
   overrides: Record<string, string>;
   onChange: (next: Record<string, string>) => void;
 }) {
+  const headingId = useId();
   const categoryId = useId();
   const classId = useId();
   const [category, setCategory] = useState('');
@@ -81,7 +82,13 @@ function OverrideEditor({
     setCategory('');
   };
   return (
-    <div className="settings__overrides">
+    <section className="settings__section" aria-labelledby={headingId}>
+      <h3 id={headingId} className="settings__heading">
+        Class overrides
+      </h3>
+      <p className="settings__hint">
+        Export every element of a category as another IFC class.
+      </p>
       {Object.keys(overrides).length > 0 ? (
         <ul className="settings__override-list">
           {Object.entries(overrides).map(([name, target]) => (
@@ -131,7 +138,7 @@ function OverrideEditor({
           Add override
         </button>
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -151,45 +158,47 @@ export function IfcFields() {
     setIfc((current) => ({ ...current, ...patch }));
   const unitId = useId();
   return (
-    <section className="settings__section" aria-labelledby="settings-ifc">
-      <h3 id="settings-ifc" className="settings__heading">
-        IFC file
-      </h3>
-      {TEXT_FIELDS.map(({ key, label }) => (
-        <TextField
-          key={key}
-          label={label}
-          value={ifc[key]}
-          onCommit={(value) => update({ [key]: value })}
+    <>
+      <section className="settings__section" aria-labelledby="settings-ifc">
+        <h3 id="settings-ifc" className="settings__heading">
+          IFC file
+        </h3>
+        {TEXT_FIELDS.map(({ key, label }) => (
+          <TextField
+            key={key}
+            label={label}
+            value={ifc[key]}
+            onCommit={(value) => update({ [key]: value })}
+          />
+        ))}
+        <div className="settings__field">
+          <label htmlFor={unitId}>Length unit</label>
+          <select
+            id={unitId}
+            value={ifc.lengthUnit}
+            onChange={(event) =>
+              update({ lengthUnit: event.target.value === 'mm' ? 'mm' : 'm' })
+            }
+          >
+            <option value="m">Metres</option>
+            <option value="mm">Millimetres</option>
+          </select>
+        </div>
+        <ListField
+          label="Include property groups"
+          values={ifc.psetInclude}
+          onCommit={(values) => update({ psetInclude: values })}
         />
-      ))}
-      <div className="settings__field">
-        <label htmlFor={unitId}>Length unit</label>
-        <select
-          id={unitId}
-          value={ifc.lengthUnit}
-          onChange={(event) =>
-            update({ lengthUnit: event.target.value === 'mm' ? 'mm' : 'm' })
-          }
-        >
-          <option value="m">Metres</option>
-          <option value="mm">Millimetres</option>
-        </select>
-      </div>
-      <ListField
-        label="Include property groups"
-        values={ifc.psetInclude}
-        onCommit={(values) => update({ psetInclude: values })}
-      />
-      <ListField
-        label="Exclude property groups"
-        values={ifc.psetExclude}
-        onCommit={(values) => update({ psetExclude: values })}
-      />
+        <ListField
+          label="Exclude property groups"
+          values={ifc.psetExclude}
+          onCommit={(values) => update({ psetExclude: values })}
+        />
+      </section>
       <OverrideEditor
         overrides={ifc.classOverrides}
         onChange={(next) => update({ classOverrides: next })}
       />
-    </section>
+    </>
   );
 }
