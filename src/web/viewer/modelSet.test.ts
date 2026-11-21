@@ -367,5 +367,6 @@ describe('model spread', () => {
       'Some models are far apart in model space (about 424 km). They are shown at their real positions.',
     );
     expect(formatKm(2_500)).toBe('2.5');
+    expect(formatKm(1_040)).toBe('1.0');
   });
 });

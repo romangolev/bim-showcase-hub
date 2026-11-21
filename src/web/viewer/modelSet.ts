@@ -1,5 +1,5 @@
 import { MAX_COMBINED_MODELS, type Vec3 } from '../../shared/combined.js';
-import { formatCount } from '../i18n/format.js';
+import { formatCount, formatFixed } from '../i18n/format.js';
 import { type Language, readSettings } from '../settings/settings.js';
 
 export type { Vec3 };
@@ -413,8 +413,8 @@ export function formatKm(
 ): string {
   const km = meters / 1000;
   if (km >= 10) return formatCount(Math.round(km), language);
-  if (km >= 1) return formatCount(Number(km.toFixed(1)), language);
-  return formatCount(Number(km.toFixed(2)), language);
+  if (km >= 1) return formatFixed(km, 1, language);
+  return formatFixed(km, 2, language);
 }
 
 export function farApartMessage(
