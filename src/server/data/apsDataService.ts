@@ -10,6 +10,7 @@ import {
   markLatest,
   type VersionResource,
 } from './mapping.js';
+import { createThumbnailFetcher } from './thumbnails.js';
 import type { DataService } from './types.js';
 import {
   createViewStateChecker,
@@ -60,6 +61,9 @@ async function allPages<T>(
 export function createApsDataService(
   client: Client = new DataManagementClient(),
   views: ViewStateChecker = createViewStateChecker(),
+  thumbnails: ReturnType<
+    typeof createThumbnailFetcher
+  > = createThumbnailFetcher(),
 ): DataService {
   return {
     listHubs: (token) =>
@@ -134,5 +138,7 @@ export function createApsDataService(
         const viewState = await views.check(token, version.urn);
         return { viewState, viewable: viewableFor(viewState) };
       }),
+    versionThumbnail: (token, urn, size) =>
+      guarded(() => thumbnails.fetch(token, urn, size)),
   };
 }

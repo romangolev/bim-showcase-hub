@@ -1,0 +1,87 @@
+import { describe, expect, it, vi } from 'vitest';
+import { createThumbnailFetcher } from './thumbnails.js';
+
+const MD_BASE =
+  'https://developer.api.autodesk.com/modelderivative/v2/designdata';
+const URN = Buffer.from('urn:adsk.wipprod:dm.lineage:abc').toString(
+  'base64url',
+);
+const EMEA_URN = Buffer.from('urn:adsk.wipprod:dm.lineage:emea-abc').toString(
+  'base64url',
+);
+
+function reply(
+  status: number,
+  headers: Record<string, string> = {},
+  bytes = new Uint8Array([1, 2, 3]),
+) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers: { get: (name: string) => headers[name.toLowerCase()] ?? null },
+    arrayBuffer: async () => new Uint8Array(bytes).buffer,
+  };
+}
+
+const png = () => reply(200, { 'content-type': 'image/png' });
+
+describe('createThumbnailFetcher', () => {
+  it('asks for the square size in the urn region with the user token', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(png());
+    const thumbs = createThumbnailFetcher({ fetchImpl });
+    const out = await thumbs.fetch('tok', EMEA_URN, 200);
+    expect(fetchImpl).toHaveBeenCalledWith(
+      `${MD_BASE}/${EMEA_URN}/thumbnail?width=200&height=200`,
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer tok',
+          region: 'EMEA',
+        }),
+      }),
+    );
+    expect(out?.contentType).toBe('image/png');
+  });
+
+  it('returns null on 404 and rejects other types', async () => {
+    expect(
+      await createThumbnailFetcher({
+        fetchImpl: vi.fn().mockResolvedValue(reply(404)),
+      }).fetch('t', URN, 100),
+    ).toBeNull();
+    await expect(
+      createThumbnailFetcher({
+        fetchImpl: vi
+          .fn()
+          .mockResolvedValue(reply(200, { 'content-type': 'text/html' })),
+      }).fetch('t', URN, 100),
+    ).rejects.toMatchObject({ status: 502 });
+  });
+
+  it('refuses bodies over 512 KB', async () => {
+    const big = reply(
+      200,
+      { 'content-type': 'image/png' },
+      new Uint8Array(600 * 1024),
+    );
+    await expect(
+      createThumbnailFetcher({
+        fetchImpl: vi.fn().mockResolvedValue(big),
+      }).fetch('t', URN, 400),
+    ).rejects.toMatchObject({ status: 502 });
+  });
+
+  it('maps 401 and 403 to 401 and 429 to 429 with retry after', async () => {
+    await expect(
+      createThumbnailFetcher({
+        fetchImpl: vi.fn().mockResolvedValue(reply(403)),
+      }).fetch('t', URN, 100),
+    ).rejects.toMatchObject({ status: 401 });
+    await expect(
+      createThumbnailFetcher({
+        fetchImpl: vi
+          .fn()
+          .mockResolvedValue(reply(429, { 'retry-after': '7' })),
+      }).fetch('t', URN, 100),
+    ).rejects.toMatchObject({ status: 429, retryAfterSeconds: 7 });
+  });
+});

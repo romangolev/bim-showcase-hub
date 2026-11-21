@@ -2,11 +2,14 @@ import { type Request, type RequestHandler, Router } from 'express';
 import { getAccessToken, type SessionCodec } from '../auth/sessionTokens.js';
 import type { ApsAuth } from '../auth/types.js';
 import type { ServerConfig } from '../config.js';
+import type { ThumbnailSize } from '../data/thumbnails.js';
 import type { DataService } from '../data/types.js';
-import { decodeId } from '../ids.js';
+import { HttpError } from '../errors.js';
+import { decodeId, decodeUrn } from '../ids.js';
 import { clearOnRejection, sessionOf } from './session.js';
 
 const MOCK_TOKEN = 'mock-token';
+const THUMBNAIL_SIZES = new Set([100, 200, 400]);
 
 export function dataRouter(
   config: ServerConfig,
@@ -87,6 +90,30 @@ export function dataRouter(
       ),
     ['projectId', 'itemId', 'versionId'],
   );
+
+  router.get('/thumbnails/:urn', async (req, res) => {
+    const urn = String(req.params.urn);
+    decodeUrn(urn);
+    const size = req.query.size === undefined ? 200 : Number(req.query.size);
+    if (!THUMBNAIL_SIZES.has(size)) {
+      throw new HttpError(400, 'Invalid size');
+    }
+    const token = await tokenFor(req);
+    const thumb = await data.versionThumbnail(
+      token,
+      urn,
+      size as ThumbnailSize,
+    );
+    if (!thumb) {
+      res.status(404).json({ error: 'No thumbnail' });
+      return;
+    }
+    res
+      .set('Cache-Control', 'private, max-age=3600')
+      .set('X-Content-Type-Options', 'nosniff')
+      .type(thumb.contentType)
+      .send(thumb.body);
+  });
 
   return router;
 }

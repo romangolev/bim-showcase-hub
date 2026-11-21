@@ -229,6 +229,36 @@ describe('mock mode', () => {
     expect(malformed.status).toBe(400);
   });
 
+  it('serves an svg thumbnail for a translated version and 404 for others', async () => {
+    const tree = await walk();
+    const ready = tree.versions.find((v) => v.urn && v.viewState === 'ready');
+    const res = await request(app).get(
+      `/api/thumbnails/${ready?.urn}?size=200`,
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toContain('image/svg+xml');
+    expect(res.headers['cache-control']).toBe('private, max-age=3600');
+    const blocked = tree.versions.find(
+      (v) => v.urn && v.viewState === 'not-translated',
+    );
+    expect(
+      (await request(app).get(`/api/thumbnails/${blocked?.urn}`)).status,
+    ).toBe(404);
+  });
+
+  it('rejects a bad thumbnail urn or size with 400', async () => {
+    expect((await request(app).get('/api/thumbnails/bad*id')).status).toBe(400);
+    const plain = Buffer.from('not-a-urn').toString('base64url');
+    expect((await request(app).get(`/api/thumbnails/${plain}`)).status).toBe(
+      400,
+    );
+    const tree = await walk();
+    const urn = tree.versions.find((v) => v.urn)?.urn;
+    expect(
+      (await request(app).get(`/api/thumbnails/${urn}?size=999`)).status,
+    ).toBe(400);
+  });
+
   it('is deterministic across app instances', async () => {
     const other = createApp(loadConfig({ MOCK_APS: '1' }));
     const a = await request(app).get('/api/hubs');

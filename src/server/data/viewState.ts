@@ -92,7 +92,7 @@ function keyFor(owner: string, urn: string): string {
 
 const MISSING = Symbol('missing');
 
-const REGION_HEADER: Record<ViewerRegion, string> = {
+export const REGION_HEADER: Record<ViewerRegion, string> = {
   US: 'US',
   EU: 'EMEA',
 };
