@@ -82,14 +82,17 @@ All browser storage goes through `src/web/storage.ts`. `BSH_KEYS` lists the fixe
 | `bsh.pane.docs.root.v1` | personal | Documents root: the hub and project the tree starts at |
 | `bsh.pane.appearance.v1` | personal | Pane titles and colour tags, keyed by panel id (`summary`, `chart:1`). Under the `bsh.pane.` prefix |
 | `bsh.pane.colors.v1` | personal | Colors pane: mode, property or rules, top N, overrides and the working rule set |
-| `bsh.saved.v1` | personal | Saved items: dashboard presets, export presets, summary presets, report templates, colour rules, selection sets, viewpoints |
+| `bsh.pane.versions.target.v1` | personal | Version history pane: the file whose versions it lists, with the trail and crumbs that open one. Under the `bsh.pane.` prefix |
+| `bsh.pane.versions.view.v1` | personal | Version history pane: the text filter and the Viewable only toggle. Under the `bsh.pane.` prefix |
+| `bsh.pane.search.v1` | personal | Search elements pane: the last text and the attribute names it searches. Under the `bsh.pane.` prefix |
+| `bsh.saved.v1` | personal | Saved items: dashboard presets, export presets, summary presets, report templates, colour rules, selection sets, viewpoints, model sets, document searches |
 | `bsh.workspaces.v1` | personal | Named workspaces: `{ version: 1, items }`, each with a name, a layout and pane appearances |
 | `bsh.commands.recent.v1` | personal | Recent palette commands |
 | `bsh.paint.<hash>` | personal | One paint record per model version: an ordered, bounded list of paint actions and the undo cursor. The hash covers the URN and the model version |
 | `bsh.hint.hubs.dismissed.v1` | personal | No-hubs notice dismissed |
 | `bsh-settings-v1` | preference | App settings, version 4: theme (`system`, `light`, `dark`), density, text size (100, 112, 125), reduced motion, language (`en`, `ru`), units (`metric`, `imperial`), session warning, recents length |
 | `bsh.layout.locked` | preference | Layout lock |
-| `bsh.tree.view` | preference | Tree sort and metadata columns |
+| `bsh.tree.view` | preference | Tree sort and metadata columns, the open mode, what a click on a file does (`itemOpen`: expand, latest, last opened), whether thumbnails load and whether rows are a list or thumbnails (`thumbnails`, `rows`), whether a filter search covers the loaded folders or the whole project (`searchScope`), and which Home sections show |
 | `bsh.snapshot.v1` | preference | Snapshot and Present options |
 | `bsh.notify.v1` | preference | Toast position, duration and quiet mode |
 | `bsh.charts.v1` | preference | Chart palette, pattern fills and whether the data table starts open |
@@ -144,6 +147,7 @@ Shared helpers live in `e2e/common.py`. To read page globals, launch with `main_
 Notes:
 
 - `mock_smoke.py`: start `NODE_ENV=development npm run dev:mock`, then run `e2e/.venv/bin/python e2e/mock_smoke.py`. `E2E_MOCK_VARIANT=empty` or `personal` checks the hub hint against a server started with `MOCK_EMPTY_HUBS=1` or `MOCK_PERSONAL_ONLY=1`.
+- `mock_smoke.py` also covers Documents and versions: the one Latest badge on a file, Version history with Compare as tabs, a selection set saved from Search elements and listed on Home, a saved model set that opens two tabs and copies a `with=` link, thumbnail rows with the placeholder for a file without a thumbnail, and a deep search that finds a file in an unexpanded folder and can be cancelled.
 - `smoke.py` accepts browser dialogs, because large exports ask for confirmation. Extra modes: `--multi` (several models), `--combined` (one combined viewer), `--states` (view states against the account), `--layout` (dock moves with the real viewer). `E2E_STATE_EXPECT="file.rvt=no-geometry,..."` asserts the latest state of named files.
 - `glb`, `ifc` and `state` use a two-legged token from `.env` and the harness in `e2e/harness/`. No sign-in. The default model is in the maintainer's APS bucket, so another APS app must set `E2E_REVIT_URN`.
 - IfcOpenShell is in `e2e/requirements.txt` only. Never add it to `package.json`.

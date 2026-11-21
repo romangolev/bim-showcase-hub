@@ -9,11 +9,13 @@ Documents is the main pane. With no model open it shows Home and fills the dock 
 The tree of hubs, projects, folders, items and versions, with the shortcuts around it: `src/web/components/tree` and `TreePanel.tsx`.
 
 - The hub menu and, once a hub is chosen, the project menu above the tree choose its root: one hub and one project. The choice is saved in `bsh.pane.docs.root.v1`; a hub or project that disappears falls back to All hubs.
-- With no model open the panel shows Home: pinned models, recent models and saved selection sets. The Home menu hides any of the three.
+- With no model open the panel shows Home: pinned models, recent models, saved selection sets and saved model sets. The Home menu hides any of the four.
 - With a model open, a pinned and recent strip sits above the tree.
-- The filter matches loaded nodes only, so expanding more folders widens it. Sort and columns are in the Documents view menu.
+- The filter matches loaded nodes only, so expanding more folders widens it. **Search whole project** in the same row reads every folder of the project instead (at most 400 folders, 10,000 nodes and 90 seconds, three at a time), and the chips beside it narrow the result by file type, "Has a viewable" and a date range. The crawl can be cancelled; the status row and the Task Center report the same count.
 - A version row can be dragged onto the dock. The dock highlights while a model is over it, and the drop opens the version in its own tab whatever the open mode is.
-- The row menu opens the version, opens it in a new tab, opens it as a modal (a floating viewer pane), adds it to or removes it from the open viewer, pins it, copies its link, reveals its path or shows its versions.
+- The row menu opens the version, opens it in a new tab, opens it as a modal (a floating viewer pane), adds it to or removes it from the open viewer, pins it, copies its link, reveals its path or shows its versions. A file row's menu also opens the latest or last opened version, previews the file, opens its Version history and shows its versions.
+- The newest version of a file is marked **Latest**; the server decides it, never the list order. A single click on a file row follows the Documents setting: it lists the versions (the default), opens the latest one or opens the one opened last.
+- Thumbnails are off by default. With **Show thumbnails** and **Rows: Thumbnails** in the Documents settings, a file row loads a small image from `/api/thumbnails`; a missing image stays empty and a preview card says "No thumbnail". The preview card opens from the row menu or from a 600 ms hover once thumbnails are on.
 
 ## Pieces
 
@@ -62,6 +64,7 @@ The top bar Panes menu is a searchable dialog over every pane.
 - A row's main action is its command: Open/Close with a checked state for a normal pane, New for a user kind, or a pane hook such as Go to Documents. Focus and the pane's extra commands sit beside it. The footer holds the workspace actions (save, import, download, copy JSON, share link, revert), Present, Lock and Reset layout. A pane with no command, such as the Viewer, has no row.
 - Search matches the pane's title, description, category and keywords. Without a query the rows are grouped by category (Workspace, Viewer, Analysis, Data). With a query they become one list.
 - Colors (Analysis) and Export (Data) are opt-in viewer followers: they are left out of the companions that follow a model (`opensWithModel: false`) and open from the menu or the palette. They are dock panes, not part of the stacked column.
+- Search elements (Data) is another opt-in viewer follower, placed beside the right edge of the viewer: it opens from the Panes menu, the palette or its own command, never as a companion of a new model. Version history (Workspace) is not a follower and is not in the default layout: it tabs with Documents and opens from a file or version row menu.
 
 ## Rename and colour
 
@@ -113,6 +116,7 @@ The default layout, menus, persistence and stack read the registry.
 | `defaultPlacement` | `root`, `beside` a reference pane, `tab` in a reference pane's group, or at an `edge`. Sizes are in px |
 | `minSize` | Minimum size of the pane's group |
 | `closable` | `false` makes the pane required. Only Documents is |
+| `startsOpen` | `false` leaves the pane out of the default layout until the user opens it. Version history uses it |
 | `canFloat` | Offers Float in the pane menu |
 | `requires` | `'viewer'` hides the pane in the stacked layout outside the model route |
 | `opensWithModel` | Defaults to on. `false` keeps a viewer follower out of the companions until the user opens it |
