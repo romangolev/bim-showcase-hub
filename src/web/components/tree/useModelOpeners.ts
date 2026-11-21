@@ -12,6 +12,7 @@ import { usePersisted } from '../../storage.js';
 import { notify } from '../../tasks/notifications.js';
 import type { AddTarget, PickedModel } from './DocumentTree.js';
 import {
+  canJoinTab,
   exceedsTabLimit,
   loadedMembers,
   type OpenTarget,
@@ -59,13 +60,12 @@ export function useModelOpeners(onNavigate?: () => void): ModelOpeners {
       label: `the open viewer (${modelTabTitle(active, context).label})`,
       has: (candidate) => members.includes(candidate),
       onRemove: (candidate) => store.removeFrom(active, candidate),
-      canAdd: (candidate) =>
-        !members.includes(candidate) && members.length < MAX_COMBINED_MODELS,
+      canAdd: (candidate) => canJoinTab(state, active, candidate),
       onAdd: (models) => {
         let count = members.length;
         for (const model of models) {
           if (count >= MAX_COMBINED_MODELS) break;
-          if (members.includes(model.urn)) continue;
+          if (!canJoinTab(state, active, model.urn)) continue;
           rememberModel(model.urn, model.context);
           store.addTo(active, model.urn);
           count += 1;

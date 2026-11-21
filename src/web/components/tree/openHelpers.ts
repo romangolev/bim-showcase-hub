@@ -32,6 +32,19 @@ export function exceedsTabLimit(
   return overTabLimit(loadedMembers(state), fresh);
 }
 
+export function canJoinTab(
+  state: OpenModelsState,
+  target: string,
+  urn: string,
+): boolean {
+  const members = modelUrnsOf(state, target);
+  return (
+    !members.includes(urn) &&
+    !isOpen(state, urn) &&
+    members.length < MAX_COMBINED_MODELS
+  );
+}
+
 export function loadedMembers(state: OpenModelsState): number {
   return state.models.reduce(
     (sum, model) => sum + liveWeight(state, model.urn),
