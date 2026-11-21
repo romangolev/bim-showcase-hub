@@ -1099,7 +1099,7 @@ html[data-presenting] .stack .stack__pane--viewer .model-viewer {
   padding: 0 4px;
   border-radius: var(--radius-badge);
   background: var(--color-arc-blue);
-  color: var(--color-snow);
+  color: var(--color-void);
   font-size: var(--text-12);
   line-height: 1rem;
   text-align: center;
