@@ -664,6 +664,7 @@
 
 .bsh-models__actions {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-1);
 }
 
@@ -1708,5 +1709,15 @@ button.bsh-kpi:focus-visible {
 
   .bsh-picker__arrange {
     margin-left: auto;
+  }
+}
+
+@container (max-width: 28rem) {
+  .bsh-models__row {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .bsh-models__actions {
+    grid-column: 1 / -1;
   }
 }
