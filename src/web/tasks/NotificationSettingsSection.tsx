@@ -1,4 +1,5 @@
 import { NumberField } from '../components/NumberField.js';
+import { SettingsField } from '../components/SettingsForm.js';
 import { SwitchRow } from '../components/SwitchRow.js';
 import { useT } from '../i18n/i18n.js';
 import {
@@ -25,10 +26,10 @@ export function NotificationSettingsSection() {
       <h3 id="settings-notifications" className="settings__heading">
         {t('settings.notifications')}
       </h3>
-      <div className="settings__field">
-        <label>
-          Toast position
+      <SettingsField label="Toast position">
+        {(id) => (
           <select
+            id={id}
             value={settings.position}
             onChange={(event) =>
               update((prev) => ({
@@ -43,12 +44,15 @@ export function NotificationSettingsSection() {
               </option>
             ))}
           </select>
-        </label>
-      </div>
-      <div className="settings__field">
-        <label>
-          Toast duration (seconds)
+        )}
+      </SettingsField>
+      <SettingsField
+        label="Toast duration (seconds)"
+        hint="0 keeps a toast until you dismiss it. Errors stay until dismissed."
+      >
+        {(id) => (
           <NumberField
+            id={id}
             key={settings.durationMs}
             min={0}
             max={60}
@@ -57,11 +61,8 @@ export function NotificationSettingsSection() {
               update((prev) => ({ ...prev, durationMs: seconds * 1000 }))
             }
           />
-        </label>
-        <span className="settings__hint">
-          0 keeps a toast until you dismiss it. Errors stay until dismissed.
-        </span>
-      </div>
+        )}
+      </SettingsField>
       <SwitchRow
         label="Quiet mode"
         description="Hides toasts. Outcomes are still announced to screen readers."

@@ -67,8 +67,25 @@ interface SettingsFormProps<V extends object> {
   className?: string;
 }
 
-function Hint({ children }: { children?: string }) {
+function Hint({ children }: { children?: ReactNode }) {
   return children ? <span className="settings__hint">{children}</span> : null;
+}
+
+export interface SettingsFieldProps {
+  label: ReactNode;
+  hint?: ReactNode;
+  children: (id: string) => ReactNode;
+}
+
+export function SettingsField({ label, hint, children }: SettingsFieldProps) {
+  const id = useId();
+  return (
+    <div className="settings__field">
+      <label htmlFor={id}>{label}</label>
+      {children(id)}
+      <Hint>{hint}</Hint>
+    </div>
+  );
 }
 
 function strings(value: unknown): string[] {
@@ -95,40 +112,41 @@ function ToggleRow({ field, value, set }: RowProps<ToggleField>) {
 }
 
 function NumberRow({ field, value, set }: RowProps<NumberFieldDef>) {
-  const id = useId();
   const parsed = Number(value ?? Number.NaN);
   const current = Number.isFinite(parsed) ? parsed : field.min;
   if (field.slider) {
     const { step, format } = field.slider;
     return (
-      <div className="settings__field">
-        <label htmlFor={id}>
-          {field.label} {format(current)}
-        </label>
-        <input
-          id={id}
-          type="range"
-          min={field.min}
-          max={field.max}
-          step={step}
-          value={current}
-          onChange={(event) => set(Number(event.target.value))}
-        />
-        <Hint>{field.hint}</Hint>
-      </div>
+      <SettingsField
+        label={`${field.label} ${format(current)}`}
+        hint={field.hint}
+      >
+        {(id) => (
+          <input
+            id={id}
+            type="range"
+            min={field.min}
+            max={field.max}
+            step={step}
+            value={current}
+            onChange={(event) => set(Number(event.target.value))}
+          />
+        )}
+      </SettingsField>
     );
   }
   return (
-    <label className="settings__field">
-      {field.label}
-      <NumberField
-        min={field.min}
-        max={field.max}
-        value={current}
-        onCommit={set}
-      />
-      <Hint>{field.hint}</Hint>
-    </label>
+    <SettingsField label={field.label} hint={field.hint}>
+      {(id) => (
+        <NumberField
+          id={id}
+          min={field.min}
+          max={field.max}
+          value={current}
+          onCommit={set}
+        />
+      )}
+    </SettingsField>
   );
 }
 
@@ -137,32 +155,33 @@ function SelectRow({ field, value, set }: RowProps<SelectField>) {
     ? String(value)
     : (field.options[0]?.value ?? '');
   return (
-    <label className="settings__field">
-      {field.label}
-      <select value={selected} onChange={(e) => set(e.target.value)}>
-        {field.options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-      <Hint>{field.hint}</Hint>
-    </label>
+    <SettingsField label={field.label} hint={field.hint}>
+      {(id) => (
+        <select id={id} value={selected} onChange={(e) => set(e.target.value)}>
+          {field.options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      )}
+    </SettingsField>
   );
 }
 
 function TextRow({ field, value, set }: RowProps<TextField>) {
   return (
-    <label className="settings__field">
-      {field.label}
-      <input
-        type="text"
-        maxLength={field.maxLength}
-        value={String(value ?? '')}
-        onChange={(e) => set(e.target.value)}
-      />
-      <Hint>{field.hint}</Hint>
-    </label>
+    <SettingsField label={field.label} hint={field.hint}>
+      {(id) => (
+        <input
+          id={id}
+          type="text"
+          maxLength={field.maxLength}
+          value={String(value ?? '')}
+          onChange={(e) => set(e.target.value)}
+        />
+      )}
+    </SettingsField>
   );
 }
 

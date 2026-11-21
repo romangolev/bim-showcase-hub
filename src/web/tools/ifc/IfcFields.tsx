@@ -1,4 +1,5 @@
 import { useId, useState } from 'react';
+import { SettingsField } from '../../components/SettingsForm.js';
 import { ALLOWED_CLASSES, PROXY_CLASS } from '../../ifc/classTable.js';
 import { usePersisted } from '../../storage.js';
 import { IFC_SETTINGS, type IfcToolSettings } from './ifcSettings.js';
@@ -19,17 +20,19 @@ interface TextFieldProps {
 }
 
 function TextField({ label, value, onCommit }: TextFieldProps) {
-  const id = useId();
   return (
-    <div className="settings__field">
-      <label htmlFor={id}>{label}</label>
-      <input
-        id={id}
-        type="text"
-        value={value}
-        onChange={(event) => onCommit(event.target.value)}
-      />
-    </div>
+    <SettingsField label={label}>
+      {(id) => (
+        <>
+          <input
+            id={id}
+            type="text"
+            value={value}
+            onChange={(event) => onCommit(event.target.value)}
+          />
+        </>
+      )}
+    </SettingsField>
   );
 }
 
@@ -40,26 +43,28 @@ interface ListFieldProps {
 }
 
 function ListField({ label, values, onCommit }: ListFieldProps) {
-  const id = useId();
   const [text, setText] = useState(values.join(', '));
   return (
-    <div className="settings__field">
-      <label htmlFor={id}>{label}</label>
-      <input
-        id={id}
-        type="text"
-        value={text}
-        onChange={(event) => setText(event.target.value)}
-        onBlur={() => {
-          const next = text
-            .split(',')
-            .map((item) => item.trim())
-            .filter(Boolean);
-          onCommit(next);
-          setText(next.join(', '));
-        }}
-      />
-    </div>
+    <SettingsField label={label}>
+      {(id) => (
+        <>
+          <input
+            id={id}
+            type="text"
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            onBlur={() => {
+              const next = text
+                .split(',')
+                .map((item) => item.trim())
+                .filter(Boolean);
+              onCommit(next);
+              setText(next.join(', '));
+            }}
+          />
+        </>
+      )}
+    </SettingsField>
   );
 }
 
@@ -71,8 +76,6 @@ function OverrideEditor({
   onChange: (next: Record<string, string>) => void;
 }) {
   const headingId = useId();
-  const categoryId = useId();
-  const classId = useId();
   const [category, setCategory] = useState('');
   const [ifcClass, setIfcClass] = useState(PROXY_CLASS);
   const add = () => {
@@ -110,29 +113,35 @@ function OverrideEditor({
           ))}
         </ul>
       ) : null}
-      <div className="settings__field">
-        <label htmlFor={categoryId}>Category</label>
-        <input
-          id={categoryId}
-          type="text"
-          value={category}
-          onChange={(event) => setCategory(event.target.value)}
-        />
-      </div>
-      <div className="settings__field">
-        <label htmlFor={classId}>IFC class</label>
-        <select
-          id={classId}
-          value={ifcClass}
-          onChange={(event) => setIfcClass(event.target.value)}
-        >
-          {ALLOWED_CLASSES.map((name) => (
-            <option key={name} value={name}>
-              {name}
-            </option>
-          ))}
-        </select>
-      </div>
+      <SettingsField label="Category">
+        {(id) => (
+          <>
+            <input
+              id={id}
+              type="text"
+              value={category}
+              onChange={(event) => setCategory(event.target.value)}
+            />
+          </>
+        )}
+      </SettingsField>
+      <SettingsField label="IFC class">
+        {(id) => (
+          <>
+            <select
+              id={id}
+              value={ifcClass}
+              onChange={(event) => setIfcClass(event.target.value)}
+            >
+              {ALLOWED_CLASSES.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </>
+        )}
+      </SettingsField>
       <div className="settings__actions">
         <button type="button" className="btn" onClick={add}>
           Add override
@@ -156,7 +165,6 @@ export function IfcFields() {
   const [ifc, setIfc] = usePersisted(IFC_SETTINGS);
   const update = (patch: Partial<IfcToolSettings>) =>
     setIfc((current) => ({ ...current, ...patch }));
-  const unitId = useId();
   return (
     <>
       <section className="settings__section" aria-labelledby="settings-ifc">
@@ -171,19 +179,24 @@ export function IfcFields() {
             onCommit={(value) => update({ [key]: value })}
           />
         ))}
-        <div className="settings__field">
-          <label htmlFor={unitId}>Length unit</label>
-          <select
-            id={unitId}
-            value={ifc.lengthUnit}
-            onChange={(event) =>
-              update({ lengthUnit: event.target.value === 'mm' ? 'mm' : 'm' })
-            }
-          >
-            <option value="m">Metres</option>
-            <option value="mm">Millimetres</option>
-          </select>
-        </div>
+        <SettingsField label="Length unit">
+          {(id) => (
+            <>
+              <select
+                id={id}
+                value={ifc.lengthUnit}
+                onChange={(event) =>
+                  update({
+                    lengthUnit: event.target.value === 'mm' ? 'mm' : 'm',
+                  })
+                }
+              >
+                <option value="m">Metres</option>
+                <option value="mm">Millimetres</option>
+              </select>
+            </>
+          )}
+        </SettingsField>
         <ListField
           label="Include property groups"
           values={ifc.psetInclude}

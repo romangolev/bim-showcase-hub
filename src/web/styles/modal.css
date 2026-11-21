@@ -137,10 +137,6 @@
   color: var(--color-snow);
 }
 
-.settings__field > label:has(> input, > select) {
-  display: contents;
-}
-
 .settings__field > .btn {
   justify-self: start;
 }

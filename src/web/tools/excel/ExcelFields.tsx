@@ -1,5 +1,6 @@
-import { useContext, useId } from 'react';
+import { useContext } from 'react';
 import { NumberField } from '../../components/NumberField.js';
+import { SettingsField } from '../../components/SettingsForm.js';
 import { SwitchRow } from '../../components/SwitchRow.js';
 import {
   COLUMN_FORMAT_LABELS,
@@ -45,22 +46,24 @@ function SelectField<T extends string>({
   labels,
   onChange,
 }: SelectFieldProps<T>) {
-  const id = useId();
   return (
-    <div className="settings__field">
-      <label htmlFor={id}>{label}</label>
-      <select
-        id={id}
-        value={value}
-        onChange={(event) => onChange(event.target.value as T)}
-      >
-        {(Object.keys(labels) as T[]).map((key) => (
-          <option key={key} value={key}>
-            {labels[key]}
-          </option>
-        ))}
-      </select>
-    </div>
+    <SettingsField label={label}>
+      {(id) => (
+        <>
+          <select
+            id={id}
+            value={value}
+            onChange={(event) => onChange(event.target.value as T)}
+          >
+            {(Object.keys(labels) as T[]).map((key) => (
+              <option key={key} value={key}>
+                {labels[key]}
+              </option>
+            ))}
+          </select>
+        </>
+      )}
+    </SettingsField>
   );
 }
 
@@ -111,9 +114,6 @@ export function ExcelFields() {
     },
     excel.properties,
   );
-  const patternId = useId();
-  const groupId = useId();
-  const formatId = useId();
   const catalogState = usePropertyCatalog(viewer);
   const coloring = useModelColoring(viewer);
   const catalog = [...new Set(catalogState.catalog.map((info) => info.name))];
@@ -182,7 +182,7 @@ export function ExcelFields() {
         />
       ) : null}
       <fieldset className="settings__section">
-        <legend>Columns</legend>
+        <legend className="settings__heading">Columns</legend>
         <PropertyPicker
           adapter={viewer}
           value={excel.properties}
@@ -191,31 +191,33 @@ export function ExcelFields() {
       </fieldset>
       <details>
         <summary>Column formats</summary>
-        {excel.properties.map((name, index) => {
-          const id = `${formatId}-${index}`;
+        {excel.properties.map((name) => {
           return (
-            <div className="settings__field" key={name}>
-              <label htmlFor={id}>Format of {name}</label>
-              <select
-                id={id}
-                value={excel.columnFormats[name] ?? 'auto'}
-                onChange={(event) =>
-                  update({
-                    columnFormats: withFormat(
-                      excel.columnFormats,
-                      name,
-                      event.target.value as ColumnFormat,
-                    ),
-                  })
-                }
-              >
-                {COLUMN_FORMATS.map((format) => (
-                  <option key={format} value={format}>
-                    {COLUMN_FORMAT_LABELS[format]}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <SettingsField key={name} label={<>Format of {name}</>}>
+              {(id) => (
+                <>
+                  <select
+                    id={id}
+                    value={excel.columnFormats[name] ?? 'auto'}
+                    onChange={(event) =>
+                      update({
+                        columnFormats: withFormat(
+                          excel.columnFormats,
+                          name,
+                          event.target.value as ColumnFormat,
+                        ),
+                      })
+                    }
+                  >
+                    {COLUMN_FORMATS.map((format) => (
+                      <option key={format} value={format}>
+                        {COLUMN_FORMAT_LABELS[format]}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              )}
+            </SettingsField>
           );
         })}
       </details>
@@ -235,52 +237,68 @@ export function ExcelFields() {
         onChange={() => update({ legendSheet: !excel.legendSheet })}
       />
       <PresetFields current={excel} apply={update} catalog={catalog} />
-      <div className="settings__field">
-        <label htmlFor={groupId}>Group by</label>
-        <select
-          id={groupId}
-          value={groupBy}
-          onChange={(event) => update({ groupBy: event.target.value || null })}
-        >
-          <option value="">One sheet</option>
-          {excel.properties.map((name) => (
-            <option key={name} value={name}>
-              {name}
-            </option>
-          ))}
-        </select>
-        <span className="settings__hint">
-          Excel files get one sheet per value of a chosen column.
-        </span>
-      </div>
-      <div className="settings__field">
-        <label htmlFor={patternId}>File name pattern</label>
-        <input
-          id={patternId}
-          type="text"
-          value={excel.namePattern}
-          onChange={(event) => update({ namePattern: event.target.value })}
-        />
-        <span className="settings__hint">
-          Use {'{model}'} and {'{date}'}.
-        </span>
-      </div>
-      <div className="settings__field">
-        <label>
-          Ask before exporting over rows
-          <NumberField
-            min={0}
-            max={CONFIRM_ABOVE_MAX}
-            value={excel.confirmAbove}
-            onCommit={(confirmAbove) => update({ confirmAbove })}
-          />
-        </label>
-        <span className="settings__hint">
-          {excel.confirmAbove === 0
+      <SettingsField
+        label="Group by"
+        hint="Excel files get one sheet per value of a chosen column."
+      >
+        {(id) => (
+          <>
+            <select
+              id={id}
+              value={groupBy}
+              onChange={(event) =>
+                update({ groupBy: event.target.value || null })
+              }
+            >
+              <option value="">One sheet</option>
+              {excel.properties.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </>
+        )}
+      </SettingsField>
+      <SettingsField
+        label="File name pattern"
+        hint={
+          <>
+            Use {'{model}'} and {'{date}'}.
+          </>
+        }
+      >
+        {(id) => (
+          <>
+            <input
+              id={id}
+              type="text"
+              value={excel.namePattern}
+              onChange={(event) => update({ namePattern: event.target.value })}
+            />
+          </>
+        )}
+      </SettingsField>
+      <SettingsField
+        label="Ask before exporting over rows"
+        hint={
+          excel.confirmAbove === 0
             ? 'Never asks.'
-            : `Asks above ${excel.confirmAbove.toLocaleString('en-US')} rows.`}
-        </span>
-      </div>
+            : `Asks above ${excel.confirmAbove.toLocaleString('en-US')} rows.`
+        }
+      >
+        {(id) => (
+          <>
+            <NumberField
+              id={id}
+              min={0}
+              max={CONFIRM_ABOVE_MAX}
+              value={excel.confirmAbove}
+              onCommit={(confirmAbove) => update({ confirmAbove })}
+            />
+          </>
+        )}
+      </SettingsField>
       <SelectField<CsvDelimiter>
         label="CSV and copy delimiter"
         value={excel.csvDelimiter}

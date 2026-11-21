@@ -6,6 +6,7 @@ export interface NumberFieldProps {
   max?: number;
   onCommit: (value: number) => void;
   className?: string;
+  id?: string;
 }
 
 export function NumberField({
@@ -14,6 +15,7 @@ export function NumberField({
   max = Number.POSITIVE_INFINITY,
   onCommit,
   className,
+  id,
 }: NumberFieldProps) {
   const [draft, setDraft] = useState<string | null>(null);
 
@@ -27,6 +29,7 @@ export function NumberField({
 
   return (
     <input
+      id={id}
       type="number"
       min={min}
       max={Number.isFinite(max) ? max : undefined}
