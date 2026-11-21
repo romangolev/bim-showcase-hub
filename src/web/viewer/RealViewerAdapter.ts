@@ -826,15 +826,19 @@ export class RealViewerAdapter implements ViewerAdapter {
         continue;
       }
       try {
-        const ids = await new Promise<number[]>((resolve, reject) =>
+        const ids = await new Promise<number[] | null>((resolve, reject) => {
+          options.signal?.addEventListener('abort', () => resolve(null), {
+            once: true,
+          });
           run.call(
             handle,
             query,
             resolve,
             reject,
             options.attributes ? [...options.attributes] : undefined,
-          ),
-        );
+          );
+        });
+        if (!ids) break;
         for (const dbId of ids) items.push({ modelId: info.id, dbId });
       } catch {
         failedModels.push(info.id);

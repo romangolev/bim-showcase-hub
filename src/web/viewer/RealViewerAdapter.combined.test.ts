@@ -687,6 +687,18 @@ describe('element search across models', () => {
     expect(spy).not.toHaveBeenCalled();
   });
 
+  it('stops waiting for a model whose search never answers once aborted', async () => {
+    env.specs.set('a', { searchHangs: true });
+    env.specs.set('b', { searchHits: [2] });
+    await adapter.loadModels([{ urn: 'a' }, { urn: 'b' }]);
+    const controller = new AbortController();
+    const pending = adapter.searchElements('wall', {
+      signal: controller.signal,
+    });
+    controller.abort();
+    expect(await pending).toEqual({ items: [], failedModels: [] });
+  });
+
   it('does not touch the viewer for a blank search', async () => {
     env.specs.set('a', { searchHits: [1] });
     await adapter.loadModels([{ urn: 'a' }]);
