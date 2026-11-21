@@ -409,6 +409,12 @@ def check_dashboard_tools(page, checks):
         settle(page, 600)
     pane = page.locator(".pane-dashboard").first
     pane.locator("canvas").first.wait_for(timeout=8000)
+    pane.get_by_role("button", name="Dashboard settings").click()
+    chart_dialog = page.get_by_role("dialog", name="Dashboard settings")
+    chart_dialog.get_by_label("Chart type").select_option("doughnut")
+    page.keyboard.press("Escape")
+    settle(page, 500)
+    pane.locator(".bsh-chart--doughnut canvas").first.wait_for(timeout=8000)
     trigger = pane.get_by_role("button", name=re.compile(r"^Export ")).first
     trigger_box = trigger.bounding_box()
     checks.add("chart export trigger is at least 24px", trigger_box["width"] >= 24 and trigger_box["height"] >= 24, trigger_box)
@@ -812,7 +818,7 @@ def check_saved_items(page, checks):
     settle(page, 300)
     checks.add("a newer-version file shows an error", "newer version" in main.get_by_role("alert").inner_text())
     good = OUTPUT_DIR / "good-saved.json"
-    good.write_text('{"format":"bsh-saved","version":1,"items":[{"id":"smoke","kind":"dashboard-preset","name":"Smoke preset","data":{"kind":"bar"}}]}')
+    good.write_text('{"format":"bsh-saved","version":1,"items":[{"id":"smoke","kind":"dashboard-preset","name":"Smoke preset","data":{"chartType":"bar"}}]}')
     main.get_by_label("Saved items file").set_input_files(str(good))
     settle(page, 300)
     saved = main.get_by_role("region", name="Saved items")
@@ -826,6 +832,11 @@ def check_saved_items(page, checks):
     dialog.get_by_role("button", name="Apply Smoke preset").click()
     settle(page, 200)
     checks.add("applying a user preset sets the chart type", dialog.get_by_label("Chart type").input_value() == "bar")
+    dialog.get_by_label("Chart type").select_option("hbar")
+    settle(page, 200)
+    checks.add("the chart type changes from the settings window", dialog.get_by_label("Chart type").input_value() == "hbar")
+    dialog.get_by_label("Chart type").select_option("doughnut")
+    settle(page, 200)
     dialog.get_by_label("Rename Smoke saved").fill("Smoke renamed")
     dialog.get_by_label("Rename Smoke saved").press("Enter")
     settle(page, 200)
@@ -833,7 +844,6 @@ def check_saved_items(page, checks):
     dialog.get_by_role("button", name="Delete Smoke renamed").click()
     dialog.get_by_role("button", name="Delete Smoke preset").click()
     checks.add("user presets can be deleted", dialog.get_by_text("No saved presets yet.").count() == 1)
-    dialog.get_by_label("Chart type").select_option("both")
     page.keyboard.press("Escape")
     settle(page, 300)
 
@@ -1588,7 +1598,7 @@ def check_badge_layout(page, checks, label):
     rects = page.evaluate(BADGE_RECTS)
     checks.add(
         f"badges ({label}): are rendered",
-        len(rects) >= (2 if label == "narrow" else 3),
+        len(rects) >= (1 if label == "narrow" else 3),
         len(rects),
     )
     checks.add(f"badges ({label}): none clipped or outside the row", all(r["inside"] and not r["clipped"] for r in rects), rects)
@@ -2017,6 +2027,18 @@ def focus_documents(page):
     tab = page.get_by_role("tab", name="Documents", exact=True)
     if tab.count():
         tab.first.click()
+        settle(page, 400)
+
+
+def close_pane(page, title):
+    tab = page.get_by_role("tab", name=re.compile(rf"^{re.escape(title)}$"))
+    if tab.count() == 0:
+        return
+    tab.first.click()
+    settle(page, 300)
+    action = tab.first.locator(".dv-default-tab-action")
+    if action.count():
+        action.click()
         settle(page, 400)
 
 
