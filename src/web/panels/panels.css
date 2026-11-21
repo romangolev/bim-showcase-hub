@@ -724,18 +724,21 @@
 }
 
 .bsh-models__swatch {
-  width: 14px;
-  height: 14px;
-  padding: 0;
-  border: var(--border-hairline);
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0.3125rem;
+  border: 0;
   border-radius: var(--radius-badge);
+  outline: var(--border-field);
+  outline-offset: -0.3125rem;
   background: transparent;
+  background-clip: content-box;
   cursor: pointer;
 }
 
 .bsh-models__swatch[aria-expanded="true"] {
-  outline: 2px solid var(--color-iris);
-  outline-offset: 1px;
+  outline: var(--ring-width) solid var(--color-signal-blue);
+  outline-offset: -0.125rem;
 }
 
 .bsh-tint {
