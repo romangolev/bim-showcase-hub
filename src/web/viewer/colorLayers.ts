@@ -116,18 +116,6 @@ export function replaceLayerModel(
   for (const dbId of dbIds) colors.set(dbId, color);
 }
 
-export function clearLayerColor(
-  layer: ColorLayer,
-  modelId: string,
-  dbId: number,
-): boolean {
-  const colors = layer.assignments.get(modelId);
-  if (!colors) return false;
-  const removed = colors.delete(dbId);
-  if (colors.size === 0) layer.assignments.delete(modelId);
-  return removed;
-}
-
 export function clearLayerModel(layer: ColorLayer, modelId: string): boolean {
   return layer.assignments.delete(modelId);
 }
