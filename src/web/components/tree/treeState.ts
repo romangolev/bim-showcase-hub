@@ -2,6 +2,7 @@ import {
   MAX_COMBINED_MODELS,
   MAX_LOADED_MEMBERS,
 } from '../../../shared/combined.js';
+import { fold } from '../../../shared/text.js';
 import type { TreeNode, VersionViewState } from '../../../shared/types.js';
 import { viewableFor } from '../../../shared/viewState.js';
 import { friendlyError } from '../../api/friendlyError.js';
@@ -9,6 +10,16 @@ import { type ModelContext, versionTag } from '../../api/modelContext.js';
 import { childScope, type NodeScope } from '../../api/scope.js';
 import type { VersionTarget } from '../../panels/versionHistory.js';
 import { MODEL_LIMIT_MESSAGE } from '../../viewer/modelSet.js';
+import {
+  type CrawlProgress,
+  type CrawlResult,
+  crawl as runCrawl,
+} from './crawl.js';
+import {
+  type DeepSearchFilters,
+  hasFilters,
+  matchesFilters,
+} from './deepSearch.js';
 import type { TreeRoot } from './docRoot.js';
 import { sortChildren, type TreeSort } from './treeView.js';
 import {
@@ -25,7 +36,7 @@ const UNCHECKED_POLL_LIMIT = 3;
 const ANCESTOR_LIMIT = 64;
 
 export interface TreeData {
-  children: (scope: NodeScope) => Promise<TreeNode[]>;
+  children: (scope: NodeScope, signal?: AbortSignal) => Promise<TreeNode[]>;
   forget: (scope: NodeScope) => void;
   viewState: (
     projectId: string,
@@ -76,12 +87,18 @@ export interface TreeState {
   bind: (host: TreeHost) => void;
   node: (id: string) => TreeNode | undefined;
   isLoaded: (id: string) => boolean;
-  search: (query: string) => TreeNode[];
+  search: (query: string, filters?: DeepSearchFilters) => TreeNode[];
   parentName: (node: TreeNode) => string | undefined;
   contextFor: (node: TreeNode) => ModelContext;
   itemRef: (node: TreeNode) => VersionTarget | null;
   ancestorIds: (node: TreeNode) => string[];
   children: (id: string) => Promise<TreeNode[]>;
+  versionsOf: (item: TreeNode) => Promise<TreeNode[]>;
+  crawlRoot: () => string | null;
+  crawl: (
+    signal: AbortSignal,
+    onProgress?: (progress: CrawlProgress) => void,
+  ) => Promise<CrawlResult>;
   resolved: (node: TreeNode) => TreeNode;
   needsCheck: (node: TreeNode) => boolean;
   ensureChecked: (node: TreeNode) => Promise<TreeNode>;
@@ -458,6 +475,40 @@ export function createTreeState({
     return { parents, processing };
   };
 
+  const register = (scope: NodeScope, fetched: TreeNode[]): TreeNode[] =>
+    sortChildren(fetched, sort()).map((node) => {
+      nodes.set(node.id, node);
+      scopes.set(node.id, childScope(scope, node));
+      return node;
+    });
+
+  const children = async (
+    id: string,
+    signal?: AbortSignal,
+  ): Promise<TreeNode[]> => {
+    const scope = scopes.get(id);
+    if (!scope) {
+      return [];
+    }
+    try {
+      const fetched = await data.children(scope, signal);
+      loaded.add(id);
+      clearError(id);
+      return register(scope, fetched);
+    } catch (error) {
+      update({ errors: { ...snapshot.errors, [id]: toNodeError(error) } });
+      return [];
+    }
+  };
+
+  const crawlRoot = (): string | null => {
+    if (root.scope.kind === 'project') return rootId;
+    const projects = [...nodes.values()].filter(
+      (node) => node.kind === 'project',
+    );
+    return projects.length === 1 ? (projects[0]?.id ?? null) : null;
+  };
+
   return {
     subscribe: (listener) => {
       listeners.add(listener);
@@ -471,10 +522,17 @@ export function createTreeState({
     },
     node: (id) => nodes.get(id),
     isLoaded: (id) => loaded.has(id),
-    search: (query) => {
+    search: (query, filters) => {
+      const active = filters ? { ...filters, text: query } : null;
+      if (active && hasFilters(active)) {
+        return [...nodes.values()].filter(
+          (node) => node.id !== rootId && matchesFilters(node, active),
+        );
+      }
+      const needle = fold(query);
       const found: TreeNode[] = [];
       for (const [id, node] of nodes) {
-        if (id !== rootId && node.name.toLowerCase().includes(query)) {
+        if (id !== rootId && fold(node.name).includes(needle)) {
           found.push(node);
         }
       }
@@ -503,24 +561,45 @@ export function createTreeState({
       };
     },
     ancestorIds,
-    children: async (id) => {
-      const scope = scopes.get(id);
-      if (!scope) {
-        return [];
+    children,
+    versionsOf: async (item) => {
+      if (item.kind !== 'item') return [];
+      const loadedVersions = [...nodes.values()].filter(
+        (node) => node.kind === 'version' && node.parentId === item.id,
+      );
+      if (loaded.has(item.id) && loadedVersions.length > 0) {
+        return loadedVersions;
       }
-      try {
-        const fetched = await data.children(scope);
-        loaded.add(id);
-        clearError(id);
-        return sortChildren(fetched, sort()).map((node) => {
-          nodes.set(node.id, node);
-          scopes.set(node.id, childScope(scope, node));
-          return node;
+      return (await children(item.id)).filter(
+        (node) => node.kind === 'version',
+      );
+    },
+    crawlRoot,
+    crawl: (signal, onProgress) => {
+      const start = crawlRoot();
+      if (!start) {
+        return Promise.resolve<CrawlResult>({
+          stop: 'done',
+          folders: 0,
+          queued: 0,
+          nodes: 0,
+          failed: 0,
+          failedIds: [],
         });
-      } catch (error) {
-        update({ errors: { ...snapshot.errors, [id]: toNodeError(error) } });
-        return [];
       }
+      return runCrawl({
+        start: [start],
+        signal,
+        onProgress,
+        children: async (id, crawlSignal) => {
+          const scope = scopes.get(id);
+          if (!scope) return [];
+          const fetched = await data.children(scope, crawlSignal);
+          loaded.add(id);
+          clearError(id);
+          return register(scope, fetched);
+        },
+      });
     },
     resolved,
     needsCheck,
