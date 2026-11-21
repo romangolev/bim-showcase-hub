@@ -777,7 +777,8 @@ def check_saved_items(page, checks):
     good.write_text('{"format":"bsh-saved","version":1,"items":[{"id":"smoke","kind":"dashboard-preset","name":"Smoke preset","data":{"kind":"bar"}}]}')
     main.get_by_label("Saved items file").set_input_files(str(good))
     settle(page, 300)
-    checks.add("a valid file imports", "Imported 1 item" in main.get_by_role("status").inner_text(), main.get_by_role("status").inner_text())
+    imported = main.get_by_role("status").filter(has_text="Imported 1 item")
+    checks.add("a valid file imports", imported.count() == 1, imported.first.inner_text() if imported.count() else "")
     main.get_by_role("button", name="Dashboard settings").click()
     settle(page, 300)
     dialog = page.get_by_role("dialog", name="Dashboard settings")
@@ -794,7 +795,7 @@ def check_saved_items(page, checks):
     dialog.get_by_role("button", name="Delete Smoke renamed").click()
     dialog.get_by_role("button", name="Delete Smoke preset").click()
     checks.add("user presets can be deleted", dialog.get_by_text("No saved presets yet.").count() == 1)
-    dialog.get_by_label("Chart type").select_option("both")
+    dialog.get_by_label("Chart type").select_option("bar")
     page.keyboard.press("Escape")
     settle(page, 300)
 
