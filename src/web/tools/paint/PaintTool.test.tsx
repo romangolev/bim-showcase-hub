@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { paintSelection } from '../../extensions/paintBrushes.js';
+import { applyPaintPlan } from '../../extensions/paintBrushes.js';
 import { installMemoryStorage } from '../../test/mockApi.js';
 import { publishActiveAdapter } from '../../viewer/activeAdapterStore.js';
 import { MockViewerAdapter } from '../../viewer/MockViewerAdapter.js';
@@ -221,7 +221,9 @@ describe('PaintTool', () => {
       clearSelection: vi.fn(),
       clearModelThemingColors: vi.fn(),
     };
-    paintSelection(adapter as unknown as ViewerAdapter, [1, 0, 0, 0.5]);
+    applyPaintPlan(adapter as unknown as ViewerAdapter, [
+      { items: [{ modelId: 'a', dbId: 1 }], color: [1, 0, 0, 0.5] },
+    ]);
     tool.onDisabled(adapter as unknown as ViewerAdapter);
     expect(adapter.clearModelThemingColors).toHaveBeenCalledOnce();
   });

@@ -227,7 +227,7 @@
   width: 100%;
   height: var(--hit-target);
   padding: 0 calc(3 * var(--hit-target) + var(--space-2)) 0 34px;
-  border: var(--border-hairline);
+  border: var(--border-field);
   border-radius: var(--radius-button);
   background: var(--color-charcoal);
   color: var(--color-snow);
@@ -614,7 +614,7 @@
 }
 
 .tree-row__match {
-  border-radius: 2px;
+  border-radius: var(--radius-badge);
   background: var(--color-match);
   color: var(--color-snow);
 }
@@ -1253,6 +1253,11 @@
   font-size: var(--text-13);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.tree-row[data-selected="true"] .tree-row__meta,
+.tree-row:hover:not([data-disabled="true"]) .tree-row__meta {
+  color: var(--color-chalk);
 }
 
 @container tree (max-width: 299px) {

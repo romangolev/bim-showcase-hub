@@ -119,12 +119,11 @@ export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
   };
 
   return (
-    <fieldset className="bsh-fieldset">
-      <legend>Selection sets</legend>
-      <div className="bsh-presets">
+    <fieldset className="settings__section">
+      <legend className="settings__heading">Selection sets</legend>
+      <div className="settings__actions">
         <input
           type="text"
-          className="bsh-input"
           aria-label="Selection set name"
           placeholder="Name the current selection"
           maxLength={MAX_NAME_LENGTH}
@@ -136,7 +135,7 @@ export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
         />
         <button
           type="button"
-          className="bsh-button"
+          className="btn"
           disabled={!adapter || !name.trim()}
           onClick={() => void save()}
         >
@@ -149,11 +148,10 @@ export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
         </p>
       ) : null}
       {sets.length > 0 ? (
-        <div className="bsh-presets">
-          <label className="bsh-field">
-            <span>Merge set A</span>
+        <>
+          <label className="settings__field">
+            Merge set A
             <select
-              className="bsh-select"
               aria-label="Merge set A"
               value={first}
               onChange={(event) => setFirstId(event.target.value)}
@@ -166,10 +164,9 @@ export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
               ))}
             </select>
           </label>
-          <label className="bsh-field">
-            <span>Merge set B</span>
+          <label className="settings__field">
+            Merge set B
             <select
-              className="bsh-select"
               aria-label="Merge set B"
               value={second}
               onChange={(event) => setSecondId(event.target.value)}
@@ -182,36 +179,37 @@ export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
               ))}
             </select>
           </label>
-          <button
-            type="button"
-            className="bsh-button"
-            disabled={!canMerge}
-            onClick={() => void merge('union')}
-          >
-            Union
-          </button>
-          <button
-            type="button"
-            className="bsh-button"
-            disabled={!canMerge}
-            onClick={() => void merge('intersect')}
-          >
-            Intersect
-          </button>
+          <div className="settings__actions">
+            <button
+              type="button"
+              className="btn"
+              disabled={!canMerge}
+              onClick={() => void merge('union')}
+            >
+              Union
+            </button>
+            <button
+              type="button"
+              className="btn"
+              disabled={!canMerge}
+              onClick={() => void merge('intersect')}
+            >
+              Intersect
+            </button>
+          </div>
           <p className="settings__hint">
             {MERGE_MESSAGES.union} {MERGE_MESSAGES.intersect}
           </p>
-        </div>
+        </>
       ) : null}
       {sets.length === 0 ? (
         <p className="settings__hint">No selection sets yet.</p>
       ) : (
-        <ul className="settings__palette">
+        <ul className="settings__override-list">
           {sets.map((set) => (
-            <li key={`${set.id}:${set.name}`} className="bsh-presets">
+            <li key={`${set.id}:${set.name}`} className="settings__override">
               <input
                 type="text"
-                className="bsh-input"
                 aria-label={`Rename ${set.name}`}
                 maxLength={MAX_NAME_LENGTH}
                 defaultValue={set.name}
@@ -233,7 +231,7 @@ export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
               </span>
               <button
                 type="button"
-                className="bsh-button"
+                className="btn btn-small"
                 aria-label={`Select ${set.name}`}
                 disabled={!adapter}
                 onClick={() => {
@@ -244,7 +242,7 @@ export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
               </button>
               <button
                 type="button"
-                className="bsh-button"
+                className="btn btn-small"
                 aria-label={`Delete ${set.name}`}
                 onClick={() => deleteSet(set.id)}
               >

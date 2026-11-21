@@ -1,4 +1,5 @@
 import { NumberField } from '../components/NumberField.js';
+import { SwitchRow } from '../components/SwitchRow.js';
 import {
   AGGREGATE_LABELS,
   AGGREGATES,
@@ -90,12 +91,11 @@ function PropertyListField({
 }) {
   const joined = value.join(', ');
   return (
-    <label className="bsh-field">
+    <label className="settings__field">
       {label}
       <input
         key={joined}
         type="text"
-        className="bsh-input"
         defaultValue={joined}
         onBlur={(e) => onCommit(splitNames(e.target.value))}
         onKeyDown={(e) => {
@@ -150,13 +150,13 @@ function DashboardFields({
   const numeric = spec.aggregate !== 'count';
 
   return (
-    <div className="bsh-summary-settings">
-      <fieldset className="bsh-fieldset">
-        <legend>Preset</legend>
-        <div className="bsh-presets">
+    <div className="settings">
+      <fieldset className="settings__section">
+        <legend className="settings__heading">Preset</legend>
+        <div className="settings__actions">
           <button
             type="button"
-            className="bsh-button"
+            className="btn"
             aria-pressed={view.preset === null}
             onClick={() => patch({ preset: null })}
           >
@@ -166,7 +166,7 @@ function DashboardFields({
             <button
               key={item.id}
               type="button"
-              className="bsh-button"
+              className="btn"
               aria-pressed={view.preset === item.id}
               onClick={() => patch({ preset: item.id })}
             >
@@ -176,20 +176,19 @@ function DashboardFields({
         </div>
       </fieldset>
       <DashboardUserPresets view={view} apply={setView} />
-      <fieldset className="bsh-fieldset">
-        <legend>Chart properties</legend>
+      <fieldset className="settings__section">
+        <legend className="settings__heading">Chart properties</legend>
         <PropertyPicker
           adapter={adapter}
           value={properties}
           onChange={pickProperties}
         />
       </fieldset>
-      <fieldset className="bsh-fieldset">
-        <legend>Chart</legend>
-        <label className="bsh-field">
+      <fieldset className="settings__section">
+        <legend className="settings__heading">Chart</legend>
+        <label className="settings__field">
           Group by
           <select
-            className="bsh-select"
             value={groupBy}
             disabled={view.preset !== null}
             onChange={(e) => {
@@ -209,10 +208,9 @@ function DashboardFields({
             ))}
           </select>
         </label>
-        <label className="bsh-field">
+        <label className="settings__field">
           Aggregation
           <select
-            className="bsh-select"
             value={spec.aggregate}
             disabled={view.preset !== null}
             onChange={(e) => setAggregate(e.target.value as Aggregate)}
@@ -225,10 +223,9 @@ function DashboardFields({
           </select>
         </label>
         {numeric ? (
-          <label className="bsh-field">
+          <label className="settings__field">
             Measure
             <select
-              className="bsh-select"
               value={names.includes(spec.measure) ? spec.measure : ''}
               disabled={view.preset !== null}
               onChange={(e) => {
@@ -251,12 +248,11 @@ function DashboardFields({
             </select>
           </label>
         ) : null}
-        <label className="bsh-field">
+        <label className="settings__field">
           Maximum categories
           <NumberField
             min={Math.max(MIN_CATEGORIES, TOP_N_MIN)}
             max={Math.min(MAX_CATEGORIES, TOP_N_MAX)}
-            className="bsh-input bsh-input--narrow"
             value={spec.topN}
             onCommit={(topN) =>
               patch({
@@ -266,18 +262,14 @@ function DashboardFields({
             }
           />
         </label>
-        <label className="bsh-field">
-          <input
-            type="checkbox"
-            checked={spec.otherBucket}
-            onChange={(e) => patch({ otherBucket: e.target.checked })}
-          />{' '}
-          Fold values beyond the top into Other
-        </label>
-        <label className="bsh-field">
+        <SwitchRow
+          label="Fold values beyond the top into Other"
+          checked={spec.otherBucket}
+          onChange={() => patch({ otherBucket: !spec.otherBucket })}
+        />
+        <label className="settings__field">
           Chart type
           <select
-            className="bsh-select"
             value={spec.chartType}
             onChange={(e) => setChartType(e.target.value as ChartType)}
           >
@@ -292,74 +284,58 @@ function DashboardFields({
           Numeric aggregations read the trailing unit and convert within one
           unit family. Different families are reported, not summed.
         </p>
-      </fieldset>
-      {action !== undefined && setAction ? (
-        <label className="bsh-field">
-          Chart click
-          <select
-            className="bsh-select"
-            value={action}
-            onChange={(e) => setAction(sanitizeAction(e.target.value))}
-          >
-            {ELEMENT_ACTIONS.map((name) => (
-              <option key={name} value={name}>
-                {ACTION_LABELS[name]}
-              </option>
-            ))}
-          </select>
-        </label>
-      ) : null}
-      <label className="bsh-field">
-        <input
-          type="checkbox"
+        {action !== undefined && setAction ? (
+          <label className="settings__field">
+            Chart click
+            <select
+              value={action}
+              onChange={(e) => setAction(sanitizeAction(e.target.value))}
+            >
+              {ELEMENT_ACTIONS.map((name) => (
+                <option key={name} value={name}>
+                  {ACTION_LABELS[name]}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+        <SwitchRow
+          label="Split by model"
+          description={
+            canSplit
+              ? undefined
+              : 'Open a second model to split a chart by model.'
+          }
           checked={view.splitByModel === true}
           disabled={!canSplit}
-          onChange={(e) =>
-            patch({ splitByModel: e.target.checked || undefined })
+          onChange={() =>
+            patch({ splitByModel: view.splitByModel ? undefined : true })
           }
-        />{' '}
-        Split by model
-      </label>
-      {canSplit ? null : (
-        <p className="bsh-muted">
-          Open a second model to split a chart by model.
-        </p>
-      )}
-      <label className="bsh-field">
-        <input
-          type="checkbox"
+        />
+        <SwitchRow
+          label="Include the title in exported PNGs"
           checked={view.pngTitle}
-          onChange={(e) => patch({ pngTitle: e.target.checked })}
-        />{' '}
-        Include the title in exported PNGs
-      </label>
-      <label className="bsh-field">
-        <input
-          type="checkbox"
+          onChange={() => patch({ pngTitle: !view.pngTitle })}
+        />
+        <SwitchRow
+          label="Include the legend in exported PNGs"
           checked={view.pngLegend}
-          onChange={(e) => patch({ pngLegend: e.target.checked })}
-        />{' '}
-        Include the legend in exported PNGs
-      </label>
+          onChange={() => patch({ pngLegend: !view.pngLegend })}
+        />
+      </fieldset>
       {health && setHealth ? (
-        <fieldset className="bsh-fieldset">
-          <legend>Model health</legend>
-          <label className="bsh-field">
-            <input
-              type="checkbox"
-              checked={health.enabled}
-              onChange={(e) =>
-                setHealth({ ...health, enabled: e.target.checked })
-              }
-            />{' '}
-            Show model health tiles
-          </label>
-          <label className="bsh-field">
+        <fieldset className="settings__section">
+          <legend className="settings__heading">Model health</legend>
+          <SwitchRow
+            label="Show model health tiles"
+            checked={health.enabled}
+            onChange={() => setHealth({ ...health, enabled: !health.enabled })}
+          />
+          <label className="settings__field">
             Health threshold (%)
             <NumberField
               min={0}
               max={MAX_KPI_THRESHOLD}
-              className="bsh-input bsh-input--narrow"
               value={health.threshold}
               onCommit={(threshold) => setHealth({ ...health, threshold })}
             />
@@ -374,10 +350,9 @@ function DashboardFields({
             value={health.unique}
             onCommit={(unique) => setHealth({ ...health, unique })}
           />
-          <label className="bsh-field">
+          <label className="settings__field">
             Numeric property
             <select
-              className="bsh-select"
               value={names.includes(health.measure) ? health.measure : ''}
               onChange={(e) =>
                 setHealth({ ...health, measure: e.target.value })
@@ -392,23 +367,27 @@ function DashboardFields({
             </select>
           </label>
           {resetHealth ? (
-            <button type="button" className="bsh-button" onClick={resetHealth}>
-              Reset health checks
-            </button>
+            <div className="settings__actions">
+              <button type="button" className="btn" onClick={resetHealth}>
+                Reset health checks
+              </button>
+            </div>
           ) : null}
         </fieldset>
       ) : null}
-      <button
-        type="button"
-        className="bsh-button"
-        onClick={() => {
-          resetView();
-          resetAction?.();
-          resetHealth?.();
-        }}
-      >
-        {resetAction ? 'Reset dashboard' : 'Reset chart'}
-      </button>
+      <div className="settings__actions">
+        <button
+          type="button"
+          className="btn"
+          onClick={() => {
+            resetView();
+            resetAction?.();
+            resetHealth?.();
+          }}
+        >
+          {resetAction ? 'Reset dashboard' : 'Reset chart'}
+        </button>
+      </div>
     </div>
   );
 }

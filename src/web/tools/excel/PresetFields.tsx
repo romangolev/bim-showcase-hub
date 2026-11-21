@@ -34,12 +34,11 @@ export function PresetFields({
   };
 
   return (
-    <fieldset className="bsh-fieldset">
-      <legend>Presets</legend>
-      <div className="bsh-presets">
+    <fieldset className="settings__section">
+      <legend className="settings__heading">Presets</legend>
+      <div className="settings__actions">
         <input
           type="text"
-          className="bsh-input"
           aria-label="Export preset name"
           placeholder="Name this setup"
           maxLength={MAX_NAME_LENGTH}
@@ -51,7 +50,7 @@ export function PresetFields({
         />
         <button
           type="button"
-          className="bsh-button"
+          className="btn"
           disabled={!name.trim()}
           onClick={save}
         >
@@ -63,16 +62,16 @@ export function PresetFields({
           Could not save the preset. Delete some saved items and try again.
         </p>
       ) : null}
-      <ul className="settings__palette" aria-label="Built-in presets">
+      <ul className="settings__override-list" aria-label="Built-in presets">
         {BUILT_IN_EXPORT_PRESETS.map((preset) => {
           const needsCatalog =
             preset.everyColumn === true && catalog.length === 0;
           return (
-            <li key={preset.id} className="bsh-presets">
+            <li key={preset.id} className="settings__override">
               <span>{preset.name}</span>
               <button
                 type="button"
-                className="bsh-button"
+                className="btn"
                 aria-label={`Apply ${preset.name}`}
                 disabled={needsCatalog}
                 onClick={() => apply(builtInSettings(preset, catalog))}
@@ -92,13 +91,13 @@ export function PresetFields({
       {items.length === 0 ? (
         <p className="settings__hint">No saved presets yet.</p>
       ) : (
-        <ul className="settings__palette">
+        <ul className="settings__override-list">
           {items.map((item) => (
-            <li key={`${item.id}:${item.name}`} className="bsh-presets">
+            <li key={`${item.id}:${item.name}`} className="settings__override">
               <span>{item.name}</span>
               <button
                 type="button"
-                className="bsh-button"
+                className="btn"
                 aria-label={`Apply ${item.name}`}
                 onClick={() => apply(presetSettings(item.data))}
               >
@@ -106,7 +105,7 @@ export function PresetFields({
               </button>
               <button
                 type="button"
-                className="bsh-button"
+                className="btn"
                 aria-label={`Delete ${item.name}`}
                 onClick={() => {
                   EXPORT_PRESETS.remove(item.id);

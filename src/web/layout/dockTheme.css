@@ -116,27 +116,27 @@
 }
 
 .bsh-dock .dv-default-tab[data-tag="red"] {
-  --pane-tag-color: #e5534b;
+  --pane-tag-color: var(--color-tag-red);
 }
 
 .bsh-dock .dv-default-tab[data-tag="orange"] {
-  --pane-tag-color: #e08a3c;
+  --pane-tag-color: var(--color-tag-orange);
 }
 
 .bsh-dock .dv-default-tab[data-tag="yellow"] {
-  --pane-tag-color: #d6b64a;
+  --pane-tag-color: var(--color-tag-yellow);
 }
 
 .bsh-dock .dv-default-tab[data-tag="green"] {
-  --pane-tag-color: #4caf7d;
+  --pane-tag-color: var(--color-tag-green);
 }
 
 .bsh-dock .dv-default-tab[data-tag="blue"] {
-  --pane-tag-color: #4a8fd6;
+  --pane-tag-color: var(--color-tag-blue);
 }
 
 .bsh-dock .dv-default-tab[data-tag="purple"] {
-  --pane-tag-color: #9a72d6;
+  --pane-tag-color: var(--color-tag-purple);
 }
 
 .bsh-dock .dv-groupview.dv-active-group:not([data-collapsed])::after {
@@ -157,6 +157,8 @@
 }
 
 .bsh-dock .dv-default-tab-action {
+  min-width: 1.5rem;
+  min-height: 1.5rem;
   border-radius: var(--radius-badge);
 }
 
@@ -242,6 +244,13 @@
 
 .dock-action:focus-visible {
   outline-offset: -2px;
+}
+
+@media (pointer: coarse) {
+  .dock-action {
+    width: var(--hit-target);
+    height: var(--hit-target);
+  }
 }
 
 .dock-action__chevron[data-expanded="true"] {

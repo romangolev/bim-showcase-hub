@@ -4,6 +4,8 @@
   border-radius: var(--radius-button);
   background: var(--color-graphite);
   color: var(--color-snow);
+  font-size: var(--text-14);
+  line-height: 1.5;
   box-shadow: var(--shadow-float);
   max-height: min(80vh, 720px);
   width: min(100vw - 32px, 480px);
@@ -37,13 +39,14 @@
 
 .modal__title {
   margin: 0;
-  font-size: var(--text-13);
-  font-weight: 600;
+  font-size: var(--text-16);
+  font-weight: var(--weight-strong);
 }
 
 .modal__body {
   padding: var(--space-4);
   overflow: auto;
+  container-type: inline-size;
   background:
     linear-gradient(var(--color-graphite) 30%, transparent) top / 100% 24px
     no-repeat local,
@@ -126,35 +129,82 @@
 }
 
 .settings__field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.settings__field,
-.bsh-summary-settings .bsh-field:has(> .bsh-select, > .bsh-input) {
   display: grid;
   grid-template-columns: minmax(10rem, 16rem) minmax(0, 1fr);
   align-items: center;
   column-gap: var(--space-4);
   row-gap: var(--space-1);
+  color: var(--color-snow);
 }
 
-.settings__field label,
-.settings__field > span:first-child {
-  font-size: var(--text-13);
-  color: var(--color-chalk);
+.settings__field > label:has(> input, > select) {
+  display: contents;
 }
 
-.settings__field input[type="number"],
-.bsh-summary-settings .bsh-input {
-  width: 120px;
+.settings__field > .btn {
+  justify-self: start;
 }
 
-.settings__field input,
-.settings__field select {
+.settings fieldset {
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.settings legend {
+  float: left;
+  width: 100%;
+  padding: 0;
+  color: var(--color-snow);
+}
+
+fieldset.settings__field {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+}
+
+.settings
+  input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"]),
+.settings select,
+.settings textarea {
   min-height: var(--hit-target);
   padding: 0 var(--space-2);
+  border: var(--border-field);
+  border-radius: var(--radius-tile);
+  background: var(--color-charcoal);
+  color: var(--color-snow);
+  font-size: var(--text-14);
+}
+
+.settings input[type="range"] {
+  min-height: var(--hit-target);
+}
+
+.settings input[type="number"] {
+  width: 8rem;
+}
+
+.settings__actions > input {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.settings__override > input {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings summary {
+  line-height: var(--hit-target);
+  cursor: pointer;
+}
+
+.settings__check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .settings__overrides {
@@ -252,4 +302,14 @@
   margin: 0;
   font-size: var(--text-13);
   color: var(--color-chalk);
+}
+
+@container (max-width: 32rem) {
+  .settings__field {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings__field > .settings__hint {
+    grid-column: 1;
+  }
 }

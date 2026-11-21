@@ -164,20 +164,20 @@ function GroupByEditor({
     onChange(next);
   };
   return (
-    <fieldset className="bsh-summary-settings__groupby">
-      <legend>Group by, outermost first</legend>
+    <fieldset className="settings__section">
+      <legend className="settings__heading">Group by, outermost first</legend>
       {value.length === 0 ? (
         <p className="settings__hint">
           A pivot needs at least one grouping property.
         </p>
       ) : (
-        <ol className="bsh-summary-settings__levels">
+        <ol className="settings__override-list">
           {value.map((name, index) => (
-            <li key={name} className="bsh-summary-settings__level">
-              <span className="bsh-summary-settings__level-name">{name}</span>
+            <li key={name} className="settings__override">
+              <span>{name}</span>
               <button
                 type="button"
-                className="bsh-button"
+                className="btn btn-small"
                 aria-label={`Move ${name} up`}
                 disabled={index === 0}
                 onClick={() => move(index, index - 1)}
@@ -186,7 +186,7 @@ function GroupByEditor({
               </button>
               <button
                 type="button"
-                className="bsh-button"
+                className="btn btn-small"
                 aria-label={`Move ${name} down`}
                 disabled={index === value.length - 1}
                 onClick={() => move(index, index + 1)}
@@ -195,7 +195,7 @@ function GroupByEditor({
               </button>
               <button
                 type="button"
-                className="bsh-button"
+                className="btn btn-small"
                 aria-label={`Remove ${name} from the grouping`}
                 onClick={() => onChange(value.filter((item) => item !== name))}
               >
@@ -220,7 +220,7 @@ function GroupByEditor({
         </select>
         <button
           type="button"
-          className="bsh-button"
+          className="btn"
           disabled={
             !selected || available.length === 0 || value.length >= MAX_GROUP_BY
           }
@@ -254,8 +254,8 @@ function TitleEditor({
     onChange(next);
   };
   return (
-    <fieldset className="bsh-summary-settings__titles">
-      <legend>Block titles</legend>
+    <fieldset className="settings__section">
+      <legend className="settings__heading">Block titles</legend>
       {propertyNames.map((property) => (
         <label key={property} className="settings__field">
           {property}
@@ -269,13 +269,11 @@ function TitleEditor({
         </label>
       ))}
       {Object.keys(titles).length > 0 ? (
-        <button
-          type="button"
-          className="bsh-button"
-          onClick={() => onChange({})}
-        >
-          Reset block titles
-        </button>
+        <div className="settings__actions">
+          <button type="button" className="btn" onClick={() => onChange({})}>
+            Reset block titles
+          </button>
+        </div>
       ) : null}
     </fieldset>
   );
@@ -347,9 +345,9 @@ function SummaryFields({
   };
   const groupBy = view.groupBy.filter((name) => propertyNames.includes(name));
   return (
-    <div className="bsh-summary-settings">
-      <fieldset className="bsh-fieldset">
-        <legend>Properties</legend>
+    <div className="settings">
+      <fieldset className="settings__section">
+        <legend className="settings__heading">Properties</legend>
         <PropertyPicker
           adapter={adapter}
           value={propertyNames}
@@ -375,9 +373,11 @@ function SummaryFields({
         titles={view.titles}
         onChange={(titles) => onView({ ...view, titles })}
       />
-      <button type="button" className="bsh-button" onClick={onReset}>
-        Reset view
-      </button>
+      <div className="settings__actions">
+        <button type="button" className="btn" onClick={onReset}>
+          Reset view
+        </button>
+      </div>
     </div>
   );
 }

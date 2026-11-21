@@ -4,6 +4,7 @@ export interface SwitchRowProps {
   label: string;
   description?: string;
   checked: boolean;
+  disabled?: boolean;
   onChange: () => void;
 }
 
@@ -11,6 +12,7 @@ export function SwitchRow({
   label,
   description,
   checked,
+  disabled,
   onChange,
 }: SwitchRowProps) {
   const hintId = useId();
@@ -29,6 +31,7 @@ export function SwitchRow({
         role="switch"
         checked={checked}
         aria-checked={checked}
+        disabled={disabled}
         aria-label={label}
         aria-describedby={description ? hintId : undefined}
         onChange={onChange}

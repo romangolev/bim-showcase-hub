@@ -282,9 +282,9 @@ describe('SettingsBody', () => {
 
   it('turns on chart patterns and the always-open data table', () => {
     renderBody();
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Pattern fills' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Pattern fills' }));
     fireEvent.click(
-      screen.getByRole('checkbox', { name: 'Always show the data table' }),
+      screen.getByRole('switch', { name: 'Always show the data table' }),
     );
     expect(CHART_SETTINGS.read()).toMatchObject({
       patterns: true,

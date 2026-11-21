@@ -323,10 +323,13 @@ function PaintFields() {
       </section>
       <section className="settings__section" aria-label="Viewer shortcuts">
         <h3 className="settings__heading">Viewer shortcuts</h3>
-        <ul>
+        <ul className="settings__readout">
           {shortcuts.map((shortcut) => (
-            <li key={shortcut.command}>
-              <kbd>{formatShortcut(shortcut.keys)}</kbd> {shortcut.label}
+            <li key={shortcut.command} className="settings__readout-row">
+              <span>{shortcut.label}</span>
+              <kbd className="settings__readout-name">
+                {formatShortcut(shortcut.keys)}
+              </kbd>
             </li>
           ))}
         </ul>

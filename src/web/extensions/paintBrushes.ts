@@ -207,14 +207,6 @@ export function applyPaintPlan(
   }
 }
 
-export function paintSelection(adapter: ViewerAdapter, color: Rgba): boolean {
-  const selection = adapter.getModelSelection();
-  if (selection.length === 0) return false;
-  colorLayersFor(adapter).setColors('paint', selection, color);
-  adapter.clearSelection();
-  return true;
-}
-
 export function resetPaint(adapter: ViewerAdapter): void {
   colorLayersFor(adapter).clearSource('paint');
 }

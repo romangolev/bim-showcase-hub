@@ -1,3 +1,4 @@
+import { StateBlock } from '../components/StateBlock.js';
 import {
   describeStatus,
   exportPreview,
@@ -13,7 +14,12 @@ import { EXCEL_SETTINGS } from '../tools/excel/excelSettings.js';
 import { useExcelStatus } from '../tools/excel/excelStatus.js';
 import { useModelColoring } from '../viewer/modelColoring.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
-import { useResolvedAdapter, useScopedRows } from './useScopedRows.js';
+import {
+  HIDDEN_MESSAGE,
+  HIDDEN_TITLE,
+  useResolvedAdapter,
+  useScopedRows,
+} from './useScopedRows.js';
 import './panels.css';
 
 export interface ExportPanelProps {
@@ -54,14 +60,16 @@ export function ExportPanel({ adapter, fileName }: ExportPanelProps) {
         </h2>
       </header>
       <div className="bsh-drawer__body">
-        <ExcelFields />
+        <div className="settings">
+          <ExcelFields />
+        </div>
         <p className="settings__hint">
           File: {excelFileNameFrom(fileName, excel)}
         </p>
         <div className="bsh-presets">
           <button
             type="button"
-            className="bsh-button bsh-button--primary"
+            className="btn btn-primary"
             onClick={() => {
               if (resolved) startExcelExport(resolved, fileName);
             }}
@@ -72,6 +80,33 @@ export function ExportPanel({ adapter, fileName }: ExportPanelProps) {
         </div>
         {status ? (
           <p className="settings__hint">{describeStatus(status)}</p>
+        ) : null}
+        {!resolved ? (
+          <StateBlock
+            variant="empty"
+            title="No model loaded"
+            message="Open a model to preview and export its rows."
+            compact
+          />
+        ) : null}
+        {state.status === 'hidden' ? (
+          <StateBlock
+            variant="empty"
+            title={HIDDEN_TITLE}
+            message={HIDDEN_MESSAGE}
+            compact
+          />
+        ) : null}
+        {state.status === 'loading' ? (
+          <StateBlock variant="loading" message="Reading rows" />
+        ) : null}
+        {state.status === 'error' ? (
+          <StateBlock
+            variant="error"
+            message="We could not read the rows to export."
+            detail={state.message}
+            compact
+          />
         ) : null}
         {preview ? (
           <>

@@ -7,7 +7,6 @@ import { COLOR_RULE_PRESETS, duplicateRulePreset } from './colorRulePresets.js';
 import {
   type ColorRule,
   colorByRules,
-  matchRule,
   ruleProperties,
   sanitizeRuleSet,
 } from './colorRules.js';
@@ -31,7 +30,21 @@ const row = (dbId: number, props: PropertyRow['properties']): PropertyRow => ({
   modelId: 'm',
 });
 
-describe('matchRule', () => {
+const matchRule = (
+  r: ColorRule,
+  cell: PropertyRow['properties'][string],
+): boolean =>
+  entryOf(
+    colorByRules([row(1, { Category: cell })], {
+      rules: [r],
+      fallback: null,
+      ghostRest: false,
+    }),
+    'm',
+    1,
+  ) !== null;
+
+describe('rule matching', () => {
   it('matches equals case-insensitively and contains as a substring', () => {
     expect(matchRule(rule({ value: 'walls' }), 'Walls')).toBe(true);
     expect(matchRule(rule({ op: 'contains', value: 'all' }), 'Walls')).toBe(

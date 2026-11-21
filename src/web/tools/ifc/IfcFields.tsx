@@ -126,9 +126,11 @@ function OverrideEditor({
           ))}
         </select>
       </div>
-      <button type="button" className="btn" onClick={add}>
-        Add override
-      </button>
+      <div className="settings__actions">
+        <button type="button" className="btn" onClick={add}>
+          Add override
+        </button>
+      </div>
     </div>
   );
 }
@@ -151,7 +153,7 @@ export function IfcFields() {
   return (
     <section className="settings__section" aria-labelledby="settings-ifc">
       <h3 id="settings-ifc" className="settings__heading">
-        IFC export
+        IFC file
       </h3>
       {TEXT_FIELDS.map(({ key, label }) => (
         <TextField

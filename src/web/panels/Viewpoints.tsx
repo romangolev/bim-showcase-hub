@@ -45,11 +45,10 @@ export function ViewpointsBody() {
   };
 
   return (
-    <div className="bsh-summary-settings">
-      <div className="bsh-presets">
+    <div className="settings">
+      <div className="settings__actions">
         <input
           type="text"
-          className="bsh-input"
           aria-label="Viewpoint name"
           placeholder="Name this view"
           maxLength={MAX_NAME_LENGTH}
@@ -61,7 +60,7 @@ export function ViewpointsBody() {
         />
         <button
           type="button"
-          className="bsh-button"
+          className="btn"
           disabled={!adapter}
           onClick={save}
         >
@@ -76,12 +75,14 @@ export function ViewpointsBody() {
       {points.length === 0 ? (
         <p className="settings__hint">No viewpoints yet.</p>
       ) : (
-        <ul className="settings__palette">
+        <ul className="settings__override-list">
           {points.map((point, index) => (
-            <li key={`${point.id}:${point.name}`} className="bsh-presets">
+            <li
+              key={`${point.id}:${point.name}`}
+              className="settings__override"
+            >
               <input
                 type="text"
-                className="bsh-input"
                 aria-label={`Rename ${point.name}`}
                 maxLength={MAX_NAME_LENGTH}
                 defaultValue={point.name}
@@ -98,7 +99,7 @@ export function ViewpointsBody() {
               />
               <button
                 type="button"
-                className="bsh-button"
+                className="btn"
                 aria-label={`Go to ${point.name}`}
                 disabled={!adapter}
                 onClick={() => void go(point.id)}
@@ -107,7 +108,7 @@ export function ViewpointsBody() {
               </button>
               <button
                 type="button"
-                className="bsh-button"
+                className="btn"
                 aria-label={`Move ${point.name} up`}
                 disabled={index === 0}
                 onClick={() => moveViewpoint(point.id, -1)}
@@ -116,7 +117,7 @@ export function ViewpointsBody() {
               </button>
               <button
                 type="button"
-                className="bsh-button"
+                className="btn"
                 aria-label={`Move ${point.name} down`}
                 disabled={index === points.length - 1}
                 onClick={() => moveViewpoint(point.id, 1)}
@@ -125,7 +126,7 @@ export function ViewpointsBody() {
               </button>
               <button
                 type="button"
-                className="bsh-button"
+                className="btn"
                 aria-label={`Delete ${point.name}`}
                 onClick={() => deleteViewpoint(point.id)}
               >

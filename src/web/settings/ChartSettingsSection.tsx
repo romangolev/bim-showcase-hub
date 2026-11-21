@@ -1,4 +1,5 @@
 import { useId } from 'react';
+import { SwitchRow } from '../components/SwitchRow.js';
 import type { ChartPaletteId } from '../extensions/dashboardData.js';
 import {
   CHART_PALETTE_IDS,
@@ -36,36 +37,22 @@ export function ChartSettingsSection() {
           Colours every bar, slice, legend swatch and table swatch.
         </span>
       </div>
-      <div className="settings__field">
-        <label>
-          <input
-            type="checkbox"
-            checked={settings.patterns}
-            onChange={() =>
-              update((prev) => ({ ...prev, patterns: !prev.patterns }))
-            }
-          />
-          Pattern fills
-        </label>
-        <span className="settings__hint">
-          Textures each series so neighbouring colours stay apart in print.
-        </span>
-      </div>
-      <div className="settings__field">
-        <label>
-          <input
-            type="checkbox"
-            checked={settings.dataTable}
-            onChange={() =>
-              update((prev) => ({ ...prev, dataTable: !prev.dataTable }))
-            }
-          />
-          Always show the data table
-        </label>
-        <span className="settings__hint">
-          Keeps the table under every chart open instead of collapsed.
-        </span>
-      </div>
+      <SwitchRow
+        label="Pattern fills"
+        description="Textures each series so neighbouring colours stay apart in print."
+        checked={settings.patterns}
+        onChange={() =>
+          update((prev) => ({ ...prev, patterns: !prev.patterns }))
+        }
+      />
+      <SwitchRow
+        label="Always show the data table"
+        description="Keeps the table under every chart open instead of collapsed."
+        checked={settings.dataTable}
+        onChange={() =>
+          update((prev) => ({ ...prev, dataTable: !prev.dataTable }))
+        }
+      />
     </section>
   );
 }

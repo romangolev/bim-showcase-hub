@@ -21,9 +21,16 @@
   --color-coral: #f87171;
   --color-ember: #ea580c;
   --color-iris: #314ef0;
+  --color-tag-red: #e5534b;
+  --color-tag-orange: #e08a3c;
+  --color-tag-yellow: #d6b64a;
+  --color-tag-green: #4caf7d;
+  --color-tag-blue: #4a8fd6;
+  --color-tag-purple: #9a72d6;
 
   --color-hairline: rgb(255 255 255 / 0.1);
   --color-hairline-faint: rgb(255 255 255 / 0.06);
+  --color-field-border: rgb(255 255 255 / 0.36);
   --color-ghost-fill: rgb(255 255 255 / 0.06);
   --color-ghost-fill-hover: rgb(255 255 255 / 0.14);
   --color-ghost-fill-active: rgb(255 255 255 / 0.2);
@@ -67,9 +74,16 @@
   --color-coral: #c62828;
   --color-ember: #ea580c;
   --color-iris: #314ef0;
+  --color-tag-red: #c9382f;
+  --color-tag-orange: #b45f12;
+  --color-tag-yellow: #8a6d0a;
+  --color-tag-green: #2c7a4f;
+  --color-tag-blue: #2f6db3;
+  --color-tag-purple: #7449b8;
 
   --color-hairline: rgb(0 0 0 / 0.1);
   --color-hairline-faint: rgb(0 0 0 / 0.06);
+  --color-field-border: rgb(0 0 0 / 0.48);
   --color-ghost-fill: rgb(0 0 0 / 0.04);
   --color-ghost-fill-hover: rgb(0 0 0 / 0.08);
   --color-ghost-fill-active: rgb(0 0 0 / 0.12);
@@ -114,6 +128,7 @@
   --tree-row-height-two-line: calc(2.875rem * var(--density));
 
   --text-8: 0.5rem;
+  --text-12: 0.75rem;
   --text-13: 0.8125rem;
   --text-14: 0.875rem;
   --text-16: 1rem;
@@ -161,8 +176,10 @@
   --radius-button: 8px;
   --radius-card: 8px;
   --radius-container: 12px;
+  --radius-pill: 999px;
 
   --border-hairline: 0.5px solid var(--color-hairline);
+  --border-field: 0.5px solid var(--color-field-border);
   --shadow-inset: inset 0 1px 0 var(--color-inset-highlight);
   --ring-width: 2px;
   --ring-offset: 2px;

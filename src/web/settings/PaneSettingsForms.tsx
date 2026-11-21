@@ -113,7 +113,7 @@ const TREE_SHORTCUTS: readonly [string, string][] = [
 export function TreeSettingsForm() {
   const [view, setView] = usePersisted(PANE_SETTINGS.tree.view);
   return (
-    <>
+    <div className="settings">
       <SettingsForm
         form={TREE_SETTINGS_FORM}
         value={view}
@@ -121,14 +121,15 @@ export function TreeSettingsForm() {
       />
       <section className="settings__section" aria-label="Keyboard shortcuts">
         <h3 className="settings__heading">Keyboard shortcuts</h3>
-        <ul>
+        <ul className="settings__readout">
           {TREE_SHORTCUTS.map(([keys, action]) => (
-            <li key={keys}>
-              <span className="settings__hint">{keys}</span> {action}
+            <li key={keys} className="settings__readout-row">
+              <span>{action}</span>
+              <kbd className="settings__readout-name">{keys}</kbd>
             </li>
           ))}
         </ul>
       </section>
-    </>
+    </div>
   );
 }

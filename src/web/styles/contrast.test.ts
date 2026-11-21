@@ -40,7 +40,16 @@ const TEXT = [
   'coral',
   'mint',
 ];
-const UI = ['ring-blue', 'signal-blue'];
+const UI = [
+  'ring-blue',
+  'signal-blue',
+  'tag-red',
+  'tag-orange',
+  'tag-yellow',
+  'tag-green',
+  'tag-blue',
+  'tag-purple',
+];
 
 const THEMES = {
   dark: block(':root[data-theme="dark"]'),

@@ -10,7 +10,7 @@ import {
 } from './displaySettings.js';
 
 export const DISPLAY_FORM: FormDefinition<DisplayToolSettings> = {
-  title: 'Viewer display',
+  title: 'Rendering',
   intro:
     'Lighting, shadows, edges and rendering quality of the active viewer. Options this viewer build does not offer stay unchanged.',
   fields: [

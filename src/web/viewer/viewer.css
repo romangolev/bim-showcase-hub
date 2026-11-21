@@ -79,23 +79,8 @@
   mask: none;
 }
 
-.bsh-ico-paint-red,
-.bsh-ico-paint-green,
-.bsh-ico-paint-blue,
 .bsh-ico-paint-swatch {
   --bsh-ico-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Ccircle cx='12' cy='12' r='7' fill='black'/%3E%3C/svg%3E");
-}
-
-.bsh-viewer-surface .bsh-ico-paint-red {
-  background-color: #ef4444;
-}
-
-.bsh-viewer-surface .bsh-ico-paint-green {
-  background-color: #22c55e;
-}
-
-.bsh-viewer-surface .bsh-ico-paint-blue {
-  background-color: #3b82f6;
 }
 
 .bsh-mock {
