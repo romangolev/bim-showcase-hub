@@ -38,7 +38,7 @@ const PROFILE_LABELS: Record<ToolbarProfileId, string> = {
 
 function readProfile(raw: unknown): ToolbarProfileId {
   if (raw === 'custom') return 'custom';
-  return typeof raw === 'string' && raw in TOOLBAR_PROFILES
+  return typeof raw === 'string' && Object.hasOwn(TOOLBAR_PROFILES, raw)
     ? (raw as keyof typeof TOOLBAR_PROFILES)
     : 'full';
 }

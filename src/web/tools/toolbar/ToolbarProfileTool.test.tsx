@@ -169,3 +169,11 @@ describe('toolbar settings window', () => {
     ).toBeTruthy();
   });
 });
+
+describe('profile sanitising', () => {
+  it('falls back to full for an inherited object key', () => {
+    expect(sanitizeToolbarSettings({ profile: 'constructor' }).profile).toBe(
+      'full',
+    );
+  });
+});
