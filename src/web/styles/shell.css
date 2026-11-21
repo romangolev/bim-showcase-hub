@@ -380,6 +380,10 @@
     white-space: nowrap;
   }
 
+  .brand {
+    flex: none;
+  }
+
   .topbar__inner {
     min-width: 0;
     gap: var(--space-1);

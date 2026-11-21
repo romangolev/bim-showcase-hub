@@ -176,6 +176,10 @@ fieldset.settings__field {
   font-size: var(--text-14);
 }
 
+.settings input[type="range"] {
+  min-height: var(--hit-target);
+}
+
 .settings input[type="number"] {
   width: 8rem;
 }
