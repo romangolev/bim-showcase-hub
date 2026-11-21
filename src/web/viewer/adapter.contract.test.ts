@@ -280,6 +280,7 @@ describe('ViewerAdapter contract (mock)', () => {
     await setup();
     const typed: ViewerAdapter = adapter;
     expect(typeof typed.load).toBe('function');
+    expect(typeof typed.setGhosting).toBe('function');
   });
 });
 

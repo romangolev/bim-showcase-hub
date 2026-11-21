@@ -81,17 +81,17 @@ All browser storage goes through `src/web/storage.ts`. `BSH_KEYS` lists the fixe
 | `bsh.pane.<kind>.<n>.v1` | personal | Spec of a chart, summary or properties pane instance. A chart spec includes its property list |
 | `bsh.pane.docs.root.v1` | personal | Documents root: the hub and project the tree starts at |
 | `bsh.pane.appearance.v1` | personal | Pane titles and colour tags, keyed by panel id (`summary`, `chart:1`). Under the `bsh.pane.` prefix |
-| `bsh.pane.colors.v1` | personal | Colors pane: mode, property or rules, top N, overrides, active flag and the working rule set |
+| `bsh.pane.colors.v1` | personal | Colors pane: mode, property or rules, top N, overrides and the working rule set |
+| `bsh.hint.onboarding.v1` | personal | Onboarding hints dismissed |
+| `bsh.topbar.v1` | preference | Top bar: whether the model breadcrumb shows the full path, the file name only or nothing |
 | `bsh.saved.v1` | personal | Saved items: dashboard presets, export presets, summary presets, report templates, colour rules, selection sets, viewpoints |
 | `bsh.workspaces.v1` | personal | Named workspaces: `{ version: 1, items }`, each with a name, a layout and pane appearances |
 | `bsh.commands.recent.v1` | personal | Recent palette commands |
 | `bsh.paint.<hash>` | personal | One paint record per model version: an ordered, bounded list of paint actions and the undo cursor. The hash covers the URN and the model version |
 | `bsh.hint.hubs.dismissed.v1` | personal | No-hubs notice dismissed |
-| `bsh.hint.onboarding.v1` | personal | Onboarding hints dismissed |
 | `bsh-settings-v1` | preference | App settings, version 4: theme (`system`, `light`, `dark`), density, text size (100, 112, 125), reduced motion, language (`en`, `ru`), units (`metric`, `imperial`), session warning, recents length |
 | `bsh.layout.locked` | preference | Layout lock |
 | `bsh.tree.view` | preference | Tree sort and metadata columns |
-| `bsh.topbar.v1` | preference | Top bar: whether the model breadcrumb shows the full path, the file name only or nothing |
 | `bsh.snapshot.v1` | preference | Snapshot and Present options |
 | `bsh.notify.v1` | preference | Toast position, duration and quiet mode |
 | `bsh.charts.v1` | preference | Chart palette, pattern fills and whether the data table starts open |
