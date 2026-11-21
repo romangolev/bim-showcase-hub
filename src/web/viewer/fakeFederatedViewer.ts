@@ -59,19 +59,22 @@ export class FakeModel implements ViewerModel {
     onSuccess: (items: BulkPropertyItem[]) => void,
   ): void {
     const categories = this.spec.categories ?? ['Walls'];
+    const known = new Set([1, ...(this.spec.leaves ?? FAKE_LEAVES)]);
     onSuccess(
-      dbIds.map((dbId, index) => ({
-        dbId,
-        name: `${this.urn} ${dbId}`,
-        properties: (options.propFilter ?? []).includes('Category')
-          ? [
-              {
-                displayName: 'Category',
-                displayValue: categories[index % categories.length],
-              },
-            ]
-          : [],
-      })),
+      dbIds
+        .filter((dbId) => known.has(dbId))
+        .map((dbId, index) => ({
+          dbId,
+          name: `${this.urn} ${dbId}`,
+          properties: (options.propFilter ?? []).includes('Category')
+            ? [
+                {
+                  displayName: 'Category',
+                  displayValue: categories[index % categories.length],
+                },
+              ]
+            : [],
+        })),
     );
   }
 
@@ -88,7 +91,8 @@ export class FakeModel implements ViewerModel {
     onSuccess({
       getRootId: () => 1,
       getChildCount: (dbId) => (dbId === 1 ? leaves.length : 0),
-      enumNodeChildren: (_dbId, cb) => {
+      enumNodeChildren: (dbId, cb) => {
+        if (dbId !== 1) return;
         for (const leaf of leaves) cb(leaf);
       },
     });
