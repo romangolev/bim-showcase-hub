@@ -34,6 +34,7 @@ export interface ModelMenuSource {
   onCopyLink?: () => void;
   onRevealPath?: () => void;
   onShowVersions?: () => void;
+  onVersionHistory?: () => void;
 }
 
 export function modelMenuEntries(source: ModelMenuSource): MenuEntry[] {
@@ -88,7 +89,12 @@ export function modelMenuEntries(source: ModelMenuSource): MenuEntry[] {
       onSelect: source.onTogglePin,
     });
   }
-  if (source.onCopyLink || source.onRevealPath || source.onShowVersions) {
+  if (
+    source.onCopyLink ||
+    source.onRevealPath ||
+    source.onShowVersions ||
+    source.onVersionHistory
+  ) {
     entries.push({ kind: 'separator', id: 'locate-separator' });
     if (urn && source.onCopyLink) {
       entries.push({
@@ -111,6 +117,14 @@ export function modelMenuEntries(source: ModelMenuSource): MenuEntry[] {
         label: 'Show versions',
         description: 'Expand the item so its versions are visible',
         onSelect: source.onShowVersions,
+      });
+    }
+    if (source.onVersionHistory) {
+      entries.push({
+        id: 'version-history',
+        label: 'Version history',
+        description: 'List the versions in their own pane',
+        onSelect: source.onVersionHistory,
       });
     }
   }

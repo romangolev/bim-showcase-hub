@@ -12,3 +12,7 @@ export {
   PropertiesPanel,
   type PropertiesPanelProps,
 } from './PropertiesPanel.js';
+export {
+  VersionHistoryPanel,
+  type VersionHistoryPanelProps,
+} from './VersionHistoryPanel.js';

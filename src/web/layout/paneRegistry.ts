@@ -15,6 +15,7 @@ import {
   SummaryInstancePane,
   SummaryPane,
   TreePane,
+  VersionsPane,
 } from './panes.js';
 
 export type PaneId =
@@ -23,6 +24,7 @@ export type PaneId =
   | 'summary'
   | 'dashboard'
   | 'models'
+  | 'versions'
   | 'colors'
   | 'export'
   | 'chart'
@@ -69,6 +71,7 @@ export interface PaneDefinition {
   closable: boolean;
   requires: 'viewer' | 'none';
   opensWithModel?: boolean;
+  startsOpen?: boolean;
   instances?: PaneInstances;
   commands?: (ctx: PaneCommandContext) => readonly Command[];
 }
@@ -165,6 +168,21 @@ export const PANES: readonly PaneDefinition[] = [
     defaultPlacement: { kind: 'tab', reference: 'tree' },
     closable: true,
     requires: 'viewer',
+  },
+  {
+    id: 'versions',
+    title: 'Version history',
+    description:
+      'Versions of one file, newest first. Open, pin or compare them.',
+    category: 'Workspace',
+    keywords: 'versions history revisions compare latest file',
+    icon: 'layers',
+    component: VersionsPane,
+    minSize: { width: 260, height: 160 },
+    defaultPlacement: { kind: 'tab', reference: 'tree' },
+    closable: true,
+    requires: 'none',
+    startsOpen: false,
   },
   {
     id: 'colors',

@@ -49,6 +49,21 @@ describe('pane registry', () => {
     expect(hasPlainPanel('tree')).toBe(true);
   });
 
+  it('registers the version history pane as a closable workspace pane', () => {
+    expect(isPaneId('versions')).toBe(true);
+    expect(paneById('versions')).toMatchObject({
+      title: 'Version history',
+      category: 'Workspace',
+      closable: true,
+      requires: 'none',
+    });
+    expect(isRequired('versions')).toBe(false);
+    expect(paneById('versions').startsOpen).toBe(false);
+    expect(PANES.filter((pane) => isRequired(pane.id))).toEqual([
+      paneById('tree'),
+    ]);
+  });
+
   it('places exactly one pane at the root and references only known panes', () => {
     expect(
       PANES.filter((pane) => pane.defaultPlacement.kind === 'root'),
