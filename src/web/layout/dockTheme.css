@@ -117,30 +117,6 @@
   vertical-align: middle;
 }
 
-.bsh-dock .dv-default-tab[data-tag="red"] {
-  --pane-tag-color: var(--color-tag-red);
-}
-
-.bsh-dock .dv-default-tab[data-tag="orange"] {
-  --pane-tag-color: var(--color-tag-orange);
-}
-
-.bsh-dock .dv-default-tab[data-tag="yellow"] {
-  --pane-tag-color: var(--color-tag-yellow);
-}
-
-.bsh-dock .dv-default-tab[data-tag="green"] {
-  --pane-tag-color: var(--color-tag-green);
-}
-
-.bsh-dock .dv-default-tab[data-tag="blue"] {
-  --pane-tag-color: var(--color-tag-blue);
-}
-
-.bsh-dock .dv-default-tab[data-tag="purple"] {
-  --pane-tag-color: var(--color-tag-purple);
-}
-
 .bsh-dock .dv-groupview.dv-active-group:not([data-collapsed])::after {
   position: absolute;
   inset: 0;
