@@ -61,7 +61,7 @@ export function ExportPanel({ adapter, fileName }: ExportPanelProps) {
         <p className="settings__hint">
           File: {excelFileNameFrom(fileName, excel)}
         </p>
-        <div className="bsh-presets">
+        <div className="settings__actions">
           <button
             type="button"
             className="btn btn-primary"

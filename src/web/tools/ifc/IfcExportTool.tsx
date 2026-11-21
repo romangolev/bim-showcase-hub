@@ -26,7 +26,7 @@ export class IfcExportTool extends ViewerTool<IfcToolSettings> {
   readonly id = 'ifc';
   readonly title = 'IFC export';
   readonly description =
-    'Export the model to an .ifc file from the viewer toolbar, using the IFC export settings below.';
+    'Export the model to an .ifc file from the viewer toolbar, using the IFC file settings below.';
   readonly settings = IFC_SETTINGS;
   readonly exportTitle = IFC_TOOLTIP;
 
