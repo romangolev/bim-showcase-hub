@@ -82,6 +82,16 @@ describe('metaText and view', () => {
     );
   });
 
+  it('defaults filter searches to loaded folders and keeps the project scope', () => {
+    expect(DEFAULT_TREE_VIEW.searchScope).toBe('loaded');
+    expect(sanitizeTreeView({ searchScope: 'project' }).searchScope).toBe(
+      'project',
+    );
+    expect(sanitizeTreeView({ searchScope: 'nope' }).searchScope).toBe(
+      'loaded',
+    );
+  });
+
   it('keeps a known open mode and falls back to a new tab', () => {
     expect(DEFAULT_TREE_VIEW.openMode).toBe('tab');
     expect(sanitizeTreeView({ openMode: 'combined' }).openMode).toBe(
