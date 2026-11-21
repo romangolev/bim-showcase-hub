@@ -13,6 +13,7 @@ import {
   SummaryInstancePane,
   SummaryPane,
   TreePane,
+  ViewsPane,
 } from './panes.js';
 
 export type PaneId =
@@ -22,6 +23,7 @@ export type PaneId =
   | 'dashboard'
   | 'models'
   | 'measurements'
+  | 'views'
   | 'chart'
   | 'modelSummary'
   | 'properties';
@@ -171,6 +173,20 @@ export const PANES: readonly PaneDefinition[] = [
     keywords: 'measure distance angle area length dimension',
     icon: 'table',
     component: MeasurementsPane,
+    minSize: { width: 240, height: 160 },
+    defaultPlacement: { kind: 'tab', reference: 'models' },
+    closable: true,
+    requires: 'viewer',
+  },
+  {
+    id: 'views',
+    title: 'Sheets and views',
+    description:
+      'Sheets and 3D views of the active model, with favorites and a start view.',
+    category: 'Viewer',
+    keywords: 'sheets views plans levels 3d 2d start favorite',
+    icon: 'model',
+    component: ViewsPane,
     minSize: { width: 240, height: 160 },
     defaultPlacement: { kind: 'tab', reference: 'models' },
     closable: true,

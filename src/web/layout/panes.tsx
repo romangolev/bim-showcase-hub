@@ -26,6 +26,7 @@ import {
   ModelSummaryPanel,
   ModelsPanel,
   PropertiesPanel,
+  ViewsPanel,
 } from '../panels/index.js';
 import { MODEL_TINTS } from '../panels/modelTint.js';
 import { SUMMARY_SETTINGS_ID } from '../panels/SummarySettings.js';
@@ -367,6 +368,14 @@ export function MeasurementsPane() {
   );
 }
 
+export function ViewsPane() {
+  return (
+    <div className="pane-views">
+      <ViewsPanel />
+    </div>
+  );
+}
+
 export function ModelsPane() {
   const state = useOpenModels();
   const store = useOpenModelsStore();
@@ -446,6 +455,12 @@ export function ModelsPane() {
         onAdd={tree ? () => tree.reveal() : undefined}
         onSaveFederation={save}
         onOpenFederation={open}
+        offsets={entry?.offsets}
+        onOffsetsChange={
+          store && active
+            ? (next) => store.setView(active, { offsets: next })
+            : undefined
+        }
       />
     </div>
   );

@@ -17,7 +17,7 @@ const RANK: Record<Placement['kind'], number> = {
   tab: 3,
 };
 
-export const DEFAULT_DISMISSED: readonly PaneId[] = ['measurements'];
+export const DEFAULT_DISMISSED: readonly PaneId[] = ['measurements', 'views'];
 
 export function defaultSteps(treeWidth: number): LayoutStep[] {
   const steps = PANES.filter(

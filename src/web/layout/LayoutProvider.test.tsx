@@ -274,6 +274,7 @@ describe('dock layout', () => {
         'summary',
         'tree',
         'viewer',
+        'views',
       ]),
     );
   });

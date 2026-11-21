@@ -40,10 +40,10 @@ describe('default layout', () => {
     expect(tree?.placement).toMatchObject({ size: 400 });
   });
 
-  it('starts the Measurements pane closed', () => {
-    expect(DEFAULT_DISMISSED).toEqual(['measurements']);
-    expect(defaultSteps(320).map((step) => step.id)).not.toContain(
-      'measurements',
+  it('starts the optional viewer panes closed', () => {
+    expect(DEFAULT_DISMISSED).toEqual(['measurements', 'views']);
+    expect(defaultSteps(320).map((step) => step.id)).toEqual(
+      expect.not.arrayContaining(['measurements', 'views']),
     );
   });
 

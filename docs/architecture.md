@@ -157,6 +157,9 @@ One adapter holds several models in one scene (`viewer/modelSet.ts`). `load(urn)
 - Each model loads on its own. A failure sets `status: 'error'` and leaves the others alone.
 - Selection is a list of `{ modelId, dbId }` pairs, because dbIds repeat across models.
 - Models align by shared coordinates. The first loaded model is the anchor.
+- `getPlacementInfo()` reports, per model, its unit, whether its data carries shared coordinates (`null` when unknown) and the distance between its box centre and the anchor's after offsets, in metres. A model without a box reports no distance.
+- A model source may carry `view`, a viewable guid. `pickGeometryNode` picks that node when it exists and matches the anchor's dimension. `adapter.listViews(modelId)` reports every geometry node as `{ id, name, role, current }`; the mock lists `mock-3d` (“{3D}”) and `mock-a101` (“A101 - Plans”). A single-model tab switches by reloading with the view (`loadModels([{ ...source, view }])`); a combined tab only accepts the anchor's dimension and then swaps the model with `removeModel` + `addModel`. `viewer/views.ts` holds the switch and the per-document preferences; `ViewerPane` adds the stored start view to its load sources, and paint records include the view in their hash.
+- Offsets are view-only and applied with `setPlacementTransform`. `viewer/alignment.ts` holds the edits: `nudgeOffset` converts metres to model units with `metersPerUnit` and keeps the other models, `snapToAnchor` takes the adapter's `getTogetherOffsets()` entry for that one model, and `resetOffset` removes it and returns `null` when nothing is left. The Models pane writes them through `store.setView(urn, { offsets })`, which `ViewerPane` applies with `setModelOffsets`; no adapter write method is added. Every control says the files and their coordinates do not change.
 - `getLeafProperties` skips hidden models. A model whose properties fail gets `propertiesError`.
 
 ### Toolbar group

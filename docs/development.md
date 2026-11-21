@@ -77,6 +77,7 @@ All browser storage goes through `src/web/storage.ts`. `BSH_KEYS` lists the fixe
 | `bsh.models.session.v1` | personal | Tabs from the last visit (`localStorage`) without view state. Read at start when "Reopen my tabs after the browser restarts" is on; removed when the switch turns off or on sign-out |
 | `bsh.models.owner`, `bsh.models.recent`, `bsh.models.hidden` | personal | Owner id, recent models, hidden models |
 | `bsh.models.tints.v1` | personal | Per-model tint colour and strength, the global tint palette, a palette per model set, and ghost others |
+| `bsh.models.views.v1` | personal | Per-document view preferences: the start view, favorite view ids and hidden view ids. Holds up to 200 documents; the least recently changed is dropped |
 | `bsh.docs.pinned` | personal | Pinned model URNs |
 | `bsh.summary.*`, `bsh.dashboard.*` | personal | View, properties, scope and click action of the main panes. The dashboard view includes its property list |
 | `bsh.pane.<kind>.<n>.v1` | personal | Spec of a chart, summary or properties pane instance. A chart spec includes its property list |

@@ -541,6 +541,7 @@ describe('Documents first', () => {
     await waitFor(() =>
       expect(parseLayout(storage.getItem(LAYOUT_KEY))?.dismissed).toEqual([
         'measurements',
+        'views',
         'summary',
       ]),
     );
@@ -561,6 +562,7 @@ describe('Documents first', () => {
     await waitFor(() =>
       expect(parseLayout(storage.getItem(LAYOUT_KEY))?.dismissed).toEqual([
         'measurements',
+        'views',
       ]),
     );
     act(() => handle().togglePane('summary'));
@@ -570,6 +572,7 @@ describe('Documents first', () => {
     await waitFor(() =>
       expect(parseLayout(storage.getItem(LAYOUT_KEY))?.dismissed).toEqual([
         'measurements',
+        'views',
       ]),
     );
   });

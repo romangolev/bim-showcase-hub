@@ -46,6 +46,7 @@ import type {
   ViewerState,
 } from './ViewerAdapter.js';
 import { ActiveViewerContext, ModelViewerContext } from './ViewerContext.js';
+import { viewPrefsFor } from './views.js';
 import './viewer.css';
 import './viewerChrome.css';
 
@@ -111,6 +112,11 @@ function saveTabState(
   } catch {
     return;
   }
+}
+
+function startViewOf(urn: string): ModelMeta {
+  const start = viewPrefsFor(urn).start;
+  return start ? { view: start } : {};
 }
 
 export function ViewerPane({
@@ -245,15 +251,22 @@ export function ViewerPane({
               urn,
               ...(primaryName ? { name: primaryName } : {}),
               ...primaryMeta,
+              ...startViewOf(urn),
             },
-            ...extra,
+            ...extra.map((member) => ({
+              ...startViewOf(member.urn),
+              ...member,
+            })),
           ]);
         } else if (primaryMeta) {
-          await instance.load(urn, primaryName, primaryMeta);
+          await instance.load(urn, primaryName, {
+            ...primaryMeta,
+            ...startViewOf(urn),
+          });
         } else if (primaryName) {
-          await instance.load(urn, primaryName);
+          await instance.load(urn, primaryName, startViewOf(urn));
         } else {
-          await instance.load(urn);
+          await instance.load(urn, undefined, startViewOf(urn));
         }
         if (cancelled) return;
         adapterRef.current = instance;

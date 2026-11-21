@@ -12,3 +12,4 @@ export {
   PropertiesPanel,
   type PropertiesPanelProps,
 } from './PropertiesPanel.js';
+export { ViewsPanel, type ViewsPanelProps } from './ViewsPanel.js';
