@@ -180,13 +180,16 @@ Every drag has a menu path.
 - `F6` and `Shift+F6` move focus between pane groups.
 - In Documents, `/` focuses the filter and typing letters moves focus to the next matching row. Enter opens the focused version and Space picks it. Shift+F10 or the context menu key opens the row menu.
 - After a move, focus goes to the moved tab. A live region announces moves, collapse and reset.
+- What `e2e/a11y_audit.py` checks: every visible button, link, input and menu item has an accessible name at 1440x900 with and without a model; no visible text is clipped and the top bar fits at 640x400 (200% zoom) and at 1280x800 with 125% text, in English and in Russian; the dock tab keeps its outline and the active tab keeps its border in forced colors; `F6` reaches a pane group, its pane menu opens from the keyboard, Move left changes the dock and focus stays on the moved tab; at 390x844 every `.stack button` and tree row is at least 44px tall.
+- Limits of the audit: the Autodesk Viewer canvas and its own toolbar stay outside the name, clipping and focus checks, because Autodesk owns that markup and we only reach it through `ViewerAdapter`. Dock tabs do not open the pane menu on `Shift+F10`; the audit focuses the tab's pane options button instead, and binding `Shift+F10` on tabs is still open.
 
 ## Narrow screens
 
-Below 876 px (`STACKED_QUERY`, `src/web/layout/LayoutProvider.tsx`) the dock is not rendered.
+Below 876 px (`STACKED_QUERY`, `src/web/layout/breakpoint.ts`) the dock is not rendered.
 
 - With no model open, Documents is the main section. With a model open, a tab strip switches models above a column of viewer, dashboard and summary.
 - Documents is an overlay from the top bar button.
+- Every control follows `--hit-target`, which is at least 44px under `(pointer: coarse), (max-width: 875px)`: model tabs, close buttons, tree rows with their row action, chart export buttons and the viewer chrome.
 - The saved dock returns when the window is wide again. User-added panes are not shown.
 
 ## Limits

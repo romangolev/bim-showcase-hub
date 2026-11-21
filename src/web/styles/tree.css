@@ -707,6 +707,11 @@
   cursor: pointer;
 }
 
+.stack .tree-row__action {
+  width: var(--hit-target);
+  height: var(--hit-target);
+}
+
 .tree-row:hover .tree-row__action,
 .tree-row[data-focused="true"] .tree-row__action,
 .tree-row[data-picked="true"] .tree-row__action {
@@ -1026,4 +1031,13 @@
   .tree-row__meta {
     display: none;
   }
+}
+
+.stack .tree-row {
+  /* biome-ignore lint/complexity/noImportantStyles: the row sets its height inline from the density token */
+  min-height: var(--hit-target) !important;
+}
+
+.stack .docs-root__trigger {
+  min-height: var(--hit-target);
 }

@@ -24,6 +24,7 @@ import { OpenModelsContext } from '../api/useOpenModels.js';
 import { Hint } from '../components/Hint.js';
 import type { MenuEntry } from '../components/Menu.js';
 import { ModelBreadcrumb } from '../components/ModelBreadcrumb.js';
+import { StateBlock } from '../components/StateBlock.js';
 import { TopBar } from '../components/TopBar.js';
 import { TreeControlContext } from '../components/TreeControl.js';
 import { useMediaQuery } from '../components/useMediaQuery.js';
@@ -40,6 +41,7 @@ import { currentAdapter } from '../viewer/activeAdapterStore.js';
 import { isMockViewer } from '../viewer/createViewerAdapter.js';
 import { peekLeafRows } from '../viewer/sharedLeafRows.js';
 import { ViewerProvider } from '../viewer/ViewerContext.js';
+import { STACKED_QUERY } from './breakpoint.js';
 import {
   forgetInstanceSetting,
   seedInstanceSetting,
@@ -110,8 +112,7 @@ const DockLayout = lazy(() =>
   })),
 );
 
-export const STACKED_MAX_WIDTH = 875;
-export const STACKED_QUERY = `(max-width: ${STACKED_MAX_WIDTH}px)`;
+export { STACKED_MAX_WIDTH, STACKED_QUERY } from './breakpoint.js';
 export const LAYOUT_WRITE_DELAY_MS = 300;
 export const LOCK_KEY = BSH_KEYS.preference.layoutLocked;
 
@@ -777,9 +778,13 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
                 <div className="app-body app-body--dock">
                   <Suspense
                     fallback={
-                      <p className="app-loading" role="status">
-                        Loading layout
-                      </p>
+                      <div className="app-loading">
+                        <StateBlock
+                          variant="loading"
+                          message="Loading layout"
+                          rows={6}
+                        />
+                      </div>
                     }
                   >
                     <DockLayout

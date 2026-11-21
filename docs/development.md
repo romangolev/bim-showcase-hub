@@ -137,6 +137,7 @@ Shared helpers live in `e2e/common.py`. To read page globals, launch with `main_
 | Script | Needs | What it checks |
 |---|---|---|
 | `e2e/mock_smoke.py` | `npm run dev:mock`, no sign-in | The whole app in mock mode: tree, viewer, exports, layout, themes, panes, Task Center |
+| `e2e/a11y_audit.py` | `npm run dev:mock`, no sign-in | Accessible names, clipped text, 200% zoom, 125% text, forced colors, keyboard pane moves and 44px touch targets |
 | `signin.py` (`e2e:signin`) | A visible window | You sign in to Autodesk by hand. It polls `/api/session` for up to 15 minutes |
 | `smoke.py` (`e2e:smoke`) | A signed-in profile | The real app: session, tree, viewer, summary, Excel export, native viewer styling |
 | `glb_revit.py` (`e2e:glb`) | `.env` credentials | GLB export on a real Revit model |
@@ -146,6 +147,7 @@ Shared helpers live in `e2e/common.py`. To read page globals, launch with `main_
 Notes:
 
 - `mock_smoke.py`: start `NODE_ENV=development npm run dev:mock`, then run `e2e/.venv/bin/python e2e/mock_smoke.py`. `E2E_MOCK_VARIANT=empty` or `personal` checks the hub hint against a server started with `MOCK_EMPTY_HUBS=1` or `MOCK_PERSONAL_ONLY=1`.
+- `a11y_audit.py` runs every flow at desktop 1440x900, 200% zoom (640x400), 125% text (1280x800) and the stacked layout at 390x844, then with `language: 'ru'`, and writes `a11y_report.json` through `checks.finish`. `--lang ru` switches the zoom and text-size flows to Russian. Forced colors come from `browser.new_context(forced_colors='active')`: the `ui.forcedColors` pref is inert in this Camoufox build, so the script reads `matchMedia('(forced-colors: active)')` and skips with a note when the build cannot emulate it. The Autodesk canvas and its own controls are outside the name and clipping checks.
 - `smoke.py` accepts browser dialogs, because large exports ask for confirmation. Extra modes: `--multi` (several models), `--combined` (one combined viewer), `--states` (view states against the account), `--layout` (dock moves with the real viewer). `E2E_STATE_EXPECT="file.rvt=no-geometry,..."` asserts the latest state of named files.
 - `glb`, `ifc` and `state` use a two-legged token from `.env` and the harness in `e2e/harness/`. No sign-in. The default model is in the maintainer's APS bucket, so another APS app must set `E2E_REVIT_URN`.
 - IfcOpenShell is in `e2e/requirements.txt` only. Never add it to `package.json`.

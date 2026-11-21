@@ -341,6 +341,22 @@
   color: var(--color-arc-blue);
 }
 
+@media (max-width: 700px) {
+  .brand__name {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .topbar__inner {
+    min-width: 0;
+    gap: var(--space-1);
+  }
+}
+
 .user-menu {
   position: relative;
 }
@@ -466,6 +482,8 @@
 }
 
 .app-loading {
+  flex: 1;
+  min-width: 0;
   padding: var(--space-6);
   color: var(--color-fog);
 }

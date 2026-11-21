@@ -89,6 +89,20 @@ a:hover {
   :focus-visible {
     outline-color: Highlight;
   }
+
+  .btn,
+  .icon-button,
+  .menu__item[aria-checked="true"],
+  .tree-row[data-selected="true"] {
+    border: 1px solid ButtonText;
+  }
+
+  .tree-row[data-selected="true"],
+  .menu__item[aria-checked="true"] {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
+  }
 }
 
 ::selection {

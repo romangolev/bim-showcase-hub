@@ -27,6 +27,14 @@ function renderApp(path = '/') {
   render(<App appRouter={appRouter} client={createTestClient()} />);
 }
 
+function renderShellPending() {
+  mockFetch({
+    '/api/session': () => new Promise<Response>(() => {}),
+    ...treeRoutes,
+  });
+  renderApp();
+}
+
 beforeEach(() => {
   resetSessionEnded();
   stubLayout();
@@ -40,6 +48,16 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+});
+
+describe('AppShell loading', () => {
+  it('shows skeleton rows while the session loads', async () => {
+    renderShellPending();
+    expect((await screen.findByRole('status')).textContent).toContain(
+      'Loading',
+    );
+    expect(document.querySelector('.state-block__skeleton')).not.toBeNull();
+  });
 });
 
 describe('AppShell session expiry', () => {

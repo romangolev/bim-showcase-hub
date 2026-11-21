@@ -351,6 +351,16 @@
   }
 }
 
+@media (forced-colors: active) {
+  .bsh-dock .dv-tab.dv-active-tab {
+    border-bottom: 2px solid Highlight;
+  }
+
+  .bsh-dock .dv-groupview {
+    border: 1px solid CanvasText;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .bsh-dock,
   .bsh-dock .dv-drop-target-container,
