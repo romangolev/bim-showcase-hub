@@ -313,11 +313,18 @@ export function DocumentTree({
     task.finish(`Searched ${result.folders} folders`);
   };
 
+  const stopCrawl = () => {
+    crawlRun.current += 1;
+    crawlRef.current?.abort();
+    crawlRef.current = null;
+    const task = crawlTask.current;
+    crawlTask.current = null;
+    return task;
+  };
+
   const cancelCrawl = () => {
     if (!crawlRef.current) return;
-    crawlRun.current += 1;
-    crawlRef.current.abort();
-    crawlRef.current = null;
+    const task = stopCrawl();
     setCrawl((current) => ({
       status: 'cancelled',
       folders: current?.folders ?? 0,
@@ -325,8 +332,7 @@ export function DocumentTree({
       failed: current?.failed ?? 0,
       detail: null,
     }));
-    crawlTask.current?.cancel();
-    crawlTask.current = null;
+    task?.cancel();
   };
 
   const startCrawl = () => {
@@ -794,11 +800,7 @@ export function DocumentTree({
 
   useEffect(
     () => () => {
-      crawlRun.current += 1;
-      crawlRef.current?.abort();
-      crawlRef.current = null;
-      crawlTask.current?.discard();
-      crawlTask.current = null;
+      stopCrawl()?.discard();
     },
     [state],
   );

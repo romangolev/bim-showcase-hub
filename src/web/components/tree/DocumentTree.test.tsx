@@ -1587,6 +1587,34 @@ describe('DocumentTree deep search', () => {
     );
   });
 
+  it('ignores a cancelled crawl that settles after a restart', async () => {
+    const releases: Array<() => void> = [];
+    await renderProject(
+      projectRoutes({
+        '/api/projects/p1/folders/f2/contents': () =>
+          new Promise<Response>((resolve) => {
+            releases.push(() => resolve(json([facadeFile])));
+          }),
+      }),
+    );
+    fireEvent.change(filterBox(), { target: { value: 'arc' } });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Search whole project' }),
+    );
+    await waitFor(() => expect(releases).toHaveLength(1));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Search whole project' }),
+    );
+    await waitFor(() => expect(releases).toHaveLength(2));
+    await act(async () => {
+      releases[0]?.();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+    expect(screen.queryByText('Searched 3 folders')).toBeNull();
+  });
+
   it('tells the user to sign in when the session expires mid-search', async () => {
     await renderProject(
       projectRoutes({
@@ -1678,6 +1706,15 @@ describe('DocumentTree deep search', () => {
       'true',
     );
     expect(filterBox()).toHaveFocus();
+  });
+
+  it('opens the filters when the command ran before the tree mounted', async () => {
+    requestDeepSearch();
+    await renderProject();
+    expect(screen.getByRole('button', { name: 'Filters' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
   });
 });
 
