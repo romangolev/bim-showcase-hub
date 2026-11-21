@@ -227,7 +227,7 @@
   width: 100%;
   height: var(--hit-target);
   padding: 0 calc(3 * var(--hit-target) + var(--space-2)) 0 34px;
-  border: var(--border-hairline);
+  border: var(--border-field);
   border-radius: var(--radius-button);
   background: var(--color-charcoal);
   color: var(--color-snow);
