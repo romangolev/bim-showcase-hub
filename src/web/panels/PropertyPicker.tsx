@@ -1,4 +1,5 @@
 import { useId, useMemo, useState } from 'react';
+import { Icon } from '../components/icons.js';
 import { StateBlock } from '../components/StateBlock.js';
 import { announce } from '../tasks/notifications.js';
 import { groupCatalog } from '../viewer/propertyCatalog.js';
@@ -79,7 +80,7 @@ export function PropertyPicker({
               aria-label={`Remove ${name}`}
               onClick={() => toggle(name)}
             >
-              x
+              <Icon name="close" size={12} />
             </button>
           </li>
         ))}
