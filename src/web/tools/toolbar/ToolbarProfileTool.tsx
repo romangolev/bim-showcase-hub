@@ -104,7 +104,7 @@ export const TOOLBAR_FORM: FormDefinition<ToolbarSettings> = {
   ],
 };
 
-const missingByAdapter = new Map<ViewerAdapter, string[]>();
+const missingByAdapter = new WeakMap<ViewerAdapter, string[]>();
 const missingListeners = new Set<() => void>();
 
 function missingFor(adapter: ViewerAdapter | null): string[] {
