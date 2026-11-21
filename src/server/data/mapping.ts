@@ -220,10 +220,21 @@ export function mapVersions(
       parentId: encodeId(itemId),
       ...metadataOf(resource.attributes),
     };
+    const number = versionNumberOf(resource);
+    if (number !== null) node.versionNumber = number;
     if (urn) {
       node.urn = urn;
     }
     nodes.push(node);
   }
   return nodes;
+}
+
+export function markLatest(nodes: TreeNode[]): TreeNode[] {
+  let top: TreeNode | undefined;
+  for (const node of nodes) {
+    if (node.versionNumber === undefined) continue;
+    if (!top || node.versionNumber > (top.versionNumber ?? -1)) top = node;
+  }
+  return nodes.map((node) => (node === top ? { ...node, latest: true } : node));
 }

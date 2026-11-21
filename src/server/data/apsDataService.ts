@@ -7,6 +7,7 @@ import {
   mapProjects,
   mapTopFolders,
   mapVersions,
+  markLatest,
   type VersionResource,
 } from './mapping.js';
 import type { DataService } from './types.js';
@@ -101,7 +102,11 @@ export function createApsDataService(
             pageNumber,
           }),
         );
-        return withViewStates(mapVersions(data, itemId), token, views);
+        return withViewStates(
+          markLatest(mapVersions(data, itemId)),
+          token,
+          views,
+        );
       }),
     versionViewState: (token, projectId, itemId, versionId) =>
       guarded(async () => {

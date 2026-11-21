@@ -1,6 +1,6 @@
 import type { SessionUser, TreeNode, ViewerToken } from '../../shared/types.js';
 import { viewableFor } from '../../shared/viewState.js';
-import { versionLabel } from '../data/mapping.js';
+import { markLatest, versionLabel } from '../data/mapping.js';
 import type { DataService } from '../data/types.js';
 import { HttpError } from '../errors.js';
 import { encodeId } from '../ids.js';
@@ -139,7 +139,7 @@ export function createMockDataService(
       if (!item || item.projectId !== projectId) {
         throw notFound('Item');
       }
-      return item.versions.map((version): TreeNode => {
+      const nodes = item.versions.map((version): TreeNode => {
         const node: TreeNode = {
           id: encodeId(version.id),
           kind: 'version',
@@ -151,12 +151,14 @@ export function createMockDataService(
           modifiedAt: version.modifiedAt,
           modifiedBy: version.user,
           size: version.size,
+          versionNumber: version.number,
         };
         if (version.hasUrn) {
           node.urn = encodeId(`urn:adsk.mock:${version.id}`);
         }
         return node;
       });
+      return markLatest(nodes);
     },
 
     async versionViewState(_token, projectId, itemId, versionId) {

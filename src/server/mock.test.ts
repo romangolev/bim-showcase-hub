@@ -173,6 +173,22 @@ describe('mock mode', () => {
     }
   });
 
+  it('marks exactly one latest version per item, the highest number', async () => {
+    const tree = await walk();
+    const byItem = new Map<string, TreeNode[]>();
+    for (const version of tree.versions) {
+      const list = byItem.get(version.parentId ?? '') ?? [];
+      list.push(version);
+      byItem.set(version.parentId ?? '', list);
+    }
+    for (const versions of byItem.values()) {
+      const latest = versions.filter((version) => version.latest);
+      expect(latest).toHaveLength(1);
+      const top = Math.max(...versions.map((v) => v.versionNumber ?? -1));
+      expect(latest[0]?.versionNumber).toBe(top);
+    }
+  });
+
   it('reports the view state of a single version', async () => {
     const tree = await walk();
     const item = tree.items.find((i) => i.name === 'STATE-no-geometry.rvt');

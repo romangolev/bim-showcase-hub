@@ -277,6 +277,7 @@ export interface WithViewStatesOptions {
 }
 
 function versionNumber(node: TreeNode): number {
+  if (node.versionNumber !== undefined) return node.versionNumber;
   const match = /^v(\d+)/.exec(node.name);
   return match?.[1] ? Number(match[1]) : -1;
 }

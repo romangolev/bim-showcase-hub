@@ -7,6 +7,7 @@ import {
   mapProjects,
   mapTopFolders,
   mapVersions,
+  markLatest,
   versionNumberOf,
 } from './mapping.js';
 
@@ -204,5 +205,30 @@ describe('versions', () => {
     expect(nodes[1]?.viewable).toBe(false);
     expect(nodes[1]?.viewState).toBe('not-translated');
     expect(nodes[1]?.urn).toBeUndefined();
+  });
+});
+
+describe('markLatest', () => {
+  it('marks only the highest version number as latest', () => {
+    const nodes = mapVersions(
+      [
+        { id: 'v?version=1', attributes: { versionNumber: 1 } },
+        { id: 'v?version=3', attributes: { versionNumber: 3 } },
+        { id: 'v?version=2', attributes: { versionNumber: 2 } },
+      ],
+      'item',
+    );
+    const marked = markLatest(nodes);
+    expect(marked.map((node) => node.versionNumber)).toEqual([1, 3, 2]);
+    expect(marked.map((node) => node.latest ?? false)).toEqual([
+      false,
+      true,
+      false,
+    ]);
+  });
+
+  it('marks nothing when no version has a number', () => {
+    const marked = markLatest(mapVersions([{ id: 'odd' }], 'item'));
+    expect(marked[0]?.latest).toBeUndefined();
   });
 });
