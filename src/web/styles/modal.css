@@ -4,6 +4,8 @@
   border-radius: var(--radius-button);
   background: var(--color-graphite);
   color: var(--color-snow);
+  font-size: var(--text-14);
+  line-height: 1.5;
   box-shadow: var(--shadow-float);
   max-height: min(80vh, 720px);
   width: min(100vw - 32px, 480px);
