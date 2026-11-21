@@ -54,6 +54,22 @@ describe('with in the model context', () => {
     expect(sameModelContext(context, { file: 'A.rvt' })).toBe(false);
   });
 
+  it('clamps a with list of 20 urns to the combined cap on every path', () => {
+    const many = Array.from({ length: 20 }, (_, index) => `m${index}`);
+    const joined = many.join(',');
+    expect(withUrns({ with: joined })).toHaveLength(5);
+    expect(parseModelContext({ with: many }).with?.split(',')).toHaveLength(5);
+    const state = openModel(EMPTY_OPEN_MODELS, 'a', { with: joined });
+    expect(modelUrnsOf(state, 'a')).toHaveLength(6);
+    const restored = parseOpenModels(
+      serializeOpenModels({
+        ...state,
+        models: [{ urn: 'a', context: { with: joined } }],
+      }),
+    );
+    expect(modelUrnsOf(restored, 'a').length).toBeLessThanOrEqual(6);
+  });
+
   it('never remembers or recalls the with list per urn', () => {
     rememberModel('a', { file: 'A.rvt', with: 'b' });
     expect(recallModel('a')).toEqual({ file: 'A.rvt' });
