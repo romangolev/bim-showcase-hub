@@ -1,4 +1,5 @@
 import { useId, useState } from 'react';
+import { ItemList, ItemRow } from '../../components/ItemList.js';
 import { SettingsField } from '../../components/SettingsForm.js';
 import { ALLOWED_CLASSES, PROXY_CLASS } from '../../ifc/classTable.js';
 import { usePersisted } from '../../storage.js';
@@ -93,9 +94,9 @@ function OverrideEditor({
         Export every element of a category as another IFC class.
       </p>
       {Object.keys(overrides).length > 0 ? (
-        <ul className="settings__override-list">
+        <ItemList>
           {Object.entries(overrides).map(([name, target]) => (
-            <li key={name} className="settings__override">
+            <ItemRow key={name}>
               <span>{name}</span>
               <span>{target}</span>
               <button
@@ -109,9 +110,9 @@ function OverrideEditor({
               >
                 Remove
               </button>
-            </li>
+            </ItemRow>
           ))}
-        </ul>
+        </ItemList>
       ) : null}
       <SettingsField label="Category">
         {(id) => (

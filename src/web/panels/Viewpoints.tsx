@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ItemList, ItemRow } from '../components/ItemList.js';
 import { Icon } from '../components/icons.js';
 import type { ModalDefinition } from '../modal/types.js';
 import { MAX_NAME_LENGTH } from '../store/savedStore.js';
@@ -76,12 +77,9 @@ export function ViewpointsBody() {
       {points.length === 0 ? (
         <p className="settings__hint">No viewpoints yet.</p>
       ) : (
-        <ul className="settings__override-list">
+        <ItemList>
           {points.map((point, index) => (
-            <li
-              key={`${point.id}:${point.name}`}
-              className="settings__override"
-            >
+            <ItemRow key={`${point.id}:${point.name}`}>
               <input
                 type="text"
                 aria-label={`Rename ${point.name}`}
@@ -133,9 +131,9 @@ export function ViewpointsBody() {
               >
                 Delete
               </button>
-            </li>
+            </ItemRow>
           ))}
-        </ul>
+        </ItemList>
       )}
     </>
   );

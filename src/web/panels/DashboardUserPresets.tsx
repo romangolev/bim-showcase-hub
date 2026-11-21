@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ItemList, ItemRow } from '../components/ItemList.js';
 import {
   DASHBOARD_USER_PRESETS,
   type DashboardView,
@@ -68,9 +69,9 @@ export function DashboardUserPresets({
       {items.length === 0 ? (
         <p className="settings__hint">No saved presets yet.</p>
       ) : (
-        <ul className="settings__override-list">
+        <ItemList>
           {items.map((item) => (
-            <li key={`${item.id}:${item.name}`} className="settings__override">
+            <ItemRow key={`${item.id}:${item.name}`}>
               <input
                 type="text"
                 aria-label={`Rename ${item.name}`}
@@ -90,7 +91,7 @@ export function DashboardUserPresets({
               />
               <button
                 type="button"
-                className="btn"
+                className="btn btn-small"
                 aria-label={`Apply ${item.name}`}
                 onClick={() => apply(sanitizeDashboardView(item.data))}
               >
@@ -98,7 +99,7 @@ export function DashboardUserPresets({
               </button>
               <button
                 type="button"
-                className="btn"
+                className="btn btn-small"
                 aria-label={`Delete ${item.name}`}
                 onClick={() => {
                   if (!DASHBOARD_USER_PRESETS.remove(item.id)) {
@@ -108,9 +109,9 @@ export function DashboardUserPresets({
               >
                 Delete
               </button>
-            </li>
+            </ItemRow>
           ))}
-        </ul>
+        </ItemList>
       )}
     </fieldset>
   );

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ItemList, ItemRow } from '../../components/ItemList.js';
 import { useSavedKindItems } from '../../store/savedKinds.js';
 import { MAX_NAME_LENGTH } from '../../store/savedStore.js';
 import {
@@ -62,26 +63,26 @@ export function PresetFields({
           Could not save the preset. Delete some saved items and try again.
         </p>
       ) : null}
-      <ul className="settings__override-list" aria-label="Built-in presets">
+      <ItemList label="Built-in presets">
         {BUILT_IN_EXPORT_PRESETS.map((preset) => {
           const needsCatalog =
             preset.everyColumn === true && catalog.length === 0;
           return (
-            <li key={preset.id} className="settings__override">
+            <ItemRow key={preset.id}>
               <span>{preset.name}</span>
               <button
                 type="button"
-                className="btn"
+                className="btn btn-small"
                 aria-label={`Apply ${preset.name}`}
                 disabled={needsCatalog}
                 onClick={() => apply(builtInSettings(preset, catalog))}
               >
                 Apply
               </button>
-            </li>
+            </ItemRow>
           );
         })}
-      </ul>
+      </ItemList>
       {catalog.length === 0 ? (
         <p className="settings__hint">
           Everything uses every column discovered in the open model. Open a
@@ -91,13 +92,13 @@ export function PresetFields({
       {items.length === 0 ? (
         <p className="settings__hint">No saved presets yet.</p>
       ) : (
-        <ul className="settings__override-list">
+        <ItemList>
           {items.map((item) => (
-            <li key={`${item.id}:${item.name}`} className="settings__override">
+            <ItemRow key={`${item.id}:${item.name}`}>
               <span>{item.name}</span>
               <button
                 type="button"
-                className="btn"
+                className="btn btn-small"
                 aria-label={`Apply ${item.name}`}
                 onClick={() => apply(presetSettings(item.data))}
               >
@@ -105,7 +106,7 @@ export function PresetFields({
               </button>
               <button
                 type="button"
-                className="btn"
+                className="btn btn-small"
                 aria-label={`Delete ${item.name}`}
                 onClick={() => {
                   EXPORT_PRESETS.remove(item.id);
@@ -113,9 +114,9 @@ export function PresetFields({
               >
                 Delete
               </button>
-            </li>
+            </ItemRow>
           ))}
-        </ul>
+        </ItemList>
       )}
     </fieldset>
   );

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ItemList, ItemRow } from '../components/ItemList.js';
 import { formatCount } from '../i18n/format.js';
 import { useSettings } from '../settings/SettingsContext.js';
 import type { Language } from '../settings/settings.js';
@@ -205,9 +206,9 @@ export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
       {sets.length === 0 ? (
         <p className="settings__hint">No selection sets yet.</p>
       ) : (
-        <ul className="settings__override-list">
+        <ItemList>
           {sets.map((set) => (
-            <li key={`${set.id}:${set.name}`} className="settings__override">
+            <ItemRow key={`${set.id}:${set.name}`}>
               <input
                 type="text"
                 aria-label={`Rename ${set.name}`}
@@ -248,9 +249,9 @@ export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
               >
                 Delete
               </button>
-            </li>
+            </ItemRow>
           ))}
-        </ul>
+        </ItemList>
       )}
     </fieldset>
   );

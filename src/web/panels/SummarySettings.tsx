@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ItemList, ItemRow } from '../components/ItemList.js';
 import { Icon } from '../components/icons.js';
 import {
   type FormDefinition,
@@ -172,9 +173,9 @@ function GroupByEditor({
           A pivot needs at least one grouping property.
         </p>
       ) : (
-        <ol className="settings__override-list">
+        <ItemList ordered>
           {value.map((name, index) => (
-            <li key={name} className="settings__override">
+            <ItemRow key={name}>
               <span>{name}</span>
               <button
                 type="button"
@@ -202,9 +203,9 @@ function GroupByEditor({
               >
                 Remove
               </button>
-            </li>
+            </ItemRow>
           ))}
-        </ol>
+        </ItemList>
       )}
       <div className="settings__actions">
         <select

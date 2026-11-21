@@ -187,11 +187,6 @@ fieldset.settings__field {
   min-width: 0;
 }
 
-.settings__override > input {
-  flex: 1;
-  min-width: 0;
-}
-
 .settings summary {
   line-height: var(--hit-target);
   cursor: pointer;
@@ -200,22 +195,6 @@ fieldset.settings__field {
 .settings__check {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-}
-
-.settings__override-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.settings__override {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   gap: var(--space-2);
 }
 
@@ -302,4 +281,25 @@ fieldset.settings__field {
   .settings__field > .settings__hint {
     grid-column: 1;
   }
+}
+
+.item-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item-list__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+}
+
+.item-list__row > :first-child {
+  flex: 1 1 10rem;
+  min-width: 0;
 }
