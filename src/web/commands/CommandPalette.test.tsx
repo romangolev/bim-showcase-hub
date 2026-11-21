@@ -12,7 +12,7 @@ import type { ModalDefinition } from '../modal/types.js';
 import { notifications } from '../tasks/notifications.js';
 import { tasks } from '../tasks/taskStore.js';
 import { installMemoryStorage } from '../test/mockApi.js';
-import { CommandPalette } from './CommandPalette.js';
+import { arrange, CommandPalette } from './CommandPalette.js';
 import { PIN_LIMIT, readPins } from './pins.js';
 import { readRecents } from './recents.js';
 import { COMMANDS } from './registry.js';
@@ -339,6 +339,22 @@ describe('CommandPalette', () => {
     expect(
       screen.getByRole('combobox').getAttribute('aria-activedescendant'),
     ).toBe(first?.id);
+  });
+
+  it('hides search-only commands until the user types', () => {
+    const run = () => undefined;
+    const list = [
+      {
+        id: 'x',
+        title: 'Open Tower.rvt',
+        group: 'Documents (loaded folders)',
+        searchOnly: true,
+        run,
+      },
+      { id: 'y', title: 'Lock layout', group: 'Layout', run },
+    ];
+    expect(arrange(list, '', []).map((e) => e.command.id)).toEqual(['y']);
+    expect(arrange(list, 'tower', []).map((e) => e.command.id)).toEqual(['x']);
   });
 
   it('says which pin was dropped when the limit is reached', () => {

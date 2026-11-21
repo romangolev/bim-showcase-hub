@@ -14,6 +14,12 @@ describe('default layout', () => {
     ]);
   });
 
+  it('leaves panes that start closed out of the default layout', () => {
+    const ids = defaultSteps(320).map((step) => step.id);
+    expect(ids).not.toContain('help');
+    expect(ids).not.toContain('activity');
+  });
+
   it('matches the classic look: tree left, summary right, dashboard below', () => {
     const steps = Object.fromEntries(
       defaultSteps(320).map((step) => [step.id, step.placement]),

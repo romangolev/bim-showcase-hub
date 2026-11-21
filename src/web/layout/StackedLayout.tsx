@@ -4,10 +4,10 @@ import { Icon } from '../components/icons.js';
 import type { PaneTags, PaneTitles } from './layoutContext.js';
 import {
   isFollower,
-  PANES,
   type PaneId,
   type PanelId,
   paneKind,
+  stackablePanes,
 } from './paneRegistry.js';
 import { modelPanelId } from './panes.js';
 import { type HostStore, PaneSlot } from './ViewerHost.js';
@@ -27,19 +27,17 @@ export interface StackedLayoutProps {
   userPanels?: readonly PanelId[];
 }
 
-const STACK_ORDER: readonly PaneId[] = ['viewer', 'dashboard', 'summary'];
-
 export function stackedPanes(
   open: readonly PaneId[],
   onModel: boolean,
 ): PaneId[] {
-  return STACK_ORDER.filter((id) => {
-    const pane = PANES.find((entry) => entry.id === id);
-    if (!pane) return false;
-    if (pane.instances) return onModel;
-    if (isFollower(id) && !onModel) return false;
-    return !pane.closable || open.includes(id);
-  });
+  return stackablePanes()
+    .filter((pane) => {
+      if (pane.instances) return onModel;
+      if (isFollower(pane.id) && !onModel) return false;
+      return !pane.closable || open.includes(pane.id);
+    })
+    .map((pane) => pane.id);
 }
 
 export interface ModelSwitcherProps {

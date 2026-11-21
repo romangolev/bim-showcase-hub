@@ -17,6 +17,7 @@ import {
 import type { TreeNode } from '../../../shared/types.js';
 import type { ModelContext } from '../../api/modelContext.js';
 import type { NodeScope } from '../../api/scope.js';
+import { COMMANDS } from '../../commands/registry.js';
 import { PANE_SETTINGS } from '../../settings/paneSettings.js';
 import { usePersisted } from '../../storage.js';
 import { notify } from '../../tasks/notifications.js';
@@ -29,6 +30,7 @@ import { NoHubsHint, PersonalHubNotice } from './NoHubsHint.js';
 import { usePins } from './pins.js';
 import { modelHref, modelMenuEntries, useRowMenu } from './rowMenu.js';
 import { INDENT, rowHeightFor, TreeRowView } from './TreeRowView.js';
+import { treeCommands } from './treeCommands.js';
 import {
   openableUrn,
   type PickedModel,
@@ -194,6 +196,17 @@ export function DocumentTree({
     root,
     sort: () => viewRef.current.sort,
   });
+  const openLatest = useRef(onOpenModel);
+  openLatest.current = onOpenModel;
+  useEffect(
+    () =>
+      COMMANDS.register('tree', () =>
+        treeCommands(state, (model) =>
+          openLatest.current(model.urn, model.context),
+        ),
+      ),
+    [state],
+  );
   const { errors, picked, notice } = snapshot;
   const { contextFor, resolved, needsCheck, parentName } = state;
 

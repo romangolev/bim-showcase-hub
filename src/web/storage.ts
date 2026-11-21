@@ -15,6 +15,7 @@ export const BSH_KEYS = {
     hiddenModels: 'bsh.models.hidden',
     modelTints: 'bsh.models.tints.v1',
     hubHint: 'bsh.hint.hubs.dismissed.v1',
+    onboardingHints: 'bsh.hint.onboarding.v1',
     summaryView: 'bsh.summary.view.v1',
     summaryProperties: 'bsh.summary.properties.v1',
     summaryScope: 'bsh.summary.scope.v1',
@@ -36,6 +37,7 @@ export const BSH_KEYS = {
     viewerKeys: 'bsh.commands.viewer.keys.v1',
     shareInclude: 'bsh.share.v1',
     charts: 'bsh.charts.v1',
+    topbar: 'bsh.topbar.v1',
   },
 } as const;
 

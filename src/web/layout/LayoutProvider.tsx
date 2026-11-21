@@ -21,6 +21,9 @@ import {
   ownerKey,
 } from '../api/openModels.js';
 import { OpenModelsContext } from '../api/useOpenModels.js';
+import { Hint } from '../components/Hint.js';
+import type { MenuEntry } from '../components/Menu.js';
+import { ModelBreadcrumb } from '../components/ModelBreadcrumb.js';
 import { TopBar } from '../components/TopBar.js';
 import { TreeControlContext } from '../components/TreeControl.js';
 import { useMediaQuery } from '../components/useMediaQuery.js';
@@ -547,6 +550,10 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       setCollapsed: lifecycle.setCollapsed,
       canAddInstance: view.canAddInstance,
       canPresent: view.canPresent,
+      canUndo: state.canUndo,
+      canRedo: state.canRedo,
+      undoLayout: lifecycle.undoLayout,
+      redoLayout: lifecycle.redoLayout,
       addInstance: lifecycle.addInstance,
       togglePane: lifecycle.togglePane,
       movePane: lifecycle.movePane,
@@ -575,6 +582,8 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       model.collapsed,
       view.canAddInstance,
       view.canPresent,
+      state.canUndo,
+      state.canRedo,
       state.locked,
       state.signals,
       maximized,
@@ -686,6 +695,25 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
     return Component ? <Component /> : null;
   }, []);
 
+  const helpExtra = useCallback(
+    (): MenuEntry[] =>
+      api.mode === 'dock'
+        ? [
+            {
+              id: 'help.open-pane',
+              label: 'Open Help pane',
+              onSelect: () => api.togglePane('help'),
+            },
+            {
+              id: 'help.open-activity',
+              label: 'Open activity log',
+              onSelect: () => api.togglePane('activity'),
+            },
+          ]
+        : [],
+    [api.mode, api.togglePane],
+  );
+
   return (
     <OpenModelsContext.Provider value={modelStore}>
       <LayoutContext.Provider value={api}>
@@ -698,6 +726,8 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
                 treeOpen={treeOpen}
                 onToggleTree={lifecycle.toggleTree}
                 toggleRef={toggleRef}
+                context={<ModelBreadcrumb />}
+                helpExtra={helpExtra}
                 actions={
                   <>
                     <WorkspaceSwitcher />
@@ -705,6 +735,12 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
                   </>
                 }
               />
+              {!stacked && !view.home && !state.locked ? (
+                <Hint id="move-panes">
+                  Drag a tab to move a pane, or use its menu. Ctrl+Z inside the
+                  dock undoes a move.
+                </Hint>
+              ) : null}
               {stacked ? (
                 <StackedLayout
                   hosts={hosts}
@@ -743,6 +779,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
                       onAttach={lifecycle.paneAttached}
                       onVisibility={lifecycle.visibility}
                       onMoved={lifecycle.moved}
+                      onDragStart={lifecycle.dragStarted}
                       onChange={lifecycle.dockChanged}
                       onTreeWidth={lifecycle.treeWidth}
                       onController={onController}

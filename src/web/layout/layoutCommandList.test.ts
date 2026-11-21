@@ -9,6 +9,10 @@ function layout(over: Partial<LayoutApi> = {}): LayoutApi {
     presenting: false,
     canAddInstance: true,
     canPresent: true,
+    canUndo: false,
+    canRedo: false,
+    undoLayout: vi.fn(),
+    redoLayout: vi.fn(),
     isOpen: (id: string) => id === 'summary',
     togglePane: vi.fn(),
     addInstance: vi.fn(),
@@ -112,5 +116,38 @@ describe('layoutCommands', () => {
         (c) => c.id === 'pane.new.properties',
       )?.disabled,
     ).toBe('Open a model first');
+  });
+
+  it('offers layout undo and redo in dock scope with reasons', () => {
+    const undoLayout = vi.fn(() => true);
+    const list = layoutCommands(
+      layout({
+        canUndo: true,
+        canRedo: false,
+        undoLayout,
+        redoLayout: vi.fn(),
+      }),
+    );
+    const undo = list.find((c) => c.id === 'layout.undo');
+    const redo = list.find((c) => c.id === 'layout.redo');
+    expect(undo?.scope).toBe('dock');
+    expect(undo?.keys).toEqual(['mod+z']);
+    expect(undo?.disabled).toBeUndefined();
+    expect(redo?.disabled).toBe('Nothing to redo');
+    undo?.run(host);
+    expect(undoLayout).toHaveBeenCalled();
+  });
+
+  it('disables layout undo while locked or stacked', () => {
+    expect(
+      layoutCommands(layout({ locked: true, canUndo: true })).find(
+        (c) => c.id === 'layout.undo',
+      )?.disabled,
+    ).toBe('Unlock the layout first');
+    expect(
+      layoutCommands(layout({ mode: 'stacked', canUndo: true })).find(
+        (c) => c.id === 'layout.undo',
+      )?.disabled,
+    ).toBe('Available in the wide layout');
   });
 });

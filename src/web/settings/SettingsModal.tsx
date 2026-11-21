@@ -1,5 +1,8 @@
 import { useId } from 'react';
+import type { BreadcrumbMode } from '../components/breadcrumb.js';
+import { TOPBAR_PREFS } from '../components/topbarPrefs.js';
 import type { ModalDefinition } from '../modal/types.js';
+import { usePersisted } from '../storage.js';
 import { THEME_PREFERENCES, type ThemePreference } from '../theme/theme.js';
 import { DefaultsSettings } from './DefaultsSettings.js';
 import { LocalDataSettings } from './LocalDataSettings.js';
@@ -43,8 +46,17 @@ const UNITS_LABELS: Record<Units, string> = {
   imperial: 'Imperial',
 };
 
+const BREADCRUMB_LABELS: Record<BreadcrumbMode, string> = {
+  full: 'Full path',
+  file: 'File name only',
+  off: 'Off',
+};
+
+const BREADCRUMB_MODES: readonly BreadcrumbMode[] = ['full', 'file', 'off'];
+
 export function SettingsBody() {
   const { settings, setSetting } = useSettings();
+  const [topbar, setTopbar] = usePersisted(TOPBAR_PREFS);
   const themeId = useId();
   const warnId = useId();
   const recentsId = useId();
@@ -53,6 +65,7 @@ export function SettingsBody() {
   const motionId = useId();
   const languageId = useId();
   const unitsId = useId();
+  const breadcrumbId = useId();
   return (
     <div className="settings">
       <section
@@ -79,6 +92,27 @@ export function SettingsBody() {
           </select>
           <span className="settings__hint">
             System follows your device appearance.
+          </span>
+        </div>
+        <div className="settings__field">
+          <label htmlFor={breadcrumbId}>Top bar</label>
+          <select
+            id={breadcrumbId}
+            value={topbar.breadcrumb}
+            onChange={(event) =>
+              setTopbar({
+                breadcrumb: event.target.value as BreadcrumbMode,
+              })
+            }
+          >
+            {BREADCRUMB_MODES.map((mode) => (
+              <option key={mode} value={mode}>
+                {BREADCRUMB_LABELS[mode]}
+              </option>
+            ))}
+          </select>
+          <span className="settings__hint">
+            Shows the open model's folders next to the app name.
           </span>
         </div>
         <div className="settings__field">

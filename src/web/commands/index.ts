@@ -9,17 +9,25 @@ export {
 export { RECENT_LIMIT, readRecents, recordRecent } from './recents.js';
 export { COMMANDS, CommandRegistry } from './registry.js';
 export {
+  DOCK_CONTEXT_SELECTOR,
   EDITABLE_SELECTOR,
   formatShortcut,
+  isDockContext,
   isEditableTarget,
   isViewerContext,
   matchShortcut,
   parseShortcut,
   type ShortcutEvent,
   type ShortcutSpec,
+  scopeAllows,
   shortcutMatches,
 } from './shortcuts.js';
-export type { Command, CommandHost, CommandProvider } from './types.js';
+export type {
+  Command,
+  CommandHost,
+  CommandProvider,
+  CommandScope,
+} from './types.js';
 export {
   DEFAULT_VIEWER_SHORTCUTS,
   RESERVED_SHORTCUTS,

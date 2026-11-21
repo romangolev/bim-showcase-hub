@@ -110,6 +110,12 @@ const RULES: readonly FamilyRule[] = [
     matches: (key) => key === 'bsh.tree.view',
   },
   {
+    id: 'topbar',
+    label: 'Top bar',
+    kind: 'preference',
+    matches: (key) => key === 'bsh.topbar.v1',
+  },
+  {
     id: 'snapshot',
     label: 'Snapshot and present',
     kind: 'preference',

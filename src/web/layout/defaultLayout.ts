@@ -18,7 +18,9 @@ const RANK: Record<Placement['kind'], number> = {
 };
 
 export function defaultSteps(treeWidth: number): LayoutStep[] {
-  const steps = PANES.filter((pane) => !isUserFamily(pane.id)).map((pane) => ({
+  const steps = PANES.filter(
+    (pane) => !isUserFamily(pane.id) && !pane.startsClosed,
+  ).map((pane) => ({
     id: pane.id,
     placement:
       pane.id === 'tree' && pane.defaultPlacement.kind === 'edge'

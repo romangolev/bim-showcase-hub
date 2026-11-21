@@ -1,7 +1,9 @@
 import type { ComponentType } from 'react';
 import type { Command } from '../commands/types.js';
 import type { IconName } from '../components/icons.js';
+import { HelpPane } from '../help/HelpPane.js';
 import { COLORS_SETTINGS } from '../panels/colorsSettings.js';
+import { ActivityPane } from '../tasks/ActivityPane.js';
 import { currentAdapter } from '../viewer/activeAdapterStore.js';
 import { clearColoring } from '../viewer/modelColoring.js';
 import { PANEL_SEPARATOR, type PanelId } from './panelIds.js';
@@ -28,7 +30,9 @@ export type PaneId =
   | 'export'
   | 'chart'
   | 'modelSummary'
-  | 'properties';
+  | 'properties'
+  | 'help'
+  | 'activity';
 
 export type PlacementDirection = 'left' | 'right' | 'below';
 
@@ -70,6 +74,8 @@ export interface PaneDefinition {
   closable: boolean;
   requires: 'viewer' | 'none';
   opensWithModel?: boolean;
+  startsClosed?: boolean;
+  stackOrder?: number;
   instances?: PaneInstances;
   commands?: (ctx: PaneCommandContext) => readonly Command[];
 }
@@ -116,6 +122,7 @@ export const PANES: readonly PaneDefinition[] = [
     defaultPlacement: { kind: 'root' },
     closable: true,
     requires: 'none',
+    stackOrder: 0,
     instances: { component: ModelPaneBody, source: 'models' },
   },
   {
@@ -135,6 +142,7 @@ export const PANES: readonly PaneDefinition[] = [
     },
     closable: true,
     requires: 'viewer',
+    stackOrder: 2,
   },
   {
     id: 'dashboard',
@@ -153,6 +161,7 @@ export const PANES: readonly PaneDefinition[] = [
     },
     closable: true,
     requires: 'viewer',
+    stackOrder: 1,
   },
   {
     id: 'models',
@@ -289,6 +298,34 @@ export const PANES: readonly PaneDefinition[] = [
       source: 'user',
     },
   },
+  {
+    id: 'help',
+    title: 'Help',
+    description: 'Keyboard shortcuts and links to the documentation.',
+    category: 'Workspace',
+    keywords: 'help shortcuts keys documentation about',
+    icon: 'help',
+    component: HelpPane,
+    minSize: { width: 260, height: 160 },
+    defaultPlacement: { kind: 'tab', reference: 'tree' },
+    closable: true,
+    requires: 'none',
+    startsClosed: true,
+  },
+  {
+    id: 'activity',
+    title: 'Activity log',
+    description: 'Everything that happened in this session, newest first.',
+    category: 'Workspace',
+    keywords: 'errors log history notifications export',
+    icon: 'alert',
+    component: ActivityPane,
+    minSize: { width: 260, height: 160 },
+    defaultPlacement: { kind: 'tab', reference: 'tree' },
+    closable: true,
+    requires: 'none',
+    startsClosed: true,
+  },
 ];
 
 const BY_ID = new Map(PANES.map((pane) => [pane.id, pane]));
@@ -356,6 +393,12 @@ export function isFollower(id: PaneId): boolean {
 
 export function isUserFamily(kind: PaneId): boolean {
   return paneById(kind).instances?.source === 'user';
+}
+
+export function stackablePanes(): PaneDefinition[] {
+  return PANES.filter((pane) => pane.stackOrder !== undefined).sort(
+    (a, b) => (a.stackOrder ?? 0) - (b.stackOrder ?? 0),
+  );
 }
 
 export function userFamilies(): PaneDefinition[] {

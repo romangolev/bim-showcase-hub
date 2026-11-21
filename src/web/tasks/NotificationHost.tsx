@@ -85,6 +85,7 @@ export function NotificationHost({
     const forget = () => {
       store.clear();
       store.clearHistory();
+      store.clearLog();
       store.announce('');
     };
     window.addEventListener(FORGET_EVENT, forget);

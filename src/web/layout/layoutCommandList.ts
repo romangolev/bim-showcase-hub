@@ -1,4 +1,5 @@
 import type { Command } from '../commands/types.js';
+import { notify } from '../tasks/notifications.js';
 import { DOCK_ONLY_REASON, LOCKED_REASON } from './layoutApply.js';
 import type { LayoutApi } from './layoutContext.js';
 import { type PaneCommandContext, paneCommands } from './paneRegistry.js';
@@ -63,6 +64,46 @@ export function layoutCommands(layout: LayoutApi): Command[] {
       menu: 'reset',
       ...reason(layout.locked ? LOCKED_REASON : undefined),
       run: () => layout.resetLayout(),
+    },
+    {
+      id: 'layout.undo',
+      title: 'Undo layout change',
+      group: 'Layout',
+      keywords: 'back revert move close collapse',
+      keys: ['mod+z'],
+      scope: 'dock',
+      ...reason(
+        layout.locked
+          ? LOCKED_REASON
+          : !docked
+            ? DOCK_ONLY_REASON
+            : layout.canUndo
+              ? undefined
+              : 'Nothing to undo',
+      ),
+      run: () => {
+        if (!layout.undoLayout()) return;
+        notify('Layout restored', {
+          action: { label: 'Redo', run: () => void layout.redoLayout() },
+        });
+      },
+    },
+    {
+      id: 'layout.redo',
+      title: 'Redo layout change',
+      group: 'Layout',
+      keys: ['mod+shift+z', 'mod+y'],
+      scope: 'dock',
+      ...reason(
+        layout.locked
+          ? LOCKED_REASON
+          : !docked
+            ? DOCK_ONLY_REASON
+            : layout.canRedo
+              ? undefined
+              : 'Nothing to redo',
+      ),
+      run: () => void layout.redoLayout(),
     },
     {
       id: 'layout.workspace.save',

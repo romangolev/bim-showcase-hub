@@ -37,6 +37,10 @@ export interface LayoutApi {
   addInstance: (kind: PaneId) => PanelId | null;
   canAddInstance: boolean;
   canPresent: boolean;
+  canUndo: boolean;
+  canRedo: boolean;
+  undoLayout: () => boolean;
+  redoLayout: () => boolean;
   movePane: (id: PanelId, target: MoveTarget) => void;
   resetLayout: () => void;
   locked: boolean;

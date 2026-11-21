@@ -4,6 +4,7 @@ import {
   isEditableTarget,
   matchShortcut,
   parseShortcut,
+  scopeAllows,
   shortcutMatches,
 } from './shortcuts.js';
 import type { Command } from './types.js';
@@ -150,5 +151,24 @@ describe('matchShortcut', () => {
     expect(
       matchShortcut(commands, { ...mac, code: undefined, key: 'x' }),
     ).toBeUndefined();
+  });
+});
+
+describe('scopeAllows', () => {
+  it('runs dock commands only inside the dock and outside the viewer surface', () => {
+    document.body.innerHTML = `
+      <div class="bsh-dock">
+        <button id="tab">Summary</button>
+        <div class="bsh-viewer-pane"><canvas id="canvas" tabindex="0"></canvas></div>
+        <input id="field" />
+      </div>`;
+    const by = (id: string) => document.getElementById(id);
+    expect(scopeAllows('dock', by('tab'))).toBe(true);
+    expect(scopeAllows('dock', by('canvas'))).toBe(false);
+    expect(scopeAllows('dock', by('field'))).toBe(false);
+    expect(scopeAllows('dock', document.body)).toBe(false);
+    expect(scopeAllows('viewer', by('tab'))).toBe(false);
+    expect(scopeAllows('viewer', by('canvas'))).toBe(true);
+    expect(scopeAllows(undefined, by('tab'))).toBe(true);
   });
 });

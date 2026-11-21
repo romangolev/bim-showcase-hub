@@ -16,6 +16,7 @@ import { viewerCommands } from './viewerCommands.js';
 import { viewerShortcuts } from './viewerShortcutMap.js';
 
 const SOURCE = 'viewer-shortcuts-test';
+const DOCK_SOURCE = 'dock-scope-test';
 
 beforeEach(() => {
   installMemoryStorage();
@@ -24,6 +25,7 @@ beforeEach(() => {
 
 afterEach(() => {
   COMMANDS.register(SOURCE, () => []);
+  COMMANDS.register(DOCK_SOURCE, () => []);
 });
 
 function fakeAdapter() {
@@ -207,6 +209,44 @@ describe('viewer shortcuts', () => {
     expect(adapter.clearModelThemingColors).not.toHaveBeenCalled();
     elsewhere.remove();
     pane.remove();
+  });
+
+  it('keeps layout undo in the dock and paint undo in the viewer', () => {
+    const adapter = fakeAdapter();
+    const layoutUndo = vi.fn();
+    renderPalette(adapter);
+    COMMANDS.register(DOCK_SOURCE, () => [
+      {
+        id: 'layout.undo',
+        title: 'Undo layout change',
+        group: 'Layout',
+        keys: ['mod+z'],
+        scope: 'dock',
+        run: layoutUndo,
+      },
+    ]);
+    const dock = document.createElement('div');
+    dock.className = 'bsh-dock';
+    const tab = document.createElement('button');
+    const pane = document.createElement('div');
+    pane.className = 'bsh-viewer-pane';
+    const canvas = document.createElement('canvas');
+    canvas.tabIndex = 0;
+    pane.append(canvas);
+    dock.append(tab, pane);
+    document.body.append(dock);
+
+    fireEvent.keyDown(canvas, keyEvent('mod+alt+b'));
+    expect(adapter.setModelThemingColor).toHaveBeenCalledOnce();
+
+    fireEvent.keyDown(tab, keyEvent('mod+z'));
+    expect(layoutUndo).toHaveBeenCalledOnce();
+    expect(adapter.clearModelThemingColors).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(canvas, keyEvent('mod+z'));
+    expect(adapter.clearModelThemingColors).toHaveBeenCalledOnce();
+    expect(layoutUndo).toHaveBeenCalledOnce();
+    dock.remove();
   });
 
   it('undoes and redoes paint from the viewer context', () => {

@@ -21,6 +21,7 @@ import {
   paneCommandsFor,
   paneKind,
   parsePanelId,
+  stackablePanes,
 } from './paneRegistry.js';
 
 describe('pane registry', () => {
@@ -106,6 +107,15 @@ describe('pane registry', () => {
     expect(paneById('colors').opensWithModel).toBe(false);
     expect(paneById('export').opensWithModel).toBe(false);
     expect(paneById('summary').opensWithModel).toBeUndefined();
+  });
+
+  it('orders the stacked layout from the registry', () => {
+    expect(stackablePanes().map((pane) => pane.id)).toEqual([
+      'viewer',
+      'dashboard',
+      'summary',
+    ]);
+    expect(stackablePanes().some((pane) => pane.id === 'tree')).toBe(false);
   });
 
   it('adds a pane hook’s commands after the generated toggle and create entries', () => {
@@ -196,6 +206,15 @@ describe('pane registry', () => {
     expect(parsePanelId('viewer:')).toBeNull();
     expect(parsePanelId('terminal:x')).toBeNull();
     expect(paneKind(42)).toBeNull();
+  });
+
+  it('lists Help and Activity log as closable workspace panes', () => {
+    for (const id of ['help', 'activity'] as const) {
+      const pane = paneById(id);
+      expect(pane.category).toBe('Workspace');
+      expect(pane.closable).toBe(true);
+      expect(pane.stackOrder).toBeUndefined();
+    }
   });
 
   it('registers user families as instance panes that are not companions', () => {

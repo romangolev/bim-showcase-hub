@@ -1,4 +1,4 @@
-import type { Command } from './types.js';
+import type { Command, CommandScope } from './types.js';
 
 export const EDITABLE_SELECTOR =
   'input, textarea, select, [contenteditable]:not([contenteditable="false"])';
@@ -91,6 +91,24 @@ export function isViewerContext(target: EventTarget | null): boolean {
   if (isEditableTarget(target)) return false;
   if (target.closest(VIEWER_CONTEXT_SELECTOR)) return true;
   return target === document.body || target === document.documentElement;
+}
+
+export const DOCK_CONTEXT_SELECTOR = '.bsh-dock';
+
+export function isDockContext(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false;
+  if (isEditableTarget(target)) return false;
+  if (target.closest(VIEWER_CONTEXT_SELECTOR)) return false;
+  return target.closest(DOCK_CONTEXT_SELECTOR) !== null;
+}
+
+export function scopeAllows(
+  scope: CommandScope | undefined,
+  target: EventTarget | null,
+): boolean {
+  if (scope === 'viewer') return isViewerContext(target);
+  if (scope === 'dock') return isDockContext(target);
+  return true;
 }
 
 export function matchShortcut(
