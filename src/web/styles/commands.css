@@ -23,7 +23,7 @@
 .cmdk__input {
   padding: var(--space-3) var(--space-4);
   border: 0;
-  border-bottom: var(--border-hairline);
+  border-bottom: var(--border-field);
   background: transparent;
   color: inherit;
   font: inherit;

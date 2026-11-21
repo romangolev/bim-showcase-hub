@@ -736,7 +736,12 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-1) var(--space-2);
-  border-bottom: var(--border-hairline);
+  border-bottom: var(--border-field);
+}
+
+.panes-menu__search:focus-within {
+  outline: var(--ring-width) solid var(--color-ring-blue);
+  outline-offset: -2px;
 }
 
 .panes-menu__search input {
