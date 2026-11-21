@@ -644,6 +644,17 @@ select.field {
   gap: var(--space-1);
 }
 
+.bsh-models__row--model {
+  align-items: start;
+}
+
+.bsh-models__more {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+
 .bsh-models__main {
   display: flex;
   flex-direction: column;
@@ -1692,11 +1703,11 @@ button.bsh-kpi:focus-visible {
 }
 
 @container (max-width: 28rem) {
-  .bsh-models__row {
+  .bsh-models__row:not(.bsh-models__row--model) {
     grid-template-columns: auto minmax(0, 1fr);
   }
 
-  .bsh-models__actions {
+  .bsh-models__row:not(.bsh-models__row--model) .bsh-models__actions {
     grid-column: 1 / -1;
   }
 }

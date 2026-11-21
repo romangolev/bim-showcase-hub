@@ -229,7 +229,7 @@ export function ModelsPanel({
               return (
                 <li
                   key={model.id}
-                  className="bsh-models__row"
+                  className="bsh-models__row bsh-models__row--model"
                   data-status={model.status}
                 >
                   <button
@@ -297,43 +297,48 @@ export function ModelsPanel({
                         {failure.title}. {failure.text}
                       </span>
                     ) : null}
+                    {failure?.retry ||
+                    (model.status === 'ready' && models.length > 1) ? (
+                      <span className="bsh-models__more">
+                        {failure?.retry ? (
+                          <button
+                            type="button"
+                            className="btn btn-small"
+                            aria-label={`Retry ${model.name}`}
+                            onClick={() =>
+                              void resolved
+                                .addModel({ urn: model.urn, name: model.name })
+                                .catch(() => {})
+                            }
+                          >
+                            Retry
+                          </button>
+                        ) : null}
+                        {model.status === 'ready' && models.length > 1 ? (
+                          <button
+                            type="button"
+                            className="btn btn-small"
+                            aria-label={
+                              isolated === model.id
+                                ? 'Show all models'
+                                : `Isolate ${model.name}`
+                            }
+                            aria-pressed={isolated === model.id}
+                            onClick={() => {
+                              for (const [id, visible] of Object.entries(
+                                isolateVisibility(models, model.id),
+                              )) {
+                                resolved.setModelVisible(id, visible);
+                              }
+                            }}
+                          >
+                            {isolated === model.id ? 'Show all' : 'Isolate'}
+                          </button>
+                        ) : null}
+                      </span>
+                    ) : null}
                   </span>
                   <span className="bsh-models__actions">
-                    {failure?.retry ? (
-                      <button
-                        type="button"
-                        className="btn"
-                        aria-label={`Retry ${model.name}`}
-                        onClick={() =>
-                          void resolved
-                            .addModel({ urn: model.urn, name: model.name })
-                            .catch(() => {})
-                        }
-                      >
-                        Retry
-                      </button>
-                    ) : null}
-                    {model.status === 'ready' && models.length > 1 ? (
-                      <button
-                        type="button"
-                        className="btn"
-                        aria-label={
-                          isolated === model.id
-                            ? 'Show all models'
-                            : `Isolate ${model.name}`
-                        }
-                        aria-pressed={isolated === model.id}
-                        onClick={() => {
-                          for (const [id, visible] of Object.entries(
-                            isolateVisibility(models, model.id),
-                          )) {
-                            resolved.setModelVisible(id, visible);
-                          }
-                        }}
-                      >
-                        {isolated === model.id ? 'Show all' : 'Isolate'}
-                      </button>
-                    ) : null}
                     <button
                       type="button"
                       className="btn"
