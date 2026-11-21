@@ -32,6 +32,8 @@ export interface FakeModelSpec {
   noGeometry?: boolean;
   center?: [number, number, number];
   size?: number;
+  searchHits?: number[];
+  searchFails?: string;
 }
 
 let modelIds = 0;
@@ -70,6 +72,18 @@ export class FakeModel implements ViewerModel {
           : [],
       })),
     );
+  }
+
+  search(
+    _text: string,
+    onSuccess: (dbIds: number[]) => void,
+    onError?: (err: unknown) => void,
+  ): void {
+    if (this.spec.searchFails) {
+      onError?.(new Error(this.spec.searchFails));
+      return;
+    }
+    onSuccess([...(this.spec.searchHits ?? [])]);
   }
 
   getObjectTree(
