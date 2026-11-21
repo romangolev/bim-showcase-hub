@@ -591,6 +591,36 @@ describe('treeState open decisions', () => {
   });
 });
 
+describe('treeState item references', () => {
+  it('builds a version target from an item and from its versions', async () => {
+    const { state } = make();
+    await loadAll(state);
+    const item = state.node('doc.rvt');
+    if (!item) throw new Error('item missing');
+    const target = state.itemRef(item);
+    expect(target).toEqual({
+      projectId: 'p',
+      itemId: 'doc.rvt',
+      file: 'doc.rvt',
+      trail: [...state.ancestorIds(item), 'doc.rvt'],
+      crumbs: ['Hubs', 'h', 'p', 'f'],
+    });
+    const versionNode = state.node('v1');
+    if (!versionNode) throw new Error('version missing');
+    expect(state.itemRef(versionNode)).toEqual(target);
+  });
+
+  it('returns null for a folder, a hub or an item without a project', async () => {
+    const { state } = make();
+    await loadAll(state);
+    const folder = state.node('f');
+    const root = state.node('root');
+    if (!folder || !root) throw new Error('fixtures missing');
+    expect(state.itemRef(folder)).toBeNull();
+    expect(state.itemRef(root)).toBeNull();
+  });
+});
+
 describe('tab and combined limits', () => {
   it('reports no message below both limits and a tab or combined message above', () => {
     expect(pickLimit(0, 1)).toEqual({

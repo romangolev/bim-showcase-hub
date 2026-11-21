@@ -7,6 +7,7 @@ import { viewableFor } from '../../../shared/viewState.js';
 import { friendlyError } from '../../api/friendlyError.js';
 import { type ModelContext, versionTag } from '../../api/modelContext.js';
 import { childScope, type NodeScope } from '../../api/scope.js';
+import type { VersionTarget } from '../../panels/versionHistory.js';
 import { MODEL_LIMIT_MESSAGE } from '../../viewer/modelSet.js';
 import type { TreeRoot } from './docRoot.js';
 import { sortChildren, type TreeSort } from './treeView.js';
@@ -78,6 +79,7 @@ export interface TreeState {
   search: (query: string) => TreeNode[];
   parentName: (node: TreeNode) => string | undefined;
   contextFor: (node: TreeNode) => ModelContext;
+  itemRef: (node: TreeNode) => VersionTarget | null;
   ancestorIds: (node: TreeNode) => string[];
   children: (id: string) => Promise<TreeNode[]>;
   resolved: (node: TreeNode) => TreeNode;
@@ -481,6 +483,25 @@ export function createTreeState({
     parentName: (node) =>
       node.parentId ? nodes.get(node.parentId)?.name : undefined,
     contextFor,
+    itemRef: (input) => {
+      const item =
+        input.kind === 'version' && input.parentId
+          ? nodes.get(input.parentId)
+          : input;
+      if (item?.kind !== 'item') return null;
+      const scope = scopes.get(item.id);
+      const projectId =
+        scope && scope.kind !== 'root' ? scope.projectId : undefined;
+      if (!projectId) return null;
+      const context = contextFor(item);
+      return {
+        projectId,
+        itemId: item.id,
+        file: item.name,
+        trail: [...(context.trail ?? []), item.id],
+        crumbs: context.crumbs ?? [],
+      };
+    },
     ancestorIds,
     children: async (id) => {
       const scope = scopes.get(id);
