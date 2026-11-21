@@ -287,9 +287,14 @@
 }
 
 .topbar__crumbs {
-  flex: 0 1 auto;
+  flex: 1 1 0;
   min-width: 0;
   overflow: hidden;
+  container-type: inline-size;
+}
+
+.topbar__crumbs + .topbar__spacer {
+  display: none;
 }
 
 .topbar__crumbs ol {
@@ -333,15 +338,9 @@
   text-decoration: underline;
 }
 
-@media (max-width: 1100px) {
+@container (max-width: 34rem) {
   .topbar__crumbs li:not(:last-child),
   .topbar__crumbs li + li::before {
-    display: none;
-  }
-}
-
-@media (max-width: 420px) {
-  .topbar__crumbs {
     display: none;
   }
 }
