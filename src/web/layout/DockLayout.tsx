@@ -164,6 +164,7 @@ export interface DockLayoutProps {
   onAttach: (id: PanelId) => void;
   onVisibility: (id: PanelId, visible: boolean) => void;
   onMoved: (id: PanelId) => void;
+  onDragStart: () => void;
   onChange: (dock: SerializedDock, open: PaneId[]) => void;
   onTreeWidth: (width: number) => void;
   onController: (controller: DockController | null) => void;
@@ -436,6 +437,8 @@ export function DockLayout(props: DockLayoutProps) {
       api.onDidMovePanel((moved) => {
         if (paneKind(moved.panel.id)) latest.current.onMoved(moved.panel.id);
       }),
+      api.onWillDragPanel(() => latest.current.onDragStart()),
+      api.onWillDragGroup(() => latest.current.onDragStart()),
     ];
     disposers.current.push(() => {
       for (const subscription of subscriptions) subscription.dispose();

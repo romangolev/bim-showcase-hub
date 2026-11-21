@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  ACTIVITY_LOG_LIMIT,
   createNotificationStore,
   MAX_LIVE_NOTIFICATIONS,
   NOTIFICATION_HISTORY_LIMIT,
@@ -95,6 +96,26 @@ describe('notification store', () => {
       label: 'Undo',
       run,
     });
+  });
+
+  it('logs every notification and records without a toast', () => {
+    const store = createNotificationStore(() => 1000);
+    store.notify('Saved viewpoint');
+    store.record('Script error', { tone: 'error' });
+    const { items, log } = store.getSnapshot();
+    expect(items).toHaveLength(1);
+    expect(log.map((entry) => entry.message)).toEqual([
+      'Script error',
+      'Saved viewpoint',
+    ]);
+  });
+
+  it('caps the log and clears it', () => {
+    const store = createNotificationStore();
+    for (let i = 0; i < ACTIVITY_LOG_LIMIT + 3; i += 1) store.record(`e${i}`);
+    expect(store.getSnapshot().log).toHaveLength(ACTIVITY_LOG_LIMIT);
+    store.clearLog();
+    expect(store.getSnapshot().log).toEqual([]);
   });
 
   it('announces messages that are not toasts and can clear the announcement', () => {

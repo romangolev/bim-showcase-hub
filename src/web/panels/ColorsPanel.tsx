@@ -8,6 +8,8 @@ import {
 } from '../extensions/colorBy.js';
 import { colorByRules, ruleProperties } from '../extensions/colorRules.js';
 import { readChartTheme, seriesColors } from '../extensions/dashboardData.js';
+import { formatCount } from '../i18n/format.js';
+import { useSettings } from '../settings/SettingsContext.js';
 import { usePersisted } from '../storage.js';
 import {
   applyColoring,
@@ -34,6 +36,7 @@ export interface ColorsPanelProps {
 
 export function ColorsPanel({ adapter }: ColorsPanelProps) {
   const uid = useId();
+  const { language } = useSettings().settings;
   const resolved = useResolvedAdapter(adapter);
   const [settings, setSettings] = usePersisted(COLORS_SETTINGS);
   const [chartSettings] = usePersisted(CHART_SETTINGS);
@@ -217,7 +220,7 @@ export function ColorsPanel({ adapter }: ColorsPanelProps) {
                 />
                 <span role="status">
                   {state.progress && state.progress.total > 0
-                    ? `Reading element properties: ${state.progress.loaded.toLocaleString('en-US')} of ${state.progress.total.toLocaleString('en-US')}${state.progress.partial ? ' (partial data)' : ''}`
+                    ? `Reading element properties: ${formatCount(state.progress.loaded, language)} of ${formatCount(state.progress.total, language)}${state.progress.partial ? ' (partial data)' : ''}`
                     : 'Reading element properties'}
                 </span>
                 <button

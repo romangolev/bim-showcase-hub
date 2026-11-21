@@ -79,6 +79,8 @@ import { ToolGroupController } from './toolGroupController.js';
 import type {
   CameraState,
   DisplaySettings,
+  ElementSearchOptions,
+  ElementSearchResult,
   LoadStage,
   MeasureMode,
   MeasurementInfo,
@@ -806,6 +808,43 @@ export class RealViewerAdapter implements ViewerAdapter {
     return items.map(
       (item) => found.get(`${item.modelId}:${item.dbId}`) ?? null,
     );
+  }
+
+  async searchElements(
+    text: string,
+    options: ElementSearchOptions = {},
+  ): Promise<ElementSearchResult> {
+    const query = text.trim();
+    if (!query) return { items: [], failedModels: [] };
+    const items: ModelDbId[] = [];
+    const failedModels: string[] = [];
+    for (const { info, handle } of this.models.shown()) {
+      if (options.signal?.aborted) break;
+      const run = handle.search;
+      if (typeof run !== 'function') {
+        failedModels.push(info.id);
+        continue;
+      }
+      try {
+        const ids = await new Promise<number[] | null>((resolve, reject) => {
+          options.signal?.addEventListener('abort', () => resolve(null), {
+            once: true,
+          });
+          run.call(
+            handle,
+            query,
+            resolve,
+            reject,
+            options.attributes ? [...options.attributes] : undefined,
+          );
+        });
+        if (!ids) break;
+        for (const dbId of ids) items.push({ modelId: info.id, dbId });
+      } catch {
+        failedModels.push(info.id);
+      }
+    }
+    return { items, failedModels };
   }
 
   setModelVisible(modelId: string, visible: boolean): void {

@@ -1,24 +1,11 @@
-import type { ComponentType } from 'react';
+import { type ComponentType, lazy } from 'react';
 import type { Command } from '../commands/types.js';
 import type { IconName } from '../components/icons.js';
+import { requestDeepSearch } from '../components/tree/deepSearchSignal.js';
 import { currentAdapter } from '../viewer/activeAdapterStore.js';
 import { clearColoring } from '../viewer/modelColoring.js';
 import { federationCommands } from '../viewer/savedFederations.js';
 import { PANEL_SEPARATOR, type PanelId } from './panelIds.js';
-import {
-  ChartInstancePane,
-  ColorsPane,
-  DashboardPane,
-  ExportPane,
-  MeasurementsPane,
-  ModelPaneBody,
-  ModelsPane,
-  PropertiesInstancePane,
-  SummaryInstancePane,
-  SummaryPane,
-  TreePane,
-  ViewsPane,
-} from './panes.js';
 
 export type PaneId =
   | 'tree'
@@ -26,13 +13,17 @@ export type PaneId =
   | 'summary'
   | 'dashboard'
   | 'models'
+  | 'versions'
   | 'colors'
   | 'export'
   | 'measurements'
   | 'views'
+  | 'search'
   | 'chart'
   | 'modelSummary'
-  | 'properties';
+  | 'properties'
+  | 'help'
+  | 'activity';
 
 export type PlacementDirection = 'left' | 'right' | 'below';
 
@@ -74,9 +65,19 @@ export interface PaneDefinition {
   closable: boolean;
   requires: 'viewer' | 'none';
   opensWithModel?: boolean;
+  startsClosed?: boolean;
+  stackOrder?: number;
   instances?: PaneInstances;
   commands?: (ctx: PaneCommandContext) => readonly Command[];
 }
+
+function lazyPane<P extends object>(
+  load: () => Promise<ComponentType<P>>,
+): ComponentType<P> {
+  return lazy(async () => ({ default: await load() }));
+}
+
+const loadPanes = () => import('./panes.js');
 
 export const TREE_WIDTH_DEFAULT = 320;
 
@@ -88,7 +89,7 @@ export const PANES: readonly PaneDefinition[] = [
     category: 'Workspace',
     keywords: 'tree files hubs projects folders versions browse',
     icon: 'folder',
-    component: TreePane,
+    component: lazyPane(() => loadPanes().then((m) => m.TreePane)),
     minSize: { width: 260, height: 160 },
     defaultPlacement: {
       kind: 'edge',
@@ -106,6 +107,18 @@ export const PANES: readonly PaneDefinition[] = [
         menu: 'hook',
         run: () => ctx.focus('tree'),
       },
+      {
+        id: 'docs.search.deep',
+        title: 'Search project files',
+        group: 'Documents',
+        icon: 'search',
+        keywords: 'deep search whole project files filters',
+        menu: 'hook',
+        run: () => {
+          ctx.focus('tree');
+          requestDeepSearch();
+        },
+      },
     ],
   },
   {
@@ -120,7 +133,11 @@ export const PANES: readonly PaneDefinition[] = [
     defaultPlacement: { kind: 'root' },
     closable: true,
     requires: 'none',
-    instances: { component: ModelPaneBody, source: 'models' },
+    instances: {
+      component: lazyPane(() => loadPanes().then((m) => m.ModelPaneBody)),
+      source: 'models',
+    },
+    stackOrder: 0,
   },
   {
     id: 'summary',
@@ -129,7 +146,7 @@ export const PANES: readonly PaneDefinition[] = [
     category: 'Viewer',
     keywords: 'properties overview totals key values model',
     icon: 'table',
-    component: SummaryPane,
+    component: lazyPane(() => loadPanes().then((m) => m.SummaryPane)),
     minSize: { width: 280, height: 160 },
     defaultPlacement: {
       kind: 'beside',
@@ -139,6 +156,7 @@ export const PANES: readonly PaneDefinition[] = [
     },
     closable: true,
     requires: 'viewer',
+    stackOrder: 2,
   },
   {
     id: 'dashboard',
@@ -147,7 +165,7 @@ export const PANES: readonly PaneDefinition[] = [
     category: 'Analysis',
     keywords: 'chart charts graph properties analysis',
     icon: 'chart',
-    component: DashboardPane,
+    component: lazyPane(() => loadPanes().then((m) => m.DashboardPane)),
     minSize: { width: 320, height: 120 },
     defaultPlacement: {
       kind: 'beside',
@@ -157,6 +175,7 @@ export const PANES: readonly PaneDefinition[] = [
     },
     closable: true,
     requires: 'viewer',
+    stackOrder: 1,
   },
   {
     id: 'models',
@@ -165,7 +184,7 @@ export const PANES: readonly PaneDefinition[] = [
     category: 'Viewer',
     keywords: 'layers loaded combined scene list',
     icon: 'layers',
-    component: ModelsPane,
+    component: lazyPane(() => loadPanes().then((m) => m.ModelsPane)),
     minSize: { width: 240, height: 160 },
     defaultPlacement: { kind: 'tab', reference: 'tree' },
     closable: true,
@@ -179,7 +198,7 @@ export const PANES: readonly PaneDefinition[] = [
     category: 'Viewer',
     keywords: 'measure distance angle area length dimension',
     icon: 'table',
-    component: MeasurementsPane,
+    component: lazyPane(() => loadPanes().then((m) => m.MeasurementsPane)),
     minSize: { width: 240, height: 160 },
     defaultPlacement: { kind: 'tab', reference: 'models' },
     closable: true,
@@ -193,11 +212,26 @@ export const PANES: readonly PaneDefinition[] = [
     category: 'Viewer',
     keywords: 'sheets views plans levels 3d 2d start favorite',
     icon: 'model',
-    component: ViewsPane,
+    component: lazyPane(() => loadPanes().then((m) => m.ViewsPane)),
     minSize: { width: 240, height: 160 },
     defaultPlacement: { kind: 'tab', reference: 'models' },
     closable: true,
     requires: 'viewer',
+  },
+  {
+    id: 'versions',
+    title: 'Version history',
+    description:
+      'Versions of one file, newest first. Open, pin or compare them.',
+    category: 'Workspace',
+    keywords: 'versions history revisions compare latest file',
+    icon: 'layers',
+    component: lazyPane(() => loadPanes().then((m) => m.VersionsPane)),
+    minSize: { width: 260, height: 160 },
+    defaultPlacement: { kind: 'tab', reference: 'tree' },
+    closable: true,
+    requires: 'none',
+    startsClosed: true,
   },
   {
     id: 'colors',
@@ -207,7 +241,7 @@ export const PANES: readonly PaneDefinition[] = [
     category: 'Analysis',
     keywords: 'color colour legend theme paint property rules',
     icon: 'layers',
-    component: ColorsPane,
+    component: lazyPane(() => loadPanes().then((m) => m.ColorsPane)),
     minSize: { width: 260, height: 160 },
     defaultPlacement: { kind: 'tab', reference: 'models' },
     closable: true,
@@ -235,7 +269,7 @@ export const PANES: readonly PaneDefinition[] = [
     category: 'Data',
     keywords: 'export excel csv json table properties download',
     icon: 'table',
-    component: ExportPane,
+    component: lazyPane(() => loadPanes().then((m) => m.ExportPane)),
     minSize: { width: 300, height: 160 },
     defaultPlacement: {
       kind: 'beside',
@@ -246,6 +280,38 @@ export const PANES: readonly PaneDefinition[] = [
     closable: true,
     requires: 'viewer',
     opensWithModel: false,
+  },
+  {
+    id: 'search',
+    title: 'Search elements',
+    description:
+      'Find elements by name or property value and save them as a set.',
+    category: 'Data',
+    keywords: 'find search elements query selection set filter',
+    icon: 'search',
+    component: lazyPane(() => loadPanes().then((m) => m.SearchPane)),
+    minSize: { width: 260, height: 160 },
+    defaultPlacement: {
+      kind: 'beside',
+      reference: 'viewer',
+      direction: 'right',
+      size: 320,
+    },
+    closable: true,
+    requires: 'viewer',
+    opensWithModel: false,
+    commands: (ctx) => [
+      {
+        id: 'pane.focus.search',
+        title: 'Search elements',
+        group: 'Panes',
+        icon: 'search',
+        keywords: 'find element',
+        menu: 'hook',
+        run: () =>
+          ctx.isOpen('search') ? ctx.focus('search') : ctx.toggle('search'),
+      },
+    ],
   },
   {
     id: 'chart',
@@ -265,7 +331,7 @@ export const PANES: readonly PaneDefinition[] = [
     closable: true,
     requires: 'viewer',
     instances: {
-      component: ChartInstancePane,
+      component: lazyPane(() => loadPanes().then((m) => m.ChartInstancePane)),
       source: 'user',
     },
   },
@@ -287,7 +353,7 @@ export const PANES: readonly PaneDefinition[] = [
     closable: true,
     requires: 'viewer',
     instances: {
-      component: SummaryInstancePane,
+      component: lazyPane(() => loadPanes().then((m) => m.SummaryInstancePane)),
       source: 'user',
     },
   },
@@ -309,9 +375,43 @@ export const PANES: readonly PaneDefinition[] = [
     closable: true,
     requires: 'viewer',
     instances: {
-      component: PropertiesInstancePane,
+      component: lazyPane(() =>
+        loadPanes().then((m) => m.PropertiesInstancePane),
+      ),
       source: 'user',
     },
+  },
+  {
+    id: 'help',
+    title: 'Help',
+    description: 'Keyboard shortcuts and links to the documentation.',
+    category: 'Workspace',
+    keywords: 'help shortcuts keys documentation about',
+    icon: 'help',
+    component: lazyPane(() =>
+      import('../help/HelpPane.js').then((m) => m.HelpPane),
+    ),
+    minSize: { width: 260, height: 160 },
+    defaultPlacement: { kind: 'tab', reference: 'tree' },
+    closable: true,
+    requires: 'none',
+    startsClosed: true,
+  },
+  {
+    id: 'activity',
+    title: 'Activity log',
+    description: 'Everything that happened in this session, newest first.',
+    category: 'Workspace',
+    keywords: 'errors log history notifications export',
+    icon: 'alert',
+    component: lazyPane(() =>
+      import('../tasks/ActivityPane.js').then((m) => m.ActivityPane),
+    ),
+    minSize: { width: 260, height: 160 },
+    defaultPlacement: { kind: 'tab', reference: 'tree' },
+    closable: true,
+    requires: 'none',
+    startsClosed: true,
   },
 ];
 
@@ -380,6 +480,12 @@ export function isFollower(id: PaneId): boolean {
 
 export function isUserFamily(kind: PaneId): boolean {
   return paneById(kind).instances?.source === 'user';
+}
+
+export function stackablePanes(): PaneDefinition[] {
+  return PANES.filter((pane) => pane.stackOrder !== undefined).sort(
+    (a, b) => (a.stackOrder ?? 0) - (b.stackOrder ?? 0),
+  );
 }
 
 export function userFamilies(): PaneDefinition[] {

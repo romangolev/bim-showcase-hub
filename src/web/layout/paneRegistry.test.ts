@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Command, CommandHost } from '../commands/types.js';
+import { onDeepSearch } from '../components/tree/deepSearchSignal.js';
 import { buildColoring } from '../extensions/colorBy.js';
 import { COLORS_SETTINGS } from '../panels/colorsSettings.js';
 import { setStorageAdapter } from '../storage.js';
@@ -29,6 +30,7 @@ import {
   paneCommandsFor,
   paneKind,
   parsePanelId,
+  stackablePanes,
 } from './paneRegistry.js';
 
 describe('pane registry', () => {
@@ -47,6 +49,58 @@ describe('pane registry', () => {
     expect(isRequired('viewer')).toBe(false);
     expect(hasPlainPanel('viewer')).toBe(false);
     expect(hasPlainPanel('tree')).toBe(true);
+  });
+
+  it('registers the version history pane as a closable workspace pane', () => {
+    expect(isPaneId('versions')).toBe(true);
+    expect(paneById('versions')).toMatchObject({
+      title: 'Version history',
+      category: 'Workspace',
+      closable: true,
+      requires: 'none',
+    });
+    expect(isRequired('versions')).toBe(false);
+    expect(PANES.filter((pane) => isRequired(pane.id))).toEqual([
+      paneById('tree'),
+    ]);
+  });
+
+  it('registers the element search pane as a viewer follower', () => {
+    expect(isPaneId('search')).toBe(true);
+    expect(paneById('search')).toMatchObject({
+      title: 'Search elements',
+      category: 'Data',
+      closable: true,
+      requires: 'viewer',
+    });
+    expect(FOLLOWERS).toContain('search');
+    expect(isRequired('search')).toBe(false);
+    expect(paneById('search').opensWithModel).toBe(false);
+  });
+
+  it('focuses or opens the search pane from its command', () => {
+    const closed = {
+      isOpen: () => false,
+      toggle: vi.fn(),
+      create: vi.fn(),
+      focus: vi.fn(),
+    };
+    const opening = paneCommandsFor(paneById('search'), closed).find(
+      (command) => command.id === 'pane.focus.search',
+    );
+    opening?.run({} as CommandHost);
+    expect(closed.toggle).toHaveBeenCalledWith('search');
+    const open = {
+      isOpen: () => true,
+      toggle: vi.fn(),
+      create: vi.fn(),
+      focus: vi.fn(),
+    };
+    paneCommandsFor(paneById('search'), open)
+      .find((command) => command.id === 'pane.focus.search')
+      ?.run({} as CommandHost);
+    expect(open.focus).toHaveBeenCalledWith('search');
+    expect(open.toggle).not.toHaveBeenCalled();
   });
 
   it('places exactly one pane at the root and references only known panes', () => {
@@ -104,6 +158,7 @@ describe('pane registry', () => {
       'views',
       'colors',
       'export',
+      'search',
     ]);
     expect(followersOf('viewer')).toEqual([
       'summary',
@@ -113,6 +168,7 @@ describe('pane registry', () => {
       'views',
       'colors',
       'export',
+      'search',
     ]);
     expect(followersOf('tree')).toEqual([]);
     expect(paneById('colors').opensWithModel).toBe(false);
@@ -227,11 +283,51 @@ describe('pane registry', () => {
     ).toBeDefined();
   });
 
+  it('offers a deep search command for Documents', () => {
+    const ctx = {
+      isOpen: () => true,
+      toggle: vi.fn(),
+      create: vi.fn(),
+      focus: vi.fn(),
+    };
+    const seen = vi.fn();
+    const off = onDeepSearch(seen);
+    const command = paneCommands(ctx).find(
+      (entry) => entry.id === 'docs.search.deep',
+    );
+    expect(command).toMatchObject({
+      title: 'Search project files',
+      group: 'Documents',
+    });
+    command?.run({} as CommandHost);
+    expect(ctx.focus).toHaveBeenCalledWith('tree');
+    expect(seen).toHaveBeenCalledTimes(1);
+    off();
+  });
+
   it('rejects instances of panes without instances', () => {
     expect(parsePanelId('summary:x')).toBeNull();
     expect(parsePanelId('viewer:')).toBeNull();
     expect(parsePanelId('terminal:x')).toBeNull();
     expect(paneKind(42)).toBeNull();
+  });
+
+  it('orders the stacked layout from the registry', () => {
+    expect(stackablePanes().map((pane) => pane.id)).toEqual([
+      'viewer',
+      'dashboard',
+      'summary',
+    ]);
+    expect(stackablePanes().some((pane) => pane.id === 'tree')).toBe(false);
+  });
+
+  it('lists Help and Activity log as closable workspace panes', () => {
+    for (const id of ['help', 'activity'] as const) {
+      const pane = paneById(id);
+      expect(pane.category).toBe('Workspace');
+      expect(pane.closable).toBe(true);
+      expect(pane.stackOrder).toBeUndefined();
+    }
   });
 
   it('registers user families as instance panes that are not companions', () => {

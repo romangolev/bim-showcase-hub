@@ -1,4 +1,8 @@
-import { type ViewState, viewableFor } from '../../../shared/viewState.js';
+import {
+  type ViewState,
+  viewableFor,
+  viewStateOf,
+} from '../../../shared/viewState.js';
 
 const ACTION =
   'Open the file in Revit or Navisworks and publish a 3D view, or re-translate.';
@@ -43,9 +47,7 @@ export function reasonFor(state: ViewState, checked?: boolean): string {
     : VIEW_STATE_COPY[state].reason;
 }
 
-export function viewStateOf(node: { viewState?: ViewState }): ViewState {
-  return node.viewState ?? 'not-translated';
-}
+export { viewStateOf };
 
 export function blockedNotice(node: {
   kind: string;

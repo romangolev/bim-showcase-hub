@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { StateBlock } from '../components/StateBlock.js';
+import { writeClipboard } from '../extensions/clipboard.js';
 import { notify } from '../tasks/notifications.js';
 import { measurementsCsv } from '../viewer/measurements.js';
 import type {
@@ -52,10 +53,9 @@ export function MeasurementsPanel({
   };
 
   const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(measurementsCsv(list));
+    if (await writeClipboard(measurementsCsv(list))) {
       notify('Measurements copied');
-    } catch {
+    } else {
       setNotice('Could not copy to the clipboard');
     }
   };

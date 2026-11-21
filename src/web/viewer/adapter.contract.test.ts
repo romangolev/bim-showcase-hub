@@ -6,6 +6,7 @@ import {
   buildMockElements,
   buildMockRows,
   LARGE_FIXTURE_ROWS,
+  levelName,
 } from './mockModel.js';
 import { RealViewerAdapter } from './RealViewerAdapter.js';
 import { apiForRegion, detectRegion, resetRegion } from './region.js';
@@ -469,6 +470,38 @@ describe('MockViewerAdapter specifics', () => {
       a?.name,
     ]);
     expect(await adapter.getElementsProperties([])).toEqual([]);
+  });
+
+  it('searches element names across models and skips hidden ones', async () => {
+    await setup();
+    const modelId = adapter.getModels()[0]?.id ?? '';
+    const [first] = buildMockElements();
+    const word = (first?.name ?? '').split(' ')[0] ?? '';
+    const found = await adapter.searchElements(word);
+    expect(found.failedModels).toEqual([]);
+    expect(found.items.length).toBeGreaterThan(0);
+    expect(found.items.every((item) => item.modelId === modelId)).toBe(true);
+    adapter.setModelVisible(modelId, false);
+    expect((await adapter.searchElements(word)).items).toEqual([]);
+  });
+
+  it('limits a search to the given attributes', async () => {
+    await setup();
+    const byName = await adapter.searchElements(levelName(0), {
+      attributes: ['Name'],
+    });
+    const byLevel = await adapter.searchElements(levelName(0), {
+      attributes: ['Level'],
+    });
+    expect(byLevel.items.length).toBeGreaterThan(byName.items.length);
+  });
+
+  it('returns nothing for a blank search', async () => {
+    await setup();
+    expect(await adapter.searchElements('  ')).toEqual({
+      items: [],
+      failedModels: [],
+    });
   });
 
   it('clears the scene on unload and removes DOM on destroy', async () => {

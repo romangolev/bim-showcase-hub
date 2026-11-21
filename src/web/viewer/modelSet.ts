@@ -1,4 +1,6 @@
 import { MAX_COMBINED_MODELS, type Vec3 } from '../../shared/combined.js';
+import { formatCount, formatFixed } from '../i18n/format.js';
+import type { Language } from '../settings/settings.js';
 
 export type { Vec3 };
 
@@ -405,15 +407,16 @@ export function togetherOffsets(
   return offsets;
 }
 
-export function formatKm(meters: number): string {
+export function formatKm(meters: number, language: Language): string {
   const km = meters / 1000;
-  if (km >= 10) return Math.round(km).toLocaleString('en-US');
-  if (km >= 1) return km.toFixed(1);
-  return km.toFixed(2);
+  if (km >= 10) return formatCount(Math.round(km), language);
+  if (km >= 1) return formatFixed(km, 1, language);
+  return formatFixed(km, 2, language);
 }
 
 export function farApartMessage(
   spread: Pick<ModelSpread, 'distanceMeters'>,
+  language: Language,
 ): string {
-  return `Some models are far apart in model space (about ${formatKm(spread.distanceMeters)} km). They are shown at their real positions.`;
+  return `Some models are far apart in model space (about ${formatKm(spread.distanceMeters, language)} km). They are shown at their real positions.`;
 }

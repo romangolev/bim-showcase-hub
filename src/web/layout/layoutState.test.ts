@@ -1,21 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { installMemoryStorage } from '../test/mockApi.js';
 import {
   adoptArrangement,
   defaultModel,
-  LAYOUT_KEY,
   layoutReducer,
   loadWithFallback,
   PREVIOUS_VIEWER,
   parseLayout,
-  readLayout,
   type SerializedDock,
   type SerializedNode,
   sanitizeDock,
   serializeLayout,
   siblingCountOf,
   splitAxisOf,
-  writeLayout,
 } from './layoutState.js';
 
 function leaf(id: string, views: string[], size = 100) {
@@ -95,7 +91,11 @@ describe('layoutReducer', () => {
   it('starts with the dashboard collapsed and the optional panes closed', () => {
     expect(defaultModel().collapsed).toEqual(['dashboard']);
     expect(defaultModel().dock).toBeNull();
-    expect(defaultModel().dismissed).toEqual(['measurements', 'views']);
+    expect(defaultModel().dismissed).toEqual([
+      'measurements',
+      'views',
+      'versions',
+    ]);
   });
 
   it('keeps the Documents width the user resized to, within limits', () => {
@@ -121,12 +121,17 @@ describe('layoutReducer', () => {
       id: 'summary',
       dismissed: true,
     });
-    expect(twice.dismissed).toEqual(['measurements', 'views', 'summary']);
+    expect(twice.dismissed).toEqual([
+      'measurements',
+      'views',
+      'versions',
+      'summary',
+    ]);
     expect(twice).toBe(once);
     expect(
       layoutReducer(twice, { type: 'dismiss', id: 'summary', dismissed: false })
         .dismissed,
-    ).toEqual(['measurements', 'views']);
+    ).toEqual(['measurements', 'views', 'versions']);
   });
 });
 
@@ -368,73 +373,6 @@ describe('siblingCountOf', () => {
     expect(siblingCountOf(dock, '1')).toBe(3);
     expect(siblingCountOf(dock, '2')).toBe(2);
     expect(siblingCountOf(dock, '42')).toBeNull();
-  });
-});
-
-describe('storage', () => {
-  it('keeps Models closed in a layout saved before it opened by default', () => {
-    const storage = installMemoryStorage();
-    storage.setItem(
-      LAYOUT_KEY,
-      JSON.stringify({
-        version: 2,
-        layout: {
-          dock: sampleDock(),
-          collapsed: [],
-          treeWidth: 320,
-          dismissed: ['models'],
-        },
-      }),
-    );
-    const model = readLayout(storage);
-    expect(model.dismissed).toEqual(['models']);
-    writeLayout(storage, model);
-    expect(readLayout(storage).dismissed).toEqual(['models']);
-  });
-
-  it.each([
-    ['a corrupt record', '{broken'],
-    [
-      'a v1 record',
-      JSON.stringify({
-        version: 1,
-        layout: { dock: sampleDock('viewer'), collapsed: [], treeWidth: 360 },
-      }),
-    ],
-    ['nothing stored', null],
-  ])('falls back to the default for %s', (_name, stored) => {
-    const storage = installMemoryStorage();
-    if (stored !== null) storage.setItem(LAYOUT_KEY, stored);
-    expect(readLayout(storage)).toEqual(defaultModel());
-  });
-
-  it('survives storage that throws', () => {
-    const blocked = () => {
-      throw new Error('blocked');
-    };
-    const storage = {
-      ...installMemoryStorage(),
-      getItem: blocked,
-      setItem: blocked,
-      removeItem: blocked,
-    };
-    expect(readLayout(storage)).toEqual(defaultModel());
-    expect(() => writeLayout(storage, defaultModel())).not.toThrow();
-  });
-
-  it('writes the record under the versioned key', () => {
-    const storage = installMemoryStorage();
-    writeLayout(storage, defaultModel());
-    expect(JSON.parse(storage.getItem(LAYOUT_KEY) ?? '')).toEqual({
-      version: 2,
-      layout: {
-        dock: null,
-        collapsed: ['dashboard'],
-        treeWidth: 320,
-        dismissed: ['measurements', 'views'],
-        lastViewerArrangement: null,
-      },
-    });
   });
 });
 

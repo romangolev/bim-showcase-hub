@@ -1,4 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { rememberModel } from '../api/modelStore.js';
+import { createOpenModelsStore } from '../api/openModels.js';
+import { OpenModelsContext } from '../api/useOpenModels.js';
+import { MODEL_SETS } from '../store/modelSets.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { act, fireEvent, render, screen, waitFor } from '../test/render.js';
 import { colorLayersFor } from '../viewer/colorLayers.js';
@@ -240,6 +244,33 @@ describe('ModelsPanel', () => {
     expect(painted('bsh-mock__el--hidden')).toBe(0);
   });
 
+  it('saves the open viewer models as a model set', async () => {
+    const adapter = await load(['urn-a', 'urn-b']);
+    rememberModel('urn-a', { file: 'A.rvt' });
+    rememberModel('urn-b', { file: 'B.rvt' });
+    const store = createOpenModelsStore(null);
+    store.open('urn-a', { file: 'A.rvt' });
+    store.addTo('urn-a', 'urn-b');
+    render(
+      <OpenModelsContext.Provider value={store}>
+        <ModelsPanel adapter={adapter} />
+      </OpenModelsContext.Provider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Save as model set' }));
+    fireEvent.change(screen.getByLabelText('Model set name'), {
+      target: { value: 'Open viewer' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save model set' }));
+    const [set] = MODEL_SETS.list();
+    expect(set?.name).toBe('Open viewer');
+    expect(
+      set?.data.members.map((member) => [member.urn, member.file]),
+    ).toEqual([
+      ['urn-a', 'A.rvt'],
+      ['urn-b', 'B.rvt'],
+    ]);
+  });
+
   it('saves the open models as a named combination', async () => {
     const adapter = await load(['urn-a', 'urn-b']);
     const onSaveFederation = vi.fn();
@@ -281,6 +312,18 @@ describe('ModelsPanel', () => {
     await waitFor(() => expect(FEDERATIONS.list()[0]?.name).toBe('Site B'));
     fireEvent.click(screen.getByRole('button', { name: 'Delete Site B' }));
     await waitFor(() => expect(FEDERATIONS.list()).toHaveLength(0));
+  });
+
+  it('clears the rename error when the combination is deleted', async () => {
+    const adapter = await load(['urn-a', 'urn-b']);
+    FEDERATIONS.save('Site', COMBINATION);
+    render(<ModelsPanel adapter={adapter} onOpenFederation={vi.fn()} />);
+    const input = screen.getByLabelText('Rename Site');
+    fireEvent.change(input, { target: { value: '' } });
+    fireEvent.blur(input);
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Site' }));
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 
   it('shows a combination saved while the pane is open', async () => {

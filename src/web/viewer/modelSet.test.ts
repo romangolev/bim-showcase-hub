@@ -363,9 +363,10 @@ describe('model spread', () => {
   });
 
   it('words the warning in kilometres', () => {
-    expect(farApartMessage({ distanceMeters: 423_672 })).toBe(
+    expect(farApartMessage({ distanceMeters: 423_672 }, 'en')).toBe(
       'Some models are far apart in model space (about 424 km). They are shown at their real positions.',
     );
-    expect(formatKm(2_500)).toBe('2.5');
+    expect(formatKm(2_500, 'en')).toBe('2.5');
+    expect(formatKm(1_040, 'en')).toBe('1.0');
   });
 });

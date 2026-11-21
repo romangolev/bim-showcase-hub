@@ -10,37 +10,72 @@ import {
   type DragEvent,
   type KeyboardEvent,
   type MouseEvent,
+  useContext,
   useEffect,
+  useId,
   useRef,
   useState,
 } from 'react';
 import type { TreeNode } from '../../../shared/types.js';
+import { ApiError, thumbnailPath } from '../../api/client.js';
+import { friendlyError } from '../../api/friendlyError.js';
 import type { ModelContext } from '../../api/modelContext.js';
+import { listRecentModels } from '../../api/modelStore.js';
+import { EMPTY_OPEN_MODELS } from '../../api/openModels.js';
 import type { NodeScope } from '../../api/scope.js';
+import { COMMANDS } from '../../commands/registry.js';
+import { writeClipboard } from '../../extensions/clipboard.js';
+import { LayoutContext } from '../../layout/layoutContext.js';
+import { saveModelSetPrompt } from '../../panels/ModelSets.js';
+import { openVersionHistory } from '../../panels/VersionHistoryPanel.js';
+import type { VersionTarget } from '../../panels/versionHistory.js';
 import { PANE_SETTINGS } from '../../settings/paneSettings.js';
 import { usePersisted } from '../../storage.js';
+import { MAX_SET_MEMBERS } from '../../store/modelSets.js';
+import { MAX_NAME_LENGTH } from '../../store/savedStore.js';
 import { notify } from '../../tasks/notifications.js';
+import { startTask, type TaskHandle } from '../../tasks/taskStore.js';
+import {
+  type OpenMode,
+  type OpenPreview,
+  previewOpen,
+} from '../../viewer/openModels.js';
 import { Icon } from '../icons.js';
 import { Menu, type MenuEntry } from '../Menu.js';
 import { StateBlock } from '../StateBlock.js';
+import { CRAWL_LIMITS, type CrawlResult } from './crawl.js';
+import {
+  type DeepSearchFilters,
+  DOC_SEARCHES,
+  type DocSearchData,
+  FILE_TYPES,
+  NO_FILTERS,
+} from './deepSearch.js';
+import { onDeepSearch } from './deepSearchSignal.js';
 import { startModelDrag } from './docDrag.js';
 import { DEFAULT_TREE_ROOT, type TreeRoot } from './docRoot.js';
 import { NoHubsHint, PersonalHubNotice } from './NoHubsHint.js';
+import { PreviewCard } from './PreviewCard.js';
 import { usePins } from './pins.js';
-import { modelHref, modelMenuEntries, useRowMenu } from './rowMenu.js';
+import {
+  itemMenuEntries,
+  modelHref,
+  modelMenuEntries,
+  useRowMenu,
+} from './rowMenu.js';
 import { INDENT, rowHeightFor, TreeRowView } from './TreeRowView.js';
+import { treeCommands } from './treeCommands.js';
 import {
   openableUrn,
   type PickedModel,
-  pickLimit,
   skippedNotice,
   sleep,
   TRAIL_SEPARATOR,
-  tabLimitMessage,
   VERSION_POLL_MS,
 } from './treeState.js';
-import { metaText } from './treeView.js';
+import { type ItemOpen, metaText } from './treeView.js';
 import { useTreeState } from './useTreeState.js';
+import { pickLastOpened, pickLatest } from './versionPick.js';
 import { viewStateOf } from './viewStateCopy.js';
 
 export type { PickedModel };
@@ -53,10 +88,18 @@ export interface AddTarget {
   onRemove: (urn: string) => void;
 }
 
+type PreviewOpen = (
+  models: readonly PickedModel[],
+  mode: OpenMode,
+) => OpenPreview;
+
+const previewEmpty: PreviewOpen = (models, mode) =>
+  previewOpen(EMPTY_OPEN_MODELS, { models, mode });
+
 export interface DocumentTreeProps {
   selectedUrn?: string;
   revealTrail?: readonly string[];
-  openCount?: number;
+  pickPreview?: PreviewOpen;
   onOpenModel: (urn: string, context: ModelContext) => void;
   onOpenTabs?: (models: PickedModel[]) => void;
   onOpenTogether?: (models: PickedModel[]) => void;
@@ -66,7 +109,7 @@ export interface DocumentTreeProps {
   pollMs?: number;
 }
 
-export { skippedNotice, tabLimitMessage };
+export { skippedNotice };
 
 function pickLabel(model: PickedModel): string {
   return model.context.file ?? model.urn;
@@ -138,10 +181,55 @@ const MIN_ROW_HEIGHT = 30;
 
 const TYPEAHEAD_MS = 600;
 
+const PREVIEW_HOVER_MS = 600;
+
+const PICK_PROJECT = 'Pick a project in the switcher to search all of it';
+
+interface CrawlView {
+  status: 'running' | 'done' | 'warning' | 'cancelled';
+  folders: number;
+  nodes: number;
+  failed: number;
+  detail: string | null;
+}
+
+function crawlText(view: CrawlView): string {
+  if (view.status === 'running') {
+    return `Searched ${view.folders} folders, ${view.nodes} files and folders found`;
+  }
+  if (view.status === 'cancelled') return 'Search cancelled';
+  if (view.status === 'warning') {
+    return view.detail ?? `${view.failed} folders could not be read`;
+  }
+  return `Searched ${view.folders} folders`;
+}
+
+function warningText(result: CrawlResult): string | null {
+  if (result.stop === 'unauthorized') {
+    return friendlyError(new ApiError(401, 'Unauthorized')).message;
+  }
+  const parts: string[] = [];
+  if (result.stop === 'folders') {
+    parts.push(
+      `Stopped at the ${CRAWL_LIMITS.maxFolders} folder limit. Narrow the search to a folder.`,
+    );
+  } else if (result.stop === 'time' || result.stop === 'nodes') {
+    parts.push(
+      'Stopped before every folder was read. Narrow the search to a folder.',
+    );
+  }
+  if (result.failed > 0) {
+    parts.push(
+      `${result.failed} folder${result.failed === 1 ? '' : 's'} could not be read`,
+    );
+  }
+  return parts.length > 0 ? parts.join('. ') : null;
+}
+
 export function DocumentTree({
   selectedUrn,
   revealTrail,
-  openCount = 0,
+  pickPreview = previewEmpty,
   onOpenModel,
   onOpenTabs,
   onOpenTogether,
@@ -154,6 +242,14 @@ export function DocumentTree({
   const rootScope = root.scope;
   const copy = rootCopy(rootScope);
   const [filter, setFilter] = useState('');
+  const [filters, setFilters] = useState<DeepSearchFilters>(NO_FILTERS);
+  const [chipsOpen, setChipsOpen] = useState(false);
+  const [crawl, setCrawl] = useState<CrawlView | null>(null);
+  const [saveSearchOpen, setSaveSearchOpen] = useState(false);
+  const chipsId = useId();
+  const crawlRef = useRef<AbortController | null>(null);
+  const crawlTask = useRef<TaskHandle | null>(null);
+  const crawlRun = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const typeahead = useRef({
@@ -166,6 +262,13 @@ export function DocumentTree({
   );
 
   const [view, setView] = usePersisted(PANE_SETTINGS.tree.view);
+  const [preview, setPreview] = useState<{
+    node: TreeNode;
+    anchor: DOMRect;
+    from: HTMLElement | null;
+  } | null>(null);
+  const previewTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const viewEntries = (): MenuEntry[] => [
     {
       id: 'sort-name',
@@ -194,8 +297,169 @@ export function DocumentTree({
     root,
     sort: () => viewRef.current.sort,
   });
+  const openLatest = useRef(onOpenModel);
+  openLatest.current = onOpenModel;
+  useEffect(
+    () =>
+      COMMANDS.register('tree', () =>
+        treeCommands(state, (model) =>
+          openLatest.current(model.urn, model.context),
+        ),
+      ),
+    [state],
+  );
   const { errors, picked, notice } = snapshot;
   const { contextFor, resolved, needsCheck, parentName } = state;
+
+  const finishCrawl = (result: CrawlResult, task: TaskHandle) => {
+    const base = {
+      folders: result.folders,
+      nodes: result.nodes,
+      failed: result.failed,
+    };
+    if (result.stop === 'cancelled') {
+      setCrawl({ status: 'cancelled', ...base, detail: null });
+      task.cancel();
+      return;
+    }
+    const warning = warningText(result);
+    if (warning) {
+      setCrawl({ status: 'warning', ...base, detail: warning });
+      task.warn(warning);
+      return;
+    }
+    setCrawl({ status: 'done', ...base, detail: null });
+    task.finish(`Searched ${result.folders} folders`);
+  };
+
+  const stopCrawl = () => {
+    crawlRun.current += 1;
+    crawlRef.current?.abort();
+    crawlRef.current = null;
+    const task = crawlTask.current;
+    crawlTask.current = null;
+    return task;
+  };
+
+  const cancelCrawl = () => {
+    if (!crawlRef.current) return;
+    const task = stopCrawl();
+    setCrawl((current) => ({
+      status: 'cancelled',
+      folders: current?.folders ?? 0,
+      nodes: current?.nodes ?? 0,
+      failed: current?.failed ?? 0,
+      detail: null,
+    }));
+    task?.cancel();
+  };
+
+  const startCrawl = () => {
+    if (crawlRef.current || !state.crawlRoot()) return;
+    const controller = new AbortController();
+    crawlRef.current = controller;
+    const runId = crawlRun.current + 1;
+    crawlRun.current = runId;
+    setCrawl({
+      status: 'running',
+      folders: 0,
+      nodes: 0,
+      failed: 0,
+      detail: null,
+    });
+    let lastProgress = 0;
+    const task = startTask({
+      label: 'Searching project files',
+      cancel: cancelCrawl,
+    });
+    crawlTask.current = task;
+    void state
+      .crawl(controller.signal, (progress) => {
+        if (runId !== crawlRun.current) return;
+        const at = Date.now();
+        if (at - lastProgress < 250) return;
+        lastProgress = at;
+        setCrawl({
+          status: 'running',
+          folders: progress.folders,
+          nodes: progress.nodes,
+          failed: progress.failed,
+          detail: null,
+        });
+        task.progress(
+          null,
+          `Searched ${progress.folders} folders, ${progress.nodes} files and folders found`,
+        );
+      })
+      .then((result) => {
+        if (runId !== crawlRun.current) return;
+        crawlRef.current = null;
+        crawlTask.current = null;
+        finishCrawl(result, task);
+      })
+      .catch((error: unknown) => {
+        if (runId !== crawlRun.current) return;
+        crawlRef.current = null;
+        crawlTask.current = null;
+        setCrawl((current) =>
+          current
+            ? {
+                ...current,
+                status: 'warning',
+                detail: 'The search stopped before it finished.',
+              }
+            : null,
+        );
+        task.fail(error);
+      });
+  };
+
+  const toggleType = (type: string) =>
+    setFilters((current) => ({
+      ...current,
+      types: current.types.includes(type)
+        ? current.types.filter((entry) => entry !== type)
+        : [...current.types, type],
+    }));
+
+  const searchProject = () => {
+    if (!state.crawled()) startCrawl();
+  };
+
+  const clearSearch = () => {
+    setFilter('');
+    setFilters(NO_FILTERS);
+  };
+
+  const applySavedSearch = (data: DocSearchData) => {
+    setFilters({
+      text: '',
+      types: [...data.types],
+      viewableOnly: data.viewableOnly,
+      from: data.from,
+      to: data.to,
+    });
+    setFilter(data.text);
+    setChipsOpen(true);
+    if (data.scope === 'project') searchProject();
+  };
+
+  const savedSearchEntries = (): MenuEntry[] => {
+    const entries: MenuEntry[] = DOC_SEARCHES.list().map((item) => ({
+      id: `saved-${item.id}`,
+      label: item.name,
+      onSelect: () => applySavedSearch(item.data),
+    }));
+    if (entries.length > 0) {
+      entries.push({ kind: 'separator', id: 'saved-separator' });
+    }
+    entries.push({
+      id: 'save-search',
+      label: 'Save search',
+      onSelect: () => setSaveSearchOpen(true),
+    });
+    return entries;
+  };
 
   const selectedUrnRef = useRef(selectedUrn);
   selectedUrnRef.current = selectedUrn;
@@ -203,8 +467,30 @@ export function DocumentTree({
   const openNode = (node: TreeNode) =>
     state.open(node, (model) => onOpenModel(model.urn, model.context));
 
+  const recentUrns = () => listRecentModels().map((entry) => entry.urn);
+
+  const hasLastOpened = (node: TreeNode) =>
+    listRecentModels().some((entry) => entry.trail?.at(-1) === node.id);
+
+  const openItem = async (node: TreeNode, mode: ItemOpen) => {
+    const versions = await state.versionsOf(node);
+    const target =
+      mode === 'last'
+        ? (pickLastOpened(versions, recentUrns()) ?? pickLatest(versions))
+        : pickLatest(versions);
+    if (target) {
+      openNode(target);
+      return;
+    }
+    notify('This file has no versions to open', { tone: 'error' });
+  };
+
   const activate = (item: ItemInstance<TreeNode>) => {
     const node = item.getItemData();
+    if (node.kind === 'item' && view.itemOpen !== 'expand') {
+      void openItem(node, view.itemOpen);
+      return;
+    }
     if (item.isFolder()) {
       if (item.isExpanded()) {
         item.collapse();
@@ -214,6 +500,42 @@ export function DocumentTree({
       return;
     }
     openNode(node);
+  };
+
+  const cancelPreviewTimer = () => {
+    if (previewTimer.current) clearTimeout(previewTimer.current);
+    previewTimer.current = null;
+  };
+
+  const openPreview = (node: TreeNode, element?: HTMLElement | null) => {
+    cancelPreviewTimer();
+    const from =
+      element ??
+      (document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null);
+    const anchor = from?.getBoundingClientRect() ?? new DOMRect(0, 0, 0, 0);
+    setPreview({ node, anchor, from });
+  };
+
+  const closePreview = (restoreFocus: boolean) => {
+    if (restoreFocus) preview?.from?.focus();
+    setPreview(null);
+  };
+
+  const hoverPreview = (node: TreeNode) => {
+    if (!view.thumbnails || node.kind !== 'item') return {};
+    return {
+      onMouseEnter: (event: MouseEvent<HTMLDivElement>) => {
+        cancelPreviewTimer();
+        const element = event.currentTarget;
+        previewTimer.current = setTimeout(() => {
+          previewTimer.current = null;
+          openPreview(node, element);
+        }, PREVIEW_HOVER_MS);
+      },
+      onMouseLeave: cancelPreviewTimer,
+    };
   };
 
   const pickedUrns = new Set(picked.map((model) => model.urn));
@@ -265,6 +587,12 @@ export function DocumentTree({
 
   const pinsApi = usePins();
   const rowMenu = useRowMenu();
+  const layout = useContext(LayoutContext);
+
+  const openHistory = (node: TreeNode) => {
+    const ref = state.itemRef(node);
+    if (ref && layout) openVersionHistory(layout, ref);
+  };
 
   const focusItem = (id: string) => {
     const item = tree.getItemInstance(id);
@@ -274,17 +602,18 @@ export function DocumentTree({
 
   const copyLink = async (urn: string, context: ModelContext) => {
     const href = modelHref(urn, context);
-    try {
-      await navigator.clipboard.writeText(href);
+    if (await writeClipboard(href)) {
       notify('Link copied', { detail: href });
-    } catch {
+    } else {
       notify('Could not copy the link', { tone: 'error', detail: href });
     }
   };
 
   const revealPath = (node: TreeNode) => {
     void (async () => {
-      if (query) setFilter('');
+      if (searching) {
+        clearSearch();
+      }
       if (!(await state.revealTo(node))) return;
       await sleep(80);
       focusItem(node.id);
@@ -295,12 +624,27 @@ export function DocumentTree({
     const parentId = node.parentId;
     if (!parentId) return;
     void (async () => {
-      if (query) setFilter('');
+      if (searching) {
+        clearSearch();
+      }
       if (!(await state.revealTo(node))) return;
       const parent = tree.getItemInstance(parentId);
       if (parent.isFolder() && !parent.isExpanded()) parent.expand();
       await sleep(80);
       focusItem(parentId);
+    })();
+  };
+
+  const showItemVersions = (node: TreeNode) => {
+    void (async () => {
+      if (searching) {
+        clearSearch();
+      }
+      if (!(await state.revealTo(node))) return;
+      const item = tree.getItemInstance(node.id);
+      if (item.isFolder() && !item.isExpanded()) item.expand();
+      await sleep(80);
+      focusItem(node.id);
     })();
   };
 
@@ -315,6 +659,18 @@ export function DocumentTree({
   };
 
   const menuProps = (node: TreeNode) => {
+    if (node.kind === 'item') {
+      return rowMenu.bind(() =>
+        itemMenuEntries({
+          hasLastOpened: hasLastOpened(node),
+          onOpenLatest: () => void openItem(node, 'latest'),
+          onOpenLastOpened: () => void openItem(node, 'last'),
+          onShowVersions: () => showItemVersions(node),
+          onPreview: () => openPreview(node),
+          onVersionHistory: layout ? () => openHistory(node) : undefined,
+        }),
+      );
+    }
     if (node.kind !== 'version') return undefined;
     return rowMenu.bind(() => {
       const urn = openableUrn(node);
@@ -336,6 +692,7 @@ export function DocumentTree({
         onCopyLink: urn ? () => void copyLink(urn, context) : undefined,
         onRevealPath: () => revealPath(node),
         onShowVersions: () => showVersions(node),
+        onVersionHistory: layout ? () => openHistory(node) : undefined,
       });
     });
   };
@@ -460,7 +817,32 @@ export function DocumentTree({
     };
   }, [revealKey, state]);
 
+  useEffect(
+    () =>
+      onDeepSearch(() => {
+        setChipsOpen(true);
+        searchRef.current?.focus();
+      }),
+    [],
+  );
+
+  useEffect(
+    () => () => {
+      stopCrawl()?.discard();
+      setCrawl(null);
+    },
+    [state],
+  );
+
   const query = filter.trim().toLowerCase();
+  const activeFilters: DeepSearchFilters = { ...filters, text: filter.trim() };
+  const narrowSearch =
+    filters.types.length > 0 ||
+    filters.viewableOnly ||
+    filters.from !== null ||
+    filters.to !== null;
+  const searching = query !== '' || narrowSearch;
+  const crawlRootId = state.crawlRoot();
 
   const onTreeKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement | null;
@@ -520,13 +902,17 @@ export function DocumentTree({
   useEffect(
     () => () => {
       if (typeahead.current.timer) clearTimeout(typeahead.current.timer);
+      if (previewTimer.current) clearTimeout(previewTimer.current);
     },
     [],
   );
 
   const rows: Row[] = [];
-  if (query) {
-    for (const node of state.search(query)) {
+  if (searching) {
+    const found = narrowSearch
+      ? state.search(query, activeFilters)
+      : state.search(query);
+    for (const node of found) {
       rows.push({ type: 'result', key: `result:${node.id}`, node });
     }
     if (rows.length === 0) {
@@ -537,7 +923,9 @@ export function DocumentTree({
         level: 0,
         parentId: rootId,
         title: 'Nothing found',
-        message: `No matches for “${filter.trim()}” in loaded folders. Expand more folders to search deeper.`,
+        message: filter.trim()
+          ? `No matches for “${filter.trim()}” in loaded folders.`
+          : 'No files match these filters in loaded folders.',
         clearFilter: true,
       });
     }
@@ -624,10 +1012,15 @@ export function DocumentTree({
       const row = rows[index];
       if (row?.type === 'node') {
         const node = row.item.getItemData();
-        return rowHeightFor(node.kind, node.name);
+        return rowHeightFor(node.kind, node.name, undefined, view.rows);
       }
       if (row?.type === 'result') {
-        return rowHeightFor(row.node.kind, row.node.name, parentName(row.node));
+        return rowHeightFor(
+          row.node.kind,
+          row.node.name,
+          parentName(row.node),
+          view.rows,
+        );
       }
       return row?.type === 'status' && row.variant === 'loading'
         ? MIN_ROW_HEIGHT + 40
@@ -663,9 +1056,25 @@ export function DocumentTree({
 
   useEffect(() => state.poll(pendingKey, pollMs), [pendingKey, pollMs, state]);
 
-  const filterDisabled = !query && !rows.some((row) => row.type === 'node');
+  const filterDisabled = !searching && !rows.some((row) => row.type === 'node');
 
-  const containerProps: Record<string, unknown> = query
+  const savePickedAsSet = () => {
+    const refs = new Map<string, VersionTarget | null>();
+    for (const item of tree.getItems()) {
+      const node = resolved(item.getItemData());
+      const urn = openableUrn(node);
+      if (urn) refs.set(urn, state.itemRef(node));
+    }
+    saveModelSetPrompt(
+      picked.map((model) => ({
+        urn: model.urn,
+        context: model.context,
+        ref: refs.get(model.urn) ?? null,
+      })),
+    );
+  };
+
+  const containerProps: Record<string, unknown> = searching
     ? { role: 'listbox', 'aria-label': 'Filter results' }
     : tree.getContainerProps('Documents');
 
@@ -712,6 +1121,15 @@ export function DocumentTree({
           focused={item.isFocused()}
           viewState={viewStateOf(node)}
           checked={node.checked}
+          latest={node.latest}
+          thumbnail={
+            view.thumbnails &&
+            view.rows === 'thumbnails' &&
+            node.kind === 'item' &&
+            node.tipUrn
+              ? thumbnailPath(node.tipUrn, 100)
+              : undefined
+          }
           meta={metaText(node, view)}
           picked={urn !== null && pickedUrns.has(urn)}
           action={rowAction(node)}
@@ -720,12 +1138,19 @@ export function DocumentTree({
             ...props,
             ...menuProps(node),
             ...dragProps(node),
+            ...hoverPreview(node),
             'data-index': index,
             'aria-checked':
               urn !== null && onOpenTogether ? pickedUrns.has(urn) : undefined,
             onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => {
               menuProps(node)?.onKeyDown?.(event);
               if (event.defaultPrevented) return;
+              if (event.key === ' ' && node.kind === 'item') {
+                event.preventDefault();
+                event.stopPropagation();
+                openPreview(node, event.currentTarget);
+                return;
+              }
               if (onOpenTogether && onPickKey(event, node)) return;
               (
                 props as {
@@ -762,6 +1187,7 @@ export function DocumentTree({
           name={resultNode.name}
           viewState={viewStateOf(resultNode)}
           checked={resultNode.checked}
+          latest={resultNode.latest}
           caption={resultNode.kind === 'version' ? undefined : resultNode.kind}
           secondary={parentName(resultNode)}
           highlight={query}
@@ -837,7 +1263,10 @@ export function DocumentTree({
             message={row.message ?? STATUS_COPY.empty}
             action={
               row.clearFilter
-                ? { label: 'Show all', onClick: () => setFilter('') }
+                ? {
+                    label: 'Show all',
+                    onClick: clearSearch,
+                  }
                 : { label: 'Refresh', onClick: () => refresh(row.parentId) }
             }
           />
@@ -857,9 +1286,17 @@ export function DocumentTree({
           value={filter}
           onChange={(event) => setFilter(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === 'Escape' && filter) {
+            if (
+              event.key === 'Enter' &&
+              view.searchScope === 'project' &&
+              crawlRootId
+            ) {
+              event.preventDefault();
+              searchProject();
+            }
+            if (event.key === 'Escape' && (filter || searching)) {
               event.stopPropagation();
-              setFilter('');
+              clearSearch();
             }
           }}
           disabled={filterDisabled}
@@ -896,10 +1333,121 @@ export function DocumentTree({
           <Icon name="refresh" size={14} />
         </button>
       </div>
+      <div className="doc-tree__tools">
+        <button
+          type="button"
+          className="doc-tree__tool"
+          aria-expanded={chipsOpen}
+          aria-controls={chipsId}
+          onClick={() => setChipsOpen((open) => !open)}
+        >
+          <Icon name="filter" size={12} />
+          Filters
+        </button>
+        <Menu
+          label="Saved searches"
+          title="Saved searches"
+          trigger={
+            <>
+              <Icon name="star" size={12} />
+              Saved searches
+            </>
+          }
+          triggerClassName="doc-tree__tool"
+          items={savedSearchEntries}
+        />
+      </div>
+      {chipsOpen ? (
+        <div id={chipsId} className="doc-tree__chips">
+          {FILE_TYPES.map((type) => (
+            <button
+              key={type}
+              type="button"
+              className="doc-tree__chip"
+              aria-pressed={filters.types.includes(type)}
+              onClick={() => toggleType(type)}
+            >
+              {type}
+            </button>
+          ))}
+          <button
+            type="button"
+            className="doc-tree__chip"
+            aria-pressed={filters.viewableOnly}
+            onClick={() =>
+              setFilters((current) => ({
+                ...current,
+                viewableOnly: !current.viewableOnly,
+              }))
+            }
+          >
+            Has a viewable
+          </button>
+          <label className="doc-tree__date">
+            <span>From</span>
+            <input
+              type="date"
+              value={filters.from ?? ''}
+              onChange={(event) =>
+                setFilters((current) => ({
+                  ...current,
+                  from: event.target.value || null,
+                }))
+              }
+            />
+          </label>
+          <label className="doc-tree__date">
+            <span>To</span>
+            <input
+              type="date"
+              value={filters.to ?? ''}
+              onChange={(event) =>
+                setFilters((current) => ({
+                  ...current,
+                  to: event.target.value || null,
+                }))
+              }
+            />
+          </label>
+        </div>
+      ) : null}
+      {searching || crawl?.status === 'running' ? (
+        <div className="doc-tree__crawl" role="status" aria-live="polite">
+          {crawl ? (
+            <span className="doc-tree__crawl-text">{crawlText(crawl)}</span>
+          ) : (
+            <span className="doc-tree__crawl-text" />
+          )}
+          {crawl?.status === 'running' ? (
+            <button
+              type="button"
+              className="bsh-button doc-tree__crawl-action"
+              onClick={cancelCrawl}
+            >
+              Cancel
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="bsh-button doc-tree__crawl-action"
+              disabled={!crawlRootId}
+              title={
+                crawlRootId ? 'Read every folder in this project' : PICK_PROJECT
+              }
+              onClick={startCrawl}
+            >
+              Search whole project
+            </button>
+          )}
+          {!crawlRootId ? (
+            <span className="doc-tree__crawl-hint">{PICK_PROJECT}</span>
+          ) : null}
+        </div>
+      ) : null}
       {onOpenTogether ? (
         <PickBar
           picked={picked}
-          openCount={openCount}
+          pickPreview={pickPreview}
           addTarget={addTarget ?? null}
           onOpenTabs={
             onOpenTabs
@@ -913,6 +1461,7 @@ export function DocumentTree({
             onOpenTogether(models);
             state.clearPicked();
           }}
+          onSaveSet={savePickedAsSet}
           onClear={state.clearPicked}
         />
       ) : null}
@@ -959,29 +1508,49 @@ export function DocumentTree({
         </div>
       </div>
       {rowMenu.menu}
+      {saveSearchOpen ? (
+        <SaveSearchDialog
+          data={{ ...filters, text: filter.trim(), scope: view.searchScope }}
+          onDone={() => setSaveSearchOpen(false)}
+        />
+      ) : null}
+      {preview ? (
+        <PreviewCard
+          key={preview.node.id}
+          node={preview.node}
+          anchor={preview.anchor}
+          showImage={view.thumbnails}
+          onClose={closePreview}
+        />
+      ) : null}
     </div>
   );
 }
 
 function PickBar({
   picked,
-  openCount,
+  pickPreview,
   addTarget,
   onOpenTabs,
   onOpenTogether,
+  onSaveSet,
   onClear,
 }: {
   picked: PickedModel[];
-  openCount: number;
+  pickPreview: PreviewOpen;
   addTarget: AddTarget | null;
   onOpenTabs?: (models: PickedModel[]) => void;
   onOpenTogether: (models: PickedModel[]) => void;
+  onSaveSet: () => void;
   onClear: () => void;
 }) {
-  const { tooManyCombined, tooManyTabs, message } = pickLimit(
-    openCount,
-    picked.length,
-  );
+  const tabs = pickPreview(picked, 'tabs');
+  const together = pickPreview(picked, 'together');
+  const message = tabs.blocked
+    ? tabs.notice
+    : together.blocked
+      ? together.notice
+      : null;
   const addable = addTarget
     ? picked.filter((model) => addTarget.canAdd(model.urn))
     : [];
@@ -1002,7 +1571,7 @@ function PickBar({
             <button
               type="button"
               className="bsh-button doc-tree__pick-action"
-              disabled={tooManyTabs}
+              disabled={tabs.blocked}
               title={picked.map(pickLabel).join('\n')}
               onClick={() => onOpenTabs(picked)}
             >
@@ -1012,11 +1581,24 @@ function PickBar({
           <button
             type="button"
             className="bsh-button doc-tree__pick-action"
-            disabled={picked.length < 2 || tooManyCombined}
+            disabled={picked.length < 2 || together.blocked}
             title={picked.map(pickLabel).join('\n')}
             onClick={() => onOpenTogether(picked)}
           >
             Open together
+          </button>
+          <button
+            type="button"
+            className="bsh-button doc-tree__pick-action"
+            disabled={picked.length > MAX_SET_MEMBERS}
+            title={
+              picked.length > MAX_SET_MEMBERS
+                ? `A model set holds up to ${MAX_SET_MEMBERS} models`
+                : picked.map(pickLabel).join('\n')
+            }
+            onClick={onSaveSet}
+          >
+            Save as model set
           </button>
           {addTarget ? (
             <button
@@ -1046,5 +1628,93 @@ function PickBar({
         </>
       ) : null}
     </section>
+  );
+}
+
+function SaveSearchDialog({
+  data,
+  onDone,
+}: {
+  data: DocSearchData;
+  onDone: () => void;
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
+  const [name, setName] = useState('');
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.open) dialog.showModal();
+  }, []);
+
+  const save = () => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const saved = DOC_SEARCHES.save(trimmed, data);
+    notify(
+      saved
+        ? `Saved the search "${trimmed}"`
+        : 'Could not save the search. Delete some saved items and try again.',
+      { tone: saved ? 'success' : 'error' },
+    );
+    onDone();
+  };
+
+  return (
+    <dialog
+      ref={dialogRef}
+      className="modal modal--sm"
+      aria-labelledby={titleId}
+      onClose={onDone}
+    >
+      <div className="modal__panel">
+        <header className="modal__head">
+          <h2 id={titleId} className="modal__title">
+            Save search
+          </h2>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Close"
+            onClick={onDone}
+          >
+            <Icon name="close" size={16} />
+          </button>
+        </header>
+        <div className="modal__body">
+          <label className="bsh-field">
+            <span>Search name</span>
+            <input
+              type="text"
+              className="bsh-input"
+              aria-label="Search name"
+              placeholder="Name this search"
+              maxLength={MAX_NAME_LENGTH}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') save();
+              }}
+            />
+          </label>
+          <p className="settings__hint">
+            A saved search applies to the project you have open.
+          </p>
+          <div className="bsh-presets">
+            <button type="button" className="bsh-button" onClick={onDone}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="bsh-button"
+              disabled={!name.trim()}
+              onClick={save}
+            >
+              Save search
+            </button>
+          </div>
+        </div>
+      </div>
+    </dialog>
   );
 }

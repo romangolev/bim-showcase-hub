@@ -10,7 +10,6 @@ import {
   INITIAL_MODEL_TINTS,
   MAX_TINT_PALETTE,
   resetGhostOthers,
-  resetTintLayer,
   sanitizeModelTints,
   tintColor,
   tintFor,
@@ -126,8 +125,6 @@ describe('model tint on the viewer', () => {
     clearModelTint(adapter, 'urn-a');
     expect(themed('urn-a')).toBe(0);
     expect(themed('urn-b')).toBe(EXTRA);
-    resetTintLayer(adapter);
-    expect(themed('urn-b')).toBe(0);
   });
 
   it('replaces a tint instead of stacking colours', async () => {

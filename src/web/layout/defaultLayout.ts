@@ -17,11 +17,18 @@ const RANK: Record<Placement['kind'], number> = {
   tab: 3,
 };
 
-export const DEFAULT_DISMISSED: readonly PaneId[] = ['measurements', 'views'];
+export const DEFAULT_DISMISSED: readonly PaneId[] = [
+  'measurements',
+  'views',
+  'versions',
+];
 
 export function defaultSteps(treeWidth: number): LayoutStep[] {
   const steps = PANES.filter(
-    (pane) => !isUserFamily(pane.id) && !DEFAULT_DISMISSED.includes(pane.id),
+    (pane) =>
+      !isUserFamily(pane.id) &&
+      !pane.startsClosed &&
+      !DEFAULT_DISMISSED.includes(pane.id),
   ).map((pane) => ({
     id: pane.id,
     placement:

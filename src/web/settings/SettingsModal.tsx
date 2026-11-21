@@ -1,7 +1,12 @@
 import { useId } from 'react';
 import { LAST_SESSION } from '../api/openModels.js';
 import { ShortcutEditor } from '../commands/ShortcutEditor.js';
+import type { BreadcrumbMode } from '../components/breadcrumb.js';
+import { TOPBAR_PREFS } from '../components/topbarPrefs.js';
+import type { MessageId } from '../i18n/en.js';
+import { translateNow, useT } from '../i18n/i18n.js';
 import type { ModalDefinition } from '../modal/types.js';
+import { usePersisted } from '../storage.js';
 import { THEME_PREFERENCES, type ThemePreference } from '../theme/theme.js';
 import { DefaultsSettings } from './DefaultsSettings.js';
 import { LocalDataSettings } from './LocalDataSettings.js';
@@ -18,9 +23,9 @@ import {
   type Units,
 } from './settings.js';
 
-const DENSITY_LABELS: Record<Settings['density'], string> = {
-  comfortable: 'Comfortable',
-  compact: 'Compact',
+const DENSITY_LABELS: Record<Settings['density'], MessageId> = {
+  comfortable: 'settings.densityComfortable',
+  compact: 'settings.densityCompact',
 };
 
 const TEXT_SIZE_LABELS: Record<Settings['textSize'], string> = {
@@ -29,10 +34,10 @@ const TEXT_SIZE_LABELS: Record<Settings['textSize'], string> = {
   125: '125%',
 };
 
-const THEME_LABELS: Record<ThemePreference, string> = {
-  system: 'System',
-  light: 'Light',
-  dark: 'Dark',
+const THEME_LABELS: Record<ThemePreference, MessageId> = {
+  system: 'settings.themeSystem',
+  light: 'settings.themeLight',
+  dark: 'settings.themeDark',
 };
 
 const LANGUAGE_LABELS: Record<Language, string> = {
@@ -40,13 +45,22 @@ const LANGUAGE_LABELS: Record<Language, string> = {
   ru: 'Русский',
 };
 
-const UNITS_LABELS: Record<Units, string> = {
-  metric: 'Metric',
-  imperial: 'Imperial',
+const UNITS_LABELS: Record<Units, MessageId> = {
+  metric: 'settings.unitsMetric',
+  imperial: 'settings.unitsImperial',
 };
+
+const BREADCRUMB_LABELS: Record<BreadcrumbMode, MessageId> = {
+  full: 'settings.breadcrumbFull',
+  file: 'settings.breadcrumbFile',
+  off: 'settings.breadcrumbOff',
+};
+
+const BREADCRUMB_MODES: readonly BreadcrumbMode[] = ['full', 'file', 'off'];
 
 export function SettingsBody() {
   const { settings, setSetting } = useSettings();
+  const [topbar, setTopbar] = usePersisted(TOPBAR_PREFS);
   const themeId = useId();
   const warnId = useId();
   const recentsId = useId();
@@ -56,6 +70,8 @@ export function SettingsBody() {
   const languageId = useId();
   const unitsId = useId();
   const restoreId = useId();
+  const breadcrumbId = useId();
+  const t = useT();
   return (
     <div className="settings">
       <section
@@ -63,10 +79,10 @@ export function SettingsBody() {
         aria-labelledby="settings-appearance"
       >
         <h3 id="settings-appearance" className="settings__heading">
-          Appearance
+          {t('settings.appearance')}
         </h3>
         <div className="settings__field">
-          <label htmlFor={themeId}>Theme</label>
+          <label htmlFor={themeId}>{t('settings.theme')}</label>
           <select
             id={themeId}
             value={settings.theme}
@@ -76,16 +92,33 @@ export function SettingsBody() {
           >
             {THEME_PREFERENCES.map((theme) => (
               <option key={theme} value={theme}>
-                {THEME_LABELS[theme]}
+                {t(THEME_LABELS[theme])}
               </option>
             ))}
           </select>
-          <span className="settings__hint">
-            System follows your device appearance.
-          </span>
+          <span className="settings__hint">{t('settings.themeHint')}</span>
         </div>
         <div className="settings__field">
-          <label htmlFor={densityId}>Interface density</label>
+          <label htmlFor={breadcrumbId}>{t('settings.topBar')}</label>
+          <select
+            id={breadcrumbId}
+            value={topbar.breadcrumb}
+            onChange={(event) =>
+              setTopbar({
+                breadcrumb: event.target.value as BreadcrumbMode,
+              })
+            }
+          >
+            {BREADCRUMB_MODES.map((mode) => (
+              <option key={mode} value={mode}>
+                {t(BREADCRUMB_LABELS[mode])}
+              </option>
+            ))}
+          </select>
+          <span className="settings__hint">{t('settings.topBarHint')}</span>
+        </div>
+        <div className="settings__field">
+          <label htmlFor={densityId}>{t('settings.density')}</label>
           <select
             id={densityId}
             value={settings.density}
@@ -95,16 +128,14 @@ export function SettingsBody() {
           >
             {DENSITIES.map((density) => (
               <option key={density} value={density}>
-                {DENSITY_LABELS[density]}
+                {t(DENSITY_LABELS[density])}
               </option>
             ))}
           </select>
-          <span className="settings__hint">
-            Compact tightens gutters, rows, controls and dock tabs.
-          </span>
+          <span className="settings__hint">{t('settings.densityHint')}</span>
         </div>
         <div className="settings__field">
-          <label htmlFor={textSizeId}>Text size</label>
+          <label htmlFor={textSizeId}>{t('settings.textSize')}</label>
           <select
             id={textSizeId}
             value={settings.textSize}
@@ -118,9 +149,7 @@ export function SettingsBody() {
               </option>
             ))}
           </select>
-          <span className="settings__hint">
-            Scales text and the spacing that follows it.
-          </span>
+          <span className="settings__hint">{t('settings.textSizeHint')}</span>
         </div>
         <div className="settings__field">
           <label htmlFor={motionId} className="settings__check">
@@ -132,21 +161,20 @@ export function SettingsBody() {
                 setSetting('reducedMotion', event.target.checked)
               }
             />
-            Reduce motion
+            {t('settings.reduceMotion')}
           </label>
           <span className="settings__hint">
-            Stops animation in this app even when your device does not ask for
-            it.
+            {t('settings.reduceMotionHint')}
           </span>
         </div>
       </section>
       <ShortcutEditor />
       <section className="settings__section" aria-labelledby="settings-region">
         <h3 id="settings-region" className="settings__heading">
-          Language and units
+          {t('settings.languageUnits')}
         </h3>
         <div className="settings__field">
-          <label htmlFor={languageId}>Language</label>
+          <label htmlFor={languageId}>{t('settings.language')}</label>
           <select
             id={languageId}
             value={settings.language}
@@ -160,12 +188,10 @@ export function SettingsBody() {
               </option>
             ))}
           </select>
-          <span className="settings__hint">
-            Saved with your settings. The interface stays in English for now.
-          </span>
+          <span className="settings__hint">{t('settings.languageHint')}</span>
         </div>
         <div className="settings__field">
-          <label htmlFor={unitsId}>Units</label>
+          <label htmlFor={unitsId}>{t('settings.units')}</label>
           <select
             id={unitsId}
             value={settings.units}
@@ -175,24 +201,19 @@ export function SettingsBody() {
           >
             {UNITS.map((units) => (
               <option key={units} value={units}>
-                {UNITS_LABELS[units]}
+                {t(UNITS_LABELS[units])}
               </option>
             ))}
           </select>
-          <span className="settings__hint">
-            Saved with your settings. Property values keep the model's own
-            units.
-          </span>
+          <span className="settings__hint">{t('settings.unitsHint')}</span>
         </div>
       </section>
       <section className="settings__section" aria-labelledby="settings-session">
         <h3 id="settings-session" className="settings__heading">
-          Session
+          {t('settings.session')}
         </h3>
         <div className="settings__field">
-          <label htmlFor={warnId}>
-            Warn me before the session ends (minutes)
-          </label>
+          <label htmlFor={warnId}>{t('settings.warnBeforeEnd')}</label>
           <input
             id={warnId}
             type="number"
@@ -206,7 +227,9 @@ export function SettingsBody() {
               )
             }
           />
-          <span className="settings__hint">0 turns the notice off.</span>
+          <span className="settings__hint">
+            {t('settings.warnBeforeEndHint')}
+          </span>
         </div>
         <div className="settings__field">
           <label htmlFor={restoreId} className="settings__check">
@@ -232,10 +255,10 @@ export function SettingsBody() {
         aria-labelledby="settings-documents"
       >
         <h3 id="settings-documents" className="settings__heading">
-          Documents
+          {t('settings.documents')}
         </h3>
         <div className="settings__field">
-          <label htmlFor={recentsId}>Recent models to list</label>
+          <label htmlFor={recentsId}>{t('settings.recentsLength')}</label>
           <input
             id={recentsId}
             type="number"
@@ -253,7 +276,7 @@ export function SettingsBody() {
             }
           />
           <span className="settings__hint">
-            Pinned models are always listed. 0 hides the recent list.
+            {t('settings.recentsLengthHint')}
           </span>
         </div>
       </section>
@@ -266,7 +289,9 @@ export function SettingsBody() {
 
 export const SETTINGS_MODAL: ModalDefinition = {
   id: 'settings',
-  title: 'Settings',
+  get title() {
+    return translateNow('settings.title');
+  },
   size: 'lg',
   Body: SettingsBody,
 };

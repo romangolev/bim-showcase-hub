@@ -2,6 +2,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import '../viewer/reportTemplates.js';
 import '../extensions/colorRulePresets.js';
+import './modelSets.js';
+import '../components/tree/deepSearch.js';
 import {
   DASHBOARD_USER_PRESETS,
   DEFAULT_DASHBOARD_VIEW,
@@ -71,6 +73,14 @@ describe('production saved kinds', () => {
       version: 1,
       label: 'Colour rules',
     });
+    expect(getSavedKind('model-set')).toMatchObject({
+      version: 1,
+      label: 'Model set',
+    });
+    expect(getSavedKind('doc-search')).toMatchObject({
+      version: 1,
+      label: 'Document search',
+    });
     expect(getSavedKind('federation')).toMatchObject({
       version: 1,
       label: 'Combination',
@@ -82,6 +92,8 @@ describe('production saved kinds', () => {
       'export-preset': 1,
       'report-template': 1,
       'color-rules': 1,
+      'model-set': 1,
+      'doc-search': 1,
       federation: 1,
     });
   });

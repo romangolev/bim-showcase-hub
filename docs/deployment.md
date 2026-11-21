@@ -9,6 +9,7 @@ The app deploys to Vercel as a static client plus one serverless function that r
 - Function: `api/index.ts` exports the app and serves `/api`.
 - Rewrites: `/api/(.*)` goes to the function, everything else to `/index.html` so client routes load.
 - `createApp` sets `trust proxy` in production so the secure cookie works behind Vercel.
+- Every `/api` call is one function invocation. A deep search is a crawl of one project and costs one invocation per folder, bounded at 400 folders (also 10,000 nodes and 90 seconds).
 
 ## Environment variables
 
@@ -26,6 +27,10 @@ Vercel ignores `MOCK_APS`, `VITE_MOCK_APS`, `PORT` and `STATIC_DIR`. Never put s
 A preview URL changes per deployment. Set the Preview `APS_CALLBACK_URL` to the stable branch alias URL, register that URL in the APS app, and open previews through the alias.
 
 Sessions are sealed cookies, so the function needs no database. See [architecture.md](architecture.md#sessions).
+
+## Installable metadata
+
+`public/manifest.webmanifest` and the icons next to it (`icon-192.png`, `icon-512.png`, `icon-maskable.svg`) are static files that `vite build` copies to `dist/web`. `index.html` links the manifest and sets a `theme-color` meta that the pre-paint script and `applyTheme` keep in step with the chosen theme. There is deliberately no service worker: the app is not offline-capable and nothing is cached for offline use.
 
 ## APS app setup
 
@@ -47,6 +52,8 @@ An account administrator must add the app's Client ID as a custom integration in
 The Content-Security-Policy is report-only with `report-uri /api/csp-report`. The route (`src/server/routes/csp.ts`) needs no sign-in, accepts bodies up to 8 KB and always answers 204.
 
 Each valid report becomes one log line: `csp-report directive=<directive> blocked=<origin or keyword> path=</first-segment>`. Full URLs and cookies are never logged. Each instance logs at most 30 lines per minute. Search the function log for `csp-report` before enforcing the policy.
+
+Thumbnails need no CSP change: they are same-origin `img` requests under `/api/thumbnails`, which `img-src 'self'` already allows, and `script-src` and `connect-src` are unchanged.
 
 ## Troubleshooting
 

@@ -5,6 +5,7 @@ import {
   isMacPlatform,
   matchShortcut,
   parseShortcut,
+  scopeAllows,
   shortcutFromEvent,
   shortcutMatches,
 } from './shortcuts.js';
@@ -218,5 +219,42 @@ describe('matchShortcut', () => {
     expect(
       matchShortcut(commands, { ...mac, code: undefined, key: 'x' }),
     ).toBeUndefined();
+  });
+});
+
+describe('scopeAllows', () => {
+  it('runs dock commands only inside the dock and outside the viewer surface', () => {
+    document.body.innerHTML = `
+      <div class="bsh-dock">
+        <button id="tab">Summary</button>
+        <div class="bsh-viewer-pane"><canvas id="canvas" tabindex="0"></canvas></div>
+        <input id="field" />
+      </div>`;
+    const by = (id: string) => document.getElementById(id);
+    expect(scopeAllows('dock', by('tab'))).toBe(true);
+    expect(scopeAllows('dock', by('canvas'))).toBe(false);
+    expect(scopeAllows('dock', by('field'))).toBe(false);
+    expect(scopeAllows('dock', document.body)).toBe(false);
+    expect(scopeAllows('viewer', by('tab'))).toBe(false);
+    expect(scopeAllows('viewer', by('canvas'))).toBe(true);
+    expect(scopeAllows(undefined, by('tab'))).toBe(true);
+  });
+
+  it('treats the whole viewer pane body as the viewer, not the dock', () => {
+    document.body.innerHTML = `
+      <div class="bsh-dock">
+        <button id="tab">Summary</button>
+        <section class="pane-main pane-model" tabindex="-1">
+          <div class="bsh-viewer-pane"><svg id="svg"></svg></div>
+        </section>
+      </div>`;
+    const by = (id: string) => document.getElementById(id);
+    expect(scopeAllows('viewer', by('svg'))).toBe(true);
+    expect(scopeAllows('dock', document.querySelector('.pane-model'))).toBe(
+      false,
+    );
+    expect(scopeAllows('viewer', document.querySelector('.pane-model'))).toBe(
+      true,
+    );
   });
 });

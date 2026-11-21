@@ -100,6 +100,20 @@ describe('NotificationHost', () => {
     expect(toasts()).toBeNull();
   });
 
+  it('clears the activity log on sign-out', () => {
+    const store = createNotificationStore();
+    render(<NotificationHost store={store} />);
+    act(() => {
+      store.notify('Saved the viewpoint');
+      store.record('Script error', { tone: 'error' });
+    });
+    expect(store.getSnapshot().log).toHaveLength(2);
+    act(() => {
+      window.dispatchEvent(new Event(FORGET_EVENT));
+    });
+    expect(store.getSnapshot().log).toEqual([]);
+  });
+
   it('clears toasts, history and the announcement on sign-out', () => {
     const store = createNotificationStore();
     render(<NotificationHost store={store} />);

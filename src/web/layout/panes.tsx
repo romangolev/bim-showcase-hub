@@ -1,9 +1,4 @@
-import {
-  useParams,
-  useRouter,
-  useRouterState,
-  useSearch,
-} from '@tanstack/react-router';
+import { useRouter, useSearch } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
 import { type ModelContext, withUrns } from '../api/modelContext.js';
 import {
@@ -17,6 +12,7 @@ import { useOpenModels, useOpenModelsStore } from '../api/useOpenModels.js';
 import { StateBlock } from '../components/StateBlock.js';
 import { useTreeControl } from '../components/TreeControl.js';
 import { TreePanel } from '../components/TreePanel.js';
+import { useModelOpeners } from '../components/tree/useModelOpeners.js';
 import { DEFAULT_FILE_NAME } from '../extensions/excelExport.js';
 import { useModal } from '../modal/ModalContext.js';
 import { DASHBOARD_SETTINGS_ID } from '../panels/DashboardSettings.js';
@@ -28,11 +24,14 @@ import {
   ModelSummaryPanel,
   ModelsPanel,
   PropertiesPanel,
+  SearchResultsPanel,
+  VersionHistoryPanel,
   ViewsPanel,
 } from '../panels/index.js';
 import { MODEL_TINTS } from '../panels/modelTint.js';
 import { SUMMARY_SETTINGS_ID } from '../panels/SummarySettings.js';
 import { VIEWPOINTS_MODAL_ID } from '../panels/Viewpoints.js';
+import { useModelUrn } from '../routes/useModelUrn.js';
 import { usePersisted } from '../storage.js';
 import { notify } from '../tasks/notifications.js';
 import { exportFileName, exportStem } from '../tools/kernel/exportKit.js';
@@ -74,14 +73,6 @@ export function exportNameOf(
     '-properties',
     'xlsx',
   );
-}
-
-export function useModelUrn(): string | null {
-  const { urn } = useParams({ strict: false }) as { urn?: string };
-  const onModel = useRouterState({
-    select: (state) => state.location.pathname.startsWith('/model/'),
-  });
-  return onModel && urn ? urn : null;
 }
 
 export function pausedCopy(count: number): {
@@ -473,6 +464,23 @@ export function ColorsPane() {
   return (
     <div className="pane-colors">
       <ColorsPanel />
+    </div>
+  );
+}
+
+export function VersionsPane() {
+  const openers = useModelOpeners();
+  return (
+    <div className="pane-versions">
+      <VersionHistoryPanel openers={openers} />
+    </div>
+  );
+}
+
+export function SearchPane() {
+  return (
+    <div className="pane-search">
+      <SearchResultsPanel />
     </div>
   );
 }

@@ -18,6 +18,9 @@ export interface TreeNode {
   modifiedAt?: string;
   modifiedBy?: string;
   size?: number;
+  versionNumber?: number;
+  latest?: boolean;
+  tipUrn?: string;
 }
 
 export interface VersionViewState {

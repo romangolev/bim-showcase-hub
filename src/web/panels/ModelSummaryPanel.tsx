@@ -1,6 +1,7 @@
 import { useId, useMemo, useState } from 'react';
 import { Icon } from '../components/icons.js';
 import { StateBlock } from '../components/StateBlock.js';
+import { writeClipboard } from '../extensions/clipboard.js';
 import { saveBlob } from '../extensions/download.js';
 import type { ElementAction } from '../extensions/elementActions.js';
 import {
@@ -17,7 +18,9 @@ import {
   summaryTable,
   viewEntries,
 } from '../extensions/modelSummary.js';
+import { formatCount } from '../i18n/format.js';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
+import { useSettings } from '../settings/SettingsContext.js';
 import { usePersisted } from '../storage.js';
 import type { ElementScope } from '../viewer/propertyScope.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
@@ -83,6 +86,7 @@ export function ModelSummaryPanel({
   action: controlledAction,
 }: ModelSummaryPanelProps) {
   const uid = useId();
+  const { language } = useSettings().settings;
   const [innerCollapsed, setInnerCollapsed] = useState(defaultCollapsed);
   const isCollapsed = collapsed ?? innerCollapsed;
   const [showAll, setShowAll] = useState(false);
@@ -145,12 +149,11 @@ export function ModelSummaryPanel({
   const table = () => summaryTable(shown, view.hiddenColumns);
   const copyTable = async () => {
     const { header, rows } = table();
-    try {
-      await navigator.clipboard.writeText(toDelimited(header, rows, '\t'));
-      setNotice(`Copied ${rows.length} rows`);
-    } catch {
-      setNotice('Could not copy to the clipboard');
-    }
+    setNotice(
+      (await writeClipboard(toDelimited(header, rows, '\t')))
+        ? `Copied ${rows.length} rows`
+        : 'Could not copy to the clipboard',
+    );
   };
   const downloadCsv = () => {
     const { header, rows } = table();
@@ -262,7 +265,7 @@ export function ModelSummaryPanel({
           ) : null}
           {state.status === 'ready' && state.elements !== 'all' ? (
             <p className="bsh-scope__notice" role="status">
-              {elementScopeLabel(state)}
+              {elementScopeLabel(state, language)}
             </p>
           ) : null}
           {!resolved && (
@@ -300,12 +303,12 @@ export function ModelSummaryPanel({
               />
               <span role="status">
                 {state.progress && state.progress.total > 0
-                  ? `Reading element properties: ${state.progress.loaded.toLocaleString('en-US')} of ${state.progress.total.toLocaleString('en-US')}${state.progress.partial ? ' (partial data)' : ''}`
+                  ? `Reading element properties: ${formatCount(state.progress.loaded, language)} of ${formatCount(state.progress.total, language)}${state.progress.partial ? ' (partial data)' : ''}`
                   : 'Reading element properties'}
               </span>
               {state.partialRows.length > 0 && state.progress ? (
                 <span role="status">
-                  {`Partial: ${state.partialRows.length.toLocaleString('en-US')} of ${state.progress.total.toLocaleString('en-US')} elements`}
+                  {`Partial: ${formatCount(state.partialRows.length, language)} of ${formatCount(state.progress.total, language)} elements`}
                 </span>
               ) : null}
               <button

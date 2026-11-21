@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ModalProvider } from '../modal/index.js';
+import { isHintDismissed } from '../onboarding/hints.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { type LayoutApi, LayoutContext } from './layoutContext.js';
 import { PanesMenu } from './PanesMenu.js';
@@ -195,5 +196,21 @@ describe('Panes menu', () => {
     const reset = within(menu).getByRole('menuitem', { name: 'Reset layout' });
     expect(reset).toBeDisabled();
     expect(reset).toHaveAccessibleDescription('Unlock the layout first');
+  });
+
+  it('hints about the Panes menu in the popover and remembers the dismissal', () => {
+    renderMenu();
+    const menu = openMenu();
+    const hint = within(menu).getByRole('note');
+    expect(hint).toHaveTextContent(
+      'Open more panes, such as charts and properties, from Panes.',
+    );
+    fireEvent.click(within(hint).getByRole('button', { name: 'Dismiss hint' }));
+    expect(isHintDismissed('panes-menu')).toBe(true);
+    fireEvent.keyDown(menu, { key: 'Escape' });
+    openMenu();
+    expect(
+      within(screen.getByRole('dialog', { name: 'Panes' })).queryByRole('note'),
+    ).toBeNull();
   });
 });

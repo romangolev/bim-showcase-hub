@@ -83,6 +83,16 @@ export interface ViewerState {
   >;
 }
 
+export interface ElementSearchOptions {
+  attributes?: readonly string[];
+  signal?: AbortSignal;
+}
+
+export interface ElementSearchResult {
+  items: ModelDbId[];
+  failedModels: string[];
+}
+
 export type MeasureMode = 'distance' | 'angle' | 'area';
 
 export interface MeasurementInfo {
@@ -140,7 +150,7 @@ export interface ViewerAdapter {
   onModelsChange(cb: (models: ModelInfo[]) => void): () => void;
   getModelSelection(): ModelDbId[];
   getModelWeight(modelId: string): number | null;
-  getExternalIdMap?(modelId: string): Promise<Record<string, number>>;
+  getExternalIdMap(modelId: string): Promise<Record<string, number>>;
   setGhosting(enabled: boolean): void;
   getIsolated(): ModelDbId[];
   getVisible(): Promise<ModelDbId[]>;
@@ -173,6 +183,10 @@ export interface ViewerAdapter {
   getElementsProperties(
     items: readonly ModelDbId[],
   ): Promise<(ElementProperties | null)[]>;
+  searchElements(
+    text: string,
+    options?: ElementSearchOptions,
+  ): Promise<ElementSearchResult>;
 }
 
 export type ViewerAdapterFactory = (

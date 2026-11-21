@@ -177,7 +177,11 @@ describe('named workspaces', () => {
     await waitFor(() =>
       expect(savedLayout()?.dock?.panels).toHaveProperty('dashboard'),
     );
-    expect(savedLayout()?.dismissed).toEqual(['measurements', 'views']);
+    expect(savedLayout()?.dismissed).toEqual([
+      'measurements',
+      'views',
+      'versions',
+    ]);
     expect(handle().workspaces().canRevert).toBe(false);
   });
 

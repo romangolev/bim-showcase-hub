@@ -82,6 +82,16 @@ describe('metaText and view', () => {
     );
   });
 
+  it('defaults filter searches to loaded folders and keeps the project scope', () => {
+    expect(DEFAULT_TREE_VIEW.searchScope).toBe('loaded');
+    expect(sanitizeTreeView({ searchScope: 'project' }).searchScope).toBe(
+      'project',
+    );
+    expect(sanitizeTreeView({ searchScope: 'nope' }).searchScope).toBe(
+      'loaded',
+    );
+  });
+
   it('keeps a known open mode and falls back to a new tab', () => {
     expect(DEFAULT_TREE_VIEW.openMode).toBe('tab');
     expect(sanitizeTreeView({ openMode: 'combined' }).openMode).toBe(
@@ -95,7 +105,29 @@ describe('metaText and view', () => {
     expect(DEFAULT_TREE_VIEW.homeRecent).toBe(true);
     expect(DEFAULT_TREE_VIEW.homePinned).toBe(true);
     expect(DEFAULT_TREE_VIEW.homeSets).toBe(true);
+    expect(DEFAULT_TREE_VIEW.homeModelSets).toBe(true);
     expect(sanitizeTreeView({ homeSets: false }).homeSets).toBe(false);
     expect(sanitizeTreeView({ homeSets: 'no' }).homeSets).toBe(true);
+    expect(sanitizeTreeView({ homeModelSets: false }).homeModelSets).toBe(
+      false,
+    );
+    expect(sanitizeTreeView({ homeModelSets: 'no' }).homeModelSets).toBe(true);
+  });
+
+  it('keeps a valid itemOpen and defaults the rest to expand', () => {
+    expect(DEFAULT_TREE_VIEW.itemOpen).toBe('expand');
+    expect(sanitizeTreeView({ itemOpen: 'latest' }).itemOpen).toBe('latest');
+    expect(sanitizeTreeView({ itemOpen: 'last' }).itemOpen).toBe('last');
+    expect(sanitizeTreeView({ itemOpen: 'nope' }).itemOpen).toBe('expand');
+    expect(sanitizeTreeView({}).itemOpen).toBe('expand');
+  });
+
+  it('keeps thumbnails off and list rows until asked', () => {
+    expect(DEFAULT_TREE_VIEW.thumbnails).toBe(false);
+    expect(DEFAULT_TREE_VIEW.rows).toBe('list');
+    expect(sanitizeTreeView({ thumbnails: true }).thumbnails).toBe(true);
+    expect(sanitizeTreeView({ thumbnails: 'yes' }).thumbnails).toBe(false);
+    expect(sanitizeTreeView({ rows: 'thumbnails' }).rows).toBe('thumbnails');
+    expect(sanitizeTreeView({ rows: 'grid' }).rows).toBe('list');
   });
 });

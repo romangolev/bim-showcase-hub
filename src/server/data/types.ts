@@ -1,4 +1,5 @@
 import type { TreeNode, VersionViewState } from '../../shared/types.js';
+import type { Thumbnail, ThumbnailSize } from './thumbnails.js';
 
 export interface DataService {
   listHubs(token: string): Promise<TreeNode[]>;
@@ -24,4 +25,9 @@ export interface DataService {
     itemId: string,
     versionId: string,
   ): Promise<VersionViewState>;
+  versionThumbnail(
+    token: string,
+    urn: string,
+    size: ThumbnailSize,
+  ): Promise<Thumbnail | null>;
 }

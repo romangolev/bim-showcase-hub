@@ -42,15 +42,13 @@ async function externalMapFor(
   adapter: ViewerAdapter,
   modelId: string,
 ): Promise<Record<string, number> | null> {
-  const read = adapter.getExternalIdMap;
-  if (typeof read !== 'function') return null;
   const cache = cacheFor(adapter);
   const model = adapter.getModels().find((entry) => entry.id === modelId);
   const cached = cache.get(modelId);
   if (cached && cached.version === model?.version) return cached.promise;
   const entry: CachedMap = {
     version: model?.version,
-    promise: read.call(adapter, modelId).then(
+    promise: adapter.getExternalIdMap(modelId).then(
       (map) => {
         if (Object.keys(map).length === 0) cache.delete(modelId);
         return map;
@@ -79,8 +77,6 @@ export async function stableKeysFor(
   items: readonly ModelDbId[],
 ): Promise<Map<string, string>> {
   const out = new Map<string, string>();
-  const read = adapter.getExternalIdMap;
-  if (typeof read !== 'function') return out;
   const byModel = new Map<string, number[]>();
   for (const { modelId, dbId } of items) {
     const ids = byModel.get(modelId) ?? [];

@@ -1,12 +1,24 @@
 import { flag } from '../../../shared/guards.js';
 import type { TreeNode } from '../../../shared/types.js';
+import { localeOf } from '../../i18n/format.js';
+import { readSettings } from '../../settings/settings.js';
 
 export type TreeSort = 'name' | 'modified';
 
 export type TreeOpenMode = 'tab' | 'replace' | 'combined';
 
+export type ItemOpen = 'expand' | 'latest' | 'last';
+
+export type TreeRows = 'list' | 'thumbnails';
+
+export type SearchScope = 'loaded' | 'project';
+
 function sanitizeOpenMode(raw: unknown): TreeOpenMode {
   return raw === 'replace' || raw === 'combined' ? raw : 'tab';
+}
+
+function sanitizeItemOpen(raw: unknown): ItemOpen {
+  return raw === 'latest' || raw === 'last' ? raw : 'expand';
 }
 
 export interface TreeView {
@@ -15,9 +27,14 @@ export interface TreeView {
   author: boolean;
   size: boolean;
   openMode: TreeOpenMode;
+  itemOpen: ItemOpen;
+  thumbnails: boolean;
+  rows: TreeRows;
+  searchScope: SearchScope;
   homeRecent: boolean;
   homePinned: boolean;
   homeSets: boolean;
+  homeModelSets: boolean;
 }
 
 export const DEFAULT_TREE_VIEW: TreeView = {
@@ -26,9 +43,14 @@ export const DEFAULT_TREE_VIEW: TreeView = {
   author: false,
   size: false,
   openMode: 'tab',
+  itemOpen: 'expand',
+  thumbnails: false,
+  rows: 'list',
+  searchScope: 'loaded',
   homeRecent: true,
   homePinned: true,
   homeSets: true,
+  homeModelSets: true,
 };
 
 export function sanitizeTreeView(raw: unknown): TreeView {
@@ -42,16 +64,30 @@ export function sanitizeTreeView(raw: unknown): TreeView {
     author: flag(source.author, DEFAULT_TREE_VIEW.author),
     size: flag(source.size, DEFAULT_TREE_VIEW.size),
     openMode: sanitizeOpenMode(source.openMode),
+    itemOpen: sanitizeItemOpen(source.itemOpen),
+    thumbnails: flag(source.thumbnails, DEFAULT_TREE_VIEW.thumbnails),
+    rows: source.rows === 'thumbnails' ? 'thumbnails' : 'list',
+    searchScope: source.searchScope === 'project' ? 'project' : 'loaded',
     homeRecent: flag(source.homeRecent, DEFAULT_TREE_VIEW.homeRecent),
     homePinned: flag(source.homePinned, DEFAULT_TREE_VIEW.homePinned),
     homeSets: flag(source.homeSets, DEFAULT_TREE_VIEW.homeSets),
+    homeModelSets: flag(source.homeModelSets, DEFAULT_TREE_VIEW.homeModelSets),
   };
 }
 
-const collator = new Intl.Collator(undefined, {
-  numeric: true,
-  sensitivity: 'base',
-});
+const collators = new Map<string, Intl.Collator>();
+
+function collator(): Intl.Collator {
+  const locale = localeOf(readSettings().language);
+  const cached = collators.get(locale);
+  if (cached) return cached;
+  const created = new Intl.Collator(locale, {
+    numeric: true,
+    sensitivity: 'base',
+  });
+  collators.set(locale, created);
+  return created;
+}
 
 function time(node: TreeNode): number {
   const value = node.modifiedAt ? Date.parse(node.modifiedAt) : Number.NaN;
@@ -64,13 +100,14 @@ export function sortChildren(nodes: TreeNode[], sort: TreeSort): TreeNode[] {
   );
   if (!contents) return nodes;
   const rank = (node: TreeNode) => (node.kind === 'folder' ? 0 : 1);
+  const compare = collator();
   return [...nodes].sort((a, b) => {
     if (rank(a) !== rank(b)) return rank(a) - rank(b);
     if (sort === 'modified') {
       const diff = time(b) - time(a);
       if (diff !== 0 && !Number.isNaN(diff)) return diff;
     }
-    return collator.compare(a.name, b.name);
+    return compare.compare(a.name, b.name);
   });
 }
 

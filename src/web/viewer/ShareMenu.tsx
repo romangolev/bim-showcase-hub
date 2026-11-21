@@ -2,6 +2,7 @@ import { useContext, useEffect, useRef, useState } from 'react';
 import { type ViewLink, viewFileJson, withViewParam } from '../api/viewLink.js';
 import { Icon } from '../components/icons.js';
 import { Menu, type MenuEntry } from '../components/Menu.js';
+import { writeClipboard } from '../extensions/clipboard.js';
 import { saveBlob } from '../extensions/download.js';
 import { type LayoutApi, LayoutContext } from '../layout/layoutContext.js';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
@@ -394,8 +395,7 @@ export function ShareMenu({
       layout ?? null,
       include,
     );
-    try {
-      await navigator.clipboard.writeText(href);
+    if (await writeClipboard(href)) {
       onResult(
         degraded
           ? LINK_DEGRADED_TEXT
@@ -404,7 +404,7 @@ export function ShareMenu({
             : COPIED_LINK_TEXT,
         false,
       );
-    } catch {
+    } else {
       onResult(COPY_FAILED_TEXT, true);
     }
   };

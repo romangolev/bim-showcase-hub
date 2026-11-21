@@ -1,5 +1,7 @@
 import { useId, useState } from 'react';
 import type { Vec3 } from '../../shared/combined.js';
+import { useSettings } from '../settings/SettingsContext.js';
+import type { Language } from '../settings/settings.js';
 import { nudgeOffset, resetOffset, snapToAnchor } from '../viewer/alignment.js';
 import { formatKm, type ModelInfo, metersPerUnit } from '../viewer/modelSet.js';
 import type { PlacementInfo } from '../viewer/placement.js';
@@ -25,9 +27,12 @@ function sharedLabel(value: boolean | null): string {
   return value ? 'yes' : 'no';
 }
 
-function distanceLabel(distanceMeters: number | null): string {
+function distanceLabel(
+  distanceMeters: number | null,
+  language: Language,
+): string {
   if (distanceMeters === null) return 'unknown';
-  return `${formatKm(distanceMeters)} km`;
+  return `${formatKm(distanceMeters, language)} km`;
 }
 
 export interface ModelAlignmentProps {
@@ -49,6 +54,7 @@ export function ModelAlignment({
   offsets,
   onOffsetsChange,
 }: ModelAlignmentProps) {
+  const { language } = useSettings().settings;
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<number>(1);
   const bodyId = useId();
@@ -84,7 +90,7 @@ export function ModelAlignment({
           <p className="settings__hint">
             {anchor
               ? 'Anchor'
-              : `Distance from ${anchorName ?? 'the anchor'}: ${distanceLabel(info?.distanceMeters ?? null)}`}
+              : `Distance from ${anchorName ?? 'the anchor'}: ${distanceLabel(info?.distanceMeters ?? null, language)}`}
           </p>
           {anchor ? null : (
             <>

@@ -1,9 +1,16 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { VIEW_STATES } from '../../../shared/viewState.js';
-import { TreeRowView } from './TreeRowView.js';
+import { highlightMatch, TreeRowView } from './TreeRowView.js';
 
 const NAME = 'v3: 2026-01-01 10:00 by Sam';
+
+describe('highlightMatch', () => {
+  it('marks an accent-insensitive match in the original text', () => {
+    const { container } = render(<p>{highlightMatch('Café.rvt', 'cafe')}</p>);
+    expect(container.querySelector('mark')?.textContent).toBe('Café');
+  });
+});
 
 describe('TreeRowView', () => {
   it('derives openability from the view state alone', () => {
@@ -115,5 +122,28 @@ describe('TreeRowView', () => {
     expect(container.querySelector('.tree-row')).not.toHaveAttribute(
       'data-view-state',
     );
+  });
+
+  it('shows a Latest badge only on the latest version', () => {
+    const { rerender } = render(
+      <TreeRowView
+        level={3}
+        kind="version"
+        name={NAME}
+        viewState="ready"
+        latest
+      />,
+    );
+    expect(screen.getByText('Latest')).toBeInTheDocument();
+    expect(screen.getByLabelText('Latest version')).toBeInTheDocument();
+    rerender(
+      <TreeRowView
+        level={3}
+        kind="version"
+        name="v2: 2026-01-01 10:00 by Sam"
+        viewState="ready"
+      />,
+    );
+    expect(screen.queryByText('Latest')).toBeNull();
   });
 });

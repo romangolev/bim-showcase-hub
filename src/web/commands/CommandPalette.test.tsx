@@ -12,7 +12,7 @@ import type { ModalDefinition } from '../modal/types.js';
 import { notifications } from '../tasks/notifications.js';
 import { tasks } from '../tasks/taskStore.js';
 import { installMemoryStorage } from '../test/mockApi.js';
-import { CommandPalette } from './CommandPalette.js';
+import { arrange, CommandPalette } from './CommandPalette.js';
 import { PIN_LIMIT, readPins } from './pins.js';
 import { readRecents } from './recents.js';
 import { COMMANDS } from './registry.js';
@@ -270,6 +270,25 @@ describe('CommandPalette', () => {
     expect(screen.getByRole('combobox')).toBeInTheDocument();
   });
 
+  it('does not list commands on repeats or bare modifiers', () => {
+    const run = vi.fn();
+    const provider = vi.fn(() => [
+      { id: 'a', title: 'Alpha', group: 'G', keys: ['Mod+J'], run },
+    ]);
+    COMMANDS.register('test', provider);
+    render(
+      <ModalProvider definitions={MODALS}>
+        <CommandPalette />
+      </ModalProvider>,
+    );
+    provider.mockClear();
+    fireEvent.keyDown(document.body, { key: 'Control', ctrlKey: true });
+    fireEvent.keyDown(document.body, { key: 'j', ctrlKey: true, repeat: true });
+    expect(provider).not.toHaveBeenCalled();
+    fireEvent.keyDown(document.body, { key: 'j', ctrlKey: true });
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
   it('re-reads enabled state and reasons when the query changes', () => {
     let reason: string | undefined = 'Open a model first';
     COMMANDS.register('test', () => [
@@ -339,6 +358,22 @@ describe('CommandPalette', () => {
     expect(
       screen.getByRole('combobox').getAttribute('aria-activedescendant'),
     ).toBe(first?.id);
+  });
+
+  it('hides search-only commands until the user types', () => {
+    const run = () => undefined;
+    const list = [
+      {
+        id: 'x',
+        title: 'Open Tower.rvt',
+        group: 'Documents (loaded folders)',
+        searchOnly: true,
+        run,
+      },
+      { id: 'y', title: 'Lock layout', group: 'Layout', run },
+    ];
+    expect(arrange(list, '', []).map((e) => e.command.id)).toEqual(['y']);
+    expect(arrange(list, 'tower', []).map((e) => e.command.id)).toEqual(['x']);
   });
 
   it('says which pin was dropped when the limit is reached', () => {

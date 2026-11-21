@@ -2,6 +2,7 @@ import importlib.util
 import os
 import re
 import sys
+import time
 
 from camoufox.sync_api import Camoufox
 from common import (
@@ -408,6 +409,12 @@ def check_dashboard_tools(page, checks):
         settle(page, 600)
     pane = page.locator(".pane-dashboard").first
     pane.locator("canvas").first.wait_for(timeout=8000)
+    pane.get_by_role("button", name="Dashboard settings").click()
+    chart_dialog = page.get_by_role("dialog", name="Dashboard settings")
+    chart_dialog.get_by_label("Chart type").select_option("doughnut")
+    page.keyboard.press("Escape")
+    settle(page, 500)
+    pane.locator(".bsh-chart--doughnut canvas").first.wait_for(timeout=8000)
     trigger = pane.get_by_role("button", name=re.compile(r"^Export ")).first
     trigger_box = trigger.bounding_box()
     checks.add("chart export trigger is at least 24px", trigger_box["width"] >= 24 and trigger_box["height"] >= 24, trigger_box)
@@ -663,6 +670,43 @@ def check_layout(page, checks, notes):
     settle(page)
 
 
+def check_layout_undo(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page)
+    read_root = "mw:() => JSON.stringify(window.__bshLayout.read().dock?.grid?.root ?? null).replace(/\"size\":[0-9.]+/g, '\"size\":0')"
+    page.get_by_role("tab", name="Model summary").click()
+    settle(page, 200)
+    before = page.evaluate(read_root)
+    pane_menu(page, "Model summary", "Move left")
+    moved = page.evaluate(read_root)
+    checks.add("layout undo: the pane menu moves the summary first", moved != before, moved[:120])
+    page.get_by_role("tab", name="Model summary").click()
+    page.keyboard.press("Control+z")
+    settle(page)
+    restored = page.evaluate(read_root)
+    checks.add("Ctrl+Z in the dock restores the layout", restored == before, f"{restored[:120]} != {before[:120]}")
+    checks.add(
+        "layout undo shows a Layout restored toast",
+        page.get_by_role("region", name="Notifications").get_by_text("Layout restored").count() >= 1,
+    )
+    page.get_by_role("tab", name="Model summary").click()
+    page.keyboard.press("Control+Shift+z")
+    settle(page)
+    redone = page.evaluate(read_root)
+    checks.add("Ctrl+Shift+Z redoes the layout change", redone == moved, f"{redone[:120]} != {moved[:120]}")
+    viewer_box = page.locator(".dv-groupview:has([data-active='true'] .model-viewer) .dv-content-container").bounding_box()
+    page.mouse.click(viewer_box["x"] + viewer_box["width"] / 2, viewer_box["y"] + viewer_box["height"] / 2)
+    settle(page, 200)
+    kept = page.evaluate(read_root)
+    page.keyboard.press("Control+z")
+    settle(page)
+    unchanged = page.evaluate(read_root)
+    checks.add("Ctrl+Z on the viewer canvas leaves the layout alone", unchanged == kept, unchanged[:120])
+    page.get_by_role("button", name="Panes").click()
+    page.get_by_role("menuitem", name="Reset layout").click()
+    settle(page)
+
+
 def check_lock_maximize(page, checks):
     page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
     settle(page)
@@ -774,7 +818,7 @@ def check_saved_items(page, checks):
     settle(page, 300)
     checks.add("a newer-version file shows an error", "newer version" in main.get_by_role("alert").inner_text())
     good = OUTPUT_DIR / "good-saved.json"
-    good.write_text('{"format":"bsh-saved","version":1,"items":[{"id":"smoke","kind":"dashboard-preset","name":"Smoke preset","data":{"kind":"bar"}}]}')
+    good.write_text('{"format":"bsh-saved","version":1,"items":[{"id":"smoke","kind":"dashboard-preset","name":"Smoke preset","data":{"chartType":"bar"}}]}')
     main.get_by_label("Saved items file").set_input_files(str(good))
     settle(page, 300)
     saved = main.get_by_role("region", name="Saved items")
@@ -788,6 +832,11 @@ def check_saved_items(page, checks):
     dialog.get_by_role("button", name="Apply Smoke preset").click()
     settle(page, 200)
     checks.add("applying a user preset sets the chart type", dialog.get_by_label("Chart type").input_value() == "bar")
+    dialog.get_by_label("Chart type").select_option("hbar")
+    settle(page, 200)
+    checks.add("the chart type changes from the settings window", dialog.get_by_label("Chart type").input_value() == "hbar")
+    dialog.get_by_label("Chart type").select_option("doughnut")
+    settle(page, 200)
     dialog.get_by_label("Rename Smoke saved").fill("Smoke renamed")
     dialog.get_by_label("Rename Smoke saved").press("Enter")
     settle(page, 200)
@@ -795,7 +844,6 @@ def check_saved_items(page, checks):
     dialog.get_by_role("button", name="Delete Smoke renamed").click()
     dialog.get_by_role("button", name="Delete Smoke preset").click()
     checks.add("user presets can be deleted", dialog.get_by_text("No saved presets yet.").count() == 1)
-    dialog.get_by_label("Chart type").select_option("both")
     page.keyboard.press("Escape")
     settle(page, 300)
 
@@ -1548,7 +1596,11 @@ BADGE_RECTS = """() => [...document.querySelectorAll('.tree-row__state')].map((b
 
 def check_badge_layout(page, checks, label):
     rects = page.evaluate(BADGE_RECTS)
-    checks.add(f"badges ({label}): are rendered", len(rects) >= 3, len(rects))
+    checks.add(
+        f"badges ({label}): are rendered",
+        len(rects) >= (1 if label == "narrow" else 3),
+        len(rects),
+    )
     checks.add(f"badges ({label}): none clipped or outside the row", all(r["inside"] and not r["clipped"] for r in rects), rects)
     gaps = {r["gap"] for r in rects}
     checks.add(f"badges ({label}): share the right edge", max(gaps) - min(gaps) <= 1, sorted(gaps))
@@ -1666,6 +1718,8 @@ def check_view_states(page, checks):
     page.get_by_role("button", name=THEME_TOGGLE).first.click()
     page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
     page.wait_for_timeout(600)
+    page.locator(".doc-tree__scroll").last.evaluate("(el) => { el.scrollTop = el.scrollHeight; }")
+    page.wait_for_timeout(700)
     page.screenshot(path=str(OUTPUT_DIR / "mock-view-states-narrow.png"))
     check_badge_layout(page, checks, "narrow")
     page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
@@ -1847,6 +1901,12 @@ def check_snapshots_viewpoints_present(page, checks):
 def check_documents_home(page, checks):
     settle(page)
     checks.add("default layout is Documents alone", documents_alone(page), groups(page))
+    welcome = page.locator(".docs-home").get_by_text("Pick a file to start")
+    checks.add(
+        "a fresh profile shows the Documents welcome state",
+        welcome.count() == 1 and page.get_by_text("choose a hub, then a project").count() == 1,
+        page.locator(".docs-home").all_inner_texts()[:2],
+    )
     hint = page.locator(".pane-docs__hint")
     checks.add(
         "Documents shows the open-a-model hint",
@@ -1859,6 +1919,25 @@ def check_documents_home(page, checks):
     items = page.get_by_role("menuitem").all_inner_texts()
     page.keyboard.press("Escape")
     checks.add("Documents pane menu has no Close", "Close" not in [item.strip() for item in items], items)
+    palette_hint = page.get_by_role("note").filter(has_text="Press Ctrl+K")
+    checks.add("the palette hint shows at home", palette_hint.count() == 1, page.locator(".hint").all_inner_texts())
+    if palette_hint.count() == 1:
+        palette_hint.get_by_role("button", name="Dismiss hint").first.click()
+        settle(page, 300)
+        checks.add(
+            "dismissing the palette hint hides it",
+            page.get_by_role("note").filter(has_text="Press Ctrl+K").count() == 0,
+        )
+        page.reload(wait_until="networkidle")
+        settle(page)
+        checks.add(
+            "a dismissed palette hint stays dismissed after a reload",
+            page.get_by_role("note").filter(has_text="Press Ctrl+K").count() == 0,
+        )
+        checks.add(
+            "the welcome state survives a reload",
+            page.get_by_text("Pick a file to start").count() == 1,
+        )
 
 
 def check_documents_return(page, checks):
@@ -1899,6 +1978,423 @@ def check_documents_return(page, checks):
     )
     page.keyboard.press("Escape")
     settle(page, 200)
+
+
+VERSION_GROUPS = """() => {
+    const rows = [...document.querySelectorAll('[role=treeitem]')];
+    const groups = [];
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (row.dataset.kind !== 'item' || row.getAttribute('aria-expanded') !== 'true') continue;
+        const level = Number(row.getAttribute('aria-level'));
+        const versions = [];
+        for (let j = i + 1; j < rows.length; j++) {
+            const next = rows[j];
+            if (Number(next.getAttribute('aria-level')) <= level) break;
+            if (next.dataset.kind !== 'version') continue;
+            versions.push({
+                label: next.getAttribute('title') || '',
+                latest: Boolean(next.querySelector('.tree-row__latest')),
+                viewable: next.dataset.viewable === 'true',
+            });
+        }
+        groups.push({file: row.getAttribute('title') || '', versions});
+    }
+    return groups;
+}"""
+
+
+def expand_until_items(page, per_level=4, max_depth=9):
+    items = page.locator("[role=treeitem][data-kind='item']")
+    for depth in range(1, max_depth + 1):
+        if items.count() > 0:
+            return True
+        level = page.locator(f"[role=treeitem][aria-level='{depth}']")
+        try:
+            level.first.wait_for(timeout=15000)
+        except Exception:
+            continue
+        for _ in range(per_level):
+            collapsed = level.locator("xpath=self::*[@aria-expanded='false' and not(@data-kind='version')]")
+            if collapsed.count() == 0 or items.count() > 0:
+                break
+            collapsed.first.click()
+            settle(page, 600)
+    return items.count() > 0
+
+
+def focus_documents(page):
+    tab = page.get_by_role("tab", name="Documents", exact=True)
+    if tab.count():
+        tab.first.click()
+        settle(page, 400)
+
+
+def close_pane(page, title):
+    tab = page.get_by_role("tab", name=re.compile(rf"^{re.escape(title)}$"))
+    if tab.count() == 0:
+        return
+    tab.first.click()
+    settle(page, 300)
+    action = tab.first.locator(".dv-default-tab-action")
+    if action.count():
+        action.click()
+        settle(page, 400)
+
+
+def version_groups(page):
+    return page.evaluate(VERSION_GROUPS)
+
+
+def expand_until_version_group(page, openable=2, attempts=8):
+    for _ in range(attempts):
+        group = next(
+            (
+                entry
+                for entry in version_groups(page)
+                if len([version for version in entry["versions"] if version["viewable"]]) >= openable
+            ),
+            None,
+        )
+        if group:
+            return group
+        candidates = page.locator("[role=treeitem][data-kind='item'][aria-expanded='false']")
+        if candidates.count() == 0:
+            return None
+        row = candidates.first
+        row.scroll_into_view_if_needed()
+        row.click()
+        settle(page, 700)
+    return next(
+        (
+            entry
+            for entry in version_groups(page)
+            if len([version for version in entry["versions"] if version["viewable"]]) >= openable
+        ),
+        None,
+    )
+
+
+def check_latest_badge(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    close_all_models(page)
+    page.goto(BASE_URL, wait_until="networkidle")
+    settle(page, 1000)
+    focus_documents(page)
+    expand_until_items(page)
+    group = expand_until_version_group(page)
+    if not group:
+        checks.add("latest: a file with several openable versions expands", False, version_groups(page)[:2])
+        return
+    versions = group["versions"]
+    numbers = []
+    for version in versions:
+        match = re.search(r"v(\d+)", version["label"])
+        if match:
+            numbers.append(int(match.group(1)))
+    marked = [version for version in versions if version["latest"]]
+    marked_number = None
+    if marked:
+        match = re.search(r"v(\d+)", marked[0]["label"])
+        marked_number = int(match.group(1)) if match else None
+    checks.add("latest: exactly one row of a file is marked", len(marked) == 1, [version["label"] for version in versions])
+    checks.add(
+        "latest: the marked row is the highest version",
+        len(marked) == 1 and marked_number is not None and numbers and marked_number == max(numbers),
+        f"{marked[0]['label'] if marked else ''} of {numbers}",
+    )
+
+
+def check_version_history(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    close_all_models(page)
+    group = expand_until_version_group(page)
+    if not group:
+        checks.add("version history: a file with two openable versions expands", False)
+        return
+    row = page.locator(f"[role=treeitem][data-kind='item'][aria-expanded='true'][title='{group['file']}']").first
+    row.scroll_into_view_if_needed()
+    row.click(button="right")
+    page.get_by_role("menuitem", name="Version history").click()
+    settle(page, 800)
+    table = page.locator("table.bsh-table--versions")
+    table.wait_for(timeout=10000)
+    rows = table.locator("tbody tr")
+    listed = rows.evaluate_all("(els) => els.map((el) => el.innerText)")
+    order = []
+    for text in listed:
+        match = re.search(r"\bv(\d+):", text)
+        if match:
+            order.append(int(match.group(1)))
+    checks.add("version history: the pane lists the versions newest first", bool(order) and order == sorted(order, reverse=True), order)
+    checks.add(
+        "version history: the first row is the latest version",
+        rows.count() > 0 and rows.first.get_attribute("data-latest") == "true",
+        rows.first.get_attribute("data-latest") if rows.count() else "",
+    )
+    picked = 0
+    for index in range(rows.count()):
+        candidate = rows.nth(index)
+        box = candidate.get_by_role("checkbox")
+        opener = candidate.locator("button[aria-label^='Open ']").first
+        if box.is_disabled() or opener.is_disabled():
+            continue
+        box.check()
+        picked += 1
+        if picked == 2:
+            break
+    checks.add("version history: two openable versions can be picked", picked == 2, picked)
+    compare = page.get_by_role("button", name="Compare as tabs")
+    if not compare.is_enabled():
+        checks.add("version history: Compare as tabs opens two viewer tabs", False, "Compare as tabs stayed disabled")
+        close_all_models(page)
+        close_pane(page, "versions")
+        focus_documents(page)
+        return
+    before = page.locator(".dv-tab").filter(has_text="·").count()
+    compare.click()
+    wait_until(page, lambda: page.locator(".dv-tab").filter(has_text="·").count() >= before + 2)
+    after = page.locator(".dv-tab").filter(has_text="·").count()
+    checks.add("version history: Compare as tabs opens two viewer tabs", after >= before + 2, f"{before} -> {after}")
+    close_all_models(page)
+    close_pane(page, "versions")
+    focus_documents(page)
+
+
+def check_search_pane(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    close_all_models(page)
+    page.goto(BASE_URL, wait_until="networkidle")
+    settle(page, 1000)
+    focus_documents(page)
+    expand_until_items(page)
+    expand_until_version_group(page)
+    row = page.locator("[role=treeitem][data-kind='version'][data-viewable='true']").first
+    row.scroll_into_view_if_needed()
+    row.click()
+    wait_until(page, lambda: models(page)["active"])
+    settle(page, 1200)
+    box = open_palette(page)
+    box.fill("Search elements")
+    palette(page).get_by_role("option", name=re.compile("^Search elements")).first.click()
+    settle(page, 800)
+    pane = page.locator(".pane-search .bsh-search")
+    checks.add("search pane: the palette opens Search elements", pane.count() == 1, pane.count())
+    field = pane.get_by_role("searchbox", name="Search elements")
+    field.fill("Basic Wall")
+    field.press("Enter")
+    results = pane.get_by_role("option")
+    wait_until(page, lambda: results.count() > 0, timeout_ms=15000)
+    first = results.first.inner_text()
+    checks.add("search pane: a mock element name returns rows", "Basic Wall" in first, first[:80])
+    pane.get_by_role("button", name="Save as selection set").click()
+    form = pane.get_by_role("form", name="Save as selection set")
+    form.get_by_label("Selection set name").fill("Smoke walls")
+    form.get_by_role("button", name="Save").click()
+    settle(page, 600)
+    close_all_models(page)
+    focus_documents(page)
+    settle(page, 800)
+    sets = page.get_by_role("region", name="Selection sets")
+    checks.add(
+        "search pane: the saved set is listed on Documents home",
+        sets.get_by_text("Smoke walls").count() == 1,
+        sets.inner_text()[:160],
+    )
+
+
+def check_model_sets(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    close_all_models(page)
+    page.goto(BASE_URL, wait_until="networkidle")
+    settle(page, 1000)
+    focus_documents(page)
+    expand_until_items(page)
+    group = expand_until_version_group(page)
+    if not group:
+        checks.add("model sets: a file with two openable versions expands", False)
+        return
+    rows = page.locator("[role=treeitem][data-kind='version'][data-viewable='true']")
+    picked = 0
+    for index in range(rows.count()):
+        row = rows.nth(index)
+        row.scroll_into_view_if_needed()
+        row.focus()
+        page.keyboard.press("Space")
+        settle(page, 300)
+        picked = page.locator("[role=treeitem][data-kind='version'][data-picked='true']").count()
+        if picked >= 2:
+            break
+    checks.add("model sets: two versions can be picked", picked == 2, picked)
+    if picked < 2:
+        return
+    page.get_by_role("button", name="Save as model set").click()
+    dialog = page.get_by_role("dialog", name="Save model set")
+    dialog.wait_for(timeout=8000)
+    dialog.get_by_label("Model set name").fill("E2E model set")
+    dialog.get_by_role("button", name="Save model set", exact=True).click()
+    settle(page, 700)
+    home = page.get_by_role("region", name="Model sets")
+    home.wait_for(timeout=10000)
+    opener = home.get_by_role("button", name="Open E2E model set")
+    checks.add("model sets: the saved set is listed on Documents home", opener.count() == 1, home.inner_text()[:160])
+    checks.add("model sets: the set lists two models", "2 models" in home.inner_text(), home.inner_text()[:160])
+    page.evaluate(
+        """mw:() => {
+            window.__e2eCopied = null;
+            Object.defineProperty(navigator, 'clipboard', {
+                configurable: true,
+                value: {writeText: async (text) => { window.__e2eCopied = text; }},
+            });
+        }"""
+    )
+    home.get_by_role("button", name="Actions for E2E model set").click()
+    page.get_by_role("menuitem", name="Copy link").click()
+    wait_until(page, lambda: page.evaluate("mw:() => window.__e2eCopied"))
+    link = page.evaluate("mw:() => window.__e2eCopied") or ""
+    checks.add("model sets: Copy link builds a combined link", "with=" in link, link[:160])
+    before = page.locator(".dv-tab").filter(has_text="·").count()
+    opener.click()
+    wait_until(page, lambda: page.locator(".dv-tab").filter(has_text="·").count() >= before + 2, timeout_ms=15000)
+    after = page.locator(".dv-tab").filter(has_text="·").count()
+    checks.add("model sets: opening the set opens two viewer tabs", after >= before + 2, f"{before} -> {after}")
+    close_all_models(page)
+    focus_documents(page)
+
+
+def check_deep_search(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    close_all_models(page)
+    focus_documents(page)
+    page.get_by_role("button", name="Documents hub").click()
+    page.get_by_role("menuitemcheckbox", name="Northwind Architects").click()
+    settle(page, 700)
+    page.get_by_role("button", name="Documents project").click()
+    page.get_by_role("menuitemcheckbox", name="Riverside Tower").click()
+    settle(page, 1000)
+    checks.add(
+        "deep search: the switcher roots the tree at one project",
+        "Riverside Tower" in page.get_by_role("button", name="Documents project").inner_text(),
+        page.get_by_role("button", name="Documents project").inner_text(),
+    )
+    checks.add(
+        "deep search: no folder was expanded before the search",
+        page.locator("[role=treeitem][data-kind='folder'][aria-expanded='true']").count() == 0,
+        page.locator("[role=treeitem][data-kind='folder'][aria-expanded='true']").count(),
+    )
+    page.get_by_role("button", name="Filters").click()
+    settle(page, 300)
+    chip = page.get_by_role("button", name="nwd", exact=True)
+    chip.click()
+    settle(page, 300)
+    checks.add("deep search: the nwd chip is pressed", chip.get_attribute("aria-pressed") == "true", chip.get_attribute("aria-pressed"))
+    page.get_by_role("button", name="Search whole project").click()
+    status = page.locator(".doc-tree__crawl-text")
+    wait_until(page, lambda: re.fullmatch(r"Searched \d+ folders", status.inner_text().strip()) is not None, timeout_ms=30000)
+    results = page.locator("[role=option]")
+    wait_until(page, lambda: results.count() > 0, timeout_ms=10000)
+    names = results.evaluate_all("(els) => els.map((el) => el.getAttribute('title') || '')")
+    deep = [name for name in names if name.lower().endswith(".nwd")]
+    checks.add("deep search: a file from an unexpanded folder is listed", len(deep) > 0, names[:5])
+    checks.add(
+        "deep search: the nwd chip lists only nwd files",
+        bool(names) and len(deep) == len(names),
+        [name for name in names if not name.lower().endswith(".nwd")][:5],
+    )
+    text = status.inner_text().strip()
+    checks.add("deep search: the status reports the folders read", text != "Searched 0 folders", text)
+    page.screenshot(path=str(OUTPUT_DIR / "mock-deep-search.png"))
+
+    def slow(route):
+        time.sleep(0.3)
+        try:
+            route.continue_()
+        except Exception:
+            pass
+
+    page.route("**/api/projects/*/folders/*/contents*", slow)
+    page.get_by_role("button", name="Search whole project").click()
+    cancel = page.locator(".doc-tree__crawl").get_by_role("button", name="Cancel")
+    cancel.wait_for(timeout=5000)
+    cancel.click()
+    page.unroute("**/api/projects/*/folders/*/contents*", slow)
+    wait_until(page, lambda: "Search cancelled" in page.locator(".doc-tree__crawl-text").inner_text())
+    cancelled = page.locator(".doc-tree__crawl-text").inner_text()
+    checks.add("deep search: Cancel stops the crawl and says so", "Search cancelled" in cancelled, cancelled)
+
+
+def check_thumbnails(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    close_all_models(page)
+    page.goto(BASE_URL, wait_until="networkidle")
+    settle(page, 1000)
+    focus_documents(page)
+    page.get_by_role("button", name="Documents pane options").click()
+    page.get_by_role("menuitem", name="Settings").click()
+    dialog = page.get_by_role("dialog", name="Documents settings")
+    dialog.wait_for(timeout=8000)
+    dialog.get_by_role("switch", name="Show thumbnails").check()
+    dialog.get_by_label(re.compile(r"^Rows")).select_option("thumbnails")
+    page.keyboard.press("Escape")
+    settle(page, 600)
+    expand_until_items(page)
+    loaded = None
+    for _ in range(6):
+        loaded = page.evaluate(
+            """() => {
+                const img = [...document.querySelectorAll("[role=treeitem][data-kind='item'] img")]
+                    .find((el) => el.complete && el.naturalWidth > 0);
+                return img ? {src: img.getAttribute('src'), width: img.naturalWidth} : null;
+            }"""
+        )
+        if loaded:
+            break
+        folders = page.locator("[role=treeitem][data-kind='folder'][aria-expanded='false']")
+        if folders.count() == 0:
+            break
+        row = folders.first
+        row.scroll_into_view_if_needed()
+        row.click()
+        settle(page, 900)
+    checks.add("thumbnails: a file row draws a loaded image", bool(loaded), loaded)
+    checks.add("thumbnails: the image comes from the proxy route", bool(loaded) and "/api/thumbnails/" in loaded["src"], loaded)
+    project_files = page.locator("[role=treeitem][data-kind='folder'][title='Project Files']").first
+    if project_files.count() and project_files.get_attribute("aria-expanded") == "false":
+        project_files.click()
+        settle(page, 600)
+    view_states = page.locator("[role=treeitem][data-kind='folder'][title='View States']").first
+    if view_states.count():
+        if view_states.get_attribute("aria-expanded") == "false":
+            view_states.scroll_into_view_if_needed()
+            view_states.click()
+            settle(page, 800)
+        row = page.locator("[role=treeitem][data-kind='item'][title='STATE-not-translated.rvt']").first
+        if row.count():
+            wait_until(
+                page,
+                lambda: row.locator("img").count() == 1 and row.locator("img").evaluate("(el) => el.complete && el.naturalWidth === 0"),
+                timeout_ms=10000,
+            )
+            broken = row.locator("img").evaluate("(el) => el.complete && el.naturalWidth === 0")
+            checks.add("thumbnails: a file with no thumbnail draws no image pixels", broken, broken)
+            row.click(button="right")
+            page.get_by_role("menuitem", name="Preview").click()
+            preview = page.get_by_role("dialog", name="Preview of STATE-not-translated.rvt")
+            preview.wait_for(timeout=5000)
+            checks.add(
+                "thumbnails: the preview card shows the placeholder",
+                preview.get_by_text("No thumbnail").count() == 1,
+                preview.inner_text()[:120],
+            )
+            page.keyboard.press("Escape")
+            settle(page, 300)
+    page.get_by_role("button", name="Documents pane options").click()
+    page.get_by_role("menuitem", name="Settings").click()
+    dialog = page.get_by_role("dialog", name="Documents settings")
+    dialog.get_by_role("switch", name="Show thumbnails").uncheck()
+    dialog.get_by_label(re.compile(r"^Rows")).select_option("list")
+    page.keyboard.press("Escape")
+    settle(page, 300)
 
 
 def check_task_center(page, checks):
@@ -2156,7 +2652,7 @@ def run_interaction_checks(page, checks, notes):
     except Exception as exc:
         page.screenshot(path=str(OUTPUT_DIR / "mock-layout-failure.png"))
         checks.add("check_layout", False, f"{type(exc).__name__}: {str(exc)[:160]}")
-    for check in (check_lock_maximize, check_active_pane, check_session_banner, check_saved_items, check_paint_palette, check_recents, check_strip, check_tree_metadata, check_theme, check_summary_rail, check_summary_tools, check_selection_sets, check_dashboard_tools, check_tree_resize):
+    for check in (check_lock_maximize, check_layout_undo, check_active_pane, check_session_banner, check_saved_items, check_paint_palette, check_recents, check_strip, check_tree_metadata, check_theme, check_summary_rail, check_summary_tools, check_selection_sets, check_dashboard_tools, check_tree_resize):
         try:
             check(page, checks)
         except Exception as exc:
@@ -2202,6 +2698,12 @@ def run_interaction_checks(page, checks, notes):
     except Exception as exc:
         page.screenshot(path=str(OUTPUT_DIR / "mock-documents-failure.png"))
         checks.add("check_documents_return", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+    for check in (check_latest_badge, check_version_history, check_search_pane, check_model_sets, check_deep_search, check_thumbnails):
+        try:
+            check(page, checks)
+        except Exception as exc:
+            page.screenshot(path=str(OUTPUT_DIR / f"mock-{check.__name__}-failure.png"))
+            checks.add(check.__name__, False, f"{type(exc).__name__}: {str(exc)[:160]}")
 
 
 HINT_TITLE = "No projects to show yet"

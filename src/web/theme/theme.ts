@@ -9,10 +9,6 @@ export const THEME_PREFERENCES: readonly ThemePreference[] = [
 
 export const LIGHT_SCHEME_QUERY = '(prefers-color-scheme: light)';
 
-export function isTheme(value: unknown): value is Theme {
-  return value === 'dark' || value === 'light';
-}
-
 export function readSystemTheme(): Theme {
   if (typeof window === 'undefined' || !window.matchMedia) return 'dark';
   return window.matchMedia(LIGHT_SCHEME_QUERY).matches ? 'light' : 'dark';
@@ -25,7 +21,15 @@ export function resolveTheme(
   return preference === 'system' ? system : preference;
 }
 
+export const THEME_COLORS: Record<Theme, string> = {
+  dark: '#131416',
+  light: '#ffffff',
+};
+
 export function applyTheme(theme: Theme, root: HTMLElement): void {
   root.dataset.theme = theme;
   root.style.colorScheme = theme;
+  root.ownerDocument
+    .querySelector('meta[name="theme-color"]')
+    ?.setAttribute('content', THEME_COLORS[theme]);
 }

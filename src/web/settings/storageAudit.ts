@@ -113,6 +113,12 @@ const RULES: readonly FamilyRule[] = [
     matches: (key) => key === BSH_KEYS.preference.treeView,
   },
   {
+    id: 'topbar',
+    label: 'Top bar',
+    kind: 'preference',
+    matches: (key) => key === BSH_KEYS.preference.topbar,
+  },
+  {
     id: 'snapshot',
     label: 'Snapshot and present',
     kind: 'preference',

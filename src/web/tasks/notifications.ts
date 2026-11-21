@@ -18,6 +18,7 @@ export interface Notification {
 export interface NotificationSnapshot {
   items: readonly Notification[];
   history: readonly Notification[];
+  log: readonly Notification[];
   announcement: string;
 }
 
@@ -30,9 +31,11 @@ export interface NotifyOptions {
 
 export interface NotificationStore {
   notify: (message: string, options?: NotifyOptions) => number;
+  record: (message: string, options?: NotifyOptions) => number;
   dismiss: (id: number) => void;
   clear: () => void;
   clearHistory: () => void;
+  clearLog: () => void;
   announce: (message: string) => void;
   subscribe: (listener: () => void) => () => void;
   getSnapshot: () => NotificationSnapshot;
@@ -40,6 +43,7 @@ export interface NotificationStore {
 
 export const MAX_LIVE_NOTIFICATIONS = 5;
 export const NOTIFICATION_HISTORY_LIMIT = 50;
+export const ACTIVITY_LOG_LIMIT = 200;
 
 function distinct(previous: string, message: string): string {
   return previous === message ? `${message} ` : message;
@@ -61,18 +65,31 @@ export function createNotificationStore(
   let snapshot: NotificationSnapshot = {
     items: [],
     history: [],
+    log: [],
     announcement: '',
   };
   const listeners = new Set<() => void>();
+
+  const build = (text: string, options: NotifyOptions): Notification => ({
+    id: nextId++,
+    message: text,
+    tone: options.tone ?? 'info',
+    detail: options.detail ?? null,
+    duration: options.duration ?? null,
+    action: options.action ?? null,
+    createdAt: now(),
+  });
 
   const commit = (
     items: readonly Notification[],
     history: readonly Notification[],
     announcement: string,
+    log: readonly Notification[] = snapshot.log,
   ) => {
     snapshot = {
       items,
       history: history.slice(0, NOTIFICATION_HISTORY_LIMIT),
+      log: log.slice(0, ACTIVITY_LOG_LIMIT),
       announcement,
     };
     for (const listener of listeners) listener();
@@ -82,15 +99,7 @@ export function createNotificationStore(
     notify(message, options = {}) {
       const text = message.trim();
       if (!text) return 0;
-      const notification: Notification = {
-        id: nextId++,
-        message: text,
-        tone: options.tone ?? 'info',
-        detail: options.detail ?? null,
-        duration: options.duration ?? null,
-        action: options.action ?? null,
-        createdAt: now(),
-      };
+      const notification = build(text, options);
       const all = [...snapshot.items, notification];
       const overflow = all.slice(
         0,
@@ -101,8 +110,19 @@ export function createNotificationStore(
         kept,
         pushHistory(snapshot.history, overflow),
         distinct(snapshot.announcement, text),
+        [notification, ...snapshot.log],
       );
       return notification.id;
+    },
+    record(message, options = {}) {
+      const text = message.trim();
+      if (!text) return 0;
+      const entry = build(text, options);
+      commit(snapshot.items, snapshot.history, snapshot.announcement, [
+        entry,
+        ...snapshot.log,
+      ]);
+      return entry.id;
     },
     dismiss(id) {
       const notification = snapshot.items.find((item) => item.id === id);
@@ -122,6 +142,9 @@ export function createNotificationStore(
     },
     clearHistory() {
       commit(snapshot.items, [], snapshot.announcement);
+    },
+    clearLog() {
+      commit(snapshot.items, snapshot.history, snapshot.announcement, []);
     },
     announce(message) {
       const text = message.trim();

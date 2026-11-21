@@ -49,6 +49,7 @@ describe('storage keys', () => {
         modelTints: 'bsh.models.tints.v1',
         modelViews: 'bsh.models.views.v1',
         hubHint: 'bsh.hint.hubs.dismissed.v1',
+        onboardingHints: 'bsh.hint.onboarding.v1',
         summaryView: 'bsh.summary.view.v1',
         summaryProperties: 'bsh.summary.properties.v1',
         summaryScope: 'bsh.summary.scope.v1',
@@ -71,6 +72,7 @@ describe('storage keys', () => {
         viewerKeys: 'bsh.commands.viewer.keys.v1',
         shareInclude: 'bsh.share.v1',
         charts: 'bsh.charts.v1',
+        topbar: 'bsh.topbar.v1',
       },
     });
     expect(BSH_PERSONAL_PREFIXES).toEqual(['bsh.pane.', 'bsh.paint.']);

@@ -26,7 +26,9 @@ import {
   runElementAction,
 } from '../extensions/elementActions.js';
 import { type HealthKpiTile, healthKpis } from '../extensions/healthKpis.js';
+import { formatCount, localeOf } from '../i18n/format.js';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
+import { useSettings } from '../settings/SettingsContext.js';
 import { type PersistedRecord, usePersisted } from '../storage.js';
 import { notify } from '../tasks/notifications.js';
 import { applyColoring } from '../viewer/modelColoring.js';
@@ -47,6 +49,7 @@ import {
 import {
   HIDDEN_MESSAGE,
   HIDDEN_TITLE,
+  SELECTION_DEBOUNCE_MS,
   useResolvedAdapter,
   useScopedRows,
 } from './useScopedRows.js';
@@ -117,6 +120,7 @@ export function DashboardPanel({
   setting,
 }: DashboardPanelProps) {
   const uid = useId();
+  const { language } = useSettings().settings;
   const resolved = useResolvedAdapter(adapter);
   const [view, setView] = usePersisted(setting ?? PANE_SETTINGS.dashboard.view);
   const [health] = usePersisted(HEALTH_KPI_SETTINGS);
@@ -234,7 +238,15 @@ export function DashboardPanel({
       return;
     }
     setViewerSelection(resolved.getModelSelection());
-    return resolved.onSelectionChange(setViewerSelection);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const off = resolved.onSelectionChange((list) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => setViewerSelection(list), SELECTION_DEBOUNCE_MS);
+    });
+    return () => {
+      clearTimeout(timer);
+      off();
+    };
   }, [resolved]);
   const highlights = useMemo(
     () =>
@@ -429,7 +441,7 @@ export function DashboardPanel({
             />
             <span role="status">
               {state.progress && state.progress.total > 0
-                ? `Reading element properties: ${state.progress.loaded.toLocaleString('en-US')} of ${state.progress.total.toLocaleString('en-US')}${state.progress.partial ? ' (partial data)' : ''}`
+                ? `Reading element properties: ${formatCount(state.progress.loaded, language)} of ${formatCount(state.progress.total, language)}${state.progress.partial ? ' (partial data)' : ''}`
                 : 'Reading element properties'}
             </span>
             <button type="button" className="bsh-button" onClick={state.cancel}>
@@ -668,7 +680,7 @@ export function DashboardPanel({
                               <td className="bsh-num">
                                 {d.value === undefined
                                   ? '—'
-                                  : d.value.toLocaleString('en-US', {
+                                  : d.value.toLocaleString(localeOf(language), {
                                       maximumFractionDigits: 2,
                                     })}
                               </td>

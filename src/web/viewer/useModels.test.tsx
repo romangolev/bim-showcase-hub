@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { useScopedRows } from '../panels/useScopedRows.js';
 import { MockViewerAdapter } from './MockViewerAdapter.js';
-import { useModels, useReadySignature } from './useModels.js';
+import { useModels } from './useModels.js';
 
 const adapters: MockViewerAdapter[] = [];
 
@@ -20,17 +20,12 @@ describe('useModels', () => {
   it('follows the model set of the adapter', async () => {
     const adapter = create();
     await adapter.loadModels([{ urn: 'urn-a', name: 'Arch' }]);
-    const { result } = renderHook(() => ({
-      models: useModels(adapter),
-      signature: useReadySignature(adapter),
-    }));
-    expect(result.current.models.map((m) => m.name)).toEqual(['Arch']);
-    expect(result.current.signature).toBe('urn-a');
+    const { result } = renderHook(() => useModels(adapter));
+    expect(result.current.map((m) => m.name)).toEqual(['Arch']);
     await act(async () => {
       await adapter.addModel({ urn: 'urn-b', name: 'MEP' });
     });
-    expect(result.current.models.map((m) => m.name)).toEqual(['Arch', 'MEP']);
-    expect(result.current.signature).toBe('urn-a\nurn-b');
+    expect(result.current.map((m) => m.name)).toEqual(['Arch', 'MEP']);
   });
 
   it('renders once on mount and never shows the previous adapter models', async () => {

@@ -485,3 +485,61 @@ describe('paneLifecycle panes, lock and present', () => {
     }).not.toThrow();
   });
 });
+
+describe('paneLifecycle layout history', () => {
+  it('undoes and redoes a pane move without touching open models', () => {
+    const { lifecycle, dock, models } = setup({ urns: ['urn-a'] });
+    const before = lifecycle.getState().layout;
+    lifecycle.movePane('summary', 'left');
+    lifecycle.dockChanged(dockWith('tree', 'summary', 'viewer:urn-a'), [
+      'tree',
+      'summary',
+    ]);
+    expect(lifecycle.getState().canUndo).toBe(true);
+    expect(lifecycle.undoLayout()).toBe(true);
+    expect(lifecycle.getState().layout.dock).toBe(before.dock);
+    expect(dock.apply).toHaveBeenLastCalledWith(
+      { dock: before.dock },
+      before.treeWidth,
+    );
+    expect(models.getState().models.map((m) => m.urn)).toEqual(['urn-a']);
+    expect(lifecycle.getState().canRedo).toBe(true);
+    expect(lifecycle.redoLayout()).toBe(true);
+    expect(lifecycle.getState().canRedo).toBe(false);
+  });
+
+  it('records collapse, close, reset and workspace apply', () => {
+    const { lifecycle } = setup({ urns: ['urn-a'] });
+    lifecycle.setCollapsed('summary', true);
+    expect(lifecycle.undoLayout()).toBe(true);
+    expect(lifecycle.getState().layout.collapsed).not.toContain('summary');
+  });
+
+  it('does not record model tabs or user panes', () => {
+    const { lifecycle } = setup({ urns: ['urn-a'] });
+    lifecycle.closeInstance('viewer:urn-a');
+    lifecycle.addInstance('chart');
+    expect(lifecycle.getState().canUndo).toBe(false);
+  });
+
+  it('records a drag and ignores a cancelled one', () => {
+    const { lifecycle } = setup({ urns: ['urn-a'] });
+    lifecycle.dragStarted();
+    expect(lifecycle.undoLayout()).toBe(false);
+    lifecycle.dragStarted();
+    lifecycle.dockChanged(dockWith('tree', 'summary'), ['tree', 'summary']);
+    expect(lifecycle.undoLayout()).toBe(true);
+  });
+
+  it('refuses while locked or stacked and forgets history on sign-out', () => {
+    const locked = setup({ urns: ['urn-a'] });
+    locked.lifecycle.setCollapsed('summary', true);
+    locked.lifecycle.setLocked(true);
+    expect(locked.lifecycle.undoLayout()).toBe(false);
+    const stacked = setup({ urns: ['urn-a'], mode: 'stacked' });
+    stacked.lifecycle.setCollapsed('summary', true);
+    expect(stacked.lifecycle.undoLayout()).toBe(false);
+    stacked.lifecycle.forgetOwner();
+    expect(stacked.lifecycle.getState().canUndo).toBe(false);
+  });
+});

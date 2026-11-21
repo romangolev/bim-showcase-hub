@@ -12,10 +12,17 @@ describe('default layout', () => {
       'summary',
       'dashboard',
       'export',
+      'search',
       'tree',
       'models',
       'colors',
     ]);
+  });
+
+  it('leaves panes that start closed out of the default layout', () => {
+    const ids = defaultSteps(320).map((step) => step.id);
+    expect(ids).not.toContain('help');
+    expect(ids).not.toContain('activity');
   });
 
   it('matches the classic look: tree left, summary right, dashboard below', () => {
@@ -43,9 +50,9 @@ describe('default layout', () => {
   });
 
   it('starts the optional viewer panes closed', () => {
-    expect(DEFAULT_DISMISSED).toEqual(['measurements', 'views']);
+    expect(DEFAULT_DISMISSED).toEqual(['measurements', 'views', 'versions']);
     expect(defaultSteps(320).map((step) => step.id)).toEqual(
-      expect.not.arrayContaining(['measurements', 'views']),
+      expect.not.arrayContaining(['measurements', 'views', 'versions']),
     );
   });
 

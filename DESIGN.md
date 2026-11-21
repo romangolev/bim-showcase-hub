@@ -17,7 +17,7 @@ A calm, dark "control room" for infrastructure software. Near-black surfaces, ha
 | graphite | #131416 | Cards, panels, table rows |
 | charcoal | #1f1f21 | Secondary surfaces, inputs, borders, dividers |
 | smoke | #3c3d3e | Button borders, subtle separators |
-| steel | #71717a | Captions, helper text |
+| steel | #8b8b94 | Captions, helper text |
 | fog | #858687 | Secondary text, icon strokes, inactive nav |
 | ash | #9d9e9f | Tertiary text, placeholders, disabled |
 | chalk | #cececf | Table cell text, secondary body text |
@@ -108,7 +108,7 @@ Theme is set by `data-theme="dark|light"` on `<html>`, together with `color-sche
 | graphite | #ffffff | Cards, panels, table rows |
 | charcoal | #eceef2 | Inputs, bar tracks, secondary surfaces |
 | smoke | #c9cdd5 | Scrollbar thumbs, resizer, subtle separators |
-| steel | #6b7280 | Captions, mock viewer slab strokes |
+| steel | #5b6170 | Captions, mock viewer slab strokes |
 | fog | #515867 | Secondary text, icon strokes |
 | ash | #5f6675 | Tertiary text, placeholders, disabled |
 | chalk | #272a31 | Body text, table cell text |
@@ -123,7 +123,7 @@ Theme is set by `data-theme="dark|light"` on `<html>`, together with `color-sche
 | signal-blue | #2563eb | Active states, links, icon fills, selection |
 | arc-blue | #1d4ed8 | Text accents, Viewable badge, icon tiles |
 | ring-blue | #3b82f6 | Focus rings (3.4:1 on canvas, 3.7:1 on cards) |
-| mint | #15803d | Success badge text and outline |
+| mint | #137538 | Success badge text and outline |
 | fern | #16a34a | Soft green washes |
 | coral | #c62828 | Destructive and error text |
 | ember | #ea580c | Decorative icon chip only (unchanged) |
@@ -152,7 +152,7 @@ Paint swatches keep their fixed data colors in both themes. The mock viewer fill
 - Primary CTA is inverted: ink fill (bone token), white label (ink token), 8px radius, hover goes to snow.
 - Elevation: no inset highlight. The only cast shadow stays on the landing product mockups, `0 24px 48px rgb(15 23 42 / 0.10)` in light against `rgb(0 0 0 / 0.4)` in dark. The primary button shadow is `0 1px 2px rgb(15 23 42 / 0.16)`.
 - Selection text is white on signal-blue in both themes (`on-accent`).
-- Every text pair verified in dark passes WCAG AA in light: body 13.3 to 14.4, secondary fog 6.0 to 7.1, selected row fog 6.0, ash 4.8 to 5.8, Viewable badge 5.6 to 6.7, mint 4.6 to 5.0, coral 5.2 to 5.6, CTA label 17.9, selection 5.2. Focus ring and icon fills pass 3:1.
+- Every text pair verified in dark passes WCAG AA in light: body 13.3 to 14.4, secondary fog 6.0 to 7.1, selected row fog 6.0, ash 4.8 to 5.8, Viewable badge 5.6 to 6.7, mint 5.4 to 5.8, coral 5.2 to 5.6, CTA label 17.9, selection 5.2. Focus ring and icon fills pass 3:1.
 
 ## Adaptations for this app
 

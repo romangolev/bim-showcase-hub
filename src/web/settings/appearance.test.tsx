@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { STACKED_MAX_WIDTH } from '../layout/breakpoint.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import {
   DEFAULT_SETTINGS,
@@ -163,15 +164,29 @@ describe('appearance settings', () => {
   });
 
   it('keeps the touch hit target at 44px or more in compact density', () => {
+    const query = `(pointer: coarse), (max-width: ${STACKED_MAX_WIDTH}px)`;
+    const start = tokens.indexOf(query);
     const touchBlock =
-      /@media \(pointer: coarse\), \(max-width: 700px\) \{\s*:root \{([^}]*)\}/.exec(
-        tokens,
-      )?.[1] ?? '';
+      (start === -1 ? '' : tokens.slice(start).split('}')[0]) || '';
     expect(touchBlock).toMatch(/--hit-target:\s*max\(\s*44px\s*,/);
     const density = /:root\[data-density="compact"\] \{\s*--density: ([^;]+);/
       .exec(tokens)?.[1]
       ?.trim();
     expect(density).toBe('0.8');
+  });
+
+  it('enlarges hit targets for the whole stacked layout', () => {
+    expect(tokens).toContain(`(max-width: ${STACKED_MAX_WIDTH}px)`);
+  });
+
+  it('styles selection and the active tab for forced colors', () => {
+    const global = readFileSync('src/web/styles/global.css', 'utf8');
+    const forced = global.slice(
+      global.indexOf('@media (forced-colors: active)'),
+    );
+    expect(forced).toContain('Highlight');
+    expect(forced).toContain('.tree-row');
+    expect(dockTheme).toContain('@media (forced-colors: active)');
   });
 
   it('restores comfortable and the default text size', () => {

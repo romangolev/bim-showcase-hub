@@ -16,4 +16,12 @@ export {
   PropertiesPanel,
   type PropertiesPanelProps,
 } from './PropertiesPanel.js';
+export {
+  SearchResultsPanel,
+  type SearchResultsPanelProps,
+} from './SearchResultsPanel.js';
+export {
+  VersionHistoryPanel,
+  type VersionHistoryPanelProps,
+} from './VersionHistoryPanel.js';
 export { ViewsPanel, type ViewsPanelProps } from './ViewsPanel.js';

@@ -13,6 +13,8 @@ export interface PropertyPickerProps {
   minimum?: number;
 }
 
+const GROUP_CAP = 100;
+
 export function PropertyPicker({
   adapter,
   value,
@@ -142,25 +144,36 @@ export function PropertyPicker({
         </p>
       )}
       <div className="bsh-picker__groups">
-        {groups.map((group) => (
-          <fieldset key={group.category} className="bsh-fieldset">
-            <legend>{group.category}</legend>
-            {group.properties.map((info) => (
-              <label
-                key={`${info.category}\u0000${info.name}`}
-                className="bsh-field"
-              >
-                <input
-                  type="checkbox"
-                  checked={chosen.has(info.name)}
-                  disabled={locked(info.name)}
-                  onChange={() => toggle(info.name)}
-                />
-                {info.name}
-              </label>
-            ))}
-          </fieldset>
-        ))}
+        {groups.map((group) => {
+          const visible = group.properties.filter(
+            (info, index) => index < GROUP_CAP || chosen.has(info.name),
+          );
+          const hidden = group.properties.length - visible.length;
+          return (
+            <fieldset key={group.category} className="bsh-fieldset">
+              <legend>{group.category}</legend>
+              {visible.map((info) => (
+                <label
+                  key={`${info.category}\u0000${info.name}`}
+                  className="bsh-field"
+                >
+                  <input
+                    type="checkbox"
+                    checked={chosen.has(info.name)}
+                    disabled={locked(info.name)}
+                    onChange={() => toggle(info.name)}
+                  />
+                  {info.name}
+                </label>
+              ))}
+              {hidden > 0 && (
+                <p className="bsh-picker__none">
+                  {hidden} more, refine the search
+                </p>
+              )}
+            </fieldset>
+          );
+        })}
       </div>
     </div>
   );

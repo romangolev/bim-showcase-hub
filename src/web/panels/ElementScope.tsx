@@ -1,5 +1,7 @@
 import { useId } from 'react';
 import type { PropertyRow } from '../../shared/types.js';
+import { formatCount } from '../i18n/format.js';
+import { type Language, readSettings } from '../settings/settings.js';
 import { formatModelCounts, modelCounts } from '../viewer/modelSeries.js';
 import {
   type BaseElementScope,
@@ -58,16 +60,19 @@ export function ElementScopeSelect({
   );
 }
 
-export function elementScopeLabel(state: {
-  elements: ElementScope;
-  rows: readonly PropertyRow[];
-  total: number;
-  pending: boolean;
-}): string {
+export function elementScopeLabel(
+  state: {
+    elements: ElementScope;
+    rows: readonly PropertyRow[];
+    total: number;
+    pending: boolean;
+  },
+  language: Language = readSettings().language,
+): string {
   if (state.elements === 'all') return '';
   const name = scopeName(state.elements).toLowerCase();
   if (state.pending) return `Reading ${name} elements`;
   const counts = modelCounts(state.rows);
   const perModel = counts.length >= 2 ? ` (${formatModelCounts(counts)})` : '';
-  return `Summarizing ${state.rows.length.toLocaleString('en-US')} ${name} of ${state.total.toLocaleString('en-US')} elements${perModel}`;
+  return `Summarizing ${formatCount(state.rows.length, language)} ${name} of ${formatCount(state.total, language)} elements${perModel}`;
 }

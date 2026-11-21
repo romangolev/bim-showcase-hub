@@ -16,6 +16,9 @@ import {
   type SummaryView,
   summaryBlocks,
 } from '../extensions/modelSummary.js';
+import { formatCount as formatDisplayCount } from '../i18n/format.js';
+import { useSettings } from '../settings/SettingsContext.js';
+import { type Language, readSettings } from '../settings/settings.js';
 import { useScrollable } from './useScrollable.js';
 import './panels.css';
 
@@ -24,6 +27,8 @@ const COLUMNS: { id: SummaryColumn; header: string; className: string }[] = [
   { id: 'value', header: 'Value', className: 'bsh-col-value' },
   { id: 'count', header: 'Count', className: 'bsh-num' },
 ];
+
+export const ENTRY_CAP = 500;
 
 const MISSING_MEASURE: MeasureCell = { status: 'missing' };
 
@@ -34,6 +39,7 @@ export function entryKey(entry: SummaryEntry): string {
 function measureText(
   cell: MeasureCell | undefined,
   view: SummaryView | undefined,
+  language: Language = readSettings().language,
 ): string {
   const resolved = cell ?? MISSING_MEASURE;
   const text = formatMeasure(resolved, {
@@ -41,7 +47,7 @@ function measureText(
     unitLabel: view?.unitLabel ?? '',
   });
   if (resolved.status !== 'ok' || resolved.skipped === 0) return text;
-  return `${text} (${resolved.skipped.toLocaleString('en-US')} missing)`;
+  return `${text} (${formatDisplayCount(resolved.skipped, language)} missing)`;
 }
 
 function TitleInput({
@@ -159,6 +165,7 @@ export function SummaryTable({
   onTitleChange?: (property: string, title: string) => void;
 }) {
   const uid = useId();
+  const { language } = useSettings().settings;
   const wrapRef = useRef<HTMLDivElement>(null);
   const scrollable = useScrollable(wrapRef);
   const [collapsedBlocks, setCollapsedBlocks] = useState<ReadonlySet<string>>(
@@ -168,6 +175,9 @@ export function SummaryTable({
     () => new Set(),
   );
   const [editing, setEditing] = useState<string | null>(null);
+  const [expandedProps, setExpandedProps] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
 
   const layout = view?.layout ?? 'flat';
   const available = useMemo(
@@ -200,6 +210,24 @@ export function SummaryTable({
   const measureFor = (entry: SummaryEntry) =>
     measures?.get(`${entry.property}\u0000${entry.value}`);
   const blocks = useMemo(() => summaryBlocks(entries), [entries]);
+  const flat = useMemo(() => {
+    const seen = new Map<string, number>();
+    const hidden = new Map<string, number>();
+    const shown: SummaryEntry[] = [];
+    for (const entry of entries) {
+      const index = seen.get(entry.property) ?? 0;
+      seen.set(entry.property, index + 1);
+      if (index < ENTRY_CAP || expandedProps.has(entry.property)) {
+        shown.push(entry);
+      } else {
+        hidden.set(entry.property, (hidden.get(entry.property) ?? 0) + 1);
+      }
+    }
+    return { shown, hidden };
+  }, [entries, expandedProps]);
+  const hiddenTotal = [...flat.hidden.values()].reduce((a, b) => a + b, 0);
+  const expandProps = (properties: Iterable<string>) =>
+    setExpandedProps((previous) => new Set([...previous, ...properties]));
   const tree = useMemo(() => {
     if (layout !== 'pivot' || !rows || !groupByKey) return [];
     return pivotTree(rows, groupByKey.split('\u0000'), {
@@ -278,7 +306,7 @@ export function SummaryTable({
         </tr>
       </thead>
       <tbody>
-        {entries.map((entry) => {
+        {flat.shown.map((entry) => {
           const key = entryKey(entry);
           return (
             <tr key={key} data-active={activeKey === key ? 'true' : undefined}>
@@ -304,16 +332,29 @@ export function SummaryTable({
               {measureProperty ? (
                 <td
                   className="bsh-num"
-                  title={measureText(measureFor(entry), view)}
+                  title={measureText(measureFor(entry), view, language)}
                 >
                   <span className="bsh-clamp bsh-measure">
-                    {measureText(measureFor(entry), view)}
+                    {measureText(measureFor(entry), view, language)}
                   </span>
                 </td>
               ) : null}
             </tr>
           );
         })}
+        {hiddenTotal > 0 ? (
+          <tr>
+            <td colSpan={columns.length + (measureProperty ? 1 : 0)}>
+              <button
+                type="button"
+                className="bsh-button"
+                onClick={() => expandProps(flat.hidden.keys())}
+              >
+                Show {formatCount(hiddenTotal)} more
+              </button>
+            </td>
+          </tr>
+        ) : null}
       </tbody>
     </table>
   );
@@ -404,7 +445,10 @@ export function SummaryTable({
                   </tr>
                 </thead>
                 <tbody>
-                  {block.entries.map((entry) => {
+                  {(expandedProps.has(block.property)
+                    ? block.entries
+                    : block.entries.slice(0, ENTRY_CAP)
+                  ).map((entry) => {
                     const key = entryKey(entry);
                     return (
                       <tr
@@ -436,16 +480,35 @@ export function SummaryTable({
                         {measureProperty ? (
                           <td
                             className="bsh-num"
-                            title={measureText(measureFor(entry), view)}
+                            title={measureText(
+                              measureFor(entry),
+                              view,
+                              language,
+                            )}
                           >
                             <span className="bsh-clamp bsh-measure">
-                              {measureText(measureFor(entry), view)}
+                              {measureText(measureFor(entry), view, language)}
                             </span>
                           </td>
                         ) : null}
                       </tr>
                     );
                   })}
+                  {!expandedProps.has(block.property) &&
+                  block.entries.length > ENTRY_CAP ? (
+                    <tr>
+                      <td colSpan={2 + (measureProperty ? 1 : 0)}>
+                        <button
+                          type="button"
+                          className="bsh-button"
+                          onClick={() => expandProps([block.property])}
+                        >
+                          Show {formatCount(block.entries.length - ENTRY_CAP)}{' '}
+                          more
+                        </button>
+                      </td>
+                    </tr>
+                  ) : null}
                 </tbody>
               </table>
             </div>
@@ -512,10 +575,14 @@ export function SummaryTable({
                 {measureProperty ? (
                   <td
                     className="bsh-num"
-                    title={measureText(node.measure ?? undefined, view)}
+                    title={measureText(
+                      node.measure ?? undefined,
+                      view,
+                      language,
+                    )}
                   >
                     <span className="bsh-clamp bsh-measure">
-                      {measureText(node.measure ?? undefined, view)}
+                      {measureText(node.measure ?? undefined, view, language)}
                     </span>
                   </td>
                 ) : null}

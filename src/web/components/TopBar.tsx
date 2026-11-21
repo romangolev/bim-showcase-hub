@@ -1,9 +1,12 @@
 import type { ReactNode, Ref } from 'react';
 import { useSession, useSignIn } from '../api/hooks.js';
+import { useT } from '../i18n/i18n.js';
 import { useModal } from '../modal/index.js';
 import { TaskCenter } from '../tasks/TaskCenter.js';
 import { ThemeToggle } from '../theme/ThemeToggle.js';
+import { HelpMenu } from './HelpMenu.js';
 import { Icon } from './icons.js';
+import type { MenuEntry } from './Menu.js';
 import { UserMenu } from './UserMenu.js';
 
 export interface TopBarProps {
@@ -11,6 +14,8 @@ export interface TopBarProps {
   onToggleTree?: () => void;
   toggleRef?: Ref<HTMLButtonElement>;
   actions?: ReactNode;
+  context?: ReactNode;
+  helpExtra?: () => MenuEntry[];
 }
 
 export function TopBar({
@@ -18,11 +23,14 @@ export function TopBar({
   onToggleTree,
   toggleRef,
   actions,
+  context,
+  helpExtra,
 }: TopBarProps) {
   const session = useSession();
   const signIn = useSignIn();
   const user = session.data ?? null;
   const modal = useModal();
+  const t = useT();
 
   return (
     <header className="topbar">
@@ -33,7 +41,7 @@ export function TopBar({
             type="button"
             className="icon-button"
             aria-label={
-              treeOpen ? 'Collapse document tree' : 'Expand document tree'
+              treeOpen ? t('topbar.collapseTree') : t('topbar.expandTree')
             }
             aria-expanded={treeOpen}
             aria-controls="document-panel"
@@ -50,20 +58,22 @@ export function TopBar({
             BIM Showcase<span className="brand__suffix"> Hub</span>
           </span>
         </a>
+        {context}
         <div className="topbar__spacer" />
         {session.isError ? (
           <span className="topbar__status" role="alert">
-            Session unavailable
+            {t('topbar.sessionUnavailable')}
           </span>
         ) : null}
         {user ? actions : null}
         {user ? <TaskCenter /> : null}
+        {user ? <HelpMenu extra={helpExtra} /> : null}
         {user ? (
           <button
             type="button"
             className="icon-button"
-            aria-label="Settings"
-            title="Settings"
+            aria-label={t('topbar.settings')}
+            title={t('topbar.settings')}
             onClick={() => modal.open('settings')}
           >
             <Icon name="settings" size={18} />
@@ -79,7 +89,7 @@ export function TopBar({
             onClick={() => signIn.mutate()}
             disabled={signIn.isPending}
           >
-            Sign in
+            {t('topbar.signIn')}
           </button>
         )}
       </div>

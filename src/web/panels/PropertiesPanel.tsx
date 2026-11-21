@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { StateBlock } from '../components/StateBlock.js';
+import { writeClipboard } from '../extensions/clipboard.js';
 import type { ModelDbId } from '../viewer/modelSet.js';
 import type { ElementProperties } from '../viewer/propertyReads.js';
 import { useModels } from '../viewer/useModels.js';
@@ -94,12 +95,11 @@ export function PropertiesPanel({
   }, [adapter, modelId, ids, key]);
 
   const copy = async (value: string) => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setNotice('Copied');
-    } catch {
-      setNotice('Could not copy to the clipboard');
-    }
+    setNotice(
+      (await writeClipboard(value))
+        ? 'Copied'
+        : 'Could not copy to the clipboard',
+    );
   };
 
   const current = read?.key === key ? read : null;

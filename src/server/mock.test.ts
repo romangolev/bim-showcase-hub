@@ -173,6 +173,58 @@ describe('mock mode', () => {
     }
   });
 
+  it('marks exactly one latest version per item, the highest number', async () => {
+    const tree = await walk();
+    const byItem = new Map<string, TreeNode[]>();
+    for (const version of tree.versions) {
+      const list = byItem.get(version.parentId ?? '') ?? [];
+      list.push(version);
+      byItem.set(version.parentId ?? '', list);
+    }
+    for (const versions of byItem.values()) {
+      const latest = versions.filter((version) => version.latest);
+      expect(latest).toHaveLength(1);
+      const top = Math.max(...versions.map((v) => v.versionNumber ?? -1));
+      expect(latest[0]?.versionNumber).toBe(top);
+    }
+  });
+
+  it('carries the tip version on every file row', async () => {
+    const tree = await walk();
+    for (const item of tree.items) {
+      const versions = tree.versions.filter(
+        (version) => version.parentId === item.id,
+      );
+      const latest = versions.reduce<TreeNode | undefined>(
+        (top, version) =>
+          (version.versionNumber ?? -1) > (top?.versionNumber ?? -1)
+            ? version
+            : top,
+        undefined,
+      );
+      expect(item.versionNumber).toBe(latest?.versionNumber);
+      expect(item.tipUrn).toBe(latest?.urn);
+    }
+  });
+
+  it('lists the Cyrillic folder with two viewable drawings', async () => {
+    const tree = await walk();
+    const folder = tree.folders.find((f) => f.name === 'Рабочая документация');
+    expect(folder).toBeTruthy();
+    const items = tree.items.filter((item) => item.parentId === folder?.id);
+    expect(new Set(items.map((item) => item.name))).toEqual(
+      new Set([
+        'Жилой комплекс — АР.rvt',
+        'Многоквартирный дом, корпус 3, секция 2 — КЖ.rvt',
+      ]),
+    );
+    for (const item of items) {
+      const versions = tree.versions.filter((v) => v.parentId === item.id);
+      expect(versions.length).toBeGreaterThan(0);
+      expect(versions.every((v) => v.viewable)).toBe(true);
+    }
+  });
+
   it('reports the view state of a single version', async () => {
     const tree = await walk();
     const item = tree.items.find((i) => i.name === 'STATE-no-geometry.rvt');
@@ -193,6 +245,36 @@ describe('mock mode', () => {
       `/api/projects/${projectId}/items/${item?.id}/versions/!!/view-state`,
     );
     expect(malformed.status).toBe(400);
+  });
+
+  it('serves an svg thumbnail for a translated version and 404 for others', async () => {
+    const tree = await walk();
+    const ready = tree.versions.find((v) => v.urn && v.viewState === 'ready');
+    const res = await request(app).get(
+      `/api/thumbnails/${ready?.urn}?size=200`,
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toContain('image/svg+xml');
+    expect(res.headers['cache-control']).toBe('private, max-age=3600');
+    const blocked = tree.versions.find(
+      (v) => v.urn && v.viewState === 'not-translated',
+    );
+    expect(
+      (await request(app).get(`/api/thumbnails/${blocked?.urn}`)).status,
+    ).toBe(404);
+  });
+
+  it('rejects a bad thumbnail urn or size with 400', async () => {
+    expect((await request(app).get('/api/thumbnails/bad*id')).status).toBe(400);
+    const plain = Buffer.from('not-a-urn').toString('base64url');
+    expect((await request(app).get(`/api/thumbnails/${plain}`)).status).toBe(
+      400,
+    );
+    const tree = await walk();
+    const urn = tree.versions.find((v) => v.urn)?.urn;
+    expect(
+      (await request(app).get(`/api/thumbnails/${urn}?size=999`)).status,
+    ).toBe(400);
   });
 
   it('is deterministic across app instances', async () => {
