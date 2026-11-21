@@ -1,3 +1,4 @@
+import { QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory } from '@tanstack/react-router';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -47,9 +48,11 @@ function stubOpeners(): ModelOpeners {
 function renderHome() {
   const openers = stubOpeners();
   render(
-    <SettingsProvider>
-      <DocumentsHome openers={openers} />
-    </SettingsProvider>,
+    <QueryClientProvider client={createTestClient()}>
+      <SettingsProvider>
+        <DocumentsHome openers={openers} />
+      </SettingsProvider>
+    </QueryClientProvider>,
   );
   return openers;
 }
