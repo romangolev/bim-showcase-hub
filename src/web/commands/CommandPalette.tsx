@@ -23,6 +23,7 @@ import {
   formatShortcut,
   isEditableTarget,
   isViewerContext,
+  MODIFIER_KEYS,
   matchShortcut,
   scopeAllows,
 } from './shortcuts.js';
@@ -316,6 +317,7 @@ export function CommandPalette({ openModel }: CommandPaletteProps) {
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => {
       if (event.defaultPrevented || event.isComposing) return;
+      if (event.repeat || MODIFIER_KEYS.has(event.key)) return;
       if (document.querySelector('dialog[open]')) return;
       if (isEditableTarget(event.target)) return;
       const modified = event.ctrlKey || event.metaKey || event.altKey;

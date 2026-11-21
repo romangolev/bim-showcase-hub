@@ -47,7 +47,7 @@ export function isMacPlatform(): boolean {
   return /Mac|iPhone|iPad/.test(agent);
 }
 
-const MODIFIER_KEYS = new Set(['Shift', 'Control', 'Alt', 'Meta', 'OS']);
+export const MODIFIER_KEYS = new Set(['Shift', 'Control', 'Alt', 'Meta', 'OS']);
 
 export function shortcutFromEvent(event: ShortcutEvent): string | null {
   if (MODIFIER_KEYS.has(event.key)) return null;

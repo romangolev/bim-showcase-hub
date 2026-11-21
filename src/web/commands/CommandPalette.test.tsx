@@ -270,6 +270,25 @@ describe('CommandPalette', () => {
     expect(screen.getByRole('combobox')).toBeInTheDocument();
   });
 
+  it('does not list commands on repeats or bare modifiers', () => {
+    const run = vi.fn();
+    const provider = vi.fn(() => [
+      { id: 'a', title: 'Alpha', group: 'G', keys: ['Mod+J'], run },
+    ]);
+    COMMANDS.register('test', provider);
+    render(
+      <ModalProvider definitions={MODALS}>
+        <CommandPalette />
+      </ModalProvider>,
+    );
+    provider.mockClear();
+    fireEvent.keyDown(document.body, { key: 'Control', ctrlKey: true });
+    fireEvent.keyDown(document.body, { key: 'j', ctrlKey: true, repeat: true });
+    expect(provider).not.toHaveBeenCalled();
+    fireEvent.keyDown(document.body, { key: 'j', ctrlKey: true });
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
   it('re-reads enabled state and reasons when the query changes', () => {
     let reason: string | undefined = 'Open a model first';
     COMMANDS.register('test', () => [
