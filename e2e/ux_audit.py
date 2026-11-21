@@ -254,6 +254,30 @@ def full_dialog(page, path):
     page.wait_for_timeout(200)
 
 
+PANES = [
+    "Models",
+    "Measurements",
+    "Sheets and views",
+    "Version history",
+    "Colors",
+    "Export",
+    "Search elements",
+    "Properties",
+    "Help",
+    "Activity log",
+]
+
+
+def run_command(page, title):
+    page.keyboard.press("Control+k")
+    palette = page.get_by_role("dialog", name="Command palette")
+    palette.wait_for(state="visible", timeout=3000)
+    palette.get_by_role("combobox").fill(title)
+    page.wait_for_timeout(250)
+    palette.get_by_role("option", name=re.compile(f"^{re.escape(title)}", re.I)).first.click(timeout=3000)
+    page.wait_for_timeout(1200)
+
+
 def open_window(page, title):
     page.keyboard.press("Control+k")
     palette = page.get_by_role("dialog", name="Command palette")
@@ -301,6 +325,16 @@ def run(browser, theme, width, language, results, notes):
                 close_dialog(page)
             except Exception as exc:
                 results[f"{prefix}-documents-settings"] = {"error": f"{type(exc).__name__}: {str(exc)[:160]}"}
+        if not language and width in (320, 1440):
+            for pane in PANES:
+                key = "pane-" + pane.lower().replace(" ", "-")
+                try:
+                    run_command(page, f"Open {pane} pane")
+                    measure(page, None, f"{prefix}-{key}", results, shots)
+                    run_command(page, f"Close {pane} pane")
+                except Exception as exc:
+                    results[f"{prefix}-{key}"] = {"error": f"{type(exc).__name__}: {str(exc)[:160]}"}
+                    close_dialog(page)
         for key, name, scope in () if width <= 875 else (
             ("panes-menu", "Panes", ".panes-menu__popover"),
             ("workspaces", "Workspaces", "[role=dialog][aria-label='Workspaces']"),
