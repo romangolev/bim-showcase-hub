@@ -53,6 +53,41 @@ describe('crawl', () => {
     expect(out.nodes).toBe(7);
   });
 
+  it('runs folders in parallel up to the concurrency limit', async () => {
+    const kids = Array.from({ length: 9 }, (_, i) => `k${i}`);
+    let active = 0;
+    let peak = 0;
+    await crawl({
+      start: ['root'],
+      children: async (id) => {
+        active += 1;
+        peak = Math.max(peak, active);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        active -= 1;
+        return id === 'root' ? kids.map((k) => folderNode(k, 'root')) : [];
+      },
+      signal: new AbortController().signal,
+      limits: { concurrency: 3 },
+      wait: instant,
+    });
+    expect(peak).toBe(3);
+  });
+
+  it('does not count an aborted in-flight request as failed', async () => {
+    const controller = new AbortController();
+    const out = await crawl({
+      start: ['root'],
+      children: async () => {
+        controller.abort();
+        throw new DOMException('aborted', 'AbortError');
+      },
+      signal: controller.signal,
+      wait: instant,
+    });
+    expect(out.stop).toBe('cancelled');
+    expect(out.failed).toBe(0);
+  });
+
   it('stops at the folder limit', async () => {
     const out = await crawl({
       start: ['root'],

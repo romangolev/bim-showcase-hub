@@ -123,8 +123,10 @@ export async function crawl(options: CrawlOptions): Promise<CrawlResult> {
         for (const node of found) {
           if (node.kind === 'folder') queue.push(node.id);
         }
+        pump();
         return;
       } catch (error) {
+        if (signal.aborted) return;
         if (error instanceof ApiError && error.status === 401) {
           stop = 'unauthorized';
           return;
