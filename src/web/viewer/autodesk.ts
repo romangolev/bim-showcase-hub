@@ -102,6 +102,12 @@ export interface ViewerModel {
   getPlacementTransform?(): PlacementMatrix;
   getFragmentList?(): FragmentList;
   setThemingColor?(dbId: number, color: unknown, recursive?: boolean): void;
+  search?(
+    text: string,
+    onSuccess: (dbIds: number[]) => void,
+    onError?: (err: unknown) => void,
+    attributeNames?: string[],
+  ): void;
 }
 
 export interface ViewerGeometry {

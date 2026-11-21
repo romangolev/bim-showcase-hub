@@ -81,6 +81,16 @@ export interface ViewerState {
   >;
 }
 
+export interface ElementSearchOptions {
+  attributes?: readonly string[];
+  signal?: AbortSignal;
+}
+
+export interface ElementSearchResult {
+  items: ModelDbId[];
+  failedModels: string[];
+}
+
 export interface ViewerAdapter {
   load(urn: string, name?: string, meta?: ModelMeta): Promise<void>;
   unload(): void;
@@ -136,6 +146,10 @@ export interface ViewerAdapter {
   getElementsProperties(
     items: readonly ModelDbId[],
   ): Promise<(ElementProperties | null)[]>;
+  searchElements(
+    text: string,
+    options?: ElementSearchOptions,
+  ): Promise<ElementSearchResult>;
 }
 
 export type ViewerAdapterFactory = (

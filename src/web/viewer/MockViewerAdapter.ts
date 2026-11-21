@@ -1,3 +1,4 @@
+import { fold } from '../../shared/text.js';
 import type { PropertyRow } from '../../shared/types.js';
 import type { IfcSourceRead } from '../ifc/types.js';
 import type { Theme } from '../theme/theme.js';
@@ -57,6 +58,8 @@ import {
 } from './toolGroupController.js';
 import type {
   CameraState,
+  ElementSearchOptions,
+  ElementSearchResult,
   LoadStage,
   PaintSwatchSpec,
   RestoreReport,
@@ -460,6 +463,32 @@ export class MockViewerAdapter implements ViewerAdapter {
         })),
       };
     });
+  }
+
+  async searchElements(
+    text: string,
+    options: ElementSearchOptions = {},
+  ): Promise<ElementSearchResult> {
+    const query = fold(text.trim());
+    if (!query) return { items: [], failedModels: [] };
+    const attributes = options.attributes?.length
+      ? [...options.attributes]
+      : null;
+    const columns = attributes ?? MOCK_PROPERTY_INFOS.map((info) => info.name);
+    const items: ModelDbId[] = [];
+    for (const { info } of this.models.shown()) {
+      if (options.signal?.aborted) break;
+      for (const row of buildMockRows([...columns])) {
+        const values = attributes
+          ? Object.values(row.properties)
+          : [row.name, ...Object.values(row.properties)];
+        const hit = values.some(
+          (value) => value !== null && fold(String(value)).includes(query),
+        );
+        if (hit) items.push({ modelId: info.id, dbId: row.dbId });
+      }
+    }
+    return { items, failedModels: [] };
   }
 
   setModelVisible(modelId: string, visible: boolean): void {

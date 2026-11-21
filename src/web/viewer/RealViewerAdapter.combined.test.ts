@@ -635,6 +635,70 @@ describe('federated selection, paint and properties', () => {
   });
 });
 
+describe('element search across models', () => {
+  it('lists matches from every shown model as model and dbId pairs', async () => {
+    env.specs.set('a', { searchHits: [1, 2] });
+    env.specs.set('b', { searchHits: [2] });
+    await adapter.loadModels([{ urn: 'a' }, { urn: 'b' }]);
+    const found = await adapter.searchElements('wall');
+    expect(found.items).toEqual([
+      { modelId: 'a', dbId: 1 },
+      { modelId: 'a', dbId: 2 },
+      { modelId: 'b', dbId: 2 },
+    ]);
+    expect(found.failedModels).toEqual([]);
+  });
+
+  it('keeps the other models when one search fails', async () => {
+    env.specs.set('a', { searchHits: [1, 2] });
+    env.specs.set('b', { searchFails: 'search broke' });
+    await adapter.loadModels([{ urn: 'a' }, { urn: 'b' }]);
+    const found = await adapter.searchElements('wall');
+    expect(found.items).toEqual([
+      { modelId: 'a', dbId: 1 },
+      { modelId: 'a', dbId: 2 },
+    ]);
+    expect(found.failedModels).toEqual(['b']);
+  });
+
+  it('reports a model that cannot search instead of failing the call', async () => {
+    env.specs.set('a', { searchHits: [1] });
+    await adapter.loadModels([{ urn: 'a' }, { urn: 'b' }]);
+    (viewer().modelOf('b') as { search?: unknown }).search = undefined;
+    const found = await adapter.searchElements('wall');
+    expect(found.items).toEqual([{ modelId: 'a', dbId: 1 }]);
+    expect(found.failedModels).toEqual(['b']);
+  });
+
+  it('skips hidden models and stops issuing searches once aborted', async () => {
+    env.specs.set('a', { searchHits: [1] });
+    env.specs.set('b', { searchHits: [2] });
+    await adapter.loadModels([{ urn: 'a' }, { urn: 'b' }]);
+    adapter.setModelVisible('b', false);
+    expect((await adapter.searchElements('wall')).items).toEqual([
+      { modelId: 'a', dbId: 1 },
+    ]);
+    const controller = new AbortController();
+    controller.abort();
+    const spy = vi.spyOn(viewer().modelOf('a'), 'search');
+    expect(
+      await adapter.searchElements('wall', { signal: controller.signal }),
+    ).toEqual({ items: [], failedModels: [] });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('does not touch the viewer for a blank search', async () => {
+    env.specs.set('a', { searchHits: [1] });
+    await adapter.loadModels([{ urn: 'a' }]);
+    const spy = vi.spyOn(viewer().modelOf('a'), 'search');
+    expect(await adapter.searchElements('   ')).toEqual({
+      items: [],
+      failedModels: [],
+    });
+    expect(spy).not.toHaveBeenCalled();
+  });
+});
+
 describe('federation helpers', () => {
   function doc(
     defaultIs2d: boolean | null,
