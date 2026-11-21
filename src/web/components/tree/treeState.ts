@@ -95,6 +95,7 @@ export interface TreeState {
   children: (id: string) => Promise<TreeNode[]>;
   versionsOf: (item: TreeNode) => Promise<TreeNode[]>;
   crawlRoot: () => string | null;
+  crawled: () => boolean;
   crawl: (
     signal: AbortSignal,
     onProgress?: (progress: CrawlProgress) => void,
@@ -220,6 +221,7 @@ export function createTreeState({
   let active = 0;
   let host: TreeHost | null = null;
   let anchor: string | null = null;
+  let crawledRoot: string | null = null;
   let snapshot: TreeSnapshot = {
     errors: {},
     checkVersion: 0,
@@ -422,6 +424,7 @@ export function createTreeState({
   };
 
   const refresh = (id: string) => {
+    crawledRoot = null;
     loaded.delete(id);
     stale.delete(id);
     data.forget(scopeOf(id));
@@ -575,6 +578,7 @@ export function createTreeState({
       );
     },
     crawlRoot,
+    crawled: () => crawledRoot !== null && crawledRoot === crawlRoot(),
     crawl: (signal, onProgress) => {
       const start = crawlRoot();
       if (!start) {
@@ -599,6 +603,9 @@ export function createTreeState({
           clearError(id);
           return register(scope, fetched);
         },
+      }).then((result) => {
+        if (result.stop === 'done') crawledRoot = start;
+        return result;
       });
     },
     resolved,

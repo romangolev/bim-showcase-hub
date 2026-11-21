@@ -195,16 +195,22 @@ function warningText(result: CrawlResult): string | null {
   if (result.stop === 'unauthorized') {
     return friendlyError(new ApiError(401, 'Unauthorized')).message;
   }
+  const parts: string[] = [];
   if (result.stop === 'folders') {
-    return `Stopped at the ${CRAWL_LIMITS.maxFolders} folder limit. Narrow the search to a folder.`;
+    parts.push(
+      `Stopped at the ${CRAWL_LIMITS.maxFolders} folder limit. Narrow the search to a folder.`,
+    );
+  } else if (result.stop === 'time' || result.stop === 'nodes') {
+    parts.push(
+      'Stopped before every folder was read. Narrow the search to a folder.',
+    );
   }
   if (result.failed > 0) {
-    return `${result.failed} folder${result.failed === 1 ? '' : 's'} could not be read`;
+    parts.push(
+      `${result.failed} folder${result.failed === 1 ? '' : 's'} could not be read`,
+    );
   }
-  if (result.stop === 'time' || result.stop === 'nodes') {
-    return 'Stopped before every folder was read. Narrow the search to a folder.';
-  }
-  return null;
+  return parts.length > 0 ? parts.join('. ') : null;
 }
 
 export function DocumentTree({
@@ -348,6 +354,7 @@ export function DocumentTree({
       failed: 0,
       detail: null,
     });
+    let lastProgress = 0;
     const task = startTask({
       label: 'Searching project files',
       cancel: cancelCrawl,
@@ -356,6 +363,9 @@ export function DocumentTree({
     void state
       .crawl(controller.signal, (progress) => {
         if (runId !== crawlRun.current) return;
+        const at = Date.now();
+        if (at - lastProgress < 250) return;
+        lastProgress = at;
         setCrawl({
           status: 'running',
           folders: progress.folders,
@@ -399,6 +409,15 @@ export function DocumentTree({
         : [...current.types, type],
     }));
 
+  const searchProject = () => {
+    if (!state.crawled()) startCrawl();
+  };
+
+  const clearSearch = () => {
+    setFilter('');
+    setFilters(NO_FILTERS);
+  };
+
   const applySavedSearch = (data: DocSearchData) => {
     setFilters({
       text: '',
@@ -409,7 +428,7 @@ export function DocumentTree({
     });
     setFilter(data.text);
     setChipsOpen(true);
-    if (data.scope === 'project') startCrawl();
+    if (data.scope === 'project') searchProject();
   };
 
   const savedSearchEntries = (): MenuEntry[] => {
@@ -581,8 +600,7 @@ export function DocumentTree({
   const revealPath = (node: TreeNode) => {
     void (async () => {
       if (searching) {
-        setFilter('');
-        setFilters(NO_FILTERS);
+        clearSearch();
       }
       if (!(await state.revealTo(node))) return;
       await sleep(80);
@@ -595,8 +613,7 @@ export function DocumentTree({
     if (!parentId) return;
     void (async () => {
       if (searching) {
-        setFilter('');
-        setFilters(NO_FILTERS);
+        clearSearch();
       }
       if (!(await state.revealTo(node))) return;
       const parent = tree.getItemInstance(parentId);
@@ -609,8 +626,7 @@ export function DocumentTree({
   const showItemVersions = (node: TreeNode) => {
     void (async () => {
       if (searching) {
-        setFilter('');
-        setFilters(NO_FILTERS);
+        clearSearch();
       }
       if (!(await state.revealTo(node))) return;
       const item = tree.getItemInstance(node.id);
@@ -801,6 +817,7 @@ export function DocumentTree({
   useEffect(
     () => () => {
       stopCrawl()?.discard();
+      setCrawl(null);
     },
     [state],
   );
@@ -1236,10 +1253,7 @@ export function DocumentTree({
               row.clearFilter
                 ? {
                     label: 'Show all',
-                    onClick: () => {
-                      setFilter('');
-                      setFilters(NO_FILTERS);
-                    },
+                    onClick: clearSearch,
                   }
                 : { label: 'Refresh', onClick: () => refresh(row.parentId) }
             }
@@ -1266,12 +1280,11 @@ export function DocumentTree({
               crawlRootId
             ) {
               event.preventDefault();
-              startCrawl();
+              searchProject();
             }
             if (event.key === 'Escape' && (filter || searching)) {
               event.stopPropagation();
-              setFilter('');
-              setFilters(NO_FILTERS);
+              clearSearch();
             }
           }}
           disabled={filterDisabled}
@@ -1491,6 +1504,7 @@ export function DocumentTree({
       ) : null}
       {preview ? (
         <PreviewCard
+          key={preview.node.id}
           node={preview.node}
           anchor={preview.anchor}
           showImage={view.thumbnails}

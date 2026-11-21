@@ -649,6 +649,15 @@ describe('treeState crawl', () => {
     expect(progress).toHaveBeenCalled();
   });
 
+  it('remembers a finished crawl until a refresh', async () => {
+    const { state } = makeProject();
+    expect(state.crawled()).toBe(false);
+    await state.crawl(new AbortController().signal);
+    expect(state.crawled()).toBe(true);
+    state.refresh('f');
+    expect(state.crawled()).toBe(false);
+  });
+
   it('searches crawled items from folders the tree never expanded', async () => {
     const { state, open } = makeProject();
     await state.crawl(new AbortController().signal);

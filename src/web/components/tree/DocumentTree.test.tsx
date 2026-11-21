@@ -1542,6 +1542,21 @@ describe('DocumentTree deep search', () => {
     expect(await screen.findByText('Searched 3 folders')).toBeInTheDocument();
   });
 
+  it('does not crawl again on Enter once the project was searched', async () => {
+    const fetchMock = await renderProject(projectRoutes(), {
+      searchScope: 'project',
+    });
+    fireEvent.change(filterBox(), { target: { value: 'nwd' } });
+    fireEvent.keyDown(filterBox(), { key: 'Enter' });
+    await screen.findByText('Searched 3 folders');
+    const after = callsTo(fetchMock, '/api/projects/p1/folders/f1/contents');
+    fireEvent.keyDown(filterBox(), { key: 'Enter' });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(callsTo(fetchMock, '/api/projects/p1/folders/f1/contents')).toBe(
+      after,
+    );
+  });
+
   it('lists only the chosen types when a chip is pressed', async () => {
     await renderProject();
     fireEvent.change(filterBox(), { target: { value: 'arc' } });
