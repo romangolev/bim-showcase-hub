@@ -116,4 +116,27 @@ describe('TreeRowView', () => {
       'data-view-state',
     );
   });
+
+  it('shows a Latest badge only on the latest version', () => {
+    const { rerender } = render(
+      <TreeRowView
+        level={3}
+        kind="version"
+        name={NAME}
+        viewState="ready"
+        latest
+      />,
+    );
+    expect(screen.getByText('Latest')).toBeInTheDocument();
+    expect(screen.getByLabelText('Latest version')).toBeInTheDocument();
+    rerender(
+      <TreeRowView
+        level={3}
+        kind="version"
+        name="v2: 2026-01-01 10:00 by Sam"
+        viewState="ready"
+      />,
+    );
+    expect(screen.queryByText('Latest')).toBeNull();
+  });
 });

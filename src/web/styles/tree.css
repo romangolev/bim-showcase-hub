@@ -432,6 +432,17 @@
   white-space: nowrap;
 }
 
+.tree-row__latest {
+  flex: none;
+  padding: 0 6px;
+  border-radius: var(--radius-badge);
+  background: color-mix(in srgb, var(--color-arc-blue) 18%, transparent);
+  color: var(--color-arc-blue);
+  font-size: var(--text-13);
+  font-weight: var(--weight-label);
+  white-space: nowrap;
+}
+
 .tree-row__state[data-state="viewable"] {
   border-color: var(--color-arc-blue);
   color: var(--color-arc-blue);

@@ -712,6 +712,7 @@ export function DocumentTree({
           focused={item.isFocused()}
           viewState={viewStateOf(node)}
           checked={node.checked}
+          latest={node.latest}
           meta={metaText(node, view)}
           picked={urn !== null && pickedUrns.has(urn)}
           action={rowAction(node)}
@@ -762,6 +763,7 @@ export function DocumentTree({
           name={resultNode.name}
           viewState={viewStateOf(resultNode)}
           checked={resultNode.checked}
+          latest={resultNode.latest}
           caption={resultNode.kind === 'version' ? undefined : resultNode.kind}
           secondary={parentName(resultNode)}
           highlight={query}

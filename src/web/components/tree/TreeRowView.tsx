@@ -131,6 +131,7 @@ export interface TreeRowViewProps {
   highlight?: string;
   picked?: boolean;
   added?: boolean;
+  latest?: boolean;
   action?: ReactNode;
   rowProps?: HTMLAttributes<HTMLDivElement> & {
     ref?: Ref<HTMLDivElement>;
@@ -155,6 +156,7 @@ export function TreeRowView({
   highlight,
   picked,
   added,
+  latest = false,
   action,
   rowProps,
 }: TreeRowViewProps) {
@@ -227,6 +229,11 @@ export function TreeRowView({
               highlightMatch(primary, highlight)
             )}
           </span>
+          {latest ? (
+            <span className="tree-row__latest" aria-label="Latest version">
+              Latest
+            </span>
+          ) : null}
           {isVersion ? (
             <span
               className="tree-row__state"
