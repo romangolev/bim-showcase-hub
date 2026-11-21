@@ -135,7 +135,7 @@ describe('stacked layout', () => {
       expect(document.querySelector('.dv-dockview')).not.toBeNull(),
     );
     await waitFor(() =>
-      expect(parseLayout(storage.getItem(LAYOUT_KEY))?.dock).not.toBeNull(),
+      expect(parseLayout(storage.getItem(LAYOUT_KEY))?.dock).toBeTruthy(),
     );
     const before = storage.getItem(LAYOUT_KEY);
 
@@ -145,7 +145,7 @@ describe('stacked layout', () => {
     );
     expect(document.querySelector('.stack')).not.toBeNull();
     expect(
-      screen.getByRole('complementary', { name: 'Model summary' }),
+      await screen.findByRole('complementary', { name: 'Model summary' }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole('region', { name: 'Model viewer' }),
