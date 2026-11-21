@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import '../viewer/reportTemplates.js';
 import '../extensions/colorRulePresets.js';
 import './modelSets.js';
+import '../components/tree/deepSearch.js';
 import {
   DASHBOARD_USER_PRESETS,
   DEFAULT_DASHBOARD_VIEW,
@@ -75,6 +76,10 @@ describe('production saved kinds', () => {
       version: 1,
       label: 'Model set',
     });
+    expect(getSavedKind('doc-search')).toMatchObject({
+      version: 1,
+      label: 'Document search',
+    });
     expect(savedKindVersions()).toMatchObject({
       viewpoint: 1,
       'selection-set': 1,
@@ -83,6 +88,7 @@ describe('production saved kinds', () => {
       'report-template': 1,
       'color-rules': 1,
       'model-set': 1,
+      'doc-search': 1,
     });
   });
 

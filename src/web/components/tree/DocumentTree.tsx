@@ -28,6 +28,7 @@ import type { VersionTarget } from '../../panels/versionHistory.js';
 import { PANE_SETTINGS } from '../../settings/paneSettings.js';
 import { usePersisted } from '../../storage.js';
 import { MAX_SET_MEMBERS } from '../../store/modelSets.js';
+import { MAX_NAME_LENGTH } from '../../store/savedStore.js';
 import { notify } from '../../tasks/notifications.js';
 import { startTask, type TaskHandle } from '../../tasks/taskStore.js';
 import { Icon } from '../icons.js';
@@ -36,6 +37,8 @@ import { StateBlock } from '../StateBlock.js';
 import { CRAWL_LIMITS, type CrawlResult } from './crawl.js';
 import {
   type DeepSearchFilters,
+  DOC_SEARCHES,
+  type DocSearchData,
   FILE_TYPES,
   NO_FILTERS,
 } from './deepSearch.js';
@@ -217,6 +220,7 @@ export function DocumentTree({
   const [filters, setFilters] = useState<DeepSearchFilters>(NO_FILTERS);
   const [chipsOpen, setChipsOpen] = useState(false);
   const [crawl, setCrawl] = useState<CrawlView | null>(null);
+  const [saveSearchOpen, setSaveSearchOpen] = useState(false);
   const chipsId = useId();
   const crawlRef = useRef<AbortController | null>(null);
   const crawlTask = useRef<TaskHandle | null>(null);
@@ -371,6 +375,36 @@ export function DocumentTree({
         ? current.types.filter((entry) => entry !== type)
         : [...current.types, type],
     }));
+
+  const applySavedSearch = (data: DocSearchData) => {
+    setFilters({
+      text: '',
+      types: [...data.types],
+      viewableOnly: data.viewableOnly,
+      from: data.from,
+      to: data.to,
+    });
+    setFilter(data.text);
+    setChipsOpen(true);
+    if (data.scope === 'project') startCrawl();
+  };
+
+  const savedSearchEntries = (): MenuEntry[] => {
+    const entries: MenuEntry[] = DOC_SEARCHES.list().map((item) => ({
+      id: `saved-${item.id}`,
+      label: item.name,
+      onSelect: () => applySavedSearch(item.data),
+    }));
+    if (entries.length > 0) {
+      entries.push({ kind: 'separator', id: 'saved-separator' });
+    }
+    entries.push({
+      id: 'save-search',
+      label: 'Save search',
+      onSelect: () => setSaveSearchOpen(true),
+    });
+    return entries;
+  };
 
   const selectedUrnRef = useRef(selectedUrn);
   selectedUrnRef.current = selectedUrn;
@@ -1266,6 +1300,18 @@ export function DocumentTree({
           <Icon name="filter" size={12} />
           Filters
         </button>
+        <Menu
+          label="Saved searches"
+          title="Saved searches"
+          trigger={
+            <>
+              <Icon name="star" size={12} />
+              Saved searches
+            </>
+          }
+          triggerClassName="doc-tree__tool"
+          items={savedSearchEntries}
+        />
       </div>
       {chipsOpen ? (
         <div id={chipsId} className="doc-tree__chips">
@@ -1418,6 +1464,12 @@ export function DocumentTree({
         </div>
       </div>
       {rowMenu.menu}
+      {saveSearchOpen ? (
+        <SaveSearchDialog
+          data={{ ...filters, text: filter.trim(), scope: view.searchScope }}
+          onDone={() => setSaveSearchOpen(false)}
+        />
+      ) : null}
       {preview ? (
         <PreviewCard
           node={preview.node}
@@ -1528,5 +1580,93 @@ function PickBar({
         </>
       ) : null}
     </section>
+  );
+}
+
+function SaveSearchDialog({
+  data,
+  onDone,
+}: {
+  data: DocSearchData;
+  onDone: () => void;
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
+  const [name, setName] = useState('');
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.open) dialog.showModal();
+  }, []);
+
+  const save = () => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const saved = DOC_SEARCHES.save(trimmed, data);
+    notify(
+      saved
+        ? `Saved the search "${trimmed}"`
+        : 'Could not save the search. Delete some saved items and try again.',
+      { tone: saved ? 'success' : 'error' },
+    );
+    onDone();
+  };
+
+  return (
+    <dialog
+      ref={dialogRef}
+      className="modal modal--sm"
+      aria-labelledby={titleId}
+      onClose={onDone}
+    >
+      <div className="modal__panel">
+        <header className="modal__head">
+          <h2 id={titleId} className="modal__title">
+            Save search
+          </h2>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Close"
+            onClick={onDone}
+          >
+            <Icon name="close" size={16} />
+          </button>
+        </header>
+        <div className="modal__body">
+          <label className="bsh-field">
+            <span>Search name</span>
+            <input
+              type="text"
+              className="bsh-input"
+              aria-label="Search name"
+              placeholder="Name this search"
+              maxLength={MAX_NAME_LENGTH}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') save();
+              }}
+            />
+          </label>
+          <p className="settings__hint">
+            A saved search applies to the project you have open.
+          </p>
+          <div className="bsh-presets">
+            <button type="button" className="bsh-button" onClick={onDone}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="bsh-button"
+              disabled={!name.trim()}
+              onClick={save}
+            >
+              Save search
+            </button>
+          </div>
+        </div>
+      </div>
+    </dialog>
   );
 }

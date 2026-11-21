@@ -25,6 +25,7 @@ import {
   treeRoutes,
 } from '../../test/mockApi.js';
 import { DocumentTree } from './DocumentTree.js';
+import { DOC_SEARCHES } from './deepSearch.js';
 import { requestDeepSearch } from './deepSearchSignal.js';
 import type { TreeRoot } from './docRoot.js';
 import { DEFAULT_TREE_VIEW, type TreeView } from './treeView.js';
@@ -1633,5 +1634,45 @@ describe('DocumentTree deep search', () => {
       'true',
     );
     expect(filterBox()).toHaveFocus();
+  });
+});
+
+describe('DocumentTree saved searches', () => {
+  it('applies a saved search and starts the crawl for a project scope', async () => {
+    const fetchMock = await renderProject(projectRoutes(), {
+      searchScope: 'project',
+    });
+    fireEvent.change(filterBox(), { target: { value: 'arc' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
+    fireEvent.click(screen.getByRole('button', { name: 'rvt' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Saved searches' }));
+    fireEvent.click(await screen.findByText('Save search'));
+    fireEvent.change(screen.getByLabelText('Search name'), {
+      target: { value: 'Facade plans' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save search' }));
+    await waitFor(() => expect(DOC_SEARCHES.list()).toHaveLength(1));
+    expect(DOC_SEARCHES.list()[0]?.data).toMatchObject({
+      text: 'arc',
+      types: ['rvt'],
+      scope: 'project',
+    });
+
+    fireEvent.change(filterBox(), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'rvt' }));
+    const before = callsTo(fetchMock, '/api/projects/p1/folders/f1/contents');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Saved searches' }));
+    fireEvent.click(await screen.findByText('Facade plans'));
+    expect(filterBox()).toHaveValue('arc');
+    expect(screen.getByRole('button', { name: 'rvt' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await waitFor(() =>
+      expect(callsTo(fetchMock, '/api/projects/p1/folders/f1/contents')).toBe(
+        before + 1,
+      ),
+    );
   });
 });
