@@ -103,25 +103,40 @@ function captureNodes(
   return nodes.length === 0 ? undefined : nodes;
 }
 
+export interface ShareInclude {
+  selection: boolean;
+  panes: boolean;
+  nodes: boolean;
+}
+
+export const SHARE_INCLUDE_ALL: ShareInclude = {
+  selection: true,
+  panes: true,
+  nodes: true,
+};
+
 export function sharedView(
   adapter: ViewerAdapter,
   modelIds: readonly string[],
   layout: Pick<LayoutApi, 'openPanes' | 'isCollapsed'> | null,
+  include: ShareInclude = SHARE_INCLUDE_ALL,
 ): SharedView | null {
   const camera = adapter.getCamera();
   if (!camera) return null;
-  const panes = capturePanes(layout);
-  const nodes = captureNodes(adapter.getState(), modelIds);
+  const panes = include.panes ? capturePanes(layout) : undefined;
+  const nodes = include.nodes
+    ? captureNodes(adapter.getState(), modelIds)
+    : undefined;
   const link: ViewLink = {
     camera,
-    selection: adapter.getModelSelection(),
+    selection: include.selection ? adapter.getModelSelection() : [],
     ...(panes ? { panes } : {}),
-    charts: captureCharts(),
+    ...(include.panes ? { charts: captureCharts() } : {}),
     ...(nodes ? { nodes } : {}),
   };
   return {
     ...fitView(link, modelIds),
-    trimmed: chartInstanceIds().length + 1 > MAX_LINK_CHARTS,
+    trimmed: include.panes && chartInstanceIds().length + 1 > MAX_LINK_CHARTS,
     link,
   };
 }

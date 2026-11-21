@@ -31,6 +31,7 @@ import {
   ModelScopeSelect,
   UnavailableModels,
 } from './ModelScope.js';
+import { SummaryPresets } from './SummaryPresets.js';
 import { entryKey, SummaryTable } from './SummaryTable.js';
 import {
   HIDDEN_MESSAGE,
@@ -101,10 +102,19 @@ export function ModelSummaryPanel({
     autoRefresh: view.autoRefresh,
     ...(controlledScope ? { models: controlledScope } : {}),
   });
+  const partialEntries = useMemo(
+    () =>
+      state.partialRows.length > 0
+        ? summarize(state.partialRows, propertyNames)
+        : EMPTY,
+    [state.partialRows, propertyNames],
+  );
   const entries = useMemo(
     () =>
-      state.rows.length > 0 ? summarize(state.rows, propertyNames) : EMPTY,
-    [state.rows, propertyNames],
+      state.rows.length > 0
+        ? summarize(state.rows, propertyNames)
+        : partialEntries,
+    [state.rows, propertyNames, partialEntries],
   );
 
   const [savedAction] = usePersisted(PANE_SETTINGS.summary.action);
@@ -161,6 +171,12 @@ export function ModelSummaryPanel({
   const bodyId = `${uid}-body`;
   const titleId = `${uid}-title`;
   const toggleLabel = isCollapsed ? `Expand ${title}` : `Collapse ${title}`;
+  const globalSummary =
+    propertyNamesOverride === undefined &&
+    controlledScope === undefined &&
+    controlledElements === undefined &&
+    controlledView === undefined &&
+    controlledAction === undefined;
 
   return (
     <section
@@ -168,7 +184,10 @@ export function ModelSummaryPanel({
       aria-labelledby={titleId}
       data-collapsed={isCollapsed}
       data-density={view.density}
-      data-rows-collapsed={!showAll && shown.length > STACKED_ROW_LIMIT}
+      data-rows-collapsed={
+        !showAll &&
+        (view.layout === 'pivot' ? false : shown.length > STACKED_ROW_LIMIT)
+      }
     >
       <header className="bsh-card__header bsh-summary__header">
         <h2 id={titleId} className="bsh-card__title bsh-summary__title">
@@ -225,6 +244,13 @@ export function ModelSummaryPanel({
         aria-hidden={isCollapsed || undefined}
       >
         <div className="bsh-summary__body">
+          {globalSummary ? (
+            <SummaryPresets
+              adapter={resolved}
+              properties={propertyNames}
+              view={view}
+            />
+          ) : null}
           {state.status === 'ready' ? (
             <>
               <UnavailableModels models={state.models.unavailable} />
@@ -277,6 +303,11 @@ export function ModelSummaryPanel({
                   ? `Reading element properties: ${state.progress.loaded.toLocaleString('en-US')} of ${state.progress.total.toLocaleString('en-US')}${state.progress.partial ? ' (partial data)' : ''}`
                   : 'Reading element properties'}
               </span>
+              {state.partialRows.length > 0 && state.progress ? (
+                <span role="status">
+                  {`Partial: ${state.partialRows.length.toLocaleString('en-US')} of ${state.progress.total.toLocaleString('en-US')} elements`}
+                </span>
+              ) : null}
               <button
                 type="button"
                 className="bsh-button"
@@ -286,9 +317,10 @@ export function ModelSummaryPanel({
               </button>
             </div>
           )}
-          {resolved && state.status === 'loading' && state.total === 0 && (
-            <StateBlock variant="loading" rows={5} />
-          )}
+          {resolved &&
+            state.status === 'loading' &&
+            state.total === 0 &&
+            entries.length === 0 && <StateBlock variant="loading" rows={5} />}
           {state.status === 'cancelled' && (
             <div className="bsh-summary__partial" role="status">
               <span>
@@ -333,14 +365,16 @@ export function ModelSummaryPanel({
             )}
           {entries.length > 0 && (
             <div className="bsh-summary__tools">
-              <input
-                type="search"
-                className="bsh-input"
-                aria-label="Filter summary rows"
-                placeholder="Filter"
-                value={view.text}
-                onChange={(e) => patch({ text: e.target.value })}
-              />
+              {view.layout === 'pivot' ? null : (
+                <input
+                  type="search"
+                  className="bsh-input"
+                  aria-label="Filter summary rows"
+                  placeholder="Filter"
+                  value={view.text}
+                  onChange={(e) => patch({ text: e.target.value })}
+                />
+              )}
               <button type="button" className="bsh-button" onClick={copyTable}>
                 Copy table
               </button>
@@ -372,20 +406,32 @@ export function ModelSummaryPanel({
               )}
             </div>
           )}
-          {entries.length > 0 && shown.length === 0 && (
-            <StateBlock
-              variant="empty"
-              compact
-              title="No rows match"
-              message="Change the filter, or reset the view in Summary settings."
-            />
-          )}
-          {shown.length > 0 && (
+          {entries.length > 0 &&
+            shown.length === 0 &&
+            view.layout !== 'pivot' && (
+              <StateBlock
+                variant="empty"
+                compact
+                title="No rows match"
+                message="Change the filter, or reset the view in Summary settings."
+              />
+            )}
+          {(view.layout === 'pivot'
+            ? entries.length > 0
+            : shown.length > 0) && (
             <SummaryTable
               entries={shown}
               hiddenColumns={view.hiddenColumns}
               activeKey={active}
               onPick={pick}
+              view={view}
+              propertyNames={propertyNames}
+              rows={state.rows}
+              onTitleChange={(property, title) =>
+                patch({
+                  titles: { ...view.titles, [property]: title },
+                })
+              }
             />
           )}
           {shown.length > STACKED_ROW_LIMIT && (

@@ -1,5 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import '../viewer/reportTemplates.js';
+import '../extensions/colorRulePresets.js';
 import {
   DASHBOARD_USER_PRESETS,
   DEFAULT_DASHBOARD_VIEW,
@@ -60,11 +62,21 @@ describe('production saved kinds', () => {
       version: 1,
       label: 'Export preset',
     });
+    expect(getSavedKind('report-template')).toMatchObject({
+      version: 1,
+      label: 'Report template',
+    });
+    expect(getSavedKind('color-rules')).toMatchObject({
+      version: 1,
+      label: 'Colour rules',
+    });
     expect(savedKindVersions()).toMatchObject({
       viewpoint: 1,
       'selection-set': 1,
       'dashboard-preset': 1,
       'export-preset': 1,
+      'report-template': 1,
+      'color-rules': 1,
     });
   });
 

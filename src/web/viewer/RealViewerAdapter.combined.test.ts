@@ -786,6 +786,16 @@ describe('selecting and isolating by model', () => {
     expect(viewer().isolated.get(str)).toEqual([]);
   });
 
+  it('shows hidden elements of one model again', async () => {
+    await adapter.loadModels([{ urn: 'arch' }]);
+    adapter.hideModelIds([{ modelId: 'arch', dbId: 11 }]);
+    adapter.showModelIds([{ modelId: 'arch', dbId: 11 }]);
+    expect(await adapter.getVisible()).toContainEqual({
+      modelId: 'arch',
+      dbId: 11,
+    });
+  });
+
   it('signals visibility changes from hide, show and isolate', async () => {
     await adapter.loadModels([{ urn: 'arch' }]);
     const seen = vi.fn();
@@ -818,5 +828,15 @@ describe('selecting and isolating by model', () => {
     const before = viewer().fits;
     adapter.fitToView();
     expect(viewer().fits).toBe(before + 1);
+  });
+});
+
+describe('ghosting', () => {
+  it('passes ghosting to the viewer', async () => {
+    await adapter.loadModels([{ urn: 'arch' }]);
+    adapter.setGhosting(false);
+    expect(viewer().ghosting).toBe(false);
+    adapter.setGhosting(true);
+    expect(viewer().ghosting).toBe(true);
   });
 });

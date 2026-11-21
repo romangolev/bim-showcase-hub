@@ -81,7 +81,8 @@ All browser storage goes through `src/web/storage.ts`. `BSH_KEYS` lists the fixe
 | `bsh.pane.<kind>.<n>.v1` | personal | Spec of a chart, summary or properties pane instance. A chart spec includes its property list |
 | `bsh.pane.docs.root.v1` | personal | Documents root: the hub and project the tree starts at |
 | `bsh.pane.appearance.v1` | personal | Pane titles and colour tags, keyed by panel id (`summary`, `chart:1`). Under the `bsh.pane.` prefix |
-| `bsh.saved.v1` | personal | Saved items: dashboard presets, export presets, selection sets, viewpoints |
+| `bsh.pane.colors.v1` | personal | Colors pane: mode, property or rules, top N, overrides and the working rule set |
+| `bsh.saved.v1` | personal | Saved items: dashboard presets, export presets, summary presets, report templates, colour rules, selection sets, viewpoints |
 | `bsh.workspaces.v1` | personal | Named workspaces: `{ version: 1, items }`, each with a name, a layout and pane appearances |
 | `bsh.commands.recent.v1` | personal | Recent palette commands |
 | `bsh.paint.<hash>` | personal | One paint record per model version: an ordered, bounded list of paint actions and the undo cursor. The hash covers the URN and the model version |
@@ -91,11 +92,13 @@ All browser storage goes through `src/web/storage.ts`. `BSH_KEYS` lists the fixe
 | `bsh.tree.view` | preference | Tree sort and metadata columns |
 | `bsh.snapshot.v1` | preference | Snapshot and Present options |
 | `bsh.notify.v1` | preference | Toast position, duration and quiet mode |
+| `bsh.charts.v1` | preference | Chart palette, pattern fills and whether the data table starts open |
+| `bsh.share.v1` | preference | Which parts a Share link carries (selection, panes and charts, hidden and isolated). The camera is always included |
 | `bsh.commands.pinned.v1` | preference | Pinned palette commands |
 | `bsh.commands.viewer.keys.v1` | preference | Rebound viewer shortcuts, keyed by command id. Commands missing here use the defaults |
-| `bsh.tool.<id>.v1` | preference | Per-tool settings (`paint`, `excel`, `glb`, `ifc`). Excel stores its chosen columns in `properties`; paint stores the palette, restore-on-open and history depth |
+| `bsh.tool.<id>.v1` | preference | Per-tool settings (`paint`, `excel`, `glb`, `ifc`). Excel stores its chosen columns in `properties`, the column format per property in `columnFormats`, the colour toggles, the group-by, the empty label and the confirmation threshold; paint stores the palette, restore-on-open and history depth |
 
-To reset the layout, run `localStorage.removeItem('bsh.layout.v2')` or use Reset layout in the Panes menu or Settings > Defaults. In mock mode `window.__bshLayout` exposes the layout API for tests. It does not exist in production builds.
+To reset the layout, run `localStorage.removeItem('bsh.layout.v2')` or use Reset layout in the Panes menu or Settings > Defaults. In mock mode `window.__bshLayout` exposes the layout API for tests and `window.__bshMeasureRows()` returns the current adapter's cached leaf rows for `e2e/measure_rows.py`. Neither exists in production builds.
 
 ## CSP
 

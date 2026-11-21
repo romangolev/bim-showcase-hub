@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { PAINT_PALETTES } from '../extensions/paintBrushes.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { act, fireEvent, render, screen } from '../test/render.js';
 import { useTheme } from '../theme/ThemeContext.js';
 import { ChartCanvas } from './ChartCanvas.js';
+import { CHART_SETTINGS } from './chartSettings.js';
 
 const created = vi.hoisted(() => ({
   charts: [] as {
@@ -108,6 +110,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   document.documentElement.removeAttribute('style');
 });
 
@@ -176,6 +179,61 @@ describe('ChartCanvas highlight', () => {
     expect(first?.data.datasets[0]?.borderWidth).toEqual(
       chart.data.map((_, index) => (index === 0 ? 2 : 0)),
     );
+  });
+});
+
+describe('ChartCanvas palette and patterns', () => {
+  const tile = {
+    fillStyle: '',
+    strokeStyle: '',
+    lineWidth: 0,
+    fillRect: vi.fn(),
+    beginPath: vi.fn(),
+    moveTo: vi.fn(),
+    lineTo: vi.fn(),
+    arc: vi.fn(),
+    fill: vi.fn(),
+    stroke: vi.fn(),
+  };
+
+  it('reads the palette from the chart settings', () => {
+    CHART_SETTINGS.write({
+      palette: 'okabe-ito',
+      patterns: false,
+      dataTable: false,
+    });
+    render(<ChartCanvas kind="bar" chart={chart} label="Counts" />);
+    const okabe = PAINT_PALETTES.find(
+      (item) => item.id === 'okabe-ito',
+    )?.swatches.map((swatch) => swatch.hex.toLowerCase());
+    for (const color of colorsOf(0)) {
+      expect(okabe).toContain(color.toLowerCase());
+    }
+  });
+
+  it('fills each series with a pattern when pattern fills are on', () => {
+    CHART_SETTINGS.write({
+      palette: 'default',
+      patterns: true,
+      dataTable: false,
+    });
+    const pattern = { pattern: true } as unknown as CanvasPattern;
+    vi.stubGlobal('OffscreenCanvas', undefined);
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+      ...tile,
+      createPattern: () => pattern,
+    } as unknown as RenderingContext);
+    render(<ChartCanvas kind="bar" chart={chart} label="Counts" />);
+    const colors = colorsOf(0);
+    expect(colors[0]).toBeTypeOf('string');
+    expect(colors[1]).toBe(pattern);
+  });
+
+  it('keeps plain colours when pattern fills are off', () => {
+    render(<ChartCanvas kind="bar" chart={chart} label="Counts" />);
+    const got = colorsOf(0);
+    expect(got).toHaveLength(2);
+    for (const color of got) expect(typeof color).toBe('string');
   });
 });
 

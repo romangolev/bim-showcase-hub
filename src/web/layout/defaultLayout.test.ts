@@ -7,8 +7,10 @@ describe('default layout', () => {
       'viewer',
       'summary',
       'dashboard',
+      'export',
       'tree',
       'models',
+      'colors',
     ]);
   });
 

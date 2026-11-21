@@ -204,6 +204,16 @@ describe('ViewerAdapter contract (mock)', () => {
     ).rejects.toMatchObject({ name: 'AbortError' });
   });
 
+  it('reports the rows of each chunk while the read runs', async () => {
+    await setup();
+    const sizes: number[] = [];
+    const rows = await adapter.getLeafProperties(['Category'], undefined, {
+      onRows: (part) => sizes.push(part.length),
+    });
+    expect(sizes.length).toBeGreaterThan(0);
+    expect(sizes.reduce((sum, size) => sum + size, 0)).toBe(rows.length);
+  });
+
   it('reads the full property set of one element', async () => {
     await setup();
     const modelId = adapter.getModels()[0]?.id ?? '';
@@ -270,6 +280,7 @@ describe('ViewerAdapter contract (mock)', () => {
     await setup();
     const typed: ViewerAdapter = adapter;
     expect(typeof typed.load).toBe('function');
+    expect(typeof typed.setGhosting).toBe('function');
   });
 });
 
@@ -379,6 +390,19 @@ describe('mock selecting and isolating', () => {
     adapter.showAll();
     expect(await adapter.getVisible()).toHaveLength(total);
     expect(host.querySelectorAll('.bsh-mock__el--hidden')).toHaveLength(0);
+  });
+
+  it('shows hidden elements again one group at a time', async () => {
+    await setup();
+    const [first, second] = buildMockElements();
+    const modelId = adapter.getModels()[0]?.id ?? '';
+    const total = buildMockElements().length;
+    const a = { modelId, dbId: first?.dbId ?? 0 };
+    const b = { modelId, dbId: second?.dbId ?? 0 };
+    adapter.hideModelIds([a, b]);
+    adapter.showModelIds([a]);
+    expect(await adapter.getVisible()).toHaveLength(total - 1);
+    expect(host.querySelectorAll('.bsh-mock__el--hidden')).toHaveLength(1);
   });
 });
 

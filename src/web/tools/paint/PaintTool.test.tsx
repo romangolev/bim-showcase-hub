@@ -147,44 +147,34 @@ describe('PaintTool', () => {
     const on = DEFAULT_PAINT_SETTINGS;
     const off = { ...DEFAULT_PAINT_SETTINGS, ghostRest: false };
 
-    it.each<[string, PaintSettings | undefined, PaintSettings, boolean[]]>([
-      ['leaves the viewer alone by default', undefined, on, []],
+    it.each<[string, PaintSettings[], boolean[]]>([
+      ['claims ghosting by default', [on], [true]],
+      ['releases its claim for a stored false', [off], [false]],
+      ['calls the adapter when the setting changes', [on, off], [true, false]],
+      ['ignores other changes', [off, { ...off, intensity: 0.5 }], [false]],
       [
-        'applies a stored false once when the tool first runs',
-        undefined,
-        off,
-        [false],
+        'claims ghosting again when the tool is turned off',
+        [off, { ...off, enabled: false }],
+        [false, true],
       ],
-      ['calls the adapter when the setting changes', on, off, [false]],
-      ['ignores other changes', off, { ...off, intensity: 0.5 }, []],
       [
         're-applies a stored false after the tool is turned back on',
-        { ...off, enabled: false },
-        off,
-        [false],
+        [{ ...off, enabled: false }, off],
+        [true, false],
       ],
-    ])('%s', (_name, prev, next, calls) => {
+    ])('%s', (_name, steps, calls) => {
       const setGhosting = vi.fn();
-      tool.onSettingsChanged(
-        { setGhosting } as unknown as ViewerAdapter,
-        prev,
-        next,
-      );
+      const adapter = { setGhosting } as unknown as ViewerAdapter;
+      let previous: PaintSettings | undefined;
+      for (const next of steps) {
+        tool.onSettingsChanged(adapter, previous, next);
+        previous = next;
+      }
       expect(setGhosting.mock.calls).toEqual(calls.map((call) => [call]));
     });
 
     it('defaults ghosting on', () => {
       expect(DEFAULT_PAINT_SETTINGS.ghostRest).toBe(true);
-    });
-
-    it('restores the viewer default when disabled', () => {
-      const setGhosting = vi.fn();
-      tool.onDisabled({
-        setGhosting,
-        getModels: () => [],
-        clearThemingColors: vi.fn(),
-      } as unknown as ViewerAdapter);
-      expect(setGhosting).toHaveBeenCalledExactlyOnceWith(true);
     });
 
     it('has no adapter side effect when contributing', () => {

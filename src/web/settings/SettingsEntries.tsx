@@ -3,6 +3,7 @@ import { usePersisted } from '../storage.js';
 import { NotificationSettingsSection } from '../tasks/NotificationSettingsSection.js';
 import { TOOLS } from '../tools/index.js';
 import type { AnyViewerTool } from '../tools/kernel/ToolRegistry.js';
+import { ChartSettingsSection } from './ChartSettingsSection.js';
 import {
   PANE_SETTINGS_ORDER,
   PANE_SETTINGS_SCHEMA,
@@ -103,6 +104,7 @@ export function SettingsEntries() {
         <Body key={id} />
       ))}
       <NotificationSettingsSection />
+      <ChartSettingsSection />
       <SnapshotSettings />
       <SavedItemsSettings />
     </>

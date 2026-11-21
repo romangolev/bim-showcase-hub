@@ -31,7 +31,9 @@ import {
   FORGET_EVENT,
   usePersisted,
 } from '../storage.js';
+import { currentAdapter } from '../viewer/activeAdapterStore.js';
 import { isMockViewer } from '../viewer/createViewerAdapter.js';
+import { peekLeafRows } from '../viewer/sharedLeafRows.js';
 import { ViewerProvider } from '../viewer/ViewerContext.js';
 import {
   forgetInstanceSetting,
@@ -662,8 +664,13 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       closeModel: modelStore.close,
       workspaces: () => api.workspaces,
     };
+    target.__bshMeasureRows = () => {
+      const adapter = currentAdapter();
+      return adapter ? (peekLeafRows(adapter) ?? []) : [];
+    };
     return () => {
       delete target.__bshLayout;
+      delete target.__bshMeasureRows;
     };
   }, [api, modelStore, lifecycle]);
 

@@ -8,7 +8,7 @@ import {
   LinearScale,
   Tooltip,
 } from 'chart.js';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '../components/icons.js';
 import { Menu } from '../components/Menu.js';
 import {
@@ -17,12 +17,17 @@ import {
   saveChartPng,
 } from '../extensions/chartExport.js';
 import {
+  AGGREGATE_LABELS,
   type ChartData,
+  formatMeasure,
   mixColors,
   readChartTheme,
   seriesColors,
 } from '../extensions/dashboardData.js';
+import { usePersisted } from '../storage.js';
 import { useTheme } from '../theme/ThemeContext.js';
+import { patternFill } from './chartPatterns.js';
+import { CHART_SETTINGS } from './chartSettings.js';
 
 Chart.register(
   ArcElement,
@@ -34,7 +39,7 @@ Chart.register(
   Tooltip,
 );
 
-export type ChartKind = 'bar' | 'doughnut';
+export type ChartKind = 'bar' | 'hbar' | 'doughnut';
 
 export const LEGEND_LIMIT = 8;
 const TICK_LABEL_LIMIT = 10;
@@ -49,6 +54,7 @@ export interface ChartCanvasProps {
   pngTitle?: boolean;
   pngLegend?: boolean;
   onSelectLabel?: (label: string) => void;
+  onColorModel?: (colors: readonly string[]) => void;
 }
 
 function shorten(text: string): string {
@@ -66,12 +72,16 @@ export function ChartCanvas({
   pngTitle = true,
   pngLegend = true,
   onSelectLabel,
+  onColorModel,
 }: ChartCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const selectRef = useRef(onSelectLabel);
   selectRef.current = onSelectLabel;
   const [notice, setNotice] = useState('');
   const { theme: pageTheme } = useTheme();
+  const [chartSettings] = usePersisted(CHART_SETTINGS);
+  const palette = chartSettings.palette;
+  const patterns = chartSettings.patterns;
   const litKey = highlight?.size ? JSON.stringify([...highlight].sort()) : '';
   const [colors, setColors] = useState<string[]>([]);
   const litKeyRef = useRef(litKey);
@@ -86,6 +96,7 @@ export function ChartCanvas({
     const colors = seriesColors(
       theme,
       chart.data.map((d) => d.label),
+      palette,
     );
     setColors(colors);
     Chart.defaults.font.family = theme.fontFamily;
@@ -93,31 +104,37 @@ export function ChartCanvas({
     Chart.defaults.font.weight = Number(theme.fontWeight) || 420;
     Chart.defaults.color = theme.text;
     const labels = chart.data.map((d) => d.label);
+    const patternCtx = patterns ? canvas.getContext('2d') : null;
     const styleFor = (key: string) => {
       const lit = key ? new Set<string>(JSON.parse(key)) : null;
       return {
-        backgroundColor: lit
-          ? colors.map((color, index) =>
-              lit.has(labels[index] ?? '')
-                ? color
-                : mixColors(color, theme.surface, DIM_WEIGHT),
-            )
-          : colors,
+        backgroundColor: colors.map((color, index) => {
+          const shown =
+            lit && !lit.has(labels[index] ?? '')
+              ? mixColors(color, theme.surface, DIM_WEIGHT)
+              : color;
+          return patternCtx ? patternFill(patternCtx, shown, index) : shown;
+        }),
         borderWidth: labels.map((name) => (lit?.has(name) ? 2 : 0)),
       };
     };
-    const counts = chart.data.map((d) => d.count);
+    const counts = chart.data.map((d) =>
+      chart.aggregate && chart.aggregate !== 'count'
+        ? (d.value ?? null)
+        : d.count,
+    );
+    const horizontal = kind === 'hbar';
     const instance = new Chart(canvas, {
-      type: kind,
+      type: kind === 'doughnut' ? 'doughnut' : 'bar',
       data: {
         labels,
         datasets: [
           {
-            label: chart.property,
+            label: chart.measure || chart.property,
             data: counts,
             ...styleFor(litKeyRef.current),
             borderColor: theme.label,
-            ...(kind === 'bar' ? { minBarLength: 2 } : {}),
+            ...(kind !== 'doughnut' ? { minBarLength: 2 } : {}),
             ...(kind === 'doughnut' ? { spacing: 2, borderRadius: 2 } : {}),
           },
         ],
@@ -126,6 +143,7 @@ export function ChartCanvas({
         responsive: true,
         maintainAspectRatio: false,
         animation: false,
+        ...(horizontal ? { indexAxis: 'y' } : {}),
         onClick: (_event, elements) => {
           const index = elements[0]?.index;
           const picked = index === undefined ? undefined : labels[index];
@@ -137,30 +155,59 @@ export function ChartCanvas({
           tooltip: { enabled: true },
         },
         scales:
-          kind === 'bar'
-            ? {
-                x: {
-                  border: { display: false },
-                  ticks: {
-                    color: theme.text,
-                    maxRotation: 0,
-                    autoSkip: true,
-                    callback(value) {
-                      return shorten(
-                        String(this.getLabelForValue(Number(value))),
-                      );
+          kind === 'doughnut'
+            ? {}
+            : {
+                x: horizontal
+                  ? {
+                      beginAtZero: true,
+                      border: { display: false },
+                      ticks: {
+                        color: theme.text,
+                        precision: 0,
+                        maxTicksLimit: 4,
+                      },
+                      grid: { color: theme.grid },
+                    }
+                  : {
+                      border: { display: false },
+                      ticks: {
+                        color: theme.text,
+                        maxRotation: 0,
+                        autoSkip: true,
+                        callback(value) {
+                          return shorten(
+                            String(this.getLabelForValue(Number(value))),
+                          );
+                        },
+                      },
+                      grid: { display: false },
                     },
-                  },
-                  grid: { display: false },
-                },
-                y: {
-                  beginAtZero: true,
-                  border: { display: false },
-                  ticks: { color: theme.text, precision: 0, maxTicksLimit: 4 },
-                  grid: { color: theme.grid },
-                },
-              }
-            : {},
+                y: horizontal
+                  ? {
+                      border: { display: false },
+                      ticks: {
+                        color: theme.text,
+                        autoSkip: true,
+                        callback(value) {
+                          return shorten(
+                            String(this.getLabelForValue(Number(value))),
+                          );
+                        },
+                      },
+                      grid: { display: false },
+                    }
+                  : {
+                      beginAtZero: true,
+                      border: { display: false },
+                      ticks: {
+                        color: theme.text,
+                        precision: 0,
+                        maxTicksLimit: 4,
+                      },
+                      grid: { color: theme.grid },
+                    },
+              },
       },
     });
     let painted = litKeyRef.current;
@@ -174,7 +221,7 @@ export function ChartCanvas({
       paintRef.current = null;
       instance.destroy();
     };
-  }, [kind, chart, pageTheme]);
+  }, [kind, chart, pageTheme, palette, patterns]);
 
   useEffect(() => {
     paintRef.current?.(litKey);
@@ -240,6 +287,15 @@ export function ChartCanvas({
               onSelect: () => saveChartCsv(chart, exportName),
             },
             { id: 'copy', label: 'Copy data', onSelect: copyChart },
+            ...(onColorModel
+              ? [
+                  {
+                    id: 'color-model',
+                    label: 'Color the model by this chart',
+                    onSelect: () => onColorModel(colors),
+                  },
+                ]
+              : []),
           ]}
         />
       </div>
@@ -271,6 +327,116 @@ export function ChartCanvas({
             ) : null}
           </ul>
         ) : null}
+      </div>
+    </div>
+  );
+}
+
+export interface ChartTableProps {
+  chart: ChartData;
+  label: string;
+  highlight?: ReadonlySet<string>;
+  onSelectLabel?: (label: string) => void;
+  onColorModel?: (colors: readonly string[]) => void;
+}
+
+export function ChartTable({
+  chart,
+  label,
+  highlight,
+  onSelectLabel,
+  onColorModel,
+}: ChartTableProps) {
+  const { theme: pageTheme } = useTheme();
+  const [chartSettings] = usePersisted(CHART_SETTINGS);
+  const palette = chartSettings.palette;
+  const colors = useMemo(
+    () =>
+      seriesColors(
+        readChartTheme(),
+        chart.data.map((d) => d.label),
+        palette,
+      ),
+    [chart.data, palette, pageTheme],
+  );
+  const numeric = chart.aggregate !== undefined && chart.aggregate !== 'count';
+  const valueLabel = `${AGGREGATE_LABELS[chart.aggregate ?? 'count']}${
+    chart.unit ? ` (${chart.unit})` : ''
+  }`;
+
+  return (
+    <div className="bsh-chart-frame bsh-chart-frame--table">
+      {onColorModel ? (
+        <div className="bsh-chart__tools">
+          <Menu
+            label={`Export ${label}`}
+            title="Export chart"
+            trigger={<Icon name="more" size={16} />}
+            triggerClassName="bsh-icon-button"
+            items={() => [
+              {
+                id: 'color-model',
+                label: 'Color the model by this chart',
+                onSelect: () => onColorModel(colors),
+              },
+            ]}
+          />
+        </div>
+      ) : null}
+      <div className="bsh-chart-table__wrap">
+        <table className="bsh-table bsh-chart-table">
+          <caption className="bsh-chart-table__caption">{label}</caption>
+          <thead>
+            <tr>
+              <th scope="col">{chart.property}</th>
+              {numeric ? (
+                <th scope="col" className="bsh-num">
+                  {valueLabel}
+                </th>
+              ) : null}
+              <th scope="col" className="bsh-num">
+                {numeric ? 'Elements' : 'Count'}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {chart.data.map((datum, index) => (
+              <tr
+                key={datum.label}
+                data-active={highlight?.has(datum.label) || undefined}
+              >
+                <th scope="row">
+                  <span className="bsh-chart-table__label">
+                    <span
+                      className="bsh-legend__swatch"
+                      style={{ background: colors[index] ?? 'transparent' }}
+                      aria-hidden="true"
+                    />
+                    {onSelectLabel ? (
+                      <button
+                        type="button"
+                        className="bsh-chart-table__pick"
+                        onClick={() => onSelectLabel(datum.label)}
+                      >
+                        {datum.label}
+                      </button>
+                    ) : (
+                      datum.label
+                    )}
+                  </span>
+                </th>
+                {numeric ? (
+                  <td className="bsh-num">
+                    {datum.value === undefined
+                      ? '—'
+                      : formatMeasure(datum.value, chart.unit)}
+                  </td>
+                ) : null}
+                <td className="bsh-num">{datum.count}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

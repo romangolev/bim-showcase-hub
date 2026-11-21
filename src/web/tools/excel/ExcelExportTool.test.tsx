@@ -256,6 +256,29 @@ describe('ExcelExportTool', () => {
     second.exports?.[0]?.onExport();
     expect(exportToXlsx).toHaveBeenCalledTimes(1);
   });
+
+  it('asks before a big export only when the threshold is passed', () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const ask = (confirmAbove: number) => {
+      const { exports } = tool.contribute(
+        context({
+          adapter: {} as ViewerAdapter,
+          current: () =>
+            ({ ...DEFAULT_EXCEL_TOOL_SETTINGS, confirmAbove }) as never,
+        }),
+      );
+      exports?.[0]?.onExport();
+      const call = exportToXlsx.mock.calls.at(-1)?.[1] as {
+        confirm?: (rows: number) => boolean;
+      };
+      call.confirm?.(1500);
+    };
+    ask(1000);
+    expect(confirm).toHaveBeenCalledTimes(1);
+    ask(0);
+    expect(confirm).toHaveBeenCalledTimes(1);
+    confirm.mockRestore();
+  });
 });
 
 describe('excelFileNameFrom', () => {
@@ -312,5 +335,16 @@ describe('Excel settings window', () => {
       target: { value: '' },
     });
     expect(stored().groupBy).toBeNull();
+  });
+
+  it('persists the confirmation threshold and 0 for never asking', () => {
+    renderWindow();
+    const field = screen.getByLabelText('Ask before exporting over rows');
+    fireEvent.change(field, { target: { value: '5000' } });
+    fireEvent.blur(field);
+    expect(stored().confirmAbove).toBe(5000);
+    fireEvent.change(field, { target: { value: '0' } });
+    fireEvent.blur(field);
+    expect(stored().confirmAbove).toBe(0);
   });
 });

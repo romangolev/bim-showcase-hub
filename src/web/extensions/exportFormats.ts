@@ -10,6 +10,32 @@ import type { ExportCell } from './excelExport.js';
 export type ExportFormat = 'xlsx' | 'csv' | 'json' | 'copy';
 export type ExportScope = ElementScope;
 
+export type ColumnFormat = 'auto' | 'text' | 'number' | 'measure';
+
+export const COLUMN_FORMATS: readonly ColumnFormat[] = [
+  'auto',
+  'text',
+  'number',
+  'measure',
+];
+
+export const MAX_COLUMN_FORMATS = 64;
+
+export function sanitizeColumnFormats(
+  raw: unknown,
+): Record<string, ColumnFormat> {
+  const formats: Record<string, ColumnFormat> = {};
+  if (!isRecord(raw)) return formats;
+  for (const [name, value] of Object.entries(raw)) {
+    if (Object.keys(formats).length >= MAX_COLUMN_FORMATS) break;
+    if (!name.trim()) continue;
+    if (COLUMN_FORMATS.includes(value as ColumnFormat)) {
+      formats[name] = value as ColumnFormat;
+    }
+  }
+  return formats;
+}
+
 export type CsvDelimiter = ',' | ';' | '\t';
 export type DecimalMark = '.' | ',';
 export type EmptyLabel = 'blank' | '(empty)';
@@ -33,10 +59,27 @@ export interface ExcelSettings {
   summarySheet: boolean;
   groupBy: string | null;
   emptyLabel: EmptyLabel;
+  confirmAbove: number;
+  colorColumn: boolean;
+  legendSheet: boolean;
+  columnFormats: Record<string, ColumnFormat>;
 }
 
 export const DEFAULT_NAME_PATTERN = '{model}-properties';
 export const DEFAULT_GROUP_BY = 'Category';
+
+export const DEFAULT_CONFIRM_ABOVE = 20000;
+const CONFIRM_ABOVE_MIN = 1000;
+export const CONFIRM_ABOVE_MAX = 1_000_000;
+
+export function sanitizeConfirmAbove(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return DEFAULT_CONFIRM_ABOVE;
+  }
+  const rows = Math.floor(value);
+  if (rows === 0) return 0;
+  return Math.min(CONFIRM_ABOVE_MAX, Math.max(CONFIRM_ABOVE_MIN, rows));
+}
 
 export const DEFAULT_EXCEL_SETTINGS: ExcelSettings = {
   format: 'xlsx',
@@ -51,6 +94,10 @@ export const DEFAULT_EXCEL_SETTINGS: ExcelSettings = {
   summarySheet: false,
   groupBy: DEFAULT_GROUP_BY,
   emptyLabel: 'blank',
+  confirmAbove: DEFAULT_CONFIRM_ABOVE,
+  colorColumn: false,
+  legendSheet: false,
+  columnFormats: {},
 };
 
 export function readExcelSettings(value: unknown): ExcelSettings {
@@ -78,6 +125,10 @@ export function readExcelSettings(value: unknown): ExcelSettings {
         ? null
         : required(source.groupBy, d.groupBy ?? DEFAULT_GROUP_BY),
     emptyLabel: source.emptyLabel === '(empty)' ? '(empty)' : d.emptyLabel,
+    confirmAbove: sanitizeConfirmAbove(source.confirmAbove),
+    colorColumn: flag(source.colorColumn, d.colorColumn),
+    legendSheet: flag(source.legendSheet, d.legendSheet),
+    columnFormats: sanitizeColumnFormats(source.columnFormats),
   };
 }
 
@@ -95,6 +146,13 @@ export const DECIMAL_LABELS: Record<DecimalMark, string> = {
 export const EMPTY_LABELS: Record<EmptyLabel, string> = {
   blank: 'Blank cells',
   '(empty)': '(empty) text',
+};
+
+export const COLUMN_FORMAT_LABELS: Record<ColumnFormat, string> = {
+  auto: 'Auto',
+  text: 'Text',
+  number: 'Number',
+  measure: 'Number with unit column',
 };
 
 export const EXPORTER_NAME = 'BIM Showcase Hub';

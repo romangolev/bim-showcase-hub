@@ -1,4 +1,4 @@
-import type { ChartData } from './dashboardData.js';
+import { AGGREGATE_LABELS, type ChartData } from './dashboardData.js';
 import { saveBlob } from './download.js';
 import { applyNamePattern, toDelimited } from './exportFormats.js';
 
@@ -6,9 +6,23 @@ export function chartTable(chart: ChartData): {
   header: string[];
   rows: (string | number)[][];
 } {
+  const numeric = chart.aggregate !== undefined && chart.aggregate !== 'count';
+  if (!numeric) {
+    return {
+      header: [chart.property, 'Count'],
+      rows: chart.data.map((d) => [d.label, d.count]),
+    };
+  }
+  const valueLabel = `${AGGREGATE_LABELS[chart.aggregate ?? 'count']}${
+    chart.unit ? ` (${chart.unit})` : ''
+  }`;
   return {
-    header: [chart.property, 'Count'],
-    rows: chart.data.map((d) => [d.label, d.count]),
+    header: [chart.property, valueLabel, 'Elements'],
+    rows: chart.data.map((d) => [
+      d.label,
+      d.value === undefined ? '' : Number(d.value.toFixed(4)),
+      d.count,
+    ]),
   };
 }
 

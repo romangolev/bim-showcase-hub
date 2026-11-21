@@ -749,6 +749,16 @@ export class RealViewerAdapter implements ViewerAdapter {
     }
   }
 
+  showModelIds(items: readonly ModelDbId[]): void {
+    const viewer = this.viewer;
+    if (!viewer?.show) return;
+    const byModel = groupByModel(items);
+    for (const { info, handle } of this.models.shown()) {
+      const ids = byModel.get(info.id);
+      if (ids) viewer.show(ids, handle);
+    }
+  }
+
   showAll(): void {
     const viewer = this.viewer;
     if (viewer) resetNodes(viewer, this.stateModels());
@@ -1158,13 +1168,14 @@ export class RealViewerAdapter implements ViewerAdapter {
   ): Promise<PropertyInfo[]> {
     const tree = await readTree(viewer, model);
     throwIfAborted(options.signal);
+    const { onRows: _rows, ...rest } = options;
     const items = await readInChunks(
       leafIds(tree),
       (chunk) =>
         new Promise<BulkPropertyItem[]>((resolve, reject) =>
           model.getBulkProperties(chunk, {}, resolve, reject),
         ),
-      { ...options, phase: 'discovery' },
+      { ...rest, phase: 'discovery' },
     );
     return mergeInfos([
       items.flatMap((item) =>
@@ -1185,7 +1196,19 @@ export class RealViewerAdapter implements ViewerAdapter {
     const tree = await readTree(viewer, model);
     throwIfAborted(options.signal);
     const ids = leafIds(tree);
-    const items = await readInChunks(
+    const toRow = (item: BulkPropertyItem): PropertyRow => {
+      const properties: PropertyRow['properties'] = {};
+      for (const name of propertyNames) properties[name] = null;
+      for (const prop of item.properties) {
+        if (properties[prop.displayName] === null) {
+          properties[prop.displayName] = toPropertyValue(prop.displayValue);
+        }
+      }
+      return { dbId: item.dbId, name: item.name, properties };
+    };
+    const rows: PropertyRow[] = [];
+    const { onRows, ...rest } = options;
+    await readInChunks<BulkPropertyItem>(
       ids,
       (chunk) =>
         new Promise<BulkPropertyItem[]>((resolve, reject) =>
@@ -1196,18 +1219,17 @@ export class RealViewerAdapter implements ViewerAdapter {
             reject,
           ),
         ),
-      { ...options, phase: 'rows' },
+      {
+        ...rest,
+        phase: 'rows',
+        onRows: (chunk) => {
+          const mapped = chunk.map(toRow);
+          rows.push(...mapped);
+          onRows?.(mapped);
+        },
+      },
     );
-    return items.map((item) => {
-      const properties: PropertyRow['properties'] = {};
-      for (const name of propertyNames) properties[name] = null;
-      for (const prop of item.properties) {
-        if (properties[prop.displayName] === null) {
-          properties[prop.displayName] = toPropertyValue(prop.displayValue);
-        }
-      }
-      return { dbId: item.dbId, name: item.name, properties };
-    });
+    return rows;
   }
 
   registerToolGroup(spec: ToolGroupSpec): () => void {

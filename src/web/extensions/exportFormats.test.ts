@@ -14,6 +14,7 @@ import {
   DEFAULT_EXCEL_SETTINGS,
   guardCell,
   readExcelSettings,
+  sanitizeColumnFormats,
   toDelimited,
   toJsonRecords,
 } from './exportFormats.js';
@@ -471,6 +472,12 @@ describe('readExcelSettings', () => {
     expect(readExcelSettings([])).toEqual(DEFAULT_EXCEL_SETTINGS);
   });
 
+  it('clamps the confirmation threshold and keeps 0 as never ask', () => {
+    expect(readExcelSettings({ confirmAbove: 5 }).confirmAbove).toBe(1000);
+    expect(readExcelSettings({ confirmAbove: 0 }).confirmAbove).toBe(0);
+    expect(readExcelSettings({}).confirmAbove).toBe(20000);
+  });
+
   it('keeps valid choices and defaults the rest', () => {
     expect(
       readExcelSettings({
@@ -496,6 +503,7 @@ describe('readExcelSettings', () => {
         includeHeader: false,
         exporterName: false,
         summarySheet: true,
+        colorColumn: true,
       }),
     ).toMatchObject({
       csvDelimiter: ';',
@@ -503,10 +511,23 @@ describe('readExcelSettings', () => {
       includeHeader: false,
       exporterName: false,
       summarySheet: true,
+      colorColumn: true,
+      legendSheet: false,
     });
     expect(
       readExcelSettings({ csvDelimiter: '|', decimalMark: 'x' }),
     ).toMatchObject({ csvDelimiter: ',', decimalMark: '.' });
+  });
+
+  it('keeps only known column formats', () => {
+    expect(
+      sanitizeColumnFormats({ A: 'measure', B: 'nope', C: 'text' }),
+    ).toEqual({ A: 'measure', C: 'text' });
+    expect(sanitizeColumnFormats(undefined)).toEqual({});
+    expect(readExcelSettings({}).columnFormats).toEqual({});
+    expect(
+      readExcelSettings({ columnFormats: { Area: 'number' } }).columnFormats,
+    ).toEqual({ Area: 'number' });
   });
 });
 

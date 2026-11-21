@@ -10,8 +10,10 @@ import {
   printReport,
   REPORT_MAX_CHARTS,
   REPORT_MAX_PROPERTIES,
+  REPORT_TITLE_MAX,
   REPORT_VALUES_PER_PROPERTY,
   reportHtml,
+  sanitizeReportOptions,
 } from './report.js';
 
 const DATE = new Date(2026, 10, 19);
@@ -139,6 +141,28 @@ describe('report content', () => {
   });
 });
 
+describe('report options', () => {
+  it('clamps text and fills missing sections', () => {
+    const clean = sanitizeReportOptions({
+      title: 'x'.repeat(500),
+      notes: 'n',
+      orientation: 'landscape',
+      sections: { snapshot: false },
+    });
+    expect(clean?.title).toHaveLength(REPORT_TITLE_MAX);
+    expect(clean?.orientation).toBe('landscape');
+    expect(clean?.sections).toEqual({
+      snapshot: false,
+      summary: true,
+      dashboard: true,
+    });
+  });
+
+  it('rejects a non-object', () => {
+    expect(sanitizeReportOptions('nope')).toBeNull();
+  });
+});
+
 describe('report scope', () => {
   it('collects only the elements of the summary scope', async () => {
     const adapter = new MockViewerAdapter(document.createElement('div'));
@@ -233,6 +257,14 @@ describe('report html', () => {
     const content = buildReportContent(ROWS, request);
     const html = reportHtml({ ...content, unavailable: ['Tower<span>'] });
     expect(html).toContain('Properties unavailable for Tower&lt;span&gt;.');
+  });
+
+  it('repeats table headers and keeps headings with their table in print', () => {
+    const html = reportHtml(
+      buildReportContent(ROWS, { ...request, names: ['Category'] }),
+    );
+    expect(html).toContain('thead { display: table-header-group }');
+    expect(html).toContain('h2, h3 { break-after: avoid }');
   });
 });
 

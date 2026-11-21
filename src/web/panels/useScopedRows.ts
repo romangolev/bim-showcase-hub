@@ -10,7 +10,10 @@ import {
 } from '../viewer/modelScope.js';
 import type { ModelDbId, ModelInfo } from '../viewer/modelSet.js';
 import { readySignature } from '../viewer/modelSet.js';
-import type { ReadProgress } from '../viewer/propertyReads.js';
+import {
+  PROGRESS_INTERVAL_MS,
+  type ReadProgress,
+} from '../viewer/propertyReads.js';
 import {
   applyScope,
   type ElementScope,
@@ -54,6 +57,7 @@ export interface ScopedRowsRequest {
 
 export type ScopedRows = ReadStatus & {
   rows: PropertyRow[];
+  partialRows: PropertyRow[];
   total: number;
   pending: boolean;
   elements: ElementScope;
@@ -72,6 +76,7 @@ export function useResolvedAdapter(
 }
 
 const EMPTY_ITEMS: ModelDbId[] = [];
+const EMPTY_ROWS: PropertyRow[] = [];
 
 function cacheKeyOf(models: readonly ModelInfo[]): string {
   return models
@@ -157,6 +162,7 @@ export function useScopedRows(
     status: 'idle',
     rows: [],
   });
+  const [rawPartial, setRawPartial] = useState<PropertyRow[]>(EMPTY_ROWS);
   const [stale, setStale] = useState(false);
   const [version, setVersion] = useState(0);
   const controllerRef = useRef<AbortController | null>(null);
@@ -188,6 +194,34 @@ export function useScopedRows(
       rows: prev.rows,
       progress: null,
     }));
+    setRawPartial(EMPTY_ROWS);
+    const collected: PropertyRow[] = [];
+    let partialTimer: ReturnType<typeof setTimeout> | undefined;
+    let partialAt = Number.NEGATIVE_INFINITY;
+    const publishPartial = () => {
+      partialAt = Date.now();
+      setRawPartial(collected.slice());
+    };
+    const dropPartial = () => {
+      if (partialTimer !== undefined) {
+        clearTimeout(partialTimer);
+        partialTimer = undefined;
+      }
+      setRawPartial(EMPTY_ROWS);
+    };
+    const addPartial = (rows: PropertyRow[]) => {
+      if (cancelled || rows.length === 0) return;
+      for (const row of rows) collected.push(row);
+      if (Date.now() - partialAt >= PROGRESS_INTERVAL_MS) {
+        publishPartial();
+        return;
+      }
+      if (partialTimer !== undefined) return;
+      partialTimer = setTimeout(() => {
+        partialTimer = undefined;
+        if (!cancelled) publishPartial();
+      }, PROGRESS_INTERVAL_MS);
+    };
     const load = async () => {
       if (!forced) {
         const cached = await peekScopedRows(adapter, {
@@ -196,6 +230,7 @@ export function useScopedRows(
         });
         if (cancelled) return;
         if (cached && (!cached.stale || !autoRefresh)) {
+          dropPartial();
           setRead({
             status: 'ready',
             rows: cached.rows,
@@ -217,8 +252,10 @@ export function useScopedRows(
           elements: 'all',
           signal: controller.signal,
           onProgress,
+          onRows: addPartial,
         });
         if (cancelled || controller.signal.aborted) return;
+        dropPartial();
         setRead({
           status: 'ready',
           rows: result.rows,
@@ -226,6 +263,7 @@ export function useScopedRows(
         });
         setStale(false);
       } catch (err) {
+        dropPartial();
         if (cancelled || controller.signal.aborted) return;
         setRead((prev) => ({
           status: 'error',
@@ -240,11 +278,13 @@ export function useScopedRows(
     return () => {
       cancelled = true;
       controller.abort();
+      if (partialTimer !== undefined) clearTimeout(partialTimer);
     };
   }, [adapter, names, signature, cacheKey, version, hidden, autoRefresh]);
 
   const cancel = useCallback(() => {
     controllerRef.current?.abort();
+    setRawPartial(EMPTY_ROWS);
     setRead((prev) =>
       prev.status === 'loading'
         ? { status: 'cancelled', rows: prev.rows, failed: [] }
@@ -272,10 +312,19 @@ export function useScopedRows(
     [modelRows, elements, items, primaryId],
   );
 
+  const partialRows = useMemo(() => {
+    if (read.status !== 'loading' || rawPartial.length === 0) return EMPTY_ROWS;
+    const scoped = applyScope(rawPartial, { models: scope }, [], primaryId);
+    if (elements === 'all') return scoped;
+    if (items.pending) return EMPTY_ROWS;
+    return applyScope(scoped, { elements }, items.items, primaryId);
+  }, [read.status, rawPartial, scope, primaryId, elements, items]);
+
   const { rows: _unscoped, ...status } = read;
   return {
     ...status,
     rows,
+    partialRows,
     total: modelRows.length,
     pending: items.pending,
     elements,

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { TOOLS } from '../tools/index.js';
 import type { ToolContext } from '../tools/kernel/ViewerTool.js';
@@ -50,6 +51,20 @@ describe('appCommands', () => {
     expect(list.find((c) => c.id === 'account.signout')?.disabled).toBe(
       'You are not signed in',
     );
+  });
+
+  it('applies a summary preset to the global summary settings', () => {
+    const list = appCommands(state);
+    const command = list.find(
+      (c) => c.id === 'summary.preset.starter.doors-check',
+    );
+    expect(command?.title).toBe('Apply summary preset: Doors check');
+    command?.run({ openModal: vi.fn() });
+    expect(PANE_SETTINGS.summary.properties.read()).toEqual([
+      'Category',
+      'Family',
+      'Type Name',
+    ]);
   });
 });
 

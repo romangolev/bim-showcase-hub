@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   type Color,
   type ColorLayer,
+  colorKey,
   colorLayersFor,
   createColorLayer,
   createColorLayerController,
@@ -10,6 +11,7 @@ import {
   sameColor,
   setLayerColor,
   THEMING_CHUNK_SIZE,
+  type ThemingTarget,
 } from './colorLayers.js';
 import type { ModelDbId } from './modelSet.js';
 
@@ -207,5 +209,72 @@ describe('colour layer controller', () => {
     set.mockClear();
     controller.setColors('chart', ids('a', [1]), RED);
     expect(set).toHaveBeenCalledOnce();
+  });
+});
+
+describe('replaceSource', () => {
+  const green: Color = [0, 1, 0, 1];
+
+  function thinRecorder() {
+    const calls: string[] = [];
+    const target: ThemingTarget = {
+      setModelThemingColor: (items, color) =>
+        calls.push(`set ${items.length} ${colorKey(color)}`),
+      clearModelThemingColors: (items) => calls.push(`clear ${items.length}`),
+    };
+    return { calls, controller: createColorLayerController(target) };
+  }
+
+  it('replaces a whole source in one settle', () => {
+    const { calls, controller } = thinRecorder();
+    controller.replaceSource(
+      'chart',
+      new Map([
+        [
+          'm',
+          new Map([
+            [1, RED],
+            [2, RED],
+            [3, BLUE],
+          ]),
+        ],
+      ]),
+    );
+    expect(calls).toEqual(['set 2 1,0,0,1', 'set 1 0,0,1,1']);
+    calls.length = 0;
+    controller.replaceSource(
+      'chart',
+      new Map([
+        [
+          'm',
+          new Map([
+            [1, RED],
+            [3, RED],
+          ]),
+        ],
+      ]),
+    );
+    expect(calls).toEqual(['set 1 1,0,0,1', 'clear 1']);
+  });
+
+  it('keeps paint above the replaced chart colours', () => {
+    const { controller } = thinRecorder();
+    controller.setColors('paint', ids('m', [1]), green);
+    controller.replaceSource(
+      'chart',
+      new Map([
+        [
+          'm',
+          new Map([
+            [1, RED],
+            [2, RED],
+          ]),
+        ],
+      ]),
+    );
+    expect(resolveLayerColor(controller.layers(), 'm', 1)?.color).toEqual(
+      green,
+    );
+    expect(resolveLayerColor(controller.layers(), 'm', 2)?.color).toEqual(RED);
   });
 });

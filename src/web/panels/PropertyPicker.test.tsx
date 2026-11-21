@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
+import { notifications } from '../tasks/notifications.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
 import { PropertyPicker } from './PropertyPicker.js';
 
@@ -55,6 +56,29 @@ describe('PropertyPicker', () => {
     });
     expect(screen.getByText('No properties match.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Remove Name' })).toBeDisabled();
+    adapter.destroy();
+  });
+
+  it('reorders chosen properties and announces the move', async () => {
+    const adapter = await loaded();
+    const seen: string[][] = [];
+    render(<Harness adapter={adapter} seen={seen} />);
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Category' }));
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Level' }));
+    expect(seen.at(-1)).toEqual(['Name', 'Category', 'Level']);
+    expect(screen.getByRole('button', { name: 'Move Name up' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Move Level down' }),
+    ).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move Level up' }));
+    expect(seen.at(-1)).toEqual(['Name', 'Level', 'Category']);
+    expect(notifications.getSnapshot().announcement).toMatch(
+      /^Moved Level to position 2 of 3/,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Category' }));
+    expect(seen.at(-1)).toEqual(['Name', 'Level']);
     adapter.destroy();
   });
 

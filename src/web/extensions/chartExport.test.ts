@@ -75,3 +75,37 @@ describe('chart PNG options', () => {
     ).toMatchObject({ pngTitle: false, pngLegend: false });
   });
 });
+
+describe('numeric chart export', () => {
+  it('writes the aggregated value beside the element count', () => {
+    expect(
+      chartTable({
+        property: 'Category',
+        total: 3,
+        aggregate: 'sum',
+        measure: 'Length',
+        unit: 'm',
+        data: [
+          { label: 'Walls', count: 2, value: 2.5 },
+          { label: 'Doors', count: 1, value: 1 },
+        ],
+      }),
+    ).toEqual({
+      header: ['Category', 'Sum (m)', 'Elements'],
+      rows: [
+        ['Walls', 2.5, 2],
+        ['Doors', 1, 1],
+      ],
+    });
+  });
+
+  it('leaves a count chart as label and count', () => {
+    expect(chartTable(chart)).toEqual({
+      header: ['Category', 'Count'],
+      rows: [
+        ['Walls', 3],
+        ['=SUM(A1)', 2],
+      ],
+    });
+  });
+});

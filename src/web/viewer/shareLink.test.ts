@@ -136,6 +136,25 @@ describe('share link capture', () => {
     expect(sharedView(adapter, ['urn-a'], null)).toBeNull();
   });
 
+  it('leaves out the parts the include options turn off', () => {
+    const layout = fakeLayout({ openPanes: ['summary'] });
+    const shared = sharedView(fakeAdapter(), ['urn-a'], layout, {
+      selection: false,
+      panes: false,
+      nodes: false,
+    });
+    expect(shared?.link.selection).toEqual([]);
+    expect(shared?.link.panes).toBeUndefined();
+    expect(shared?.link.charts).toBeUndefined();
+    expect(shared?.link.nodes).toBeUndefined();
+    expect(shared?.link.camera).toBeDefined();
+  });
+
+  it('includes everything by default', () => {
+    const shared = sharedView(fakeAdapter(), ['urn-a'], fakeLayout());
+    expect(shared?.link.charts?.length).toBeGreaterThan(0);
+  });
+
   it('carries the hidden and isolated elements of the viewer', () => {
     const state: ViewerState = {
       version: 1,

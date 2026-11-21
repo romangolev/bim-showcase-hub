@@ -1,4 +1,7 @@
-import { safeName } from '../../extensions/exportFormats.js';
+import {
+  DEFAULT_CONFIRM_ABOVE,
+  safeName,
+} from '../../extensions/exportFormats.js';
 import { startTask, type TaskHandle } from '../../tasks/taskStore.js';
 import type {
   ExportToolSpec,
@@ -121,7 +124,7 @@ export function exportStem(file?: string, version?: string): string {
   return base && parts.length > 0 ? parts.join('-').slice(0, 120) : '';
 }
 
-export const DEFAULT_CONFIRM_ABOVE = 20000;
+export { DEFAULT_CONFIRM_ABOVE };
 
 export function confirmLargeExport(
   rowCount: number,

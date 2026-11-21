@@ -1,10 +1,14 @@
 import type { ComponentType } from 'react';
 import type { Command } from '../commands/types.js';
 import type { IconName } from '../components/icons.js';
+import { currentAdapter } from '../viewer/activeAdapterStore.js';
+import { clearColoring } from '../viewer/modelColoring.js';
 import { PANEL_SEPARATOR, type PanelId } from './panelIds.js';
 import {
   ChartInstancePane,
+  ColorsPane,
   DashboardPane,
+  ExportPane,
   ModelPaneBody,
   ModelsPane,
   PropertiesInstancePane,
@@ -19,6 +23,8 @@ export type PaneId =
   | 'summary'
   | 'dashboard'
   | 'models'
+  | 'colors'
+  | 'export'
   | 'chart'
   | 'modelSummary'
   | 'properties';
@@ -62,6 +68,7 @@ export interface PaneDefinition {
   defaultPlacement: Placement;
   closable: boolean;
   requires: 'viewer' | 'none';
+  opensWithModel?: boolean;
   instances?: PaneInstances;
   commands?: (ctx: PaneCommandContext) => readonly Command[];
 }
@@ -158,6 +165,54 @@ export const PANES: readonly PaneDefinition[] = [
     defaultPlacement: { kind: 'tab', reference: 'tree' },
     closable: true,
     requires: 'viewer',
+  },
+  {
+    id: 'colors',
+    title: 'Colors',
+    description:
+      'Color the model by a property, a chart or rules, with a legend.',
+    category: 'Analysis',
+    keywords: 'color colour legend theme paint property rules',
+    icon: 'layers',
+    component: ColorsPane,
+    minSize: { width: 260, height: 160 },
+    defaultPlacement: { kind: 'tab', reference: 'models' },
+    closable: true,
+    requires: 'viewer',
+    opensWithModel: false,
+    commands: (_ctx) => [
+      {
+        id: 'colors.clear',
+        title: 'Clear model colours',
+        group: 'Viewer',
+        icon: 'layers',
+        menu: 'hook',
+        run: () => {
+          const adapter = currentAdapter();
+          if (adapter) clearColoring(adapter);
+        },
+      },
+    ],
+  },
+  {
+    id: 'export',
+    title: 'Export',
+    description:
+      'Choose the properties, scope and format, then export the model data.',
+    category: 'Data',
+    keywords: 'export excel csv json table properties download',
+    icon: 'table',
+    component: ExportPane,
+    minSize: { width: 300, height: 160 },
+    defaultPlacement: {
+      kind: 'beside',
+      reference: 'viewer',
+      direction: 'right',
+      size: 380,
+    },
+    closable: true,
+    requires: 'viewer',
+    opensWithModel: false,
   },
   {
     id: 'chart',

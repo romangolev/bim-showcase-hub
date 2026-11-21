@@ -35,6 +35,15 @@ describe('readInChunks', () => {
     expect(seen.length).toBeLessThan(6);
   });
 
+  it('reports each chunk of rows as it arrives', async () => {
+    const sizes: number[] = [];
+    await readInChunks([1, 2, 3, 4, 5], async (chunk) => chunk, {
+      size: 2,
+      onRows: (rows) => sizes.push(rows.length),
+    });
+    expect(sizes).toEqual([2, 2, 1]);
+  });
+
   it('stops issuing chunks once aborted', async () => {
     const controller = new AbortController();
     const calls: number[][] = [];

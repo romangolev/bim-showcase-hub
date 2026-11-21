@@ -8,6 +8,7 @@ import {
   listSets,
   saveSelectionSet,
 } from '../viewer/selectionSets.js';
+import { buildColoring } from './colorBy.js';
 import {
   availableProperties,
   CHART_PALETTES,
@@ -21,9 +22,13 @@ import {
 import {
   buildExportRows,
   buildExportSheets,
+  COLOR_COLUMN,
+  COLOR_HEX_COLUMN,
   describeStatus,
+  exportPreview,
   exportToXlsx,
   MODEL_COLUMN,
+  PREVIEW_ROWS,
   sheetNameFor,
 } from './excelExport.js';
 import {
@@ -150,6 +155,100 @@ describe('export rows', () => {
     ]);
   });
 
+  it('previews the first 20 export rows with the model column for several models', () => {
+    const many: PropertyRow[] = Array.from({ length: 30 }, (_, i) => ({
+      dbId: i,
+      name: `e${i}`,
+      properties: { Category: 'Walls' },
+      modelId: i % 2 ? 'a' : 'b',
+      modelName: i % 2 ? 'A' : 'B',
+    }));
+    const preview = exportPreview(many, ['Category']);
+    expect(preview.rows).toHaveLength(PREVIEW_ROWS);
+    expect(preview.header).toEqual([MODEL_COLUMN, 'dbId', 'Category']);
+  });
+
+  it('adds the colour label and hex after the properties', () => {
+    const coloured: PropertyRow[] = [
+      {
+        dbId: 1,
+        name: 'a',
+        properties: { Category: 'Walls' },
+        modelId: 'm',
+      },
+      {
+        dbId: 2,
+        name: 'b',
+        properties: { Category: 'Doors' },
+        modelId: 'm',
+      },
+    ];
+    const coloring = buildColoring(
+      'property',
+      'Category',
+      coloured.slice(0, 1),
+      () => 'Walls',
+      ['Walls'],
+      ['#ff0000'],
+    );
+    const built = buildExportRows(coloured, ['Category'], false, '', coloring);
+    expect(built.header).toEqual([
+      'dbId',
+      'Category',
+      COLOR_COLUMN,
+      COLOR_HEX_COLUMN,
+    ]);
+    expect(built.rows).toEqual([
+      [1, 'Walls', 'Walls', '#ff0000'],
+      [2, 'Doors', '', ''],
+    ]);
+  });
+
+  it('splits a measure column into a number and a unit column', () => {
+    const measured = [
+      {
+        dbId: 1,
+        name: 'a',
+        properties: { Area: '12.5 m²', Mark: '007' },
+        modelId: 'm',
+      },
+    ];
+    const built = buildExportRows(measured, ['Area', 'Mark'], false, '', null, {
+      Area: 'measure',
+      Mark: 'text',
+    });
+    expect(built.header).toEqual(['dbId', 'Area', 'Area unit', 'Mark']);
+    expect(built.rows[0]).toEqual([1, 12.5, 'm²', '007']);
+    expect(built.textColumns).toEqual([3]);
+  });
+
+  it('keeps a measure cell that does not parse as text with an empty unit', () => {
+    const unparsed = [
+      { dbId: 1, name: 'a', properties: { Area: 'n/a' }, modelId: 'm' },
+    ];
+    expect(
+      buildExportRows(unparsed, ['Area'], false, '', null, { Area: 'measure' })
+        .rows[0],
+    ).toEqual([1, 'n/a', '']);
+  });
+
+  it('parses a number column and leaves the rest as text', () => {
+    const mixed = [
+      {
+        dbId: 1,
+        name: 'a',
+        properties: { Qty: '3', Note: '4' },
+        modelId: 'm',
+      },
+    ];
+    const built = buildExportRows(mixed, ['Qty', 'Note'], false, '', null, {
+      Qty: 'number',
+      Note: 'text',
+    });
+    expect(built.rows[0]).toEqual([1, 3, '4']);
+    expect(built.textColumns).toEqual([2]);
+  });
+
   it('names the models whose properties are missing from an export', async () => {
     const adapter = new MockViewerAdapter(document.createElement('div'));
     await adapter.loadModels([
@@ -213,7 +312,6 @@ describe('export rows', () => {
   it('returns no sheets for no rows', () => {
     expect(buildExportSheets([], ['Name'])).toEqual([]);
   });
-
   it('sanitises and de-duplicates sheet names', () => {
     const used = new Set<string>();
     expect(sheetNameFor('A/B:C', used)).toBe('A B C');

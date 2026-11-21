@@ -112,12 +112,13 @@ export interface ViewerAdapter {
   getModelSelection(): ModelDbId[];
   getModelWeight(modelId: string): number | null;
   getExternalIdMap?(modelId: string): Promise<Record<string, number>>;
-  setGhosting?(enabled: boolean): void;
+  setGhosting(enabled: boolean): void;
   getIsolated(): ModelDbId[];
   getVisible(): Promise<ModelDbId[]>;
   selectModelIds(items: readonly ModelDbId[]): void;
   isolateModelIds(items: readonly ModelDbId[]): void;
   hideModelIds(items: readonly ModelDbId[]): void;
+  showModelIds(items: readonly ModelDbId[]): void;
   showAll(): void;
   fitToView(items?: readonly ModelDbId[]): void;
   getState(): ViewerState;

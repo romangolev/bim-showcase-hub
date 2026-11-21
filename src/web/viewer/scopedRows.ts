@@ -93,13 +93,14 @@ function scopedResult(
 
 export async function readScopedRows(
   adapter: ViewerAdapter,
-  { names, signal, onProgress, ...request }: ScopedReadRequest,
+  { names, signal, onProgress, onRows, ...request }: ScopedReadRequest,
 ): Promise<ScopedRead> {
   const scope = await resolveScoped(adapter, request);
   let failed: string[] = [];
   const rows = await readLeafRows(adapter, names, {
     signal,
     onProgress,
+    ...(onRows ? { onRows } : {}),
     ...(scope.modelIds ? { modelIds: scope.modelIds } : {}),
     onFailed: (names) => {
       failed = names;

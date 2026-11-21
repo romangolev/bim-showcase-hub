@@ -39,6 +39,7 @@ import { PropertyReader } from './propertyReader.js';
 import {
   type ElementProperties,
   type PropertyInfo,
+  READ_CHUNK,
   type ReadOptions,
   throwIfAborted,
 } from './propertyReads.js';
@@ -275,6 +276,11 @@ export class MockViewerAdapter implements ViewerAdapter {
       const bulk = import.meta.env.MODE === 'test' ? 0 : LARGE_FIXTURE_ROWS;
       const extra = bulk ? bulk + mockRowVariant(info.urn) : 0;
       const rows = buildMockRows(propertyNames, extra);
+      if (options.onRows) {
+        for (let start = 0; start < rows.length; start += READ_CHUNK) {
+          options.onRows(rows.slice(start, start + READ_CHUNK));
+        }
+      }
       options.onProgress?.({
         phase: 'rows',
         loaded: rows.length,
@@ -625,6 +631,13 @@ export class MockViewerAdapter implements ViewerAdapter {
       if (this.nodeOf(item.modelId, item.dbId)) {
         this.hiddenKeys.add(selectionKey(item.modelId, item.dbId));
       }
+    }
+    this.applyIsolation();
+  }
+
+  showModelIds(items: readonly ModelDbId[]): void {
+    for (const item of items) {
+      this.hiddenKeys.delete(selectionKey(item.modelId, item.dbId));
     }
     this.applyIsolation();
   }

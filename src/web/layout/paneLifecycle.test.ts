@@ -299,6 +299,14 @@ describe('paneLifecycle panes, lock and present', () => {
     expect(lifecycle.view().companions).toContain('summary');
   });
 
+  it('leaves a pane that does not open with a model out until it is open', () => {
+    const { lifecycle } = setup({ urns: ['a'] });
+    lifecycle.dockChanged(dockWith('summary'), ['summary']);
+    expect(lifecycle.view().companions).not.toContain('colors');
+    lifecycle.dockChanged(dockWith('summary', 'colors'), ['summary', 'colors']);
+    expect(lifecycle.view().companions).toContain('colors');
+  });
+
   it('blocks layout edits while locked and persists the lock', () => {
     const { lifecycle, dock, persist } = setup({ locked: true });
     lifecycle.movePane('viewer', 'left');
