@@ -680,14 +680,6 @@
   padding-bottom: var(--space-2);
 }
 
-.bsh-presets .bsh-button[aria-pressed="true"],
-.bsh-kinds .bsh-button[aria-pressed="true"],
-.bsh-models__row .bsh-button[aria-pressed="true"] {
-  border-color: var(--color-iris);
-  background: var(--color-iris);
-  color: var(--color-on-accent);
-}
-
 .bsh-boards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));

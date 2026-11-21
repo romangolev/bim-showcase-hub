@@ -55,6 +55,13 @@
   color: var(--color-ash);
 }
 
+.btn[aria-pressed="true"],
+.bsh-button[aria-pressed="true"] {
+  border-color: var(--color-arc-blue);
+  background: color-mix(in srgb, var(--color-arc-blue) 18%, transparent);
+  color: var(--color-snow);
+}
+
 .btn-primary {
   border-color: transparent;
   background: var(--color-bone);
