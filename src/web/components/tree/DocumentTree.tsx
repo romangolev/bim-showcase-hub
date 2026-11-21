@@ -21,6 +21,7 @@ import { ApiError, thumbnailPath } from '../../api/client.js';
 import { friendlyError } from '../../api/friendlyError.js';
 import type { ModelContext } from '../../api/modelContext.js';
 import { listRecentModels } from '../../api/modelStore.js';
+import { EMPTY_OPEN_MODELS } from '../../api/openModels.js';
 import type { NodeScope } from '../../api/scope.js';
 import { COMMANDS } from '../../commands/registry.js';
 import { writeClipboard } from '../../extensions/clipboard.js';
@@ -34,6 +35,11 @@ import { MAX_SET_MEMBERS } from '../../store/modelSets.js';
 import { MAX_NAME_LENGTH } from '../../store/savedStore.js';
 import { notify } from '../../tasks/notifications.js';
 import { startTask, type TaskHandle } from '../../tasks/taskStore.js';
+import {
+  type OpenMode,
+  type OpenPreview,
+  previewOpen,
+} from '../../viewer/openModels.js';
 import { Icon } from '../icons.js';
 import { Menu, type MenuEntry } from '../Menu.js';
 import { StateBlock } from '../StateBlock.js';
@@ -62,7 +68,6 @@ import { treeCommands } from './treeCommands.js';
 import {
   openableUrn,
   type PickedModel,
-  pickLimit,
   skippedNotice,
   sleep,
   TRAIL_SEPARATOR,
@@ -84,10 +89,18 @@ export interface AddTarget {
   onRemove: (urn: string) => void;
 }
 
+type PreviewOpen = (
+  models: readonly PickedModel[],
+  mode: OpenMode,
+) => OpenPreview;
+
+const previewEmpty: PreviewOpen = (models, mode) =>
+  previewOpen(EMPTY_OPEN_MODELS, { models, mode });
+
 export interface DocumentTreeProps {
   selectedUrn?: string;
   revealTrail?: readonly string[];
-  openCount?: number;
+  pickPreview?: PreviewOpen;
   onOpenModel: (urn: string, context: ModelContext) => void;
   onOpenTabs?: (models: PickedModel[]) => void;
   onOpenTogether?: (models: PickedModel[]) => void;
@@ -217,7 +230,7 @@ function warningText(result: CrawlResult): string | null {
 export function DocumentTree({
   selectedUrn,
   revealTrail,
-  openCount = 0,
+  pickPreview = previewEmpty,
   onOpenModel,
   onOpenTabs,
   onOpenTogether,
@@ -1435,7 +1448,7 @@ export function DocumentTree({
       {onOpenTogether ? (
         <PickBar
           picked={picked}
-          openCount={openCount}
+          pickPreview={pickPreview}
           addTarget={addTarget ?? null}
           onOpenTabs={
             onOpenTabs
@@ -1517,7 +1530,7 @@ export function DocumentTree({
 
 function PickBar({
   picked,
-  openCount,
+  pickPreview,
   addTarget,
   onOpenTabs,
   onOpenTogether,
@@ -1525,17 +1538,20 @@ function PickBar({
   onClear,
 }: {
   picked: PickedModel[];
-  openCount: number;
+  pickPreview: PreviewOpen;
   addTarget: AddTarget | null;
   onOpenTabs?: (models: PickedModel[]) => void;
   onOpenTogether: (models: PickedModel[]) => void;
   onSaveSet: () => void;
   onClear: () => void;
 }) {
-  const { tooManyCombined, tooManyTabs, message } = pickLimit(
-    openCount,
-    picked.length,
-  );
+  const tabs = pickPreview(picked, 'tabs');
+  const together = pickPreview(picked, 'together');
+  const message = tabs.blocked
+    ? tabs.notice
+    : together.blocked
+      ? together.notice
+      : null;
   const addable = addTarget
     ? picked.filter((model) => addTarget.canAdd(model.urn))
     : [];
@@ -1556,7 +1572,7 @@ function PickBar({
             <button
               type="button"
               className="bsh-button doc-tree__pick-action"
-              disabled={tooManyTabs}
+              disabled={tabs.blocked}
               title={picked.map(pickLabel).join('\n')}
               onClick={() => onOpenTabs(picked)}
             >
@@ -1566,7 +1582,7 @@ function PickBar({
           <button
             type="button"
             className="bsh-button doc-tree__pick-action"
-            disabled={picked.length < 2 || tooManyCombined}
+            disabled={picked.length < 2 || together.blocked}
             title={picked.map(pickLabel).join('\n')}
             onClick={() => onOpenTogether(picked)}
           >

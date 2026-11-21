@@ -9,6 +9,7 @@ import {
 } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { thumbnailPath } from '../../api/client.js';
+import { createOpenModelsStore } from '../../api/openModels.js';
 import { type LayoutApi, LayoutContext } from '../../layout/layoutContext.js';
 import { VERSION_TARGET } from '../../panels/versionHistory.js';
 import { BSH_KEYS } from '../../storage.js';
@@ -24,11 +25,21 @@ import {
   stubLayout,
   treeRoutes,
 } from '../../test/mockApi.js';
+import { previewOpen } from '../../viewer/openModels.js';
 import { DocumentTree } from './DocumentTree.js';
 import { DOC_SEARCHES } from './deepSearch.js';
 import { requestDeepSearch } from './deepSearchSignal.js';
 import type { TreeRoot } from './docRoot.js';
 import { DEFAULT_TREE_VIEW, type TreeView } from './treeView.js';
+
+function loadedPreview(loaded: number) {
+  const store = createOpenModelsStore(null);
+  for (let index = 0; index < loaded; index += 1) store.open(`loaded${index}`);
+  return (
+    models: Parameters<typeof previewOpen>[1]['models'],
+    mode: Parameters<typeof previewOpen>[1]['mode'],
+  ) => previewOpen(store.getState(), { models, mode });
+}
 
 function renderTree(
   onOpenModel = vi.fn(),
@@ -899,7 +910,10 @@ describe('DocumentTree multi-select', () => {
   });
 
   it('counts the loaded models against the limit', async () => {
-    await openVersions(3, { openCount: 6, onOpenTabs: vi.fn() });
+    await openVersions(3, {
+      pickPreview: loadedPreview(6),
+      onOpenTabs: vi.fn(),
+    });
     fireEvent.click(row(1), { ctrlKey: true });
     fireEvent.click(row(3), { shiftKey: true });
     expect(screen.getByText('3 selected')).toBeInTheDocument();
@@ -912,7 +926,10 @@ describe('DocumentTree multi-select', () => {
   });
 
   it('allows picks while the open tabs leave room', async () => {
-    await openVersions(3, { openCount: 5, onOpenTabs: vi.fn() });
+    await openVersions(3, {
+      pickPreview: loadedPreview(5),
+      onOpenTabs: vi.fn(),
+    });
     fireEvent.click(row(1), { ctrlKey: true });
     fireEvent.click(row(3), { shiftKey: true });
     expect(

@@ -54,7 +54,7 @@ export function TreePanel({ onNavigate }: TreePanelProps) {
         root={root}
         selectedUrn={urn}
         revealTrail={trail}
-        openCount={openers.loaded}
+        pickPreview={openers.preview}
         onOpenModel={openers.open}
         onOpenTabs={openers.openTabs}
         onOpenModal={openers.openModal}
