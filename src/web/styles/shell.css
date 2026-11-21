@@ -901,7 +901,9 @@
 }
 
 .panes-menu__footer {
-  flex: none;
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: auto;
   padding-top: var(--space-1);
   border-top: var(--border-hairline);
 }
