@@ -45,7 +45,8 @@
 .cmdk__group {
   padding: var(--space-2) var(--space-4) var(--space-1);
   color: var(--color-ash);
-  font-size: var(--text-12, 12px);
+  font-size: var(--text-12);
+  font-weight: var(--weight-label);
 }
 
 .cmdk__option {
@@ -70,7 +71,7 @@
 
 .cmdk__reason {
   color: var(--color-ash);
-  font-size: var(--text-12, 12px);
+  font-size: var(--text-12);
 }
 
 .cmdk__empty {

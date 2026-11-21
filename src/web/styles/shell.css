@@ -776,10 +776,8 @@
 .panes-menu__heading {
   margin: var(--space-2) var(--space-2) var(--space-1);
   color: var(--color-ash);
-  font-size: var(--text-13);
+  font-size: var(--text-12);
   font-weight: var(--weight-label);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 
 .panes-menu__rows {
@@ -859,8 +857,6 @@
   flex: none;
   color: var(--color-ash);
   font-size: var(--text-13);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 
 .panes-menu__actions {
