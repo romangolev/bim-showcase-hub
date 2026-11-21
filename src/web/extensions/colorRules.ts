@@ -38,28 +38,31 @@ const text = (cell: unknown): string =>
 const finite = (value: unknown): number | null =>
   typeof value === 'number' && Number.isFinite(value) ? value : null;
 
-export function matchRule(rule: ColorRule, cell: unknown): boolean {
-  const value = text(cell);
+function compileRule(rule: ColorRule): (cell: unknown) => boolean {
+  const needle = rule.value.trim().toLowerCase();
   switch (rule.op) {
     case 'empty':
-      return value === '';
+      return (cell) => text(cell) === '';
     case 'equals':
-      return value.toLowerCase() === rule.value.trim().toLowerCase();
+      return (cell) => text(cell).toLowerCase() === needle;
     case 'contains':
-      return (
-        rule.value.trim() !== '' &&
-        value.toLowerCase().includes(rule.value.trim().toLowerCase())
-      );
-    case 'range': {
-      const measure = parseMeasure(cell);
-      if (!measure) return false;
-      const n = measure.value * measure.factor;
-      return (
-        (rule.min === null || n >= rule.min) &&
-        (rule.max === null || n <= rule.max)
-      );
-    }
+      return (cell) =>
+        needle !== '' && text(cell).toLowerCase().includes(needle);
+    case 'range':
+      return (cell) => {
+        const measure = parseMeasure(cell);
+        if (!measure) return false;
+        const n = measure.value * measure.factor;
+        return (
+          (rule.min === null || n >= rule.min) &&
+          (rule.max === null || n <= rule.max)
+        );
+      };
   }
+}
+
+export function matchRule(rule: ColorRule, cell: unknown): boolean {
+  return compileRule(rule)(cell);
 }
 
 function sanitizeRule(raw: unknown, index: number): ColorRule | null {
@@ -127,14 +130,16 @@ export function colorByRules(
   const keys = set.rules.map((item) => item.id);
   const fallback = set.fallback;
   const legendKeys = fallback ? [...keys, FALLBACK_LABEL] : keys;
+  const matchers = set.rules.map(compileRule);
   const coloring = buildColoring(
     'rules',
     'Rules',
     rows,
     (row) => {
-      const hit = set.rules.find((item) =>
-        matchRule(item, row.properties[item.property]),
+      const at = set.rules.findIndex((item, i) =>
+        matchers[i]?.(row.properties[item.property]),
       );
+      const hit = set.rules[at];
       return hit ? hit.id : fallback ? FALLBACK_LABEL : null;
     },
     legendKeys,
