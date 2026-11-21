@@ -267,6 +267,14 @@
   color: var(--color-snow);
 }
 
+@media (pointer: coarse), (max-width: 875px) {
+  .doc-tree__tool,
+  .doc-tree__chip {
+    height: auto;
+    min-height: var(--hit-target);
+  }
+}
+
 .doc-tree__chips {
   display: flex;
   flex-wrap: wrap;
