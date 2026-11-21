@@ -43,22 +43,20 @@
   color: var(--color-coral);
 }
 
-.bsh-select {
+.bsh-select,
+.bsh-input {
   min-height: var(--hit-target);
-  padding: 0 var(--space-3);
-  background: var(--color-ghost-fill);
+  padding: 0 var(--space-2);
+  border: var(--border-field);
+  border-radius: var(--radius-tile);
+  background: var(--color-charcoal);
   color: var(--color-snow);
-  border: var(--border-hairline);
-  border-radius: var(--radius-button);
   font: inherit;
-  font-size: var(--text-13);
-  font-weight: var(--weight-ui);
+  font-size: var(--text-14);
 }
 
 .bsh-select {
   max-width: 240px;
-  border: var(--border-field);
-  background: var(--color-charcoal);
   text-overflow: ellipsis;
 }
 
@@ -549,17 +547,10 @@
 
 .bsh-input {
   min-width: 0;
-  min-height: var(--hit-target);
-  padding: var(--space-1) var(--space-2);
-  border: var(--border-field);
-  border-radius: var(--radius-badge);
-  background: transparent;
-  color: var(--color-chalk);
-  font: inherit;
 }
 
 .bsh-input--narrow {
-  width: 6ch;
+  width: 5.5rem;
 }
 
 .bsh-fieldset {
