@@ -2,7 +2,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useId, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
-import { MAX_COMBINED_MODELS } from '../../shared/combined.js';
+import {
+  MAX_COMBINED_MODELS,
+  MAX_LOADED_MEMBERS,
+} from '../../shared/combined.js';
 import { fetchChildren } from '../api/client.js';
 import { childrenQueryOptions } from '../api/hooks.js';
 import { type ModelContext, versionTag } from '../api/modelContext.js';
@@ -297,6 +300,11 @@ export function ModelSets({ openers }: { openers: ModelOpeners }) {
           `${staleText(out.stale.length)}. Choose Update to latest to pin ${
             out.stale.length === 1 ? 'it' : 'them'
           }.`,
+        );
+      }
+      if (out.omitted > 0) {
+        notify(
+          `Opened ${out.models.length} of ${out.models.length + out.omitted} models. ${out.omitted} ${out.omitted === 1 ? 'was' : 'were'} left out: tabs hold ${MAX_LOADED_MEMBERS}.`,
         );
       }
       if (together) openers.openTogether(out.models);

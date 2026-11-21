@@ -21,6 +21,7 @@ export interface ResolvedSet {
   models: PickedModel[];
   stale: string[];
   failed: string[];
+  omitted: number;
 }
 
 const RESOLVE_CONCURRENCY = 4;
@@ -97,7 +98,12 @@ export async function resolveModelSet(
     }
     models.push({ urn: member.urn, context: memberContext(member) });
   });
-  return { models: models.slice(0, MAX_LOADED_MEMBERS), stale, failed };
+  return {
+    models: models.slice(0, MAX_LOADED_MEMBERS),
+    stale,
+    failed,
+    omitted: Math.max(0, models.length - MAX_LOADED_MEMBERS),
+  };
 }
 
 export function setLink(

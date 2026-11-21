@@ -11,6 +11,7 @@ import { createOpenModelsStore } from '../api/openModels.js';
 import { OpenModelsContext } from '../api/useOpenModels.js';
 import type { ModelOpeners } from '../components/tree/useModelOpeners.js';
 import { MODEL_SETS, type ModelSetMember } from '../store/modelSets.js';
+import { notifications } from '../tasks/notifications.js';
 import { tasks } from '../tasks/taskStore.js';
 import {
   createTestClient,
@@ -222,6 +223,24 @@ describe('opening a set past the tab limit', () => {
     expect(task?.state).toBe('failed');
     expect(task?.detail).not.toContain('opened');
     expect(openers.openTabs).not.toHaveBeenCalled();
+  });
+});
+
+describe('opening a set larger than the tab limit', () => {
+  it('opens the first 8 as tabs and says how many were left out', async () => {
+    notifications.clear();
+    save(
+      'Big',
+      Array.from({ length: 24 }, (_, index) => `u${index}`),
+    );
+    const openers = stubOpeners();
+    renderSets(openers);
+    fireEvent.click(screen.getByRole('button', { name: 'Open Big' }));
+    await waitFor(() => expect(openers.openTabs).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(openers.openTabs).mock.calls[0]?.[0]).toHaveLength(8);
+    expect(
+      notifications.getSnapshot().items.map((item) => item.message),
+    ).toContain('Opened 8 of 24 models. 16 were left out: tabs hold 8.');
   });
 });
 
