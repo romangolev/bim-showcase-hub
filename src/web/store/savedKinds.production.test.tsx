@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import '../viewer/reportTemplates.js';
 import '../extensions/colorRulePresets.js';
+import './modelSets.js';
 import {
   DASHBOARD_USER_PRESETS,
   DEFAULT_DASHBOARD_VIEW,
@@ -70,6 +71,10 @@ describe('production saved kinds', () => {
       version: 1,
       label: 'Colour rules',
     });
+    expect(getSavedKind('model-set')).toMatchObject({
+      version: 1,
+      label: 'Model set',
+    });
     expect(savedKindVersions()).toMatchObject({
       viewpoint: 1,
       'selection-set': 1,
@@ -77,6 +82,7 @@ describe('production saved kinds', () => {
       'export-preset': 1,
       'report-template': 1,
       'color-rules': 1,
+      'model-set': 1,
     });
   });
 
