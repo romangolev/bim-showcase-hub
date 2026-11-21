@@ -50,6 +50,10 @@
   background: var(--color-ghost-fill-hover);
 }
 
+.btn:active:not(:disabled) {
+  background: var(--color-ghost-fill-active);
+}
+
 .btn:disabled {
   cursor: not-allowed;
   color: var(--color-ash);
@@ -97,9 +101,18 @@
   cursor: pointer;
 }
 
-.icon-button:hover {
+.icon-button:hover:not(:disabled) {
   background: var(--color-ghost-fill);
   color: var(--color-snow);
+}
+
+.icon-button:active:not(:disabled) {
+  background: var(--color-ghost-fill-active);
+}
+
+.icon-button:disabled {
+  color: var(--color-ash);
+  cursor: not-allowed;
 }
 
 .icon-tile {
