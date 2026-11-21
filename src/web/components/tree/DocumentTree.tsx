@@ -23,6 +23,7 @@ import type { ModelContext } from '../../api/modelContext.js';
 import { listRecentModels } from '../../api/modelStore.js';
 import type { NodeScope } from '../../api/scope.js';
 import { COMMANDS } from '../../commands/registry.js';
+import { writeClipboard } from '../../extensions/clipboard.js';
 import { LayoutContext } from '../../layout/layoutContext.js';
 import { saveModelSetPrompt } from '../../panels/ModelSets.js';
 import { openVersionHistory } from '../../panels/VersionHistoryPanel.js';
@@ -589,10 +590,9 @@ export function DocumentTree({
 
   const copyLink = async (urn: string, context: ModelContext) => {
     const href = modelHref(urn, context);
-    try {
-      await navigator.clipboard.writeText(href);
+    if (await writeClipboard(href)) {
       notify('Link copied', { detail: href });
-    } catch {
+    } else {
       notify('Could not copy the link', { tone: 'error', detail: href });
     }
   };

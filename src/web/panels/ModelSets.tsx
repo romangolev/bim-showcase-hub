@@ -18,6 +18,7 @@ import {
 } from '../components/tree/openHelpers.js';
 import type { ModelOpeners } from '../components/tree/useModelOpeners.js';
 import { pickLatest } from '../components/tree/versionPick.js';
+import { writeClipboard } from '../extensions/clipboard.js';
 import {
   MAX_SET_MEMBERS,
   MODEL_SETS,
@@ -321,10 +322,9 @@ export function ModelSets({ openers }: { openers: ModelOpeners }) {
       notify('Could not build a link for this model set.', { tone: 'error' });
       return;
     }
-    try {
-      await navigator.clipboard.writeText(href);
+    if (await writeClipboard(href)) {
       notify('Link copied', { detail: href });
-    } catch {
+    } else {
       notify('Could not copy the link', { tone: 'error', detail: href });
     }
   };

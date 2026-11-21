@@ -16,6 +16,7 @@ import {
   saveChartCsv,
   saveChartPng,
 } from '../extensions/chartExport.js';
+import { writeClipboard } from '../extensions/clipboard.js';
 import {
   AGGREGATE_LABELS,
   type ChartData,
@@ -302,12 +303,11 @@ export function ChartCanvas({
     setNotice(done ? '' : 'Could not draw the image');
   };
   const copyChart = async () => {
-    try {
-      await navigator.clipboard.writeText(chartDelimited(chart, '\t'));
-      setNotice('Copied');
-    } catch {
-      setNotice('Could not copy to the clipboard');
-    }
+    setNotice(
+      (await writeClipboard(chartDelimited(chart, '\t')))
+        ? 'Copied'
+        : 'Could not copy to the clipboard',
+    );
   };
 
   const legend = chart.data.slice(0, LEGEND_LIMIT);

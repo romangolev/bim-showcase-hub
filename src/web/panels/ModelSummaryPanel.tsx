@@ -1,6 +1,7 @@
 import { useId, useMemo, useState } from 'react';
 import { Icon } from '../components/icons.js';
 import { StateBlock } from '../components/StateBlock.js';
+import { writeClipboard } from '../extensions/clipboard.js';
 import { saveBlob } from '../extensions/download.js';
 import type { ElementAction } from '../extensions/elementActions.js';
 import {
@@ -148,12 +149,11 @@ export function ModelSummaryPanel({
   const table = () => summaryTable(shown, view.hiddenColumns);
   const copyTable = async () => {
     const { header, rows } = table();
-    try {
-      await navigator.clipboard.writeText(toDelimited(header, rows, '\t'));
-      setNotice(`Copied ${rows.length} rows`);
-    } catch {
-      setNotice('Could not copy to the clipboard');
-    }
+    setNotice(
+      (await writeClipboard(toDelimited(header, rows, '\t')))
+        ? `Copied ${rows.length} rows`
+        : 'Could not copy to the clipboard',
+    );
   };
   const downloadCsv = () => {
     const { header, rows } = table();

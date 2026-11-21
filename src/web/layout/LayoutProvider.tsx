@@ -29,6 +29,7 @@ import { StateBlock } from '../components/StateBlock.js';
 import { TopBar } from '../components/TopBar.js';
 import { TreeControlContext } from '../components/TreeControl.js';
 import { useMediaQuery } from '../components/useMediaQuery.js';
+import { writeClipboard } from '../extensions/clipboard.js';
 import { useT } from '../i18n/i18n.js';
 import { resetHints } from '../onboarding/hints.js';
 import { ModelRouteSync } from '../routes/ModelRouteSync.js';
@@ -98,7 +99,7 @@ import {
 } from './userInstances.js';
 import { createHostStore, PaneHosts } from './ViewerHost.js';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher.js';
-import { downloadText, writeClipboard } from './workspaceFiles.js';
+import { downloadText } from './workspaceFiles.js';
 import {
   activeNameOf,
   PRESETS,
