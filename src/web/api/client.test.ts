@@ -99,3 +99,32 @@ describe('unauthorized notifications', () => {
     unsubscribe();
   });
 });
+
+describe('rate limits', () => {
+  it('exposes Retry-After on a 429', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ error: 'Rate limited' }), {
+            status: 429,
+            headers: { 'Retry-After': '3' },
+          }),
+      ),
+    );
+    await expect(fetchChildren(ROOT_SCOPE)).rejects.toMatchObject({
+      status: 429,
+      retryAfterMs: 3000,
+    });
+  });
+
+  it('leaves retryAfterMs empty when a 429 carries no Retry-After', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('{}', { status: 429 })),
+    );
+    await expect(fetchChildren(ROOT_SCOPE)).rejects.toMatchObject({
+      retryAfterMs: null,
+    });
+  });
+});
