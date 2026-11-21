@@ -117,6 +117,55 @@ export function modelMenuEntries(source: ModelMenuSource): MenuEntry[] {
   return entries;
 }
 
+export interface ItemMenuSource {
+  hasLastOpened: boolean;
+  onOpenLatest: () => void;
+  onOpenLastOpened?: () => void;
+  onShowVersions: () => void;
+  onPreview?: () => void;
+  onVersionHistory?: () => void;
+}
+
+export function itemMenuEntries(source: ItemMenuSource): MenuEntry[] {
+  const entries: MenuEntry[] = [
+    {
+      id: 'open-latest',
+      label: 'Open latest version',
+      onSelect: source.onOpenLatest,
+    },
+  ];
+  if (source.hasLastOpened && source.onOpenLastOpened) {
+    entries.push({
+      id: 'open-last',
+      label: 'Open last opened version',
+      onSelect: source.onOpenLastOpened,
+    });
+  }
+  if (source.onPreview) {
+    entries.push({
+      id: 'preview',
+      label: 'Preview',
+      description: 'Show the file without opening it',
+      onSelect: source.onPreview,
+    });
+  }
+  entries.push({ kind: 'separator', id: 'item-separator' });
+  entries.push({
+    id: 'show-versions',
+    label: 'Show versions',
+    onSelect: source.onShowVersions,
+  });
+  if (source.onVersionHistory) {
+    entries.push({
+      id: 'version-history',
+      label: 'Version history',
+      description: 'List the versions in their own pane',
+      onSelect: source.onVersionHistory,
+    });
+  }
+  return entries;
+}
+
 interface Opened {
   x: number;
   y: number;

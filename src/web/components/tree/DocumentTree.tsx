@@ -15,7 +15,9 @@ import {
   useState,
 } from 'react';
 import type { TreeNode } from '../../../shared/types.js';
+import { thumbnailPath } from '../../api/client.js';
 import type { ModelContext } from '../../api/modelContext.js';
+import { listRecentModels } from '../../api/modelStore.js';
 import type { NodeScope } from '../../api/scope.js';
 import { PANE_SETTINGS } from '../../settings/paneSettings.js';
 import { usePersisted } from '../../storage.js';
@@ -26,8 +28,14 @@ import { StateBlock } from '../StateBlock.js';
 import { startModelDrag } from './docDrag.js';
 import { DEFAULT_TREE_ROOT, type TreeRoot } from './docRoot.js';
 import { NoHubsHint, PersonalHubNotice } from './NoHubsHint.js';
+import { PreviewCard } from './PreviewCard.js';
 import { usePins } from './pins.js';
-import { modelHref, modelMenuEntries, useRowMenu } from './rowMenu.js';
+import {
+  itemMenuEntries,
+  modelHref,
+  modelMenuEntries,
+  useRowMenu,
+} from './rowMenu.js';
 import { INDENT, rowHeightFor, TreeRowView } from './TreeRowView.js';
 import {
   openableUrn,
@@ -39,8 +47,9 @@ import {
   tabLimitMessage,
   VERSION_POLL_MS,
 } from './treeState.js';
-import { metaText } from './treeView.js';
+import { type ItemOpen, metaText } from './treeView.js';
 import { useTreeState } from './useTreeState.js';
+import { pickLastOpened, pickLatest } from './versionPick.js';
 import { viewStateOf } from './viewStateCopy.js';
 
 export type { PickedModel };
@@ -138,6 +147,8 @@ const MIN_ROW_HEIGHT = 30;
 
 const TYPEAHEAD_MS = 600;
 
+const PREVIEW_HOVER_MS = 600;
+
 export function DocumentTree({
   selectedUrn,
   revealTrail,
@@ -166,6 +177,13 @@ export function DocumentTree({
   );
 
   const [view, setView] = usePersisted(PANE_SETTINGS.tree.view);
+  const [preview, setPreview] = useState<{
+    node: TreeNode;
+    anchor: DOMRect;
+    from: HTMLElement | null;
+  } | null>(null);
+  const previewTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const viewEntries = (): MenuEntry[] => [
     {
       id: 'sort-name',
@@ -203,8 +221,30 @@ export function DocumentTree({
   const openNode = (node: TreeNode) =>
     state.open(node, (model) => onOpenModel(model.urn, model.context));
 
+  const recentUrns = () => listRecentModels().map((entry) => entry.urn);
+
+  const hasLastOpened = (node: TreeNode) =>
+    listRecentModels().some((entry) => entry.trail?.at(-1) === node.id);
+
+  const openItem = async (node: TreeNode, mode: ItemOpen) => {
+    const versions = await state.versionsOf(node);
+    const target =
+      mode === 'last'
+        ? (pickLastOpened(versions, recentUrns()) ?? pickLatest(versions))
+        : pickLatest(versions);
+    if (target) {
+      openNode(target);
+      return;
+    }
+    notify('This file has no versions to open', { tone: 'error' });
+  };
+
   const activate = (item: ItemInstance<TreeNode>) => {
     const node = item.getItemData();
+    if (node.kind === 'item' && view.itemOpen !== 'expand') {
+      void openItem(node, view.itemOpen);
+      return;
+    }
     if (item.isFolder()) {
       if (item.isExpanded()) {
         item.collapse();
@@ -214,6 +254,42 @@ export function DocumentTree({
       return;
     }
     openNode(node);
+  };
+
+  const cancelPreviewTimer = () => {
+    if (previewTimer.current) clearTimeout(previewTimer.current);
+    previewTimer.current = null;
+  };
+
+  const openPreview = (node: TreeNode, element?: HTMLElement | null) => {
+    cancelPreviewTimer();
+    const from =
+      element ??
+      (document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null);
+    const anchor = from?.getBoundingClientRect() ?? new DOMRect(0, 0, 0, 0);
+    setPreview({ node, anchor, from });
+  };
+
+  const closePreview = () => {
+    preview?.from?.focus();
+    setPreview(null);
+  };
+
+  const hoverPreview = (node: TreeNode) => {
+    if (!view.thumbnails || node.kind !== 'item') return {};
+    return {
+      onMouseEnter: (event: MouseEvent<HTMLDivElement>) => {
+        cancelPreviewTimer();
+        const element = event.currentTarget;
+        previewTimer.current = setTimeout(() => {
+          previewTimer.current = null;
+          openPreview(node, element);
+        }, PREVIEW_HOVER_MS);
+      },
+      onMouseLeave: cancelPreviewTimer,
+    };
   };
 
   const pickedUrns = new Set(picked.map((model) => model.urn));
@@ -304,6 +380,17 @@ export function DocumentTree({
     })();
   };
 
+  const showItemVersions = (node: TreeNode) => {
+    void (async () => {
+      if (query) setFilter('');
+      if (!(await state.revealTo(node))) return;
+      const item = tree.getItemInstance(node.id);
+      if (item.isFolder() && !item.isExpanded()) item.expand();
+      await sleep(80);
+      focusItem(node.id);
+    })();
+  };
+
   const dragProps = (node: TreeNode) => {
     const urn = openableUrn(node);
     if (!urn || needsCheck(node)) return {};
@@ -315,6 +402,17 @@ export function DocumentTree({
   };
 
   const menuProps = (node: TreeNode) => {
+    if (node.kind === 'item') {
+      return rowMenu.bind(() =>
+        itemMenuEntries({
+          hasLastOpened: hasLastOpened(node),
+          onOpenLatest: () => void openItem(node, 'latest'),
+          onOpenLastOpened: () => void openItem(node, 'last'),
+          onShowVersions: () => showItemVersions(node),
+          onPreview: () => openPreview(node),
+        }),
+      );
+    }
     if (node.kind !== 'version') return undefined;
     return rowMenu.bind(() => {
       const urn = openableUrn(node);
@@ -520,6 +618,7 @@ export function DocumentTree({
   useEffect(
     () => () => {
       if (typeahead.current.timer) clearTimeout(typeahead.current.timer);
+      if (previewTimer.current) clearTimeout(previewTimer.current);
     },
     [],
   );
@@ -624,10 +723,15 @@ export function DocumentTree({
       const row = rows[index];
       if (row?.type === 'node') {
         const node = row.item.getItemData();
-        return rowHeightFor(node.kind, node.name);
+        return rowHeightFor(node.kind, node.name, undefined, view.rows);
       }
       if (row?.type === 'result') {
-        return rowHeightFor(row.node.kind, row.node.name, parentName(row.node));
+        return rowHeightFor(
+          row.node.kind,
+          row.node.name,
+          parentName(row.node),
+          view.rows,
+        );
       }
       return row?.type === 'status' && row.variant === 'loading'
         ? MIN_ROW_HEIGHT + 40
@@ -712,6 +816,15 @@ export function DocumentTree({
           focused={item.isFocused()}
           viewState={viewStateOf(node)}
           checked={node.checked}
+          latest={node.latest}
+          thumbnail={
+            view.thumbnails &&
+            view.rows === 'thumbnails' &&
+            node.kind === 'item' &&
+            node.tipUrn
+              ? thumbnailPath(node.tipUrn, 100)
+              : undefined
+          }
           meta={metaText(node, view)}
           picked={urn !== null && pickedUrns.has(urn)}
           action={rowAction(node)}
@@ -720,12 +833,19 @@ export function DocumentTree({
             ...props,
             ...menuProps(node),
             ...dragProps(node),
+            ...hoverPreview(node),
             'data-index': index,
             'aria-checked':
               urn !== null && onOpenTogether ? pickedUrns.has(urn) : undefined,
             onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => {
               menuProps(node)?.onKeyDown?.(event);
               if (event.defaultPrevented) return;
+              if (event.key === ' ' && node.kind === 'item') {
+                event.preventDefault();
+                event.stopPropagation();
+                openPreview(node, event.currentTarget);
+                return;
+              }
               if (onOpenTogether && onPickKey(event, node)) return;
               (
                 props as {
@@ -762,6 +882,7 @@ export function DocumentTree({
           name={resultNode.name}
           viewState={viewStateOf(resultNode)}
           checked={resultNode.checked}
+          latest={resultNode.latest}
           caption={resultNode.kind === 'version' ? undefined : resultNode.kind}
           secondary={parentName(resultNode)}
           highlight={query}
@@ -959,6 +1080,14 @@ export function DocumentTree({
         </div>
       </div>
       {rowMenu.menu}
+      {preview ? (
+        <PreviewCard
+          node={preview.node}
+          anchor={preview.anchor}
+          showImage={view.thumbnails}
+          onClose={closePreview}
+        />
+      ) : null}
     </div>
   );
 }

@@ -2,10 +2,12 @@ import { type HTMLAttributes, type ReactNode, type Ref, useId } from 'react';
 import type { TreeNodeKind } from '../../../shared/types.js';
 import { type ViewState, viewableFor } from '../../../shared/viewState.js';
 import { Icon, type IconName } from '../icons.js';
+import type { TreeRows } from './treeView.js';
 import { reasonFor, VIEW_STATE_COPY, viewStateOf } from './viewStateCopy.js';
 
 export const ROW_HEIGHT = 30;
 export const TWO_LINE_ROW_HEIGHT = 46;
+export const THUMBNAIL_ROW_HEIGHT = 64;
 export const INDENT = 12;
 
 const KIND_ICON: Record<TreeNodeKind, IconName> = {
@@ -66,7 +68,9 @@ export function rowHeightFor(
   kind: TreeNodeKind,
   name: string,
   secondary?: string,
+  rows: TreeRows = 'list',
 ): number {
+  if (rows === 'thumbnails' && kind === 'item') return THUMBNAIL_ROW_HEIGHT;
   return twoLineRow(kind, name, secondary) ? TWO_LINE_ROW_HEIGHT : ROW_HEIGHT;
 }
 
@@ -131,6 +135,8 @@ export interface TreeRowViewProps {
   highlight?: string;
   picked?: boolean;
   added?: boolean;
+  latest?: boolean;
+  thumbnail?: string;
   action?: ReactNode;
   rowProps?: HTMLAttributes<HTMLDivElement> & {
     ref?: Ref<HTMLDivElement>;
@@ -155,6 +161,8 @@ export function TreeRowView({
   highlight,
   picked,
   added,
+  latest = false,
+  thumbnail,
   action,
   rowProps,
 }: TreeRowViewProps) {
@@ -170,9 +178,11 @@ export function TreeRowView({
   const primary = parts ? parts.label : name;
   const second = parts ? parts.detail : secondary;
   const middleTruncate = kind === 'item' && !highlight?.trim();
-  const minHeight = twoLineRow(kind, name, secondary)
-    ? 'var(--tree-row-height-two-line)'
-    : 'var(--tree-row-height)';
+  const minHeight = thumbnail
+    ? 'var(--tree-row-height-thumb)'
+    : twoLineRow(kind, name, secondary)
+      ? 'var(--tree-row-height-two-line)'
+      : 'var(--tree-row-height)';
   return (
     <div
       title={name}
@@ -204,6 +214,11 @@ export function TreeRowView({
           {reason}
         </span>
       ) : null}
+      {thumbnail ? (
+        <span className="tree-row__thumb">
+          <img src={thumbnail} alt="" loading="lazy" />
+        </span>
+      ) : null}
       <span
         className="tree-row__twisty"
         data-expanded={expanded}
@@ -227,6 +242,15 @@ export function TreeRowView({
               highlightMatch(primary, highlight)
             )}
           </span>
+          {latest ? (
+            <span
+              className="tree-row__latest"
+              role="note"
+              aria-label="Latest version"
+            >
+              Latest
+            </span>
+          ) : null}
           {isVersion ? (
             <span
               className="tree-row__state"

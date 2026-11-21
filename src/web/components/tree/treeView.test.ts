@@ -98,4 +98,21 @@ describe('metaText and view', () => {
     expect(sanitizeTreeView({ homeSets: false }).homeSets).toBe(false);
     expect(sanitizeTreeView({ homeSets: 'no' }).homeSets).toBe(true);
   });
+
+  it('keeps a valid itemOpen and defaults the rest to expand', () => {
+    expect(DEFAULT_TREE_VIEW.itemOpen).toBe('expand');
+    expect(sanitizeTreeView({ itemOpen: 'latest' }).itemOpen).toBe('latest');
+    expect(sanitizeTreeView({ itemOpen: 'last' }).itemOpen).toBe('last');
+    expect(sanitizeTreeView({ itemOpen: 'nope' }).itemOpen).toBe('expand');
+    expect(sanitizeTreeView({}).itemOpen).toBe('expand');
+  });
+
+  it('keeps thumbnails off and list rows until asked', () => {
+    expect(DEFAULT_TREE_VIEW.thumbnails).toBe(false);
+    expect(DEFAULT_TREE_VIEW.rows).toBe('list');
+    expect(sanitizeTreeView({ thumbnails: true }).thumbnails).toBe(true);
+    expect(sanitizeTreeView({ thumbnails: 'yes' }).thumbnails).toBe(false);
+    expect(sanitizeTreeView({ rows: 'thumbnails' }).rows).toBe('thumbnails');
+    expect(sanitizeTreeView({ rows: 'grid' }).rows).toBe('list');
+  });
 });

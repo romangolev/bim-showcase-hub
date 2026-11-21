@@ -45,6 +45,33 @@ const TREE_SETTINGS_FORM: FormDefinition<TreeView> = {
         { value: 'combined', label: 'The open viewer, combined' },
       ],
     },
+    {
+      key: 'itemOpen',
+      kind: 'select',
+      label: 'Clicking a file',
+      hint: 'Opening a file uses the open mode above.',
+      options: [
+        { value: 'expand', label: 'Shows its versions' },
+        { value: 'latest', label: 'Opens the latest version' },
+        { value: 'last', label: 'Opens the version you opened last' },
+      ],
+    },
+    {
+      key: 'thumbnails',
+      kind: 'toggle',
+      label: 'Show thumbnails',
+      hint: 'Loads a small image per file from Autodesk. Off by default.',
+    },
+    {
+      key: 'rows',
+      kind: 'select',
+      label: 'Rows',
+      hint: 'Thumbnail rows show a small image and need Show thumbnails.',
+      options: [
+        { value: 'list', label: 'List' },
+        { value: 'thumbnails', label: 'Thumbnails' },
+      ],
+    },
   ],
   reset: {
     label: 'Reset Documents settings',
@@ -54,6 +81,9 @@ const TREE_SETTINGS_FORM: FormDefinition<TreeView> = {
       author: false,
       size: false,
       openMode: 'tab',
+      itemOpen: 'expand',
+      thumbnails: false,
+      rows: 'list',
     },
   },
 };

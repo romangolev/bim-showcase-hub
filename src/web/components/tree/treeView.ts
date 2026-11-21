@@ -5,8 +5,16 @@ export type TreeSort = 'name' | 'modified';
 
 export type TreeOpenMode = 'tab' | 'replace' | 'combined';
 
+export type ItemOpen = 'expand' | 'latest' | 'last';
+
+export type TreeRows = 'list' | 'thumbnails';
+
 function sanitizeOpenMode(raw: unknown): TreeOpenMode {
   return raw === 'replace' || raw === 'combined' ? raw : 'tab';
+}
+
+function sanitizeItemOpen(raw: unknown): ItemOpen {
+  return raw === 'latest' || raw === 'last' ? raw : 'expand';
 }
 
 export interface TreeView {
@@ -15,6 +23,9 @@ export interface TreeView {
   author: boolean;
   size: boolean;
   openMode: TreeOpenMode;
+  itemOpen: ItemOpen;
+  thumbnails: boolean;
+  rows: TreeRows;
   homeRecent: boolean;
   homePinned: boolean;
   homeSets: boolean;
@@ -26,6 +37,9 @@ export const DEFAULT_TREE_VIEW: TreeView = {
   author: false,
   size: false,
   openMode: 'tab',
+  itemOpen: 'expand',
+  thumbnails: false,
+  rows: 'list',
   homeRecent: true,
   homePinned: true,
   homeSets: true,
@@ -42,6 +56,9 @@ export function sanitizeTreeView(raw: unknown): TreeView {
     author: flag(source.author, DEFAULT_TREE_VIEW.author),
     size: flag(source.size, DEFAULT_TREE_VIEW.size),
     openMode: sanitizeOpenMode(source.openMode),
+    itemOpen: sanitizeItemOpen(source.itemOpen),
+    thumbnails: flag(source.thumbnails, DEFAULT_TREE_VIEW.thumbnails),
+    rows: source.rows === 'thumbnails' ? 'thumbnails' : 'list',
     homeRecent: flag(source.homeRecent, DEFAULT_TREE_VIEW.homeRecent),
     homePinned: flag(source.homePinned, DEFAULT_TREE_VIEW.homePinned),
     homeSets: flag(source.homeSets, DEFAULT_TREE_VIEW.homeSets),
