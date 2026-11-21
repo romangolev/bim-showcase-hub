@@ -244,6 +244,13 @@
   outline-offset: -2px;
 }
 
+@media (pointer: coarse) {
+  .dock-action {
+    width: var(--hit-target);
+    height: var(--hit-target);
+  }
+}
+
 .dock-action__chevron[data-expanded="true"] {
   transform: rotate(-90deg);
 }
