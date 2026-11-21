@@ -143,7 +143,7 @@ Shared helpers live in `e2e/common.py`. To read page globals, launch with `main_
 |---|---|---|
 | `e2e/mock_smoke.py` | `npm run dev:mock`, no sign-in | The whole app in mock mode: tree, viewer, exports, layout, themes, panes, Task Center |
 | `e2e/a11y_audit.py` | `npm run dev:mock`, no sign-in | Accessible names, clipped text, 200% zoom, 125% text, forced colors, keyboard pane moves and 44px touch targets |
-| `e2e/ux_audit.py` (`e2e:ux`) | `npm run dev:mock`, no sign-in | Contrast, 3:1 field edges, focus rings, touch targets (44px stacked, 32px desktop, 24px for compact row actions), clipping and overflow for every settings window, menu, pane and loading, empty and error state, in both themes at 320, 768 and 1440; exits non-zero on any failure |
+| `e2e/ux_audit.py` (`e2e:ux`) | `npm run dev:mock`, no sign-in | Contrast, 3:1 field edges, focus rings, touch targets (44px stacked, 32px desktop, 24px for compact row actions), clipping and overflow for every settings window, menu, pane and loading, empty and error state, in both themes at 320, 768 and 1440, plus forced colours, where only focus presence and targets are checked because the colours are the system's; exits non-zero on any failure |
 | `signin.py` (`e2e:signin`) | A visible window | You sign in to Autodesk by hand. It polls `/api/session` for up to 15 minutes |
 | `smoke.py` (`e2e:smoke`) | A signed-in profile | The real app: session, tree, viewer, summary, Excel export, native viewer styling |
 | `glb_revit.py` (`e2e:glb`) | `.env` credentials | GLB export on a real Revit model |

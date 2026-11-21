@@ -498,7 +498,8 @@ def verdict(results):
         if "error" in entry:
             problems.append(f"{label}: could not run: {entry['error'][:120]}")
             continue
-        for key in ("contrast", "fields", "targets"):
+        system_colors = label.startswith("forced-")
+        for key in ("targets",) if system_colors else ("contrast", "fields", "targets"):
             for fail in entry.get(key, {}).get("fails", []):
                 problems.append(f"{label}: {key} {fail}")
         for clip in entry.get("clipped", []):
@@ -508,7 +509,7 @@ def verdict(results):
         if entry.get("dialog_overflow", 0) > 0:
             problems.append(f"{label}: dialog overflow {entry['dialog_overflow']}px")
         for stop in entry.get("focus", []):
-            if not stop["outline"] or stop["ratio"] < 3:
+            if not stop["outline"] or (stop["ratio"] < 3 and not system_colors):
                 problems.append(f"{label}: focus {stop}")
     for line in problems[:60]:
         print(f"FAIL {line}", flush=True)
