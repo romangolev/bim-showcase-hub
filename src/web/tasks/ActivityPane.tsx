@@ -1,5 +1,7 @@
 import { StateBlock } from '../components/StateBlock.js';
 import { saveBlob } from '../extensions/download.js';
+import { formatDateTime } from '../i18n/format.js';
+import { useSettings } from '../settings/SettingsContext.js';
 import { activityFile } from './activityExport.js';
 import {
   type Notification,
@@ -21,6 +23,7 @@ export function ActivityPane({
   store?: NotificationStore;
 }) {
   const { log } = useNotifications(store);
+  const { language } = useSettings().settings;
   const empty = log.length === 0;
   return (
     <div
@@ -107,7 +110,7 @@ export function ActivityPane({
                   fontVariantNumeric: 'tabular-nums',
                 }}
               >
-                {new Date(entry.createdAt).toLocaleTimeString()}
+                {formatDateTime(entry.createdAt, language)}
               </time>
               <span
                 className="activity-log__tone"

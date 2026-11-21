@@ -17,9 +17,25 @@ describe('onboarding hints', () => {
   it('drops unknown ids from storage', () => {
     window.localStorage.setItem(
       HINTS.key,
-      JSON.stringify({ dismissed: ['move-panes', 'nope'] }),
+      JSON.stringify({
+        dismissed: ['move-panes', 'panes-menu', 'palette', 'nope'],
+      }),
     );
-    expect(HINTS.read().dismissed).toEqual(['move-panes']);
+    expect(HINTS.read().dismissed).toEqual([
+      'move-panes',
+      'panes-menu',
+      'palette',
+    ]);
+  });
+
+  it('resets every hint', () => {
+    dismissHint('move-panes');
+    dismissHint('panes-menu');
+    dismissHint('palette');
+    resetHints();
+    expect(isHintDismissed('move-panes')).toBe(false);
+    expect(isHintDismissed('panes-menu')).toBe(false);
+    expect(isHintDismissed('palette')).toBe(false);
   });
 
   it('is personal so sign-out clears it', () => {

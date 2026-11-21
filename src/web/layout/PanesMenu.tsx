@@ -8,6 +8,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import type { Command } from '../commands/types.js';
+import { Hint } from '../components/Hint.js';
 import { Icon } from '../components/icons.js';
 import type { MenuEntry } from '../components/Menu.js';
 import { moveFocus, onEscape, usePopover } from '../components/usePopover.js';
@@ -331,6 +332,9 @@ export function PanesMenu() {
                   onChange={(event) => setQuery(event.target.value)}
                 />
               </div>
+              <Hint id="panes-menu">
+                Open more panes, such as charts and properties, from Panes.
+              </Hint>
               <div className="panes-menu__body" role="menu" aria-label="Panes">
                 <div className="panes-menu__list">
                   {groups.map((group) => (

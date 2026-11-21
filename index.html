@@ -54,6 +54,9 @@
         if (stored && stored.reducedMotion === true) {
           root.dataset.reducedMotion = "true";
         }
+        if (stored && (stored.language === "en" || stored.language === "ru")) {
+          root.lang = stored.language;
+        }
       })();
     </script>
   </head>

@@ -1,4 +1,6 @@
 import { DOCS_URL } from '../components/HelpMenu.js';
+import { resetHints } from '../onboarding/hints.js';
+import { notify } from '../tasks/notifications.js';
 import { ShortcutList } from './ShortcutList.js';
 
 export function HelpPane() {
@@ -20,6 +22,18 @@ export function HelpPane() {
         <a href={DOCS_URL} target="_blank" rel="noopener">
           Documentation
         </a>
+      </p>
+      <p style={{ margin: 0 }}>
+        <button
+          type="button"
+          className="btn btn-small"
+          onClick={() => {
+            resetHints();
+            notify('Hints will show again');
+          }}
+        >
+          Show hints again
+        </button>
       </p>
     </div>
   );

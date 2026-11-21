@@ -1,8 +1,12 @@
 import { BSH_KEYS, defineRecord, usePersisted } from '../storage.js';
 
-export type HintId = 'move-panes';
+export type HintId = 'move-panes' | 'panes-menu' | 'palette';
 
-export const HINT_IDS: readonly HintId[] = ['move-panes'];
+export const HINT_IDS: readonly HintId[] = [
+  'move-panes',
+  'panes-menu',
+  'palette',
+];
 
 const isHintId = (value: unknown): value is HintId =>
   HINT_IDS.includes(value as HintId);

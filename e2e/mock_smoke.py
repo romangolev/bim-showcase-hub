@@ -1886,6 +1886,12 @@ def check_snapshots_viewpoints_present(page, checks):
 def check_documents_home(page, checks):
     settle(page)
     checks.add("default layout is Documents alone", documents_alone(page), groups(page))
+    welcome = page.locator(".docs-home").get_by_text("Pick a file to start")
+    checks.add(
+        "a fresh profile shows the Documents welcome state",
+        welcome.count() == 1 and page.get_by_text("choose a hub, then a project").count() == 1,
+        page.locator(".docs-home").all_inner_texts()[:2],
+    )
     hint = page.locator(".pane-docs__hint")
     checks.add(
         "Documents shows the open-a-model hint",
@@ -1898,6 +1904,25 @@ def check_documents_home(page, checks):
     items = page.get_by_role("menuitem").all_inner_texts()
     page.keyboard.press("Escape")
     checks.add("Documents pane menu has no Close", "Close" not in [item.strip() for item in items], items)
+    palette_hint = page.get_by_role("note").filter(has_text="Press Ctrl+K")
+    checks.add("the palette hint shows at home", palette_hint.count() == 1, page.locator(".hint").all_inner_texts())
+    if palette_hint.count() == 1:
+        palette_hint.get_by_role("button", name="Dismiss hint").first.click()
+        settle(page, 300)
+        checks.add(
+            "dismissing the palette hint hides it",
+            page.get_by_role("note").filter(has_text="Press Ctrl+K").count() == 0,
+        )
+        page.reload(wait_until="networkidle")
+        settle(page)
+        checks.add(
+            "a dismissed palette hint stays dismissed after a reload",
+            page.get_by_role("note").filter(has_text="Press Ctrl+K").count() == 0,
+        )
+        checks.add(
+            "the welcome state survives a reload",
+            page.get_by_text("Pick a file to start").count() == 1,
+        )
 
 
 def check_documents_return(page, checks):

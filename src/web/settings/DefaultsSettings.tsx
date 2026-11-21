@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { COMMANDS } from '../commands/registry.js';
 import type { Command } from '../commands/types.js';
 import { useModal } from '../modal/ModalContext.js';
+import { resetHints } from '../onboarding/hints.js';
+import { notify } from '../tasks/notifications.js';
 import { useSettings } from './SettingsContext.js';
 
 export function DefaultsSettings() {
@@ -50,6 +52,23 @@ export function DefaultsSettings() {
           {resetCommand
             ? (resetCommand.disabled ?? 'Open models stay open.')
             : 'Layout is not available right now.'}
+        </span>
+      </div>
+      <div className="settings__field">
+        <span>Hints</span>
+        <button
+          type="button"
+          className="btn"
+          onClick={() => {
+            resetHints();
+            notify('Hints will show again');
+          }}
+        >
+          Show hints again
+        </button>
+        <span className="settings__hint">
+          The move, Panes and Ctrl+K notes show once each and stay hidden until
+          you ask for them here.
         </span>
       </div>
       <p role="status" className="settings__hint">

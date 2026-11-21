@@ -1,4 +1,7 @@
 import { useEffect, useState } from 'react';
+import { formatCount } from '../i18n/format.js';
+import { useSettings } from '../settings/SettingsContext.js';
+import type { Language } from '../settings/settings.js';
 import { MAX_NAME_LENGTH } from '../store/savedStore.js';
 import { notify } from '../tasks/notifications.js';
 import {
@@ -19,12 +22,16 @@ import {
 } from '../viewer/setResolution.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 
-export const SET_MESSAGES: Record<Exclude<SaveSetResult, 'ok'>, string> = {
-  empty: 'Select elements in the viewer first.',
-  'too-big': `A set holds up to ${MAX_SET_ELEMENTS.toLocaleString('en-US')} elements.`,
-  failed:
-    'Could not save the set. Saved items hold up to 4 MB; delete some and try again.',
-};
+export function setMessages(
+  language: Language,
+): Record<Exclude<SaveSetResult, 'ok'>, string> {
+  return {
+    empty: 'Select elements in the viewer first.',
+    'too-big': `A set holds up to ${formatCount(MAX_SET_ELEMENTS, language)} elements.`,
+    failed:
+      'Could not save the set. Saved items hold up to 4 MB; delete some and try again.',
+  };
+}
 
 const MERGE_MESSAGES: Record<MergeMode, string> = {
   union: 'Union keeps every element that is in either set.',
@@ -32,6 +39,8 @@ const MERGE_MESSAGES: Record<MergeMode, string> = {
 };
 
 export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
+  const { language } = useSettings().settings;
+  const messages = setMessages(language);
   const sets = useSelectionSets();
   const [name, setName] = useState('');
   const [problem, setProblem] = useState<string | null>(null);
@@ -54,8 +63,8 @@ export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
       setName('');
       setProblem(null);
     } else {
-      setProblem(SET_MESSAGES[result]);
-      notify(SET_MESSAGES[result], { tone: 'error' });
+      setProblem(messages[result]);
+      notify(messages[result], { tone: 'error' });
     }
   };
 
@@ -65,7 +74,7 @@ export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
       setProblem("None of this set's models are open.");
     } else if (count < total) {
       setProblem(
-        `Selected ${count.toLocaleString('en-US')} of ${total.toLocaleString('en-US')} elements. The rest belong to models that are not open or no longer exist in the model.`,
+        `Selected ${formatCount(count, language)} of ${formatCount(total, language)} elements. The rest belong to models that are not open or no longer exist in the model.`,
       );
     } else setProblem(null);
   };
@@ -104,8 +113,8 @@ export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
     } else if (result === 'empty') {
       setProblem('No elements are in both sets.');
     } else {
-      setProblem(SET_MESSAGES[result]);
-      notify(SET_MESSAGES[result], { tone: 'error' });
+      setProblem(messages[result]);
+      notify(messages[result], { tone: 'error' });
     }
   };
 
@@ -220,7 +229,7 @@ export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
                 }}
               />
               <span className="settings__hint">
-                {set.items.length.toLocaleString('en-US')} elements
+                {formatCount(set.items.length, language)} elements
               </span>
               <button
                 type="button"

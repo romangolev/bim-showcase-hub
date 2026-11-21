@@ -27,6 +27,7 @@ import { ModelBreadcrumb } from '../components/ModelBreadcrumb.js';
 import { TopBar } from '../components/TopBar.js';
 import { TreeControlContext } from '../components/TreeControl.js';
 import { useMediaQuery } from '../components/useMediaQuery.js';
+import { resetHints } from '../onboarding/hints.js';
 import { ModelRouteSync } from '../routes/ModelRouteSync.js';
 import {
   BSH_KEYS,
@@ -34,6 +35,7 @@ import {
   FORGET_EVENT,
   usePersisted,
 } from '../storage.js';
+import { notify } from '../tasks/notifications.js';
 import { currentAdapter } from '../viewer/activeAdapterStore.js';
 import { isMockViewer } from '../viewer/createViewerAdapter.js';
 import { peekLeafRows } from '../viewer/sharedLeafRows.js';
@@ -709,6 +711,14 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
               label: 'Open activity log',
               onSelect: () => api.togglePane('activity'),
             },
+            {
+              id: 'help.show-hints',
+              label: 'Show hints again',
+              onSelect: () => {
+                resetHints();
+                notify('Hints will show again');
+              },
+            },
           ]
         : [],
     [api.mode, api.togglePane],
@@ -735,11 +745,18 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
                   </>
                 }
               />
-              {!stacked && !view.home && !state.locked ? (
-                <Hint id="move-panes">
-                  Drag a tab to move a pane, or use its menu. Ctrl+Z inside the
-                  dock undoes a move.
-                </Hint>
+              {!stacked && !state.locked ? (
+                view.home ? (
+                  <Hint id="palette">
+                    Press Ctrl+K (Cmd+K on a Mac) to find any command or a
+                    loaded file.
+                  </Hint>
+                ) : (
+                  <Hint id="move-panes">
+                    Drag a tab to move a pane, or use its menu. Ctrl+Z inside
+                    the dock undoes a move.
+                  </Hint>
+                )
               ) : null}
               {stacked ? (
                 <StackedLayout

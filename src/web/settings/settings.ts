@@ -132,6 +132,7 @@ function storedFromNewerBuild(): boolean {
 }
 
 export function applyAppSettings(settings: Settings, root: HTMLElement): void {
+  root.lang = settings.language;
   root.dataset.density = settings.density;
   root.dataset.textSize = String(settings.textSize);
   root.dataset.reducedMotion = settings.reducedMotion ? 'true' : 'false';

@@ -1,5 +1,7 @@
 import { flag } from '../../../shared/guards.js';
 import type { TreeNode } from '../../../shared/types.js';
+import { localeOf } from '../../i18n/format.js';
+import { readSettings } from '../../settings/settings.js';
 
 export type TreeSort = 'name' | 'modified';
 
@@ -48,10 +50,19 @@ export function sanitizeTreeView(raw: unknown): TreeView {
   };
 }
 
-const collator = new Intl.Collator(undefined, {
-  numeric: true,
-  sensitivity: 'base',
-});
+const collators = new Map<string, Intl.Collator>();
+
+function collator(): Intl.Collator {
+  const locale = localeOf(readSettings().language);
+  const cached = collators.get(locale);
+  if (cached) return cached;
+  const created = new Intl.Collator(locale, {
+    numeric: true,
+    sensitivity: 'base',
+  });
+  collators.set(locale, created);
+  return created;
+}
 
 function time(node: TreeNode): number {
   const value = node.modifiedAt ? Date.parse(node.modifiedAt) : Number.NaN;
@@ -70,7 +81,7 @@ export function sortChildren(nodes: TreeNode[], sort: TreeSort): TreeNode[] {
       const diff = time(b) - time(a);
       if (diff !== 0 && !Number.isNaN(diff)) return diff;
     }
-    return collator.compare(a.name, b.name);
+    return collator().compare(a.name, b.name);
   });
 }
 

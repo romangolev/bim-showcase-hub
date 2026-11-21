@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { installMemoryStorage } from '../test/mockApi.js';
 import {
+  applyAppSettings,
   DEFAULT_SETTINGS,
   readSettings,
   SETTINGS_STORAGE_KEY,
@@ -49,6 +50,14 @@ describe('app settings', () => {
       'units',
       'version',
     ]);
+  });
+});
+
+describe('applyAppSettings', () => {
+  it('sets the document language on the root element', () => {
+    const root = document.createElement('div');
+    applyAppSettings({ ...DEFAULT_SETTINGS, language: 'ru' }, root);
+    expect(root.lang).toBe('ru');
   });
 });
 

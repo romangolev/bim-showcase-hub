@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { COMMANDS } from '../commands/registry.js';
 import { ModalProvider } from '../modal/ModalContext.js';
 import { MODALS } from '../modal/registry.js';
+import { dismissHint, isHintDismissed } from '../onboarding/hints.js';
 import { CHART_SETTINGS } from '../panels/chartSettings.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { ThemeProvider } from '../theme/ThemeContext.js';
@@ -101,6 +102,13 @@ describe('SettingsBody', () => {
     expect(
       screen.getByText('App settings are back to their defaults.'),
     ).toBeTruthy();
+  });
+
+  it('brings dismissed hints back from Defaults', () => {
+    dismissHint('panes-menu');
+    renderBody();
+    fireEvent.click(screen.getByRole('button', { name: 'Show hints again' }));
+    expect(isHintDismissed('panes-menu')).toBe(false);
   });
 
   it('runs the layout reset command from the layout layer', () => {
