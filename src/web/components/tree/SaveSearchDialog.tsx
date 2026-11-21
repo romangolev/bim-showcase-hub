@@ -1,24 +1,16 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useState } from 'react';
+import { ModalHost } from '../../modal/ModalHost.js';
+import type { ModalBodyProps } from '../../modal/types.js';
 import { MAX_NAME_LENGTH } from '../../store/savedStore.js';
 import { notify } from '../../tasks/notifications.js';
-import { Icon } from '../icons.js';
+import { SettingsField } from '../SettingsForm.js';
 import { DOC_SEARCHES, type DocSearchData } from './deepSearch.js';
 
-export function SaveSearchDialog({
+function SaveSearchForm({
   data,
-  onDone,
-}: {
-  data: DocSearchData;
-  onDone: () => void;
-}) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
-  const titleId = useId();
+  close,
+}: ModalBodyProps & { data: DocSearchData }) {
   const [name, setName] = useState('');
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (dialog && !dialog.open) dialog.showModal();
-  }, []);
 
   const save = () => {
     const trimmed = name.trim();
@@ -30,64 +22,60 @@ export function SaveSearchDialog({
         : 'Could not save the search. Delete some saved items and try again.',
       { tone: saved ? 'success' : 'error' },
     );
-    onDone();
+    close();
   };
 
   return (
-    <dialog
-      ref={dialogRef}
-      className="modal modal--sm"
-      aria-labelledby={titleId}
-      onClose={onDone}
-    >
-      <div className="modal__panel">
-        <header className="modal__head">
-          <h2 id={titleId} className="modal__title">
-            Save search
-          </h2>
-          <button
-            type="button"
-            className="icon-button"
-            aria-label="Close"
-            onClick={onDone}
-          >
-            <Icon name="close" size={16} />
-          </button>
-        </header>
-        <div className="modal__body">
-          <label className="bsh-field">
-            <span>Search name</span>
-            <input
-              type="text"
-              className="bsh-input"
-              aria-label="Search name"
-              placeholder="Name this search"
-              maxLength={MAX_NAME_LENGTH}
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') save();
-              }}
-            />
-          </label>
-          <p className="settings__hint">
-            A saved search applies to the project you have open.
-          </p>
-          <div className="bsh-presets">
-            <button type="button" className="btn" onClick={onDone}>
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="btn"
-              disabled={!name.trim()}
-              onClick={save}
-            >
-              Save search
-            </button>
-          </div>
-        </div>
+    <>
+      <SettingsField
+        label="Search name"
+        hint="A saved search applies to the project you have open."
+      >
+        {(id) => (
+          <input
+            id={id}
+            type="text"
+            placeholder="Name this search"
+            maxLength={MAX_NAME_LENGTH}
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') save();
+            }}
+          />
+        )}
+      </SettingsField>
+      <div className="settings__actions">
+        <button type="button" className="btn" onClick={close}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="btn btn-primary"
+          disabled={!name.trim()}
+          onClick={save}
+        >
+          Save search
+        </button>
       </div>
-    </dialog>
+    </>
   );
+}
+
+export function SaveSearchDialog({
+  data,
+  onDone,
+}: {
+  data: DocSearchData;
+  onDone: () => void;
+}) {
+  const [definition] = useState(() => ({
+    id: 'save-search',
+    title: 'Save search',
+    size: 'sm' as const,
+    Body: ({ close }: ModalBodyProps) => (
+      <SaveSearchForm data={data} close={close} />
+    ),
+  }));
+  return <ModalHost definition={definition} onClose={onDone} />;
 }
