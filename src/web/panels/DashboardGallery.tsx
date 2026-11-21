@@ -80,7 +80,7 @@ export function DashboardGallery({ view, apply, rows }: DashboardGalleryProps) {
             <div className="bsh-gallery__actions">
               <button
                 type="button"
-                className="bsh-button bsh-gallery__primary"
+                className="btn btn-primary"
                 aria-label={`Apply ${preset.label}`}
                 onClick={() => apply({ ...view, preset: preset.id })}
               >
@@ -133,7 +133,7 @@ export function DashboardGallery({ view, apply, rows }: DashboardGalleryProps) {
               <div className="bsh-gallery__actions">
                 <button
                   type="button"
-                  className="bsh-button bsh-gallery__primary"
+                  className="btn btn-primary"
                   aria-label={`Apply ${item.name}`}
                   onClick={() => apply(own)}
                 >

@@ -69,7 +69,7 @@ export function ExportPanel({ adapter, fileName }: ExportPanelProps) {
         <div className="bsh-presets">
           <button
             type="button"
-            className="bsh-button bsh-button--primary"
+            className="btn btn-primary"
             onClick={() => {
               if (resolved) startExcelExport(resolved, fileName);
             }}

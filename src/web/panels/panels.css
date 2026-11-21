@@ -990,12 +990,6 @@
   margin-top: auto;
 }
 
-.bsh-gallery__primary {
-  border-color: var(--color-iris);
-  background: var(--color-iris);
-  color: var(--color-on-accent);
-}
-
 .bsh-props__tools {
   display: flex;
   flex: none;
