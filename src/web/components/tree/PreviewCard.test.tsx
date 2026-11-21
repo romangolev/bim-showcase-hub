@@ -65,6 +65,28 @@ describe('PreviewCard', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it('consumes Escape so outer handlers do not see it', () => {
+    const outer = vi.fn();
+    document.addEventListener('keydown', outer);
+    render(
+      <PreviewCard node={node()} anchor={anchor} showImage onClose={vi.fn()} />,
+    );
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    document.removeEventListener('keydown', outer);
+    expect(outer).not.toHaveBeenCalled();
+  });
+
+  it('asks to restore focus only for Escape', () => {
+    const onClose = vi.fn();
+    render(
+      <PreviewCard node={node()} anchor={anchor} showImage onClose={onClose} />,
+    );
+    fireEvent.pointerDown(document.body);
+    expect(onClose).toHaveBeenLastCalledWith(false);
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    expect(onClose).toHaveBeenLastCalledWith(true);
+  });
+
   it('marks the latest version and shows its label', () => {
     render(
       <PreviewCard

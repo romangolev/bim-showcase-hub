@@ -774,6 +774,31 @@ describe('DocumentTree file rows', () => {
     ).toBeInTheDocument();
   });
 
+  it('keeps focus on the filter when an outside pointer closes the preview', async () => {
+    await setup();
+    const row = fileRow();
+    row.focus();
+    fireEvent.keyDown(row, { key: ' ' });
+    await screen.findByRole('dialog', { name: 'Preview of Tower.rvt' });
+    const box = screen.getByRole('searchbox', { name: 'Filter loaded nodes' });
+    box.focus();
+    fireEvent.pointerDown(box);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(box);
+  });
+
+  it('returns focus to the row when Escape closes the preview', async () => {
+    await setup();
+    const row = fileRow();
+    row.focus();
+    fireEvent.keyDown(row, { key: ' ' });
+    await screen.findByRole('dialog', { name: 'Preview of Tower.rvt' });
+    screen.getByRole('searchbox', { name: 'Filter loaded nodes' }).focus();
+    fireEvent.keyDown(document.activeElement as Element, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(row);
+  });
+
   it('opens the preview from the file row menu', async () => {
     await setup();
     fireEvent.contextMenu(fileRow());
@@ -1560,6 +1585,25 @@ describe('DocumentTree deep search', () => {
     expect(callsTo(fetchMock, '/api/projects/p1/folders/f2/contents')).toBe(
       before,
     );
+  });
+
+  it('tells the user to sign in when the session expires mid-search', async () => {
+    await renderProject(
+      projectRoutes({
+        '/api/projects/p1/folders/f2/contents': () =>
+          json({ error: 'expired' }, 401),
+      }),
+    );
+    fireEvent.change(filterBox(), { target: { value: 'arc' } });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Search whole project' }),
+    );
+    expect(
+      await screen.findByText(
+        'Your session has expired. Sign in again to continue.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Search cancelled')).toBeNull();
   });
 
   it('waits for Retry-After on a 429 and then reads the folder', async () => {

@@ -133,6 +133,18 @@ describe('crawl', () => {
     expect(children.mock.calls.map(([id]) => id)).not.toContain('a1');
   });
 
+  it('reports an expired session as unauthorized', async () => {
+    const out = await crawl({
+      start: ['root'],
+      children: async () => {
+        throw new ApiError(401, 'Unauthorized');
+      },
+      signal: new AbortController().signal,
+      wait: instant,
+    });
+    expect(out.stop).toBe('unauthorized');
+  });
+
   it('stops on the time budget', async () => {
     let t = 0;
     const out = await crawl({

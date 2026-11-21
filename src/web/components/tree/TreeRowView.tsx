@@ -1,4 +1,5 @@
 import { type HTMLAttributes, type ReactNode, type Ref, useId } from 'react';
+import { fold } from '../../../shared/text.js';
 import type { TreeNodeKind } from '../../../shared/types.js';
 import { type ViewState, viewableFor } from '../../../shared/viewState.js';
 import { Icon, type IconName } from '../icons.js';
@@ -75,21 +76,32 @@ export function rowHeightFor(
 }
 
 export function highlightMatch(text: string, query?: string): ReactNode {
-  const needle = query?.trim().toLowerCase();
+  const needle = fold(query?.trim() ?? '');
   if (!needle) {
     return text;
   }
-  const index = text.toLowerCase().indexOf(needle);
+  const chars = Array.from(text);
+  const starts: number[] = [];
+  let folded = '';
+  for (const char of chars) {
+    starts.push(folded.length);
+    folded += fold(char);
+  }
+  const index = folded.indexOf(needle);
   if (index < 0) {
     return text;
   }
+  const end = index + needle.length;
+  const from = starts.findIndex((start) => start >= index);
+  const to = starts.findIndex((start) => start >= end);
+  const stop = to < 0 ? chars.length : to;
   return (
     <>
-      {text.slice(0, index)}
+      {chars.slice(0, from).join('')}
       <mark className="tree-row__match">
-        {text.slice(index, index + needle.length)}
+        {chars.slice(from, stop).join('')}
       </mark>
-      {text.slice(index + needle.length)}
+      {chars.slice(stop).join('')}
     </>
   );
 }

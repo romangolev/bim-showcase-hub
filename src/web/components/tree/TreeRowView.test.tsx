@@ -1,9 +1,16 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { VIEW_STATES } from '../../../shared/viewState.js';
-import { TreeRowView } from './TreeRowView.js';
+import { highlightMatch, TreeRowView } from './TreeRowView.js';
 
 const NAME = 'v3: 2026-01-01 10:00 by Sam';
+
+describe('highlightMatch', () => {
+  it('marks an accent-insensitive match in the original text', () => {
+    const { container } = render(<p>{highlightMatch('Café.rvt', 'cafe')}</p>);
+    expect(container.querySelector('mark')?.textContent).toBe('Café');
+  });
+});
 
 describe('TreeRowView', () => {
   it('derives openability from the view state alone', () => {

@@ -17,7 +17,8 @@ import {
   useState,
 } from 'react';
 import type { TreeNode } from '../../../shared/types.js';
-import { thumbnailPath } from '../../api/client.js';
+import { ApiError, thumbnailPath } from '../../api/client.js';
+import { friendlyError } from '../../api/friendlyError.js';
 import type { ModelContext } from '../../api/modelContext.js';
 import { listRecentModels } from '../../api/modelStore.js';
 import type { NodeScope } from '../../api/scope.js';
@@ -189,6 +190,9 @@ function crawlText(view: CrawlView): string {
 }
 
 function warningText(result: CrawlResult): string | null {
+  if (result.stop === 'unauthorized') {
+    return friendlyError(new ApiError(401, 'Unauthorized')).message;
+  }
   if (result.stop === 'folders') {
     return `Stopped at the ${CRAWL_LIMITS.maxFolders} folder limit. Narrow the search to a folder.`;
   }
@@ -463,8 +467,8 @@ export function DocumentTree({
     setPreview({ node, anchor, from });
   };
 
-  const closePreview = () => {
-    preview?.from?.focus();
+  const closePreview = (restoreFocus: boolean) => {
+    if (restoreFocus) preview?.from?.focus();
     setPreview(null);
   };
 

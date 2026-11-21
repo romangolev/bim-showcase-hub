@@ -11,7 +11,7 @@ export interface PreviewCardProps {
   node: TreeNode;
   anchor: DOMRect;
   showImage: boolean;
-  onClose: () => void;
+  onClose: (restoreFocus: boolean) => void;
 }
 
 const GAP = 4;
@@ -60,16 +60,17 @@ export function PreviewCard({
     setPosition({ top, left });
   }, [anchor]);
 
-  useOutsidePointer(true, [cardRef], onClose);
+  useOutsidePointer(true, [cardRef], () => onClose(false));
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       event.preventDefault();
-      onClose();
+      event.stopPropagation();
+      onClose(true);
     };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
   }, [onClose]);
 
   return createPortal(

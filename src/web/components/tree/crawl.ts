@@ -19,7 +19,13 @@ export const CRAWL_LIMITS: CrawlLimits = {
 
 const MAX_WAIT_MS = 30_000;
 
-export type CrawlStop = 'done' | 'folders' | 'nodes' | 'time' | 'cancelled';
+export type CrawlStop =
+  | 'done'
+  | 'folders'
+  | 'nodes'
+  | 'time'
+  | 'cancelled'
+  | 'unauthorized';
 
 export interface CrawlProgress {
   folders: number;
@@ -120,7 +126,7 @@ export async function crawl(options: CrawlOptions): Promise<CrawlResult> {
         return;
       } catch (error) {
         if (error instanceof ApiError && error.status === 401) {
-          stop = 'cancelled';
+          stop = 'unauthorized';
           return;
         }
         const delay = retryDelayMs(error, attempt);
