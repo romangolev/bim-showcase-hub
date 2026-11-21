@@ -897,6 +897,8 @@
 }
 
 .bsh-picker__remove {
+  min-width: 1.5rem;
+  min-height: 1.5rem;
   margin-left: 0.375rem;
   border: 0;
   background: none;
@@ -1375,7 +1377,8 @@
 }
 
 .bsh-picker__move {
-  min-width: 1.25rem;
+  min-width: 1.5rem;
+  min-height: 1.5rem;
   padding: 0 2px;
   border: 0;
   background: none;
