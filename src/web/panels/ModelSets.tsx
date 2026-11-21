@@ -1,12 +1,19 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useId, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { MAX_COMBINED_MODELS } from '../../shared/combined.js';
 import { fetchChildren } from '../api/client.js';
+import { childrenQueryOptions } from '../api/hooks.js';
 import { type ModelContext, versionTag } from '../api/modelContext.js';
+import { useOpenModels } from '../api/useOpenModels.js';
 import { Icon } from '../components/icons.js';
 import { Menu, type MenuEntry } from '../components/Menu.js';
-import { openableUrn } from '../components/tree/treeState.js';
+import {
+  exceedsTabLimit,
+  loadedMembers,
+} from '../components/tree/openHelpers.js';
+import { openableUrn, tabLimitMessage } from '../components/tree/treeState.js';
 import type { ModelOpeners } from '../components/tree/useModelOpeners.js';
 import { pickLatest } from '../components/tree/versionPick.js';
 import {
@@ -217,22 +224,38 @@ export function ModelSets({ openers }: { openers: ModelOpeners }) {
   const [confirming, setConfirming] = useState<string | null>(null);
   const [resolved, setResolved] = useState<Record<string, ResolvedSet>>({});
 
+  const client = useQueryClient();
+  const openState = useOpenModels();
+  const lookups = useRef(
+    new Map<string, { key: string; set: Promise<ResolvedSet | null> }>(),
+  );
+
   useEffect(() => {
     let cancelled = false;
+    const known = lookups.current;
+    const live = new Set(sets.map((set) => set.id));
+    for (const id of known.keys()) if (!live.has(id)) known.delete(id);
     if (sets.length === 0) {
       setResolved({});
       return;
     }
+    const cachedVersions = (projectId: string, itemId: string) =>
+      client.fetchQuery(
+        childrenQueryOptions({ kind: 'item', id: itemId, projectId }),
+      );
     void Promise.all(
       sets.map(async (set) => {
-        try {
-          return [
-            set.id,
-            await resolveModelSet(set.data, readVersions),
-          ] as const;
-        } catch {
-          return null;
+        const key = `${set.version}:${set.updatedAt}`;
+        let entry = known.get(set.id);
+        if (entry?.key !== key) {
+          entry = {
+            key,
+            set: resolveModelSet(set.data, cachedVersions).catch(() => null),
+          };
+          known.set(set.id, entry);
         }
+        const out = await entry.set;
+        return out ? ([set.id, out] as const) : null;
       }),
     ).then((entries) => {
       if (cancelled) return;
@@ -245,7 +268,7 @@ export function ModelSets({ openers }: { openers: ModelOpeners }) {
     return () => {
       cancelled = true;
     };
-  }, [sets]);
+  }, [sets, client]);
 
   const resolvedOf = async (set: ModelSetItem): Promise<ResolvedSet> =>
     resolved[set.id] ?? resolveModelSet(set.data, readVersions);
@@ -256,6 +279,10 @@ export function ModelSets({ openers }: { openers: ModelOpeners }) {
       const out = await resolveModelSet(set.data, readVersions);
       if (out.models.length === 0) {
         task.fail('This model set has no models to open');
+        return;
+      }
+      if (!together && exceedsTabLimit(openState, out.models)) {
+        task.fail(tabLimitMessage(loadedMembers(openState)));
         return;
       }
       if (out.failed.length > 0) {
