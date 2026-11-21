@@ -13,6 +13,7 @@ import {
   type SerializedDock,
 } from './layoutState.js';
 import { mountedPanels } from './mounted.js';
+import { MODEL_KIND, modelPanelId } from './panelIds.js';
 import {
   FOLLOWERS,
   isPaneId,
@@ -25,7 +26,6 @@ import {
   parsePanelId,
   TREE_WIDTH_DEFAULT,
 } from './paneRegistry.js';
-import { MODEL_KIND, modelPanelId } from './panes.js';
 import {
   addUserInstance,
   removeUserInstance,

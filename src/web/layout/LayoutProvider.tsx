@@ -70,6 +70,7 @@ import {
   withPaneTitles,
 } from './paneAppearance.js';
 import { createPaneLifecycle, type PaneLifecycle } from './paneLifecycle.js';
+import { modelPanelId } from './panelIds.js';
 import {
   definitionOf,
   FOLLOWERS,
@@ -78,7 +79,6 @@ import {
   paneKind,
   parsePanelId,
 } from './paneRegistry.js';
-import { modelPanelId } from './panes.js';
 import { StackedLayout } from './StackedLayout.js';
 import {
   sanitizeUserInstances,

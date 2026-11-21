@@ -59,10 +59,8 @@ import {
   summarySetting,
 } from './instanceSettings.js';
 import { useLayout, useMainContent } from './layoutContext.js';
-import { instancePanelId } from './panelIds.js';
+import { instancePanelId, modelPanelId } from './panelIds.js';
 import { setSummarySettingsTarget } from './summaryTarget.js';
-
-export const MODEL_KIND = 'viewer';
 
 export function exportNameOf(
   context: ModelContext | null,
@@ -76,10 +74,6 @@ export function exportNameOf(
     '-properties',
     'xlsx',
   );
-}
-
-export function modelPanelId(urn: string): string {
-  return instancePanelId(MODEL_KIND, urn);
 }
 
 export function useModelUrn(): string | null {
