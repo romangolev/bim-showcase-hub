@@ -12,9 +12,11 @@ import {
   ModelPaneBody,
   ModelsPane,
   PropertiesInstancePane,
+  SearchPane,
   SummaryInstancePane,
   SummaryPane,
   TreePane,
+  VersionsPane,
 } from './panes.js';
 
 export type PaneId =
@@ -23,8 +25,10 @@ export type PaneId =
   | 'summary'
   | 'dashboard'
   | 'models'
+  | 'versions'
   | 'colors'
   | 'export'
+  | 'search'
   | 'chart'
   | 'modelSummary'
   | 'properties';
@@ -69,6 +73,7 @@ export interface PaneDefinition {
   closable: boolean;
   requires: 'viewer' | 'none';
   opensWithModel?: boolean;
+  startsOpen?: boolean;
   instances?: PaneInstances;
   commands?: (ctx: PaneCommandContext) => readonly Command[];
 }
@@ -167,6 +172,21 @@ export const PANES: readonly PaneDefinition[] = [
     requires: 'viewer',
   },
   {
+    id: 'versions',
+    title: 'Version history',
+    description:
+      'Versions of one file, newest first. Open, pin or compare them.',
+    category: 'Workspace',
+    keywords: 'versions history revisions compare latest file',
+    icon: 'layers',
+    component: VersionsPane,
+    minSize: { width: 260, height: 160 },
+    defaultPlacement: { kind: 'tab', reference: 'tree' },
+    closable: true,
+    requires: 'none',
+    startsOpen: false,
+  },
+  {
     id: 'colors',
     title: 'Colors',
     description:
@@ -213,6 +233,38 @@ export const PANES: readonly PaneDefinition[] = [
     closable: true,
     requires: 'viewer',
     opensWithModel: false,
+  },
+  {
+    id: 'search',
+    title: 'Search elements',
+    description:
+      'Find elements by name or property value and save them as a set.',
+    category: 'Data',
+    keywords: 'find search elements query selection set filter',
+    icon: 'search',
+    component: SearchPane,
+    minSize: { width: 260, height: 160 },
+    defaultPlacement: {
+      kind: 'beside',
+      reference: 'viewer',
+      direction: 'right',
+      size: 320,
+    },
+    closable: true,
+    requires: 'viewer',
+    opensWithModel: false,
+    commands: (ctx) => [
+      {
+        id: 'pane.focus.search',
+        title: 'Search elements',
+        group: 'Panes',
+        icon: 'search',
+        keywords: 'find element',
+        menu: 'hook',
+        run: () =>
+          ctx.isOpen('search') ? ctx.focus('search') : ctx.toggle('search'),
+      },
+    ],
   },
   {
     id: 'chart',

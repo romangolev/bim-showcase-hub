@@ -10,6 +10,7 @@ import {
   type DragEvent,
   type KeyboardEvent,
   type MouseEvent,
+  useContext,
   useEffect,
   useRef,
   useState,
@@ -19,7 +20,9 @@ import { thumbnailPath } from '../../api/client.js';
 import type { ModelContext } from '../../api/modelContext.js';
 import { listRecentModels } from '../../api/modelStore.js';
 import type { NodeScope } from '../../api/scope.js';
+import { LayoutContext } from '../../layout/layoutContext.js';
 import { saveModelSetPrompt } from '../../panels/ModelSets.js';
+import { openVersionHistory } from '../../panels/VersionHistoryPanel.js';
 import type { VersionTarget } from '../../panels/versionHistory.js';
 import { PANE_SETTINGS } from '../../settings/paneSettings.js';
 import { usePersisted } from '../../storage.js';
@@ -344,6 +347,12 @@ export function DocumentTree({
 
   const pinsApi = usePins();
   const rowMenu = useRowMenu();
+  const layout = useContext(LayoutContext);
+
+  const openHistory = (node: TreeNode) => {
+    const ref = state.itemRef(node);
+    if (ref && layout) openVersionHistory(layout, ref);
+  };
 
   const focusItem = (id: string) => {
     const item = tree.getItemInstance(id);
@@ -413,6 +422,7 @@ export function DocumentTree({
           onOpenLastOpened: () => void openItem(node, 'last'),
           onShowVersions: () => showItemVersions(node),
           onPreview: () => openPreview(node),
+          onVersionHistory: layout ? () => openHistory(node) : undefined,
         }),
       );
     }
@@ -437,6 +447,7 @@ export function DocumentTree({
         onCopyLink: urn ? () => void copyLink(urn, context) : undefined,
         onRevealPath: () => revealPath(node),
         onShowVersions: () => showVersions(node),
+        onVersionHistory: layout ? () => openHistory(node) : undefined,
       });
     });
   };

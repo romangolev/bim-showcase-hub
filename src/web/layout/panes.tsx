@@ -17,6 +17,7 @@ import { useOpenModels, useOpenModelsStore } from '../api/useOpenModels.js';
 import { StateBlock } from '../components/StateBlock.js';
 import { useTreeControl } from '../components/TreeControl.js';
 import { TreePanel } from '../components/TreePanel.js';
+import { useModelOpeners } from '../components/tree/useModelOpeners.js';
 import { DEFAULT_FILE_NAME } from '../extensions/excelExport.js';
 import { useModal } from '../modal/ModalContext.js';
 import { DASHBOARD_SETTINGS_ID } from '../panels/DashboardSettings.js';
@@ -27,6 +28,8 @@ import {
   ModelSummaryPanel,
   ModelsPanel,
   PropertiesPanel,
+  SearchResultsPanel,
+  VersionHistoryPanel,
 } from '../panels/index.js';
 import { SUMMARY_SETTINGS_ID } from '../panels/SummarySettings.js';
 import { VIEWPOINTS_MODAL_ID } from '../panels/Viewpoints.js';
@@ -366,6 +369,23 @@ export function ColorsPane() {
   return (
     <div className="pane-colors">
       <ColorsPanel />
+    </div>
+  );
+}
+
+export function VersionsPane() {
+  const openers = useModelOpeners();
+  return (
+    <div className="pane-versions">
+      <VersionHistoryPanel openers={openers} />
+    </div>
+  );
+}
+
+export function SearchPane() {
+  return (
+    <div className="pane-search">
+      <SearchResultsPanel />
     </div>
   );
 }
