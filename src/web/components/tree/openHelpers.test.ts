@@ -6,7 +6,7 @@ import {
   modelUrnsOf,
   openModel,
 } from '../../api/openModels.js';
-import { openWithMode } from './openHelpers.js';
+import { canJoinTab, openWithMode } from './openHelpers.js';
 
 function combinedStore() {
   const store = createOpenModelsStore(null);
@@ -44,5 +44,26 @@ describe('opening a member of a combined tab', () => {
     );
     expect(state.models.map((model) => model.urn)).toEqual(['a', 'b']);
     expect(state.active).toBe('b');
+  });
+});
+
+describe('joining the open viewer', () => {
+  const state = () => {
+    const store = createOpenModelsStore(null);
+    store.open('x', {});
+    store.open('y', {});
+    store.open('c', {});
+    store.addTo('c', 'm');
+    store.activate('x');
+    return store.getState();
+  };
+
+  it.each([
+    ['a fresh model', 'x', 'n', true],
+    ['a model that is its own tab', 'x', 'y', false],
+    ['a model already in the target', 'c', 'm', false],
+    ['the target itself', 'x', 'x', false],
+  ])('%s', (_name, target, urn, expected) => {
+    expect(canJoinTab(state(), target, urn)).toBe(expected);
   });
 });
