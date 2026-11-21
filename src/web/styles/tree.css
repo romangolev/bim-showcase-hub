@@ -441,7 +441,7 @@
   --tree-row-height-thumb: calc(4rem * var(--density));
   display: flex;
   align-items: flex-start;
-  gap: 6px;
+  gap: var(--space-1-5);
   padding-block: var(--row-inset);
   padding-inline-end: var(--space-3);
   color: var(--color-chalk);
@@ -635,7 +635,7 @@
   min-width: 0;
   max-width: 60%;
   margin-left: auto;
-  padding: 0 6px;
+  padding: 0 var(--space-1-5);
   border: 0.5px solid transparent;
   border-radius: var(--radius-badge);
   font-size: var(--text-13);
@@ -651,7 +651,7 @@
 
 .tree-row__latest {
   flex: none;
-  padding: 0 6px;
+  padding: 0 var(--space-1-5);
   border-radius: var(--radius-badge);
   background: color-mix(in srgb, var(--color-arc-blue) 18%, transparent);
   color: var(--color-arc-blue);

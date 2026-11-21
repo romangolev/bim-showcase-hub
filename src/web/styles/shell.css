@@ -139,8 +139,8 @@
 .badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 2px var(--space-2);
+  gap: var(--space-1-5);
+  padding: var(--space-0-5) var(--space-2);
   border: 0.5px solid var(--color-mint);
   border-radius: var(--radius-badge);
   color: var(--color-mint);
@@ -848,7 +848,7 @@
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: 1px;
+  gap: var(--space-0-5);
   min-width: 0;
 }
 
@@ -873,7 +873,7 @@
   display: flex;
   flex: none;
   align-items: center;
-  gap: 1px;
+  gap: var(--space-0-5);
 }
 
 .panes-menu__action {
@@ -1117,7 +1117,7 @@ html[data-presenting] .stack .stack__pane--viewer .model-viewer {
   top: -4px;
   right: -4px;
   min-width: 1rem;
-  padding: 0 4px;
+  padding: 0 var(--space-1);
   border-radius: var(--radius-badge);
   background: var(--color-arc-blue);
   color: var(--color-void);
@@ -1165,7 +1165,7 @@ html[data-presenting] .stack .stack__pane--viewer .model-viewer {
   min-width: 0;
   flex: 1;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-0-5);
 }
 
 .task-row__label {

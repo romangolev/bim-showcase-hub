@@ -52,7 +52,7 @@ Form fields (inputs, selects) draw a `field-border` hairline, white at 0.36 in d
 
 ## Spacing and shape
 
-- Base unit 4px, compact density.
+- Base unit 4px, compact density. Half steps of 2px and 6px (`--space-0-5`, `--space-1-5`) are for gaps inside small controls only.
 - Max content width 1080px. 96px between sections. 16px card padding, 12px panel padding. 8px element gap.
 - App gutter between panes 12px, page gutter 16px. Summary table cells 6px by 8px.
 - Radii: buttons 8px, cards 8px, icon tiles 6px, badges 4px, large containers 12px, pills fully round (`--radius-pill`).

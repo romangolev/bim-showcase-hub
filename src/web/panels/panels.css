@@ -282,7 +282,7 @@
   flex-direction: column;
   flex-wrap: wrap;
   align-content: flex-start;
-  gap: 2px var(--space-4);
+  gap: var(--space-0-5) var(--space-4);
   min-width: 0;
   min-height: 0;
   overflow: auto;
@@ -430,7 +430,7 @@
 .bsh-summary__title {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-0-5);
 }
 
 .bsh-summary__model {
@@ -540,7 +540,7 @@
 }
 
 .bsh-badge {
-  padding: 2px var(--space-2);
+  padding: var(--space-0-5) var(--space-2);
   border: var(--border-hairline);
   border-radius: var(--radius-pill);
   color: var(--color-fog);
@@ -591,7 +591,7 @@
 
 .bsh-summary[data-density="compact"] .bsh-table td,
 .bsh-summary[data-density="compact"] .bsh-table th {
-  padding-block: 2px;
+  padding-block: var(--space-0-5);
 }
 
 .bsh-chart__tools {
@@ -671,7 +671,7 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  gap: 2px;
+  gap: var(--space-0-5);
   font-size: var(--text-13);
 }
 
@@ -836,13 +836,13 @@
 
 .bsh-picker {
   display: grid;
-  gap: 0.5rem;
+  gap: var(--space-2);
 }
 
 .bsh-picker__chosen {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.375rem;
+  gap: var(--space-1-5);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -851,7 +851,7 @@
 .bsh-picker__remove {
   min-width: 1.5rem;
   min-height: 1.5rem;
-  margin-left: 0.375rem;
+  margin-left: var(--space-1-5);
   border: 0;
   background: none;
   color: inherit;
@@ -865,7 +865,7 @@
 
 .bsh-picker__groups {
   display: grid;
-  gap: 0.5rem;
+  gap: var(--space-2);
   max-height: 16rem;
   overflow-y: auto;
 }
@@ -875,7 +875,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-2);
 }
 
 .bsh-summary__progress progress {
@@ -925,7 +925,7 @@
 .bsh-gallery__preview li {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
 }
 
 .bsh-gallery__preview svg {
@@ -1218,7 +1218,7 @@
   justify-content: center;
   width: 18px;
   height: 18px;
-  margin-inline-end: 2px;
+  margin-inline-end: var(--space-0-5);
   padding: 0;
   vertical-align: middle;
 }
@@ -1226,7 +1226,7 @@
 .bsh-pivot__spacer {
   display: inline-block;
   width: 18px;
-  margin-inline-end: 2px;
+  margin-inline-end: var(--space-0-5);
 }
 
 .bsh-pivot__chevron {
@@ -1310,7 +1310,7 @@
   display: inline-flex;
   flex: 1 1 100%;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
   color: var(--color-coral);
   font-size: var(--text-13);
 }
@@ -1324,14 +1324,14 @@
 
 .bsh-picker__arrange {
   display: inline-flex;
-  gap: 2px;
-  margin-left: 0.375rem;
+  gap: var(--space-0-5);
+  margin-left: var(--space-1-5);
 }
 
 .bsh-picker__move {
   min-width: 1.5rem;
   min-height: 1.5rem;
-  padding: 0 2px;
+  padding: 0 var(--space-0-5);
   border: 0;
   background: none;
   color: inherit;
@@ -1380,7 +1380,7 @@
 .bsh-kpi {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-0-5);
   min-width: 12rem;
   max-width: 18rem;
   padding: var(--space-2) var(--space-3);
