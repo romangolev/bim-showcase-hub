@@ -654,7 +654,7 @@
   padding: 0 var(--space-1-5);
   border-radius: var(--radius-badge);
   background: color-mix(in srgb, var(--color-arc-blue) 18%, transparent);
-  color: var(--color-arc-blue);
+  color: var(--color-snow);
   font-size: var(--text-13);
   font-weight: var(--weight-label);
   white-space: nowrap;
