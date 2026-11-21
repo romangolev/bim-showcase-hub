@@ -7,6 +7,7 @@ import {
   within,
 } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { MAX_COMBINED_MODELS } from '../../shared/combined.js';
 import {
   createOpenModelsStore,
   type OpenModelsStore,
@@ -14,7 +15,11 @@ import {
 import { OpenModelsContext } from '../api/useOpenModels.js';
 import type { PickedModel } from '../components/tree/DocumentTree.js';
 import type { ModelOpeners } from '../components/tree/useModelOpeners.js';
-import { MODEL_SETS, type ModelSetMember } from '../store/modelSets.js';
+import {
+  MAX_SET_MEMBERS,
+  MODEL_SETS,
+  type ModelSetMember,
+} from '../store/modelSets.js';
 import { notifications, notify } from '../tasks/notifications.js';
 import { tasks } from '../tasks/taskStore.js';
 import {
@@ -134,19 +139,32 @@ describe('ModelSets', () => {
     await waitFor(() => expect(openers.openTogether).toHaveBeenCalledTimes(1));
   });
 
-  it('disables the combined viewer and links above their limits', () => {
-    save('Seven', ['u1', 'u2', 'u3', 'u4', 'u5', 'u6', 'u7']);
-    renderSets(stubOpeners());
-    openMenu('Seven');
+  it('disables the combined viewer with the cap when it would not open', () => {
+    save('Full', ['u1', 'u2']);
+    const openers = stubOpeners();
+    renderSets({
+      ...openers,
+      preview: () => ({ blocked: true, notice: null, admitted: 0 }),
+    });
+    openMenu('Full');
     const together = screen.getByRole('menuitem', { name: 'Open together' });
     expect(together).toBeDisabled();
     expect(together).toHaveAttribute(
       'title',
-      'A combined viewer holds 6 models',
+      `A combined viewer holds ${MAX_COMBINED_MODELS} models`,
     );
-    const link = screen.getByRole('menuitem', { name: 'Copy link' });
-    expect(link).toBeDisabled();
-    expect(link).toHaveAttribute('title', 'Links carry up to 6 models');
+  });
+
+  it('opens a set of the largest size together and links it with no limit shown', () => {
+    const urns = Array.from({ length: MAX_SET_MEMBERS }, (_, i) => `u${i}`);
+    save('Largest', urns);
+    renderSets(stubOpeners());
+    openMenu('Largest');
+    for (const name of ['Open together', 'Copy link']) {
+      const item = screen.getByRole('menuitem', { name });
+      expect(item).toBeEnabled();
+      expect(item).not.toHaveAttribute('title');
+    }
   });
 
   it('copies a link that carries every member', async () => {

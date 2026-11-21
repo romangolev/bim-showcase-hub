@@ -108,7 +108,10 @@ export function useModelOpeners(onNavigate?: () => void): ModelOpeners {
         (entry) => entry.reason === 'combined-limit',
       );
       const tab = openModels(store, { models, mode: 'tabs' });
-      reveal(tab.reveal, full ? COMBINED_FULL_NOTICE : tab.notice);
+      reveal(
+        tab.reveal,
+        full && tab.opened.length > 0 ? COMBINED_FULL_NOTICE : tab.notice,
+      );
       return;
     }
     run(models, 'tabs');

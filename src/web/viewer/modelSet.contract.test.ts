@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { MAX_COMBINED_MODELS } from '../../shared/combined.js';
 import { buildExportSheets, MODEL_COLUMN } from '../extensions/excelExport.js';
 import { paintSelection } from '../extensions/paintBrushes.js';
 import {
@@ -172,21 +173,23 @@ describe.each([mockFactory, realFactory])(
     it('retries a failed model and does not count it toward the cap', async () => {
       const { adapter, failingUrn } = setup();
       await adapter.loadModels([{ urn: 'urn-0' }, { urn: failingUrn }]);
-      for (let i = 1; i < 6; i++) await adapter.addModel({ urn: `urn-${i}` });
-      expect(adapter.getModels()).toHaveLength(7);
+      for (let i = 1; i < MAX_COMBINED_MODELS; i++) {
+        await adapter.addModel({ urn: `urn-${i}` });
+      }
+      expect(adapter.getModels()).toHaveLength(MAX_COMBINED_MODELS + 1);
       await expect(adapter.addModel({ urn: 'urn-x' })).rejects.toMatchObject({
         code: 'limit',
       });
-      adapter.removeModel('urn-5');
+      adapter.removeModel(`urn-${MAX_COMBINED_MODELS - 1}`);
       const retried = await adapter.addModel({ urn: failingUrn });
       expect(retried).toMatchObject({ id: failingUrn, status: 'error' });
       expect(adapter.getModels().map((m) => m.id)).toEqual([
         'urn-0',
         failingUrn,
-        'urn-1',
-        'urn-2',
-        'urn-3',
-        'urn-4',
+        ...Array.from(
+          { length: MAX_COMBINED_MODELS - 2 },
+          (_, i) => `urn-${i + 1}`,
+        ),
       ]);
     });
 
@@ -260,17 +263,19 @@ describe.each([mockFactory, realFactory])(
       expect(statuses(adapter.getModels())).toEqual([[failingUrn, 'error']]);
     });
 
-    it('enforces the cap of six and prevents duplicates', async () => {
+    it('enforces the combined cap and prevents duplicates', async () => {
       const { adapter } = setup();
-      const seven = Array.from({ length: 7 }, (_, i) => ({ urn: `urn-${i}` }));
-      await expect(adapter.loadModels(seven)).rejects.toBeInstanceOf(
+      const over = Array.from({ length: MAX_COMBINED_MODELS + 1 }, (_, i) => ({
+        urn: `urn-${i}`,
+      }));
+      await expect(adapter.loadModels(over)).rejects.toBeInstanceOf(
         ModelSetError,
       );
-      await adapter.loadModels(seven.slice(0, 6));
+      await adapter.loadModels(over.slice(0, MAX_COMBINED_MODELS));
       await expect(adapter.addModel({ urn: 'urn-x' })).rejects.toMatchObject({
         code: 'limit',
       });
-      adapter.removeModel('urn-5');
+      adapter.removeModel(`urn-${MAX_COMBINED_MODELS - 1}`);
       await expect(adapter.addModel({ urn: 'urn-0' })).rejects.toMatchObject({
         code: 'duplicate',
       });
@@ -280,7 +285,7 @@ describe.each([mockFactory, realFactory])(
         status: 'ready',
         name: 'MEP',
       });
-      expect(adapter.getModels()).toHaveLength(6);
+      expect(adapter.getModels()).toHaveLength(MAX_COMBINED_MODELS);
     });
 
     it('pairs every selected dbId with its model', async () => {

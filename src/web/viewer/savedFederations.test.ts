@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { MAX_COMBINED_MODELS } from '../../shared/combined.js';
 import type { TreeNode } from '../../shared/types.js';
 import type { OpenModel } from '../api/openModels.js';
 import { paneById } from '../layout/paneRegistry.js';
@@ -76,7 +77,10 @@ describe('captureFederation', () => {
       captureFederation(base('a'), () => ({}), INITIAL_MODEL_TINTS, []),
     ).toBeNull();
     const context = {
-      with: ['b', 'c', 'd', 'e', 'f', 'g', 'h'].join(','),
+      with: Array.from(
+        { length: MAX_COMBINED_MODELS },
+        (_, index) => `w${index}`,
+      ).join(','),
     };
     expect(
       captureFederation(
@@ -85,25 +89,28 @@ describe('captureFederation', () => {
         INITIAL_MODEL_TINTS,
         [],
       )?.members,
-    ).toHaveLength(6);
+    ).toHaveLength(MAX_COMBINED_MODELS);
   });
 });
 
 describe('sanitizeFederation', () => {
-  it('refuses garbage and keeps at most six members', () => {
+  it('refuses garbage and keeps at most the combined cap of members', () => {
     expect(sanitizeFederation({ members: [{ urn: 1 }] })).toBeNull();
     expect(sanitizeFederation({ members: [] })).toBeNull();
     expect(sanitizeFederation(null)).toBeNull();
     expect(
       sanitizeFederation({
-        members: Array.from({ length: 9 }, (_, index) => ({
-          urn: `u${index}`,
-          context: {},
-          latest: false,
-          hidden: false,
-        })),
+        members: Array.from(
+          { length: MAX_COMBINED_MODELS + 3 },
+          (_, index) => ({
+            urn: `u${index}`,
+            context: {},
+            latest: false,
+            hidden: false,
+          }),
+        ),
       })?.members,
-    ).toHaveLength(6);
+    ).toHaveLength(MAX_COMBINED_MODELS);
   });
 
   it('drops with, duplicate urns and invalid tints but keeps the rest', () => {

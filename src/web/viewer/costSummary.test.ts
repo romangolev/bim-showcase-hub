@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { MAX_COMBINED_MODELS } from '../../shared/combined.js';
 import { formatParts, summarizeCost } from './costSummary.js';
 
 describe('cost meter', () => {
@@ -9,8 +10,12 @@ describe('cost meter', () => {
 
   it('warns before the last slot and at the limit', () => {
     expect(summarizeCost(3, []).warning).toBeNull();
-    expect(summarizeCost(5, []).warning).toMatch(/One more model fits/);
-    expect(summarizeCost(6, []).warning).toMatch(/Limit reached/);
+    expect(summarizeCost(MAX_COMBINED_MODELS - 1, []).warning).toMatch(
+      /One more model fits/,
+    );
+    expect(summarizeCost(MAX_COMBINED_MODELS, []).warning).toMatch(
+      /Limit reached/,
+    );
   });
 
   it('formats part counts compactly', () => {

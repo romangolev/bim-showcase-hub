@@ -8,6 +8,7 @@ import {
   within,
 } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { MAX_COMBINED_MODELS } from '../../../shared/combined.js';
 import { thumbnailPath } from '../../api/client.js';
 import { createOpenModelsStore } from '../../api/openModels.js';
 import { type LayoutApi, LayoutContext } from '../../layout/layoutContext.js';
@@ -994,13 +995,25 @@ describe('DocumentTree multi-select', () => {
     ]);
   });
 
-  it('refuses to open more than six together', async () => {
-    await openVersions(7);
+  it('refuses to open more than the combined cap together', async () => {
+    stubLayout(MAX_COMBINED_MODELS * 100);
+    await openVersions(MAX_COMBINED_MODELS + 1, {
+      pickPreview: (
+        models: Parameters<typeof previewOpen>[1]['models'],
+        mode: Parameters<typeof previewOpen>[1]['mode'],
+      ) =>
+        previewOpen(createOpenModelsStore(null).getState(), {
+          models: mode === 'tabs' ? models.slice(0, 1) : models,
+          mode,
+        }),
+    });
     fireEvent.click(row(1), { ctrlKey: true });
-    fireEvent.click(row(7), { shiftKey: true });
-    expect(screen.getByText('7 selected')).toBeInTheDocument();
+    fireEvent.click(row(MAX_COMBINED_MODELS + 1), { shiftKey: true });
+    expect(
+      screen.getByText(`${MAX_COMBINED_MODELS + 1} selected`),
+    ).toBeInTheDocument();
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'A combined view holds up to 6 models',
+      `A combined view holds up to ${MAX_COMBINED_MODELS} models`,
     );
     expect(
       screen.getByRole('button', { name: 'Open together' }),

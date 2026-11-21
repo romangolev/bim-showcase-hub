@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { MAX_COMBINED_MODELS } from '../../../shared/combined.js';
 import { PINNED_KEY, rememberModel } from '../../api/modelStore.js';
 import {
   SETTINGS_STORAGE_KEY,
@@ -334,7 +335,10 @@ describe('RecentStrip row menu', () => {
     renderCollapsed(target({ canAdd: () => false }));
     const item = within(openMenu()).getByText('Add to open model');
     expect(item).toBeDisabled();
-    expect(item).toHaveAttribute('title', 'Combined viewer holds 6 models');
+    expect(item).toHaveAttribute(
+      'title',
+      `Combined viewer holds ${MAX_COMBINED_MODELS} models`,
+    );
   });
 
   it('hides the add item without an open viewer', () => {

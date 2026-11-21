@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { MAX_COMBINED_MODELS } from '../../shared/combined.js';
 import type { TreeNode } from '../../shared/types.js';
 import { modelHref } from '../components/tree/rowMenu.js';
 import { resolveModelSet, setLink } from './openModelSet.js';
@@ -105,16 +106,26 @@ describe('resolveModelSet', () => {
 });
 
 describe('setLink', () => {
-  it('builds a combined link for up to six models and none above', () => {
-    const six = Array.from({ length: 6 }, (_, i) => ({
+  it('builds a combined link for up to the combined cap and none above', () => {
+    const full = Array.from({ length: MAX_COMBINED_MODELS }, (_, i) => ({
       urn: `u${i}`,
       context: { file: `f${i}` },
     }));
-    expect(setLink(six, 'https://x')).toBe(
-      modelHref('u0', { file: 'f0', with: 'u1,u2,u3,u4,u5' }, 'https://x'),
+    expect(setLink(full, 'https://x')).toBe(
+      modelHref(
+        'u0',
+        {
+          file: 'f0',
+          with: full
+            .slice(1)
+            .map((m) => m.urn)
+            .join(','),
+        },
+        'https://x',
+      ),
     );
     expect(
-      setLink([...six, { urn: 'u6', context: {} }], 'https://x'),
+      setLink([...full, { urn: 'extra', context: {} }], 'https://x'),
     ).toBeNull();
   });
 

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { MAX_COMBINED_MODELS } from '../../shared/combined.js';
 import { act, fireEvent, render, screen, waitFor } from '../test/render.js';
 import {
   createMockViewerAdapter,
@@ -30,6 +31,10 @@ function tracked() {
 
 const B: ModelSource = { urn: 'urn-b', name: 'B.rvt' };
 const C: ModelSource = { urn: 'urn-c', name: 'C.nwd' };
+
+function members(count: number): { urn: string }[] {
+  return Array.from({ length: count }, (_, i) => ({ urn: `urn-m${i}` }));
+}
 
 function groups(): string[] {
   return [...document.querySelectorAll<SVGElement>('[data-model-id]')].map(
@@ -249,17 +254,17 @@ describe('ViewerPane with several models', () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
       const { factory } = tracked();
-      const five = ['b', 'c', 'd', 'e', 'f'].map((id) => ({
-        urn: `urn-${id}`,
-      }));
+      const room = members(MAX_COMBINED_MODELS - 1);
       const { rerender } = render(
-        <ViewerPane urn="urn-a" members={five} factory={factory} />,
+        <ViewerPane urn="urn-a" members={room} factory={factory} />,
       );
-      await screen.findByRole('button', { name: 'Models in this viewer (6)' });
+      await screen.findByRole('button', {
+        name: `Models in this viewer (${MAX_COMBINED_MODELS})`,
+      });
       rerender(
         <ViewerPane
           urn="urn-a"
-          members={[...five, { urn: 'urn-g' }]}
+          members={[...room, { urn: 'urn-over' }]}
           factory={factory}
         />,
       );
@@ -273,22 +278,24 @@ describe('ViewerPane with several models', () => {
     }
   });
 
-  it('explains the cap when a seventh model is added', async () => {
+  it('explains the cap when a model past it is added', async () => {
     const { factory } = tracked();
-    const five = ['b', 'c', 'd', 'e', 'f'].map((id) => ({ urn: `urn-${id}` }));
+    const room = members(MAX_COMBINED_MODELS - 1);
     const { rerender } = render(
-      <ViewerPane urn="urn-a" members={five} factory={factory} />,
+      <ViewerPane urn="urn-a" members={room} factory={factory} />,
     );
-    await screen.findByRole('button', { name: 'Models in this viewer (6)' });
+    await screen.findByRole('button', {
+      name: `Models in this viewer (${MAX_COMBINED_MODELS})`,
+    });
     rerender(
       <ViewerPane
         urn="urn-a"
-        members={[...five, { urn: 'urn-g' }]}
+        members={[...room, { urn: 'urn-over' }]}
         factory={factory}
       />,
     );
     expect(await screen.findByText(MODEL_LIMIT_MESSAGE)).toBeInTheDocument();
-    expect(groups()).toHaveLength(6);
+    expect(groups()).toHaveLength(MAX_COMBINED_MODELS);
   });
 });
 
@@ -391,12 +398,16 @@ describe('ViewerPane failure reasons', () => {
 describe('ViewerPane cost meter', () => {
   it('counts models against the cap and warns before the last slot', async () => {
     const { factory } = tracked();
-    const five = ['b', 'c', 'd', 'e'].map((id) => ({ urn: `urn-${id}` }));
-    render(<ViewerPane urn="urn-a" members={five} factory={factory} />);
+    const room = members(MAX_COMBINED_MODELS - 2);
+    render(<ViewerPane urn="urn-a" members={room} factory={factory} />);
     const chip = await screen.findByRole('button', {
-      name: /Models in this viewer \(5\)/,
+      name: new RegExp(
+        `Models in this viewer \\(${MAX_COMBINED_MODELS - 1}\\)`,
+      ),
     });
-    expect(chip.textContent).toContain('5 of 6 models');
+    expect(chip.textContent).toContain(
+      `${MAX_COMBINED_MODELS - 1} of ${MAX_COMBINED_MODELS} models`,
+    );
     expect(chip.getAttribute('title')).toMatch(/parts \(estimate\)/);
     expect(screen.getByText(/One more model fits/)).toBeTruthy();
     expect(screen.queryByText(/parts \(estimate\)/)).toBeNull();

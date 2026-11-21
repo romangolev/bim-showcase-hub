@@ -89,14 +89,13 @@ describe('ModelSet', () => {
     expect(set.add({ urn: 'b' })).not.toHaveProperty('view');
   });
 
-  it('caps the set at six models', () => {
-    expect(MAX_COMBINED_MODELS).toBe(6);
+  it('caps the set at the combined limit', () => {
     const set = new ModelSet<string>();
-    for (let i = 0; i < 6; i++) set.add({ urn: `u${i}` });
-    const err = caught(() => set.add({ urn: 'u6' }));
+    for (let i = 0; i < MAX_COMBINED_MODELS; i++) set.add({ urn: `u${i}` });
+    const err = caught(() => set.add({ urn: 'over' }));
     expect(err.code).toBe('limit');
     expect(err.message).toBe(MODEL_LIMIT_MESSAGE);
-    expect(set.size).toBe(6);
+    expect(set.size).toBe(MAX_COMBINED_MODELS);
   });
 
   it('rejects a duplicate urn and an empty one', () => {
@@ -113,14 +112,16 @@ describe('ModelSet', () => {
     set.add({ urn: 'bad', name: 'Bad.rvt' });
     set.add({ urn: 'b' });
     set.fail('bad', 'boom');
-    for (let i = 0; i < 5; i++) set.add({ urn: `u${i}` });
-    expect(set.activeCount()).toBe(6);
-    expect(caught(() => set.add({ urn: 'u9' })).code).toBe('limit');
-    set.remove('u4');
+    for (let i = 0; i < MAX_COMBINED_MODELS - 1; i++) {
+      set.add({ urn: `u${i}` });
+    }
+    expect(set.activeCount()).toBe(MAX_COMBINED_MODELS);
+    expect(caught(() => set.add({ urn: 'over' })).code).toBe('limit');
+    set.remove('u0');
     const retried = set.add({ urn: 'bad' });
     expect(retried).toMatchObject({ name: 'Bad.rvt', status: 'loading' });
     expect(set.list()[0]?.id).toBe('bad');
-    expect(set.size).toBe(6);
+    expect(set.size).toBe(MAX_COMBINED_MODELS);
   });
 
   it('tracks ready and failed models independently', () => {
@@ -223,9 +224,13 @@ describe('model source helpers', () => {
   });
 
   it('checks capacity before loading', () => {
-    expect(() => checkCapacity(0, 6)).not.toThrow();
-    expect(caught(() => checkCapacity(0, 7)).code).toBe('limit');
-    expect(caught(() => checkCapacity(5, 2)).code).toBe('limit');
+    expect(() => checkCapacity(0, MAX_COMBINED_MODELS)).not.toThrow();
+    expect(caught(() => checkCapacity(0, MAX_COMBINED_MODELS + 1)).code).toBe(
+      'limit',
+    );
+    expect(caught(() => checkCapacity(MAX_COMBINED_MODELS - 1, 2)).code).toBe(
+      'limit',
+    );
   });
 
   it('describes a failed load', () => {

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { MAX_COMBINED_MODELS } from '../../shared/combined.js';
 import { parseModelContext } from '../api/modelContext.js';
 import { listRecentModels } from '../api/modelStore.js';
 import {
@@ -53,31 +54,41 @@ beforeEach(() => {
 });
 
 describe('openModels', () => {
-  it('opens 6 of 8 together and names the combined cap', () => {
+  it('opens the combined cap together and names it when more are picked', () => {
     const { store } = recording(stateOf([]));
     const out = openModels(store, {
-      models: picked(8),
+      models: picked(MAX_COMBINED_MODELS + 2),
       mode: 'together',
       partial: true,
     });
-    expect(out.opened).toHaveLength(6);
+    expect(out.opened).toHaveLength(MAX_COMBINED_MODELS);
     expect(out.skipped.map((s) => [s.model.urn, s.reason])).toEqual([
-      ['p6', 'combined-limit'],
-      ['p7', 'combined-limit'],
+      [`p${MAX_COMBINED_MODELS}`, 'combined-limit'],
+      [`p${MAX_COMBINED_MODELS + 1}`, 'combined-limit'],
     ]);
-    expect(out.notice).toContain('Opened 6 of 8');
-    expect(out.notice).toContain('holds 6');
+    expect(out.notice).toContain(
+      `Opened ${MAX_COMBINED_MODELS} of ${MAX_COMBINED_MODELS + 2}`,
+    );
+    expect(out.notice).toContain(`holds ${MAX_COMBINED_MODELS}`);
     expect(out.notice).not.toContain('tabs hold');
     expect(out.reveal?.urn).toBe('p0');
-    expect(out.reveal?.context.with).toBe('p1,p2,p3,p4,p5');
+    expect(out.reveal?.context.with).toBe(
+      Array.from(
+        { length: MAX_COMBINED_MODELS - 1 },
+        (_, i) => `p${i + 1}`,
+      ).join(','),
+    );
   });
 
   it('rejects an over-cap together request whole when not partial', () => {
     const { store, calls } = recording(stateOf([]));
-    const out = openModels(store, { models: picked(7), mode: 'together' });
+    const out = openModels(store, {
+      models: picked(MAX_COMBINED_MODELS + 1),
+      mode: 'together',
+    });
     expect(out.opened).toEqual([]);
     expect(out.reveal).toBeNull();
-    expect(out.notice).toContain('6');
+    expect(out.notice).toContain(`${MAX_COMBINED_MODELS}`);
     expect(calls).toEqual([]);
   });
 
@@ -130,14 +141,16 @@ describe('openModels', () => {
 
   it('skips add-to-active at the combined cap with the combined notice', () => {
     const { store, calls } = recording(
-      stateOf(['a'], { a: ['b', 'c', 'd', 'e', 'f'] }),
+      stateOf(['a'], {
+        a: Array.from({ length: MAX_COMBINED_MODELS - 1 }, (_, i) => `m${i}`),
+      }),
     );
     const out = openModels(store, {
       models: [{ urn: 'n', context: {} }],
       mode: 'add-to-active',
     });
     expect(out.skipped.map((s) => s.reason)).toEqual(['combined-limit']);
-    expect(out.notice).toContain('6 models');
+    expect(out.notice).toContain(`${MAX_COMBINED_MODELS} models`);
     expect(calls).toEqual([]);
   });
 
@@ -188,12 +201,16 @@ describe('previewOpen', () => {
       [
         'together over the cap',
         stateOf([]),
-        { models: picked(8), mode: 'together', partial: true },
+        {
+          models: picked(MAX_COMBINED_MODELS + 2),
+          mode: 'together',
+          partial: true,
+        },
       ],
       [
         'together strict over the cap',
         stateOf([]),
-        { models: picked(7), mode: 'together' },
+        { models: picked(MAX_COMBINED_MODELS + 1), mode: 'together' },
       ],
       [
         'tabs over the cap',
@@ -212,7 +229,9 @@ describe('previewOpen', () => {
       ],
       [
         'add at the cap',
-        stateOf(['a'], { a: ['b', 'c', 'd', 'e', 'f'] }),
+        stateOf(['a'], {
+          a: Array.from({ length: MAX_COMBINED_MODELS - 1 }, (_, i) => `m${i}`),
+        }),
         { models: picked(1), mode: 'add-to-active' },
       ],
     ];
@@ -237,13 +256,18 @@ describe('previewOpen', () => {
 });
 
 describe('the with clamp', () => {
-  it('opens at most 6 models from a with of 20 urns without throwing', () => {
-    const many = Array.from({ length: 20 }, (_, index) => `m${index}`);
+  it('opens at most the combined cap from a longer with without throwing', () => {
+    const many = Array.from(
+      { length: MAX_COMBINED_MODELS * 2 },
+      (_, index) => `m${index}`,
+    );
     const store = createOpenModelsStore(null);
     expect(() =>
       store.open('a', parseModelContext({ with: many.join(',') })),
     ).not.toThrow();
-    expect(modelUrnsOf(store.getState(), 'a')).toHaveLength(6);
+    expect(modelUrnsOf(store.getState(), 'a')).toHaveLength(
+      MAX_COMBINED_MODELS,
+    );
   });
 });
 

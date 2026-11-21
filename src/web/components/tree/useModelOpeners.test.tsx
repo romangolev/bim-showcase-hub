@@ -1,11 +1,13 @@
 import { act, renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { MAX_COMBINED_MODELS } from '../../../shared/combined.js';
 import { createOpenModelsStore, modelUrnsOf } from '../../api/openModels.js';
 import { OpenModelsContext } from '../../api/useOpenModels.js';
 import { PANE_SETTINGS } from '../../settings/paneSettings.js';
 import { notifications } from '../../tasks/notifications.js';
 import { installMemoryStorage } from '../../test/mockApi.js';
+import { tabLimitMessage } from '../../viewer/openModels.js';
 import { DEFAULT_TREE_VIEW } from './treeView.js';
 import { useModelOpeners } from './useModelOpeners.js';
 
@@ -33,22 +35,23 @@ beforeEach(() => {
 });
 
 describe('useModelOpeners open in combined mode', () => {
-  it('opens a new tab and says so when the combined viewer is full', () => {
+  it('opens no tab and gives the tab limit notice when the combined viewer is full', () => {
     const { store, result } = setup('combined');
     store.open('urn-a', {});
-    for (let index = 1; index < 6; index += 1) {
+    for (let index = 1; index < MAX_COMBINED_MODELS; index += 1) {
       store.addTo('urn-a', `urn-x-${index}`);
     }
     act(() => result.current.open('urn-new', { file: 'New.rvt' }));
-    expect(modelUrnsOf(store.getState(), 'urn-a')).toHaveLength(6);
+    expect(modelUrnsOf(store.getState(), 'urn-a')).toHaveLength(
+      MAX_COMBINED_MODELS,
+    );
     expect(store.getState().models.map((model) => model.urn)).toEqual([
       'urn-a',
-      'urn-new',
     ]);
     expect(
       notifications.getSnapshot().items.map((item) => item.message),
-    ).toContain('The open viewer is full; opened a new tab');
-    expect(navigate).toHaveBeenCalledTimes(1);
+    ).toEqual([tabLimitMessage(MAX_COMBINED_MODELS)]);
+    expect(navigate).not.toHaveBeenCalled();
   });
 
   it('activates a model that is already its own tab', () => {

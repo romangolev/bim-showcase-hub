@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { MAX_COMBINED_MODELS } from '../../shared/combined.js';
 import { setStorageAdapter } from '../storage.js';
 import { memoryAdapter, type StorageAdapter } from '../storageAdapter.js';
 import {
@@ -41,7 +42,11 @@ describe('with in the model context', () => {
   it('parses a comma list, drops repeats and empties, and caps it', () => {
     expect(parseWith('b,c,,b, d')).toEqual(['b', 'c', 'd']);
     expect(parseWith(['b', 'a', 'c'], 'a')).toEqual(['b', 'c']);
-    expect(parseWith('1,2,3,4,5,6,7')).toHaveLength(5);
+    const over = Array.from(
+      { length: MAX_COMBINED_MODELS + 1 },
+      (_, i) => `m${i}`,
+    );
+    expect(parseWith(over.join(','))).toHaveLength(MAX_COMBINED_MODELS - 1);
     expect(parseWith(42)).toEqual([]);
     expect(joinWith([])).toBeUndefined();
     expect(joinWith(['b', 'c'])).toBe('b,c');
@@ -54,20 +59,27 @@ describe('with in the model context', () => {
     expect(sameModelContext(context, { file: 'A.rvt' })).toBe(false);
   });
 
-  it('clamps a with list of 20 urns to the combined cap on every path', () => {
-    const many = Array.from({ length: 20 }, (_, index) => `m${index}`);
+  it('clamps a with list past the cap to the combined cap on every path', () => {
+    const many = Array.from(
+      { length: MAX_COMBINED_MODELS * 2 },
+      (_, index) => `m${index}`,
+    );
     const joined = many.join(',');
-    expect(withUrns({ with: joined })).toHaveLength(5);
-    expect(parseModelContext({ with: many }).with?.split(',')).toHaveLength(5);
+    expect(withUrns({ with: joined })).toHaveLength(MAX_COMBINED_MODELS - 1);
+    expect(parseModelContext({ with: many }).with?.split(',')).toHaveLength(
+      MAX_COMBINED_MODELS - 1,
+    );
     const state = openModel(EMPTY_OPEN_MODELS, 'a', { with: joined });
-    expect(modelUrnsOf(state, 'a')).toHaveLength(6);
+    expect(modelUrnsOf(state, 'a')).toHaveLength(MAX_COMBINED_MODELS);
     const restored = parseOpenModels(
       serializeOpenModels({
         ...state,
         models: [{ urn: 'a', context: { with: joined } }],
       }),
     );
-    expect(modelUrnsOf(restored, 'a').length).toBeLessThanOrEqual(6);
+    expect(modelUrnsOf(restored, 'a').length).toBeLessThanOrEqual(
+      MAX_COMBINED_MODELS,
+    );
   });
 
   it('never remembers or recalls the with list per urn', () => {
@@ -94,13 +106,15 @@ describe('combined entries in the open-models store', () => {
     expect(modelUrnsOf(state, 'x')).toEqual([]);
   });
 
-  it('adds members once and up to six models', () => {
+  it('adds members once and up to the combined cap', () => {
     let state = open(EMPTY_OPEN_MODELS, 'a');
     state = addToModel(state, 'a', 'b');
     expect(addToModel(state, 'a', 'b')).toBe(state);
     expect(addToModel(state, 'a', 'a')).toBe(state);
-    for (const urn of ['c', 'd', 'e', 'f']) state = addToModel(state, 'a', urn);
-    expect(modelUrnsOf(state, 'a')).toHaveLength(6);
+    for (let i = 2; i < MAX_COMBINED_MODELS; i++) {
+      state = addToModel(state, 'a', `m${i}`);
+    }
+    expect(modelUrnsOf(state, 'a')).toHaveLength(MAX_COMBINED_MODELS);
     expect(addToModel(state, 'a', 'g')).toBe(state);
     expect(addToModel(state, 'missing', 'g')).toBe(state);
   });
