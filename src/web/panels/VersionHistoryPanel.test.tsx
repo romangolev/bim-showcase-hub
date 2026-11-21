@@ -7,6 +7,7 @@ import {
   within,
 } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { notifications } from '../tasks/notifications.js';
 import {
   createTestClient,
   installMemoryStorage,
@@ -94,6 +95,28 @@ describe('VersionHistoryPanel', () => {
         crumbs: ['Hub'],
       }),
     );
+  });
+
+  it('does not open a version that is not viewable', async () => {
+    installMemoryStorage();
+    VERSION_TARGET.write(target);
+    VERSION_HISTORY_VIEW.write({ filter: '', viewableOnly: false });
+    mockFetch({
+      '/api/projects/p1/items/i1/versions': [
+        { ...versions[0], viewState: 'failed', viewable: false },
+      ],
+    });
+    notifications.clear();
+    const openers = renderPanel();
+    fireEvent.click(await screen.findByRole('button', { name: 'Open v1' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Open v1 in a new tab' }),
+    );
+    await waitFor(() =>
+      expect(notifications.getSnapshot().items.length).toBeGreaterThan(0),
+    );
+    expect(openers.open).not.toHaveBeenCalled();
+    expect(openers.openTabs).not.toHaveBeenCalled();
   });
 
   it('compares two picked versions as tabs', async () => {

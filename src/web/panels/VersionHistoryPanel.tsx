@@ -116,15 +116,25 @@ export function VersionHistoryPanel({ openers }: VersionHistoryPanelProps) {
     }
   };
 
-  const openRow = async (version: TreeNode) => {
+  const readyToOpen = async (version: TreeNode) => {
     const ready = await ensureChecked(version);
-    if (!ready?.urn) return;
+    if (!ready) return null;
+    if (!openable(ready)) {
+      notify(VIEW_STATE_COPY[viewStateOf(ready)].reason, { tone: 'error' });
+      return null;
+    }
+    return ready as TreeNode & { urn: string };
+  };
+
+  const openRow = async (version: TreeNode) => {
+    const ready = await readyToOpen(version);
+    if (!ready) return;
     openers.open(ready.urn, versionContext(target, ready));
   };
 
   const openInTab = async (version: TreeNode) => {
-    const ready = await ensureChecked(version);
-    if (!ready?.urn) return;
+    const ready = await readyToOpen(version);
+    if (!ready) return;
     openers.openTabs([
       { urn: ready.urn, context: versionContext(target, ready) },
     ]);
