@@ -154,6 +154,35 @@
   flex: none;
 }
 
+.docs-home__item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.docs-home__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.docs-home__row .docs-home__set {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+}
+
+.docs-home__note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0 var(--space-2);
+  color: var(--color-ash);
+  font-size: var(--text-13);
+}
+
 .dock-root[data-model-drop="true"] {
   outline: 2px solid var(--color-arc-blue);
   outline-offset: -2px;

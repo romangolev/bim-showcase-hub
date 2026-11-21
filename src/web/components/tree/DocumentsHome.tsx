@@ -1,19 +1,17 @@
-import type { ModelContext } from '../../api/modelContext.js';
 import { recallModel } from '../../api/modelStore.js';
+import { ModelSets } from '../../panels/ModelSets.js';
 import { PANE_SETTINGS } from '../../settings/paneSettings.js';
 import { usePersisted } from '../../storage.js';
 import { useSelectionSets } from '../../viewer/selectionSets.js';
 import { Icon } from '../icons.js';
 import { Menu, type MenuEntry } from '../Menu.js';
-import type { AddTarget, PickedModel } from './DocumentTree.js';
+import type { PickedModel } from './DocumentTree.js';
 import { RecentStrip } from './RecentStrip.js';
+import type { ModelOpeners } from './useModelOpeners.js';
 
 interface DocumentsHomeProps {
   selectedUrn?: string;
-  onOpen: (urn: string, context: ModelContext) => void;
-  onOpenModal?: (urn: string, context: ModelContext) => void;
-  onOpenTabs?: (models: PickedModel[]) => void;
-  addTarget?: AddTarget | null;
+  openers: ModelOpeners;
 }
 
 function documentsOfSet(modelIds: readonly string[]): PickedModel[] {
@@ -23,13 +21,7 @@ function documentsOfSet(modelIds: readonly string[]): PickedModel[] {
   }));
 }
 
-export function DocumentsHome({
-  selectedUrn,
-  onOpen,
-  onOpenModal,
-  onOpenTabs,
-  addTarget,
-}: DocumentsHomeProps) {
+export function DocumentsHome({ selectedUrn, openers }: DocumentsHomeProps) {
   const [view, setView] = usePersisted(PANE_SETTINGS.tree.view);
   const sets = useSelectionSets();
 
@@ -52,14 +44,20 @@ export function DocumentsHome({
       checked: view.homeSets,
       onSelect: () => setView({ ...view, homeSets: !view.homeSets }),
     },
+    {
+      id: 'home-model-sets',
+      label: 'Show model sets',
+      checked: view.homeModelSets,
+      onSelect: () => setView({ ...view, homeModelSets: !view.homeModelSets }),
+    },
   ];
 
   const openSet = (modelIds: readonly string[]) => {
     const models = documentsOfSet(modelIds);
     const [first] = models;
     if (!first) return;
-    if (onOpenTabs && models.length > 1) onOpenTabs(models);
-    else onOpen(first.urn, first.context);
+    if (models.length > 1) openers.openTabs(models);
+    else openers.open(first.urn, first.context);
   };
 
   return (
@@ -79,9 +77,9 @@ export function DocumentsHome({
           <RecentStrip
             variant="home"
             selectedUrn={selectedUrn}
-            onOpen={onOpen}
-            onOpenModal={onOpenModal}
-            addTarget={addTarget}
+            onOpen={openers.open}
+            onOpenModal={openers.openModal}
+            addTarget={openers.addTarget}
             show={{ pinned: view.homePinned, recent: view.homeRecent }}
           />
         ) : null}
@@ -115,6 +113,7 @@ export function DocumentsHome({
             )}
           </section>
         ) : null}
+        {view.homeModelSets ? <ModelSets openers={openers} /> : null}
       </div>
     </section>
   );

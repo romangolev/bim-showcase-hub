@@ -1,4 +1,7 @@
 import { useEffect, useId, useRef } from 'react';
+import { recallModel } from '../api/modelStore.js';
+import { modelUrnsOf } from '../api/openModels.js';
+import { useOpenModels } from '../api/useOpenModels.js';
 import { Icon } from '../components/icons.js';
 import { StateBlock } from '../components/StateBlock.js';
 import { usePersisted } from '../storage.js';
@@ -8,6 +11,7 @@ import { explainFailure } from '../viewer/failureExplainer.js';
 import type { ModelInfo } from '../viewer/modelSet.js';
 import { useModels } from '../viewer/useModels.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
+import { saveModelSetPrompt } from './ModelSets.js';
 import { ModelTintSwatch } from './ModelTintSwatch.js';
 import { isolatedModel, isolateVisibility } from './modelRows.js';
 import {
@@ -85,6 +89,8 @@ export function ModelsPanel({
   const titleId = useId();
   const resolved = useResolvedAdapter(adapter);
   const models = useModels(resolved);
+  const openModels = useOpenModels();
+  const active = openModels.active;
   const isolated = isolatedModel(models);
   const [tints, setTints] = usePersisted(MODEL_TINTS);
   useModelTints(resolved, models, tints);
@@ -125,12 +131,26 @@ export function ModelsPanel({
         : { ...current, strength: value };
     });
   };
+  const saveAsModelSet = () => {
+    if (!active) return;
+    saveModelSetPrompt(
+      modelUrnsOf(openModels, active).map((urn) => ({
+        urn,
+        context: recallModel(urn) ?? {},
+      })),
+    );
+  };
   return (
     <section className="bsh-card bsh-models" aria-labelledby={titleId}>
       <header className="bsh-card__header">
         <h2 id={titleId} className="bsh-card__title">
           Models
         </h2>
+        {resolved && models.length > 0 && active ? (
+          <button type="button" className="bsh-button" onClick={saveAsModelSet}>
+            Save as model set
+          </button>
+        ) : null}
         {onAdd ? (
           <button type="button" className="bsh-button" onClick={onAdd}>
             Add model
