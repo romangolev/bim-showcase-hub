@@ -91,6 +91,53 @@ describe('createApsDataService', () => {
     });
   });
 
+  it('maps the tip of each item from the included versions across pages', async () => {
+    const client = fakeClient();
+    client.getFolderContents
+      .mockResolvedValueOnce({
+        data: [
+          {
+            type: 'items',
+            id: 'i1',
+            attributes: { name: 'a.rvt' },
+            relationships: { tip: { data: { id: 'v?version=2' } } },
+          },
+        ],
+        included: [
+          {
+            id: 'v?version=2',
+            attributes: { versionNumber: 2 },
+            relationships: { derivatives: { data: { id: 'urn-a' } } },
+          },
+        ],
+        links: { next: { href: 'x' } },
+      })
+      .mockResolvedValueOnce({
+        data: [
+          {
+            type: 'items',
+            id: 'i2',
+            attributes: { name: 'b.rvt' },
+            relationships: { tip: { data: { id: 'v?version=5' } } },
+          },
+        ],
+        included: [
+          {
+            id: 'v?version=5',
+            attributes: { versionNumber: 5 },
+            relationships: { derivatives: { data: { id: 'urn-b' } } },
+          },
+        ],
+        links: {},
+      });
+    const service = createApsDataService(client as never);
+    const items = await service.listFolderContents('tok', 'b.p', 'f1');
+    expect(items.map((item) => [item.versionNumber, item.tipUrn])).toEqual([
+      [2, 'urn-a'],
+      [5, 'urn-b'],
+    ]);
+  });
+
   it('fails with a 502 when a list never ends', async () => {
     const client = fakeClient();
     client.getFolderContents.mockResolvedValue({

@@ -16,3 +16,11 @@ export function decodeId(encoded: string): string {
   }
   return raw;
 }
+
+export function decodeUrn(encoded: string): string {
+  const raw = decodeId(encoded);
+  if (!raw.startsWith('urn:adsk.')) {
+    throw new HttpError(400, 'Invalid id');
+  }
+  return raw;
+}

@@ -1,14 +1,15 @@
 import type { SessionUser, TreeNode, ViewerToken } from '../../shared/types.js';
 import { viewableFor } from '../../shared/viewState.js';
-import { versionLabel } from '../data/mapping.js';
+import { markLatest, versionLabel } from '../data/mapping.js';
 import type { DataService } from '../data/types.js';
 import { HttpError } from '../errors.js';
-import { encodeId } from '../ids.js';
+import { decodeId, encodeId } from '../ids.js';
 import {
   buildMockData,
   type MockData,
   type MockFolder,
   type MockItem,
+  type MockVersion,
 } from './fixtures.js';
 
 export const MOCK_USER: SessionUser = {
@@ -48,10 +49,36 @@ function folderNode(folder: MockFolder): TreeNode {
   };
 }
 
+function xmlEscape(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function thumbnailSvg(name: string): string {
+  return [
+    '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">',
+    '<rect width="200" height="200" fill="#2b5f75"/>',
+    `<text x="100" y="118" font-family="sans-serif" font-size="56" fill="#ffffff" text-anchor="middle">${xmlEscape(name.slice(0, 3))}</text>`,
+    '</svg>',
+  ].join('');
+}
+
 export function createMockDataService(
   data: MockData = buildMockData(),
   options: { emptyHubs?: boolean; personalOnly?: boolean } = {},
 ): DataService {
+  const versionsById = new Map<
+    string,
+    { version: MockVersion; name: string }
+  >();
+  for (const item of data.items.values()) {
+    for (const version of item.versions) {
+      versionsById.set(version.id, { version, name: item.name });
+    }
+  }
+
   return {
     async listHubs() {
       if (options.emptyHubs) {
@@ -121,6 +148,7 @@ export function createMockDataService(
         if (!item) {
           throw notFound('Item');
         }
+        const latest = item.versions[item.versions.length - 1];
         return {
           id: encodeId(item.id),
           kind: 'item',
@@ -129,6 +157,10 @@ export function createMockDataService(
           viewable: false,
           parentId: encodeId(folderId),
           ...latestMeta(item),
+          ...(latest ? { versionNumber: latest.number } : {}),
+          ...(latest?.hasUrn
+            ? { tipUrn: encodeId(`urn:adsk.mock:${latest.id}`) }
+            : {}),
         };
       });
       return [...folders, ...items];
@@ -139,7 +171,7 @@ export function createMockDataService(
       if (!item || item.projectId !== projectId) {
         throw notFound('Item');
       }
-      return item.versions.map((version): TreeNode => {
+      const nodes = item.versions.map((version): TreeNode => {
         const node: TreeNode = {
           id: encodeId(version.id),
           kind: 'version',
@@ -151,12 +183,14 @@ export function createMockDataService(
           modifiedAt: version.modifiedAt,
           modifiedBy: version.user,
           size: version.size,
+          versionNumber: version.number,
         };
         if (version.hasUrn) {
           node.urn = encodeId(`urn:adsk.mock:${version.id}`);
         }
         return node;
       });
+      return markLatest(nodes);
     },
 
     async versionViewState(_token, projectId, itemId, versionId) {
@@ -171,6 +205,18 @@ export function createMockDataService(
       return {
         viewState: version.viewState,
         viewable: viewableFor(version.viewState),
+      };
+    },
+
+    async versionThumbnail(_token, urn) {
+      const id = decodeId(urn).replace(/^urn:adsk\.mock:/, '');
+      const entry = versionsById.get(id);
+      if (entry?.version.viewState !== 'ready') {
+        return null;
+      }
+      return {
+        contentType: 'image/svg+xml',
+        body: Buffer.from(thumbnailSvg(entry.name), 'utf8'),
       };
     },
   };
