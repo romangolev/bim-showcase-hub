@@ -1,203 +1,35 @@
-import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
-import { useContext, useState } from 'react';
-import {
-  MAX_COMBINED_MODELS,
-  MAX_LOADED_MEMBERS,
-} from '../../shared/combined.js';
-import { joinWith, type ModelContext } from '../api/modelContext.js';
-import { rememberModel } from '../api/modelStore.js';
-import { modelTabTitle } from '../api/modelTitles.js';
-import {
-  contextOf,
-  isOpen,
-  liveWeight,
-  modelUrnsOf,
-  type OpenModelsState,
-  type OpenModelsStore,
-} from '../api/openModels.js';
+import { useParams, useSearch } from '@tanstack/react-router';
+import { useState } from 'react';
+import { useOpenModels } from '../api/useOpenModels.js';
 import { useModelContext } from '../api/useModelContext.js';
-import { useOpenModels, useOpenModelsStore } from '../api/useOpenModels.js';
-import { LayoutContext } from '../layout/layoutContext.js';
-import { PANE_SETTINGS } from '../settings/paneSettings.js';
-import { usePersisted } from '../storage.js';
-import { notify } from '../tasks/notifications.js';
 import { DocumentsHome } from './tree/DocumentsHome.js';
-import {
-  type AddTarget,
-  DocumentTree,
-  type PickedModel,
-} from './tree/DocumentTree.js';
+import { DocumentTree } from './tree/DocumentTree.js';
 import { DOC_ROOT, type TreeRoot, treeRootOf } from './tree/docRoot.js';
 import { HubProjectSwitcher } from './tree/HubProjectSwitcher.js';
 import { RecentStrip } from './tree/RecentStrip.js';
-import { overTabLimit, tabLimitMessage } from './tree/treeState.js';
-import type { TreeOpenMode } from './tree/treeView.js';
+import { useModelOpeners } from './tree/useModelOpeners.js';
+
+export {
+  exceedsTabLimit,
+  loadedMembers,
+  openAsTab,
+  openPickedAsTabs,
+  openWithMode,
+} from './tree/openHelpers.js';
 
 export interface TreePanelProps {
   onNavigate?: () => void;
 }
 
-interface OpenTarget {
-  urn: string;
-  context: ModelContext;
-  notice?: string;
-}
-
-const COMBINED_FULL_NOTICE = 'The open viewer is full; opened a new tab';
-
-function loadedMembers(state: OpenModelsState): number {
-  return state.models.reduce(
-    (sum, model) => sum + liveWeight(state, model.urn),
-    0,
-  );
-}
-
-export function exceedsTabLimit(
-  state: OpenModelsState,
-  models: readonly PickedModel[],
-): boolean {
-  const fresh = models.filter((model) => !isOpen(state, model.urn)).length;
-  return overTabLimit(loadedMembers(state), fresh);
-}
-
-export function openPickedAsTabs(
-  store: OpenModelsStore | null,
-  models: readonly PickedModel[],
-): PickedModel[] {
-  const admitted = models.slice(0, MAX_LOADED_MEMBERS);
-  for (const model of admitted) {
-    rememberModel(model.urn, model.context);
-    store?.open(model.urn, model.context);
-  }
-  return admitted;
-}
-
-export function openAsTab(
-  store: OpenModelsStore | null,
-  urn: string,
-  context: ModelContext,
-): OpenTarget {
-  openPickedAsTabs(store, [{ urn, context }]);
-  return { urn, context };
-}
-
-export function openWithMode(
-  mode: TreeOpenMode,
-  store: OpenModelsStore | null,
-  state: OpenModelsState,
-  urn: string,
-  context: ModelContext,
-): OpenTarget {
-  if (!store) return { urn, context };
-  const active = state.active;
-  if (mode === 'replace' && active && active !== urn) {
-    const dropped = modelUrnsOf(state, active);
-    rememberModel(urn, context);
-    store.open(urn, context);
-    store.close(active);
-    return {
-      urn,
-      context,
-      notice:
-        dropped.length > 1
-          ? `Closed the combined tab and its ${dropped.length} models`
-          : undefined,
-    };
-  }
-  if (mode === 'combined' && active && active !== urn && !isOpen(state, urn)) {
-    if (modelUrnsOf(state, active).length < MAX_COMBINED_MODELS) {
-      rememberModel(urn, context);
-      store.addTo(active, urn);
-      return {
-        urn: active,
-        context: contextOf(store.getState(), active) ?? {},
-      };
-    }
-    store.open(urn, context);
-    return { urn, context, notice: COMBINED_FULL_NOTICE };
-  }
-  store.open(urn, context);
-  return { urn, context };
-}
-
 export function TreePanel({ onNavigate }: TreePanelProps) {
-  const navigate = useNavigate();
   const { urn } = useParams({ strict: false }) as { urn?: string };
   const search = useSearch({ strict: false }) as Record<string, unknown>;
   const { trail } = useModelContext(urn, search);
-  const store = useOpenModelsStore();
-  const state = useOpenModels();
-  const active = state.active;
-  const layout = useContext(LayoutContext);
-  const [view] = usePersisted(PANE_SETTINGS.tree.view);
   const [root, setRoot] = useState<TreeRoot>(() =>
     treeRootOf(DOC_ROOT.read(), undefined, undefined),
   );
-  const home = active === null;
-
-  const openTogether = (models: PickedModel[]) => {
-    const [first, ...rest] = models.slice(0, MAX_COMBINED_MODELS);
-    if (!first) return;
-    for (const model of models) rememberModel(model.urn, model.context);
-    const extra = joinWith(rest.map((model) => model.urn));
-    void navigate({
-      to: '/model/$urn',
-      params: { urn: first.urn },
-      search: extra ? { ...first.context, with: extra } : first.context,
-    });
-    onNavigate?.();
-  };
-
-  let addTarget: AddTarget | null = null;
-  if (active && store) {
-    const members = modelUrnsOf(state, active);
-    const context = contextOf(state, active) ?? {};
-    addTarget = {
-      label: `the open viewer (${modelTabTitle(active, context).label})`,
-      has: (candidate) => members.includes(candidate),
-      onRemove: (candidate) => store.removeFrom(active, candidate),
-      canAdd: (candidate) =>
-        !members.includes(candidate) && members.length < MAX_COMBINED_MODELS,
-      onAdd: (models) => {
-        let count = members.length;
-        for (const model of models) {
-          if (count >= MAX_COMBINED_MODELS) break;
-          if (members.includes(model.urn)) continue;
-          rememberModel(model.urn, model.context);
-          store.addTo(active, model.urn);
-          count += 1;
-        }
-      },
-    };
-  }
-
-  const reveal = (target: OpenTarget) => {
-    if (target.notice) notify(target.notice);
-    void navigate({
-      to: '/model/$urn',
-      params: { urn: target.urn },
-      search: target.context,
-    });
-    onNavigate?.();
-  };
-
-  const open = (next: string, context: ModelContext) => {
-    reveal(openWithMode(view.openMode, store, state, next, context));
-  };
-
-  const openTabs = (models: PickedModel[]) => {
-    if (exceedsTabLimit(state, models)) {
-      notify(tabLimitMessage(loadedMembers(state)));
-      return;
-    }
-    const last = openPickedAsTabs(store, models).at(-1);
-    if (last) reveal(last);
-  };
-
-  const openModal = (next: string, context: ModelContext) => {
-    layout?.floatNext(next);
-    reveal(openAsTab(store, next, context));
-  };
+  const openers = useModelOpeners(onNavigate);
+  const home = useOpenModels().active === null;
 
   return (
     <aside id="document-panel" className="tree-panel" aria-label="Documents">
@@ -210,17 +42,17 @@ export function TreePanel({ onNavigate }: TreePanelProps) {
       {home ? (
         <DocumentsHome
           selectedUrn={urn}
-          onOpen={open}
-          onOpenModal={openModal}
-          onOpenTabs={openTabs}
-          addTarget={addTarget}
+          onOpen={openers.open}
+          onOpenModal={openers.openModal}
+          onOpenTabs={openers.openTabs}
+          addTarget={openers.addTarget}
         />
       ) : (
         <RecentStrip
           selectedUrn={urn}
-          onOpen={open}
-          onOpenModal={openModal}
-          addTarget={addTarget}
+          onOpen={openers.open}
+          onOpenModal={openers.openModal}
+          addTarget={openers.addTarget}
         />
       )}
       <DocumentTree
@@ -228,12 +60,12 @@ export function TreePanel({ onNavigate }: TreePanelProps) {
         root={root}
         selectedUrn={urn}
         revealTrail={trail}
-        openCount={loadedMembers(state)}
-        onOpenModel={open}
-        onOpenTabs={openTabs}
-        onOpenModal={openModal}
-        onOpenTogether={openTogether}
-        addTarget={addTarget}
+        openCount={openers.loaded}
+        onOpenModel={openers.open}
+        onOpenTabs={openers.openTabs}
+        onOpenModal={openers.openModal}
+        onOpenTogether={openers.openTogether}
+        addTarget={openers.addTarget}
       />
     </aside>
   );
