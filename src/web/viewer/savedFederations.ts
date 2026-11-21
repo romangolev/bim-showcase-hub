@@ -130,7 +130,9 @@ export async function resolveFederation(
       const found = await latest(member);
       if (!found) {
         stale.push(member.context.file ?? member.urn);
-      } else if (found !== member.urn && !taken.has(found)) {
+      } else if (found !== member.urn && taken.has(found)) {
+        stale.push(member.context.file ?? member.urn);
+      } else if (found !== member.urn) {
         taken.delete(member.urn);
         taken.add(found);
         remapped.set(member.urn, found);

@@ -19,6 +19,7 @@ import {
   federationCommands,
   federationOpenPlan,
   latestVersionUrn,
+  openSavedFederation,
   resolveFederation,
   sanitizeFederation,
   setFederationOpener,
@@ -165,6 +166,21 @@ describe('resolveFederation', () => {
       tints: { b2: { color: '#00ff00', strength: 0.5 } },
       hidden: ['b2'],
     });
+  });
+
+  it('keeps the saved urn and reports a latest that another member already holds', async () => {
+    const twins: FederationData = {
+      members: [
+        { urn: 'a1', context: { file: 'A.rvt' }, latest: true, hidden: false },
+        { urn: 'b1', context: { file: 'B.rvt' }, latest: false, hidden: false },
+      ],
+    };
+    const { data: next, stale } = await resolveFederation(
+      twins,
+      async () => 'b1',
+    );
+    expect(stale).toEqual(['A.rvt']);
+    expect(next.members.map((member) => member.urn)).toEqual(['a1', 'b1']);
   });
 
   it('keeps the saved urn and reports a failed latest lookup', async () => {
@@ -359,6 +375,32 @@ describe('latest version rule shared by model sets and combinations', () => {
     });
     expect(combined).toBe('u3');
     expect(set.models[0]?.urn).toBe('u3');
+  });
+});
+
+describe('the federation opener', () => {
+  afterEach(() => {
+    setFederationOpener(null);
+  });
+
+  it('does nothing without a mounted opener', () => {
+    expect(() => openSavedFederation('x')).not.toThrow();
+  });
+
+  it('routes to the last registered opener and survives an earlier cleanup', () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    const clearFirst = setFederationOpener(first);
+    const clearSecond = setFederationOpener(second);
+    openSavedFederation('x');
+    expect(first).not.toHaveBeenCalled();
+    expect(second).toHaveBeenCalledWith('x');
+    clearFirst();
+    openSavedFederation('y');
+    expect(second).toHaveBeenCalledWith('y');
+    clearSecond();
+    openSavedFederation('z');
+    expect(second).not.toHaveBeenCalledWith('z');
   });
 });
 
