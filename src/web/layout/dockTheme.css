@@ -285,6 +285,10 @@
   white-space: nowrap;
 }
 
+.pane-slot--dock .tree-panel .docs-toolbar {
+  margin-top: var(--space-3);
+}
+
 .pane-slot--dock .tree-panel .doc-tree__search {
   margin-top: var(--space-3);
 }
