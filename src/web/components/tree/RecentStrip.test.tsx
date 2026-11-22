@@ -9,6 +9,7 @@ import { installMemoryStorage } from '../../test/mockApi.js';
 import type { AddTarget } from './DocumentTree.js';
 import {
   COLLAPSE_DELAY_MS,
+  EXPAND_DELAY_MS,
   MAX_PINS,
   RecentStrip,
   sanitizePins,
@@ -175,12 +176,30 @@ describe('RecentStrip collapse', () => {
     vi.useFakeTimers();
     renderCollapsed();
     fireEvent.pointerEnter(strip(), { pointerType: 'mouse' });
+    expect(panelHidden()).toBe(true);
+    act(() => {
+      vi.advanceTimersByTime(EXPAND_DELAY_MS + 10);
+    });
     expect(stripToggle()).toHaveAttribute('aria-expanded', 'true');
     expect(panelHidden()).toBe(false);
     fireEvent.pointerLeave(strip(), { pointerType: 'mouse' });
     expect(panelHidden()).toBe(false);
     act(() => {
       vi.advanceTimersByTime(COLLAPSE_DELAY_MS + 10);
+    });
+    expect(panelHidden()).toBe(true);
+  });
+
+  it('does not expand when the pointer only passes through', () => {
+    vi.useFakeTimers();
+    renderCollapsed();
+    fireEvent.pointerEnter(strip(), { pointerType: 'mouse' });
+    act(() => {
+      vi.advanceTimersByTime(EXPAND_DELAY_MS - 100);
+    });
+    fireEvent.pointerLeave(strip(), { pointerType: 'mouse' });
+    act(() => {
+      vi.advanceTimersByTime(EXPAND_DELAY_MS + COLLAPSE_DELAY_MS);
     });
     expect(panelHidden()).toBe(true);
   });
@@ -215,6 +234,9 @@ describe('RecentStrip collapse', () => {
     vi.useFakeTimers();
     renderCollapsed();
     fireEvent.pointerEnter(strip(), { pointerType: 'mouse' });
+    act(() => {
+      vi.advanceTimersByTime(EXPAND_DELAY_MS + 10);
+    });
     fireEvent.click(stripToggle());
     fireEvent.pointerLeave(strip(), { pointerType: 'mouse' });
     act(() => {

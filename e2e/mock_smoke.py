@@ -950,7 +950,7 @@ def check_strip(page, checks):
     checks.add("recent strip starts collapsed with a counted header", not strip_expanded(page) and re.search(r"\(\d+\)", toggle.inner_text()) is not None, toggle.inner_text())
     closed = strip_geometry(page)
     toggle.hover()
-    page.wait_for_timeout(300)
+    page.wait_for_timeout(700)
     checks.add("hovering the strip header expands it", strip_expanded(page) and page.locator(".recent-strip__panel").is_visible())
     small = page.evaluate("() => [...document.querySelectorAll('.recent-strip__pin, .recent-strip__more')].map((e) => { const b = e.getBoundingClientRect(); return Math.min(b.width, b.height); })")
     checks.add("strip pin and more buttons are at least 24px", bool(small) and min(small) >= 24, small)
