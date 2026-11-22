@@ -1,8 +1,5 @@
-import { isRecord } from '../../../shared/guards.js';
 import { fold } from '../../../shared/text.js';
 import type { TreeNode } from '../../../shared/types.js';
-import { defineSavedKind } from '../../store/savedKinds.js';
-import type { SearchScope } from './treeView.js';
 
 export const FILE_TYPES = ['rvt', 'nwd', 'nwc', 'dwg', 'ifc', 'pdf'] as const;
 
@@ -92,25 +89,3 @@ export function matchesFilters(
   if (filters.to && (!day || day > filters.to)) return false;
   return true;
 }
-
-export const DOC_SEARCH_KIND = 'doc-search';
-
-export interface DocSearchData extends DeepSearchFilters {
-  scope: SearchScope;
-  [field: string]: unknown;
-}
-
-export function sanitizeSearch(raw: unknown): DocSearchData | null {
-  if (!isRecord(raw)) return null;
-  return {
-    ...sanitizeFilters(raw),
-    scope: raw.scope === 'project' ? 'project' : 'loaded',
-  };
-}
-
-export const DOC_SEARCHES = defineSavedKind<DocSearchData>({
-  kind: DOC_SEARCH_KIND,
-  version: 1,
-  label: 'Document search',
-  sanitize: sanitizeSearch,
-});

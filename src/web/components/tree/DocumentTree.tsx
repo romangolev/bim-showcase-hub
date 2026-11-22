@@ -12,7 +12,6 @@ import {
   type MouseEvent,
   useContext,
   useEffect,
-  useId,
   useRef,
   useState,
 } from 'react';
@@ -38,13 +37,6 @@ import { Icon } from '../icons.js';
 import { Menu, type MenuEntry } from '../Menu.js';
 import { StateBlock } from '../StateBlock.js';
 import { CRAWL_LIMITS, type CrawlResult } from './crawl.js';
-import {
-  type DeepSearchFilters,
-  DOC_SEARCHES,
-  type DocSearchData,
-  FILE_TYPES,
-  NO_FILTERS,
-} from './deepSearch.js';
 import { onDeepSearch } from './deepSearchSignal.js';
 import { startModelDrag } from './docDrag.js';
 import { DEFAULT_TREE_ROOT, type TreeRoot } from './docRoot.js';
@@ -58,7 +50,6 @@ import {
   modelMenuEntries,
   useRowMenu,
 } from './rowMenu.js';
-import { SaveSearchDialog } from './SaveSearchDialog.js';
 import { INDENT, rowHeightFor, TreeRowView } from './TreeRowView.js';
 import { treeCommands } from './treeCommands.js';
 import {
@@ -228,11 +219,7 @@ export function DocumentTree({
   const rootScope = root.scope;
   const copy = rootCopy(rootScope);
   const [filter, setFilter] = useState('');
-  const [filters, setFilters] = useState<DeepSearchFilters>(NO_FILTERS);
-  const [chipsOpen, setChipsOpen] = useState(false);
   const [crawl, setCrawl] = useState<CrawlView | null>(null);
-  const [saveSearchOpen, setSaveSearchOpen] = useState(false);
-  const chipsId = useId();
   const crawlRef = useRef<AbortController | null>(null);
   const crawlTask = useRef<TaskHandle | null>(null);
   const crawlRun = useRef(0);
@@ -400,51 +387,12 @@ export function DocumentTree({
       });
   };
 
-  const toggleType = (type: string) =>
-    setFilters((current) => ({
-      ...current,
-      types: current.types.includes(type)
-        ? current.types.filter((entry) => entry !== type)
-        : [...current.types, type],
-    }));
-
   const searchProject = () => {
     if (!state.crawled()) startCrawl();
   };
 
   const clearSearch = () => {
     setFilter('');
-    setFilters(NO_FILTERS);
-  };
-
-  const applySavedSearch = (data: DocSearchData) => {
-    setFilters({
-      text: '',
-      types: [...data.types],
-      viewableOnly: data.viewableOnly,
-      from: data.from,
-      to: data.to,
-    });
-    setFilter(data.text);
-    setChipsOpen(true);
-    if (data.scope === 'project') searchProject();
-  };
-
-  const savedSearchEntries = (): MenuEntry[] => {
-    const entries: MenuEntry[] = DOC_SEARCHES.list().map((item) => ({
-      id: `saved-${item.id}`,
-      label: item.name,
-      onSelect: () => applySavedSearch(item.data),
-    }));
-    if (entries.length > 0) {
-      entries.push({ kind: 'separator', id: 'saved-separator' });
-    }
-    entries.push({
-      id: 'save-search',
-      label: 'Save search',
-      onSelect: () => setSaveSearchOpen(true),
-    });
-    return entries;
   };
 
   const selectedUrnRef = useRef(selectedUrn);
@@ -806,7 +754,6 @@ export function DocumentTree({
   useEffect(
     () =>
       onDeepSearch(() => {
-        setChipsOpen(true);
         searchRef.current?.focus();
       }),
     [],
@@ -821,13 +768,7 @@ export function DocumentTree({
   );
 
   const query = filter.trim().toLowerCase();
-  const activeFilters: DeepSearchFilters = { ...filters, text: filter.trim() };
-  const narrowSearch =
-    filters.types.length > 0 ||
-    filters.viewableOnly ||
-    filters.from !== null ||
-    filters.to !== null;
-  const searching = query !== '' || narrowSearch;
+  const searching = query !== '';
   const crawlRootId = state.crawlRoot();
 
   const onTreeKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -895,9 +836,7 @@ export function DocumentTree({
 
   const rows: Row[] = [];
   if (searching) {
-    const found = narrowSearch
-      ? state.search(query, activeFilters)
-      : state.search(query);
+    const found = state.search(query);
     for (const node of found) {
       rows.push({ type: 'result', key: `result:${node.id}`, node });
     }
@@ -909,9 +848,7 @@ export function DocumentTree({
         level: 0,
         parentId: rootId,
         title: 'Nothing found',
-        message: filter.trim()
-          ? `No matches for “${filter.trim()}” in loaded folders.`
-          : 'No files match these filters in loaded folders.',
+        message: `No matches for “${filter.trim()}” in loaded folders.`,
         clearFilter: true,
       });
     }
@@ -1319,84 +1256,6 @@ export function DocumentTree({
           <Icon name="refresh" size={14} />
         </button>
       </div>
-      <div className="doc-tree__tools">
-        <button
-          type="button"
-          className="doc-tree__tool"
-          aria-expanded={chipsOpen}
-          aria-controls={chipsId}
-          onClick={() => setChipsOpen((open) => !open)}
-        >
-          <Icon name="filter" size={12} />
-          Filters
-        </button>
-        <Menu
-          label="Saved searches"
-          title="Saved searches"
-          trigger={
-            <>
-              <Icon name="star" size={12} />
-              Saved searches
-            </>
-          }
-          triggerClassName="doc-tree__tool"
-          items={savedSearchEntries}
-        />
-      </div>
-      {chipsOpen ? (
-        <div id={chipsId} className="doc-tree__chips">
-          {FILE_TYPES.map((type) => (
-            <button
-              key={type}
-              type="button"
-              className="doc-tree__chip"
-              aria-pressed={filters.types.includes(type)}
-              onClick={() => toggleType(type)}
-            >
-              {type}
-            </button>
-          ))}
-          <button
-            type="button"
-            className="doc-tree__chip"
-            aria-pressed={filters.viewableOnly}
-            onClick={() =>
-              setFilters((current) => ({
-                ...current,
-                viewableOnly: !current.viewableOnly,
-              }))
-            }
-          >
-            Has a viewable
-          </button>
-          <label className="doc-tree__date">
-            <span>From</span>
-            <input
-              type="date"
-              value={filters.from ?? ''}
-              onChange={(event) =>
-                setFilters((current) => ({
-                  ...current,
-                  from: event.target.value || null,
-                }))
-              }
-            />
-          </label>
-          <label className="doc-tree__date">
-            <span>To</span>
-            <input
-              type="date"
-              value={filters.to ?? ''}
-              onChange={(event) =>
-                setFilters((current) => ({
-                  ...current,
-                  to: event.target.value || null,
-                }))
-              }
-            />
-          </label>
-        </div>
-      ) : null}
       {searching || crawl?.status === 'running' ? (
         <div className="doc-tree__crawl" role="status" aria-live="polite">
           {crawl ? (
@@ -1494,12 +1353,6 @@ export function DocumentTree({
         </div>
       </div>
       {rowMenu.menu}
-      {saveSearchOpen ? (
-        <SaveSearchDialog
-          data={{ ...filters, text: filter.trim(), scope: view.searchScope }}
-          onDone={() => setSaveSearchOpen(false)}
-        />
-      ) : null}
       {preview ? (
         <PreviewCard
           key={preview.node.id}

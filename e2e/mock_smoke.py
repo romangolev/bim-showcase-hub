@@ -2282,12 +2282,8 @@ def check_deep_search(page, checks):
         page.locator("[role=treeitem][data-kind='folder'][aria-expanded='true']").count() == 0,
         page.locator("[role=treeitem][data-kind='folder'][aria-expanded='true']").count(),
     )
-    page.get_by_role("button", name="Filters").click()
+    page.get_by_label("Filter loaded nodes").fill(".nwd")
     settle(page, 300)
-    chip = page.get_by_role("button", name="nwd", exact=True)
-    chip.click()
-    settle(page, 300)
-    checks.add("deep search: the nwd chip is pressed", chip.get_attribute("aria-pressed") == "true", chip.get_attribute("aria-pressed"))
     page.get_by_role("button", name="Search whole project").click()
     status = page.locator(".doc-tree__crawl-text")
     wait_until(page, lambda: re.fullmatch(r"Searched \d+ folders", status.inner_text().strip()) is not None, timeout_ms=30000)
@@ -2297,7 +2293,7 @@ def check_deep_search(page, checks):
     deep = [name for name in names if name.lower().endswith(".nwd")]
     checks.add("deep search: a file from an unexpanded folder is listed", len(deep) > 0, names[:5])
     checks.add(
-        "deep search: the nwd chip lists only nwd files",
+        "deep search: the .nwd text lists only nwd files",
         bool(names) and len(deep) == len(names),
         [name for name in names if not name.lower().endswith(".nwd")][:5],
     )

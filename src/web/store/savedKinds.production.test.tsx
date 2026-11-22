@@ -77,10 +77,6 @@ describe('production saved kinds', () => {
       version: 1,
       label: 'Model set',
     });
-    expect(getSavedKind('doc-search')).toMatchObject({
-      version: 1,
-      label: 'Document search',
-    });
     expect(getSavedKind('federation')).toMatchObject({
       version: 1,
       label: 'Combination',
@@ -93,7 +89,6 @@ describe('production saved kinds', () => {
       'report-template': 1,
       'color-rules': 1,
       'model-set': 1,
-      'doc-search': 1,
       federation: 1,
     });
   });
