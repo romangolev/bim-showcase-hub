@@ -661,6 +661,10 @@
   display: inline-flex;
 }
 
+.menu--anchored {
+  display: none;
+}
+
 .menu__popover {
   position: fixed;
   z-index: var(--z-modal);
