@@ -1,6 +1,10 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { PINNED_KEY, rememberModel } from '../../api/modelStore.js';
+import {
+  listRecentModels,
+  PINNED_KEY,
+  rememberModel,
+} from '../../api/modelStore.js';
 import {
   SETTINGS_STORAGE_KEY,
   SettingsProvider,
@@ -268,7 +272,22 @@ describe('RecentStrip row menu', () => {
       within(menu)
         .getAllByRole('menuitem')
         .map((item) => item.textContent),
-    ).toEqual(['Open', 'Open as modal', 'Add to open model', 'Pin']);
+    ).toEqual([
+      'Open',
+      'Open as modal',
+      'Add to open model',
+      'Pin',
+      'Remove from recent',
+    ]);
+  });
+
+  it('removes an unpinned model from recents and offers nothing for a pinned one', () => {
+    renderCollapsed(target());
+    fireEvent.click(
+      within(openMenu()).getByRole('menuitem', { name: 'Remove from recent' }),
+    );
+    expect(screen.queryByRole('button', { name: 'B.rvt · 2' })).toBeNull();
+    expect(listRecentModels().map((item) => item.urn)).not.toContain('urn-b');
   });
 
   it('opens the menu with the context menu event at the pointer', () => {

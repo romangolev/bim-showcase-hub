@@ -9,6 +9,7 @@ import {
 } from 'react';
 import type { ModelContext } from '../../api/modelContext.js';
 import {
+  forgetModel,
   listRecentModels,
   modelStoreVersion,
   subscribeModelStore,
@@ -141,6 +142,7 @@ export function RecentStrip({
           ? () => onOpenModal(entry.urn, entry.context)
           : undefined,
         onTogglePin: () => toggle(entry.urn, entry.context),
+        onForget: () => forgetModel(entry.urn),
       });
     return (
       <li

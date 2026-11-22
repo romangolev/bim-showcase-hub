@@ -78,6 +78,12 @@ export function rememberModel(urn: string, context: ModelContext): void {
   if (RECENT.write(next)) notifyStore();
 }
 
+export function forgetModel(urn: string): void {
+  const stored = readAll();
+  const next = stored.filter((entry) => entry.urn !== urn);
+  if (next.length !== stored.length && RECENT.write(next)) notifyStore();
+}
+
 export function listRecentModels(): StoredModel[] {
   return readAll();
 }
