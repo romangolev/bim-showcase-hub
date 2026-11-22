@@ -423,6 +423,9 @@ describe('dashboard split by model', () => {
     await screen.findByRole('img', {
       name: 'Bar chart of element counts by Category',
     });
+    await waitFor(() =>
+      expect(made.configs.some((config) => config.type === 'bar')).toBe(true),
+    );
     const bar = made.configs.find((config) => config.type === 'bar');
     expect(bar?.data.datasets.map((dataset) => dataset.label)).toEqual([
       'A.rvt',
@@ -440,8 +443,11 @@ describe('dashboard split by model', () => {
     await screen.findByRole('img', {
       name: 'Bar chart of element counts by Category',
     });
-    const bar = made.configs.find((config) => config.type === 'bar');
-    expect(bar?.data.datasets).toHaveLength(1);
+    await waitFor(() =>
+      expect(
+        made.configs.find((config) => config.type === 'bar')?.data.datasets,
+      ).toHaveLength(1),
+    );
   });
 
   it('adds one data table column per model', async () => {
