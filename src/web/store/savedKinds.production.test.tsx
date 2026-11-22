@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import '../viewer/reportTemplates.js';
 import '../extensions/colorRulePresets.js';
 import './modelSets.js';
-import '../components/tree/deepSearch.js';
 import {
   DASHBOARD_USER_PRESETS,
   DEFAULT_DASHBOARD_VIEW,

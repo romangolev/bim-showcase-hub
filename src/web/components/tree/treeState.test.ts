@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TreeNode, VersionViewState } from '../../../shared/types.js';
 import type { NodeScope } from '../../api/scope.js';
-import { NO_FILTERS } from './deepSearch.js';
 import { DEFAULT_TREE_ROOT } from './docRoot.js';
 import {
   CHECK_CONCURRENCY,
@@ -654,9 +653,7 @@ describe('treeState crawl', () => {
     const { state, open } = makeProject();
     await state.crawl(new AbortController().signal);
     expect(open.size).toBe(0);
-    expect(
-      state.search('', { ...NO_FILTERS, types: ['rvt'] }).map(({ id }) => id),
-    ).toEqual(['doc.rvt']);
+    expect(state.search('doc.rvt').map(({ id }) => id)).toEqual(['doc.rvt']);
   });
 
   it('builds the full trail of a version of a crawled item', async () => {
