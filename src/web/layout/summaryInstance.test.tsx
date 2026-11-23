@@ -232,4 +232,26 @@ describe('summary instance spec', () => {
     );
     expect(PANE_SETTINGS.summary.properties.has()).toBe(false);
   });
+
+  it('adds a column to the targeted instance from settings', async () => {
+    seedInstanceSetting('modelSummary:4', 'urn');
+    setSummarySettingsTarget('modelSummary:4');
+    render(<SummarySettingsBody />);
+    fireEvent.click(screen.getByRole('button', { name: 'Add a column' }));
+    const box = within(document.querySelector('dialog[open]') as HTMLElement);
+    fireEvent.change(box.getByLabelText('Search properties'), {
+      target: { value: 'Area' },
+    });
+    fireEvent.click(box.getByRole('button', { name: 'Use "Area"' }));
+    fireEvent.click(box.getByRole('button', { name: 'Add property' }));
+    await waitFor(() =>
+      expect(
+        summarySetting('modelSummary:4')
+          .read()
+          .view.columns.map((column) => column.id),
+      ).toEqual(['count', 'count:Area']),
+    );
+    expect(PANE_SETTINGS.summary.view.has()).toBe(false);
+    setSummarySettingsTarget(null);
+  });
 });
