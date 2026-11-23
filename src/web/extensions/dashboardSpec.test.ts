@@ -7,12 +7,13 @@ import {
   sanitizeDashboardView,
   saveDashboardPreset,
   viewSpec,
+  withChartType,
 } from './dashboardPresets.js';
 
 describe('dashboard view sanitizer', () => {
   it('fills every chart spec field when the blob has none', () => {
     expect(sanitizeDashboardView({})).toMatchObject({
-      chartType: 'bar',
+      chartType: 'both',
       aggregate: 'count',
       measure: '',
       topN: 12,
@@ -21,7 +22,7 @@ describe('dashboard view sanitizer', () => {
       maxCategories: 12,
     });
     expect(sanitizeDashboardView(null)).toMatchObject({
-      chartType: 'bar',
+      chartType: 'both',
       aggregate: 'count',
     });
   });
@@ -42,6 +43,25 @@ describe('dashboard view sanitizer', () => {
     });
   });
 
+  it('keeps the pair for an old both view and lets settings change it', () => {
+    expect(
+      sanitizeDashboardView({ kind: 'both', chartType: 'bar' }),
+    ).toMatchObject({ chartType: 'both', kind: 'both' });
+    expect(sanitizeDashboardView({ chartType: 'both' })).toMatchObject({
+      chartType: 'both',
+      kind: 'both',
+    });
+    expect(
+      sanitizeDashboardView({ kind: 'bar', chartType: 'hbar' }),
+    ).toMatchObject({ chartType: 'hbar', kind: 'bar' });
+    const view = withChartType(DEFAULT_DASHBOARD_VIEW, 'doughnut');
+    expect(view).toMatchObject({ chartType: 'doughnut', kind: 'doughnut' });
+    expect(withChartType(view, 'both')).toMatchObject({
+      chartType: 'both',
+      kind: 'both',
+    });
+  });
+
   it('replaces corrupt values and ignores unknown fields', () => {
     const view = sanitizeDashboardView({
       kind: 'nope',
@@ -54,7 +74,7 @@ describe('dashboard view sanitizer', () => {
       colour: 'red',
     });
     expect(view).toMatchObject({
-      chartType: 'bar',
+      chartType: 'both',
       aggregate: 'count',
       measure: '',
       topN: 12,
@@ -83,7 +103,7 @@ describe('dashboard view sanitizer', () => {
       otherBucket: undefined,
     });
     expect(spec).toEqual({
-      chartType: 'bar',
+      chartType: 'both',
       aggregate: 'count',
       measure: '',
       topN: DEFAULT_DASHBOARD_VIEW.maxCategories,

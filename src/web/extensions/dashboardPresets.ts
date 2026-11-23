@@ -8,8 +8,7 @@ import {
 import {
   type Aggregate,
   availableProperties,
-  CHART_TYPES,
-  type ChartType,
+  CHART_TYPE_LABELS,
   DEFAULT_DASHBOARD_PROPERTIES,
   DEFAULT_MAX_CATEGORIES,
   DEFAULT_TOP_N,
@@ -74,8 +73,21 @@ export const KIND_LABELS: Record<DashboardKind, string> = {
 export const MIN_CATEGORIES = 3;
 export const MAX_CATEGORIES = 30;
 
+export const DASHBOARD_CHART_TYPES = [
+  'bar',
+  'hbar',
+  'doughnut',
+  'both',
+  'table',
+] as const;
+export type DashboardChartType = (typeof DASHBOARD_CHART_TYPES)[number];
+export const DASHBOARD_CHART_TYPE_LABELS: Record<DashboardChartType, string> = {
+  ...CHART_TYPE_LABELS,
+  both: 'Bar and doughnut',
+};
+
 export interface DashboardChartSpec {
-  chartType: ChartType;
+  chartType: DashboardChartType;
   aggregate: Aggregate;
   measure: string;
   topN: number;
@@ -101,7 +113,7 @@ export const DEFAULT_DASHBOARD_VIEW: DashboardView = {
   properties: DEFAULT_DASHBOARD_PROPERTIES,
   maxCategories: DEFAULT_MAX_CATEGORIES,
   kind: 'both',
-  chartType: 'bar',
+  chartType: 'both',
   aggregate: 'count',
   measure: '',
   topN: DEFAULT_TOP_N,
@@ -110,12 +122,19 @@ export const DEFAULT_DASHBOARD_VIEW: DashboardView = {
   pngLegend: true,
 };
 
-export function kindForChartType(type: ChartType): DashboardKind {
-  return type === 'doughnut' ? 'doughnut' : 'bar';
+export function kindForChartType(type: DashboardChartType): DashboardKind {
+  return type === 'doughnut' || type === 'both' ? type : 'bar';
 }
 
-export function chartTypeForKind(kind: DashboardKind): ChartType {
-  return kind === 'doughnut' ? 'doughnut' : 'bar';
+export function chartTypeForKind(kind: DashboardKind): DashboardChartType {
+  return kind;
+}
+
+export function withChartType(
+  view: DashboardView,
+  chartType: DashboardChartType,
+): DashboardView {
+  return { ...view, chartType, kind: kindForChartType(chartType) };
 }
 
 export function viewSpec(view: DashboardView): DashboardChartSpec {
@@ -139,6 +158,11 @@ export function sanitizeDashboardView(raw: unknown): DashboardView {
       ? Math.min(max, MAX_CATEGORIES)
       : DEFAULT_MAX_CATEGORIES;
   const kind = CHART_KINDS.find((k) => k === source.kind) ?? 'both';
+  const chartType: DashboardChartType =
+    source.chartType === 'bar' && kind === 'both'
+      ? 'both'
+      : (DASHBOARD_CHART_TYPES.find((type) => type === source.chartType) ??
+        chartTypeForKind(kind));
   const top = Math.floor(Number(source.topN));
   return {
     preset: DASHBOARD_PRESETS.some((p) => p.id === source.preset)
@@ -153,10 +177,8 @@ export function sanitizeDashboardView(raw: unknown): DashboardView {
       DEFAULT_DASHBOARD_PROPERTIES,
     ),
     maxCategories,
-    kind,
-    chartType:
-      CHART_TYPES.find((type) => type === source.chartType) ??
-      chartTypeForKind(kind),
+    kind: kindForChartType(chartType),
+    chartType,
     aggregate: sanitizeAggregate(source.aggregate),
     measure: typeof source.measure === 'string' ? source.measure.trim() : '',
     topN:
