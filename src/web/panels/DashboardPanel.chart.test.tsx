@@ -353,6 +353,21 @@ describe('dashboard color the model by a chart', () => {
 });
 
 describe('dashboard model health tiles', () => {
+  beforeEach(() => {
+    window.localStorage.setItem(
+      'bsh.pane.dashboard.health.v1',
+      JSON.stringify({ enabled: true }),
+    );
+  });
+
+  it('stays hidden until it is switched on', async () => {
+    window.localStorage.removeItem('bsh.pane.dashboard.health.v1');
+    const adapter = await loaded();
+    render(<DashboardPanel adapter={adapter} />);
+    await screen.findByRole('img', { name: /chart of element counts/i });
+    expect(screen.queryByText('Model health')).toBeNull();
+  });
+
   it('shows the four checks with a threshold cue', async () => {
     const adapter = await loaded();
     render(<DashboardPanel adapter={adapter} />);
