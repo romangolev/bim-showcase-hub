@@ -105,17 +105,17 @@ const TITLE_PREFIX: Record<SummaryAggregate, string> = {
   max: 'Maximum of',
 };
 
-export interface ColumnRef {
+export type ColumnRef = {
   property: string | null;
   aggregate: SummaryAggregate;
-}
+};
 
-export interface SummaryColumnSpec extends ColumnRef {
+export type SummaryColumnSpec = ColumnRef & {
   id: string;
   title: string;
   precision: number;
   unitLabel: string;
-}
+};
 
 export const COUNT_COLUMN: SummaryColumnSpec = {
   id: 'count',

@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { COUNT_COLUMN, summaryColumn } from '../extensions/modelSummary.js';
+import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import { BSH_KEYS } from '../storage.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { act, fireEvent, render, screen, waitFor } from '../test/render.js';
@@ -413,7 +415,7 @@ describe('summary view, copy and row actions', () => {
     expect(screen.getByRole('cell', { name: 'Walls' })).toBeInTheDocument();
   });
 
-  it('persists density and hides a column', async () => {
+  it('persists density and hides the property column', async () => {
     const adapter = await loaded();
     const { container } = render(
       <>
@@ -425,7 +427,9 @@ describe('summary view, copy and row actions', () => {
     fireEvent.change(screen.getByLabelText('Density'), {
       target: { value: 'compact' },
     });
-    fireEvent.click(screen.getByLabelText('property'));
+    fireEvent.click(
+      screen.getByRole('switch', { name: /Show the property column/ }),
+    );
     await waitFor(() =>
       expect(container.querySelector('section')).toHaveAttribute(
         'data-density',
@@ -439,7 +443,29 @@ describe('summary view, copy and row actions', () => {
     );
     expect(
       JSON.parse(window.localStorage.getItem('bsh.summary.view.v1') ?? '{}'),
-    ).toMatchObject({ density: 'compact', hiddenColumns: ['property'] });
+    ).toMatchObject({ density: 'compact', showProperty: false });
+  });
+
+  it('reads and fills a configured column', async () => {
+    PANE_SETTINGS.summary.view.write({
+      ...PANE_SETTINGS.summary.view.initial,
+      columns: [COUNT_COLUMN, summaryColumn('Level', 'distinct')],
+    });
+    const adapter = await loaded();
+    render(
+      <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />,
+    );
+    expect(
+      await screen.findByRole('columnheader', {
+        name: 'Distinct values of Level',
+      }),
+    ).toHaveAttribute('scope', 'col');
+    const walls = await screen.findByRole('cell', { name: 'Walls' });
+    await waitFor(() =>
+      expect(
+        walls.closest('tr')?.querySelectorAll('td')[3]?.textContent,
+      ).toMatch(/^\d+$/),
+    );
   });
 
   it('copies the visible rows as tab separated text', async () => {

@@ -14,12 +14,8 @@ import {
 import {
   DEFAULT_SUMMARY_VIEW,
   MAX_GROUP_BY,
-  MAX_PRECISION,
   MAX_TITLE_LENGTH,
-  MAX_UNIT_LABEL,
-  SUMMARY_COLUMNS,
   SUMMARY_LAYOUTS,
-  type SummaryColumn,
   type SummaryLayout,
   type SummaryView,
   sanitizeLayout,
@@ -42,16 +38,13 @@ export const SUMMARY_SETTINGS_ID = 'summary-settings';
 
 interface SummaryForm {
   layout: string;
-  measure: string;
-  unitLabel: string;
-  precision: number;
+  showProperty: boolean;
   hideEmpty: boolean;
   minCount: number;
   sort: string;
   density: string;
   action: ElementAction;
   autoRefresh: boolean;
-  columns: SummaryColumn[];
 }
 
 const LAYOUT_LABELS: Record<SummaryLayout, string> = {
@@ -60,90 +53,59 @@ const LAYOUT_LABELS: Record<SummaryLayout, string> = {
   pivot: 'Pivot',
 };
 
-function summaryForm(
-  propertyNames: readonly string[],
-): FormDefinition<SummaryForm> {
-  return {
-    fields: [
-      {
-        key: 'layout',
-        kind: 'select',
-        label: 'Layout',
-        options: SUMMARY_LAYOUTS.map((layout) => ({
-          value: layout,
-          label: LAYOUT_LABELS[layout],
-        })),
-      },
-      {
-        key: 'measure',
-        kind: 'select',
-        label: 'Measure',
-        options: [
-          { value: '', label: 'None' },
-          ...propertyNames.map((name) => ({ value: name, label: name })),
-        ],
-        hint: 'Sums a numeric property per value, such as Area or Volume.',
-      },
-      {
-        key: 'unitLabel',
-        kind: 'text',
-        label: 'Unit label',
-        maxLength: MAX_UNIT_LABEL,
-        hint: 'Shown after the sum. Empty keeps the unit read from the value.',
-      },
-      {
-        key: 'precision',
-        kind: 'number',
-        label: 'Decimal places',
-        min: 0,
-        max: MAX_PRECISION,
-      },
-      { key: 'hideEmpty', kind: 'toggle', label: 'Hide (empty)' },
-      { key: 'minCount', kind: 'number', label: 'Minimum count', min: 1 },
-      {
-        key: 'sort',
-        kind: 'select',
-        label: 'Sort by',
-        options: [
-          { value: 'count', label: 'Count' },
-          { value: 'value', label: 'Value' },
-        ],
-      },
-      {
-        key: 'density',
-        kind: 'select',
-        label: 'Density',
-        options: [
-          { value: 'comfortable', label: 'Comfortable' },
-          { value: 'compact', label: 'Compact' },
-        ],
-      },
-      {
-        key: 'action',
-        kind: 'select',
-        label: 'Row click',
-        options: ELEMENT_ACTIONS.map((name) => ({
-          value: name,
-          label: ACTION_LABELS[name],
-        })),
-      },
-      {
-        key: 'autoRefresh',
-        kind: 'toggle',
-        label: 'Refresh when the model changes',
-      },
-      {
-        key: 'columns',
-        kind: 'multi',
-        label: 'Columns',
-        options: SUMMARY_COLUMNS.map((column) => ({
-          value: column,
-          label: column,
-        })),
-      },
-    ],
-  };
-}
+const SUMMARY_FORM: FormDefinition<SummaryForm> = {
+  fields: [
+    {
+      key: 'layout',
+      kind: 'select',
+      label: 'Layout',
+      options: SUMMARY_LAYOUTS.map((layout) => ({
+        value: layout,
+        label: LAYOUT_LABELS[layout],
+      })),
+    },
+    {
+      key: 'showProperty',
+      kind: 'toggle',
+      label: 'Show the property column',
+      hint: 'Flat layout only. The value column always shows.',
+    },
+    { key: 'hideEmpty', kind: 'toggle', label: 'Hide (empty)' },
+    { key: 'minCount', kind: 'number', label: 'Minimum count', min: 1 },
+    {
+      key: 'sort',
+      kind: 'select',
+      label: 'Sort by',
+      options: [
+        { value: 'count', label: 'Count' },
+        { value: 'value', label: 'Value' },
+      ],
+    },
+    {
+      key: 'density',
+      kind: 'select',
+      label: 'Density',
+      options: [
+        { value: 'comfortable', label: 'Comfortable' },
+        { value: 'compact', label: 'Compact' },
+      ],
+    },
+    {
+      key: 'action',
+      kind: 'select',
+      label: 'Row click',
+      options: ELEMENT_ACTIONS.map((name) => ({
+        value: name,
+        label: ACTION_LABELS[name],
+      })),
+    },
+    {
+      key: 'autoRefresh',
+      kind: 'toggle',
+      label: 'Refresh when the model changes',
+    },
+  ],
+};
 
 function GroupByEditor({
   propertyNames,
@@ -167,10 +129,12 @@ function GroupByEditor({
   };
   return (
     <fieldset className="settings__section">
-      <legend className="settings__heading">Group by, outermost first</legend>
+      <legend className="settings__heading">
+        Pivot levels, outermost first
+      </legend>
       {value.length === 0 ? (
         <p className="settings__hint">
-          A pivot needs at least one grouping property.
+          Optional. Without levels the pivot nests the rows in order.
         </p>
       ) : (
         <ItemList ordered>
@@ -302,29 +266,16 @@ function SummaryFields({
 }) {
   const value: SummaryForm = {
     layout: view.layout,
-    measure: view.measure ?? '',
-    unitLabel: view.unitLabel,
-    precision: view.precision,
+    showProperty: view.showProperty,
     hideEmpty: view.hideEmpty,
     minCount: view.minCount,
     sort: view.sort,
     density: view.density,
     action,
     autoRefresh: view.autoRefresh,
-    columns: SUMMARY_COLUMNS.filter((c) => !view.hiddenColumns.includes(c)),
   };
   const onChange = (patch: Partial<SummaryForm>) => {
-    const {
-      action: nextAction,
-      columns,
-      sort,
-      density,
-      measure,
-      layout,
-      unitLabel,
-      precision,
-      ...rest
-    } = patch;
+    const { action: nextAction, sort, density, layout, ...rest } = patch;
     if (nextAction !== undefined) onAction(sanitizeAction(nextAction));
     const next: Partial<SummaryView> = { ...rest };
     if (sort !== undefined) next.sort = sort === 'value' ? 'value' : 'count';
@@ -332,17 +283,6 @@ function SummaryFields({
       next.density = density === 'compact' ? 'compact' : 'comfortable';
     }
     if (layout !== undefined) next.layout = sanitizeLayout(layout);
-    if (measure !== undefined) next.measure = measure.trim() || null;
-    if (unitLabel !== undefined) next.unitLabel = unitLabel;
-    if (precision !== undefined) {
-      next.precision = Math.min(
-        MAX_PRECISION,
-        Math.max(0, Math.floor(Number(precision) || 0)),
-      );
-    }
-    if (columns) {
-      next.hiddenColumns = SUMMARY_COLUMNS.filter((c) => !columns.includes(c));
-    }
     if (Object.keys(next).length) onView({ ...view, ...next });
   };
   const groupBy = view.groupBy.filter((name) => propertyNames.includes(name));
@@ -356,11 +296,7 @@ function SummaryFields({
           onChange={onProperties}
         />
       </fieldset>
-      <SettingsForm
-        form={summaryForm(propertyNames)}
-        value={value}
-        onChange={onChange}
-      />
+      <SettingsForm form={SUMMARY_FORM} value={value} onChange={onChange} />
       {view.layout === 'pivot' ? (
         <GroupByEditor
           propertyNames={propertyNames}

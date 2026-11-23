@@ -161,7 +161,12 @@ describe('summary instance spec', () => {
       scope: 'urn',
       elements: 'selected',
       properties: ['A'],
-      view: { density: 'comfortable', sort: 'count', hiddenColumns: [] },
+      view: {
+        density: 'comfortable',
+        sort: 'count',
+        showProperty: true,
+        columns: [{ id: 'count' }],
+      },
       action: 'select',
     });
   });

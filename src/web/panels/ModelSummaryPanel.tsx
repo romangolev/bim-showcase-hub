@@ -100,8 +100,20 @@ export function ModelSummaryPanel({
   const setElementsScope = controlledElements?.onChange ?? setSavedElements;
   const [savedView, setSavedView] = usePersisted(PANE_SETTINGS.summary.view);
   const view = controlledView?.value ?? savedView;
+  const columnNames = view.columns
+    .flatMap((column) => (column.property === null ? [] : [column.property]))
+    .join('\u0000');
+  const readNames = useMemo(
+    () => [
+      ...new Set([
+        ...propertyNames,
+        ...(columnNames ? columnNames.split('\u0000') : []),
+      ]),
+    ],
+    [propertyNames, columnNames],
+  );
   const state = useScopedRows(resolved, {
-    names: propertyNames,
+    names: readNames,
     elements: elementsScope,
     autoRefresh: view.autoRefresh,
     ...(controlledScope ? { models: controlledScope } : {}),
@@ -120,6 +132,7 @@ export function ModelSummaryPanel({
         : partialEntries,
     [state.rows, propertyNames, partialEntries],
   );
+  const sourceRows = state.rows.length > 0 ? state.rows : state.partialRows;
 
   const [savedAction] = usePersisted(PANE_SETTINGS.summary.action);
   const action = controlledAction ?? savedAction;
@@ -146,7 +159,7 @@ export function ModelSummaryPanel({
     setActive(entryKey(entry));
   };
 
-  const table = () => summaryTable(shown, view.hiddenColumns);
+  const table = () => summaryTable(shown, view, sourceRows);
   const copyTable = async () => {
     const { header, rows } = table();
     setNotice(
@@ -408,12 +421,11 @@ export function ModelSummaryPanel({
             : shown.length > 0) && (
             <SummaryTable
               entries={shown}
-              hiddenColumns={view.hiddenColumns}
               activeKey={active}
               onPick={pick}
               view={view}
               propertyNames={propertyNames}
-              rows={state.rows}
+              rows={sourceRows}
               onTitleChange={(property, title) =>
                 patch({
                   titles: { ...view.titles, [property]: title },
