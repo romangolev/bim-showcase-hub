@@ -110,7 +110,7 @@
   display: inline-block;
   width: 7px;
   height: 7px;
-  margin-right: var(--space-2);
+  margin-inline-end: var(--space-2);
   border-radius: var(--radius-badge);
   background: var(--pane-tag-color);
   content: "";
