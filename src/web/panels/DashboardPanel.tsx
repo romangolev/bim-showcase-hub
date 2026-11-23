@@ -9,7 +9,9 @@ import {
   buildChart,
   type ChartData,
   type ChartType,
+  readChartTheme,
   selectedBuckets,
+  seriesColors,
 } from '../extensions/dashboardData.js';
 import {
   CHART_KINDS,
@@ -31,7 +33,11 @@ import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import { useSettings } from '../settings/SettingsContext.js';
 import { type PersistedRecord, usePersisted } from '../storage.js';
 import { notify } from '../tasks/notifications.js';
-import { applyColoring } from '../viewer/modelColoring.js';
+import {
+  applyColoring,
+  clearColoring,
+  useModelColoring,
+} from '../viewer/modelColoring.js';
 import { ALL_MODELS } from '../viewer/modelScope.js';
 import { splitByModel } from '../viewer/modelSeries.js';
 import type { ModelDbId } from '../viewer/modelSet.js';
@@ -271,6 +277,29 @@ export function DashboardPanel({
       ),
     );
   };
+  const primary = board[0] ?? chart;
+  const activeColoring = useModelColoring(resolved);
+  const primaryTitle = primary
+    ? primary.measure
+      ? `${primary.property} (${primary.measure})`
+      : primary.property
+    : null;
+  const primaryColored =
+    activeColoring?.origin === 'chart' && activeColoring.title === primaryTitle;
+  const colorByPrimary = () => {
+    if (!resolved || !primary) return;
+    if (primaryColored) {
+      clearColoring(resolved);
+      return;
+    }
+    colorModel(primary)(
+      seriesColors(
+        readChartTheme(),
+        primary.data.map((d) => d.label),
+        chartSettings.palette,
+      ),
+    );
+  };
   const colorModel = (chartData: ChartData) => (colors: readonly string[]) => {
     if (!resolved) return;
     applyColoring(resolved, colorByChart(state.rows, chartData, colors));
@@ -390,6 +419,25 @@ export function DashboardPanel({
             Presets
           </button>
         ) : null}
+        <button
+          type="button"
+          className="icon-button"
+          aria-label="Colour the model by this chart"
+          aria-pressed={primaryColored}
+          title={
+            !resolved
+              ? 'Open a model to colour it'
+              : !primary
+                ? 'No chart data to colour by'
+                : primaryColored
+                  ? 'Clear the chart colouring'
+                  : 'Colour the model by this chart'
+          }
+          onClick={colorByPrimary}
+          disabled={!resolved || !primary}
+        >
+          <Icon name="palette" size={16} />
+        </button>
         <button
           type="button"
           className="btn"

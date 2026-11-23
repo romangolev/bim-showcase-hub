@@ -325,6 +325,25 @@ describe('dashboard color the model by a chart', () => {
     expect(currentColoring(adapter)).not.toBeNull();
   });
 
+  it('colours the model from the header button and clears it on a second press', async () => {
+    seed({ properties: ['Category'] });
+    const adapter = await loaded();
+    render(<DashboardPanel adapter={adapter} />);
+    await screen.findByRole('img', {
+      name: 'Bar chart of element counts by Category',
+    });
+
+    const button = screen.getByRole('button', {
+      name: 'Colour the model by this chart',
+    });
+    fireEvent.click(button);
+    expect(currentColoring(adapter)?.origin).toBe('chart');
+    expect(currentColoring(adapter)?.title).toBe('Category');
+
+    fireEvent.click(button);
+    expect(currentColoring(adapter)).toBeNull();
+  });
+
   it('colours the model from the table chart menu', async () => {
     seed({ properties: ['Category'], chartType: 'table' });
     const adapter = await loaded();
