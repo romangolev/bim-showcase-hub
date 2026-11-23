@@ -3,10 +3,13 @@ import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import { defineSavedKind } from '../store/savedKinds.js';
 import { MAX_ITEM_BYTES } from '../store/savedStore.js';
 import {
+  COUNT_COLUMN,
   DEFAULT_SUMMARY_VIEW,
   MAX_SUMMARY_ROWS,
+  type SummaryColumnSpec,
   type SummaryView,
   sanitizeView,
+  summaryColumn,
 } from './modelSummary.js';
 import { sanitizePropertyNames } from './propertyNames.js';
 
@@ -86,21 +89,25 @@ export interface SummaryStarter {
   data: SummaryPresetData;
 }
 
+function starterView(columns: SummaryColumnSpec[]): JsonValue {
+  return { ...DEFAULT_SUMMARY_VIEW, columns } as unknown as JsonValue;
+}
+
 export const BUILT_IN_SUMMARY_PRESETS: readonly SummaryStarter[] = [
   {
     id: 'doors-check',
     name: 'Doors check',
     data: {
       properties: ['Category', 'Family', 'Type Name'],
-      view: { ...DEFAULT_SUMMARY_VIEW } as unknown as JsonValue,
+      view: starterView([COUNT_COLUMN, summaryColumn('Mark', 'filled')]),
     },
   },
   {
     id: 'rooms-by-level',
     name: 'Rooms by level',
     data: {
-      properties: ['Level', 'Category', 'Name'],
-      view: { ...DEFAULT_SUMMARY_VIEW } as unknown as JsonValue,
+      properties: ['Level'],
+      view: starterView([COUNT_COLUMN, summaryColumn('Area', 'sum')]),
     },
   },
 ];

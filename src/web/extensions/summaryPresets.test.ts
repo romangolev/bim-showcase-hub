@@ -197,6 +197,23 @@ describe('summary preset storage', () => {
 });
 
 describe('built-in summary presets', () => {
+  it('gives each starter its rows and explicit columns', () => {
+    expect(
+      BUILT_IN_SUMMARY_PRESETS.map((preset) => [
+        preset.name,
+        preset.data.properties,
+        presetToSpec(preset.data)?.view.columns.map((column) => column.id),
+      ]),
+    ).toEqual([
+      [
+        'Doors check',
+        ['Category', 'Family', 'Type Name'],
+        ['count', 'filled:Mark'],
+      ],
+      ['Rooms by level', ['Level'], ['count', 'sum:Area']],
+    ]);
+  });
+
   it('offers the named starters built from real property names', () => {
     const names = BUILT_IN_SUMMARY_PRESETS.map((preset) => preset.name);
     expect(names).toEqual(
