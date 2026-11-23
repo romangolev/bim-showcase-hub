@@ -788,4 +788,13 @@ describe('summary Add property', () => {
       key: 'Escape',
     });
   });
+
+  it('has no preset control in the pane', async () => {
+    const adapter = await loaded();
+    render(<ModelSummaryPanel adapter={adapter} />);
+    expect(screen.queryByRole('button', { name: 'Presets' })).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Summary presets' }),
+    ).toBeNull();
+  });
 });

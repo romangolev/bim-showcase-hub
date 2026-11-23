@@ -38,7 +38,6 @@ import {
   ModelScopeSelect,
   UnavailableModels,
 } from './ModelScope.js';
-import { SummaryPresets } from './SummaryPresets.js';
 import { promptSummaryProperty } from './SummaryPropertyDialog.js';
 import { entryKey, SummaryTable } from './SummaryTable.js';
 import {
@@ -216,12 +215,6 @@ export function ModelSummaryPanel({
   const bodyId = `${uid}-body`;
   const titleId = `${uid}-title`;
   const toggleLabel = isCollapsed ? `Expand ${title}` : `Collapse ${title}`;
-  const globalSummary =
-    propertyNamesOverride === undefined &&
-    controlledScope === undefined &&
-    controlledElements === undefined &&
-    controlledView === undefined &&
-    controlledAction === undefined;
 
   return (
     <section
@@ -303,13 +296,6 @@ export function ModelSummaryPanel({
         aria-hidden={isCollapsed || undefined}
       >
         <div className="bsh-summary__body">
-          {globalSummary ? (
-            <SummaryPresets
-              adapter={resolved}
-              properties={propertyNames}
-              view={view}
-            />
-          ) : null}
           {state.status === 'ready' ? (
             <>
               <UnavailableModels models={state.models.unavailable} />

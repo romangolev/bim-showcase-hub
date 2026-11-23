@@ -39,6 +39,7 @@ import { usePersisted } from '../storage.js';
 import { announce } from '../tasks/notifications.js';
 import { usePublishedAdapter } from '../viewer/activeAdapterStore.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
+import { SummaryPresetSection } from './SummaryPresetMenu.js';
 import { promptSummaryProperty } from './SummaryPropertyDialog.js';
 import { useResolvedAdapter } from './useScopedRows.js';
 
@@ -436,6 +437,15 @@ function SummaryFields({
   const groupBy = view.groupBy.filter((name) => propertyNames.includes(name));
   return (
     <>
+      <SummaryPresetSection
+        adapter={adapter}
+        properties={propertyNames}
+        view={view}
+        apply={(spec) => {
+          onProperties(spec.properties);
+          onView(spec.view);
+        }}
+      />
       <OrderedEditor
         heading="Rows"
         items={propertyNames}

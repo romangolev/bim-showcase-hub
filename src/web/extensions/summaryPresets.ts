@@ -109,27 +109,77 @@ export function saveSummaryPreset(
   name: string,
   properties: readonly string[],
   view: unknown,
+  id?: string,
 ): boolean {
   if (!isRecord(view) || !isJsonValue(view)) return false;
   return (
-    SUMMARY_PRESETS.save(name, { properties: [...properties], view }) !== null
+    SUMMARY_PRESETS.save(name, { properties: [...properties], view }, id) !==
+    null
   );
 }
 
-export function applySummaryPreset(data: SummaryPresetData): boolean {
+export interface SummarySpecPart {
+  properties: string[];
+  view: SummaryView;
+}
+
+const LEGACY_VIEW_KEYS: readonly string[] = [
+  'hiddenColumns',
+  'measure',
+  'unitLabel',
+  'precision',
+];
+
+export function presetToSpec(data: SummaryPresetData): SummarySpecPart | null {
   const clean = sanitizeSummaryPreset(data);
-  if (!clean) return false;
-  const properties = PANE_SETTINGS.summary.properties.write(clean.properties);
+  if (!clean) return null;
   const source = clean.view as Record<string, unknown>;
   const sanitized = sanitizeView(source);
   const extra = Object.fromEntries(
-    Object.entries(source).filter(([key]) => !(key in sanitized)),
+    Object.entries(source).filter(
+      ([key]) => !(key in sanitized) && !LEGACY_VIEW_KEYS.includes(key),
+    ),
   );
-  const view = PANE_SETTINGS.summary.view.write({
-    ...sanitized,
-    ...extra,
-  } as SummaryView);
+  return {
+    properties: [...clean.properties],
+    view: { ...sanitized, ...extra } as SummaryView,
+  };
+}
+
+export function applySummaryPreset(data: SummaryPresetData): boolean {
+  const spec = presetToSpec(data);
+  if (!spec) return false;
+  const properties = PANE_SETTINGS.summary.properties.write(spec.properties);
+  const view = PANE_SETTINGS.summary.view.write(spec.view);
   return properties && view;
+}
+
+export function summaryPresetKey(
+  properties: readonly string[],
+  view: SummaryView,
+): string {
+  return JSON.stringify([
+    properties,
+    view.columns.map((column) => [
+      column.id,
+      column.title,
+      column.precision,
+      column.unitLabel,
+    ]),
+    view.layout,
+    view.groupBy,
+  ]);
+}
+
+export function specPropertyNames(spec: SummarySpecPart): string[] {
+  return [
+    ...new Set([
+      ...spec.properties,
+      ...spec.view.columns.flatMap((column) =>
+        column.property === null ? [] : [column.property],
+      ),
+    ]),
+  ];
 }
 
 export function missingPresetProperties(
