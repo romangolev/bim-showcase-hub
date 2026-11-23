@@ -1715,3 +1715,9 @@ button.bsh-kpi:focus-visible {
 .bsh-badge--action:hover {
   color: var(--color-snow);
 }
+
+.bsh-add-property .settings__field select,
+.bsh-add-property .settings__field input {
+  box-sizing: border-box;
+  min-height: var(--hit-target);
+}
