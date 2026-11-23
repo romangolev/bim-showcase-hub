@@ -68,7 +68,7 @@ export function DashboardPresetMenu({
   return (
     <Menu
       label="Dashboard presets"
-      triggerClassName="bsh-button"
+      triggerClassName="btn"
       align="start"
       trigger={
         <>
