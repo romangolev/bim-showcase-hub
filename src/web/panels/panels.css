@@ -1704,3 +1704,14 @@ button.bsh-kpi:focus-visible {
   margin-left: var(--space-2);
   color: var(--color-coral);
 }
+
+.bsh-badge--action {
+  min-height: var(--hit-target);
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.bsh-badge--action:hover {
+  color: var(--color-snow);
+}

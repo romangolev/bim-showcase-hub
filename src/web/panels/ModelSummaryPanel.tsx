@@ -427,8 +427,21 @@ export function ModelSummaryPanel({
               {shares.length > 0 && (
                 <ul className="bsh-summary__shares" aria-label="Empty values">
                   {shares.map((share) => (
-                    <li key={share.property} className="bsh-badge">
-                      {share.property}: {share.percent}% empty
+                    <li key={share.property}>
+                      <button
+                        type="button"
+                        className="bsh-badge bsh-badge--action"
+                        title="Add as column"
+                        onClick={() =>
+                          openAdd({
+                            property: share.property,
+                            aggregate: 'filled',
+                          })
+                        }
+                      >
+                        <span className="bsh-sr-only">Add as column: </span>
+                        {share.property}: {share.percent}% empty
+                      </button>
                     </li>
                   ))}
                 </ul>

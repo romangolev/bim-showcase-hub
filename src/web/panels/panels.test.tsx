@@ -797,4 +797,26 @@ describe('summary Add property', () => {
       screen.queryByRole('button', { name: 'Summary presets' }),
     ).toBeNull();
   });
+
+  it('turns an empty-share badge into a Filled % column', async () => {
+    const adapter = await loaded();
+    render(
+      <ModelSummaryPanel
+        adapter={adapter}
+        propertyNames={['Category', 'Mark']}
+      />,
+    );
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: /^Add as column:\s*Mark:\s*100%\s*empty$/,
+      }),
+    );
+    const box = within(document.querySelector('dialog[open]') as HTMLElement);
+    expect(box.getByLabelText('Aggregate')).toHaveValue('filled');
+    fireEvent.click(box.getByRole('button', { name: 'Add property' }));
+    expect(
+      await screen.findByRole('columnheader', { name: /^Filled % of Mark/ }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText('0%').length).toBeGreaterThan(0);
+  });
 });
