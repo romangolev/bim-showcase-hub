@@ -346,6 +346,10 @@ export const DASHBOARD_USER_PRESETS = defineSavedKind<DashboardPresetData>({
   sanitize: (raw) => sanitizeDashboardView(raw),
 });
 
-export function saveDashboardPreset(name: string, view: DashboardView) {
-  return DASHBOARD_USER_PRESETS.save(name, view) !== null;
+export function saveDashboardPreset(
+  name: string,
+  view: DashboardView,
+  id?: string,
+) {
+  return DASHBOARD_USER_PRESETS.save(name, view, id) !== null;
 }

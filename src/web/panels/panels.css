@@ -830,66 +830,32 @@ select.field {
   flex: 1 1 8rem;
 }
 
-.bsh-gallery__list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: var(--space-2);
-  margin: 0 0 var(--gutter);
-  padding: 0;
-  list-style: none;
-}
-
-.bsh-gallery__card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-2);
-  border: var(--border-hairline);
-  border-radius: var(--radius-card);
-}
-
-.bsh-gallery__name {
-  margin: 0;
-  font-size: var(--text-16);
-}
-
-.bsh-gallery__tag,
-.bsh-gallery__note {
-  margin: 0;
-  color: var(--color-ash);
-  font-size: var(--text-13);
-}
-
-.bsh-gallery__preview {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: var(--text-12);
-}
-
-.bsh-gallery__preview li {
+.bsh-presets-trigger {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
+  max-width: 16rem;
+  min-height: var(--hit-target);
+  padding: 0 var(--space-2);
+  border: var(--border-hairline);
+  border-radius: var(--radius-button);
+  background: var(--color-charcoal);
+  color: var(--color-fog);
+  font: inherit;
+  font-size: var(--text-13);
 }
 
-.bsh-gallery__preview svg {
-  fill: var(--color-arc-blue);
-  stroke: var(--color-arc-blue);
+.bsh-presets-trigger:hover {
+  background: var(--color-ghost-fill-hover);
+  color: var(--color-snow);
 }
 
-.bsh-gallery__preview svg rect {
-  stroke: none;
-}
-
-.bsh-gallery__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-  margin-top: auto;
+.bsh-presets-trigger__value {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-ash);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .bsh-props__tools {

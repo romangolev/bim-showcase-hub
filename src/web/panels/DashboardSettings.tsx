@@ -37,7 +37,6 @@ import { usePublishedAdapter } from '../viewer/activeAdapterStore.js';
 import { useModels } from '../viewer/useModels.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { DashboardPresetMenu } from './DashboardPresetMenu.js';
-import { DashboardUserPresets } from './DashboardUserPresets.js';
 import { HEALTH_KPI_SETTINGS } from './HealthKpis.js';
 import { PropertyPicker } from './PropertyPicker.js';
 import { usePropertyCatalog } from './usePropertyCatalog.js';
@@ -141,8 +140,11 @@ function DashboardFields({
       <fieldset className="settings__section">
         <legend className="settings__heading">Preset</legend>
         <DashboardPresetMenu view={view} apply={setView} />
+        <p className="settings__hint">
+          Pick a preset, or save the current charts as your own, then update,
+          rename or delete it from the same menu.
+        </p>
       </fieldset>
-      <DashboardUserPresets view={view} apply={setView} />
       <fieldset className="settings__section">
         <legend className="settings__heading">
           Properties offered by charts

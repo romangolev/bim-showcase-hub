@@ -1,14 +1,12 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import '../viewer/reportTemplates.js';
 import '../extensions/colorRulePresets.js';
 import './modelSets.js';
 import {
   DASHBOARD_USER_PRESETS,
   DEFAULT_DASHBOARD_VIEW,
-  saveDashboardPreset,
 } from '../extensions/dashboardPresets.js';
-import { DashboardUserPresets } from '../panels/DashboardUserPresets.js';
 import { SelectionSets } from '../panels/SelectionSets.js';
 import { ViewpointsBody } from '../panels/Viewpoints.js';
 import { getStorageAdapter } from '../storage.js';
@@ -307,33 +305,5 @@ describe('production saved kind consumers', () => {
     fireEvent.click(await screen.findByLabelText('Delete Floors'));
     await waitFor(() => expect(listSets()).toHaveLength(0));
     adapter.destroy();
-  });
-
-  it('saves, renames and deletes a dashboard preset through the panel', async () => {
-    const apply = vi.fn();
-    render(
-      <DashboardUserPresets view={DEFAULT_DASHBOARD_VIEW} apply={apply} />,
-    );
-    fireEvent.change(screen.getByLabelText('Preset name'), {
-      target: { value: 'Mine' },
-    });
-    fireEvent.click(screen.getByText('Save current board'));
-    expect(saveDashboardPreset('Second', DEFAULT_DASHBOARD_VIEW)).toBe(true);
-    expect(DASHBOARD_USER_PRESETS.list().map((item) => item.name)).toEqual([
-      'Mine',
-      'Second',
-    ]);
-    const input = await screen.findByLabelText('Rename Mine');
-    fireEvent.change(input, { target: { value: 'Renamed' } });
-    fireEvent.blur(input);
-    expect(DASHBOARD_USER_PRESETS.list()[0]?.name).toBe('Renamed');
-    fireEvent.click(
-      await screen.findByRole('button', { name: 'Delete Renamed' }),
-    );
-    await waitFor(() =>
-      expect(DASHBOARD_USER_PRESETS.list().map((item) => item.name)).toEqual([
-        'Second',
-      ]),
-    );
   });
 });

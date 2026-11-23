@@ -300,7 +300,6 @@ def run_command(page, title):
 
 SAVE_FIRST = {
     "viewpoints": [("Viewpoint name", "Save viewpoint", "North view"), ("Viewpoint name", "Save viewpoint", "A second saved viewpoint with a long name")],
-    "dashboard-settings": [("Preset name", "Save current board", "Board one")],
     "excel-settings": [("Export preset name", "Save current setup", "Setup one")],
 }
 

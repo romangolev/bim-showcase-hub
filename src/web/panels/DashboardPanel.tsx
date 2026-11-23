@@ -42,7 +42,6 @@ import type { ModelDbId } from '../viewer/modelSet.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { ChartBoard } from './ChartBoard.js';
 import { CHART_SETTINGS } from './chartSettings.js';
-import { DashboardGallery } from './DashboardGallery.js';
 import { DashboardPresetMenu } from './DashboardPresetMenu.js';
 import { ChartTile } from './DashboardTile.js';
 import { ElementScopeSelect, scopeName } from './ElementScope.js';
@@ -124,7 +123,6 @@ export function DashboardPanel({
       : {}),
   });
   const [innerCollapsed, setInnerCollapsed] = useState(defaultCollapsed);
-  const [galleryOpen, setGalleryOpen] = useState(false);
   const isCollapsed = collapsed ?? innerCollapsed;
 
   const usable = state.status === 'ready' || state.status === 'cancelled';
@@ -177,7 +175,6 @@ export function DashboardPanel({
   const emptyScope =
     settled && state.rows.length === 0 && state.elements !== 'all';
   const emptyBoard = hasRows && chartSpecs.length > 0 && shown.length === 0;
-  const showGallery = galleryOpen || !resolved || emptyBoard;
   const [viewerSelection, setViewerSelection] = useState<ModelDbId[]>([]);
   useEffect(() => {
     if (!resolved) {
@@ -336,13 +333,8 @@ export function DashboardPanel({
             Add chart
           </button>
         ) : null}
-        {!isCollapsed && resolved && !emptyBoard ? (
-          <DashboardPresetMenu
-            view={view}
-            apply={setView}
-            onBrowse={() => setGalleryOpen((open) => !open)}
-            browsing={galleryOpen}
-          />
+        {!isCollapsed && resolved ? (
+          <DashboardPresetMenu view={view} apply={setView} />
         ) : null}
         <button
           type="button"
@@ -424,18 +416,6 @@ export function DashboardPanel({
         )}
         {kpiTiles.length > 0 ? (
           <HealthKpis tiles={kpiTiles} onSelect={pickKpi} />
-        ) : null}
-        {showGallery && !isCollapsed ? (
-          <div id={`${uid}-gallery`}>
-            <DashboardGallery
-              view={view}
-              rows={hasRows ? state.rows : undefined}
-              apply={(next) => {
-                setView(next);
-                setGalleryOpen(false);
-              }}
-            />
-          </div>
         ) : null}
         {chartSpecs.length > 0 && usable && !emptyBoard ? (
           <ChartBoard

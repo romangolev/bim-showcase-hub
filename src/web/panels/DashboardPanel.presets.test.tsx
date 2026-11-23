@@ -4,7 +4,7 @@ import { availableProperties } from '../extensions/dashboardData.js';
 import { DASHBOARD_PRESETS } from '../extensions/dashboardPresets.js';
 import { BSH_KEYS } from '../storage.js';
 import { installMemoryStorage } from '../test/mockApi.js';
-import { fireEvent, render, screen, waitFor } from '../test/render.js';
+import { fireEvent, render, screen } from '../test/render.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
 import { DashboardPanel } from './DashboardPanel.js';
 
@@ -89,21 +89,9 @@ describe('preset properties on a model without Revit names', () => {
   });
 });
 
-describe('DashboardPanel gallery', () => {
+describe('DashboardPanel presets', () => {
   beforeEach(() => {
     installMemoryStorage();
-  });
-
-  it('is the empty state without a model and applies a preset', () => {
-    render(<DashboardPanel />);
-    expect(screen.getByText('No charts yet')).toBeInTheDocument();
-    expect(
-      screen.getByRole('list', { name: 'Dashboard presets' }),
-    ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Apply Model health' }));
-    expect(
-      stored().charts.map((c: { property: string }) => c.property),
-    ).toEqual(['Category', 'Level', 'Assembly Code', 'Classification Code']);
   });
 
   it('applies a preset from the Presets menu', async () => {
@@ -114,44 +102,15 @@ describe('DashboardPanel gallery', () => {
     });
     const trigger = screen.getByRole('button', { name: 'Dashboard presets' });
     fireEvent.click(trigger);
-    expect(trigger).toHaveTextContent('Presets: Custom');
+    expect(trigger).toHaveTextContent('PresetsCustom');
     fireEvent.click(
       screen.getByRole('menuitemcheckbox', { name: 'Model health' }),
     );
     expect(stored().charts).toHaveLength(4);
-    expect(trigger).toHaveTextContent('Presets: Model health');
+    expect(trigger).toHaveTextContent('PresetsModel health');
   });
 
-  it('opens the full gallery from Browse presets and closes after Apply', async () => {
-    const adapter = await loaded();
-    render(<DashboardPanel adapter={adapter} />);
-    await screen.findByRole('img', {
-      name: 'Bar chart of element counts by Category',
-    });
-    expect(
-      screen.queryByRole('list', { name: 'Dashboard presets' }),
-    ).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Dashboard presets' }));
-    fireEvent.click(
-      screen.getByRole('menuitem', { name: 'Browse presets...' }),
-    );
-    expect(
-      screen.getByRole('list', { name: 'Dashboard presets' }),
-    ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Apply Model health' }));
-    expect(
-      screen.queryByRole('list', { name: 'Dashboard presets' }),
-    ).toBeNull();
-    expect(stored().charts).toHaveLength(4);
-    await waitFor(() =>
-      expect(
-        screen.getAllByRole('img', { name: /^Bar chart of element counts by / })
-          .length,
-      ).toBeGreaterThan(1),
-    );
-  });
-
-  it('shows a clear message and the gallery when no preset chart fits the model', async () => {
+  it('shows a clear message and keeps the Presets menu when no preset chart fits the model', async () => {
     window.localStorage.setItem(
       BSH_KEYS.personal.dashboardView,
       JSON.stringify({ preset: 'discipline' }),
@@ -168,12 +127,8 @@ describe('DashboardPanel gallery', () => {
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'Apply Model health' }),
+      screen.getByRole('button', { name: 'Dashboard presets' }),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: 'Dashboard presets' }),
-    ).toBeNull();
-    expect(screen.getAllByText(/Not in this model/)).toHaveLength(4);
   });
 
   it('keeps a tile with a message for a chart whose property is absent', async () => {
