@@ -12,7 +12,6 @@ import {
   type MouseEvent,
   useContext,
   useEffect,
-  useId,
   useRef,
   useState,
 } from 'react';
@@ -31,30 +30,18 @@ import { openVersionHistory } from '../../panels/VersionHistoryPanel.js';
 import type { VersionTarget } from '../../panels/versionHistory.js';
 import { PANE_SETTINGS } from '../../settings/paneSettings.js';
 import { usePersisted } from '../../storage.js';
-import { MAX_SET_MEMBERS } from '../../store/modelSets.js';
-import { MAX_NAME_LENGTH } from '../../store/savedStore.js';
 import { notify } from '../../tasks/notifications.js';
 import { startTask, type TaskHandle } from '../../tasks/taskStore.js';
-import {
-  type OpenMode,
-  type OpenPreview,
-  previewOpen,
-} from '../../viewer/openModels.js';
+import { previewOpen } from '../../viewer/openModels.js';
 import { Icon } from '../icons.js';
 import { Menu, type MenuEntry } from '../Menu.js';
 import { StateBlock } from '../StateBlock.js';
 import { CRAWL_LIMITS, type CrawlResult } from './crawl.js';
-import {
-  type DeepSearchFilters,
-  DOC_SEARCHES,
-  type DocSearchData,
-  FILE_TYPES,
-  NO_FILTERS,
-} from './deepSearch.js';
 import { onDeepSearch } from './deepSearchSignal.js';
 import { startModelDrag } from './docDrag.js';
 import { DEFAULT_TREE_ROOT, type TreeRoot } from './docRoot.js';
 import { NoHubsHint, PersonalHubNotice } from './NoHubsHint.js';
+import { PickBar, type PreviewOpen } from './PickBar.js';
 import { PreviewCard } from './PreviewCard.js';
 import { usePins } from './pins.js';
 import {
@@ -88,11 +75,6 @@ export interface AddTarget {
   onRemove: (urn: string) => void;
 }
 
-type PreviewOpen = (
-  models: readonly PickedModel[],
-  mode: OpenMode,
-) => OpenPreview;
-
 const previewEmpty: PreviewOpen = (models, mode) =>
   previewOpen(EMPTY_OPEN_MODELS, { models, mode });
 
@@ -109,13 +91,8 @@ export interface DocumentTreeProps {
   pollMs?: number;
 }
 
-export { skippedNotice };
-
-function pickLabel(model: PickedModel): string {
-  return model.context.file ?? model.urn;
-}
-
 export { CHECK_CONCURRENCY, VERSION_POLL_MS } from './treeState.js';
+export { skippedNotice };
 
 type StatusVariant = 'loading' | 'error' | 'empty';
 
@@ -242,11 +219,7 @@ export function DocumentTree({
   const rootScope = root.scope;
   const copy = rootCopy(rootScope);
   const [filter, setFilter] = useState('');
-  const [filters, setFilters] = useState<DeepSearchFilters>(NO_FILTERS);
-  const [chipsOpen, setChipsOpen] = useState(false);
   const [crawl, setCrawl] = useState<CrawlView | null>(null);
-  const [saveSearchOpen, setSaveSearchOpen] = useState(false);
-  const chipsId = useId();
   const crawlRef = useRef<AbortController | null>(null);
   const crawlTask = useRef<TaskHandle | null>(null);
   const crawlRun = useRef(0);
@@ -414,51 +387,12 @@ export function DocumentTree({
       });
   };
 
-  const toggleType = (type: string) =>
-    setFilters((current) => ({
-      ...current,
-      types: current.types.includes(type)
-        ? current.types.filter((entry) => entry !== type)
-        : [...current.types, type],
-    }));
-
   const searchProject = () => {
     if (!state.crawled()) startCrawl();
   };
 
   const clearSearch = () => {
     setFilter('');
-    setFilters(NO_FILTERS);
-  };
-
-  const applySavedSearch = (data: DocSearchData) => {
-    setFilters({
-      text: '',
-      types: [...data.types],
-      viewableOnly: data.viewableOnly,
-      from: data.from,
-      to: data.to,
-    });
-    setFilter(data.text);
-    setChipsOpen(true);
-    if (data.scope === 'project') searchProject();
-  };
-
-  const savedSearchEntries = (): MenuEntry[] => {
-    const entries: MenuEntry[] = DOC_SEARCHES.list().map((item) => ({
-      id: `saved-${item.id}`,
-      label: item.name,
-      onSelect: () => applySavedSearch(item.data),
-    }));
-    if (entries.length > 0) {
-      entries.push({ kind: 'separator', id: 'saved-separator' });
-    }
-    entries.push({
-      id: 'save-search',
-      label: 'Save search',
-      onSelect: () => setSaveSearchOpen(true),
-    });
-    return entries;
   };
 
   const selectedUrnRef = useRef(selectedUrn);
@@ -820,7 +754,6 @@ export function DocumentTree({
   useEffect(
     () =>
       onDeepSearch(() => {
-        setChipsOpen(true);
         searchRef.current?.focus();
       }),
     [],
@@ -835,13 +768,7 @@ export function DocumentTree({
   );
 
   const query = filter.trim().toLowerCase();
-  const activeFilters: DeepSearchFilters = { ...filters, text: filter.trim() };
-  const narrowSearch =
-    filters.types.length > 0 ||
-    filters.viewableOnly ||
-    filters.from !== null ||
-    filters.to !== null;
-  const searching = query !== '' || narrowSearch;
+  const searching = query !== '';
   const crawlRootId = state.crawlRoot();
 
   const onTreeKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -909,9 +836,7 @@ export function DocumentTree({
 
   const rows: Row[] = [];
   if (searching) {
-    const found = narrowSearch
-      ? state.search(query, activeFilters)
-      : state.search(query);
+    const found = state.search(query);
     for (const node of found) {
       rows.push({ type: 'result', key: `result:${node.id}`, node });
     }
@@ -923,9 +848,7 @@ export function DocumentTree({
         level: 0,
         parentId: rootId,
         title: 'Nothing found',
-        message: filter.trim()
-          ? `No matches for “${filter.trim()}” in loaded folders.`
-          : 'No files match these filters in loaded folders.',
+        message: `No matches for “${filter.trim()}” in loaded folders.`,
         clearFilter: true,
       });
     }
@@ -1333,84 +1256,6 @@ export function DocumentTree({
           <Icon name="refresh" size={14} />
         </button>
       </div>
-      <div className="doc-tree__tools">
-        <button
-          type="button"
-          className="doc-tree__tool"
-          aria-expanded={chipsOpen}
-          aria-controls={chipsId}
-          onClick={() => setChipsOpen((open) => !open)}
-        >
-          <Icon name="filter" size={12} />
-          Filters
-        </button>
-        <Menu
-          label="Saved searches"
-          title="Saved searches"
-          trigger={
-            <>
-              <Icon name="star" size={12} />
-              Saved searches
-            </>
-          }
-          triggerClassName="doc-tree__tool"
-          items={savedSearchEntries}
-        />
-      </div>
-      {chipsOpen ? (
-        <div id={chipsId} className="doc-tree__chips">
-          {FILE_TYPES.map((type) => (
-            <button
-              key={type}
-              type="button"
-              className="doc-tree__chip"
-              aria-pressed={filters.types.includes(type)}
-              onClick={() => toggleType(type)}
-            >
-              {type}
-            </button>
-          ))}
-          <button
-            type="button"
-            className="doc-tree__chip"
-            aria-pressed={filters.viewableOnly}
-            onClick={() =>
-              setFilters((current) => ({
-                ...current,
-                viewableOnly: !current.viewableOnly,
-              }))
-            }
-          >
-            Has a viewable
-          </button>
-          <label className="doc-tree__date">
-            <span>From</span>
-            <input
-              type="date"
-              value={filters.from ?? ''}
-              onChange={(event) =>
-                setFilters((current) => ({
-                  ...current,
-                  from: event.target.value || null,
-                }))
-              }
-            />
-          </label>
-          <label className="doc-tree__date">
-            <span>To</span>
-            <input
-              type="date"
-              value={filters.to ?? ''}
-              onChange={(event) =>
-                setFilters((current) => ({
-                  ...current,
-                  to: event.target.value || null,
-                }))
-              }
-            />
-          </label>
-        </div>
-      ) : null}
       {searching || crawl?.status === 'running' ? (
         <div className="doc-tree__crawl" role="status" aria-live="polite">
           {crawl ? (
@@ -1421,7 +1266,7 @@ export function DocumentTree({
           {crawl?.status === 'running' ? (
             <button
               type="button"
-              className="bsh-button doc-tree__crawl-action"
+              className="btn doc-tree__crawl-action"
               onClick={cancelCrawl}
             >
               Cancel
@@ -1429,7 +1274,7 @@ export function DocumentTree({
           ) : (
             <button
               type="button"
-              className="bsh-button doc-tree__crawl-action"
+              className="btn doc-tree__crawl-action"
               disabled={!crawlRootId}
               title={
                 crawlRootId ? 'Read every folder in this project' : PICK_PROJECT
@@ -1508,12 +1353,6 @@ export function DocumentTree({
         </div>
       </div>
       {rowMenu.menu}
-      {saveSearchOpen ? (
-        <SaveSearchDialog
-          data={{ ...filters, text: filter.trim(), scope: view.searchScope }}
-          onDone={() => setSaveSearchOpen(false)}
-        />
-      ) : null}
       {preview ? (
         <PreviewCard
           key={preview.node.id}
@@ -1524,197 +1363,5 @@ export function DocumentTree({
         />
       ) : null}
     </div>
-  );
-}
-
-function PickBar({
-  picked,
-  pickPreview,
-  addTarget,
-  onOpenTabs,
-  onOpenTogether,
-  onSaveSet,
-  onClear,
-}: {
-  picked: PickedModel[];
-  pickPreview: PreviewOpen;
-  addTarget: AddTarget | null;
-  onOpenTabs?: (models: PickedModel[]) => void;
-  onOpenTogether: (models: PickedModel[]) => void;
-  onSaveSet: () => void;
-  onClear: () => void;
-}) {
-  const tabs = pickPreview(picked, 'tabs');
-  const together = pickPreview(picked, 'together');
-  const message = tabs.blocked
-    ? tabs.notice
-    : together.blocked
-      ? together.notice
-      : null;
-  const addable = addTarget
-    ? picked.filter((model) => addTarget.canAdd(model.urn))
-    : [];
-  return (
-    <section
-      className="doc-tree__picks"
-      data-empty={picked.length === 0}
-      aria-label="Selected versions"
-    >
-      <span className="doc-tree__picks-count" aria-live="polite">
-        {picked.length === 0
-          ? 'Ctrl or Cmd click, Shift click or Space selects versions to open'
-          : `${picked.length} selected`}
-      </span>
-      {picked.length > 0 ? (
-        <>
-          {onOpenTabs ? (
-            <button
-              type="button"
-              className="bsh-button doc-tree__pick-action"
-              disabled={tabs.blocked}
-              title={picked.map(pickLabel).join('\n')}
-              onClick={() => onOpenTabs(picked)}
-            >
-              Open {picked.length} in viewer
-            </button>
-          ) : null}
-          <button
-            type="button"
-            className="bsh-button doc-tree__pick-action"
-            disabled={picked.length < 2 || together.blocked}
-            title={picked.map(pickLabel).join('\n')}
-            onClick={() => onOpenTogether(picked)}
-          >
-            Open together
-          </button>
-          <button
-            type="button"
-            className="bsh-button doc-tree__pick-action"
-            disabled={picked.length > MAX_SET_MEMBERS}
-            title={
-              picked.length > MAX_SET_MEMBERS
-                ? `A model set holds up to ${MAX_SET_MEMBERS} models`
-                : picked.map(pickLabel).join('\n')
-            }
-            onClick={onSaveSet}
-          >
-            Save as model set
-          </button>
-          {addTarget ? (
-            <button
-              type="button"
-              className="bsh-button doc-tree__pick-action"
-              disabled={addable.length === 0}
-              onClick={() => {
-                addTarget.onAdd(addable);
-                onClear();
-              }}
-            >
-              Add to {addTarget.label}
-            </button>
-          ) : null}
-          <button
-            type="button"
-            className="bsh-button doc-tree__pick-action"
-            onClick={onClear}
-          >
-            Clear
-          </button>
-          {message ? (
-            <span className="doc-tree__picks-limit" role="alert">
-              {message}
-            </span>
-          ) : null}
-        </>
-      ) : null}
-    </section>
-  );
-}
-
-function SaveSearchDialog({
-  data,
-  onDone,
-}: {
-  data: DocSearchData;
-  onDone: () => void;
-}) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
-  const titleId = useId();
-  const [name, setName] = useState('');
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (dialog && !dialog.open) dialog.showModal();
-  }, []);
-
-  const save = () => {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    const saved = DOC_SEARCHES.save(trimmed, data);
-    notify(
-      saved
-        ? `Saved the search "${trimmed}"`
-        : 'Could not save the search. Delete some saved items and try again.',
-      { tone: saved ? 'success' : 'error' },
-    );
-    onDone();
-  };
-
-  return (
-    <dialog
-      ref={dialogRef}
-      className="modal modal--sm"
-      aria-labelledby={titleId}
-      onClose={onDone}
-    >
-      <div className="modal__panel">
-        <header className="modal__head">
-          <h2 id={titleId} className="modal__title">
-            Save search
-          </h2>
-          <button
-            type="button"
-            className="icon-button"
-            aria-label="Close"
-            onClick={onDone}
-          >
-            <Icon name="close" size={16} />
-          </button>
-        </header>
-        <div className="modal__body">
-          <label className="bsh-field">
-            <span>Search name</span>
-            <input
-              type="text"
-              className="bsh-input"
-              aria-label="Search name"
-              placeholder="Name this search"
-              maxLength={MAX_NAME_LENGTH}
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') save();
-              }}
-            />
-          </label>
-          <p className="settings__hint">
-            A saved search applies to the project you have open.
-          </p>
-          <div className="bsh-presets">
-            <button type="button" className="bsh-button" onClick={onDone}>
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="bsh-button"
-              disabled={!name.trim()}
-              onClick={save}
-            >
-              Save search
-            </button>
-          </div>
-        </div>
-      </div>
-    </dialog>
   );
 }

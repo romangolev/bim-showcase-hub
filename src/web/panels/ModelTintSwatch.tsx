@@ -122,7 +122,7 @@ export function ModelTintSwatch({
               <div className="bsh-tint__actions">
                 <button
                   type="button"
-                  className="bsh-button"
+                  className="btn"
                   disabled={!tint}
                   onClick={() => {
                     onClear();
@@ -147,11 +147,7 @@ export function ModelTintSwatch({
                     />
                   ))}
                 </div>
-                <button
-                  type="button"
-                  className="bsh-button"
-                  onClick={onResetPalette}
-                >
+                <button type="button" className="btn" onClick={onResetPalette}>
                   Use default palette
                 </button>
               </details>

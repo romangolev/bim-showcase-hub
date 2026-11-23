@@ -1,4 +1,5 @@
 import { type KeyboardEvent, useState } from 'react';
+import { useT } from '../i18n/i18n.js';
 import { usePersisted } from '../storage.js';
 import { formatShortcut, shortcutFromEvent } from './shortcuts.js';
 import {
@@ -18,6 +19,7 @@ const REFUSALS = {
 } as const;
 
 export function ShortcutEditor() {
+  const t = useT();
   const [overrides] = usePersisted(VIEWER_SHORTCUT_KEYS);
   const [capturing, setCapturing] = useState<string | null>(null);
   const [message, setMessage] = useState('');
@@ -50,7 +52,7 @@ export function ShortcutEditor() {
   return (
     <section className="settings__section" aria-labelledby="settings-shortcuts">
       <h3 id="settings-shortcuts" className="settings__heading">
-        Shortcuts
+        {t('settings.shortcuts')}
       </h3>
       <table className="settings__shortcuts">
         <tbody>

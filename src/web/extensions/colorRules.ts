@@ -61,10 +61,6 @@ function compileRule(rule: ColorRule): (cell: unknown) => boolean {
   }
 }
 
-export function matchRule(rule: ColorRule, cell: unknown): boolean {
-  return compileRule(rule)(cell);
-}
-
 function sanitizeRule(raw: unknown, index: number): ColorRule | null {
   if (!isRecord(raw)) return null;
   const property = text(raw.property);

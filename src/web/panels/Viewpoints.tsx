@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { ItemList, ItemRow } from '../components/ItemList.js';
+import { Icon } from '../components/icons.js';
 import type { ModalDefinition } from '../modal/types.js';
 import { MAX_NAME_LENGTH } from '../store/savedStore.js';
 import { notify } from '../tasks/notifications.js';
@@ -45,11 +47,10 @@ export function ViewpointsBody() {
   };
 
   return (
-    <div className="bsh-summary-settings">
-      <div className="bsh-presets">
+    <>
+      <div className="settings__actions">
         <input
           type="text"
-          className="bsh-input"
           aria-label="Viewpoint name"
           placeholder="Name this view"
           maxLength={MAX_NAME_LENGTH}
@@ -61,7 +62,7 @@ export function ViewpointsBody() {
         />
         <button
           type="button"
-          className="bsh-button"
+          className="btn"
           disabled={!adapter}
           onClick={save}
         >
@@ -76,12 +77,11 @@ export function ViewpointsBody() {
       {points.length === 0 ? (
         <p className="settings__hint">No viewpoints yet.</p>
       ) : (
-        <ul className="settings__palette">
+        <ItemList>
           {points.map((point, index) => (
-            <li key={`${point.id}:${point.name}`} className="bsh-presets">
+            <ItemRow key={`${point.id}:${point.name}`}>
               <input
                 type="text"
-                className="bsh-input"
                 aria-label={`Rename ${point.name}`}
                 maxLength={MAX_NAME_LENGTH}
                 defaultValue={point.name}
@@ -98,7 +98,7 @@ export function ViewpointsBody() {
               />
               <button
                 type="button"
-                className="bsh-button"
+                className="btn btn-small"
                 aria-label={`Go to ${point.name}`}
                 disabled={!adapter}
                 onClick={() => void go(point.id)}
@@ -107,35 +107,35 @@ export function ViewpointsBody() {
               </button>
               <button
                 type="button"
-                className="bsh-button"
+                className="inline-action"
                 aria-label={`Move ${point.name} up`}
                 disabled={index === 0}
                 onClick={() => moveViewpoint(point.id, -1)}
               >
-                Up
+                <Icon name="arrowUp" size={14} />
               </button>
               <button
                 type="button"
-                className="bsh-button"
+                className="inline-action"
                 aria-label={`Move ${point.name} down`}
                 disabled={index === points.length - 1}
                 onClick={() => moveViewpoint(point.id, 1)}
               >
-                Down
+                <Icon name="arrowDown" size={14} />
               </button>
               <button
                 type="button"
-                className="bsh-button"
+                className="btn btn-small"
                 aria-label={`Delete ${point.name}`}
                 onClick={() => deleteViewpoint(point.id)}
               >
                 Delete
               </button>
-            </li>
+            </ItemRow>
           ))}
-        </ul>
+        </ItemList>
       )}
-    </div>
+    </>
   );
 }
 

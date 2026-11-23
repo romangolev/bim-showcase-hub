@@ -27,7 +27,7 @@ body,
 
 ::-webkit-scrollbar-thumb {
   border: 3px solid transparent;
-  border-radius: 5px;
+  border-radius: var(--radius-badge);
   background: var(--color-smoke);
   background-clip: content-box;
 }
@@ -98,7 +98,9 @@ a:hover {
   }
 
   .tree-row[data-selected="true"],
-  .menu__item[aria-checked="true"] {
+  .menu__item[aria-checked="true"],
+  .btn[aria-pressed="true"],
+  .switch-row input[role="switch"]:checked {
     forced-color-adjust: none;
     background: Highlight;
     color: HighlightText;
@@ -112,7 +114,9 @@ a:hover {
 
 @media (prefers-reduced-motion: reduce) {
   .btn,
-  .icon-button {
+  .icon-button,
+  .switch-row input[role="switch"],
+  .switch-row input[role="switch"]::before {
     transition: none;
   }
 }

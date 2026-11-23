@@ -1,6 +1,10 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { PINNED_KEY, rememberModel } from '../../api/modelStore.js';
+import {
+  listRecentModels,
+  PINNED_KEY,
+  rememberModel,
+} from '../../api/modelStore.js';
 import {
   SETTINGS_STORAGE_KEY,
   SettingsProvider,
@@ -9,6 +13,7 @@ import { installMemoryStorage } from '../../test/mockApi.js';
 import type { AddTarget } from './DocumentTree.js';
 import {
   COLLAPSE_DELAY_MS,
+  EXPAND_DELAY_MS,
   MAX_PINS,
   RecentStrip,
   sanitizePins,
@@ -175,12 +180,30 @@ describe('RecentStrip collapse', () => {
     vi.useFakeTimers();
     renderCollapsed();
     fireEvent.pointerEnter(strip(), { pointerType: 'mouse' });
+    expect(panelHidden()).toBe(true);
+    act(() => {
+      vi.advanceTimersByTime(EXPAND_DELAY_MS + 10);
+    });
     expect(stripToggle()).toHaveAttribute('aria-expanded', 'true');
     expect(panelHidden()).toBe(false);
     fireEvent.pointerLeave(strip(), { pointerType: 'mouse' });
     expect(panelHidden()).toBe(false);
     act(() => {
       vi.advanceTimersByTime(COLLAPSE_DELAY_MS + 10);
+    });
+    expect(panelHidden()).toBe(true);
+  });
+
+  it('does not expand when the pointer only passes through', () => {
+    vi.useFakeTimers();
+    renderCollapsed();
+    fireEvent.pointerEnter(strip(), { pointerType: 'mouse' });
+    act(() => {
+      vi.advanceTimersByTime(EXPAND_DELAY_MS - 100);
+    });
+    fireEvent.pointerLeave(strip(), { pointerType: 'mouse' });
+    act(() => {
+      vi.advanceTimersByTime(EXPAND_DELAY_MS + COLLAPSE_DELAY_MS);
     });
     expect(panelHidden()).toBe(true);
   });
@@ -215,6 +238,9 @@ describe('RecentStrip collapse', () => {
     vi.useFakeTimers();
     renderCollapsed();
     fireEvent.pointerEnter(strip(), { pointerType: 'mouse' });
+    act(() => {
+      vi.advanceTimersByTime(EXPAND_DELAY_MS + 10);
+    });
     fireEvent.click(stripToggle());
     fireEvent.pointerLeave(strip(), { pointerType: 'mouse' });
     act(() => {
@@ -246,7 +272,22 @@ describe('RecentStrip row menu', () => {
       within(menu)
         .getAllByRole('menuitem')
         .map((item) => item.textContent),
-    ).toEqual(['Open', 'Open as modal', 'Add to open model', 'Pin']);
+    ).toEqual([
+      'Open',
+      'Open as modal',
+      'Add to open model',
+      'Pin',
+      'Remove from recent',
+    ]);
+  });
+
+  it('removes an unpinned model from recents and offers nothing for a pinned one', () => {
+    renderCollapsed(target());
+    fireEvent.click(
+      within(openMenu()).getByRole('menuitem', { name: 'Remove from recent' }),
+    );
+    expect(screen.queryByRole('button', { name: 'B.rvt · 2' })).toBeNull();
+    expect(listRecentModels().map((item) => item.urn)).not.toContain('urn-b');
   });
 
   it('opens the menu with the context menu event at the pointer', () => {

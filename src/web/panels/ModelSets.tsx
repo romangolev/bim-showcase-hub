@@ -127,7 +127,7 @@ function SaveSetDialog({
             <span>Model set name</span>
             <input
               type="text"
-              className="bsh-input"
+              className="field"
               aria-label="Model set name"
               placeholder="Name this model set"
               maxLength={MAX_NAME_LENGTH}
@@ -143,12 +143,12 @@ function SaveSetDialog({
             set
           </p>
           <div className="bsh-presets">
-            <button type="button" className="bsh-button" onClick={onDone}>
+            <button type="button" className="btn" onClick={onDone}>
               Cancel
             </button>
             <button
               type="button"
-              className="bsh-button"
+              className="btn"
               disabled={!name.trim()}
               onClick={save}
             >
@@ -194,7 +194,7 @@ function RenameField({
     <input
       ref={inputRef}
       type="text"
-      className="bsh-input"
+      className="field"
       aria-label={`Rename ${set.name}`}
       maxLength={MAX_NAME_LENGTH}
       defaultValue={set.name}
@@ -444,7 +444,7 @@ export function ModelSets({ openers }: { openers: ModelOpeners }) {
                     {staleText(stale)}
                     <button
                       type="button"
-                      className="bsh-button"
+                      className="btn"
                       onClick={() => void updateToLatest(set)}
                     >
                       Update to latest
@@ -456,7 +456,7 @@ export function ModelSets({ openers }: { openers: ModelOpeners }) {
                     {`Delete "${set.name}"?`}
                     <button
                       type="button"
-                      className="bsh-button"
+                      className="btn"
                       aria-label="Confirm delete"
                       onClick={() => {
                         MODEL_SETS.remove(set.id);
@@ -467,7 +467,7 @@ export function ModelSets({ openers }: { openers: ModelOpeners }) {
                     </button>
                     <button
                       type="button"
-                      className="bsh-button"
+                      className="btn"
                       aria-label="Cancel delete"
                       onClick={() => setConfirming(null)}
                     >

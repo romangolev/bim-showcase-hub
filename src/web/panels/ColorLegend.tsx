@@ -62,7 +62,7 @@ export function ColorLegend({
             />
             <button
               type="button"
-              className="bsh-button"
+              className="btn"
               aria-label={`Isolate ${entry.label}`}
               onClick={() =>
                 runElementAction(
@@ -80,14 +80,14 @@ export function ColorLegend({
       <div className="bsh-color-legend__actions">
         <button
           type="button"
-          className="bsh-button"
+          className="btn"
           onClick={() => clearColoring(adapter)}
         >
           Clear colours
         </button>
         <button
           type="button"
-          className="bsh-button"
+          className="btn"
           onClick={() =>
             saveBlob(
               new Blob([legendCsv(coloring)], {

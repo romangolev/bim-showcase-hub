@@ -8,8 +8,6 @@ import {
 } from '../extensions/colorBy.js';
 import { colorByRules, ruleProperties } from '../extensions/colorRules.js';
 import { readChartTheme, seriesColors } from '../extensions/dashboardData.js';
-import { formatCount } from '../i18n/format.js';
-import { useSettings } from '../settings/SettingsContext.js';
 import { usePersisted } from '../storage.js';
 import {
   applyColoring,
@@ -21,13 +19,9 @@ import { ColorLegend } from './ColorLegend.js';
 import { ColorRules } from './ColorRules.js';
 import { CHART_SETTINGS } from './chartSettings.js';
 import { COLORS_SETTINGS, type ColorsSettings } from './colorsSettings.js';
+import { ScopedRowsStatus } from './ScopedRowsStatus.js';
 import { usePropertyCatalog } from './usePropertyCatalog.js';
-import {
-  HIDDEN_MESSAGE,
-  HIDDEN_TITLE,
-  useResolvedAdapter,
-  useScopedRows,
-} from './useScopedRows.js';
+import { useResolvedAdapter, useScopedRows } from './useScopedRows.js';
 import './panels.css';
 
 export interface ColorsPanelProps {
@@ -36,7 +30,6 @@ export interface ColorsPanelProps {
 
 export function ColorsPanel({ adapter }: ColorsPanelProps) {
   const uid = useId();
-  const { language } = useSettings().settings;
   const resolved = useResolvedAdapter(adapter);
   const [settings, setSettings] = usePersisted(COLORS_SETTINGS);
   const [chartSettings] = usePersisted(CHART_SETTINGS);
@@ -110,7 +103,7 @@ export function ColorsPanel({ adapter }: ColorsPanelProps) {
         {resolved ? (
           <>
             <fieldset className="bsh-kinds" aria-label="Colour by">
-              <label className="bsh-button">
+              <label className="btn">
                 <input
                   type="radio"
                   name={uid}
@@ -119,7 +112,7 @@ export function ColorsPanel({ adapter }: ColorsPanelProps) {
                 />
                 By property
               </label>
-              <label className="bsh-button">
+              <label className="btn">
                 <input
                   type="radio"
                   name={uid}
@@ -138,7 +131,7 @@ export function ColorsPanel({ adapter }: ColorsPanelProps) {
             ) : (
               <>
                 <select
-                  className="bsh-select"
+                  className="field"
                   aria-label="Property"
                   value={settings.spec.property}
                   onChange={(event) =>
@@ -154,7 +147,7 @@ export function ColorsPanel({ adapter }: ColorsPanelProps) {
                   ))}
                 </select>
                 <select
-                  className="bsh-select"
+                  className="field"
                   aria-label="Mode"
                   value={settings.spec.mode}
                   onChange={(event) =>
@@ -180,7 +173,7 @@ export function ColorsPanel({ adapter }: ColorsPanelProps) {
                       onCommit={(topN) =>
                         update({ spec: { ...settings.spec, topN } })
                       }
-                      className="bsh-input bsh-input--narrow"
+                      className="field field--narrow"
                     />
                   </label>
                 ) : null}
@@ -189,20 +182,12 @@ export function ColorsPanel({ adapter }: ColorsPanelProps) {
             <div className="bsh-presets">
               <button
                 type="button"
-                className="bsh-button"
+                className="btn"
                 onClick={() => setRequested(true)}
               >
                 Color the model
               </button>
             </div>
-            {state.status === 'hidden' ? (
-              <StateBlock
-                variant="empty"
-                compact
-                title={HIDDEN_TITLE}
-                message={HIDDEN_MESSAGE}
-              />
-            ) : null}
             {state.status === 'idle' ? (
               <StateBlock
                 variant="empty"
@@ -211,56 +196,7 @@ export function ColorsPanel({ adapter }: ColorsPanelProps) {
                 message="Open a viewable version to colour its elements."
               />
             ) : null}
-            {state.status === 'loading' ? (
-              <div className="bsh-summary__progress">
-                <progress
-                  aria-label="Reading element properties"
-                  max={state.progress?.total || undefined}
-                  value={state.progress ? state.progress.loaded : undefined}
-                />
-                <span role="status">
-                  {state.progress && state.progress.total > 0
-                    ? `Reading element properties: ${formatCount(state.progress.loaded, language)} of ${formatCount(state.progress.total, language)}${state.progress.partial ? ' (partial data)' : ''}`
-                    : 'Reading element properties'}
-                </span>
-                <button
-                  type="button"
-                  className="bsh-button"
-                  onClick={state.cancel}
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : null}
-            {state.status === 'ready' && state.pending ? (
-              <StateBlock
-                variant="loading"
-                compact
-                message="Reading element properties"
-                rows={3}
-              />
-            ) : null}
-            {state.status === 'ready' && state.stale ? (
-              <div className="bsh-summary__partial" role="status">
-                <span>Data may be stale.</span>
-                <button
-                  type="button"
-                  className="bsh-button"
-                  onClick={state.refresh}
-                >
-                  Refresh
-                </button>
-              </div>
-            ) : null}
-            {state.status === 'error' ? (
-              <StateBlock
-                variant="error"
-                compact
-                message="We could not read this model's properties. Try again."
-                detail={state.message}
-                action={{ label: 'Retry', onClick: state.refresh }}
-              />
-            ) : null}
+            <ScopedRowsStatus state={state} resolved={resolved} />
             {coloring ? (
               <ColorLegend
                 adapter={resolved}

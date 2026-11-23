@@ -18,7 +18,7 @@ export function ModelScopeSelect({
       </label>
       <select
         id={id}
-        className="bsh-select"
+        className="field"
         value={state.scope}
         onChange={(event) => state.setScope(event.target.value)}
       >

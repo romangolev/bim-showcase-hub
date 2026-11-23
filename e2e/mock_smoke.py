@@ -347,13 +347,28 @@ def boxes_overlap(a, b):
     return a["x"] < b["x"] + b["width"] and b["x"] < a["x"] + a["width"] and a["y"] < b["y"] + b["height"] and b["y"] < a["y"] + a["height"]
 
 
+def toggle_gallery(page, pane, item):
+    pane.get_by_role("button", name="Dashboard presets", exact=True).click()
+    settle(page, 300)
+    page.get_by_role("menuitem", name=item).click()
+    settle(page, 300)
+
+
+def open_gallery(page, pane):
+    if pane.get_by_role("list", name="Dashboard presets").count() == 0:
+        toggle_gallery(page, pane, "Browse presets...")
+
+
 def check_dashboard_gallery(page, checks):
     pane = page.locator(".pane-dashboard").first
-    toggle = pane.get_by_role("button", name="Presets", exact=True)
-    checks.add("the dashboard pane has a Presets toggle", toggle.count() == 1 and toggle.get_attribute("aria-expanded") == "false")
+    toggle = pane.get_by_role("button", name="Dashboard presets", exact=True)
+    checks.add("the dashboard pane has a Presets dropdown", toggle.count() == 1 and toggle.get_attribute("aria-haspopup") == "menu")
     toggle.click()
     settle(page, 300)
-    checks.add("the Presets toggle opens the gallery", pane.get_by_role("list", name="Dashboard presets").count() == 1 and toggle.get_attribute("aria-expanded") == "true")
+    checks.add("the Presets dropdown lists the built-in presets", page.get_by_role("menuitemcheckbox", name="Model health").count() == 1)
+    page.get_by_role("menuitem", name="Browse presets...").click()
+    settle(page, 300)
+    checks.add("Browse presets opens the gallery", pane.get_by_role("list", name="Dashboard presets").count() == 1)
     checks.add("built-in cards have no rename or delete", pane.get_by_label(re.compile(r"^Rename ")).count() == 0 and pane.get_by_role("button", name=re.compile(r"^Delete ")).count() == 0)
     checks.add("built-in cards offer Save as my preset", pane.get_by_role("button", name="Save Model health as my preset").count() == 1)
     page.screenshot(path=str(OUTPUT_DIR / "mock-gallery.png"))
@@ -364,13 +379,11 @@ def check_dashboard_gallery(page, checks):
     checks.add("applying from the gallery closes it", pane.get_by_role("list", name="Dashboard presets").count() == 0)
     names = pane.locator(".bsh-boards [role=img]").evaluate_all("(els) => els.map((el) => el.getAttribute('aria-label'))")
     checks.add("a preset hides charts whose property the model lacks", len(names) == 1 and names[0].endswith("by Category"), names)
-    pane.get_by_role("button", name="Presets", exact=True).click()
-    settle(page, 300)
+    open_gallery(page, pane)
     pane.get_by_role("button", name="Apply Model health").last.click()
     settle(page, 500)
     checks.add("a user preset applies from the gallery", pane.locator(".bsh-boards canvas").count() >= 2, pane.locator(".bsh-boards canvas").count())
-    pane.get_by_role("button", name="Presets", exact=True).click()
-    settle(page, 300)
+    open_gallery(page, pane)
     pane.get_by_role("button", name="Delete Model health").click()
     checks.add("deleting a user preset removes its card", pane.get_by_label("Rename Model health").count() == 0)
     box = open_palette(page)
@@ -380,18 +393,14 @@ def check_dashboard_gallery(page, checks):
     checks.add("the dashboard check cleared the selection", page.locator(".bsh-mock__el--selected").count() == 0, page.locator(".bsh-mock__el--selected").count())
     pane.get_by_label("Chart elements").select_option("selected")
     settle(page, 800)
-    presets = pane.get_by_role("button", name="Presets", exact=True)
     if pane.get_by_role("list", name="Dashboard presets").count() == 1:
-        presets.click()
-        settle(page, 300)
+        toggle_gallery(page, pane, "Hide preset gallery")
     empty = pane.get_by_text("No selected elements").count() == 1 and pane.get_by_text("Nothing to chart").count() == 0 and pane.get_by_role("list", name="Dashboard presets").count() == 0
     checks.add("a preset on an empty element scope says the scope is empty and keeps the gallery closed", empty, pane.inner_text()[:160])
     page.screenshot(path=str(OUTPUT_DIR / "mock-gallery-empty.png"))
-    presets.click()
-    settle(page, 300)
+    toggle_gallery(page, pane, "Browse presets...")
     opened = pane.get_by_role("list", name="Dashboard presets").count() == 1
-    presets.click()
-    settle(page, 300)
+    toggle_gallery(page, pane, "Hide preset gallery")
     checks.add("the gallery stays dismissible on an empty element scope", opened and pane.get_by_role("list", name="Dashboard presets").count() == 0)
     pane.get_by_label("Chart elements").select_option("all")
     settle(page, 400)
@@ -950,7 +959,7 @@ def check_strip(page, checks):
     checks.add("recent strip starts collapsed with a counted header", not strip_expanded(page) and re.search(r"\(\d+\)", toggle.inner_text()) is not None, toggle.inner_text())
     closed = strip_geometry(page)
     toggle.hover()
-    page.wait_for_timeout(300)
+    page.wait_for_timeout(700)
     checks.add("hovering the strip header expands it", strip_expanded(page) and page.locator(".recent-strip__panel").is_visible())
     small = page.evaluate("() => [...document.querySelectorAll('.recent-strip__pin, .recent-strip__more')].map((e) => { const b = e.getBoundingClientRect(); return Math.min(b.width, b.height); })")
     checks.add("strip pin and more buttons are at least 24px", bool(small) and min(small) >= 24, small)
@@ -2282,12 +2291,8 @@ def check_deep_search(page, checks):
         page.locator("[role=treeitem][data-kind='folder'][aria-expanded='true']").count() == 0,
         page.locator("[role=treeitem][data-kind='folder'][aria-expanded='true']").count(),
     )
-    page.get_by_role("button", name="Filters").click()
+    page.get_by_label("Filter loaded nodes").fill(".nwd")
     settle(page, 300)
-    chip = page.get_by_role("button", name="nwd", exact=True)
-    chip.click()
-    settle(page, 300)
-    checks.add("deep search: the nwd chip is pressed", chip.get_attribute("aria-pressed") == "true", chip.get_attribute("aria-pressed"))
     page.get_by_role("button", name="Search whole project").click()
     status = page.locator(".doc-tree__crawl-text")
     wait_until(page, lambda: re.fullmatch(r"Searched \d+ folders", status.inner_text().strip()) is not None, timeout_ms=30000)
@@ -2297,7 +2302,7 @@ def check_deep_search(page, checks):
     deep = [name for name in names if name.lower().endswith(".nwd")]
     checks.add("deep search: a file from an unexpanded folder is listed", len(deep) > 0, names[:5])
     checks.add(
-        "deep search: the nwd chip lists only nwd files",
+        "deep search: the .nwd text lists only nwd files",
         bool(names) and len(deep) == len(names),
         [name for name in names if not name.lower().endswith(".nwd")][:5],
     )

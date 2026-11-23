@@ -131,7 +131,7 @@
   height: auto;
 }
 
-.stack .bsh-chart__tools .bsh-icon-button {
+.stack .bsh-chart__tools .icon-button {
   width: var(--hit-target);
   height: var(--hit-target);
 }

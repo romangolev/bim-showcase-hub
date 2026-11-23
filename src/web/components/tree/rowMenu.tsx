@@ -31,6 +31,7 @@ export interface ModelMenuSource {
   onOpenModal?: () => void;
   onAdd?: () => void;
   onTogglePin?: () => void;
+  onForget?: () => void;
   onCopyLink?: () => void;
   onRevealPath?: () => void;
   onShowVersions?: () => void;
@@ -88,6 +89,13 @@ export function modelMenuEntries(source: ModelMenuSource): MenuEntry[] {
       label: source.pinned ? 'Unpin' : 'Pin',
       onSelect: source.onTogglePin,
     });
+    if (source.onForget && !source.pinned) {
+      entries.push({
+        id: 'forget',
+        label: 'Remove from recent',
+        onSelect: source.onForget,
+      });
+    }
   }
   if (
     source.onCopyLink ||

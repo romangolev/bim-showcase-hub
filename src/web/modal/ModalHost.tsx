@@ -63,7 +63,7 @@ export function ModalHost({ definition, onClose }: ModalHostProps) {
             <Icon name="close" size={16} />
           </button>
         </header>
-        <div className="modal__body">
+        <div className="modal__body settings">
           <Body close={onClose} />
         </div>
       </div>

@@ -137,7 +137,7 @@ function PresetBody({ adapter, properties, view }: PresetBodyProps) {
       <div className="bsh-presets">
         <input
           type="text"
-          className="bsh-input"
+          className="field"
           aria-label="Summary preset name"
           placeholder="Name this summary"
           maxLength={MAX_NAME_LENGTH}
@@ -149,7 +149,7 @@ function PresetBody({ adapter, properties, view }: PresetBodyProps) {
         />
         <button
           type="button"
-          className="bsh-button"
+          className="btn"
           disabled={!name.trim()}
           onClick={save}
         >
@@ -184,7 +184,7 @@ function PresetBody({ adapter, properties, view }: PresetBodyProps) {
             <PresetGaps missing={gapsOf(starter.data.properties)} />
             <button
               type="button"
-              className="bsh-button"
+              className="btn"
               aria-label={`Apply ${starter.name}`}
               onClick={() => apply(starter.name, starter.data)}
             >
@@ -192,7 +192,7 @@ function PresetBody({ adapter, properties, view }: PresetBodyProps) {
             </button>
             <button
               type="button"
-              className="bsh-button"
+              className="btn"
               aria-label={`Copy ${starter.name} to my presets`}
               onClick={() => copy(starter)}
             >
@@ -215,7 +215,7 @@ function PresetBody({ adapter, properties, view }: PresetBodyProps) {
             >
               <input
                 type="text"
-                className="bsh-input bsh-summary-presets__rename"
+                className="field bsh-summary-presets__rename"
                 aria-label={`Rename ${item.name}`}
                 maxLength={MAX_NAME_LENGTH}
                 defaultValue={item.name}
@@ -242,7 +242,7 @@ function PresetBody({ adapter, properties, view }: PresetBodyProps) {
               <PresetGaps missing={gapsOf(item.data.properties)} />
               <button
                 type="button"
-                className="bsh-button"
+                className="btn"
                 aria-label={`Apply ${item.name}`}
                 onClick={() => apply(item.name, item.data)}
               >
@@ -250,7 +250,7 @@ function PresetBody({ adapter, properties, view }: PresetBodyProps) {
               </button>
               <button
                 type="button"
-                className="bsh-button"
+                className="btn"
                 aria-label={`Delete ${item.name}`}
                 onClick={() => {
                   if (!SUMMARY_PRESETS.remove(item.id)) {
@@ -267,7 +267,7 @@ function PresetBody({ adapter, properties, view }: PresetBodyProps) {
       <div className="bsh-presets">
         <button
           type="button"
-          className="bsh-button"
+          className="btn"
           onClick={() =>
             saveBlob(
               new Blob([exportSaved(SUMMARY_PRESET_KIND)], {
@@ -281,7 +281,7 @@ function PresetBody({ adapter, properties, view }: PresetBodyProps) {
         </button>
         <button
           type="button"
-          className="bsh-button"
+          className="btn"
           onClick={() => fileInput.current?.click()}
         >
           Import presets
@@ -310,7 +310,7 @@ export function SummaryPresets({
     <section className="bsh-summary-presets">
       <button
         type="button"
-        className="bsh-button"
+        className="btn"
         aria-expanded={open}
         aria-controls={bodyId}
         onClick={() => setOpen((value) => !value)}

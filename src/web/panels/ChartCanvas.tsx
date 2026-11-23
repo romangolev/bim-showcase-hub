@@ -323,7 +323,7 @@ export function ChartCanvas({
           label={`Export ${label}`}
           title="Export chart"
           trigger={<Icon name="more" size={16} />}
-          triggerClassName="bsh-icon-button"
+          triggerClassName="icon-button"
           items={() => [
             { id: 'png', label: 'Download PNG', onSelect: exportPng },
             {
@@ -417,7 +417,7 @@ export function ChartTable({
             label={`Export ${label}`}
             title="Export chart"
             trigger={<Icon name="more" size={16} />}
-            triggerClassName="bsh-icon-button"
+            triggerClassName="icon-button"
             items={() => [
               {
                 id: 'color-model',

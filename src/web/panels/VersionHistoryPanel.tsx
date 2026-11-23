@@ -160,7 +160,7 @@ export function VersionHistoryPanel({ openers }: VersionHistoryPanelProps) {
       <div className="bsh-versions__tools">
         <input
           type="search"
-          className="bsh-input"
+          className="field"
           aria-label="Filter versions"
           placeholder="Filter by version or author"
           value={view.filter}
@@ -260,7 +260,7 @@ export function VersionHistoryPanel({ openers }: VersionHistoryPanelProps) {
                       <div className="bsh-versions__actions">
                         <button
                           type="button"
-                          className="bsh-button"
+                          className="btn"
                           aria-label={`Open ${label}`}
                           disabled={!version.urn}
                           onClick={() => void openRow(version)}
@@ -269,7 +269,7 @@ export function VersionHistoryPanel({ openers }: VersionHistoryPanelProps) {
                         </button>
                         <button
                           type="button"
-                          className="bsh-button"
+                          className="btn"
                           aria-label={`Open ${label} in a new tab`}
                           disabled={!version.urn}
                           onClick={() => void openInTab(version)}
@@ -278,7 +278,7 @@ export function VersionHistoryPanel({ openers }: VersionHistoryPanelProps) {
                         </button>
                         <button
                           type="button"
-                          className="bsh-button"
+                          className="btn"
                           aria-label={`${pinned ? 'Unpin' : 'Pin'} ${label}`}
                           disabled={!version.urn}
                           onClick={() => {
@@ -305,7 +305,7 @@ export function VersionHistoryPanel({ openers }: VersionHistoryPanelProps) {
         <div className="bsh-versions__footer">
           <button
             type="button"
-            className="bsh-button"
+            className="btn"
             title={compareReason}
             disabled={!compareReady}
             onClick={() => openers.openTabs(pickedModels())}
@@ -314,7 +314,7 @@ export function VersionHistoryPanel({ openers }: VersionHistoryPanelProps) {
           </button>
           <button
             type="button"
-            className="bsh-button"
+            className="btn"
             title={compareReason}
             disabled={!compareReady}
             onClick={() => openers.openTogether(pickedModels())}

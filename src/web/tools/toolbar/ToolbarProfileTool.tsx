@@ -78,7 +78,7 @@ export function hiddenFor(settings: ToolbarSettings): readonly string[] {
 }
 
 export const TOOLBAR_FORM: FormDefinition<ToolbarSettings> = {
-  title: 'Toolbar profile',
+  title: 'Profile',
   intro:
     'Hides native viewer tools in this browser. The named profiles keep the orbit tool, so the model can always be moved.',
   fields: [

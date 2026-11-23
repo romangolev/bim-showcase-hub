@@ -40,21 +40,23 @@ A calm, dark "control room" for infrastructure software. Near-black surfaces, ha
 
 Green and red are reserved for success and destructive signals. Never decorative.
 
+Form fields (inputs, selects) draw a `field-border` hairline, white at 0.36 in dark and black at 0.48 in light, so their edge reaches 3:1. Pane colour tags use `tag-red`, `tag-orange`, `tag-yellow`, `tag-green`, `tag-blue` and `tag-purple`: #e5534b, #e08a3c, #d6b64a, #4caf7d, #4a8fd6, #9a72d6 in dark and #c9382f, #b45f12, #8a6d0a, #2c7a4f, #2f6db3, #7449b8 in light, each at least 3:1 on every surface.
+
 ## Typography
 
 - Family: Inter variable, with `font-feature-settings: "ss01", "ss03"`.
 - Headlines: weight 400 at 32px and above. Display sizes 52 to 64px.
 - Body and UI: weights 420 to 480, sizes 13 to 18px. Weight 500 for small labels, 580 rarely.
-- Scale: 8, 13, 14, 16, 18, 24, 32, 42, 52, 64px. The 24px step is the model page title. These are the 100% base; the text size preference scales the root to 112% or 125%.
+- Scale: 8, 12, 13, 14, 16, 18, 24, 32, 42, 52, 64px. 12px is for badges and captions only. The 24px step is the model page title. These are the 100% base; the text size preference scales the root to 112% or 125%.
 - Tracking: about -0.02 to -0.03em at body sizes, slightly looser at display sizes.
 
 ## Spacing and shape
 
-- Base unit 4px, compact density.
+- Base unit 4px, compact density. Half steps of 2px and 6px (`--space-0-5`, `--space-1-5`) are for gaps inside small controls only.
 - Max content width 1080px. 96px between sections. 16px card padding, 12px panel padding. 8px element gap.
 - App gutter between panes 12px, page gutter 16px. Summary table cells 6px by 8px.
-- Radii: buttons and pills 8px, cards 8px, icon tiles 6px, badges 4px, large containers 12px.
-- Hit targets are 32px on desktop and 44px on touch or at widths up to 700px.
+- Radii: buttons 8px, cards 8px, icon tiles 6px, badges 4px, large containers 12px, pills fully round (`--radius-pill`).
+- Hit targets are 32px on desktop and 44px on touch or at widths up to 875px. Compact icon actions inside a row or tab (reorder, remove, tab close, row actions, the tint swatch) use `--target-min`, 24px, the WCAG 2.5.8 minimum, and grow to 44px on touch where they sit in the stacked layout.
 - Density adaptation: these values are tighter than the Refero spec (which has 28px cards, 10px and 12px radii, 24px containers and a 72px bar) on purpose, to give the viewer more screen. Keep new components on the tokens.
 
 ## Elevation

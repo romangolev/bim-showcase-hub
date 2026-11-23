@@ -145,7 +145,11 @@ export function Menu({
   };
 
   return (
-    <div className={className ? `menu ${className}` : 'menu'}>
+    <div
+      className={['menu', anchor !== undefined && 'menu--anchored', className]
+        .filter(Boolean)
+        .join(' ')}
+    >
       {anchor === undefined ? (
         <button
           ref={triggerRef}

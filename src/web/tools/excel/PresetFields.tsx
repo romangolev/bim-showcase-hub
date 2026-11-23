@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ItemList, ItemRow } from '../../components/ItemList.js';
 import { useSavedKindItems } from '../../store/savedKinds.js';
 import { MAX_NAME_LENGTH } from '../../store/savedStore.js';
 import {
@@ -34,12 +35,11 @@ export function PresetFields({
   };
 
   return (
-    <fieldset className="bsh-fieldset">
-      <legend>Presets</legend>
-      <div className="bsh-presets">
+    <fieldset className="settings__section">
+      <legend className="settings__heading">Presets</legend>
+      <div className="settings__actions">
         <input
           type="text"
-          className="bsh-input"
           aria-label="Export preset name"
           placeholder="Name this setup"
           maxLength={MAX_NAME_LENGTH}
@@ -51,7 +51,7 @@ export function PresetFields({
         />
         <button
           type="button"
-          className="bsh-button"
+          className="btn"
           disabled={!name.trim()}
           onClick={save}
         >
@@ -63,26 +63,26 @@ export function PresetFields({
           Could not save the preset. Delete some saved items and try again.
         </p>
       ) : null}
-      <ul className="settings__palette" aria-label="Built-in presets">
+      <ItemList label="Built-in presets">
         {BUILT_IN_EXPORT_PRESETS.map((preset) => {
           const needsCatalog =
             preset.everyColumn === true && catalog.length === 0;
           return (
-            <li key={preset.id} className="bsh-presets">
+            <ItemRow key={preset.id}>
               <span>{preset.name}</span>
               <button
                 type="button"
-                className="bsh-button"
+                className="btn btn-small"
                 aria-label={`Apply ${preset.name}`}
                 disabled={needsCatalog}
                 onClick={() => apply(builtInSettings(preset, catalog))}
               >
                 Apply
               </button>
-            </li>
+            </ItemRow>
           );
         })}
-      </ul>
+      </ItemList>
       {catalog.length === 0 ? (
         <p className="settings__hint">
           Everything uses every column discovered in the open model. Open a
@@ -92,13 +92,13 @@ export function PresetFields({
       {items.length === 0 ? (
         <p className="settings__hint">No saved presets yet.</p>
       ) : (
-        <ul className="settings__palette">
+        <ItemList>
           {items.map((item) => (
-            <li key={`${item.id}:${item.name}`} className="bsh-presets">
+            <ItemRow key={`${item.id}:${item.name}`}>
               <span>{item.name}</span>
               <button
                 type="button"
-                className="bsh-button"
+                className="btn btn-small"
                 aria-label={`Apply ${item.name}`}
                 onClick={() => apply(presetSettings(item.data))}
               >
@@ -106,7 +106,7 @@ export function PresetFields({
               </button>
               <button
                 type="button"
-                className="bsh-button"
+                className="btn btn-small"
                 aria-label={`Delete ${item.name}`}
                 onClick={() => {
                   EXPORT_PRESETS.remove(item.id);
@@ -114,9 +114,9 @@ export function PresetFields({
               >
                 Delete
               </button>
-            </li>
+            </ItemRow>
           ))}
-        </ul>
+        </ItemList>
       )}
     </fieldset>
   );

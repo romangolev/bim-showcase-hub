@@ -245,14 +245,14 @@
 
 .preview__bar-track {
   height: 8px;
-  border-radius: 2px;
+  border-radius: var(--radius-badge);
   background: var(--color-charcoal);
 }
 
 .preview__bar-fill {
   display: block;
   height: 100%;
-  border-radius: 2px;
+  border-radius: var(--radius-badge);
   background: var(--color-signal-blue);
 }
 
@@ -286,8 +286,8 @@
   font-size: var(--text-13);
 }
 
-.preview__toolbar .bsh-button,
-.preview__toolbar .bsh-icon-button {
+.preview__toolbar .btn,
+.preview__toolbar .icon-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -295,8 +295,8 @@
   white-space: nowrap;
 }
 
-.preview__toolbar .bsh-button,
-.preview__toolbar .bsh-icon-button {
+.preview__toolbar .btn,
+.preview__toolbar .icon-button {
   cursor: default;
 }
 

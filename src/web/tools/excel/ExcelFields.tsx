@@ -1,5 +1,7 @@
-import { useContext, useId } from 'react';
+import { useContext } from 'react';
 import { NumberField } from '../../components/NumberField.js';
+import { SettingsField } from '../../components/SettingsForm.js';
+import { SwitchRow } from '../../components/SwitchRow.js';
 import {
   COLUMN_FORMAT_LABELS,
   COLUMN_FORMATS,
@@ -44,22 +46,24 @@ function SelectField<T extends string>({
   labels,
   onChange,
 }: SelectFieldProps<T>) {
-  const id = useId();
   return (
-    <div className="settings__field">
-      <label htmlFor={id}>{label}</label>
-      <select
-        id={id}
-        value={value}
-        onChange={(event) => onChange(event.target.value as T)}
-      >
-        {(Object.keys(labels) as T[]).map((key) => (
-          <option key={key} value={key}>
-            {labels[key]}
-          </option>
-        ))}
-      </select>
-    </div>
+    <SettingsField label={label}>
+      {(id) => (
+        <>
+          <select
+            id={id}
+            value={value}
+            onChange={(event) => onChange(event.target.value as T)}
+          >
+            {(Object.keys(labels) as T[]).map((key) => (
+              <option key={key} value={key}>
+                {labels[key]}
+              </option>
+            ))}
+          </select>
+        </>
+      )}
+    </SettingsField>
   );
 }
 
@@ -110,15 +114,6 @@ export function ExcelFields() {
     },
     excel.properties,
   );
-  const patternId = useId();
-  const groupId = useId();
-  const metadataId = useId();
-  const headerId = useId();
-  const exporterId = useId();
-  const summaryId = useId();
-  const colorId = useId();
-  const legendId = useId();
-  const formatId = useId();
   const catalogState = usePropertyCatalog(viewer);
   const coloring = useModelColoring(viewer);
   const catalog = [...new Set(catalogState.catalog.map((info) => info.name))];
@@ -134,10 +129,10 @@ export function ExcelFields() {
         Table export
       </h3>
       {layout && !layout.isOpen('export') ? (
-        <div className="settings__field">
+        <div className="settings__actions">
           <button
             type="button"
-            className="bsh-button"
+            className="btn"
             onClick={() => layout.togglePane('export')}
           >
             Open Export pane
@@ -186,121 +181,124 @@ export function ExcelFields() {
           onChange={(modelScope) => update({ modelScope })}
         />
       ) : null}
-      <fieldset className="bsh-fieldset">
-        <legend>Columns</legend>
+      <fieldset className="settings__section">
+        <legend className="settings__heading">Columns</legend>
         <PropertyPicker
           adapter={viewer}
           value={excel.properties}
           onChange={(properties) => update({ properties })}
         />
       </fieldset>
-      <details className="bsh-fieldset">
+      <details>
         <summary>Column formats</summary>
-        {excel.properties.map((name, index) => {
-          const id = `${formatId}-${index}`;
+        {excel.properties.map((name) => {
           return (
-            <div className="settings__field" key={name}>
-              <label htmlFor={id}>Format of {name}</label>
-              <select
-                id={id}
-                value={excel.columnFormats[name] ?? 'auto'}
-                onChange={(event) =>
-                  update({
-                    columnFormats: withFormat(
-                      excel.columnFormats,
-                      name,
-                      event.target.value as ColumnFormat,
-                    ),
-                  })
-                }
-              >
-                {COLUMN_FORMATS.map((format) => (
-                  <option key={format} value={format}>
-                    {COLUMN_FORMAT_LABELS[format]}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <SettingsField key={name} label={<>Format of {name}</>}>
+              {(id) => (
+                <>
+                  <select
+                    id={id}
+                    value={excel.columnFormats[name] ?? 'auto'}
+                    onChange={(event) =>
+                      update({
+                        columnFormats: withFormat(
+                          excel.columnFormats,
+                          name,
+                          event.target.value as ColumnFormat,
+                        ),
+                      })
+                    }
+                  >
+                    {COLUMN_FORMATS.map((format) => (
+                      <option key={format} value={format}>
+                        {COLUMN_FORMAT_LABELS[format]}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              )}
+            </SettingsField>
           );
         })}
       </details>
-      <div className="settings__field">
-        <label htmlFor={colorId}>
-          <input
-            id={colorId}
-            type="checkbox"
-            checked={excel.colorColumn}
-            disabled={!coloring}
-            onChange={(event) => update({ colorColumn: event.target.checked })}
-          />{' '}
-          Add a Color column and a Color hex column
-        </label>
-      </div>
-      <div className="settings__field">
-        <label htmlFor={legendId}>
-          <input
-            id={legendId}
-            type="checkbox"
-            checked={excel.legendSheet}
-            disabled={!coloring}
-            onChange={(event) => update({ legendSheet: event.target.checked })}
-          />{' '}
-          Add a Legend sheet to the Excel file
-        </label>
-        {coloring ? null : (
-          <span className="settings__hint">
-            Color the model in the Colors pane first
-          </span>
-        )}
-      </div>
+      <SwitchRow
+        label="Add a Color column and a Color hex column"
+        checked={excel.colorColumn}
+        disabled={!coloring}
+        onChange={() => update({ colorColumn: !excel.colorColumn })}
+      />
+      <SwitchRow
+        label="Add a Legend sheet to the Excel file"
+        description={
+          coloring ? undefined : 'Color the model in the Colors pane first'
+        }
+        checked={excel.legendSheet}
+        disabled={!coloring}
+        onChange={() => update({ legendSheet: !excel.legendSheet })}
+      />
       <PresetFields current={excel} apply={update} catalog={catalog} />
-      <div className="settings__field">
-        <label htmlFor={groupId}>Group by</label>
-        <select
-          id={groupId}
-          value={groupBy}
-          onChange={(event) => update({ groupBy: event.target.value || null })}
-        >
-          <option value="">One sheet</option>
-          {excel.properties.map((name) => (
-            <option key={name} value={name}>
-              {name}
-            </option>
-          ))}
-        </select>
-        <span className="settings__hint">
-          Excel files get one sheet per value of a chosen column.
-        </span>
-      </div>
-      <div className="settings__field">
-        <label htmlFor={patternId}>File name pattern</label>
-        <input
-          id={patternId}
-          type="text"
-          value={excel.namePattern}
-          onChange={(event) => update({ namePattern: event.target.value })}
-        />
-        <span className="settings__hint">
-          Use {'{model}'} and {'{date}'}.
-        </span>
-      </div>
-      <div className="settings__field">
-        <label>
-          Ask before exporting over rows
-          <NumberField
-            min={0}
-            max={CONFIRM_ABOVE_MAX}
-            className="bsh-input bsh-input--narrow"
-            value={excel.confirmAbove}
-            onCommit={(confirmAbove) => update({ confirmAbove })}
-          />
-        </label>
-        <span className="settings__hint">
-          {excel.confirmAbove === 0
+      <SettingsField
+        label="Group by"
+        hint="Excel files get one sheet per value of a chosen column."
+      >
+        {(id) => (
+          <>
+            <select
+              id={id}
+              value={groupBy}
+              onChange={(event) =>
+                update({ groupBy: event.target.value || null })
+              }
+            >
+              <option value="">One sheet</option>
+              {excel.properties.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </>
+        )}
+      </SettingsField>
+      <SettingsField
+        label="File name pattern"
+        hint={
+          <>
+            Use {'{model}'} and {'{date}'}.
+          </>
+        }
+      >
+        {(id) => (
+          <>
+            <input
+              id={id}
+              type="text"
+              value={excel.namePattern}
+              onChange={(event) => update({ namePattern: event.target.value })}
+            />
+          </>
+        )}
+      </SettingsField>
+      <SettingsField
+        label="Ask before exporting over rows"
+        hint={
+          excel.confirmAbove === 0
             ? 'Never asks.'
-            : `Asks above ${excel.confirmAbove.toLocaleString('en-US')} rows.`}
-        </span>
-      </div>
+            : `Asks above ${excel.confirmAbove.toLocaleString('en-US')} rows.`
+        }
+      >
+        {(id) => (
+          <>
+            <NumberField
+              id={id}
+              min={0}
+              max={CONFIRM_ABOVE_MAX}
+              value={excel.confirmAbove}
+              onCommit={(confirmAbove) => update({ confirmAbove })}
+            />
+          </>
+        )}
+      </SettingsField>
       <SelectField<CsvDelimiter>
         label="CSV and copy delimiter"
         value={excel.csvDelimiter}
@@ -319,53 +317,27 @@ export function ExcelFields() {
         labels={EMPTY_LABELS}
         onChange={(emptyLabel) => update({ emptyLabel })}
       />
-      <div className="settings__field">
-        <label htmlFor={headerId}>
-          <input
-            id={headerId}
-            type="checkbox"
-            checked={excel.includeHeader}
-            onChange={(event) =>
-              update({ includeHeader: event.target.checked })
-            }
-          />{' '}
-          Include the header row in CSV and copy
-        </label>
-      </div>
-      <div className="settings__field">
-        <label htmlFor={summaryId}>
-          <input
-            id={summaryId}
-            type="checkbox"
-            checked={excel.summarySheet}
-            onChange={(event) => update({ summarySheet: event.target.checked })}
-          />{' '}
-          Add a Summary sheet to the Excel file
-        </label>
-      </div>
-      <div className="settings__field">
-        <label htmlFor={exporterId}>
-          <input
-            id={exporterId}
-            type="checkbox"
-            checked={excel.exporterName}
-            onChange={(event) => update({ exporterName: event.target.checked })}
-          />{' '}
-          Name this app as the exporter in the About data
-        </label>
-      </div>
-      <div className="settings__field">
-        <label htmlFor={metadataId}>
-          <input
-            id={metadataId}
-            type="checkbox"
-            checked={excel.metadata}
-            onChange={(event) => update({ metadata: event.target.checked })}
-          />{' '}
-          Add an About sheet (XLSX) or about block (JSON). Not used for CSV or
-          copy
-        </label>
-      </div>
+      <SwitchRow
+        label="Include the header row in CSV and copy"
+        checked={excel.includeHeader}
+        onChange={() => update({ includeHeader: !excel.includeHeader })}
+      />
+      <SwitchRow
+        label="Add a Summary sheet to the Excel file"
+        checked={excel.summarySheet}
+        onChange={() => update({ summarySheet: !excel.summarySheet })}
+      />
+      <SwitchRow
+        label="Name this app as the exporter in the About data"
+        checked={excel.exporterName}
+        onChange={() => update({ exporterName: !excel.exporterName })}
+      />
+      <SwitchRow
+        label="Add an About sheet (XLSX) or about block (JSON)"
+        description="Not used for CSV or copy."
+        checked={excel.metadata}
+        onChange={() => update({ metadata: !excel.metadata })}
+      />
       <SelectionSets adapter={viewer} />
     </section>
   );

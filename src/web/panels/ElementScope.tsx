@@ -46,7 +46,7 @@ export function ElementScopeSelect({
       </label>
       <select
         id={id}
-        className="bsh-select"
+        className="field"
         value={value}
         onChange={(event) => onChange(sanitizeElementScope(event.target.value))}
       >

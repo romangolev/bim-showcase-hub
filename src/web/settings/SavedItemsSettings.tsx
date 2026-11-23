@@ -1,5 +1,6 @@
 import { type ChangeEvent, useRef, useState } from 'react';
 import { saveBlob } from '../extensions/download.js';
+import { useT } from '../i18n/i18n.js';
 import { usePersisted } from '../storage.js';
 import {
   exportSaved,
@@ -40,6 +41,7 @@ function bytesLabel(value: number): string {
 }
 
 export function SavedItemsSettings() {
+  const t = useT();
   const input = useRef<HTMLInputElement>(null);
   const [items] = usePersisted(SAVED);
   const [notice, setNotice] = useState<Notice | null>(null);
@@ -88,7 +90,7 @@ export function SavedItemsSettings() {
   return (
     <section className="settings__section" aria-labelledby="settings-saved">
       <h3 id="settings-saved" className="settings__heading">
-        Saved items
+        {t('settings.savedItems')}
       </h3>
       <p className="settings__hint">
         Presets and other saved configurations. {counts(items)}{' '}

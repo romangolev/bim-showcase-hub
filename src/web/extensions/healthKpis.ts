@@ -28,7 +28,7 @@ export interface HealthKpiOptions {
 }
 
 export const DEFAULT_HEALTH_KPI_OPTIONS: HealthKpiOptions = {
-  enabled: true,
+  enabled: false,
   mustHave: DEFAULT_MUST_HAVE,
   unique: DEFAULT_UNIQUE,
   threshold: DEFAULT_KPI_THRESHOLD,

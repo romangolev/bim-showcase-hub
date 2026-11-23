@@ -1,6 +1,7 @@
-import { useId } from 'react';
 import { NumberField } from '../components/NumberField.js';
+import { SettingsField } from '../components/SettingsForm.js';
 import { SwitchRow } from '../components/SwitchRow.js';
+import { useT } from '../i18n/i18n.js';
 import { usePersisted } from '../storage.js';
 import {
   MAX_ADVANCE_SECONDS,
@@ -17,40 +18,41 @@ const RESOLUTIONS: readonly { id: SnapshotResolution; label: string }[] = [
 ];
 
 export function SnapshotSettings() {
+  const t = useT();
   const [settings, update] = usePersisted(SNAPSHOT);
-  const resolutionId = useId();
   return (
     <section className="settings__section" aria-labelledby="settings-snapshot">
       <h3 id="settings-snapshot" className="settings__heading">
-        Snapshots and presentation
+        {t('settings.snapshots')}
       </h3>
-      <div className="settings__field">
-        <label htmlFor={resolutionId}>Snapshot resolution</label>
-        <select
-          id={resolutionId}
-          value={settings.resolution}
-          onChange={(event) =>
-            update((prev) => ({
-              ...prev,
-              resolution: event.target.value as SnapshotResolution,
-            }))
-          }
-        >
-          {RESOLUTIONS.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.label}
-            </option>
-          ))}
-        </select>
-        <span className="settings__hint">
-          Sizes above {MAX_SIDE} pixels on a side or 30 megapixels are refused.
-        </span>
-      </div>
+      <SettingsField
+        label="Snapshot resolution"
+        hint={`Sizes above ${MAX_SIDE} pixels on a side or 30 megapixels are refused.`}
+      >
+        {(id) => (
+          <select
+            id={id}
+            value={settings.resolution}
+            onChange={(event) =>
+              update((prev) => ({
+                ...prev,
+                resolution: event.target.value as SnapshotResolution,
+              }))
+            }
+          >
+            {RESOLUTIONS.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.label}
+              </option>
+            ))}
+          </select>
+        )}
+      </SettingsField>
       {settings.resolution === 'custom' ? (
-        <div className="settings__field">
-          <label>
-            Custom width (pixels)
+        <SettingsField label="Custom width (pixels)">
+          {(id) => (
             <NumberField
+              id={id}
               key={settings.customWidth}
               min={MIN_CUSTOM_WIDTH}
               max={MAX_SIDE}
@@ -59,8 +61,8 @@ export function SnapshotSettings() {
                 update((prev) => ({ ...prev, customWidth }))
               }
             />
-          </label>
-        </div>
+          )}
+        </SettingsField>
       ) : null}
       <SwitchRow
         label="Caption on snapshots"
@@ -68,10 +70,13 @@ export function SnapshotSettings() {
         checked={settings.overlay}
         onChange={() => update((prev) => ({ ...prev, overlay: !prev.overlay }))}
       />
-      <div className="settings__field">
-        <label>
-          Present: advance every (seconds)
+      <SettingsField
+        label="Present: advance every (seconds)"
+        hint="0 keeps each viewpoint until you press a key."
+      >
+        {(id) => (
           <NumberField
+            id={id}
             key={settings.advanceSeconds}
             min={0}
             max={MAX_ADVANCE_SECONDS}
@@ -80,11 +85,8 @@ export function SnapshotSettings() {
               update((prev) => ({ ...prev, advanceSeconds }))
             }
           />
-        </label>
-        <span className="settings__hint">
-          0 keeps each viewpoint until you press a key.
-        </span>
-      </div>
+        )}
+      </SettingsField>
     </section>
   );
 }

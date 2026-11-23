@@ -9,6 +9,7 @@ import {
 } from 'react';
 import type { ModelContext } from '../../api/modelContext.js';
 import {
+  forgetModel,
   listRecentModels,
   modelStoreVersion,
   subscribeModelStore,
@@ -23,6 +24,7 @@ import { modelMenuEntries, useRowMenu } from './rowMenu.js';
 export { MAX_PINS, type Pin, sanitizePins };
 
 export const COLLAPSE_DELAY_MS = 150;
+export const EXPAND_DELAY_MS = 350;
 
 export interface RecentStripProps {
   selectedUrn?: string;
@@ -140,6 +142,7 @@ export function RecentStrip({
           ? () => onOpenModal(entry.urn, entry.context)
           : undefined,
         onTogglePin: () => toggle(entry.urn, entry.context),
+        onForget: () => forgetModel(entry.urn),
       });
     return (
       <li
@@ -244,7 +247,8 @@ export function RecentStrip({
       onPointerEnter={(event) => {
         if (!mouse(event)) return;
         hovered.current = true;
-        expand();
+        clearTimer();
+        timer.current = setTimeout(expand, EXPAND_DELAY_MS);
       }}
       onPointerLeave={(event) => {
         if (!mouse(event)) return;

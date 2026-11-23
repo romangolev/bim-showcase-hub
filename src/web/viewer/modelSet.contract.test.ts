@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildExportSheets, MODEL_COLUMN } from '../extensions/excelExport.js';
-import { paintSelection } from '../extensions/paintBrushes.js';
+import { applyPaintPlan } from '../extensions/paintBrushes.js';
 import {
   type FakeEnvironment,
   type FakeFederatedViewer,
@@ -319,10 +319,11 @@ describe.each([mockFactory, realFactory])(
         { modelId: 'urn-a', dbId: first ?? 0 },
         { modelId: 'urn-b', dbId: second ?? 0 },
       ]);
-      expect(paintSelection(adapter, [1, 0, 0, 0.5])).toBe(true);
+      applyPaintPlan(adapter, [
+        { items: adapter.getModelSelection(), color: [1, 0, 0, 0.5] },
+      ]);
       expect(painted('urn-a')).toEqual([first]);
       expect(painted('urn-b')).toEqual([second]);
-      expect(adapter.getModelSelection()).toEqual([]);
     });
 
     it('tags rows per model and scopes them', async () => {

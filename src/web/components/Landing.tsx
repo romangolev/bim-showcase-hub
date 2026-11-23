@@ -259,14 +259,14 @@ function ExportPanel() {
           <StaticPaintChip key={preset.id} preset={preset} />
         ))}
         <span
-          className="bsh-icon-button bsh-paint__reset"
+          className="icon-button bsh-paint__reset"
           role="img"
           aria-label="Reset appearance"
           title="Reset appearance"
         >
           <Icon name="refresh" size={16} />
         </span>
-        <span className="bsh-button preview__export-button">
+        <span className="btn preview__export-button">
           <Icon name="table" size={16} />
           Export to Excel
         </span>

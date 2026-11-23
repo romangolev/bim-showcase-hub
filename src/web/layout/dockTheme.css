@@ -20,7 +20,7 @@
 .bsh-dock {
   --dv-group-view-background-color: var(--color-graphite);
   --dv-tabs-and-actions-container-background-color: var(--color-graphite);
-  --dv-tabs-and-actions-container-height: var(--control-height);
+  --dv-tabs-and-actions-container-height: calc(var(--hit-target) + 1px);
   --dv-tabs-and-actions-container-font-size: var(--text-13);
   --dv-activegroup-visiblepanel-tab-background-color: transparent;
   --dv-activegroup-hiddenpanel-tab-background-color: transparent;
@@ -93,7 +93,9 @@
 
 .bsh-dock .dv-tab {
   display: flex;
+  flex-shrink: 1;
   align-items: center;
+  min-width: 4rem;
   gap: var(--space-2);
   padding: 0 var(--space-3);
   font-weight: var(--weight-label);
@@ -115,34 +117,10 @@
   vertical-align: middle;
 }
 
-.bsh-dock .dv-default-tab[data-tag="red"] {
-  --pane-tag-color: #e5534b;
-}
-
-.bsh-dock .dv-default-tab[data-tag="orange"] {
-  --pane-tag-color: #e08a3c;
-}
-
-.bsh-dock .dv-default-tab[data-tag="yellow"] {
-  --pane-tag-color: #d6b64a;
-}
-
-.bsh-dock .dv-default-tab[data-tag="green"] {
-  --pane-tag-color: #4caf7d;
-}
-
-.bsh-dock .dv-default-tab[data-tag="blue"] {
-  --pane-tag-color: #4a8fd6;
-}
-
-.bsh-dock .dv-default-tab[data-tag="purple"] {
-  --pane-tag-color: #9a72d6;
-}
-
 .bsh-dock .dv-groupview.dv-active-group:not([data-collapsed])::after {
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: var(--z-raised);
   border-radius: inherit;
   box-shadow: inset 0 0 0 1px
     color-mix(in srgb, var(--color-signal-blue) 55%, transparent);
@@ -157,6 +135,8 @@
 }
 
 .bsh-dock .dv-default-tab-action {
+  min-width: var(--target-min);
+  min-height: var(--target-min);
   border-radius: var(--radius-badge);
 }
 
@@ -222,8 +202,8 @@
 .dock-action {
   display: inline-grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
+  width: var(--target-min);
+  height: var(--target-min);
   padding: 0;
   border: 0;
   border-radius: var(--radius-badge);
@@ -242,6 +222,13 @@
 
 .dock-action:focus-visible {
   outline-offset: -2px;
+}
+
+@media (pointer: coarse) {
+  .dock-action {
+    width: var(--hit-target);
+    height: var(--hit-target);
+  }
 }
 
 .dock-action__chevron[data-expanded="true"] {
@@ -298,6 +285,10 @@
   white-space: nowrap;
 }
 
+.pane-slot--dock .tree-panel .docs-toolbar {
+  margin-top: var(--space-3);
+}
+
 .pane-slot--dock .tree-panel .doc-tree__search {
   margin-top: var(--space-3);
 }
@@ -327,6 +318,11 @@
 .pane-slot--dock .bsh-drawer__header {
   position: static;
   border-radius: 0;
+}
+
+.pane-slot--dock .bsh-drawer__header:has(> .bsh-card__title:only-child) {
+  min-height: 0;
+  padding: 0;
 }
 
 .pane-slot--dock .bsh-drawer__body {
@@ -373,4 +369,15 @@
 :root[data-reduced-motion="true"] .bsh-dock .dv-drop-target-container,
 :root[data-reduced-motion="true"] .bsh-dock .dv-drop-target {
   --dv-transition-duration: 0ms;
+}
+
+.bsh-dock .dv-default-tab {
+  min-width: 0;
+}
+
+.bsh-dock .dv-default-tab-content {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

@@ -132,7 +132,7 @@ export function ViewsPanel({ adapter: override }: ViewsPanelProps) {
         <span className="bsh-models__actions">
           <button
             type="button"
-            className="bsh-button"
+            className="btn"
             aria-label={`Open ${view.name}`}
             disabled={view.current || hidden}
             onClick={() => {
@@ -144,7 +144,7 @@ export function ViewsPanel({ adapter: override }: ViewsPanelProps) {
           </button>
           <button
             type="button"
-            className="bsh-button"
+            className="btn"
             aria-label={`${favorite ? 'Remove favorite' : 'Favorite'} ${view.name}`}
             aria-pressed={favorite}
             onClick={() => toggleFavorite(view, !favorite)}
@@ -153,7 +153,7 @@ export function ViewsPanel({ adapter: override }: ViewsPanelProps) {
           </button>
           <button
             type="button"
-            className="bsh-button"
+            className="btn"
             aria-label={`${hidden ? 'Show' : 'Hide'} ${view.name}`}
             aria-pressed={hidden}
             onClick={() => toggleHidden(view, !hidden)}
@@ -162,7 +162,7 @@ export function ViewsPanel({ adapter: override }: ViewsPanelProps) {
           </button>
           <button
             type="button"
-            className="bsh-button"
+            className="btn"
             aria-label={`${start ? 'Clear start view' : 'Set as start view'} ${view.name}`}
             aria-pressed={start}
             onClick={() => toggleStart(view)}
@@ -191,7 +191,7 @@ export function ViewsPanel({ adapter: override }: ViewsPanelProps) {
         <label className="bsh-models__ghost">
           <span>Model</span>
           <select
-            className="bsh-input"
+            className="field"
             aria-label="Model"
             value={model.id}
             onChange={(event) => {
@@ -213,16 +213,12 @@ export function ViewsPanel({ adapter: override }: ViewsPanelProps) {
           <p className="bsh-muted" role="alert">
             {SWITCH_WARNING} Open {pending.name}?
           </p>
-          <button
-            type="button"
-            className="bsh-button"
-            onClick={() => void confirm()}
-          >
+          <button type="button" className="btn" onClick={() => void confirm()}>
             Switch view
           </button>
           <button
             type="button"
-            className="bsh-button"
+            className="btn"
             onClick={() => setPending(null)}
           >
             Cancel
@@ -258,7 +254,7 @@ export function ViewsPanel({ adapter: override }: ViewsPanelProps) {
               <div className="bsh-models__tools">
                 <button
                   type="button"
-                  className="bsh-button"
+                  className="btn"
                   aria-expanded={showHidden}
                   onClick={() => setShowHidden((on) => !on)}
                 >

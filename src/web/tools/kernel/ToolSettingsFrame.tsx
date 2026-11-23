@@ -15,7 +15,7 @@ interface ToolSettingsFrameProps {
 export function ToolSettingsFrame({ tool, children }: ToolSettingsFrameProps) {
   const [settings, setSettings] = usePersisted(tool.settings);
   return (
-    <div className="settings">
+    <>
       <section className="settings__section">
         <SwitchRow
           label={tool.title}
@@ -30,7 +30,7 @@ export function ToolSettingsFrame({ tool, children }: ToolSettingsFrameProps) {
         />
       </section>
       {children}
-    </div>
+    </>
   );
 }
 

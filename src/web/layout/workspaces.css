@@ -1,6 +1,6 @@
 .workspaces {
   position: fixed;
-  z-index: 1000;
+  z-index: var(--z-popover);
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
@@ -20,10 +20,8 @@
 .workspaces__heading {
   margin: var(--space-2) var(--space-2) var(--space-1);
   color: var(--color-ash);
-  font-size: var(--text-13);
+  font-size: var(--text-12);
   font-weight: var(--weight-label);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 
 .workspaces__rows {
@@ -47,7 +45,7 @@
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-0-5);
   min-width: 0;
   padding: var(--space-2);
   border: 0;
@@ -82,12 +80,12 @@
 .workspaces__actions {
   display: flex;
   flex: none;
-  gap: 2px;
+  gap: var(--space-0-5);
   padding-right: var(--space-1);
 }
 
 .workspaces__action {
-  padding: 4px 6px;
+  padding: var(--space-1) var(--space-1-5);
   border: 0;
   border-radius: var(--radius-tile);
   background: transparent;
@@ -115,7 +113,7 @@
 .workspaces__footer {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-0-5);
   padding-top: var(--space-1);
   border-top: var(--border-hairline);
 }

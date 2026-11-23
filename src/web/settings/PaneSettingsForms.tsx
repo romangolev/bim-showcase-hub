@@ -121,10 +121,11 @@ export function TreeSettingsForm() {
       />
       <section className="settings__section" aria-label="Keyboard shortcuts">
         <h3 className="settings__heading">Keyboard shortcuts</h3>
-        <ul>
+        <ul className="settings__readout">
           {TREE_SHORTCUTS.map(([keys, action]) => (
-            <li key={keys}>
-              <span className="settings__hint">{keys}</span> {action}
+            <li key={keys} className="settings__readout-row">
+              <span>{action}</span>
+              <kbd className="settings__readout-name">{keys}</kbd>
             </li>
           ))}
         </ul>

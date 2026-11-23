@@ -1,5 +1,4 @@
 import { useSyncExternalStore } from 'react';
-import type { ModelContext } from '../../api/modelContext.js';
 import {
   listRecentModels,
   modelStoreVersion,

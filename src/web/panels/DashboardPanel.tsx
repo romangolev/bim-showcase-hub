@@ -9,7 +9,9 @@ import {
   buildChart,
   type ChartData,
   type ChartType,
+  readChartTheme,
   selectedBuckets,
+  seriesColors,
 } from '../extensions/dashboardData.js';
 import {
   CHART_KINDS,
@@ -20,18 +22,23 @@ import {
   PRESET_PROPERTIES,
   presetCharts,
   viewSpec,
+  withChartType,
 } from '../extensions/dashboardPresets.js';
 import {
   itemsWithValues,
   runElementAction,
 } from '../extensions/elementActions.js';
 import { type HealthKpiTile, healthKpis } from '../extensions/healthKpis.js';
-import { formatCount, localeOf } from '../i18n/format.js';
+import { localeOf } from '../i18n/format.js';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import { useSettings } from '../settings/SettingsContext.js';
 import { type PersistedRecord, usePersisted } from '../storage.js';
 import { notify } from '../tasks/notifications.js';
-import { applyColoring } from '../viewer/modelColoring.js';
+import {
+  applyColoring,
+  clearColoring,
+  useModelColoring,
+} from '../viewer/modelColoring.js';
 import { ALL_MODELS } from '../viewer/modelScope.js';
 import { splitByModel } from '../viewer/modelSeries.js';
 import type { ModelDbId } from '../viewer/modelSet.js';
@@ -39,6 +46,7 @@ import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { ChartCanvas, type ChartKind, ChartTable } from './ChartCanvas.js';
 import { CHART_SETTINGS } from './chartSettings.js';
 import { DashboardGallery } from './DashboardGallery.js';
+import { DashboardPresetMenu } from './DashboardPresetMenu.js';
 import { ElementScopeSelect, scopeName } from './ElementScope.js';
 import { HEALTH_KPI_SETTINGS, HealthKpis } from './HealthKpis.js';
 import {
@@ -46,9 +54,8 @@ import {
   ModelScopeSelect,
   UnavailableModels,
 } from './ModelScope.js';
+import { ScopedRowsStatus } from './ScopedRowsStatus.js';
 import {
-  HIDDEN_MESSAGE,
-  HIDDEN_TITLE,
   SELECTION_DEBOUNCE_MS,
   useResolvedAdapter,
   useScopedRows,
@@ -272,6 +279,29 @@ export function DashboardPanel({
       ),
     );
   };
+  const primary = board[0] ?? chart;
+  const activeColoring = useModelColoring(resolved);
+  const primaryTitle = primary
+    ? primary.measure
+      ? `${primary.property} (${primary.measure})`
+      : primary.property
+    : null;
+  const primaryColored =
+    activeColoring?.origin === 'chart' && activeColoring.title === primaryTitle;
+  const colorByPrimary = () => {
+    if (!resolved || !primary) return;
+    if (primaryColored) {
+      clearColoring(resolved);
+      return;
+    }
+    colorModel(primary)(
+      seriesColors(
+        readChartTheme(),
+        primary.data.map((d) => d.label),
+        chartSettings.palette,
+      ),
+    );
+  };
   const colorModel = (chartData: ChartData) => (colors: readonly string[]) => {
     if (!resolved) return;
     applyColoring(resolved, colorByChart(state.rows, chartData, colors));
@@ -297,14 +327,10 @@ export function DashboardPanel({
   };
 
   const setKind = (kind: DashboardKind) =>
-    setView((prev) => ({
-      ...prev,
-      kind,
-      chartType: kind === 'doughnut' ? 'doughnut' : 'bar',
-    }));
+    setView((prev) => withChartType(prev, kind));
 
-  const legacyPair = view.kind === 'both' && spec.chartType === 'bar';
-  const chartType: ChartType = spec.chartType;
+  const legacyPair = spec.chartType === 'both';
+  const chartType = spec.chartType === 'both' ? 'bar' : spec.chartType;
 
   const bodyId = `${uid}-body`;
 
@@ -321,7 +347,7 @@ export function DashboardPanel({
         {toggleable ? (
           <button
             type="button"
-            className="bsh-button"
+            className="btn"
             aria-expanded={!isCollapsed}
             aria-controls={bodyId}
             onClick={toggle}
@@ -351,7 +377,7 @@ export function DashboardPanel({
         ) : null}
         {setting && !isCollapsed && !activePreset && options.length > 1 ? (
           <select
-            className="bsh-select"
+            className="field"
             aria-label="Group by"
             value={selected}
             onChange={(e) =>
@@ -371,8 +397,8 @@ export function DashboardPanel({
               <button
                 key={kind}
                 type="button"
-                className="bsh-button"
-                aria-pressed={view.kind === kind}
+                className="btn"
+                aria-pressed={spec.chartType === kind}
                 onClick={() => setKind(kind)}
               >
                 {KIND_LABELS[kind]}
@@ -381,19 +407,35 @@ export function DashboardPanel({
           </fieldset>
         ) : null}
         {!isCollapsed && resolved && !emptyBoard ? (
-          <button
-            type="button"
-            className="bsh-button"
-            aria-expanded={galleryOpen}
-            aria-controls={`${uid}-gallery`}
-            onClick={() => setGalleryOpen((open) => !open)}
-          >
-            Presets
-          </button>
+          <DashboardPresetMenu
+            view={view}
+            apply={setView}
+            onBrowse={() => setGalleryOpen((open) => !open)}
+            browsing={galleryOpen}
+          />
         ) : null}
         <button
           type="button"
-          className="bsh-button"
+          className="icon-button"
+          aria-label="Colour the model by this chart"
+          aria-pressed={primaryColored}
+          title={
+            !resolved
+              ? 'Open a model to colour it'
+              : !primary
+                ? 'No chart data to colour by'
+                : primaryColored
+                  ? 'Clear the chart colouring'
+                  : 'Colour the model by this chart'
+          }
+          onClick={colorByPrimary}
+          disabled={!resolved || !primary}
+        >
+          <Icon name="palette" size={16} />
+        </button>
+        <button
+          type="button"
+          className="btn"
           onClick={state.refresh}
           disabled={!resolved}
         >
@@ -402,7 +444,7 @@ export function DashboardPanel({
         {onOpenSettings ? (
           <button
             type="button"
-            className="bsh-icon-button"
+            className="icon-button"
             onClick={onOpenSettings}
           >
             <Icon name="settings" size={16} />
@@ -424,72 +466,7 @@ export function DashboardPanel({
             message="Open a viewable version to chart its elements."
           />
         )}
-        {state.status === 'hidden' && (
-          <StateBlock
-            variant="empty"
-            compact
-            title={HIDDEN_TITLE}
-            message={HIDDEN_MESSAGE}
-          />
-        )}
-        {resolved && state.status === 'loading' ? (
-          <div className="bsh-summary__progress">
-            <progress
-              aria-label="Reading element properties"
-              max={state.progress?.total || undefined}
-              value={state.progress ? state.progress.loaded : undefined}
-            />
-            <span role="status">
-              {state.progress && state.progress.total > 0
-                ? `Reading element properties: ${formatCount(state.progress.loaded, language)} of ${formatCount(state.progress.total, language)}${state.progress.partial ? ' (partial data)' : ''}`
-                : 'Reading element properties'}
-            </span>
-            <button type="button" className="bsh-button" onClick={state.cancel}>
-              Cancel
-            </button>
-          </div>
-        ) : null}
-        {resolved && state.status === 'ready' && state.pending ? (
-          <StateBlock
-            variant="loading"
-            compact
-            message="Reading element properties"
-            rows={3}
-          />
-        ) : null}
-        {state.status === 'ready' && state.stale ? (
-          <div className="bsh-summary__partial" role="status">
-            <span>Data may be stale.</span>
-            <button
-              type="button"
-              className="bsh-button"
-              onClick={state.refresh}
-            >
-              Refresh
-            </button>
-          </div>
-        ) : null}
-        {state.status === 'error' && (
-          <StateBlock
-            variant="error"
-            compact
-            message="We could not read this model's properties. Try again."
-            detail={state.message}
-            action={{ label: 'Retry', onClick: state.refresh }}
-          />
-        )}
-        {state.status === 'cancelled' ? (
-          <div className="bsh-summary__partial" role="status">
-            <span>Partial data: the read was cancelled.</span>
-            <button
-              type="button"
-              className="bsh-button"
-              onClick={state.refresh}
-            >
-              Read again
-            </button>
-          </div>
-        ) : null}
+        <ScopedRowsStatus state={state} resolved={resolved} />
         {usable ? (
           <>
             <UnavailableModels models={state.models.unavailable} />

@@ -295,7 +295,7 @@ export function WorkspaceSwitcher() {
             <div
               ref={popoverRef}
               id={popoverId}
-              className="workspaces"
+              className="workspaces settings"
               role="dialog"
               aria-label="Workspaces"
               style={

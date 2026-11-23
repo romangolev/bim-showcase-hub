@@ -23,7 +23,7 @@
 .cmdk__input {
   padding: var(--space-3) var(--space-4);
   border: 0;
-  border-bottom: var(--border-hairline);
+  border-bottom: var(--border-field);
   background: transparent;
   color: inherit;
   font: inherit;
@@ -45,12 +45,14 @@
 .cmdk__group {
   padding: var(--space-2) var(--space-4) var(--space-1);
   color: var(--color-ash);
-  font-size: var(--text-12, 12px);
+  font-size: var(--text-12);
+  font-weight: var(--weight-label);
 }
 
 .cmdk__option {
   display: flex;
-  align-items: baseline;
+  align-items: center;
+  min-height: var(--hit-target);
   justify-content: space-between;
   gap: var(--space-3);
   padding: var(--space-2) var(--space-4);
@@ -69,7 +71,7 @@
 
 .cmdk__reason {
   color: var(--color-ash);
-  font-size: var(--text-12, 12px);
+  font-size: var(--text-12);
 }
 
 .cmdk__empty {

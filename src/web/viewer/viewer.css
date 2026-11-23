@@ -79,23 +79,8 @@
   mask: none;
 }
 
-.bsh-ico-paint-red,
-.bsh-ico-paint-green,
-.bsh-ico-paint-blue,
 .bsh-ico-paint-swatch {
   --bsh-ico-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Ccircle cx='12' cy='12' r='7' fill='black'/%3E%3C/svg%3E");
-}
-
-.bsh-viewer-surface .bsh-ico-paint-red {
-  background-color: #ef4444;
-}
-
-.bsh-viewer-surface .bsh-ico-paint-green {
-  background-color: #22c55e;
-}
-
-.bsh-viewer-surface .bsh-ico-paint-blue {
-  background-color: #3b82f6;
 }
 
 .bsh-mock {
@@ -250,7 +235,7 @@
   position: absolute;
   bottom: calc(100% + var(--space-2));
   left: 50%;
-  z-index: 6;
+  z-index: var(--z-float);
   display: flex;
   gap: var(--space-1);
   padding: var(--space-1);
@@ -298,7 +283,7 @@
   position: absolute;
   top: var(--space-3);
   left: var(--space-3);
-  z-index: 6;
+  z-index: var(--z-float);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -310,14 +295,14 @@
   position: absolute;
   top: var(--space-3);
   right: var(--space-3);
-  z-index: 6;
+  z-index: var(--z-float);
 }
 
 .bsh-viewer-models__trigger {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  height: 28px;
+  gap: var(--space-1-5);
+  min-height: var(--hit-target);
   padding: 0 var(--space-2);
   border: var(--border-hairline);
   border-radius: var(--radius-button);
@@ -337,7 +322,7 @@
 .bsh-viewer-cost {
   display: flex;
   flex-wrap: wrap;
-  gap: 2px var(--space-2);
+  gap: var(--space-0-5) var(--space-2);
   color: var(--color-ash);
   font-size: var(--text-13);
 }
@@ -349,7 +334,7 @@
 .bsh-viewer-models__errors {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -358,7 +343,7 @@
 .bsh-viewer-models__error {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 2px var(--space-2);
+  gap: var(--space-0-5) var(--space-2);
   padding: var(--space-2);
   border: 0.5px solid var(--color-coral);
   border-radius: var(--radius-button);
@@ -404,7 +389,7 @@
   position: absolute;
   bottom: var(--space-8);
   left: 50%;
-  z-index: 6;
+  z-index: var(--z-float);
   margin: 0;
   padding: var(--space-2) var(--space-3);
   border: 0.5px solid var(--color-coral);

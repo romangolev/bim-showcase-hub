@@ -1,3 +1,4 @@
+import { useT } from '../i18n/i18n.js';
 import { useModal } from '../modal/ModalContext.js';
 import { usePersisted } from '../storage.js';
 import { NotificationSettingsSection } from '../tasks/NotificationSettingsSection.js';
@@ -82,11 +83,12 @@ const PANE_FORMS = PANE_ENTRIES.flatMap(({ id, schema }) =>
 );
 
 export function SettingsEntries() {
+  const t = useT();
   return (
     <>
       <section className="settings__section" aria-labelledby="settings-tools">
         <h3 id="settings-tools" className="settings__heading">
-          Tools
+          {t('settings.tools')}
         </h3>
         {TOOLS.all().map((tool) => (
           <ToolEntry key={tool.id} tool={tool} />
@@ -94,7 +96,7 @@ export function SettingsEntries() {
       </section>
       <section className="settings__section" aria-labelledby="settings-panes">
         <h3 id="settings-panes" className="settings__heading">
-          Panes
+          {t('settings.panes')}
         </h3>
         {PANE_ENTRIES.map(({ id, schema }) => (
           <PaneEntry key={id} schema={schema} />

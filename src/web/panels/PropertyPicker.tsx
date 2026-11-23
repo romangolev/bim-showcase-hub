@@ -1,4 +1,5 @@
 import { useId, useMemo, useState } from 'react';
+import { Icon } from '../components/icons.js';
 import { StateBlock } from '../components/StateBlock.js';
 import { announce } from '../tasks/notifications.js';
 import { groupCatalog } from '../viewer/propertyCatalog.js';
@@ -55,31 +56,31 @@ export function PropertyPicker({
             <span className="bsh-picker__arrange">
               <button
                 type="button"
-                className="bsh-picker__move"
+                className="inline-action"
                 disabled={index === 0}
                 aria-label={`Move ${name} up`}
                 onClick={() => move(name, -1)}
               >
-                <span aria-hidden="true">↑</span>
+                <Icon name="arrowUp" size={14} />
               </button>
               <button
                 type="button"
-                className="bsh-picker__move"
+                className="inline-action"
                 disabled={index === value.length - 1}
                 aria-label={`Move ${name} down`}
                 onClick={() => move(name, 1)}
               >
-                <span aria-hidden="true">↓</span>
+                <Icon name="arrowDown" size={14} />
               </button>
             </span>
             <button
               type="button"
-              className="bsh-picker__remove"
+              className="inline-action bsh-picker__remove"
               disabled={locked(name)}
               aria-label={`Remove ${name}`}
               onClick={() => toggle(name)}
             >
-              x
+              <Icon name="close" size={12} />
             </button>
           </li>
         ))}
@@ -90,7 +91,7 @@ export function PropertyPicker({
       <input
         id={searchId}
         type="search"
-        className="bsh-input"
+        className="field"
         placeholder="Search properties"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
@@ -115,7 +116,7 @@ export function PropertyPicker({
             }
             rows={3}
           />
-          <button type="button" className="bsh-button" onClick={state.cancel}>
+          <button type="button" className="btn" onClick={state.cancel}>
             Cancel
           </button>
         </>
@@ -150,12 +151,12 @@ export function PropertyPicker({
           );
           const hidden = group.properties.length - visible.length;
           return (
-            <fieldset key={group.category} className="bsh-fieldset">
+            <fieldset key={group.category} className="bsh-picker__group">
               <legend>{group.category}</legend>
               {visible.map((info) => (
                 <label
                   key={`${info.category}\u0000${info.name}`}
-                  className="bsh-field"
+                  className="settings__check"
                 >
                   <input
                     type="checkbox"

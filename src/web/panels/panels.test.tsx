@@ -541,7 +541,12 @@ describe('dashboard settings', () => {
       ).toBeNull(),
     );
     fireEvent.click(
-      screen.getAllByRole('button', { name: 'Model health' })[0] as HTMLElement,
+      screen.getAllByRole('button', {
+        name: 'Dashboard presets',
+      })[1] as HTMLElement,
+    );
+    fireEvent.click(
+      screen.getByRole('menuitemcheckbox', { name: 'Model health' }),
     );
     await screen.findByRole('img', {
       name: 'Bar chart of element counts by Level',
@@ -580,7 +585,12 @@ describe('dashboard presets and cross-filter', () => {
       </>,
     );
     fireEvent.click(
-      await screen.findByRole('button', { name: 'Model health' }),
+      (
+        await screen.findAllByRole('button', { name: 'Dashboard presets' })
+      )[1] as HTMLElement,
+    );
+    fireEvent.click(
+      screen.getByRole('menuitemcheckbox', { name: 'Model health' }),
     );
     expect(
       await screen.findByRole('img', {
@@ -592,14 +602,27 @@ describe('dashboard presets and cross-filter', () => {
         name: 'Bar chart of element counts by Category',
       }),
     ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'By discipline' }));
-    await screen.findByRole('button', { name: 'Single chart' });
+    fireEvent.click(
+      screen.getAllByRole('button', {
+        name: 'Dashboard presets',
+      })[1] as HTMLElement,
+    );
+    fireEvent.click(
+      screen.getByRole('menuitemcheckbox', { name: 'By discipline' }),
+    );
     expect(
       screen.queryByRole('img', {
         name: 'Bar chart of element counts by Discipline',
       }),
     ).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Single chart' }));
+    fireEvent.click(
+      screen.getAllByRole('button', {
+        name: 'Dashboard presets',
+      })[1] as HTMLElement,
+    );
+    fireEvent.click(
+      screen.getByRole('menuitemcheckbox', { name: 'Single chart' }),
+    );
     expect(
       await screen.findByRole('list', { name: /Legend/ }),
     ).toBeInTheDocument();

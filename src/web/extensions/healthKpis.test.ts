@@ -15,6 +15,7 @@ const row = (dbId: number, properties: PropertyRow['properties']) => ({
 
 const options = {
   ...DEFAULT_HEALTH_KPI_OPTIONS,
+  enabled: true,
   threshold: 50,
 };
 
@@ -172,6 +173,11 @@ describe('healthKpis', () => {
     const mixedTile = tile(mixed, 'numeric:Weight');
     expect(mixedTile.tone).toBe('bad');
     expect(mixedTile.text).toBe('Mixed units (kg, m), not summed');
+  });
+
+  it('is off by default', () => {
+    expect(DEFAULT_HEALTH_KPI_OPTIONS.enabled).toBe(false);
+    expect(healthKpis([row(1, {})], DEFAULT_HEALTH_KPI_OPTIONS)).toEqual([]);
   });
 
   it('returns nothing when the tiles are switched off', () => {

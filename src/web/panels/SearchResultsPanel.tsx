@@ -150,7 +150,7 @@ export function SearchResultsPanel({ adapter }: SearchResultsPanelProps) {
       >
         <input
           type="search"
-          className="bsh-input"
+          className="field"
           aria-label="Search elements"
           placeholder="Name or property value"
           value={spec.text}
@@ -160,14 +160,14 @@ export function SearchResultsPanel({ adapter }: SearchResultsPanelProps) {
         />
         <button
           type="submit"
-          className="bsh-button"
+          className="btn"
           disabled={!resolved || !spec.text.trim()}
         >
           Search
         </button>
         <button
           type="button"
-          className="bsh-button"
+          className="btn"
           aria-expanded={showAttributes}
           disabled={!resolved}
           onClick={() => setShowAttributes((open) => !open)}
@@ -178,7 +178,7 @@ export function SearchResultsPanel({ adapter }: SearchResultsPanelProps) {
       <div className="bsh-search__actions">
         <button
           type="button"
-          className="bsh-button"
+          className="btn"
           disabled={!resolved || none}
           onClick={() => resolved?.selectModelIds(items)}
         >
@@ -186,7 +186,7 @@ export function SearchResultsPanel({ adapter }: SearchResultsPanelProps) {
         </button>
         <button
           type="button"
-          className="bsh-button"
+          className="btn"
           disabled={!resolved || none}
           onClick={() => resolved?.isolateModelIds(items)}
         >
@@ -194,7 +194,7 @@ export function SearchResultsPanel({ adapter }: SearchResultsPanelProps) {
         </button>
         <button
           type="button"
-          className="bsh-button"
+          className="btn"
           disabled={!resolved || none}
           onClick={() => resolved?.fitToView(items)}
         >
@@ -202,7 +202,7 @@ export function SearchResultsPanel({ adapter }: SearchResultsPanelProps) {
         </button>
         <button
           type="button"
-          className="bsh-button"
+          className="btn"
           disabled={!resolved || none}
           onClick={() =>
             setSaveName((current) => (current === null ? '' : null))
@@ -222,17 +222,13 @@ export function SearchResultsPanel({ adapter }: SearchResultsPanelProps) {
         >
           <input
             type="text"
-            className="bsh-input"
+            className="field"
             aria-label="Selection set name"
             placeholder="Name the results"
             value={saveName}
             onChange={(event) => setSaveName(event.target.value)}
           />
-          <button
-            type="submit"
-            className="bsh-button"
-            disabled={!saveName.trim()}
-          >
+          <button type="submit" className="btn" disabled={!saveName.trim()}>
             Save
           </button>
         </form>
@@ -292,11 +288,7 @@ export function SearchResultsPanel({ adapter }: SearchResultsPanelProps) {
       {stale ? (
         <div className="bsh-search__stale" role="status">
           <span>Results may be out of date.</span>
-          <button
-            type="button"
-            className="bsh-button"
-            onClick={() => void search()}
-          >
+          <button type="button" className="btn" onClick={() => void search()}>
             Search again
           </button>
         </div>

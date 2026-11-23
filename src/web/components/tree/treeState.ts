@@ -13,11 +13,6 @@ import {
   type CrawlResult,
   crawl as runCrawl,
 } from './crawl.js';
-import {
-  type DeepSearchFilters,
-  hasFilters,
-  matchesFilters,
-} from './deepSearch.js';
 import type { TreeRoot } from './docRoot.js';
 import { sortChildren, type TreeSort } from './treeView.js';
 import {
@@ -79,7 +74,7 @@ export interface TreeState {
   bind: (host: TreeHost) => void;
   node: (id: string) => TreeNode | undefined;
   isLoaded: (id: string) => boolean;
-  search: (query: string, filters?: DeepSearchFilters) => TreeNode[];
+  search: (query: string) => TreeNode[];
   parentName: (node: TreeNode) => string | undefined;
   contextFor: (node: TreeNode) => ModelContext;
   itemRef: (node: TreeNode) => VersionTarget | null;
@@ -481,13 +476,7 @@ export function createTreeState({
     },
     node: (id) => nodes.get(id),
     isLoaded: (id) => loaded.has(id),
-    search: (query, filters) => {
-      const active = filters ? { ...filters, text: query } : null;
-      if (active && hasFilters(active)) {
-        return [...nodes.values()].filter(
-          (node) => node.id !== rootId && matchesFilters(node, active),
-        );
-      }
+    search: (query) => {
       const needle = fold(query);
       const found: TreeNode[] = [];
       for (const [id, node] of nodes) {

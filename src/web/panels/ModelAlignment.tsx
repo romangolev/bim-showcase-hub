@@ -71,7 +71,7 @@ export function ModelAlignment({
     <div className="bsh-models__alignment">
       <button
         type="button"
-        className="bsh-button"
+        className="btn"
         aria-expanded={open}
         aria-controls={bodyId}
         onClick={() => setOpen((current) => !current)}
@@ -99,7 +99,7 @@ export function ModelAlignment({
                   <button
                     key={meters}
                     type="button"
-                    className="bsh-button"
+                    className="btn"
                     aria-pressed={step === meters}
                     aria-describedby={noteId}
                     onClick={() => setStep(meters)}
@@ -113,7 +113,7 @@ export function ModelAlignment({
                   <span key={name} className="bsh-models__tools">
                     <button
                       type="button"
-                      className="bsh-button"
+                      className="btn"
                       aria-label={`Move -${name} ${stepLabel(step)}`}
                       aria-describedby={noteId}
                       disabled={disabled}
@@ -133,7 +133,7 @@ export function ModelAlignment({
                     </button>
                     <button
                       type="button"
-                      className="bsh-button"
+                      className="btn"
                       aria-label={`Move +${name} ${stepLabel(step)}`}
                       aria-describedby={noteId}
                       disabled={disabled}
@@ -157,7 +157,7 @@ export function ModelAlignment({
               <div className="bsh-models__tools">
                 <button
                   type="button"
-                  className="bsh-button"
+                  className="btn"
                   aria-describedby={noteId}
                   disabled={disabled || !adapter}
                   onClick={() => {
@@ -175,7 +175,7 @@ export function ModelAlignment({
                 </button>
                 <button
                   type="button"
-                  className="bsh-button"
+                  className="btn"
                   aria-describedby={noteId}
                   disabled={disabled}
                   onClick={() => change(resetOffset(offsets, model.id))}

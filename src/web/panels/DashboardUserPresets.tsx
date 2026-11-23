@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ItemList, ItemRow } from '../components/ItemList.js';
 import {
   DASHBOARD_USER_PRESETS,
   type DashboardView,
@@ -32,12 +33,11 @@ export function DashboardUserPresets({
   };
 
   return (
-    <fieldset className="bsh-fieldset">
-      <legend>My presets</legend>
-      <div className="bsh-presets">
+    <fieldset className="settings__section">
+      <legend className="settings__heading">My presets</legend>
+      <div className="settings__actions">
         <input
           type="text"
-          className="bsh-input"
           aria-label="Preset name"
           placeholder="Name the current board"
           maxLength={MAX_NAME_LENGTH}
@@ -49,7 +49,7 @@ export function DashboardUserPresets({
         />
         <button
           type="button"
-          className="bsh-button"
+          className="btn"
           disabled={!name.trim()}
           onClick={save}
         >
@@ -69,12 +69,11 @@ export function DashboardUserPresets({
       {items.length === 0 ? (
         <p className="settings__hint">No saved presets yet.</p>
       ) : (
-        <ul className="settings__palette">
+        <ItemList>
           {items.map((item) => (
-            <li key={`${item.id}:${item.name}`} className="bsh-presets">
+            <ItemRow key={`${item.id}:${item.name}`}>
               <input
                 type="text"
-                className="bsh-input"
                 aria-label={`Rename ${item.name}`}
                 maxLength={MAX_NAME_LENGTH}
                 defaultValue={item.name}
@@ -92,7 +91,7 @@ export function DashboardUserPresets({
               />
               <button
                 type="button"
-                className="bsh-button"
+                className="btn btn-small"
                 aria-label={`Apply ${item.name}`}
                 onClick={() => apply(sanitizeDashboardView(item.data))}
               >
@@ -100,7 +99,7 @@ export function DashboardUserPresets({
               </button>
               <button
                 type="button"
-                className="bsh-button"
+                className="btn btn-small"
                 aria-label={`Delete ${item.name}`}
                 onClick={() => {
                   if (!DASHBOARD_USER_PRESETS.remove(item.id)) {
@@ -110,9 +109,9 @@ export function DashboardUserPresets({
               >
                 Delete
               </button>
-            </li>
+            </ItemRow>
           ))}
-        </ul>
+        </ItemList>
       )}
     </fieldset>
   );

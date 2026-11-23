@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { ItemList, ItemRow } from '../components/ItemList.js';
+import { Icon } from '../components/icons.js';
 import {
   type FormDefinition,
   SettingsForm,
@@ -164,46 +166,46 @@ function GroupByEditor({
     onChange(next);
   };
   return (
-    <fieldset className="bsh-summary-settings__groupby">
-      <legend>Group by, outermost first</legend>
+    <fieldset className="settings__section">
+      <legend className="settings__heading">Group by, outermost first</legend>
       {value.length === 0 ? (
         <p className="settings__hint">
           A pivot needs at least one grouping property.
         </p>
       ) : (
-        <ol className="bsh-summary-settings__levels">
+        <ItemList ordered>
           {value.map((name, index) => (
-            <li key={name} className="bsh-summary-settings__level">
-              <span className="bsh-summary-settings__level-name">{name}</span>
+            <ItemRow key={name}>
+              <span>{name}</span>
               <button
                 type="button"
-                className="bsh-button"
+                className="inline-action"
                 aria-label={`Move ${name} up`}
                 disabled={index === 0}
                 onClick={() => move(index, index - 1)}
               >
-                Up
+                <Icon name="arrowUp" size={14} />
               </button>
               <button
                 type="button"
-                className="bsh-button"
+                className="inline-action"
                 aria-label={`Move ${name} down`}
                 disabled={index === value.length - 1}
                 onClick={() => move(index, index + 1)}
               >
-                Down
+                <Icon name="arrowDown" size={14} />
               </button>
               <button
                 type="button"
-                className="bsh-button"
+                className="btn btn-small"
                 aria-label={`Remove ${name} from the grouping`}
                 onClick={() => onChange(value.filter((item) => item !== name))}
               >
                 Remove
               </button>
-            </li>
+            </ItemRow>
           ))}
-        </ol>
+        </ItemList>
       )}
       <div className="settings__actions">
         <select
@@ -220,7 +222,7 @@ function GroupByEditor({
         </select>
         <button
           type="button"
-          className="bsh-button"
+          className="btn"
           disabled={
             !selected || available.length === 0 || value.length >= MAX_GROUP_BY
           }
@@ -254,8 +256,8 @@ function TitleEditor({
     onChange(next);
   };
   return (
-    <fieldset className="bsh-summary-settings__titles">
-      <legend>Block titles</legend>
+    <fieldset className="settings__section">
+      <legend className="settings__heading">Block titles</legend>
       {propertyNames.map((property) => (
         <label key={property} className="settings__field">
           {property}
@@ -269,13 +271,11 @@ function TitleEditor({
         </label>
       ))}
       {Object.keys(titles).length > 0 ? (
-        <button
-          type="button"
-          className="bsh-button"
-          onClick={() => onChange({})}
-        >
-          Reset block titles
-        </button>
+        <div className="settings__actions">
+          <button type="button" className="btn" onClick={() => onChange({})}>
+            Reset block titles
+          </button>
+        </div>
       ) : null}
     </fieldset>
   );
@@ -347,9 +347,9 @@ function SummaryFields({
   };
   const groupBy = view.groupBy.filter((name) => propertyNames.includes(name));
   return (
-    <div className="bsh-summary-settings">
-      <fieldset className="bsh-fieldset">
-        <legend>Properties</legend>
+    <>
+      <fieldset className="settings__section">
+        <legend className="settings__heading">Properties</legend>
         <PropertyPicker
           adapter={adapter}
           value={propertyNames}
@@ -375,10 +375,12 @@ function SummaryFields({
         titles={view.titles}
         onChange={(titles) => onView({ ...view, titles })}
       />
-      <button type="button" className="bsh-button" onClick={onReset}>
-        Reset view
-      </button>
-    </div>
+      <div className="settings__actions">
+        <button type="button" className="btn" onClick={onReset}>
+          Reset view
+        </button>
+      </div>
+    </>
   );
 }
 

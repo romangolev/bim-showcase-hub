@@ -13,6 +13,7 @@ import { EXCEL_SETTINGS } from '../tools/excel/excelSettings.js';
 import { useExcelStatus } from '../tools/excel/excelStatus.js';
 import { useModelColoring } from '../viewer/modelColoring.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
+import { ScopedRowsStatus } from './ScopedRowsStatus.js';
 import { useResolvedAdapter, useScopedRows } from './useScopedRows.js';
 import './panels.css';
 
@@ -54,14 +55,16 @@ export function ExportPanel({ adapter, fileName }: ExportPanelProps) {
         </h2>
       </header>
       <div className="bsh-drawer__body">
-        <ExcelFields />
+        <div className="settings">
+          <ExcelFields />
+        </div>
         <p className="settings__hint">
           File: {excelFileNameFrom(fileName, excel)}
         </p>
-        <div className="bsh-presets">
+        <div className="settings__actions">
           <button
             type="button"
-            className="bsh-button bsh-button--primary"
+            className="btn btn-primary"
             onClick={() => {
               if (resolved) startExcelExport(resolved, fileName);
             }}
@@ -73,6 +76,7 @@ export function ExportPanel({ adapter, fileName }: ExportPanelProps) {
         {status ? (
           <p className="settings__hint">{describeStatus(status)}</p>
         ) : null}
+        <ScopedRowsStatus state={state} resolved={resolved} />
         {preview ? (
           <>
             <p className="settings__hint">

@@ -6,7 +6,6 @@ import {
   colorLayersFor,
   createColorLayer,
   createColorLayerController,
-  resolveLayerColor,
   resolveLayers,
   sameColor,
   setLayerColor,
@@ -79,8 +78,6 @@ describe('resolveLayers', () => {
     expect(resolveLayers([paint, chart])).toEqual([
       { modelId: 'a', dbId: 7, color: RED, source: 'paint' },
     ]);
-    expect(resolveLayerColor([chart, paint], 'a', 7)?.color).toBe(RED);
-    expect(resolveLayerColor([chart], 'a', 8)).toBeNull();
   });
 
   it('compares colours exactly', () => {
@@ -272,9 +269,14 @@ describe('replaceSource', () => {
         ],
       ]),
     );
-    expect(resolveLayerColor(controller.layers(), 'm', 1)?.color).toEqual(
-      green,
-    );
-    expect(resolveLayerColor(controller.layers(), 'm', 2)?.color).toEqual(RED);
+    expect(
+      resolveLayers(controller.layers()).map((entry) => [
+        entry.dbId,
+        entry.color,
+      ]),
+    ).toEqual([
+      [1, green],
+      [2, RED],
+    ]);
   });
 });

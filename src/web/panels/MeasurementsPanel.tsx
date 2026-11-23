@@ -78,7 +78,7 @@ export function MeasurementsPanel({
               <button
                 key={mode}
                 type="button"
-                className="bsh-button"
+                className="btn"
                 onClick={() => void measure(mode)}
               >
                 {label}
@@ -103,17 +103,13 @@ export function MeasurementsPanel({
             </ul>
           )}
           <div className="bsh-measures__tools">
-            <button
-              type="button"
-              className="bsh-button"
-              onClick={() => void copy()}
-            >
+            <button type="button" className="btn" onClick={() => void copy()}>
               Copy CSV
             </button>
-            <button type="button" className="bsh-button" onClick={clear}>
+            <button type="button" className="btn" onClick={clear}>
               Clear
             </button>
-            <button type="button" className="bsh-button" onClick={read}>
+            <button type="button" className="btn" onClick={read}>
               Refresh
             </button>
           </div>

@@ -5,6 +5,7 @@ import {
   DASHBOARD_PRESETS,
   DASHBOARD_USER_PRESETS,
   type DashboardView,
+  sanitizeDashboardView,
   saveDashboardPreset,
   viewProperties,
 } from '../extensions/dashboardPresets.js';
@@ -80,7 +81,7 @@ export function DashboardGallery({ view, apply, rows }: DashboardGalleryProps) {
             <div className="bsh-gallery__actions">
               <button
                 type="button"
-                className="bsh-button bsh-gallery__primary"
+                className="btn btn-primary"
                 aria-label={`Apply ${preset.label}`}
                 onClick={() => apply({ ...view, preset: preset.id })}
               >
@@ -88,7 +89,7 @@ export function DashboardGallery({ view, apply, rows }: DashboardGalleryProps) {
               </button>
               <button
                 type="button"
-                className="bsh-button"
+                className="btn"
                 aria-label={`Save ${preset.label} as my preset`}
                 onClick={() => {
                   setFailed(
@@ -111,7 +112,7 @@ export function DashboardGallery({ view, apply, rows }: DashboardGalleryProps) {
             <li key={`${item.id}:${item.name}`} className="bsh-gallery__card">
               <input
                 type="text"
-                className="bsh-input bsh-gallery__name"
+                className="field bsh-gallery__name"
                 aria-label={`Rename ${item.name}`}
                 maxLength={MAX_NAME_LENGTH}
                 defaultValue={item.name}
@@ -133,15 +134,15 @@ export function DashboardGallery({ view, apply, rows }: DashboardGalleryProps) {
               <div className="bsh-gallery__actions">
                 <button
                   type="button"
-                  className="bsh-button bsh-gallery__primary"
+                  className="btn btn-primary"
                   aria-label={`Apply ${item.name}`}
-                  onClick={() => apply(own)}
+                  onClick={() => apply(sanitizeDashboardView(own))}
                 >
                   Apply
                 </button>
                 <button
                   type="button"
-                  className="bsh-button"
+                  className="btn"
                   aria-label={`Delete ${item.name}`}
                   onClick={() => {
                     if (!DASHBOARD_USER_PRESETS.remove(item.id)) {

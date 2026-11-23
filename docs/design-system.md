@@ -7,7 +7,7 @@
 `src/web/styles/tokens.css` declares every token as a CSS custom property.
 
 - Color tokens are declared per theme, on `:root, :root[data-theme="dark"]` and `:root[data-theme="light"]`.
-- Everything else sits on `:root`: fonts, text sizes, spacing (`--space-*`), radii, density (`--gutter`, `--gutter-page`, `--nav-height`, `--hit-target`), `--border-hairline` and shadows.
+- Everything else sits on `:root`: fonts, text sizes, spacing (`--space-*`), radii, density (`--gutter`, `--gutter-page`, `--nav-height`, `--hit-target`), `--border-hairline`, shadows and the z-index scale (`--z-raised` and `--z-sticky` inside a component, then `--z-float`, `--z-drawer-backdrop`, `--z-drawer`, `--z-bar`, `--z-skip`, `--z-popover`, `--z-modal`).
 - The density values are tighter than the published spec so the viewer gets more of the screen.
 - Text size sets the root font size (`100%`, `112%` or `125%`). Text, spacing, control and row tokens are rem values, so the shell and the dock scale with it. Density multiplies the same tokens through `--density`.
 
@@ -21,6 +21,7 @@ Other stylesheets (`src/web/styles/*.css`, `panels/panels.css`, `layout/dockThem
 - Borders are 0.5px hairlines. No gradients and no heavy shadows.
 - Headlines use weight 400. The primary button is the neutral bone fill.
 - Use `StateBlock` for loading, empty and error states.
+- Buttons are `.btn` (with `.btn-primary` and `.btn-small`) and `.icon-button` everywhere, panes included. Pressed toggle buttons (`aria-pressed="true"`) show an arc-blue border and an 18% arc-blue tint. No chromatic fills.
 - Every interactive control needs an accessible name and a visible focus ring.
 
 ### Accessibility
@@ -45,7 +46,9 @@ Tree badges show the view state ([architecture.md](architecture.md#view-state)).
 
 ### Status UI
 
-Task Center (`.task-center`), the command palette (`.cmdk`) and settings windows (`.settings` blocks in `styles/modal.css`) have shared styles. The in-viewer badge (`.bsh-viewer-badge`) is for Share results only. Slow work reports in the Task Center.
+Task Center (`.task-center`), the command palette (`.cmdk`) and settings windows (`.settings` blocks in `styles/modal.css`) have shared styles.
+
+Every settings window body is a `.settings` block of `.settings__section` groups (a `fieldset` with a `legend.settings__heading` where the controls form a group). A field is a `.settings__field` row: label on the left, control on the right, hint under the control; below 32rem of window width the row stacks. On and off settings use `SwitchRow` (label and hint on the left, switch on the right). Buttons are `.btn` in a `.settings__actions` row, and lists of rows (saved items, overrides, grouping levels) use `ItemList` and `ItemRow`, whose rows wrap on narrow widths. Inputs and selects outside a settings window use the same `.field` style. Do not use the pane label wrapper `.bsh-field` inside a settings window. The in-viewer badge (`.bsh-viewer-badge`) is for Share results only. Slow work reports in the Task Center.
 
 ## Layout breakpoint
 

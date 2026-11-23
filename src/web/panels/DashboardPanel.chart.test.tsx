@@ -325,6 +325,25 @@ describe('dashboard color the model by a chart', () => {
     expect(currentColoring(adapter)).not.toBeNull();
   });
 
+  it('colours the model from the header button and clears it on a second press', async () => {
+    seed({ properties: ['Category'] });
+    const adapter = await loaded();
+    render(<DashboardPanel adapter={adapter} />);
+    await screen.findByRole('img', {
+      name: 'Bar chart of element counts by Category',
+    });
+
+    const button = screen.getByRole('button', {
+      name: 'Colour the model by this chart',
+    });
+    fireEvent.click(button);
+    expect(currentColoring(adapter)?.origin).toBe('chart');
+    expect(currentColoring(adapter)?.title).toBe('Category');
+
+    fireEvent.click(button);
+    expect(currentColoring(adapter)).toBeNull();
+  });
+
   it('colours the model from the table chart menu', async () => {
     seed({ properties: ['Category'], chartType: 'table' });
     const adapter = await loaded();
@@ -353,6 +372,21 @@ describe('dashboard color the model by a chart', () => {
 });
 
 describe('dashboard model health tiles', () => {
+  beforeEach(() => {
+    window.localStorage.setItem(
+      'bsh.pane.dashboard.health.v1',
+      JSON.stringify({ enabled: true }),
+    );
+  });
+
+  it('stays hidden until it is switched on', async () => {
+    window.localStorage.removeItem('bsh.pane.dashboard.health.v1');
+    const adapter = await loaded();
+    render(<DashboardPanel adapter={adapter} />);
+    await screen.findByRole('img', { name: /chart of element counts/i });
+    expect(screen.queryByText('Model health')).toBeNull();
+  });
+
   it('shows the four checks with a threshold cue', async () => {
     const adapter = await loaded();
     render(<DashboardPanel adapter={adapter} />);
@@ -423,6 +457,9 @@ describe('dashboard split by model', () => {
     await screen.findByRole('img', {
       name: 'Bar chart of element counts by Category',
     });
+    await waitFor(() =>
+      expect(made.configs.some((config) => config.type === 'bar')).toBe(true),
+    );
     const bar = made.configs.find((config) => config.type === 'bar');
     expect(bar?.data.datasets.map((dataset) => dataset.label)).toEqual([
       'A.rvt',
@@ -440,8 +477,11 @@ describe('dashboard split by model', () => {
     await screen.findByRole('img', {
       name: 'Bar chart of element counts by Category',
     });
-    const bar = made.configs.find((config) => config.type === 'bar');
-    expect(bar?.data.datasets).toHaveLength(1);
+    await waitFor(() =>
+      expect(
+        made.configs.find((config) => config.type === 'bar')?.data.datasets,
+      ).toHaveLength(1),
+    );
   });
 
   it('adds one data table column per model', async () => {
@@ -461,7 +501,7 @@ describe('dashboard settings split by model', () => {
     const adapter = await combined();
     publishActiveAdapter(adapter);
     render(<DashboardSettingsBody />);
-    const box = await screen.findByRole('checkbox', { name: 'Split by model' });
+    const box = await screen.findByRole('switch', { name: 'Split by model' });
     expect(box).toBeEnabled();
     fireEvent.click(box);
     expect(storedView().splitByModel).toBe(true);
@@ -472,7 +512,7 @@ describe('dashboard settings split by model', () => {
     publishActiveAdapter(adapter);
     render(<DashboardSettingsBody />);
     expect(
-      await screen.findByRole('checkbox', { name: 'Split by model' }),
+      await screen.findByRole('switch', { name: 'Split by model' }),
     ).toBeDisabled();
     expect(screen.getByText(/Open a second model/)).toBeInTheDocument();
   });
