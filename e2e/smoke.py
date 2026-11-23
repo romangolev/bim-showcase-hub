@@ -442,6 +442,15 @@ ACTIVE_TAB_SCRIPT = """() => {
 }"""
 
 
+def summary_item_titles(page):
+    page.locator(".pane-summary").first.get_by_role("button", name="Summary settings").click()
+    dialog = page.get_by_role("dialog", name="Summary settings")
+    labels = dialog.locator("button[aria-label^='Remove ']").evaluate_all("els => els.map(e => e.getAttribute('aria-label'))")
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(300)
+    return {label[len("Remove "):] for label in labels if not label.endswith(" from the grouping")}
+
+
 def drop_summary_items(page, names):
     pane = page.locator(".pane-summary").first
     pane.get_by_role("button", name="Summary settings").click()
@@ -470,10 +479,12 @@ def add_summary_property(page, name, role, aggregate=None):
 
 def check_summary_columns(page, checks):
     pane = page.locator(".pane-summary").first
-    drop_summary_items(page, ["Sum of Area", "Level"])
+    before = summary_item_titles(page)
     try:
-        add_summary_property(page, "Level", "Rows")
-        add_summary_property(page, "Area", "Column", "sum")
+        if "Level" not in before:
+            add_summary_property(page, "Level", "Rows")
+        if "Sum of Area" not in before:
+            add_summary_property(page, "Area", "Column", "sum")
         page.wait_for_timeout(3000)
         checks.add("real: Sum of Area joins the summary header", pane.get_by_role("columnheader", name="Sum of Area").count() == 1)
         with page.expect_download(timeout=30000) as info:
@@ -489,7 +500,7 @@ def check_summary_columns(page, checks):
         checks.add("real: Sum of Area joins the summary header", False, f"{type(exc).__name__}: {str(exc)[:160]}")
         page.keyboard.press("Escape")
     finally:
-        drop_summary_items(page, ["Sum of Area", "Level"])
+        drop_summary_items(page, [name for name in ("Sum of Area", "Level") if name not in before])
 
 
 def canvas_follows(state, tolerance=4):
