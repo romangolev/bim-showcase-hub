@@ -4,6 +4,7 @@ import { defineSavedKind } from '../store/savedKinds.js';
 import { MAX_ITEM_BYTES } from '../store/savedStore.js';
 import {
   DEFAULT_SUMMARY_VIEW,
+  MAX_SUMMARY_ROWS,
   type SummaryView,
   sanitizeView,
 } from './modelSummary.js';
@@ -23,7 +24,7 @@ export type SummaryPresetData = {
 };
 
 export const SUMMARY_PRESET_KIND = 'summary-preset';
-export const MAX_PRESET_PROPERTIES = 24;
+export const MAX_PRESET_PROPERTIES = MAX_SUMMARY_ROWS;
 const MAX_VIEW_DEPTH = 24;
 
 function isJsonValue(value: unknown, depth = 0): value is JsonValue {

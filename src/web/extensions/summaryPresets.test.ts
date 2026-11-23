@@ -7,7 +7,7 @@ import {
   SAVED_KEY,
 } from '../store/savedStore.js';
 import { installMemoryStorage } from '../test/mockApi.js';
-import { DEFAULT_SUMMARY_VIEW } from './modelSummary.js';
+import { COUNT_COLUMN, DEFAULT_SUMMARY_VIEW } from './modelSummary.js';
 import {
   applySummaryPreset,
   BUILT_IN_SUMMARY_PRESETS,
@@ -153,7 +153,7 @@ describe('summary preset storage', () => {
     expect(PANE_SETTINGS.summary.view.read()).toMatchObject({
       layout: 'flat',
       groupBy: [],
-      measure: null,
+      columns: [COUNT_COLUMN],
       text: '',
     });
   });
