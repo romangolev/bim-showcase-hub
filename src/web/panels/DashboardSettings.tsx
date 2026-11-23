@@ -10,7 +10,6 @@ import {
   TOP_N_MIN,
 } from '../extensions/dashboardData.js';
 import {
-  DASHBOARD_PRESETS,
   type DashboardView,
   kindForChartType,
   MAX_CATEGORIES,
@@ -39,6 +38,7 @@ import { usePersisted } from '../storage.js';
 import { usePublishedAdapter } from '../viewer/activeAdapterStore.js';
 import { useModels } from '../viewer/useModels.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
+import { DashboardPresetMenu } from './DashboardPresetMenu.js';
 import { DashboardUserPresets } from './DashboardUserPresets.js';
 import { HEALTH_KPI_SETTINGS } from './HealthKpis.js';
 import { PropertyPicker } from './PropertyPicker.js';
@@ -153,27 +153,7 @@ function DashboardFields({
     <div className="bsh-summary-settings">
       <fieldset className="bsh-fieldset">
         <legend>Preset</legend>
-        <div className="bsh-presets">
-          <button
-            type="button"
-            className="bsh-button"
-            aria-pressed={view.preset === null}
-            onClick={() => patch({ preset: null })}
-          >
-            Single chart
-          </button>
-          {DASHBOARD_PRESETS.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className="bsh-button"
-              aria-pressed={view.preset === item.id}
-              onClick={() => patch({ preset: item.id })}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
+        <DashboardPresetMenu view={view} apply={setView} />
       </fieldset>
       <DashboardUserPresets view={view} apply={setView} />
       <fieldset className="bsh-fieldset">

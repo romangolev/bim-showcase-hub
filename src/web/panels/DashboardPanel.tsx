@@ -39,6 +39,7 @@ import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { ChartCanvas, type ChartKind, ChartTable } from './ChartCanvas.js';
 import { CHART_SETTINGS } from './chartSettings.js';
 import { DashboardGallery } from './DashboardGallery.js';
+import { DashboardPresetMenu } from './DashboardPresetMenu.js';
 import { ElementScopeSelect, scopeName } from './ElementScope.js';
 import { HEALTH_KPI_SETTINGS, HealthKpis } from './HealthKpis.js';
 import {
@@ -381,15 +382,12 @@ export function DashboardPanel({
           </fieldset>
         ) : null}
         {!isCollapsed && resolved && !emptyBoard ? (
-          <button
-            type="button"
-            className="bsh-button"
-            aria-expanded={galleryOpen}
-            aria-controls={`${uid}-gallery`}
-            onClick={() => setGalleryOpen((open) => !open)}
-          >
-            Presets
-          </button>
+          <DashboardPresetMenu
+            view={view}
+            apply={setView}
+            onBrowse={() => setGalleryOpen((open) => !open)}
+            browsing={galleryOpen}
+          />
         ) : null}
         <button
           type="button"

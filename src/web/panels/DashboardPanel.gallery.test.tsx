@@ -105,7 +105,30 @@ describe('DashboardPanel gallery', () => {
     expect(stored().preset).toBe('health');
   });
 
-  it('opens from the Presets toggle and closes after Apply', async () => {
+  it('applies a preset from the Presets menu and can return to a single chart', async () => {
+    const adapter = await loaded();
+    render(<DashboardPanel adapter={adapter} />);
+    await screen.findByRole('img', {
+      name: 'Bar chart of element counts by Category',
+    });
+    const trigger = screen.getByRole('button', { name: 'Dashboard presets' });
+    fireEvent.click(trigger);
+    expect(
+      screen.getByRole('menuitemcheckbox', { name: 'Single chart' }),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('menuitemcheckbox', { name: 'Model health' }),
+    );
+    expect(stored().preset).toBe('health');
+    expect(trigger).toHaveTextContent('Presets: Model health');
+    fireEvent.click(trigger);
+    fireEvent.click(
+      screen.getByRole('menuitemcheckbox', { name: 'Single chart' }),
+    );
+    expect(stored().preset).toBeNull();
+  });
+
+  it('opens the full gallery from Browse presets and closes after Apply', async () => {
     const adapter = await loaded();
     render(<DashboardPanel adapter={adapter} />);
     await screen.findByRole('img', {
@@ -114,10 +137,13 @@ describe('DashboardPanel gallery', () => {
     expect(
       screen.queryByRole('list', { name: 'Dashboard presets' }),
     ).toBeNull();
-    const toggle = screen.getByRole('button', { name: 'Presets' });
-    expect(toggle).toHaveAttribute('aria-expanded', 'false');
-    fireEvent.click(toggle);
-    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.click(screen.getByRole('button', { name: 'Dashboard presets' }));
+    fireEvent.click(
+      screen.getByRole('menuitem', { name: 'Browse presets...' }),
+    );
+    expect(
+      screen.getByRole('list', { name: 'Dashboard presets' }),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Apply Model health' }));
     expect(
       screen.queryByRole('list', { name: 'Dashboard presets' }),
@@ -150,7 +176,9 @@ describe('DashboardPanel gallery', () => {
     expect(
       screen.getByRole('button', { name: 'Apply Model health' }),
     ).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Presets' })).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Dashboard presets' }),
+    ).toBeNull();
     expect(screen.getAllByText(/Not in this model/)).toHaveLength(4);
   });
 

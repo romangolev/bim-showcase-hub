@@ -75,7 +75,7 @@ describe('DashboardPanel empty element scope', () => {
     expect(screen.queryByText('Nothing to chart')).toBeNull();
   });
 
-  it('keeps the gallery dismissible and Presets reachable with a preset on an empty scope', async () => {
+  it('keeps the gallery reachable from the Presets menu with a preset on an empty scope', async () => {
     seed({ elements: 'selected', preset: 'health' });
     const adapter = await loaded();
     render(<DashboardPanel adapter={adapter} />);
@@ -84,12 +84,17 @@ describe('DashboardPanel empty element scope', () => {
     expect(
       screen.queryByRole('list', { name: 'Dashboard presets' }),
     ).toBeNull();
-    const toggle = screen.getByRole('button', { name: 'Presets' });
-    fireEvent.click(toggle);
+    fireEvent.click(screen.getByRole('button', { name: 'Dashboard presets' }));
+    fireEvent.click(
+      screen.getByRole('menuitem', { name: 'Browse presets...' }),
+    );
     expect(
       screen.getByRole('list', { name: 'Dashboard presets' }),
     ).toBeInTheDocument();
-    fireEvent.click(toggle);
+    fireEvent.click(screen.getByRole('button', { name: 'Dashboard presets' }));
+    fireEvent.click(
+      screen.getByRole('menuitem', { name: 'Hide preset gallery' }),
+    );
     expect(
       screen.queryByRole('list', { name: 'Dashboard presets' }),
     ).toBeNull();
