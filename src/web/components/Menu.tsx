@@ -245,7 +245,7 @@ export function Menu({
                 );
               })}
             </div>,
-            document.body,
+            triggerRef.current?.closest('dialog') ?? document.body,
           )
         : null}
     </div>
