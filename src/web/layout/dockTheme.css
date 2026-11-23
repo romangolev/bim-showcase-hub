@@ -107,14 +107,15 @@
 }
 
 .bsh-dock .dv-default-tab[data-tag] .dv-default-tab-content::before {
-  display: inline-block;
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
   width: 7px;
   height: 7px;
-  margin-inline-end: var(--space-2);
+  margin-block: auto;
   border-radius: var(--radius-badge);
   background: var(--pane-tag-color);
   content: "";
-  vertical-align: middle;
 }
 
 .bsh-dock .dv-groupview.dv-active-group:not([data-collapsed])::after {
@@ -187,6 +188,7 @@
 }
 
 .bsh-dock .dv-groupview[data-collapsed="width"] .dv-tab {
+  min-width: 0;
   padding: var(--space-3) 0;
   box-shadow: none;
 }
@@ -383,4 +385,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.bsh-dock .dv-default-tab[data-tag] .dv-default-tab-content {
+  position: relative;
+  padding-inline-start: calc(7px + var(--space-2));
+}
+
+.bsh-dock .dv-groupview[data-collapsed="width"] .dv-default-tab-content {
+  margin: 0;
 }
