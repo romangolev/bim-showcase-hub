@@ -20,4 +20,26 @@ describe('Menu', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Things' }));
     expect(screen.getByRole('menu').parentElement).toBe(document.body);
   });
+
+  it('shows a description on a checkable entry too', () => {
+    render(
+      <Menu
+        label="Things"
+        trigger="Open"
+        items={() => [
+          {
+            id: 'a',
+            label: 'Alpha',
+            checked: false,
+            description: 'Not in this model: Area',
+            onSelect: () => {},
+          },
+        ]}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Things' }));
+    expect(
+      screen.getByRole('menuitemcheckbox', { name: 'Alpha' }),
+    ).toHaveAttribute('title', 'Not in this model: Area');
+  });
 });

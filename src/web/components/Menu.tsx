@@ -230,6 +230,7 @@ export function Menu({
                     aria-checked={entry.checked}
                     className="menu__item"
                     disabled={entry.disabled}
+                    title={entry.description}
                     onClick={() => select(entry)}
                   >
                     <CheckMark checked={entry.checked} />
