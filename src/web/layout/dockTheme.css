@@ -331,8 +331,8 @@
   min-height: 0;
 }
 
-.pane-slot--dock .bsh-charts {
-  height: max(190px, 100%);
+.pane-slot--dock .bsh-board {
+  height: 100%;
 }
 
 .bsh-dock

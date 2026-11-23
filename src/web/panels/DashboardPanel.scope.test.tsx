@@ -150,7 +150,7 @@ describe('DashboardPanel PNG flags', () => {
     });
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'Export Bar chart of element counts by Category',
+        name: 'Options for Bar chart of element counts by Category',
       }),
     );
     fireEvent.click(screen.getByRole('menuitem', { name: 'Download PNG' }));

@@ -3,7 +3,7 @@ import { PAINT_PALETTES } from '../extensions/paintBrushes.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { act, fireEvent, render, screen } from '../test/render.js';
 import { useTheme } from '../theme/ThemeContext.js';
-import { ChartCanvas } from './ChartCanvas.js';
+import { ChartCanvas, valueLabelPlugin } from './ChartCanvas.js';
 import { CHART_SETTINGS } from './chartSettings.js';
 
 const created = vi.hoisted(() => ({
@@ -303,7 +303,9 @@ describe('ChartCanvas split by model', () => {
 describe('ChartCanvas export menu', () => {
   it('offers the three exports from one labelled button', () => {
     render(<ChartCanvas kind="bar" chart={chart} label="Bar chart" />);
-    fireEvent.click(screen.getByRole('button', { name: 'Export Bar chart' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Options for Bar chart' }),
+    );
     for (const name of ['Download PNG', 'Download CSV', 'Copy data']) {
       expect(screen.getByRole('menuitem', { name })).toBeTruthy();
     }
@@ -315,5 +317,56 @@ describe('ChartCanvas export menu', () => {
       data: { datasets: { minBarLength?: number }[] };
     };
     expect(config.data.datasets[0]?.minBarLength).toBe(2);
+  });
+});
+
+describe('ChartCanvas data labels', () => {
+  const pluginsOf = () =>
+    (created.charts.at(-1)?.config as { plugins: { id: string }[] } | undefined)
+      ?.plugins ?? [];
+
+  it('adds the value label plugin only when asked', () => {
+    const view = render(
+      <ChartCanvas kind="bar" chart={chart} label="Bar chart" />,
+    );
+    expect(pluginsOf()).toEqual([]);
+    view.rerender(
+      <ChartCanvas kind="bar" chart={chart} label="Bar chart" dataLabels />,
+    );
+    expect(pluginsOf().map((plugin) => plugin.id)).toEqual(['bshValueLabels']);
+  });
+
+  function drawn(kind: 'bar' | 'hbar' | 'doughnut', values: number[]) {
+    const texts: string[] = [];
+    const ctx = {
+      save: vi.fn(),
+      restore: vi.fn(),
+      strokeText: vi.fn(),
+      fillText: (text: string) => texts.push(text),
+    };
+    const element = {
+      getProps: () => ({ x: 10, y: 20 }),
+      tooltipPosition: () => ({ x: 5, y: 5 }),
+    };
+    const instance = {
+      ctx,
+      data: { datasets: [{ data: values }] },
+      getDatasetMeta: () => ({
+        hidden: false,
+        data: values.map(() => element),
+      }),
+    };
+    const plugin = valueLabelPlugin(kind, { text: '#000', surface: '#fff' });
+    (plugin.afterDatasetsDraw as (chart: unknown) => void)(instance);
+    return texts;
+  }
+
+  it('writes the value on bars and skips empty ones', () => {
+    expect(drawn('bar', [4, 0, 1200])).toEqual(['4', '1,200']);
+    expect(drawn('hbar', [3])).toEqual(['3']);
+  });
+
+  it('writes a percentage on doughnut slices and skips slivers', () => {
+    expect(drawn('doughnut', [50, 49, 1])).toEqual(['50%', '49%']);
   });
 });

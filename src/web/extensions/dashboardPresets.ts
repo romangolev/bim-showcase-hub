@@ -1,5 +1,4 @@
 import { flag } from '../../shared/guards.js';
-import type { PropertyRow } from '../../shared/types.js';
 import { defineSavedKind } from '../store/savedKinds.js';
 import {
   type ElementScope,
@@ -7,8 +6,8 @@ import {
 } from '../viewer/propertyScope.js';
 import {
   type Aggregate,
-  availableProperties,
-  CHART_TYPE_LABELS,
+  CHART_TYPES,
+  type ChartType,
   DEFAULT_DASHBOARD_PROPERTIES,
   DEFAULT_MAX_CATEGORIES,
   DEFAULT_TOP_N,
@@ -51,43 +50,74 @@ export const PRESET_PROPERTIES: readonly string[] = [
   ...new Set(DASHBOARD_PRESETS.flatMap((preset) => preset.properties)),
 ];
 
-export function presetCharts(
-  preset: DashboardPreset,
-  rows: readonly PropertyRow[],
-): string[] {
-  return availableProperties(rows, preset.properties);
-}
-
-export function viewProperties(view: DashboardView): readonly string[] {
-  const preset = DASHBOARD_PRESETS.find((p) => p.id === view.preset);
-  return preset ? preset.properties : view.properties;
-}
-
-export const CHART_KINDS = ['bar', 'doughnut', 'both'] as const;
-export type DashboardKind = (typeof CHART_KINDS)[number];
-export const KIND_LABELS: Record<DashboardKind, string> = {
-  bar: 'Bar',
-  doughnut: 'Doughnut',
-  both: 'Both',
-};
 export const MIN_CATEGORIES = 3;
 export const MAX_CATEGORIES = 30;
+export const MAX_CHARTS = 12;
+export const MAX_CHART_NAME = 60;
 
-export const DASHBOARD_CHART_TYPES = [
-  'bar',
-  'hbar',
-  'doughnut',
-  'both',
-  'table',
-] as const;
-export type DashboardChartType = (typeof DASHBOARD_CHART_TYPES)[number];
-export const DASHBOARD_CHART_TYPE_LABELS: Record<DashboardChartType, string> = {
-  ...CHART_TYPE_LABELS,
-  both: 'Bar and doughnut',
+export const DASHBOARD_ORIENTATIONS = ['vertical', 'horizontal'] as const;
+export type DashboardOrientation = (typeof DASHBOARD_ORIENTATIONS)[number];
+export const ORIENTATION_LABELS: Record<DashboardOrientation, string> = {
+  vertical: 'Vertical',
+  horizontal: 'Horizontal',
 };
 
+export interface DashboardChart {
+  id: string;
+  property: string;
+  chartType: ChartType;
+  dataLabels: boolean;
+  name?: string;
+}
+
+export function chartTitle(chart: DashboardChart): string {
+  return chart.name || chart.property;
+}
+
+export function nextChartId(charts: readonly DashboardChart[]): string {
+  const used = new Set(charts.map((chart) => chart.id));
+  let n = charts.length + 1;
+  while (used.has(`c${n}`)) n += 1;
+  return `c${n}`;
+}
+
+export function chartsFromProperties(
+  properties: readonly string[],
+  chartType: ChartType = 'bar',
+): DashboardChart[] {
+  return properties.slice(0, MAX_CHARTS).map((property, index) => ({
+    id: `c${index + 1}`,
+    property,
+    chartType,
+    dataLabels: false,
+  }));
+}
+
+export function presetChartList(preset: DashboardPreset): DashboardChart[] {
+  return chartsFromProperties(preset.properties);
+}
+
+export function chartsKey(charts: readonly DashboardChart[]): string {
+  return JSON.stringify(
+    charts.map((chart) => [
+      chart.property,
+      chart.chartType,
+      chart.dataLabels,
+      chart.name ?? '',
+    ]),
+  );
+}
+
+export function matchingPreset(
+  charts: readonly DashboardChart[],
+): DashboardPreset | undefined {
+  const key = chartsKey(charts);
+  return DASHBOARD_PRESETS.find(
+    (preset) => chartsKey(presetChartList(preset)) === key,
+  );
+}
+
 export interface DashboardChartSpec {
-  chartType: DashboardChartType;
   aggregate: Aggregate;
   measure: string;
   topN: number;
@@ -95,11 +125,11 @@ export interface DashboardChartSpec {
 }
 
 export interface DashboardView extends Partial<DashboardChartSpec> {
-  preset: string | null;
-  property: string;
+  charts: readonly DashboardChart[];
+  orientation: DashboardOrientation;
+  sizes: readonly number[];
   properties: readonly string[];
   maxCategories: number;
-  kind: DashboardKind;
   pngTitle: boolean;
   pngLegend: boolean;
   scope?: string;
@@ -108,12 +138,24 @@ export interface DashboardView extends Partial<DashboardChartSpec> {
 }
 
 export const DEFAULT_DASHBOARD_VIEW: DashboardView = {
-  preset: null,
-  property: DEFAULT_DASHBOARD_PROPERTIES[0] ?? '',
+  charts: [
+    {
+      id: 'c1',
+      property: DEFAULT_DASHBOARD_PROPERTIES[0] ?? '',
+      chartType: 'bar',
+      dataLabels: false,
+    },
+    {
+      id: 'c2',
+      property: DEFAULT_DASHBOARD_PROPERTIES[0] ?? '',
+      chartType: 'doughnut',
+      dataLabels: false,
+    },
+  ],
+  orientation: 'horizontal',
+  sizes: [],
   properties: DEFAULT_DASHBOARD_PROPERTIES,
   maxCategories: DEFAULT_MAX_CATEGORIES,
-  kind: 'both',
-  chartType: 'both',
   aggregate: 'count',
   measure: '',
   topN: DEFAULT_TOP_N,
@@ -122,29 +164,129 @@ export const DEFAULT_DASHBOARD_VIEW: DashboardView = {
   pngLegend: true,
 };
 
-export function kindForChartType(type: DashboardChartType): DashboardKind {
-  return type === 'doughnut' || type === 'both' ? type : 'bar';
-}
-
-export function chartTypeForKind(kind: DashboardKind): DashboardChartType {
-  return kind;
-}
-
-export function withChartType(
-  view: DashboardView,
-  chartType: DashboardChartType,
-): DashboardView {
-  return { ...view, chartType, kind: kindForChartType(chartType) };
-}
-
 export function viewSpec(view: DashboardView): DashboardChartSpec {
   return {
-    chartType: view.chartType ?? chartTypeForKind(view.kind),
     aggregate: view.aggregate ?? 'count',
     measure: view.measure ?? '',
     topN: view.topN ?? view.maxCategories,
     otherBucket: view.otherBucket ?? true,
   };
+}
+
+export function withCharts(
+  view: DashboardView,
+  charts: readonly DashboardChart[],
+): DashboardView {
+  return { ...view, charts, sizes: [] };
+}
+
+export function patchChart(
+  view: DashboardView,
+  id: string,
+  patch: Partial<Omit<DashboardChart, 'id'>>,
+): DashboardView {
+  return {
+    ...view,
+    charts: view.charts.map((chart) =>
+      chart.id === id ? { ...chart, ...patch } : chart,
+    ),
+  };
+}
+
+export function addChart(view: DashboardView): DashboardView {
+  if (view.charts.length >= MAX_CHARTS) return view;
+  const property =
+    view.charts[view.charts.length - 1]?.property ??
+    view.properties[0] ??
+    DEFAULT_DASHBOARD_PROPERTIES[0] ??
+    '';
+  return withCharts(view, [
+    ...view.charts,
+    {
+      id: nextChartId(view.charts),
+      property,
+      chartType: 'bar',
+      dataLabels: false,
+    },
+  ]);
+}
+
+export function removeChart(view: DashboardView, id: string): DashboardView {
+  return withCharts(
+    view,
+    view.charts.filter((chart) => chart.id !== id),
+  );
+}
+
+const LEGACY_TYPES = ['bar', 'hbar', 'doughnut', 'both', 'table'] as const;
+const LEGACY_KINDS = ['bar', 'doughnut', 'both'] as const;
+
+function legacyCharts(
+  source: Record<string, unknown>,
+  pool: readonly string[],
+): DashboardChart[] {
+  const kind = LEGACY_KINDS.find((k) => k === source.kind);
+  const raw = LEGACY_TYPES.find((type) => type === source.chartType);
+  const type =
+    raw === 'bar' && (kind ?? 'both') === 'both'
+      ? 'both'
+      : (raw ?? kind ?? 'both');
+  const preset = DASHBOARD_PRESETS.find((p) => p.id === source.preset);
+  if (preset) {
+    return chartsFromProperties(
+      preset.properties,
+      type === 'both' ? 'bar' : type,
+    );
+  }
+  const property =
+    typeof source.property === 'string' && source.property.trim() !== ''
+      ? source.property
+      : (pool[0] ?? DEFAULT_DASHBOARD_PROPERTIES[0] ?? '');
+  return (type === 'both' ? (['bar', 'doughnut'] as const) : [type]).map(
+    (chartType, index) => ({
+      id: `c${index + 1}`,
+      property,
+      chartType,
+      dataLabels: false,
+    }),
+  );
+}
+
+function sanitizeCharts(raw: unknown): DashboardChart[] {
+  if (!Array.isArray(raw)) return [];
+  const charts: DashboardChart[] = [];
+  for (const item of raw.slice(0, MAX_CHARTS)) {
+    if (typeof item !== 'object' || item === null) continue;
+    const entry = item as Record<string, unknown>;
+    if (typeof entry.property !== 'string' || entry.property.trim() === '') {
+      continue;
+    }
+    const wanted = typeof entry.id === 'string' ? entry.id.trim() : '';
+    const id =
+      wanted && !charts.some((chart) => chart.id === wanted)
+        ? wanted.slice(0, 32)
+        : nextChartId(charts);
+    const name =
+      typeof entry.name === 'string'
+        ? entry.name.trim().slice(0, MAX_CHART_NAME)
+        : '';
+    charts.push({
+      id,
+      property: entry.property,
+      chartType: CHART_TYPES.find((type) => type === entry.chartType) ?? 'bar',
+      dataLabels: flag(entry.dataLabels, false),
+      ...(name ? { name } : {}),
+    });
+  }
+  return charts;
+}
+
+export function sanitizeSizes(raw: unknown, count: number): number[] {
+  if (!Array.isArray(raw) || raw.length !== count) return [];
+  const sizes = raw.map(Number);
+  if (!sizes.every((size) => Number.isFinite(size) && size > 0)) return [];
+  const total = sizes.reduce((sum, size) => sum + size, 0);
+  return sizes.map((size) => size / total);
 }
 
 export function sanitizeDashboardView(raw: unknown): DashboardView {
@@ -157,28 +299,22 @@ export function sanitizeDashboardView(raw: unknown): DashboardView {
     Number.isFinite(max) && max >= MIN_CATEGORIES
       ? Math.min(max, MAX_CATEGORIES)
       : DEFAULT_MAX_CATEGORIES;
-  const kind = CHART_KINDS.find((k) => k === source.kind) ?? 'both';
-  const chartType: DashboardChartType =
-    source.chartType === 'bar' && kind === 'both'
-      ? 'both'
-      : (DASHBOARD_CHART_TYPES.find((type) => type === source.chartType) ??
-        chartTypeForKind(kind));
+  const properties = sanitizePropertyNames(
+    source.properties,
+    DEFAULT_DASHBOARD_PROPERTIES,
+  );
+  const charts = Array.isArray(source.charts)
+    ? sanitizeCharts(source.charts)
+    : sanitizeCharts(legacyCharts(source, properties));
   const top = Math.floor(Number(source.topN));
   return {
-    preset: DASHBOARD_PRESETS.some((p) => p.id === source.preset)
-      ? (source.preset as string)
-      : null,
-    property:
-      typeof source.property === 'string' && source.property.trim() !== ''
-        ? source.property
-        : DEFAULT_DASHBOARD_VIEW.property,
-    properties: sanitizePropertyNames(
-      source.properties,
-      DEFAULT_DASHBOARD_PROPERTIES,
-    ),
+    charts,
+    orientation:
+      DASHBOARD_ORIENTATIONS.find((o) => o === source.orientation) ??
+      DEFAULT_DASHBOARD_VIEW.orientation,
+    sizes: sanitizeSizes(source.sizes, charts.length),
+    properties,
     maxCategories,
-    kind: kindForChartType(chartType),
-    chartType,
     aggregate: sanitizeAggregate(source.aggregate),
     measure: typeof source.measure === 'string' ? source.measure.trim() : '',
     topN:

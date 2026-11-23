@@ -6,11 +6,12 @@ import {
   Chart,
   DoughnutController,
   LinearScale,
+  type Plugin,
   Tooltip,
 } from 'chart.js';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '../components/icons.js';
-import { Menu } from '../components/Menu.js';
+import { Menu, type MenuEntry } from '../components/Menu.js';
 import {
   chartDelimited,
   saveChartCsv,
@@ -47,10 +48,76 @@ export const LEGEND_LIMIT = 8;
 const TICK_LABEL_LIMIT = 10;
 const DIM_WEIGHT = 0.35;
 
+export function formatLabel(value: number): string {
+  return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
+const MIN_SLICE_SHARE = 0.04;
+
+export function valueLabelPlugin(
+  kind: ChartKind,
+  colors: { text: string; surface: string },
+): Plugin {
+  return {
+    id: 'bshValueLabels',
+    afterDatasetsDraw(instance) {
+      const { ctx } = instance;
+      ctx.save();
+      ctx.font = `${Chart.defaults.font.weight ?? 400} 11px ${Chart.defaults.font.family}`;
+      ctx.lineWidth = 3;
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = colors.surface;
+      ctx.fillStyle = colors.text;
+      const stacked = instance.data.datasets.length > 1;
+      instance.data.datasets.forEach((dataset, datasetIndex) => {
+        const meta = instance.getDatasetMeta(datasetIndex);
+        if (meta.hidden) return;
+        const values = dataset.data.map((v) => (typeof v === 'number' ? v : 0));
+        const total = values.reduce((sum, v) => sum + v, 0);
+        meta.data.forEach((element, index) => {
+          const value = values[index] ?? 0;
+          if (value === 0) return;
+          let text = formatLabel(value);
+          let point: { x: number | null; y: number | null };
+          if (kind === 'doughnut') {
+            if (value / total < MIN_SLICE_SHARE) return;
+            text = `${Math.round((value / total) * 100)}%`;
+            point = element.tooltipPosition(false);
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+          } else if (stacked) {
+            point = (element as unknown as BarElement).getCenterPoint();
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+          } else if (kind === 'hbar') {
+            const edge = element.getProps(['x', 'y'], true);
+            point = { x: (edge.x ?? 0) + 4, y: edge.y ?? null };
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+          } else {
+            const edge = element.getProps(['x', 'y'], true);
+            point = { x: edge.x ?? null, y: (edge.y ?? 0) - 4 };
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+          }
+          if (point.x === null || point.y === null) return;
+          ctx.strokeText(text, point.x, point.y);
+          ctx.fillText(text, point.x, point.y);
+        });
+      });
+      ctx.restore();
+    },
+  };
+}
+
 export interface ChartCanvasProps {
   kind: ChartKind;
   chart: ChartData;
   label: string;
+  title?: ReactNode;
+  pngName?: string;
+  menuItems?: readonly MenuEntry[];
+  dataLabels?: boolean;
   exportName?: string;
   highlight?: ReadonlySet<string>;
   pngTitle?: boolean;
@@ -69,6 +136,10 @@ export function ChartCanvas({
   kind,
   chart,
   label,
+  title,
+  pngName,
+  menuItems = [],
+  dataLabels = false,
   exportName = 'model',
   highlight,
   pngTitle = true,
@@ -174,6 +245,7 @@ export function ChartCanvas({
     const horizontal = kind === 'hbar';
     const instance = new Chart(canvas, {
       type: kind === 'doughnut' ? 'doughnut' : 'bar',
+      plugins: dataLabels ? [valueLabelPlugin(kind, theme)] : [],
       data: {
         labels,
         datasets,
@@ -182,6 +254,13 @@ export function ChartCanvas({
         responsive: true,
         maintainAspectRatio: false,
         animation: false,
+        ...(dataLabels && kind !== 'doughnut'
+          ? {
+              layout: {
+                padding: horizontal ? { right: 32 } : { top: 18 },
+              },
+            }
+          : {}),
         ...(horizontal ? { indexAxis: 'y' } : {}),
         onClick: (_event, elements) => {
           const index = elements[0]?.index;
@@ -267,7 +346,7 @@ export function ChartCanvas({
       paintRef.current = null;
       instance.destroy();
     };
-  }, [kind, chart, pageTheme, palette, patterns]);
+  }, [kind, chart, dataLabels, pageTheme, palette, patterns]);
 
   useEffect(() => {
     paintRef.current?.(litKey);
@@ -284,7 +363,7 @@ export function ChartCanvas({
       chart.property,
       exportName,
       {
-        title: pngTitle ? chart.property : undefined,
+        title: pngTitle ? (pngName ?? chart.property) : undefined,
         legend:
           pngLegend && kind === 'doughnut'
             ? shown.map((d, index) => ({
@@ -316,15 +395,20 @@ export function ChartCanvas({
   return (
     <div className="bsh-chart-frame">
       <div className="bsh-chart__tools">
+        {title}
         <span role="status" className="bsh-summary__notice">
           {notice}
         </span>
         <Menu
-          label={`Export ${label}`}
-          title="Export chart"
+          label={`Options for ${label}`}
+          title="Chart options"
           trigger={<Icon name="more" size={16} />}
           triggerClassName="icon-button"
           items={() => [
+            ...menuItems,
+            ...(menuItems.length > 0
+              ? [{ kind: 'separator' as const, id: 'export-sep' }]
+              : []),
             { id: 'png', label: 'Download PNG', onSelect: exportPng },
             {
               id: 'csv',
@@ -380,6 +464,8 @@ export function ChartCanvas({
 export interface ChartTableProps {
   chart: ChartData;
   label: string;
+  title?: ReactNode;
+  menuItems?: readonly MenuEntry[];
   highlight?: ReadonlySet<string>;
   onSelectLabel?: (label: string) => void;
   onColorModel?: (colors: readonly string[]) => void;
@@ -388,6 +474,8 @@ export interface ChartTableProps {
 export function ChartTable({
   chart,
   label,
+  title,
+  menuItems = [],
   highlight,
   onSelectLabel,
   onColorModel,
@@ -411,23 +499,30 @@ export function ChartTable({
 
   return (
     <div className="bsh-chart-frame bsh-chart-frame--table">
-      {onColorModel ? (
-        <div className="bsh-chart__tools">
-          <Menu
-            label={`Export ${label}`}
-            title="Export chart"
-            trigger={<Icon name="more" size={16} />}
-            triggerClassName="icon-button"
-            items={() => [
-              {
-                id: 'color-model',
-                label: 'Color the model by this chart',
-                onSelect: () => onColorModel(colors),
-              },
-            ]}
-          />
-        </div>
-      ) : null}
+      <div className="bsh-chart__tools">
+        {title}
+        <Menu
+          label={`Options for ${label}`}
+          title="Chart options"
+          trigger={<Icon name="more" size={16} />}
+          triggerClassName="icon-button"
+          items={() => [
+            ...menuItems,
+            ...(onColorModel
+              ? [
+                  ...(menuItems.length > 0
+                    ? [{ kind: 'separator' as const, id: 'export-sep' }]
+                    : []),
+                  {
+                    id: 'color-model',
+                    label: 'Color the model by this chart',
+                    onSelect: () => onColorModel(colors),
+                  },
+                ]
+              : []),
+          ]}
+        />
+      </div>
       <div className="bsh-chart-table__wrap">
         <table className="bsh-table bsh-chart-table">
           <caption className="bsh-chart-table__caption">{label}</caption>

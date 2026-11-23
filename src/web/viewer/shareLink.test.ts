@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { parseView } from '../api/viewLink.js';
+import {
+  chartsFromProperties,
+  DEFAULT_DASHBOARD_VIEW,
+} from '../extensions/dashboardPresets.js';
 import { chartSetting } from '../layout/instanceSettings.js';
 import type { LayoutApi } from '../layout/layoutContext.js';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
@@ -59,18 +63,19 @@ describe('share link capture', () => {
 
   it('always carries the dashboard view and drops a personal selection set', () => {
     PANE_SETTINGS.dashboard.view.write({
-      preset: null,
-      property: 'Level',
+      ...DEFAULT_DASHBOARD_VIEW,
+      charts: chartsFromProperties(['Level']),
       properties: ['Level'],
       maxCategories: 8,
-      kind: 'bar',
       pngTitle: false,
       pngLegend: false,
       elements: 'set:abc',
     });
     const charts = captureCharts();
     expect(charts[0]?.id).toBe('dashboard');
-    expect(charts[0]?.view).toMatchObject({ property: 'Level', kind: 'bar' });
+    expect(charts[0]?.view).toMatchObject({
+      charts: [{ property: 'Level', chartType: 'bar' }],
+    });
     expect(charts[0]?.view).not.toHaveProperty('elements');
   });
 
@@ -80,11 +85,10 @@ describe('share link capture', () => {
       ['chart:1', 'Type Name'],
     ] as const) {
       chartSetting(instance).write({
-        preset: null,
-        property,
+        ...DEFAULT_DASHBOARD_VIEW,
+        charts: chartsFromProperties([property]),
         properties: [property],
         maxCategories: 6,
-        kind: 'both',
         pngTitle: true,
         pngLegend: true,
       });
@@ -111,11 +115,10 @@ describe('share link capture', () => {
   it('says when a chart pane does not fit in the link', () => {
     for (let i = 1; i <= 4; i += 1) {
       chartSetting(`chart:${i}`).write({
-        preset: null,
-        property: `Level ${i}`,
+        ...DEFAULT_DASHBOARD_VIEW,
+        charts: chartsFromProperties([`Level ${i}`]),
         properties: [`Level ${i}`],
         maxCategories: 6,
-        kind: 'bar',
         pngTitle: false,
         pngLegend: false,
       });

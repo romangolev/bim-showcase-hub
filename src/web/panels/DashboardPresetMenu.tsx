@@ -1,10 +1,14 @@
 import { Icon } from '../components/icons.js';
 import { Menu, type MenuEntry } from '../components/Menu.js';
 import {
+  chartsKey,
   DASHBOARD_PRESETS,
   DASHBOARD_USER_PRESETS,
   type DashboardView,
+  matchingPreset,
+  presetChartList,
   sanitizeDashboardView,
+  withCharts,
 } from '../extensions/dashboardPresets.js';
 import { useSavedKindItems } from '../store/savedKinds.js';
 
@@ -22,32 +26,21 @@ export function DashboardPresetMenu({
   browsing = false,
 }: DashboardPresetMenuProps) {
   const saved = useSavedKindItems(DASHBOARD_USER_PRESETS);
-  const current = JSON.stringify(sanitizeDashboardView(view));
+  const current = chartsKey(view.charts);
   const own = saved.map((item) => ({
     item,
     next: sanitizeDashboardView(item.data),
   }));
-  const ownMatch =
-    view.preset === null
-      ? own.find(({ next }) => JSON.stringify(next) === current)
-      : undefined;
-  const label =
-    DASHBOARD_PRESETS.find((p) => p.id === view.preset)?.label ??
-    ownMatch?.item.name ??
-    'Single chart';
+  const ownMatch = own.find(({ next }) => chartsKey(next.charts) === current);
+  const builtin = matchingPreset(view.charts);
+  const label = builtin?.label ?? ownMatch?.item.name ?? 'Custom';
 
   const entries = (): MenuEntry[] => [
-    {
-      id: 'single',
-      label: 'Single chart',
-      checked: view.preset === null && !ownMatch,
-      onSelect: () => apply({ ...view, preset: null }),
-    },
     ...DASHBOARD_PRESETS.map((preset) => ({
       id: `builtin:${preset.id}`,
       label: preset.label,
-      checked: view.preset === preset.id,
-      onSelect: () => apply({ ...view, preset: preset.id }),
+      checked: builtin?.id === preset.id,
+      onSelect: () => apply(withCharts(view, presetChartList(preset))),
     })),
     ...(own.length > 0
       ? [

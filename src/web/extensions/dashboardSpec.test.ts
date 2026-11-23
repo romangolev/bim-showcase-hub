@@ -2,64 +2,154 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { exportSaved, importSaved, readSaved } from '../store/savedStore.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import {
+  addChart,
+  chartsFromProperties,
+  DASHBOARD_PRESETS,
   DASHBOARD_USER_PRESETS,
   DEFAULT_DASHBOARD_VIEW,
+  matchingPreset,
+  patchChart,
+  presetChartList,
+  removeChart,
   sanitizeDashboardView,
   saveDashboardPreset,
   viewSpec,
-  withChartType,
 } from './dashboardPresets.js';
 
 describe('dashboard view sanitizer', () => {
   it('fills every chart spec field when the blob has none', () => {
     expect(sanitizeDashboardView({})).toMatchObject({
-      chartType: 'both',
       aggregate: 'count',
       measure: '',
       topN: 12,
       otherBucket: true,
-      kind: 'both',
       maxCategories: 12,
+      orientation: 'horizontal',
+      sizes: [],
     });
-    expect(sanitizeDashboardView(null)).toMatchObject({
-      chartType: 'both',
-      aggregate: 'count',
-    });
+    expect(sanitizeDashboardView(null).charts).toEqual([
+      { id: 'c1', property: 'Category', chartType: 'bar', dataLabels: false },
+      {
+        id: 'c2',
+        property: 'Category',
+        chartType: 'doughnut',
+        dataLabels: false,
+      },
+    ]);
   });
 
-  it('reads a blob written by the previous build', () => {
+  it('turns a single-chart blob written by the previous build into a list', () => {
     const old = sanitizeDashboardView({
       kind: 'doughnut',
       maxCategories: 6,
       property: 'Level',
     });
     expect(old).toMatchObject({
-      chartType: 'doughnut',
       aggregate: 'count',
       measure: '',
       topN: 6,
       otherBucket: true,
-      kind: 'doughnut',
     });
+    expect(old.charts).toEqual([
+      { id: 'c1', property: 'Level', chartType: 'doughnut', dataLabels: false },
+    ]);
   });
 
-  it('keeps the pair for an old both view and lets settings change it', () => {
+  it('turns an old both view into a bar and a doughnut of one property', () => {
+    for (const raw of [
+      { kind: 'both', chartType: 'bar', property: 'Level' },
+      { chartType: 'both', property: 'Level' },
+      { property: 'Level' },
+    ]) {
+      expect(
+        sanitizeDashboardView(raw).charts.map((c) => [c.property, c.chartType]),
+      ).toEqual([
+        ['Level', 'bar'],
+        ['Level', 'doughnut'],
+      ]);
+    }
     expect(
-      sanitizeDashboardView({ kind: 'both', chartType: 'bar' }),
-    ).toMatchObject({ chartType: 'both', kind: 'both' });
-    expect(sanitizeDashboardView({ chartType: 'both' })).toMatchObject({
-      chartType: 'both',
-      kind: 'both',
-    });
+      sanitizeDashboardView({ kind: 'bar', chartType: 'hbar' }).charts,
+    ).toMatchObject([{ chartType: 'hbar' }]);
+  });
+
+  it('turns an old preset view into one chart per preset property', () => {
+    const view = sanitizeDashboardView({ preset: 'discipline', kind: 'both' });
+    expect(view.charts.map((c) => [c.id, c.property, c.chartType])).toEqual([
+      ['c1', 'Discipline', 'bar'],
+      ['c2', 'Category', 'bar'],
+    ]);
     expect(
-      sanitizeDashboardView({ kind: 'bar', chartType: 'hbar' }),
-    ).toMatchObject({ chartType: 'hbar', kind: 'bar' });
-    const view = withChartType(DEFAULT_DASHBOARD_VIEW, 'doughnut');
-    expect(view).toMatchObject({ chartType: 'doughnut', kind: 'doughnut' });
-    expect(withChartType(view, 'both')).toMatchObject({
-      chartType: 'both',
-      kind: 'both',
+      sanitizeDashboardView({ preset: 'discipline', chartType: 'table' })
+        .charts[0]?.chartType,
+    ).toBe('table');
+    expect(sanitizeDashboardView({ preset: 'nope' }).charts).toHaveLength(2);
+  });
+
+  it('reads the new chart list and repairs bad entries', () => {
+    const view = sanitizeDashboardView({
+      charts: [
+        { id: 'a', property: 'Level', chartType: 'hbar', dataLabels: true },
+        { id: 'a', property: 'Type', chartType: 'pie', name: '  Types  ' },
+        { id: 'b', property: '  ' },
+        'nope',
+      ],
+      orientation: 'vertical',
+      sizes: [1, 3],
     });
+    expect(view.charts).toEqual([
+      { id: 'a', property: 'Level', chartType: 'hbar', dataLabels: true },
+      {
+        id: 'c2',
+        property: 'Type',
+        chartType: 'bar',
+        dataLabels: false,
+        name: 'Types',
+      },
+    ]);
+    expect(view.orientation).toBe('vertical');
+    expect(view.sizes).toEqual([0.25, 0.75]);
+  });
+
+  it('keeps an empty list and drops sizes that do not fit the list', () => {
+    expect(sanitizeDashboardView({ charts: [] }).charts).toEqual([]);
+    const charts = [{ property: 'Level' }, { property: 'Type' }];
+    expect(sanitizeDashboardView({ charts, sizes: [1] }).sizes).toEqual([]);
+    expect(sanitizeDashboardView({ charts, sizes: [1, -1] }).sizes).toEqual([]);
+  });
+
+  it('edits the chart list', () => {
+    const base = sanitizeDashboardView({
+      charts: [{ property: 'Level' }],
+      sizes: [1],
+    });
+    const added = addChart(base);
+    expect(added.charts.map((c) => [c.id, c.property])).toEqual([
+      ['c1', 'Level'],
+      ['c2', 'Level'],
+    ]);
+    expect(added.sizes).toEqual([]);
+    const patched = patchChart(added, 'c2', {
+      property: 'Type',
+      dataLabels: true,
+    });
+    expect(patched.charts[1]).toMatchObject({
+      property: 'Type',
+      dataLabels: true,
+    });
+    expect(removeChart(patched, 'c1').charts.map((c) => c.id)).toEqual(['c2']);
+    expect(
+      addChart({ ...base, charts: chartsFromProperties(Array(12).fill('A')) })
+        .charts,
+    ).toHaveLength(12);
+  });
+
+  it('recognises a built-in preset by its chart list', () => {
+    const preset = DASHBOARD_PRESETS[1];
+    expect(preset && matchingPreset(presetChartList(preset))?.id).toBe(
+      preset?.id,
+    );
+    expect(matchingPreset(DEFAULT_DASHBOARD_VIEW.charts)).toBeUndefined();
   });
 
   it('replaces corrupt values and ignores unknown fields', () => {
@@ -71,39 +161,36 @@ describe('dashboard view sanitizer', () => {
       topN: 'many',
       otherBucket: 'yes',
       maxCategories: 'many',
+      orientation: 'diagonal',
       colour: 'red',
     });
     expect(view).toMatchObject({
-      chartType: 'both',
       aggregate: 'count',
       measure: '',
       topN: 12,
       otherBucket: true,
       maxCategories: 12,
+      orientation: 'horizontal',
     });
+    expect(view.charts.map((c) => c.chartType)).toEqual(['bar', 'doughnut']);
     expect(view).not.toHaveProperty('colour');
   });
 
   it('clamps the top N and falls back to the saved category limit', () => {
     expect(sanitizeDashboardView({ topN: 2 }).topN).toBe(3);
     expect(sanitizeDashboardView({ topN: 500 }).topN).toBe(100);
-    expect(
-      sanitizeDashboardView({ topN: 8, chartType: 'table', otherBucket: false })
-        .topN,
-    ).toBe(8);
+    expect(sanitizeDashboardView({ topN: 8, otherBucket: false }).topN).toBe(8);
   });
 
   it('resolves spec defaults for a hand-written view', () => {
     const spec = viewSpec({
       ...DEFAULT_DASHBOARD_VIEW,
-      chartType: undefined,
       aggregate: undefined,
       measure: undefined,
       topN: undefined,
       otherBucket: undefined,
     });
     expect(spec).toEqual({
-      chartType: 'both',
       aggregate: 'count',
       measure: '',
       topN: DEFAULT_DASHBOARD_VIEW.maxCategories,
@@ -120,11 +207,9 @@ describe('saved chart specs', () => {
   it('saves the aggregation, measure, type and buckets with the preset', () => {
     const view = {
       ...DEFAULT_DASHBOARD_VIEW,
-      property: 'Category',
       properties: ['Category', 'Volume'],
       aggregate: 'sum' as const,
       measure: 'Volume',
-      chartType: 'hbar' as const,
       topN: 7,
       otherBucket: false,
     };
@@ -133,7 +218,6 @@ describe('saved chart specs', () => {
     expect(saved?.data).toMatchObject({
       aggregate: 'sum',
       measure: 'Volume',
-      chartType: 'hbar',
       topN: 7,
       otherBucket: false,
     });
@@ -144,7 +228,6 @@ describe('saved chart specs', () => {
       ...DEFAULT_DASHBOARD_VIEW,
       aggregate: 'avg',
       measure: 'Volume',
-      chartType: 'table',
       topN: 4,
       otherBucket: true,
     });
@@ -157,7 +240,6 @@ describe('saved chart specs', () => {
     expect(item?.data).toMatchObject({
       aggregate: 'avg',
       measure: 'Volume',
-      chartType: 'table',
       topN: 4,
       otherBucket: true,
     });
@@ -191,9 +273,9 @@ describe('saved chart specs', () => {
     expect(applied).toMatchObject({
       aggregate: 'max',
       measure: 'Length',
-      chartType: 'hbar',
       topN: 9,
       otherBucket: false,
     });
+    expect(applied.charts).toMatchObject([{ chartType: 'hbar' }]);
   });
 });

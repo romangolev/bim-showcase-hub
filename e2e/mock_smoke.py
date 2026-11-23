@@ -359,6 +359,13 @@ def open_gallery(page, pane):
         toggle_gallery(page, pane, "Browse presets...")
 
 
+def keep_one_chart(page, pane):
+    while pane.get_by_role("button", name=re.compile(r"^Options for ")).count() > 1:
+        pane.get_by_role("button", name=re.compile(r"^Options for ")).last.click()
+        page.get_by_role("menuitem", name="Remove chart").click()
+        settle(page, 200)
+
+
 def check_dashboard_gallery(page, checks):
     pane = page.locator(".pane-dashboard").first
     toggle = pane.get_by_role("button", name="Dashboard presets", exact=True)
@@ -377,12 +384,12 @@ def check_dashboard_gallery(page, checks):
     pane.get_by_role("button", name="Apply Quantities by type").click()
     settle(page, 500)
     checks.add("applying from the gallery closes it", pane.get_by_role("list", name="Dashboard presets").count() == 0)
-    names = pane.locator(".bsh-boards [role=img]").evaluate_all("(els) => els.map((el) => el.getAttribute('aria-label'))")
+    names = pane.locator(".bsh-board [role=img]").evaluate_all("(els) => els.map((el) => el.getAttribute('aria-label'))")
     checks.add("a preset hides charts whose property the model lacks", len(names) == 1 and names[0].endswith("by Category"), names)
     open_gallery(page, pane)
     pane.get_by_role("button", name="Apply Model health").last.click()
     settle(page, 500)
-    checks.add("a user preset applies from the gallery", pane.locator(".bsh-boards canvas").count() >= 2, pane.locator(".bsh-boards canvas").count())
+    checks.add("a user preset applies from the gallery", pane.locator(".bsh-board canvas").count() >= 2, pane.locator(".bsh-board canvas").count())
     open_gallery(page, pane)
     pane.get_by_role("button", name="Delete Model health").click()
     checks.add("deleting a user preset removes its card", pane.get_by_label("Rename Model health").count() == 0)
@@ -404,10 +411,7 @@ def check_dashboard_gallery(page, checks):
     checks.add("the gallery stays dismissible on an empty element scope", opened and pane.get_by_role("list", name="Dashboard presets").count() == 0)
     pane.get_by_label("Chart elements").select_option("all")
     settle(page, 400)
-    pane.get_by_role("button", name="Dashboard settings").click()
-    page.get_by_role("dialog", name="Dashboard settings").get_by_role("button", name="Single chart").click()
-    page.keyboard.press("Escape")
-    settle(page, 300)
+    keep_one_chart(page, pane)
 
 
 def check_dashboard_tools(page, checks):
@@ -418,10 +422,8 @@ def check_dashboard_tools(page, checks):
         settle(page, 600)
     pane = page.locator(".pane-dashboard").first
     pane.locator("canvas").first.wait_for(timeout=8000)
-    pane.get_by_role("button", name="Dashboard settings").click()
-    chart_dialog = page.get_by_role("dialog", name="Dashboard settings")
-    chart_dialog.get_by_label("Chart type").select_option("doughnut")
-    page.keyboard.press("Escape")
+    pane.get_by_role("button", name=re.compile(r"^Options for ")).first.click()
+    page.get_by_role("menuitemcheckbox", name="Chart type: Doughnut").click()
     settle(page, 500)
     pane.locator(".bsh-chart--doughnut canvas").first.wait_for(timeout=8000)
     trigger = pane.get_by_role("button", name=re.compile(r"^Export ")).first
@@ -465,7 +467,7 @@ def check_dashboard_tools(page, checks):
     checks.add("dashboard settings is centred vertically", abs((box["y"] + box["height"] / 2) - view["height"] / 2) <= 40 or box["height"] >= view["height"] - 40, box)
     dialog.get_by_role("button", name="Model health").click()
     settle(page, 300)
-    boards = pane.locator(".bsh-boards canvas").count()
+    boards = pane.locator(".bsh-board canvas").count()
     checks.add("a dashboard preset shows several charts", boards >= 2, boards)
     page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
     settle(page, 300)
@@ -484,14 +486,15 @@ def check_dashboard_tools(page, checks):
     settle(page, 300)
     main = page.get_by_role("dialog", name="Dashboard settings")
     checks.add("the dashboard window opened from settings shows the same preset", main.get_by_role("button", name="Model health").get_attribute("aria-pressed") == "true")
-    main.get_by_role("button", name="Single chart").click()
     page.keyboard.press("Escape")
+    keep_one_chart(page, pane)
     settle(page, 300)
-    checks.add("preset change in main settings reaches the pane", pane.locator(".bsh-boards").count() == 0 and pane.locator(".bsh-chart--doughnut").count() == 1)
-    pane.get_by_role("button", name="Bar", exact=True).click()
+    checks.add("preset change in main settings reaches the pane", pane.locator(".bsh-chart").count() == 1)
+    pane.get_by_role("button", name=re.compile(r"^Options for ")).first.click()
+    page.get_by_role("menuitemcheckbox", name="Chart type: Bar").click()
     settle(page, 200)
-    checks.add("the pane switch shows only the bar chart", pane.locator(".bsh-chart--doughnut").count() == 0 and pane.locator(".bsh-chart--bar").count() == 1)
-    pane.get_by_role("button", name="Both").click()
+    checks.add("the chart menu switches to the bar chart", pane.locator(".bsh-chart--doughnut").count() == 0 and pane.locator(".bsh-chart--bar").count() == 1)
+    pane.get_by_role("button", name="Add chart").click()
     settle(page, 200)
     check_dashboard_gallery(page, checks)
     page.get_by_role("button", name="Collapse Dashboard").first.click()
@@ -839,12 +842,6 @@ def check_saved_items(page, checks):
     dialog.get_by_label("Preset name").fill("Smoke saved")
     dialog.get_by_role("button", name="Save current board").click()
     dialog.get_by_role("button", name="Apply Smoke preset").click()
-    settle(page, 200)
-    checks.add("applying a user preset sets the chart type", dialog.get_by_label("Chart type").input_value() == "bar")
-    dialog.get_by_label("Chart type").select_option("hbar")
-    settle(page, 200)
-    checks.add("the chart type changes from the settings window", dialog.get_by_label("Chart type").input_value() == "hbar")
-    dialog.get_by_label("Chart type").select_option("doughnut")
     settle(page, 200)
     dialog.get_by_label("Rename Smoke saved").fill("Smoke renamed")
     dialog.get_by_label("Rename Smoke saved").press("Enter")

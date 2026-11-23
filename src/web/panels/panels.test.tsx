@@ -196,10 +196,10 @@ describe('DashboardPanel', () => {
         name: 'Doughnut chart of element share by Category',
       }),
     ).toBeInTheDocument();
-    expect(screen.getByText('Data table')).toBeInTheDocument();
+    expect(screen.getAllByText('Data table')).toHaveLength(2);
   });
 
-  it('switches property from the settings body and collapses', async () => {
+  it('switches property from the chart menu and collapses', async () => {
     const adapter = await loaded();
     const onCollapsedChange = vi.fn();
     render(
@@ -215,9 +215,14 @@ describe('DashboardPanel', () => {
       name: 'Bar chart of element counts by Category',
     });
     expect(screen.queryByLabelText('Group elements by')).toBeNull();
-    fireEvent.change(screen.getByLabelText('Group by'), {
-      target: { value: 'Level' },
-    });
+    fireEvent.click(
+      screen.getAllByRole('button', {
+        name: /^Options for Bar chart/,
+      })[0] as HTMLElement,
+    );
+    fireEvent.click(
+      screen.getByRole('menuitemcheckbox', { name: 'Group by Level' }),
+    );
     expect(
       await screen.findByRole('img', {
         name: 'Bar chart of element counts by Level',
@@ -233,7 +238,7 @@ describe('DashboardPanel', () => {
     window.localStorage.setItem(
       BSH_KEYS.personal.dashboardView,
       JSON.stringify({
-        property: 'Level',
+        charts: [{ property: 'Level' }, { property: 'Category' }],
         properties: ['Category', 'Level'],
       }),
     );
@@ -243,9 +248,12 @@ describe('DashboardPanel', () => {
     ]);
     render(<DashboardPanel adapter={adapter} />);
     expect(
-      await screen.findByText(
-        'This model has no Level values, so the chart groups by Category.',
-      ),
+      await screen.findByText('This model has no Level values.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', {
+        name: 'Bar chart of element counts by Category',
+      }),
     ).toBeInTheDocument();
   });
 });
@@ -495,7 +503,7 @@ describe('dashboard settings', () => {
     },
   );
 
-  it('keeps the pane to charts and a chart type switch', async () => {
+  it('keeps the pane to charts and switches type from the chart menu', async () => {
     const adapter = await loaded();
     render(<DashboardPanel adapter={adapter} />);
     await screen.findByRole('img', {
@@ -503,17 +511,27 @@ describe('dashboard settings', () => {
     });
     expect(screen.queryByRole('button', { name: 'Model health' })).toBeNull();
     expect(screen.queryByLabelText('Chart click action')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Doughnut' }));
+    for (const name of ['Bar', 'Doughnut', 'Both']) {
+      expect(screen.queryByRole('button', { name })).toBeNull();
+    }
+    fireEvent.click(
+      screen.getAllByRole('button', {
+        name: /^Options for Bar chart/,
+      })[0] as HTMLElement,
+    );
+    fireEvent.click(
+      screen.getByRole('menuitemcheckbox', { name: 'Chart type: Doughnut' }),
+    );
     expect(
       screen.queryByRole('img', {
         name: 'Bar chart of element counts by Category',
       }),
     ).toBeNull();
     expect(
-      screen.getByRole('img', {
+      screen.getAllByRole('img', {
         name: 'Doughnut chart of element share by Category',
       }),
-    ).toBeInTheDocument();
+    ).toHaveLength(2);
   });
 
   it('keeps two bodies and the panel in sync', async () => {
@@ -528,17 +546,12 @@ describe('dashboard settings', () => {
     await screen.findByRole('img', {
       name: 'Bar chart of element counts by Category',
     });
-    const [first, second] = screen.getAllByLabelText('Chart type');
-    fireEvent.change(first as HTMLElement, { target: { value: 'bar' } });
+    const [first, second] = screen.getAllByRole('switch', {
+      name: /Fold values beyond the top/,
+    });
+    fireEvent.click(first as HTMLElement);
     await waitFor(() =>
-      expect((second as HTMLSelectElement).value).toBe('bar'),
-    );
-    await waitFor(() =>
-      expect(
-        screen.queryByRole('img', {
-          name: 'Doughnut chart of element share by Category',
-        }),
-      ).toBeNull(),
+      expect(second).toHaveAttribute('aria-checked', 'false'),
     );
     fireEvent.click(
       screen.getAllByRole('button', {
@@ -615,17 +628,6 @@ describe('dashboard presets and cross-filter', () => {
         name: 'Bar chart of element counts by Discipline',
       }),
     ).toBeNull();
-    fireEvent.click(
-      screen.getAllByRole('button', {
-        name: 'Dashboard presets',
-      })[1] as HTMLElement,
-    );
-    fireEvent.click(
-      screen.getByRole('menuitemcheckbox', { name: 'Single chart' }),
-    );
-    expect(
-      await screen.findByRole('list', { name: /Legend/ }),
-    ).toBeInTheDocument();
   });
 
   it('selects the elements of a clicked bar', async () => {

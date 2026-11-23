@@ -122,7 +122,10 @@ describe('production saved kinds', () => {
     expect(SELECTION_SETS.remove(set?.id ?? '')).toBe(true);
 
     const board = DASHBOARD_USER_PRESETS.save('Board', DEFAULT_DASHBOARD_VIEW);
-    expect(board?.data).toMatchObject({ kind: 'both', maxCategories: 12 });
+    expect(board?.data).toMatchObject({
+      orientation: 'horizontal',
+      maxCategories: 12,
+    });
     expect(DASHBOARD_USER_PRESETS.rename(board?.id ?? '', 'Board 2')).toBe(
       true,
     );
@@ -209,9 +212,9 @@ describe('production saved kinds', () => {
     expect(listViewpoints().map((point) => point.name)).toEqual(['Old view']);
     expect(VIEWPOINTS.list()[0]?.version).toBe(1);
     expect(listSets()[0]?.items).toEqual([{ modelId: 'a', dbId: 1 }]);
-    expect(DASHBOARD_USER_PRESETS.list()[0]?.data).toMatchObject({
-      kind: 'bar',
-    });
+    expect(DASHBOARD_USER_PRESETS.list()[0]?.data.charts).toMatchObject([
+      { chartType: 'bar' },
+    ]);
 
     expect(VIEWPOINTS.rename('vp-old', 'Renamed')).toBe(true);
     const stored = JSON.parse(

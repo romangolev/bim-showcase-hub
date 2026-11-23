@@ -51,8 +51,9 @@ describe('DashboardGallery', () => {
     fireEvent.click(
       screen.getByRole('button', { name: 'Apply By discipline' }),
     );
-    expect(apply).toHaveBeenCalledWith(
-      expect.objectContaining({ preset: 'discipline' }),
+    const applied = apply.mock.calls[0]?.[0];
+    expect(applied.charts.map((c: { property: string }) => c.property)).toEqual(
+      ['Discipline', 'Category'],
     );
   });
 
@@ -63,7 +64,12 @@ describe('DashboardGallery', () => {
       screen.getByRole('button', { name: 'Save Model health as my preset' }),
     );
     expect(readSaved('dashboard-preset')[0]?.data).toMatchObject({
-      preset: 'health',
+      charts: [
+        { property: 'Category' },
+        { property: 'Level' },
+        { property: 'Assembly Code' },
+        { property: 'Classification Code' },
+      ],
     });
 
     const rename = await screen.findByLabelText('Rename Model health');
@@ -72,9 +78,7 @@ describe('DashboardGallery', () => {
     expect(readSaved('dashboard-preset')[0]?.name).toBe('Mine');
 
     fireEvent.click(await screen.findByRole('button', { name: 'Apply Mine' }));
-    expect(apply).toHaveBeenCalledWith(
-      expect.objectContaining({ preset: 'health' }),
-    );
+    expect(apply.mock.calls[0]?.[0].charts).toHaveLength(4);
     fireEvent.click(screen.getByRole('button', { name: 'Delete Mine' }));
     expect(readSaved('dashboard-preset')).toHaveLength(0);
     await waitFor(() =>

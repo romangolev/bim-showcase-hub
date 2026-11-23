@@ -1,9 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PropertyRow } from '../../shared/types.js';
-import {
-  DASHBOARD_PRESETS,
-  presetCharts,
-} from '../extensions/dashboardPresets.js';
+import { availableProperties } from '../extensions/dashboardData.js';
+import { DASHBOARD_PRESETS } from '../extensions/dashboardPresets.js';
 import { BSH_KEYS } from '../storage.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { fireEvent, render, screen, waitFor } from '../test/render.js';
@@ -63,10 +61,10 @@ afterEach(() => {
   for (const a of adapters.splice(0)) a.destroy();
 });
 
-describe('presetCharts on a model without Revit names', () => {
+describe('preset properties on a model without Revit names', () => {
   it('returns no chart for any built-in on a Navisworks-like property set', () => {
     for (const preset of DASHBOARD_PRESETS) {
-      expect(presetCharts(preset, navisworks)).toEqual([]);
+      expect(availableProperties(navisworks, preset.properties)).toEqual([]);
     }
   });
 
@@ -76,16 +74,17 @@ describe('presetCharts on a model without Revit names', () => {
       if (!found) throw new Error(id);
       return found;
     };
-    expect(presetCharts(byId('health'), partial)).toEqual(['Category']);
-    expect(presetCharts(byId('quantities'), partial)).toEqual([
+    expect(availableProperties(partial, byId('health').properties)).toEqual([
       'Category',
-      'Family',
     ]);
+    expect(availableProperties(partial, byId('quantities').properties)).toEqual(
+      ['Category', 'Family'],
+    );
   });
 
   it('returns nothing for an empty model', () => {
     for (const preset of DASHBOARD_PRESETS) {
-      expect(presetCharts(preset, [])).toEqual([]);
+      expect(availableProperties([], preset.properties)).toEqual([]);
     }
   });
 });
@@ -102,10 +101,12 @@ describe('DashboardPanel gallery', () => {
       screen.getByRole('list', { name: 'Dashboard presets' }),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Apply Model health' }));
-    expect(stored().preset).toBe('health');
+    expect(
+      stored().charts.map((c: { property: string }) => c.property),
+    ).toEqual(['Category', 'Level', 'Assembly Code', 'Classification Code']);
   });
 
-  it('applies a preset from the Presets menu and can return to a single chart', async () => {
+  it('applies a preset from the Presets menu', async () => {
     const adapter = await loaded();
     render(<DashboardPanel adapter={adapter} />);
     await screen.findByRole('img', {
@@ -113,19 +114,12 @@ describe('DashboardPanel gallery', () => {
     });
     const trigger = screen.getByRole('button', { name: 'Dashboard presets' });
     fireEvent.click(trigger);
-    expect(
-      screen.getByRole('menuitemcheckbox', { name: 'Single chart' }),
-    ).toBeInTheDocument();
+    expect(trigger).toHaveTextContent('Presets: Custom');
     fireEvent.click(
       screen.getByRole('menuitemcheckbox', { name: 'Model health' }),
     );
-    expect(stored().preset).toBe('health');
+    expect(stored().charts).toHaveLength(4);
     expect(trigger).toHaveTextContent('Presets: Model health');
-    fireEvent.click(trigger);
-    fireEvent.click(
-      screen.getByRole('menuitemcheckbox', { name: 'Single chart' }),
-    );
-    expect(stored().preset).toBeNull();
   });
 
   it('opens the full gallery from Browse presets and closes after Apply', async () => {
@@ -148,7 +142,7 @@ describe('DashboardPanel gallery', () => {
     expect(
       screen.queryByRole('list', { name: 'Dashboard presets' }),
     ).toBeNull();
-    expect(stored().preset).toBe('health');
+    expect(stored().charts).toHaveLength(4);
     await waitFor(() =>
       expect(
         screen.getAllByRole('img', { name: /^Bar chart of element counts by / })
@@ -170,7 +164,7 @@ describe('DashboardPanel gallery', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        'This model has none of the properties By discipline uses.',
+        'This model has none of the properties these charts group by.',
       ),
     ).toBeInTheDocument();
     expect(
@@ -182,7 +176,7 @@ describe('DashboardPanel gallery', () => {
     expect(screen.getAllByText(/Not in this model/)).toHaveLength(4);
   });
 
-  it('hides only the charts whose property is absent', async () => {
+  it('keeps a tile with a message for a chart whose property is absent', async () => {
     window.localStorage.setItem(
       BSH_KEYS.personal.dashboardView,
       JSON.stringify({ preset: 'quantities' }),
@@ -203,5 +197,8 @@ describe('DashboardPanel gallery', () => {
         name: 'Bar chart of element counts by Type Name',
       }),
     ).toBeNull();
+    expect(
+      screen.getByText('This model has no Type Name values.'),
+    ).toBeVisible();
   });
 });

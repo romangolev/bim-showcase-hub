@@ -5,9 +5,10 @@ import {
   DASHBOARD_PRESETS,
   DASHBOARD_USER_PRESETS,
   type DashboardView,
+  presetChartList,
   sanitizeDashboardView,
   saveDashboardPreset,
-  viewProperties,
+  withCharts,
 } from '../extensions/dashboardPresets.js';
 import { useSavedKindItems } from '../store/savedKinds.js';
 import { MAX_NAME_LENGTH } from '../store/savedStore.js';
@@ -83,7 +84,7 @@ export function DashboardGallery({ view, apply, rows }: DashboardGalleryProps) {
                 type="button"
                 className="btn btn-primary"
                 aria-label={`Apply ${preset.label}`}
-                onClick={() => apply({ ...view, preset: preset.id })}
+                onClick={() => apply(withCharts(view, presetChartList(preset)))}
               >
                 Apply
               </button>
@@ -93,10 +94,10 @@ export function DashboardGallery({ view, apply, rows }: DashboardGalleryProps) {
                 aria-label={`Save ${preset.label} as my preset`}
                 onClick={() => {
                   setFailed(
-                    !saveDashboardPreset(preset.label, {
-                      ...view,
-                      preset: preset.id,
-                    }),
+                    !saveDashboardPreset(
+                      preset.label,
+                      withCharts(view, presetChartList(preset)),
+                    ),
                   );
                 }}
               >
@@ -107,7 +108,7 @@ export function DashboardGallery({ view, apply, rows }: DashboardGalleryProps) {
         ))}
         {items.map((item) => {
           const own = item.data;
-          const properties = viewProperties(own);
+          const properties = own.charts.map((chart) => chart.property);
           return (
             <li key={`${item.id}:${item.name}`} className="bsh-gallery__card">
               <input

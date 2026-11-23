@@ -27,7 +27,7 @@ describe('dashboard user presets', () => {
       screen.getByRole('menuitemcheckbox', { name: 'Mine' }),
     ).toHaveAttribute('aria-checked', 'true');
     expect(
-      screen.getByRole('menuitemcheckbox', { name: 'Single chart' }),
+      screen.getByRole('menuitemcheckbox', { name: 'Model health' }),
     ).toHaveAttribute('aria-checked', 'false');
   });
 
@@ -37,27 +37,21 @@ describe('dashboard user presets', () => {
     const save = screen.getByRole('button', { name: 'Save current board' });
     expect((save as HTMLButtonElement).disabled).toBe(true);
 
-    fireEvent.change(screen.getByLabelText('Chart type'), {
-      target: { value: 'bar' },
-    });
     fireEvent.change(screen.getByLabelText('Preset name'), {
       target: { value: 'Mine' },
     });
     fireEvent.click(save);
     expect(readSaved('dashboard-preset')).toHaveLength(1);
     expect(readSaved('dashboard-preset')[0]?.data).toMatchObject({
-      kind: 'bar',
+      otherBucket: true,
     });
 
-    fireEvent.change(screen.getByLabelText('Chart type'), {
-      target: { value: 'doughnut' },
-    });
-    expect(viewStored().kind).toBe('doughnut');
+    fireEvent.click(
+      screen.getByRole('switch', { name: /Fold values beyond the top/ }),
+    );
+    expect(viewStored().otherBucket).toBe(false);
     fireEvent.click(await screen.findByRole('button', { name: 'Apply Mine' }));
-    expect(viewStored().kind).toBe('bar');
-    expect(
-      (screen.getByLabelText('Chart type') as HTMLSelectElement).value,
-    ).toBe('bar');
+    expect(viewStored().otherBucket).toBe(true);
 
     const rename = screen.getByLabelText('Rename Mine');
     fireEvent.change(rename, { target: { value: 'Renamed' } });
@@ -90,7 +84,7 @@ describe('dashboard user presets', () => {
     );
     render(<DashboardSettingsBody />);
     fireEvent.click(screen.getByRole('button', { name: 'Apply Catalog' }));
-    expect(viewStored().property).toBe('Type Name');
+    expect(viewStored().charts[0].property).toBe('Type Name');
   });
 
   it('saves the chosen property list with a preset', async () => {
@@ -106,14 +100,9 @@ describe('dashboard user presets', () => {
     expect(readSaved('dashboard-preset')[0]?.data).toMatchObject({
       properties: ['Category', 'Name'],
     });
-    fireEvent.change(screen.getByLabelText('Chart type'), {
-      target: { value: 'doughnut' },
-    });
     fireEvent.click(await screen.findByRole('button', { name: 'Apply Mine' }));
-    expect(viewStored()).toMatchObject({
-      kind: 'both',
-      properties: ['Category', 'Name'],
-    });
+    expect(viewStored().properties).toEqual(['Category', 'Name']);
+    expect(viewStored().charts[0].property).toBe('Name');
   });
 
   it('applies a malformed saved preset through the sanitizer', () => {
@@ -133,6 +122,7 @@ describe('dashboard user presets', () => {
     );
     render(<DashboardSettingsBody />);
     fireEvent.click(screen.getByRole('button', { name: 'Apply Odd' }));
-    expect(viewStored()).toMatchObject({ kind: 'both', maxCategories: 12 });
+    expect(viewStored()).toMatchObject({ maxCategories: 12 });
+    expect(viewStored().charts).toHaveLength(2);
   });
 });

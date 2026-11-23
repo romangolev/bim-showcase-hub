@@ -189,7 +189,9 @@ describe('incoming link module', () => {
       ),
     );
     expect(layout.togglePane).toHaveBeenCalledWith('summary');
-    expect(PANE_SETTINGS.dashboard.view.read().property).toBe('Level');
+    expect(PANE_SETTINGS.dashboard.view.read().charts[0]?.property).toBe(
+      'Level',
+    );
     expect(onResult).toHaveBeenCalledWith(LINK_RESTORED_TEXT, false);
   });
 
@@ -327,7 +329,7 @@ describe('incoming link restore', () => {
     expect(layout.addInstance).toHaveBeenCalledWith('chart');
     expect(layout.addInstance).toHaveBeenCalledTimes(1);
     expect(report.charts).toBe(1);
-    expect(chartSetting('chart:1').read().property).toBe('Level');
+    expect(chartSetting('chart:1').read().charts[0]?.property).toBe('Level');
   });
 
   it('leaves the stored panes alone in the stacked layout', () => {
@@ -359,8 +361,12 @@ describe('incoming link restore', () => {
       layout,
     );
     expect(report).toEqual({ panes: false, charts: 2 });
-    expect(PANE_SETTINGS.dashboard.view.read().property).toBe('Level');
-    expect(chartSetting('chart:1').read().property).toBe('Type Name');
+    expect(PANE_SETTINGS.dashboard.view.read().charts[0]?.property).toBe(
+      'Level',
+    );
+    expect(chartSetting('chart:1').read().charts[0]?.property).toBe(
+      'Type Name',
+    );
   });
 
   it('puts link charts in new panes and keeps the local ones', () => {
@@ -377,8 +383,8 @@ describe('incoming link restore', () => {
       }),
       layout,
     );
-    expect(chartSetting('chart:1').read().property).toBe('Mine');
-    expect(chartSetting('chart:2').read().property).toBe('Level');
+    expect(chartSetting('chart:1').read().charts[0]?.property).toBe('Mine');
+    expect(chartSetting('chart:2').read().charts[0]?.property).toBe('Level');
   });
 
   it('does not create a chart pane when the layout refuses', () => {
@@ -394,6 +400,6 @@ describe('incoming link restore', () => {
       fakeLayout(),
     );
     expect(report.charts).toBe(0);
-    expect(chartSetting('chart:1').read().property).toBe('Category');
+    expect(chartSetting('chart:1').read().charts[0]?.property).toBe('Category');
   });
 });
