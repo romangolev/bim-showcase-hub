@@ -147,6 +147,12 @@
   padding: 0 var(--space-1);
 }
 
+.bsh-dock .dv-right-actions-container > .dv-react-part {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
 .bsh-dock .dv-groupview[data-collapsed] > .dv-content-container {
   display: none;
 }
@@ -165,10 +171,7 @@
   .dv-groupview[data-collapsed="width"]
   .dv-right-actions-container
   > .dv-react-part {
-  display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: var(--space-1);
 }
 
 .bsh-dock .dv-groupview[data-collapsed="width"] .dv-right-actions-container {
