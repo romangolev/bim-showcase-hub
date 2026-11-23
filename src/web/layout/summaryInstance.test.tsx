@@ -7,7 +7,7 @@ import {
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import { forgetPersonal } from '../storage.js';
 import { installMemoryStorage } from '../test/mockApi.js';
-import { fireEvent, render, screen, waitFor } from '../test/render.js';
+import { fireEvent, render, screen, waitFor, within } from '../test/render.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
 import { ModelViewerContext } from '../viewer/ViewerContext.js';
 import {
@@ -210,5 +210,26 @@ describe('summary instance spec', () => {
       target: { value: 'compact' },
     });
     expect(window.localStorage.getItem(key)).toBeNull();
+  });
+
+  it('adds a row property to that instance only', async () => {
+    seedInstanceSetting('modelSummary:1', 'urn');
+    render(
+      <ModelViewerContext.Provider value={adapter}>
+        <SummaryInstancePane instance="1" />
+      </ModelViewerContext.Provider>,
+    );
+    await screen.findByLabelText('Summarize elements');
+    fireEvent.click(screen.getByRole('button', { name: 'Add property' }));
+    const box = within(document.querySelector('dialog[open]') as HTMLElement);
+    fireEvent.click(box.getByRole('radio', { name: 'Rows' }));
+    fireEvent.click(await box.findByRole('radio', { name: 'Level' }));
+    fireEvent.click(box.getByRole('button', { name: 'Add property' }));
+    await waitFor(() =>
+      expect(summarySetting('modelSummary:1').read().properties).toContain(
+        'Level',
+      ),
+    );
+    expect(PANE_SETTINGS.summary.properties.has()).toBe(false);
   });
 });

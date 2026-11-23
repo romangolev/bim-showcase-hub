@@ -11,7 +11,11 @@ import {
 } from '../extensions/elementActions.js';
 import { applyNamePattern, toDelimited } from '../extensions/exportFormats.js';
 import {
+  applyAddition,
   emptyShares,
+  MAX_SUMMARY_COLUMNS,
+  MAX_SUMMARY_ROWS,
+  type SummaryAggregate,
   type SummaryEntry,
   type SummaryView,
   summarize,
@@ -35,6 +39,7 @@ import {
   UnavailableModels,
 } from './ModelScope.js';
 import { SummaryPresets } from './SummaryPresets.js';
+import { promptSummaryProperty } from './SummaryPropertyDialog.js';
 import { entryKey, SummaryTable } from './SummaryTable.js';
 import {
   HIDDEN_MESSAGE,
@@ -53,6 +58,7 @@ export interface ModelSummaryPanelProps {
   adapter?: ViewerAdapter | null;
   model?: SummaryModel | null;
   propertyNames?: readonly string[];
+  onPropertiesChange?: (names: readonly string[]) => void;
   title?: string;
   className?: string;
   collapsed?: boolean;
@@ -73,6 +79,7 @@ export function ModelSummaryPanel({
   adapter,
   model,
   propertyNames: propertyNamesOverride,
+  onPropertiesChange,
   title = 'Model summary',
   className,
   collapsed,
@@ -91,8 +98,11 @@ export function ModelSummaryPanel({
   const isCollapsed = collapsed ?? innerCollapsed;
   const [showAll, setShowAll] = useState(false);
   const resolved = useResolvedAdapter(adapter);
-  const [savedProperties] = usePersisted(PANE_SETTINGS.summary.properties);
+  const [savedProperties, setSavedProperties] = usePersisted(
+    PANE_SETTINGS.summary.properties,
+  );
   const propertyNames = propertyNamesOverride ?? savedProperties;
+  const setProperties = onPropertiesChange ?? setSavedProperties;
   const [savedElements, setSavedElements] = usePersisted(
     PANE_SETTINGS.summary.scope,
   );
@@ -148,6 +158,25 @@ export function ModelSummaryPanel({
     if (controlledView) controlledView.onChange(merged);
     else setSavedView(merged);
   };
+  const full =
+    propertyNames.length >= MAX_SUMMARY_ROWS &&
+    view.columns.length >= MAX_SUMMARY_COLUMNS;
+  const openAdd = (initial?: {
+    property: string;
+    aggregate: SummaryAggregate;
+  }) =>
+    promptSummaryProperty({
+      adapter: resolved,
+      rows: propertyNames,
+      columns: view.columns,
+      role: 'column',
+      ...(initial ? { initial } : {}),
+      onSubmit: (addition) => {
+        const next = applyAddition(propertyNames, view.columns, addition);
+        if (addition.role === 'rows') setProperties(next.properties);
+        else patch({ columns: next.columns });
+      },
+    });
 
   const pick = (entry: SummaryEntry) => {
     if (!resolved) return;
@@ -217,6 +246,20 @@ export function ModelSummaryPanel({
         </h2>
         <ModelScopeSelect state={state.models} label="Summarize models" />
         <ElementScopeSelect value={elementsScope} onChange={setElementsScope} />
+        <button
+          type="button"
+          className="btn bsh-summary__add"
+          disabled={full}
+          title={
+            full
+              ? `The summary already has ${MAX_SUMMARY_ROWS} rows and ${MAX_SUMMARY_COLUMNS} columns`
+              : undefined
+          }
+          onClick={() => openAdd()}
+        >
+          <Icon name="plus" size={14} />
+          <span className="bsh-summary__add-label">Add property</span>
+        </button>
         <button
           type="button"
           className="btn bsh-summary__refresh"
@@ -406,6 +449,14 @@ export function ModelSummaryPanel({
               )}
             </div>
           )}
+          {entries.length > 0 && view.columns.length === 0 ? (
+            <p className="bsh-summary__hint">
+              <span>Add a column to count or total these values.</span>
+              <button type="button" className="btn" onClick={() => openAdd()}>
+                Add a column
+              </button>
+            </p>
+          ) : null}
           {entries.length > 0 &&
             shown.length === 0 &&
             view.layout !== 'pivot' && (

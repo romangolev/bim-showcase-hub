@@ -3,7 +3,14 @@ import { COUNT_COLUMN, summaryColumn } from '../extensions/modelSummary.js';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import { BSH_KEYS } from '../storage.js';
 import { installMemoryStorage } from '../test/mockApi.js';
-import { act, fireEvent, render, screen, waitFor } from '../test/render.js';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '../test/render.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
 import { buildMockElements } from '../viewer/mockModel.js';
 import { DashboardPanel } from './DashboardPanel.js';
@@ -732,5 +739,53 @@ describe('summary settings entry points', () => {
         (screen.getByLabelText('Density') as HTMLSelectElement).value,
       ).toBe('comfortable'),
     );
+  });
+});
+
+describe('summary Add property', () => {
+  beforeEach(() => {
+    installMemoryStorage();
+  });
+
+  it('adds a column from the pane header and reads its property', async () => {
+    const adapter = await loaded();
+    render(
+      <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />,
+    );
+    await screen.findByRole('cell', { name: 'Walls' });
+    fireEvent.click(screen.getByRole('button', { name: 'Add property' }));
+    const box = within(document.querySelector('dialog[open]') as HTMLElement);
+    fireEvent.click(await box.findByRole('radio', { name: 'Level' }));
+    fireEvent.change(box.getByLabelText('Aggregate'), {
+      target: { value: 'distinct' },
+    });
+    fireEvent.click(box.getByRole('button', { name: 'Add property' }));
+    expect(
+      await screen.findByRole('columnheader', {
+        name: 'Distinct values of Level',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      PANE_SETTINGS.summary.view.read().columns.map((column) => column.id),
+    ).toEqual(['count', 'distinct:Level']);
+  });
+
+  it('offers to add a column when there is none', async () => {
+    PANE_SETTINGS.summary.view.write({
+      ...PANE_SETTINGS.summary.view.initial,
+      columns: [],
+    });
+    const adapter = await loaded();
+    render(
+      <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />,
+    );
+    expect(
+      await screen.findByText('Add a column to count or total these values.'),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Add a column' }));
+    expect(document.querySelector('dialog[open]')).not.toBeNull();
+    fireEvent.keyDown(document.querySelector('dialog[open]') as HTMLElement, {
+      key: 'Escape',
+    });
   });
 });
