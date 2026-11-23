@@ -20,6 +20,7 @@ import {
   PRESET_PROPERTIES,
   presetCharts,
   viewSpec,
+  withChartType,
 } from '../extensions/dashboardPresets.js';
 import {
   itemsWithValues,
@@ -297,14 +298,10 @@ export function DashboardPanel({
   };
 
   const setKind = (kind: DashboardKind) =>
-    setView((prev) => ({
-      ...prev,
-      kind,
-      chartType: kind === 'doughnut' ? 'doughnut' : 'bar',
-    }));
+    setView((prev) => withChartType(prev, kind));
 
-  const legacyPair = view.kind === 'both' && spec.chartType === 'bar';
-  const chartType: ChartType = spec.chartType;
+  const legacyPair = spec.chartType === 'both';
+  const chartType = spec.chartType === 'both' ? 'bar' : spec.chartType;
 
   const bodyId = `${uid}-body`;
 
@@ -372,7 +369,7 @@ export function DashboardPanel({
                 key={kind}
                 type="button"
                 className="bsh-button"
-                aria-pressed={view.kind === kind}
+                aria-pressed={spec.chartType === kind}
                 onClick={() => setKind(kind)}
               >
                 {KIND_LABELS[kind]}

@@ -3,19 +3,19 @@ import {
   AGGREGATE_LABELS,
   AGGREGATES,
   type Aggregate,
-  CHART_TYPE_LABELS,
-  CHART_TYPES,
-  type ChartType,
   TOP_N_MAX,
   TOP_N_MIN,
 } from '../extensions/dashboardData.js';
 import {
+  DASHBOARD_CHART_TYPE_LABELS,
+  DASHBOARD_CHART_TYPES,
   DASHBOARD_PRESETS,
+  type DashboardChartType,
   type DashboardView,
-  kindForChartType,
   MAX_CATEGORIES,
   MIN_CATEGORIES,
   viewSpec,
+  withChartType,
 } from '../extensions/dashboardPresets.js';
 import {
   ACTION_LABELS,
@@ -144,8 +144,8 @@ function DashboardFields({
         ? view.property
         : (next[0] ?? view.property),
     });
-  const setChartType = (chartType: ChartType) =>
-    patch({ chartType, kind: kindForChartType(chartType) });
+  const setChartType = (chartType: DashboardChartType) =>
+    setView((prev) => withChartType(prev, chartType));
   const setAggregate = (aggregate: Aggregate) => patch({ aggregate });
   const numeric = spec.aggregate !== 'count';
 
@@ -279,11 +279,11 @@ function DashboardFields({
           <select
             className="bsh-select"
             value={spec.chartType}
-            onChange={(e) => setChartType(e.target.value as ChartType)}
+            onChange={(e) => setChartType(e.target.value as DashboardChartType)}
           >
-            {CHART_TYPES.map((type) => (
+            {DASHBOARD_CHART_TYPES.map((type) => (
               <option key={type} value={type}>
-                {CHART_TYPE_LABELS[type]}
+                {DASHBOARD_CHART_TYPE_LABELS[type]}
               </option>
             ))}
           </select>

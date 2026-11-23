@@ -269,6 +269,7 @@
   padding: var(--space-2) var(--padding-panel);
   overflow: auto;
   border-top: var(--border-hairline);
+  container-type: inline-size;
 }
 
 .bsh-drawer__body {
@@ -314,8 +315,8 @@
 
 .bsh-chart__plot {
   position: relative;
-  flex: none;
-  width: calc(var(--drawer-body) - var(--space-6));
+  flex: 1 1 0;
+  min-width: 0;
   height: 100%;
 }
 
@@ -325,7 +326,7 @@
 
 .bsh-legend {
   display: flex;
-  flex: 1;
+  flex: 0 1 12rem;
   flex-direction: column;
   flex-wrap: wrap;
   align-content: flex-start;
@@ -910,6 +911,18 @@
 
 .bsh-charts[data-single] {
   grid-template-columns: minmax(0, 1fr);
+}
+
+@container (max-width: 520px) {
+  .bsh-charts:not([data-single]) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    height: auto;
+  }
+
+  .bsh-charts:not([data-single]) .bsh-chart-frame {
+    height: 190px;
+  }
 }
 
 .bsh-picker {
