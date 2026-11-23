@@ -13,14 +13,15 @@ import {
   applyAddition,
   blockTitle,
   COUNT_COLUMN,
-  columnCells,
-  columnRef,
+  cellsByEntry,
   columnTitle,
   countShare,
   DEFAULT_SUMMARY_PROPERTIES,
   DEFAULT_SUMMARY_VIEW,
   emptyShares,
+  entryKey,
   formatCell,
+  formatPercent,
   MAX_SUMMARY_COLUMNS,
   MAX_SUMMARY_ROWS,
   parseMeasure,
@@ -33,6 +34,7 @@ import {
   summaryColumn,
   summaryTable,
   viewEntries,
+  viewPropertyNames,
 } from './modelSummary.js';
 import { sanitizePropertyNames } from './propertyNames.js';
 
@@ -66,11 +68,18 @@ describe('viewEntries', () => {
 });
 
 describe('emptyShares', () => {
-  it('reports the rounded share of empty values per property', () => {
-    expect(emptyShares(entries)).toEqual([
-      { property: 'A', percent: 33 },
-      { property: 'B', percent: 0 },
-    ]);
+  it('reports the exact share of empty values per property', () => {
+    const [a, b] = emptyShares(entries);
+    expect(a?.percent).toBeCloseTo(33.33, 1);
+    expect(b).toEqual({ property: 'B', percent: 0 });
+  });
+
+  it('never rounds a share to 0 or 100 unless it is exact', () => {
+    expect(formatPercent(0)).toBe('0%');
+    expect(formatPercent(100)).toBe('100%');
+    expect(formatPercent(0.2)).toBe('<1%');
+    expect(formatPercent(99.8)).toBe('>99%');
+    expect(formatPercent(33.4)).toBe('33%');
   });
 });
 
@@ -191,16 +200,6 @@ describe('sanitizeView columns migration', () => {
       MAX_SUMMARY_COLUMNS,
     );
     expect(sanitizeView({ columns: [] }).columns).toEqual([]);
-  });
-});
-
-describe('column ids', () => {
-  it('round-trips a ref through its id', () => {
-    expect(columnRef('count')).toEqual({ property: null, aggregate: 'count' });
-    expect(columnRef('sum:Area: net')).toEqual({
-      property: 'Area: net',
-      aggregate: 'sum',
-    });
   });
 });
 
@@ -362,16 +361,63 @@ describe('column aggregates', () => {
     ).toEqual({ status: 'none' });
   });
 
-  it('computes every column per value of the row property', () => {
-    const cells = columnCells(rows, 'Category', [
-      ref(null, 'count'),
-      ref('Area', 'sum'),
-    ]);
-    expect(cells.get('Walls')).toEqual([
+  it('computes every column per entry', () => {
+    const entry = (value: string, count: number) => ({
+      property: 'Category',
+      value,
+      count,
+    });
+    const cells = cellsByEntry(
+      rows,
+      [entry('Walls', 2), entry('Doors', 4), entry('Gone', 7)],
+      [ref(null, 'count'), ref('Area', 'sum')],
+    );
+    expect(cells.get(entryKey(entry('Walls', 2)))).toEqual([
       { status: 'ok', value: 2, unit: '', missing: 0 },
       { status: 'ok', value: 1212.5, unit: 'm²', missing: 0 },
     ]);
-    expect(cells.get('Doors')?.[1]).toMatchObject({ value: 3, missing: 1 });
+    expect(cells.get(entryKey(entry('Doors', 4)))?.[1]).toMatchObject({
+      value: 3,
+      missing: 1,
+    });
+    expect(cells.get(entryKey(entry('Gone', 7)))).toEqual([
+      { status: 'ok', value: 7, unit: '', missing: 0 },
+      { status: 'none' },
+    ]);
+  });
+
+  it('skips the rows when every column is an element count', () => {
+    const entry = { property: 'Category', value: 'Walls', count: 9 };
+    expect(
+      cellsByEntry(
+        new Proxy([], { get: () => assertNoRead() }),
+        [entry],
+        [ref(null, 'count')],
+      ).get(entryKey(entry)),
+    ).toEqual([{ status: 'ok', value: 9, unit: '', missing: 0 }]);
+  });
+
+  it('counts whitespace-only values as empty', () => {
+    const blanks: PropertyRow[] = [
+      { dbId: 1, name: 'a', properties: { Mark: '  ' } },
+      { dbId: 2, name: 'b', properties: { Mark: 'M1' } },
+    ];
+    expect(aggregateCell(blanks, ref('Mark', 'filled'))).toMatchObject({
+      value: 50,
+    });
+    expect(aggregateCell(blanks, ref('Mark', 'distinct'))).toMatchObject({
+      value: 1,
+    });
+  });
+
+  it('formats the missing count in the given language', () => {
+    expect(
+      formatCell(
+        { status: 'ok', value: 1, unit: 'm²', missing: 1234 },
+        summaryColumn('Area', 'sum'),
+        'ru',
+      ),
+    ).toMatch(/1\s234 missing/);
   });
 
   it('formats each kind of cell', () => {
@@ -412,6 +458,21 @@ describe('column aggregates', () => {
     expect(
       columnTitle(summaryColumn('Area', 'sum', { title: ' Total ' })),
     ).toBe('Total');
+  });
+});
+
+function assertNoRead(): never {
+  throw new Error('rows must not be read');
+}
+
+describe('viewPropertyNames', () => {
+  it('names the row and column properties once each', () => {
+    expect(
+      viewPropertyNames(
+        ['Level', 'Name'],
+        [COUNT_COLUMN, summaryColumn('Level', 'distinct')],
+      ),
+    ).toEqual(['Level', 'Name']);
   });
 });
 
@@ -552,13 +613,16 @@ describe('adding a property', () => {
     summaryColumn('Area', 'sum'),
   ];
 
+  const view = { ...DEFAULT_SUMMARY_VIEW, columns };
+
   it('appends a row or a column', () => {
     expect(
-      applyAddition(['A'], columns, { role: 'rows', property: ' Level ' }),
-    ).toEqual({ properties: ['A', 'Level'], columns });
+      applyAddition(['A'], view, { role: 'rows', property: ' Level ' }),
+    ).toEqual({ properties: ['A', 'Level'], view });
     const filled = summaryColumn('Mark', 'filled');
     expect(
-      applyAddition(['A'], columns, { role: 'column', column: filled }).columns,
+      applyAddition(['A'], view, { role: 'column', column: filled }).view
+        .columns,
     ).toEqual([...columns, filled]);
   });
 
@@ -566,7 +630,7 @@ describe('adding a property', () => {
     expect(
       applyAddition(
         ['A', 'B'],
-        columns,
+        view,
         { role: 'rows', property: 'C' },
         { role: 'rows', property: 'A' },
       ).properties,
@@ -575,11 +639,27 @@ describe('adding a property', () => {
     expect(
       applyAddition(
         ['A'],
-        columns,
+        view,
         { role: 'column', column: avg },
         { role: 'column', column: summaryColumn('Area', 'sum') },
-      ).columns,
+      ).view.columns,
     ).toEqual([COUNT_COLUMN, avg]);
+  });
+
+  it('follows a renamed row in the pivot levels and block titles', () => {
+    const named = {
+      ...view,
+      groupBy: ['A', 'B'],
+      titles: { A: 'First', B: 'Second' },
+    };
+    const next = applyAddition(
+      ['A', 'B'],
+      named,
+      { role: 'rows', property: 'C' },
+      { role: 'rows', property: 'A' },
+    );
+    expect(next.view.groupBy).toEqual(['C', 'B']);
+    expect(next.view.titles).toEqual({ B: 'Second', C: 'First' });
   });
 
   it('names what blocks an addition', () => {

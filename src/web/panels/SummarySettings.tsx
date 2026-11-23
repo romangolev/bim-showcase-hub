@@ -12,7 +12,6 @@ import {
   sanitizeAction,
 } from '../extensions/elementActions.js';
 import {
-  applyAddition,
   COUNT_COLUMN,
   columnTitle,
   DEFAULT_SUMMARY_VIEW,
@@ -40,7 +39,7 @@ import { announce } from '../tasks/notifications.js';
 import { usePublishedAdapter } from '../viewer/activeAdapterStore.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { SummaryPresetSection } from './SummaryPresetMenu.js';
-import { promptSummaryProperty } from './SummaryPropertyDialog.js';
+import { openSummaryProperty } from './SummaryPropertyDialog.js';
 import { useResolvedAdapter } from './useScopedRows.js';
 
 export const SUMMARY_SETTINGS_ID = 'summary-settings';
@@ -390,7 +389,7 @@ function SummaryFields({
   adapter: ViewerAdapter | null;
   propertyNames: readonly string[];
   onProperties: (names: readonly string[]) => void;
-  onView: (view: SummaryView) => void;
+  onView: (view: SummaryView | ((prev: SummaryView) => SummaryView)) => void;
   onAction: (action: ElementAction) => void;
   onReset: () => void;
 }) {
@@ -413,24 +412,18 @@ function SummaryFields({
       next.density = density === 'compact' ? 'compact' : 'comfortable';
     }
     if (layout !== undefined) next.layout = sanitizeLayout(layout);
-    if (Object.keys(next).length) onView({ ...view, ...next });
+    if (Object.keys(next).length) onView((prev) => ({ ...prev, ...next }));
   };
   const open = (role: SummaryAddition['role'], editing?: SummaryAddition) =>
-    promptSummaryProperty({
+    openSummaryProperty({
       adapter,
-      rows: propertyNames,
-      columns: view.columns,
+      properties: propertyNames,
+      view,
       role,
       ...(editing ? { editing } : {}),
-      onSubmit: (addition) => {
-        const next = applyAddition(
-          propertyNames,
-          view.columns,
-          addition,
-          editing,
-        );
+      apply: (next) => {
         onProperties(next.properties);
-        onView({ ...view, columns: next.columns });
+        onView(next.view);
       },
     });
   const columnsFull = view.columns.length >= MAX_SUMMARY_COLUMNS;
@@ -470,7 +463,7 @@ function SummaryFields({
             : `${column.property}, ${SUMMARY_AGGREGATE_LABELS[column.aggregate]}`
         }
         canEdit={(column) => column.property !== null}
-        onChange={(columns) => onView({ ...view, columns })}
+        onChange={(columns) => onView((prev) => ({ ...prev, columns }))}
         onEdit={(column) => open('column', { role: 'column', column })}
         onAdd={() => open('column')}
         addLabel="Add a column"
@@ -482,7 +475,10 @@ function SummaryFields({
             className="btn"
             disabled={columnsFull}
             onClick={() =>
-              onView({ ...view, columns: [COUNT_COLUMN, ...view.columns] })
+              onView((prev) => ({
+                ...prev,
+                columns: [COUNT_COLUMN, ...prev.columns],
+              }))
             }
           >
             Add element count
@@ -494,15 +490,13 @@ function SummaryFields({
         <GroupByEditor
           propertyNames={propertyNames}
           value={groupBy}
-          onChange={(next) =>
-            onView({ ...view, groupBy: next, layout: view.layout })
-          }
+          onChange={(next) => onView((prev) => ({ ...prev, groupBy: next }))}
         />
       ) : null}
       <TitleEditor
         propertyNames={propertyNames}
         titles={view.titles}
-        onChange={(titles) => onView({ ...view, titles })}
+        onChange={(titles) => onView((prev) => ({ ...prev, titles }))}
       />
       <div className="settings__actions">
         <button type="button" className="btn" onClick={onReset}>
@@ -555,13 +549,18 @@ function InstanceSummarySettings({
       onProperties={(properties) =>
         setSpec((prev) => ({ ...prev, properties }))
       }
-      onView={(view) => setSpec((prev) => ({ ...prev, view }))}
+      onView={(next) =>
+        setSpec((prev) => ({
+          ...prev,
+          view: typeof next === 'function' ? next(prev.view) : next,
+        }))
+      }
       onAction={(action) => setSpec((prev) => ({ ...prev, action }))}
       onReset={() =>
         setSpec((prev) => ({
           ...prev,
           view: DEFAULT_SUMMARY_VIEW,
-          action: 'select',
+          action: PANE_SETTINGS.summary.action.initial,
         }))
       }
     />

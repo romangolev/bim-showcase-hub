@@ -12,6 +12,7 @@ import { Icon } from '../components/icons.js';
 import { StateBlock } from '../components/StateBlock.js';
 import {
   additionProblem,
+  applyAddition,
   columnTitle,
   DEFAULT_PRECISION,
   MAX_PRECISION,
@@ -24,6 +25,7 @@ import {
   type SummaryAddition,
   type SummaryAggregate,
   type SummaryColumnSpec,
+  type SummaryView,
   sanitizeSummaryAggregate,
   summaryColumn,
 } from '../extensions/modelSummary.js';
@@ -43,6 +45,13 @@ export interface SummaryPropertyOptions {
 }
 
 const GROUP_CAP = 100;
+
+function parsePrecision(text: string): number {
+  const value = Number(text);
+  return text.trim() === '' || Number.isNaN(value)
+    ? DEFAULT_PRECISION
+    : Math.min(MAX_PRECISION, Math.max(0, Math.floor(value)));
+}
 
 function SummaryPropertyDialog({
   adapter,
@@ -72,9 +81,10 @@ function SummaryPropertyDialog({
     start?.aggregate ?? initial?.aggregate ?? 'count',
   );
   const [title, setTitle] = useState(start?.title ?? '');
-  const [precision, setPrecision] = useState(
-    start?.precision ?? DEFAULT_PRECISION,
+  const [precisionText, setPrecisionText] = useState(
+    String(start?.precision ?? DEFAULT_PRECISION),
   );
+  const [category, setCategory] = useState<string | null>(null);
   const [unitLabel, setUnitLabel] = useState(start?.unitLabel ?? '');
   const [query, setQuery] = useState('');
   const catalog = usePropertyCatalog(adapter);
@@ -90,7 +100,13 @@ function SummaryPropertyDialog({
     catalog.status === 'ready'
       ? new Set(catalog.catalog.map((info) => info.name))
       : null;
+  const owner =
+    category ??
+    groups.find((group) =>
+      group.properties.some((info) => info.name === property),
+    )?.category;
   const typed = query.trim().slice(0, MAX_PROPERTY_NAME);
+  const precision = parsePrecision(precisionText);
   const numeric = NUMERIC_AGGREGATES.includes(aggregate);
   const addition: SummaryAddition =
     role === 'rows'
@@ -133,7 +149,7 @@ function SummaryPropertyDialog({
         onDone();
       }}
     >
-      <form className="modal__panel" onSubmit={submit}>
+      <form className="modal__panel" noValidate onSubmit={submit}>
         <header className="modal__head">
           <h2 id={titleId} className="modal__title">
             {editing ? 'Edit property' : 'Add property'}
@@ -202,7 +218,10 @@ function SummaryPropertyDialog({
             <button
               type="button"
               className="btn"
-              onClick={() => setProperty(typed)}
+              onClick={() => {
+                setProperty(typed);
+                setCategory(null);
+              }}
             >
               {`Use "${typed}"`}
             </button>
@@ -219,8 +238,13 @@ function SummaryPropertyDialog({
                     <input
                       type="radio"
                       name={`${uid}-property`}
-                      checked={property === info.name}
-                      onChange={() => setProperty(info.name)}
+                      checked={
+                        property === info.name && info.category === owner
+                      }
+                      onChange={() => {
+                        setProperty(info.name);
+                        setCategory(info.category);
+                      }}
                     />
                     {info.name}
                   </label>
@@ -312,10 +336,9 @@ function SummaryPropertyDialog({
                       type="number"
                       min={0}
                       max={MAX_PRECISION}
-                      value={precision}
-                      onChange={(event) =>
-                        setPrecision(Number(event.target.value))
-                      }
+                      value={precisionText}
+                      onChange={(event) => setPrecisionText(event.target.value)}
+                      onBlur={() => setPrecisionText(String(precision))}
                     />
                   </label>
                   <label className="settings__field">
@@ -354,6 +377,25 @@ function SummaryPropertyDialog({
       </form>
     </dialog>
   );
+}
+
+export function openSummaryProperty({
+  properties,
+  view,
+  apply,
+  ...options
+}: Omit<SummaryPropertyOptions, 'rows' | 'columns' | 'onSubmit'> & {
+  properties: readonly string[];
+  view: SummaryView;
+  apply: (next: { properties: string[]; view: SummaryView }) => void;
+}): void {
+  promptSummaryProperty({
+    ...options,
+    rows: properties,
+    columns: view.columns,
+    onSubmit: (addition) =>
+      apply(applyAddition(properties, view, addition, options.editing)),
+  });
 }
 
 export function promptSummaryProperty(options: SummaryPropertyOptions): void {

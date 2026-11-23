@@ -152,6 +152,23 @@ describe('Add property dialog', () => {
     });
   });
 
+  it('keeps decimal places as typed and clamps them on submit', () => {
+    const { onSubmit, box } = open();
+    pickTyped(box, 'Area');
+    fireEvent.change(box.getByLabelText('Aggregate'), {
+      target: { value: 'sum' },
+    });
+    const field = box.getByLabelText('Decimal places');
+    fireEvent.change(field, { target: { value: '' } });
+    expect(field).toHaveValue(null);
+    fireEvent.change(field, { target: { value: '-3' } });
+    fireEvent.click(box.getByRole('button', { name: 'Add property' }));
+    expect(onSubmit).toHaveBeenCalledWith({
+      role: 'column',
+      column: summaryColumn('Area', 'sum', { precision: 0 }),
+    });
+  });
+
   it('prefills a shortcut property and aggregate', () => {
     const { box } = open({
       initial: { property: 'Mark', aggregate: 'filled' },

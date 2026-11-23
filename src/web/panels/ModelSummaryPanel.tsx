@@ -11,8 +11,9 @@ import {
 } from '../extensions/elementActions.js';
 import { applyNamePattern, toDelimited } from '../extensions/exportFormats.js';
 import {
-  applyAddition,
   emptyShares,
+  entryKey,
+  formatPercent,
   MAX_SUMMARY_COLUMNS,
   MAX_SUMMARY_ROWS,
   type SummaryAggregate,
@@ -21,6 +22,7 @@ import {
   summarize,
   summaryTable,
   viewEntries,
+  viewPropertyNames,
 } from '../extensions/modelSummary.js';
 import { formatCount } from '../i18n/format.js';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
@@ -38,8 +40,8 @@ import {
   ModelScopeSelect,
   UnavailableModels,
 } from './ModelScope.js';
-import { promptSummaryProperty } from './SummaryPropertyDialog.js';
-import { entryKey, SummaryTable } from './SummaryTable.js';
+import { openSummaryProperty } from './SummaryPropertyDialog.js';
+import { SummaryTable } from './SummaryTable.js';
 import {
   HIDDEN_MESSAGE,
   HIDDEN_TITLE,
@@ -109,17 +111,9 @@ export function ModelSummaryPanel({
   const setElementsScope = controlledElements?.onChange ?? setSavedElements;
   const [savedView, setSavedView] = usePersisted(PANE_SETTINGS.summary.view);
   const view = controlledView?.value ?? savedView;
-  const columnNames = view.columns
-    .flatMap((column) => (column.property === null ? [] : [column.property]))
-    .join('\u0000');
   const readNames = useMemo(
-    () => [
-      ...new Set([
-        ...propertyNames,
-        ...(columnNames ? columnNames.split('\u0000') : []),
-      ]),
-    ],
-    [propertyNames, columnNames],
+    () => viewPropertyNames(propertyNames, view.columns),
+    [propertyNames, view.columns],
   );
   const state = useScopedRows(resolved, {
     names: readNames,
@@ -152,11 +146,11 @@ export function ModelSummaryPanel({
     () => emptyShares(entries).filter((share) => share.percent > 0),
     [entries],
   );
-  const patch = (next: Partial<SummaryView>) => {
-    const merged = { ...view, ...next };
-    if (controlledView) controlledView.onChange(merged);
-    else setSavedView(merged);
+  const setView = (next: SummaryView) => {
+    if (controlledView) controlledView.onChange(next);
+    else setSavedView(next);
   };
+  const patch = (next: Partial<SummaryView>) => setView({ ...view, ...next });
   const full =
     propertyNames.length >= MAX_SUMMARY_ROWS &&
     view.columns.length >= MAX_SUMMARY_COLUMNS;
@@ -164,16 +158,15 @@ export function ModelSummaryPanel({
     property: string;
     aggregate: SummaryAggregate;
   }) =>
-    promptSummaryProperty({
+    openSummaryProperty({
       adapter: resolved,
-      rows: propertyNames,
-      columns: view.columns,
+      properties: propertyNames,
+      view,
       role: 'column',
       ...(initial ? { initial } : {}),
-      onSubmit: (addition) => {
-        const next = applyAddition(propertyNames, view.columns, addition);
-        if (addition.role === 'rows') setProperties(next.properties);
-        else patch({ columns: next.columns });
+      apply: (next) => {
+        setProperties(next.properties);
+        setView(next.view);
       },
     });
 
@@ -187,7 +180,7 @@ export function ModelSummaryPanel({
     setActive(entryKey(entry));
   };
 
-  const table = () => summaryTable(shown, view, sourceRows);
+  const table = () => summaryTable(shown, view, sourceRows, language);
   const copyTable = async () => {
     const { header, rows } = table();
     setNotice(
@@ -440,7 +433,7 @@ export function ModelSummaryPanel({
                         }
                       >
                         <span className="bsh-sr-only">Add as column: </span>
-                        {share.property}: {share.percent}% empty
+                        {share.property}: {formatPercent(share.percent)} empty
                       </button>
                     </li>
                   ))}

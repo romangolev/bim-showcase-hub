@@ -289,6 +289,25 @@ describe('SummaryTable pivot layout', () => {
   });
 });
 
+describe('SummaryTable pivot cap', () => {
+  it('renders a bounded number of pivot rows and reveals the rest on request', () => {
+    const rows: PropertyRow[] = Array.from(
+      { length: ENTRY_CAP + 25 },
+      (_, i) => ({ dbId: i, name: `n${i}`, properties: { Name: `v${i}` } }),
+    );
+    const { container } = render(
+      <SummaryTable
+        entries={[]}
+        rows={rows}
+        view={view({ layout: 'pivot', groupBy: ['Name'] })}
+      />,
+    );
+    expect(container.querySelectorAll('tbody tr')).toHaveLength(ENTRY_CAP + 1);
+    fireEvent.click(screen.getByRole('button', { name: 'Show 25 more' }));
+    expect(container.querySelectorAll('tbody tr')).toHaveLength(ENTRY_CAP + 25);
+  });
+});
+
 describe('SummaryTable entry cap', () => {
   const many = Array.from({ length: ENTRY_CAP + 25 }, (_, i) => ({
     property: 'Name',

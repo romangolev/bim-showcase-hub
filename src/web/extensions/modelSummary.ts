@@ -1,5 +1,7 @@
 import { isRecord } from '../../shared/guards.js';
 import type { PropertyRow } from '../../shared/types.js';
+import { formatCount as formatLocalCount } from '../i18n/format.js';
+import { type Language, readSettings } from '../settings/settings.js';
 import { formatCount } from './exportCommon.js';
 import { parseMeasure as parseQuantity } from './measureParse.js';
 
@@ -136,16 +138,6 @@ export function columnId(ref: ColumnRef): string {
     : `${ref.aggregate}:${ref.property}`;
 }
 
-export function columnRef(id: string): ColumnRef {
-  const at = id.indexOf(':');
-  if (at < 0)
-    return { property: null, aggregate: sanitizeSummaryAggregate(id) };
-  return {
-    property: id.slice(at + 1),
-    aggregate: sanitizeSummaryAggregate(id.slice(0, at)),
-  };
-}
-
 function clampPrecision(raw: unknown): number {
   return typeof raw === 'number' && Number.isFinite(raw) && raw >= 0
     ? Math.min(MAX_PRECISION, Math.floor(raw))
@@ -159,7 +151,7 @@ function text(raw: unknown, max: number): string {
 export function summaryColumn(
   property: string,
   aggregate: SummaryAggregate,
-  options: { title?: string; precision?: number; unitLabel?: string } = {},
+  options: { title?: unknown; precision?: unknown; unitLabel?: unknown } = {},
 ): SummaryColumnSpec {
   const name = property.trim().slice(0, MAX_PROPERTY_NAME);
   return {
@@ -182,14 +174,7 @@ export function sanitizeColumns(raw: readonly unknown[]): SummaryColumnSpec[] {
     if (!aggregate) continue;
     const property = text(item.property, MAX_PROPERTY_NAME);
     const column = property
-      ? summaryColumn(property, aggregate, {
-          title: text(item.title, MAX_TITLE_LENGTH),
-          precision:
-            typeof item.precision === 'number'
-              ? item.precision
-              : DEFAULT_PRECISION,
-          unitLabel: text(item.unitLabel, MAX_UNIT_LABEL),
-        })
+      ? summaryColumn(property, aggregate, item)
       : aggregate === 'count'
         ? { ...COUNT_COLUMN, title: text(item.title, MAX_TITLE_LENGTH) }
         : null;
@@ -263,6 +248,10 @@ export function viewEntries(
   );
 }
 
+export function entryKey(entry: SummaryEntry): string {
+  return `${entry.property}\u0000${entry.value}`;
+}
+
 export function emptyShares(
   entries: readonly SummaryEntry[],
 ): { property: string; percent: number }[] {
@@ -275,7 +264,7 @@ export function emptyShares(
   }
   return [...totals].map(([property, { empty, all }]) => ({
     property,
-    percent: all === 0 ? 0 : Math.round((empty / all) * 100),
+    percent: all === 0 ? 0 : (empty / all) * 100,
   }));
 }
 
@@ -319,7 +308,7 @@ export type SummaryCell =
   | { status: 'none' }
   | { status: 'mixed'; units: string[] };
 
-const NO_CELL: SummaryCell = { status: 'none' };
+export const NO_CELL: SummaryCell = { status: 'none' };
 
 function okCell(value: number, unit = '', missing = 0): SummaryCell {
   return { status: 'ok', value, unit, missing };
@@ -333,8 +322,8 @@ export function aggregateCell(
   if (property === null) return okCell(rows.length);
   if (!NUMERIC_AGGREGATES.includes(aggregate)) {
     const values = rows
-      .map((row) => formatValue(row.properties[property]))
-      .filter((value) => value !== EMPTY_VALUE_LABEL);
+      .map((row) => formatValue(row.properties[property]).trim())
+      .filter((value) => value !== '' && value !== EMPTY_VALUE_LABEL);
     if (aggregate === 'distinct') return okCell(new Set(values).size);
     if (aggregate === 'count') return okCell(values.length);
     if (rows.length === 0) return NO_CELL;
@@ -389,46 +378,89 @@ function groupRows(
   return groups;
 }
 
-export function columnCells(
+const GROUPS = new WeakMap<
+  readonly PropertyRow[],
+  Map<string, Map<string, PropertyRow[]>>
+>();
+
+function groupedRows(
   rows: readonly PropertyRow[],
-  rowProperty: string,
+  property: string,
+): Map<string, PropertyRow[]> {
+  const byProperty = GROUPS.get(rows) ?? new Map();
+  GROUPS.set(rows, byProperty);
+  const cached = byProperty.get(property);
+  if (cached) return cached;
+  const groups = groupRows(rows, property);
+  byProperty.set(property, groups);
+  return groups;
+}
+
+export function cellsByEntry(
+  rows: readonly PropertyRow[],
+  entries: readonly SummaryEntry[],
   columns: readonly ColumnRef[],
 ): Map<string, SummaryCell[]> {
+  const needsRows = columns.some((column) => column.property !== null);
   return new Map(
-    [...groupRows(rows, rowProperty)].map(([value, group]) => [
-      value,
-      columns.map((column) => aggregateCell(group, column)),
-    ]),
+    entries.map((entry) => {
+      const group = needsRows
+        ? groupedRows(rows, entry.property).get(entry.value)
+        : undefined;
+      return [
+        entryKey(entry),
+        columns.map((column) =>
+          column.property === null
+            ? okCell(entry.count)
+            : group
+              ? aggregateCell(group, column)
+              : NO_CELL,
+        ),
+      ];
+    }),
   );
 }
 
-export function entryCells(
-  entry: SummaryEntry,
-  columns: readonly ColumnRef[],
-  computed: readonly SummaryCell[] | undefined,
-): SummaryCell[] {
-  return columns.map((column, index) =>
-    column.property === null
-      ? okCell(entry.count)
-      : (computed?.[index] ?? NO_CELL),
+export function isCountLike(column: ColumnRef): boolean {
+  return (
+    column.property === null ||
+    column.aggregate === 'count' ||
+    column.aggregate === 'distinct'
   );
+}
+
+export function formatPercent(value: number): string {
+  if (value <= 0) return '0%';
+  if (value >= 100) return '100%';
+  if (value < 1) return '<1%';
+  if (value > 99) return '>99%';
+  return `${Math.round(value)}%`;
+}
+
+export function viewPropertyNames(
+  properties: readonly string[],
+  columns: readonly ColumnRef[],
+): string[] {
+  return [
+    ...new Set([
+      ...properties,
+      ...columns.flatMap((column) =>
+        column.property === null ? [] : [column.property],
+      ),
+    ]),
+  ];
 }
 
 export function formatCell(
   cell: SummaryCell,
   column: SummaryColumnSpec,
+  language: Language = readSettings().language,
 ): string {
   if (cell.status === 'none') return 'n/a';
   if (cell.status === 'mixed') return 'mixed units';
-  if (
-    column.property === null ||
-    column.aggregate === 'count' ||
-    column.aggregate === 'distinct'
-  ) {
-    return formatCount(cell.value);
-  }
+  if (isCountLike(column)) return formatCount(cell.value);
   if (column.aggregate === 'filled' || column.aggregate === 'empty') {
-    return `${Math.round(cell.value)}%`;
+    return formatPercent(cell.value);
   }
   const number = cell.value.toLocaleString('en-US', {
     minimumFractionDigits: 0,
@@ -437,7 +469,7 @@ export function formatCell(
   const unit = column.unitLabel || cell.unit;
   const label = unit ? `${number} ${unit}` : number;
   return cell.missing > 0
-    ? `${label} (${formatCount(cell.missing)} missing)`
+    ? `${label} (${formatLocalCount(cell.missing, language)} missing)`
     : label;
 }
 
@@ -604,14 +636,10 @@ export function summaryTable(
   entries: readonly SummaryEntry[],
   view: Pick<SummaryView, 'columns' | 'showProperty'>,
   rows: readonly PropertyRow[],
+  language?: Language,
 ): { header: string[]; rows: (string | number)[][] } {
   const { columns, showProperty } = view;
-  const cells = new Map<string, SummaryCell[]>();
-  for (const property of new Set(entries.map((entry) => entry.property))) {
-    for (const [value, list] of columnCells(rows, property, columns)) {
-      cells.set(`${property}\u0000${value}`, list);
-    }
-  }
+  const cells = cellsByEntry(rows, entries, columns);
   return {
     header: [
       ...(showProperty ? ['Property'] : []),
@@ -619,23 +647,15 @@ export function summaryTable(
       ...columns.map(columnTitle),
     ],
     rows: entries.map((entry) => {
-      const list = entryCells(
-        entry,
-        columns,
-        cells.get(`${entry.property}\u0000${entry.value}`),
-      );
+      const list = cells.get(entryKey(entry)) ?? [];
       return [
         ...(showProperty ? [entry.property] : []),
         entry.value,
         ...columns.map((column, index): string | number => {
           const cell = list[index] ?? NO_CELL;
-          const countLike =
-            column.property === null ||
-            column.aggregate === 'count' ||
-            column.aggregate === 'distinct';
-          return cell.status === 'ok' && countLike
+          return cell.status === 'ok' && isCountLike(column)
             ? cell.value
-            : formatCell(cell, column);
+            : formatCell(cell, column, language);
         }),
       ];
     }),
@@ -648,28 +668,39 @@ export type SummaryAddition =
 
 export function applyAddition(
   properties: readonly string[],
-  columns: readonly SummaryColumnSpec[],
+  view: SummaryView,
   addition: SummaryAddition,
   editing?: SummaryAddition,
-): { properties: string[]; columns: SummaryColumnSpec[] } {
+): { properties: string[]; view: SummaryView } {
   if (addition.role === 'rows') {
     const name = addition.property.trim();
+    if (editing?.role !== 'rows') {
+      return { properties: [...properties, name], view };
+    }
+    const old = editing.property;
+    const { [old]: title, ...titles } = view.titles;
     return {
-      properties:
-        editing?.role === 'rows'
-          ? properties.map((item) => (item === editing.property ? name : item))
-          : [...properties, name],
-      columns: [...columns],
+      properties: properties.map((item) => (item === old ? name : item)),
+      view: {
+        ...view,
+        groupBy: sanitizeGroupBy(
+          view.groupBy.map((item) => (item === old ? name : item)),
+        ),
+        titles: title === undefined ? titles : { ...titles, [name]: title },
+      },
     };
   }
   return {
     properties: [...properties],
-    columns:
-      editing?.role === 'column'
-        ? columns.map((item) =>
-            item.id === editing.column.id ? addition.column : item,
-          )
-        : [...columns, addition.column],
+    view: {
+      ...view,
+      columns:
+        editing?.role === 'column'
+          ? view.columns.map((item) =>
+              item.id === editing.column.id ? addition.column : item,
+            )
+          : [...view.columns, addition.column],
+    },
   };
 }
 

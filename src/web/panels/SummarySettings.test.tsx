@@ -31,6 +31,25 @@ beforeEach(() => {
 });
 
 describe('summary settings rows and columns', () => {
+  it('keeps the title and pivot level of a renamed row', async () => {
+    PANE_SETTINGS.summary.view.write({
+      ...PANE_SETTINGS.summary.view.read(),
+      layout: 'pivot',
+      groupBy: ['Name'],
+      titles: { Name: 'Nice' },
+    });
+    render(<SummarySettingsBody />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Name' }));
+    pickTyped('Mark');
+    fireEvent.click(dialog().getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(PANE_SETTINGS.summary.view.read()).toMatchObject({
+        groupBy: ['Mark'],
+        titles: { Mark: 'Nice' },
+      }),
+    );
+  });
+
   it('lists rows and columns in order instead of a checkbox catalog', () => {
     render(<SummarySettingsBody />);
     expect(listed('Rows')).toEqual([

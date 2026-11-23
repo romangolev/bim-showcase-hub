@@ -4,17 +4,17 @@ import { Icon } from '../components/icons.js';
 import {
   blockTitle,
   COUNT_COLUMN,
-  columnCells,
-  columnRef,
+  cellsByEntry,
   columnTitle,
   countShare,
   EMPTY_VALUE_LABEL,
-  entryCells,
+  entryKey,
   formatCell,
   formatCount,
   formatValue,
   MAX_GROUP_BY,
   MAX_TITLE_LENGTH,
+  NO_CELL,
   type PivotNode,
   pivotTree,
   type SummaryCell,
@@ -23,18 +23,15 @@ import {
   type SummaryView,
   summaryBlocks,
 } from '../extensions/modelSummary.js';
+import { useSettings } from '../settings/SettingsContext.js';
 import { useScrollable } from './useScrollable.js';
 import './panels.css';
 
 export const ENTRY_CAP = 500;
 
 const DEFAULT_COLUMNS: readonly SummaryColumnSpec[] = [COUNT_COLUMN];
-const NO_CELL: SummaryCell = { status: 'none' };
+const NO_ROWS: readonly PropertyRow[] = [];
 const BLANK_NOTE = 'no values in these elements';
-
-export function entryKey(entry: SummaryEntry): string {
-  return `${entry.property}\u0000${entry.value}`;
-}
 
 function TitleInput({
   property,
@@ -94,10 +91,11 @@ function ColumnCell({
   cell: SummaryCell;
   max: number | null;
 }) {
+  const { language } = useSettings().settings;
   if (max !== null && column.property === null && cell.status === 'ok') {
     return <CountCell count={cell.value} max={max} />;
   }
-  const text = formatCell(cell, column);
+  const text = formatCell(cell, column, language);
   return (
     <td
       className="bsh-num"
@@ -207,6 +205,7 @@ export function SummaryTable({
   const [collapsedNodes, setCollapsedNodes] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
+  const [pivotAll, setPivotAll] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [expandedProps, setExpandedProps] = useState<ReadonlySet<string>>(
     () => new Set(),
@@ -225,29 +224,12 @@ export function SummaryTable({
   const groupBy =
     chosen.length > 0 ? chosen : [...available].slice(0, MAX_GROUP_BY);
   const groupByKey = groupBy.join('\u0000');
-  const propertiesKey = [...available].join('\u0000');
-  const refsKey = columns.map((column) => column.id).join('\u0000');
-  const refs = useMemo(
-    () => (refsKey ? refsKey.split('\u0000').map(columnRef) : []),
-    [refsKey],
-  );
   const titles = view?.titles ?? {};
 
-  const cells = useMemo(() => {
-    const map = new Map<string, SummaryCell[]>();
-    if (!rows || layout === 'pivot') return map;
-    for (const property of propertiesKey.split('\u0000')) {
-      if (!property) continue;
-      for (const [value, list] of columnCells(rows, property, refs)) {
-        map.set(`${property}\u0000${value}`, list);
-      }
-    }
-    return map;
-  }, [rows, propertiesKey, refs, layout]);
   const blank = useMemo(() => {
     const names = new Set<string>();
     if (!rows || rows.length === 0) return names;
-    for (const { property } of refs) {
+    for (const { property } of columns) {
       if (
         property !== null &&
         rows.every(
@@ -258,9 +240,7 @@ export function SummaryTable({
       }
     }
     return names;
-  }, [rows, refs]);
-  const cellsFor = (entry: SummaryEntry) =>
-    entryCells(entry, refs, cells.get(entryKey(entry)));
+  }, [rows, columns]);
   const blocks = useMemo(() => summaryBlocks(entries), [entries]);
   const flat = useMemo(() => {
     const seen = new Map<string, number>();
@@ -277,17 +257,26 @@ export function SummaryTable({
     }
     return { shown, hidden };
   }, [entries, expandedProps]);
+  const cells = useMemo(
+    () =>
+      layout === 'pivot'
+        ? new Map<string, SummaryCell[]>()
+        : cellsByEntry(rows ?? NO_ROWS, flat.shown, columns),
+    [layout, rows, flat.shown, columns],
+  );
+  const cellsFor = (entry: SummaryEntry) => cells.get(entryKey(entry)) ?? [];
   const hiddenTotal = [...flat.hidden.values()].reduce((a, b) => a + b, 0);
   const expandProps = (properties: Iterable<string>) =>
     setExpandedProps((previous) => new Set([...previous, ...properties]));
   const tree = useMemo(() => {
     if (layout !== 'pivot' || !rows || !groupByKey) return [];
-    return pivotTree(rows, groupByKey.split('\u0000'), { columns: refs });
-  }, [layout, rows, groupByKey, refs]);
+    return pivotTree(rows, groupByKey.split('\u0000'), { columns });
+  }, [layout, rows, groupByKey, columns]);
   const pivotRows = useMemo(
     () => flattenPivot(tree, collapsedNodes, '', 0, []),
     [tree, collapsedNodes],
   );
+  const pivotShown = pivotAll ? pivotRows : pivotRows.slice(0, ENTRY_CAP);
   const pivotMax = useMemo(
     () => tree.reduce((max, node) => Math.max(max, node.count), 0),
     [tree],
@@ -554,7 +543,7 @@ export function SummaryTable({
           </tr>
         </thead>
         <tbody>
-          {pivotRows.map(({ node, depth, key }) => {
+          {pivotShown.map(({ node, depth, key }) => {
             const collapsed = collapsedNodes.has(key);
             const hasChildren = node.children.length > 0;
             return (
@@ -599,6 +588,19 @@ export function SummaryTable({
               </tr>
             );
           })}
+          {pivotShown.length < pivotRows.length ? (
+            <tr>
+              <td colSpan={1 + columns.length}>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => setPivotAll(true)}
+                >
+                  Show {formatCount(pivotRows.length - pivotShown.length)} more
+                </button>
+              </td>
+            </tr>
+          ) : null}
         </tbody>
       </table>
     </>
