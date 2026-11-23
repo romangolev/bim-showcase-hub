@@ -374,6 +374,7 @@ def run(browser, theme, width, language, results, notes):
             ("panes-menu", "Panes", ".panes-menu__popover"),
             ("workspaces", "Workspaces", "[role=dialog][aria-label='Workspaces']"),
             ("pane-options", "Model summary pane options", "[role=menu]"),
+            ("summary-add-property", "Add property", "dialog[open]"),
         ):
             try:
                 page.get_by_role("button", name=name, exact=True).first.click(timeout=5000)

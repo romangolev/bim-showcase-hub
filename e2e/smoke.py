@@ -243,6 +243,7 @@ def run_model_checks(page, checks, found, notes):
     check_viewer_chrome(page, checks)
     check_context_menu(page, checks)
     check_canvas_follows_summary(page, checks)
+    check_summary_columns(page, checks)
     check_fullscreen(page, checks, notes)
 
 
@@ -439,6 +440,56 @@ ACTIVE_TAB_SCRIPT = """() => {
     const stacked = document.querySelector(".stack__model-tab[data-active='true']");
     return stacked ? stacked.textContent.trim() : '';
 }"""
+
+
+def drop_summary_items(page, names):
+    pane = page.locator(".pane-summary").first
+    pane.get_by_role("button", name="Summary settings").click()
+    dialog = page.get_by_role("dialog", name="Summary settings")
+    for name in names:
+        button = dialog.get_by_role("button", name=f"Remove {name}", exact=True)
+        if button.count():
+            button.click()
+            page.wait_for_timeout(300)
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(300)
+
+
+def add_summary_property(page, name, role, aggregate=None):
+    pane = page.locator(".pane-summary").first
+    pane.get_by_role("button", name="Add property", exact=True).click()
+    prompt = page.locator("dialog[open]").last
+    prompt.get_by_role("radio", name=role, exact=True).check()
+    prompt.get_by_label("Search properties").fill(name)
+    prompt.get_by_role("radio", name=name, exact=True).first.check(timeout=VIEWER_TIMEOUT_MS)
+    if aggregate:
+        prompt.get_by_label("Aggregate").select_option(aggregate)
+    prompt.get_by_role("button", name="Add property", exact=True).click()
+    page.wait_for_timeout(1500)
+
+
+def check_summary_columns(page, checks):
+    pane = page.locator(".pane-summary").first
+    drop_summary_items(page, ["Sum of Area", "Level"])
+    try:
+        add_summary_property(page, "Level", "Rows")
+        add_summary_property(page, "Area", "Column", "sum")
+        page.wait_for_timeout(3000)
+        checks.add("real: Sum of Area joins the summary header", pane.get_by_role("columnheader", name="Sum of Area").count() == 1)
+        with page.expect_download(timeout=30000) as info:
+            pane.get_by_role("button", name="Download CSV").click()
+        target = OUTPUT_DIR / "summary-columns.csv"
+        info.value.save_as(target)
+        header = target.read_text(encoding="utf-8-sig").splitlines()[0]
+        checks.add("real: the summary CSV carries the Sum of Area column", "Sum of Area" in header, header)
+        cells = pane.locator("tbody tr td:last-child").all_inner_texts()
+        checks.add("real: Sum of Area has a number for some row", any(re.match(r"^-?[\d,.]+", text.strip()) for text in cells), cells[:5])
+        page.screenshot(path=str(OUTPUT_DIR / "05-summary-columns.png"))
+    except Exception as exc:
+        checks.add("real: Sum of Area joins the summary header", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+        page.keyboard.press("Escape")
+    finally:
+        drop_summary_items(page, ["Sum of Area", "Level"])
 
 
 def canvas_follows(state, tolerance=4):

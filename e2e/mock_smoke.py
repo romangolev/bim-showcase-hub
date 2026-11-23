@@ -195,15 +195,36 @@ def check_summary_tools(page, checks):
     scope.select_option("all")
     settle(page, 400)
     checks.add("all scope restores the rows", pane.locator("tbody tr").count() == rows, pane.locator("tbody tr").count())
+    pane.get_by_role("button", name="Add property", exact=True).click()
+    prompt = page.locator("dialog[open]").last
+    checks.add("the add property dialog opens on Column", prompt.get_by_role("radio", name="Column", exact=True).is_checked())
+    prompt.get_by_role("radio", name="Rows", exact=True).check()
+    prompt.get_by_role("radio", name="Level", exact=True).wait_for(timeout=8000)
+    prompt.get_by_role("radio", name="Level", exact=True).check()
+    prompt.get_by_role("button", name="Add property", exact=True).click()
+    settle(page, 600)
+    checks.add("a property added as Rows joins the summary", pane.locator("tbody tr", has_text="Level").count() > 0)
+    pane.get_by_role("button", name="Add property", exact=True).click()
+    prompt = page.locator("dialog[open]").last
+    prompt.get_by_role("radio", name="Category", exact=True).wait_for(timeout=8000)
+    prompt.get_by_role("radio", name="Category", exact=True).check()
+    prompt.get_by_label("Aggregate").select_option("distinct")
+    prompt.get_by_role("button", name="Add property", exact=True).click()
+    settle(page, 600)
+    header = pane.get_by_role("columnheader", name="Distinct values of Category")
+    checks.add("a property added as a column shows its header", header.count() == 1, header.count())
+    cell = pane.locator("tbody tr").first.locator("td").last.inner_text().strip()
+    checks.add("the new column fills a numeric cell", re.fullmatch(r"[\d,]+", cell) is not None, cell)
     pane.get_by_role("button", name="Summary settings").click()
     dialog = page.get_by_role("dialog", name="Summary settings")
-    dialog.get_by_role("checkbox", name="Level").wait_for(timeout=8000)
-    checks.add("the property picker lists discovered properties", dialog.get_by_role("checkbox").count() > 5, dialog.get_by_role("checkbox").count())
-    dialog.get_by_role("checkbox", name="Level").check()
-    settle(page, 600)
-    checks.add("a picked property joins the summary", pane.locator("tbody tr", has_text="Level").count() > 0)
-    dialog.get_by_role("checkbox", name="Level").uncheck()
-    settle(page, 300)
+    rows_group = dialog.get_by_role("group", name="Rows")
+    rows_group.wait_for(timeout=8000)
+    checks.add("summary settings lists the rows", rows_group.get_by_text("Level", exact=True).count() == 1)
+    checks.add("summary settings has no property checkbox catalog", dialog.get_by_role("checkbox").count() == 0, dialog.get_by_role("checkbox").count())
+    dialog.get_by_role("button", name="Remove Distinct values of Category", exact=True).click()
+    dialog.get_by_role("button", name="Remove Level", exact=True).click()
+    settle(page, 400)
+    checks.add("removing in settings drops the column and the row", pane.get_by_role("columnheader", name="Distinct values of Category").count() == 0 and pane.get_by_role("cell", name="Level", exact=True).count() == 0)
     top = dialog.bounding_box()
     view = page.viewport_size
     checks.add("summary settings is centred vertically", abs((top["y"] + top["height"] / 2) - view["height"] / 2) <= 40 or top["height"] >= view["height"] - 40, top)
@@ -270,6 +291,66 @@ def check_summary_tools(page, checks):
         pane.get_by_role("button", name="Download CSV").click()
     name = info.value.suggested_filename
     checks.add("summary CSV downloads", name.endswith("-summary.csv"), name)
+
+
+def check_summary_add_dialog(page, checks):
+    pane = page.locator(".pane-summary").first
+    page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
+    settle(page, 300)
+    pane.get_by_role("button", name="Add property", exact=True).click()
+    prompt = page.locator("dialog[open]").last
+    prompt.wait_for(timeout=3000)
+    box = prompt.bounding_box()
+    checks.add("the add property dialog fits at 390 wide", box["x"] >= 0 and box["x"] + box["width"] <= MOBILE[0] and horizontal_overflow(page) <= 0, box)
+    checks.add("the add property dialog stays inside the 390 viewport", box["y"] >= 0 and box["y"] + box["height"] <= MOBILE[1], box)
+    page.screenshot(path=str(OUTPUT_DIR / "mock-summary-add-property-390.png"))
+    page.keyboard.press("Escape")
+    settle(page, 300)
+    focused = page.evaluate("document.activeElement?.textContent?.trim()")
+    checks.add("closing the add property dialog returns focus to Add property", focused == "Add property", focused)
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page, 300)
+
+
+def open_summary_presets(page, dialog):
+    dialog.get_by_role("button", name="Summary presets", exact=True).click()
+    settle(page, 300)
+
+
+def name_preset(page, name, confirm):
+    prompt = page.locator("dialog[open]").last
+    prompt.get_by_label("Preset name").fill(name)
+    prompt.get_by_role("button", name=confirm).click()
+    settle(page, 300)
+
+
+def check_summary_presets(page, checks):
+    pane = page.locator(".pane-summary").first
+    checks.add("the summary pane has no preset control", pane.get_by_role("button", name=re.compile("[Pp]resets")).count() == 0)
+    pane.get_by_role("button", name="Summary settings").click()
+    dialog = page.get_by_role("dialog", name="Summary settings")
+    menu = dialog.get_by_role("button", name="Summary presets", exact=True)
+    checks.add("summary settings has a Summary presets menu", menu.count() == 1 and menu.get_attribute("aria-haspopup") == "menu")
+    open_summary_presets(page, dialog)
+    checks.add("the summary presets menu lists the starters", page.get_by_role("menuitemcheckbox", name="Doors check").count() == 1 and page.get_by_role("menuitemcheckbox", name="Rooms by level").count() == 1)
+    page.get_by_role("menuitem", name="Save current as preset...").click()
+    settle(page, 300)
+    name_preset(page, "Smoke summary", "Save preset")
+    open_summary_presets(page, dialog)
+    checks.add("a saved summary preset is the checked choice", page.get_by_role("menuitemcheckbox", name="Smoke summary").get_attribute("aria-checked") == "true")
+    page.get_by_role("menuitem", name="Rename...").click()
+    settle(page, 300)
+    name_preset(page, "Smoke summary 2", "Rename")
+    open_summary_presets(page, dialog)
+    checks.add("a renamed summary preset keeps its place", page.get_by_role("menuitemcheckbox", name="Smoke summary 2").count() == 1)
+    page.get_by_role("menuitem", name="Delete").click()
+    settle(page, 300)
+    open_summary_presets(page, dialog)
+    checks.add("a deleted summary preset leaves the menu", page.get_by_role("menuitemcheckbox", name=re.compile("Smoke summary")).count() == 0)
+    page.keyboard.press("Escape")
+    settle(page, 200)
+    page.keyboard.press("Escape")
+    settle(page, 300)
 
 
 COLLAPSED_RING = """() => [...document.querySelectorAll('.dv-groupview[data-collapsed]')].map((group) => ({
@@ -2668,7 +2749,7 @@ def run_interaction_checks(page, checks, notes):
     except Exception as exc:
         page.screenshot(path=str(OUTPUT_DIR / "mock-layout-failure.png"))
         checks.add("check_layout", False, f"{type(exc).__name__}: {str(exc)[:160]}")
-    for check in (check_lock_maximize, check_layout_undo, check_active_pane, check_session_banner, check_saved_items, check_paint_palette, check_recents, check_strip, check_tree_metadata, check_theme, check_summary_rail, check_summary_tools, check_selection_sets, check_dashboard_tools, check_tree_resize):
+    for check in (check_lock_maximize, check_layout_undo, check_active_pane, check_session_banner, check_saved_items, check_paint_palette, check_recents, check_strip, check_tree_metadata, check_theme, check_summary_rail, check_summary_tools, check_summary_add_dialog, check_summary_presets, check_selection_sets, check_dashboard_tools, check_tree_resize):
         try:
             check(page, checks)
         except Exception as exc:
