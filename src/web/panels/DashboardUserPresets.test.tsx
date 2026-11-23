@@ -15,6 +15,22 @@ describe('dashboard user presets', () => {
     installMemoryStorage();
   });
 
+  it('lists a saved preset in the Presets menu as the checked choice', async () => {
+    render(<DashboardSettingsBody />);
+    fireEvent.change(screen.getByLabelText('Preset name'), {
+      target: { value: 'Mine' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save current board' }));
+    await screen.findByRole('button', { name: 'Apply Mine' });
+    fireEvent.click(screen.getByRole('button', { name: 'Dashboard presets' }));
+    expect(
+      screen.getByRole('menuitemcheckbox', { name: 'Mine' }),
+    ).toHaveAttribute('aria-checked', 'true');
+    expect(
+      screen.getByRole('menuitemcheckbox', { name: 'Single chart' }),
+    ).toHaveAttribute('aria-checked', 'false');
+  });
+
   it('saves, applies, renames and deletes a preset', async () => {
     render(<DashboardSettingsBody />);
     expect(screen.getByText('No saved presets yet.')).toBeTruthy();

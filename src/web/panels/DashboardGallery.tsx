@@ -5,6 +5,7 @@ import {
   DASHBOARD_PRESETS,
   DASHBOARD_USER_PRESETS,
   type DashboardView,
+  sanitizeDashboardView,
   saveDashboardPreset,
   viewProperties,
 } from '../extensions/dashboardPresets.js';
@@ -135,7 +136,7 @@ export function DashboardGallery({ view, apply, rows }: DashboardGalleryProps) {
                   type="button"
                   className="btn btn-primary"
                   aria-label={`Apply ${item.name}`}
-                  onClick={() => apply(own)}
+                  onClick={() => apply(sanitizeDashboardView(own))}
                 >
                   Apply
                 </button>
