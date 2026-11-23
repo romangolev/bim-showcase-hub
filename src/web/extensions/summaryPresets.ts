@@ -1,6 +1,6 @@
 import { isRecord } from '../../shared/guards.js';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
-import { defineSavedKind } from '../store/savedKinds.js';
+import { defineSavedKind, type SavedKindItem } from '../store/savedKinds.js';
 import { MAX_ITEM_BYTES } from '../store/savedStore.js';
 import {
   COUNT_COLUMN,
@@ -27,7 +27,6 @@ export type SummaryPresetData = {
 };
 
 export const SUMMARY_PRESET_KIND = 'summary-preset';
-export const MAX_PRESET_PROPERTIES = MAX_SUMMARY_ROWS;
 const MAX_VIEW_DEPTH = 24;
 
 function isJsonValue(value: unknown, depth = 0): value is JsonValue {
@@ -66,7 +65,7 @@ export function sanitizeSummaryPreset(raw: unknown): SummaryPresetData | null {
     if (!isRecord(view) || !isJsonValue(view)) return null;
     const names = sanitizePropertyNames(properties, []).slice(
       0,
-      MAX_PRESET_PROPERTIES,
+      MAX_SUMMARY_ROWS,
     );
     if (names.length === 0) return null;
     const clean: SummaryPresetData = { properties: [...names], view };
@@ -117,12 +116,9 @@ export function saveSummaryPreset(
   properties: readonly string[],
   view: unknown,
   id?: string,
-): boolean {
-  if (!isRecord(view) || !isJsonValue(view)) return false;
-  return (
-    SUMMARY_PRESETS.save(name, { properties: [...properties], view }, id) !==
-    null
-  );
+): SavedKindItem<SummaryPresetData> | null {
+  if (!isRecord(view) || !isJsonValue(view)) return null;
+  return SUMMARY_PRESETS.save(name, { properties: [...properties], view }, id);
 }
 
 export interface SummarySpecPart {
@@ -176,17 +172,6 @@ export function summaryPresetKey(
     view.layout,
     view.groupBy,
   ]);
-}
-
-export function specPropertyNames(spec: SummarySpecPart): string[] {
-  return [
-    ...new Set([
-      ...spec.properties,
-      ...spec.view.columns.flatMap((column) =>
-        column.property === null ? [] : [column.property],
-      ),
-    ]),
-  ];
 }
 
 export function missingPresetProperties(

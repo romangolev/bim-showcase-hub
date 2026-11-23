@@ -1,18 +1,19 @@
-import { type ChangeEvent, useRef, useState } from 'react';
+import { type ChangeEvent, useMemo, useRef, useState } from 'react';
 import { Icon } from '../components/icons.js';
 import { Menu, type MenuEntry } from '../components/Menu.js';
 import { saveBlob } from '../extensions/download.js';
-import type { SummaryView } from '../extensions/modelSummary.js';
+import {
+  type SummaryView,
+  viewPropertyNames,
+} from '../extensions/modelSummary.js';
 import {
   BUILT_IN_SUMMARY_PRESETS,
-  type JsonValue,
   missingPresetProperties,
   presetToSpec,
   SUMMARY_PRESET_KIND,
   SUMMARY_PRESETS,
   type SummarySpecPart,
   saveSummaryPreset,
-  specPropertyNames,
   summaryPresetKey,
 } from '../extensions/summaryPresets.js';
 import { useSavedKindItems } from '../store/savedKinds.js';
@@ -33,10 +34,19 @@ const SAVE_FAILED =
 
 const NO_GAPS = (): string[] => [];
 
+const STARTERS = BUILT_IN_SUMMARY_PRESETS.flatMap((starter) => {
+  const spec = presetToSpec(starter.data);
+  return spec ? [{ starter, spec }] : [];
+});
+
+function notInModel(missing: readonly string[]): string {
+  return `Not in this model: ${missing.join(', ')}`;
+}
+
 interface SummaryPresetMenuProps {
   properties: readonly string[];
   view: SummaryView;
-  apply: (spec: SummarySpecPart) => void;
+  apply: (spec: SummarySpecPart, missing: string[]) => void;
   gaps?: (names: readonly string[]) => string[];
 }
 
@@ -55,33 +65,34 @@ export function SummaryPresetMenu({
   const current = summaryPresetKey(properties, view);
   const keyOf = (spec: SummarySpecPart) =>
     summaryPresetKey(spec.properties, spec.view);
-  const own = saved.flatMap((item) => {
-    const spec = presetToSpec(item.data);
-    return spec ? [{ item, spec }] : [];
-  });
-  const starters = BUILT_IN_SUMMARY_PRESETS.flatMap((starter) => {
-    const spec = presetToSpec(starter.data);
-    return spec ? [{ starter, spec }] : [];
-  });
-  const builtin = starters.find(({ spec }) => keyOf(spec) === current);
+  const own = useMemo(
+    () =>
+      saved.flatMap((item) => {
+        const spec = presetToSpec(item.data);
+        return spec ? [{ item, spec }] : [];
+      }),
+    [saved],
+  );
+  const builtin = STARTERS.find(({ spec }) => keyOf(spec) === current);
   const ownMatch = own.find(({ spec }) => keyOf(spec) === current);
   const target = ownMatch?.item ?? saved.find((item) => item.id === lastId);
   const label = builtin?.starter.name ?? ownMatch?.item.name ?? 'Custom';
 
+  const missingIn = (spec: SummarySpecPart) =>
+    gaps(viewPropertyNames(spec.properties, spec.view.columns));
+
   const note = (spec: SummarySpecPart) => {
-    const missing = gaps(specPropertyNames(spec));
-    return missing.length > 0
-      ? { description: `Not in this model: ${missing.join(', ')}` }
-      : {};
+    const missing = missingIn(spec);
+    return missing.length > 0 ? { description: notInModel(missing) } : {};
   };
 
   const choose = (name: string, spec: SummarySpecPart, id: string | null) => {
     setLastId(id);
-    apply(spec);
-    const missing = gaps(specPropertyNames(spec));
+    const missing = missingIn(spec);
+    apply(spec, missing);
     notify(
       missing.length > 0
-        ? `Applied the summary preset "${name}". Not in this model: ${missing.join(', ')}.`
+        ? `Applied the summary preset "${name}". ${notInModel(missing)}.`
         : `Applied the summary preset "${name}"`,
       { tone: 'success' },
     );
@@ -92,17 +103,14 @@ export function SummaryPresetMenu({
       title: 'Save current as preset',
       confirm: 'Save preset',
       onSubmit: (name) => {
-        const item = SUMMARY_PRESETS.save(name, {
-          properties: [...properties],
-          view: view as unknown as JsonValue,
-        });
+        const item = saveSummaryPreset(name, properties, view);
         if (item) setLastId(item.id);
         else notify(SAVE_FAILED, { tone: 'error' });
       },
     });
 
   const entries = (): MenuEntry[] => [
-    ...starters.map(({ starter, spec }) => ({
+    ...STARTERS.map(({ starter, spec }) => ({
       id: `builtin:${starter.id}`,
       label: starter.name,
       checked: builtin?.starter.id === starter.id,
@@ -232,14 +240,9 @@ export function SummaryPresetSection({
         properties={properties}
         view={view}
         gaps={gaps}
-        apply={(spec) => {
-          apply(spec);
-          const missing = gaps(specPropertyNames(spec));
-          setNote(
-            missing.length > 0
-              ? `${missing.length} ${missing.length === 1 ? 'property is' : 'properties are'} not in this model: ${missing.join(', ')}.`
-              : '',
-          );
+        apply={(spec, missing) => {
+          apply(spec, missing);
+          setNote(missing.length > 0 ? `${notInModel(missing)}.` : '');
         }}
       />
       <p className="settings__hint">

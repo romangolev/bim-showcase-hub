@@ -10,19 +10,18 @@ import { installMemoryStorage } from '../test/mockApi.js';
 import {
   COUNT_COLUMN,
   DEFAULT_SUMMARY_VIEW,
+  MAX_SUMMARY_ROWS,
   sanitizeView,
   summaryColumn,
 } from './modelSummary.js';
 import {
   applySummaryPreset,
   BUILT_IN_SUMMARY_PRESETS,
-  MAX_PRESET_PROPERTIES,
   missingPresetProperties,
   presetToSpec,
   SUMMARY_PRESETS,
   sanitizeSummaryPreset,
   saveSummaryPreset,
-  specPropertyNames,
   summaryPresetKey,
 } from './summaryPresets.js';
 
@@ -53,14 +52,14 @@ describe('sanitizeSummaryPreset', () => {
 
   it('dedupes property names and caps the list', () => {
     const many = Array.from(
-      { length: MAX_PRESET_PROPERTIES + 5 },
+      { length: MAX_SUMMARY_ROWS + 5 },
       (_, index) => `P${index}`,
     );
     const clean = sanitizeSummaryPreset({
       properties: ['Level', 'Level', ...many],
       view: DEFAULT_SUMMARY_VIEW,
     });
-    expect(clean?.properties).toHaveLength(MAX_PRESET_PROPERTIES);
+    expect(clean?.properties).toHaveLength(MAX_SUMMARY_ROWS);
     expect(clean?.properties.slice(0, 2)).toEqual([
       'Level',
       ...many.slice(0, 1),
@@ -117,7 +116,9 @@ describe('sanitizeSummaryPreset', () => {
 describe('summary preset storage', () => {
   it('round-trips a preset and its unknown view fields', () => {
     const view = { ...DEFAULT_SUMMARY_VIEW, futureField: 42 };
-    expect(saveSummaryPreset('Mine', ['Category', 'Level'], view)).toBe(true);
+    expect(
+      saveSummaryPreset('Mine', ['Category', 'Level'], view),
+    ).not.toBeNull();
     const item = SUMMARY_PRESETS.list()[0];
     expect(item?.name).toBe('Mine');
     expect(item?.data).toEqual({
@@ -143,7 +144,7 @@ describe('summary preset storage', () => {
 
   it('survives a JSON export and import round trip with unknown fields', () => {
     const view = { ...DEFAULT_SUMMARY_VIEW, futureField: 'kept' };
-    expect(saveSummaryPreset('Shared', ['Category'], view)).toBe(true);
+    expect(saveSummaryPreset('Shared', ['Category'], view)).not.toBeNull();
     const file = exportSaved('summary-preset');
     window.localStorage.removeItem(SAVED_KEY);
     const result = importSaved(file);
@@ -272,7 +273,7 @@ describe('presets and the column model', () => {
       ...DEFAULT_SUMMARY_VIEW,
       columns: [COUNT_COLUMN, summaryColumn('Area', 'sum')],
     };
-    expect(saveSummaryPreset('Areas', ['Level'], view)).toBe(true);
+    expect(saveSummaryPreset('Areas', ['Level'], view)).not.toBeNull();
     expect(
       presetToSpec(
         SUMMARY_PRESETS.list()[0]?.data ?? { properties: [], view: {} },
@@ -288,16 +289,5 @@ describe('presets and the column model', () => {
     expect(summaryPresetKey(['A'], b)).not.toBe(
       summaryPresetKey(['A'], { ...b, columns: [] }),
     );
-  });
-
-  it('names the row and column properties of a spec once each', () => {
-    const view = {
-      ...DEFAULT_SUMMARY_VIEW,
-      columns: [COUNT_COLUMN, summaryColumn('Level', 'distinct')],
-    };
-    expect(specPropertyNames({ properties: ['Level', 'Name'], view })).toEqual([
-      'Level',
-      'Name',
-    ]);
   });
 });
