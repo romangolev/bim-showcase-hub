@@ -1,5 +1,16 @@
-import { useEffect, useId, useMemo, useState } from 'react';
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { Icon } from '../components/icons.js';
+import {
+  type PaneAction,
+  PaneActionsMenu,
+} from '../components/PaneActionsMenu.js';
 import { StateBlock } from '../components/StateBlock.js';
 import { colorByChart } from '../extensions/colorBy.js';
 import {
@@ -21,6 +32,7 @@ import {
   patchChart,
   removeChart,
   viewSpec,
+  withControls,
 } from '../extensions/dashboardPresets.js';
 import {
   itemsWithValues,
@@ -51,6 +63,7 @@ import {
   UnavailableModels,
 } from './ModelScope.js';
 import { ScopedRowsStatus } from './ScopedRowsStatus.js';
+import { useAutoCompact } from './useAutoCompact.js';
 import {
   SELECTION_DEBOUNCE_MS,
   useResolvedAdapter,
@@ -259,15 +272,84 @@ export function DashboardPanel({
     onCollapsedChange?.(next);
   };
 
+  const sectionRef = useRef<HTMLElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
+  const controlsToggleRef = useRef<HTMLButtonElement>(null);
+  const autoCompact = useAutoCompact(sectionRef);
+  const compact =
+    !isCollapsed &&
+    (view.controls === undefined ? autoCompact : !view.controls);
+  const toggleControls = () =>
+    setView((prev) =>
+      withControls(prev, compact === autoCompact ? compact : undefined),
+    );
+  const focusInHeader =
+    headerRef.current?.contains(document.activeElement) ?? false;
+  useLayoutEffect(() => {
+    if (
+      compact &&
+      focusInHeader &&
+      !headerRef.current?.contains(document.activeElement)
+    ) {
+      controlsToggleRef.current?.focus();
+    }
+  }, [compact, focusInHeader]);
+  const showControls = !isCollapsed && !compact;
+  const orientations: DashboardOrientation[] = ['vertical', 'horizontal'];
+  const actions = (): PaneAction[] => [
+    {
+      id: 'add',
+      label: 'Add chart',
+      disabled: chartSpecs.length >= MAX_CHARTS,
+      onSelect: () => setView(addChart),
+    },
+    {
+      id: 'refresh',
+      label: 'Refresh',
+      disabled: !resolved,
+      onSelect: state.refresh,
+    },
+    ...(chartSpecs.length > 1
+      ? [
+          { kind: 'separator' as const, id: 'layout-sep' },
+          ...orientations.map((orientation) => ({
+            id: orientation,
+            label: `${ORIENTATION_LABELS[orientation]} layout`,
+            checked: view.orientation === orientation,
+            onSelect: () => setView((prev) => ({ ...prev, orientation })),
+          })),
+        ]
+      : []),
+    { kind: 'separator' as const, id: 'model-sep' },
+    {
+      id: 'colour',
+      label: 'Colour the model by this chart',
+      checked: primaryColored,
+      disabled: !resolved || !primary,
+      onSelect: colorByPrimary,
+    },
+    ...(onOpenSettings
+      ? [
+          {
+            id: 'settings',
+            label: 'Dashboard settings',
+            onSelect: onOpenSettings,
+          },
+        ]
+      : []),
+  ];
+
   const bodyId = `${uid}-body`;
 
   return (
     <section
+      ref={sectionRef}
       className={`bsh-card bsh-drawer ${className ?? ''}`.trim()}
       aria-labelledby={`${uid}-title`}
       data-collapsed={isCollapsed}
+      data-compact={compact}
     >
-      <header className="bsh-card__header bsh-drawer__header">
+      <header ref={headerRef} className="bsh-card__header bsh-drawer__header">
         <h2 id={`${uid}-title`} className="bsh-card__title">
           {title}
         </h2>
@@ -290,27 +372,25 @@ export function DashboardPanel({
             </span>
           </button>
         ) : null}
-        {!isCollapsed ? (
+        {showControls ? (
           <ModelScopeSelect state={state.models} label="Chart models" />
         ) : null}
-        {!isCollapsed && chartSpecs.length > 1 ? (
+        {showControls && chartSpecs.length > 1 ? (
           <fieldset className="bsh-kinds" aria-label="Chart layout">
-            {(['vertical', 'horizontal'] as DashboardOrientation[]).map(
-              (orientation) => (
-                <button
-                  key={orientation}
-                  type="button"
-                  className="btn"
-                  aria-pressed={view.orientation === orientation}
-                  onClick={() => setView((prev) => ({ ...prev, orientation }))}
-                >
-                  {ORIENTATION_LABELS[orientation]}
-                </button>
-              ),
-            )}
+            {orientations.map((orientation) => (
+              <button
+                key={orientation}
+                type="button"
+                className="btn"
+                aria-pressed={view.orientation === orientation}
+                onClick={() => setView((prev) => ({ ...prev, orientation }))}
+              >
+                {ORIENTATION_LABELS[orientation]}
+              </button>
+            ))}
           </fieldset>
         ) : null}
-        {!isCollapsed ? (
+        {showControls ? (
           <button
             type="button"
             className="btn"
@@ -320,37 +400,49 @@ export function DashboardPanel({
             Add chart
           </button>
         ) : null}
-        {!isCollapsed && resolved ? (
-          <DashboardPresetMenu view={view} apply={setView} />
+        {showControls && resolved ? (
+          <DashboardPresetMenu
+            view={view}
+            apply={(next) =>
+              setView((prev) => withControls(next, prev.controls))
+            }
+          />
         ) : null}
-        <button
-          type="button"
-          className="icon-button"
-          aria-label="Colour the model by this chart"
-          aria-pressed={primaryColored}
-          title={
-            !resolved
-              ? 'Open a model to colour it'
-              : !primary
-                ? 'No chart data to colour by'
-                : primaryColored
-                  ? 'Clear the chart colouring'
-                  : 'Colour the model by this chart'
-          }
-          onClick={colorByPrimary}
-          disabled={!resolved || !primary}
-        >
-          <Icon name="palette" size={16} />
-        </button>
-        <button
-          type="button"
-          className="btn"
-          onClick={state.refresh}
-          disabled={!resolved}
-        >
-          Refresh
-        </button>
-        {onOpenSettings ? (
+        {compact ? (
+          <PaneActionsMenu label="Dashboard actions" actions={actions} />
+        ) : null}
+        {compact ? null : (
+          <>
+            <button
+              type="button"
+              className="icon-button"
+              aria-label="Colour the model by this chart"
+              aria-pressed={primaryColored}
+              title={
+                !resolved
+                  ? 'Open a model to colour it'
+                  : !primary
+                    ? 'No chart data to colour by'
+                    : primaryColored
+                      ? 'Clear the chart colouring'
+                      : 'Colour the model by this chart'
+              }
+              onClick={colorByPrimary}
+              disabled={!resolved || !primary}
+            >
+              <Icon name="palette" size={16} />
+            </button>
+            <button
+              type="button"
+              className="btn"
+              onClick={state.refresh}
+              disabled={!resolved}
+            >
+              Refresh
+            </button>
+          </>
+        )}
+        {onOpenSettings && !compact ? (
           <button
             type="button"
             className="icon-button"
@@ -360,6 +452,19 @@ export function DashboardPanel({
             <span className="bsh-sr-only">Dashboard settings</span>
           </button>
         ) : null}
+        {isCollapsed ? null : (
+          <button
+            ref={controlsToggleRef}
+            type="button"
+            className="icon-button bsh-drawer__controls"
+            aria-label="Dashboard controls"
+            aria-expanded={!compact}
+            title={compact ? 'Show controls' : 'Hide controls'}
+            onClick={toggleControls}
+          >
+            <Icon name="sliders" size={16} />
+          </button>
+        )}
       </header>
       <div
         id={bodyId}

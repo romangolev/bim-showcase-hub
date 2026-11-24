@@ -203,6 +203,23 @@ select.field {
   transform: rotate(90deg);
 }
 
+.bsh-drawer__controls {
+  order: 4;
+  margin-left: auto;
+}
+
+.bsh-drawer[data-compact="true"] .bsh-drawer__header {
+  justify-content: flex-end;
+}
+
+.bsh-drawer[data-compact="true"] .bsh-drawer__header > h2 {
+  margin-right: auto;
+}
+
+.bsh-drawer[data-compact="true"] .bsh-drawer__controls {
+  margin-left: 0;
+}
+
 .bsh-drawer__body {
   height: var(--drawer-body);
   padding: var(--space-2) var(--padding-panel);
@@ -336,6 +353,11 @@ select.field {
     width: var(--hit-target);
     padding: 0;
     justify-content: center;
+    margin-left: 0;
+  }
+
+  .bsh-drawer__controls {
+    order: 2;
     margin-left: 0;
   }
 

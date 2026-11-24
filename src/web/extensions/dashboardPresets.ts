@@ -130,6 +130,15 @@ export interface DashboardView extends Partial<DashboardChartSpec> {
   pngLegend: boolean;
   scope?: string;
   splitByModel?: boolean;
+  controls?: boolean;
+}
+
+export function withControls(
+  view: DashboardView,
+  controls: boolean | undefined,
+): DashboardView {
+  const { controls: _previous, ...rest } = view;
+  return controls === undefined ? rest : { ...rest, controls };
 }
 
 export const DEFAULT_DASHBOARD_VIEW: DashboardView = {
@@ -323,6 +332,9 @@ export function sanitizeDashboardView(raw: unknown): DashboardView {
       ? { scope: source.scope }
       : {}),
     ...(flag(source.splitByModel, false) ? { splitByModel: true } : {}),
+    ...(typeof source.controls === 'boolean'
+      ? { controls: source.controls }
+      : {}),
   };
 }
 

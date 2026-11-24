@@ -453,8 +453,27 @@ def keep_one_chart(page, pane):
         settle(page, 200)
 
 
+def show_dashboard_controls(pane):
+    toggle = pane.get_by_role("button", name="Dashboard controls")
+    if toggle.count() and toggle.get_attribute("aria-expanded") == "false":
+        toggle.click()
+
+
+def check_dashboard_auto_collapse(page, checks, pane):
+    toggle = pane.get_by_role("button", name="Dashboard controls")
+    short = pane.bounding_box()["height"] < 360
+    checks.add("dashboard controls collapse on their own in a short pane", (toggle.get_attribute("aria-expanded") == "false") == short, pane.bounding_box())
+    if short:
+        checks.add("collapsed dashboard keeps its actions in one menu", pane.get_by_role("button", name="Dashboard actions").count() == 1 and pane.get_by_role("button", name="Add chart").count() == 0)
+        header = pane.locator(".bsh-drawer__header").bounding_box()["height"]
+        checks.add("collapsed dashboard header is one row", header <= 56, header)
+    show_dashboard_controls(pane)
+    checks.add("showing the controls by hand wins over the automatic rule", toggle.get_attribute("aria-expanded") == "true" and pane.get_by_role("button", name="Add chart").count() == 1)
+
+
 def check_dashboard_presets(page, checks):
     pane = page.locator(".pane-dashboard").first
+    show_dashboard_controls(pane)
     toggle = pane.get_by_role("button", name="Dashboard presets", exact=True)
     checks.add("the dashboard pane has a Presets dropdown", toggle.count() == 1 and toggle.get_attribute("aria-haspopup") == "menu")
     toggle.click()
@@ -519,6 +538,7 @@ def check_dashboard_table_fit(page, checks):
         settle(page, 600)
     pane = page.locator(".pane-dashboard").first
     pane.locator("canvas").first.wait_for(timeout=8000)
+    show_dashboard_controls(pane)
     while pane.get_by_role("button", name=re.compile(r"^Options for ")).count() < 2:
         pane.get_by_role("button", name="Add chart").click()
         settle(page, 300)
@@ -556,6 +576,7 @@ def check_dashboard_tools(page, checks):
         settle(page, 600)
     pane = page.locator(".pane-dashboard").first
     pane.locator("canvas").first.wait_for(timeout=8000)
+    check_dashboard_auto_collapse(page, checks, pane)
     pane.get_by_role("button", name=re.compile(r"^Options for ")).first.click()
     page.get_by_role("menuitemcheckbox", name="Chart type: Doughnut").click()
     settle(page, 500)

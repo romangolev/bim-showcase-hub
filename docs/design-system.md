@@ -22,6 +22,8 @@ Other stylesheets (`src/web/styles/*.css`, `panels/panels.css`, `layout/dockThem
 - Headlines use weight 400. The primary button is the neutral bone fill.
 - Use `StateBlock` for loading, empty and error states.
 - Buttons are `.btn` (with `.btn-primary` and `.btn-small`) and `.icon-button` everywhere, panes included. Pressed toggle buttons (`aria-pressed="true"`) show an arc-blue border and an 18% arc-blue tint. No chromatic fills.
+- Quick actions of a pane (copy, download, show all, chart options) sit in one `PaneActionsMenu` dropdown, not in a row of buttons. Menu triggers are `.btn` or `.icon-button` like any other button.
+- The Dashboard hides its header controls when the pane is under 560 px wide or 360 px tall and shows them again from 600 by 400 px (`useAutoCompact`). The actions move into its `PaneActionsMenu`, and the Dashboard controls toggle overrides the rule for that pane.
 - Every interactive control needs an accessible name and a visible focus ring.
 
 ### Accessibility
