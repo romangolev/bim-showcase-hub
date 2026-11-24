@@ -403,6 +403,54 @@ select.field {
   overflow: hidden;
 }
 
+.pane-slot--dock .bsh-drawer {
+  position: relative;
+}
+
+.pane-slot--dock
+  .bsh-drawer[data-compact="true"]:not([data-collapsed="true"])
+  .bsh-drawer__header {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: auto;
+  min-height: 0;
+  background: transparent;
+  pointer-events: none;
+}
+
+.pane-slot--dock
+  .bsh-drawer[data-compact="true"]:not([data-collapsed="true"])
+  .bsh-drawer__header
+  > * {
+  pointer-events: auto;
+}
+
+.pane-slot--dock
+  .bsh-drawer[data-compact="true"]:not([data-collapsed="true"])
+  .bsh-drawer__header
+  > h2 {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.pane-slot--dock
+  .bsh-drawer[data-compact="true"]:not([data-collapsed="true"])
+  .bsh-drawer__body {
+  padding-inline-end: calc(
+    var(--hit-target) *
+    2 +
+    var(--space-3) +
+    var(--padding-panel) *
+    2
+  );
+  border-top-width: 0;
+}
+
 .bsh-summary {
   transition: gap 160ms ease;
 }
