@@ -418,10 +418,38 @@ describe('treeState picking', () => {
     const { state } = await loaded();
     state.togglePick(get(state, 'v1'));
     expect(state.getSnapshot().picked).toEqual([
-      { urn: 'urn:v1', context: state.contextFor(get(state, 'v1')) },
+      {
+        urn: 'urn:v1',
+        context: state.contextFor(get(state, 'v1')),
+        project: 'p',
+      },
     ]);
     state.togglePick(get(state, 'v1'));
     expect(state.getSnapshot().picked).toEqual([]);
+  });
+
+  it('records the nearest project name on a pick', async () => {
+    const { state } = await loaded();
+    state.togglePick(get(state, 'v1'));
+    expect(state.getSnapshot().picked[0]?.project).toBe('p');
+  });
+
+  it('records the project name when the tree is rooted at a project', async () => {
+    const { data } = fakeData();
+    const state = createTreeState({
+      root: {
+        node: node('p', { kind: 'project', name: 'Project' }),
+        scope: { kind: 'project', id: 'p', hubId: 'h', projectId: 'p' },
+      },
+      data,
+      sort: () => 'name',
+    });
+    state.bind(fakeHost().host);
+    for (const id of ['p', 'f', 'doc.rvt']) await state.children(id);
+    state.togglePick(get(state, 'v1'));
+    const [pick] = state.getSnapshot().picked;
+    expect(pick?.project).toBe('Project');
+    expect(pick?.context.crumbs?.[0]).toBe('Project');
   });
 
   it('turns a blocked pick into a notice instead of a selection', async () => {
@@ -526,6 +554,7 @@ describe('treeState open decisions', () => {
     expect(perform).toHaveBeenCalledWith({
       urn: 'urn:v1',
       context: state.contextFor(get(state, 'v1')),
+      project: 'p',
     });
     expect(state.getSnapshot().notice).toBeNull();
   });

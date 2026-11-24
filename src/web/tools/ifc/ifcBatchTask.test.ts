@@ -23,6 +23,7 @@ function picked(count: number): PickedModel[] {
       v: `v${i + 1}`,
       crumbs: ['Hub', 'Tower'],
     },
+    project: 'Tower',
   }));
 }
 

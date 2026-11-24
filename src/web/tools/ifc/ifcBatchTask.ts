@@ -9,7 +9,7 @@ export const CONFIRM_BATCH_ABOVE = 10;
 let running = false;
 
 function projectOf(models: readonly PickedModel[]): string | undefined {
-  const names = new Set(models.map((model) => model.context.crumbs?.[1]));
+  const names = new Set(models.map((model) => model.project));
   const [name] = names;
   return names.size === 1 ? name : undefined;
 }
