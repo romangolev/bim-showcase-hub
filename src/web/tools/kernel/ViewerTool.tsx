@@ -25,6 +25,8 @@ export interface ToolContext {
   id: (base: string) => string;
   fileName: () => string;
   current: <S extends ToolSettings>(tool: ViewerTool<S>) => S;
+  openModal?: (id: string) => void;
+  focusDocuments?: () => void;
 }
 
 export function readEnabled(raw: unknown): boolean {

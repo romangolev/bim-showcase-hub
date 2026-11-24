@@ -7,6 +7,7 @@ import {
   waitFor,
   within,
 } from '@testing-library/react';
+import type { ComponentProps } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { thumbnailPath } from '../../api/client.js';
 import { createOpenModelsStore } from '../../api/openModels.js';
@@ -685,6 +686,7 @@ describe('DocumentTree file rows', () => {
   async function setup(
     view: Partial<TreeView> = {},
     routes: Record<string, unknown> = {},
+    props: Partial<ComponentProps<typeof DocumentTree>> = {},
   ) {
     installMemoryStorage();
     window.localStorage.setItem(
@@ -699,7 +701,11 @@ describe('DocumentTree file rows', () => {
     const onOpenModel = vi.fn();
     render(
       <QueryClientProvider client={createTestClient()}>
-        <DocumentTree onOpenModel={onOpenModel} />
+        <DocumentTree
+          onOpenModel={onOpenModel}
+          onOpenTogether={vi.fn()}
+          {...props}
+        />
       </QueryClientProvider>,
     );
     await expandTo('Studio hub');
@@ -729,6 +735,24 @@ describe('DocumentTree file rows', () => {
         expect.objectContaining({ file: 'Tower.rvt', v: 'v2' }),
       ),
     );
+  });
+
+  it('only expands a file row and picks with Enter in IFC batch mode', async () => {
+    const onOpenModel = await setup(
+      { itemOpen: 'latest' },
+      {},
+      {
+        ifcBatch: { active: true, stop: vi.fn() },
+      },
+    );
+    fireEvent.click(fileRow());
+    const version = await screen.findByRole('treeitem', { name: /^v1:/ });
+    fireEvent.keyDown(version, { key: 'Enter' });
+    expect(version).toHaveAttribute('aria-checked', 'true');
+    fireEvent.keyDown(version, { key: 'Enter' });
+    expect(version).toHaveAttribute('aria-checked', 'false');
+    fireEvent.keyDown(fileRow(), { key: 'Enter' });
+    expect(onOpenModel).not.toHaveBeenCalled();
   });
 
   it('opens the latest version from the file row menu', async () => {
@@ -957,6 +981,79 @@ describe('DocumentTree multi-select', () => {
     }[];
     expect(picked.map((model) => model.urn)).toEqual(['urn-0', 'urn-2']);
     expect(picked[1]?.context).toMatchObject({ file: 'Tower.rvt', v: 'v3' });
+    expect(row(1)).toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('exports the picked versions as an IFC batch and clears the picks', async () => {
+    const onExportIfc = vi.fn();
+    await openVersions(3, { onExportIfc });
+    expect(screen.queryByRole('button', { name: 'Export IFC' })).toBeNull();
+    fireEvent.click(row(1), { ctrlKey: true });
+    fireEvent.click(row(3), { metaKey: true });
+    fireEvent.click(screen.getByRole('button', { name: 'Export IFC' }));
+    const models = onExportIfc.mock.calls[0]?.[0] as { urn: string }[];
+    expect(models.map((model) => model.urn)).toEqual(['urn-0', 'urn-2']);
+    expect(row(1)).toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('selects with a plain click in IFC batch mode and exports or cancels', async () => {
+    const onExportIfc = vi.fn();
+    const stop = vi.fn();
+    const { onOpenModel } = await openVersions(3, {
+      onExportIfc,
+      ifcBatch: { active: true, stop },
+    });
+    expect(screen.getByText('Export models to IFC')).toBeInTheDocument();
+    expect(screen.getByText('Nothing selected')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Export IFC' })).toBeDisabled();
+    expect(row(1).querySelector('input[type=checkbox]')).not.toBeNull();
+    fireEvent.click(row(1));
+    fireEvent.click(row(3));
+    expect(onOpenModel).not.toHaveBeenCalled();
+    expect(screen.getByText('2 selected')).toBeInTheDocument();
+    expect(
+      (row(1).querySelector('input[type=checkbox]') as HTMLInputElement)
+        .checked,
+    ).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Export IFC' }));
+    const models = onExportIfc.mock.calls[0]?.[0] as { urn: string }[];
+    expect(models.map((model) => model.urn)).toEqual(['urn-0', 'urn-2']);
+    expect(stop).toHaveBeenCalledOnce();
+  });
+
+  it('keeps the picks and batch mode when the export is refused', async () => {
+    const stop = vi.fn();
+    await openVersions(2, {
+      onExportIfc: vi.fn(() => false),
+      ifcBatch: { active: true, stop },
+    });
+    fireEvent.click(row(1));
+    fireEvent.click(screen.getByRole('button', { name: 'Export IFC' }));
+    expect(stop).not.toHaveBeenCalled();
+    expect(row(1)).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('clears the picks and leaves IFC batch mode on cancel', async () => {
+    const stop = vi.fn();
+    await openVersions(2, {
+      onExportIfc: vi.fn(),
+      ifcBatch: { active: true, stop },
+    });
+    fireEvent.click(row(1));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(stop).toHaveBeenCalledOnce();
+    expect(row(1)).toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('leaves IFC batch mode and clears the picks on Escape', async () => {
+    const stop = vi.fn();
+    await openVersions(2, {
+      onExportIfc: vi.fn(),
+      ifcBatch: { active: true, stop },
+    });
+    fireEvent.click(row(1));
+    fireEvent.keyDown(row(1), { key: 'Escape' });
+    expect(stop).toHaveBeenCalledOnce();
     expect(row(1)).toHaveAttribute('aria-checked', 'false');
   });
 

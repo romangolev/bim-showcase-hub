@@ -14,6 +14,7 @@ import {
   ViewerTool,
 } from '../kernel/ViewerTool.js';
 import { IfcFields } from './IfcFields.js';
+import { ifcBatchMode } from './ifcBatchMode.js';
 import { IFC_SETTINGS, type IfcToolSettings } from './ifcSettings.js';
 
 export const IFC_TOOLTIP = 'Export IFC';
@@ -31,24 +32,60 @@ export class IfcExportTool extends ViewerTool<IfcToolSettings> {
   readonly exportTitle = IFC_TOOLTIP;
 
   contribute(ctx: ToolContext): ToolContribution {
+    const entry = exportEntry(
+      ctx,
+      this.id,
+      {
+        id: 'export-ifc',
+        icon: 'bsh-ico-ifc',
+        tooltip: IFC_TOOLTIP,
+        label: 'Exporting IFC',
+      },
+      ({ task }) =>
+        exportToIfc(ctx.adapter, {
+          fileName: ifcFileNameFrom(ctx.fileName()),
+          settings: () => ctx.current(this),
+          onStatus: statusReporter(task, describeIfcStatus),
+        }),
+    );
+    const { openModal, focusDocuments } = ctx;
+    if (!openModal && !focusDocuments) return { exports: [entry] };
     return {
       exports: [
-        exportEntry(
-          ctx,
-          this.id,
-          {
-            id: 'export-ifc',
-            icon: 'bsh-ico-ifc',
-            tooltip: IFC_TOOLTIP,
-            label: 'Exporting IFC',
-          },
-          ({ task }) =>
-            exportToIfc(ctx.adapter, {
-              fileName: ifcFileNameFrom(ctx.fileName()),
-              settings: () => ctx.current(this),
-              onStatus: statusReporter(task, describeIfcStatus),
-            }),
-        ),
+        {
+          ...entry,
+          menu: [
+            {
+              id: ctx.id('ifc-export-now'),
+              icon: 'bsh-ico-ifc',
+              tooltip: 'Export current model',
+              run: entry.onExport,
+            },
+            ...(focusDocuments
+              ? [
+                  {
+                    id: ctx.id('ifc-batch'),
+                    icon: 'bsh-ico-ifc-batch',
+                    tooltip: 'Batch export IFC',
+                    run: () => {
+                      ifcBatchMode.set(true);
+                      focusDocuments();
+                    },
+                  },
+                ]
+              : []),
+            ...(openModal
+              ? [
+                  {
+                    id: ctx.id('ifc-settings'),
+                    icon: 'bsh-ico-ifc-settings',
+                    tooltip: 'IFC settings',
+                    run: () => openModal(this.modalId),
+                  },
+                ]
+              : []),
+          ],
+        },
       ],
     };
   }

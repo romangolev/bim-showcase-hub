@@ -149,6 +149,7 @@ export interface TreeRowViewProps {
   secondary?: string;
   highlight?: string;
   picked?: boolean;
+  checkbox?: boolean;
   added?: boolean;
   latest?: boolean;
   thumbnail?: string;
@@ -175,6 +176,7 @@ export function TreeRowView({
   secondary,
   highlight,
   picked,
+  checkbox = false,
   added,
   latest = false,
   thumbnail,
@@ -245,8 +247,19 @@ export function TreeRowView({
           <Icon name="chevron" size={12} />
         )}
       </span>
+      {checkbox ? (
+        <input
+          type="checkbox"
+          className="tree-row__check"
+          checked={Boolean(picked)}
+          disabled={disabled}
+          readOnly
+          tabIndex={-1}
+          aria-hidden="true"
+        />
+      ) : null}
       <span className="tree-row__icon">
-        <Icon name={picked ? 'check' : icon} size={15} />
+        <Icon name={picked && !checkbox ? 'check' : icon} size={15} />
       </span>
       <span className="tree-row__text">
         <span className="tree-row__line">

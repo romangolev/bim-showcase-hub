@@ -1,7 +1,9 @@
 import { useParams, useSearch } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useModelContext } from '../api/useModelContext.js';
 import { useOpenModels } from '../api/useOpenModels.js';
+import { ifcBatchMode, useIfcBatchMode } from '../tools/ifc/ifcBatchMode.js';
+import { exportPickedAsIfcBatch } from '../tools/ifc/ifcBatchTask.js';
 import { DocumentsHome } from './tree/DocumentsHome.js';
 import { DocumentTree } from './tree/DocumentTree.js';
 import { DOC_ROOT, type TreeRoot, treeRootOf } from './tree/docRoot.js';
@@ -22,6 +24,8 @@ export function TreePanel({ onNavigate }: TreePanelProps) {
   );
   const openers = useModelOpeners(onNavigate);
   const home = useOpenModels().active === null;
+  const batchActive = useIfcBatchMode();
+  useEffect(() => () => ifcBatchMode.set(false), []);
 
   return (
     <aside id="document-panel" className="tree-panel" aria-label="Documents">
@@ -51,6 +55,8 @@ export function TreePanel({ onNavigate }: TreePanelProps) {
         onOpenTabs={openers.openTabs}
         onOpenModal={openers.openModal}
         onOpenTogether={openers.openTogether}
+        onExportIfc={exportPickedAsIfcBatch}
+        ifcBatch={{ active: batchActive, stop: () => ifcBatchMode.set(false) }}
         addTarget={openers.addTarget}
       />
     </aside>

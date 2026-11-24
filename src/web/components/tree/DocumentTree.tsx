@@ -40,6 +40,7 @@ import { CRAWL_LIMITS, type CrawlResult } from './crawl.js';
 import { onDeepSearch } from './deepSearchSignal.js';
 import { startModelDrag } from './docDrag.js';
 import { DEFAULT_TREE_ROOT, type TreeRoot } from './docRoot.js';
+import { IfcBatchBubble } from './IfcBatchBubble.js';
 import { NoHubsHint, PersonalHubNotice } from './NoHubsHint.js';
 import { PickBar, type PreviewOpen } from './PickBar.js';
 import { PreviewCard } from './PreviewCard.js';
@@ -85,6 +86,8 @@ export interface DocumentTreeProps {
   onOpenModel: (urn: string, context: ModelContext) => void;
   onOpenTabs?: (models: PickedModel[]) => void;
   onOpenTogether?: (models: PickedModel[]) => void;
+  onExportIfc?: (models: PickedModel[]) => boolean | undefined;
+  ifcBatch?: { active: boolean; stop: () => void };
   onOpenModal?: (urn: string, context: ModelContext) => void;
   addTarget?: AddTarget | null;
   root?: TreeRoot;
@@ -210,6 +213,8 @@ export function DocumentTree({
   onOpenModel,
   onOpenTabs,
   onOpenTogether,
+  onExportIfc,
+  ifcBatch,
   onOpenModal,
   addTarget,
   root = DEFAULT_TREE_ROOT,
@@ -421,7 +426,15 @@ export function DocumentTree({
 
   const activate = (item: ItemInstance<TreeNode>) => {
     const node = item.getItemData();
-    if (node.kind === 'item' && view.itemOpen !== 'expand') {
+    if (ifcBatch?.active && node.kind === 'version') {
+      if (!isBlocked(node)) togglePick(node);
+      return;
+    }
+    if (
+      node.kind === 'item' &&
+      view.itemOpen !== 'expand' &&
+      !ifcBatch?.active
+    ) {
       void openItem(node, view.itemOpen);
       return;
     }
@@ -491,6 +504,16 @@ export function DocumentTree({
 
   const onPickClick = (event: MouseEvent, node: TreeNode): boolean => {
     if (node.kind !== 'version') return false;
+    if (
+      ifcBatch?.active &&
+      !event.metaKey &&
+      !event.ctrlKey &&
+      !event.shiftKey
+    ) {
+      event.preventDefault();
+      if (!isBlocked(node)) togglePick(node);
+      return true;
+    }
     if (event.metaKey || event.ctrlKey) {
       event.preventDefault();
       if (isBlocked(node)) openNode(node);
@@ -509,8 +532,9 @@ export function DocumentTree({
     if (event.key !== ' ' || node.kind !== 'version') return false;
     event.preventDefault();
     event.stopPropagation();
-    if (isBlocked(node)) openNode(node);
-    else togglePick(node);
+    if (isBlocked(node)) {
+      if (!ifcBatch?.active) openNode(node);
+    } else togglePick(node);
     return true;
   };
 
@@ -777,6 +801,12 @@ export function DocumentTree({
       return;
     }
     if (event.metaKey || event.ctrlKey || event.altKey) return;
+    if (event.key === 'Escape' && ifcBatch?.active) {
+      event.preventDefault();
+      state.clearPicked();
+      ifcBatch.stop();
+      return;
+    }
     if (event.key === 'Enter') {
       if (!target?.closest('[role="treeitem"]')) return;
       if (target.closest('button, a')) return;
@@ -1055,6 +1085,7 @@ export function DocumentTree({
           }
           meta={metaText(node, view)}
           picked={urn !== null && pickedUrns.has(urn)}
+          checkbox={ifcBatch?.active && node.kind === 'version'}
           action={rowAction(node)}
           added={urn !== null && addTarget?.has(urn)}
           rowProps={{
@@ -1116,6 +1147,7 @@ export function DocumentTree({
           highlight={query}
           selected={urn !== null && urn === selectedUrn}
           picked={urn !== null && pickedUrns.has(urn)}
+          checkbox={ifcBatch?.active && resultNode.kind === 'version'}
           action={rowAction(resultNode)}
           added={urn !== null && addTarget?.has(urn)}
           rowProps={{
@@ -1199,7 +1231,11 @@ export function DocumentTree({
   };
 
   return (
-    <div className="doc-tree" onKeyDownCapture={onTreeKeyDown}>
+    <div
+      className="doc-tree"
+      data-ifc-batch={ifcBatch?.active || undefined}
+      onKeyDownCapture={onTreeKeyDown}
+    >
       <PersonalHubNotice onCheckAgain={() => refresh(rootId)} />
       <div className="doc-tree__search">
         <Icon name="search" size={14} />
@@ -1289,7 +1325,20 @@ export function DocumentTree({
           ) : null}
         </div>
       ) : null}
-      {onOpenTogether ? (
+      {ifcBatch?.active && onExportIfc ? (
+        <IfcBatchBubble
+          picked={picked}
+          onExport={(models) => {
+            if (onExportIfc(models) === false) return;
+            state.clearPicked();
+            ifcBatch.stop();
+          }}
+          onCancel={() => {
+            state.clearPicked();
+            ifcBatch.stop();
+          }}
+        />
+      ) : onOpenTogether ? (
         <PickBar
           picked={picked}
           pickPreview={pickPreview}
@@ -1307,6 +1356,15 @@ export function DocumentTree({
             state.clearPicked();
           }}
           onSaveSet={savePickedAsSet}
+          onExportIfc={
+            onExportIfc
+              ? (models) => {
+                  if (onExportIfc(models) === false) return;
+                  state.clearPicked();
+                  ifcBatch?.stop();
+                }
+              : undefined
+          }
           onClear={state.clearPicked}
         />
       ) : null}

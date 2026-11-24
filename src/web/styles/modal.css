@@ -357,3 +357,25 @@ fieldset.settings__field {
   flex: 1 1 10rem;
   min-width: 0;
 }
+
+.ifc-batch__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: 40vh;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.ifc-batch__name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ifc-batch__badge {
+  color: var(--color-ash);
+  font-size: var(--text-13);
+}

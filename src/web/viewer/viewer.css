@@ -78,6 +78,17 @@
   -webkit-mask: none;
   mask: none;
 }
+.bsh-viewer-surface .bsh-ico-ifc-batch {
+  background: url("./ifc-batch.png") center / 22px 22px no-repeat;
+  -webkit-mask: none;
+  mask: none;
+}
+
+.bsh-viewer-surface .bsh-ico-ifc-settings {
+  background: url("./ifc-settings.png") center / 22px 22px no-repeat;
+  -webkit-mask: none;
+  mask: none;
+}
 
 .bsh-ico-paint-swatch {
   --bsh-ico-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' %3E%3Ccircle cx='12' cy='12' r='7' fill='black'/%3E%3C/svg%3E");

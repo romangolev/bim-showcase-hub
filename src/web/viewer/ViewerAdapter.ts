@@ -38,11 +38,19 @@ export interface PaintToolSpec {
   onReset: () => void;
 }
 
+export interface ExportMenuItem {
+  id: string;
+  icon: string;
+  tooltip: string;
+  run: () => void;
+}
+
 export interface ExportToolSpec {
   id: string;
   icon: string;
   tooltip: string;
   onExport: () => void;
+  menu?: ExportMenuItem[];
 }
 
 export interface ToolGroupSpec {

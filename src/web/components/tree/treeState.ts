@@ -53,6 +53,7 @@ export interface NodeError {
 export interface PickedModel {
   urn: string;
   context: ModelContext;
+  project?: string;
 }
 
 interface TreeNotice {
@@ -273,6 +274,20 @@ export function createTreeState({
     return ids;
   };
 
+  const pickedModel = (urn: string, node: TreeNode): PickedModel => {
+    const picked: PickedModel = { urn, context: contextFor(node) };
+    let parentId = node.parentId;
+    for (let guard = 0; parentId && guard < ANCESTOR_LIMIT; guard += 1) {
+      const parent = nodes.get(parentId);
+      if (parent?.kind === 'project') {
+        picked.project = parent.name;
+        break;
+      }
+      parentId = parent?.parentId;
+    }
+    return picked;
+  };
+
   const contextFor = (node: TreeNode): ModelContext => {
     const ancestors: TreeNode[] = [];
     let parentId = node.parentId;
@@ -311,7 +326,7 @@ export function createTreeState({
     const urn = openableUrn(node);
     if (urn) {
       update({ notice: null });
-      perform({ urn, context: contextFor(node) });
+      perform(pickedModel(urn, node));
       return;
     }
     const message = blockedNotice(node);
@@ -340,7 +355,7 @@ export function createTreeState({
     update({
       picked: current.some((model) => model.urn === urn)
         ? current.filter((model) => model.urn !== urn)
-        : [...current, { urn, context: contextFor(node) }],
+        : [...current, pickedModel(urn, node)],
     });
   };
 
@@ -358,7 +373,7 @@ export function createTreeState({
     for (const entry of range) {
       const id = openableUrn(entry);
       if (id && !next.some((model) => model.urn === id)) {
-        next.push({ urn: id, context: contextFor(entry) });
+        next.push(pickedModel(id, entry));
       }
     }
     update({
@@ -571,7 +586,7 @@ export function createTreeState({
       void ensureChecked(node).then((checked) => {
         const urn = openableUrn(checked);
         if (urn) {
-          perform([{ urn, context: contextFor(checked) }]);
+          perform([pickedModel(urn, checked)]);
         } else {
           notifyBlocked(checked);
         }

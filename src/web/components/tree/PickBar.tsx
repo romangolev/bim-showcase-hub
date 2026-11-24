@@ -19,6 +19,7 @@ export function PickBar({
   onOpenTabs,
   onOpenTogether,
   onSaveSet,
+  onExportIfc,
   onClear,
 }: {
   picked: PickedModel[];
@@ -27,6 +28,7 @@ export function PickBar({
   onOpenTabs?: (models: PickedModel[]) => void;
   onOpenTogether: (models: PickedModel[]) => void;
   onSaveSet: () => void;
+  onExportIfc?: (models: PickedModel[]) => boolean | undefined;
   onClear: () => void;
 }) {
   const tabs = pickPreview(picked, 'tabs');
@@ -85,6 +87,16 @@ export function PickBar({
           >
             Save as model set
           </button>
+          {onExportIfc ? (
+            <button
+              type="button"
+              className="btn doc-tree__pick-action"
+              title={picked.map(pickLabel).join('\n')}
+              onClick={() => onExportIfc(picked)}
+            >
+              Export IFC
+            </button>
+          ) : null}
           {addTarget ? (
             <button
               type="button"

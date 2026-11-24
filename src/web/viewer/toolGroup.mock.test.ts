@@ -223,6 +223,35 @@ describe('mock toolbar tool group', () => {
   });
 });
 
+describe('mock toolbar menu entries', () => {
+  it('opens a flyout whose items run their own action', async () => {
+    await setup();
+    const onExport = vi.fn();
+    const run = vi.fn();
+    adapter.registerToolGroup({
+      id: 'menu-group',
+      title: 'Menu',
+      exports: [
+        {
+          id: 'export-menu',
+          icon: 'bsh-ico-ifc',
+          tooltip: 'Menu',
+          onExport,
+          menu: [
+            { id: 'menu-item', icon: 'bsh-ico-ifc', tooltip: 'Item', run },
+          ],
+        },
+      ],
+    });
+    button('export-menu').click();
+    expect(button('export-menu').getAttribute('aria-expanded')).toBe('true');
+    button('menu-item').click();
+    expect(run).toHaveBeenCalledOnce();
+    expect(onExport).not.toHaveBeenCalled();
+    expect(button('export-menu').getAttribute('aria-expanded')).toBe('false');
+  });
+});
+
 describe('mock adapter resize', () => {
   function sized(width: number, height: number) {
     Object.defineProperty(host, 'clientWidth', {

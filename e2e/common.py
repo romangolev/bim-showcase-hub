@@ -165,8 +165,26 @@ def download_ifc(page, target, timeout_ms=180000):
     button = toolbar_button if toolbar_button.count() else page.get_by_role("button", name=IFC_EXPORT_NAME).first
     with page.expect_download(timeout=timeout_ms) as download_info:
         button.click(timeout=8000)
+        current = page.get_by_role("button", name="Export current model")
+        current.wait_for(timeout=8000)
+        current.click(timeout=8000)
     download_info.value.save_as(str(target))
     return target.stat().st_size, target.read_bytes()[:13]
+
+
+def download_ifc_batch(page, target, timeout_ms=180000):
+    toolbar_button = page.locator(f"{ACTIVE_MODEL} [id^='export-ifc-']:not([id$='-tooltip'])")
+    button = toolbar_button if toolbar_button.count() else page.get_by_role("button", name=IFC_EXPORT_NAME).first
+    button.first.click(timeout=8000)
+    page.get_by_role("button", name=re.compile("Batch export IFC", re.I)).first.click(timeout=8000)
+    versions = page.locator("[role=treeitem][data-viewable=true]")
+    versions.first.wait_for(timeout=8000)
+    for index in range(min(2, versions.count())):
+        versions.nth(index).click(timeout=8000)
+    with page.expect_download(timeout=timeout_ms) as download_info:
+        page.locator(".doc-tree__bubble").get_by_role("button", name="Export IFC").click(timeout=8000)
+    download_info.value.save_as(str(target))
+    return target.stat().st_size, target.read_bytes()[:4]
 
 
 def require(condition, message):

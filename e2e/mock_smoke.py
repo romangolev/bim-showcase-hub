@@ -20,6 +20,7 @@ from common import (
     download_export,
     download_glb,
     download_ifc,
+    download_ifc_batch,
     glb_check,
     ifc_check,
     expand_to_viewable,
@@ -3045,6 +3046,13 @@ def run(context, checks, notes):
                 notes["mock_ifc"] = info
     except Exception as exc:
         checks.add("IFC export downloads a STEP file with walls and storeys", False, f"{type(exc).__name__}: {str(exc)[:160]}")
+
+    try:
+        zip_path = OUTPUT_DIR / "export-batch.zip"
+        size, magic = download_ifc_batch(page, zip_path)
+        checks.add("batch IFC export downloads a zip", size > 100 and magic == b"PK\x03\x04", f"{size} bytes")
+    except Exception as exc:
+        checks.add("batch IFC export downloads a zip", False, f"{type(exc).__name__}: {str(exc)[:160]}")
 
     run_interaction_checks(page, checks, notes)
 
