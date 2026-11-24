@@ -979,6 +979,178 @@ def open_tool_settings(page, title):
     settle(page, 300)
 
 
+def check_settings_shell(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    open_settings(page)
+    main = page.get_by_role("dialog", name="Settings", exact=True)
+    names = [name.strip() for name in main.get_by_role("tab").all_inner_texts()]
+    checks.add("settings lists its sections in a sidebar", len(names) >= 6 and "Tools and panes" in names, names)
+    checks.add("exactly one settings section is selected", main.get_by_role("tab", selected=True).count() == 1)
+    heights = []
+    for name in ("General", "Appearance", "Tools and panes", "Data and storage"):
+        if name not in names:
+            continue
+        pick_settings_section(page, name)
+        heights.append(round(main.bounding_box()["height"]))
+        checks.add(f"the {name} section shows one panel", main.get_by_role("tabpanel").count() == 1)
+    checks.add("the settings window keeps its height between sections", bool(heights) and max(heights) - min(heights) <= 1, heights)
+    main.get_by_role("tab", selected=True).focus()
+    before = main.get_by_role("tab", selected=True).inner_text().strip()
+    page.keyboard.press("ArrowDown")
+    settle(page, 200)
+    after = main.get_by_role("tab", selected=True).inner_text().strip()
+    checks.add("arrow keys move the selected settings section", before != after, (before, after))
+    page.keyboard.press("Escape")
+    settle(page, 300)
+    checks.add("escape closes the settings window", page.get_by_role("dialog", name="Settings", exact=True).count() == 0)
+    page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
+    settle(page, 400)
+    open_settings(page)
+    main = page.get_by_role("dialog", name="Settings", exact=True)
+    checks.add("a narrow settings window lists the sections first", main.get_by_role("button", name="Notifications", exact=True).count() == 1 and main.get_by_role("tabpanel").count() == 0)
+    main.get_by_role("button", name="Notifications", exact=True).click()
+    settle(page, 300)
+    back = main.get_by_role("button", name=re.compile("Back", re.I))
+    checks.add("a section drills in with a Back button", back.count() == 1)
+    checks.add("the narrow settings window has no horizontal overflow", horizontal_overflow(page) <= 0)
+    if back.count():
+        back.first.click()
+        settle(page, 300)
+    checks.add("Back returns to the section list", main.get_by_role("button", name="Notifications", exact=True).count() == 1)
+    page.keyboard.press("Escape")
+    settle(page, 300)
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page, 400)
+
+
+def check_tool_switches(page, checks):
+    excel = re.compile(r"Export to Excel", re.I)
+    open_settings(page, "Tools and panes")
+    main = page.get_by_role("dialog", name="Settings", exact=True)
+    switch = main.get_by_role("switch", name="Excel export", exact=True)
+    checks.add("the Excel export switch starts on", switch.is_checked())
+    switch.click()
+    settle(page, 400)
+    stored = page.evaluate("() => JSON.parse(localStorage.getItem('bsh.tool.excel.v1') || '{}').enabled")
+    checks.add("turning a tool off in main settings persists it", stored is False, stored)
+    checks.add("a tool's own settings window has no enable switch", main.get_by_role("button", name="Excel export settings").count() == 1)
+    main.get_by_role("button", name="Excel export settings").click()
+    settle(page, 300)
+    own = page.get_by_role("dialog", name="Excel export settings")
+    checks.add("the Excel settings window holds no enable switch", own.get_by_role("switch", name="Excel export", exact=True).count() == 0)
+    page.keyboard.press("Escape")
+    settle(page, 300)
+    page.keyboard.press("Escape")
+    settle(page, 300)
+    checks.add("turning a tool off removes its toolbar button", page.get_by_role("button", name=excel).count() == 0)
+    open_settings(page, "Tools and panes")
+    page.get_by_role("dialog", name="Settings", exact=True).get_by_role("switch", name="Excel export", exact=True).click()
+    settle(page, 400)
+    page.keyboard.press("Escape")
+    settle(page, 400)
+    checks.add("turning the tool back on restores its toolbar button", page.get_by_role("button", name=excel).count() >= 1)
+    open_settings(page, "Tools and panes")
+    main = page.get_by_role("dialog", name="Settings", exact=True)
+    checks.add("a tool without fields has no settings button", main.get_by_role("button", name="Geometry export settings").count() == 0)
+    page.keyboard.press("Escape")
+    settle(page, 300)
+
+
+def check_ifc_dropdown(page, checks):
+    trigger = page.get_by_role("button", name=re.compile(r"^Export IFC$", re.I)).first
+    trigger.click()
+    settle(page, 300)
+    items = ("Export current model", "Batch export IFC", "IFC settings")
+    counts = [page.get_by_role("button", name=name, exact=True).count() for name in items]
+    checks.add("the IFC button opens a dropdown with export, batch and settings", counts == [1, 1, 1], counts)
+    page.get_by_role("button", name="IFC settings", exact=True).click()
+    settle(page, 400)
+    checks.add("the IFC settings item opens the IFC settings window", page.get_by_role("dialog", name="IFC export settings").count() == 1)
+    page.keyboard.press("Escape")
+    settle(page, 300)
+    trigger.click()
+    settle(page, 300)
+    page.get_by_role("button", name="Batch export IFC", exact=True).click()
+    settle(page, 500)
+    bubble = page.locator(".doc-tree__bubble")
+    checks.add("batch export opens the guide bubble in Documents", bubble.count() == 1 and bubble.is_visible())
+    checks.add("batch mode puts a checkbox in front of each version", page.locator(".doc-tree .tree-row__check").count() >= 1, page.locator(".doc-tree .tree-row__check").count())
+    checks.add("batch mode disables the export until a version is ticked", bubble.get_by_role("button", name="Export IFC").is_disabled())
+    dim = page.evaluate("() => { const row = document.querySelector('.doc-tree[data-ifc-batch] .tree-row[data-kind=\"folder\"]'); return row ? Number(getComputedStyle(row).opacity) : null }")
+    checks.add("batch mode dims the rows that cannot be ticked", dim is not None and dim < 1, dim)
+    bubble.get_by_role("button", name="Cancel").click()
+    settle(page, 300)
+    checks.add("cancel leaves batch mode", page.locator(".doc-tree__bubble").count() == 0 and page.locator(".doc-tree .tree-row__check").count() == 0)
+    trigger.click()
+    settle(page, 300)
+    page.get_by_role("button", name="Batch export IFC", exact=True).click()
+    settle(page, 400)
+    row = page.locator(".doc-tree [role=treeitem]").first
+    row.focus()
+    page.keyboard.press("Escape")
+    settle(page, 300)
+    checks.add("escape in the tree leaves batch mode", page.locator(".doc-tree__bubble").count() == 0)
+
+
+def check_dashboard_overlay(page, checks):
+    expand = page.get_by_role("button", name="Expand Dashboard")
+    if expand.count():
+        expand.first.click()
+        settle(page, 600)
+    pane = page.locator(".pane-dashboard").first
+    pane.locator("canvas").first.wait_for(timeout=8000)
+    toggle = pane.get_by_role("button", name="Dashboard controls")
+    if toggle.get_attribute("aria-expanded") == "true":
+        toggle.click()
+        settle(page, 500)
+    geometry = """() => {
+      const sec = document.querySelector('.pane-dashboard .bsh-drawer');
+      const header = sec.querySelector('.bsh-drawer__header');
+      const body = sec.querySelector('.bsh-drawer__body');
+      const toggle = sec.querySelector('[aria-label="Dashboard controls"]').getBoundingClientRect();
+      const buttons = [...header.querySelectorAll('button')].map((b) => b.getBoundingClientRect());
+      const hits = [...body.querySelectorAll('button')].filter((b) => { const r = b.getBoundingClientRect(); return buttons.some((a) => a.left < r.right && a.right > r.left && a.top < r.bottom && a.bottom > r.top); }).length;
+      return {top: sec.getBoundingClientRect().top, bodyTop: body.getBoundingClientRect().top, bodyHeight: body.getBoundingClientRect().height, position: getComputedStyle(header).position, x: toggle.x, y: toggle.y, hits};
+    }"""
+    hidden = page.evaluate(geometry)
+    checks.add("hidden dashboard controls leave the layout", hidden["position"] == "absolute" and abs(hidden["bodyTop"] - hidden["top"]) <= 1, hidden)
+    checks.add("the hidden dashboard header covers no chart button", hidden["hits"] == 0, hidden["hits"])
+    toggle.click()
+    settle(page, 500)
+    shown = page.evaluate(geometry)
+    checks.add("the controls button stays in the same place when controls show", abs(hidden["x"] - shown["x"]) <= 1 and abs(hidden["y"] - shown["y"]) <= 1, (hidden["x"], hidden["y"], shown["x"], shown["y"]))
+    checks.add("hidden controls give the charts the freed height", hidden["bodyHeight"] > shown["bodyHeight"] + 20, (hidden["bodyHeight"], shown["bodyHeight"]))
+
+
+def check_user_menu_alignment(page, checks):
+    measured = page.evaluate("""() => {
+      const trigger = document.querySelector('.user-menu__trigger');
+      const avatar = trigger.querySelector('.avatar');
+      const img = document.createElement('img');
+      img.className = 'avatar';
+      img.alt = '';
+      img.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56"><rect width="56" height="56" fill="%23f9a8d4"/></svg>';
+      avatar.replaceWith(img);
+      const mid = (e) => { const r = e.getBoundingClientRect(); return r.top + r.height / 2; };
+      const siblings = [...document.querySelectorAll('.topbar__inner > button, .topbar__inner button')].filter((b) => !b.closest('.user-menu') && b.getBoundingClientRect().height > 0).slice(-3);
+      return {user: mid(trigger), wrapper: trigger.parentElement.getBoundingClientRect().height, height: trigger.getBoundingClientRect().height, siblings: siblings.map(mid)};
+    }""")
+    aligned = all(abs(measured["user"] - m) <= 0.5 for m in measured["siblings"])
+    checks.add("the user menu centre lines up with the top bar buttons", aligned and len(measured["siblings"]) == 3, measured)
+    checks.add("the user menu wrapper is exactly as tall as its trigger", abs(measured["wrapper"] - measured["height"]) <= 0.5, measured)
+
+
+def check_recent_ui(page, checks):
+    for check in (check_settings_shell, check_tool_switches, check_ifc_dropdown, check_dashboard_overlay, check_user_menu_alignment):
+        try:
+            check(page, checks)
+        except Exception as exc:
+            checks.add(f"{check.__name__} ran to the end", False, f"{type(exc).__name__}: {str(exc)[:200]}")
+        page.keyboard.press("Escape")
+        page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+        settle(page, 300)
+
+
 def check_saved_items(page, checks):
     page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
     open_settings(page, "Data and storage")
@@ -2819,10 +2991,17 @@ def check_command_palette(page, checks):
     settle(page, 200)
     checks.add("Escape closes the palette and returns focus", palette(page).count() == 0 and anchor.evaluate("(el) => el === document.activeElement"), page.evaluate("() => document.activeElement?.outerHTML.slice(0, 120)"))
     box = open_palette(page)
-    box.fill("geometry export settings")
+    box.fill("excel export settings")
     page.keyboard.press("Enter")
     settle(page, 400)
-    checks.add("a tool settings command opens that tool window", page.get_by_role("dialog", name="Geometry export settings").is_visible(), "")
+    checks.add("a tool settings command opens that tool window", page.get_by_role("dialog", name="Excel export settings").is_visible(), "")
+    page.keyboard.press("Escape")
+    settle(page, 200)
+    box = open_palette(page)
+    box.fill("geometry export settings")
+    checks.add("a tool without fields has no settings command", palette(page).get_by_role("option", name=re.compile("Geometry export settings", re.I)).count() == 0)
+    page.keyboard.press("Escape")
+    settle(page, 200)
     page.keyboard.press("Escape")
     settle(page, 300)
 
@@ -3079,6 +3258,7 @@ def run(context, checks, notes):
     except Exception as exc:
         checks.add("batch IFC export downloads a zip", False, f"{type(exc).__name__}: {str(exc)[:160]}")
 
+    check_recent_ui(page, checks)
     run_interaction_checks(page, checks, notes)
 
     for name, (width, height) in (("desktop", DESKTOP), ("mobile", MOBILE)):
