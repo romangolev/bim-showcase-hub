@@ -1633,6 +1633,13 @@ button.bsh-kpi:focus-visible {
 
 .bsh-tile > .bsh-chart-frame {
   flex: 1 1 0;
+  min-height: 120px;
+}
+
+.bsh-tile > .bsh-details {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: auto;
 }
 
 .bsh-chart__title {
