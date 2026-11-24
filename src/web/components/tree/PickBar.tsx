@@ -28,7 +28,7 @@ export function PickBar({
   onOpenTabs?: (models: PickedModel[]) => void;
   onOpenTogether: (models: PickedModel[]) => void;
   onSaveSet: () => void;
-  onExportIfc?: (models: PickedModel[]) => void;
+  onExportIfc?: (models: PickedModel[]) => boolean | undefined;
   onClear: () => void;
 }) {
   const tabs = pickPreview(picked, 'tabs');

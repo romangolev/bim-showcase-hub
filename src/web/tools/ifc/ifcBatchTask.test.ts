@@ -69,23 +69,27 @@ describe('exportPickedAsIfcBatch', () => {
         finish = resolve;
       }),
     );
-    exportPickedAsIfcBatch(picked(1));
-    exportPickedAsIfcBatch(picked(1));
+    expect(exportPickedAsIfcBatch(picked(1))).toBe(true);
+    expect(exportPickedAsIfcBatch(picked(1))).toBe(false);
     expect(runIfcBatch).toHaveBeenCalledTimes(1);
     expect(last()?.detail).toContain('already running');
     finish({ done: ['a.ifc'], failed: [], cancelled: false, bytes: 1 });
     await vi.waitFor(() => expect(last()?.state).toBe('warning'));
   });
 
+  it('returns false for an empty pick', () => {
+    expect(exportPickedAsIfcBatch([])).toBe(false);
+  });
+
   it('refuses more than the batch limit', () => {
-    exportPickedAsIfcBatch(picked(MAX_BATCH + 1));
+    expect(exportPickedAsIfcBatch(picked(MAX_BATCH + 1))).toBe(false);
     expect(runIfcBatch).not.toHaveBeenCalled();
     expect(last()?.detail).toContain(`${MAX_BATCH}`);
   });
 
   it('asks to confirm above the threshold', () => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
-    exportPickedAsIfcBatch(picked(CONFIRM_BATCH_ABOVE + 1));
+    expect(exportPickedAsIfcBatch(picked(CONFIRM_BATCH_ABOVE + 1))).toBe(false);
     expect(confirm).toHaveBeenCalled();
     expect(runIfcBatch).not.toHaveBeenCalled();
   });

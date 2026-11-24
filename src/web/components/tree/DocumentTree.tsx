@@ -86,7 +86,7 @@ export interface DocumentTreeProps {
   onOpenModel: (urn: string, context: ModelContext) => void;
   onOpenTabs?: (models: PickedModel[]) => void;
   onOpenTogether?: (models: PickedModel[]) => void;
-  onExportIfc?: (models: PickedModel[]) => void;
+  onExportIfc?: (models: PickedModel[]) => boolean | undefined;
   ifcBatch?: { active: boolean; stop: () => void };
   onOpenModal?: (urn: string, context: ModelContext) => void;
   addTarget?: AddTarget | null;
@@ -1320,7 +1320,7 @@ export function DocumentTree({
         <IfcBatchBubble
           picked={picked}
           onExport={(models) => {
-            onExportIfc(models);
+            if (onExportIfc(models) === false) return;
             state.clearPicked();
             ifcBatch.stop();
           }}
@@ -1350,8 +1350,9 @@ export function DocumentTree({
           onExportIfc={
             onExportIfc
               ? (models) => {
-                  onExportIfc(models);
+                  if (onExportIfc(models) === false) return;
                   state.clearPicked();
+                  ifcBatch?.stop();
                 }
               : undefined
           }

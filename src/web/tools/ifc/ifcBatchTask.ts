@@ -18,19 +18,21 @@ function summarize(done: number, total: number, failures: string): string {
   return `Exported ${done} of ${total}. Failed: ${failures}`;
 }
 
-export function exportPickedAsIfcBatch(models: readonly PickedModel[]): void {
-  if (models.length === 0) return;
+export function exportPickedAsIfcBatch(
+  models: readonly PickedModel[],
+): boolean {
+  if (models.length === 0) return false;
   if (running) {
     startTask({ label: 'Exporting IFC batch' }).warn(
       'A batch is already running. Wait for it to finish.',
     );
-    return;
+    return false;
   }
   if (models.length > MAX_BATCH) {
     startTask({ label: 'Exporting IFC batch' }).warn(
       `A batch holds up to ${MAX_BATCH} models. Select fewer versions.`,
     );
-    return;
+    return false;
   }
   if (
     models.length > CONFIRM_BATCH_ABOVE &&
@@ -38,7 +40,7 @@ export function exportPickedAsIfcBatch(models: readonly PickedModel[]): void {
       `Export ${models.length} models to IFC? This can take a while.`,
     )
   ) {
-    return;
+    return false;
   }
   running = true;
   const controller = new AbortController();
@@ -90,4 +92,5 @@ export function exportPickedAsIfcBatch(models: readonly PickedModel[]): void {
       running = false;
       task.fail(error);
     });
+  return true;
 }

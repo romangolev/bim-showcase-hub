@@ -997,6 +997,18 @@ describe('DocumentTree multi-select', () => {
     expect(stop).toHaveBeenCalledOnce();
   });
 
+  it('keeps the picks and batch mode when the export is refused', async () => {
+    const stop = vi.fn();
+    await openVersions(2, {
+      onExportIfc: vi.fn(() => false),
+      ifcBatch: { active: true, stop },
+    });
+    fireEvent.click(row(1));
+    fireEvent.click(screen.getByRole('button', { name: 'Export IFC' }));
+    expect(stop).not.toHaveBeenCalled();
+    expect(row(1)).toHaveAttribute('aria-checked', 'true');
+  });
+
   it('clears the picks and leaves IFC batch mode on cancel', async () => {
     const stop = vi.fn();
     await openVersions(2, {
