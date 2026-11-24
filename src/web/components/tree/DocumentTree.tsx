@@ -40,6 +40,7 @@ import { CRAWL_LIMITS, type CrawlResult } from './crawl.js';
 import { onDeepSearch } from './deepSearchSignal.js';
 import { startModelDrag } from './docDrag.js';
 import { DEFAULT_TREE_ROOT, type TreeRoot } from './docRoot.js';
+import { IfcBatchBubble } from './IfcBatchBubble.js';
 import { NoHubsHint, PersonalHubNotice } from './NoHubsHint.js';
 import { PickBar, type PreviewOpen } from './PickBar.js';
 import { PreviewCard } from './PreviewCard.js';
@@ -1069,6 +1070,7 @@ export function DocumentTree({
           }
           meta={metaText(node, view)}
           picked={urn !== null && pickedUrns.has(urn)}
+          checkbox={ifcBatch?.active && node.kind === 'version'}
           action={rowAction(node)}
           added={urn !== null && addTarget?.has(urn)}
           rowProps={{
@@ -1130,6 +1132,7 @@ export function DocumentTree({
           highlight={query}
           selected={urn !== null && urn === selectedUrn}
           picked={urn !== null && pickedUrns.has(urn)}
+          checkbox={ifcBatch?.active && resultNode.kind === 'version'}
           action={rowAction(resultNode)}
           added={urn !== null && addTarget?.has(urn)}
           rowProps={{
@@ -1213,7 +1216,11 @@ export function DocumentTree({
   };
 
   return (
-    <div className="doc-tree" onKeyDownCapture={onTreeKeyDown}>
+    <div
+      className="doc-tree"
+      data-ifc-batch={ifcBatch?.active || undefined}
+      onKeyDownCapture={onTreeKeyDown}
+    >
       <PersonalHubNotice onCheckAgain={() => refresh(rootId)} />
       <div className="doc-tree__search">
         <Icon name="search" size={14} />
@@ -1303,7 +1310,20 @@ export function DocumentTree({
           ) : null}
         </div>
       ) : null}
-      {onOpenTogether ? (
+      {ifcBatch?.active && onExportIfc ? (
+        <IfcBatchBubble
+          picked={picked}
+          onExport={(models) => {
+            onExportIfc(models);
+            state.clearPicked();
+            ifcBatch.stop();
+          }}
+          onCancel={() => {
+            state.clearPicked();
+            ifcBatch.stop();
+          }}
+        />
+      ) : onOpenTogether ? (
         <PickBar
           picked={picked}
           pickPreview={pickPreview}
@@ -1326,15 +1346,10 @@ export function DocumentTree({
               ? (models) => {
                   onExportIfc(models);
                   state.clearPicked();
-                  ifcBatch?.stop();
                 }
               : undefined
           }
-          batchActive={ifcBatch?.active}
-          onClear={() => {
-            state.clearPicked();
-            if (ifcBatch?.active) ifcBatch.stop();
-          }}
+          onClear={state.clearPicked}
         />
       ) : null}
       <div className="doc-tree__notice" role="status" aria-live="polite">

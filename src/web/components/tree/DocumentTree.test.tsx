@@ -979,14 +979,18 @@ describe('DocumentTree multi-select', () => {
       onExportIfc,
       ifcBatch: { active: true, stop },
     });
-    expect(
-      screen.getByText('Click versions to select them for IFC export'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('Export models to IFC')).toBeInTheDocument();
+    expect(screen.getByText('Nothing selected')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Export IFC' })).toBeDisabled();
+    expect(row(1).querySelector('input[type=checkbox]')).not.toBeNull();
     fireEvent.click(row(1));
     fireEvent.click(row(3));
     expect(onOpenModel).not.toHaveBeenCalled();
-    expect(screen.getByText('2 selected for IFC export')).toBeInTheDocument();
+    expect(screen.getByText('2 selected')).toBeInTheDocument();
+    expect(
+      (row(1).querySelector('input[type=checkbox]') as HTMLInputElement)
+        .checked,
+    ).toBe(true);
     fireEvent.click(screen.getByRole('button', { name: 'Export IFC' }));
     const models = onExportIfc.mock.calls[0]?.[0] as { urn: string }[];
     expect(models.map((model) => model.urn)).toEqual(['urn-0', 'urn-2']);
