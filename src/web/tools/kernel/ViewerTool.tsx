@@ -25,6 +25,7 @@ export interface ToolContext {
   id: (base: string) => string;
   fileName: () => string;
   current: <S extends ToolSettings>(tool: ViewerTool<S>) => S;
+  openModal?: (id: string) => void;
 }
 
 export function readEnabled(raw: unknown): boolean {
@@ -110,6 +111,10 @@ export abstract class ViewerTool<S extends ToolSettings = ToolSettings> {
 
   get modalId(): string {
     return `tool-${this.id}-settings`;
+  }
+
+  modals(): ModalDefinition[] {
+    return [this.settingsModal()];
   }
 
   settingsModal(): ModalDefinition {

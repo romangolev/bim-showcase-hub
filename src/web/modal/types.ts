@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react';
 
-export type ModalSize = 'sm' | 'md' | 'lg';
+export type ModalSize = 'sm' | 'md' | 'lg' | 'sheet';
 
 export interface ModalBodyProps {
   close: () => void;

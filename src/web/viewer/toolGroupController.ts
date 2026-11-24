@@ -52,7 +52,8 @@ export class ToolGroupController {
   }
 
   export(id: string): void {
-    this.spec.exports.find((entry) => entry.id === id)?.onExport();
+    const entry = this.spec.exports.find((item) => item.id === id);
+    (entry?.onMenu ?? entry?.onExport)?.();
   }
 
   clearPainted(): void {

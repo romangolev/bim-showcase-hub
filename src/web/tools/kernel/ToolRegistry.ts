@@ -38,7 +38,7 @@ export class ToolRegistry {
   }
 
   modals(): ModalDefinition[] {
-    return this.tools.map((tool) => tool.settingsModal());
+    return this.tools.flatMap((tool) => tool.modals());
   }
 
   commands(ctx: ToolContext | null, snapshot: ToolSnapshot): Command[] {

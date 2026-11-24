@@ -223,6 +223,30 @@ describe('mock toolbar tool group', () => {
   });
 });
 
+describe('mock toolbar menu entries', () => {
+  it('opens the menu instead of exporting when a spec has onMenu', async () => {
+    await setup();
+    const onExport = vi.fn();
+    const onMenu = vi.fn();
+    adapter.registerToolGroup({
+      id: 'menu-group',
+      title: 'Menu',
+      exports: [
+        {
+          id: 'export-menu',
+          icon: 'bsh-ico-ifc',
+          tooltip: 'Menu',
+          onExport,
+          onMenu,
+        },
+      ],
+    });
+    button('export-menu').click();
+    expect(onMenu).toHaveBeenCalledOnce();
+    expect(onExport).not.toHaveBeenCalled();
+  });
+});
+
 describe('mock adapter resize', () => {
   function sized(width: number, height: number) {
     Object.defineProperty(host, 'clientWidth', {

@@ -43,6 +43,7 @@ export interface ExportToolSpec {
   icon: string;
   tooltip: string;
   onExport: () => void;
+  onMenu?: () => void;
 }
 
 export interface ToolGroupSpec {

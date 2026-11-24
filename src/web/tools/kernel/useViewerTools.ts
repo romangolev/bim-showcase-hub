@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { COMMANDS } from '../../commands/registry.js';
 import { viewerCommands } from '../../commands/viewerCommands.js';
+import { type ModalApi, useModalApi } from '../../modal/modalApi.js';
 import { usePersisted } from '../../storage.js';
 import type { ModelInfo } from '../../viewer/modelSet.js';
 import type { ViewerAdapter } from '../../viewer/ViewerAdapter.js';
@@ -40,6 +41,8 @@ export function useViewerTools(
     live[tool.id] = value;
     signatures.push([tool.id, tool.toolbarSignature(value)]);
   }
+  const modalRef = useRef<ModalApi | null>(null);
+  modalRef.current = useModalApi();
   const liveRef = useRef<ToolSnapshot>(live);
   liveRef.current = live;
   const optionsRef = useRef(options);
@@ -50,6 +53,7 @@ export function useViewerTools(
     adapter: target,
     id: (base) => withSuffix(base, suffix),
     fileName: () => optionsRef.current.fileName(),
+    openModal: (id) => modalRef.current?.open(id),
     current: (tool) =>
       tool.settings.sanitize(
         liveRef.current[tool.id] ?? tool.settings.initial,

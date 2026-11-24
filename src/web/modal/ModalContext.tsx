@@ -1,22 +1,8 @@
-import {
-  createContext,
-  type ReactNode,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { ModalHost } from './ModalHost.js';
+import { type ModalApi, ModalContext, useModalApi } from './modalApi.js';
 import { MODALS } from './registry.js';
 import type { ModalDefinition } from './types.js';
-
-export interface ModalApi {
-  open: (id: string) => void;
-  close: () => void;
-}
-
-const ModalContext = createContext<ModalApi | null>(null);
 
 export interface ModalProviderProps {
   definitions?: readonly ModalDefinition[];
@@ -60,7 +46,7 @@ export function ModalProvider({
 }
 
 export function useModal(): ModalApi {
-  const api = useContext(ModalContext);
+  const api = useModalApi();
   if (!api) throw new Error('useModal must be used inside ModalProvider');
   return api;
 }
