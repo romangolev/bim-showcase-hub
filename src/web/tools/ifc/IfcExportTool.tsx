@@ -3,6 +3,7 @@ import {
   describeIfcStatus,
   exportToIfc,
 } from '../../extensions/ifcExport.js';
+import type { ModalDefinition } from '../../modal/types.js';
 import {
   exportEntry,
   exportFileName,
@@ -13,6 +14,12 @@ import {
   type ToolContribution,
   ViewerTool,
 } from '../kernel/ViewerTool.js';
+import { IFC_BATCH_MODAL } from './IfcBatchModal.js';
+import {
+  IFC_MENU_MODAL,
+  IFC_MENU_MODAL_ID,
+  setExportCurrent,
+} from './IfcExportMenu.js';
 import { IfcFields } from './IfcFields.js';
 import { IFC_SETTINGS, type IfcToolSettings } from './ifcSettings.js';
 
@@ -31,26 +38,40 @@ export class IfcExportTool extends ViewerTool<IfcToolSettings> {
   readonly exportTitle = IFC_TOOLTIP;
 
   contribute(ctx: ToolContext): ToolContribution {
+    const entry = exportEntry(
+      ctx,
+      this.id,
+      {
+        id: 'export-ifc',
+        icon: 'bsh-ico-ifc',
+        tooltip: IFC_TOOLTIP,
+        label: 'Exporting IFC',
+      },
+      ({ task }) =>
+        exportToIfc(ctx.adapter, {
+          fileName: ifcFileNameFrom(ctx.fileName()),
+          settings: () => ctx.current(this),
+          onStatus: statusReporter(task, describeIfcStatus),
+        }),
+    );
+    const { openModal } = ctx;
     return {
       exports: [
-        exportEntry(
-          ctx,
-          this.id,
-          {
-            id: 'export-ifc',
-            icon: 'bsh-ico-ifc',
-            tooltip: IFC_TOOLTIP,
-            label: 'Exporting IFC',
-          },
-          ({ task }) =>
-            exportToIfc(ctx.adapter, {
-              fileName: ifcFileNameFrom(ctx.fileName()),
-              settings: () => ctx.current(this),
-              onStatus: statusReporter(task, describeIfcStatus),
-            }),
-        ),
+        openModal
+          ? {
+              ...entry,
+              onMenu: () => {
+                setExportCurrent(entry.onExport);
+                openModal(IFC_MENU_MODAL_ID);
+              },
+            }
+          : entry,
       ],
     };
+  }
+
+  override modals(): ModalDefinition[] {
+    return [...super.modals(), IFC_MENU_MODAL, IFC_BATCH_MODAL];
   }
 
   override scrub(settings: IfcToolSettings): IfcToolSettings {

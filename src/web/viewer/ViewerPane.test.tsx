@@ -1,5 +1,6 @@
 import { StrictMode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { ModalProvider } from '../modal/index.js';
 import { ModelSummaryPanel } from '../panels/ModelSummaryPanel.js';
 import { type PersistedRecord, usePersisted } from '../storage.js';
 import { tasks } from '../tasks/taskStore.js';
@@ -368,7 +369,9 @@ describe('ViewerPane export tasks', () => {
     const tracked = trackedFactory();
     const onReady = vi.fn();
     const view = render(
-      <ViewerPane urn="abc" factory={tracked.factory} onReady={onReady} />,
+      <ModalProvider>
+        <ViewerPane urn="abc" factory={tracked.factory} onReady={onReady} />
+      </ModalProvider>,
     );
     await waitFor(() => expect(onReady).toHaveBeenCalled());
     await screen.findByRole(
@@ -454,6 +457,9 @@ describe('ViewerPane export tasks', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Export to Excel' }));
     await waitFor(() => expect(latest('Exporting Excel')?.state).toBe('done'));
     fireEvent.click(screen.getByRole('button', { name: 'Export IFC' }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Export current' }),
+    );
     await waitFor(() =>
       expect(latest('Exporting IFC')?.detail).toMatch(/^Exported .* elements/),
     );

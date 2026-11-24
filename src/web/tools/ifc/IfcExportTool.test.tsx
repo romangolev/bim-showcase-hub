@@ -187,6 +187,31 @@ describe('export task', () => {
   });
 });
 
+describe('export menu', () => {
+  it('opens the menu from the toolbar and keeps one-click export for the palette', () => {
+    const openModal = vi.fn();
+    const tool = new IfcExportTool();
+    const ctx = context({ adapter: {} as ViewerAdapter, openModal });
+    const spec = tool.contribute(ctx).exports?.[0];
+    spec?.onMenu?.();
+    expect(openModal).toHaveBeenCalledWith('tool-ifc-menu');
+    expect(exportToIfc).not.toHaveBeenCalled();
+    const palette = tool
+      .commands(ctx, tool.settings.initial)
+      .find((command) => command.id === 'ifc.export');
+    palette?.run({} as never);
+    expect(exportToIfc).toHaveBeenCalledTimes(1);
+  });
+
+  it('registers the menu and batch modals next to the settings window', () => {
+    expect(new IfcExportTool().modals().map((modal) => modal.id)).toEqual([
+      'tool-ifc-settings',
+      'tool-ifc-menu',
+      'tool-ifc-batch',
+    ]);
+  });
+});
+
 describe('ifcFileNameFrom', () => {
   it('swaps the extension and drops the properties suffix', () => {
     expect(ifcFileNameFrom('Tower-v2-properties.xlsx')).toBe('Tower-v2.ifc');
