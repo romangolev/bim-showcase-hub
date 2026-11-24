@@ -166,6 +166,20 @@ describe('runIfcBatch', () => {
     expect(s.save).not.toHaveBeenCalled();
   });
 
+  it('treats an abort after the last model as a normal completion', async () => {
+    const controller = new AbortController();
+    const s = setup((urn) => {
+      if (urn === 'a') controller.abort();
+      return 'ok';
+    });
+    const result = await runIfcBatch([item('a')], {
+      ...s.options,
+      signal: controller.signal,
+    });
+    expect(result.cancelled).toBe(false);
+    expect(result.done).toHaveLength(1);
+  });
+
   it('cancels promptly while a model is loading and destroys the adapter', async () => {
     const s = setup(() => 'ok');
     const controller = new AbortController();

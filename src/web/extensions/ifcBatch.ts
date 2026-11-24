@@ -202,7 +202,6 @@ export async function runIfcBatch(
       });
     }
   }
-  if (options.signal?.aborted) result.cancelled = true;
   if (result.done.length > 0) {
     save(zip.finish(), zipFileName(options.project, options.now ?? new Date()));
   }
