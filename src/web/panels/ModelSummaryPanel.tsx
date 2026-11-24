@@ -1,5 +1,6 @@
 import { useId, useMemo, useState } from 'react';
 import { Icon } from '../components/icons.js';
+import { PaneActionsMenu } from '../components/PaneActionsMenu.js';
 import { StateBlock } from '../components/StateBlock.js';
 import { writeClipboard } from '../extensions/clipboard.js';
 import { saveBlob } from '../extensions/download.js';
@@ -373,22 +374,23 @@ export function ModelSummaryPanel({
                   onChange={(e) => patch({ text: e.target.value })}
                 />
               )}
-              <button type="button" className="btn" onClick={copyTable}>
-                Copy table
-              </button>
-              <button type="button" className="btn" onClick={downloadCsv}>
-                Download CSV
-              </button>
+              <PaneActionsMenu
+                label="Summary actions"
+                actions={() => [
+                  { id: 'copy', label: 'Copy table', onSelect: copyTable },
+                  { id: 'csv', label: 'Download CSV', onSelect: downloadCsv },
+                  { kind: 'separator', id: 'viewer-sep' },
+                  {
+                    id: 'show-all',
+                    label: 'Show all elements',
+                    disabled: !resolved,
+                    onSelect: () => resolved && showAllElements(resolved),
+                  },
+                ]}
+              />
               <span role="status" className="bsh-summary__notice">
                 {notice}
               </span>
-              <button
-                type="button"
-                className="btn"
-                onClick={() => resolved && showAllElements(resolved)}
-              >
-                Show all elements
-              </button>
               {shares.length > 0 && (
                 <ul className="bsh-summary__shares" aria-label="Empty values">
                   {shares.map((share) => (

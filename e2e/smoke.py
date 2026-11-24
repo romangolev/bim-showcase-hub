@@ -488,7 +488,8 @@ def check_summary_columns(page, checks):
         page.wait_for_timeout(3000)
         checks.add("real: Sum of Area joins the summary header", pane.get_by_role("columnheader", name="Sum of Area").count() == 1)
         with page.expect_download(timeout=30000) as info:
-            pane.get_by_role("button", name="Download CSV").click()
+            pane.get_by_role("button", name="Summary actions").click()
+            page.get_by_role("menuitem", name="Download CSV").click()
         target = OUTPUT_DIR / "summary-columns.csv"
         info.value.save_as(target)
         header = target.read_text(encoding="utf-8-sig").splitlines()[0]

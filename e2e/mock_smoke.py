@@ -179,6 +179,11 @@ def check_summary_rail(page, checks):
     checks.add("expanding the summary restores the viewer width", abs(restored - before) <= 2, f"{before} -> {restored}")
 
 
+def summary_action(page, pane, name):
+    pane.get_by_role("button", name="Summary actions").click()
+    page.get_by_role("menuitem", name=name).click()
+
+
 def check_summary_tools(page, checks):
     pane = page.locator(".pane-summary").first
     pane.locator("tbody tr").first.wait_for(timeout=8000)
@@ -260,7 +265,7 @@ def check_summary_tools(page, checks):
     settle(page, 300)
     dim = page.locator(".bsh-mock__el--dim").count()
     checks.add("isolating dims the rest by default", dim >= 1, dim)
-    pane.get_by_role("button", name="Show all elements").click()
+    summary_action(page, pane, "Show all elements")
     settle(page, 200)
     open_tool_settings(page, "Paint brushes")
     page.get_by_role("switch", name="Ghost the rest when isolating").uncheck()
@@ -270,7 +275,7 @@ def check_summary_tools(page, checks):
     settle(page, 300)
     hidden = page.locator(".bsh-mock__el--hidden").count()
     checks.add("isolating hides the other elements when ghosting is off", hidden >= 1, hidden)
-    pane.get_by_role("button", name="Show all elements").click()
+    summary_action(page, pane, "Show all elements")
     settle(page, 200)
     checks.add("show all restores the elements", page.locator(".bsh-mock__el--dim").count() == 0)
     open_tool_settings(page, "Paint brushes")
@@ -283,7 +288,7 @@ def check_summary_tools(page, checks):
     page.keyboard.press("Escape")
     settle(page, 200)
     with page.expect_download(timeout=8000) as info:
-        pane.get_by_role("button", name="Download CSV").click()
+        summary_action(page, pane, "Download CSV")
     name = info.value.suggested_filename
     checks.add("summary CSV downloads", name.endswith("-summary.csv"), name)
 

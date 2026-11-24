@@ -10,8 +10,8 @@ import {
   Tooltip,
 } from 'chart.js';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
-import { Icon } from '../components/icons.js';
-import { Menu, type MenuEntry } from '../components/Menu.js';
+import type { MenuEntry } from '../components/Menu.js';
+import { PaneActionsMenu } from '../components/PaneActionsMenu.js';
 import {
   chartDelimited,
   saveChartCsv,
@@ -399,12 +399,10 @@ export function ChartCanvas({
         <span role="status" className="bsh-summary__notice">
           {notice}
         </span>
-        <Menu
+        <PaneActionsMenu
           label={`Options for ${label}`}
           title="Chart options"
-          trigger={<Icon name="more" size={16} />}
-          triggerClassName="icon-button"
-          items={() => [
+          actions={() => [
             ...menuItems,
             ...(menuItems.length > 0
               ? [{ kind: 'separator' as const, id: 'export-sep' }]
@@ -501,12 +499,10 @@ export function ChartTable({
     <div className="bsh-chart-frame bsh-chart-frame--table">
       <div className="bsh-chart__tools">
         {title}
-        <Menu
+        <PaneActionsMenu
           label={`Options for ${label}`}
           title="Chart options"
-          trigger={<Icon name="more" size={16} />}
-          triggerClassName="icon-button"
-          items={() => [
+          actions={() => [
             ...menuItems,
             ...(onColorModel
               ? [

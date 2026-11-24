@@ -489,6 +489,11 @@ select.field {
   padding-bottom: var(--space-2);
 }
 
+.bsh-summary__tools > .field {
+  flex: 1 1 8rem;
+  min-width: 0;
+}
+
 .bsh-summary__notice {
   color: var(--color-fog);
   font-size: var(--text-13);

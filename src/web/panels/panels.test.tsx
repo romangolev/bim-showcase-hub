@@ -483,7 +483,8 @@ describe('summary view, copy and row actions', () => {
       <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />,
     );
     await screen.findByRole('cell', { name: 'Walls' });
-    fireEvent.click(screen.getByRole('button', { name: 'Copy table' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Summary actions' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Copy table' }));
     await waitFor(() => expect(writeText).toHaveBeenCalled());
     expect(writeText.mock.calls[0]?.[0]).toMatch(
       /^Property\tValue\tCount\r\nCategory\tWalls\t\d+/,
@@ -509,7 +510,10 @@ describe('summary view, copy and row actions', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Doors' }));
     expect(adapter.getIsolated().length).toBeGreaterThan(0);
     expect(adapter.getIsolated().length).not.toBe(walls.length);
-    fireEvent.click(screen.getByRole('button', { name: 'Show all elements' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Summary actions' }));
+    fireEvent.click(
+      screen.getByRole('menuitem', { name: 'Show all elements' }),
+    );
     expect(adapter.getIsolated()).toEqual([]);
   });
 });
