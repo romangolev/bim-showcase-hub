@@ -1,10 +1,6 @@
 import { flag } from '../../shared/guards.js';
 import { defineSavedKind } from '../store/savedKinds.js';
 import {
-  type ElementScope,
-  sanitizeElementScope,
-} from '../viewer/propertyScope.js';
-import {
   type Aggregate,
   CHART_TYPES,
   type ChartType,
@@ -133,7 +129,6 @@ export interface DashboardView extends Partial<DashboardChartSpec> {
   pngTitle: boolean;
   pngLegend: boolean;
   scope?: string;
-  elements?: ElementScope;
   splitByModel?: boolean;
 }
 
@@ -326,9 +321,6 @@ export function sanitizeDashboardView(raw: unknown): DashboardView {
     pngLegend: flag(source.pngLegend, true),
     ...(typeof source.scope === 'string' && source.scope
       ? { scope: source.scope }
-      : {}),
-    ...(sanitizeElementScope(source.elements) !== 'all'
-      ? { elements: sanitizeElementScope(source.elements) }
       : {}),
     ...(flag(source.splitByModel, false) ? { splitByModel: true } : {}),
   };

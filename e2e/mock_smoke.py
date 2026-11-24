@@ -498,13 +498,7 @@ def check_dashboard_presets(page, checks):
     palette(page).get_by_role("option", name=re.compile("Clear selection")).first.click()
     settle(page, 300)
     checks.add("the dashboard check cleared the selection", page.locator(".bsh-mock__el--selected").count() == 0, page.locator(".bsh-mock__el--selected").count())
-    pane.get_by_label("Chart elements").select_option("selected")
-    settle(page, 800)
-    empty = pane.get_by_text("No selected elements").count() == 1 and pane.get_by_text("Nothing to chart").count() == 0
-    checks.add("a preset on an empty element scope says the scope is empty", empty, pane.inner_text()[:160])
-    page.screenshot(path=str(OUTPUT_DIR / "mock-presets-empty.png"))
-    pane.get_by_label("Chart elements").select_option("all")
-    settle(page, 400)
+    checks.add("the dashboard has no element scope control", pane.get_by_label("Chart elements").count() == 0)
     keep_one_chart(page, pane)
 
 

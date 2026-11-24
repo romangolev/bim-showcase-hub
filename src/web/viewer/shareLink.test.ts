@@ -61,7 +61,7 @@ describe('share link capture', () => {
     });
   });
 
-  it('always carries the dashboard view and drops a personal selection set', () => {
+  it('always carries the dashboard view', () => {
     PANE_SETTINGS.dashboard.view.write({
       ...DEFAULT_DASHBOARD_VIEW,
       charts: chartsFromProperties(['Level']),
@@ -69,14 +69,12 @@ describe('share link capture', () => {
       maxCategories: 8,
       pngTitle: false,
       pngLegend: false,
-      elements: 'set:abc',
     });
     const charts = captureCharts();
     expect(charts[0]?.id).toBe('dashboard');
     expect(charts[0]?.view).toMatchObject({
       charts: [{ property: 'Level', chartType: 'bar' }],
     });
-    expect(charts[0]?.view).not.toHaveProperty('elements');
   });
 
   it('includes every chart pane in order', () => {

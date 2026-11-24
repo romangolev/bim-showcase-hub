@@ -44,7 +44,6 @@ import { ChartBoard } from './ChartBoard.js';
 import { CHART_SETTINGS } from './chartSettings.js';
 import { DashboardPresetMenu } from './DashboardPresetMenu.js';
 import { ChartTile } from './DashboardTile.js';
-import { ElementScopeSelect, scopeName } from './ElementScope.js';
 import { HEALTH_KPI_SETTINGS, HealthKpis } from './HealthKpis.js';
 import {
   FailedModels,
@@ -110,7 +109,6 @@ export function DashboardPanel({
   ]);
   const state = useScopedRows(resolved, {
     names: readNames,
-    elements: view.elements ?? 'all',
     autoRefresh: false,
     ...(setting
       ? {
@@ -172,8 +170,6 @@ export function DashboardPanel({
   const [action] = usePersisted(PANE_SETTINGS.dashboard.action);
   const settled = usable && !state.pending;
   const hasRows = settled && state.rows.length > 0;
-  const emptyScope =
-    settled && state.rows.length === 0 && state.elements !== 'all';
   const emptyBoard = hasRows && chartSpecs.length > 0 && shown.length === 0;
   const [viewerSelection, setViewerSelection] = useState<ModelDbId[]>([]);
   useEffect(() => {
@@ -297,15 +293,6 @@ export function DashboardPanel({
         {!isCollapsed ? (
           <ModelScopeSelect state={state.models} label="Chart models" />
         ) : null}
-        {!isCollapsed ? (
-          <ElementScopeSelect
-            value={view.elements ?? 'all'}
-            onChange={(next) =>
-              setView((prev) => ({ ...prev, elements: next }))
-            }
-            label="Chart elements"
-          />
-        ) : null}
         {!isCollapsed && chartSpecs.length > 1 ? (
           <fieldset className="bsh-kinds" aria-label="Chart layout">
             {(['vertical', 'horizontal'] as DashboardOrientation[]).map(
@@ -398,14 +385,6 @@ export function DashboardPanel({
             />
           </>
         ) : null}
-        {emptyScope && (
-          <StateBlock
-            variant="empty"
-            compact
-            title={`No ${scopeName(state.elements).toLowerCase()} elements`}
-            message="Change the element scope, or pick elements in the viewer."
-          />
-        )}
         {emptyBoard && (
           <StateBlock
             variant="empty"
@@ -449,7 +428,7 @@ export function DashboardPanel({
             })}
           </ChartBoard>
         ) : null}
-        {settled && chartSpecs.length === 0 && !emptyScope && (
+        {settled && chartSpecs.length === 0 && (
           <StateBlock
             variant="empty"
             compact

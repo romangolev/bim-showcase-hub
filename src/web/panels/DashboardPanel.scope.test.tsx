@@ -66,43 +66,16 @@ afterEach(() => {
   for (const a of adapters.splice(0)) a.destroy();
 });
 
-describe('DashboardPanel empty element scope', () => {
-  it('says the scope is empty instead of blaming the model properties', async () => {
+describe('DashboardPanel element scope', () => {
+  it('has no element scope control and ignores one stored by an older version', async () => {
     seed({ elements: 'selected' });
     const adapter = await loaded();
     render(<DashboardPanel adapter={adapter} />);
-    expect(await screen.findByText('No selected elements')).toBeVisible();
-    expect(screen.queryByText('Nothing to chart')).toBeNull();
-  });
-
-  it('keeps the Presets menu available with a preset on an empty scope', async () => {
-    seed({ elements: 'selected', preset: 'health' });
-    const adapter = await loaded();
-    render(<DashboardPanel adapter={adapter} />);
-    expect(await screen.findByText('No selected elements')).toBeVisible();
-    expect(screen.queryByText(/none of the properties/)).toBeNull();
-    expect(
-      screen.getByRole('button', { name: 'Dashboard presets' }),
-    ).toBeInTheDocument();
-  });
-
-  it('shows loading while the scope is pending, not an empty message', async () => {
-    seed({ elements: 'selected' });
-    const adapter = await loaded();
-    let release: (list: never[]) => void = () => {};
-    vi.spyOn(adapter, 'getModelSelection').mockReturnValue(
-      new Promise<never[]>((resolve) => {
-        release = resolve;
-      }) as never,
-    );
-    render(<DashboardPanel adapter={adapter} />);
-    await waitFor(() =>
-      expect(screen.getByText('Reading element properties')).toBeVisible(),
-    );
+    await screen.findByRole('img', {
+      name: 'Bar chart of element counts by Category',
+    });
+    expect(screen.queryByLabelText('Chart elements')).toBeNull();
     expect(screen.queryByText('No selected elements')).toBeNull();
-    expect(screen.queryByText('Nothing to chart')).toBeNull();
-    release([]);
-    expect(await screen.findByText('No selected elements')).toBeVisible();
   });
 });
 
