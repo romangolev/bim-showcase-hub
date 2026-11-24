@@ -223,9 +223,11 @@ describe('SettingsBody', () => {
   it('lists every registered tool and both panes as entry points', () => {
     renderBody();
     for (const tool of TOOLS.all()) {
-      expect(
-        screen.getByRole('button', { name: `${tool.title} settings` }),
-      ).toBeTruthy();
+      expect(screen.getByRole('switch', { name: tool.title })).toBeTruthy();
+      const settings = screen.queryByRole('button', {
+        name: `${tool.title} settings`,
+      });
+      expect(settings !== null).toBe(tool.hasSettings);
     }
     expect(
       screen.getByRole('button', { name: 'Summary settings' }),
@@ -235,26 +237,38 @@ describe('SettingsBody', () => {
     ).toBeTruthy();
   });
 
-  it('shows whether a tool is on or off from the tool setting', () => {
+  it('switches a tool on and off from the main settings and persists it', () => {
     window.localStorage.setItem(
       'bsh.tool.paint.v1',
       JSON.stringify({ enabled: false }),
     );
     renderBody();
-    const paint = screen
-      .getByRole('button', { name: 'Paint brushes settings' })
-      .closest('.settings__entry') as HTMLElement;
-    expect(within(paint).getByText('Off')).toBeTruthy();
-    const excel = screen
-      .getByRole('button', { name: 'Excel export settings' })
-      .closest('.settings__entry') as HTMLElement;
-    expect(within(excel).getByText('On')).toBeTruthy();
+    const paint = screen.getByRole('switch', { name: 'Paint brushes' });
+    const excel = screen.getByRole('switch', { name: 'Excel export' });
+    expect(paint).not.toBeChecked();
+    expect(excel).toBeChecked();
+    fireEvent.click(paint);
+    fireEvent.click(excel);
+    expect(paint).toBeChecked();
+    expect(excel).not.toBeChecked();
+    expect(
+      JSON.parse(window.localStorage.getItem('bsh.tool.paint.v1') ?? '{}'),
+    ).toMatchObject({ enabled: true });
+    expect(
+      JSON.parse(window.localStorage.getItem('bsh.tool.excel.v1') ?? '{}'),
+    ).toMatchObject({ enabled: false });
+  });
+
+  it('offers no settings window for a tool without fields', () => {
+    renderBody();
+    expect(
+      screen.queryByRole('button', { name: 'Geometry export settings' }),
+    ).toBeNull();
   });
 
   it.each([
     ['Paint brushes settings', 'Paint palette'],
     ['Excel export settings', 'Table export'],
-    ['Geometry export settings', null],
     ['IFC export settings', 'Length unit'],
     ['Summary settings', 'Density'],
     ['Dashboard settings', 'Maximum categories'],
@@ -274,7 +288,9 @@ describe('SettingsBody', () => {
         'settings',
         'summary-settings',
         'dashboard-settings',
-        ...TOOLS.all().map((tool) => tool.modalId),
+        ...TOOLS.all()
+          .filter((tool) => tool.hasSettings)
+          .map((tool) => tool.modalId),
       ]),
     );
     expect(new Set(ids).size).toBe(ids.length);

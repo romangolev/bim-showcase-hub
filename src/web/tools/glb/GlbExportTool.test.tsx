@@ -1,4 +1,3 @@
-import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { tasks } from '../../tasks/taskStore.js';
 import { installMemoryStorage } from '../../test/mockApi.js';
@@ -159,12 +158,8 @@ describe('glbFileNameFrom', () => {
 });
 
 describe('Geometry settings window', () => {
-  it('holds only the enable switch and persists it', () => {
-    render(new GlbExportTool().renderSettings());
-    expect(screen.getAllByRole('switch')).toHaveLength(1);
-    fireEvent.click(screen.getByRole('switch', { name: 'Geometry export' }));
-    expect(
-      JSON.parse(window.localStorage.getItem(GLB_SETTINGS_KEY) ?? '{}'),
-    ).toEqual({ enabled: false });
+  it('has no settings of its own beyond the switch in main Settings', () => {
+    expect(new GlbExportTool().hasSettings).toBe(false);
+    expect(new GlbExportTool().renderSettings()).toBeNull();
   });
 });

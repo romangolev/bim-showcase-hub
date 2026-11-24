@@ -948,7 +948,6 @@ def check_saved_items(page, checks):
     open_settings(page)
     main = page.get_by_role("dialog", name="Settings", exact=True)
     checks.add("main settings has a saved items section", main.get_by_role("button", name="Export saved items").count() == 1)
-    checks.add("saved items section holds no tool switch", main.get_by_role("switch", name="Paint brushes").count() == 0)
     with page.expect_download(timeout=8000) as info:
         main.get_by_role("button", name="Export saved items").click()
     target = OUTPUT_DIR / "bsh-saved.json"
@@ -998,7 +997,8 @@ def check_paint_palette(page, checks):
     settle(page, 300)
     open_settings(page)
     main = page.get_by_role("dialog", name="Settings", exact=True)
-    checks.add("main settings lists each tool with an entry point", all(main.get_by_role("button", name=f"{t} settings").count() == 1 for t in ("Paint brushes", "Excel export", "Geometry export", "IFC export")))
+    checks.add("main settings has a switch for each tool", all(main.get_by_role("switch", name=t, exact=True).count() == 1 for t in ("Paint brushes", "Excel export", "Geometry export", "IFC export")))
+    checks.add("main settings has a settings button only for tools with fields", all(main.get_by_role("button", name=f"{t} settings").count() == 1 for t in ("Paint brushes", "Excel export", "IFC export")) and main.get_by_role("button", name="Geometry export settings").count() == 0)
     checks.add("main settings holds no swatches", page.get_by_label(re.compile(r"^Swatch \d$")).count() == 0)
     main.get_by_role("button", name="Paint brushes settings").click()
     settle(page, 300)

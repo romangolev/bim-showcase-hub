@@ -164,15 +164,25 @@
 }
 
 .settings__entry {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(5.5rem, auto);
   align-items: center;
   gap: var(--space-3);
+}
+
+.settings__entry > .btn {
+  grid-column: 2;
 }
 
 .settings__entry-text {
   display: flex;
   flex: 1;
   flex-direction: column;
+}
+
+.settings__entry .switch-row {
+  grid-column: 1;
+  min-width: 0;
 }
 
 .settings__entry-state {

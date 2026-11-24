@@ -9,7 +9,7 @@ import type {
   PaintToolSpec,
   ViewerAdapter,
 } from '../../viewer/ViewerAdapter.js';
-import { ToolForm, ToolSettingsFrame } from './ToolSettingsFrame.js';
+import { ToolForm } from './ToolForm.js';
 
 export interface ToolSettings {
   enabled: boolean;
@@ -44,15 +44,17 @@ export abstract class ViewerTool<S extends ToolSettings = ToolSettings> {
   abstract contribute(ctx: ToolContext, settings: S): ToolContribution;
 
   commands(ctx: ToolContext | null, settings: S): Command[] {
-    const commands: Command[] = [
-      {
-        id: `${this.id}.settings`,
-        title: `${this.title} settings`,
-        group: 'Settings',
-        icon: 'settings',
-        run: (host) => host.openModal(this.modalId),
-      },
-    ];
+    const commands: Command[] = this.hasSettings
+      ? [
+          {
+            id: `${this.id}.settings`,
+            title: `${this.title} settings`,
+            group: 'Settings',
+            icon: 'settings',
+            run: (host) => host.openModal(this.modalId),
+          },
+        ]
+      : [];
     if (!this.exportTitle) return commands;
     const exports =
       ctx && settings.enabled
@@ -65,7 +67,7 @@ export abstract class ViewerTool<S extends ToolSettings = ToolSettings> {
         group: 'Export',
         disabled: settings.enabled
           ? 'Open a model first'
-          : `Turned off in ${this.title} settings`,
+          : 'Turned off in Settings',
         run: () => undefined,
       });
     }
@@ -102,12 +104,12 @@ export abstract class ViewerTool<S extends ToolSettings = ToolSettings> {
     return this.form ? <ToolForm tool={this} form={this.form} /> : null;
   }
 
+  get hasSettings(): boolean {
+    return this.form !== undefined;
+  }
+
   renderSettings(): ReactNode {
-    return (
-      <ToolSettingsFrame tool={this as ViewerTool<ToolSettings>}>
-        {this.renderFields()}
-      </ToolSettingsFrame>
-    );
+    return this.renderFields();
   }
 
   get modalId(): string {
