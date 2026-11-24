@@ -274,7 +274,7 @@ export function DashboardPanel({
         {toggleable ? (
           <button
             type="button"
-            className="btn"
+            className="btn bsh-drawer__toggle"
             aria-expanded={!isCollapsed}
             aria-controls={bodyId}
             onClick={toggle}

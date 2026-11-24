@@ -209,6 +209,19 @@ export function Menu({
                 if (entry.kind === 'separator') {
                   return <hr key={entry.id} className="menu__separator" />;
                 }
+                const content = (
+                  <>
+                    <CheckMark checked={entry.checked} />
+                    {entry.icon ? (
+                      <Icon
+                        name={entry.icon}
+                        size={14}
+                        className="menu__icon"
+                      />
+                    ) : null}
+                    {entry.label}
+                  </>
+                );
                 return entry.checked === undefined ? (
                   <button
                     key={entry.id}
@@ -219,8 +232,7 @@ export function Menu({
                     title={entry.description}
                     onClick={() => select(entry)}
                   >
-                    <CheckMark checked={entry.checked} />
-                    {entry.label}
+                    {content}
                   </button>
                 ) : (
                   <button
@@ -233,15 +245,7 @@ export function Menu({
                     title={entry.description}
                     onClick={() => select(entry)}
                   >
-                    <CheckMark checked={entry.checked} />
-                    {entry.icon ? (
-                      <Icon
-                        name={entry.icon}
-                        size={14}
-                        className="menu__icon"
-                      />
-                    ) : null}
-                    {entry.label}
+                    {content}
                   </button>
                 );
               })}

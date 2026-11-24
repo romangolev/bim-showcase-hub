@@ -179,7 +179,7 @@ select.field {
   border-radius: var(--radius-card);
 }
 
-.bsh-drawer__header .btn[aria-expanded] {
+.bsh-drawer__toggle {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -331,9 +331,9 @@ select.field {
     order: -1;
   }
 
-  .bsh-drawer__header .btn[aria-expanded] {
+  .bsh-drawer__toggle {
     order: 2;
-    width: 32px;
+    width: var(--hit-target);
     padding: 0;
     justify-content: center;
     margin-left: 0;
@@ -831,26 +831,7 @@ select.field {
 }
 
 .bsh-presets-trigger {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--gap-element);
   max-width: 16rem;
-  min-height: var(--hit-target);
-  padding: 0 var(--space-3);
-  border: var(--border-hairline);
-  border-radius: var(--radius-button);
-  background: var(--color-ghost-fill);
-  color: var(--color-snow);
-  font: inherit;
-  font-size: var(--text-14);
-  font-weight: var(--weight-ui);
-  letter-spacing: var(--tracking-body);
-  cursor: pointer;
-  transition: background-color 120ms ease;
-}
-
-.bsh-presets-trigger:hover {
-  background: var(--color-ghost-fill-hover);
 }
 
 .bsh-presets-trigger__value {
