@@ -507,6 +507,53 @@ def check_dashboard_presets(page, checks):
     keep_one_chart(page, pane)
 
 
+TILE_TABLE_FIT = """() => [...document.querySelectorAll('.pane-dashboard .bsh-tile')].map((tile) => {
+    const box = (el) => el && el.getBoundingClientRect();
+    const details = tile.querySelector('details');
+    if (details) details.open = true;
+    return {
+        tile: box(tile), canvas: box(tile.querySelector('canvas')), details: box(details),
+        rows: tile.querySelectorAll('tbody tr').length,
+    };
+})"""
+
+
+def check_dashboard_table_fit(page, checks):
+    expand = page.get_by_role("button", name="Expand Dashboard")
+    if expand.count():
+        expand.first.click()
+        settle(page, 600)
+    pane = page.locator(".pane-dashboard").first
+    pane.locator("canvas").first.wait_for(timeout=8000)
+    while pane.get_by_role("button", name=re.compile(r"^Options for ")).count() < 2:
+        pane.get_by_role("button", name="Add chart").click()
+        settle(page, 300)
+    for index in range(2):
+        pane.get_by_role("button", name=re.compile(r"^Options for ")).nth(index).click()
+        page.get_by_role("menuitemcheckbox", name="Group by Name").click()
+        settle(page, 300)
+    for orientation in ("Horizontal", "Vertical"):
+        pane.get_by_role("button", name=orientation, exact=True).click()
+        settle(page, 500)
+        tiles = page.evaluate(TILE_TABLE_FIT)
+        settle(page, 300)
+        tiles = page.evaluate(TILE_TABLE_FIT)
+        checks.add(f"{orientation.lower()} dashboard tiles hold several table rows", len(tiles) >= 2 and all(t["rows"] >= 5 for t in tiles), tiles)
+        inside = all(
+            t["details"]["y"] >= t["tile"]["y"] - 1 and t["details"]["y"] + t["details"]["height"] <= t["tile"]["y"] + t["tile"]["height"] + 1
+            and t["canvas"]["y"] + t["canvas"]["height"] <= t["tile"]["y"] + t["tile"]["height"] + 1
+            for t in tiles
+        )
+        apart = all(not boxes_overlap(t["canvas"], t["details"]) and t["canvas"]["height"] >= 60 for t in tiles)
+        checks.add(f"{orientation.lower()} open data table stays inside its tile", inside, tiles)
+        checks.add(f"{orientation.lower()} open data table does not cover the chart", apart, tiles)
+        page.screenshot(path=str(OUTPUT_DIR / f"mock-dashboard-table-{orientation.lower()}.png"))
+    pane.get_by_role("button", name="Horizontal", exact=True).click()
+    keep_one_chart(page, pane)
+    page.get_by_role("button", name="Collapse Dashboard").first.click()
+    settle(page, 400)
+
+
 def check_dashboard_tools(page, checks):
     check_collapsed_ring(page, checks)
     expand = page.get_by_role("button", name="Expand Dashboard")
@@ -2760,7 +2807,7 @@ def run_interaction_checks(page, checks, notes):
     except Exception as exc:
         page.screenshot(path=str(OUTPUT_DIR / "mock-layout-failure.png"))
         checks.add("check_layout", False, f"{type(exc).__name__}: {str(exc)[:160]}")
-    for check in (check_lock_maximize, check_layout_undo, check_active_pane, check_session_banner, check_saved_items, check_paint_palette, check_recents, check_strip, check_tree_metadata, check_theme, check_summary_rail, check_summary_tools, check_summary_add_dialog, check_summary_presets, check_selection_sets, check_dashboard_tools, check_tree_resize):
+    for check in (check_lock_maximize, check_layout_undo, check_active_pane, check_session_banner, check_saved_items, check_paint_palette, check_recents, check_strip, check_tree_metadata, check_theme, check_summary_rail, check_summary_tools, check_summary_add_dialog, check_summary_presets, check_selection_sets, check_dashboard_tools, check_dashboard_table_fit, check_tree_resize):
         try:
             check(page, checks)
         except Exception as exc:
