@@ -2,9 +2,11 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { PropertyRow } from '../../shared/types.js';
 import {
+  COUNT_COLUMN,
   DEFAULT_SUMMARY_VIEW,
   type SummaryView,
   summarize,
+  summaryColumn,
 } from '../extensions/modelSummary.js';
 import { ENTRY_CAP, SummaryTable } from './SummaryTable.js';
 
@@ -33,37 +35,68 @@ const rows: PropertyRow[] = [
 
 const entries = summarize(rows, ['Category']);
 const groupedEntries = summarize(rows, ['Category', 'Level']);
+const area = summaryColumn('Area', 'sum');
 
 const view = (patch: Partial<SummaryView>): SummaryView => ({
   ...DEFAULT_SUMMARY_VIEW,
   ...patch,
 });
 
+const headers = (scope: HTMLElement) =>
+  within(scope)
+    .getAllByRole('columnheader')
+    .map((cell) => cell.textContent);
+
 describe('SummaryTable flat layout', () => {
-  it('renders one table with no block chrome when no view is given', () => {
+  it('renders Property, Value and Count when no view is given', () => {
     const { container } = render(<SummaryTable entries={entries} />);
     expect(container.querySelectorAll('table')).toHaveLength(1);
     expect(container.querySelector('.bsh-table-block')).toBeNull();
     expect(screen.queryByRole('heading')).toBeNull();
+    expect(headers(container)).toEqual(['Property', 'Value', 'Count']);
   });
 
-  it('adds a measure column only when the view asks for one', () => {
-    render(<SummaryTable entries={entries} rows={rows} view={view({})} />);
-    expect(screen.queryByRole('columnheader', { name: 'Measure' })).toBeNull();
-
-    render(
+  it('renders the configured columns in order with their cells', () => {
+    const { container } = render(
       <SummaryTable
         entries={entries}
         rows={rows}
-        view={view({ measure: 'Area' })}
+        view={view({ columns: [area, COUNT_COLUMN] })}
       />,
     );
+    expect(headers(container)).toEqual([
+      'Property',
+      'Value',
+      'Sum of Area',
+      'Count',
+    ]);
     expect(
-      screen.getByRole('columnheader', { name: 'Measure' }),
-    ).toBeInTheDocument();
+      screen.getByRole('columnheader', { name: 'Sum of Area' }),
+    ).toHaveAttribute('scope', 'col');
     expect(screen.getByText('1,212.5 m²')).toBeInTheDocument();
     expect(screen.getByText('3 m² (1 missing)')).toBeInTheDocument();
-    expect(screen.queryByText('n/a')).toBeNull();
+  });
+
+  it('hides the property column on request and keeps the value', () => {
+    const { container } = render(
+      <SummaryTable
+        entries={entries}
+        rows={rows}
+        view={view({ showProperty: false })}
+      />,
+    );
+    expect(headers(container)).toEqual(['Value', 'Count']);
+  });
+
+  it('renders labels only when there is no column', () => {
+    const { container } = render(
+      <SummaryTable
+        entries={entries}
+        rows={rows}
+        view={view({ columns: [] })}
+      />,
+    );
+    expect(headers(container)).toEqual(['Property', 'Value']);
   });
 });
 
@@ -92,6 +125,18 @@ describe('SummaryTable grouped layout', () => {
     expect(bars[3]).toHaveStyle({ width: '33%' });
     expect(within(table).getAllByText('2')).toHaveLength(2);
     expect(screen.getByRole('table', { name: 'Level' })).toBeInTheDocument();
+  });
+
+  it('has no hard-coded Count header', () => {
+    render(
+      <SummaryTable
+        entries={entries}
+        rows={rows}
+        view={view({ layout: 'grouped', columns: [area] })}
+      />,
+    );
+    const table = screen.getByRole('table', { name: 'Category' });
+    expect(headers(table)).toEqual(['Value', 'Sum of Area']);
   });
 
   it('renames a block through the heading input', () => {
@@ -139,7 +184,7 @@ describe('SummaryTable grouped layout', () => {
     ).toHaveLength(2);
   });
 
-  it('shows n/a for mixed units and for empty measures', () => {
+  it('shows mixed units and n/a', () => {
     const mixedRows: PropertyRow[] = [
       { dbId: 1, name: 'a', properties: { Category: 'Walls', Area: '10 m²' } },
       { dbId: 2, name: 'b', properties: { Category: 'Walls', Area: '2 m³' } },
@@ -149,10 +194,12 @@ describe('SummaryTable grouped layout', () => {
       <SummaryTable
         entries={summarize(mixedRows, ['Category'])}
         rows={mixedRows}
-        view={view({ layout: 'grouped', measure: 'Area' })}
+        view={view({ layout: 'grouped', columns: [COUNT_COLUMN, area] })}
       />,
     );
-    expect(screen.getAllByText('n/a')).toHaveLength(2);
+    const mixed = screen.getByText('mixed units');
+    expect(mixed.closest('td')).toHaveAttribute('title', 'Mixed units: m², m³');
+    expect(screen.getByText('n/a')).toBeInTheDocument();
   });
 });
 
@@ -161,22 +208,22 @@ describe('SummaryTable pivot layout', () => {
     {
       dbId: 1,
       name: 'a',
-      properties: { Category: 'Walls', Type: 'Basic' },
+      properties: { Category: 'Walls', Type: 'Basic', Area: '1 m²' },
     },
     {
       dbId: 2,
       name: 'b',
-      properties: { Category: 'Walls', Type: 'Basic' },
+      properties: { Category: 'Walls', Type: 'Basic', Area: '2 m²' },
     },
     {
       dbId: 3,
       name: 'c',
-      properties: { Category: 'Walls', Type: 'Curtain' },
+      properties: { Category: 'Walls', Type: 'Curtain', Area: '3 m²' },
     },
     {
       dbId: 4,
       name: 'd',
-      properties: { Category: 'Doors', Type: 'Single' },
+      properties: { Category: 'Doors', Type: 'Single', Area: '4 m²' },
     },
   ];
   const pivot = view({ layout: 'pivot', groupBy: ['Category', 'Type'] });
@@ -200,16 +247,64 @@ describe('SummaryTable pivot layout', () => {
     expect(within(table).getByText('Single')).toBeInTheDocument();
   });
 
-  it('falls back to the flat table without rows or a grouping', () => {
+  it('renders the configured columns for every node', () => {
+    render(
+      <SummaryTable
+        entries={[]}
+        rows={pivotRows}
+        view={view({ ...pivot, columns: [COUNT_COLUMN, area] })}
+      />,
+    );
+    const table = screen.getByRole('table', {
+      name: 'Pivot by Category, Type',
+    });
+    expect(headers(table)).toEqual(['Value', 'Count', 'Sum of Area']);
+    expect(within(table).getByText('6 m²')).toBeInTheDocument();
+    expect(within(table).getAllByText('4 m²')).toHaveLength(2);
+  });
+
+  it('nests the row list when no grouping is chosen', () => {
+    render(
+      <SummaryTable
+        entries={summarize(pivotRows, ['Category', 'Type'])}
+        rows={pivotRows}
+        propertyNames={['Category', 'Type']}
+        view={view({ layout: 'pivot', groupBy: [] })}
+      />,
+    );
+    expect(
+      screen.getByRole('table', { name: 'Pivot by Category, Type' }),
+    ).toBeInTheDocument();
+  });
+
+  it('falls back to the flat table without rows', () => {
     const { container } = render(
       <SummaryTable
         entries={entries}
-        rows={pivotRows}
         view={view({ layout: 'pivot', groupBy: [] })}
       />,
     );
     expect(container.querySelector('.bsh-table--pivot')).toBeNull();
     expect(container.querySelectorAll('table')).toHaveLength(1);
+  });
+});
+
+describe('SummaryTable pivot cap', () => {
+  it('renders a bounded number of pivot rows and reveals the rest on request', () => {
+    const rows: PropertyRow[] = Array.from(
+      { length: ENTRY_CAP + 25 },
+      (_, i) => ({ dbId: i, name: `n${i}`, properties: { Name: `v${i}` } }),
+    );
+    const { container } = render(
+      <SummaryTable
+        entries={[]}
+        rows={rows}
+        view={view({ layout: 'pivot', groupBy: ['Name'] })}
+      />,
+    );
+    expect(container.querySelectorAll('tbody tr')).toHaveLength(ENTRY_CAP + 1);
+    fireEvent.click(screen.getByRole('button', { name: 'Show 25 more' }));
+    expect(container.querySelectorAll('tbody tr')).toHaveLength(ENTRY_CAP + 25);
   });
 });
 
@@ -220,10 +315,17 @@ describe('SummaryTable entry cap', () => {
     count: 1,
   }));
 
-  it('caps flat rows and reveals the rest on request', () => {
-    const { container } = render(<SummaryTable entries={many} />);
+  it('caps flat rows, spans every column and reveals the rest on request', () => {
+    const { container } = render(
+      <SummaryTable
+        entries={many}
+        view={view({ columns: [COUNT_COLUMN, area] })}
+      />,
+    );
     expect(container.querySelectorAll('tbody tr')).toHaveLength(ENTRY_CAP + 1);
-    fireEvent.click(screen.getByRole('button', { name: 'Show 25 more' }));
+    const more = screen.getByRole('button', { name: 'Show 25 more' });
+    expect(more.closest('td')).toHaveAttribute('colspan', '4');
+    fireEvent.click(more);
     expect(container.querySelectorAll('tbody tr')).toHaveLength(ENTRY_CAP + 25);
   });
 
@@ -232,6 +334,9 @@ describe('SummaryTable entry cap', () => {
       <SummaryTable entries={many} view={view({ layout: 'grouped' })} />,
     );
     expect(container.querySelectorAll('tbody tr')).toHaveLength(ENTRY_CAP + 1);
+    expect(
+      screen.getByRole('button', { name: 'Show 25 more' }).closest('td'),
+    ).toHaveAttribute('colspan', '2');
     fireEvent.click(screen.getByRole('button', { name: 'Show 25 more' }));
     expect(container.querySelectorAll('tbody tr')).toHaveLength(ENTRY_CAP + 25);
   });

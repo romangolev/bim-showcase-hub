@@ -1,7 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { COUNT_COLUMN, summaryColumn } from '../extensions/modelSummary.js';
+import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import { BSH_KEYS } from '../storage.js';
 import { installMemoryStorage } from '../test/mockApi.js';
-import { act, fireEvent, render, screen, waitFor } from '../test/render.js';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '../test/render.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
 import { buildMockElements } from '../viewer/mockModel.js';
 import { DashboardPanel } from './DashboardPanel.js';
@@ -196,10 +205,10 @@ describe('DashboardPanel', () => {
         name: 'Doughnut chart of element share by Category',
       }),
     ).toBeInTheDocument();
-    expect(screen.getByText('Data table')).toBeInTheDocument();
+    expect(screen.getAllByText('Data table')).toHaveLength(2);
   });
 
-  it('switches property from the settings body and collapses', async () => {
+  it('switches property from the chart menu and collapses', async () => {
     const adapter = await loaded();
     const onCollapsedChange = vi.fn();
     render(
@@ -215,9 +224,14 @@ describe('DashboardPanel', () => {
       name: 'Bar chart of element counts by Category',
     });
     expect(screen.queryByLabelText('Group elements by')).toBeNull();
-    fireEvent.change(screen.getByLabelText('Group by'), {
-      target: { value: 'Level' },
-    });
+    fireEvent.click(
+      screen.getAllByRole('button', {
+        name: /^Options for Bar chart/,
+      })[0] as HTMLElement,
+    );
+    fireEvent.click(
+      screen.getByRole('menuitemcheckbox', { name: 'Group by Level' }),
+    );
     expect(
       await screen.findByRole('img', {
         name: 'Bar chart of element counts by Level',
@@ -233,7 +247,7 @@ describe('DashboardPanel', () => {
     window.localStorage.setItem(
       BSH_KEYS.personal.dashboardView,
       JSON.stringify({
-        property: 'Level',
+        charts: [{ property: 'Level' }, { property: 'Category' }],
         properties: ['Category', 'Level'],
       }),
     );
@@ -243,9 +257,12 @@ describe('DashboardPanel', () => {
     ]);
     render(<DashboardPanel adapter={adapter} />);
     expect(
-      await screen.findByText(
-        'This model has no Level values, so the chart groups by Category.',
-      ),
+      await screen.findByText('This model has no Level values.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', {
+        name: 'Bar chart of element counts by Category',
+      }),
     ).toBeInTheDocument();
   });
 });
@@ -405,7 +422,7 @@ describe('summary view, copy and row actions', () => {
     expect(screen.getByRole('cell', { name: 'Walls' })).toBeInTheDocument();
   });
 
-  it('persists density and hides a column', async () => {
+  it('persists density and hides the property column', async () => {
     const adapter = await loaded();
     const { container } = render(
       <>
@@ -417,7 +434,9 @@ describe('summary view, copy and row actions', () => {
     fireEvent.change(screen.getByLabelText('Density'), {
       target: { value: 'compact' },
     });
-    fireEvent.click(screen.getByLabelText('property'));
+    fireEvent.click(
+      screen.getByRole('switch', { name: /Show the property column/ }),
+    );
     await waitFor(() =>
       expect(container.querySelector('section')).toHaveAttribute(
         'data-density',
@@ -431,7 +450,29 @@ describe('summary view, copy and row actions', () => {
     );
     expect(
       JSON.parse(window.localStorage.getItem('bsh.summary.view.v1') ?? '{}'),
-    ).toMatchObject({ density: 'compact', hiddenColumns: ['property'] });
+    ).toMatchObject({ density: 'compact', showProperty: false });
+  });
+
+  it('reads and fills a configured column', async () => {
+    PANE_SETTINGS.summary.view.write({
+      ...PANE_SETTINGS.summary.view.initial,
+      columns: [COUNT_COLUMN, summaryColumn('Level', 'distinct')],
+    });
+    const adapter = await loaded();
+    render(
+      <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />,
+    );
+    expect(
+      await screen.findByRole('columnheader', {
+        name: 'Distinct values of Level',
+      }),
+    ).toHaveAttribute('scope', 'col');
+    const walls = await screen.findByRole('cell', { name: 'Walls' });
+    await waitFor(() =>
+      expect(
+        walls.closest('tr')?.querySelectorAll('td')[3]?.textContent,
+      ).toMatch(/^\d+$/),
+    );
   });
 
   it('copies the visible rows as tab separated text', async () => {
@@ -495,7 +536,7 @@ describe('dashboard settings', () => {
     },
   );
 
-  it('keeps the pane to charts and a chart type switch', async () => {
+  it('keeps the pane to charts and switches type from the chart menu', async () => {
     const adapter = await loaded();
     render(<DashboardPanel adapter={adapter} />);
     await screen.findByRole('img', {
@@ -503,17 +544,27 @@ describe('dashboard settings', () => {
     });
     expect(screen.queryByRole('button', { name: 'Model health' })).toBeNull();
     expect(screen.queryByLabelText('Chart click action')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Doughnut' }));
+    for (const name of ['Bar', 'Doughnut', 'Both']) {
+      expect(screen.queryByRole('button', { name })).toBeNull();
+    }
+    fireEvent.click(
+      screen.getAllByRole('button', {
+        name: /^Options for Bar chart/,
+      })[0] as HTMLElement,
+    );
+    fireEvent.click(
+      screen.getByRole('menuitemcheckbox', { name: 'Chart type: Doughnut' }),
+    );
     expect(
       screen.queryByRole('img', {
         name: 'Bar chart of element counts by Category',
       }),
     ).toBeNull();
     expect(
-      screen.getByRole('img', {
+      screen.getAllByRole('img', {
         name: 'Doughnut chart of element share by Category',
       }),
-    ).toBeInTheDocument();
+    ).toHaveLength(2);
   });
 
   it('keeps two bodies and the panel in sync', async () => {
@@ -528,17 +579,12 @@ describe('dashboard settings', () => {
     await screen.findByRole('img', {
       name: 'Bar chart of element counts by Category',
     });
-    const [first, second] = screen.getAllByLabelText('Chart type');
-    fireEvent.change(first as HTMLElement, { target: { value: 'bar' } });
+    const [first, second] = screen.getAllByRole('switch', {
+      name: /Fold values beyond the top/,
+    });
+    fireEvent.click(first as HTMLElement);
     await waitFor(() =>
-      expect((second as HTMLSelectElement).value).toBe('bar'),
-    );
-    await waitFor(() =>
-      expect(
-        screen.queryByRole('img', {
-          name: 'Doughnut chart of element share by Category',
-        }),
-      ).toBeNull(),
+      expect(second).toHaveAttribute('aria-checked', 'false'),
     );
     fireEvent.click(
       screen.getAllByRole('button', {
@@ -615,17 +661,6 @@ describe('dashboard presets and cross-filter', () => {
         name: 'Bar chart of element counts by Discipline',
       }),
     ).toBeNull();
-    fireEvent.click(
-      screen.getAllByRole('button', {
-        name: 'Dashboard presets',
-      })[1] as HTMLElement,
-    );
-    fireEvent.click(
-      screen.getByRole('menuitemcheckbox', { name: 'Single chart' }),
-    );
-    expect(
-      await screen.findByRole('list', { name: /Legend/ }),
-    ).toBeInTheDocument();
   });
 
   it('selects the elements of a clicked bar', async () => {
@@ -704,5 +739,84 @@ describe('summary settings entry points', () => {
         (screen.getByLabelText('Density') as HTMLSelectElement).value,
       ).toBe('comfortable'),
     );
+  });
+});
+
+describe('summary Add property', () => {
+  beforeEach(() => {
+    installMemoryStorage();
+  });
+
+  it('adds a column from the pane header and reads its property', async () => {
+    const adapter = await loaded();
+    render(
+      <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />,
+    );
+    await screen.findByRole('cell', { name: 'Walls' });
+    fireEvent.click(screen.getByRole('button', { name: 'Add property' }));
+    const box = within(document.querySelector('dialog[open]') as HTMLElement);
+    fireEvent.click(await box.findByRole('radio', { name: 'Level' }));
+    fireEvent.change(box.getByLabelText('Aggregate'), {
+      target: { value: 'distinct' },
+    });
+    fireEvent.click(box.getByRole('button', { name: 'Add property' }));
+    expect(
+      await screen.findByRole('columnheader', {
+        name: 'Distinct values of Level',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      PANE_SETTINGS.summary.view.read().columns.map((column) => column.id),
+    ).toEqual(['count', 'distinct:Level']);
+  });
+
+  it('offers to add a column when there is none', async () => {
+    PANE_SETTINGS.summary.view.write({
+      ...PANE_SETTINGS.summary.view.initial,
+      columns: [],
+    });
+    const adapter = await loaded();
+    render(
+      <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />,
+    );
+    expect(
+      await screen.findByText('Add a column to count or total these values.'),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Add a column' }));
+    expect(document.querySelector('dialog[open]')).not.toBeNull();
+    fireEvent.keyDown(document.querySelector('dialog[open]') as HTMLElement, {
+      key: 'Escape',
+    });
+  });
+
+  it('has no preset control in the pane', async () => {
+    const adapter = await loaded();
+    render(<ModelSummaryPanel adapter={adapter} />);
+    expect(screen.queryByRole('button', { name: 'Presets' })).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Summary presets' }),
+    ).toBeNull();
+  });
+
+  it('turns an empty-share badge into a Filled % column', async () => {
+    const adapter = await loaded();
+    render(
+      <ModelSummaryPanel
+        adapter={adapter}
+        propertyNames={['Category', 'Mark']}
+      />,
+    );
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: /^Add as column:\s*Mark:\s*100%\s*empty$/,
+      }),
+    );
+    const box = within(document.querySelector('dialog[open]') as HTMLElement);
+    expect(box.getByLabelText('Aggregate')).toHaveValue('filled');
+    fireEvent.click(box.getByRole('button', { name: 'Add property' }));
+    expect(
+      await screen.findByRole('columnheader', { name: /^Filled % of Mark/ }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText('0%').length).toBeGreaterThan(0);
   });
 });

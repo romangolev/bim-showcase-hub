@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DASHBOARD_PROPERTIES } from '../extensions/dashboardData.js';
-import { DEFAULT_DASHBOARD_VIEW } from '../extensions/dashboardPresets.js';
+import {
+  chartsFromProperties,
+  DEFAULT_DASHBOARD_VIEW,
+} from '../extensions/dashboardPresets.js';
 import { DashboardPanel } from '../panels/DashboardPanel.js';
 import {
   DASHBOARD_SETTINGS_ID,
@@ -83,12 +86,11 @@ describe('chart instance settings', () => {
   it('opens settings and edits only its own view and properties', async () => {
     PANE_SETTINGS.dashboard.view.write({
       ...DEFAULT_DASHBOARD_VIEW,
-      property: 'Category',
       properties: ['Category', 'Level'],
     });
     chartSetting('chart:1').write({
       ...DEFAULT_DASHBOARD_VIEW,
-      property: 'Name',
+      charts: chartsFromProperties(['Name']),
       properties: ['Name'],
     });
     render(
@@ -111,9 +113,8 @@ describe('chart instance settings', () => {
         'Category',
       ]),
     );
-    expect(chartSetting('chart:1').read().property).toBe('Name');
+    expect(chartSetting('chart:1').read().charts[0]?.property).toBe('Name');
     expect(PANE_SETTINGS.dashboard.view.read()).toMatchObject({
-      property: 'Category',
       properties: ['Category', 'Level'],
     });
     expect(
@@ -147,13 +148,12 @@ describe('chart instance settings', () => {
   it('resets the chart to its defaults without touching the main dashboard', async () => {
     PANE_SETTINGS.dashboard.view.write({
       ...DEFAULT_DASHBOARD_VIEW,
-      property: 'Level',
+      charts: chartsFromProperties(['Level']),
       properties: ['Level'],
     });
     chartSetting('chart:5').write({
       ...DEFAULT_DASHBOARD_VIEW,
-      kind: 'bar',
-      property: 'Name',
+      charts: chartsFromProperties(['Name']),
       properties: ['Name'],
     });
     setDashboardSettingsTarget('chart:5');
@@ -165,13 +165,12 @@ describe('chart instance settings', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Reset chart' }));
     await waitFor(() =>
       expect(chartSetting('chart:5').read()).toMatchObject({
-        kind: 'both',
-        property: DEFAULT_DASHBOARD_VIEW.property,
+        charts: DEFAULT_DASHBOARD_VIEW.charts,
         properties: DEFAULT_DASHBOARD_PROPERTIES,
       }),
     );
     expect(PANE_SETTINGS.dashboard.view.read()).toMatchObject({
-      property: 'Level',
+      charts: chartsFromProperties(['Level']),
       properties: ['Level'],
     });
     expect(PANE_SETTINGS.dashboard.action.has()).toBe(false);

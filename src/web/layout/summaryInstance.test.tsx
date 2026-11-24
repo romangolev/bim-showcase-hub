@@ -7,7 +7,7 @@ import {
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import { forgetPersonal } from '../storage.js';
 import { installMemoryStorage } from '../test/mockApi.js';
-import { fireEvent, render, screen, waitFor } from '../test/render.js';
+import { fireEvent, render, screen, waitFor, within } from '../test/render.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
 import { ModelViewerContext } from '../viewer/ViewerContext.js';
 import {
@@ -161,7 +161,12 @@ describe('summary instance spec', () => {
       scope: 'urn',
       elements: 'selected',
       properties: ['A'],
-      view: { density: 'comfortable', sort: 'count', hiddenColumns: [] },
+      view: {
+        density: 'comfortable',
+        sort: 'count',
+        showProperty: true,
+        columns: [{ id: 'count' }],
+      },
       action: 'select',
     });
   });
@@ -205,5 +210,48 @@ describe('summary instance spec', () => {
       target: { value: 'compact' },
     });
     expect(window.localStorage.getItem(key)).toBeNull();
+  });
+
+  it('adds a row property to that instance only', async () => {
+    seedInstanceSetting('modelSummary:1', 'urn');
+    render(
+      <ModelViewerContext.Provider value={adapter}>
+        <SummaryInstancePane instance="1" />
+      </ModelViewerContext.Provider>,
+    );
+    await screen.findByLabelText('Summarize elements');
+    fireEvent.click(screen.getByRole('button', { name: 'Add property' }));
+    const box = within(document.querySelector('dialog[open]') as HTMLElement);
+    fireEvent.click(box.getByRole('radio', { name: 'Rows' }));
+    fireEvent.click(await box.findByRole('radio', { name: 'Level' }));
+    fireEvent.click(box.getByRole('button', { name: 'Add property' }));
+    await waitFor(() =>
+      expect(summarySetting('modelSummary:1').read().properties).toContain(
+        'Level',
+      ),
+    );
+    expect(PANE_SETTINGS.summary.properties.has()).toBe(false);
+  });
+
+  it('adds a column to the targeted instance from settings', async () => {
+    seedInstanceSetting('modelSummary:4', 'urn');
+    setSummarySettingsTarget('modelSummary:4');
+    render(<SummarySettingsBody />);
+    fireEvent.click(screen.getByRole('button', { name: 'Add a column' }));
+    const box = within(document.querySelector('dialog[open]') as HTMLElement);
+    fireEvent.change(box.getByLabelText('Search properties'), {
+      target: { value: 'Area' },
+    });
+    fireEvent.click(box.getByRole('button', { name: 'Use "Area"' }));
+    fireEvent.click(box.getByRole('button', { name: 'Add property' }));
+    await waitFor(() =>
+      expect(
+        summarySetting('modelSummary:4')
+          .read()
+          .view.columns.map((column) => column.id),
+      ).toEqual(['count', 'count:Area']),
+    );
+    expect(PANE_SETTINGS.summary.view.has()).toBe(false);
+    setSummarySettingsTarget(null);
   });
 });

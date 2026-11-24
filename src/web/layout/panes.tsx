@@ -282,6 +282,9 @@ export function SummaryInstancePane({ instance }: { instance: string }) {
           modal.open(SUMMARY_SETTINGS_ID);
         }}
         propertyNames={spec.properties}
+        onPropertiesChange={(properties) =>
+          setSpec((prev) => ({ ...prev, properties }))
+        }
         view={{
           value: spec.view,
           onChange: (view) => setSpec((prev) => ({ ...prev, view })),

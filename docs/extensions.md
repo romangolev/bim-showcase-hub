@@ -19,7 +19,7 @@ Read rows with `useScopedRows` in panels and `readScopedRows` (`viewer/scopedRow
 |---|---|---|
 | Viewer tools | `tools/` | `PaintTool`, `ExcelExportTool`, `GlbExportTool`, `IfcExportTool`, `ToolbarProfileTool`, `DisplayTool`, registered in `tools/index.ts` |
 | Paint | `paintBrushes.ts`, `tools/paint/` | Named palettes with numbered markers, ghost-rest isolate and the viewer shortcuts ([Paint](#paint)) |
-| Model summary | `modelSummary.ts`, `panels/ModelSummaryPanel.tsx` | Counts values per property. Row click selects, isolates, hides or zooms |
+| Model summary | `modelSummary.ts`, `panels/ModelSummaryPanel.tsx`, `panels/SummaryPropertyDialog.tsx` | Counts values per row property and shows user-defined columns (count, filled %, empty %, distinct, sum, average, minimum, maximum). **Add property** in the pane header adds a property as rows or as a column. Row click selects, isolates, hides or zooms |
 | Dashboard | `dashboardData.ts`, `panels/DashboardPanel.tsx` | Chart.js bar, horizontal bar, doughnut and table charts, presets, PNG, CSV and copy. Each view carries its own property list and its spec: aggregate (`count`, `sum`, `avg`, `min`, `max`), a numeric measure, top-N and an Other bucket. One parser (`measureParse.ts`, shared with the summary) converts within a unit family (mm→m, l→m³, lb→kg) and refuses a chart whose values span families instead of summing them. `healthKpis.ts` computes model-health tiles (element count, missing must-have values, empty values, duplicate values) as pure data; a tile's tone is always paired with text, and it is a data check, not a BIM standard. Split by model stacks a bar or horizontal bar chart per model, counts only, with one data table column per model |
 | Excel export | `excelExport.ts`, `exportFormats.ts`, `tools/excel/` | XLSX, CSV, JSON or copy, with built-in and saved presets, group-by, content-sized columns and optional `(empty)` text ([Table export](#table-export)) |
 | GLB export | `glbExport.ts`, `viewer/viewerGeometry.ts` | Binary glTF 2.0 from `adapter.getGeometryParts()`. Capped at 256 MB |
@@ -59,13 +59,16 @@ Every `PaneDefinition` carries `description`, `category` and `keywords` beside `
 
 ## Model summary view
 
-The summary view (`extensions/modelSummary.ts`) also carries a `layout` (`flat`, `grouped` or `pivot`), an ordered `groupBy`, a `measure` with `unitLabel` and `precision`, and per-block `titles`. `sanitizeView` fills every one of them from an older blob. `SummaryTable` renders them from props; a `flat` view with no measure keeps the original table. The pure helpers are:
+The summary view (`extensions/modelSummary.ts`) carries a `layout` (`flat`, `grouped` or `pivot`), an optional ordered `groupBy`, per-block `titles`, `showProperty` and an ordered `columns` list (at most 12). A column is `{ id, property, aggregate, title, precision, unitLabel }`; `property: null` with `count` is the element count, and the id is `aggregate:property` (or `count`). The row properties stay in the property list (at most 24). `sanitizeView` fills every field from an older blob: a missing `columns` becomes Count unless the old `hiddenColumns` hid it, an old `measure` becomes a Sum column with its `precision` and `unitLabel`, and a hidden property column becomes `showProperty: false`. The old fields are never written back. `SummaryTable` renders the columns in all three layouts. The pure helpers are:
 
 - `summaryBlocks(entries)` splits flat entries into one block per property in entry order.
-- `pivotTree(rows, groupBy, { measure })` nests rows by the ordered properties. A node is `{ value, count, children, measure }`, and `count` is the subtree total.
-- `parseMeasure(cell)` wraps the shared parser and keeps only length, area, volume and unitless values (for example `m²`, `m³`, `m`, `mm`, `ft`). `measureOf(rows, property)` and `measureByValue(rows, valueProperty, measureProperty)` sum it per group, converting millimetres to metres; a group with mixed unit families, or none of the values numeric, is `mixed` or `missing` and renders `n/a`.
-- `formatMeasure(cell, { precision, unitLabel })` formats a cell, and `countShare(count, max)` gives the count bar's percentage.
+- `aggregateCell(rows, column)` computes one cell, `columnCells(rows, rowProperty, columns)` computes every column per value, and `pivotTree(rows, groupBy, { columns })` nests rows by the ordered properties with `{ value, count, children, cells }` per node. A pivot with no `groupBy` nests the row properties in order.
+- `parseMeasure(cell)` wraps the shared parser and keeps only length, area, volume and unitless values; numeric columns convert millimetres to metres, report `mixed units` across families and `n/a` when no value is numeric, and append `(N missing)`.
+- `formatCell(cell, column)` and `columnTitle(column)` give the cell text and the spelled-out header ("Sum of Area"); `summaryTable(entries, view, rows)` builds Copy table and CSV from exactly the visible columns. The Excel Summary sheet and the HTML report keep value and count.
+- `applyAddition` and `additionProblem` apply and validate the **Add property** dialog (`promptSummaryProperty`), which the header, the "% empty" badges (as a Filled % shortcut) and Summary settings open.
 - `blockTitle(titles, property)` falls back to the property name, and `sanitizeGroupBy` and `sanitizeTitles` guard the stored view.
+
+Summary presets live only in Summary settings (`panels/SummaryPresetMenu.tsx`): a menu with the starters (Doors check, Rooms by level), your presets with a checkmark on the match, Save current as preset, Update, Rename and Delete, plus Export and Import. A preset applies through `presetToSpec`, so it targets the main summary or the summary instance the settings window was opened for.
 
 ## Paint
 

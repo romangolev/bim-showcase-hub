@@ -307,13 +307,25 @@
 }
 
 .topbar__crumbs li {
+  display: flex;
+  align-items: center;
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
+.topbar__crumbs li > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.topbar__crumbs li:has(> [aria-hidden="true"]) {
+  flex: none;
+}
+
 .topbar__crumbs li + li::before {
+  flex: none;
   content: "/";
   margin-right: var(--space-1);
   color: var(--color-fog);
@@ -324,7 +336,12 @@
 }
 
 .topbar__crumb {
+  display: block;
+  max-width: 100%;
   min-height: var(--hit-target);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   padding: 0;
   border: 0;
   background: transparent;

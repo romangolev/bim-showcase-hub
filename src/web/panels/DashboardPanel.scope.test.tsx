@@ -75,29 +75,15 @@ describe('DashboardPanel empty element scope', () => {
     expect(screen.queryByText('Nothing to chart')).toBeNull();
   });
 
-  it('keeps the gallery reachable from the Presets menu with a preset on an empty scope', async () => {
+  it('keeps the Presets menu available with a preset on an empty scope', async () => {
     seed({ elements: 'selected', preset: 'health' });
     const adapter = await loaded();
     render(<DashboardPanel adapter={adapter} />);
     expect(await screen.findByText('No selected elements')).toBeVisible();
     expect(screen.queryByText(/none of the properties/)).toBeNull();
     expect(
-      screen.queryByRole('list', { name: 'Dashboard presets' }),
-    ).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Dashboard presets' }));
-    fireEvent.click(
-      screen.getByRole('menuitem', { name: 'Browse presets...' }),
-    );
-    expect(
-      screen.getByRole('list', { name: 'Dashboard presets' }),
+      screen.getByRole('button', { name: 'Dashboard presets' }),
     ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Dashboard presets' }));
-    fireEvent.click(
-      screen.getByRole('menuitem', { name: 'Hide preset gallery' }),
-    );
-    expect(
-      screen.queryByRole('list', { name: 'Dashboard presets' }),
-    ).toBeNull();
   });
 
   it('shows loading while the scope is pending, not an empty message', async () => {
@@ -127,8 +113,8 @@ describe('DashboardPanel chart stability', () => {
     await screen.findByRole('img', {
       name: 'Bar chart of element counts by Category',
     });
+    await waitFor(() => expect(counts.created).toBeGreaterThan(0));
     const built = counts.created;
-    expect(built).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole('button', { name: 'Collapse' }));
     fireEvent.click(screen.getByRole('button', { name: 'Expand' }));
     expect(counts.created).toBe(built);
@@ -150,7 +136,7 @@ describe('DashboardPanel PNG flags', () => {
     });
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'Export Bar chart of element counts by Category',
+        name: 'Options for Bar chart of element counts by Category',
       }),
     );
     fireEvent.click(screen.getByRole('menuitem', { name: 'Download PNG' }));

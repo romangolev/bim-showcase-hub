@@ -3,52 +3,35 @@ import type { PropertyRow } from '../../shared/types.js';
 import { Icon } from '../components/icons.js';
 import {
   blockTitle,
+  COUNT_COLUMN,
+  cellsByEntry,
+  columnTitle,
   countShare,
+  EMPTY_VALUE_LABEL,
+  entryKey,
+  formatCell,
   formatCount,
-  formatMeasure,
+  formatValue,
+  MAX_GROUP_BY,
   MAX_TITLE_LENGTH,
-  type MeasureCell,
-  measureByValue,
+  NO_CELL,
   type PivotNode,
   pivotTree,
-  type SummaryColumn,
+  type SummaryCell,
+  type SummaryColumnSpec,
   type SummaryEntry,
   type SummaryView,
   summaryBlocks,
 } from '../extensions/modelSummary.js';
-import { formatCount as formatDisplayCount } from '../i18n/format.js';
 import { useSettings } from '../settings/SettingsContext.js';
-import { type Language, readSettings } from '../settings/settings.js';
 import { useScrollable } from './useScrollable.js';
 import './panels.css';
 
-const COLUMNS: { id: SummaryColumn; header: string; className: string }[] = [
-  { id: 'property', header: 'Property', className: 'bsh-col-property' },
-  { id: 'value', header: 'Value', className: 'bsh-col-value' },
-  { id: 'count', header: 'Count', className: 'bsh-num' },
-];
-
 export const ENTRY_CAP = 500;
 
-const MISSING_MEASURE: MeasureCell = { status: 'missing' };
-
-export function entryKey(entry: SummaryEntry): string {
-  return `${entry.property}\u0000${entry.value}`;
-}
-
-function measureText(
-  cell: MeasureCell | undefined,
-  view: SummaryView | undefined,
-  language: Language = readSettings().language,
-): string {
-  const resolved = cell ?? MISSING_MEASURE;
-  const text = formatMeasure(resolved, {
-    precision: view?.precision ?? 0,
-    unitLabel: view?.unitLabel ?? '',
-  });
-  if (resolved.status !== 'ok' || resolved.skipped === 0) return text;
-  return `${text} (${formatDisplayCount(resolved.skipped, language)} missing)`;
-}
+const DEFAULT_COLUMNS: readonly SummaryColumnSpec[] = [COUNT_COLUMN];
+const NO_ROWS: readonly PropertyRow[] = [];
+const BLANK_NOTE = 'no values in these elements';
 
 function TitleInput({
   property,
@@ -85,18 +68,10 @@ function TitleInput({
   );
 }
 
-function CountCell({
-  count,
-  max,
-  className = 'bsh-num',
-}: {
-  count: number;
-  max: number;
-  className?: string;
-}) {
+function CountCell({ count, max }: { count: number; max: number }) {
   const share = countShare(count, max);
   return (
-    <td className={className} title={formatCount(count)}>
+    <td className="bsh-num" title={formatCount(count)}>
       <span
         className="bsh-count-bar"
         aria-hidden="true"
@@ -104,6 +79,65 @@ function CountCell({
       />
       <span className="bsh-clamp bsh-count-value">{formatCount(count)}</span>
     </td>
+  );
+}
+
+function ColumnCell({
+  column,
+  cell,
+  max,
+}: {
+  column: SummaryColumnSpec;
+  cell: SummaryCell;
+  max: number | null;
+}) {
+  const { language } = useSettings().settings;
+  if (max !== null && column.property === null && cell.status === 'ok') {
+    return <CountCell count={cell.value} max={max} />;
+  }
+  const text = formatCell(cell, column, language);
+  return (
+    <td
+      className="bsh-num"
+      title={
+        cell.status === 'mixed' ? `Mixed units: ${cell.units.join(', ')}` : text
+      }
+    >
+      <span className="bsh-clamp bsh-measure">{text}</span>
+    </td>
+  );
+}
+
+function ColumnHeaders({
+  columns,
+  blank,
+}: {
+  columns: readonly SummaryColumnSpec[];
+  blank: ReadonlySet<string>;
+}) {
+  return (
+    <>
+      {columns.map((column) => {
+        const title = columnTitle(column);
+        const empty = column.property !== null && blank.has(column.property);
+        return (
+          <th
+            key={column.id}
+            scope="col"
+            className="bsh-num"
+            title={empty ? `${title}: ${BLANK_NOTE}` : title}
+          >
+            {title}
+            {empty ? (
+              <>
+                <Icon name="alert" size={12} />
+                <span className="bsh-sr-only">, {BLANK_NOTE}</span>
+              </>
+            ) : null}
+          </th>
+        );
+      })}
+    </>
   );
 }
 
@@ -146,7 +180,6 @@ function allPivotKeys(
 export function SummaryTable({
   entries,
   decorative = false,
-  hiddenColumns = [],
   activeKey,
   onPick,
   propertyNames,
@@ -156,7 +189,6 @@ export function SummaryTable({
 }: {
   entries: SummaryEntry[];
   decorative?: boolean;
-  hiddenColumns?: readonly SummaryColumn[];
   activeKey?: string | null;
   onPick?: (entry: SummaryEntry) => void;
   propertyNames?: readonly string[];
@@ -165,7 +197,6 @@ export function SummaryTable({
   onTitleChange?: (property: string, title: string) => void;
 }) {
   const uid = useId();
-  const { language } = useSettings().settings;
   const wrapRef = useRef<HTMLDivElement>(null);
   const scrollable = useScrollable(wrapRef);
   const [collapsedBlocks, setCollapsedBlocks] = useState<ReadonlySet<string>>(
@@ -174,41 +205,42 @@ export function SummaryTable({
   const [collapsedNodes, setCollapsedNodes] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
+  const [pivotAll, setPivotAll] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [expandedProps, setExpandedProps] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
 
   const layout = view?.layout ?? 'flat';
+  const columns = view?.columns ?? DEFAULT_COLUMNS;
+  const showProperty = view?.showProperty ?? true;
   const available = useMemo(
     () => new Set(propertyNames ?? entries.map((entry) => entry.property)),
     [propertyNames, entries],
   );
-  const measureProperty = view?.measure ?? null;
-  const groupBy = propertyNames
+  const chosen = propertyNames
     ? (view?.groupBy ?? []).filter((name) => available.has(name))
     : (view?.groupBy ?? []);
+  const groupBy =
+    chosen.length > 0 ? chosen : [...available].slice(0, MAX_GROUP_BY);
   const groupByKey = groupBy.join('\u0000');
-  const propertiesKey = [...available].join('\u0000');
   const titles = view?.titles ?? {};
 
-  const measures = useMemo(() => {
-    if (!measureProperty || layout === 'pivot') return null;
-    const cells = new Map<string, MeasureCell>();
-    for (const property of propertiesKey.split('\u0000')) {
-      if (!property) continue;
-      for (const [value, cell] of measureByValue(
-        rows ?? [],
-        property,
-        measureProperty,
-      )) {
-        cells.set(`${property}\u0000${value}`, cell);
+  const blank = useMemo(() => {
+    const names = new Set<string>();
+    if (!rows || rows.length === 0) return names;
+    for (const { property } of columns) {
+      if (
+        property !== null &&
+        rows.every(
+          (row) => formatValue(row.properties[property]) === EMPTY_VALUE_LABEL,
+        )
+      ) {
+        names.add(property);
       }
     }
-    return cells;
-  }, [rows, propertiesKey, measureProperty, layout]);
-  const measureFor = (entry: SummaryEntry) =>
-    measures?.get(`${entry.property}\u0000${entry.value}`);
+    return names;
+  }, [rows, columns]);
   const blocks = useMemo(() => summaryBlocks(entries), [entries]);
   const flat = useMemo(() => {
     const seen = new Map<string, number>();
@@ -225,19 +257,26 @@ export function SummaryTable({
     }
     return { shown, hidden };
   }, [entries, expandedProps]);
+  const cells = useMemo(
+    () =>
+      layout === 'pivot'
+        ? new Map<string, SummaryCell[]>()
+        : cellsByEntry(rows ?? NO_ROWS, flat.shown, columns),
+    [layout, rows, flat.shown, columns],
+  );
+  const cellsFor = (entry: SummaryEntry) => cells.get(entryKey(entry)) ?? [];
   const hiddenTotal = [...flat.hidden.values()].reduce((a, b) => a + b, 0);
   const expandProps = (properties: Iterable<string>) =>
     setExpandedProps((previous) => new Set([...previous, ...properties]));
   const tree = useMemo(() => {
     if (layout !== 'pivot' || !rows || !groupByKey) return [];
-    return pivotTree(rows, groupByKey.split('\u0000'), {
-      measure: measureProperty,
-    });
-  }, [layout, rows, groupByKey, measureProperty]);
+    return pivotTree(rows, groupByKey.split('\u0000'), { columns });
+  }, [layout, rows, groupByKey, columns]);
   const pivotRows = useMemo(
     () => flattenPivot(tree, collapsedNodes, '', 0, []),
     [tree, collapsedNodes],
   );
+  const pivotShown = pivotAll ? pivotRows : pivotRows.slice(0, ENTRY_CAP);
   const pivotMax = useMemo(
     () => tree.reduce((max, node) => Math.max(max, node.count), 0),
     [tree],
@@ -267,12 +306,18 @@ export function SummaryTable({
     setCollapsedBlocks(new Set(blocks.map((block) => block.property)));
     setCollapsedNodes(new Set(allPivotKeys(tree)));
   };
-  const columns = COLUMNS.filter(({ id }) => !hiddenColumns.includes(id));
-  const measureHeader = measureProperty ? (
-    <th scope="col" className="bsh-num">
-      Measure
-    </th>
-  ) : null;
+  const valueLabel = (entry: SummaryEntry) =>
+    onPick ? (
+      <button
+        type="button"
+        className="bsh-row-pick"
+        onClick={() => onPick(entry)}
+      >
+        <span className="bsh-clamp">{entry.value}</span>
+      </button>
+    ) : (
+      <span className="bsh-clamp">{entry.value}</span>
+    );
   const regionProps =
     scrollable && !decorative
       ? {
@@ -297,54 +342,45 @@ export function SummaryTable({
     <table className="bsh-table bsh-table--summary">
       <thead>
         <tr>
-          {columns.map(({ id, header, className }) => (
-            <th key={id} scope="col" className={className}>
-              {header}
+          {showProperty ? (
+            <th scope="col" className="bsh-col-property">
+              Property
             </th>
-          ))}
-          {measureHeader}
+          ) : null}
+          <th scope="col" className="bsh-col-value">
+            Value
+          </th>
+          <ColumnHeaders columns={columns} blank={blank} />
         </tr>
       </thead>
       <tbody>
         {flat.shown.map((entry) => {
           const key = entryKey(entry);
+          const list = cellsFor(entry);
           return (
             <tr key={key} data-active={activeKey === key ? 'true' : undefined}>
-              {columns.map(({ id, className }) => {
-                const text =
-                  id === 'count' ? formatCount(entry.count) : entry[id];
-                return (
-                  <td key={id} className={className} title={String(text)}>
-                    {onPick && id === 'value' ? (
-                      <button
-                        type="button"
-                        className="bsh-row-pick"
-                        onClick={() => onPick(entry)}
-                      >
-                        <span className="bsh-clamp">{text}</span>
-                      </button>
-                    ) : (
-                      <span className="bsh-clamp">{text}</span>
-                    )}
-                  </td>
-                );
-              })}
-              {measureProperty ? (
-                <td
-                  className="bsh-num"
-                  title={measureText(measureFor(entry), view, language)}
-                >
-                  <span className="bsh-clamp bsh-measure">
-                    {measureText(measureFor(entry), view, language)}
-                  </span>
+              {showProperty ? (
+                <td className="bsh-col-property" title={entry.property}>
+                  <span className="bsh-clamp">{entry.property}</span>
                 </td>
               ) : null}
+              <td className="bsh-col-value" title={entry.value}>
+                {valueLabel(entry)}
+              </td>
+              {columns.map((column, index) => (
+                <ColumnCell
+                  key={column.id}
+                  column={column}
+                  cell={list[index] ?? NO_CELL}
+                  max={null}
+                />
+              ))}
             </tr>
           );
         })}
         {hiddenTotal > 0 ? (
           <tr>
-            <td colSpan={columns.length + (measureProperty ? 1 : 0)}>
+            <td colSpan={(showProperty ? 2 : 1) + columns.length}>
               <button
                 type="button"
                 className="btn"
@@ -431,17 +467,10 @@ export function SummaryTable({
               >
                 <thead>
                   <tr>
-                    {!hiddenColumns.includes('value') ? (
-                      <th scope="col" className="bsh-col-value">
-                        Value
-                      </th>
-                    ) : null}
-                    {!hiddenColumns.includes('count') ? (
-                      <th scope="col" className="bsh-num">
-                        Count
-                      </th>
-                    ) : null}
-                    {measureHeader}
+                    <th scope="col" className="bsh-col-value">
+                      Value
+                    </th>
+                    <ColumnHeaders columns={columns} blank={blank} />
                   </tr>
                 </thead>
                 <tbody>
@@ -450,54 +479,34 @@ export function SummaryTable({
                     : block.entries.slice(0, ENTRY_CAP)
                   ).map((entry) => {
                     const key = entryKey(entry);
+                    const list = cellsFor(entry);
                     return (
                       <tr
                         key={key}
                         data-active={activeKey === key ? 'true' : undefined}
                       >
-                        {!hiddenColumns.includes('value') ? (
-                          <th
-                            scope="row"
-                            className="bsh-col-value"
-                            title={entry.value}
-                          >
-                            {onPick ? (
-                              <button
-                                type="button"
-                                className="bsh-row-pick"
-                                onClick={() => onPick(entry)}
-                              >
-                                <span className="bsh-clamp">{entry.value}</span>
-                              </button>
-                            ) : (
-                              <span className="bsh-clamp">{entry.value}</span>
-                            )}
-                          </th>
-                        ) : null}
-                        {!hiddenColumns.includes('count') ? (
-                          <CountCell count={entry.count} max={max} />
-                        ) : null}
-                        {measureProperty ? (
-                          <td
-                            className="bsh-num"
-                            title={measureText(
-                              measureFor(entry),
-                              view,
-                              language,
-                            )}
-                          >
-                            <span className="bsh-clamp bsh-measure">
-                              {measureText(measureFor(entry), view, language)}
-                            </span>
-                          </td>
-                        ) : null}
+                        <th
+                          scope="row"
+                          className="bsh-col-value"
+                          title={entry.value}
+                        >
+                          {valueLabel(entry)}
+                        </th>
+                        {columns.map((column, columnIndex) => (
+                          <ColumnCell
+                            key={column.id}
+                            column={column}
+                            cell={list[columnIndex] ?? NO_CELL}
+                            max={max}
+                          />
+                        ))}
                       </tr>
                     );
                   })}
                   {!expandedProps.has(block.property) &&
                   block.entries.length > ENTRY_CAP ? (
                     <tr>
-                      <td colSpan={2 + (measureProperty ? 1 : 0)}>
+                      <td colSpan={1 + columns.length}>
                         <button
                           type="button"
                           className="btn"
@@ -530,14 +539,11 @@ export function SummaryTable({
             <th scope="col" className="bsh-col-value">
               Value
             </th>
-            <th scope="col" className="bsh-num">
-              Count
-            </th>
-            {measureHeader}
+            <ColumnHeaders columns={columns} blank={blank} />
           </tr>
         </thead>
         <tbody>
-          {pivotRows.map(({ node, depth, key }) => {
+          {pivotShown.map(({ node, depth, key }) => {
             const collapsed = collapsedNodes.has(key);
             const hasChildren = node.children.length > 0;
             return (
@@ -571,24 +577,30 @@ export function SummaryTable({
                   )}
                   <span className="bsh-clamp">{node.value}</span>
                 </th>
-                <CountCell count={node.count} max={pivotMax} />
-                {measureProperty ? (
-                  <td
-                    className="bsh-num"
-                    title={measureText(
-                      node.measure ?? undefined,
-                      view,
-                      language,
-                    )}
-                  >
-                    <span className="bsh-clamp bsh-measure">
-                      {measureText(node.measure ?? undefined, view, language)}
-                    </span>
-                  </td>
-                ) : null}
+                {columns.map((column, index) => (
+                  <ColumnCell
+                    key={column.id}
+                    column={column}
+                    cell={node.cells[index] ?? NO_CELL}
+                    max={pivotMax}
+                  />
+                ))}
               </tr>
             );
           })}
+          {pivotShown.length < pivotRows.length ? (
+            <tr>
+              <td colSpan={1 + columns.length}>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => setPivotAll(true)}
+                >
+                  Show {formatCount(pivotRows.length - pivotShown.length)} more
+                </button>
+              </td>
+            </tr>
+          ) : null}
         </tbody>
       </table>
     </>

@@ -12,11 +12,17 @@ import {
 import { applyNamePattern, toDelimited } from '../extensions/exportFormats.js';
 import {
   emptyShares,
+  entryKey,
+  formatPercent,
+  MAX_SUMMARY_COLUMNS,
+  MAX_SUMMARY_ROWS,
+  type SummaryAggregate,
   type SummaryEntry,
   type SummaryView,
   summarize,
   summaryTable,
   viewEntries,
+  viewPropertyNames,
 } from '../extensions/modelSummary.js';
 import { formatCount } from '../i18n/format.js';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
@@ -34,8 +40,8 @@ import {
   ModelScopeSelect,
   UnavailableModels,
 } from './ModelScope.js';
-import { SummaryPresets } from './SummaryPresets.js';
-import { entryKey, SummaryTable } from './SummaryTable.js';
+import { openSummaryProperty } from './SummaryPropertyDialog.js';
+import { SummaryTable } from './SummaryTable.js';
 import {
   HIDDEN_MESSAGE,
   HIDDEN_TITLE,
@@ -53,6 +59,7 @@ export interface ModelSummaryPanelProps {
   adapter?: ViewerAdapter | null;
   model?: SummaryModel | null;
   propertyNames?: readonly string[];
+  onPropertiesChange?: (names: readonly string[]) => void;
   title?: string;
   className?: string;
   collapsed?: boolean;
@@ -73,6 +80,7 @@ export function ModelSummaryPanel({
   adapter,
   model,
   propertyNames: propertyNamesOverride,
+  onPropertiesChange,
   title = 'Model summary',
   className,
   collapsed,
@@ -91,8 +99,11 @@ export function ModelSummaryPanel({
   const isCollapsed = collapsed ?? innerCollapsed;
   const [showAll, setShowAll] = useState(false);
   const resolved = useResolvedAdapter(adapter);
-  const [savedProperties] = usePersisted(PANE_SETTINGS.summary.properties);
+  const [savedProperties, setSavedProperties] = usePersisted(
+    PANE_SETTINGS.summary.properties,
+  );
   const propertyNames = propertyNamesOverride ?? savedProperties;
+  const setProperties = onPropertiesChange ?? setSavedProperties;
   const [savedElements, setSavedElements] = usePersisted(
     PANE_SETTINGS.summary.scope,
   );
@@ -100,8 +111,12 @@ export function ModelSummaryPanel({
   const setElementsScope = controlledElements?.onChange ?? setSavedElements;
   const [savedView, setSavedView] = usePersisted(PANE_SETTINGS.summary.view);
   const view = controlledView?.value ?? savedView;
+  const readNames = useMemo(
+    () => viewPropertyNames(propertyNames, view.columns),
+    [propertyNames, view.columns],
+  );
   const state = useScopedRows(resolved, {
-    names: propertyNames,
+    names: readNames,
     elements: elementsScope,
     autoRefresh: view.autoRefresh,
     ...(controlledScope ? { models: controlledScope } : {}),
@@ -120,6 +135,7 @@ export function ModelSummaryPanel({
         : partialEntries,
     [state.rows, propertyNames, partialEntries],
   );
+  const sourceRows = state.rows.length > 0 ? state.rows : state.partialRows;
 
   const [savedAction] = usePersisted(PANE_SETTINGS.summary.action);
   const action = controlledAction ?? savedAction;
@@ -130,11 +146,29 @@ export function ModelSummaryPanel({
     () => emptyShares(entries).filter((share) => share.percent > 0),
     [entries],
   );
-  const patch = (next: Partial<SummaryView>) => {
-    const merged = { ...view, ...next };
-    if (controlledView) controlledView.onChange(merged);
-    else setSavedView(merged);
+  const setView = (next: SummaryView) => {
+    if (controlledView) controlledView.onChange(next);
+    else setSavedView(next);
   };
+  const patch = (next: Partial<SummaryView>) => setView({ ...view, ...next });
+  const full =
+    propertyNames.length >= MAX_SUMMARY_ROWS &&
+    view.columns.length >= MAX_SUMMARY_COLUMNS;
+  const openAdd = (initial?: {
+    property: string;
+    aggregate: SummaryAggregate;
+  }) =>
+    openSummaryProperty({
+      adapter: resolved,
+      properties: propertyNames,
+      view,
+      role: 'column',
+      ...(initial ? { initial } : {}),
+      apply: (next) => {
+        setProperties(next.properties);
+        setView(next.view);
+      },
+    });
 
   const pick = (entry: SummaryEntry) => {
     if (!resolved) return;
@@ -146,7 +180,7 @@ export function ModelSummaryPanel({
     setActive(entryKey(entry));
   };
 
-  const table = () => summaryTable(shown, view.hiddenColumns);
+  const table = () => summaryTable(shown, view, sourceRows, language);
   const copyTable = async () => {
     const { header, rows } = table();
     setNotice(
@@ -174,12 +208,6 @@ export function ModelSummaryPanel({
   const bodyId = `${uid}-body`;
   const titleId = `${uid}-title`;
   const toggleLabel = isCollapsed ? `Expand ${title}` : `Collapse ${title}`;
-  const globalSummary =
-    propertyNamesOverride === undefined &&
-    controlledScope === undefined &&
-    controlledElements === undefined &&
-    controlledView === undefined &&
-    controlledAction === undefined;
 
   return (
     <section
@@ -204,6 +232,20 @@ export function ModelSummaryPanel({
         </h2>
         <ModelScopeSelect state={state.models} label="Summarize models" />
         <ElementScopeSelect value={elementsScope} onChange={setElementsScope} />
+        <button
+          type="button"
+          className="btn bsh-summary__add"
+          disabled={full}
+          title={
+            full
+              ? `The summary already has ${MAX_SUMMARY_ROWS} rows and ${MAX_SUMMARY_COLUMNS} columns`
+              : undefined
+          }
+          onClick={() => openAdd()}
+        >
+          <Icon name="plus" size={14} />
+          <span className="bsh-summary__add-label">Add property</span>
+        </button>
         <button
           type="button"
           className="btn bsh-summary__refresh"
@@ -247,13 +289,6 @@ export function ModelSummaryPanel({
         aria-hidden={isCollapsed || undefined}
       >
         <div className="bsh-summary__body">
-          {globalSummary ? (
-            <SummaryPresets
-              adapter={resolved}
-              properties={propertyNames}
-              view={view}
-            />
-          ) : null}
           {state.status === 'ready' ? (
             <>
               <UnavailableModels models={state.models.unavailable} />
@@ -385,14 +420,35 @@ export function ModelSummaryPanel({
               {shares.length > 0 && (
                 <ul className="bsh-summary__shares" aria-label="Empty values">
                   {shares.map((share) => (
-                    <li key={share.property} className="bsh-badge">
-                      {share.property}: {share.percent}% empty
+                    <li key={share.property}>
+                      <button
+                        type="button"
+                        className="bsh-badge bsh-badge--action"
+                        title="Add as column"
+                        onClick={() =>
+                          openAdd({
+                            property: share.property,
+                            aggregate: 'filled',
+                          })
+                        }
+                      >
+                        <span className="bsh-sr-only">Add as column: </span>
+                        {share.property}: {formatPercent(share.percent)} empty
+                      </button>
                     </li>
                   ))}
                 </ul>
               )}
             </div>
           )}
+          {entries.length > 0 && view.columns.length === 0 ? (
+            <p className="bsh-summary__hint">
+              <span>Add a column to count or total these values.</span>
+              <button type="button" className="btn" onClick={() => openAdd()}>
+                Add a column
+              </button>
+            </p>
+          ) : null}
           {entries.length > 0 &&
             shown.length === 0 &&
             view.layout !== 'pivot' && (
@@ -408,12 +464,11 @@ export function ModelSummaryPanel({
             : shown.length > 0) && (
             <SummaryTable
               entries={shown}
-              hiddenColumns={view.hiddenColumns}
               activeKey={active}
               onPick={pick}
               view={view}
               propertyNames={propertyNames}
-              rows={state.rows}
+              rows={sourceRows}
               onTitleChange={(property, title) =>
                 patch({
                   titles: { ...view.titles, [property]: title },

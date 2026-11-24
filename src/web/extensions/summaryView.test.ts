@@ -8,21 +8,33 @@ import {
   sanitizeAction,
 } from './elementActions.js';
 import {
+  additionProblem,
+  aggregateCell,
+  applyAddition,
   blockTitle,
+  COUNT_COLUMN,
+  cellsByEntry,
+  columnTitle,
   countShare,
   DEFAULT_SUMMARY_PROPERTIES,
   DEFAULT_SUMMARY_VIEW,
   emptyShares,
-  formatMeasure,
-  measureByValue,
-  measureOf,
+  entryKey,
+  formatCell,
+  formatPercent,
+  MAX_SUMMARY_COLUMNS,
+  MAX_SUMMARY_ROWS,
   parseMeasure,
   pivotTree,
+  type SummaryAggregate,
+  type SummaryColumnSpec,
   sanitizeView,
   summarize,
   summaryBlocks,
+  summaryColumn,
   summaryTable,
   viewEntries,
+  viewPropertyNames,
 } from './modelSummary.js';
 import { sanitizePropertyNames } from './propertyNames.js';
 
@@ -56,37 +68,138 @@ describe('viewEntries', () => {
 });
 
 describe('emptyShares', () => {
-  it('reports the rounded share of empty values per property', () => {
-    expect(emptyShares(entries)).toEqual([
-      { property: 'A', percent: 33 },
-      { property: 'B', percent: 0 },
-    ]);
+  it('reports the exact share of empty values per property', () => {
+    const [a, b] = emptyShares(entries);
+    expect(a?.percent).toBeCloseTo(33.33, 1);
+    expect(b).toEqual({ property: 'B', percent: 0 });
+  });
+
+  it('never rounds a share to 0 or 100 unless it is exact', () => {
+    expect(formatPercent(0)).toBe('0%');
+    expect(formatPercent(100)).toBe('100%');
+    expect(formatPercent(0.2)).toBe('<1%');
+    expect(formatPercent(99.8)).toBe('>99%');
+    expect(formatPercent(33.4)).toBe('33%');
   });
 });
 
 describe('sanitizeView', () => {
   it('falls back to defaults on bad input', () => {
     expect(sanitizeView('x')).toEqual(DEFAULT_SUMMARY_VIEW);
-    expect(
-      sanitizeView({
-        minCount: -4,
-        density: 'compact',
-        hiddenColumns: ['count', 'x'],
-      }),
-    ).toEqual({
+    expect(sanitizeView({ minCount: -4, density: 'compact' })).toEqual({
       ...DEFAULT_SUMMARY_VIEW,
       density: 'compact',
-      hiddenColumns: ['count'],
     });
   });
 });
 
-describe('summaryTable', () => {
-  it('drops hidden columns from header and rows', () => {
-    expect(summaryTable(entries.slice(0, 1), ['property'])).toEqual({
-      header: ['Value', 'Count'],
-      rows: [['zeta', 5]],
+describe('sanitizeView columns migration', () => {
+  it('derives Count for a blob with no columns', () => {
+    expect(sanitizeView({ density: 'compact' })).toMatchObject({
+      columns: [COUNT_COLUMN],
+      showProperty: true,
     });
+  });
+
+  it('drops Count when the old view hid it', () => {
+    expect(sanitizeView({ hiddenColumns: ['count', 'x'] }).columns).toEqual([]);
+  });
+
+  it('turns the old measure into a Sum column with its precision and unit', () => {
+    expect(
+      sanitizeView({
+        measure: ' Area ',
+        precision: 9,
+        unitLabel: 'x'.repeat(40),
+      }).columns,
+    ).toEqual([
+      COUNT_COLUMN,
+      {
+        id: 'sum:Area',
+        property: 'Area',
+        aggregate: 'sum',
+        title: '',
+        precision: 4,
+        unitLabel: 'x'.repeat(16),
+      },
+    ]);
+    expect(
+      sanitizeView({ measure: 'Area', precision: '3' }).columns[1],
+    ).toMatchObject({ precision: 2 });
+  });
+
+  it('hides the property column when the old view did and ignores a hidden value', () => {
+    expect(
+      sanitizeView({ hiddenColumns: ['property', 'value'] }),
+    ).toMatchObject({ showProperty: false, columns: [COUNT_COLUMN] });
+    expect(
+      sanitizeView({ hiddenColumns: ['property'], showProperty: true })
+        .showProperty,
+    ).toBe(true);
+  });
+
+  it('never carries the old fields forward', () => {
+    const view = sanitizeView({
+      measure: 'Area',
+      hiddenColumns: ['count'],
+      unitLabel: 'm',
+      precision: 1,
+    });
+    for (const key of ['measure', 'hiddenColumns', 'unitLabel', 'precision']) {
+      expect(view).not.toHaveProperty(key);
+    }
+  });
+
+  it('keeps valid columns in order and drops garbage', () => {
+    expect(
+      sanitizeView({
+        columns: [
+          {
+            property: ' Area ',
+            aggregate: 'sum',
+            title: ' Total ',
+            precision: 1,
+            unitLabel: 'm2',
+          },
+          { property: 'Area', aggregate: 'sum' },
+          { property: 'Area', aggregate: 'avg' },
+          { property: null, aggregate: 'count' },
+          { property: null, aggregate: 'sum' },
+          { property: 'Mark', aggregate: 'median' },
+          'junk',
+          null,
+        ],
+      }).columns,
+    ).toEqual([
+      {
+        id: 'sum:Area',
+        property: 'Area',
+        aggregate: 'sum',
+        title: 'Total',
+        precision: 1,
+        unitLabel: 'm2',
+      },
+      {
+        id: 'avg:Area',
+        property: 'Area',
+        aggregate: 'avg',
+        title: '',
+        precision: 2,
+        unitLabel: '',
+      },
+      COUNT_COLUMN,
+    ]);
+  });
+
+  it('caps the columns and keeps an empty list', () => {
+    const many = Array.from({ length: 20 }, (_, index) => ({
+      property: `P${index}`,
+      aggregate: 'count',
+    }));
+    expect(sanitizeView({ columns: many }).columns).toHaveLength(
+      MAX_SUMMARY_COLUMNS,
+    );
+    expect(sanitizeView({ columns: [] }).columns).toEqual([]);
   });
 });
 
@@ -143,82 +256,248 @@ describe('parseMeasure', () => {
   });
 });
 
-describe('measures', () => {
+describe('column aggregates', () => {
   const rows: PropertyRow[] = [
-    { dbId: 1, name: 'a', properties: { Category: 'Walls', Area: '12.5 m²' } },
+    {
+      dbId: 1,
+      name: 'a',
+      properties: { Category: 'Walls', Area: '12.5 m²', Mark: 'W1' },
+    },
     {
       dbId: 2,
       name: 'b',
-      properties: { Category: 'Walls', Area: '1,200 m2' },
+      properties: { Category: 'Walls', Area: '1,200 m2', Mark: 'W1' },
     },
-    { dbId: 3, name: 'c', properties: { Category: 'Doors', Area: '3 m²' } },
-    { dbId: 4, name: 'd', properties: { Category: 'Doors', Area: '' } },
+    {
+      dbId: 3,
+      name: 'c',
+      properties: { Category: 'Doors', Area: '3 m²', Mark: '' },
+    },
+    {
+      dbId: 4,
+      name: 'd',
+      properties: { Category: 'Doors', Area: '', Mark: null },
+    },
   ];
-
-  it('sums one property per value and counts skipped cells', () => {
-    const cells = measureByValue(rows, 'Category', 'Area');
-    expect(cells.get('Walls')).toMatchObject({
-      status: 'ok',
-      sum: 1212.5,
-      unit: 'm²',
-      measured: 2,
-      skipped: 0,
-    });
-    expect(cells.get('Doors')).toMatchObject({
-      status: 'ok',
-      sum: 3,
-      measured: 1,
-      skipped: 1,
-    });
-    expect(parseMeasure('12,5 m')).toMatchObject({ value: 12.5, unit: 'm' });
+  const ref = (property: string | null, aggregate: SummaryAggregate) => ({
+    property,
+    aggregate,
   });
 
-  it('converts millimetres to metres inside the length family', () => {
+  it('counts elements, values and distinct values', () => {
+    expect(aggregateCell(rows, ref(null, 'count'))).toEqual({
+      status: 'ok',
+      value: 4,
+      unit: '',
+      missing: 0,
+    });
+    expect(aggregateCell(rows, ref('Mark', 'count'))).toMatchObject({
+      value: 2,
+    });
+    expect(aggregateCell(rows, ref('Mark', 'distinct'))).toMatchObject({
+      value: 1,
+    });
+  });
+
+  it('reports filled and empty shares, and 0% when nothing is filled', () => {
+    expect(aggregateCell(rows, ref('Mark', 'filled'))).toMatchObject({
+      value: 50,
+    });
+    expect(aggregateCell(rows, ref('Mark', 'empty'))).toMatchObject({
+      value: 50,
+    });
+    expect(aggregateCell(rows.slice(2), ref('Mark', 'filled'))).toMatchObject({
+      status: 'ok',
+      value: 0,
+    });
+    expect(aggregateCell([], ref('Mark', 'filled'))).toEqual({
+      status: 'none',
+    });
+  });
+
+  it('sums, averages and bounds numbers and counts the missing ones', () => {
+    expect(aggregateCell(rows, ref('Area', 'sum'))).toEqual({
+      status: 'ok',
+      value: 1215.5,
+      unit: 'm²',
+      missing: 1,
+    });
+    expect(aggregateCell(rows.slice(0, 2), ref('Area', 'avg'))).toMatchObject({
+      value: 606.25,
+    });
+    expect(aggregateCell(rows, ref('Area', 'min'))).toMatchObject({ value: 3 });
+    expect(aggregateCell(rows, ref('Area', 'max'))).toMatchObject({
+      value: 1200,
+    });
+  });
+
+  it('converts millimetres and reports mixed families and missing numbers', () => {
     expect(
-      measureOf(
+      aggregateCell(
         [
           { dbId: 1, name: 'a', properties: { Length: '1 m' } },
           { dbId: 2, name: 'b', properties: { Length: '500 mm' } },
         ],
-        'Length',
+        ref('Length', 'sum'),
       ),
-    ).toMatchObject({ status: 'ok', sum: 1.5, unit: 'm' });
-  });
-
-  it('marks mixed families and missing numbers as n/a', () => {
-    const mixed = measureOf(
-      [
-        { dbId: 1, name: 'a', properties: { Volume: '10 m²' } },
-        { dbId: 2, name: 'b', properties: { Volume: '2 m³' } },
-      ],
-      'Volume',
-    );
-    expect(mixed).toEqual({ status: 'mixed' });
+    ).toMatchObject({ value: 1.5, unit: 'm' });
     expect(
-      measureOf(
+      aggregateCell(
+        [
+          { dbId: 1, name: 'a', properties: { Volume: '10 m²' } },
+          { dbId: 2, name: 'b', properties: { Volume: '2 m³' } },
+        ],
+        ref('Volume', 'sum'),
+      ),
+    ).toEqual({ status: 'mixed', units: ['m²', 'm³'] });
+    expect(
+      aggregateCell(
         [
           { dbId: 1, name: 'a', properties: { Volume: 'n/a' } },
           { dbId: 2, name: 'b', properties: {} },
         ],
-        'Volume',
+        ref('Volume', 'sum'),
       ),
-    ).toEqual({ status: 'missing' });
+    ).toEqual({ status: 'none' });
   });
 
-  it('formats with the view precision and unit label', () => {
-    const cell = measureOf(rows.slice(0, 2), 'Area');
-    expect(formatMeasure(cell, { precision: 1, unitLabel: '' })).toBe(
-      '1,212.5 m²',
+  it('computes every column per entry', () => {
+    const entry = (value: string, count: number) => ({
+      property: 'Category',
+      value,
+      count,
+    });
+    const cells = cellsByEntry(
+      rows,
+      [entry('Walls', 2), entry('Doors', 4), entry('Gone', 7)],
+      [ref(null, 'count'), ref('Area', 'sum')],
     );
-    expect(formatMeasure(cell, { precision: 0, unitLabel: 'sq ft' })).toBe(
-      '1,213 sq ft',
+    expect(cells.get(entryKey(entry('Walls', 2)))).toEqual([
+      { status: 'ok', value: 2, unit: '', missing: 0 },
+      { status: 'ok', value: 1212.5, unit: 'm²', missing: 0 },
+    ]);
+    expect(cells.get(entryKey(entry('Doors', 4)))?.[1]).toMatchObject({
+      value: 3,
+      missing: 1,
+    });
+    expect(cells.get(entryKey(entry('Gone', 7)))).toEqual([
+      { status: 'ok', value: 7, unit: '', missing: 0 },
+      { status: 'none' },
+    ]);
+  });
+
+  it('skips the rows when every column is an element count', () => {
+    const entry = { property: 'Category', value: 'Walls', count: 9 };
+    expect(
+      cellsByEntry(
+        new Proxy([], { get: () => assertNoRead() }),
+        [entry],
+        [ref(null, 'count')],
+      ).get(entryKey(entry)),
+    ).toEqual([{ status: 'ok', value: 9, unit: '', missing: 0 }]);
+  });
+
+  it('counts whitespace-only values as empty', () => {
+    const blanks: PropertyRow[] = [
+      { dbId: 1, name: 'a', properties: { Mark: '  ' } },
+      { dbId: 2, name: 'b', properties: { Mark: 'M1' } },
+    ];
+    expect(aggregateCell(blanks, ref('Mark', 'filled'))).toMatchObject({
+      value: 50,
+    });
+    expect(aggregateCell(blanks, ref('Mark', 'distinct'))).toMatchObject({
+      value: 1,
+    });
+  });
+
+  it('formats the missing count in the given language', () => {
+    expect(
+      formatCell(
+        { status: 'ok', value: 1, unit: 'm²', missing: 1234 },
+        summaryColumn('Area', 'sum'),
+        'ru',
+      ),
+    ).toMatch(/1\s234 missing/);
+  });
+
+  it('formats each kind of cell', () => {
+    const sum = summaryColumn('Area', 'sum', { precision: 1 });
+    expect(
+      formatCell({ status: 'ok', value: 1212.5, unit: 'm²', missing: 0 }, sum),
+    ).toBe('1,212.5 m²');
+    expect(
+      formatCell(
+        { status: 'ok', value: 1212.5, unit: 'm²', missing: 2 },
+        summaryColumn('Area', 'sum', { precision: 0, unitLabel: 'sq ft' }),
+      ),
+    ).toBe('1,213 sq ft (2 missing)');
+    expect(
+      formatCell(
+        { status: 'ok', value: 33.4, unit: '', missing: 0 },
+        summaryColumn('Mark', 'filled'),
+      ),
+    ).toBe('33%');
+    expect(
+      formatCell(
+        { status: 'ok', value: 104686, unit: '', missing: 0 },
+        COUNT_COLUMN,
+      ),
+    ).toBe('104,686');
+    expect(formatCell({ status: 'none' }, sum)).toBe('n/a');
+    expect(formatCell({ status: 'mixed', units: ['m²', 'm³'] }, sum)).toBe(
+      'mixed units',
+    );
+  });
+
+  it('spells out generated titles and keeps a custom one', () => {
+    expect(columnTitle(COUNT_COLUMN)).toBe('Count');
+    expect(columnTitle(summaryColumn('Area', 'sum'))).toBe('Sum of Area');
+    expect(columnTitle(summaryColumn('Mark', 'filled'))).toBe(
+      'Filled % of Mark',
     );
     expect(
-      formatMeasure({ status: 'missing' }, { precision: 2, unitLabel: '' }),
-    ).toBe('n/a');
+      columnTitle(summaryColumn('Area', 'sum', { title: ' Total ' })),
+    ).toBe('Total');
+  });
+});
+
+function assertNoRead(): never {
+  throw new Error('rows must not be read');
+}
+
+describe('viewPropertyNames', () => {
+  it('names the row and column properties once each', () => {
     expect(
-      formatMeasure({ status: 'mixed' }, { precision: 2, unitLabel: '' }),
-    ).toBe('n/a');
+      viewPropertyNames(
+        ['Level', 'Name'],
+        [COUNT_COLUMN, summaryColumn('Level', 'distinct')],
+      ),
+    ).toEqual(['Level', 'Name']);
+  });
+});
+
+describe('summaryTable', () => {
+  const rows: PropertyRow[] = [
+    { dbId: 1, name: 'a', properties: { A: 'zeta', Area: '2 m²' } },
+    { dbId: 2, name: 'b', properties: { A: 'zeta', Area: '3 m²' } },
+  ];
+
+  it('exports the visible columns under their titles', () => {
+    const view = {
+      ...DEFAULT_SUMMARY_VIEW,
+      showProperty: false,
+      columns: [COUNT_COLUMN, summaryColumn('Area', 'sum')],
+    };
+    expect(summaryTable(summarize(rows, ['A']), view, rows)).toEqual({
+      header: ['Value', 'Count', 'Sum of Area'],
+      rows: [['zeta', 2, '5 m²']],
+    });
+  });
+
+  it('keeps the property column by default', () => {
+    expect(summaryTable(entries.slice(0, 1), DEFAULT_SUMMARY_VIEW, [])).toEqual(
+      { header: ['Property', 'Value', 'Count'], rows: [['A', 'zeta', 5]] },
+    );
   });
 });
 
@@ -259,10 +538,12 @@ describe('pivotTree', () => {
     expect(tree[0]?.children[0]?.children).toEqual([]);
   });
 
-  it('sums the measure over each subtree', () => {
-    const tree = pivotTree(rows, ['Category'], { measure: 'Area' });
-    expect(tree[0]?.measure).toMatchObject({ status: 'ok', sum: 16 });
-    expect(tree[1]?.measure).toMatchObject({ status: 'ok', sum: 2 });
+  it('computes the columns over each subtree', () => {
+    const tree = pivotTree(rows, ['Category'], {
+      columns: [{ property: 'Area', aggregate: 'sum' }],
+    });
+    expect(tree[0]?.cells[0]).toMatchObject({ status: 'ok', value: 16 });
+    expect(tree[1]?.cells[0]).toMatchObject({ status: 'ok', value: 2 });
   });
 
   it('returns nothing without a grouping property', () => {
@@ -298,14 +579,11 @@ describe('blocks, titles and bars', () => {
   });
 });
 
-describe('sanitizeView grouping, measures and titles', () => {
+describe('sanitizeView grouping and titles', () => {
   it('fills the new fields from a blob of the previous build', () => {
     expect(sanitizeView({ density: 'compact' })).toMatchObject({
       layout: 'flat',
       groupBy: [],
-      measure: null,
-      unitLabel: '',
-      precision: 2,
       titles: {},
     });
   });
@@ -315,27 +593,119 @@ describe('sanitizeView grouping, measures and titles', () => {
       sanitizeView({
         layout: 'pivot',
         groupBy: ['A', ' A ', 'B', 3, 'C', 'D', 'E'],
-        measure: ' Area ',
-        unitLabel: 'x'.repeat(40),
-        precision: 9,
         titles: { A: '  ', B: ' Type ', C: 7 },
       }),
     ).toMatchObject({
       layout: 'pivot',
       groupBy: ['A', 'B', 'C', 'D'],
-      measure: 'Area',
-      unitLabel: 'x'.repeat(16),
-      precision: 4,
       titles: { B: 'Type' },
     });
-    expect(
-      sanitizeView({ layout: 'matrix', groupBy: 'A', precision: -1 }),
-    ).toMatchObject({
+    expect(sanitizeView({ layout: 'matrix', groupBy: 'A' })).toMatchObject({
       layout: 'flat',
       groupBy: [],
-      precision: 2,
     });
-    expect(sanitizeView({ precision: '3' })).toMatchObject({ precision: 2 });
+  });
+});
+
+describe('adding a property', () => {
+  const columns: SummaryColumnSpec[] = [
+    COUNT_COLUMN,
+    summaryColumn('Area', 'sum'),
+  ];
+
+  const view = { ...DEFAULT_SUMMARY_VIEW, columns };
+
+  it('appends a row or a column', () => {
+    expect(
+      applyAddition(['A'], view, { role: 'rows', property: ' Level ' }),
+    ).toEqual({ properties: ['A', 'Level'], view });
+    const filled = summaryColumn('Mark', 'filled');
+    expect(
+      applyAddition(['A'], view, { role: 'column', column: filled }).view
+        .columns,
+    ).toEqual([...columns, filled]);
+  });
+
+  it('replaces the item being edited in place', () => {
+    expect(
+      applyAddition(
+        ['A', 'B'],
+        view,
+        { role: 'rows', property: 'C' },
+        { role: 'rows', property: 'A' },
+      ).properties,
+    ).toEqual(['C', 'B']);
+    const avg = summaryColumn('Area', 'avg');
+    expect(
+      applyAddition(
+        ['A'],
+        view,
+        { role: 'column', column: avg },
+        { role: 'column', column: summaryColumn('Area', 'sum') },
+      ).view.columns,
+    ).toEqual([COUNT_COLUMN, avg]);
+  });
+
+  it('follows a renamed row in the pivot levels and block titles', () => {
+    const named = {
+      ...view,
+      groupBy: ['A', 'B'],
+      titles: { A: 'First', B: 'Second' },
+    };
+    const next = applyAddition(
+      ['A', 'B'],
+      named,
+      { role: 'rows', property: 'C' },
+      { role: 'rows', property: 'A' },
+    );
+    expect(next.view.groupBy).toEqual(['C', 'B']);
+    expect(next.view.titles).toEqual({ B: 'Second', C: 'First' });
+  });
+
+  it('names what blocks an addition', () => {
+    expect(
+      additionProblem({ role: 'rows', property: ' ' }, ['A'], columns),
+    ).toBe('Choose a property');
+    expect(
+      additionProblem({ role: 'rows', property: 'A' }, ['A'], columns),
+    ).toBe('Already in the rows');
+    expect(
+      additionProblem({ role: 'rows', property: 'A' }, ['A'], columns, {
+        role: 'rows',
+        property: 'A',
+      }),
+    ).toBeNull();
+    expect(
+      additionProblem(
+        { role: 'column', column: summaryColumn('Area', 'sum') },
+        ['A'],
+        columns,
+      ),
+    ).toBe('This column already exists');
+    expect(
+      additionProblem(
+        { role: 'column', column: summaryColumn('Area', 'avg') },
+        ['A'],
+        columns,
+      ),
+    ).toBeNull();
+    const full = Array.from({ length: MAX_SUMMARY_COLUMNS }, (_, index) =>
+      summaryColumn(`P${index}`, 'count'),
+    );
+    expect(
+      additionProblem(
+        { role: 'column', column: summaryColumn('Q', 'count') },
+        ['A'],
+        full,
+      ),
+    ).toBe('The summary holds up to 12 columns');
+    const rows = Array.from(
+      { length: MAX_SUMMARY_ROWS },
+      (_, index) => `R${index}`,
+    );
+    expect(
+      additionProblem({ role: 'rows', property: 'Q' }, rows, columns),
+    ).toBe('The summary holds up to 24 row properties');
   });
 });
 

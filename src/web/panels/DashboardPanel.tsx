@@ -3,33 +3,30 @@ import { Icon } from '../components/icons.js';
 import { StateBlock } from '../components/StateBlock.js';
 import { colorByChart } from '../extensions/colorBy.js';
 import {
-  AGGREGATE_LABELS,
   availableProperties,
   bucketLabels,
   buildChart,
   type ChartData,
-  type ChartType,
   readChartTheme,
   selectedBuckets,
   seriesColors,
 } from '../extensions/dashboardData.js';
 import {
-  CHART_KINDS,
-  DASHBOARD_PRESETS,
-  type DashboardKind,
+  addChart,
+  chartTitle,
+  type DashboardOrientation,
   type DashboardView,
-  KIND_LABELS,
-  PRESET_PROPERTIES,
-  presetCharts,
+  MAX_CHARTS,
+  ORIENTATION_LABELS,
+  patchChart,
+  removeChart,
   viewSpec,
-  withChartType,
 } from '../extensions/dashboardPresets.js';
 import {
   itemsWithValues,
   runElementAction,
 } from '../extensions/elementActions.js';
 import { type HealthKpiTile, healthKpis } from '../extensions/healthKpis.js';
-import { localeOf } from '../i18n/format.js';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import { useSettings } from '../settings/SettingsContext.js';
 import { type PersistedRecord, usePersisted } from '../storage.js';
@@ -43,10 +40,10 @@ import { ALL_MODELS } from '../viewer/modelScope.js';
 import { splitByModel } from '../viewer/modelSeries.js';
 import type { ModelDbId } from '../viewer/modelSet.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
-import { ChartCanvas, type ChartKind, ChartTable } from './ChartCanvas.js';
+import { ChartBoard } from './ChartBoard.js';
 import { CHART_SETTINGS } from './chartSettings.js';
-import { DashboardGallery } from './DashboardGallery.js';
 import { DashboardPresetMenu } from './DashboardPresetMenu.js';
+import { ChartTile } from './DashboardTile.js';
 import { ElementScopeSelect, scopeName } from './ElementScope.js';
 import { HEALTH_KPI_SETTINGS, HealthKpis } from './HealthKpis.js';
 import {
@@ -74,47 +71,6 @@ export interface DashboardPanelProps {
   setting?: PersistedRecord<DashboardView>;
 }
 
-const CANVAS_KIND: Record<Exclude<ChartType, 'table'>, ChartKind> = {
-  bar: 'bar',
-  hbar: 'hbar',
-  doughnut: 'doughnut',
-};
-
-const AGGREGATE_PAST: Record<string, string> = {
-  sum: 'total',
-  avg: 'average',
-  min: 'minimum',
-  max: 'maximum',
-};
-
-function chartLabel(chart: ChartData, type: ChartType): string {
-  const aggregate = chart.aggregate ?? 'count';
-  const measure = chart.measure ?? chart.property;
-  const unit = chart.unit ? ` (${chart.unit})` : '';
-  if (type === 'table') {
-    return aggregate === 'count'
-      ? `Element counts by ${chart.property}`
-      : `${AGGREGATE_LABELS[aggregate]} of ${measure}${unit} by ${chart.property}`;
-  }
-  if (aggregate === 'count') {
-    if (type === 'hbar') {
-      return `Horizontal bar chart of element counts by ${chart.property}`;
-    }
-    if (type === 'doughnut') {
-      return `Doughnut chart of element share by ${chart.property}`;
-    }
-    return `Bar chart of element counts by ${chart.property}`;
-  }
-  const what = `${AGGREGATE_PAST[aggregate] ?? aggregate} ${measure}${unit}`;
-  if (type === 'hbar') {
-    return `Horizontal bar chart of ${what} by ${chart.property}`;
-  }
-  if (type === 'doughnut') {
-    return `Doughnut chart of ${what} by ${chart.property}`;
-  }
-  return `Bar chart of ${what} by ${chart.property}`;
-}
-
 export function DashboardPanel({
   adapter,
   onOpenSettings,
@@ -133,27 +89,24 @@ export function DashboardPanel({
   const [health] = usePersisted(HEALTH_KPI_SETTINGS);
   const [chartSettings] = usePersisted(CHART_SETTINGS);
   const spec = viewSpec(view);
-  const propertyNames = view.properties;
-  const activePreset = DASHBOARD_PRESETS.find((p) => p.id === view.preset);
+  const chartSpecs = view.charts;
   const readNames = useMemo(() => {
-    const names = new Set(propertyNames);
-    if (view.property) names.add(view.property);
+    const names = new Set(view.properties);
+    for (const item of chartSpecs) names.add(item.property);
     if (spec.aggregate !== 'count' && spec.measure) names.add(spec.measure);
     if (!setting) {
       for (const name of health.mustHave) names.add(name);
       for (const name of health.unique) names.add(name);
       if (health.measure) names.add(health.measure);
     }
-    if (activePreset) for (const name of PRESET_PROPERTIES) names.add(name);
     return [...names];
   }, [
-    propertyNames,
-    view.property,
+    view.properties,
+    chartSpecs,
     spec.aggregate,
     spec.measure,
     setting,
     health,
-    activePreset,
   ]);
   const state = useScopedRows(resolved, {
     names: readNames,
@@ -170,74 +123,58 @@ export function DashboardPanel({
       : {}),
   });
   const [innerCollapsed, setInnerCollapsed] = useState(defaultCollapsed);
-  const [galleryOpen, setGalleryOpen] = useState(false);
   const isCollapsed = collapsed ?? innerCollapsed;
 
   const usable = state.status === 'ready' || state.status === 'cancelled';
 
-  const options = useMemo(
+  const menuProperties = useMemo(
     () =>
       state.rows.length > 0
-        ? availableProperties(state.rows, propertyNames)
-        : [],
-    [state.rows, propertyNames],
+        ? availableProperties(state.rows, view.properties)
+        : view.properties,
+    [state.rows, view.properties],
   );
 
-  const selected = options.includes(view.property) ? view.property : options[0];
-
-  const chart = useMemo(() => {
-    if (!usable || !selected || activePreset) return null;
-    const shaped = buildChart(state.rows, {
-      property: selected,
-      aggregate: spec.aggregate,
-      measure: spec.measure,
-      topN: spec.topN,
-      otherBucket: spec.otherBucket,
-    });
-    return view.splitByModel ? splitByModel(shaped, state.rows) : shaped;
-  }, [
-    usable,
-    state.rows,
-    selected,
-    activePreset,
-    spec.aggregate,
-    spec.measure,
-    spec.topN,
-    spec.otherBucket,
-    view.splitByModel,
-  ]);
-
-  const [action] = usePersisted(PANE_SETTINGS.dashboard.action);
-  const board = useMemo(
+  const built = useMemo(
     () =>
-      usable && activePreset
-        ? presetCharts(activePreset, state.rows).map((property) =>
-            buildChart(state.rows, {
-              property,
-              aggregate: spec.aggregate,
-              measure: spec.measure,
-              topN: spec.topN,
-              otherBucket: spec.otherBucket,
-            }),
-          )
-        : [],
+      chartSpecs.map((item) => {
+        if (
+          !usable ||
+          availableProperties(state.rows, [item.property]).length === 0
+        ) {
+          return null;
+        }
+        const shaped = buildChart(state.rows, {
+          property: item.property,
+          aggregate: spec.aggregate,
+          measure: spec.measure,
+          topN: spec.topN,
+          otherBucket: spec.otherBucket,
+        });
+        return view.splitByModel ? splitByModel(shaped, state.rows) : shaped;
+      }),
     [
       usable,
-      activePreset,
       state.rows,
+      chartSpecs,
       spec.aggregate,
       spec.measure,
       spec.topN,
       spec.otherBucket,
+      view.splitByModel,
     ],
   );
+  const shown = useMemo(
+    () => built.filter((item): item is ChartData => item !== null),
+    [built],
+  );
+
+  const [action] = usePersisted(PANE_SETTINGS.dashboard.action);
   const settled = usable && !state.pending;
   const hasRows = settled && state.rows.length > 0;
   const emptyScope =
     settled && state.rows.length === 0 && state.elements !== 'all';
-  const emptyBoard =
-    hasRows && activePreset !== undefined && board.length === 0;
-  const showGallery = galleryOpen || !resolved || emptyBoard;
+  const emptyBoard = hasRows && chartSpecs.length > 0 && shown.length === 0;
   const [viewerSelection, setViewerSelection] = useState<ModelDbId[]>([]);
   useEffect(() => {
     if (!resolved) {
@@ -258,12 +195,12 @@ export function DashboardPanel({
   const highlights = useMemo(
     () =>
       new Map(
-        [...board, ...(chart ? [chart] : [])].map((item) => [
+        shown.map((item) => [
           item,
           selectedBuckets(state.rows, item, viewerSelection),
         ]),
       ),
-    [board, chart, state.rows, viewerSelection],
+    [shown, state.rows, viewerSelection],
   );
   const highlightFor = (chartData: ChartData) => highlights.get(chartData);
   const exportName = resolved?.getModels()[0]?.name ?? 'model';
@@ -279,7 +216,7 @@ export function DashboardPanel({
       ),
     );
   };
-  const primary = board[0] ?? chart;
+  const primary = shown[0] ?? null;
   const activeColoring = useModelColoring(resolved);
   const primaryTitle = primary
     ? primary.measure
@@ -326,12 +263,6 @@ export function DashboardPanel({
     onCollapsedChange?.(next);
   };
 
-  const setKind = (kind: DashboardKind) =>
-    setView((prev) => withChartType(prev, kind));
-
-  const legacyPair = spec.chartType === 'both';
-  const chartType = spec.chartType === 'both' ? 'bar' : spec.chartType;
-
   const bodyId = `${uid}-body`;
 
   return (
@@ -375,44 +306,35 @@ export function DashboardPanel({
             label="Chart elements"
           />
         ) : null}
-        {setting && !isCollapsed && !activePreset && options.length > 1 ? (
-          <select
-            className="field"
-            aria-label="Group by"
-            value={selected}
-            onChange={(e) =>
-              setView((prev) => ({ ...prev, property: e.target.value }))
-            }
-          >
-            {options.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
-        ) : null}
-        {!isCollapsed && state.status === 'ready' && options.length > 0 ? (
-          <fieldset className="bsh-kinds" aria-label="Chart type">
-            {CHART_KINDS.map((kind: DashboardKind) => (
-              <button
-                key={kind}
-                type="button"
-                className="btn"
-                aria-pressed={spec.chartType === kind}
-                onClick={() => setKind(kind)}
-              >
-                {KIND_LABELS[kind]}
-              </button>
-            ))}
+        {!isCollapsed && chartSpecs.length > 1 ? (
+          <fieldset className="bsh-kinds" aria-label="Chart layout">
+            {(['vertical', 'horizontal'] as DashboardOrientation[]).map(
+              (orientation) => (
+                <button
+                  key={orientation}
+                  type="button"
+                  className="btn"
+                  aria-pressed={view.orientation === orientation}
+                  onClick={() => setView((prev) => ({ ...prev, orientation }))}
+                >
+                  {ORIENTATION_LABELS[orientation]}
+                </button>
+              ),
+            )}
           </fieldset>
         ) : null}
-        {!isCollapsed && resolved && !emptyBoard ? (
-          <DashboardPresetMenu
-            view={view}
-            apply={setView}
-            onBrowse={() => setGalleryOpen((open) => !open)}
-            browsing={galleryOpen}
-          />
+        {!isCollapsed ? (
+          <button
+            type="button"
+            className="btn"
+            disabled={chartSpecs.length >= MAX_CHARTS}
+            onClick={() => setView(addChart)}
+          >
+            Add chart
+          </button>
+        ) : null}
+        {!isCollapsed && resolved ? (
+          <DashboardPresetMenu view={view} apply={setView} />
         ) : null}
         <button
           type="button"
@@ -484,256 +406,58 @@ export function DashboardPanel({
             message="Change the element scope, or pick elements in the viewer."
           />
         )}
-        {emptyBoard && activePreset && (
+        {emptyBoard && (
           <StateBlock
             variant="empty"
             compact
             title="Nothing to chart here"
-            message={`This model has none of the properties ${activePreset.label} uses.`}
+            message="This model has none of the properties these charts group by."
           />
         )}
         {kpiTiles.length > 0 ? (
           <HealthKpis tiles={kpiTiles} onSelect={pickKpi} />
         ) : null}
-        {showGallery && !isCollapsed ? (
-          <div id={`${uid}-gallery`}>
-            <DashboardGallery
-              view={view}
-              rows={hasRows ? state.rows : undefined}
-              apply={(next) => {
-                setView(next);
-                setGalleryOpen(false);
-              }}
-            />
-          </div>
-        ) : null}
-        {activePreset && board.length > 0 && (
-          <div className="bsh-boards">
-            {board.map((item) => (
-              <ChartBlock
-                key={item.property}
-                chart={item}
-                type={
-                  chartType === 'table'
-                    ? 'table'
-                    : legacyPair
-                      ? 'bar'
-                      : chartType
-                }
-                exportName={exportName}
-                highlight={highlightFor(item)}
-                pngTitle={view.pngTitle}
-                pngLegend={view.pngLegend}
-                onSelectLabel={crossFilter(item)}
-                onColorModel={colorModel(item)}
-              />
-            ))}
-          </div>
-        )}
-        {!activePreset && chart && options.length > 0 && (
-          <>
-            {selected !== view.property &&
-            propertyNames.includes(view.property) ? (
-              <p className="bsh-muted">
-                This model has no {view.property} values, so the chart groups by{' '}
-                {selected}.
-              </p>
-            ) : null}
-            {chart.mixed ? (
-              <StateBlock
-                variant="empty"
-                compact
-                title="Mixed units"
-                message={`These values carry different units (${(chart.units ?? []).join(', ')}), so they are not summed.`}
-              />
-            ) : chart.unavailable ? (
-              <StateBlock
-                variant="empty"
-                compact
-                title={
-                  spec.measure
-                    ? 'No numeric values'
-                    : 'Choose a numeric property'
-                }
-                message={
-                  spec.measure
-                    ? `The ${AGGREGATE_LABELS[spec.aggregate].toLowerCase()} needs numbers in ${spec.measure}.`
-                    : 'Pick a property to aggregate in Dashboard settings.'
-                }
-              />
-            ) : (
-              <>
-                <div
-                  className="bsh-charts"
-                  data-single={
-                    chartType !== 'table' && legacyPair ? undefined : true
+        {chartSpecs.length > 0 && usable && !emptyBoard ? (
+          <ChartBoard
+            orientation={view.orientation}
+            sizes={view.sizes}
+            onSizes={(sizes) => setView((prev) => ({ ...prev, sizes }))}
+            labels={chartSpecs.map(chartTitle)}
+          >
+            {chartSpecs.map((item, index) => {
+              const data = built[index] ?? null;
+              return (
+                <ChartTile
+                  key={item.id}
+                  spec={item}
+                  chart={data}
+                  properties={menuProperties}
+                  language={language}
+                  exportName={exportName}
+                  highlight={data ? highlightFor(data) : undefined}
+                  pngTitle={view.pngTitle}
+                  pngLegend={view.pngLegend}
+                  tableOpen={chartSettings.dataTable}
+                  onChange={(patch) =>
+                    setView((prev) => patchChart(prev, item.id, patch))
                   }
-                  data-table={chartType === 'table' || undefined}
-                >
-                  {chartType === 'table' ? (
-                    <ChartTable
-                      chart={chart}
-                      label={chartLabel(chart, 'table')}
-                      highlight={highlightFor(chart)}
-                      onSelectLabel={crossFilter(chart)}
-                      onColorModel={colorModel(chart)}
-                    />
-                  ) : legacyPair ? (
-                    <>
-                      <ChartBlock
-                        chart={chart}
-                        type="bar"
-                        exportName={exportName}
-                        highlight={highlightFor(chart)}
-                        pngTitle={view.pngTitle}
-                        pngLegend={view.pngLegend}
-                        onSelectLabel={crossFilter(chart)}
-                        onColorModel={colorModel(chart)}
-                      />
-                      <ChartBlock
-                        chart={chart}
-                        type="doughnut"
-                        exportName={exportName}
-                        highlight={highlightFor(chart)}
-                        pngTitle={view.pngTitle}
-                        pngLegend={view.pngLegend}
-                        onSelectLabel={crossFilter(chart)}
-                        onColorModel={colorModel(chart)}
-                      />
-                    </>
-                  ) : (
-                    <ChartBlock
-                      chart={chart}
-                      type={chartType}
-                      exportName={exportName}
-                      highlight={highlightFor(chart)}
-                      pngTitle={view.pngTitle}
-                      pngLegend={view.pngLegend}
-                      onSelectLabel={crossFilter(chart)}
-                      onColorModel={colorModel(chart)}
-                    />
-                  )}
-                </div>
-                {chartType !== 'table' ? (
-                  <details
-                    className="bsh-details"
-                    open={chartSettings.dataTable}
-                  >
-                    <summary>Data table</summary>
-                    <table className="bsh-table">
-                      <caption className="bsh-sr-only">
-                        {chart.measure
-                          ? `${AGGREGATE_LABELS[chart.aggregate ?? 'count']} of ${chart.measure} by ${chart.property}`
-                          : `Element counts by ${chart.property}`}
-                      </caption>
-                      <thead>
-                        <tr>
-                          <th scope="col">{chart.property}</th>
-                          {chart.aggregate && chart.aggregate !== 'count' ? (
-                            <th scope="col" className="bsh-num">
-                              {AGGREGATE_LABELS[chart.aggregate]}
-                              {chart.unit ? ` (${chart.unit})` : ''}
-                            </th>
-                          ) : null}
-                          {chart.series?.map((series) => (
-                            <th
-                              key={series.modelId}
-                              scope="col"
-                              className="bsh-num"
-                            >
-                              {series.label}
-                            </th>
-                          ))}
-                          <th scope="col" className="bsh-num">
-                            Count
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {chart.data.map((d, index) => (
-                          <tr key={d.label}>
-                            <td>{d.label}</td>
-                            {chart.aggregate && chart.aggregate !== 'count' ? (
-                              <td className="bsh-num">
-                                {d.value === undefined
-                                  ? '—'
-                                  : d.value.toLocaleString(localeOf(language), {
-                                      maximumFractionDigits: 2,
-                                    })}
-                              </td>
-                            ) : null}
-                            {chart.series?.map((series) => (
-                              <td key={series.modelId} className="bsh-num">
-                                {series.counts[index] ?? 0}
-                              </td>
-                            ))}
-                            <td className="bsh-num">{d.count}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </details>
-                ) : null}
-              </>
-            )}
-          </>
-        )}
-        {settled && options.length === 0 && !emptyScope && (
+                  onRemove={() => setView((prev) => removeChart(prev, item.id))}
+                  onSelectLabel={data ? crossFilter(data) : () => undefined}
+                  onColorModel={data ? colorModel(data) : () => undefined}
+                />
+              );
+            })}
+          </ChartBoard>
+        ) : null}
+        {settled && chartSpecs.length === 0 && !emptyScope && (
           <StateBlock
             variant="empty"
             compact
-            title="Nothing to chart"
-            message="This version has no properties to group elements by."
+            title="No charts"
+            message="Add a chart to group elements by a property."
           />
         )}
       </div>
     </section>
-  );
-}
-
-interface ChartBlockProps {
-  chart: ChartData;
-  type: ChartType;
-  exportName: string;
-  highlight?: ReadonlySet<string>;
-  pngTitle: boolean;
-  pngLegend: boolean;
-  onSelectLabel: (label: string) => void;
-  onColorModel?: (colors: readonly string[]) => void;
-}
-
-function ChartBlock({
-  chart,
-  type,
-  exportName,
-  highlight,
-  pngTitle,
-  pngLegend,
-  onSelectLabel,
-  onColorModel,
-}: ChartBlockProps) {
-  if (type === 'table') {
-    return (
-      <ChartTable
-        chart={chart}
-        label={chartLabel(chart, 'table')}
-        highlight={highlight}
-        onSelectLabel={onSelectLabel}
-        onColorModel={onColorModel}
-      />
-    );
-  }
-  return (
-    <ChartCanvas
-      kind={CANVAS_KIND[type]}
-      chart={chart}
-      label={chartLabel(chart, type)}
-      exportName={exportName}
-      highlight={highlight}
-      pngTitle={pngTitle}
-      pngLegend={pngLegend}
-      onSelectLabel={onSelectLabel}
-      onColorModel={onColorModel}
-    />
   );
 }

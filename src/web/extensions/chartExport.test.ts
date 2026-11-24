@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { chartDelimited, chartTable, pngFrame } from './chartExport.js';
+import { availableProperties } from './dashboardData.js';
 import {
   DASHBOARD_PRESETS,
   DEFAULT_DASHBOARD_VIEW,
-  presetCharts,
   sanitizeDashboardView,
 } from './dashboardPresets.js';
 
@@ -43,9 +43,13 @@ describe('dashboard presets', () => {
       { dbId: 1, name: 'a', properties: { Category: 'Walls', Level: null } },
     ];
     const health = DASHBOARD_PRESETS.find((p) => p.id === 'health');
-    expect(health && presetCharts(health, rows)).toEqual(['Category']);
+    expect(health && availableProperties(rows, health.properties)).toEqual([
+      'Category',
+    ]);
     const discipline = DASHBOARD_PRESETS.find((p) => p.id === 'discipline');
-    expect(discipline && presetCharts(discipline, rows)).toEqual(['Category']);
+    expect(
+      discipline && availableProperties(rows, discipline.properties),
+    ).toEqual(['Category']);
   });
 });
 

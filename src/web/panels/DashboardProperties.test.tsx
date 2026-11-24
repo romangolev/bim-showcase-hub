@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DASHBOARD_PROPERTIES } from '../extensions/dashboardData.js';
 import { BSH_KEYS } from '../storage.js';
 import { installMemoryStorage } from '../test/mockApi.js';
-import { fireEvent, render, screen } from '../test/render.js';
+import { act, fireEvent, render, screen, waitFor } from '../test/render.js';
 import { publishActiveAdapter } from '../viewer/activeAdapterStore.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
 import { DashboardPanel } from './DashboardPanel.js';
@@ -47,7 +47,10 @@ async function loaded(): Promise<MockViewerAdapter> {
   return adapter;
 }
 
-function storedView(): { property?: string; properties?: string[] } {
+function storedView(): {
+  charts?: { property: string }[];
+  properties?: string[];
+} {
   return JSON.parse(
     window.localStorage.getItem(BSH_KEYS.personal.dashboardView) ?? '{}',
   );
@@ -63,7 +66,7 @@ afterEach(() => {
 });
 
 describe('dashboard chart properties', () => {
-  it('charts by the first chosen property and stores the pick', async () => {
+  it('offers the chosen properties in the chart menu and charts by the pick', async () => {
     const adapter = await loaded();
     const view = render(
       <>
@@ -74,58 +77,40 @@ describe('dashboard chart properties', () => {
     await screen.findByRole('img', {
       name: 'Bar chart of element counts by Category',
     });
-    fireEvent.click(await screen.findByRole('checkbox', { name: 'Category' }));
-    await screen.findByRole('img', {
-      name: 'Bar chart of element counts by Level',
-    });
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Level' }));
     expect(storedView().properties).toEqual([
-      'Level',
+      'Category',
       'Assembly Code',
       'Classification Code',
       'Name',
     ]);
-    expect(screen.getByLabelText('Group by')).toHaveDisplayValue('Level');
-    expect(storedView().property).toBe('Level');
-    expect(screen.queryByText(/This model has no Category values/)).toBeNull();
+    await waitFor(() =>
+      expect(screen.getByRole('checkbox', { name: 'Level' })).not.toBeChecked(),
+    );
+    await act(async () => {});
+    fireEvent.click(
+      screen.getAllByRole('button', {
+        name: /^Options for Bar chart/,
+      })[0] as HTMLElement,
+    );
+    expect(
+      screen.queryByRole('menuitemcheckbox', { name: 'Group by Level' }),
+    ).toBeNull();
+    fireEvent.click(
+      screen.getByRole('menuitemcheckbox', { name: 'Group by Name' }),
+    );
+    await screen.findByRole('img', {
+      name: 'Bar chart of element counts by Name',
+    });
+    expect(storedView().charts?.[0]?.property).toBe('Name');
     view.unmount();
     render(<DashboardPanel adapter={adapter} />);
-    await screen.findByRole('img', {
-      name: 'Bar chart of element counts by Level',
-    });
-  });
-
-  it('keeps a catalog property as the stored group by on reload', () => {
-    window.localStorage.setItem(
-      BSH_KEYS.personal.dashboardView,
-      JSON.stringify({
-        property: 'Type Name',
-        properties: ['Category', 'Type Name'],
-      }),
-    );
-    render(<DashboardSettingsBody />);
-    expect(screen.getByLabelText('Group by')).toHaveDisplayValue('Type Name');
-  });
-
-  it('charts by a property picked in the group by list', async () => {
-    const adapter = await loaded();
-    render(
-      <>
-        <DashboardPanel adapter={adapter} />
-        <DashboardSettingsBody />
-      </>,
-    );
-    await screen.findByRole('img', {
-      name: 'Bar chart of element counts by Category',
-    });
-    fireEvent.change(await screen.findByLabelText('Group by'), {
-      target: { value: 'Name' },
-    });
     await screen.findByRole('img', {
       name: 'Bar chart of element counts by Name',
     });
   });
 
-  it('keeps the default list and its group by when no catalog is available', async () => {
+  it('keeps the chosen list when no catalog is available', () => {
     window.localStorage.setItem(
       BSH_KEYS.personal.dashboardView,
       JSON.stringify({ properties: ['Name', 'Level'] }),
@@ -135,12 +120,7 @@ describe('dashboard chart properties', () => {
     expect(
       screen.getByRole('list', { name: 'Chosen properties' }),
     ).toHaveTextContent('Level');
-    const groupBy = screen.getByLabelText('Group by') as HTMLSelectElement;
-    expect([...groupBy.options].map((option) => option.value)).toEqual([
-      'Name',
-      'Level',
-    ]);
-    expect(groupBy.value).toBe('Name');
+    expect(screen.queryByLabelText('Group by')).toBeNull();
   });
 
   it('lists the discovered catalog, with the chosen properties ticked', async () => {
@@ -162,11 +142,11 @@ describe('dashboard chart properties', () => {
   it('resets the view and its properties', () => {
     window.localStorage.setItem(
       BSH_KEYS.personal.dashboardView,
-      JSON.stringify({ property: 'Name' }),
+      JSON.stringify({ charts: [{ property: 'Name' }] }),
     );
     render(<DashboardSettingsBody />);
     fireEvent.click(screen.getByRole('button', { name: 'Reset dashboard' }));
     expect(storedView().properties).toEqual(DEFAULT_DASHBOARD_PROPERTIES);
-    expect(storedView().property).toBe(DEFAULT_DASHBOARD_PROPERTIES[0]);
+    expect(storedView().charts).toHaveLength(2);
   });
 });

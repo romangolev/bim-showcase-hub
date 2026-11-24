@@ -8,14 +8,10 @@ import {
   TOP_N_MIN,
 } from '../extensions/dashboardData.js';
 import {
-  DASHBOARD_CHART_TYPE_LABELS,
-  DASHBOARD_CHART_TYPES,
-  type DashboardChartType,
   type DashboardView,
   MAX_CATEGORIES,
   MIN_CATEGORIES,
   viewSpec,
-  withChartType,
 } from '../extensions/dashboardPresets.js';
 
 import {
@@ -41,7 +37,6 @@ import { usePublishedAdapter } from '../viewer/activeAdapterStore.js';
 import { useModels } from '../viewer/useModels.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { DashboardPresetMenu } from './DashboardPresetMenu.js';
-import { DashboardUserPresets } from './DashboardUserPresets.js';
 import { HEALTH_KPI_SETTINGS } from './HealthKpis.js';
 import { PropertyPicker } from './PropertyPicker.js';
 import { usePropertyCatalog } from './usePropertyCatalog.js';
@@ -129,9 +124,6 @@ function DashboardFields({
       spec.measure,
     ]),
   ].filter((name) => name !== '');
-  const groupBy = properties.includes(view.property)
-    ? view.property
-    : (properties[0] ?? view.property);
   const readyModels = useModels(adapter).filter(
     (model) => model.status === 'ready',
   ).length;
@@ -139,14 +131,7 @@ function DashboardFields({
   const patch = (next: Partial<DashboardView>) =>
     setView((prev) => ({ ...prev, ...next }));
   const pickProperties = (next: readonly string[]) =>
-    patch({
-      properties: next,
-      property: next.includes(view.property)
-        ? view.property
-        : (next[0] ?? view.property),
-    });
-  const setChartType = (chartType: DashboardChartType) =>
-    setView((prev) => withChartType(prev, chartType));
+    patch({ properties: next });
   const setAggregate = (aggregate: Aggregate) => patch({ aggregate });
   const numeric = spec.aggregate !== 'count';
 
@@ -155,10 +140,15 @@ function DashboardFields({
       <fieldset className="settings__section">
         <legend className="settings__heading">Preset</legend>
         <DashboardPresetMenu view={view} apply={setView} />
+        <p className="settings__hint">
+          Pick a preset, or save the current charts as your own, then update,
+          rename or delete it from the same menu.
+        </p>
       </fieldset>
-      <DashboardUserPresets view={view} apply={setView} />
       <fieldset className="settings__section">
-        <legend className="settings__heading">Chart properties</legend>
+        <legend className="settings__heading">
+          Properties offered by charts
+        </legend>
         <PropertyPicker
           adapter={adapter}
           value={properties}
@@ -166,34 +156,11 @@ function DashboardFields({
         />
       </fieldset>
       <fieldset className="settings__section">
-        <legend className="settings__heading">Chart</legend>
-        <label className="settings__field">
-          Group by
-          <select
-            value={groupBy}
-            disabled={view.preset !== null}
-            onChange={(e) => {
-              const property = e.target.value;
-              patch({
-                property,
-                properties: properties.includes(property)
-                  ? properties
-                  : [...properties, property],
-              });
-            }}
-          >
-            {names.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <legend className="settings__heading">All charts</legend>
         <label className="settings__field">
           Aggregation
           <select
             value={spec.aggregate}
-            disabled={view.preset !== null}
             onChange={(e) => setAggregate(e.target.value as Aggregate)}
           >
             {AGGREGATES.map((aggregate) => (
@@ -208,7 +175,6 @@ function DashboardFields({
             Measure
             <select
               value={names.includes(spec.measure) ? spec.measure : ''}
-              disabled={view.preset !== null}
               onChange={(e) => {
                 const measure = e.target.value;
                 patch({
@@ -248,19 +214,6 @@ function DashboardFields({
           checked={spec.otherBucket}
           onChange={() => patch({ otherBucket: !spec.otherBucket })}
         />
-        <label className="settings__field">
-          Chart type
-          <select
-            value={spec.chartType}
-            onChange={(e) => setChartType(e.target.value as DashboardChartType)}
-          >
-            {DASHBOARD_CHART_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {DASHBOARD_CHART_TYPE_LABELS[type]}
-              </option>
-            ))}
-          </select>
-        </label>
         <p className="settings__hint">
           Numeric aggregations read the trailing unit and convert within one
           unit family. Different families are reported, not summed.

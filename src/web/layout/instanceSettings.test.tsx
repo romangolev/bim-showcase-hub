@@ -49,14 +49,20 @@ describe('instance settings', () => {
     );
   });
 
-  it('sanitizes the chart spec and never keeps a preset', () => {
+  it('sanitizes the chart spec from the old and the new shape', () => {
     const spec = chartSetting('chart:9');
     const view = spec.sanitize({
       preset: 'health',
       kind: 'bar',
       scope: 'urn1',
     });
-    expect(view).toMatchObject({ preset: null, kind: 'bar', scope: 'urn1' });
+    expect(view.scope).toBe('urn1');
+    expect(view.charts.map((chart) => chart.property)).toEqual([
+      'Category',
+      'Level',
+      'Assembly Code',
+      'Classification Code',
+    ]);
     expect(spec.sanitize({ scope: 5 }).scope).toBeUndefined();
     expect(spec.sanitize({ scope: 5 })).toMatchObject({
       properties: DEFAULT_DASHBOARD_PROPERTIES,
@@ -137,9 +143,14 @@ describe('instance settings', () => {
         </section>
       </>,
     );
-    const selects = await screen.findAllByLabelText('Group by');
-    expect(selects).toHaveLength(2);
-    fireEvent.change(selects[1] as HTMLElement, { target: { value: 'Level' } });
+    const bars = await screen.findAllByRole('button', {
+      name: /^Options for Bar chart of element counts by Category/,
+    });
+    expect(bars).toHaveLength(2);
+    fireEvent.click(bars[1] as HTMLElement);
+    fireEvent.click(
+      screen.getByRole('menuitemcheckbox', { name: 'Group by Level' }),
+    );
     expect(
       await screen.findAllByRole('img', {
         name: 'Bar chart of element counts by Level',
@@ -152,7 +163,7 @@ describe('instance settings', () => {
     ).toHaveLength(1);
     expect(
       JSON.parse(window.localStorage.getItem('bsh.pane.chart.2.v1') ?? '{}')
-        .property,
+        .charts[0].property,
     ).toBe('Level');
     expect(window.localStorage.getItem('bsh.pane.chart.1.v1')).toBeNull();
     adapter.destroy();

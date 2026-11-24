@@ -54,10 +54,7 @@ const charts = defineRecordFamily<DashboardView, PanelId>({
   prefix: INSTANCE_PREFIX,
   keyOf: instanceSettingKey,
   initial: { ...DEFAULT_DASHBOARD_VIEW },
-  sanitize: (raw) => ({
-    ...sanitizeDashboardView(raw),
-    preset: null,
-  }),
+  sanitize: sanitizeDashboardView,
 });
 
 export function sanitizeSummarySpec(raw: unknown): SummarySpec {

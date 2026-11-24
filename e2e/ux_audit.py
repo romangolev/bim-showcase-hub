@@ -300,7 +300,6 @@ def run_command(page, title):
 
 SAVE_FIRST = {
     "viewpoints": [("Viewpoint name", "Save viewpoint", "North view"), ("Viewpoint name", "Save viewpoint", "A second saved viewpoint with a long name")],
-    "dashboard-settings": [("Preset name", "Save current board", "Board one")],
     "excel-settings": [("Export preset name", "Save current setup", "Setup one")],
 }
 
@@ -375,6 +374,7 @@ def run(browser, theme, width, language, results, notes):
             ("panes-menu", "Panes", ".panes-menu__popover"),
             ("workspaces", "Workspaces", "[role=dialog][aria-label='Workspaces']"),
             ("pane-options", "Model summary pane options", "[role=menu]"),
+            ("summary-add-property", "Add property", "dialog[open]"),
         ):
             try:
                 page.get_by_role("button", name=name, exact=True).first.click(timeout=5000)

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { ItemList, ItemRow } from '../components/ItemList.js';
 import { Icon } from '../components/icons.js';
 import {
@@ -12,14 +12,16 @@ import {
   sanitizeAction,
 } from '../extensions/elementActions.js';
 import {
+  COUNT_COLUMN,
+  columnTitle,
   DEFAULT_SUMMARY_VIEW,
   MAX_GROUP_BY,
-  MAX_PRECISION,
+  MAX_SUMMARY_COLUMNS,
+  MAX_SUMMARY_ROWS,
   MAX_TITLE_LENGTH,
-  MAX_UNIT_LABEL,
-  SUMMARY_COLUMNS,
+  SUMMARY_AGGREGATE_LABELS,
   SUMMARY_LAYOUTS,
-  type SummaryColumn,
+  type SummaryAddition,
   type SummaryLayout,
   type SummaryView,
   sanitizeLayout,
@@ -33,25 +35,24 @@ import {
 import type { ModalDefinition } from '../modal/types.js';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import { usePersisted } from '../storage.js';
+import { announce } from '../tasks/notifications.js';
 import { usePublishedAdapter } from '../viewer/activeAdapterStore.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
-import { PropertyPicker } from './PropertyPicker.js';
+import { SummaryPresetSection } from './SummaryPresetMenu.js';
+import { openSummaryProperty } from './SummaryPropertyDialog.js';
 import { useResolvedAdapter } from './useScopedRows.js';
 
 export const SUMMARY_SETTINGS_ID = 'summary-settings';
 
 interface SummaryForm {
   layout: string;
-  measure: string;
-  unitLabel: string;
-  precision: number;
+  showProperty: boolean;
   hideEmpty: boolean;
   minCount: number;
   sort: string;
   density: string;
   action: ElementAction;
   autoRefresh: boolean;
-  columns: SummaryColumn[];
 }
 
 const LAYOUT_LABELS: Record<SummaryLayout, string> = {
@@ -60,89 +61,179 @@ const LAYOUT_LABELS: Record<SummaryLayout, string> = {
   pivot: 'Pivot',
 };
 
-function summaryForm(
-  propertyNames: readonly string[],
-): FormDefinition<SummaryForm> {
-  return {
-    fields: [
-      {
-        key: 'layout',
-        kind: 'select',
-        label: 'Layout',
-        options: SUMMARY_LAYOUTS.map((layout) => ({
-          value: layout,
-          label: LAYOUT_LABELS[layout],
-        })),
-      },
-      {
-        key: 'measure',
-        kind: 'select',
-        label: 'Measure',
-        options: [
-          { value: '', label: 'None' },
-          ...propertyNames.map((name) => ({ value: name, label: name })),
-        ],
-        hint: 'Sums a numeric property per value, such as Area or Volume.',
-      },
-      {
-        key: 'unitLabel',
-        kind: 'text',
-        label: 'Unit label',
-        maxLength: MAX_UNIT_LABEL,
-        hint: 'Shown after the sum. Empty keeps the unit read from the value.',
-      },
-      {
-        key: 'precision',
-        kind: 'number',
-        label: 'Decimal places',
-        min: 0,
-        max: MAX_PRECISION,
-      },
-      { key: 'hideEmpty', kind: 'toggle', label: 'Hide (empty)' },
-      { key: 'minCount', kind: 'number', label: 'Minimum count', min: 1 },
-      {
-        key: 'sort',
-        kind: 'select',
-        label: 'Sort by',
-        options: [
-          { value: 'count', label: 'Count' },
-          { value: 'value', label: 'Value' },
-        ],
-      },
-      {
-        key: 'density',
-        kind: 'select',
-        label: 'Density',
-        options: [
-          { value: 'comfortable', label: 'Comfortable' },
-          { value: 'compact', label: 'Compact' },
-        ],
-      },
-      {
-        key: 'action',
-        kind: 'select',
-        label: 'Row click',
-        options: ELEMENT_ACTIONS.map((name) => ({
-          value: name,
-          label: ACTION_LABELS[name],
-        })),
-      },
-      {
-        key: 'autoRefresh',
-        kind: 'toggle',
-        label: 'Refresh when the model changes',
-      },
-      {
-        key: 'columns',
-        kind: 'multi',
-        label: 'Columns',
-        options: SUMMARY_COLUMNS.map((column) => ({
-          value: column,
-          label: column,
-        })),
-      },
-    ],
+const SUMMARY_FORM: FormDefinition<SummaryForm> = {
+  fields: [
+    {
+      key: 'layout',
+      kind: 'select',
+      label: 'Layout',
+      options: SUMMARY_LAYOUTS.map((layout) => ({
+        value: layout,
+        label: LAYOUT_LABELS[layout],
+      })),
+    },
+    {
+      key: 'showProperty',
+      kind: 'toggle',
+      label: 'Show the property column',
+      hint: 'Flat layout only. The value column always shows.',
+    },
+    { key: 'hideEmpty', kind: 'toggle', label: 'Hide (empty)' },
+    { key: 'minCount', kind: 'number', label: 'Minimum count', min: 1 },
+    {
+      key: 'sort',
+      kind: 'select',
+      label: 'Sort by',
+      options: [
+        { value: 'count', label: 'Count' },
+        { value: 'value', label: 'Value' },
+      ],
+    },
+    {
+      key: 'density',
+      kind: 'select',
+      label: 'Density',
+      options: [
+        { value: 'comfortable', label: 'Comfortable' },
+        { value: 'compact', label: 'Compact' },
+      ],
+    },
+    {
+      key: 'action',
+      kind: 'select',
+      label: 'Row click',
+      options: ELEMENT_ACTIONS.map((name) => ({
+        value: name,
+        label: ACTION_LABELS[name],
+      })),
+    },
+    {
+      key: 'autoRefresh',
+      kind: 'toggle',
+      label: 'Refresh when the model changes',
+    },
+  ],
+};
+
+interface OrderedEditorProps<T> {
+  heading: string;
+  hint?: string;
+  items: readonly T[];
+  keyOf: (item: T) => string;
+  titleOf: (item: T) => string;
+  detailOf?: (item: T) => string;
+  minimum?: number;
+  canEdit?: (item: T) => boolean;
+  onChange: (items: T[]) => void;
+  onEdit: (item: T) => void;
+  onAdd: () => void;
+  addLabel: string;
+  addDisabled: boolean;
+  children?: ReactNode;
+}
+
+function OrderedEditor<T>({
+  heading,
+  hint,
+  items,
+  keyOf,
+  titleOf,
+  detailOf,
+  minimum = 0,
+  canEdit = () => true,
+  onChange,
+  onEdit,
+  onAdd,
+  addLabel,
+  addDisabled,
+  children,
+}: OrderedEditorProps<T>) {
+  const move = (from: number, to: number) => {
+    const item = items[from];
+    if (item === undefined || to < 0 || to >= items.length) return;
+    const next = [...items];
+    next.splice(from, 1);
+    next.splice(to, 0, item);
+    onChange(next);
+    announce(`Moved ${titleOf(item)} to position ${to + 1} of ${items.length}`);
   };
+  return (
+    <fieldset className="settings__section">
+      <legend className="settings__heading">{heading}</legend>
+      {items.length === 0 ? (
+        hint ? (
+          <p className="settings__hint">{hint}</p>
+        ) : null
+      ) : (
+        <ItemList ordered>
+          {items.map((item, index) => {
+            const title = titleOf(item);
+            return (
+              <ItemRow key={keyOf(item)}>
+                <span>
+                  {title}
+                  {detailOf ? (
+                    <span className="settings__hint"> ({detailOf(item)})</span>
+                  ) : null}
+                </span>
+                <button
+                  type="button"
+                  className="inline-action"
+                  aria-label={`Move ${title} up`}
+                  disabled={index === 0}
+                  onClick={() => move(index, index - 1)}
+                >
+                  <Icon name="arrowUp" size={14} />
+                </button>
+                <button
+                  type="button"
+                  className="inline-action"
+                  aria-label={`Move ${title} down`}
+                  disabled={index === items.length - 1}
+                  onClick={() => move(index, index + 1)}
+                >
+                  <Icon name="arrowDown" size={14} />
+                </button>
+                {canEdit(item) ? (
+                  <button
+                    type="button"
+                    className="btn btn-small"
+                    aria-label={`Edit ${title}`}
+                    onClick={() => onEdit(item)}
+                  >
+                    Edit...
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="btn btn-small"
+                  aria-label={`Remove ${title}`}
+                  disabled={items.length <= minimum}
+                  onClick={() =>
+                    onChange(items.filter((_, position) => position !== index))
+                  }
+                >
+                  Remove
+                </button>
+              </ItemRow>
+            );
+          })}
+        </ItemList>
+      )}
+      <div className="settings__actions">
+        <button
+          type="button"
+          className="btn"
+          aria-label={addLabel}
+          disabled={addDisabled}
+          onClick={onAdd}
+        >
+          Add...
+        </button>
+        {children}
+      </div>
+    </fieldset>
+  );
 }
 
 function GroupByEditor({
@@ -167,10 +258,12 @@ function GroupByEditor({
   };
   return (
     <fieldset className="settings__section">
-      <legend className="settings__heading">Group by, outermost first</legend>
+      <legend className="settings__heading">
+        Pivot levels, outermost first
+      </legend>
       {value.length === 0 ? (
         <p className="settings__hint">
-          A pivot needs at least one grouping property.
+          Optional. Without levels the pivot nests the rows in order.
         </p>
       ) : (
         <ItemList ordered>
@@ -296,35 +389,22 @@ function SummaryFields({
   adapter: ViewerAdapter | null;
   propertyNames: readonly string[];
   onProperties: (names: readonly string[]) => void;
-  onView: (view: SummaryView) => void;
+  onView: (view: SummaryView | ((prev: SummaryView) => SummaryView)) => void;
   onAction: (action: ElementAction) => void;
   onReset: () => void;
 }) {
   const value: SummaryForm = {
     layout: view.layout,
-    measure: view.measure ?? '',
-    unitLabel: view.unitLabel,
-    precision: view.precision,
+    showProperty: view.showProperty,
     hideEmpty: view.hideEmpty,
     minCount: view.minCount,
     sort: view.sort,
     density: view.density,
     action,
     autoRefresh: view.autoRefresh,
-    columns: SUMMARY_COLUMNS.filter((c) => !view.hiddenColumns.includes(c)),
   };
   const onChange = (patch: Partial<SummaryForm>) => {
-    const {
-      action: nextAction,
-      columns,
-      sort,
-      density,
-      measure,
-      layout,
-      unitLabel,
-      precision,
-      ...rest
-    } = patch;
+    const { action: nextAction, sort, density, layout, ...rest } = patch;
     if (nextAction !== undefined) onAction(sanitizeAction(nextAction));
     const next: Partial<SummaryView> = { ...rest };
     if (sort !== undefined) next.sort = sort === 'value' ? 'value' : 'count';
@@ -332,48 +412,91 @@ function SummaryFields({
       next.density = density === 'compact' ? 'compact' : 'comfortable';
     }
     if (layout !== undefined) next.layout = sanitizeLayout(layout);
-    if (measure !== undefined) next.measure = measure.trim() || null;
-    if (unitLabel !== undefined) next.unitLabel = unitLabel;
-    if (precision !== undefined) {
-      next.precision = Math.min(
-        MAX_PRECISION,
-        Math.max(0, Math.floor(Number(precision) || 0)),
-      );
-    }
-    if (columns) {
-      next.hiddenColumns = SUMMARY_COLUMNS.filter((c) => !columns.includes(c));
-    }
-    if (Object.keys(next).length) onView({ ...view, ...next });
+    if (Object.keys(next).length) onView((prev) => ({ ...prev, ...next }));
   };
+  const open = (role: SummaryAddition['role'], editing?: SummaryAddition) =>
+    openSummaryProperty({
+      adapter,
+      properties: propertyNames,
+      view,
+      role,
+      ...(editing ? { editing } : {}),
+      apply: (next) => {
+        onProperties(next.properties);
+        onView(next.view);
+      },
+    });
+  const columnsFull = view.columns.length >= MAX_SUMMARY_COLUMNS;
   const groupBy = view.groupBy.filter((name) => propertyNames.includes(name));
   return (
     <>
-      <fieldset className="settings__section">
-        <legend className="settings__heading">Properties</legend>
-        <PropertyPicker
-          adapter={adapter}
-          value={propertyNames}
-          onChange={onProperties}
-        />
-      </fieldset>
-      <SettingsForm
-        form={summaryForm(propertyNames)}
-        value={value}
-        onChange={onChange}
+      <SummaryPresetSection
+        adapter={adapter}
+        properties={propertyNames}
+        view={view}
+        apply={(spec) => {
+          onProperties(spec.properties);
+          onView(spec.view);
+        }}
       />
+      <OrderedEditor
+        heading="Rows"
+        items={propertyNames}
+        keyOf={(name) => name}
+        titleOf={(name) => name}
+        minimum={1}
+        onChange={onProperties}
+        onEdit={(property) => open('rows', { role: 'rows', property })}
+        onAdd={() => open('rows')}
+        addLabel="Add a row property"
+        addDisabled={propertyNames.length >= MAX_SUMMARY_ROWS}
+      />
+      <OrderedEditor
+        heading="Columns"
+        hint="No columns: rows show their labels only."
+        items={view.columns}
+        keyOf={(column) => column.id}
+        titleOf={columnTitle}
+        detailOf={(column) =>
+          column.property === null
+            ? 'elements'
+            : `${column.property}, ${SUMMARY_AGGREGATE_LABELS[column.aggregate]}`
+        }
+        canEdit={(column) => column.property !== null}
+        onChange={(columns) => onView((prev) => ({ ...prev, columns }))}
+        onEdit={(column) => open('column', { role: 'column', column })}
+        onAdd={() => open('column')}
+        addLabel="Add a column"
+        addDisabled={columnsFull}
+      >
+        {view.columns.some((column) => column.property === null) ? null : (
+          <button
+            type="button"
+            className="btn"
+            disabled={columnsFull}
+            onClick={() =>
+              onView((prev) => ({
+                ...prev,
+                columns: [COUNT_COLUMN, ...prev.columns],
+              }))
+            }
+          >
+            Add element count
+          </button>
+        )}
+      </OrderedEditor>
+      <SettingsForm form={SUMMARY_FORM} value={value} onChange={onChange} />
       {view.layout === 'pivot' ? (
         <GroupByEditor
           propertyNames={propertyNames}
           value={groupBy}
-          onChange={(next) =>
-            onView({ ...view, groupBy: next, layout: view.layout })
-          }
+          onChange={(next) => onView((prev) => ({ ...prev, groupBy: next }))}
         />
       ) : null}
       <TitleEditor
         propertyNames={propertyNames}
         titles={view.titles}
-        onChange={(titles) => onView({ ...view, titles })}
+        onChange={(titles) => onView((prev) => ({ ...prev, titles }))}
       />
       <div className="settings__actions">
         <button type="button" className="btn" onClick={onReset}>
@@ -426,13 +549,18 @@ function InstanceSummarySettings({
       onProperties={(properties) =>
         setSpec((prev) => ({ ...prev, properties }))
       }
-      onView={(view) => setSpec((prev) => ({ ...prev, view }))}
+      onView={(next) =>
+        setSpec((prev) => ({
+          ...prev,
+          view: typeof next === 'function' ? next(prev.view) : next,
+        }))
+      }
       onAction={(action) => setSpec((prev) => ({ ...prev, action }))}
       onReset={() =>
         setSpec((prev) => ({
           ...prev,
           view: DEFAULT_SUMMARY_VIEW,
-          action: 'select',
+          action: PANE_SETTINGS.summary.action.initial,
         }))
       }
     />

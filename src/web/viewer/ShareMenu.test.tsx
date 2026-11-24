@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { encodeView, parseView } from '../api/viewLink.js';
-import { DEFAULT_DASHBOARD_VIEW } from '../extensions/dashboardPresets.js';
+import {
+  chartsFromProperties,
+  DEFAULT_DASHBOARD_VIEW,
+} from '../extensions/dashboardPresets.js';
 import * as excel from '../extensions/download.js';
 import { chartSetting } from '../layout/instanceSettings.js';
 import { type LayoutApi, LayoutContext } from '../layout/layoutContext.js';
@@ -509,7 +512,7 @@ describe('Share menu links', () => {
     for (let i = 1; i <= 4; i += 1) {
       chartSetting(`chart:${i}`).write({
         ...DEFAULT_DASHBOARD_VIEW,
-        property: `Level ${i}`,
+        charts: chartsFromProperties([`Level ${i}`]),
         properties: [`Level ${i}`],
       });
     }

@@ -7,15 +7,22 @@ import {
   SAVED_KEY,
 } from '../store/savedStore.js';
 import { installMemoryStorage } from '../test/mockApi.js';
-import { DEFAULT_SUMMARY_VIEW } from './modelSummary.js';
+import {
+  COUNT_COLUMN,
+  DEFAULT_SUMMARY_VIEW,
+  MAX_SUMMARY_ROWS,
+  sanitizeView,
+  summaryColumn,
+} from './modelSummary.js';
 import {
   applySummaryPreset,
   BUILT_IN_SUMMARY_PRESETS,
-  MAX_PRESET_PROPERTIES,
   missingPresetProperties,
+  presetToSpec,
   SUMMARY_PRESETS,
   sanitizeSummaryPreset,
   saveSummaryPreset,
+  summaryPresetKey,
 } from './summaryPresets.js';
 
 const KNOWN = [
@@ -45,14 +52,14 @@ describe('sanitizeSummaryPreset', () => {
 
   it('dedupes property names and caps the list', () => {
     const many = Array.from(
-      { length: MAX_PRESET_PROPERTIES + 5 },
+      { length: MAX_SUMMARY_ROWS + 5 },
       (_, index) => `P${index}`,
     );
     const clean = sanitizeSummaryPreset({
       properties: ['Level', 'Level', ...many],
       view: DEFAULT_SUMMARY_VIEW,
     });
-    expect(clean?.properties).toHaveLength(MAX_PRESET_PROPERTIES);
+    expect(clean?.properties).toHaveLength(MAX_SUMMARY_ROWS);
     expect(clean?.properties.slice(0, 2)).toEqual([
       'Level',
       ...many.slice(0, 1),
@@ -109,7 +116,9 @@ describe('sanitizeSummaryPreset', () => {
 describe('summary preset storage', () => {
   it('round-trips a preset and its unknown view fields', () => {
     const view = { ...DEFAULT_SUMMARY_VIEW, futureField: 42 };
-    expect(saveSummaryPreset('Mine', ['Category', 'Level'], view)).toBe(true);
+    expect(
+      saveSummaryPreset('Mine', ['Category', 'Level'], view),
+    ).not.toBeNull();
     const item = SUMMARY_PRESETS.list()[0];
     expect(item?.name).toBe('Mine');
     expect(item?.data).toEqual({
@@ -135,7 +144,7 @@ describe('summary preset storage', () => {
 
   it('survives a JSON export and import round trip with unknown fields', () => {
     const view = { ...DEFAULT_SUMMARY_VIEW, futureField: 'kept' };
-    expect(saveSummaryPreset('Shared', ['Category'], view)).toBe(true);
+    expect(saveSummaryPreset('Shared', ['Category'], view)).not.toBeNull();
     const file = exportSaved('summary-preset');
     window.localStorage.removeItem(SAVED_KEY);
     const result = importSaved(file);
@@ -153,7 +162,7 @@ describe('summary preset storage', () => {
     expect(PANE_SETTINGS.summary.view.read()).toMatchObject({
       layout: 'flat',
       groupBy: [],
-      measure: null,
+      columns: [COUNT_COLUMN],
       text: '',
     });
   });
@@ -189,6 +198,23 @@ describe('summary preset storage', () => {
 });
 
 describe('built-in summary presets', () => {
+  it('gives each starter its rows and explicit columns', () => {
+    expect(
+      BUILT_IN_SUMMARY_PRESETS.map((preset) => [
+        preset.name,
+        preset.data.properties,
+        presetToSpec(preset.data)?.view.columns.map((column) => column.id),
+      ]),
+    ).toEqual([
+      [
+        'Doors check',
+        ['Category', 'Family', 'Type Name'],
+        ['count', 'filled:Mark'],
+      ],
+      ['Rooms by level', ['Level'], ['count', 'sum:Area']],
+    ]);
+  });
+
   it('offers the named starters built from real property names', () => {
     const names = BUILT_IN_SUMMARY_PRESETS.map((preset) => preset.name);
     expect(names).toEqual(
@@ -211,5 +237,57 @@ describe('missingPresetProperties', () => {
         ['Category', 'Level', 'Assembly Code', 'Classification Code', 'Name'],
       ),
     ).toEqual(['Family', 'Type Name']);
+  });
+});
+
+describe('presets and the column model', () => {
+  it('migrates an old view on apply and drops the old fields', () => {
+    expect(
+      applySummaryPreset({
+        properties: ['Level'],
+        view: { measure: 'Area', precision: 1, hiddenColumns: ['count'] },
+      }),
+    ).toBe(true);
+    const stored = JSON.parse(
+      window.localStorage.getItem('bsh.summary.view.v1') ?? '{}',
+    ) as Record<string, unknown> & { columns: { id: string }[] };
+    expect(stored.columns.map((column) => column.id)).toEqual(['sum:Area']);
+    for (const key of ['measure', 'precision', 'hiddenColumns', 'unitLabel']) {
+      expect(stored).not.toHaveProperty(key);
+    }
+  });
+
+  it('builds a spec for an instance pane without writing the global keys', () => {
+    const spec = presetToSpec({
+      properties: ['Level'],
+      view: { ...DEFAULT_SUMMARY_VIEW, futureField: 1 } as never,
+    });
+    expect(spec?.properties).toEqual(['Level']);
+    expect(spec?.view.columns).toEqual([COUNT_COLUMN]);
+    expect(PANE_SETTINGS.summary.properties.has()).toBe(false);
+    expect(presetToSpec({ properties: [], view: {} })).toBeNull();
+  });
+
+  it('round-trips columns through a saved preset', () => {
+    const view = {
+      ...DEFAULT_SUMMARY_VIEW,
+      columns: [COUNT_COLUMN, summaryColumn('Area', 'sum')],
+    };
+    expect(saveSummaryPreset('Areas', ['Level'], view)).not.toBeNull();
+    expect(
+      presetToSpec(
+        SUMMARY_PRESETS.list()[0]?.data ?? { properties: [], view: {} },
+      )?.view.columns,
+    ).toEqual(view.columns);
+  });
+
+  it('matches by rows, columns, layout and grouping only', () => {
+    const a = sanitizeView({ density: 'compact', text: 'x' });
+    const b = sanitizeView({});
+    expect(summaryPresetKey(['A'], a)).toBe(summaryPresetKey(['A'], b));
+    expect(summaryPresetKey(['A'], b)).not.toBe(summaryPresetKey(['B'], b));
+    expect(summaryPresetKey(['A'], b)).not.toBe(
+      summaryPresetKey(['A'], { ...b, columns: [] }),
+    );
   });
 });

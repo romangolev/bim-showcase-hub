@@ -195,15 +195,36 @@ def check_summary_tools(page, checks):
     scope.select_option("all")
     settle(page, 400)
     checks.add("all scope restores the rows", pane.locator("tbody tr").count() == rows, pane.locator("tbody tr").count())
+    pane.get_by_role("button", name="Add property", exact=True).click()
+    prompt = page.locator("dialog[open]").last
+    checks.add("the add property dialog opens on Column", prompt.get_by_role("radio", name="Column", exact=True).is_checked())
+    prompt.get_by_role("radio", name="Rows", exact=True).check()
+    prompt.get_by_role("radio", name="Level", exact=True).wait_for(timeout=8000)
+    prompt.get_by_role("radio", name="Level", exact=True).check()
+    prompt.get_by_role("button", name="Add property", exact=True).click()
+    settle(page, 600)
+    checks.add("a property added as Rows joins the summary", pane.locator("tbody tr", has_text="Level").count() > 0)
+    pane.get_by_role("button", name="Add property", exact=True).click()
+    prompt = page.locator("dialog[open]").last
+    prompt.get_by_role("radio", name="Category", exact=True).wait_for(timeout=8000)
+    prompt.get_by_role("radio", name="Category", exact=True).check()
+    prompt.get_by_label("Aggregate").select_option("distinct")
+    prompt.get_by_role("button", name="Add property", exact=True).click()
+    settle(page, 600)
+    header = pane.get_by_role("columnheader", name="Distinct values of Category")
+    checks.add("a property added as a column shows its header", header.count() == 1, header.count())
+    cell = pane.locator("tbody tr").first.locator("td").last.inner_text().strip()
+    checks.add("the new column fills a numeric cell", re.fullmatch(r"[\d,]+", cell) is not None, cell)
     pane.get_by_role("button", name="Summary settings").click()
     dialog = page.get_by_role("dialog", name="Summary settings")
-    dialog.get_by_role("checkbox", name="Level").wait_for(timeout=8000)
-    checks.add("the property picker lists discovered properties", dialog.get_by_role("checkbox").count() > 5, dialog.get_by_role("checkbox").count())
-    dialog.get_by_role("checkbox", name="Level").check()
-    settle(page, 600)
-    checks.add("a picked property joins the summary", pane.locator("tbody tr", has_text="Level").count() > 0)
-    dialog.get_by_role("checkbox", name="Level").uncheck()
-    settle(page, 300)
+    rows_group = dialog.get_by_role("group", name="Rows")
+    rows_group.wait_for(timeout=8000)
+    checks.add("summary settings lists the rows", rows_group.get_by_text("Level", exact=True).count() == 1)
+    checks.add("summary settings has no property checkbox catalog", dialog.get_by_role("checkbox").count() == 0, dialog.get_by_role("checkbox").count())
+    dialog.get_by_role("button", name="Remove Distinct values of Category", exact=True).click()
+    dialog.get_by_role("button", name="Remove Level", exact=True).click()
+    settle(page, 400)
+    checks.add("removing in settings drops the column and the row", pane.get_by_role("columnheader", name="Distinct values of Category").count() == 0 and pane.get_by_role("cell", name="Level", exact=True).count() == 0)
     top = dialog.bounding_box()
     view = page.viewport_size
     checks.add("summary settings is centred vertically", abs((top["y"] + top["height"] / 2) - view["height"] / 2) <= 40 or top["height"] >= view["height"] - 40, top)
@@ -270,6 +291,66 @@ def check_summary_tools(page, checks):
         pane.get_by_role("button", name="Download CSV").click()
     name = info.value.suggested_filename
     checks.add("summary CSV downloads", name.endswith("-summary.csv"), name)
+
+
+def check_summary_add_dialog(page, checks):
+    pane = page.locator(".pane-summary").first
+    page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
+    settle(page, 300)
+    pane.get_by_role("button", name="Add property", exact=True).click()
+    prompt = page.locator("dialog[open]").last
+    prompt.wait_for(timeout=3000)
+    box = prompt.bounding_box()
+    checks.add("the add property dialog fits at 390 wide", box["x"] >= 0 and box["x"] + box["width"] <= MOBILE[0] and horizontal_overflow(page) <= 0, box)
+    checks.add("the add property dialog stays inside the 390 viewport", box["y"] >= 0 and box["y"] + box["height"] <= MOBILE[1], box)
+    page.screenshot(path=str(OUTPUT_DIR / "mock-summary-add-property-390.png"))
+    page.keyboard.press("Escape")
+    settle(page, 300)
+    focused = page.evaluate("document.activeElement?.textContent?.trim()")
+    checks.add("closing the add property dialog returns focus to Add property", focused == "Add property", focused)
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page, 300)
+
+
+def open_summary_presets(page, dialog):
+    dialog.get_by_role("button", name="Summary presets", exact=True).click()
+    settle(page, 300)
+
+
+def name_preset(page, name, confirm):
+    prompt = page.locator("dialog[open]").last
+    prompt.get_by_label("Preset name").fill(name)
+    prompt.get_by_role("button", name=confirm).click()
+    settle(page, 300)
+
+
+def check_summary_presets(page, checks):
+    pane = page.locator(".pane-summary").first
+    checks.add("the summary pane has no preset control", pane.get_by_role("button", name=re.compile("[Pp]resets")).count() == 0)
+    pane.get_by_role("button", name="Summary settings").click()
+    dialog = page.get_by_role("dialog", name="Summary settings")
+    menu = dialog.get_by_role("button", name="Summary presets", exact=True)
+    checks.add("summary settings has a Summary presets menu", menu.count() == 1 and menu.get_attribute("aria-haspopup") == "menu")
+    open_summary_presets(page, dialog)
+    checks.add("the summary presets menu lists the starters", page.get_by_role("menuitemcheckbox", name="Doors check").count() == 1 and page.get_by_role("menuitemcheckbox", name="Rooms by level").count() == 1)
+    page.get_by_role("menuitem", name="Save current as preset...").click()
+    settle(page, 300)
+    name_preset(page, "Smoke summary", "Save preset")
+    open_summary_presets(page, dialog)
+    checks.add("a saved summary preset is the checked choice", page.get_by_role("menuitemcheckbox", name="Smoke summary").get_attribute("aria-checked") == "true")
+    page.get_by_role("menuitem", name="Rename...").click()
+    settle(page, 300)
+    name_preset(page, "Smoke summary 2", "Rename")
+    open_summary_presets(page, dialog)
+    checks.add("a renamed summary preset keeps its place", page.get_by_role("menuitemcheckbox", name="Smoke summary 2").count() == 1)
+    page.get_by_role("menuitem", name="Delete").click()
+    settle(page, 300)
+    open_summary_presets(page, dialog)
+    checks.add("a deleted summary preset leaves the menu", page.get_by_role("menuitemcheckbox", name=re.compile("Smoke summary")).count() == 0)
+    page.keyboard.press("Escape")
+    settle(page, 200)
+    page.keyboard.press("Escape")
+    settle(page, 300)
 
 
 COLLAPSED_RING = """() => [...document.querySelectorAll('.dv-groupview[data-collapsed]')].map((group) => ({
@@ -347,45 +428,70 @@ def boxes_overlap(a, b):
     return a["x"] < b["x"] + b["width"] and b["x"] < a["x"] + a["width"] and a["y"] < b["y"] + b["height"] and b["y"] < a["y"] + a["height"]
 
 
-def toggle_gallery(page, pane, item):
-    pane.get_by_role("button", name="Dashboard presets", exact=True).click()
+def pick_preset(page, scope, item, role="menuitemcheckbox"):
+    scope.get_by_role("button", name="Dashboard presets", exact=True).click()
     settle(page, 300)
-    page.get_by_role("menuitem", name=item).click()
+    page.get_by_role(role, name=item, exact=True).click()
     settle(page, 300)
 
 
-def open_gallery(page, pane):
-    if pane.get_by_role("list", name="Dashboard presets").count() == 0:
-        toggle_gallery(page, pane, "Browse presets...")
+def save_preset_as(page, scope, name):
+    scope.get_by_role("button", name="Dashboard presets", exact=True).click()
+    settle(page, 300)
+    page.get_by_role("menuitem", name="Save current as preset...").click()
+    settle(page, 300)
+    prompt = page.locator("dialog[open]").last
+    prompt.get_by_label("Preset name").fill(name)
+    prompt.get_by_role("button", name="Save preset").click()
+    settle(page, 300)
 
 
-def check_dashboard_gallery(page, checks):
+def keep_one_chart(page, pane):
+    while pane.get_by_role("button", name=re.compile(r"^Options for ")).count() > 1:
+        pane.get_by_role("button", name=re.compile(r"^Options for ")).last.click()
+        page.get_by_role("menuitem", name="Remove chart").click()
+        settle(page, 200)
+
+
+def check_dashboard_presets(page, checks):
     pane = page.locator(".pane-dashboard").first
     toggle = pane.get_by_role("button", name="Dashboard presets", exact=True)
     checks.add("the dashboard pane has a Presets dropdown", toggle.count() == 1 and toggle.get_attribute("aria-haspopup") == "menu")
     toggle.click()
     settle(page, 300)
     checks.add("the Presets dropdown lists the built-in presets", page.get_by_role("menuitemcheckbox", name="Model health").count() == 1)
-    page.get_by_role("menuitem", name="Browse presets...").click()
+    checks.add("the Presets dropdown offers Save current as preset", page.get_by_role("menuitem", name="Save current as preset...").count() == 1)
+    page.screenshot(path=str(OUTPUT_DIR / "mock-presets-menu.png"))
+    page.keyboard.press("Escape")
+    pick_preset(page, pane, "Model health")
+    pane.get_by_role("button", name="Dashboard presets", exact=True).click()
     settle(page, 300)
-    checks.add("Browse presets opens the gallery", pane.get_by_role("list", name="Dashboard presets").count() == 1)
-    checks.add("built-in cards have no rename or delete", pane.get_by_label(re.compile(r"^Rename ")).count() == 0 and pane.get_by_role("button", name=re.compile(r"^Delete ")).count() == 0)
-    checks.add("built-in cards offer Save as my preset", pane.get_by_role("button", name="Save Model health as my preset").count() == 1)
-    page.screenshot(path=str(OUTPUT_DIR / "mock-gallery.png"))
-    pane.get_by_role("button", name="Save Model health as my preset").click()
-    checks.add("saving a built-in adds an editable card", pane.get_by_label("Rename Model health").count() == 1 and pane.get_by_role("button", name="Delete Model health").count() == 1)
-    pane.get_by_role("button", name="Apply Quantities by type").click()
-    settle(page, 500)
-    checks.add("applying from the gallery closes it", pane.get_by_role("list", name="Dashboard presets").count() == 0)
-    names = pane.locator(".bsh-boards [role=img]").evaluate_all("(els) => els.map((el) => el.getAttribute('aria-label'))")
+    checks.add("a built-in has no rename or delete", page.get_by_role("menuitem", name="Rename...").count() == 0 and page.get_by_role("menuitem", name="Delete").count() == 0)
+    page.keyboard.press("Escape")
+    save_preset_as(page, pane, "Smoke board")
+    pane.get_by_role("button", name="Dashboard presets", exact=True).click()
+    settle(page, 300)
+    checks.add("a saved preset becomes the checked choice", page.get_by_role("menuitemcheckbox", name="Smoke board").get_attribute("aria-checked") == "true")
+    checks.add("an own preset offers update, rename and delete", page.get_by_role("menuitem", name="Rename...").count() == 1 and page.get_by_role("menuitem", name="Delete").count() == 1)
+    page.screenshot(path=str(OUTPUT_DIR / "mock-presets-menu-own.png"))
+    page.get_by_role("menuitem", name="Rename...").click()
+    settle(page, 300)
+    prompt = page.locator("dialog[open]").last
+    prompt.get_by_label("Preset name").fill("Smoke renamed")
+    prompt.get_by_role("button", name="Rename").click()
+    settle(page, 300)
+    pane.get_by_role("button", name="Dashboard presets", exact=True).click()
+    settle(page, 300)
+    checks.add("an own preset can be renamed", page.get_by_role("menuitemcheckbox", name="Smoke renamed").count() == 1)
+    page.get_by_role("menuitem", name="Delete").click()
+    settle(page, 300)
+    pane.get_by_role("button", name="Dashboard presets", exact=True).click()
+    settle(page, 300)
+    checks.add("an own preset can be deleted", page.get_by_role("menuitemcheckbox", name="Smoke renamed").count() == 0)
+    page.keyboard.press("Escape")
+    pick_preset(page, pane, "Quantities by type")
+    names = pane.locator(".bsh-board [role=img]").evaluate_all("(els) => els.map((el) => el.getAttribute('aria-label'))")
     checks.add("a preset hides charts whose property the model lacks", len(names) == 1 and names[0].endswith("by Category"), names)
-    open_gallery(page, pane)
-    pane.get_by_role("button", name="Apply Model health").last.click()
-    settle(page, 500)
-    checks.add("a user preset applies from the gallery", pane.locator(".bsh-boards canvas").count() >= 2, pane.locator(".bsh-boards canvas").count())
-    open_gallery(page, pane)
-    pane.get_by_role("button", name="Delete Model health").click()
-    checks.add("deleting a user preset removes its card", pane.get_by_label("Rename Model health").count() == 0)
     box = open_palette(page)
     box.fill("clear selection")
     palette(page).get_by_role("option", name=re.compile("Clear selection")).first.click()
@@ -393,21 +499,59 @@ def check_dashboard_gallery(page, checks):
     checks.add("the dashboard check cleared the selection", page.locator(".bsh-mock__el--selected").count() == 0, page.locator(".bsh-mock__el--selected").count())
     pane.get_by_label("Chart elements").select_option("selected")
     settle(page, 800)
-    if pane.get_by_role("list", name="Dashboard presets").count() == 1:
-        toggle_gallery(page, pane, "Hide preset gallery")
-    empty = pane.get_by_text("No selected elements").count() == 1 and pane.get_by_text("Nothing to chart").count() == 0 and pane.get_by_role("list", name="Dashboard presets").count() == 0
-    checks.add("a preset on an empty element scope says the scope is empty and keeps the gallery closed", empty, pane.inner_text()[:160])
-    page.screenshot(path=str(OUTPUT_DIR / "mock-gallery-empty.png"))
-    toggle_gallery(page, pane, "Browse presets...")
-    opened = pane.get_by_role("list", name="Dashboard presets").count() == 1
-    toggle_gallery(page, pane, "Hide preset gallery")
-    checks.add("the gallery stays dismissible on an empty element scope", opened and pane.get_by_role("list", name="Dashboard presets").count() == 0)
+    empty = pane.get_by_text("No selected elements").count() == 1 and pane.get_by_text("Nothing to chart").count() == 0
+    checks.add("a preset on an empty element scope says the scope is empty", empty, pane.inner_text()[:160])
+    page.screenshot(path=str(OUTPUT_DIR / "mock-presets-empty.png"))
     pane.get_by_label("Chart elements").select_option("all")
     settle(page, 400)
-    pane.get_by_role("button", name="Dashboard settings").click()
-    page.get_by_role("dialog", name="Dashboard settings").get_by_role("button", name="Single chart").click()
-    page.keyboard.press("Escape")
-    settle(page, 300)
+    keep_one_chart(page, pane)
+
+
+TILE_TABLE_FIT = """() => [...document.querySelectorAll('.pane-dashboard .bsh-tile')].map((tile) => {
+    const box = (el) => el && el.getBoundingClientRect();
+    const details = tile.querySelector('details');
+    if (details) details.open = true;
+    return {
+        tile: box(tile), canvas: box(tile.querySelector('canvas')), details: box(details),
+        rows: tile.querySelectorAll('tbody tr').length,
+    };
+})"""
+
+
+def check_dashboard_table_fit(page, checks):
+    expand = page.get_by_role("button", name="Expand Dashboard")
+    if expand.count():
+        expand.first.click()
+        settle(page, 600)
+    pane = page.locator(".pane-dashboard").first
+    pane.locator("canvas").first.wait_for(timeout=8000)
+    while pane.get_by_role("button", name=re.compile(r"^Options for ")).count() < 2:
+        pane.get_by_role("button", name="Add chart").click()
+        settle(page, 300)
+    for index in range(2):
+        pane.get_by_role("button", name=re.compile(r"^Options for ")).nth(index).click()
+        page.get_by_role("menuitemcheckbox", name="Group by Name").click()
+        settle(page, 300)
+    for orientation in ("Horizontal", "Vertical"):
+        pane.get_by_role("button", name=orientation, exact=True).click()
+        settle(page, 500)
+        tiles = page.evaluate(TILE_TABLE_FIT)
+        settle(page, 300)
+        tiles = page.evaluate(TILE_TABLE_FIT)
+        checks.add(f"{orientation.lower()} dashboard tiles hold several table rows", len(tiles) >= 2 and all(t["rows"] >= 5 for t in tiles), tiles)
+        inside = all(
+            t["details"]["y"] >= t["tile"]["y"] - 1 and t["details"]["y"] + t["details"]["height"] <= t["tile"]["y"] + t["tile"]["height"] + 1
+            and t["canvas"]["y"] + t["canvas"]["height"] <= t["tile"]["y"] + t["tile"]["height"] + 1
+            for t in tiles
+        )
+        apart = all(not boxes_overlap(t["canvas"], t["details"]) and t["canvas"]["height"] >= 60 for t in tiles)
+        checks.add(f"{orientation.lower()} open data table stays inside its tile", inside, tiles)
+        checks.add(f"{orientation.lower()} open data table does not cover the chart", apart, tiles)
+        page.screenshot(path=str(OUTPUT_DIR / f"mock-dashboard-table-{orientation.lower()}.png"))
+    pane.get_by_role("button", name="Horizontal", exact=True).click()
+    keep_one_chart(page, pane)
+    page.get_by_role("button", name="Collapse Dashboard").first.click()
+    settle(page, 400)
 
 
 def check_dashboard_tools(page, checks):
@@ -418,13 +562,11 @@ def check_dashboard_tools(page, checks):
         settle(page, 600)
     pane = page.locator(".pane-dashboard").first
     pane.locator("canvas").first.wait_for(timeout=8000)
-    pane.get_by_role("button", name="Dashboard settings").click()
-    chart_dialog = page.get_by_role("dialog", name="Dashboard settings")
-    chart_dialog.get_by_label("Chart type").select_option("doughnut")
-    page.keyboard.press("Escape")
+    pane.get_by_role("button", name=re.compile(r"^Options for ")).first.click()
+    page.get_by_role("menuitemcheckbox", name="Chart type: Doughnut").click()
     settle(page, 500)
     pane.locator(".bsh-chart--doughnut canvas").first.wait_for(timeout=8000)
-    trigger = pane.get_by_role("button", name=re.compile(r"^Export ")).first
+    trigger = pane.get_by_role("button", name=re.compile(r"^Options for ")).first
     trigger_box = trigger.bounding_box()
     checks.add("chart export trigger is at least 24px", trigger_box["width"] >= 24 and trigger_box["height"] >= 24, trigger_box)
     checks.add("chart export row is compact", pane.locator(".bsh-chart__tools").first.bounding_box()["height"] <= 32)
@@ -457,15 +599,13 @@ def check_dashboard_tools(page, checks):
     settle(page, 300)
     selected = page.locator(".bsh-mock__el--selected").count()
     checks.add("clicking a chart slice selects elements in the viewer", selected >= 1, selected)
-    checks.add("the dashboard pane has no preset buttons", pane.get_by_role("button", name="Model health").count() == 0)
     pane.get_by_role("button", name="Dashboard settings").click()
     dialog = page.get_by_role("dialog", name="Dashboard settings")
     box = dialog.bounding_box()
     view = page.viewport_size
     checks.add("dashboard settings is centred vertically", abs((box["y"] + box["height"] / 2) - view["height"] / 2) <= 40 or box["height"] >= view["height"] - 40, box)
-    dialog.get_by_role("button", name="Model health").click()
-    settle(page, 300)
-    boards = pane.locator(".bsh-boards canvas").count()
+    pick_preset(page, dialog, "Model health")
+    boards = pane.locator(".bsh-board canvas").count()
     checks.add("a dashboard preset shows several charts", boards >= 2, boards)
     page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
     settle(page, 300)
@@ -479,21 +619,25 @@ def check_dashboard_tools(page, checks):
     page.screenshot(path=str(OUTPUT_DIR / "mock-dashboard-preset.png"))
     open_settings(page)
     main = page.get_by_role("dialog", name="Settings", exact=True)
-    checks.add("main settings holds no dashboard controls", main.get_by_role("button", name="Model health").count() == 0)
+    checks.add("main settings holds no dashboard controls", main.get_by_role("button", name="Dashboard presets", exact=True).count() == 0)
     main.get_by_role("button", name="Dashboard settings").click()
     settle(page, 300)
     main = page.get_by_role("dialog", name="Dashboard settings")
-    checks.add("the dashboard window opened from settings shows the same preset", main.get_by_role("button", name="Model health").get_attribute("aria-pressed") == "true")
-    main.get_by_role("button", name="Single chart").click()
-    page.keyboard.press("Escape")
+    main.get_by_role("button", name="Dashboard presets", exact=True).click()
     settle(page, 300)
-    checks.add("preset change in main settings reaches the pane", pane.locator(".bsh-boards").count() == 0 and pane.locator(".bsh-chart--doughnut").count() == 1)
-    pane.get_by_role("button", name="Bar", exact=True).click()
+    checks.add("the dashboard window opened from settings shows the same preset", page.get_by_role("menuitemcheckbox", name="Model health").get_attribute("aria-checked") == "true")
+    page.keyboard.press("Escape")
+    page.keyboard.press("Escape")
+    keep_one_chart(page, pane)
+    settle(page, 300)
+    checks.add("preset change in main settings reaches the pane", pane.locator(".bsh-chart").count() == 1)
+    pane.get_by_role("button", name=re.compile(r"^Options for ")).first.click()
+    page.get_by_role("menuitemcheckbox", name="Chart type: Bar").click()
     settle(page, 200)
-    checks.add("the pane switch shows only the bar chart", pane.locator(".bsh-chart--doughnut").count() == 0 and pane.locator(".bsh-chart--bar").count() == 1)
-    pane.get_by_role("button", name="Both").click()
+    checks.add("the chart menu switches to the bar chart", pane.locator(".bsh-chart--doughnut").count() == 0 and pane.locator(".bsh-chart--bar").count() == 1)
+    pane.get_by_role("button", name="Add chart").click()
     settle(page, 200)
-    check_dashboard_gallery(page, checks)
+    check_dashboard_presets(page, checks)
     page.get_by_role("button", name="Collapse Dashboard").first.click()
     settle(page, 600)
 
@@ -835,24 +979,19 @@ def check_saved_items(page, checks):
     main.get_by_role("button", name="Dashboard settings").click()
     settle(page, 300)
     dialog = page.get_by_role("dialog", name="Dashboard settings")
-    checks.add("an imported preset appears in the dashboard window", dialog.get_by_role("button", name="Apply Smoke preset").count() == 1)
-    dialog.get_by_label("Preset name").fill("Smoke saved")
-    dialog.get_by_role("button", name="Save current board").click()
-    dialog.get_by_role("button", name="Apply Smoke preset").click()
+    dialog.get_by_role("button", name="Dashboard presets", exact=True).click()
+    settle(page, 300)
+    checks.add("an imported preset appears in the dashboard window menu", page.get_by_role("menuitemcheckbox", name="Smoke preset").count() == 1)
+    page.get_by_role("menuitemcheckbox", name="Smoke preset").click()
     settle(page, 200)
-    checks.add("applying a user preset sets the chart type", dialog.get_by_label("Chart type").input_value() == "bar")
-    dialog.get_by_label("Chart type").select_option("hbar")
-    settle(page, 200)
-    checks.add("the chart type changes from the settings window", dialog.get_by_label("Chart type").input_value() == "hbar")
-    dialog.get_by_label("Chart type").select_option("doughnut")
-    settle(page, 200)
-    dialog.get_by_label("Rename Smoke saved").fill("Smoke renamed")
-    dialog.get_by_label("Rename Smoke saved").press("Enter")
-    settle(page, 200)
-    checks.add("a user preset can be renamed", dialog.get_by_role("button", name="Delete Smoke renamed").count() == 1)
-    dialog.get_by_role("button", name="Delete Smoke renamed").click()
-    dialog.get_by_role("button", name="Delete Smoke preset").click()
-    checks.add("user presets can be deleted", dialog.get_by_text("No saved presets yet.").count() == 1)
+    dialog.get_by_role("button", name="Dashboard presets", exact=True).click()
+    settle(page, 300)
+    page.get_by_role("menuitem", name="Delete").click()
+    settle(page, 300)
+    dialog.get_by_role("button", name="Dashboard presets", exact=True).click()
+    settle(page, 300)
+    checks.add("user presets can be deleted from the dashboard window menu", page.get_by_role("menuitemcheckbox", name="Smoke preset").count() == 0)
+    page.keyboard.press("Escape")
     page.keyboard.press("Escape")
     settle(page, 300)
 
@@ -2386,6 +2525,7 @@ def check_thumbnails(page, checks):
             page.get_by_role("menuitem", name="Preview").click()
             preview = page.get_by_role("dialog", name="Preview of STATE-not-translated.rvt")
             preview.wait_for(timeout=5000)
+            wait_until(page, lambda: preview.get_by_text("No thumbnail").count() == 1)
             checks.add(
                 "thumbnails: the preview card shows the placeholder",
                 preview.get_by_text("No thumbnail").count() == 1,
@@ -2442,6 +2582,14 @@ def check_export_tasks(page, checks):
     checks.add("export task: the pane no longer shows an export badge", page.locator(".bsh-viewer-badge").count() == 0)
 
 
+def first_tile_property(page):
+    page.locator(".pane-dashboard:visible").get_by_role("button", name=re.compile(r"^Options for ")).first.click()
+    name = page.get_by_role("menuitemcheckbox", name=re.compile(r"^Group by ")).and_(page.locator("[aria-checked=true]")).first.inner_text().strip()
+    page.keyboard.press("Escape")
+    settle(page, 200)
+    return name.removeprefix("Group by ")
+
+
 def check_pane_families(page, checks):
     page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
     settle(page)
@@ -2457,12 +2605,14 @@ def check_pane_families(page, checks):
     checks.add("New chart opens two chart panes", charts().count() == 2, charts().count())
     charts().nth(1).click()
     settle(page, 400)
-    groupers = page.get_by_label("Group by")
-    checks.add("a chart pane has its own property picker", groupers.count() == 1, groupers.count())
-    groupers.first.select_option("Level")
+    options = page.locator(".pane-dashboard:visible").get_by_role("button", name=re.compile(r"^Options for "))
+    options.first.click()
+    pickers = page.get_by_role("menuitemcheckbox", name=re.compile(r"^Group by "))
+    checks.add("a chart tile has its own property picker", pickers.count() >= 2, pickers.count())
+    page.get_by_role("menuitemcheckbox", name="Group by Level").click()
     settle(page, 500)
     stored = lambda key: page.evaluate(f"() => JSON.parse(localStorage.getItem('{key}') || 'null')")
-    checks.add("a chart spec is saved per instance", (stored("bsh.pane.chart.2.v1") or {}).get("property") == "Level" and stored("bsh.pane.chart.1.v1") is None, stored("bsh.pane.chart.2.v1"))
+    checks.add("a chart spec is saved per instance", ((stored("bsh.pane.chart.2.v1") or {}).get("charts") or [{}])[0].get("property") == "Level" and stored("bsh.pane.chart.1.v1") is None, stored("bsh.pane.chart.2.v1"))
     page.get_by_role("button", name="Panes").click()
     page.get_by_role("menuitem", name="New model summary").click()
     settle(page, 500)
@@ -2494,10 +2644,10 @@ def check_pane_families(page, checks):
     checks.add("chart panes survive a reload", charts().count() == 2, charts().count())
     charts().nth(1).click()
     settle(page, 400)
-    second = page.get_by_label("Group by").first.input_value()
+    second = first_tile_property(page)
     charts().nth(0).click()
     settle(page, 400)
-    first = page.get_by_label("Group by").first.input_value()
+    first = first_tile_property(page)
     checks.add("chart specs survive a reload", second == "Level" and first != "Level", [first, second])
     checks.add("the summary pane survives a reload", summaries().count() == 1, summaries().count())
     for urn in [model["urn"] for model in models(page)["models"]]:
@@ -2657,7 +2807,7 @@ def run_interaction_checks(page, checks, notes):
     except Exception as exc:
         page.screenshot(path=str(OUTPUT_DIR / "mock-layout-failure.png"))
         checks.add("check_layout", False, f"{type(exc).__name__}: {str(exc)[:160]}")
-    for check in (check_lock_maximize, check_layout_undo, check_active_pane, check_session_banner, check_saved_items, check_paint_palette, check_recents, check_strip, check_tree_metadata, check_theme, check_summary_rail, check_summary_tools, check_selection_sets, check_dashboard_tools, check_tree_resize):
+    for check in (check_lock_maximize, check_layout_undo, check_active_pane, check_session_banner, check_saved_items, check_paint_palette, check_recents, check_strip, check_tree_metadata, check_theme, check_summary_rail, check_summary_tools, check_summary_add_dialog, check_summary_presets, check_selection_sets, check_dashboard_tools, check_dashboard_table_fit, check_tree_resize):
         try:
             check(page, checks)
         except Exception as exc:

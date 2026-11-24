@@ -120,14 +120,6 @@ function seed(view: Record<string, unknown>) {
   );
 }
 
-function chartTypeSelect(): HTMLElement {
-  const found = screen
-    .getAllByLabelText('Chart type')
-    .find((element) => element.tagName === 'SELECT');
-  if (!found) throw new Error('no chart type select');
-  return found as HTMLElement;
-}
-
 function storedView() {
   return JSON.parse(
     window.localStorage.getItem(BSH_KEYS.personal.dashboardView) ?? '{}',
@@ -171,7 +163,16 @@ describe('dashboard chart builder', () => {
     fireEvent.change(screen.getByLabelText('Measure'), {
       target: { value: 'Length' },
     });
-    fireEvent.change(chartTypeSelect(), { target: { value: 'hbar' } });
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: /^Options for Bar chart of total Length/,
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('menuitemcheckbox', {
+        name: 'Chart type: Horizontal bars',
+      }),
+    );
 
     expect(
       await screen.findByRole('img', {
@@ -181,16 +182,24 @@ describe('dashboard chart builder', () => {
     expect(storedView()).toMatchObject({
       aggregate: 'sum',
       measure: 'Length',
-      chartType: 'hbar',
     });
-    expect(made.configs.at(-1)).toMatchObject({
-      type: 'bar',
-      options: { indexAxis: 'y' },
-    });
+    expect(storedView().charts[0]).toMatchObject({ chartType: 'hbar' });
+    expect(
+      made.configs.some(
+        (config) =>
+          config.type === 'bar' &&
+          (config as { options?: { indexAxis?: string } }).options
+            ?.indexAxis === 'y',
+      ),
+    ).toBe(true);
   });
 
   it('keeps the choice after a reload', async () => {
-    seed({ aggregate: 'sum', measure: 'Length', chartType: 'bar' });
+    seed({
+      aggregate: 'sum',
+      measure: 'Length',
+      charts: [{ property: 'Category', chartType: 'bar' }],
+    });
     const adapter = await loaded();
     render(<DashboardPanel adapter={adapter} />);
     expect(
@@ -203,7 +212,11 @@ describe('dashboard chart builder', () => {
 
 describe('dashboard table chart', () => {
   it('renders a real table with values and counts', async () => {
-    seed({ aggregate: 'sum', measure: 'Length', chartType: 'table' });
+    seed({
+      aggregate: 'sum',
+      measure: 'Length',
+      charts: [{ property: 'Category', chartType: 'table' }],
+    });
     const adapter = await loaded();
     render(<DashboardPanel adapter={adapter} />);
     const table = await screen.findByRole('table', {
@@ -225,7 +238,11 @@ describe('dashboard table chart', () => {
   });
 
   it('selects the rows of a clicked bucket', async () => {
-    seed({ aggregate: 'sum', measure: 'Length', chartType: 'table' });
+    seed({
+      aggregate: 'sum',
+      measure: 'Length',
+      charts: [{ property: 'Category', chartType: 'table' }],
+    });
     const adapter = await loaded();
     render(<DashboardPanel adapter={adapter} />);
     const table = await screen.findByRole('table', {
@@ -245,7 +262,11 @@ describe('dashboard table chart', () => {
 
 describe('dashboard selection highlight', () => {
   it('waits for the selection to settle before highlighting buckets', async () => {
-    seed({ aggregate: 'sum', measure: 'Length', chartType: 'table' });
+    seed({
+      aggregate: 'sum',
+      measure: 'Length',
+      charts: [{ property: 'Category', chartType: 'table' }],
+    });
     const adapter = await loaded();
     render(<DashboardPanel adapter={adapter} />);
     const table = await screen.findByRole('table', {
@@ -261,7 +282,11 @@ describe('dashboard selection highlight', () => {
 
 describe('dashboard honest units', () => {
   it('says the units are mixed instead of summing them', async () => {
-    seed({ aggregate: 'sum', measure: 'Length', chartType: 'bar' });
+    seed({
+      aggregate: 'sum',
+      measure: 'Length',
+      charts: [{ property: 'Category', chartType: 'bar' }],
+    });
     const adapter = await loaded([
       {
         dbId: 1,
@@ -281,7 +306,11 @@ describe('dashboard honest units', () => {
   });
 
   it('renders unavailable for a property without numbers', async () => {
-    seed({ aggregate: 'sum', measure: 'Length', chartType: 'bar' });
+    seed({
+      aggregate: 'sum',
+      measure: 'Length',
+      charts: [{ property: 'Category', chartType: 'bar' }],
+    });
     const adapter = await loaded([
       {
         dbId: 1,
@@ -306,7 +335,7 @@ describe('dashboard color the model by a chart', () => {
 
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'Export Bar chart of element counts by Category',
+        name: 'Options for Bar chart of element counts by Category',
       }),
     );
     fireEvent.click(
@@ -345,14 +374,17 @@ describe('dashboard color the model by a chart', () => {
   });
 
   it('colours the model from the table chart menu', async () => {
-    seed({ properties: ['Category'], chartType: 'table' });
+    seed({
+      properties: ['Category'],
+      charts: [{ property: 'Category', chartType: 'table' }],
+    });
     const adapter = await loaded();
     render(<DashboardPanel adapter={adapter} />);
     await screen.findByRole('table', { name: 'Element counts by Category' });
 
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'Export Element counts by Category',
+        name: 'Options for Element counts by Category',
       }),
     );
     fireEvent.click(
@@ -451,7 +483,10 @@ async function single(): Promise<MockViewerAdapter> {
 
 describe('dashboard split by model', () => {
   it('gives each ready model its own stacked series', async () => {
-    seed({ splitByModel: true, chartType: 'bar' });
+    seed({
+      splitByModel: true,
+      charts: [{ property: 'Category', chartType: 'bar' }],
+    });
     const adapter = await combined();
     render(<DashboardPanel adapter={adapter} />);
     await screen.findByRole('img', {
@@ -471,7 +506,7 @@ describe('dashboard split by model', () => {
   });
 
   it('keeps one dataset without the split', async () => {
-    seed({ chartType: 'bar' });
+    seed({ charts: [{ property: 'Category', chartType: 'bar' }] });
     const adapter = await combined();
     render(<DashboardPanel adapter={adapter} />);
     await screen.findByRole('img', {
@@ -485,7 +520,10 @@ describe('dashboard split by model', () => {
   });
 
   it('adds one data table column per model', async () => {
-    seed({ splitByModel: true, chartType: 'bar' });
+    seed({
+      splitByModel: true,
+      charts: [{ property: 'Category', chartType: 'bar' }],
+    });
     const adapter = await combined();
     render(<DashboardPanel adapter={adapter} />);
     fireEvent.click(await screen.findByText('Data table'));

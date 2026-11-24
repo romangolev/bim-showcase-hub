@@ -1,8 +1,11 @@
+import { isRecord } from '../../shared/guards.js';
 import type { PropertyRow } from '../../shared/types.js';
-
+import { formatCount as formatLocalCount } from '../i18n/format.js';
+import { type Language, readSettings } from '../settings/settings.js';
+import { formatCount } from './exportCommon.js';
 import { parseMeasure as parseQuantity } from './measureParse.js';
 
-export { formatCount } from './exportCommon.js';
+export { formatCount };
 
 export const DEFAULT_SUMMARY_PROPERTIES: readonly string[] = [
   'Assembly Code',
@@ -50,8 +53,6 @@ export function summarize(
 
 export type SummarySort = 'count' | 'value';
 export type SummaryDensity = 'comfortable' | 'compact';
-export const SUMMARY_COLUMNS = ['property', 'value', 'count'] as const;
-export type SummaryColumn = (typeof SUMMARY_COLUMNS)[number];
 
 export const SUMMARY_LAYOUTS = ['flat', 'grouped', 'pivot'] as const;
 export type SummaryLayout = (typeof SUMMARY_LAYOUTS)[number];
@@ -60,6 +61,139 @@ export const MAX_GROUP_BY = 4;
 export const MAX_PRECISION = 4;
 export const MAX_UNIT_LABEL = 16;
 export const MAX_TITLE_LENGTH = 80;
+export const MAX_SUMMARY_COLUMNS = 12;
+export const MAX_SUMMARY_ROWS = 24;
+export const MAX_PROPERTY_NAME = 120;
+export const DEFAULT_PRECISION = 2;
+
+export const SUMMARY_AGGREGATES = [
+  'count',
+  'filled',
+  'empty',
+  'distinct',
+  'sum',
+  'avg',
+  'min',
+  'max',
+] as const;
+export type SummaryAggregate = (typeof SUMMARY_AGGREGATES)[number];
+
+export const NUMERIC_AGGREGATES: readonly SummaryAggregate[] = [
+  'sum',
+  'avg',
+  'min',
+  'max',
+];
+
+export const SUMMARY_AGGREGATE_LABELS: Record<SummaryAggregate, string> = {
+  count: 'Count of values',
+  filled: 'Filled %',
+  empty: 'Empty %',
+  distinct: 'Distinct values',
+  sum: 'Sum',
+  avg: 'Average',
+  min: 'Minimum',
+  max: 'Maximum',
+};
+
+const TITLE_PREFIX: Record<SummaryAggregate, string> = {
+  count: 'Count of',
+  filled: 'Filled % of',
+  empty: 'Empty % of',
+  distinct: 'Distinct values of',
+  sum: 'Sum of',
+  avg: 'Average of',
+  min: 'Minimum of',
+  max: 'Maximum of',
+};
+
+export type ColumnRef = {
+  property: string | null;
+  aggregate: SummaryAggregate;
+};
+
+export type SummaryColumnSpec = ColumnRef & {
+  id: string;
+  title: string;
+  precision: number;
+  unitLabel: string;
+};
+
+export const COUNT_COLUMN: SummaryColumnSpec = {
+  id: 'count',
+  property: null,
+  aggregate: 'count',
+  title: '',
+  precision: 0,
+  unitLabel: '',
+};
+
+export function sanitizeSummaryAggregate(raw: unknown): SummaryAggregate {
+  return SUMMARY_AGGREGATES.find((name) => name === raw) ?? 'count';
+}
+
+export function columnId(ref: ColumnRef): string {
+  return ref.property === null
+    ? ref.aggregate
+    : `${ref.aggregate}:${ref.property}`;
+}
+
+function clampPrecision(raw: unknown): number {
+  return typeof raw === 'number' && Number.isFinite(raw) && raw >= 0
+    ? Math.min(MAX_PRECISION, Math.floor(raw))
+    : DEFAULT_PRECISION;
+}
+
+function text(raw: unknown, max: number): string {
+  return typeof raw === 'string' ? raw.trim().slice(0, max) : '';
+}
+
+export function summaryColumn(
+  property: string,
+  aggregate: SummaryAggregate,
+  options: { title?: unknown; precision?: unknown; unitLabel?: unknown } = {},
+): SummaryColumnSpec {
+  const name = property.trim().slice(0, MAX_PROPERTY_NAME);
+  return {
+    id: columnId({ property: name, aggregate }),
+    property: name,
+    aggregate,
+    title: text(options.title, MAX_TITLE_LENGTH),
+    precision: clampPrecision(options.precision ?? DEFAULT_PRECISION),
+    unitLabel: text(options.unitLabel, MAX_UNIT_LABEL),
+  };
+}
+
+export function sanitizeColumns(raw: readonly unknown[]): SummaryColumnSpec[] {
+  const columns: SummaryColumnSpec[] = [];
+  for (const item of raw) {
+    if (!isRecord(item)) continue;
+    const aggregate = SUMMARY_AGGREGATES.find(
+      (name) => name === item.aggregate,
+    );
+    if (!aggregate) continue;
+    const property = text(item.property, MAX_PROPERTY_NAME);
+    const column = property
+      ? summaryColumn(property, aggregate, item)
+      : aggregate === 'count'
+        ? { ...COUNT_COLUMN, title: text(item.title, MAX_TITLE_LENGTH) }
+        : null;
+    if (!column || columns.some((existing) => existing.id === column.id)) {
+      continue;
+    }
+    columns.push(column);
+    if (columns.length === MAX_SUMMARY_COLUMNS) break;
+  }
+  return columns;
+}
+
+export function columnTitle(column: SummaryColumnSpec): string {
+  const title = column.title.trim();
+  if (title) return title;
+  return column.property === null
+    ? 'Count'
+    : `${TITLE_PREFIX[column.aggregate]} ${column.property}`;
+}
 
 export interface SummaryView {
   hideEmpty: boolean;
@@ -67,14 +201,12 @@ export interface SummaryView {
   text: string;
   sort: SummarySort;
   density: SummaryDensity;
-  hiddenColumns: SummaryColumn[];
   autoRefresh: boolean;
   layout: SummaryLayout;
   groupBy: string[];
-  measure: string | null;
-  unitLabel: string;
-  precision: number;
   titles: Record<string, string>;
+  columns: SummaryColumnSpec[];
+  showProperty: boolean;
 }
 
 export const DEFAULT_SUMMARY_VIEW: SummaryView = {
@@ -83,14 +215,12 @@ export const DEFAULT_SUMMARY_VIEW: SummaryView = {
   text: '',
   sort: 'count',
   density: 'comfortable',
-  hiddenColumns: [],
   autoRefresh: true,
   layout: 'flat',
   groupBy: [],
-  measure: null,
-  unitLabel: '',
-  precision: 2,
   titles: {},
+  columns: [COUNT_COLUMN],
+  showProperty: true,
 };
 
 export function viewEntries(
@@ -118,6 +248,10 @@ export function viewEntries(
   );
 }
 
+export function entryKey(entry: SummaryEntry): string {
+  return `${entry.property}\u0000${entry.value}`;
+}
+
 export function emptyShares(
   entries: readonly SummaryEntry[],
 ): { property: string; percent: number }[] {
@@ -130,7 +264,7 @@ export function emptyShares(
   }
   return [...totals].map(([property, { empty, all }]) => ({
     property,
-    percent: all === 0 ? 0 : Math.round((empty / all) * 100),
+    percent: all === 0 ? 0 : (empty / all) * 100,
   }));
 }
 
@@ -169,93 +303,181 @@ export function parseMeasure(raw: unknown): ParsedMeasure | null {
   };
 }
 
-export type MeasureCell =
-  | {
-      status: 'ok';
-      sum: number;
-      unit: string;
-      family: MeasureFamily;
-      measured: number;
-      skipped: number;
-    }
-  | { status: 'missing' }
-  | { status: 'mixed' };
+export type SummaryCell =
+  | { status: 'ok'; value: number; unit: string; missing: number }
+  | { status: 'none' }
+  | { status: 'mixed'; units: string[] };
 
-export function measureOf(
-  rows: readonly PropertyRow[],
-  property: string,
-): MeasureCell {
-  let family: MeasureFamily | null = null;
-  let sum = 0;
-  let measured = 0;
-  let skipped = 0;
-  let mixed = false;
-  for (const row of rows) {
-    const parsed = parseMeasure(row.properties[property]);
-    if (!parsed) {
-      skipped += 1;
-      continue;
-    }
-    if (family === null) family = parsed.family;
-    else if (family !== parsed.family) mixed = true;
-    sum += parsed.value * parsed.factor;
-    measured += 1;
-  }
-  if (mixed) return { status: 'mixed' };
-  if (family === null) return { status: 'missing' };
-  return {
-    status: 'ok',
-    sum,
-    unit: FAMILY_UNITS[family],
-    family,
-    measured,
-    skipped,
-  };
+export const NO_CELL: SummaryCell = { status: 'none' };
+
+function okCell(value: number, unit = '', missing = 0): SummaryCell {
+  return { status: 'ok', value, unit, missing };
 }
 
-export function measureByValue(
+export function aggregateCell(
   rows: readonly PropertyRow[],
-  valueProperty: string,
-  measureProperty: string,
-): Map<string, MeasureCell> {
+  ref: ColumnRef,
+): SummaryCell {
+  const { property, aggregate } = ref;
+  if (property === null) return okCell(rows.length);
+  if (!NUMERIC_AGGREGATES.includes(aggregate)) {
+    const values = rows
+      .map((row) => formatValue(row.properties[property]).trim())
+      .filter((value) => value !== '' && value !== EMPTY_VALUE_LABEL);
+    if (aggregate === 'distinct') return okCell(new Set(values).size);
+    if (aggregate === 'count') return okCell(values.length);
+    if (rows.length === 0) return NO_CELL;
+    const share = (values.length / rows.length) * 100;
+    return okCell(aggregate === 'filled' ? share : 100 - share);
+  }
+  const families = new Set<MeasureFamily>();
+  const numbers: number[] = [];
+  for (const row of rows) {
+    const parsed = parseMeasure(row.properties[property]);
+    if (!parsed) continue;
+    families.add(parsed.family);
+    numbers.push(parsed.value * parsed.factor);
+  }
+  if (families.size > 1) {
+    return {
+      status: 'mixed',
+      units: [...families]
+        .map((family) => FAMILY_UNITS[family] || 'number')
+        .sort(),
+    };
+  }
+  const family = [...families][0];
+  if (family === undefined) return NO_CELL;
+  const total = numbers.reduce((sum, value) => sum + value, 0);
+  const value =
+    aggregate === 'sum'
+      ? total
+      : aggregate === 'avg'
+        ? total / numbers.length
+        : numbers.reduce(
+            (best, next) =>
+              aggregate === 'min' ? Math.min(best, next) : Math.max(best, next),
+            aggregate === 'min'
+              ? Number.POSITIVE_INFINITY
+              : Number.NEGATIVE_INFINITY,
+          );
+  return okCell(value, FAMILY_UNITS[family], rows.length - numbers.length);
+}
+
+function groupRows(
+  rows: readonly PropertyRow[],
+  property: string,
+): Map<string, PropertyRow[]> {
   const groups = new Map<string, PropertyRow[]>();
   for (const row of rows) {
-    const value = formatValue(row.properties[valueProperty]);
+    const value = formatValue(row.properties[property]);
     const group = groups.get(value);
     if (group) group.push(row);
     else groups.set(value, [row]);
   }
+  return groups;
+}
+
+const GROUPS = new WeakMap<
+  readonly PropertyRow[],
+  Map<string, Map<string, PropertyRow[]>>
+>();
+
+function groupedRows(
+  rows: readonly PropertyRow[],
+  property: string,
+): Map<string, PropertyRow[]> {
+  const byProperty = GROUPS.get(rows) ?? new Map();
+  GROUPS.set(rows, byProperty);
+  const cached = byProperty.get(property);
+  if (cached) return cached;
+  const groups = groupRows(rows, property);
+  byProperty.set(property, groups);
+  return groups;
+}
+
+export function cellsByEntry(
+  rows: readonly PropertyRow[],
+  entries: readonly SummaryEntry[],
+  columns: readonly ColumnRef[],
+): Map<string, SummaryCell[]> {
+  const needsRows = columns.some((column) => column.property !== null);
   return new Map(
-    [...groups].map(([value, group]) => [
-      value,
-      measureOf(group, measureProperty),
-    ]),
+    entries.map((entry) => {
+      const group = needsRows
+        ? groupedRows(rows, entry.property).get(entry.value)
+        : undefined;
+      return [
+        entryKey(entry),
+        columns.map((column) =>
+          column.property === null
+            ? okCell(entry.count)
+            : group
+              ? aggregateCell(group, column)
+              : NO_CELL,
+        ),
+      ];
+    }),
   );
 }
 
-export function formatMeasure(
-  cell: MeasureCell,
-  options: { precision: number; unitLabel: string },
-): string {
-  if (cell.status !== 'ok') return 'n/a';
-  const precision = Math.min(
-    MAX_PRECISION,
-    Math.max(0, Math.floor(Number(options.precision) || 0)),
+export function isCountLike(column: ColumnRef): boolean {
+  return (
+    column.property === null ||
+    column.aggregate === 'count' ||
+    column.aggregate === 'distinct'
   );
-  const number = cell.sum.toLocaleString('en-US', {
+}
+
+export function formatPercent(value: number): string {
+  if (value <= 0) return '0%';
+  if (value >= 100) return '100%';
+  if (value < 1) return '<1%';
+  if (value > 99) return '>99%';
+  return `${Math.round(value)}%`;
+}
+
+export function viewPropertyNames(
+  properties: readonly string[],
+  columns: readonly ColumnRef[],
+): string[] {
+  return [
+    ...new Set([
+      ...properties,
+      ...columns.flatMap((column) =>
+        column.property === null ? [] : [column.property],
+      ),
+    ]),
+  ];
+}
+
+export function formatCell(
+  cell: SummaryCell,
+  column: SummaryColumnSpec,
+  language: Language = readSettings().language,
+): string {
+  if (cell.status === 'none') return 'n/a';
+  if (cell.status === 'mixed') return 'mixed units';
+  if (isCountLike(column)) return formatCount(cell.value);
+  if (column.aggregate === 'filled' || column.aggregate === 'empty') {
+    return formatPercent(cell.value);
+  }
+  const number = cell.value.toLocaleString('en-US', {
     minimumFractionDigits: 0,
-    maximumFractionDigits: precision,
+    maximumFractionDigits: column.precision,
   });
-  const unit = options.unitLabel.trim() || cell.unit;
-  if (cell.measured === 0) return 'n/a';
-  return unit ? `${number} ${unit}` : number;
+  const unit = column.unitLabel || cell.unit;
+  const label = unit ? `${number} ${unit}` : number;
+  return cell.missing > 0
+    ? `${label} (${formatLocalCount(cell.missing, language)} missing)`
+    : label;
 }
 
 export interface PivotNode {
   value: string;
   count: number;
   children: PivotNode[];
-  measure: MeasureCell | null;
+  cells: SummaryCell[];
 }
 
 function orderByCount<T extends { value: string; count: number }>(
@@ -269,30 +491,23 @@ function orderByCount<T extends { value: string; count: number }>(
 export function pivotTree(
   rows: readonly PropertyRow[],
   groupBy: readonly string[],
-  options: { measure?: string | null } = {},
+  options: { columns?: readonly ColumnRef[] } = {},
 ): PivotNode[] {
   const names = sanitizeGroupBy(groupBy);
   if (names.length === 0) return [];
-  const measureProperty = options.measure?.trim() || null;
+  const columns = options.columns ?? [];
   const build = (
     subset: readonly PropertyRow[],
     depth: number,
   ): PivotNode[] => {
     const name = names[depth];
     if (!name) return [];
-    const groups = new Map<string, PropertyRow[]>();
-    for (const row of subset) {
-      const value = formatValue(row.properties[name]);
-      const group = groups.get(value);
-      if (group) group.push(row);
-      else groups.set(value, [row]);
-    }
     return orderByCount(
-      [...groups].map(([value, group]) => ({
+      [...groupRows(subset, name)].map(([value, group]) => ({
         value,
         count: group.length,
         children: build(group, depth + 1),
-        measure: measureProperty ? measureOf(group, measureProperty) : null,
+        cells: columns.map((column) => aggregateCell(group, column)),
       })),
     );
   };
@@ -365,13 +580,36 @@ export function sanitizeTitles(raw: unknown): Record<string, string> {
   return Object.fromEntries(entries);
 }
 
+function legacyColumns(
+  source: Record<string, unknown>,
+  hidden: readonly unknown[],
+): SummaryColumnSpec[] {
+  const measure = text(source.measure, MAX_PROPERTY_NAME);
+  return [
+    ...(hidden.includes('count') ? [] : [COUNT_COLUMN]),
+    ...(measure
+      ? [
+          summaryColumn(measure, 'sum', {
+            precision:
+              typeof source.precision === 'number'
+                ? source.precision
+                : DEFAULT_PRECISION,
+            unitLabel: text(source.unitLabel, MAX_UNIT_LABEL),
+          }),
+        ]
+      : []),
+  ];
+}
+
 export function sanitizeView(raw: unknown): SummaryView {
   const source =
     typeof raw === 'object' && raw !== null
       ? (raw as Record<string, unknown>)
       : {};
   const minCount = Number(source.minCount);
-  const precision = source.precision;
+  const hidden = Array.isArray(source.hiddenColumns)
+    ? source.hiddenColumns
+    : [];
   return {
     hideEmpty: source.hideEmpty === true,
     minCount:
@@ -379,45 +617,123 @@ export function sanitizeView(raw: unknown): SummaryView {
     text: typeof source.text === 'string' ? source.text : '',
     sort: source.sort === 'value' ? 'value' : 'count',
     density: source.density === 'compact' ? 'compact' : 'comfortable',
-    hiddenColumns: Array.isArray(source.hiddenColumns)
-      ? SUMMARY_COLUMNS.filter((column) =>
-          (source.hiddenColumns as unknown[]).includes(column),
-        )
-      : [],
     autoRefresh:
       typeof source.autoRefresh === 'boolean' ? source.autoRefresh : true,
     layout: sanitizeLayout(source.layout),
     groupBy: sanitizeGroupBy(source.groupBy),
-    measure:
-      typeof source.measure === 'string' && source.measure.trim()
-        ? source.measure.trim()
-        : null,
-    unitLabel:
-      typeof source.unitLabel === 'string'
-        ? source.unitLabel.trim().slice(0, MAX_UNIT_LABEL)
-        : '',
-    precision:
-      typeof precision === 'number' &&
-      Number.isFinite(precision) &&
-      precision >= 0
-        ? Math.min(MAX_PRECISION, Math.floor(precision))
-        : DEFAULT_SUMMARY_VIEW.precision,
     titles: sanitizeTitles(source.titles),
+    columns: Array.isArray(source.columns)
+      ? sanitizeColumns(source.columns)
+      : legacyColumns(source, hidden),
+    showProperty:
+      typeof source.showProperty === 'boolean'
+        ? source.showProperty
+        : !hidden.includes('property'),
   };
 }
 
 export function summaryTable(
   entries: readonly SummaryEntry[],
-  hiddenColumns: readonly SummaryColumn[],
+  view: Pick<SummaryView, 'columns' | 'showProperty'>,
+  rows: readonly PropertyRow[],
+  language?: Language,
 ): { header: string[]; rows: (string | number)[][] } {
-  const shown = SUMMARY_COLUMNS.filter((c) => !hiddenColumns.includes(c));
-  const labels: Record<SummaryColumn, string> = {
-    property: 'Property',
-    value: 'Value',
-    count: 'Count',
-  };
+  const { columns, showProperty } = view;
+  const cells = cellsByEntry(rows, entries, columns);
   return {
-    header: shown.map((column) => labels[column]),
-    rows: entries.map((entry) => shown.map((column) => entry[column])),
+    header: [
+      ...(showProperty ? ['Property'] : []),
+      'Value',
+      ...columns.map(columnTitle),
+    ],
+    rows: entries.map((entry) => {
+      const list = cells.get(entryKey(entry)) ?? [];
+      return [
+        ...(showProperty ? [entry.property] : []),
+        entry.value,
+        ...columns.map((column, index): string | number => {
+          const cell = list[index] ?? NO_CELL;
+          return cell.status === 'ok' && isCountLike(column)
+            ? cell.value
+            : formatCell(cell, column, language);
+        }),
+      ];
+    }),
   };
+}
+
+export type SummaryAddition =
+  | { role: 'rows'; property: string }
+  | { role: 'column'; column: SummaryColumnSpec };
+
+export function applyAddition(
+  properties: readonly string[],
+  view: SummaryView,
+  addition: SummaryAddition,
+  editing?: SummaryAddition,
+): { properties: string[]; view: SummaryView } {
+  if (addition.role === 'rows') {
+    const name = addition.property.trim();
+    if (editing?.role !== 'rows') {
+      return { properties: [...properties, name], view };
+    }
+    const old = editing.property;
+    const { [old]: title, ...titles } = view.titles;
+    return {
+      properties: properties.map((item) => (item === old ? name : item)),
+      view: {
+        ...view,
+        groupBy: sanitizeGroupBy(
+          view.groupBy.map((item) => (item === old ? name : item)),
+        ),
+        titles: title === undefined ? titles : { ...titles, [name]: title },
+      },
+    };
+  }
+  return {
+    properties: [...properties],
+    view: {
+      ...view,
+      columns:
+        editing?.role === 'column'
+          ? view.columns.map((item) =>
+              item.id === editing.column.id ? addition.column : item,
+            )
+          : [...view.columns, addition.column],
+    },
+  };
+}
+
+export function additionProblem(
+  addition: SummaryAddition,
+  rows: readonly string[],
+  columns: readonly SummaryColumnSpec[],
+  editing?: SummaryAddition,
+): string | null {
+  if (addition.role === 'rows') {
+    const property = addition.property.trim();
+    if (!property) return 'Choose a property';
+    const others =
+      editing?.role === 'rows'
+        ? rows.filter((name) => name !== editing.property)
+        : rows;
+    if (others.includes(property)) return 'Already in the rows';
+    if (!editing && rows.length >= MAX_SUMMARY_ROWS) {
+      return `The summary holds up to ${MAX_SUMMARY_ROWS} row properties`;
+    }
+    return null;
+  }
+  const { column } = addition;
+  if (!column.property) return 'Choose a property';
+  const others =
+    editing?.role === 'column'
+      ? columns.filter((item) => item.id !== editing.column.id)
+      : columns;
+  if (others.some((item) => item.id === column.id)) {
+    return 'This column already exists';
+  }
+  if (!editing && columns.length >= MAX_SUMMARY_COLUMNS) {
+    return `The summary holds up to ${MAX_SUMMARY_COLUMNS} columns`;
+  }
+  return null;
 }
