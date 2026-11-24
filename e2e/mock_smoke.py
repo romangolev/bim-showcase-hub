@@ -241,9 +241,10 @@ def check_summary_tools(page, checks):
     page.keyboard.press("Escape")
     settle(page, 300)
     checks.add("closing summary settings returns focus to the gear", page.evaluate("document.activeElement?.textContent") == "Summary settings")
-    open_settings(page)
+    open_settings(page, "Appearance")
     main = page.get_by_role("dialog", name="Settings", exact=True)
     checks.add("main settings holds no pane-level density control", main.get_by_label("Density", exact=True).count() == 0 and main.get_by_label("Interface density").count() == 1)
+    pick_settings_section(page, "Tools and panes")
     main.get_by_role("button", name="Summary settings").click()
     settle(page, 300)
     main = page.get_by_role("dialog", name="Summary settings")
@@ -632,7 +633,7 @@ def check_dashboard_tools(page, checks):
     settle(page, 300)
     checks.add("closing dashboard settings returns focus to the gear", page.evaluate("document.activeElement?.textContent") == "Dashboard settings")
     page.screenshot(path=str(OUTPUT_DIR / "mock-dashboard-preset.png"))
-    open_settings(page)
+    open_settings(page, "Tools and panes")
     main = page.get_by_role("dialog", name="Settings", exact=True)
     checks.add("main settings holds no dashboard controls", main.get_by_role("button", name="Dashboard presets", exact=True).count() == 0)
     main.get_by_role("button", name="Dashboard settings").click()
@@ -957,21 +958,30 @@ def check_session_banner(page, checks):
     checks.add("banner is gone after the session is healthy again", page.locator(".session-banner").count() == 0)
 
 
-def open_settings(page):
+def pick_settings_section(page, section):
+    main = page.get_by_role("dialog", name="Settings", exact=True)
+    tab = main.get_by_role("tab", name=section, exact=True)
+    (tab if tab.count() else main.get_by_role("button", name=section, exact=True)).click()
+    settle(page, 200)
+
+
+def open_settings(page, section=None):
     page.get_by_role("button", name=re.compile(MOCK_USER_NAME)).first.click()
     page.get_by_role("menuitem", name="Settings").click()
     settle(page, 300)
+    if section:
+        pick_settings_section(page, section)
 
 
 def open_tool_settings(page, title):
-    open_settings(page)
+    open_settings(page, "Tools and panes")
     page.get_by_role("dialog", name="Settings", exact=True).get_by_role("button", name=f"{title} settings").click()
     settle(page, 300)
 
 
 def check_saved_items(page, checks):
     page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
-    open_settings(page)
+    open_settings(page, "Data and storage")
     main = page.get_by_role("dialog", name="Settings", exact=True)
     checks.add("main settings has a saved items section", main.get_by_role("button", name="Export saved items").count() == 1)
     with page.expect_download(timeout=8000) as info:
@@ -990,6 +1000,7 @@ def check_saved_items(page, checks):
     settle(page, 300)
     saved = main.get_by_role("region", name="Saved items")
     checks.add("a valid file imports", "Imported 1 item" in saved.get_by_role("status").inner_text(), saved.get_by_role("status").inner_text())
+    pick_settings_section(page, "Tools and panes")
     main.get_by_role("button", name="Dashboard settings").click()
     settle(page, 300)
     dialog = page.get_by_role("dialog", name="Dashboard settings")
@@ -1021,7 +1032,7 @@ def check_paint_palette(page, checks):
     checks.add("settings is centred vertically", abs((settings_box["y"] + settings_box["height"] / 2) - view["height"] / 2) <= 40 or settings_box["height"] >= view["height"] - 40, settings_box)
     page.keyboard.press("Escape")
     settle(page, 300)
-    open_settings(page)
+    open_settings(page, "Tools and panes")
     main = page.get_by_role("dialog", name="Settings", exact=True)
     checks.add("main settings has a switch for each tool", all(main.get_by_role("switch", name=t, exact=True).count() == 1 for t in ("Paint brushes", "Excel export", "Geometry export", "IFC export")))
     checks.add("main settings has a settings button only for tools with fields", all(main.get_by_role("button", name=f"{t} settings").count() == 1 for t in ("Paint brushes", "Excel export", "IFC export")) and main.get_by_role("button", name="Geometry export settings").count() == 0)

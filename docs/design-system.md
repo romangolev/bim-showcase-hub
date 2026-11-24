@@ -50,6 +50,8 @@ Tree badges show the view state ([architecture.md](architecture.md#view-state)).
 
 Task Center (`.task-center`), the command palette (`.cmdk`) and settings windows (`.settings` blocks in `styles/modal.css`) have shared styles.
 
+The main Settings window is two parts (`settings/SettingsShell.tsx`, `.settings-nav`): a vertical tab list of sections on the left and the selected section's options on the right, in a fixed-size `modal--xl` dialog so it does not jump between sections. In the stacked layout it shows the section list first and a section opens with a Back button. The selected tab uses the tree row highlight (ghost fill and a signal-blue inset bar) and `Highlight` under forced colours. Sections come from `registerSettingsSection` (`settings/settingsSections.ts`), never from the shell.
+
 Every settings window body is a `.settings` block of `.settings__section` groups (a `fieldset` with a `legend.settings__heading` where the controls form a group). A field is a `.settings__field` row: label on the left, control on the right, hint under the control; below 32rem of window width the row stacks. On and off settings use `SwitchRow` (label and hint on the left, switch on the right). Buttons are `.btn` in a `.settings__actions` row, and lists of rows (saved items, overrides, grouping levels) use `ItemList` and `ItemRow`, whose rows wrap on narrow widths. Inputs and selects outside a settings window use the same `.field` style. Do not use the pane label wrapper `.bsh-field` inside a settings window. The in-viewer badge (`.bsh-viewer-badge`) is for Share results only. Slow work reports in the Task Center.
 
 ## Layout breakpoint

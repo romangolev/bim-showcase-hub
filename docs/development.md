@@ -105,7 +105,7 @@ All browser storage goes through `src/web/storage.ts`. `BSH_KEYS` lists the fixe
 | `bsh.commands.viewer.keys.v1` | preference | Rebound viewer shortcuts, keyed by command id. Commands missing here use the defaults |
 | `bsh.tool.<id>.v1` | preference | Per-tool settings (`paint`, `excel`, `glb`, `ifc`, `toolbar`, `display`). Excel stores its chosen columns in `properties`, the column format per property in `columnFormats`, the colour toggles, the group-by, the empty label and the confirmation threshold; paint stores the palette, restore-on-open and history depth; toolbar stores the profile and its custom hidden-control list; display stores the light preset and the rendering toggles |
 
-To reset the layout, run `localStorage.removeItem('bsh.layout.v2')` or use Reset layout in the Panes menu or Settings > Defaults. In mock mode `window.__bshLayout` exposes the layout API for tests and `window.__bshMeasureRows()` returns the current adapter's cached leaf rows for `e2e/measure_rows.py`. Neither exists in production builds.
+To reset the layout, run `localStorage.removeItem('bsh.layout.v2')` or use Reset layout in the Panes menu or Settings > General > Defaults. In mock mode `window.__bshLayout` exposes the layout API for tests and `window.__bshMeasureRows()` returns the current adapter's cached leaf rows for `e2e/measure_rows.py`. Neither exists in production builds.
 
 ## CSP
 
