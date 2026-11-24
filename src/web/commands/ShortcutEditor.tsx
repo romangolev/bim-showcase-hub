@@ -1,5 +1,4 @@
 import { type KeyboardEvent, useState } from 'react';
-import { useT } from '../i18n/i18n.js';
 import { usePersisted } from '../storage.js';
 import { formatShortcut, shortcutFromEvent } from './shortcuts.js';
 import {
@@ -19,7 +18,6 @@ const REFUSALS = {
 } as const;
 
 export function ShortcutEditor() {
-  const t = useT();
   const [overrides] = usePersisted(VIEWER_SHORTCUT_KEYS);
   const [capturing, setCapturing] = useState<string | null>(null);
   const [message, setMessage] = useState('');
@@ -50,10 +48,7 @@ export function ShortcutEditor() {
     setCapturing(null);
   };
   return (
-    <section className="settings__section" aria-labelledby="settings-shortcuts">
-      <h3 id="settings-shortcuts" className="settings__heading">
-        {t('settings.shortcuts')}
-      </h3>
+    <div className="settings__section">
       <table className="settings__shortcuts">
         <tbody>
           {viewerShortcuts(overrides).map((shortcut) => (
@@ -98,6 +93,6 @@ export function ShortcutEditor() {
           Reset all shortcuts
         </button>
       </div>
-    </section>
+    </div>
   );
 }

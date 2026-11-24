@@ -2,17 +2,13 @@ import { SwitchRow } from '../components/SwitchRow.js';
 import { useT } from '../i18n/i18n.js';
 import { useModal } from '../modal/ModalContext.js';
 import { usePersisted } from '../storage.js';
-import { NotificationSettingsSection } from '../tasks/NotificationSettingsSection.js';
 import { TOOLS } from '../tools/index.js';
 import type { AnyViewerTool } from '../tools/kernel/ToolRegistry.js';
-import { ChartSettingsSection } from './ChartSettingsSection.js';
 import {
   PANE_SETTINGS_ORDER,
   PANE_SETTINGS_SCHEMA,
   type PaneSettingsSchema,
 } from './paneSettingsSchema.js';
-import { SavedItemsSettings } from './SavedItemsSettings.js';
-import { SnapshotSettings } from './SnapshotSettings.js';
 
 interface EntryRowProps {
   title: string;
@@ -93,10 +89,6 @@ const PANE_ENTRIES = PANE_SETTINGS_ORDER.flatMap((id) => {
   return schema ? [{ id, schema }] : [];
 });
 
-const PANE_FORMS = PANE_ENTRIES.flatMap(({ id, schema }) =>
-  schema.Body ? [{ id, Body: schema.Body }] : [],
-);
-
 export function SettingsEntries() {
   const t = useT();
   return (
@@ -117,13 +109,6 @@ export function SettingsEntries() {
           <PaneEntry key={id} schema={schema} />
         ))}
       </section>
-      {PANE_FORMS.map(({ id, Body }) => (
-        <Body key={id} />
-      ))}
-      <NotificationSettingsSection />
-      <ChartSettingsSection />
-      <SnapshotSettings />
-      <SavedItemsSettings />
     </>
   );
 }
