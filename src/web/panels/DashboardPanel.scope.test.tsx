@@ -113,8 +113,8 @@ describe('DashboardPanel chart stability', () => {
     await screen.findByRole('img', {
       name: 'Bar chart of element counts by Category',
     });
+    await waitFor(() => expect(counts.created).toBeGreaterThan(0));
     const built = counts.created;
-    expect(built).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole('button', { name: 'Collapse' }));
     fireEvent.click(screen.getByRole('button', { name: 'Expand' }));
     expect(counts.created).toBe(built);
