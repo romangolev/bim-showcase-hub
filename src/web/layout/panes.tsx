@@ -294,10 +294,6 @@ export function SummaryInstancePane({ instance }: { instance: string }) {
           value: spec.scope,
           onChange: (scope) => setSpec((prev) => ({ ...prev, scope })),
         }}
-        elements={{
-          value: spec.elements,
-          onChange: (elements) => setSpec((prev) => ({ ...prev, elements })),
-        }}
       />
     </aside>
   );

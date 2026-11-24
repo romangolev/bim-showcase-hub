@@ -355,7 +355,6 @@ export function ShareMenu({
         names: PANE_SETTINGS.summary.properties.read(),
         chartProperties: dashboard.properties,
         maxCategories: dashboard.maxCategories,
-        elements: PANE_SETTINGS.summary.scope.read(),
         view: PANE_SETTINGS.summary.view.read(),
         sections: options.sections,
         ...(options.notes.trim() ? { notes: options.notes.trim() } : {}),

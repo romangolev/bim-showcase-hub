@@ -67,13 +67,10 @@ describe('instance settings', () => {
     expect(spec.sanitize({ scope: 5 })).toMatchObject({
       properties: DEFAULT_DASHBOARD_PROPERTIES,
     });
-    expect(sanitizeSummarySpec({ scope: '' })).toMatchObject({
-      scope: 'all',
-      elements: 'all',
-    });
+    expect(sanitizeSummarySpec({ scope: '' })).toMatchObject({ scope: 'all' });
     expect(
       sanitizeSummarySpec({ elements: 'selected', properties: ['Name'] }),
-    ).toMatchObject({ elements: 'selected', properties: ['Name'] });
+    ).not.toHaveProperty('elements');
   });
 
   it('removes the stored spec when the instance is forgotten', () => {
@@ -89,10 +86,7 @@ describe('instance settings', () => {
     const view = renderHook(() =>
       usePersisted(summarySetting('modelSummary:1')),
     );
-    expect(view.result.current[0]).toMatchObject({
-      scope: 'all',
-      elements: 'all',
-    });
+    expect(view.result.current[0]).toMatchObject({ scope: 'all' });
     await act(async () => {
       seedInstanceSetting('modelSummary:1', 'urn-a');
       await Promise.resolve();
@@ -120,14 +114,11 @@ describe('instance settings', () => {
     );
     expect(view.result.current[0]).toMatchObject({ scope: 'urn-a' });
     act(() => forgetPersonal());
-    expect(view.result.current[0]).toMatchObject({
-      scope: 'all',
-      elements: 'all',
-    });
+    expect(view.result.current[0]).toMatchObject({ scope: 'all' });
     expect(
       renderHook(() => usePersisted(summarySetting('modelSummary:1'))).result
         .current[0],
-    ).toMatchObject({ scope: 'all', elements: 'all' });
+    ).toMatchObject({ scope: 'all' });
   });
 
   it('charts independently per instance and persists each spec', async () => {

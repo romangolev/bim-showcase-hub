@@ -28,13 +28,7 @@ import { formatCount } from '../i18n/format.js';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import { useSettings } from '../settings/SettingsContext.js';
 import { usePersisted } from '../storage.js';
-import type { ElementScope } from '../viewer/propertyScope.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
-import {
-  ElementScopeSelect,
-  elementScopeLabel,
-  scopeName,
-} from './ElementScope.js';
 import {
   FailedModels,
   ModelScopeSelect,
@@ -68,7 +62,6 @@ export interface ModelSummaryPanelProps {
   toggleable?: boolean;
   onOpenSettings?: () => void;
   scope?: { value: string; onChange: (scope: string) => void };
-  elements?: { value: ElementScope; onChange: (scope: ElementScope) => void };
   view?: { value: SummaryView; onChange: (view: SummaryView) => void };
   action?: ElementAction;
 }
@@ -89,7 +82,6 @@ export function ModelSummaryPanel({
   toggleable = true,
   onOpenSettings,
   scope: controlledScope,
-  elements: controlledElements,
   view: controlledView,
   action: controlledAction,
 }: ModelSummaryPanelProps) {
@@ -104,11 +96,6 @@ export function ModelSummaryPanel({
   );
   const propertyNames = propertyNamesOverride ?? savedProperties;
   const setProperties = onPropertiesChange ?? setSavedProperties;
-  const [savedElements, setSavedElements] = usePersisted(
-    PANE_SETTINGS.summary.scope,
-  );
-  const elementsScope = controlledElements?.value ?? savedElements;
-  const setElementsScope = controlledElements?.onChange ?? setSavedElements;
   const [savedView, setSavedView] = usePersisted(PANE_SETTINGS.summary.view);
   const view = controlledView?.value ?? savedView;
   const readNames = useMemo(
@@ -117,7 +104,6 @@ export function ModelSummaryPanel({
   );
   const state = useScopedRows(resolved, {
     names: readNames,
-    elements: elementsScope,
     autoRefresh: view.autoRefresh,
     ...(controlledScope ? { models: controlledScope } : {}),
   });
@@ -231,7 +217,6 @@ export function ModelSummaryPanel({
           ) : null}
         </h2>
         <ModelScopeSelect state={state.models} label="Summarize models" />
-        <ElementScopeSelect value={elementsScope} onChange={setElementsScope} />
         <button
           type="button"
           className="btn bsh-summary__add"
@@ -297,11 +282,6 @@ export function ModelSummaryPanel({
                 unavailable={state.models.unavailable}
               />
             </>
-          ) : null}
-          {state.status === 'ready' && state.elements !== 'all' ? (
-            <p className="bsh-scope__notice" role="status">
-              {elementScopeLabel(state, language)}
-            </p>
           ) : null}
           {!resolved && (
             <StateBlock
@@ -376,16 +356,8 @@ export function ModelSummaryPanel({
             !state.pending && (
               <StateBlock
                 variant="empty"
-                title={
-                  state.elements === 'all'
-                    ? 'No elements to summarize'
-                    : `No ${scopeName(state.elements).toLowerCase()} elements`
-                }
-                message={
-                  state.elements === 'all'
-                    ? 'This version has no readable elements. Try another version.'
-                    : 'Change the element scope, or pick elements in the viewer.'
-                }
+                title="No elements to summarize"
+                message="This version has no readable elements. Try another version."
                 action={{ label: 'Refresh', onClick: state.refresh }}
               />
             )}

@@ -100,7 +100,7 @@ The Share menu copies a link to the model with or without the current view. The 
 - Version 2 names the open pane kinds and the collapsed panes. Collapsing exists only for Documents, Model summary, Dashboard and Models. Chart, Model summary and Properties are instance kinds: a link leaves them to the chart views instead of opening a blank pane.
 - Version 3 adds `nodes`: per model, the isolated dbIds and the hidden dbIds (`-1` is the hide-all sentinel). A link carries at most 400 node ids; a larger set is left out and the link falls back to version 2, or version 1 without panes and charts. Models the node list does not name are restored with nothing hidden or isolated and keep the selection the link gives them.
 - The chart views are the Dashboard view plus up to three chart pane views, each with its own property list. A view scoped to a personal selection set travels without its `elements` scope, because the set itself is not shared.
-- The summary pane's properties, element scope and view are not part of the link.
+- The summary pane's properties and view are not part of the link.
 - The Share menu can leave parts out before it builds the link: **Include selection**, **Include panes and charts** and **Include hidden and isolated**, saved in `bsh.share.v1`. The camera is always included. Every option is on by default, so a plain copy link carries the whole view.
 - A link over 4,000 characters is cut to the camera and selection (version 1) and the Share menu says so. When it is, the menu also offers **Save view data (JSON)**: a `bsh-view` version 1 file with the model list and the whole view, named `<model>-view.json`. Chart panes beyond the first three are left out with their own notice.
 - Panes are restored only in the dock layout. In the stacked (narrow) layout the link applies the camera and the selection and leaves the stored layout alone.
@@ -115,7 +115,7 @@ Share > Print report... opens an options dialog first, then writes a printable p
 
 The dialog opens with all sections on, no notes and portrait every time. A **template** (saved kind `report-template`, version 1) stores the title, notes, orientation and sections: the Template list applies one, and **Save template** stores the current options under a name. Templates are removed from Settings > Saved items like any other saved kind. The printed page repeats table headers on every page and keeps a heading with its table. The page holds:
 
-- the title and version, the number of elements in the summary scope, the number of models and today's date;
+- the title and version, the number of elements in the summary, the number of models and today's date;
 - the model snapshot at the resolution chosen in Snapshot settings, when Snapshot is on;
 - up to six summary properties with eight values each and a "N more values" line, filtered and sorted by the summary pane's view;
 - up to three Dashboard properties as value and count tables, when Dashboard is on. The charts print as tables, not as chart images, a property that is also in the summary list is not charted, and a property with no values is skipped;

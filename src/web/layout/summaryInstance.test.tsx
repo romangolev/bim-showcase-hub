@@ -40,35 +40,6 @@ beforeEach(async () => {
 afterEach(() => adapter.destroy());
 
 describe('summary instance spec', () => {
-  it('keeps element scope per instance, apart from the main summary', async () => {
-    seedInstanceSetting('modelSummary:1', 'urn');
-    seedInstanceSetting('modelSummary:2', 'urn');
-    render(
-      <ModelViewerContext.Provider value={adapter}>
-        <section aria-label="one">
-          <SummaryInstancePane instance="1" />
-        </section>
-        <section aria-label="two">
-          <SummaryInstancePane instance="2" />
-        </section>
-        <section aria-label="main">
-          <ModelSummaryPanel />
-        </section>
-      </ModelViewerContext.Provider>,
-    );
-    const selects = (await screen.findAllByLabelText(
-      'Summarize elements',
-    )) as HTMLSelectElement[];
-    expect(selects).toHaveLength(3);
-    fireEvent.change(selects[0] as HTMLElement, {
-      target: { value: 'selected' },
-    });
-    await waitFor(() => expect(selects[0]?.value).toBe('selected'));
-    expect(selects[1]?.value).toBe('all');
-    expect(selects[2]?.value).toBe('all');
-    expect(window.localStorage.getItem('bsh.summary.scope.v1')).toBeNull();
-  });
-
   const mountThree = () =>
     render(
       <ModelViewerContext.Provider value={adapter}>
@@ -88,7 +59,7 @@ describe('summary instance spec', () => {
     seedInstanceSetting('modelSummary:2', 'urn');
     setSummarySettingsTarget('modelSummary:1');
     mountThree();
-    await screen.findAllByLabelText('Summarize elements');
+    await screen.findAllByRole('button', { name: 'Add property' });
     fireEvent.change(screen.getByLabelText('Density'), {
       target: { value: 'compact' },
     });
@@ -126,7 +97,7 @@ describe('summary instance spec', () => {
     seedInstanceSetting('modelSummary:1', 'urn');
     setSummarySettingsTarget(null);
     mountThree();
-    await screen.findAllByLabelText('Summarize elements');
+    await screen.findAllByRole('button', { name: 'Add property' });
     fireEvent.change(screen.getByLabelText('Density'), {
       target: { value: 'compact' },
     });
@@ -159,7 +130,6 @@ describe('summary instance spec', () => {
     );
     expect(summarySetting('modelSummary:7').read()).toMatchObject({
       scope: 'urn',
-      elements: 'selected',
       properties: ['A'],
       view: {
         density: 'comfortable',
@@ -169,6 +139,9 @@ describe('summary instance spec', () => {
       },
       action: 'select',
     });
+    expect(summarySetting('modelSummary:7').read()).not.toHaveProperty(
+      'elements',
+    );
   });
 
   it('scrubs view and action on close and on forget', () => {
@@ -219,7 +192,7 @@ describe('summary instance spec', () => {
         <SummaryInstancePane instance="1" />
       </ModelViewerContext.Provider>,
     );
-    await screen.findByLabelText('Summarize elements');
+    await screen.findByRole('button', { name: 'Add property' });
     fireEvent.click(screen.getByRole('button', { name: 'Add property' }));
     const box = within(document.querySelector('dialog[open]') as HTMLElement);
     fireEvent.click(box.getByRole('radio', { name: 'Rows' }));
