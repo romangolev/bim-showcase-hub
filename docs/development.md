@@ -28,7 +28,7 @@ npm run dev:mock
 | `npm test` | `vitest run` |
 | `npm run e2e:*` | End-to-end scripts, see below |
 
-Biome formats and lints (two-space indent, single quotes) and ignores `docs`. Run `npm run lint` before committing.
+Biome formats and lints (two-space indent, single quotes) and ignores `docs`. Run `npm run lint` before committing. Its CSS parser has `tailwindDirectives` on, so it reads `@theme` and `@source` in `src/web/styles/tailwind.css`.
 
 ## Environment variables
 

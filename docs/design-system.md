@@ -54,6 +54,21 @@ The main Settings window is two parts (`settings/SettingsShell.tsx`, `.settings-
 
 Every settings window body is a `.settings` block of `.settings__section` groups (a `fieldset` with a `legend.settings__heading` where the controls form a group). A field is a `.settings__field` row: label on the left, control on the right, hint under the control; below 32rem of window width the row stacks. On and off settings use `SwitchRow` (label and hint on the left, switch on the right). Buttons are `.btn` in a `.settings__actions` row, and lists of rows (saved items, overrides, grouping levels) use `ItemList` and `ItemRow`, whose rows wrap on narrow widths. Inputs and selects outside a settings window use the same `.field` style. Do not use the pane label wrapper `.bsh-field` inside a settings window. The in-viewer badge (`.bsh-viewer-badge`) is for Share results only. Slow work reports in the Task Center.
 
+## Tailwind and `src/web/ui`
+
+New UI is built from the components in `src/web/ui/`. They are shadcn/ui components on Base UI (`@base-ui/react`), styled with Tailwind v4 utilities. The existing `.btn`, `.field` and pane styles stay until each one is migrated.
+
+- `src/web/styles/tailwind.css` imports only `tailwindcss/theme` and `tailwindcss/utilities`. There is no Preflight: `global.css` stays the base layer. The utilities are not in a cascade layer, because a layered utility would lose to the element rules in `global.css` (`button { font: inherit }`).
+- Its `@theme inline reference` block maps the tokens onto utilities and adds no variable of its own: `bg-graphite`, `text-snow`, `border-hairline` (colours), `rounded-button` (radii), `text-13` (text scale), `font-ui` (weights), `tracking-body`, `shadow-float`, `font-sans`. Tailwind's default palette, radii, text scale, weights and shadows are switched off, so `bg-red-500` or `rounded-lg` produce nothing.
+- Spacing utilities multiply `--space-unit`, so `p-2` follows density. `border` is the 0.5px hairline width. `min-h-hit`, `h-hit` and `size-hit` are `--hit-target`: every control in `src/web/ui/` uses one of them.
+- Themes, density and text size work through the tokens. Do not use `dark:` variants.
+- Classes in `src/web/ui/` use token-mapped utilities only. No raw hex values, and no arbitrary `[...]` values where a token exists. A missing token is added to DESIGN.md and `tokens.css` first, then mapped in `tailwind.css` and listed in `ui/cn.ts`.
+- Tailwind scans only `src/web/ui/**/*.tsx` (`@source`). A utility class written anywhere else produces no CSS, and existing class names cannot collide with a utility.
+- Merge classes with `cn()` from `ui/cn.ts` (clsx and tailwind-merge). It knows the token names, so `text-13` (a size) and `text-snow` (a colour) do not cancel each other.
+- `src/web/styles/tailwind.test.ts` asserts the main points: no Preflight, no default palette, every mapped name exists in `tokens.css`, `cn()` knows every name, and no file in `src/web/ui/` has a hex value or an arbitrary value.
+
+To add a component, run `npx shadcn@latest add <name>`. `components.json` puts it in `src/web/ui/`. Then, by hand: rename the file to PascalCase, rewrite the imports to relative paths with `.js` extensions (`./cn.js`; the repo has no `@/` alias), replace shadcn's colour classes (`bg-primary`, `ring-ring`, `dark:`) and arbitrary values with token-mapped utilities, and add a render test. `ui/Button.tsx` is the reference.
+
 ## Layout breakpoint
 
 One breakpoint: `STACKED_QUERY` in `src/web/layout/breakpoint.ts` (`STACKED_MAX_WIDTH = 875`), re-exported by `LayoutProvider.tsx`. From 876 px wide panes are docked. Up to 875 px they stack in one column. Stacked-only rules use the `.stack` class.
