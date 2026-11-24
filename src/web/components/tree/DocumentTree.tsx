@@ -426,7 +426,15 @@ export function DocumentTree({
 
   const activate = (item: ItemInstance<TreeNode>) => {
     const node = item.getItemData();
-    if (node.kind === 'item' && view.itemOpen !== 'expand') {
+    if (ifcBatch?.active && node.kind === 'version') {
+      if (!isBlocked(node)) togglePick(node);
+      return;
+    }
+    if (
+      node.kind === 'item' &&
+      view.itemOpen !== 'expand' &&
+      !ifcBatch?.active
+    ) {
       void openItem(node, view.itemOpen);
       return;
     }
@@ -524,8 +532,9 @@ export function DocumentTree({
     if (event.key !== ' ' || node.kind !== 'version') return false;
     event.preventDefault();
     event.stopPropagation();
-    if (isBlocked(node)) openNode(node);
-    else togglePick(node);
+    if (isBlocked(node)) {
+      if (!ifcBatch?.active) openNode(node);
+    } else togglePick(node);
     return true;
   };
 

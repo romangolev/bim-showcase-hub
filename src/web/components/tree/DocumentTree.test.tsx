@@ -7,6 +7,7 @@ import {
   waitFor,
   within,
 } from '@testing-library/react';
+import type { ComponentProps } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { thumbnailPath } from '../../api/client.js';
 import { createOpenModelsStore } from '../../api/openModels.js';
@@ -685,6 +686,7 @@ describe('DocumentTree file rows', () => {
   async function setup(
     view: Partial<TreeView> = {},
     routes: Record<string, unknown> = {},
+    props: Partial<ComponentProps<typeof DocumentTree>> = {},
   ) {
     installMemoryStorage();
     window.localStorage.setItem(
@@ -699,7 +701,11 @@ describe('DocumentTree file rows', () => {
     const onOpenModel = vi.fn();
     render(
       <QueryClientProvider client={createTestClient()}>
-        <DocumentTree onOpenModel={onOpenModel} />
+        <DocumentTree
+          onOpenModel={onOpenModel}
+          onOpenTogether={vi.fn()}
+          {...props}
+        />
       </QueryClientProvider>,
     );
     await expandTo('Studio hub');
@@ -729,6 +735,24 @@ describe('DocumentTree file rows', () => {
         expect.objectContaining({ file: 'Tower.rvt', v: 'v2' }),
       ),
     );
+  });
+
+  it('only expands a file row and picks with Enter in IFC batch mode', async () => {
+    const onOpenModel = await setup(
+      { itemOpen: 'latest' },
+      {},
+      {
+        ifcBatch: { active: true, stop: vi.fn() },
+      },
+    );
+    fireEvent.click(fileRow());
+    const version = await screen.findByRole('treeitem', { name: /^v1:/ });
+    fireEvent.keyDown(version, { key: 'Enter' });
+    expect(version).toHaveAttribute('aria-checked', 'true');
+    fireEvent.keyDown(version, { key: 'Enter' });
+    expect(version).toHaveAttribute('aria-checked', 'false');
+    fireEvent.keyDown(fileRow(), { key: 'Enter' });
+    expect(onOpenModel).not.toHaveBeenCalled();
   });
 
   it('opens the latest version from the file row menu', async () => {
