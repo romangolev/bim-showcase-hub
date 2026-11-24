@@ -1,7 +1,8 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { viewableFor } from '../../../shared/viewState.js';
 import { childrenQueryOptions } from '../../api/hooks.js';
+import type { NodeScope } from '../../api/scope.js';
 import {
   reasonFor,
   VIEW_STATE_COPY,
@@ -25,6 +26,9 @@ export function isIfcBatchRunning(): boolean {
 
 const selectable = (row: BatchRow): boolean =>
   Boolean(row.urn) && viewableFor(row.state);
+
+const scopeId = (scope: NodeScope): string =>
+  scope.kind === 'root' ? '' : scope.id;
 
 const keyOf = (row: BatchRow): string => row.urn ?? '';
 
@@ -97,14 +101,19 @@ function IfcBatchBody({ close }: { close: () => void }) {
   const [listing, setListing] = useState(() => listBatchRows(client));
   const [filter, setFilter] = useState('');
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
+  const [notice, setNotice] = useState('');
+  const attempted = useRef(new Set<string>());
 
   useEffect(() => {
     let live = true;
-    const queue = listing.pendingItems.slice(0, MAX_PENDING_ITEMS);
+    const queue = listing.pendingItems
+      .filter((scope) => !attempted.current.has(scopeId(scope)))
+      .slice(0, MAX_PENDING_ITEMS - attempted.current.size);
     if (queue.length === 0) return;
     const next = async () => {
       for (let scope = queue.shift(); scope; scope = queue.shift()) {
         if (!live) return;
+        attempted.current.add(scopeId(scope));
         await client
           .fetchQuery(childrenQueryOptions(scope))
           .catch(() => undefined);
@@ -148,6 +157,10 @@ function IfcBatchBody({ close }: { close: () => void }) {
     });
   const busy = isIfcBatchRunning();
   const start = () => {
+    if (isIfcBatchRunning()) {
+      setNotice('A batch is already running. Wait for it to finish.');
+      return;
+    }
     if (
       chosen.length > CONFIRM_BATCH_ABOVE &&
       !window.confirm(
@@ -230,6 +243,11 @@ function IfcBatchBody({ close }: { close: () => void }) {
         {zipFileName(projectOf(chosen), new Date())}. Expand folders in
         Documents to list more. Unchecked versions are tried anyway.
       </p>
+      {notice ? (
+        <p className="settings__hint" role="status">
+          {notice}
+        </p>
+      ) : null}
       <div className="settings__actions">
         <button
           type="button"

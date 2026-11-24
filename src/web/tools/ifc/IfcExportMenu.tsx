@@ -19,8 +19,9 @@ function IfcExportMenuBody({ close }: { close: () => void }) {
         type="button"
         className="btn btn-primary"
         onClick={() => {
+          const run = exportCurrent;
           close();
-          exportCurrent?.();
+          run?.();
         }}
       >
         Export current
@@ -48,4 +49,7 @@ export const IFC_MENU_MODAL: ModalDefinition = {
   title: 'IFC export',
   size: 'sheet',
   Body: IfcExportMenuBody,
+  onClose: () => {
+    exportCurrent = null;
+  },
 };

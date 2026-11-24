@@ -74,13 +74,21 @@ export function createZip(now: Date = new Date()): ZipBuilder {
   const parts: (Uint8Array<ArrayBuffer> | Blob)[] = [];
   const central: Uint8Array<ArrayBuffer>[] = [];
   let offset = 0;
+  let directory = 22;
 
   return {
     async add(name, data) {
       const nameBytes = encoder.encode(name);
       if (
         central.length >= MAX_ENTRIES ||
-        offset + 30 + nameBytes.length + data.size > MAX_ZIP32 ||
+        offset +
+          30 +
+          nameBytes.length +
+          data.size +
+          directory +
+          46 +
+          nameBytes.length >
+          MAX_ZIP32 ||
         data.size > MAX_ZIP32
       ) {
         throw new Error('The ZIP archive would pass the 4 GB limit');
@@ -118,6 +126,7 @@ export function createZip(now: Date = new Date()): ZipBuilder {
       });
       entry.set(nameBytes, 46);
       central.push(entry);
+      directory += entry.length;
       parts.push(local, body);
       offset += local.length + body.size;
     },

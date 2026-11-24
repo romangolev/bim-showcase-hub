@@ -153,4 +153,40 @@ describe('IfcBatchModal', () => {
     expect(note?.state).toBe('warning');
     expect(note?.detail).toBe('Downloaded 1 of 3');
   });
+
+  it('fetches an item whose versions fail only once', async () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    client.setQueryData(
+      scopeKey({ kind: 'folder', id: 'f', hubId: 'h', projectId: 'p' }),
+      [
+        {
+          id: 'i1',
+          kind: 'item',
+          name: 'Arch.rvt',
+          hasChildren: true,
+          viewable: false,
+        },
+      ],
+    );
+    const fetch = vi
+      .spyOn(client, 'fetchQuery')
+      .mockRejectedValue(new Error('x'));
+    mount(client);
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('says so when a batch is already running', () => {
+    runIfcBatch.mockReturnValue(new Promise<BatchResult>(() => undefined));
+    mount(seeded(many(2)));
+    fireEvent.click(screen.getByRole('button', { name: 'Select all' }));
+    fireEvent.click(start());
+    close.mockClear();
+    fireEvent.click(start());
+    expect(close).not.toHaveBeenCalled();
+    expect(screen.getByRole('status').textContent).toContain('already running');
+  });
 });

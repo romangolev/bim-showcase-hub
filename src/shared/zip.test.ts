@@ -89,4 +89,10 @@ describe('createZip', () => {
     const huge = { size: 2 ** 32 } as Blob;
     await expect(zip.add('big.ifc', huge)).rejects.toThrow('4 GB');
   });
+
+  it('reserves room for the central directory', async () => {
+    const zip = createZip();
+    const nearLimit = { size: 2 ** 32 - 100 } as Blob;
+    await expect(zip.add('a.ifc', nearLimit)).rejects.toThrow('4 GB');
+  });
 });
