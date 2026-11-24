@@ -2478,6 +2478,7 @@ def check_thumbnails(page, checks):
             page.get_by_role("menuitem", name="Preview").click()
             preview = page.get_by_role("dialog", name="Preview of STATE-not-translated.rvt")
             preview.wait_for(timeout=5000)
+            wait_until(page, lambda: preview.get_by_text("No thumbnail").count() == 1)
             checks.add(
                 "thumbnails: the preview card shows the placeholder",
                 preview.get_by_text("No thumbnail").count() == 1,
