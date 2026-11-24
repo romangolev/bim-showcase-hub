@@ -14,6 +14,7 @@ import {
   ViewerTool,
 } from '../kernel/ViewerTool.js';
 import { IfcFields } from './IfcFields.js';
+import { ifcBatchMode } from './ifcBatchMode.js';
 import { IFC_SETTINGS, type IfcToolSettings } from './ifcSettings.js';
 
 export const IFC_TOOLTIP = 'Export IFC';
@@ -65,8 +66,11 @@ export class IfcExportTool extends ViewerTool<IfcToolSettings> {
                   {
                     id: ctx.id('ifc-batch'),
                     icon: 'bsh-ico-ifc-batch',
-                    tooltip: 'Batch export IFC: select versions in Documents',
-                    run: focusDocuments,
+                    tooltip: 'Batch export IFC',
+                    run: () => {
+                      ifcBatchMode.set(true);
+                      focusDocuments();
+                    },
                   },
                 ]
               : []),

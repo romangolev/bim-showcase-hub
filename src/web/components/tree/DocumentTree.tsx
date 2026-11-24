@@ -86,6 +86,7 @@ export interface DocumentTreeProps {
   onOpenTabs?: (models: PickedModel[]) => void;
   onOpenTogether?: (models: PickedModel[]) => void;
   onExportIfc?: (models: PickedModel[]) => void;
+  ifcBatch?: { active: boolean; stop: () => void };
   onOpenModal?: (urn: string, context: ModelContext) => void;
   addTarget?: AddTarget | null;
   root?: TreeRoot;
@@ -212,6 +213,7 @@ export function DocumentTree({
   onOpenTabs,
   onOpenTogether,
   onExportIfc,
+  ifcBatch,
   onOpenModal,
   addTarget,
   root = DEFAULT_TREE_ROOT,
@@ -493,6 +495,16 @@ export function DocumentTree({
 
   const onPickClick = (event: MouseEvent, node: TreeNode): boolean => {
     if (node.kind !== 'version') return false;
+    if (
+      ifcBatch?.active &&
+      !event.metaKey &&
+      !event.ctrlKey &&
+      !event.shiftKey
+    ) {
+      event.preventDefault();
+      if (!isBlocked(node)) togglePick(node);
+      return true;
+    }
     if (event.metaKey || event.ctrlKey) {
       event.preventDefault();
       if (isBlocked(node)) openNode(node);
@@ -1314,10 +1326,15 @@ export function DocumentTree({
               ? (models) => {
                   onExportIfc(models);
                   state.clearPicked();
+                  ifcBatch?.stop();
                 }
               : undefined
           }
-          onClear={state.clearPicked}
+          batchActive={ifcBatch?.active}
+          onClear={() => {
+            state.clearPicked();
+            if (ifcBatch?.active) ifcBatch.stop();
+          }}
         />
       ) : null}
       <div className="doc-tree__notice" role="status" aria-live="polite">

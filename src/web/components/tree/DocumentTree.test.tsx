@@ -972,6 +972,39 @@ describe('DocumentTree multi-select', () => {
     expect(row(1)).toHaveAttribute('aria-checked', 'false');
   });
 
+  it('selects with a plain click in IFC batch mode and exports or cancels', async () => {
+    const onExportIfc = vi.fn();
+    const stop = vi.fn();
+    const { onOpenModel } = await openVersions(3, {
+      onExportIfc,
+      ifcBatch: { active: true, stop },
+    });
+    expect(
+      screen.getByText('Click versions to select them for IFC export'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Export IFC' })).toBeDisabled();
+    fireEvent.click(row(1));
+    fireEvent.click(row(3));
+    expect(onOpenModel).not.toHaveBeenCalled();
+    expect(screen.getByText('2 selected for IFC export')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Export IFC' }));
+    const models = onExportIfc.mock.calls[0]?.[0] as { urn: string }[];
+    expect(models.map((model) => model.urn)).toEqual(['urn-0', 'urn-2']);
+    expect(stop).toHaveBeenCalledOnce();
+  });
+
+  it('clears the picks and leaves IFC batch mode on cancel', async () => {
+    const stop = vi.fn();
+    await openVersions(2, {
+      onExportIfc: vi.fn(),
+      ifcBatch: { active: true, stop },
+    });
+    fireEvent.click(row(1));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(stop).toHaveBeenCalledOnce();
+    expect(row(1)).toHaveAttribute('aria-checked', 'false');
+  });
+
   it('picks a range with Shift click', async () => {
     await openVersions(4);
     fireEvent.click(row(1), { ctrlKey: true });

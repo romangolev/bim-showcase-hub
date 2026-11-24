@@ -20,6 +20,7 @@ export function PickBar({
   onOpenTogether,
   onSaveSet,
   onExportIfc,
+  batchActive,
   onClear,
 }: {
   picked: PickedModel[];
@@ -29,8 +30,39 @@ export function PickBar({
   onOpenTogether: (models: PickedModel[]) => void;
   onSaveSet: () => void;
   onExportIfc?: (models: PickedModel[]) => void;
+  batchActive?: boolean;
   onClear: () => void;
 }) {
+  if (batchActive && onExportIfc) {
+    return (
+      <section
+        className="doc-tree__picks"
+        data-empty={picked.length === 0}
+        aria-label="Batch IFC export"
+      >
+        <span className="doc-tree__picks-count" aria-live="polite">
+          {picked.length === 0
+            ? 'Click versions to select them for IFC export'
+            : `${picked.length} selected for IFC export`}
+        </span>
+        <button
+          type="button"
+          className="btn btn-primary doc-tree__pick-action"
+          disabled={picked.length === 0}
+          onClick={() => onExportIfc(picked)}
+        >
+          Export IFC
+        </button>
+        <button
+          type="button"
+          className="btn doc-tree__pick-action"
+          onClick={onClear}
+        >
+          Cancel
+        </button>
+      </section>
+    );
+  }
   const tabs = pickPreview(picked, 'tabs');
   const together = pickPreview(picked, 'together');
   const message = tabs.blocked

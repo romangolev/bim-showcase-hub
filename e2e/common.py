@@ -183,7 +183,7 @@ def download_ifc_batch(page, target, timeout_ms=180000):
     versions = page.locator("[role=treeitem][data-viewable=true]")
     versions.first.wait_for(timeout=8000)
     for index in range(min(2, versions.count())):
-        versions.nth(index).click(modifiers=["Control"], timeout=8000)
+        versions.nth(index).click(timeout=8000)
     with page.expect_download(timeout=timeout_ms) as download_info:
         page.locator(".doc-tree__picks").get_by_role("button", name="Export IFC").click(timeout=8000)
     download_info.value.save_as(str(target))

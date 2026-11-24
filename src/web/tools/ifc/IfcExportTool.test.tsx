@@ -4,6 +4,7 @@ import { tasks } from '../../tasks/taskStore.js';
 import { installMemoryStorage } from '../../test/mockApi.js';
 import type { ViewerAdapter } from '../../viewer/ViewerAdapter.js';
 import type { ToolContext } from '../kernel/ViewerTool.js';
+import { ifcBatchMode } from './ifcBatchMode.js';
 
 const last = () => tasks.getSnapshot().tasks.at(-1);
 const exportToIfc = vi.fn(async (..._args: unknown[]) => undefined);
@@ -206,6 +207,8 @@ describe('export menu', () => {
     menu[1]?.run();
     menu[2]?.run();
     expect(focusDocuments).toHaveBeenCalledOnce();
+    expect(ifcBatchMode.get()).toBe(true);
+    ifcBatchMode.set(false);
     expect(openModal).toHaveBeenCalledWith('tool-ifc-settings');
     expect(exportToIfc).not.toHaveBeenCalled();
     menu[0]?.run();
