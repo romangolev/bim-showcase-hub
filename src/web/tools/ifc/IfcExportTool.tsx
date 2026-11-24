@@ -3,7 +3,6 @@ import {
   describeIfcStatus,
   exportToIfc,
 } from '../../extensions/ifcExport.js';
-import type { ModalDefinition } from '../../modal/types.js';
 import {
   exportEntry,
   exportFileName,
@@ -14,7 +13,6 @@ import {
   type ToolContribution,
   ViewerTool,
 } from '../kernel/ViewerTool.js';
-import { IFC_BATCH_MODAL } from './IfcBatchModal.js';
 import { IfcFields } from './IfcFields.js';
 import { IFC_SETTINGS, type IfcToolSettings } from './ifcSettings.js';
 
@@ -49,7 +47,7 @@ export class IfcExportTool extends ViewerTool<IfcToolSettings> {
           onStatus: statusReporter(task, describeIfcStatus),
         }),
     );
-    const { openModal } = ctx;
+    const { openModal, focusDocuments } = ctx;
     if (!openModal) return { exports: [entry] };
     return {
       exports: [
@@ -62,15 +60,19 @@ export class IfcExportTool extends ViewerTool<IfcToolSettings> {
               tooltip: 'Export current model',
               run: entry.onExport,
             },
-            {
-              id: ctx.id('ifc-batch'),
-              icon: 'bsh-ico-ifc-batch',
-              tooltip: 'Batch export IFC…',
-              run: () => openModal(IFC_BATCH_MODAL.id),
-            },
+            ...(focusDocuments
+              ? [
+                  {
+                    id: ctx.id('ifc-batch'),
+                    icon: 'bsh-ico-ifc-batch',
+                    tooltip: 'Batch export IFC: select versions in Documents',
+                    run: focusDocuments,
+                  },
+                ]
+              : []),
             {
               id: ctx.id('ifc-settings'),
-              icon: 'bsh-ico-settings',
+              icon: 'bsh-ico-ifc-settings',
               tooltip: 'IFC settings',
               run: () => openModal(this.modalId),
             },
@@ -78,10 +80,6 @@ export class IfcExportTool extends ViewerTool<IfcToolSettings> {
         },
       ],
     };
-  }
-
-  override modals(): ModalDefinition[] {
-    return [...super.modals(), IFC_BATCH_MODAL];
   }
 
   override scrub(settings: IfcToolSettings): IfcToolSettings {

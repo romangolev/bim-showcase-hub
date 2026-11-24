@@ -85,6 +85,7 @@ export interface DocumentTreeProps {
   onOpenModel: (urn: string, context: ModelContext) => void;
   onOpenTabs?: (models: PickedModel[]) => void;
   onOpenTogether?: (models: PickedModel[]) => void;
+  onExportIfc?: (models: PickedModel[]) => void;
   onOpenModal?: (urn: string, context: ModelContext) => void;
   addTarget?: AddTarget | null;
   root?: TreeRoot;
@@ -210,6 +211,7 @@ export function DocumentTree({
   onOpenModel,
   onOpenTabs,
   onOpenTogether,
+  onExportIfc,
   onOpenModal,
   addTarget,
   root = DEFAULT_TREE_ROOT,
@@ -1307,6 +1309,14 @@ export function DocumentTree({
             state.clearPicked();
           }}
           onSaveSet={savePickedAsSet}
+          onExportIfc={
+            onExportIfc
+              ? (models) => {
+                  onExportIfc(models);
+                  state.clearPicked();
+                }
+              : undefined
+          }
           onClear={state.clearPicked}
         />
       ) : null}

@@ -1,5 +1,4 @@
 import { createZip, type ZipBuilder } from '../../shared/zip.js';
-import { versionTag } from '../api/modelContext.js';
 import type { IfcSettings } from '../ifc/types.js';
 import { exportStem } from '../tools/kernel/exportKit.js';
 import { createViewerAdapter } from '../viewer/createViewerAdapter.js';
@@ -61,10 +60,6 @@ export function batchEntryNames(items: readonly BatchItem[]): string[] {
     used.add(name.toLowerCase());
     return name;
   });
-}
-
-export function versionLabelOf(name: string, versionNumber?: number): string {
-  return versionTag(name) ?? (versionNumber ? `v${versionNumber}` : 'v');
 }
 
 export function zipFileName(project: string | undefined, now: Date): string {

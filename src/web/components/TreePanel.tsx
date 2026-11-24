@@ -2,6 +2,7 @@ import { useParams, useSearch } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useModelContext } from '../api/useModelContext.js';
 import { useOpenModels } from '../api/useOpenModels.js';
+import { exportPickedAsIfcBatch } from '../tools/ifc/ifcBatchTask.js';
 import { DocumentsHome } from './tree/DocumentsHome.js';
 import { DocumentTree } from './tree/DocumentTree.js';
 import { DOC_ROOT, type TreeRoot, treeRootOf } from './tree/docRoot.js';
@@ -51,6 +52,7 @@ export function TreePanel({ onNavigate }: TreePanelProps) {
         onOpenTabs={openers.openTabs}
         onOpenModal={openers.openModal}
         onOpenTogether={openers.openTogether}
+        onExportIfc={exportPickedAsIfcBatch}
         addTarget={openers.addTarget}
       />
     </aside>

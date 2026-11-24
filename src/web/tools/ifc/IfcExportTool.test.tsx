@@ -190,20 +190,23 @@ describe('export task', () => {
 describe('export menu', () => {
   it('offers export, batch and settings in a dropdown and keeps palette export', () => {
     const openModal = vi.fn();
+    const focusDocuments = vi.fn();
     const tool = new IfcExportTool();
-    const ctx = context({ adapter: {} as ViewerAdapter, openModal });
+    const ctx = context({
+      adapter: {} as ViewerAdapter,
+      openModal,
+      focusDocuments,
+    });
     const menu = tool.contribute(ctx).exports?.[0]?.menu ?? [];
     expect(menu.map((item) => item.icon)).toEqual([
       'bsh-ico-ifc',
       'bsh-ico-ifc-batch',
-      'bsh-ico-settings',
+      'bsh-ico-ifc-settings',
     ]);
     menu[1]?.run();
     menu[2]?.run();
-    expect(openModal.mock.calls).toEqual([
-      ['tool-ifc-batch'],
-      ['tool-ifc-settings'],
-    ]);
+    expect(focusDocuments).toHaveBeenCalledOnce();
+    expect(openModal).toHaveBeenCalledWith('tool-ifc-settings');
     expect(exportToIfc).not.toHaveBeenCalled();
     menu[0]?.run();
     expect(exportToIfc).toHaveBeenCalledTimes(1);
@@ -218,13 +221,6 @@ describe('export menu', () => {
   it('has a plain export button without a modal host', () => {
     const spec = new IfcExportTool().contribute(context({})).exports?.[0];
     expect(spec?.menu).toBeUndefined();
-  });
-
-  it('registers the settings and batch modals', () => {
-    expect(new IfcExportTool().modals().map((modal) => modal.id)).toEqual([
-      'tool-ifc-settings',
-      'tool-ifc-batch',
-    ]);
   });
 });
 

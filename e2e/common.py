@@ -177,11 +177,15 @@ def download_ifc(page, target, timeout_ms=180000):
 
 def download_ifc_batch(page, target, timeout_ms=180000):
     toolbar_button = page.locator(f"{ACTIVE_MODEL} [id^='export-ifc-']:not([id$='-tooltip'])")
-    toolbar_button.first.click(timeout=8000)
-    page.get_by_role("button", name="Batch export IFC…").click(timeout=8000)
-    page.get_by_role("button", name="Select all").click(timeout=8000)
+    button = toolbar_button if toolbar_button.count() else page.get_by_role("button", name=IFC_EXPORT_NAME).first
+    button.first.click(timeout=8000)
+    page.get_by_role("button", name=re.compile("Batch export IFC", re.I)).first.click(timeout=8000)
+    versions = page.locator("[role=treeitem][data-viewable=true]")
+    versions.first.wait_for(timeout=8000)
+    for index in range(min(2, versions.count())):
+        versions.nth(index).click(modifiers=["Control"], timeout=8000)
     with page.expect_download(timeout=timeout_ms) as download_info:
-        page.get_by_role("button", name="Start export").click(timeout=8000)
+        page.locator(".doc-tree__picks").get_by_role("button", name="Export IFC").click(timeout=8000)
     download_info.value.save_as(str(target))
     return target.stat().st_size, target.read_bytes()[:4]
 

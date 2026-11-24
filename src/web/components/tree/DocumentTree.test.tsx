@@ -960,6 +960,18 @@ describe('DocumentTree multi-select', () => {
     expect(row(1)).toHaveAttribute('aria-checked', 'false');
   });
 
+  it('exports the picked versions as an IFC batch and clears the picks', async () => {
+    const onExportIfc = vi.fn();
+    await openVersions(3, { onExportIfc });
+    expect(screen.queryByRole('button', { name: 'Export IFC' })).toBeNull();
+    fireEvent.click(row(1), { ctrlKey: true });
+    fireEvent.click(row(3), { metaKey: true });
+    fireEvent.click(screen.getByRole('button', { name: 'Export IFC' }));
+    const models = onExportIfc.mock.calls[0]?.[0] as { urn: string }[];
+    expect(models.map((model) => model.urn)).toEqual(['urn-0', 'urn-2']);
+    expect(row(1)).toHaveAttribute('aria-checked', 'false');
+  });
+
   it('picks a range with Shift click', async () => {
     await openVersions(4);
     fireEvent.click(row(1), { ctrlKey: true });
