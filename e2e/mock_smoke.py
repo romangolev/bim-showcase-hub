@@ -519,7 +519,7 @@ def check_dashboard_tools(page, checks):
     page.get_by_role("menuitemcheckbox", name="Chart type: Doughnut").click()
     settle(page, 500)
     pane.locator(".bsh-chart--doughnut canvas").first.wait_for(timeout=8000)
-    trigger = pane.get_by_role("button", name=re.compile(r"^Export ")).first
+    trigger = pane.get_by_role("button", name=re.compile(r"^Options for ")).first
     trigger_box = trigger.bounding_box()
     checks.add("chart export trigger is at least 24px", trigger_box["width"] >= 24 and trigger_box["height"] >= 24, trigger_box)
     checks.add("chart export row is compact", pane.locator(".bsh-chart__tools").first.bounding_box()["height"] <= 32)
@@ -2534,6 +2534,14 @@ def check_export_tasks(page, checks):
     checks.add("export task: the pane no longer shows an export badge", page.locator(".bsh-viewer-badge").count() == 0)
 
 
+def first_tile_property(page):
+    page.locator(".pane-dashboard:visible").get_by_role("button", name=re.compile(r"^Options for ")).first.click()
+    name = page.get_by_role("menuitemcheckbox", name=re.compile(r"^Group by ")).and_(page.locator("[aria-checked=true]")).first.inner_text().strip()
+    page.keyboard.press("Escape")
+    settle(page, 200)
+    return name.removeprefix("Group by ")
+
+
 def check_pane_families(page, checks):
     page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
     settle(page)
@@ -2549,12 +2557,14 @@ def check_pane_families(page, checks):
     checks.add("New chart opens two chart panes", charts().count() == 2, charts().count())
     charts().nth(1).click()
     settle(page, 400)
-    groupers = page.get_by_label("Group by")
-    checks.add("a chart pane has its own property picker", groupers.count() == 1, groupers.count())
-    groupers.first.select_option("Level")
+    options = page.locator(".pane-dashboard:visible").get_by_role("button", name=re.compile(r"^Options for "))
+    options.first.click()
+    pickers = page.get_by_role("menuitemcheckbox", name=re.compile(r"^Group by "))
+    checks.add("a chart tile has its own property picker", pickers.count() >= 2, pickers.count())
+    page.get_by_role("menuitemcheckbox", name="Group by Level").click()
     settle(page, 500)
     stored = lambda key: page.evaluate(f"() => JSON.parse(localStorage.getItem('{key}') || 'null')")
-    checks.add("a chart spec is saved per instance", (stored("bsh.pane.chart.2.v1") or {}).get("property") == "Level" and stored("bsh.pane.chart.1.v1") is None, stored("bsh.pane.chart.2.v1"))
+    checks.add("a chart spec is saved per instance", ((stored("bsh.pane.chart.2.v1") or {}).get("charts") or [{}])[0].get("property") == "Level" and stored("bsh.pane.chart.1.v1") is None, stored("bsh.pane.chart.2.v1"))
     page.get_by_role("button", name="Panes").click()
     page.get_by_role("menuitem", name="New model summary").click()
     settle(page, 500)
@@ -2586,10 +2596,10 @@ def check_pane_families(page, checks):
     checks.add("chart panes survive a reload", charts().count() == 2, charts().count())
     charts().nth(1).click()
     settle(page, 400)
-    second = page.get_by_label("Group by").first.input_value()
+    second = first_tile_property(page)
     charts().nth(0).click()
     settle(page, 400)
-    first = page.get_by_label("Group by").first.input_value()
+    first = first_tile_property(page)
     checks.add("chart specs survive a reload", second == "Level" and first != "Level", [first, second])
     checks.add("the summary pane survives a reload", summaries().count() == 1, summaries().count())
     for urn in [model["urn"] for model in models(page)["models"]]:
