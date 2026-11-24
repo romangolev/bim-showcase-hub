@@ -165,4 +165,43 @@ describe('runIfcBatch', () => {
     expect(result.failed[0]?.reason).toBe('no load');
     expect(s.save).not.toHaveBeenCalled();
   });
+
+  it('cancels promptly while a model is loading and destroys the adapter', async () => {
+    const s = setup(() => 'ok');
+    const controller = new AbortController();
+    const destroyed = vi.fn();
+    const result = runIfcBatch([item('a')], {
+      ...s.options,
+      signal: controller.signal,
+      factory: async () =>
+        ({
+          load: () => new Promise<void>(() => undefined),
+          destroy: destroyed,
+        }) as unknown as ViewerAdapter,
+    });
+    await Promise.resolve();
+    controller.abort();
+    expect((await result).cancelled).toBe(true);
+    expect(destroyed).toHaveBeenCalledOnce();
+    expect(exportMock).not.toHaveBeenCalled();
+    expect(s.save).not.toHaveBeenCalled();
+  });
+
+  it('skips the export when aborted before it starts', async () => {
+    const s = setup(() => 'ok');
+    const controller = new AbortController();
+    const destroyed = vi.fn();
+    const result = await runIfcBatch([item('a')], {
+      ...s.options,
+      signal: controller.signal,
+      factory: async () =>
+        ({
+          load: async () => controller.abort(),
+          destroy: destroyed,
+        }) as unknown as ViewerAdapter,
+    });
+    expect(result.cancelled).toBe(true);
+    expect(exportMock).not.toHaveBeenCalled();
+    expect(destroyed).toHaveBeenCalledOnce();
+  });
 });

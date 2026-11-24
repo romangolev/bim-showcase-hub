@@ -79,6 +79,31 @@ function offscreenHost(): HTMLElement {
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
+async function raceAbort(
+  work: Promise<unknown>,
+  signal?: AbortSignal,
+): Promise<boolean> {
+  if (!signal) {
+    await work;
+    return false;
+  }
+  if (signal.aborted) {
+    work.catch(() => undefined);
+    return true;
+  }
+  let onAbort: () => void = () => undefined;
+  const abort = new Promise<true>((resolve) => {
+    onAbort = () => resolve(true);
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
+  work.catch(() => undefined);
+  try {
+    return (await Promise.race([work.then(() => false), abort])) === true;
+  } finally {
+    signal.removeEventListener('abort', onAbort);
+  }
+}
+
 async function exportOne(
   item: BatchItem,
   name: string,
@@ -92,10 +117,16 @@ async function exportOne(
   try {
     report('Loading model', 0);
     adapter = await factory(host);
-    await adapter.load(item.urn, `${item.file} ${item.version}`.trim());
+    const loading = adapter.load(
+      item.urn,
+      `${item.file} ${item.version}`.trim(),
+    );
+    const aborted = await raceAbort(loading, options.signal);
+    if (aborted || options.signal?.aborted) return null;
     let blob: Blob | undefined;
     let waited = 0;
     for (;;) {
+      if (options.signal?.aborted) return null;
       const status = await exportToIfc(adapter, {
         fileName: name,
         settings: () => options.settings,
