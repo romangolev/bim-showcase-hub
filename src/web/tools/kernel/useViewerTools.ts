@@ -56,8 +56,12 @@ export function useViewerTools(
     adapter: target,
     id: (base) => withSuffix(base, suffix),
     fileName: () => optionsRef.current.fileName(),
-    openModal: (id) => modalRef.current?.open(id),
-    focusDocuments: () => layoutRef.current?.focusPane('tree'),
+    openModal: modalRef.current
+      ? (id) => modalRef.current?.open(id)
+      : undefined,
+    focusDocuments: layoutRef.current
+      ? () => layoutRef.current?.focusPane('tree')
+      : undefined,
     current: (tool) =>
       tool.settings.sanitize(
         liveRef.current[tool.id] ?? tool.settings.initial,

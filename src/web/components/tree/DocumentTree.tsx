@@ -792,6 +792,12 @@ export function DocumentTree({
       return;
     }
     if (event.metaKey || event.ctrlKey || event.altKey) return;
+    if (event.key === 'Escape' && ifcBatch?.active) {
+      event.preventDefault();
+      state.clearPicked();
+      ifcBatch.stop();
+      return;
+    }
     if (event.key === 'Enter') {
       if (!target?.closest('[role="treeitem"]')) return;
       if (target.closest('button, a')) return;

@@ -221,6 +221,22 @@ describe('export menu', () => {
     expect(exportToIfc).toHaveBeenCalledTimes(2);
   });
 
+  it('omits the items it cannot run', () => {
+    const tool = new IfcExportTool();
+    const menuOf = (overrides: Partial<ToolContext>) =>
+      (tool.contribute(context(overrides)).exports?.[0]?.menu ?? []).map(
+        (item) => item.icon,
+      );
+    expect(menuOf({ focusDocuments: vi.fn() })).toEqual([
+      'bsh-ico-ifc',
+      'bsh-ico-ifc-batch',
+    ]);
+    expect(menuOf({ openModal: vi.fn() })).toEqual([
+      'bsh-ico-ifc',
+      'bsh-ico-ifc-settings',
+    ]);
+  });
+
   it('has a plain export button without a modal host', () => {
     const spec = new IfcExportTool().contribute(context({})).exports?.[0];
     expect(spec?.menu).toBeUndefined();

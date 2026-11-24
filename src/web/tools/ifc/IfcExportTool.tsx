@@ -49,7 +49,7 @@ export class IfcExportTool extends ViewerTool<IfcToolSettings> {
         }),
     );
     const { openModal, focusDocuments } = ctx;
-    if (!openModal) return { exports: [entry] };
+    if (!openModal && !focusDocuments) return { exports: [entry] };
     return {
       exports: [
         {
@@ -74,12 +74,16 @@ export class IfcExportTool extends ViewerTool<IfcToolSettings> {
                   },
                 ]
               : []),
-            {
-              id: ctx.id('ifc-settings'),
-              icon: 'bsh-ico-ifc-settings',
-              tooltip: 'IFC settings',
-              run: () => openModal(this.modalId),
-            },
+            ...(openModal
+              ? [
+                  {
+                    id: ctx.id('ifc-settings'),
+                    icon: 'bsh-ico-ifc-settings',
+                    tooltip: 'IFC settings',
+                    run: () => openModal(this.modalId),
+                  },
+                ]
+              : []),
           ],
         },
       ],

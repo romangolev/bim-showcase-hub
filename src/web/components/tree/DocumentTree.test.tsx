@@ -1009,6 +1009,18 @@ describe('DocumentTree multi-select', () => {
     expect(row(1)).toHaveAttribute('aria-checked', 'false');
   });
 
+  it('leaves IFC batch mode and clears the picks on Escape', async () => {
+    const stop = vi.fn();
+    await openVersions(2, {
+      onExportIfc: vi.fn(),
+      ifcBatch: { active: true, stop },
+    });
+    fireEvent.click(row(1));
+    fireEvent.keyDown(row(1), { key: 'Escape' });
+    expect(stop).toHaveBeenCalledOnce();
+    expect(row(1)).toHaveAttribute('aria-checked', 'false');
+  });
+
   it('picks a range with Shift click', async () => {
     await openVersions(4);
     fireEvent.click(row(1), { ctrlKey: true });

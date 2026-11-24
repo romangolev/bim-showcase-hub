@@ -1,5 +1,5 @@
 import { useParams, useSearch } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useModelContext } from '../api/useModelContext.js';
 import { useOpenModels } from '../api/useOpenModels.js';
 import { ifcBatchMode, useIfcBatchMode } from '../tools/ifc/ifcBatchMode.js';
@@ -25,6 +25,7 @@ export function TreePanel({ onNavigate }: TreePanelProps) {
   const openers = useModelOpeners(onNavigate);
   const home = useOpenModels().active === null;
   const batchActive = useIfcBatchMode();
+  useEffect(() => () => ifcBatchMode.set(false), []);
 
   return (
     <aside id="document-panel" className="tree-panel" aria-label="Documents">
