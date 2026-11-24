@@ -79,6 +79,20 @@ function createToolsExtension(viewing: AutodeskViewing): ViewerExtensionClass {
       }
 
       for (const entry of spec.exports) {
+        if (entry.menu) {
+          const combo: ComboButton = new UI.ComboButton(entry.id);
+          combo.setToolTip(entry.tooltip);
+          combo.setIcon(entry.icon);
+          for (const item of entry.menu) {
+            const button: ControlButton = new UI.Button(item.id);
+            button.setIcon(item.icon);
+            button.setToolTip(item.tooltip);
+            button.onClick = item.run;
+            combo.addControl(button);
+          }
+          group.addControl(combo);
+          continue;
+        }
         const button: ControlButton = new UI.Button(entry.id);
         button.setIcon(entry.icon);
         button.setToolTip(entry.tooltip);

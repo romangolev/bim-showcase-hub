@@ -458,7 +458,7 @@ describe('ViewerPane export tasks', () => {
     await waitFor(() => expect(latest('Exporting Excel')?.state).toBe('done'));
     fireEvent.click(screen.getByRole('button', { name: 'Export IFC' }));
     fireEvent.click(
-      await screen.findByRole('button', { name: 'Export current' }),
+      await screen.findByRole('button', { name: 'Export current model' }),
     );
     await waitFor(() =>
       expect(latest('Exporting IFC')?.detail).toMatch(/^Exported .* elements/),

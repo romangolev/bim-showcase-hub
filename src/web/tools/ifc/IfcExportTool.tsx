@@ -15,11 +15,6 @@ import {
   ViewerTool,
 } from '../kernel/ViewerTool.js';
 import { IFC_BATCH_MODAL } from './IfcBatchModal.js';
-import {
-  IFC_MENU_MODAL,
-  IFC_MENU_MODAL_ID,
-  setExportCurrent,
-} from './IfcExportMenu.js';
 import { IfcFields } from './IfcFields.js';
 import { IFC_SETTINGS, type IfcToolSettings } from './ifcSettings.js';
 
@@ -55,23 +50,38 @@ export class IfcExportTool extends ViewerTool<IfcToolSettings> {
         }),
     );
     const { openModal } = ctx;
+    if (!openModal) return { exports: [entry] };
     return {
       exports: [
-        openModal
-          ? {
-              ...entry,
-              onMenu: () => {
-                setExportCurrent(entry.onExport);
-                openModal(IFC_MENU_MODAL_ID);
-              },
-            }
-          : entry,
+        {
+          ...entry,
+          menu: [
+            {
+              id: ctx.id('ifc-export-now'),
+              icon: 'bsh-ico-ifc',
+              tooltip: 'Export current model',
+              run: entry.onExport,
+            },
+            {
+              id: ctx.id('ifc-batch'),
+              icon: 'bsh-ico-ifc-batch',
+              tooltip: 'Batch export IFC…',
+              run: () => openModal(IFC_BATCH_MODAL.id),
+            },
+            {
+              id: ctx.id('ifc-settings'),
+              icon: 'bsh-ico-settings',
+              tooltip: 'IFC settings',
+              run: () => openModal(this.modalId),
+            },
+          ],
+        },
       ],
     };
   }
 
   override modals(): ModalDefinition[] {
-    return [...super.modals(), IFC_MENU_MODAL, IFC_BATCH_MODAL];
+    return [...super.modals(), IFC_BATCH_MODAL];
   }
 
   override scrub(settings: IfcToolSettings): IfcToolSettings {

@@ -188,25 +188,41 @@ describe('export task', () => {
 });
 
 describe('export menu', () => {
-  it('opens the menu from the toolbar and keeps one-click export for the palette', () => {
+  it('offers export, batch and settings in a dropdown and keeps palette export', () => {
     const openModal = vi.fn();
     const tool = new IfcExportTool();
     const ctx = context({ adapter: {} as ViewerAdapter, openModal });
-    const spec = tool.contribute(ctx).exports?.[0];
-    spec?.onMenu?.();
-    expect(openModal).toHaveBeenCalledWith('tool-ifc-menu');
+    const menu = tool.contribute(ctx).exports?.[0]?.menu ?? [];
+    expect(menu.map((item) => item.icon)).toEqual([
+      'bsh-ico-ifc',
+      'bsh-ico-ifc-batch',
+      'bsh-ico-settings',
+    ]);
+    menu[1]?.run();
+    menu[2]?.run();
+    expect(openModal.mock.calls).toEqual([
+      ['tool-ifc-batch'],
+      ['tool-ifc-settings'],
+    ]);
     expect(exportToIfc).not.toHaveBeenCalled();
+    menu[0]?.run();
+    expect(exportToIfc).toHaveBeenCalledTimes(1);
+    const paletteCtx = context({ adapter: {} as ViewerAdapter, openModal });
     const palette = tool
-      .commands(ctx, tool.settings.initial)
+      .commands(paletteCtx, tool.settings.initial)
       .find((command) => command.id === 'ifc.export');
     palette?.run({} as never);
-    expect(exportToIfc).toHaveBeenCalledTimes(1);
+    expect(exportToIfc).toHaveBeenCalledTimes(2);
   });
 
-  it('registers the menu and batch modals next to the settings window', () => {
+  it('has a plain export button without a modal host', () => {
+    const spec = new IfcExportTool().contribute(context({})).exports?.[0];
+    expect(spec?.menu).toBeUndefined();
+  });
+
+  it('registers the settings and batch modals', () => {
     expect(new IfcExportTool().modals().map((modal) => modal.id)).toEqual([
       'tool-ifc-settings',
-      'tool-ifc-menu',
       'tool-ifc-batch',
     ]);
   });

@@ -62,6 +62,8 @@ import type {
   DisplaySettings,
   ElementSearchOptions,
   ElementSearchResult,
+  ExportMenuItem,
+  ExportToolSpec,
   LoadStage,
   MeasureMode,
   MeasurementInfo,
@@ -1089,7 +1091,14 @@ export class MockViewerAdapter implements ViewerAdapter {
       parts.push(comboEl);
     }
 
+    const closers: (() => void)[] = [];
     for (const entry of spec.exports) {
+      if (entry.menu) {
+        const menu = this.exportMenu(entry, entry.menu);
+        closers.push(menu.close);
+        parts.push(menu.element);
+        continue;
+      }
       const button = this.createToolbarButton(
         entry.id,
         entry.tooltip,
@@ -1124,9 +1133,64 @@ export class MockViewerAdapter implements ViewerAdapter {
       dispose: () => {
         stop();
         closePaint();
+        for (const close of closers) close();
         group.remove();
       },
     };
+  }
+
+  private exportMenu(
+    entry: ExportToolSpec,
+    items: ExportMenuItem[],
+  ): { element: HTMLElement; close: () => void } {
+    const element = document.createElement('div');
+    element.className = 'bsh-mock__combo';
+    const trigger = this.createToolbarButton(
+      entry.id,
+      entry.tooltip,
+      iconSpan(entry.icon),
+    );
+    trigger.setAttribute('aria-haspopup', 'true');
+    trigger.setAttribute('aria-expanded', 'false');
+    const flyout = document.createElement('div');
+    flyout.className = 'bsh-mock__flyout';
+    flyout.hidden = true;
+    flyout.setAttribute('role', 'group');
+    flyout.setAttribute('aria-label', entry.tooltip);
+    for (const item of items) {
+      const button = this.createToolbarButton(
+        item.id,
+        item.tooltip,
+        iconSpan(item.icon),
+      );
+      button.addEventListener('click', () => {
+        setOpen(false);
+        item.run();
+      });
+      flyout.appendChild(button);
+    }
+    element.append(trigger, flyout);
+    const onOutside = (event: Event) => {
+      if (!element.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setOpen(false);
+      trigger.focus();
+    };
+    const setOpen = (open: boolean) => {
+      flyout.hidden = !open;
+      trigger.setAttribute('aria-expanded', String(open));
+      if (open) {
+        document.addEventListener('pointerdown', onOutside);
+        document.addEventListener('keydown', onKey);
+      } else {
+        document.removeEventListener('pointerdown', onOutside);
+        document.removeEventListener('keydown', onKey);
+      }
+    };
+    trigger.addEventListener('click', () => setOpen(Boolean(flyout.hidden)));
+    return { element, close: () => setOpen(false) };
   }
 
   private fit(): void {

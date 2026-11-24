@@ -224,10 +224,10 @@ describe('mock toolbar tool group', () => {
 });
 
 describe('mock toolbar menu entries', () => {
-  it('opens the menu instead of exporting when a spec has onMenu', async () => {
+  it('opens a flyout whose items run their own action', async () => {
     await setup();
     const onExport = vi.fn();
-    const onMenu = vi.fn();
+    const run = vi.fn();
     adapter.registerToolGroup({
       id: 'menu-group',
       title: 'Menu',
@@ -237,13 +237,18 @@ describe('mock toolbar menu entries', () => {
           icon: 'bsh-ico-ifc',
           tooltip: 'Menu',
           onExport,
-          onMenu,
+          menu: [
+            { id: 'menu-item', icon: 'bsh-ico-ifc', tooltip: 'Item', run },
+          ],
         },
       ],
     });
     button('export-menu').click();
-    expect(onMenu).toHaveBeenCalledOnce();
+    expect(button('export-menu').getAttribute('aria-expanded')).toBe('true');
+    button('menu-item').click();
+    expect(run).toHaveBeenCalledOnce();
     expect(onExport).not.toHaveBeenCalled();
+    expect(button('export-menu').getAttribute('aria-expanded')).toBe('false');
   });
 });
 

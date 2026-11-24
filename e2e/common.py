@@ -165,7 +165,7 @@ def download_ifc(page, target, timeout_ms=180000):
     button = toolbar_button if toolbar_button.count() else page.get_by_role("button", name=IFC_EXPORT_NAME).first
     with page.expect_download(timeout=timeout_ms) as download_info:
         button.click(timeout=8000)
-        current = page.get_by_role("button", name="Export current")
+        current = page.get_by_role("button", name="Export current model")
         try:
             current.wait_for(timeout=1500)
             current.click(timeout=8000)
@@ -178,7 +178,7 @@ def download_ifc(page, target, timeout_ms=180000):
 def download_ifc_batch(page, target, timeout_ms=180000):
     toolbar_button = page.locator(f"{ACTIVE_MODEL} [id^='export-ifc-']:not([id$='-tooltip'])")
     toolbar_button.first.click(timeout=8000)
-    page.get_by_role("button", name="Batch export…").click(timeout=8000)
+    page.get_by_role("button", name="Batch export IFC…").click(timeout=8000)
     page.get_by_role("button", name="Select all").click(timeout=8000)
     with page.expect_download(timeout=timeout_ms) as download_info:
         page.get_by_role("button", name="Start export").click(timeout=8000)
