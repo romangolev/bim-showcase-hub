@@ -102,6 +102,11 @@ export const EN = {
   'settings.showHintsAgain': 'Show hints again',
   'settings.hintsHint':
     'The move, Panes and Ctrl+K notes show once each and stay hidden until you ask for them here.',
+  'settings.general': 'General',
+  'settings.toolsPanes': 'Tools and panes',
+  'settings.data': 'Data and storage',
+  'settings.sections': 'Settings sections',
+  'settings.back': 'Back',
   'panes.title': 'Panes',
   'panes.search': 'Search panes',
   'panes.matching': 'Matching panes',
