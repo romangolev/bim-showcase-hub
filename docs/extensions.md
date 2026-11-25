@@ -193,6 +193,7 @@ All browser storage goes through `src/web/storage.ts`. Do not call `localStorage
 - `usePersisted(record)` returns `[value, update, reset]`.
 - Add a key to `BSH_KEYS.personal` when it describes the user's models, layout or work. Add it to `BSH_KEYS.preference` when it is a taste setting.
 - A family of keys (`defineRecordFamily`) needs a prefix in `BSH_PERSONAL_PREFIXES`.
+- When you remove a personal key, move it to `BSH_RETIRED_PERSONAL_KEYS` so sign-out still clears values saved by older builds.
 
 ## Saved items
 

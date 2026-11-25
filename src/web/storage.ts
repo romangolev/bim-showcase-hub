@@ -42,6 +42,10 @@ export const BSH_KEYS = {
   },
 } as const;
 
+export const BSH_RETIRED_PERSONAL_KEYS: readonly string[] = [
+  'bsh.summary.scope.v1',
+];
+
 export const BSH_PREFIXES = {
   pane: 'bsh.pane.',
   paint: 'bsh.paint.',
@@ -73,7 +77,10 @@ export function getStorageAdapter(): StorageAdapter {
   return adapter;
 }
 
-const personalKeys = new Set<string>(Object.values(BSH_KEYS.personal));
+const personalKeys = new Set<string>([
+  ...Object.values(BSH_KEYS.personal),
+  ...BSH_RETIRED_PERSONAL_KEYS,
+]);
 const preferenceKeys = new Set<string>(Object.values(BSH_KEYS.preference));
 
 export function isPersonalKey(key: string): boolean {
