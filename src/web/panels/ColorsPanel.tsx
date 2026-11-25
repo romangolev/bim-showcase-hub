@@ -1,5 +1,4 @@
 import { useEffect, useId, useMemo, useState } from 'react';
-import { NumberField } from '../components/NumberField.js';
 import { StateBlock } from '../components/StateBlock.js';
 import {
   COLOR_TOP_N_MAX,
@@ -9,6 +8,7 @@ import {
 import { colorByRules, ruleProperties } from '../extensions/colorRules.js';
 import { readChartTheme, seriesColors } from '../extensions/dashboardData.js';
 import { usePersisted } from '../storage.js';
+import { NumberField } from '../ui/NumberField.js';
 import {
   applyColoring,
   currentColoring,
@@ -171,10 +171,10 @@ export function ColorsPanel({ adapter }: ColorsPanelProps) {
                       value={settings.spec.topN}
                       min={COLOR_TOP_N_MIN}
                       max={COLOR_TOP_N_MAX}
-                      onCommit={(topN) =>
+                      onValueCommitted={(topN) =>
                         update({ spec: { ...settings.spec, topN } })
                       }
-                      className="field field--narrow"
+                      className="field--narrow"
                     />
                   </label>
                 ) : null}

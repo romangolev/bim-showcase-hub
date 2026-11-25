@@ -1,5 +1,4 @@
 import { useContext } from 'react';
-import { NumberField } from '../../components/NumberField.js';
 import { SettingsField } from '../../components/SettingsForm.js';
 import { SwitchRow } from '../../components/SwitchRow.js';
 import {
@@ -24,6 +23,7 @@ import { SelectionSets } from '../../panels/SelectionSets.js';
 import { usePropertyCatalog } from '../../panels/usePropertyCatalog.js';
 import { usePersisted } from '../../storage.js';
 import { Button } from '../../ui/Button.js';
+import { NumberField } from '../../ui/NumberField.js';
 import { usePublishedAdapter } from '../../viewer/activeAdapterStore.js';
 import { useModelColoring } from '../../viewer/modelColoring.js';
 import { modelScopeOptions, resolveScope } from '../../viewer/modelScope.js';
@@ -291,7 +291,7 @@ export function ExcelFields() {
               min={0}
               max={CONFIRM_ABOVE_MAX}
               value={excel.confirmAbove}
-              onCommit={(confirmAbove) => update({ confirmAbove })}
+              onValueCommitted={(confirmAbove) => update({ confirmAbove })}
             />
           </>
         )}

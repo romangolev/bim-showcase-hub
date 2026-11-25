@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { NumberField } from '../components/NumberField.js';
 import {
   COLOR_RULE_PRESETS,
   duplicateRulePreset,
@@ -16,6 +15,7 @@ import { OTHER_COLOR } from '../extensions/dashboardData.js';
 import { useSavedKindItems } from '../store/savedKinds.js';
 import { MAX_NAME_LENGTH } from '../store/savedStore.js';
 import { Button } from '../ui/Button.js';
+import { NumberField } from '../ui/NumberField.js';
 
 export interface ColorRulesProps {
   value: RuleSet;
@@ -129,8 +129,8 @@ export function ColorRules({ value, onChange, properties }: ColorRulesProps) {
                     <NumberField
                       value={rule.min ?? 0}
                       min={Number.MIN_SAFE_INTEGER}
-                      onCommit={(min) => update(rule.id, { min })}
-                      className="field field--narrow"
+                      onValueCommitted={(min) => update(rule.id, { min })}
+                      className="field--narrow"
                     />
                   </label>
                   <label className="bsh-field">
@@ -138,8 +138,8 @@ export function ColorRules({ value, onChange, properties }: ColorRulesProps) {
                     <NumberField
                       value={rule.max ?? 0}
                       min={Number.MIN_SAFE_INTEGER}
-                      onCommit={(max) => update(rule.id, { max })}
-                      className="field field--narrow"
+                      onValueCommitted={(max) => update(rule.id, { max })}
+                      className="field--narrow"
                     />
                   </label>
                 </>

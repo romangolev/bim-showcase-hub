@@ -1,4 +1,3 @@
-import { NumberField } from '../components/NumberField.js';
 import { SwitchRow } from '../components/SwitchRow.js';
 import {
   AGGREGATE_LABELS,
@@ -13,7 +12,6 @@ import {
   MIN_CATEGORIES,
   viewSpec,
 } from '../extensions/dashboardPresets.js';
-
 import {
   ACTION_LABELS,
   ELEMENT_ACTIONS,
@@ -34,6 +32,7 @@ import type { ModalDefinition } from '../modal/types.js';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import { usePersisted } from '../storage.js';
 import { Button } from '../ui/Button.js';
+import { NumberField } from '../ui/NumberField.js';
 import { usePublishedAdapter } from '../viewer/activeAdapterStore.js';
 import { useModels } from '../viewer/useModels.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
@@ -202,7 +201,7 @@ function DashboardFields({
             min={Math.max(MIN_CATEGORIES, TOP_N_MIN)}
             max={Math.min(MAX_CATEGORIES, TOP_N_MAX)}
             value={spec.topN}
-            onCommit={(topN) =>
+            onValueCommitted={(topN) =>
               patch({
                 topN,
                 maxCategories: Math.min(topN, MAX_CATEGORIES),
@@ -272,7 +271,9 @@ function DashboardFields({
               min={0}
               max={MAX_KPI_THRESHOLD}
               value={health.threshold}
-              onCommit={(threshold) => setHealth({ ...health, threshold })}
+              onValueCommitted={(threshold) =>
+                setHealth({ ...health, threshold })
+              }
             />
           </label>
           <PropertyListField

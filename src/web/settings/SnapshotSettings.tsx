@@ -1,8 +1,8 @@
-import { NumberField } from '../components/NumberField.js';
 import { SettingsField } from '../components/SettingsForm.js';
 import { SwitchRow } from '../components/SwitchRow.js';
 import { useT } from '../i18n/i18n.js';
 import { usePersisted } from '../storage.js';
+import { NumberField } from '../ui/NumberField.js';
 import {
   MAX_ADVANCE_SECONDS,
   MAX_SIDE,
@@ -57,7 +57,7 @@ export function SnapshotSettings() {
               min={MIN_CUSTOM_WIDTH}
               max={MAX_SIDE}
               value={settings.customWidth}
-              onCommit={(customWidth) =>
+              onValueCommitted={(customWidth) =>
                 update((prev) => ({ ...prev, customWidth }))
               }
             />
@@ -81,7 +81,7 @@ export function SnapshotSettings() {
             min={0}
             max={MAX_ADVANCE_SECONDS}
             value={settings.advanceSeconds}
-            onCommit={(advanceSeconds) =>
+            onValueCommitted={(advanceSeconds) =>
               update((prev) => ({ ...prev, advanceSeconds }))
             }
           />

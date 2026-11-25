@@ -1,6 +1,6 @@
-import { NumberField } from '../components/NumberField.js';
 import { SettingsField } from '../components/SettingsForm.js';
 import { SwitchRow } from '../components/SwitchRow.js';
+import { NumberField } from '../ui/NumberField.js';
 import {
   TOAST_POSITIONS,
   type ToastPosition,
@@ -49,7 +49,7 @@ export function NotificationSettingsSection() {
             min={0}
             max={60}
             value={Math.round(settings.durationMs / 1000)}
-            onCommit={(seconds) =>
+            onValueCommitted={(seconds) =>
               update((prev) => ({ ...prev, durationMs: seconds * 1000 }))
             }
           />

@@ -46,6 +46,7 @@ import {
   MenuSeparator,
   MenuTrigger,
 } from './Menu.js';
+import { NumberField } from './NumberField.js';
 import {
   Popover,
   PopoverPopup,
@@ -378,6 +379,19 @@ const ENTRIES: Entry[] = [
     file: 'Radio',
     slot: 'radio-group',
     render: (props) => <RadioGroup aria-label="label" {...props} />,
+  },
+  {
+    file: 'NumberField',
+    slot: 'number-field',
+    render: (props) => (
+      <NumberField
+        aria-label="label"
+        value={1}
+        min={0}
+        onValueCommitted={() => undefined}
+        {...props}
+      />
+    ),
   },
 ];
 

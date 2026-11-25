@@ -222,7 +222,7 @@ fieldset.settings__field {
   min-height: var(--hit-target);
 }
 
-.settings input[type="number"] {
+.settings [data-slot="number-field"] {
   width: 8rem;
 }
 

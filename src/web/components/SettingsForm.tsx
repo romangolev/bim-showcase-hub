@@ -1,6 +1,6 @@
 import { type ReactNode, useId } from 'react';
 import { Button } from '../ui/Button.js';
-import { NumberField } from './NumberField.js';
+import { NumberField } from '../ui/NumberField.js';
 import { SwitchRow } from './SwitchRow.js';
 
 interface FieldBase {
@@ -144,7 +144,7 @@ function NumberRow({ field, value, set }: RowProps<NumberFieldDef>) {
           min={field.min}
           max={field.max}
           value={current}
-          onCommit={set}
+          onValueCommitted={set}
         />
       )}
     </SettingsField>
