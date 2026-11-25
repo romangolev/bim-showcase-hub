@@ -1,19 +1,18 @@
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { Button } from '../ui/Button.js';
+import { IconButton } from '../ui/IconButton.js';
 import {
-  type KeyboardEvent,
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useId,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from 'react';
-import { createPortal } from 'react-dom';
-import { buttonClasses } from '../ui/Button.js';
-import { cn } from '../ui/cn.js';
-import { iconButtonClasses } from '../ui/IconButton.js';
+  MenuCheckboxItem,
+  MenuHint,
+  MenuInertItem,
+  MenuItem,
+  MenuItemIndicator,
+  MenuPopup,
+  Menu as MenuRoot,
+  MenuSeparator,
+  MenuTrigger,
+} from '../ui/Menu.js';
 import { Icon, type IconName } from './icons.js';
-import { moveFocus, onEscape, usePopover } from './usePopover.js';
 
 export type MenuEntry =
   | {
@@ -49,24 +48,7 @@ export type MenuProps = MenuBaseProps &
       }
   );
 
-const TRIGGER_CLASSES = {
-  icon: iconButtonClasses,
-  button: buttonClasses({}),
-  unstyled: '',
-};
-const TRIGGER_SLOTS = {
-  icon: 'icon-button',
-  button: 'button',
-  unstyled: undefined,
-};
-
-function CheckMark({ checked }: { checked?: boolean }) {
-  return (
-    <span className="menu__check">
-      {checked ? <Icon name="check" size={14} /> : null}
-    </span>
-  );
-}
+const KEEP_FOCUS = ['outside-press', 'focus-out'];
 
 export function Menu({
   label,
@@ -81,195 +63,140 @@ export function Menu({
   anchor,
   onClose,
 }: MenuProps) {
-  const [open, setOpen] = useState<null | 'first' | 'last'>(null);
+  const [open, setOpen] = useState(false);
   const [entries, setEntries] = useState<MenuEntry[]>([]);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const menuId = useId();
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
+  const pickedRef = useRef<(() => void) | null>(null);
   const itemsRef = useRef(items);
   itemsRef.current = items;
 
-  const focusables = useCallback(
-    () =>
-      Array.from(
-        menuRef.current?.querySelectorAll<HTMLButtonElement>(
-          '[role^="menuitem"]:not(:disabled)',
-        ) ?? [],
-      ),
-    [],
-  );
-
-  const show = (where: 'first' | 'last') => {
-    setEntries(items());
-    setOpen(where);
+  const close = (restore: boolean) => {
+    setOpen(false);
+    if (restore) triggerRef.current?.focus();
+    onClose?.(restore);
   };
 
-  const close = useCallback((restore: boolean) => {
-    setOpen(null);
-    if (restore) triggerRef.current?.focus();
-    onCloseRef.current?.(restore);
-  }, []);
-
   const anchorKey = anchor ? `${anchor.x},${anchor.y}` : null;
-  const position = usePopover({
-    open: open !== null,
-    triggerRef,
-    popoverRef: menuRef,
-    onDismiss: () => close(false),
-    align,
-    anchor: anchor ?? undefined,
-  });
-
   useEffect(() => {
     if (anchorKey === null) return;
     setEntries(itemsRef.current());
-    setOpen('first');
+    setOpen(true);
   }, [anchorKey]);
 
-  const pendingFocus = useRef<null | 'first' | 'last'>(null);
+  const redirected = useRef(false);
+  if (!open) redirected.current = false;
 
-  useLayoutEffect(() => {
-    if (open) pendingFocus.current = open;
-  }, [open, anchorKey]);
+  const point = useMemo(() => {
+    if (anchorKey === null) return undefined;
+    const [x, y] = anchorKey.split(',').map(Number) as [number, number];
+    return {
+      getBoundingClientRect: () => DOMRect.fromRect({ x, y }),
+    };
+  }, [anchorKey]);
 
-  useLayoutEffect(() => {
-    const where = pendingFocus.current;
-    if (!position || !where) return;
-    pendingFocus.current = null;
-    const list = focusables();
-    (where === 'last' ? list[list.length - 1] : list[0])?.focus();
-  }, [position, focusables]);
-
-  const onMenuKeyDown = (event: KeyboardEvent) => {
-    if (onEscape(event, () => close(true))) return;
-    const list = focusables();
-    if (moveFocus(event, list)) return;
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      list[list.indexOf(document.activeElement as HTMLButtonElement)]?.click();
-    } else if (event.key === 'Tab') {
-      close(false);
-    }
-  };
-
-  const select = (entry: MenuEntry) => {
-    if (entry.kind === 'separator' || entry.disabled) return;
-    close(true);
-    entry.onSelect();
+  const triggerProps = {
+    title: title ?? label,
+    className: triggerClassName,
   };
 
   return (
-    <div
-      className={['menu', anchor !== undefined && 'menu--anchored', className]
-        .filter(Boolean)
-        .join(' ')}
+    <MenuRoot
+      open={open}
+      modal={false}
+      onOpenChange={(next, details) => {
+        if (next) {
+          setEntries(items());
+          setOpen(true);
+        } else {
+          const picked = pickedRef.current;
+          pickedRef.current = null;
+          close(!KEEP_FOCUS.includes(details.reason));
+          picked?.();
+        }
+      }}
     >
       {anchor === undefined ? (
-        <button
-          ref={triggerRef}
-          type="button"
-          className={cn(TRIGGER_CLASSES[triggerVariant], triggerClassName)}
-          data-slot={TRIGGER_SLOTS[triggerVariant]}
-          aria-label={label}
-          title={title ?? label}
-          aria-haspopup="menu"
-          aria-expanded={open !== null}
-          aria-controls={open ? menuId : undefined}
-          onClick={() => (open ? close(false) : show('first'))}
-          onKeyDown={(event) => {
-            if (open) return;
-            if (
-              event.key === 'ArrowDown' ||
-              event.key === 'Enter' ||
-              event.key === ' '
-            ) {
-              event.preventDefault();
-              show('first');
-            } else if (event.key === 'ArrowUp') {
-              event.preventDefault();
-              show('last');
+        <span className={['menu-host', className].filter(Boolean).join(' ')}>
+          <MenuTrigger
+            ref={triggerRef}
+            render={
+              triggerVariant === 'icon' ? (
+                <IconButton label={label ?? ''} {...triggerProps} />
+              ) : triggerVariant === 'button' ? (
+                <Button aria-label={label} {...triggerProps} />
+              ) : (
+                <button type="button" aria-label={label} {...triggerProps} />
+              )
             }
-          }}
-        >
-          {trigger}
-        </button>
+          >
+            {trigger}
+          </MenuTrigger>
+        </span>
       ) : null}
-      {open
-        ? createPortal(
-            <div
-              ref={menuRef}
-              id={menuId}
-              className="menu__popover"
-              role="menu"
-              aria-label={label}
-              tabIndex={-1}
-              style={
-                position
-                  ? { top: position.top, left: position.left }
-                  : { top: 0, left: 0, visibility: 'hidden' }
-              }
-              onKeyDown={onMenuKeyDown}
-            >
-              {hint ? (
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="menu__item menu__item--hint"
-                  disabled
-                >
-                  {hint}
-                </button>
+      <MenuPopup
+        onFocus={(event) => {
+          if (anchor === undefined || redirected.current) return;
+          if (event.target !== event.currentTarget) return;
+          redirected.current = true;
+          event.currentTarget
+            .querySelector<HTMLElement>(
+              '[data-slot="menu-item"], [data-slot="menu-checkbox-item"]',
+            )
+            ?.focus();
+        }}
+        aria-label={label}
+        anchor={point}
+        align={anchor === undefined ? align : 'start'}
+        sideOffset={anchor === undefined ? 4 : 0}
+        finalFocus={false}
+      >
+        {hint ? <MenuHint>{hint}</MenuHint> : null}
+        {entries.map((entry) => {
+          if (entry.kind === 'separator') {
+            return <MenuSeparator key={entry.id} />;
+          }
+          const content = (
+            <>
+              <MenuItemIndicator>
+                {entry.checked ? <Icon name="check" size={14} /> : null}
+              </MenuItemIndicator>
+              {entry.icon ? (
+                <Icon name={entry.icon} size={14} className="menu-icon" />
               ) : null}
-              {entries.map((entry) => {
-                if (entry.kind === 'separator') {
-                  return <hr key={entry.id} className="menu__separator" />;
-                }
-                const content = (
-                  <>
-                    <CheckMark checked={entry.checked} />
-                    {entry.icon ? (
-                      <Icon
-                        name={entry.icon}
-                        size={14}
-                        className="menu__icon"
-                      />
-                    ) : null}
-                    {entry.label}
-                  </>
-                );
-                return entry.checked === undefined ? (
-                  <button
-                    key={entry.id}
-                    type="button"
-                    role="menuitem"
-                    className="menu__item"
-                    disabled={entry.disabled}
-                    title={entry.description}
-                    onClick={() => select(entry)}
-                  >
-                    {content}
-                  </button>
-                ) : (
-                  <button
-                    key={entry.id}
-                    type="button"
-                    role="menuitemcheckbox"
-                    aria-checked={entry.checked}
-                    className="menu__item"
-                    disabled={entry.disabled}
-                    title={entry.description}
-                    onClick={() => select(entry)}
-                  >
-                    {content}
-                  </button>
-                );
-              })}
-            </div>,
-            triggerRef.current?.closest('dialog') ?? document.body,
-          )
-        : null}
-    </div>
+              {entry.label}
+            </>
+          );
+          const select = () => {
+            pickedRef.current = entry.onSelect;
+          };
+          if (entry.disabled) {
+            return (
+              <MenuInertItem
+                key={entry.id}
+                checked={entry.checked}
+                title={entry.description}
+              >
+                {content}
+              </MenuInertItem>
+            );
+          }
+          return entry.checked === undefined ? (
+            <MenuItem key={entry.id} title={entry.description} onClick={select}>
+              {content}
+            </MenuItem>
+          ) : (
+            <MenuCheckboxItem
+              key={entry.id}
+              checked={entry.checked}
+              closeOnClick
+              title={entry.description}
+              onClick={select}
+            >
+              {content}
+            </MenuCheckboxItem>
+          );
+        })}
+      </MenuPopup>
+    </MenuRoot>
   );
 }

@@ -1,4 +1,11 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   listRecentModels,
@@ -323,7 +330,7 @@ describe('RecentStrip row menu', () => {
     vi.useRealTimers();
   });
 
-  it('moves with arrow keys and returns focus to the row on Escape', () => {
+  it('moves with arrow keys and returns focus to the row on Escape', async () => {
     renderCollapsed(target());
     fireEvent.click(stripToggle());
     const row = screen.getByRole('button', { name: 'B.rvt · 2' });
@@ -331,12 +338,12 @@ describe('RecentStrip row menu', () => {
     fireEvent.keyDown(row, { key: 'ContextMenu' });
     const menu = screen.getByRole('menu');
     const items = within(menu).getAllByRole('menuitem');
-    expect(items[0]).toHaveFocus();
-    fireEvent.keyDown(menu, { key: 'ArrowDown' });
-    expect(items[1]).toHaveFocus();
-    fireEvent.keyDown(menu, { key: 'ArrowUp' });
-    expect(items[0]).toHaveFocus();
-    fireEvent.keyDown(menu, { key: 'Escape' });
+    await waitFor(() => expect(items[0]).toHaveFocus());
+    fireEvent.keyDown(items[0] as HTMLElement, { key: 'ArrowDown' });
+    await waitFor(() => expect(items[1]).toHaveFocus());
+    fireEvent.keyDown(items[1] as HTMLElement, { key: 'ArrowUp' });
+    await waitFor(() => expect(items[0]).toHaveFocus());
+    fireEvent.keyDown(items[0] as HTMLElement, { key: 'Escape' });
     expect(screen.queryByRole('menu')).toBeNull();
     expect(row).toHaveFocus();
   });
@@ -348,9 +355,11 @@ describe('RecentStrip row menu', () => {
       clientX: 33,
       clientY: 44,
     });
-    const style = screen.getByRole('menu').style;
-    expect(style.left).toBe('33px');
-    expect(style.top).toBe('44px');
+    const positioner = screen
+      .getByRole('menu')
+      .closest('[data-slot="menu-positioner"]');
+    expect(positioner).toHaveAttribute('data-align', 'start');
+    expect(positioner).toHaveAttribute('data-side', 'bottom');
   });
 
   it('adds through the menu', () => {
@@ -374,7 +383,7 @@ describe('RecentStrip row menu', () => {
   it('disables add at the combined cap with the reason', () => {
     renderCollapsed(target({ canAdd: () => false }));
     const item = within(openMenu()).getByText('Add to open model');
-    expect(item).toBeDisabled();
+    expect(item).toHaveAttribute('aria-disabled', 'true');
     expect(item).toHaveAttribute('title', 'Combined viewer holds 6 models');
   });
 

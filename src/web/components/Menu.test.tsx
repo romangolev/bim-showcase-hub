@@ -18,7 +18,9 @@ describe('Menu', () => {
   it('opens in the body without a dialog', () => {
     render(<Menu label="Things" trigger="Open" items={items} />);
     fireEvent.click(screen.getByRole('button', { name: 'Things' }));
-    expect(screen.getByRole('menu').parentElement).toBe(document.body);
+    const menu = screen.getByRole('menu');
+    expect(menu.closest('dialog')).toBeNull();
+    expect(document.body.contains(menu)).toBe(true);
   });
 
   it('shows a description on a checkable entry too', () => {

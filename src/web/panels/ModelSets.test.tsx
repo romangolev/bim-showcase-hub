@@ -139,13 +139,13 @@ describe('ModelSets', () => {
     renderSets(stubOpeners());
     openMenu('Seven');
     const together = screen.getByRole('menuitem', { name: 'Open together' });
-    expect(together).toBeDisabled();
+    expect(together).toHaveAttribute('aria-disabled', 'true');
     expect(together).toHaveAttribute(
       'title',
       'A combined viewer holds 6 models',
     );
     const link = screen.getByRole('menuitem', { name: 'Copy link' });
-    expect(link).toBeDisabled();
+    expect(link).toHaveAttribute('aria-disabled', 'true');
     expect(link).toHaveAttribute('title', 'Links carry up to 6 models');
   });
 

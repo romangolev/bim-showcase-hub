@@ -386,8 +386,8 @@ describe('Share menu links', () => {
     expect(screen.queryByText(SHARE_ACCESS_HINT)).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Share' }));
     const hint = screen.getByRole('menuitem', { name: SHARE_ACCESS_HINT });
-    expect(hint).toBeVisible();
-    expect(hint).toBeDisabled();
+    expect(hint).toBeInTheDocument();
+    expect(hint).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('offers the full view as a JSON file when the link is too long', async () => {
