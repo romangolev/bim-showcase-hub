@@ -189,21 +189,6 @@
   color: var(--color-snow);
 }
 
-.settings
-  input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"]),
-.settings select,
-.settings textarea,
-.field {
-  min-width: 0;
-  min-height: var(--hit-target);
-  padding: 0 var(--space-2);
-  border: var(--border-field);
-  border-radius: var(--radius-tile);
-  background: var(--color-charcoal);
-  color: var(--color-snow);
-  font-size: var(--text-14);
-}
-
 .settings [data-slot="number-field"] {
   width: 8rem;
 }

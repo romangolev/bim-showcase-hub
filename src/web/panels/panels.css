@@ -303,11 +303,6 @@
     flex: 1 0 100%;
   }
 
-  [data-slot="drawer-header"] .field {
-    flex: 1;
-    max-width: none;
-  }
-
   .bsh-dashboard__toggle-icon {
     display: block;
   }
