@@ -42,6 +42,9 @@ const allowed: Probe[] = [
   ['src/web/panels', 'test.tsx', '../viewer/MockViewerAdapter.js'],
   ['src/web/viewer', 'ts', './RealViewerAdapter.js'],
   ['src/web/viewer', 'tsx', '../ui/Button.js'],
+  ['src/web/ui', 'tsx', 'sonner'],
+  ['src/web/ui', 'tsx', 'react-dom'],
+  ['src/web/ui', 'test.tsx', 'sonner'],
 ];
 
 const forbidden: Probe[] = [
@@ -68,6 +71,9 @@ const forbidden: Probe[] = [
   ['src/web/tools/paint', 'ts', '../../viewer/autodesk.js'],
   ['src/web/layout', 'ts', '../viewer/autodeskTools.js'],
   ['src/web/layout', 'test.ts', '../viewer/fakeFederatedViewer.js'],
+  ['src/web/tasks', 'tsx', 'sonner'],
+  ['src/web/tasks', 'tsx', 'sonner', 'dynamic'],
+  ['src/web/viewer', 'tsx', 'sonner'],
 ];
 
 const CANARY: Probe = ['src/web/panels', 'tsx', '@base-ui/react/button'];
@@ -143,6 +149,14 @@ describe('import boundaries (biome.json)', () => {
       .filter((file) => !file.startsWith(join('src/web', 'ui')))
       .filter((file) => !file.endsWith('importBoundaries.test.ts'))
       .filter((file) => readFileSync(file, 'utf8').includes(BASE_UI));
+    expect(offenders).toEqual([]);
+  });
+
+  it('never names sonner outside src/web/ui', () => {
+    const offenders = sourceFiles('src/web')
+      .filter((file) => !file.startsWith(join('src/web', 'ui')))
+      .filter((file) => !file.endsWith('importBoundaries.test.ts'))
+      .filter((file) => /['"`]sonner['"`/]/.test(readFileSync(file, 'utf8')));
     expect(offenders).toEqual([]);
   });
 

@@ -66,6 +66,10 @@
                     "message": "Only src/web/ui imports Base UI. Use a primitive from src/web/ui. See docs/design-system.md, Import boundaries."
                   },
                   {
+                    "group": ["sonner", "sonner/**"],
+                    "message": "Only src/web/ui imports sonner. Use the Toast primitive from src/web/ui. See docs/design-system.md, Import boundaries."
+                  },
+                  {
                     "group": [
                       "**/viewer/RealViewerAdapter.js",
                       "**/viewer/autodesk.js",
@@ -93,6 +97,10 @@
                   {
                     "group": ["@base-ui/react", "@base-ui/react/**"],
                     "message": "Only src/web/ui imports Base UI. Use a primitive from src/web/ui. See docs/design-system.md, Import boundaries."
+                  },
+                  {
+                    "group": ["sonner", "sonner/**"],
+                    "message": "Only src/web/ui imports sonner. Use the Toast primitive from src/web/ui. See docs/design-system.md, Import boundaries."
                   }
                 ]
               }
@@ -115,13 +123,15 @@
                       "**",
                       "!react",
                       "!react/**",
+                      "!react-dom",
                       "!@base-ui/react/**",
                       "!clsx",
                       "!tailwind-merge",
+                      "!sonner",
                       "!./**",
                       "**/../**"
                     ],
-                    "message": "src/web/ui imports only react, @base-ui/react, clsx, tailwind-merge and its own files. See docs/design-system.md, Import boundaries."
+                    "message": "src/web/ui imports only react, react-dom, @base-ui/react, clsx, tailwind-merge, sonner and its own files. See docs/design-system.md, Import boundaries."
                   }
                 ]
               }
@@ -144,15 +154,17 @@
                       "**",
                       "!react",
                       "!react/**",
+                      "!react-dom",
                       "!@base-ui/react/**",
                       "!clsx",
                       "!tailwind-merge",
+                      "!sonner",
                       "!./**",
                       "**/../**",
                       "!vitest",
                       "!@testing-library/**"
                     ],
-                    "message": "src/web/ui imports only react, @base-ui/react, clsx, tailwind-merge and its own files. See docs/design-system.md, Import boundaries."
+                    "message": "src/web/ui imports only react, react-dom, @base-ui/react, clsx, tailwind-merge, sonner and its own files. See docs/design-system.md, Import boundaries."
                   }
                 ]
               }

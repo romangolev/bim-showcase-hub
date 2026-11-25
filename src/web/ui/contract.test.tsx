@@ -62,6 +62,7 @@ import { Spinner } from './Spinner.js';
 import { Switch } from './Switch.js';
 import { Tab, TabPanel, Tabs, TabsList } from './Tabs.js';
 import { Textarea } from './Textarea.js';
+import { Toast, Toaster } from './Toast.js';
 import { ToggleButton } from './ToggleButton.js';
 import { Tooltip, TooltipPopup, TooltipTrigger } from './Tooltip.js';
 
@@ -418,6 +419,16 @@ const ENTRIES: Entry[] = [
     file: 'Progress',
     slot: 'progress',
     render: (props) => <Progress label="label" value={50} {...props} />,
+  },
+  {
+    file: 'Toast',
+    slot: 'toast',
+    render: (props) => <Toast title="label" {...props} />,
+  },
+  {
+    file: 'Toast',
+    slot: 'toaster',
+    render: (props) => <Toaster label="label" {...props} />,
   },
 ];
 

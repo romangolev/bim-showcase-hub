@@ -20,6 +20,11 @@ export const ROLE_PAIRS: [string, string, number][] = [
   ['on-solid', 'solid', 4.5],
   ['on-solid', 'solid-hover', 4.5],
   ['on-accent', 'accent-fill', 3],
+  ...ROLE_SURFACES.map((surface): [string, string, number] => [
+    'warning',
+    surface,
+    3,
+  ]),
 ];
 
 function luminance(hex: string): number {

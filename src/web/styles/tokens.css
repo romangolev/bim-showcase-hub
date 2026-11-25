@@ -237,6 +237,8 @@
 
   --ui-z-sticky: var(--z-sticky);
   --ui-drawer-body: 136px;
+  --ui-warning: var(--color-ember);
+  --ui-toast-width: min(100vw - 32px, 360px);
 
   --z-raised: 1;
   --z-sticky: 2;

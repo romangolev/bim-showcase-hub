@@ -127,6 +127,8 @@
   --container-dialog-xl: var(--ui-dialog-xl);
   --container-dialog-command: var(--ui-dialog-command);
 
+  --color-warning: var(--ui-warning);
+
   --default-border-width: 0.5px;
   --default-transition-duration: var(--ui-motion);
   --default-transition-timing-function: ease;
