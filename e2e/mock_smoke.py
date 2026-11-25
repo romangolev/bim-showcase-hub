@@ -2918,6 +2918,7 @@ def check_pane_families(page, checks):
     options = page.locator(".pane-dashboard:visible").get_by_role("button", name=re.compile(r"^Options for "))
     options.first.click()
     pickers = page.get_by_role("menuitemcheckbox", name=re.compile(r"^Group by "))
+    pickers.first.wait_for(timeout=3000)
     checks.add("a chart tile has its own property picker", pickers.count() >= 2, pickers.count())
     page.get_by_role("menuitemcheckbox", name="Group by Level").click()
     settle(page, 500)
