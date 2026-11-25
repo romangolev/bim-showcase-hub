@@ -2,6 +2,13 @@ import { render } from '@testing-library/react';
 import type { ReactElement, Ref } from 'react';
 import { describe, expect, it } from 'vitest';
 import { Button } from './Button.js';
+import {
+  Dialog,
+  DialogBody,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from './Dialog.js';
 import { IconButton } from './IconButton.js';
 import { ToggleButton } from './ToggleButton.js';
 
@@ -24,6 +31,31 @@ const ENTRIES: Entry[] = [
     slot: 'button',
     render: (props) => <Button {...props}>label</Button>,
   },
+  {
+    file: 'Dialog',
+    slot: 'dialog',
+    render: (props) => (
+      <Dialog onClose={() => undefined} aria-label="label" {...props} />
+    ),
+  },
+  ...(
+    [
+      ['dialog-header', DialogHeader],
+      ['dialog-title', DialogTitle],
+      ['dialog-body', DialogBody],
+      ['dialog-footer', DialogFooter],
+    ] as const
+  ).map(
+    ([slot, Part]): Entry => ({
+      file: 'Dialog',
+      slot,
+      render: (props) => (
+        <Dialog onClose={() => undefined} aria-label="label">
+          <Part {...props} />
+        </Dialog>
+      ),
+    }),
+  ),
   {
     file: 'IconButton',
     slot: 'icon-button',

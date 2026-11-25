@@ -18,7 +18,14 @@ const twMerge = extendTailwindMerge({
         'surface',
       ],
       shadow: ['control', 'float'],
-      spacing: ['hit'],
+      spacing: ['hit', 'dialog', 'dialog-compact', 'dialog-top'],
+      container: [
+        'dialog-sm',
+        'dialog-md',
+        'dialog-lg',
+        'dialog-xl',
+        'dialog-command',
+      ],
     },
   },
 });

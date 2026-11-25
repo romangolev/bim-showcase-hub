@@ -110,8 +110,30 @@
 
   --spacing: var(--space-unit);
   --spacing-hit: var(--hit-target);
+  --spacing-dialog: var(--ui-dialog-height);
+  --spacing-dialog-compact: var(--ui-dialog-height-compact);
+  --spacing-dialog-top: var(--ui-dialog-top);
+
+  --container-*: initial;
+  --container-dialog-sm: var(--ui-dialog-sm);
+  --container-dialog-md: var(--ui-dialog-md);
+  --container-dialog-lg: var(--ui-dialog-lg);
+  --container-dialog-xl: var(--ui-dialog-xl);
+  --container-dialog-command: var(--ui-dialog-command);
 
   --default-border-width: 0.5px;
   --default-transition-duration: var(--ui-motion);
   --default-transition-timing-function: ease;
+}
+
+@utility scroll-shadow {
+  background:
+    linear-gradient(var(--ui-surface) 30%, transparent) top / 100% 24px
+    no-repeat local,
+    linear-gradient(transparent, var(--ui-surface) 70%) bottom / 100% 24px
+    no-repeat local,
+    linear-gradient(var(--ui-border), transparent) top / 100% 8px no-repeat
+    scroll,
+    linear-gradient(transparent, var(--ui-border)) bottom / 100% 8px no-repeat
+    scroll;
 }

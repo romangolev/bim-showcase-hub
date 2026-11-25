@@ -217,6 +217,14 @@
   --ui-shadow-control: var(--shadow-button);
   --ui-shadow-float: var(--shadow-float);
   --ui-motion: 120ms;
+  --ui-dialog-sm: min(100vw - 32px, 360px);
+  --ui-dialog-md: min(100vw - 32px, 480px);
+  --ui-dialog-lg: min(100vw - 32px, 720px);
+  --ui-dialog-xl: min(100vw - 32px, 880px);
+  --ui-dialog-command: min(100vw - 32px, 560px);
+  --ui-dialog-height: min(80vh, 720px);
+  --ui-dialog-height-compact: min(70vh, 520px);
+  --ui-dialog-top: 12vh;
   --ui-glow-color: var(--ui-accent);
   --ui-glow-size: 8px;
 
