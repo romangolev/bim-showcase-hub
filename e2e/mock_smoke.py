@@ -40,6 +40,25 @@ THEME_TOGGLE = re.compile(r"Switch to (light|dark) theme", re.I)
 SUMMARY_TOGGLE = re.compile(r"(Collapse|Expand) .*summary", re.I)
 TREE_TOGGLE = re.compile(r"(Collapse|Expand) document tree", re.I)
 STRIP_TOGGLE = re.compile(r"^Pinned and Recent")
+TREE_SHEET = """() => {
+    const panel = document.querySelector('#document-panel');
+    const body = document.querySelector('.stack__tree-body');
+    const nav = document.querySelector('.topbar');
+    if (!panel || !body || !nav) return null;
+    const box = panel.getBoundingClientRect();
+    const navBottom = nav.getBoundingClientRect().bottom;
+    const hit = document.elementFromPoint(
+        Math.min(box.left + box.width / 2, window.innerWidth - 2),
+        Math.max(box.top + 32, navBottom + 32),
+    );
+    return {
+        top: Math.round(box.top), bottom: Math.round(box.bottom), left: Math.round(box.left),
+        width: Math.round(box.width), navBottom: Math.round(navBottom),
+        viewport: window.innerHeight, viewportWidth: window.innerWidth,
+        container: getComputedStyle(body).containerType,
+        inPanel: Boolean(hit && panel.contains(hit)), hit: hit ? hit.className : null,
+    };
+}"""
 VIEWER_WIDTH = "() => document.querySelector(\"[data-active='true'] .model-viewer\").getBoundingClientRect().width"
 SCENE_FIT_WIDTH = "() => Number(document.querySelector(\"[data-active='true'] .bsh-mock__scene\")?.dataset.fitWidth || 0)"
 ROOT_THEME = "() => document.documentElement.dataset.theme"
@@ -719,6 +738,36 @@ def pointer_drag(page, source, target_x, target_y):
     settle(page)
 
 
+def check_tree_sheet(page, checks, where):
+    sheet = page.evaluate(TREE_SHEET)
+    checks.add(
+        f"stacked tree sheet is no size container, so the fixed sheet keeps the viewport ({where})",
+        bool(sheet) and sheet["container"] == "normal",
+        sheet and sheet["container"],
+    )
+    checks.add(
+        f"stacked tree sheet starts right under the nav ({where})",
+        bool(sheet) and abs(sheet["top"] - sheet["navBottom"]) <= 1,
+        sheet,
+    )
+    checks.add(
+        f"stacked tree sheet reaches the bottom of the viewport ({where})",
+        bool(sheet) and abs(sheet["bottom"] - sheet["viewport"]) <= 1,
+        sheet,
+    )
+    expected = min(320, sheet["viewportWidth"] * 0.88) if sheet else 0
+    checks.add(
+        f"stacked tree sheet keeps its own width ({where})",
+        bool(sheet) and abs(sheet["width"] - expected) <= 1,
+        (sheet and sheet["width"], expected),
+    )
+    checks.add(
+        f"stacked tree sheet paints above the backdrop and takes the press ({where})",
+        bool(sheet) and sheet["inPanel"],
+        sheet and sheet["hit"],
+    )
+
+
 def check_layout(page, checks, notes):
     page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
     settle(page)
@@ -830,9 +879,17 @@ def check_layout(page, checks, notes):
     tree_toggle.click()
     settle(page, 400)
     checks.add("stacked tree opens as an overlay", page.locator(".stack__tree:not([hidden]) #document-panel").count() == 1)
+    check_tree_sheet(page, checks, "800")
     page.keyboard.press("Escape")
     settle(page, 400)
     checks.add("Escape closes the tree overlay", page.locator(".stack__tree[hidden]").count() == 1)
+    page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
+    settle(page, 900)
+    page.get_by_role("button", name=TREE_TOGGLE).first.click()
+    settle(page, 600)
+    check_tree_sheet(page, checks, "390")
+    page.keyboard.press("Escape")
+    settle(page, 400)
     page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
     settle(page, 1500)
     found = groups(page)
