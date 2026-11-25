@@ -2,9 +2,11 @@ import {
   type ColumnDef,
   columnResizingFeature,
   columnSizingFeature,
+  createSortedRowModel,
   FlexRender,
   metaHelper,
   type Row,
+  rowSortingFeature,
   tableFeatures,
   useTable,
 } from '@tanstack/react-table';
@@ -56,6 +58,7 @@ import {
   TableHeader,
   TableResizeHandle,
   TableRow,
+  TableSortHead,
 } from '../ui/Table.js';
 
 export const ENTRY_CAP = 500;
@@ -119,13 +122,41 @@ interface ColumnMeta {
   cellClassName?: string;
   title?: string;
   rowHeader?: boolean;
+  numeric?: boolean;
+  sortValue?: (line: Line) => string | number | null;
   attrs?: (line: Line) => CellAttrs;
+}
+
+function compareValues(
+  a: string | number | null,
+  b: string | number | null,
+): number {
+  if (a === null) return b === null ? 0 : 1;
+  if (b === null) return -1;
+  if (typeof a === 'number' && typeof b === 'number') return a - b;
+  return String(a).localeCompare(String(b), undefined, {
+    numeric: true,
+    sensitivity: 'base',
+  });
+}
+
+function sortableColumn(column: GridColumn): GridColumn {
+  const sortValue = column.meta?.sortValue;
+  if (!sortValue) return column;
+  return {
+    ...column,
+    accessorFn: sortValue,
+    sortFn: (rowA, rowB) =>
+      compareValues(sortValue(rowA.original), sortValue(rowB.original)),
+  };
 }
 
 const features = tableFeatures({
   columnMeta: metaHelper<ColumnMeta>(),
   columnSizingFeature,
   columnResizingFeature,
+  rowSortingFeature,
+  sortedRowModel: createSortedRowModel(),
 });
 
 type GridColumn = ColumnDef<typeof features, Line>;
@@ -143,6 +174,7 @@ const PROPERTY_COLUMN: GridColumn = {
   meta: {
     label: 'Property',
     className: 'bsh-col-property',
+    sortValue: (line) => line.entry?.property ?? null,
     attrs: (line) => ({ title: line.entry?.property }),
   },
 };
@@ -211,7 +243,14 @@ function specColumns(
       meta: {
         label: empty ? `${title}, ${BLANK_NOTE}` : title,
         className: 'bsh-num',
+        numeric: true,
         title: empty ? `${title}: ${BLANK_NOTE}` : title,
+        sortValue: (line) => {
+          const cell = line.cells[index] ?? NO_CELL;
+          return cell.status === 'ok' && typeof cell.value === 'number'
+            ? cell.value
+            : read(line).text;
+        },
         attrs: (line) => ({ title: read(line).title }),
       },
     };
@@ -234,6 +273,7 @@ const GridRow = memo(function GridRow({
           <TableCell
             key={cell.id}
             rowHeader={meta?.rowHeader}
+            numeric={meta?.numeric}
             className={meta?.cellClassName ?? meta?.className}
             {...(meta?.attrs?.(row.original) ?? NO_ATTRS)}
           >
@@ -252,6 +292,7 @@ function Grid({
   label,
   activeKey,
   resizable,
+  sortable = true,
   children,
 }: {
   columns: GridColumn[];
@@ -260,15 +301,20 @@ function Grid({
   label?: string;
   activeKey?: string | null;
   resizable: boolean;
+  sortable?: boolean;
   children?: ReactNode;
 }) {
+  const gridColumns = useMemo(() => columns.map(sortableColumn), [columns]);
   const table = useTable({
     features,
-    columns,
+    columns: gridColumns,
     data: lines,
     getRowId: (line) => line.key,
     columnResizeMode: 'onChange',
     defaultColumn: COLUMN_LIMITS,
+    enableSorting: sortable,
+    enableSortingRemoval: true,
+    enableMultiSort: false,
   });
   const sized = Object.keys(table.state.columnSizing).length > 0;
   const freeze = (handle: Element) => {
@@ -293,57 +339,88 @@ function Grid({
             {group.headers.map((header) => {
               const { column } = header;
               const meta = column.columnDef.meta;
+              const sorted = column.getIsSorted();
               const start = (event: { currentTarget: Element }) => {
                 freeze(event.currentTarget);
                 header.getResizeHandler()(event);
               };
+              const headProps = {
+                key: header.id,
+                className: meta?.className,
+                title: meta?.title,
+                'aria-label': resizable ? meta?.label : undefined,
+                style: sized ? { width: header.getSize() } : undefined,
+              };
+              const resize = resizable ? (
+                <TableResizeHandle
+                  label={`Resize ${meta?.label} column`}
+                  value={sized ? Math.round(header.getSize()) : undefined}
+                  active={column.getIsResizing()}
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    start(event);
+                  }}
+                  onTouchStart={start}
+                  onDoubleClick={() => table.resetColumnSizing(true)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      table.resetColumnSizing(true);
+                      return;
+                    }
+                    const step =
+                      event.key === 'ArrowRight'
+                        ? RESIZE_STEP
+                        : event.key === 'ArrowLeft'
+                          ? -RESIZE_STEP
+                          : 0;
+                    if (!step) return;
+                    event.preventDefault();
+                    freeze(event.currentTarget);
+                    table.setColumnSizing((old) => ({
+                      ...old,
+                      [column.id]: Math.min(
+                        COLUMN_LIMITS.maxSize,
+                        Math.max(
+                          COLUMN_LIMITS.minSize,
+                          (old[column.id] ?? 0) + step,
+                        ),
+                      ),
+                    }));
+                  }}
+                />
+              ) : null;
+              if (sortable && column.getCanSort()) {
+                return (
+                  <TableSortHead
+                    {...headProps}
+                    sort={
+                      sorted === 'asc'
+                        ? 'ascending'
+                        : sorted === 'desc'
+                          ? 'descending'
+                          : 'none'
+                    }
+                    onSort={() => column.toggleSorting()}
+                    indicator={
+                      sorted ? (
+                        <Icon
+                          name={sorted === 'asc' ? 'arrowUp' : 'arrowDown'}
+                          size={12}
+                          className="bsh-sort-icon"
+                          aria-hidden="true"
+                        />
+                      ) : null
+                    }
+                    trailing={resize}
+                  >
+                    <table.FlexRender header={header} />
+                  </TableSortHead>
+                );
+              }
               return (
-                <TableHead
-                  key={header.id}
-                  className={meta?.className}
-                  title={meta?.title}
-                  aria-label={resizable ? meta?.label : undefined}
-                  style={sized ? { width: header.getSize() } : undefined}
-                >
+                <TableHead {...headProps}>
                   <table.FlexRender header={header} />
-                  {resizable ? (
-                    <TableResizeHandle
-                      label={`Resize ${meta?.label} column`}
-                      value={sized ? Math.round(header.getSize()) : undefined}
-                      active={column.getIsResizing()}
-                      onMouseDown={(event) => {
-                        event.preventDefault();
-                        start(event);
-                      }}
-                      onTouchStart={start}
-                      onDoubleClick={() => table.resetColumnSizing(true)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter') {
-                          table.resetColumnSizing(true);
-                          return;
-                        }
-                        const step =
-                          event.key === 'ArrowRight'
-                            ? RESIZE_STEP
-                            : event.key === 'ArrowLeft'
-                              ? -RESIZE_STEP
-                              : 0;
-                        if (!step) return;
-                        event.preventDefault();
-                        freeze(event.currentTarget);
-                        table.setColumnSizing((old) => ({
-                          ...old,
-                          [column.id]: Math.min(
-                            COLUMN_LIMITS.maxSize,
-                            Math.max(
-                              COLUMN_LIMITS.minSize,
-                              (old[column.id] ?? 0) + step,
-                            ),
-                          ),
-                        }));
-                      }}
-                    />
-                  ) : null}
+                  {resize}
                 </TableHead>
               );
             })}
@@ -394,6 +471,7 @@ function BlockGrid({
   title,
   activeKey,
   resizable,
+  sortable,
   onExpand,
 }: {
   entries: readonly SummaryEntry[];
@@ -406,6 +484,7 @@ function BlockGrid({
   title: string;
   activeKey?: string | null;
   resizable: boolean;
+  sortable: boolean;
   onExpand: () => void;
 }) {
   const columns = useMemo(() => {
@@ -428,6 +507,7 @@ function BlockGrid({
       label={title}
       activeKey={activeKey}
       resizable={resizable}
+      sortable={sortable}
     >
       {!expanded && entries.length > ENTRY_CAP ? (
         <MoreRow
@@ -634,6 +714,7 @@ export function SummaryTable({
         label: 'Value',
         className: 'bsh-col-value',
         rowHeader,
+        sortValue: (line) => line.entry?.value ?? null,
         attrs: (line) => ({ title: line.entry?.value }),
       },
     });
@@ -742,6 +823,7 @@ export function SummaryTable({
       className="bsh-table bsh-table--summary"
       activeKey={activeKey}
       resizable={!decorative}
+      sortable={!decorative}
     >
       {hiddenTotal > 0 ? (
         <MoreRow
@@ -822,6 +904,7 @@ export function SummaryTable({
                 title={title}
                 activeKey={activeKey}
                 resizable={!decorative}
+                sortable={!decorative}
                 onExpand={() => expandProps([block.property])}
               />
             </div>
@@ -840,6 +923,7 @@ export function SummaryTable({
         className="bsh-table bsh-table--summary bsh-table--pivot"
         label={`Pivot by ${groupBy.join(', ')}`}
         resizable={!decorative}
+        sortable={false}
       >
         {pivotShown.length < pivotRows.length ? (
           <MoreRow

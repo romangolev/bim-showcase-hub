@@ -120,6 +120,7 @@ export type TableSortHeadProps = Omit<TableHeadProps, 'aria-sort'> & {
   sort: TableSort;
   onSort: () => void;
   indicator?: ReactNode;
+  trailing?: ReactNode;
 };
 
 export function TableSortHead({
@@ -130,6 +131,7 @@ export function TableSortHead({
   sort,
   onSort,
   indicator,
+  trailing,
   children,
   ...props
 }: TableSortHeadProps) {
@@ -157,6 +159,7 @@ export function TableSortHead({
         {children}
         {indicator}
       </button>
+      {trailing}
     </th>
   );
 }

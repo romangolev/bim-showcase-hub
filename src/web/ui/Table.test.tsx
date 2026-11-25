@@ -116,6 +116,28 @@ describe('Table', () => {
     );
   });
 
+  it('keeps a trailing control beside the sort button, outside it', () => {
+    render(
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableSortHead
+              sort="none"
+              onSort={() => undefined}
+              trailing={<span data-testid="handle" />}
+            >
+              Value
+            </TableSortHead>
+          </TableRow>
+        </TableHeader>
+      </Table>,
+    );
+    expect(screen.getByTestId('handle')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Value' })).not.toContainElement(
+      screen.getByTestId('handle'),
+    );
+  });
+
   it('lets an app class win and keeps a caller scope', () => {
     render(
       <Table>

@@ -342,6 +342,90 @@ describe('SummaryTable entry cap', () => {
   });
 });
 
+describe('SummaryTable sorting', () => {
+  const values = (table: HTMLElement) =>
+    within(table)
+      .getAllByRole('row')
+      .slice(1)
+      .map((row) => row.children[1]?.textContent ?? '');
+
+  it('sorts the flat table by a column and clears back to the view order', () => {
+    const unsorted = [
+      { property: 'Name', value: 'Beta', count: 1 },
+      { property: 'Name', value: 'Alpha', count: 2 },
+    ];
+    render(<SummaryTable entries={unsorted} />);
+    const table = screen.getByRole('table');
+    const before = values(table);
+    expect(before).toEqual(['Beta', 'Alpha']);
+    const ascending = [...before].sort((a, b) => a.localeCompare(b));
+    expect(ascending).not.toEqual(before);
+    const value = screen.getByRole('columnheader', { name: 'Value' });
+    expect(value).toHaveAttribute('aria-sort', 'none');
+    fireEvent.click(within(value).getByRole('button', { name: 'Value' }));
+    expect(value).toHaveAttribute('aria-sort', 'ascending');
+    expect(values(table)).toEqual(ascending);
+    fireEvent.click(within(value).getByRole('button', { name: 'Value' }));
+    expect(value).toHaveAttribute('aria-sort', 'descending');
+    expect(values(table)).toEqual([...ascending].reverse());
+    fireEvent.click(within(value).getByRole('button', { name: 'Value' }));
+    expect(value).toHaveAttribute('aria-sort', 'none');
+    expect(values(table)).toEqual(before);
+  });
+
+  it('sorts each grouped block on its own', () => {
+    render(
+      <SummaryTable
+        entries={groupedEntries}
+        rows={rows}
+        view={view({ layout: 'grouped' })}
+      />,
+    );
+    const category = screen.getByRole('table', { name: 'Category' });
+    const level = screen.getByRole('table', { name: 'Level' });
+    const rowsOf = (table: HTMLElement) =>
+      within(table)
+        .getAllByRole('row')
+        .slice(1)
+        .map((row) => row.textContent ?? '');
+    const categoryBefore = rowsOf(category);
+    const levelBefore = rowsOf(level);
+    fireEvent.click(within(category).getByRole('button', { name: 'Value' }));
+    expect(rowsOf(category)).toEqual(
+      [...categoryBefore].sort((a, b) => a.localeCompare(b)),
+    );
+    expect(
+      within(category).getByRole('columnheader', { name: 'Value' }),
+    ).toHaveAttribute('aria-sort', 'ascending');
+    expect(rowsOf(level)).toEqual(levelBefore);
+    expect(
+      within(level).getByRole('columnheader', { name: 'Value' }),
+    ).toHaveAttribute('aria-sort', 'none');
+  });
+
+  it('offers no sorting on a decorative or pivot table', () => {
+    render(<SummaryTable entries={entries} decorative />);
+    expect(
+      screen.queryByRole('button', { name: 'Value' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('offers no sorting on the pivot table', () => {
+    render(
+      <SummaryTable
+        entries={[]}
+        rows={rows}
+        view={view({ layout: 'pivot', groupBy: ['Category'] })}
+      />,
+    );
+    const table = screen.getByRole('table', { name: 'Pivot by Category' });
+    expect(within(table).queryByRole('button', { name: 'Value' })).toBeNull();
+    expect(
+      within(table).getByRole('columnheader', { name: 'Value' }),
+    ).not.toHaveAttribute('aria-sort');
+  });
+});
+
 describe('SummaryTable column resizing', () => {
   const sized = (name: string) =>
     screen.getByRole('columnheader', { name }).style.width;
