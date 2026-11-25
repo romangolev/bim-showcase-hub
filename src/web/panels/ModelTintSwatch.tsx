@@ -80,7 +80,7 @@ export function ModelTintSwatch({
               />
             ))}
           </div>
-          <label className="bsh-tint__strength">
+          <div className="bsh-tint__strength">
             <span>Tint strength</span>
             <Slider
               min={MIN_TINT_STRENGTH}
@@ -91,7 +91,7 @@ export function ModelTintSwatch({
               onValueChange={(next) => onStrength(clampTintStrength(next))}
             />
             <span>{Math.round(value * 100)}%</span>
-          </label>
+          </div>
           <div className="bsh-tint__actions">
             <Button
               disabled={!tint}

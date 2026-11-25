@@ -78,6 +78,7 @@ describe('ModelTintSwatch', () => {
     });
     expect(slider).toHaveAttribute('data-slot', 'slider');
     expect(slider).toHaveValue('0.5');
+    expect(slider.closest('label')).toBeNull();
     fireEvent.change(slider, { target: { value: '0.75' } });
     expect(onStrength).toHaveBeenCalledWith(0.75);
   });
