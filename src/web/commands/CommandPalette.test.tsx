@@ -169,7 +169,7 @@ describe('CommandPalette', () => {
     openPalette();
     expect(screen.getByRole('combobox')).toHaveFocus();
     act(() => {
-      document.querySelector('dialog')?.dispatchEvent(new Event('close'));
+      document.querySelector('dialog')?.close();
     });
     expect(screen.queryByRole('combobox')).toBeNull();
     expect(opener).toHaveFocus();
