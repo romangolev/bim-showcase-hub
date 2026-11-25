@@ -547,4 +547,43 @@ describe('SummaryTable column resizing', () => {
       'data-fixed',
     );
   });
+
+  it('resizes with mirrored arrow keys in a right-to-left container', () => {
+    const measure = vi
+      .spyOn(Element.prototype, 'getBoundingClientRect')
+      .mockReturnValue({ width: 56 } as DOMRect);
+    render(
+      <div dir="rtl">
+        <SummaryTable entries={entries} />
+      </div>,
+    );
+    const handle = screen.getByRole('separator', {
+      name: 'Resize Count column',
+    });
+    fireEvent.keyDown(handle, { key: 'ArrowLeft' });
+    expect(sized('Count')).toBe('72px');
+    fireEvent.keyDown(handle, { key: 'ArrowRight' });
+    expect(sized('Count')).toBe('56px');
+    measure.mockRestore();
+  });
+
+  it('drags toward the end side in a right-to-left container', () => {
+    const measure = vi
+      .spyOn(Element.prototype, 'getBoundingClientRect')
+      .mockReturnValue({ width: 120 } as DOMRect);
+    render(
+      <div dir="rtl">
+        <SummaryTable entries={entries} />
+      </div>,
+    );
+    const handle = screen.getByRole('separator', {
+      name: 'Resize Value column',
+    });
+    fireEvent.mouseDown(handle, { clientX: 300 });
+    fireEvent.mouseMove(document, { clientX: 260 });
+    fireEvent.mouseUp(document, { clientX: 260 });
+    measure.mockRestore();
+    expect(sized('Value')).toBe('160px');
+    expect(sized('Property')).toBe('120px');
+  });
 });

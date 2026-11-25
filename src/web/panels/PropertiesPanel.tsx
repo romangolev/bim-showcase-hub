@@ -24,6 +24,7 @@ import {
   type PropertyGroup,
   valueText,
 } from './propertiesView.js';
+import { COLUMN_LIMITS, useColumnResize } from './useColumnResize.js';
 import { useResolvedAdapter } from './useScopedRows.js';
 import './panels.css';
 import { Card, CardHeader, CardTitle } from '../ui/Card.js';
@@ -65,9 +66,6 @@ const features = tableFeatures({
   columnSizingFeature,
   columnResizingFeature,
 });
-
-const COLUMN_LIMITS = { minSize: 48, maxSize: 1600 };
-const RESIZE_STEP = 16;
 
 const PropertyRow = memo(function PropertyRow({
   row,
@@ -145,22 +143,13 @@ function PropertyGrid({
     columnResizeMode: 'onChange',
     defaultColumn: COLUMN_LIMITS,
   });
-  const sized = Object.keys(table.state.columnSizing).length > 0;
-  const freeze = (handle: Element) => {
-    if (sized) return;
-    const cells = handle.closest('tr')?.children;
-    const widths: Record<string, number> = {};
-    table.getAllLeafColumns().forEach((column, index) => {
-      widths[column.id] = cells?.[index]?.getBoundingClientRect().width ?? 0;
-    });
-    table.setColumnSizing(widths);
-  };
+  const { sized, tableStyle, headStyle, resizeProps } = useColumnResize(table);
   return (
     <Table
       className="bsh-table bsh-props__table"
       aria-label={`${group.category} properties`}
       fixed={sized}
-      style={sized ? { width: table.getTotalSize() } : undefined}
+      style={tableStyle}
     >
       <TableHeader>
         {table.getHeaderGroups().map((group) => (
@@ -168,53 +157,16 @@ function PropertyGrid({
             {group.headers.map((header) => {
               const { column } = header;
               const meta = column.columnDef.meta;
-              const start = (event: { currentTarget: Element }) => {
-                freeze(event.currentTarget);
-                header.getResizeHandler()(event);
-              };
               return (
                 <TableHead
                   key={header.id}
                   className={meta?.className}
                   aria-label={meta?.label}
-                  style={sized ? { width: header.getSize() } : undefined}
+                  style={headStyle(header)}
                 >
                   <table.FlexRender header={header} />
                   <TableResizeHandle
-                    label={`Resize ${meta?.label} column`}
-                    value={sized ? Math.round(header.getSize()) : undefined}
-                    active={column.getIsResizing()}
-                    onMouseDown={(event) => {
-                      event.preventDefault();
-                      start(event);
-                    }}
-                    onTouchStart={start}
-                    onDoubleClick={() => table.resetColumnSizing(true)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') {
-                        table.resetColumnSizing(true);
-                        return;
-                      }
-                      const step =
-                        event.key === 'ArrowRight'
-                          ? RESIZE_STEP
-                          : event.key === 'ArrowLeft'
-                            ? -RESIZE_STEP
-                            : 0;
-                      if (!step) return;
-                      event.preventDefault();
-                      freeze(event.currentTarget);
-                      table.setColumnSizing((old) => ({
-                        ...old,
-                        [column.id]: Math.min(
-                          COLUMN_LIMITS.maxSize,
-                          Math.max(
-                            COLUMN_LIMITS.minSize,
-                            (old[column.id] ?? 0) + step,
-                          ),
-                        ),
-                      }));
-                    }}
+                    {...resizeProps(header, `Resize ${meta?.label} column`)}
                   />
                 </TableHead>
               );

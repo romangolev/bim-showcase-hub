@@ -206,6 +206,37 @@ describe('PropertiesPanel', () => {
     expect(table).not.toHaveAttribute('data-fixed');
   });
 
+  it('resizes with mirrored arrow keys in a right-to-left container', async () => {
+    const adapter = await load(['urn-a']);
+    const modelId = adapter.getModels()[0]?.id ?? '';
+    const measure = vi
+      .spyOn(Element.prototype, 'getBoundingClientRect')
+      .mockReturnValue({ width: 120 } as DOMRect);
+    render(
+      <div dir="rtl">
+        <PropertiesPanel adapter={adapter} />
+      </div>,
+    );
+    act(() => {
+      adapter.selectModelIds([{ modelId, dbId: first?.dbId ?? 0 }]);
+    });
+    const table = await screen.findByRole('table', {
+      name: 'Identity Data properties',
+    });
+    const handle = within(table).getByRole('separator', {
+      name: 'Resize Value column',
+    });
+    fireEvent.keyDown(handle, { key: 'ArrowLeft' });
+    measure.mockRestore();
+    expect(
+      within(table).getByRole('columnheader', { name: 'Value' }).style.width,
+    ).toBe('136px');
+    fireEvent.keyDown(handle, { key: 'ArrowRight' });
+    expect(
+      within(table).getByRole('columnheader', { name: 'Value' }).style.width,
+    ).toBe('120px');
+  });
+
   it('switches the model through the select', async () => {
     const adapter = await load(['urn-a', 'urn-b']);
     const [a, b] = adapter.getModels();

@@ -46,6 +46,7 @@ import {
 } from '../extensions/modelSummary.js';
 import { useSettings } from '../settings/SettingsContext.js';
 import type { Language } from '../settings/settings.js';
+import { COLUMN_LIMITS, useColumnResize } from './useColumnResize.js';
 import { useScrollable } from './useScrollable.js';
 import './panels.css';
 import { Button } from '../ui/Button.js';
@@ -163,8 +164,6 @@ const features = tableFeatures({
 type GridColumn = ColumnDef<typeof features, Line>;
 
 const NO_ATTRS: CellAttrs = {};
-const COLUMN_LIMITS = { minSize: 48, maxSize: 1600 };
-const RESIZE_STEP = 16;
 const NO_CELLS: readonly SummaryCell[] = [];
 const PROPERTY_COLUMN: GridColumn = {
   id: 'bsh:property',
@@ -317,22 +316,13 @@ function Grid({
     enableSortingRemoval: true,
     enableMultiSort: false,
   });
-  const sized = Object.keys(table.state.columnSizing).length > 0;
-  const freeze = (handle: Element) => {
-    if (sized) return;
-    const cells = handle.closest('tr')?.children;
-    const widths: Record<string, number> = {};
-    table.getAllLeafColumns().forEach((column, index) => {
-      widths[column.id] = cells?.[index]?.getBoundingClientRect().width ?? 0;
-    });
-    table.setColumnSizing(widths);
-  };
+  const { sized, tableStyle, headStyle, resizeProps } = useColumnResize(table);
   return (
     <Table
       className={className}
       aria-label={label}
       fixed={sized}
-      style={sized ? { width: table.getTotalSize() } : undefined}
+      style={tableStyle}
     >
       <TableHeader>
         {table.getHeaderGroups().map((group) => (
@@ -341,52 +331,15 @@ function Grid({
               const { column } = header;
               const meta = column.columnDef.meta;
               const sorted = column.getIsSorted();
-              const start = (event: { currentTarget: Element }) => {
-                freeze(event.currentTarget);
-                header.getResizeHandler()(event);
-              };
               const headProps = {
                 className: meta?.className,
                 title: meta?.title,
                 'aria-label': resizable ? meta?.label : undefined,
-                style: sized ? { width: header.getSize() } : undefined,
+                style: headStyle(header),
               };
               const resize = resizable ? (
                 <TableResizeHandle
-                  label={`Resize ${meta?.label} column`}
-                  value={sized ? Math.round(header.getSize()) : undefined}
-                  active={column.getIsResizing()}
-                  onMouseDown={(event) => {
-                    event.preventDefault();
-                    start(event);
-                  }}
-                  onTouchStart={start}
-                  onDoubleClick={() => table.resetColumnSizing(true)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') {
-                      table.resetColumnSizing(true);
-                      return;
-                    }
-                    const step =
-                      event.key === 'ArrowRight'
-                        ? RESIZE_STEP
-                        : event.key === 'ArrowLeft'
-                          ? -RESIZE_STEP
-                          : 0;
-                    if (!step) return;
-                    event.preventDefault();
-                    freeze(event.currentTarget);
-                    table.setColumnSizing((old) => ({
-                      ...old,
-                      [column.id]: Math.min(
-                        COLUMN_LIMITS.maxSize,
-                        Math.max(
-                          COLUMN_LIMITS.minSize,
-                          (old[column.id] ?? 0) + step,
-                        ),
-                      ),
-                    }));
-                  }}
+                  {...resizeProps(header, `Resize ${meta?.label} column`)}
                 />
               ) : null;
               if (sortable && column.getCanSort()) {
