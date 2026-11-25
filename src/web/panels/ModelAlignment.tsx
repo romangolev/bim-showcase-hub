@@ -72,6 +72,7 @@ export function ModelAlignment({
   return (
     <div className="bsh-models__alignment">
       <Button
+        size="small"
         aria-expanded={open}
         aria-controls={bodyId}
         onClick={() => setOpen((current) => !current)}
@@ -97,6 +98,7 @@ export function ModelAlignment({
               <div className="bsh-models__tools">
                 {ALIGNMENT_STEPS.map((meters) => (
                   <ToggleButton
+                    size="small"
                     key={meters}
                     pressed={step === meters}
                     aria-describedby={noteId}
@@ -110,6 +112,7 @@ export function ModelAlignment({
                 {AXES.map(({ axis, name }) => (
                   <span key={name} className="bsh-models__tools">
                     <Button
+                      size="small"
                       aria-label={`Move -${name} ${stepLabel(step)}`}
                       aria-describedby={noteId}
                       disabled={disabled}
@@ -128,6 +131,7 @@ export function ModelAlignment({
                       -{name}
                     </Button>
                     <Button
+                      size="small"
                       aria-label={`Move +${name} ${stepLabel(step)}`}
                       aria-describedby={noteId}
                       disabled={disabled}
@@ -150,6 +154,7 @@ export function ModelAlignment({
               </div>
               <div className="bsh-models__tools">
                 <Button
+                  size="small"
                   aria-describedby={noteId}
                   disabled={disabled || !adapter}
                   onClick={() => {
@@ -166,6 +171,7 @@ export function ModelAlignment({
                   Snap centre to anchor
                 </Button>
                 <Button
+                  size="small"
                   aria-describedby={noteId}
                   disabled={disabled}
                   onClick={() => change(resetOffset(offsets, model.id))}

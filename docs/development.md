@@ -87,7 +87,7 @@ All browser storage goes through `src/web/storage.ts`. `BSH_KEYS` lists the fixe
 | `bsh.pane.search.v1` | personal | Search elements pane: the last text and the attribute names it searches. Under the `bsh.pane.` prefix |
 | `bsh.hint.onboarding.v1` | personal | Onboarding hints dismissed |
 | `bsh.topbar.v1` | preference | Top bar: whether the model breadcrumb shows the full path, the file name only or nothing |
-| `bsh.saved.v1` | personal | Saved items: dashboard presets, export presets, summary presets, report templates, colour rules, selection sets, viewpoints, combinations, model sets, document searches |
+| `bsh.saved.v1` | personal | Saved items: dashboard presets, export presets, summary presets, report templates, colour rules, selection sets, viewpoints, model sets, document searches |
 | `bsh.workspaces.v1` | personal | Named workspaces: `{ version: 1, items }`, each with a name, a layout and pane appearances |
 | `bsh.commands.recent.v1` | personal | Recent palette commands |
 | `bsh.paint.<hash>` | personal | One paint record per model version: an ordered, bounded list of paint actions and the undo cursor. The hash covers the URN and the model version |

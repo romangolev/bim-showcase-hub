@@ -2,6 +2,7 @@ import type { ComponentType } from 'react';
 import type { PaneId } from '../layout/paneRegistry.js';
 import { setSummarySettingsTarget } from '../layout/summaryTarget.js';
 import { DASHBOARD_SETTINGS_ID } from '../panels/DashboardSettings.js';
+import { MODELS_SETTINGS_ID } from '../panels/ModelsSettings.js';
 import { SUMMARY_SETTINGS_ID } from '../panels/SummarySettings.js';
 import { TreeSettingsForm } from './PaneSettingsForms.js';
 
@@ -35,12 +36,19 @@ export const PANE_SETTINGS_SCHEMA: Partial<Record<PaneId, PaneSettingsSchema>> =
       windowTitle: 'Dashboard settings',
       modalId: DASHBOARD_SETTINGS_ID,
     },
+    models: {
+      label: 'Models',
+      description: 'Save the open models as a model set.',
+      windowTitle: 'Models settings',
+      modalId: MODELS_SETTINGS_ID,
+    },
   };
 
 export const PANE_SETTINGS_ORDER: readonly PaneId[] = [
   'tree',
   'summary',
   'dashboard',
+  'models',
 ];
 
 export function paneSettingsSchema(kind: PaneId): PaneSettingsSchema | null {

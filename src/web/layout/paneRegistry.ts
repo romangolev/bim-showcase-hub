@@ -4,7 +4,6 @@ import type { IconName } from '../components/icons.js';
 import { requestDeepSearch } from '../components/tree/deepSearchSignal.js';
 import { currentAdapter } from '../viewer/activeAdapterStore.js';
 import { clearColoring } from '../viewer/modelColoring.js';
-import { federationCommands } from '../viewer/savedFederations.js';
 import { PANEL_SEPARATOR, type PanelId } from './panelIds.js';
 
 export type PaneId =
@@ -188,7 +187,6 @@ export const PANES: readonly PaneDefinition[] = [
     defaultPlacement: { kind: 'tab', reference: 'tree' },
     closable: true,
     requires: 'viewer',
-    commands: () => federationCommands(),
   },
   {
     id: 'measurements',

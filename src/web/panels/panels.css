@@ -665,6 +665,7 @@ select.field {
 .bsh-models__actions {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: var(--space-1);
 }
 
@@ -733,9 +734,58 @@ select.field {
 .bsh-models__ghost {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
-  color: var(--color-ash);
+  gap: var(--space-2);
+  min-height: var(--hit-target);
+  color: var(--color-snow);
   font-size: var(--text-13);
+  font-weight: var(--weight-ui);
+}
+
+.bsh-models__header {
+  flex-wrap: wrap;
+  row-gap: 0;
+}
+
+.bsh-models__header > [data-slot="button"] {
+  white-space: nowrap;
+}
+
+.bsh-models__header .bsh-quick__toggle {
+  margin-inline-start: auto;
+}
+
+.bsh-models__settings {
+  margin-inline-start: auto;
+}
+
+.bsh-models__alignment-list {
+  display: flex;
+  flex: 1 1 100%;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.bsh-models__subtitle {
+  margin: 0;
+  color: var(--color-ash);
+  font-size: var(--text-12);
+  font-weight: var(--weight-label);
+  letter-spacing: var(--tracking-body);
+}
+
+.bsh-models__alignment > [data-slot="button"] {
+  max-width: 100%;
+  padding-block: var(--space-1);
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+
+.bsh-models__alignment-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-block-start: var(--space-2);
 }
 
 .bsh-models__tint {

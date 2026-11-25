@@ -188,6 +188,34 @@ describe('saved store', () => {
     expect(({} as Record<string, unknown>).polluted).toBeUndefined();
   });
 
+  it('drops saved combinations from storage and from imported files', () => {
+    const combination = item('federation-1', {
+      kind: 'federation',
+      name: 'Combination 1',
+      data: { members: [{ urn: 'a' }, { urn: 'b' }] },
+    });
+    getStorageAdapter().set(
+      'local',
+      SAVED_KEY,
+      JSON.stringify({ version: 2, items: [combination, item('a')] }),
+    );
+    expect(readSaved().map((i) => i.id)).toEqual(['a']);
+    expect(upsertSaved(combination)).toBe(false);
+    const result = importSaved(
+      JSON.stringify({
+        format: 'bsh-saved',
+        version: 2,
+        items: [item('federation-2', { kind: 'federation' }), item('b')],
+      }),
+    );
+    expect(result.error).toBeUndefined();
+    expect(result.accepted).toBe(1);
+    expect(readSaved().map((i) => i.id)).toEqual(['a', 'b']);
+    expect(getStorageAdapter().get('local', SAVED_KEY)).not.toContain(
+      'federation',
+    );
+  });
+
   it('is cleared on sign-out', () => {
     upsertSaved(item('a'));
     forgetPersonal();
