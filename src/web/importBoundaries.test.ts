@@ -29,7 +29,14 @@ type Probe = [dir: string, extension: string, specifier: string, form?: Form];
 
 const allowed: Probe[] = [
   ['src/web/ui', 'tsx', 'react'],
-  ['src/web/ui', 'tsx', '@base-ui/react/switch'],
+  ['src/web/ui', 'tsx', '@base-ui/react/button'],
+  ['src/web/ui', 'tsx', '@base-ui/react/menu'],
+  ['src/web/ui', 'tsx', '@base-ui/react/popover'],
+  ['src/web/ui', 'tsx', '@base-ui/react/progress'],
+  ['src/web/ui', 'tsx', '@base-ui/react/tabs'],
+  ['src/web/ui', 'tsx', '@base-ui/react/toggle'],
+  ['src/web/ui', 'tsx', '@base-ui/react/tooltip'],
+  ['src/web/ui', 'tsx', '@base-ui/react/use-render'],
   ['src/web/ui', 'tsx', 'clsx'],
   ['src/web/ui', 'tsx', 'tailwind-merge'],
   ['src/web/ui', 'tsx', './cn.js'],
