@@ -1,6 +1,7 @@
 import { render } from '@testing-library/react';
 import type { ReactElement, Ref } from 'react';
 import { describe, expect, it } from 'vitest';
+import { Badge } from './Badge.js';
 import { Button } from './Button.js';
 import {
   Dialog,
@@ -10,6 +11,7 @@ import {
   DialogTitle,
 } from './Dialog.js';
 import { IconButton } from './IconButton.js';
+import { Kbd } from './Kbd.js';
 import {
   Menu,
   MenuCheckboxItem,
@@ -29,6 +31,7 @@ import {
   PopoverTitle,
   PopoverTrigger,
 } from './Popover.js';
+import { Spinner } from './Spinner.js';
 import { Tab, TabPanel, Tabs, TabsList } from './Tabs.js';
 import { ToggleButton } from './ToggleButton.js';
 import { Tooltip, TooltipPopup, TooltipTrigger } from './Tooltip.js';
@@ -218,6 +221,21 @@ const ENTRIES: Entry[] = [
       render: (props) => <Tabs defaultValue="a">{part(props)}</Tabs>,
     }),
   ),
+  {
+    file: 'Badge',
+    slot: 'badge',
+    render: (props) => <Badge {...props}>label</Badge>,
+  },
+  {
+    file: 'Kbd',
+    slot: 'kbd',
+    render: (props) => <Kbd {...props}>label</Kbd>,
+  },
+  {
+    file: 'Spinner',
+    slot: 'spinner',
+    render: (props) => <Spinner {...props} />,
+  },
 ];
 
 describe('primitive contract', () => {
