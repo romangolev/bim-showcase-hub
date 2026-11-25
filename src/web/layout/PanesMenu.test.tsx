@@ -248,6 +248,15 @@ describe('Panes menu', () => {
     expect(reset).toHaveAccessibleDescription('Unlock the layout first');
   });
 
+  it('toggles the lock from its checked menu item', () => {
+    const { layout } = renderMenu();
+    const menu = openMenu();
+    fireEvent.click(
+      within(menu).getByRole('menuitemcheckbox', { name: 'Lock layout' }),
+    );
+    expect(layout.setLocked).toHaveBeenCalledWith(true);
+  });
+
   it('hints about the Panes menu in the popover and remembers the dismissal', () => {
     renderMenu();
     const menu = openMenu();
