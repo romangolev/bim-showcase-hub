@@ -2278,6 +2278,7 @@ def check_snapshots_viewpoints_present(page, checks):
             share_menu(page, "Save viewpoint")
             page.wait_for_timeout(300)
         page.locator(f"{ACTIVE_VIEWER} .bsh-viewer-share button").click()
+        page.get_by_role("menuitem", name="Save viewpoint").wait_for(timeout=3000)
         listed = page.get_by_role("menuitem").filter(has_text="Go to Viewpoint").count()
         page.screenshot(path=str(OUTPUT_DIR / "mock-viewpoints-menu.png"))
         page.keyboard.press("Escape")

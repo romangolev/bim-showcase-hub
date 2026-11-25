@@ -629,7 +629,7 @@
   appearance: none;
 }
 
-.doc-tree__search > .menu {
+.doc-tree__search > .menu-host {
   position: static;
 }
 
