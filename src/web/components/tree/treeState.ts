@@ -12,6 +12,7 @@ import {
   type CrawlResult,
   crawl as runCrawl,
 } from './crawl.js';
+import { createDeepSearch, type DeepSearch } from './deepSearch.js';
 import type { TreeRoot } from './docRoot.js';
 import { sortChildren, type TreeSort } from './treeView.js';
 import {
@@ -95,6 +96,7 @@ export interface TreeState {
     signal: AbortSignal,
     onProgress?: (progress: CrawlProgress) => void,
   ) => Promise<CrawlResult>;
+  deepSearch: DeepSearch;
   resolved: (node: TreeNode) => TreeNode;
   needsCheck: (node: TreeNode) => boolean;
   ensureChecked: (node: TreeNode) => Promise<TreeNode>;
@@ -485,6 +487,41 @@ export function createTreeState({
     return projects.length === 1 ? (projects[0]?.id ?? null) : null;
   };
 
+  const crawl: TreeState['crawl'] = (signal, onProgress) => {
+    const start = crawlRoot();
+    if (!start) {
+      return Promise.resolve<CrawlResult>({
+        stop: 'done',
+        folders: 0,
+        queued: 0,
+        nodes: 0,
+        failed: 0,
+        failedIds: [],
+      });
+    }
+    return runCrawl({
+      start: [start],
+      signal,
+      onProgress,
+      children: async (id, crawlSignal) => {
+        const scope = scopes.get(id);
+        if (!scope) return [];
+        const fetched = await data.children(scope, crawlSignal);
+        loaded.add(id);
+        clearError(id);
+        return register(scope, fetched);
+      },
+    }).then((result) => {
+      if (result.stop === 'done') crawledRoot = start;
+      return result;
+    });
+  };
+
+  const deepSearch = createDeepSearch({
+    canStart: () => crawlRoot() !== null,
+    crawl,
+  });
+
   return {
     subscribe: (listener) => {
       listeners.add(listener);
@@ -546,35 +583,8 @@ export function createTreeState({
     },
     crawlRoot,
     crawled: () => crawledRoot !== null && crawledRoot === crawlRoot(),
-    crawl: (signal, onProgress) => {
-      const start = crawlRoot();
-      if (!start) {
-        return Promise.resolve<CrawlResult>({
-          stop: 'done',
-          folders: 0,
-          queued: 0,
-          nodes: 0,
-          failed: 0,
-          failedIds: [],
-        });
-      }
-      return runCrawl({
-        start: [start],
-        signal,
-        onProgress,
-        children: async (id, crawlSignal) => {
-          const scope = scopes.get(id);
-          if (!scope) return [];
-          const fetched = await data.children(scope, crawlSignal);
-          loaded.add(id);
-          clearError(id);
-          return register(scope, fetched);
-        },
-      }).then((result) => {
-        if (result.stop === 'done') crawledRoot = start;
-        return result;
-      });
-    },
+    crawl,
+    deepSearch,
     resolved,
     needsCheck,
     ensureChecked,
