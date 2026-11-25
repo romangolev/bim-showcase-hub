@@ -59,7 +59,7 @@ Every settings window body is a `.settings` block of `.settings__section` groups
 New UI is built from the components in `src/web/ui/`. They are shadcn/ui components on Base UI (`@base-ui/react`), styled with Tailwind v4 utilities. The existing `.btn`, `.field` and pane styles stay until each one is migrated.
 
 - `src/web/styles/tailwind.css` imports only `tailwindcss/theme` and `tailwindcss/utilities`. There is no Preflight: `global.css` stays the base layer.
-- Cascade layers: `tokens.css` declares `@layer properties, theme, base, utilities;` as the first line of the first stylesheet. The element rules of `global.css` (`button { font: inherit }`, `:focus-visible`, `body`) sit in `base`, the utilities in `utilities`, and every other app stylesheet is unlayered. So a primitive's utilities always beat the element rules, and an app class always beats a primitive's utilities, whatever order the chunks load in (pane CSS arrives in lazy chunks after the entry stylesheet). `e2e/bundle_size.py` checks this on the production build after `npm run build`.
+- Cascade layers: `tokens.css` declares `@layer properties, theme, base, utilities, effects;` as the first line of the first stylesheet. The element rules of `global.css` (`button { font: inherit }`, `:focus-visible`, `body`) sit in `base`, the utilities in `utilities`, and every other app stylesheet is unlayered. So a primitive's utilities always beat the element rules, and an app class always beats a primitive's utilities, whatever order the chunks load in (pane CSS arrives in lazy chunks after the entry stylesheet). `e2e/bundle_size.py` checks this on the production build after `npm run build`.
 - Its `@theme inline reference` block maps the tokens onto utilities and adds no variable of its own: `bg-graphite`, `text-snow`, `border-hairline` (colours), `rounded-button` (radii), `text-13` (text scale), `font-ui` (weights), `tracking-body`, `shadow-float`, `font-sans`. Tailwind's default palette, radii, text scale, weights and shadows are switched off, so `bg-red-500` or `rounded-lg` produce nothing.
 - Spacing utilities multiply `--space-unit`, so `p-2` follows density. `border` is the 0.5px hairline width. `min-h-hit`, `h-hit` and `size-hit` are `--hit-target`: every control in `src/web/ui/` uses one of them.
 - Themes, density and text size work through the tokens. Do not use `dark:` variants.
@@ -69,6 +69,20 @@ New UI is built from the components in `src/web/ui/`. They are shadcn/ui compone
 - `src/web/styles/tailwind.test.ts` asserts the main points: no Preflight, no default palette, every mapped name exists in `tokens.css`, `cn()` knows every name, and no file in `src/web/ui/` has a hex value or an arbitrary value.
 
 To add a component, run `npx shadcn@latest add <name>`. `components.json` puts it in `src/web/ui/`. Then, by hand: rename the file to PascalCase, rewrite the imports to relative paths with `.js` extensions (`./cn.js`; the repo has no `@/` alias), replace shadcn's colour classes (`bg-primary`, `ring-ring`, `dark:`) and arbitrary values with token-mapped utilities, and add a render test. `ui/Button.tsx` is the reference.
+
+### Effects
+
+An effect is a name in a primitive's `effect` prop, written to the DOM as `data-effect`. Its CSS lives in `src/web/ui/effects.css` (the `effects` layer, above the utilities and below app CSS) and reads `--ui-*` tokens. No primitive changes to gain an effect.
+
+| Effect | Tokens | CSS channel |
+|---|---|---|
+| `glow` | `--ui-glow-color`, `--ui-glow-size` | `filter: drop-shadow(...)` through the non-inheriting `--ui-effect` property |
+
+- One element: `<Button effect="glow">`. One element with its own look: add `style={{ '--ui-glow-size': '16px' }}`.
+- A theme switches an effect on for chosen slots in its pack: `:root[data-theme="neon"] :where([data-slot="button"]) { --ui-effect: var(--ui-glow); }`, or only changes the tokens.
+- `--ui-effect` is registered with `inherits: false`, so a glowing container does not make the primitives inside it glow. Checked in Camoufox: the glow paints, a child of a glowing element computes `filter: none`, a per-element token override applies, and forced colours switch the filter off.
+- `filter` makes the element a containing block for `position: fixed` descendants while the effect is on. Do not put an effect on a container that holds a fixed-position child.
+- A new effect takes one rule on `[data-effect~="<name>"]`, its own `--ui-<name>-*` tokens in DESIGN.md and `tokens.css`, and a CSS property no other effect uses. A second filter effect is composed into `--ui-effect` in the same rule. Animated effects go inside `@media (prefers-reduced-motion: no-preference)`.
 
 ### Import boundaries
 

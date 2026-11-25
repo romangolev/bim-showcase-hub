@@ -1,4 +1,4 @@
-@layer properties, theme, base, utilities;
+@layer properties, theme, base, utilities, effects;
 
 :root,
 :root[data-theme="dark"] {
@@ -203,6 +203,7 @@
   --ui-border-strong: var(--color-field-border);
   --ui-accent: var(--color-arc-blue);
   --ui-accent-fill: var(--color-signal-blue);
+  --ui-accent-tint: color-mix(in srgb, var(--ui-accent) 18%, transparent);
   --ui-on-accent: var(--color-on-accent);
   --ui-solid: var(--color-bone);
   --ui-solid-hover: var(--color-snow);
@@ -216,6 +217,8 @@
   --ui-shadow-control: var(--shadow-button);
   --ui-shadow-float: var(--shadow-float);
   --ui-motion: 120ms;
+  --ui-glow-color: var(--ui-accent);
+  --ui-glow-size: 8px;
 
   --z-raised: 1;
   --z-sticky: 2;

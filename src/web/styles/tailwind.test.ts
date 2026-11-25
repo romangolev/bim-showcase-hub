@@ -58,7 +58,7 @@ describe('cascade layers', () => {
 
   it('declares the order once, in the first stylesheet the app loads', () => {
     expect(
-      tokens.startsWith('@layer properties, theme, base, utilities;'),
+      tokens.startsWith('@layer properties, theme, base, utilities, effects;'),
     ).toBe(true);
     const sheets = [...main.matchAll(/import '(\.[^']+\.css)'/g)].map(
       (match) => match[1],
@@ -94,6 +94,20 @@ describe('cascade layers', () => {
     expect(layer).toMatch(/\.min-h-hit \{[^}]*var\(--hit-target\)/);
     expect(layer).toMatch(/\.bg-surface \{[^}]*var\(--ui-surface\)/);
     expect(compiler.build(['bg-red-500', 'rounded-lg'])).toBe(css);
+  });
+
+  it('loads the effects after the utilities, in their own layer', () => {
+    const effects = readFileSync('src/web/ui/effects.css', 'utf8');
+    expect(main.indexOf("'./ui/effects.css'")).toBeGreaterThan(
+      main.indexOf("'./styles/tailwind.css'"),
+    );
+    expect(effects).toContain('@layer effects {');
+    expect(effects).toMatch(/@property --ui-effect \{[^}]*inherits: false;/);
+    expect(effects).toMatch(/:where\(\[data-effect~="glow"\]\)/);
+    expect(effects).not.toMatch(/#[0-9a-f]{3,8}\b|rgb\(/i);
+    for (const token of effects.matchAll(/var\((--ui-glow-[a-z]+)\)/g)) {
+      expect(declared.has(token[1])).toBe(true);
+    }
   });
 });
 

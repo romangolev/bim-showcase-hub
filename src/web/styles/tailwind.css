@@ -56,6 +56,7 @@
   --color-line-strong: var(--ui-border-strong);
   --color-accent: var(--ui-accent);
   --color-accent-fill: var(--ui-accent-fill);
+  --color-accent-tint: var(--ui-accent-tint);
   --color-on-accent: var(--ui-on-accent);
   --color-solid: var(--ui-solid);
   --color-solid-hover: var(--ui-solid-hover);

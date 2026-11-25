@@ -11,6 +11,8 @@ VIEWPORTS = {"1440": DESKTOP, "390": MOBILE}
 THEMES = ("dark", "light")
 DIFF_LIMIT = 0.5
 STEP_TIMEOUT_MS = 5000
+MODEL_SETTLE_MS = 5000
+MODEL_URL = []
 
 
 def settle(page, ms=500):
@@ -84,9 +86,14 @@ def walk(page, emit):
     page.locator("[role=treeitem]").first.wait_for(timeout=20000)
     settle(page, 800)
     emit("documents")
-    expand_to_viewable(page).click()
-    page.wait_for_url(re.compile(r"/model/"), timeout=15000)
-    settle(page, 3000)
+    if MODEL_URL:
+        page.goto(MODEL_URL[0], wait_until="networkidle")
+    else:
+        expand_to_viewable(page).click()
+        page.wait_for_url(re.compile(r"/model/"), timeout=15000)
+        MODEL_URL.append(page.url)
+    page.wait_for_load_state("networkidle")
+    settle(page, MODEL_SETTLE_MS)
     emit("model")
     for name, action in OVERLAYS:
         try:
@@ -152,7 +159,7 @@ def diff(before, after):
             print(f"SIZE    {name} {a.size} vs {b.size}", flush=True)
             over += 1
             continue
-        changed = sum(1 for pixel in ImageChops.difference(a, b).convert("L").getdata() if pixel > 8)
+        changed = sum(ImageChops.difference(a, b).convert("L").histogram()[9:])
         percent = 100 * changed / (a.size[0] * a.size[1])
         over += percent > DIFF_LIMIT
         print(f"{percent:6.2f}% {name}", flush=True)

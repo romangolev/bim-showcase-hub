@@ -1,0 +1,17 @@
+@media (forced-colors: active) {
+  [data-slot="button"],
+  [data-slot="toggle-button"],
+  [data-slot="icon-button"] {
+    border: 1px solid ButtonText;
+  }
+
+  [data-slot][data-pressed],
+  [data-slot][data-checked],
+  [data-slot][data-highlighted],
+  [data-slot][aria-checked="true"],
+  [data-slot][aria-selected="true"] {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
+  }
+}

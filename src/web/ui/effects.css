@@ -1,0 +1,22 @@
+@property --ui-effect {
+  syntax: "*";
+  inherits: false;
+  initial-value: none;
+}
+
+@layer effects {
+  :where([data-slot]) {
+    --ui-glow: drop-shadow(0 0 var(--ui-glow-size) var(--ui-glow-color));
+    filter: var(--ui-effect);
+  }
+
+  :where([data-effect~="glow"]) {
+    --ui-effect: var(--ui-glow);
+  }
+
+  @media (forced-colors: active) {
+    :where([data-slot]) {
+      filter: none;
+    }
+  }
+}

@@ -6,7 +6,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 ASSETS = ROOT / "dist" / "web" / "assets"
 UI = ROOT / "src" / "web" / "ui"
-LAYER_ORDER = ["properties", "theme", "base", "utilities"]
+LAYER_ORDER = ["properties", "theme", "base", "utilities", "effects"]
 PROBE_UTILITY = ".min-h-hit{"
 BUDGET = {
     "js raw": 1_830_000,
