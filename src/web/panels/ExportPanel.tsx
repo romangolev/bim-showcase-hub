@@ -19,6 +19,14 @@ import './panels.css';
 import { Button } from '../ui/Button.js';
 import { CardTitle } from '../ui/Card.js';
 import { Drawer, DrawerBody, DrawerHeader } from '../ui/Drawer.js';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../ui/Table.js';
 
 export interface ExportPanelProps {
   adapter?: ViewerAdapter | null;
@@ -83,30 +91,28 @@ export function ExportPanel({ adapter, fileName }: ExportPanelProps) {
               Rows: {state.total} · first {PREVIEW_ROWS}
             </p>
             <div className="bsh-table-wrap">
-              <table
+              <Table
                 className="bsh-table"
                 aria-label="Export preview"
                 aria-rowcount={preview.rows.length + 1}
               >
-                <thead>
-                  <tr>
+                <TableHeader>
+                  <TableRow>
                     {preview.header.map((name) => (
-                      <th key={name} scope="col">
-                        {name}
-                      </th>
+                      <TableHead key={name}>{name}</TableHead>
                     ))}
-                  </tr>
-                </thead>
-                <tbody>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {preview.rows.map((row, index) => (
-                    <tr key={index}>
+                    <TableRow key={index}>
                       {row.map((cell, column) => (
-                        <td key={column}>{String(cell)}</td>
+                        <TableCell key={column}>{String(cell)}</TableCell>
                       ))}
-                    </tr>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           </>
         ) : null}

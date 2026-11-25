@@ -2,6 +2,7 @@ import { type KeyboardEvent, useState } from 'react';
 import { usePersisted } from '../storage.js';
 import { Button } from '../ui/Button.js';
 import { Kbd } from '../ui/Kbd.js';
+import { Table, TableBody, TableCell, TableRow } from '../ui/Table.js';
 import { ToggleButton } from '../ui/ToggleButton.js';
 import { formatShortcut, shortcutFromEvent } from './shortcuts.js';
 import {
@@ -52,15 +53,15 @@ export function ShortcutEditor() {
   };
   return (
     <div className="settings__section">
-      <table className="settings__shortcuts">
-        <tbody>
+      <Table className="settings__shortcuts">
+        <TableBody>
           {viewerShortcuts(overrides).map((shortcut) => (
-            <tr key={shortcut.command}>
-              <th scope="row">{shortcut.label}</th>
-              <td>
+            <TableRow key={shortcut.command}>
+              <TableCell rowHeader>{shortcut.label}</TableCell>
+              <TableCell>
                 <Kbd>{formatShortcut(shortcut.keys)}</Kbd>
-              </td>
-              <td>
+              </TableCell>
+              <TableCell>
                 <ToggleButton
                   aria-label={`Change ${shortcut.label}`}
                   pressed={capturing === shortcut.command}
@@ -79,11 +80,11 @@ export function ShortcutEditor() {
                 >
                   Reset
                 </Button>
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
       <p className="settings__hint" role="status">
         {message}
       </p>

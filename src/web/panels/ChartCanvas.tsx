@@ -29,6 +29,14 @@ import {
 } from '../extensions/dashboardData.js';
 import { usePersisted } from '../storage.js';
 import { useTheme } from '../theme/ThemeContext.js';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../ui/Table.js';
 import { patternFill } from './chartPatterns.js';
 import { CHART_SETTINGS } from './chartSettings.js';
 
@@ -520,59 +528,56 @@ export function ChartTable({
         />
       </div>
       <div className="bsh-chart-table__wrap">
-        <table className="bsh-table bsh-chart-table">
+        <Table className="bsh-table bsh-chart-table">
           <caption className="bsh-chart-table__caption">{label}</caption>
-          <thead>
-            <tr>
-              <th scope="col">{chart.property}</th>
-              {numeric ? (
-                <th scope="col" className="bsh-num">
-                  {valueLabel}
-                </th>
-              ) : null}
-              <th scope="col" className="bsh-num">
-                {numeric ? 'Elements' : 'Count'}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {chart.data.map((datum, index) => (
-              <tr
-                key={datum.label}
-                data-active={highlight?.has(datum.label) || undefined}
-              >
-                <th scope="row">
-                  <span className="bsh-chart-table__label">
-                    <span
-                      className="bsh-legend__swatch"
-                      style={{ background: colors[index] ?? 'transparent' }}
-                      aria-hidden="true"
-                    />
-                    {onSelectLabel ? (
-                      <button
-                        type="button"
-                        className="bsh-chart-table__pick"
-                        onClick={() => onSelectLabel(datum.label)}
-                      >
-                        {datum.label}
-                      </button>
-                    ) : (
-                      datum.label
-                    )}
-                  </span>
-                </th>
-                {numeric ? (
-                  <td className="bsh-num">
-                    {datum.value === undefined
-                      ? '—'
-                      : formatMeasure(datum.value, chart.unit)}
-                  </td>
-                ) : null}
-                <td className="bsh-num">{datum.count}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{chart.property}</TableHead>
+              {numeric ? <TableHead numeric>{valueLabel}</TableHead> : null}
+              <TableHead numeric>{numeric ? 'Elements' : 'Count'}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {chart.data.map((datum, index) => {
+              const active = highlight?.has(datum.label) ?? false;
+              return (
+                <TableRow
+                  key={datum.label}
+                  {...(active ? { 'data-active': 'true' } : {})}
+                >
+                  <TableCell rowHeader>
+                    <span className="bsh-chart-table__label">
+                      <span
+                        className="bsh-legend__swatch"
+                        style={{ background: colors[index] ?? 'transparent' }}
+                        aria-hidden="true"
+                      />
+                      {onSelectLabel ? (
+                        <button
+                          type="button"
+                          className="bsh-chart-table__pick"
+                          onClick={() => onSelectLabel(datum.label)}
+                        >
+                          {datum.label}
+                        </button>
+                      ) : (
+                        datum.label
+                      )}
+                    </span>
+                  </TableCell>
+                  {numeric ? (
+                    <TableCell numeric>
+                      {datum.value === undefined
+                        ? '—'
+                        : formatMeasure(datum.value, chart.unit)}
+                    </TableCell>
+                  ) : null}
+                  <TableCell numeric>{datum.count}</TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

@@ -17,6 +17,14 @@ import {
 import { localeOf } from '../i18n/format.js';
 import type { Language } from '../settings/settings.js';
 import { Input } from '../ui/Input.js';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../ui/Table.js';
 import { ChartCanvas, type ChartKind, ChartTable } from './ChartCanvas.js';
 
 const CANVAS_KIND: Record<Exclude<ChartType, 'table'>, ChartKind> = {
@@ -266,54 +274,52 @@ function TileData({
   return (
     <details className="bsh-details" open={open}>
       <summary>Data table</summary>
-      <table className="bsh-table">
+      <Table className="bsh-table">
         <caption className="bsh-sr-only">
           {chart.measure
             ? `${AGGREGATE_LABELS[chart.aggregate ?? 'count']} of ${chart.measure} by ${chart.property}`
             : `Element counts by ${chart.property}`}
         </caption>
-        <thead>
-          <tr>
-            <th scope="col">{chart.property}</th>
+        <TableHeader>
+          <TableRow>
+            <TableHead>{chart.property}</TableHead>
             {numeric && chart.aggregate ? (
-              <th scope="col" className="bsh-num">
+              <TableHead numeric>
                 {AGGREGATE_LABELS[chart.aggregate]}
                 {chart.unit ? ` (${chart.unit})` : ''}
-              </th>
+              </TableHead>
             ) : null}
             {chart.series?.map((series) => (
-              <th key={series.modelId} scope="col" className="bsh-num">
+              <TableHead key={series.modelId} numeric>
                 {series.label}
-              </th>
+              </TableHead>
             ))}
-            <th scope="col" className="bsh-num">
-              Count
-            </th>
-          </tr>
-        </thead>
-        <tbody>
+            <TableHead numeric>Count</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {chart.data.map((d, index) => (
-            <tr key={d.label}>
-              <td>{d.label}</td>
+            <TableRow key={d.label}>
+              <TableCell>{d.label}</TableCell>
               {numeric ? (
-                <td className="bsh-num">
+                <TableCell numeric>
                   {d.value === undefined
                     ? '—'
                     : d.value.toLocaleString(localeOf(language), {
                         maximumFractionDigits: 2,
                       })}
-                </td>
+                </TableCell>
               ) : null}
               {chart.series?.map((series) => (
-                <td key={series.modelId} className="bsh-num">
+                <TableCell key={series.modelId} numeric>
                   {series.counts[index] ?? 0}
-                </td>
+                </TableCell>
               ))}
-              <td className="bsh-num">{d.count}</td>
-            </tr>
+              <TableCell numeric>{d.count}</TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </details>
   );
 }
