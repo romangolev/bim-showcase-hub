@@ -681,6 +681,12 @@ describe('Share menu report', () => {
     expect(print).not.toHaveBeenCalled();
   });
 
+  it('focuses the report title when the options open', async () => {
+    renderShareMenu(linkAdapter());
+    await openReportDialog();
+    expect(screen.getByLabelText('Title')).toHaveFocus();
+  });
+
   it('saves the report options as a template and applies it next time', async () => {
     renderShareMenu(linkAdapter());
     await openReportDialog();

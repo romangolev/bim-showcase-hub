@@ -124,9 +124,9 @@ function ReportDialog({ initial, onPrint, onClose }: ReportDialogProps) {
   const [templateId, setTemplateId] = useState('');
   const [templateName, setTemplateName] = useState('');
   const templates = useSavedKindItems(REPORT_TEMPLATES);
-  const dialogRef = useRef<HTMLDialogElement>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
-    dialogRef.current?.querySelector('input')?.focus();
+    titleRef.current?.focus();
   }, []);
   const patch = (next: Partial<ReportOptions>) =>
     setOptions((current) => ({ ...current, ...next }));
@@ -149,12 +149,7 @@ function ReportDialog({ initial, onPrint, onClose }: ReportDialogProps) {
     setTemplateName('');
   };
   return (
-    <Dialog
-      ref={dialogRef}
-      size="sm"
-      aria-label="Report options"
-      onClose={onClose}
-    >
+    <Dialog size="sm" aria-label="Report options" onClose={onClose}>
       <DialogHeader>
         <DialogTitle>Print report</DialogTitle>
         <DialogClose>
@@ -199,6 +194,7 @@ function ReportDialog({ initial, onPrint, onClose }: ReportDialogProps) {
         <FieldLabel layout="row">
           <span>Title</span>
           <Input
+            ref={titleRef}
             type="text"
             value={options.title}
             maxLength={REPORT_TITLE_MAX}
