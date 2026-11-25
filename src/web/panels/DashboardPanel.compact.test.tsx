@@ -135,22 +135,24 @@ describe('DashboardPanel auto-collapsing controls', () => {
     expect(toggle()).toHaveAttribute('aria-expanded', 'false');
   });
 
-  it('moves the header actions into the shared menu when collapsed', async () => {
+  it('hides the controls behind the one toggle with no actions menu', async () => {
     await open();
     resize(700, 180);
-    fireEvent.click(screen.getByRole('button', { name: 'Dashboard actions' }));
     expect(
-      screen.getByRole('menuitem', { name: 'Refresh' }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('menuitemcheckbox', { name: 'Horizontal layout' }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('menuitem', { name: 'Dashboard settings' }),
-    ).toBeInTheDocument();
-    const before = stored().charts?.length ?? 2;
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Add chart' }));
-    expect(stored().charts).toHaveLength(before + 1);
+      screen.queryByRole('button', { name: 'Dashboard actions' }),
+    ).toBeNull();
+    const panel = document.getElementById(
+      toggle().getAttribute('aria-controls') ?? '',
+    );
+    expect(panel).toHaveAttribute('inert');
+    expect(panel).toHaveAttribute('aria-hidden', 'true');
+    expect(panel).toContainElement(
+      screen.getByRole('button', { name: 'Add chart', hidden: true }),
+    );
+    fireEvent.click(toggle());
+    expect(panel).not.toHaveAttribute('inert');
+    expect(panel).not.toHaveAttribute('aria-hidden');
+    expect(addChart()).toBeInTheDocument();
   });
 
   it('keeps a manual choice over the automatic one and stores it', async () => {

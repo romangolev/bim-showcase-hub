@@ -465,8 +465,8 @@ def check_dashboard_auto_collapse(page, checks, pane):
     short = pane.bounding_box()["height"] < 360
     checks.add("dashboard controls collapse on their own in a short pane", (toggle.get_attribute("aria-expanded") == "false") == short, pane.bounding_box())
     if short:
-        checks.add("collapsed dashboard keeps its actions in one menu", pane.get_by_role("button", name="Dashboard actions").count() == 1 and pane.get_by_role("button", name="Add chart").count() == 0)
-        header = pane.locator(".bsh-drawer__header").bounding_box()["height"]
+        checks.add("collapsed dashboard shows only its controls toggle", pane.get_by_role("button", name="Dashboard actions").count() == 0 and pane.get_by_role("button", name="Add chart").count() == 0)
+        header = (pane.locator(".bsh-drawer__header").bounding_box() or {"height": 0})["height"]
         checks.add("collapsed dashboard header is one row", header <= 56, header)
     show_dashboard_controls(pane)
     checks.add("showing the controls by hand wins over the automatic rule", toggle.get_attribute("aria-expanded") == "true" and pane.get_by_role("button", name="Add chart").count() == 1)
@@ -1092,34 +1092,86 @@ def check_ifc_dropdown(page, checks):
     checks.add("escape in the tree leaves batch mode", page.locator(".doc-tree__bubble").count() == 0)
 
 
-def check_dashboard_overlay(page, checks):
+QUICK_GEOMETRY = """([paneSel, label]) => {
+  const sec = document.querySelector(paneSel + ' section');
+  const box = sec.getBoundingClientRect();
+  const header = sec.querySelector('header');
+  const body = sec.querySelector('.bsh-drawer__body, .bsh-summary__body');
+  const panel = sec.querySelector('.bsh-quick');
+  const toggle = sec.querySelector(`[aria-label="${label}"]`);
+  const t = toggle.getBoundingClientRect();
+  const over = (r) => r.width > 0 && r.left < t.right && r.right > t.left && r.top < t.bottom && r.bottom > t.top;
+  const hits = [...body.querySelectorAll('button, input, select')].filter((b) => over(b.getBoundingClientRect())).length;
+  const gaps = [...body.querySelectorAll('[aria-label^="Options for"], [aria-label$=" actions"]')].map((b) => b.getBoundingClientRect()).filter((r) => r.width > 0 && r.right <= box.right && r.top < t.bottom && r.bottom > t.top).map((r) => Math.round(t.left - r.right));
+  const style = getComputedStyle(panel);
+  const pad = getComputedStyle(body);
+  return {width: Math.round(sec.getBoundingClientRect().width), top: sec.getBoundingClientRect().top, headerHeight: header.getBoundingClientRect().height, bodyTop: body.getBoundingClientRect().top, bodyHeight: body.getBoundingClientRect().height, x: t.x, y: t.y, size: Math.round(t.height), position: getComputedStyle(toggle).position, inRow: t.bottom <= header.getBoundingClientRect().bottom + 1, hits, gaps, padStart: pad.paddingInlineStart, padEnd: pad.paddingInlineEnd, inert: panel.inert, hidden: panel.getAttribute('aria-hidden'), transition: style.transitionProperty, duration: style.transitionDuration, actions: [...header.querySelectorAll('[aria-label$=" actions"]')].length};
+}"""
+
+
+def set_quick(page, pane, label, open_):
+    toggle = pane.get_by_role("button", name=label)
+    if (toggle.get_attribute("aria-expanded") == "true") != open_:
+        toggle.click()
+        settle(page, 500)
+
+
+def check_quick_overlay(page, checks, pane_sel, label, where):
+    pane = page.locator(pane_sel).first
+    initial = pane.get_by_role("button", name=label).get_attribute("aria-expanded") == "true"
+    set_quick(page, pane, label, False)
+    hidden = page.evaluate(QUICK_GEOMETRY, [pane_sel, label])
+    docked = hidden["position"] == "absolute"
+    if docked:
+        checks.add(f"{label} hidden: the toggle floats over the content ({where})", abs(hidden["bodyTop"] - hidden["top"]) <= 1 and hidden["headerHeight"] <= 1, hidden)
+    else:
+        checks.add(f"{label} hidden: the toggle sits in the title row ({where})", hidden["inRow"] and hidden["headerHeight"] <= hidden["size"] + 28, hidden)
+    checks.add(f"{label} hidden: no column is reserved beside the content ({where})", hidden["padStart"] == hidden["padEnd"], (hidden["padStart"], hidden["padEnd"]))
+    checks.add(f"{label} hidden: no actions menu stands in for the controls ({where})", hidden["actions"] == 0, hidden["actions"])
+    checks.add(f"{label} hidden: the toggle covers no button or field ({where})", hidden["hits"] == 0, hidden["hits"])
+    checks.add(f"{label} hidden: option buttons keep a gap from the toggle ({where})", all(gap >= 4 for gap in hidden["gaps"]), hidden["gaps"])
+    checks.add(f"{label} hidden: the controls are inert and hidden from assistive tech ({where})", hidden["inert"] and hidden["hidden"] == "true", hidden)
+    checks.add(f"{label}: the toggle is at least the hit target ({where})", hidden["size"] >= (44 if where == "390" else 32), hidden["size"])
+    set_quick(page, pane, label, True)
+    shown = page.evaluate(QUICK_GEOMETRY, [pane_sel, label])
+    checks.add(f"{label} shown: the toggle stays in place ({where})", abs(hidden["x"] - shown["x"]) <= 1 and abs(hidden["y"] - shown["y"]) <= 1, (hidden["x"], hidden["y"], shown["x"], shown["y"]))
+    checks.add(f"{label} shown: the controls take focus again ({where})", not shown["inert"] and shown["hidden"] is None, shown)
+    checks.add(f"{label} shown: the toggle covers no button or field ({where})", shown["hits"] == 0, shown["hits"])
+    checks.add(f"{label}: hidden controls give the content the freed height ({where})", hidden["bodyHeight"] > shown["bodyHeight"] + 20 or hidden["bodyTop"] < shown["bodyTop"] - 20, (hidden["bodyHeight"], shown["bodyHeight"]))
+    checks.add(f"{label}: the controls slide ({where})", "grid-template-rows" in shown["transition"] and any(float(d.rstrip("s")) > 0 for d in shown["duration"].split(",")), (shown["transition"], shown["duration"]))
+    page.emulate_media(reduced_motion="reduce")
+    settle(page, 100)
+    still = page.evaluate(QUICK_GEOMETRY, [pane_sel, label])
+    page.emulate_media(reduced_motion="no-preference")
+    checks.add(f"{label}: reduced motion turns the slide off ({where})", all(float(d.rstrip("s")) == 0 for d in still["duration"].split(",")), still["duration"])
+    set_quick(page, pane, label, initial)
+    return hidden, shown
+
+
+def open_dashboard(page):
     expand = page.get_by_role("button", name="Expand Dashboard")
     if expand.count():
         expand.first.click()
         settle(page, 600)
     pane = page.locator(".pane-dashboard").first
     pane.locator("canvas").first.wait_for(timeout=8000)
-    toggle = pane.get_by_role("button", name="Dashboard controls")
-    if toggle.get_attribute("aria-expanded") == "true":
-        toggle.click()
-        settle(page, 500)
-    geometry = """() => {
-      const sec = document.querySelector('.pane-dashboard .bsh-drawer');
-      const header = sec.querySelector('.bsh-drawer__header');
-      const body = sec.querySelector('.bsh-drawer__body');
-      const toggle = sec.querySelector('[aria-label="Dashboard controls"]').getBoundingClientRect();
-      const buttons = [...header.querySelectorAll('button')].map((b) => b.getBoundingClientRect());
-      const hits = [...body.querySelectorAll('button')].filter((b) => { const r = b.getBoundingClientRect(); return buttons.some((a) => a.left < r.right && a.right > r.left && a.top < r.bottom && a.bottom > r.top); }).length;
-      return {top: sec.getBoundingClientRect().top, bodyTop: body.getBoundingClientRect().top, bodyHeight: body.getBoundingClientRect().height, position: getComputedStyle(header).position, x: toggle.x, y: toggle.y, hits};
-    }"""
-    hidden = page.evaluate(geometry)
-    checks.add("hidden dashboard controls leave the layout", hidden["position"] == "absolute" and abs(hidden["bodyTop"] - hidden["top"]) <= 1, hidden)
-    checks.add("the hidden dashboard header covers no chart button", hidden["hits"] == 0, hidden["hits"])
-    toggle.click()
-    settle(page, 500)
-    shown = page.evaluate(geometry)
-    checks.add("the controls button stays in the same place when controls show", abs(hidden["x"] - shown["x"]) <= 1 and abs(hidden["y"] - shown["y"]) <= 1, (hidden["x"], hidden["y"], shown["x"], shown["y"]))
-    checks.add("hidden controls give the charts the freed height", hidden["bodyHeight"] > shown["bodyHeight"] + 20, (hidden["bodyHeight"], shown["bodyHeight"]))
+    pane.scroll_into_view_if_needed()
+    return pane
+
+
+def check_dashboard_overlay(page, checks):
+    open_dashboard(page)
+    check_quick_overlay(page, checks, ".pane-dashboard", "Dashboard controls", "dock")
+    page.set_viewport_size({"width": 948, "height": DESKTOP[1]})
+    settle(page, 600)
+    hidden, _ = check_quick_overlay(page, checks, ".pane-dashboard", "Dashboard controls", "narrow dock")
+    checks.add("the narrow dashboard pane is about 374 px wide", 300 <= hidden["width"] <= 450, hidden["width"])
+    page.locator(".pane-dashboard").first.screenshot(path=str(OUTPUT_DIR / "mock-dashboard-quick-narrow.png"))
+    page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
+    settle(page, 600)
+    open_dashboard(page)
+    check_quick_overlay(page, checks, ".pane-dashboard", "Dashboard controls", "390")
+    page.locator(".pane-dashboard").first.screenshot(path=str(OUTPUT_DIR / "mock-dashboard-quick-390.png"))
 
 
 def check_user_menu_alignment(page, checks):
