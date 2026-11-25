@@ -396,27 +396,6 @@ fieldset.settings__field {
   }
 }
 
-.item-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.item-list__row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-1) var(--space-2);
-}
-
-.item-list__row > :first-child {
-  flex: 1 1 10rem;
-  min-width: 0;
-}
-
 .ifc-batch__list {
   display: flex;
   flex-direction: column;

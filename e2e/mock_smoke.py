@@ -2392,7 +2392,7 @@ def check_documents_home(page, checks):
     page.keyboard.press("Escape")
     checks.add("Documents pane menu has no Close", "Close" not in [item.strip() for item in items], items)
     palette_hint = page.get_by_role("note").filter(has_text="Press Ctrl+K")
-    checks.add("the palette hint shows at home", palette_hint.count() == 1, page.locator(".hint").all_inner_texts())
+    checks.add("the palette hint shows at home", palette_hint.count() == 1, page.locator("[data-slot='alert']").all_inner_texts())
     if palette_hint.count() == 1:
         palette_hint.get_by_role("button", name="Dismiss hint").first.click()
         settle(page, 300)

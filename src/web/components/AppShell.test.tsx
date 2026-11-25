@@ -56,7 +56,7 @@ describe('AppShell loading', () => {
     expect((await screen.findByRole('status')).textContent).toContain(
       'Loading',
     );
-    expect(document.querySelector('.state-block__skeleton')).not.toBeNull();
+    expect(document.querySelector('[data-slot="skeleton"]')).not.toBeNull();
   });
 });
 

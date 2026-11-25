@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { List, ListItem } from '../ui/List.js';
 
 export function ItemList({
   label,
@@ -9,14 +10,13 @@ export function ItemList({
   ordered?: boolean;
   children: ReactNode;
 }) {
-  const List = ordered ? 'ol' : 'ul';
   return (
-    <List className="item-list" aria-label={label}>
+    <List aria-label={label} render={ordered ? <ol /> : undefined}>
       {children}
     </List>
   );
 }
 
 export function ItemRow({ children }: { children: ReactNode }) {
-  return <li className="item-list__row">{children}</li>;
+  return <ListItem>{children}</ListItem>;
 }

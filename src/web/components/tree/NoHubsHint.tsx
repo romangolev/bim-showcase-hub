@@ -4,6 +4,7 @@ import { childrenQueryOptions, sessionQueryOptions } from '../../api/hooks.js';
 import { ROOT_SCOPE } from '../../api/scope.js';
 import { BSH_KEYS, defineRecord } from '../../storage.js';
 import { Button } from '../../ui/Button.js';
+import { EmptyDescription } from '../../ui/Empty.js';
 import { Icon } from '../icons.js';
 import { StateBlock } from '../StateBlock.js';
 
@@ -105,9 +106,9 @@ export function NoHubsHint({ onCheckAgain }: NoHubsHintProps) {
       title="No projects to show yet"
       titleAs="h3"
     >
-      <p className="state-block__message">
+      <EmptyDescription>
         Projects show up here once two things are true.
-      </p>
+      </EmptyDescription>
       <ol className="no-hubs__steps">
         <li>
           A hub admin has added this app in Forma Hub Admin, under Settings,

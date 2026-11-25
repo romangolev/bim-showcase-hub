@@ -320,7 +320,9 @@ describe('Feedback states', () => {
       new Promise(() => undefined),
     );
     const { container } = render(<ModelSummaryPanel adapter={adapter} />);
-    expect(container.querySelectorAll('.state-block__bar').length).toBe(5);
+    expect(
+      container.querySelectorAll('[data-slot="skeleton-bar"]').length,
+    ).toBe(5);
   });
 
   it('maps summary errors to friendly copy with retry and raw detail in a title', async () => {

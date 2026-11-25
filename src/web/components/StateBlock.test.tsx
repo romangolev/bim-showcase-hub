@@ -8,7 +8,9 @@ describe('StateBlock', () => {
       <StateBlock variant="loading" message="Reading elements" rows={4} />,
     );
     expect(screen.getByRole('status')).toHaveTextContent('Reading elements');
-    expect(container.querySelectorAll('.state-block__bar')).toHaveLength(4);
+    expect(
+      container.querySelectorAll('[data-slot="skeleton-bar"]'),
+    ).toHaveLength(4);
     expect(container.querySelector('svg')).toBeNull();
   });
 

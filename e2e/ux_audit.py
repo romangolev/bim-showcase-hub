@@ -429,7 +429,7 @@ def run_states(browser, theme, results, notes):
             page.wait_for_timeout(2500)
             measure(page, None, label, results, OUTPUT_DIR)
             results[label]["state_blocks"] = page.evaluate(
-                "() => [...document.querySelectorAll('.state-block')].map((el) => el.dataset.variant)"
+                "() => [...document.querySelectorAll('[data-state-block]')].map((el) => el.dataset.stateBlock)"
             )
         except Exception as exc:
             results[label] = {"error": f"{type(exc).__name__}: {str(exc)[:160]}"}
