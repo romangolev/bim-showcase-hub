@@ -295,14 +295,12 @@ describe('excelFileNameFrom', () => {
 describe('Excel settings window', () => {
   const renderWindow = () => render(new ExcelExportTool().renderSettings());
 
-  it('has the enable switch and persists the format', () => {
+  it('persists the format', () => {
     renderWindow();
     fireEvent.change(screen.getByLabelText('Format'), {
       target: { value: 'csv' },
     });
     expect(stored().format).toBe('csv');
-    fireEvent.click(screen.getByRole('switch', { name: 'Excel export' }));
-    expect(stored().enabled).toBe(false);
   });
 
   it('persists the file name pattern and a checkbox', () => {

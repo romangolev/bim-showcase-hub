@@ -258,12 +258,6 @@ describe('ifcFileNameFrom', () => {
 describe('IFC settings window', () => {
   const renderWindow = () => render(new IfcExportTool().renderSettings());
 
-  it('has the enable switch', () => {
-    renderWindow();
-    fireEvent.click(screen.getByRole('switch', { name: 'IFC export' }));
-    expect(stored().enabled).toBe(false);
-  });
-
   it('edits a text field and persists it', () => {
     renderWindow();
     fireEvent.change(screen.getByLabelText('Project name'), {

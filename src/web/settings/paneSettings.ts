@@ -20,8 +20,6 @@ import {
 } from '../extensions/modelSummary.js';
 import { sanitizePropertyNames } from '../extensions/propertyNames.js';
 import { BSH_KEYS, defineRecord } from '../storage.js';
-import type { ElementScope } from '../viewer/propertyScope.js';
-import { sanitizeElementScope } from '../viewer/propertyScope.js';
 
 export const PANE_SETTINGS = {
   summary: {
@@ -34,11 +32,6 @@ export const PANE_SETTINGS = {
       key: BSH_KEYS.personal.summaryProperties,
       initial: DEFAULT_SUMMARY_PROPERTIES,
       sanitize: (raw) => sanitizePropertyNames(raw, DEFAULT_SUMMARY_PROPERTIES),
-    }),
-    scope: defineRecord<ElementScope>({
-      key: BSH_KEYS.personal.summaryScope,
-      initial: 'all',
-      sanitize: sanitizeElementScope,
     }),
     action: defineRecord<ElementAction>({
       key: BSH_KEYS.personal.summaryAction,

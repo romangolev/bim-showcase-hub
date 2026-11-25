@@ -6,7 +6,6 @@ import {
   type ViewNodes,
   type ViewPanes,
 } from '../api/viewLink.js';
-import type { DashboardView } from '../extensions/dashboardPresets.js';
 import { chartSetting } from '../layout/instanceSettings.js';
 import type { LayoutApi } from '../layout/layoutContext.js';
 import type { PaneId } from '../layout/paneRegistry.js';
@@ -28,14 +27,6 @@ export const COLLAPSED_PANES: readonly PaneId[] = [
 const CHART_INSTANCE_KEY = /^bsh\.pane\.chart\.(.+)\.v1$/;
 const CHART_PANEL = /^chart:([A-Za-z0-9]{1,8})$/;
 
-function portableView(view: DashboardView): DashboardView {
-  if (typeof view.elements === 'string' && view.elements.startsWith('set:')) {
-    const { elements: _set, ...rest } = view;
-    return rest;
-  }
-  return view;
-}
-
 function chartInstanceIds(): string[] {
   const ids: string[] = [];
   for (const key of getStorageAdapter().keys('local')) {
@@ -55,13 +46,13 @@ export function captureCharts(): ViewChart[] {
   const charts: ViewChart[] = [
     {
       id: 'dashboard',
-      view: portableView(PANE_SETTINGS.dashboard.view.read()),
+      view: PANE_SETTINGS.dashboard.view.read(),
     },
   ];
   for (const id of chartInstanceIds()) {
     charts.push({
       id,
-      view: portableView(chartSetting(id as PaneId).read()),
+      view: chartSetting(id as PaneId).read(),
     });
   }
   return charts.slice(0, MAX_LINK_CHARTS);

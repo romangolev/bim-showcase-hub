@@ -1,5 +1,6 @@
-import { useId, useMemo, useState } from 'react';
+import { useId, useMemo, useRef, useState } from 'react';
 import { Icon } from '../components/icons.js';
+import { PaneActionsMenu } from '../components/PaneActionsMenu.js';
 import { StateBlock } from '../components/StateBlock.js';
 import { writeClipboard } from '../extensions/clipboard.js';
 import { saveBlob } from '../extensions/download.js';
@@ -28,18 +29,13 @@ import { formatCount } from '../i18n/format.js';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import { useSettings } from '../settings/SettingsContext.js';
 import { usePersisted } from '../storage.js';
-import type { ElementScope } from '../viewer/propertyScope.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
-import {
-  ElementScopeSelect,
-  elementScopeLabel,
-  scopeName,
-} from './ElementScope.js';
 import {
   FailedModels,
   ModelScopeSelect,
   UnavailableModels,
 } from './ModelScope.js';
+import { QuickSettings, useQuickSettings } from './QuickSettings.js';
 import { openSummaryProperty } from './SummaryPropertyDialog.js';
 import { SummaryTable } from './SummaryTable.js';
 import {
@@ -68,7 +64,6 @@ export interface ModelSummaryPanelProps {
   toggleable?: boolean;
   onOpenSettings?: () => void;
   scope?: { value: string; onChange: (scope: string) => void };
-  elements?: { value: ElementScope; onChange: (scope: ElementScope) => void };
   view?: { value: SummaryView; onChange: (view: SummaryView) => void };
   action?: ElementAction;
 }
@@ -89,7 +84,6 @@ export function ModelSummaryPanel({
   toggleable = true,
   onOpenSettings,
   scope: controlledScope,
-  elements: controlledElements,
   view: controlledView,
   action: controlledAction,
 }: ModelSummaryPanelProps) {
@@ -104,11 +98,6 @@ export function ModelSummaryPanel({
   );
   const propertyNames = propertyNamesOverride ?? savedProperties;
   const setProperties = onPropertiesChange ?? setSavedProperties;
-  const [savedElements, setSavedElements] = usePersisted(
-    PANE_SETTINGS.summary.scope,
-  );
-  const elementsScope = controlledElements?.value ?? savedElements;
-  const setElementsScope = controlledElements?.onChange ?? setSavedElements;
   const [savedView, setSavedView] = usePersisted(PANE_SETTINGS.summary.view);
   const view = controlledView?.value ?? savedView;
   const readNames = useMemo(
@@ -117,7 +106,6 @@ export function ModelSummaryPanel({
   );
   const state = useScopedRows(resolved, {
     names: readNames,
-    elements: elementsScope,
     autoRefresh: view.autoRefresh,
     ...(controlledScope ? { models: controlledScope } : {}),
   });
@@ -205,15 +193,21 @@ export function ModelSummaryPanel({
     onCollapsedChange?.(next);
   };
 
+  const sectionRef = useRef<HTMLElement>(null);
+  const [controls, setControls] = useState<boolean>();
+  const quick = useQuickSettings(sectionRef, controls, setControls);
+
   const bodyId = `${uid}-body`;
   const titleId = `${uid}-title`;
   const toggleLabel = isCollapsed ? `Expand ${title}` : `Collapse ${title}`;
 
   return (
     <section
+      ref={sectionRef}
       className={`bsh-card bsh-summary ${className ?? ''}`.trim()}
       aria-labelledby={titleId}
       data-collapsed={isCollapsed}
+      data-compact={!isCollapsed && !quick.open}
       data-density={view.density}
       data-rows-collapsed={
         !showAll &&
@@ -230,40 +224,6 @@ export function ModelSummaryPanel({
             </span>
           ) : null}
         </h2>
-        <ModelScopeSelect state={state.models} label="Summarize models" />
-        <ElementScopeSelect value={elementsScope} onChange={setElementsScope} />
-        <button
-          type="button"
-          className="btn bsh-summary__add"
-          disabled={full}
-          title={
-            full
-              ? `The summary already has ${MAX_SUMMARY_ROWS} rows and ${MAX_SUMMARY_COLUMNS} columns`
-              : undefined
-          }
-          onClick={() => openAdd()}
-        >
-          <Icon name="plus" size={14} />
-          <span className="bsh-summary__add-label">Add property</span>
-        </button>
-        <button
-          type="button"
-          className="btn bsh-summary__refresh"
-          onClick={state.refresh}
-          disabled={!resolved}
-        >
-          Refresh
-        </button>
-        {onOpenSettings ? (
-          <button
-            type="button"
-            className="icon-button"
-            onClick={onOpenSettings}
-          >
-            <Icon name="settings" size={16} />
-            <span className="bsh-sr-only">Summary settings</span>
-          </button>
-        ) : null}
         {toggleable ? (
           <button
             type="button"
@@ -281,6 +241,47 @@ export function ModelSummaryPanel({
             <span className="bsh-sr-only">{toggleLabel}</span>
           </button>
         ) : null}
+        {isCollapsed ? null : (
+          <QuickSettings
+            label="Summary controls"
+            open={quick.open}
+            onToggle={quick.toggle}
+          >
+            <ModelScopeSelect state={state.models} label="Summarize models" />
+            <button
+              type="button"
+              className="btn bsh-summary__add"
+              disabled={full}
+              title={
+                full
+                  ? `The summary already has ${MAX_SUMMARY_ROWS} rows and ${MAX_SUMMARY_COLUMNS} columns`
+                  : undefined
+              }
+              onClick={() => openAdd()}
+            >
+              <Icon name="plus" size={14} />
+              <span className="bsh-summary__add-label">Add property</span>
+            </button>
+            <button
+              type="button"
+              className="btn bsh-summary__refresh"
+              onClick={state.refresh}
+              disabled={!resolved}
+            >
+              Refresh
+            </button>
+            {onOpenSettings ? (
+              <button
+                type="button"
+                className="icon-button"
+                onClick={onOpenSettings}
+              >
+                <Icon name="settings" size={16} />
+                <span className="bsh-sr-only">Summary settings</span>
+              </button>
+            ) : null}
+          </QuickSettings>
+        )}
       </header>
       <div
         id={bodyId}
@@ -297,11 +298,6 @@ export function ModelSummaryPanel({
                 unavailable={state.models.unavailable}
               />
             </>
-          ) : null}
-          {state.status === 'ready' && state.elements !== 'all' ? (
-            <p className="bsh-scope__notice" role="status">
-              {elementScopeLabel(state, language)}
-            </p>
           ) : null}
           {!resolved && (
             <StateBlock
@@ -376,16 +372,8 @@ export function ModelSummaryPanel({
             !state.pending && (
               <StateBlock
                 variant="empty"
-                title={
-                  state.elements === 'all'
-                    ? 'No elements to summarize'
-                    : `No ${scopeName(state.elements).toLowerCase()} elements`
-                }
-                message={
-                  state.elements === 'all'
-                    ? 'This version has no readable elements. Try another version.'
-                    : 'Change the element scope, or pick elements in the viewer.'
-                }
+                title="No elements to summarize"
+                message="This version has no readable elements. Try another version."
                 action={{ label: 'Refresh', onClick: state.refresh }}
               />
             )}
@@ -401,22 +389,23 @@ export function ModelSummaryPanel({
                   onChange={(e) => patch({ text: e.target.value })}
                 />
               )}
-              <button type="button" className="btn" onClick={copyTable}>
-                Copy table
-              </button>
-              <button type="button" className="btn" onClick={downloadCsv}>
-                Download CSV
-              </button>
+              <PaneActionsMenu
+                label="Summary actions"
+                actions={() => [
+                  { id: 'copy', label: 'Copy table', onSelect: copyTable },
+                  { id: 'csv', label: 'Download CSV', onSelect: downloadCsv },
+                  { kind: 'separator', id: 'viewer-sep' },
+                  {
+                    id: 'show-all',
+                    label: 'Show all elements',
+                    disabled: !resolved,
+                    onSelect: () => resolved && showAllElements(resolved),
+                  },
+                ]}
+              />
               <span role="status" className="bsh-summary__notice">
                 {notice}
               </span>
-              <button
-                type="button"
-                className="btn"
-                onClick={() => resolved && showAllElements(resolved)}
-              >
-                Show all elements
-              </button>
               {shares.length > 0 && (
                 <ul className="bsh-summary__shares" aria-label="Empty values">
                   {shares.map((share) => (

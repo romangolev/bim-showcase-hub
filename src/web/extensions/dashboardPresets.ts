@@ -1,10 +1,6 @@
 import { flag } from '../../shared/guards.js';
 import { defineSavedKind } from '../store/savedKinds.js';
 import {
-  type ElementScope,
-  sanitizeElementScope,
-} from '../viewer/propertyScope.js';
-import {
   type Aggregate,
   CHART_TYPES,
   type ChartType,
@@ -133,8 +129,16 @@ export interface DashboardView extends Partial<DashboardChartSpec> {
   pngTitle: boolean;
   pngLegend: boolean;
   scope?: string;
-  elements?: ElementScope;
   splitByModel?: boolean;
+  controls?: boolean;
+}
+
+export function withControls(
+  view: DashboardView,
+  controls: boolean | undefined,
+): DashboardView {
+  const { controls: _previous, ...rest } = view;
+  return controls === undefined ? rest : { ...rest, controls };
 }
 
 export const DEFAULT_DASHBOARD_VIEW: DashboardView = {
@@ -327,10 +331,10 @@ export function sanitizeDashboardView(raw: unknown): DashboardView {
     ...(typeof source.scope === 'string' && source.scope
       ? { scope: source.scope }
       : {}),
-    ...(sanitizeElementScope(source.elements) !== 'all'
-      ? { elements: sanitizeElementScope(source.elements) }
-      : {}),
     ...(flag(source.splitByModel, false) ? { splitByModel: true } : {}),
+    ...(typeof source.controls === 'boolean'
+      ? { controls: source.controls }
+      : {}),
   };
 }
 

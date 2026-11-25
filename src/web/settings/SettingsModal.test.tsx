@@ -8,10 +8,15 @@ import { CHART_SETTINGS } from '../panels/chartSettings.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { ThemeProvider } from '../theme/ThemeContext.js';
 import { TOOLS } from '../tools/index.js';
-import { SettingsBody, SettingsProvider } from './index.js';
+import {
+  SettingsBody,
+  SettingsProvider,
+  selectSettingsSection,
+} from './index.js';
 
 beforeEach(() => {
   installMemoryStorage();
+  selectSettingsSection(null);
 });
 
 afterEach(() => {
@@ -30,12 +35,32 @@ function renderBody() {
   );
 }
 
+function section(name: string) {
+  fireEvent.click(screen.getByRole('tab', { name }));
+}
+
 describe('SettingsBody', () => {
   it('holds only the app fields, nothing from a tool', () => {
     renderBody();
-    const switches = screen
-      .getAllByRole('switch')
-      .map((el) => el.getAttribute('aria-label'));
+    const switches: (string | null)[] = [];
+    for (const tab of screen.getAllByRole('tab')) {
+      fireEvent.click(tab);
+      switches.push(
+        ...screen
+          .queryAllByRole('switch')
+          .map((el) => el.getAttribute('aria-label')),
+      );
+      for (const absent of [
+        'Paint palette',
+        'Table export',
+        'IFC export',
+        'Summary settings',
+      ]) {
+        expect(screen.queryByRole('heading', { name: absent })).toBeNull();
+      }
+      expect(screen.queryByLabelText('Density')).toBeNull();
+      expect(screen.queryByLabelText('Maximum categories')).toBeNull();
+    }
     expect(switches).toEqual(
       expect.arrayContaining(['Caption on snapshots', 'Quiet mode']),
     );
@@ -45,30 +70,25 @@ describe('SettingsBody', () => {
         ['Paint palette', 'Table export'].includes(name ?? ''),
       ),
     ).toEqual([]);
+    section('Appearance');
     expect(screen.getByLabelText('Theme')).toHaveValue('system');
+    section('General');
     expect(
       screen.getByLabelText(/Warn me before the session ends/),
     ).toBeTruthy();
+    section('Documents');
     expect(screen.getByLabelText('Recent models to list')).toBeTruthy();
-    for (const absent of [
-      'Paint palette',
-      'Table export',
-      'IFC export',
-      'Summary settings',
-    ]) {
-      expect(screen.queryByRole('heading', { name: absent })).toBeNull();
-    }
-    expect(screen.queryByLabelText('Density')).toBeNull();
-    expect(screen.queryByLabelText('Maximum categories')).toBeNull();
   });
 
   it('offers the three text sizes, two languages and two unit systems', () => {
     renderBody();
+    section('Appearance');
     expect(
       within(screen.getByLabelText('Text size') as HTMLElement)
         .getAllByRole('option')
         .map((option) => option.textContent),
     ).toEqual(['100%', '112%', '125%']);
+    section('General');
     expect(
       within(screen.getByLabelText('Language') as HTMLElement)
         .getAllByRole('option')
@@ -93,15 +113,18 @@ describe('SettingsBody', () => {
 
   it('resets app settings to their defaults', () => {
     renderBody();
+    section('Appearance');
     fireEvent.change(screen.getByLabelText('Theme'), {
       target: { value: 'light' },
     });
+    section('General');
     fireEvent.click(screen.getByRole('button', { name: 'Reset settings' }));
-    expect(screen.getByLabelText('Theme')).toHaveValue('system');
-    expect(screen.getByLabelText('Text size')).toHaveValue('100');
     expect(
       screen.getByText('App settings are back to their defaults.'),
     ).toBeTruthy();
+    section('Appearance');
+    expect(screen.getByLabelText('Theme')).toHaveValue('system');
+    expect(screen.getByLabelText('Text size')).toHaveValue('100');
   });
 
   it('brings dismissed hints back from Defaults', () => {
@@ -142,6 +165,7 @@ describe('SettingsBody', () => {
       JSON.stringify({ sort: 'name' }),
     );
     renderBody();
+    section('Data and storage');
     const readout = screen.getByRole('list', {
       name: 'Storage use by data type',
     });
@@ -171,6 +195,7 @@ describe('SettingsBody', () => {
       JSON.stringify({ sort: 'name' }),
     );
     renderBody();
+    section('Data and storage');
     fireEvent.click(
       screen.getByRole('button', { name: 'Clear all local data…' }),
     );
@@ -194,17 +219,19 @@ describe('SettingsBody', () => {
     fireEvent.change(screen.getByLabelText('Language'), {
       target: { value: 'ru' },
     });
-    expect(screen.getByRole('heading', { name: 'Внешний вид' })).toBeTruthy();
     expect(
       within(screen.getByLabelText('Язык') as HTMLElement)
         .getAllByRole('option')
         .map((option) => option.textContent),
     ).toEqual(['English', 'Русский']);
     expect(screen.getByText('Настройки приложения')).toBeTruthy();
+    section('Внешний вид');
+    expect(screen.getByRole('heading', { name: 'Внешний вид' })).toBeTruthy();
   });
 
   it('offers System, Light and Dark and applies the choice', () => {
     renderBody();
+    section('Appearance');
     const theme = screen.getByLabelText('Theme');
     expect(theme.tagName).toBe('SELECT');
     expect(
@@ -222,10 +249,13 @@ describe('SettingsBody', () => {
 
   it('lists every registered tool and both panes as entry points', () => {
     renderBody();
+    section('Tools and panes');
     for (const tool of TOOLS.all()) {
-      expect(
-        screen.getByRole('button', { name: `${tool.title} settings` }),
-      ).toBeTruthy();
+      expect(screen.getByRole('switch', { name: tool.title })).toBeTruthy();
+      const settings = screen.queryByRole('button', {
+        name: `${tool.title} settings`,
+      });
+      expect(settings !== null).toBe(tool.hasSettings);
     }
     expect(
       screen.getByRole('button', { name: 'Summary settings' }),
@@ -235,31 +265,46 @@ describe('SettingsBody', () => {
     ).toBeTruthy();
   });
 
-  it('shows whether a tool is on or off from the tool setting', () => {
+  it('switches a tool on and off from the main settings and persists it', () => {
     window.localStorage.setItem(
       'bsh.tool.paint.v1',
       JSON.stringify({ enabled: false }),
     );
     renderBody();
-    const paint = screen
-      .getByRole('button', { name: 'Paint brushes settings' })
-      .closest('.settings__entry') as HTMLElement;
-    expect(within(paint).getByText('Off')).toBeTruthy();
-    const excel = screen
-      .getByRole('button', { name: 'Excel export settings' })
-      .closest('.settings__entry') as HTMLElement;
-    expect(within(excel).getByText('On')).toBeTruthy();
+    section('Tools and panes');
+    const paint = screen.getByRole('switch', { name: 'Paint brushes' });
+    const excel = screen.getByRole('switch', { name: 'Excel export' });
+    expect(paint).not.toBeChecked();
+    expect(excel).toBeChecked();
+    fireEvent.click(paint);
+    fireEvent.click(excel);
+    expect(paint).toBeChecked();
+    expect(excel).not.toBeChecked();
+    expect(
+      JSON.parse(window.localStorage.getItem('bsh.tool.paint.v1') ?? '{}'),
+    ).toMatchObject({ enabled: true });
+    expect(
+      JSON.parse(window.localStorage.getItem('bsh.tool.excel.v1') ?? '{}'),
+    ).toMatchObject({ enabled: false });
+  });
+
+  it('offers no settings window for a tool without fields', () => {
+    renderBody();
+    section('Tools and panes');
+    expect(
+      screen.queryByRole('button', { name: 'Geometry export settings' }),
+    ).toBeNull();
   });
 
   it.each([
     ['Paint brushes settings', 'Paint palette'],
     ['Excel export settings', 'Table export'],
-    ['Geometry export settings', null],
     ['IFC export settings', 'Length unit'],
     ['Summary settings', 'Density'],
     ['Dashboard settings', 'Maximum categories'],
   ])('opens the %s window', (name, marker) => {
     renderBody();
+    section('Tools and panes');
     fireEvent.click(screen.getByRole('button', { name }));
     const dialog = screen.getByRole('dialog', { name });
     if (marker) {
@@ -274,7 +319,9 @@ describe('SettingsBody', () => {
         'settings',
         'summary-settings',
         'dashboard-settings',
-        ...TOOLS.all().map((tool) => tool.modalId),
+        ...TOOLS.all()
+          .filter((tool) => tool.hasSettings)
+          .map((tool) => tool.modalId),
       ]),
     );
     expect(new Set(ids).size).toBe(ids.length);
@@ -282,6 +329,7 @@ describe('SettingsBody', () => {
 
   it('turns on chart patterns and the always-open data table', () => {
     renderBody();
+    section('Appearance');
     fireEvent.click(screen.getByRole('switch', { name: 'Pattern fills' }));
     fireEvent.click(
       screen.getByRole('switch', { name: 'Always show the data table' }),
@@ -294,6 +342,7 @@ describe('SettingsBody', () => {
 
   it('picks the chart palette', () => {
     renderBody();
+    section('Appearance');
     const palette = screen.getByLabelText('Chart palette');
     expect(
       within(palette)

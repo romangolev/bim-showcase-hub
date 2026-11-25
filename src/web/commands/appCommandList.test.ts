@@ -26,7 +26,6 @@ describe('appCommands', () => {
         'settings.dashboard-settings',
         'paint.settings',
         'excel.settings',
-        'glb.settings',
         'ifc.settings',
         'account.signout',
       ]),
@@ -39,8 +38,9 @@ describe('appCommands', () => {
       'Switch to light theme',
     );
     const openModal = vi.fn();
-    list.find((c) => c.id === 'glb.settings')?.run({ openModal });
-    expect(openModal).toHaveBeenCalledWith('tool-glb-settings');
+    list.find((c) => c.id === 'ifc.settings')?.run({ openModal });
+    expect(openModal).toHaveBeenCalledWith('tool-ifc-settings');
+    expect(list.find((c) => c.id === 'glb.settings')).toBeUndefined();
   });
 
   it('disables viewer exports without a model and sign out without a session', () => {
@@ -86,7 +86,7 @@ describe('tool export commands', () => {
     expect(excel?.disabled).toBeUndefined();
     const off = TOOLS.commands(ctx, { ...snapshot, glb: { enabled: false } });
     expect(off.find((c) => c.id === 'glb.export')?.disabled).toBe(
-      'Turned off in Geometry export settings',
+      'Turned off in Settings',
     );
   });
 });

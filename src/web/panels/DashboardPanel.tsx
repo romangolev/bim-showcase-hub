@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Icon } from '../components/icons.js';
 import { StateBlock } from '../components/StateBlock.js';
 import { colorByChart } from '../extensions/colorBy.js';
@@ -21,6 +21,7 @@ import {
   patchChart,
   removeChart,
   viewSpec,
+  withControls,
 } from '../extensions/dashboardPresets.js';
 import {
   itemsWithValues,
@@ -44,13 +45,13 @@ import { ChartBoard } from './ChartBoard.js';
 import { CHART_SETTINGS } from './chartSettings.js';
 import { DashboardPresetMenu } from './DashboardPresetMenu.js';
 import { ChartTile } from './DashboardTile.js';
-import { ElementScopeSelect, scopeName } from './ElementScope.js';
 import { HEALTH_KPI_SETTINGS, HealthKpis } from './HealthKpis.js';
 import {
   FailedModels,
   ModelScopeSelect,
   UnavailableModels,
 } from './ModelScope.js';
+import { QuickSettings, useQuickSettings } from './QuickSettings.js';
 import { ScopedRowsStatus } from './ScopedRowsStatus.js';
 import {
   SELECTION_DEBOUNCE_MS,
@@ -110,7 +111,6 @@ export function DashboardPanel({
   ]);
   const state = useScopedRows(resolved, {
     names: readNames,
-    elements: view.elements ?? 'all',
     autoRefresh: false,
     ...(setting
       ? {
@@ -172,8 +172,6 @@ export function DashboardPanel({
   const [action] = usePersisted(PANE_SETTINGS.dashboard.action);
   const settled = usable && !state.pending;
   const hasRows = settled && state.rows.length > 0;
-  const emptyScope =
-    settled && state.rows.length === 0 && state.elements !== 'all';
   const emptyBoard = hasRows && chartSpecs.length > 0 && shown.length === 0;
   const [viewerSelection, setViewerSelection] = useState<ModelDbId[]>([]);
   useEffect(() => {
@@ -263,13 +261,22 @@ export function DashboardPanel({
     onCollapsedChange?.(next);
   };
 
+  const sectionRef = useRef<HTMLElement>(null);
+  const quick = useQuickSettings(sectionRef, view.controls, (controls) =>
+    setView((prev) => withControls(prev, controls)),
+  );
+  const compact = !isCollapsed && !quick.open;
+  const orientations: DashboardOrientation[] = ['vertical', 'horizontal'];
+
   const bodyId = `${uid}-body`;
 
   return (
     <section
+      ref={sectionRef}
       className={`bsh-card bsh-drawer ${className ?? ''}`.trim()}
       aria-labelledby={`${uid}-title`}
       data-collapsed={isCollapsed}
+      data-compact={compact}
     >
       <header className="bsh-card__header bsh-drawer__header">
         <h2 id={`${uid}-title`} className="bsh-card__title">
@@ -278,7 +285,7 @@ export function DashboardPanel({
         {toggleable ? (
           <button
             type="button"
-            className="btn"
+            className="btn bsh-drawer__toggle"
             aria-expanded={!isCollapsed}
             aria-controls={bodyId}
             onClick={toggle}
@@ -294,85 +301,85 @@ export function DashboardPanel({
             </span>
           </button>
         ) : null}
-        {!isCollapsed ? (
-          <ModelScopeSelect state={state.models} label="Chart models" />
-        ) : null}
-        {!isCollapsed ? (
-          <ElementScopeSelect
-            value={view.elements ?? 'all'}
-            onChange={(next) =>
-              setView((prev) => ({ ...prev, elements: next }))
-            }
-            label="Chart elements"
-          />
-        ) : null}
-        {!isCollapsed && chartSpecs.length > 1 ? (
-          <fieldset className="bsh-kinds" aria-label="Chart layout">
-            {(['vertical', 'horizontal'] as DashboardOrientation[]).map(
-              (orientation) => (
-                <button
-                  key={orientation}
-                  type="button"
-                  className="btn"
-                  aria-pressed={view.orientation === orientation}
-                  onClick={() => setView((prev) => ({ ...prev, orientation }))}
-                >
-                  {ORIENTATION_LABELS[orientation]}
-                </button>
-              ),
-            )}
-          </fieldset>
-        ) : null}
-        {!isCollapsed ? (
-          <button
-            type="button"
-            className="btn"
-            disabled={chartSpecs.length >= MAX_CHARTS}
-            onClick={() => setView(addChart)}
+        {isCollapsed ? null : (
+          <QuickSettings
+            label="Dashboard controls"
+            open={quick.open}
+            onToggle={quick.toggle}
           >
-            Add chart
-          </button>
-        ) : null}
-        {!isCollapsed && resolved ? (
-          <DashboardPresetMenu view={view} apply={setView} />
-        ) : null}
-        <button
-          type="button"
-          className="icon-button"
-          aria-label="Colour the model by this chart"
-          aria-pressed={primaryColored}
-          title={
-            !resolved
-              ? 'Open a model to colour it'
-              : !primary
-                ? 'No chart data to colour by'
-                : primaryColored
-                  ? 'Clear the chart colouring'
-                  : 'Colour the model by this chart'
-          }
-          onClick={colorByPrimary}
-          disabled={!resolved || !primary}
-        >
-          <Icon name="palette" size={16} />
-        </button>
-        <button
-          type="button"
-          className="btn"
-          onClick={state.refresh}
-          disabled={!resolved}
-        >
-          Refresh
-        </button>
-        {onOpenSettings ? (
-          <button
-            type="button"
-            className="icon-button"
-            onClick={onOpenSettings}
-          >
-            <Icon name="settings" size={16} />
-            <span className="bsh-sr-only">Dashboard settings</span>
-          </button>
-        ) : null}
+            <ModelScopeSelect state={state.models} label="Chart models" />
+            {chartSpecs.length > 1 ? (
+              <fieldset className="bsh-kinds" aria-label="Chart layout">
+                {orientations.map((orientation) => (
+                  <button
+                    key={orientation}
+                    type="button"
+                    className="btn"
+                    aria-pressed={view.orientation === orientation}
+                    onClick={() =>
+                      setView((prev) => ({ ...prev, orientation }))
+                    }
+                  >
+                    {ORIENTATION_LABELS[orientation]}
+                  </button>
+                ))}
+              </fieldset>
+            ) : null}
+            <button
+              type="button"
+              className="btn"
+              disabled={chartSpecs.length >= MAX_CHARTS}
+              onClick={() => setView(addChart)}
+            >
+              Add chart
+            </button>
+            {resolved ? (
+              <DashboardPresetMenu
+                view={view}
+                apply={(next) =>
+                  setView((prev) => withControls(next, prev.controls))
+                }
+              />
+            ) : null}
+            <button
+              type="button"
+              className="icon-button"
+              aria-label="Colour the model by this chart"
+              aria-pressed={primaryColored}
+              title={
+                !resolved
+                  ? 'Open a model to colour it'
+                  : !primary
+                    ? 'No chart data to colour by'
+                    : primaryColored
+                      ? 'Clear the chart colouring'
+                      : 'Colour the model by this chart'
+              }
+              onClick={colorByPrimary}
+              disabled={!resolved || !primary}
+            >
+              <Icon name="palette" size={16} />
+            </button>
+            <button
+              type="button"
+              className="btn"
+              onClick={state.refresh}
+              disabled={!resolved}
+            >
+              Refresh
+            </button>
+            {onOpenSettings ? (
+              <button
+                type="button"
+                className="icon-button"
+                onClick={onOpenSettings}
+              >
+                <Icon name="settings" size={16} />
+                <span className="bsh-sr-only">Dashboard settings</span>
+              </button>
+            ) : null}
+          </QuickSettings>
+        )}
       </header>
       <div
         id={bodyId}
@@ -398,14 +405,6 @@ export function DashboardPanel({
             />
           </>
         ) : null}
-        {emptyScope && (
-          <StateBlock
-            variant="empty"
-            compact
-            title={`No ${scopeName(state.elements).toLowerCase()} elements`}
-            message="Change the element scope, or pick elements in the viewer."
-          />
-        )}
         {emptyBoard && (
           <StateBlock
             variant="empty"
@@ -449,7 +448,7 @@ export function DashboardPanel({
             })}
           </ChartBoard>
         ) : null}
-        {settled && chartSpecs.length === 0 && !emptyScope && (
+        {settled && chartSpecs.length === 0 && (
           <StateBlock
             variant="empty"
             compact

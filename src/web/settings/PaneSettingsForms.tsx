@@ -110,12 +110,17 @@ const TREE_SHORTCUTS: readonly [string, string][] = [
   ['Shift+F10', 'Open the row menu'],
 ];
 
-export function TreeSettingsForm() {
+const TREE_SETTINGS_FIELDS: FormDefinition<TreeView> = {
+  ...TREE_SETTINGS_FORM,
+  title: undefined,
+};
+
+export function TreeSettingsForm({ heading = true }: { heading?: boolean }) {
   const [view, setView] = usePersisted(PANE_SETTINGS.tree.view);
   return (
     <>
       <SettingsForm
-        form={TREE_SETTINGS_FORM}
+        form={heading ? TREE_SETTINGS_FORM : TREE_SETTINGS_FIELDS}
         value={view}
         onChange={(patch) => setView((current) => ({ ...current, ...patch }))}
       />

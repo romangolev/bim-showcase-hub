@@ -51,6 +51,10 @@ export class ExcelExportTool extends ViewerTool<ExcelToolSettings> {
     };
   }
 
+  override get hasSettings(): boolean {
+    return true;
+  }
+
   protected override renderFields() {
     return <ExcelFields />;
   }

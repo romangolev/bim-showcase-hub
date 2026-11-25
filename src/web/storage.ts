@@ -20,7 +20,6 @@ export const BSH_KEYS = {
     onboardingHints: 'bsh.hint.onboarding.v1',
     summaryView: 'bsh.summary.view.v1',
     summaryProperties: 'bsh.summary.properties.v1',
-    summaryScope: 'bsh.summary.scope.v1',
     summaryAction: 'bsh.summary.action.v1',
     dashboardAction: 'bsh.dashboard.action.v1',
     dashboardView: 'bsh.dashboard.view.v1',

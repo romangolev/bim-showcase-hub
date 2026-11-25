@@ -9,7 +9,6 @@ import {
   viewEntries,
 } from '../extensions/modelSummary.js';
 import { ALL_MODELS } from './modelScope.js';
-import type { ElementScope } from './propertyScope.js';
 import { readScopedRows } from './scopedRows.js';
 import type { ViewerAdapter } from './ViewerAdapter.js';
 
@@ -97,7 +96,6 @@ interface ReportRequest {
   names: readonly string[];
   chartProperties: readonly string[];
   maxCategories: number;
-  elements?: ElementScope;
   view?: SummaryView;
   sections?: ReportSections;
   notes?: string;
@@ -166,7 +164,6 @@ export async function collectReport(
   const read = await readScopedRows(adapter, {
     names,
     models: ALL_MODELS,
-    elements: request.elements ?? 'all',
   });
   const content = buildReportContent(read.rows, request);
   return {

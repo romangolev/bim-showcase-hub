@@ -1,7 +1,6 @@
 import { NumberField } from '../components/NumberField.js';
 import { SettingsField } from '../components/SettingsForm.js';
 import { SwitchRow } from '../components/SwitchRow.js';
-import { useT } from '../i18n/i18n.js';
 import {
   TOAST_POSITIONS,
   type ToastPosition,
@@ -16,16 +15,9 @@ const POSITION_LABELS: Record<ToastPosition, string> = {
 };
 
 export function NotificationSettingsSection() {
-  const t = useT();
   const [settings, update] = useNotificationSettings();
   return (
-    <section
-      className="settings__section"
-      aria-labelledby="settings-notifications"
-    >
-      <h3 id="settings-notifications" className="settings__heading">
-        {t('settings.notifications')}
-      </h3>
+    <div className="settings__section">
       <SettingsField label="Toast position">
         {(id) => (
           <select
@@ -69,6 +61,6 @@ export function NotificationSettingsSection() {
         checked={settings.quiet}
         onChange={() => update((prev) => ({ ...prev, quiet: !prev.quiet }))}
       />
-    </section>
+    </div>
   );
 }

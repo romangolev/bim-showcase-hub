@@ -165,6 +165,7 @@ select.field {
 
 .bsh-drawer__header {
   position: sticky;
+  row-gap: 0;
   top: 0;
   z-index: var(--z-sticky);
   flex-wrap: wrap;
@@ -179,7 +180,7 @@ select.field {
   border-radius: var(--radius-card);
 }
 
-.bsh-drawer__header .btn[aria-expanded] {
+.bsh-drawer__toggle {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -201,6 +202,53 @@ select.field {
 
 .bsh-drawer__toggle-icon[data-expanded="false"] {
   transform: rotate(90deg);
+}
+
+.bsh-drawer__header > h2 {
+  margin-right: auto;
+}
+
+.bsh-quick {
+  display: grid;
+  flex: 1 1 100%;
+  order: 5;
+  grid-template-rows: minmax(0, 1fr);
+  min-width: 0;
+  overflow: clip;
+  overflow-clip-margin: 4px;
+  transition:
+    grid-template-rows 160ms ease,
+    opacity 160ms ease,
+    visibility 0s linear 0s;
+}
+
+.bsh-quick[data-open="false"] {
+  grid-template-rows: minmax(0, 0fr);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    grid-template-rows 160ms ease,
+    opacity 160ms ease,
+    visibility 0s linear 160ms;
+}
+
+.bsh-quick__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 0;
+  padding-top: var(--space-2);
+  transition: translate 160ms ease;
+}
+
+.bsh-quick[data-open="false"] > .bsh-quick__inner {
+  translate: 0 -100%;
+}
+
+.bsh-quick__toggle {
+  flex: none;
+  order: 4;
 }
 
 .bsh-drawer__body {
@@ -323,7 +371,6 @@ select.field {
 
   .bsh-drawer__header {
     flex-wrap: wrap;
-    row-gap: var(--space-2);
   }
 
   .bsh-drawer__header .bsh-card__title {
@@ -331,16 +378,15 @@ select.field {
     order: -1;
   }
 
-  .bsh-drawer__header .btn[aria-expanded] {
+  .bsh-drawer__toggle {
     order: 2;
-    width: 32px;
+    width: var(--hit-target);
     padding: 0;
     justify-content: center;
     margin-left: 0;
   }
 
   .bsh-drawer__header .bsh-field {
-    order: 3;
     flex: 1 0 100%;
   }
 
@@ -381,6 +427,10 @@ select.field {
   overflow: hidden;
 }
 
+.pane-slot--dock .bsh-drawer {
+  position: relative;
+}
+
 .bsh-summary {
   transition: gap 160ms ease;
 }
@@ -388,6 +438,7 @@ select.field {
 .bsh-summary__header {
   flex-wrap: wrap;
   justify-content: flex-start;
+  row-gap: 0;
 }
 
 .bsh-summary__header .bsh-card__title {
@@ -462,10 +513,6 @@ select.field {
     visibility 0s linear 160ms;
 }
 
-.bsh-summary[data-collapsed="true"] .bsh-summary__refresh {
-  display: none;
-}
-
 .summary-toggle {
   display: none;
   align-self: flex-start;
@@ -487,6 +534,11 @@ select.field {
   align-items: center;
   gap: var(--space-2);
   padding-bottom: var(--space-2);
+}
+
+.bsh-summary__tools > .field {
+  flex: 1 1 8rem;
+  min-width: 0;
 }
 
 .bsh-summary__notice {
@@ -831,26 +883,7 @@ select.field {
 }
 
 .bsh-presets-trigger {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--gap-element);
   max-width: 16rem;
-  min-height: var(--hit-target);
-  padding: 0 var(--space-3);
-  border: var(--border-hairline);
-  border-radius: var(--radius-button);
-  background: var(--color-ghost-fill);
-  color: var(--color-snow);
-  font: inherit;
-  font-size: var(--text-14);
-  font-weight: var(--weight-ui);
-  letter-spacing: var(--tracking-body);
-  cursor: pointer;
-  transition: background-color 120ms ease;
-}
-
-.bsh-presets-trigger:hover {
-  background: var(--color-ghost-fill-hover);
 }
 
 .bsh-presets-trigger__value {
@@ -997,7 +1030,10 @@ select.field {
   .bsh-summary[data-collapsed="true"] .bsh-summary__wrap,
   .bsh-summary__toggle-icon,
   .bsh-drawer__body,
-  .bsh-drawer[data-collapsed="true"] .bsh-drawer__body {
+  .bsh-drawer[data-collapsed="true"] .bsh-drawer__body,
+  .bsh-quick,
+  .bsh-quick[data-open="false"],
+  .bsh-quick__inner {
     transition: none;
   }
 }

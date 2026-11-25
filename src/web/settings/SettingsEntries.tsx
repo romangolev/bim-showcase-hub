@@ -1,61 +1,84 @@
+import { SwitchRow } from '../components/SwitchRow.js';
 import { useT } from '../i18n/i18n.js';
 import { useModal } from '../modal/ModalContext.js';
 import { usePersisted } from '../storage.js';
-import { NotificationSettingsSection } from '../tasks/NotificationSettingsSection.js';
 import { TOOLS } from '../tools/index.js';
 import type { AnyViewerTool } from '../tools/kernel/ToolRegistry.js';
-import { ChartSettingsSection } from './ChartSettingsSection.js';
 import {
   PANE_SETTINGS_ORDER,
   PANE_SETTINGS_SCHEMA,
   type PaneSettingsSchema,
 } from './paneSettingsSchema.js';
-import { SavedItemsSettings } from './SavedItemsSettings.js';
-import { SnapshotSettings } from './SnapshotSettings.js';
+import { openSettingsSection, settingsSelection } from './settingsSections.js';
 
 interface EntryRowProps {
   title: string;
   description: string;
-  state?: string;
-  modalId: string;
+  toggle?: { checked: boolean; onChange: () => void };
+  modalId?: string;
   windowTitle: string;
 }
 
 function EntryRow({
   title,
   description,
-  state,
+  toggle,
   modalId,
   windowTitle,
 }: EntryRowProps) {
   const modal = useModal();
+  const t = useT();
+  const openWithBack = (id: string) => {
+    const { selected } = settingsSelection();
+    modal.open(id, {
+      label: t('settings.backToSettings'),
+      go: () => {
+        if (selected) openSettingsSection(selected);
+        modal.open('settings');
+      },
+    });
+  };
   return (
     <div className="settings__entry">
-      <span className="settings__entry-text">
-        <span className="switch-row__label">{title}</span>
-        <span className="switch-row__hint">{description}</span>
-      </span>
-      {state ? <span className="settings__entry-state">{state}</span> : null}
-      <button
-        type="button"
-        className="btn"
-        aria-label={windowTitle}
-        onClick={() => modal.open(modalId)}
-      >
-        Settings
-      </button>
+      {toggle ? (
+        <SwitchRow
+          label={title}
+          description={description}
+          checked={toggle.checked}
+          onChange={toggle.onChange}
+        />
+      ) : (
+        <span className="settings__entry-text">
+          <span className="switch-row__label">{title}</span>
+          <span className="switch-row__hint">{description}</span>
+        </span>
+      )}
+      {modalId ? (
+        <button
+          type="button"
+          className="btn"
+          aria-label={windowTitle}
+          onClick={() => openWithBack(modalId)}
+        >
+          Settings
+        </button>
+      ) : null}
     </div>
   );
 }
 
 function ToolEntry({ tool }: { tool: AnyViewerTool }) {
-  const [settings] = usePersisted(tool.settings);
+  const [settings, setSettings] = usePersisted(tool.settings);
   return (
     <EntryRow
       title={tool.title}
       description={tool.description}
-      state={settings.enabled ? 'On' : 'Off'}
-      modalId={tool.modalId}
+      toggle={{
+        checked: settings.enabled,
+        onChange: () =>
+          setSettings((current) => ({ ...current, enabled: !current.enabled })),
+      }}
+      modalId={tool.hasSettings ? tool.modalId : undefined}
       windowTitle={`${tool.title} settings`}
     />
   );
@@ -78,10 +101,6 @@ const PANE_ENTRIES = PANE_SETTINGS_ORDER.flatMap((id) => {
   return schema ? [{ id, schema }] : [];
 });
 
-const PANE_FORMS = PANE_ENTRIES.flatMap(({ id, schema }) =>
-  schema.Body ? [{ id, Body: schema.Body }] : [],
-);
-
 export function SettingsEntries() {
   const t = useT();
   return (
@@ -102,13 +121,6 @@ export function SettingsEntries() {
           <PaneEntry key={id} schema={schema} />
         ))}
       </section>
-      {PANE_FORMS.map(({ id, Body }) => (
-        <Body key={id} />
-      ))}
-      <NotificationSettingsSection />
-      <ChartSettingsSection />
-      <SnapshotSettings />
-      <SavedItemsSettings />
     </>
   );
 }

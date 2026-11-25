@@ -24,6 +24,7 @@ from common import (
     glb_check,
     ifc_check,
     expand_to_viewable,
+    show_controls,
     horizontal_overflow,
     new_notes,
     watch,
@@ -179,6 +180,11 @@ def check_summary_rail(page, checks):
     checks.add("expanding the summary restores the viewer width", abs(restored - before) <= 2, f"{before} -> {restored}")
 
 
+def summary_action(page, pane, name):
+    pane.get_by_role("button", name="Summary actions").click()
+    page.get_by_role("menuitem", name=name).click()
+
+
 def check_summary_tools(page, checks):
     pane = page.locator(".pane-summary").first
     pane.locator("tbody tr").first.wait_for(timeout=8000)
@@ -189,13 +195,8 @@ def check_summary_tools(page, checks):
     pane.get_by_label("Filter summary rows").fill("")
     settle(page, 200)
     checks.add("clearing the filter restores the rows", pane.locator("tbody tr").count() == rows, pane.locator("tbody tr").count())
-    scope = pane.get_by_label("Summarize elements")
-    scope.select_option("selected")
-    settle(page, 400)
-    checks.add("selected scope with no selection says so", pane.get_by_text("No selected elements").count() == 1)
-    scope.select_option("all")
-    settle(page, 400)
-    checks.add("all scope restores the rows", pane.locator("tbody tr").count() == rows, pane.locator("tbody tr").count())
+    checks.add("the summary has no element scope control", pane.get_by_label("Summarize elements").count() == 0)
+    show_controls(pane, "Summary controls")
     pane.get_by_role("button", name="Add property", exact=True).click()
     prompt = page.locator("dialog[open]").last
     checks.add("the add property dialog opens on Column", prompt.get_by_role("radio", name="Column", exact=True).is_checked())
@@ -205,6 +206,7 @@ def check_summary_tools(page, checks):
     prompt.get_by_role("button", name="Add property", exact=True).click()
     settle(page, 600)
     checks.add("a property added as Rows joins the summary", pane.locator("tbody tr", has_text="Level").count() > 0)
+    show_controls(pane, "Summary controls")
     pane.get_by_role("button", name="Add property", exact=True).click()
     prompt = page.locator("dialog[open]").last
     prompt.get_by_role("radio", name="Category", exact=True).wait_for(timeout=8000)
@@ -216,6 +218,7 @@ def check_summary_tools(page, checks):
     checks.add("a property added as a column shows its header", header.count() == 1, header.count())
     cell = pane.locator("tbody tr").first.locator("td").last.inner_text().strip()
     checks.add("the new column fills a numeric cell", re.fullmatch(r"[\d,]+", cell) is not None, cell)
+    show_controls(pane, "Summary controls")
     pane.get_by_role("button", name="Summary settings").click()
     dialog = page.get_by_role("dialog", name="Summary settings")
     rows_group = dialog.get_by_role("group", name="Rows")
@@ -242,9 +245,10 @@ def check_summary_tools(page, checks):
     page.keyboard.press("Escape")
     settle(page, 300)
     checks.add("closing summary settings returns focus to the gear", page.evaluate("document.activeElement?.textContent") == "Summary settings")
-    open_settings(page)
+    open_settings(page, "Appearance")
     main = page.get_by_role("dialog", name="Settings", exact=True)
     checks.add("main settings holds no pane-level density control", main.get_by_label("Density", exact=True).count() == 0 and main.get_by_label("Interface density").count() == 1)
+    pick_settings_section(page, "Tools and panes")
     main.get_by_role("button", name="Summary settings").click()
     settle(page, 300)
     main = page.get_by_role("dialog", name="Summary settings")
@@ -258,6 +262,7 @@ def check_summary_tools(page, checks):
     settle(page, 300)
     selected = page.locator(".bsh-mock__el--selected").count()
     checks.add("clicking a summary value selects elements in the viewer", selected >= 1, selected)
+    show_controls(pane, "Summary controls")
     pane.get_by_role("button", name="Summary settings").click()
     page.get_by_role("dialog", name="Summary settings").get_by_label("Row click").select_option("isolate")
     page.keyboard.press("Escape")
@@ -266,7 +271,7 @@ def check_summary_tools(page, checks):
     settle(page, 300)
     dim = page.locator(".bsh-mock__el--dim").count()
     checks.add("isolating dims the rest by default", dim >= 1, dim)
-    pane.get_by_role("button", name="Show all elements").click()
+    summary_action(page, pane, "Show all elements")
     settle(page, 200)
     open_tool_settings(page, "Paint brushes")
     page.get_by_role("switch", name="Ghost the rest when isolating").uncheck()
@@ -276,20 +281,21 @@ def check_summary_tools(page, checks):
     settle(page, 300)
     hidden = page.locator(".bsh-mock__el--hidden").count()
     checks.add("isolating hides the other elements when ghosting is off", hidden >= 1, hidden)
-    pane.get_by_role("button", name="Show all elements").click()
+    summary_action(page, pane, "Show all elements")
     settle(page, 200)
     checks.add("show all restores the elements", page.locator(".bsh-mock__el--dim").count() == 0)
     open_tool_settings(page, "Paint brushes")
     page.get_by_role("switch", name="Ghost the rest when isolating").check()
     page.keyboard.press("Escape")
     settle(page, 200)
+    show_controls(pane, "Summary controls")
     pane.get_by_role("button", name="Summary settings").click()
     page.get_by_role("dialog", name="Summary settings").get_by_label("Row click").select_option("select")
     page.get_by_role("dialog", name="Summary settings").get_by_role("button", name="Reset view").click()
     page.keyboard.press("Escape")
     settle(page, 200)
     with page.expect_download(timeout=8000) as info:
-        pane.get_by_role("button", name="Download CSV").click()
+        summary_action(page, pane, "Download CSV")
     name = info.value.suggested_filename
     checks.add("summary CSV downloads", name.endswith("-summary.csv"), name)
 
@@ -298,6 +304,7 @@ def check_summary_add_dialog(page, checks):
     pane = page.locator(".pane-summary").first
     page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
     settle(page, 300)
+    show_controls(pane, "Summary controls")
     pane.get_by_role("button", name="Add property", exact=True).click()
     prompt = page.locator("dialog[open]").last
     prompt.wait_for(timeout=3000)
@@ -328,6 +335,7 @@ def name_preset(page, name, confirm):
 def check_summary_presets(page, checks):
     pane = page.locator(".pane-summary").first
     checks.add("the summary pane has no preset control", pane.get_by_role("button", name=re.compile("[Pp]resets")).count() == 0)
+    show_controls(pane, "Summary controls")
     pane.get_by_role("button", name="Summary settings").click()
     dialog = page.get_by_role("dialog", name="Summary settings")
     menu = dialog.get_by_role("button", name="Summary presets", exact=True)
@@ -454,8 +462,27 @@ def keep_one_chart(page, pane):
         settle(page, 200)
 
 
+def show_dashboard_controls(pane):
+    toggle = pane.get_by_role("button", name="Dashboard controls")
+    if toggle.count() and toggle.get_attribute("aria-expanded") == "false":
+        toggle.click()
+
+
+def check_dashboard_auto_collapse(page, checks, pane):
+    toggle = pane.get_by_role("button", name="Dashboard controls")
+    short = pane.bounding_box()["height"] < 360
+    checks.add("dashboard controls collapse on their own in a short pane", (toggle.get_attribute("aria-expanded") == "false") == short, pane.bounding_box())
+    if short:
+        checks.add("collapsed dashboard shows only its controls toggle", pane.get_by_role("button", name="Dashboard actions").count() == 0 and pane.get_by_role("button", name="Add chart").count() == 0)
+        header = (pane.locator(".bsh-drawer__header").bounding_box() or {"height": 0})["height"]
+        checks.add("collapsed dashboard header is one row", header <= 56, header)
+    show_dashboard_controls(pane)
+    checks.add("showing the controls by hand wins over the automatic rule", toggle.get_attribute("aria-expanded") == "true" and pane.get_by_role("button", name="Add chart").count() == 1)
+
+
 def check_dashboard_presets(page, checks):
     pane = page.locator(".pane-dashboard").first
+    show_dashboard_controls(pane)
     toggle = pane.get_by_role("button", name="Dashboard presets", exact=True)
     checks.add("the dashboard pane has a Presets dropdown", toggle.count() == 1 and toggle.get_attribute("aria-haspopup") == "menu")
     toggle.click()
@@ -498,13 +525,7 @@ def check_dashboard_presets(page, checks):
     palette(page).get_by_role("option", name=re.compile("Clear selection")).first.click()
     settle(page, 300)
     checks.add("the dashboard check cleared the selection", page.locator(".bsh-mock__el--selected").count() == 0, page.locator(".bsh-mock__el--selected").count())
-    pane.get_by_label("Chart elements").select_option("selected")
-    settle(page, 800)
-    empty = pane.get_by_text("No selected elements").count() == 1 and pane.get_by_text("Nothing to chart").count() == 0
-    checks.add("a preset on an empty element scope says the scope is empty", empty, pane.inner_text()[:160])
-    page.screenshot(path=str(OUTPUT_DIR / "mock-presets-empty.png"))
-    pane.get_by_label("Chart elements").select_option("all")
-    settle(page, 400)
+    checks.add("the dashboard has no element scope control", pane.get_by_label("Chart elements").count() == 0)
     keep_one_chart(page, pane)
 
 
@@ -526,6 +547,7 @@ def check_dashboard_table_fit(page, checks):
         settle(page, 600)
     pane = page.locator(".pane-dashboard").first
     pane.locator("canvas").first.wait_for(timeout=8000)
+    show_dashboard_controls(pane)
     while pane.get_by_role("button", name=re.compile(r"^Options for ")).count() < 2:
         pane.get_by_role("button", name="Add chart").click()
         settle(page, 300)
@@ -563,6 +585,7 @@ def check_dashboard_tools(page, checks):
         settle(page, 600)
     pane = page.locator(".pane-dashboard").first
     pane.locator("canvas").first.wait_for(timeout=8000)
+    check_dashboard_auto_collapse(page, checks, pane)
     pane.get_by_role("button", name=re.compile(r"^Options for ")).first.click()
     page.get_by_role("menuitemcheckbox", name="Chart type: Doughnut").click()
     settle(page, 500)
@@ -618,7 +641,7 @@ def check_dashboard_tools(page, checks):
     settle(page, 300)
     checks.add("closing dashboard settings returns focus to the gear", page.evaluate("document.activeElement?.textContent") == "Dashboard settings")
     page.screenshot(path=str(OUTPUT_DIR / "mock-dashboard-preset.png"))
-    open_settings(page)
+    open_settings(page, "Tools and panes")
     main = page.get_by_role("dialog", name="Settings", exact=True)
     checks.add("main settings holds no dashboard controls", main.get_by_role("button", name="Dashboard presets", exact=True).count() == 0)
     main.get_by_role("button", name="Dashboard settings").click()
@@ -943,24 +966,306 @@ def check_session_banner(page, checks):
     checks.add("banner is gone after the session is healthy again", page.locator(".session-banner").count() == 0)
 
 
-def open_settings(page):
+def pick_settings_section(page, section):
+    main = page.get_by_role("dialog", name="Settings", exact=True)
+    tab = main.get_by_role("tab", name=section, exact=True)
+    (tab if tab.count() else main.get_by_role("button", name=section, exact=True)).click()
+    settle(page, 200)
+
+
+def open_settings(page, section=None):
     page.get_by_role("button", name=re.compile(MOCK_USER_NAME)).first.click()
     page.get_by_role("menuitem", name="Settings").click()
     settle(page, 300)
+    if section:
+        pick_settings_section(page, section)
 
 
 def open_tool_settings(page, title):
-    open_settings(page)
+    open_settings(page, "Tools and panes")
     page.get_by_role("dialog", name="Settings", exact=True).get_by_role("button", name=f"{title} settings").click()
     settle(page, 300)
 
 
-def check_saved_items(page, checks):
+def check_settings_shell(page, checks):
     page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
     open_settings(page)
     main = page.get_by_role("dialog", name="Settings", exact=True)
+    names = [name.strip() for name in main.get_by_role("tab").all_inner_texts()]
+    checks.add("settings lists its sections in a sidebar", len(names) >= 6 and "Tools and panes" in names, names)
+    checks.add("exactly one settings section is selected", main.get_by_role("tab", selected=True).count() == 1)
+    heights = []
+    for name in ("General", "Appearance", "Tools and panes", "Data and storage"):
+        if name not in names:
+            continue
+        pick_settings_section(page, name)
+        heights.append(round(main.bounding_box()["height"]))
+        checks.add(f"the {name} section shows one panel", main.get_by_role("tabpanel").count() == 1)
+    checks.add("the settings window keeps its height between sections", bool(heights) and max(heights) - min(heights) <= 1, heights)
+    main.get_by_role("tab", selected=True).focus()
+    before = main.get_by_role("tab", selected=True).inner_text().strip()
+    page.keyboard.press("ArrowDown")
+    settle(page, 200)
+    after = main.get_by_role("tab", selected=True).inner_text().strip()
+    checks.add("arrow keys move the selected settings section", before != after, (before, after))
+    page.keyboard.press("Escape")
+    settle(page, 300)
+    checks.add("escape closes the settings window", page.get_by_role("dialog", name="Settings", exact=True).count() == 0)
+    page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
+    settle(page, 400)
+    open_settings(page)
+    main = page.get_by_role("dialog", name="Settings", exact=True)
+    checks.add("a narrow settings window lists the sections first", main.get_by_role("button", name="Notifications", exact=True).count() == 1 and main.get_by_role("tabpanel").count() == 0)
+    main.get_by_role("button", name="Notifications", exact=True).click()
+    settle(page, 300)
+    back = main.get_by_role("button", name=re.compile("Back", re.I))
+    checks.add("a section drills in with a Back button", back.count() == 1)
+    checks.add("the narrow settings window has no horizontal overflow", horizontal_overflow(page) <= 0)
+    if back.count():
+        back.first.click()
+        settle(page, 300)
+    checks.add("Back returns to the section list", main.get_by_role("button", name="Notifications", exact=True).count() == 1)
+    page.keyboard.press("Escape")
+    settle(page, 300)
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page, 400)
+
+
+def check_tool_switches(page, checks):
+    excel = re.compile(r"Export to Excel", re.I)
+    open_settings(page, "Tools and panes")
+    main = page.get_by_role("dialog", name="Settings", exact=True)
+    switch = main.get_by_role("switch", name="Excel export", exact=True)
+    checks.add("the Excel export switch starts on", switch.is_checked())
+    switch.click()
+    settle(page, 400)
+    stored = page.evaluate("() => JSON.parse(localStorage.getItem('bsh.tool.excel.v1') || '{}').enabled")
+    checks.add("turning a tool off in main settings persists it", stored is False, stored)
+    checks.add("a tool's own settings window has no enable switch", main.get_by_role("button", name="Excel export settings").count() == 1)
+    main.get_by_role("button", name="Excel export settings").click()
+    settle(page, 300)
+    own = page.get_by_role("dialog", name="Excel export settings")
+    checks.add("the Excel settings window holds no enable switch", own.get_by_role("switch", name="Excel export", exact=True).count() == 0)
+    page.keyboard.press("Escape")
+    settle(page, 300)
+    page.keyboard.press("Escape")
+    settle(page, 300)
+    checks.add("turning a tool off removes its toolbar button", page.get_by_role("button", name=excel).count() == 0)
+    open_settings(page, "Tools and panes")
+    page.get_by_role("dialog", name="Settings", exact=True).get_by_role("switch", name="Excel export", exact=True).click()
+    settle(page, 400)
+    page.keyboard.press("Escape")
+    settle(page, 400)
+    checks.add("turning the tool back on restores its toolbar button", page.get_by_role("button", name=excel).count() >= 1)
+    open_settings(page, "Tools and panes")
+    main = page.get_by_role("dialog", name="Settings", exact=True)
+    checks.add("a tool without fields has no settings button", main.get_by_role("button", name="Geometry export settings").count() == 0)
+    page.keyboard.press("Escape")
+    settle(page, 300)
+
+
+def check_tool_back_arrow(page, checks):
+    for label, size in (("desktop", DESKTOP), ("390", MOBILE)):
+        page.set_viewport_size({"width": size[0], "height": size[1]})
+        settle(page, 400)
+        open_tool_settings(page, "IFC export")
+        own = page.get_by_role("dialog", name="IFC export settings")
+        back = own.get_by_role("button", name="Back to Settings")
+        checks.add(f"a tool window opened from settings shows a back arrow ({label})", back.count() == 1)
+        page.screenshot(path=str(OUTPUT_DIR / f"mock-tool-back-{label}.png"))
+        if back.count():
+            sizes = [back.bounding_box(), own.get_by_role("button", name="Close").bounding_box()]
+            checks.add(f"the back arrow is as large as the close button ({label})", sizes[0]["height"] == sizes[1]["height"] and sizes[0]["width"] == sizes[1]["width"], sizes)
+            back.click()
+            settle(page, 300)
+        main = page.get_by_role("dialog", name="Settings", exact=True)
+        checks.add(f"the back arrow returns to Settings on Tools and panes ({label})", main.count() == 1 and main.get_by_role("button", name="IFC export settings").count() == 1)
+        page.keyboard.press("Escape")
+        settle(page, 300)
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page, 400)
+    open_palette(page).fill("IFC export settings")
+    settle(page, 200)
+    palette(page).get_by_role("option", name=re.compile("IFC export settings")).first.click()
+    settle(page, 400)
+    own = page.get_by_role("dialog", name="IFC export settings")
+    checks.add("the palette opens the IFC settings window without a back arrow", own.count() == 1 and own.get_by_role("button", name="Back to Settings").count() == 0)
+    page.keyboard.press("Escape")
+    settle(page, 300)
+
+
+def check_ifc_dropdown(page, checks):
+    trigger = page.get_by_role("button", name=re.compile(r"^Export IFC$", re.I)).first
+    trigger.click()
+    settle(page, 300)
+    items = ("Export current model", "Batch export IFC", "IFC settings")
+    counts = [page.get_by_role("button", name=name, exact=True).count() for name in items]
+    checks.add("the IFC button opens a dropdown with export, batch and settings", counts == [1, 1, 1], counts)
+    page.get_by_role("button", name="IFC settings", exact=True).click()
+    settle(page, 400)
+    checks.add("the IFC settings item opens the IFC settings window", page.get_by_role("dialog", name="IFC export settings").count() == 1)
+    checks.add("the IFC settings item shows no back arrow", page.get_by_role("button", name="Back to Settings").count() == 0)
+    page.keyboard.press("Escape")
+    settle(page, 300)
+    trigger.click()
+    settle(page, 300)
+    page.get_by_role("button", name="Batch export IFC", exact=True).click()
+    settle(page, 500)
+    bubble = page.locator(".doc-tree__bubble")
+    checks.add("batch export opens the guide bubble in Documents", bubble.count() == 1 and bubble.is_visible())
+    checks.add("batch mode puts a checkbox in front of each version", page.locator(".doc-tree .tree-row__check").count() >= 1, page.locator(".doc-tree .tree-row__check").count())
+    checks.add("batch mode disables the export until a version is ticked", bubble.get_by_role("button", name="Export IFC").is_disabled())
+    dim = page.evaluate("() => { const row = document.querySelector('.doc-tree[data-ifc-batch] .tree-row[data-kind=\"folder\"]'); return row ? Number(getComputedStyle(row).opacity) : null }")
+    checks.add("batch mode dims the rows that cannot be ticked", dim is not None and dim < 1, dim)
+    bubble.get_by_role("button", name="Cancel").click()
+    settle(page, 300)
+    checks.add("cancel leaves batch mode", page.locator(".doc-tree__bubble").count() == 0 and page.locator(".doc-tree .tree-row__check").count() == 0)
+    trigger.click()
+    settle(page, 300)
+    page.get_by_role("button", name="Batch export IFC", exact=True).click()
+    settle(page, 400)
+    row = page.locator(".doc-tree [role=treeitem]").first
+    row.focus()
+    page.keyboard.press("Escape")
+    settle(page, 300)
+    checks.add("escape in the tree leaves batch mode", page.locator(".doc-tree__bubble").count() == 0)
+
+
+QUICK_GEOMETRY = """([paneSel, label]) => {
+  const sec = document.querySelector(paneSel + ' section');
+  const box = sec.getBoundingClientRect();
+  const header = sec.querySelector('header');
+  const body = sec.querySelector('.bsh-drawer__body, .bsh-summary__body');
+  const panel = sec.querySelector('.bsh-quick');
+  const toggle = sec.querySelector(`[aria-label="${label}"]`);
+  const t = toggle.getBoundingClientRect();
+  const over = (r) => r.width > 0 && r.left < t.right && r.right > t.left && r.top < t.bottom && r.bottom > t.top;
+  const hits = [...body.querySelectorAll('button, input, select')].filter((b) => over(b.getBoundingClientRect())).length;
+  const gaps = [...body.querySelectorAll('[aria-label^="Options for"], [aria-label$=" actions"]')].map((b) => b.getBoundingClientRect()).filter((r) => r.width > 0 && r.right <= box.right && r.top < t.bottom && r.bottom > t.top).map((r) => Math.round(t.left - r.right));
+  const style = getComputedStyle(panel);
+  const pad = getComputedStyle(body);
+  return {width: Math.round(sec.getBoundingClientRect().width), top: sec.getBoundingClientRect().top, headerHeight: header.getBoundingClientRect().height, bodyTop: body.getBoundingClientRect().top, bodyHeight: body.getBoundingClientRect().height, x: t.x, y: t.y, size: Math.round(t.height), position: getComputedStyle(toggle).position, inRow: t.bottom <= header.getBoundingClientRect().bottom + 1, hits, gaps, padStart: pad.paddingInlineStart, padEnd: pad.paddingInlineEnd, inert: panel.inert, hidden: panel.getAttribute('aria-hidden'), transition: style.transitionProperty, duration: style.transitionDuration, actions: [...header.querySelectorAll('[aria-label$=" actions"]')].length};
+}"""
+
+
+def set_quick(page, pane, label, open_):
+    toggle = pane.get_by_role("button", name=label)
+    if (toggle.get_attribute("aria-expanded") == "true") != open_:
+        toggle.click()
+        settle(page, 500)
+
+
+def check_quick_overlay(page, checks, pane_sel, label, where):
+    pane = page.locator(pane_sel).first
+    initial = pane.get_by_role("button", name=label).get_attribute("aria-expanded") == "true"
+    set_quick(page, pane, label, False)
+    hidden = page.evaluate(QUICK_GEOMETRY, [pane_sel, label])
+    docked = hidden["position"] == "absolute"
+    if docked:
+        checks.add(f"{label} hidden: the toggle floats over the content ({where})", hidden["bodyTop"] - hidden["top"] <= 16 and hidden["headerHeight"] <= 1, hidden)
+    else:
+        checks.add(f"{label} hidden: the toggle sits in the title row ({where})", hidden["inRow"] and hidden["headerHeight"] <= hidden["size"] + 28, hidden)
+    checks.add(f"{label} hidden: no column is reserved beside the content ({where})", hidden["padStart"] == hidden["padEnd"], (hidden["padStart"], hidden["padEnd"]))
+    checks.add(f"{label} hidden: no actions menu stands in for the controls ({where})", hidden["actions"] == 0, hidden["actions"])
+    checks.add(f"{label} hidden: the toggle covers no button or field ({where})", hidden["hits"] == 0, hidden["hits"])
+    checks.add(f"{label} hidden: option buttons keep a gap from the toggle ({where})", all(gap >= 4 for gap in hidden["gaps"]), hidden["gaps"])
+    checks.add(f"{label} hidden: the controls are inert and hidden from assistive tech ({where})", hidden["inert"] and hidden["hidden"] == "true", hidden)
+    checks.add(f"{label}: the toggle is at least the hit target ({where})", hidden["size"] >= (44 if where == "390" else 32), hidden["size"])
+    set_quick(page, pane, label, True)
+    shown = page.evaluate(QUICK_GEOMETRY, [pane_sel, label])
+    checks.add(f"{label} shown: the toggle stays in place ({where})", abs(hidden["x"] - shown["x"]) <= 1 and abs(hidden["y"] - shown["y"]) <= 1, (hidden["x"], hidden["y"], shown["x"], shown["y"]))
+    checks.add(f"{label} shown: the controls take focus again ({where})", not shown["inert"] and shown["hidden"] is None, shown)
+    checks.add(f"{label} shown: the toggle covers no button or field ({where})", shown["hits"] == 0, shown["hits"])
+    checks.add(f"{label}: hidden controls give the content the freed height ({where})", hidden["bodyHeight"] > shown["bodyHeight"] + 20 or hidden["bodyTop"] < shown["bodyTop"] - 20, (hidden["bodyHeight"], shown["bodyHeight"]))
+    checks.add(f"{label}: the controls slide ({where})", "grid-template-rows" in shown["transition"] and any(float(d.rstrip("s")) > 0 for d in shown["duration"].split(",")), (shown["transition"], shown["duration"]))
+    page.emulate_media(reduced_motion="reduce")
+    settle(page, 100)
+    still = page.evaluate(QUICK_GEOMETRY, [pane_sel, label])
+    page.emulate_media(reduced_motion="no-preference")
+    checks.add(f"{label}: reduced motion turns the slide off ({where})", all(float(d.rstrip("s")) == 0 for d in still["duration"].split(",")), still["duration"])
+    set_quick(page, pane, label, initial)
+    return hidden, shown
+
+
+def open_dashboard(page):
+    expand = page.get_by_role("button", name="Expand Dashboard")
+    if expand.count():
+        expand.first.click()
+        settle(page, 600)
+    pane = page.locator(".pane-dashboard").first
+    pane.locator("canvas").first.wait_for(timeout=8000)
+    pane.scroll_into_view_if_needed()
+    return pane
+
+
+def check_dashboard_overlay(page, checks):
+    open_dashboard(page)
+    check_quick_overlay(page, checks, ".pane-dashboard", "Dashboard controls", "dock")
+    page.set_viewport_size({"width": 948, "height": DESKTOP[1]})
+    settle(page, 600)
+    hidden, _ = check_quick_overlay(page, checks, ".pane-dashboard", "Dashboard controls", "narrow dock")
+    checks.add("the narrow dashboard pane is about 374 px wide", 300 <= hidden["width"] <= 450, hidden["width"])
+    page.locator(".pane-dashboard").first.screenshot(path=str(OUTPUT_DIR / "mock-dashboard-quick-narrow.png"))
+    page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
+    settle(page, 600)
+    open_dashboard(page)
+    check_quick_overlay(page, checks, ".pane-dashboard", "Dashboard controls", "390")
+    page.locator(".pane-dashboard").first.screenshot(path=str(OUTPUT_DIR / "mock-dashboard-quick-390.png"))
+
+
+def check_summary_quick(page, checks):
+    pane = page.locator(".pane-summary").first
+    pane.locator("tbody tr").first.wait_for(timeout=8000)
+    check_quick_overlay(page, checks, ".pane-summary", "Summary controls", "dock")
+    page.set_viewport_size({"width": 948, "height": DESKTOP[1]})
+    settle(page, 600)
+    check_quick_overlay(page, checks, ".pane-summary", "Summary controls", "narrow dock")
+    pane.screenshot(path=str(OUTPUT_DIR / "mock-summary-quick-narrow.png"))
+    page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
+    settle(page, 600)
+    expand = page.get_by_role("button", name=re.compile(r"^Expand .*summary", re.I))
+    if expand.count():
+        expand.first.click()
+        settle(page, 600)
+    pane.scroll_into_view_if_needed()
+    check_quick_overlay(page, checks, ".pane-summary", "Summary controls", "390")
+    pane.screenshot(path=str(OUTPUT_DIR / "mock-summary-quick-390.png"))
+
+
+def check_user_menu_alignment(page, checks):
+    measured = page.evaluate("""() => {
+      const trigger = document.querySelector('.user-menu__trigger');
+      const avatar = trigger.querySelector('.avatar');
+      const img = document.createElement('img');
+      img.className = 'avatar';
+      img.alt = '';
+      img.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56"><rect width="56" height="56" fill="%23f9a8d4"/></svg>';
+      avatar.replaceWith(img);
+      const mid = (e) => { const r = e.getBoundingClientRect(); return r.top + r.height / 2; };
+      const siblings = [...document.querySelectorAll('.topbar__inner > button, .topbar__inner button')].filter((b) => !b.closest('.user-menu') && b.getBoundingClientRect().height > 0).slice(-3);
+      return {user: mid(trigger), wrapper: trigger.parentElement.getBoundingClientRect().height, height: trigger.getBoundingClientRect().height, siblings: siblings.map(mid)};
+    }""")
+    aligned = all(abs(measured["user"] - m) <= 0.5 for m in measured["siblings"])
+    checks.add("the user menu centre lines up with the top bar buttons", aligned and len(measured["siblings"]) == 3, measured)
+    checks.add("the user menu wrapper is exactly as tall as its trigger", abs(measured["wrapper"] - measured["height"]) <= 0.5, measured)
+
+
+def check_recent_ui(page, checks):
+    for check in (check_settings_shell, check_tool_switches, check_ifc_dropdown, check_tool_back_arrow, check_dashboard_overlay, check_summary_quick, check_user_menu_alignment):
+        try:
+            check(page, checks)
+        except Exception as exc:
+            checks.add(f"{check.__name__} ran to the end", False, f"{type(exc).__name__}: {str(exc)[:200]}")
+        page.keyboard.press("Escape")
+        page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+        settle(page, 300)
+
+
+def check_saved_items(page, checks):
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    open_settings(page, "Data and storage")
+    main = page.get_by_role("dialog", name="Settings", exact=True)
     checks.add("main settings has a saved items section", main.get_by_role("button", name="Export saved items").count() == 1)
-    checks.add("saved items section holds no tool switch", main.get_by_role("switch", name="Paint brushes").count() == 0)
     with page.expect_download(timeout=8000) as info:
         main.get_by_role("button", name="Export saved items").click()
     target = OUTPUT_DIR / "bsh-saved.json"
@@ -977,6 +1282,7 @@ def check_saved_items(page, checks):
     settle(page, 300)
     saved = main.get_by_role("region", name="Saved items")
     checks.add("a valid file imports", "Imported 1 item" in saved.get_by_role("status").inner_text(), saved.get_by_role("status").inner_text())
+    pick_settings_section(page, "Tools and panes")
     main.get_by_role("button", name="Dashboard settings").click()
     settle(page, 300)
     dialog = page.get_by_role("dialog", name="Dashboard settings")
@@ -1008,9 +1314,10 @@ def check_paint_palette(page, checks):
     checks.add("settings is centred vertically", abs((settings_box["y"] + settings_box["height"] / 2) - view["height"] / 2) <= 40 or settings_box["height"] >= view["height"] - 40, settings_box)
     page.keyboard.press("Escape")
     settle(page, 300)
-    open_settings(page)
+    open_settings(page, "Tools and panes")
     main = page.get_by_role("dialog", name="Settings", exact=True)
-    checks.add("main settings lists each tool with an entry point", all(main.get_by_role("button", name=f"{t} settings").count() == 1 for t in ("Paint brushes", "Excel export", "Geometry export", "IFC export")))
+    checks.add("main settings has a switch for each tool", all(main.get_by_role("switch", name=t, exact=True).count() == 1 for t in ("Paint brushes", "Excel export", "Geometry export", "IFC export")))
+    checks.add("main settings has a settings button only for tools with fields", all(main.get_by_role("button", name=f"{t} settings").count() == 1 for t in ("Paint brushes", "Excel export", "IFC export")) and main.get_by_role("button", name="Geometry export settings").count() == 0)
     checks.add("main settings holds no swatches", page.get_by_label(re.compile(r"^Swatch \d$")).count() == 0)
     main.get_by_role("button", name="Paint brushes settings").click()
     settle(page, 300)
@@ -1479,6 +1786,7 @@ def check_combined(page, checks, notes):
     checks.add("combined: tab tooltip lists the files", tooltip.count("\n") == 1, tooltip)
     checks.add("combined: url carries with=", "with=" in page.url, page.url)
 
+    show_controls(page, "Summary controls")
     summary_scope = page.get_by_role("combobox", name="Summarize models")
     wait_until(page, lambda: summary_scope.count() == 1 and page.evaluate(FIRST_COUNT) > 0)
     all_count = page.evaluate(FIRST_COUNT)
@@ -2625,6 +2933,7 @@ def check_pane_families(page, checks):
     settle(page, 500)
     checks.add("a second summary pane opens", summaries().count() == 2, summaries().count())
     first_summary = page.locator(".pane-summary").filter(has=page.get_by_role("heading", name=re.compile(r"^Model summary 1"))).first
+    show_controls(first_summary, "Summary controls")
     first_summary.get_by_role("button", name="Summary settings").click()
     dialog = page.get_by_role("dialog", name="Summary settings")
     dialog.get_by_label("Density").select_option("compact")
@@ -2794,10 +3103,17 @@ def check_command_palette(page, checks):
     settle(page, 200)
     checks.add("Escape closes the palette and returns focus", palette(page).count() == 0 and anchor.evaluate("(el) => el === document.activeElement"), page.evaluate("() => document.activeElement?.outerHTML.slice(0, 120)"))
     box = open_palette(page)
-    box.fill("geometry export settings")
+    box.fill("excel export settings")
     page.keyboard.press("Enter")
     settle(page, 400)
-    checks.add("a tool settings command opens that tool window", page.get_by_role("dialog", name="Geometry export settings").is_visible(), "")
+    checks.add("a tool settings command opens that tool window", page.get_by_role("dialog", name="Excel export settings").is_visible(), "")
+    page.keyboard.press("Escape")
+    settle(page, 200)
+    box = open_palette(page)
+    box.fill("geometry export settings")
+    checks.add("a tool without fields has no settings command", palette(page).get_by_role("option", name=re.compile("Geometry export settings", re.I)).count() == 0)
+    page.keyboard.press("Escape")
+    settle(page, 200)
     page.keyboard.press("Escape")
     settle(page, 300)
 
@@ -3054,6 +3370,7 @@ def run(context, checks, notes):
     except Exception as exc:
         checks.add("batch IFC export downloads a zip", False, f"{type(exc).__name__}: {str(exc)[:160]}")
 
+    check_recent_ui(page, checks)
     run_interaction_checks(page, checks, notes)
 
     for name, (width, height) in (("desktop", DESKTOP), ("mobile", MOBILE)):

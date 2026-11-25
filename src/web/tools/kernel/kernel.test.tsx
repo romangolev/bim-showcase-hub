@@ -44,6 +44,10 @@ class FakeTool extends ViewerTool<FakeSettings> {
     this.settings = fakeSettings(key);
   }
 
+  override get hasSettings(): boolean {
+    return true;
+  }
+
   override onSettingsChanged(
     adapter: ViewerAdapter,
     previous: FakeSettings | undefined,
@@ -201,17 +205,15 @@ describe('ToolRegistry', () => {
 });
 
 describe('ViewerTool settings window', () => {
-  it('shows the enable switch and the tool fields and persists a toggle', () => {
+  it('shows the tool fields and no enable switch', () => {
     const tool = new FakeTool('a', 'Alpha tool');
     render(tool.renderSettings());
     expect(screen.getByText('fields of a')).toBeTruthy();
-    const toggle = screen.getByRole('switch', { name: 'Alpha tool' });
-    expect((toggle as HTMLInputElement).checked).toBe(true);
-    fireEvent.click(toggle);
-    expect(readJson('test.a', null)).toMatchObject({ enabled: false });
+    expect(tool.hasSettings).toBe(true);
+    expect(screen.queryByRole('switch')).toBeNull();
   });
 
-  it('defaults to a frame without fields', () => {
+  it('has no settings window without fields', () => {
     class Bare extends ViewerTool<FakeSettings> {
       readonly id = 'bare';
       readonly title = 'Bare';
@@ -221,8 +223,8 @@ describe('ViewerTool settings window', () => {
         return {};
       }
     }
-    render(new Bare().renderSettings());
-    expect(screen.getAllByRole('switch')).toHaveLength(1);
+    expect(new Bare().hasSettings).toBe(false);
+    expect(new Bare().renderSettings()).toBeNull();
   });
 });
 

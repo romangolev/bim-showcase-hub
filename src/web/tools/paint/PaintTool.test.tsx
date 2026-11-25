@@ -252,12 +252,10 @@ describe('PaintTool', () => {
 describe('Paint settings window', () => {
   const renderWindow = () => render(new PaintTool().renderSettings());
 
-  it('has the enable switch and the three default swatches', () => {
+  it('has the three default swatches and no enable switch', () => {
     renderWindow();
     expect(screen.getAllByLabelText(/^Swatch \d$/)).toHaveLength(3);
-    const toggle = screen.getByRole('switch', { name: 'Paint brushes' });
-    fireEvent.click(toggle);
-    expect(stored().enabled).toBe(false);
+    expect(screen.queryByRole('switch', { name: 'Paint brushes' })).toBeNull();
   });
 
   it('edits, adds and removes swatches and persists them', () => {

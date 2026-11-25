@@ -20,17 +20,12 @@ import {
   defineRecordFamily,
   type PersistedRecord,
 } from '../storage.js';
-import {
-  type ElementScope,
-  sanitizeElementScope,
-} from '../viewer/propertyScope.js';
 import { dropDashboardSettingsTarget } from './dashboardTarget.js';
 import { type PanelId, parsePanelId } from './paneRegistry.js';
 import { dropSummarySettingsTarget } from './summaryTarget.js';
 
 export interface SummarySpec {
   scope: string;
-  elements: ElementScope;
   properties: readonly string[];
   view: SummaryView;
   action: ElementAction;
@@ -38,7 +33,6 @@ export interface SummarySpec {
 
 const DEFAULT_SUMMARY_SPEC: SummarySpec = {
   scope: 'all',
-  elements: 'all',
   properties: DEFAULT_SUMMARY_PROPERTIES,
   view: DEFAULT_SUMMARY_VIEW,
   action: 'select',
@@ -61,7 +55,6 @@ export function sanitizeSummarySpec(raw: unknown): SummarySpec {
   const spec = raw as Partial<Record<keyof SummarySpec, unknown>> | null;
   return {
     scope: typeof spec?.scope === 'string' && spec.scope ? spec.scope : 'all',
-    elements: sanitizeElementScope(spec?.elements),
     properties: sanitizePropertyNames(
       spec?.properties,
       DEFAULT_SUMMARY_PROPERTIES,

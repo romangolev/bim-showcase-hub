@@ -105,6 +105,12 @@ export const RU: Partial<Record<MessageId, string>> = {
   'settings.showHintsAgain': 'Показать подсказки снова',
   'settings.hintsHint':
     'Заметки о перемещении, панелях и Ctrl+K показываются по одному разу и остаются скрытыми, пока вы не запросите их здесь.',
+  'settings.general': 'Общие',
+  'settings.toolsPanes': 'Инструменты и панели',
+  'settings.data': 'Данные и хранилище',
+  'settings.sections': 'Разделы настроек',
+  'settings.back': 'Назад',
+  'settings.backToSettings': 'Назад к настройкам',
   'panes.title': 'Панели',
   'panes.search': 'Поиск панелей',
   'panes.matching': 'Подходящие панели',

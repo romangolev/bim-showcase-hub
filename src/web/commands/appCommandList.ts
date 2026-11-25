@@ -5,6 +5,10 @@ import {
   type SummaryPresetData,
 } from '../extensions/summaryPresets.js';
 import { MODALS } from '../modal/registry.js';
+import {
+  listSettingsSections,
+  openSettingsSection,
+} from '../settings/settingsSections.js';
 import { notify } from '../tasks/notifications.js';
 import type { Theme } from '../theme/theme.js';
 import { TOOLS } from '../tools/index.js';
@@ -68,6 +72,19 @@ export function appCommands(state: AppCommandState): Command[] {
       run: (host) => host.openModal(modal.id),
     }),
   );
+  const sections = listSettingsSections().map(
+    (section): Command => ({
+      id: `settings.section.${section.id}`,
+      title: `${section.label()} settings`,
+      group: 'Settings',
+      icon: section.icon,
+      ...(section.keywords ? { keywords: section.keywords } : {}),
+      run: (host) => {
+        openSettingsSection(section.id);
+        host.openModal('settings');
+      },
+    }),
+  );
   const signOutReason = !state.signedIn
     ? 'You are not signed in'
     : state.signingOut
@@ -83,6 +100,7 @@ export function appCommands(state: AppCommandState): Command[] {
       run: () => state.toggleTheme(),
     },
     ...windows,
+    ...sections,
     ...presetCommands,
     ...viewerCommands(null),
     ...TOOLS.commands(null, TOOLS.snapshot()),

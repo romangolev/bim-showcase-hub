@@ -163,28 +163,18 @@ describe('report options', () => {
   });
 });
 
-describe('report scope', () => {
-  it('collects only the elements of the summary scope', async () => {
+describe('report collection', () => {
+  it('counts every element of the loaded model', async () => {
     const adapter = new MockViewerAdapter(document.createElement('div'));
     await adapter.loadModels([{ urn: 'urn-a' }]);
     const rows = await adapter.getLeafProperties(['Category']);
-    const first = rows[0];
-    if (!first) throw new Error('no rows');
-    adapter.selectModelIds([{ modelId: 'urn-a', dbId: first.dbId }]);
     const content = await collectReport(adapter, {
       title: 'Tower',
       names: ['Category'],
       chartProperties: [],
       maxCategories: 6,
-      elements: 'selected',
     });
-    expect(rows.length).toBeGreaterThan(1);
-    expect(content.elements).toBe(1);
-    expect(
-      content.sections
-        .flatMap((section) => section.entries)
-        .reduce((total, entry) => total + entry.count, 0),
-    ).toBe(1);
+    expect(content.elements).toBe(rows.length);
     adapter.destroy();
   });
 });

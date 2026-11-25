@@ -182,7 +182,7 @@ export function SummaryPresetMenu({
   return (
     <Menu
       label="Summary presets"
-      triggerClassName="bsh-presets-trigger"
+      triggerClassName="btn bsh-presets-trigger"
       align="start"
       trigger={
         <>

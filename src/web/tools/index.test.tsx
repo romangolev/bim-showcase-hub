@@ -50,11 +50,10 @@ describe('the default tool registry', () => {
 
   it('gives every tool a settings window with a unique id', () => {
     const ids = TOOLS.modals().map((modal) => modal.id);
-    expect(new Set(ids).size).toBe(6);
+    expect(new Set(ids).size).toBe(5);
     expect(TOOLS.modals().map((modal) => modal.title)).toEqual([
       'Paint brushes settings',
       'Excel export settings',
-      'Geometry export settings',
       'IFC export settings',
       'Toolbar profile settings',
       'Viewer display settings',

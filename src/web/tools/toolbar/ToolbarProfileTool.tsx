@@ -5,7 +5,7 @@ import { defineRecord } from '../../storage.js';
 import { usePublishedAdapter } from '../../viewer/activeAdapterStore.js';
 import { NATIVE_CONTROLS } from '../../viewer/nativeControls.js';
 import type { ViewerAdapter } from '../../viewer/ViewerAdapter.js';
-import { ToolForm } from '../kernel/ToolSettingsFrame.js';
+import { ToolForm } from '../kernel/ToolForm.js';
 import {
   readEnabled,
   type ToolContribution,
