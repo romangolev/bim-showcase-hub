@@ -2,12 +2,15 @@ import {
   type ColumnDef,
   columnResizingFeature,
   columnSizingFeature,
+  FlexRender,
   metaHelper,
+  type Row,
   tableFeatures,
   useTable,
 } from '@tanstack/react-table';
 import {
   type CSSProperties,
+  memo,
   type ReactNode,
   useEffect,
   useId,
@@ -153,7 +156,7 @@ function specColumns(
   return specs.map((spec, index) => {
     const title = columnTitle(spec);
     const empty = spec.property !== null && blank.has(spec.property);
-    const read = (line: Line) => {
+    const format = (line: Line) => {
       const cell = line.cells[index] ?? NO_CELL;
       if (max !== null && spec.property === null && cell.status === 'ok') {
         const text = formatCount(cell.value);
@@ -168,6 +171,14 @@ function specColumns(
             : text,
         share: null,
       };
+    };
+    const seen = new WeakMap<Line, ReturnType<typeof format>>();
+    const read = (line: Line) => {
+      const known = seen.get(line);
+      if (known) return known;
+      const fresh = format(line);
+      seen.set(line, fresh);
+      return fresh;
     };
     return {
       id: spec.id,
@@ -206,6 +217,33 @@ function specColumns(
     };
   });
 }
+
+const GridRow = memo(function GridRow({
+  row,
+  active,
+}: {
+  row: Row<typeof features, Line>;
+  columns: GridColumn[];
+  active: boolean;
+}) {
+  return (
+    <TableRow data-active={active ? 'true' : undefined}>
+      {row.getAllCells().map((cell) => {
+        const meta = cell.column.columnDef.meta;
+        return (
+          <TableCell
+            key={cell.id}
+            rowHeader={meta?.rowHeader}
+            className={meta?.cellClassName ?? meta?.className}
+            {...(meta?.attrs?.(row.original) ?? NO_ATTRS)}
+          >
+            <FlexRender cell={cell} />
+          </TableCell>
+        );
+      })}
+    </TableRow>
+  );
+});
 
 function Grid({
   columns,
@@ -314,24 +352,12 @@ function Grid({
       </TableHeader>
       <TableBody>
         {table.getRowModel().rows.map((row) => (
-          <TableRow
+          <GridRow
             key={row.id}
-            data-active={activeKey === row.id ? 'true' : undefined}
-          >
-            {row.getAllCells().map((cell) => {
-              const meta = cell.column.columnDef.meta;
-              return (
-                <TableCell
-                  key={cell.id}
-                  rowHeader={meta?.rowHeader}
-                  className={meta?.cellClassName ?? meta?.className}
-                  {...(meta?.attrs?.(row.original) ?? NO_ATTRS)}
-                >
-                  <table.FlexRender cell={cell} />
-                </TableCell>
-              );
-            })}
-          </TableRow>
+            row={row}
+            columns={columns}
+            active={activeKey === row.id}
+          />
         ))}
         {children}
       </TableBody>
