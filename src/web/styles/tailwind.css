@@ -145,3 +145,23 @@
     linear-gradient(transparent, var(--ui-border)) bottom / 100% 8px no-repeat
     scroll;
 }
+
+@utility field-row {
+  grid-template-columns:
+    minmax(var(--ui-field-label-min), var(--ui-field-label-max))
+    minmax(0, 1fr);
+
+  & > [data-slot="field-hint"],
+  & > [data-slot="field-error"] {
+    grid-column: 2;
+  }
+
+  @container (max-width: 32rem) {
+    grid-template-columns: minmax(0, 1fr);
+
+    & > [data-slot="field-hint"],
+    & > [data-slot="field-error"] {
+      grid-column: 1;
+    }
+  }
+}

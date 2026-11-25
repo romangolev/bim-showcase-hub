@@ -63,6 +63,7 @@ Components in `src/web/ui` never name a palette colour. They use role tokens (`-
 | Dialog | `--ui-dialog-sm`, `-md`, `-lg`, `-xl`, `-command` (widths), `--ui-dialog-height`, `--ui-dialog-height-compact`, `--ui-dialog-top` | 360, 480, 720, 880, 560px, each capped at the viewport minus 32px; 80vh up to 720px; 70vh up to 520px; 12vh |
 | Effects | `--ui-glow-color`, `--ui-glow-size` | accent, 8px |
 | Drawer | `--ui-drawer-body` (open body height), `--ui-z-sticky` (sticky header layer) | 136px, `--z-sticky` |
+| Field | `--ui-field-label-min`, `--ui-field-label-max` | 10rem, 16rem: the label column of a row field |
 
 Text roles reach 4.5:1 on every surface role, `--ui-on-solid` reaches 4.5:1 on `--ui-solid`, and `--ui-on-accent` and `--ui-focus` reach 3:1 as UI parts.
 

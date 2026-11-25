@@ -232,6 +232,8 @@
   --ui-dialog-top: 12vh;
   --ui-glow-color: var(--ui-accent);
   --ui-glow-size: 8px;
+  --ui-field-label-min: 10rem;
+  --ui-field-label-max: 16rem;
 
   --ui-z-sticky: var(--z-sticky);
   --ui-drawer-body: 136px;

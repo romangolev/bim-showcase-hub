@@ -20,7 +20,16 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from './Empty.js';
+import {
+  Field,
+  FieldContent,
+  FieldError,
+  FieldHint,
+  FieldLabel,
+  FieldTitle,
+} from './Field.js';
 import { IconButton } from './IconButton.js';
+import { Input } from './Input.js';
 import { Kbd } from './Kbd.js';
 import { List, ListItem } from './List.js';
 import {
@@ -45,6 +54,7 @@ import {
 import { Skeleton } from './Skeleton.js';
 import { Spinner } from './Spinner.js';
 import { Tab, TabPanel, Tabs, TabsList } from './Tabs.js';
+import { Textarea } from './Textarea.js';
 import { ToggleButton } from './ToggleButton.js';
 import { Tooltip, TooltipPopup, TooltipTrigger } from './Tooltip.js';
 
@@ -319,6 +329,32 @@ const ENTRIES: Entry[] = [
         <ListItem {...props} />
       </ul>
     ),
+  },
+  ...(
+    [
+      ['field', Field],
+      ['field-label', FieldLabel],
+      ['field-content', FieldContent],
+      ['field-title', FieldTitle],
+      ['field-hint', FieldHint],
+      ['field-error', FieldError],
+    ] as const
+  ).map(
+    ([slot, Part]): Entry => ({
+      file: 'Field',
+      slot,
+      render: (props) => <Part {...props}>label</Part>,
+    }),
+  ),
+  {
+    file: 'Input',
+    slot: 'input',
+    render: (props) => <Input aria-label="label" {...props} />,
+  },
+  {
+    file: 'Textarea',
+    slot: 'textarea',
+    render: (props) => <Textarea aria-label="label" {...props} />,
   },
 ];
 
