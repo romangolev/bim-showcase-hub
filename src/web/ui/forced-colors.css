@@ -15,3 +15,14 @@
     color: HighlightText;
   }
 }
+
+@media (forced-colors: active) {
+  [data-slot="progress-track"] {
+    border: 1px solid CanvasText;
+  }
+
+  [data-slot="progress-indicator"] {
+    forced-color-adjust: none;
+    background: Highlight;
+  }
+}

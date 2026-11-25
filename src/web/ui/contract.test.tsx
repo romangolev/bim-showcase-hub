@@ -53,6 +53,7 @@ import {
   PopoverTitle,
   PopoverTrigger,
 } from './Popover.js';
+import { Progress } from './Progress.js';
 import { Radio, RadioGroup } from './Radio.js';
 import { Select, SelectOption } from './Select.js';
 import { Skeleton } from './Skeleton.js';
@@ -413,6 +414,10 @@ const ENTRIES: Entry[] = [
     file: 'Slider',
     slot: 'slider',
     render: (props) => <Slider aria-label="label" {...props} />,
+  {
+    file: 'Progress',
+    slot: 'progress',
+    render: (props) => <Progress label="label" value={50} {...props} />,
   },
 ];
 
