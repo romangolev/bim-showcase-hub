@@ -167,7 +167,7 @@ export function ViewerPane({
   const [state, setState] = useState<PaneState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
   const [stage, setStage] = useState<LoadStage>('starting');
-  const { theme } = useTheme();
+  const { scheme: theme } = useTheme();
   const themeRef = useRef(theme);
   const instanceRef = useRef<ViewerAdapter | null>(null);
 

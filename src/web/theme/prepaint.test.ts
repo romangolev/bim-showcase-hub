@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import indexHtml from '../../../index.html?raw';
 import { BSH_KEYS } from '../storage.js';
 import { installMemoryStorage } from '../test/mockApi.js';
+import { THEMES } from './theme.js';
 
 const script = /<script>([\s\S]*?)<\/script>/.exec(indexHtml)?.[1] ?? '';
 
@@ -19,6 +20,16 @@ function runPrepaint(matchesLight: boolean): void {
 }
 
 describe('pre-paint theme', () => {
+  it('knows the same themes, schemes and colours as THEMES', () => {
+    const literal = /const themes = (\{[^;]+\});/.exec(script)?.[1] ?? '';
+    const themes = Function(`return ${literal}`)() as Record<string, string[]>;
+    expect(themes).toEqual(
+      Object.fromEntries(
+        THEMES.map((theme) => [theme.id, [theme.scheme, theme.color]]),
+      ),
+    );
+  });
+
   beforeEach(() => {
     installMemoryStorage();
     for (const meta of document.head.querySelectorAll(

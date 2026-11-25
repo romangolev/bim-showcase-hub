@@ -1,7 +1,7 @@
 import type { PropertyRow } from '../../shared/types.js';
 import { notifyUnauthorized } from '../api/client.js';
 import type { IfcSourceRead } from '../ifc/types.js';
-import type { Theme } from '../theme/theme.js';
+import type { ThemeScheme } from '../theme/theme.js';
 import {
   type AutodeskViewing,
   autodeskWindow,
@@ -112,7 +112,7 @@ const FILL_BROWSER_CLASS = 'viewer-fill-browser';
 
 type TaggedContainer = HTMLElement & { bshViewer?: GuiViewer3D };
 
-const VIEWER_THEMES: Record<Theme, string> = {
+const VIEWER_THEMES: Record<ThemeScheme, string> = {
   dark: 'dark-theme',
   light: 'light-theme',
 };
@@ -291,7 +291,7 @@ const SCREENSHOT_TIMEOUT_MS = 10_000;
 export class RealViewerAdapter implements ViewerAdapter {
   private viewer: GuiViewer3D | null = null;
   private destroyed = false;
-  private theme: Theme = 'dark';
+  private theme: ThemeScheme = 'dark';
   private readonly stageListeners = new Set<(stage: LoadStage) => void>();
   private readonly selection = new SelectionHub();
   private readonly visibility = new SelectionHub();
@@ -1378,7 +1378,7 @@ export class RealViewerAdapter implements ViewerAdapter {
     this.viewer?.clearSelection();
   }
 
-  setTheme(theme: Theme): void {
+  setTheme(theme: ThemeScheme): void {
     this.theme = theme;
     if (this.viewer) this.applyTheme(this.viewer);
   }

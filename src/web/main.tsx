@@ -15,6 +15,8 @@ import './ui/forced-colors.css';
 import { App } from './App.js';
 import { installErrorCapture } from './tasks/errorCapture.js';
 
+import.meta.glob('./styles/themes/*.css', { eager: true });
+
 const container = document.getElementById('root');
 if (!container) {
   throw new Error('Missing #root element');

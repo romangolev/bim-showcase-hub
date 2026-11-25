@@ -1,6 +1,6 @@
 import type { PropertyRow } from '../../shared/types.js';
 import type { IfcSourceRead } from '../ifc/types.js';
-import type { Theme } from '../theme/theme.js';
+import type { ThemeScheme } from '../theme/theme.js';
 import type { GeometryRead } from './geometryTypes.js';
 import type {
   ModelDbId,
@@ -135,7 +135,7 @@ export interface ViewerAdapter {
   scheduleResize(settleMs: number): void;
   clearSelection(): void;
   clearThemingColors(): void;
-  setTheme(theme: Theme): void;
+  setTheme(theme: ThemeScheme): void;
   getLeafProperties(
     propertyNames: string[],
     modelIds?: readonly string[],

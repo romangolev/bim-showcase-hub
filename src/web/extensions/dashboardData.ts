@@ -387,7 +387,10 @@ export function readChartTheme(
 ): ChartTheme {
   const style = getComputedStyle(root);
   return {
-    scheme: root.getAttribute('data-theme') === 'light' ? 'light' : 'dark',
+    scheme:
+      (style.colorScheme || root.getAttribute('data-theme')) === 'light'
+        ? 'light'
+        : 'dark',
     text: readToken(style, '--color-fog', '#858687'),
     label: readToken(style, '--color-chalk', '#cececf'),
     grid: readToken(style, '--color-hairline-faint', 'rgba(255,255,255,0.06)'),

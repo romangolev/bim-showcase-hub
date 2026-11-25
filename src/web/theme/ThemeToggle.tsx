@@ -40,9 +40,9 @@ function MoonIcon() {
 }
 
 export function ThemeToggle() {
-  const { theme, toggleTheme } = useTheme();
+  const { scheme, toggleTheme } = useTheme();
   const label =
-    theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';
+    scheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';
   return (
     <button
       type="button"
@@ -51,7 +51,7 @@ export function ThemeToggle() {
       title={label}
       onClick={toggleTheme}
     >
-      {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+      {scheme === 'dark' ? <SunIcon /> : <MoonIcon />}
     </button>
   );
 }
