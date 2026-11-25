@@ -914,6 +914,7 @@ def check_lock_maximize(page, checks):
     pointer_drag(page, page.get_by_role("tab", name="Dashboard"), viewer_box["x"] + 24, viewer_box["y"] + viewer_box["height"] / 2)
     checks.add("locked layout ignores a tab drag", default_arrangement(groups(page)), groups(page))
     page.get_by_role("button", name="Dashboard pane options").click()
+    page.get_by_role("menuitem").first.wait_for(timeout=3000)
     names = page.get_by_role("menuitem").all_inner_texts()
     checks.add("locked pane menu offers only Maximize and Unlock", [n.strip() for n in names] == ["Maximize", "Unlock layout"], names)
     page.keyboard.press("Escape")
@@ -2389,6 +2390,7 @@ def check_documents_home(page, checks):
     tab = page.locator(".dv-tab").filter(has_text="Documents").first
     checks.add("Documents tab has no close button", tab.locator(".dv-default-tab-action").count() == 0)
     page.get_by_role("button", name="Documents pane options").click()
+    page.get_by_role("menuitem").first.wait_for(timeout=3000)
     items = page.get_by_role("menuitem").all_inner_texts()
     page.keyboard.press("Escape")
     checks.add("Documents pane menu has no Close", "Close" not in [item.strip() for item in items], items)
