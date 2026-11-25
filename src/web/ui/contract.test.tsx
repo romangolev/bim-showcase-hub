@@ -415,6 +415,7 @@ const ENTRIES: Entry[] = [
     file: 'Slider',
     slot: 'slider',
     render: (props) => <Slider aria-label="label" {...props} />,
+  },
   {
     file: 'Progress',
     slot: 'progress',
