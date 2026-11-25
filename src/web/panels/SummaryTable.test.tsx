@@ -390,7 +390,7 @@ describe('SummaryTable column resizing', () => {
     const handle = screen.getByRole('separator', {
       name: 'Resize Value column',
     });
-    fireEvent.mouseDown(handle, { clientX: 300 });
+    expect(fireEvent.mouseDown(handle, { clientX: 300 })).toBe(false);
     fireEvent.mouseMove(document, { clientX: 340 });
     fireEvent.mouseUp(document, { clientX: 340 });
     measure.mockRestore();

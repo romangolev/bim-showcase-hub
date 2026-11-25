@@ -273,7 +273,10 @@ function Grid({
                       label={`Resize ${meta?.label} column`}
                       value={sized ? Math.round(header.getSize()) : undefined}
                       active={column.getIsResizing()}
-                      onMouseDown={start}
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                        start(event);
+                      }}
                       onTouchStart={start}
                       onDoubleClick={() => table.resetColumnSizing(true)}
                       onKeyDown={(event) => {
