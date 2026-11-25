@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { setStorageAdapter } from '../storage.js';
 import { memoryAdapter } from '../storageAdapter.js';
 import { render, screen } from '../test/render.js';
+import { withSummaryProperties } from '../test/summaryProperties.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
 import { ColorsPanel } from './ColorsPanel.js';
 import { DashboardPanel } from './DashboardPanel.js';
@@ -33,7 +34,10 @@ const panels: [string, (adapter: MockViewerAdapter) => ReactElement][] = [
   [
     'Summary',
     (adapter) => (
-      <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />
+      <ModelSummaryPanel
+        adapter={adapter}
+        {...withSummaryProperties(['Category'])}
+      />
     ),
   ],
   ['Dashboard', (adapter) => <DashboardPanel adapter={adapter} />],
