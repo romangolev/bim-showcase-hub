@@ -345,7 +345,6 @@ function Grid({
                 header.getResizeHandler()(event);
               };
               const headProps = {
-                key: header.id,
                 className: meta?.className,
                 title: meta?.title,
                 'aria-label': resizable ? meta?.label : undefined,
@@ -392,6 +391,7 @@ function Grid({
               if (sortable && column.getCanSort()) {
                 return (
                   <TableSortHead
+                    key={header.id}
                     {...headProps}
                     sort={
                       sorted === 'asc'
@@ -418,7 +418,7 @@ function Grid({
                 );
               }
               return (
-                <TableHead {...headProps}>
+                <TableHead key={header.id} {...headProps}>
                   <table.FlexRender header={header} />
                   {resize}
                 </TableHead>
