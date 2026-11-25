@@ -83,7 +83,7 @@ VIEWER_FILL = """() => {
         breadcrumb: document.querySelectorAll("nav[aria-label^='Breadcrumb']").length,
     };
 }"""
-STACKED_LABEL = "() => document.querySelector(\".stack__model-tab[data-active='true']\")?.textContent || ''"
+STACKED_LABEL = "() => document.querySelector(\".stack__model-tab[aria-selected='true']\")?.textContent || ''"
 STORED_LAYOUT = "() => JSON.parse(localStorage.getItem('bsh.layout.v2') || 'null')"
 MODELS = "mw:() => window.__bshLayout.models()"
 VIEWERS = """() => [...document.querySelectorAll('.pane-model')].map((body) => {
@@ -244,7 +244,7 @@ def check_summary_tools(page, checks):
     page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
     page.keyboard.press("Escape")
     settle(page, 300)
-    checks.add("closing summary settings returns focus to the gear", page.evaluate("document.activeElement?.textContent") == "Summary settings")
+    checks.add("closing summary settings returns focus to the gear", page.evaluate("document.activeElement?.getAttribute('aria-label')") == "Summary settings")
     open_settings(page, "Appearance")
     main = page.get_by_role("dialog", name="Settings", exact=True)
     checks.add("main settings holds no pane-level density control", main.get_by_label("Density", exact=True).count() == 0 and main.get_by_label("Interface density").count() == 1)
@@ -369,7 +369,7 @@ COLLAPSED_RING = """() => [...document.querySelectorAll('.dv-groupview[data-coll
 LEGEND_BOXES = """() => {
     const box = (el) => el && el.getBoundingClientRect().toJSON();
     const frame = document.querySelector('.pane-dashboard .bsh-chart--doughnut');
-    const body = document.querySelector('.pane-dashboard .bsh-drawer__body');
+    const body = document.querySelector('.pane-dashboard [data-slot="drawer-body"]');
     const legend = frame?.querySelector('.bsh-legend');
     body.scrollTop = body.scrollHeight;
     return {
@@ -474,7 +474,7 @@ def check_dashboard_auto_collapse(page, checks, pane):
     checks.add("dashboard controls collapse on their own in a short pane", (toggle.get_attribute("aria-expanded") == "false") == short, pane.bounding_box())
     if short:
         checks.add("collapsed dashboard shows only its controls toggle", pane.get_by_role("button", name="Dashboard actions").count() == 0 and pane.get_by_role("button", name="Add chart").count() == 0)
-        header = (pane.locator(".bsh-drawer__header").bounding_box() or {"height": 0})["height"]
+        header = (pane.locator("[data-slot=\"drawer-header\"]").bounding_box() or {"height": 0})["height"]
         checks.add("collapsed dashboard header is one row", header <= 56, header)
     show_dashboard_controls(pane)
     checks.add("showing the controls by hand wins over the automatic rule", toggle.get_attribute("aria-expanded") == "true" and pane.get_by_role("button", name="Add chart").count() == 1)
@@ -639,7 +639,7 @@ def check_dashboard_tools(page, checks):
     page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
     page.keyboard.press("Escape")
     settle(page, 300)
-    checks.add("closing dashboard settings returns focus to the gear", page.evaluate("document.activeElement?.textContent") == "Dashboard settings")
+    checks.add("closing dashboard settings returns focus to the gear", page.evaluate("document.activeElement?.getAttribute('aria-label')") == "Dashboard settings")
     page.screenshot(path=str(OUTPUT_DIR / "mock-dashboard-preset.png"))
     open_settings(page, "Tools and panes")
     main = page.get_by_role("dialog", name="Settings", exact=True)
@@ -914,6 +914,7 @@ def check_lock_maximize(page, checks):
     pointer_drag(page, page.get_by_role("tab", name="Dashboard"), viewer_box["x"] + 24, viewer_box["y"] + viewer_box["height"] / 2)
     checks.add("locked layout ignores a tab drag", default_arrangement(groups(page)), groups(page))
     page.get_by_role("button", name="Dashboard pane options").click()
+    page.get_by_role("menuitem").first.wait_for(timeout=3000)
     names = page.get_by_role("menuitem").all_inner_texts()
     checks.add("locked pane menu offers only Maximize and Unlock", [n.strip() for n in names] == ["Maximize", "Unlock layout"], names)
     page.keyboard.press("Escape")
@@ -1107,6 +1108,7 @@ def check_ifc_dropdown(page, checks):
     checks.add("the IFC settings item shows no back arrow", page.get_by_role("button", name="Back to Settings").count() == 0)
     page.keyboard.press("Escape")
     settle(page, 300)
+    expand_to_viewable(page)
     trigger.click()
     settle(page, 300)
     page.get_by_role("button", name="Batch export IFC", exact=True).click()
@@ -1135,7 +1137,7 @@ QUICK_GEOMETRY = """([paneSel, label]) => {
   const sec = document.querySelector(paneSel + ' section');
   const box = sec.getBoundingClientRect();
   const header = sec.querySelector('header');
-  const body = sec.querySelector('.bsh-drawer__body, .bsh-summary__body');
+  const body = sec.querySelector('[data-slot="drawer-body"], .bsh-summary__body');
   const panel = sec.querySelector('.bsh-quick');
   const toggle = sec.querySelector(`[aria-label="${label}"]`);
   const t = toggle.getBoundingClientRect();
@@ -1987,6 +1989,20 @@ def check_viewer_links(page, checks):
     flipped = pane.get_by_role("button", name="Show all models")
     checks.add("models pane: the isolated row flips to Show all and is pressed", flipped.count() == 1 and flipped.get_attribute("aria-pressed") == "true", flipped.count())
     page.screenshot(path=str(OUTPUT_DIR / "mock-models-pane.png"))
+    checks.add("models pane: no saved combinations", pane.get_by_text("Saved combinations").count() == 0 and pane.get_by_role("button", name=re.compile("Save combination")).count() == 0)
+    checks.add("models pane: Save as model set is not in the pane header", pane.get_by_role("button", name="Save as model set").count() == 0)
+    toggle = pane.get_by_role("button", name="Models controls")
+    if toggle.get_attribute("aria-expanded") == "false":
+        toggle.click()
+        settle(page, 400)
+    checks.add("models pane: Alignment sits in the quick settings", pane.locator(".bsh-quick [aria-label='Model alignment']").count() == 1)
+    page.screenshot(path=str(OUTPUT_DIR / "mock-models-quick.png"))
+    pane.get_by_role("button", name="Models settings").click()
+    dialog = page.get_by_role("dialog", name="Models settings")
+    dialog.wait_for(timeout=8000)
+    checks.add("models pane: Models settings offers Save as model set", dialog.get_by_role("button", name="Save as model set").is_enabled())
+    page.keyboard.press("Escape")
+    settle(page, 300)
     hidden_before = [g["hidden"] for g in combined_groups(page)]
     page.reload(wait_until="networkidle")
     settle(page, 2000)
@@ -2165,7 +2181,7 @@ def check_view_states(page, checks):
         page.wait_for_timeout(400)
         checks.add(f"{state}: Enter opens no tab", page.url == start_url and not models(page)["models"], page.url)
         if state == "processing":
-            checks.add("processing: badge has a spinner", row.locator(".tree-row__state svg.spin").count() == 1)
+            checks.add("processing: badge has a spinner", row.locator(".tree-row__state [data-slot=\"spinner\"]").count() == 1)
     page.screenshot(path=str(OUTPUT_DIR / "mock-view-states.png"))
     check_badge_layout(page, checks, "desktop")
     page.get_by_role("button", name=THEME_TOGGLE).first.click()
@@ -2278,6 +2294,7 @@ def check_snapshots_viewpoints_present(page, checks):
             share_menu(page, "Save viewpoint")
             page.wait_for_timeout(300)
         page.locator(f"{ACTIVE_VIEWER} .bsh-viewer-share button").click()
+        page.get_by_role("menuitem", name="Save viewpoint").wait_for(timeout=3000)
         listed = page.get_by_role("menuitem").filter(has_text="Go to Viewpoint").count()
         page.screenshot(path=str(OUTPUT_DIR / "mock-viewpoints-menu.png"))
         page.keyboard.press("Escape")
@@ -2373,11 +2390,12 @@ def check_documents_home(page, checks):
     tab = page.locator(".dv-tab").filter(has_text="Documents").first
     checks.add("Documents tab has no close button", tab.locator(".dv-default-tab-action").count() == 0)
     page.get_by_role("button", name="Documents pane options").click()
+    page.get_by_role("menuitem").first.wait_for(timeout=3000)
     items = page.get_by_role("menuitem").all_inner_texts()
     page.keyboard.press("Escape")
     checks.add("Documents pane menu has no Close", "Close" not in [item.strip() for item in items], items)
     palette_hint = page.get_by_role("note").filter(has_text="Press Ctrl+K")
-    checks.add("the palette hint shows at home", palette_hint.count() == 1, page.locator(".hint").all_inner_texts())
+    checks.add("the palette hint shows at home", palette_hint.count() == 1, page.locator("[data-slot='alert']").all_inner_texts())
     if palette_hint.count() == 1:
         palette_hint.get_by_role("button", name="Dismiss hint").first.click()
         settle(page, 300)
@@ -2560,62 +2578,6 @@ def check_latest_badge(page, checks):
         len(marked) == 1 and marked_number is not None and numbers and marked_number == max(numbers),
         f"{marked[0]['label'] if marked else ''} of {numbers}",
     )
-
-
-def check_version_history(page, checks):
-    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
-    close_all_models(page)
-    group = expand_until_version_group(page)
-    if not group:
-        checks.add("version history: a file with two openable versions expands", False)
-        return
-    row = page.locator(f"[role=treeitem][data-kind='item'][aria-expanded='true'][title='{group['file']}']").first
-    row.scroll_into_view_if_needed()
-    row.click(button="right")
-    page.get_by_role("menuitem", name="Version history").click()
-    settle(page, 800)
-    table = page.locator("table.bsh-table--versions")
-    table.wait_for(timeout=10000)
-    rows = table.locator("tbody tr")
-    listed = rows.evaluate_all("(els) => els.map((el) => el.innerText)")
-    order = []
-    for text in listed:
-        match = re.search(r"\bv(\d+):", text)
-        if match:
-            order.append(int(match.group(1)))
-    checks.add("version history: the pane lists the versions newest first", bool(order) and order == sorted(order, reverse=True), order)
-    checks.add(
-        "version history: the first row is the latest version",
-        rows.count() > 0 and rows.first.get_attribute("data-latest") == "true",
-        rows.first.get_attribute("data-latest") if rows.count() else "",
-    )
-    picked = 0
-    for index in range(rows.count()):
-        candidate = rows.nth(index)
-        box = candidate.get_by_role("checkbox")
-        opener = candidate.locator("button[aria-label^='Open ']").first
-        if box.is_disabled() or opener.is_disabled():
-            continue
-        box.check()
-        picked += 1
-        if picked == 2:
-            break
-    checks.add("version history: two openable versions can be picked", picked == 2, picked)
-    compare = page.get_by_role("button", name="Compare as tabs")
-    if not compare.is_enabled():
-        checks.add("version history: Compare as tabs opens two viewer tabs", False, "Compare as tabs stayed disabled")
-        close_all_models(page)
-        close_pane(page, "versions")
-        focus_documents(page)
-        return
-    before = page.locator(".dv-tab").filter(has_text="·").count()
-    compare.click()
-    wait_until(page, lambda: page.locator(".dv-tab").filter(has_text="·").count() >= before + 2)
-    after = page.locator(".dv-tab").filter(has_text="·").count()
-    checks.add("version history: Compare as tabs opens two viewer tabs", after >= before + 2, f"{before} -> {after}")
-    close_all_models(page)
-    close_pane(page, "versions")
-    focus_documents(page)
 
 
 def check_search_pane(page, checks):
@@ -2917,6 +2879,7 @@ def check_pane_families(page, checks):
     options = page.locator(".pane-dashboard:visible").get_by_role("button", name=re.compile(r"^Options for "))
     options.first.click()
     pickers = page.get_by_role("menuitemcheckbox", name=re.compile(r"^Group by "))
+    pickers.first.wait_for(timeout=3000)
     checks.add("a chart tile has its own property picker", pickers.count() >= 2, pickers.count())
     page.get_by_role("menuitemcheckbox", name="Group by Level").click()
     settle(page, 500)
@@ -3112,6 +3075,14 @@ def check_command_palette(page, checks):
     box = open_palette(page)
     box.fill("geometry export settings")
     checks.add("a tool without fields has no settings command", palette(page).get_by_role("option", name=re.compile("Geometry export settings", re.I)).count() == 0)
+    box.fill("Settings: Shortcuts")
+    option = palette(page).get_by_role("option", name=re.compile("Settings: Shortcuts"))
+    checks.add("a settings section command is titled Settings: <section>", option.count() == 1, option.count())
+    if option.count() == 1:
+        option.click()
+        settle(page, 400)
+        dialog = page.get_by_role("dialog", name="Settings", exact=True)
+        checks.add("a settings section command opens Settings at that section", dialog.get_by_role("tab", name="Shortcuts", selected=True).count() == 1)
     page.keyboard.press("Escape")
     settle(page, 200)
     page.keyboard.press("Escape")
@@ -3170,7 +3141,7 @@ def run_interaction_checks(page, checks, notes):
     except Exception as exc:
         page.screenshot(path=str(OUTPUT_DIR / "mock-documents-failure.png"))
         checks.add("check_documents_return", False, f"{type(exc).__name__}: {str(exc)[:160]}")
-    for check in (check_latest_badge, check_version_history, check_search_pane, check_model_sets, check_deep_search, check_thumbnails):
+    for check in (check_latest_badge, check_search_pane, check_model_sets, check_deep_search, check_thumbnails):
         try:
             check(page, checks)
         except Exception as exc:

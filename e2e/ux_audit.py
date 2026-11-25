@@ -16,12 +16,13 @@ from common import (
     expand_to_viewable,
     horizontal_overflow,
     new_notes,
+    show_controls,
     watch,
 )
 
 SETTINGS_KEY = "bsh-settings-v1"
 STACKED_MAX = int(re.search(r"STACKED_MAX_WIDTH = (\d+)", (ROOT.parent / "src/web/layout/breakpoint.ts").read_text()).group(1))
-COMPACT = ".inline-action, .panes-menu__action, .dv-default-tab-action, .dock-action, .bsh-models__swatch, .tree-row__action, .bsh-chart__tools .icon-button, .bsh-table-block__toggle"
+COMPACT = ".inline-action, .panes-menu__action, .dv-default-tab-action, .dock-action, .bsh-models__swatch, .tree-row__action, .bsh-chart__tools [data-slot=icon-button], .bsh-table-block__toggle"
 WIDTHS = {320: 640, 768: 1024, 1440: 900}
 THEMES = ("dark", "light")
 WINDOWS = [
@@ -188,7 +189,7 @@ TABS_CUT = """() => [...document.querySelectorAll('.dv-tabs-container')].flatMap
 })"""
 
 DIALOG_OVERFLOW = """() => {
-  const body = document.querySelector('dialog[open] .modal__body');
+  const body = document.querySelector('dialog[open] [data-slot=dialog-body]');
   return body ? body.scrollWidth - body.clientWidth : 0;
 }"""
 
@@ -197,14 +198,14 @@ STRUCTURE = """() => {
   if (!dialog) return null;
   const pick = (el, keys) => { const s = getComputedStyle(el); return keys.map((k) => s[k]).join(' '); };
   const sig = (selector, keys) => [...new Set([...dialog.querySelectorAll(selector)].filter((el) => el.getBoundingClientRect().height > 0).map((el) => pick(el, keys)))];
-  const body = dialog.querySelector('.modal__body > *');
+  const body = dialog.querySelector('[data-slot=dialog-body] > *');
   return {
     headings: sig('h3, legend', ['fontSize', 'fontWeight', 'color']),
-    labels: sig('label, .switch-row__label', ['fontSize', 'color']),
-    hints: sig('.settings__hint, .switch-row__hint, .bsh-muted, small', ['fontSize', 'color']),
+    labels: sig('label, [data-slot=field-title]', ['fontSize', 'color']),
+    hints: sig('.settings__hint, [data-slot=field-hint], .bsh-muted, small', ['fontSize', 'color']),
     selects: sig('select', ['height', 'borderRadius', 'backgroundColor', 'fontSize']),
     textInputs: sig('input[type=text], input[type=number], input[type=search], input:not([type])', ['height', 'borderRadius', 'backgroundColor', 'fontSize']),
-    buttons: sig('.modal__body button:not([role=switch]):not([role=tab])', ['height', 'borderRadius', 'backgroundColor', 'fontSize', 'fontWeight']),
+    buttons: sig('[data-slot=dialog-body] button:not([role=switch]):not([role=tab])', ['height', 'borderRadius', 'backgroundColor', 'fontSize', 'fontWeight']),
     sectionGap: body ? getComputedStyle(body).rowGap : '',
     classes: [...new Set([...dialog.querySelectorAll('[class]')].flatMap((el) => [...el.classList]).filter((c) => /^(settings|bsh-|btn|field|switch-row|item-list|inline-action)/.test(c)))].sort(),
   };
@@ -262,7 +263,7 @@ def measure(page, scope, label, results, shots, focus_stops=0):
     results[label] = entry
 
 
-UNCLAMP = "dialog[open], dialog[open] .modal__panel { max-height: none !important; }"
+UNCLAMP = "dialog[open] { max-height: none !important; }"
 
 
 def full_dialog(page, path):
@@ -279,7 +280,6 @@ def full_dialog(page, path):
 PANES = [
     "Measurements",
     "Sheets and views",
-    "Version history",
     "Colors",
     "Export",
     "Search elements",
@@ -377,6 +377,8 @@ def run(browser, theme, width, language, results, notes):
             ("summary-add-property", "Add property", "dialog[open]"),
         ):
             try:
+                if key == "summary-add-property":
+                    show_controls(page, "Summary controls")
                 page.get_by_role("button", name=name, exact=True).first.click(timeout=5000)
                 page.locator(scope).first.wait_for(timeout=3000)
                 measure(page, scope, f"{prefix}-{key}", results, shots)
@@ -427,7 +429,7 @@ def run_states(browser, theme, results, notes):
             page.wait_for_timeout(2500)
             measure(page, None, label, results, OUTPUT_DIR)
             results[label]["state_blocks"] = page.evaluate(
-                "() => [...document.querySelectorAll('.state-block')].map((el) => el.dataset.variant)"
+                "() => [...document.querySelectorAll('[data-state-block]')].map((el) => el.dataset.stateBlock)"
             )
         except Exception as exc:
             results[label] = {"error": f"{type(exc).__name__}: {str(exc)[:160]}"}

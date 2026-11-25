@@ -77,6 +77,20 @@ describe('share link capture', () => {
     });
   });
 
+  it('leaves the pane-local controls state out of the chart views', () => {
+    PANE_SETTINGS.dashboard.view.write({
+      ...DEFAULT_DASHBOARD_VIEW,
+      controls: false,
+    });
+    chartSetting('chart:1').write({
+      ...DEFAULT_DASHBOARD_VIEW,
+      controls: true,
+    });
+    for (const chart of captureCharts()) {
+      expect(chart.view).not.toHaveProperty('controls');
+    }
+  });
+
   it('includes every chart pane in order', () => {
     for (const [instance, property] of [
       ['chart:2', 'Category'],

@@ -3,7 +3,7 @@ import {
   seedInstanceSetting,
   summarySetting,
 } from '../layout/instanceSettings.js';
-import { setSummarySettingsTarget } from '../layout/summaryTarget.js';
+import { setPaneSettingsTarget } from '../layout/settingsTarget.js';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import { readSaved } from '../store/savedStore.js';
 import { installMemoryStorage } from '../test/mockApi.js';
@@ -123,7 +123,7 @@ describe('summary preset menu in settings', () => {
 
   it('applies to the targeted instance pane, not the global keys', () => {
     seedInstanceSetting('modelSummary:3', null);
-    setSummarySettingsTarget('modelSummary:3');
+    setPaneSettingsTarget('modelSummary:3');
     render(<SummarySettingsBody />);
     open();
     fireEvent.click(
@@ -135,7 +135,7 @@ describe('summary preset menu in settings', () => {
       'Type Name',
     ]);
     expect(PANE_SETTINGS.summary.properties.has()).toBe(false);
-    setSummarySettingsTarget(null);
+    setPaneSettingsTarget(null);
   });
 
   it('applies an old saved preset with a measure as a Sum column', () => {

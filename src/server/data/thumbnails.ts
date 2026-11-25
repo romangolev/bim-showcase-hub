@@ -65,9 +65,13 @@ export function createThumbnailFetcher(
     token: string,
     urn: string,
     size: ThumbnailSize,
+    closed?: AbortSignal,
   ): Promise<Thumbnail | null> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const signal = closed
+      ? AbortSignal.any([controller.signal, closed])
+      : controller.signal;
     try {
       const res = await fetchImpl(
         `${MD_BASE}/${encodeURIComponent(urn)}/thumbnail?width=${size}&height=${size}`,
@@ -76,13 +80,12 @@ export function createThumbnailFetcher(
             Authorization: `Bearer ${token}`,
             region: REGION_HEADER[regionOf(urn).region],
           },
-          signal: controller.signal,
+          signal,
         },
       );
       if (res.status === 404 || res.status === 202) return null;
-      if (res.status === 401 || res.status === 403) {
-        throw new HttpError(401, 'Not authorized');
-      }
+      if (res.status === 401) throw new HttpError(401, 'Not authorized');
+      if (res.status === 403) throw new HttpError(403, 'Forbidden');
       if (res.status === 429) {
         throw new RateLimited(
           retryAfterSeconds(res.headers.get('retry-after')),
@@ -124,10 +127,12 @@ export function createThumbnailFetcher(
       token: string,
       urn: string,
       size: ThumbnailSize,
+      closed?: AbortSignal,
     ): Promise<Thumbnail | null> {
       await acquire(token);
       try {
-        return await fetchOne(token, urn, size);
+        if (closed?.aborted) throw new HttpError(499, 'Client closed request');
+        return await fetchOne(token, urn, size, closed);
       } finally {
         release(token);
       }

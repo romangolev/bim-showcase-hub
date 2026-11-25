@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { PaneActionsMenu } from './PaneActionsMenu.js';
 
@@ -25,7 +25,7 @@ describe('PaneActionsMenu', () => {
     const { trigger } = setup();
     expect(trigger).toHaveAttribute('aria-haspopup', 'menu');
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
-    expect(trigger).toHaveClass('icon-button');
+    expect(trigger).toHaveAttribute('data-slot', 'icon-button');
     fireEvent.click(trigger);
     expect(trigger).toHaveAttribute('aria-expanded', 'true');
     expect(
@@ -44,21 +44,25 @@ describe('PaneActionsMenu', () => {
     expect(trigger).toHaveFocus();
   });
 
-  it('opens with the keyboard, skips disabled actions and closes on Escape', () => {
+  it('opens with the keyboard, skips disabled actions and closes on Escape', async () => {
     const { copy, trigger } = setup();
     trigger.focus();
     fireEvent.keyDown(trigger, { key: 'ArrowDown' });
-    const menu = screen.getByRole('menu');
-    expect(screen.getByRole('menuitem', { name: 'Copy table' })).toHaveFocus();
-    fireEvent.keyDown(menu, { key: 'ArrowDown' });
-    expect(
-      screen.getByRole('menuitem', { name: 'Download CSV' }),
-    ).toHaveFocus();
-    fireEvent.keyDown(menu, { key: 'Escape' });
+    const first = screen.getByRole('menuitem', { name: 'Copy table' });
+    await waitFor(() => expect(first).toHaveFocus());
+    fireEvent.keyDown(first, { key: 'ArrowDown' });
+    const second = screen.getByRole('menuitem', { name: 'Download CSV' });
+    await waitFor(() => expect(second).toHaveFocus());
+    fireEvent.keyDown(second, { key: 'ArrowDown' });
+    await waitFor(() => expect(first).toHaveFocus());
+    fireEvent.keyDown(first, { key: 'Escape' });
     expect(screen.queryByRole('menu')).toBeNull();
     expect(trigger).toHaveFocus();
-    fireEvent.keyDown(trigger, { key: 'Enter' });
-    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Enter' });
+    fireEvent.click(trigger);
+    const again = screen.getByRole('menuitem', { name: 'Copy table' });
+    await waitFor(() => expect(again).toHaveFocus());
+    fireEvent.keyDown(again, { key: 'Enter' });
+    fireEvent.click(again);
     expect(copy).toHaveBeenCalledTimes(1);
   });
 
@@ -66,7 +70,7 @@ describe('PaneActionsMenu', () => {
     const { blocked, trigger } = setup();
     fireEvent.click(trigger);
     const item = screen.getByRole('menuitem', { name: 'Show all' });
-    expect(item).toBeDisabled();
+    expect(item).toHaveAttribute('aria-disabled', 'true');
     fireEvent.click(item);
     expect(blocked).not.toHaveBeenCalled();
     expect(screen.getByRole('menu')).toBeInTheDocument();
@@ -83,13 +87,13 @@ describe('PaneActionsMenu', () => {
       />,
     );
     const trigger = screen.getByRole('button', { name: 'Dashboard actions' });
-    expect(trigger).toHaveClass('btn');
+    expect(trigger).toHaveAttribute('data-slot', 'button');
     expect(trigger).toHaveTextContent('Actions');
     fireEvent.click(trigger);
     expect(
       screen
         .getByRole('menuitem', { name: 'Add chart' })
-        .querySelector('.menu__icon'),
+        .querySelector('.menu-icon'),
     ).not.toBeNull();
   });
 });

@@ -542,7 +542,6 @@ describe('Documents first', () => {
       expect(parseLayout(storage.getItem(LAYOUT_KEY))?.dismissed).toEqual([
         'measurements',
         'views',
-        'versions',
         'summary',
       ]),
     );
@@ -564,7 +563,6 @@ describe('Documents first', () => {
       expect(parseLayout(storage.getItem(LAYOUT_KEY))?.dismissed).toEqual([
         'measurements',
         'views',
-        'versions',
       ]),
     );
     act(() => handle().togglePane('summary'));
@@ -575,7 +573,6 @@ describe('Documents first', () => {
       expect(parseLayout(storage.getItem(LAYOUT_KEY))?.dismissed).toEqual([
         'measurements',
         'views',
-        'versions',
       ]),
     );
   });

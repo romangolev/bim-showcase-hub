@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { ItemList, ItemRow } from '../../components/ItemList.js';
 import { useSavedKindItems } from '../../store/savedKinds.js';
 import { MAX_NAME_LENGTH } from '../../store/savedStore.js';
+import { Button } from '../../ui/Button.js';
+import { Input } from '../../ui/Input.js';
 import {
   BUILT_IN_EXPORT_PRESETS,
   builtInSettings,
@@ -38,7 +40,7 @@ export function PresetFields({
     <fieldset className="settings__section">
       <legend className="settings__heading">Presets</legend>
       <div className="settings__actions">
-        <input
+        <Input
           type="text"
           aria-label="Export preset name"
           placeholder="Name this setup"
@@ -49,14 +51,9 @@ export function PresetFields({
             if (event.key === 'Enter') save();
           }}
         />
-        <button
-          type="button"
-          className="btn"
-          disabled={!name.trim()}
-          onClick={save}
-        >
+        <Button disabled={!name.trim()} onClick={save}>
           Save current setup
-        </button>
+        </Button>
       </div>
       {failed ? (
         <p role="alert" className="settings__hint">
@@ -70,15 +67,14 @@ export function PresetFields({
           return (
             <ItemRow key={preset.id}>
               <span>{preset.name}</span>
-              <button
-                type="button"
-                className="btn btn-small"
+              <Button
+                size="small"
                 aria-label={`Apply ${preset.name}`}
                 disabled={needsCatalog}
                 onClick={() => apply(builtInSettings(preset, catalog))}
               >
                 Apply
-              </button>
+              </Button>
             </ItemRow>
           );
         })}
@@ -96,24 +92,22 @@ export function PresetFields({
           {items.map((item) => (
             <ItemRow key={`${item.id}:${item.name}`}>
               <span>{item.name}</span>
-              <button
-                type="button"
-                className="btn btn-small"
+              <Button
+                size="small"
                 aria-label={`Apply ${item.name}`}
                 onClick={() => apply(presetSettings(item.data))}
               >
                 Apply
-              </button>
-              <button
-                type="button"
-                className="btn btn-small"
+              </Button>
+              <Button
+                size="small"
                 aria-label={`Delete ${item.name}`}
                 onClick={() => {
                   EXPORT_PRESETS.remove(item.id);
                 }}
               >
                 Delete
-              </button>
+              </Button>
             </ItemRow>
           ))}
         </ItemList>

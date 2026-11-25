@@ -94,10 +94,6 @@ export class IfcExportTool extends ViewerTool<IfcToolSettings> {
     return { ...settings, author: '', organisation: '' };
   }
 
-  override get hasSettings(): boolean {
-    return true;
-  }
-
   protected override renderFields() {
     return <IfcFields />;
   }

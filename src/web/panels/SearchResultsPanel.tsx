@@ -22,6 +22,9 @@ import { PropertyPicker } from './PropertyPicker.js';
 import { setMessages } from './SelectionSets.js';
 import { useResolvedAdapter } from './useScopedRows.js';
 import './panels.css';
+import { Button } from '../ui/Button.js';
+import { Card, CardHeader, CardTitle } from '../ui/Card.js';
+import { Input } from '../ui/Input.js';
 
 export interface SearchResultsPanelProps {
   adapter?: ViewerAdapter | null;
@@ -134,13 +137,13 @@ export function SearchResultsPanel({ adapter }: SearchResultsPanelProps) {
   const failed = outcome?.failedModels ?? [];
 
   return (
-    <section className="bsh-card bsh-search" aria-label="Search elements">
-      <header className="bsh-card__header bsh-search__header">
-        <h2 className="bsh-card__title">Search elements</h2>
+    <Card className="bsh-search" aria-label="Search elements">
+      <CardHeader className="bsh-search__header">
+        <CardTitle>Search elements</CardTitle>
         <span className="bsh-muted">
           {outcome ? `${formatCount(items.length, language)} results` : ''}
         </span>
-      </header>
+      </CardHeader>
       <form
         className="bsh-search__form"
         onSubmit={(event) => {
@@ -148,9 +151,8 @@ export function SearchResultsPanel({ adapter }: SearchResultsPanelProps) {
           void search();
         }}
       >
-        <input
+        <Input
           type="search"
-          className="field"
           aria-label="Search elements"
           placeholder="Name or property value"
           value={spec.text}
@@ -158,58 +160,44 @@ export function SearchResultsPanel({ adapter }: SearchResultsPanelProps) {
             setSpec((current) => ({ ...current, text: event.target.value }))
           }
         />
-        <button
-          type="submit"
-          className="btn"
-          disabled={!resolved || !spec.text.trim()}
-        >
+        <Button type="submit" disabled={!resolved || !spec.text.trim()}>
           Search
-        </button>
-        <button
-          type="button"
-          className="btn"
+        </Button>
+        <Button
           aria-expanded={showAttributes}
           disabled={!resolved}
           onClick={() => setShowAttributes((open) => !open)}
         >
           Attributes
-        </button>
+        </Button>
       </form>
       <div className="bsh-search__actions">
-        <button
-          type="button"
-          className="btn"
+        <Button
           disabled={!resolved || none}
           onClick={() => resolved?.selectModelIds(items)}
         >
           Select all
-        </button>
-        <button
-          type="button"
-          className="btn"
+        </Button>
+        <Button
           disabled={!resolved || none}
           onClick={() => resolved?.isolateModelIds(items)}
         >
           Isolate
-        </button>
-        <button
-          type="button"
-          className="btn"
+        </Button>
+        <Button
           disabled={!resolved || none}
           onClick={() => resolved?.fitToView(items)}
         >
           Fit
-        </button>
-        <button
-          type="button"
-          className="btn"
+        </Button>
+        <Button
           disabled={!resolved || none}
           onClick={() =>
             setSaveName((current) => (current === null ? '' : null))
           }
         >
           Save as selection set
-        </button>
+        </Button>
       </div>
       {saveName !== null ? (
         <form
@@ -220,17 +208,16 @@ export function SearchResultsPanel({ adapter }: SearchResultsPanelProps) {
             void save();
           }}
         >
-          <input
+          <Input
             type="text"
-            className="field"
             aria-label="Selection set name"
             placeholder="Name the results"
             value={saveName}
             onChange={(event) => setSaveName(event.target.value)}
           />
-          <button type="submit" className="btn" disabled={!saveName.trim()}>
+          <Button type="submit" disabled={!saveName.trim()}>
             Save
-          </button>
+          </Button>
         </form>
       ) : null}
       {showAttributes && resolved ? (
@@ -288,9 +275,7 @@ export function SearchResultsPanel({ adapter }: SearchResultsPanelProps) {
       {stale ? (
         <div className="bsh-search__stale" role="status">
           <span>Results may be out of date.</span>
-          <button type="button" className="btn" onClick={() => void search()}>
-            Search again
-          </button>
+          <Button onClick={() => void search()}>Search again</Button>
         </div>
       ) : null}
       {items.length > 0 ? (
@@ -340,6 +325,6 @@ export function SearchResultsPanel({ adapter }: SearchResultsPanelProps) {
           </div>
         </div>
       ) : null}
-    </section>
+    </Card>
   );
 }

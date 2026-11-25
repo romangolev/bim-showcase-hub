@@ -99,10 +99,15 @@ export function dataRouter(
       throw new HttpError(400, 'Invalid size');
     }
     const token = await tokenFor(req);
+    const closed = new AbortController();
+    res.on('close', () => {
+      if (!res.writableFinished) closed.abort();
+    });
     const thumb = await data.versionThumbnail(
       token,
       urn,
       size as ThumbnailSize,
+      closed.signal,
     );
     if (!thumb) {
       res.status(404).json({ error: 'No thumbnail' });

@@ -77,26 +77,6 @@
 
 .stack__model-tab {
   flex: 0 1 auto;
-  min-width: 0;
-  max-width: 100%;
-  min-height: var(--hit-target);
-  padding: var(--space-1) var(--space-2);
-  overflow: hidden;
-  border: var(--border-hairline);
-  border-radius: var(--radius-card);
-  background: none;
-  color: var(--color-fog);
-  font: inherit;
-  font-size: var(--text-13);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.stack__model-tab[data-active="true"] {
-  border-color: var(--color-chalk);
-  color: var(--color-chalk);
-  font-weight: var(--weight-label);
 }
 
 .stack__model-close {
@@ -113,7 +93,6 @@
   cursor: pointer;
 }
 
-.stack__model-tab:focus-visible,
 .stack__model-close:focus-visible {
   outline-offset: calc(var(--ring-width) * -1);
 }
@@ -131,7 +110,7 @@
   height: auto;
 }
 
-.stack .bsh-chart__tools .icon-button {
+.stack .bsh-chart__tools [data-slot="icon-button"] {
   width: var(--hit-target);
   height: var(--hit-target);
 }
@@ -150,7 +129,7 @@
   transition: height 160ms ease;
 }
 
-.stack:has(.bsh-drawer[data-collapsed="true"]) .model-viewer {
+.stack:has([data-slot="drawer"][data-collapsed]) .model-viewer {
   height: max(360px, 62vh);
 }
 

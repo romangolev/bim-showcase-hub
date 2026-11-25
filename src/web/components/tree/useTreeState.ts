@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useState, useSyncExternalStore } from 'react';
+import type { DeepSearchView } from './deepSearch.js';
 import { queryTreeData } from './treeData.js';
 import {
   createTreeState,
@@ -10,7 +11,11 @@ import {
 
 export function useTreeState(
   options: Pick<TreeStateOptions, 'root' | 'sort'>,
-): { state: TreeState; snapshot: TreeSnapshot } {
+): {
+  state: TreeState;
+  snapshot: TreeSnapshot;
+  search: DeepSearchView | null;
+} {
   const client = useQueryClient();
   const [state] = useState(() =>
     createTreeState({ ...options, data: queryTreeData(client) }),
@@ -20,5 +25,10 @@ export function useTreeState(
     state.getSnapshot,
     state.getSnapshot,
   );
-  return { state, snapshot };
+  const search = useSyncExternalStore(
+    state.deepSearch.subscribe,
+    state.deepSearch.getSnapshot,
+    state.deepSearch.getSnapshot,
+  );
+  return { state, snapshot, search };
 }

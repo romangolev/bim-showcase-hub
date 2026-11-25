@@ -1,6 +1,15 @@
 import type { ReactNode } from 'react';
 import { Icon, type IconName } from './icons.js';
 import './state-block.css';
+import { Button } from '../ui/Button.js';
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyMedia,
+  EmptyTitle,
+} from '../ui/Empty.js';
+import { Skeleton } from '../ui/Skeleton.js';
 
 export interface StateBlockAction {
   label: string;
@@ -23,8 +32,6 @@ export interface StateBlockProps {
   children?: ReactNode;
 }
 
-const SKELETON_WIDTHS = ['72%', '54%', '88%', '46%', '66%'];
-
 export function StateBlock({
   variant,
   title,
@@ -39,28 +46,20 @@ export function StateBlock({
   className,
   children,
 }: StateBlockProps) {
-  const classes = `state-block ${className ?? ''}`.trim();
+  const size = compact ? 'small' : 'default';
 
   if (variant === 'loading') {
     return (
-      <div
-        className={classes}
-        data-variant="loading"
-        data-compact={compact}
+      <Skeleton
+        className={className}
+        size={size}
+        rows={rows}
+        data-state-block="loading"
         role="status"
         aria-live="polite"
       >
         <span className="visually-hidden">{message ?? 'Loading'}</span>
-        <div className="state-block__skeleton" aria-hidden="true">
-          {Array.from({ length: rows }, (_, index) => (
-            <span
-              key={index}
-              className="state-block__bar"
-              style={{ width: SKELETON_WIDTHS[index % SKELETON_WIDTHS.length] }}
-            />
-          ))}
-        </div>
-      </div>
+      </Skeleton>
     );
   }
 
@@ -68,34 +67,35 @@ export function StateBlock({
     icon ?? (variant === 'error' ? 'alert' : 'layers');
 
   return (
-    <div
-      className={classes}
-      data-variant={variant}
-      data-compact={compact}
+    <Empty
+      className={className}
+      size={size}
+      tone={variant === 'error' ? 'danger' : 'neutral'}
+      data-state-block={variant}
       role={variant === 'error' ? 'alert' : undefined}
       title={detail}
     >
-      <span className="state-block__icon">
+      <EmptyMedia>
         <Icon name={resolvedIcon} size={compact ? 14 : 18} />
-      </span>
-      <div className="state-block__body">
+      </EmptyMedia>
+      <EmptyContent>
         {title ? (
-          <TitleTag id={titleId} className="state-block__title">
+          <EmptyTitle id={titleId} render={<TitleTag />}>
             {title}
-          </TitleTag>
+          </EmptyTitle>
         ) : null}
-        {message ? <p className="state-block__message">{message}</p> : null}
+        {message ? <EmptyDescription>{message}</EmptyDescription> : null}
         {children}
-      </div>
+      </EmptyContent>
       {action ? (
-        <button
-          type="button"
-          className={`btn btn-small state-block__action${action.primary ? ' btn-primary' : ''}`}
+        <Button
+          size="small"
+          variant={action.primary ? 'primary' : 'default'}
           onClick={action.onClick}
         >
           {action.label}
-        </button>
+        </Button>
       ) : null}
-    </div>
+    </Empty>
   );
 }

@@ -1,20 +1,10 @@
 .workspaces {
-  position: fixed;
-  z-index: var(--z-popover);
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
   width: min(360px, calc(100vw - 8px));
   max-height: min(620px, calc(100vh - 8px));
-  overflow: auto;
   padding: var(--space-1);
-  border: var(--border-hairline);
-  border-radius: var(--radius-card);
-  background: var(--color-graphite);
-  box-shadow: var(--shadow-inset);
-  color: var(--color-chalk);
-  font-family: var(--font-sans);
-  font-size: var(--text-13);
 }
 
 .workspaces__heading {

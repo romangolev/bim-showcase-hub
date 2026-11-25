@@ -26,16 +26,19 @@ import {
   type SummaryView,
   sanitizeLayout,
 } from '../extensions/modelSummary.js';
-import { summarySetting } from '../layout/instanceSettings.js';
-import type { PanelId } from '../layout/paneRegistry.js';
+import { SUMMARY_PANEL, useSummarySpec } from '../layout/instanceSettings.js';
+import { paneKind } from '../layout/paneRegistry.js';
 import {
-  setSummarySettingsTarget,
-  useSummarySettingsTarget,
-} from '../layout/summaryTarget.js';
+  setPaneSettingsTarget,
+  usePaneSettingsTarget,
+} from '../layout/settingsTarget.js';
 import type { ModalDefinition } from '../modal/types.js';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
-import { usePersisted } from '../storage.js';
 import { announce } from '../tasks/notifications.js';
+import { Button } from '../ui/Button.js';
+import { FieldLabel } from '../ui/Field.js';
+import { Input } from '../ui/Input.js';
+import { Select, SelectOption } from '../ui/Select.js';
 import { usePublishedAdapter } from '../viewer/activeAdapterStore.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { SummaryPresetSection } from './SummaryPresetMenu.js';
@@ -195,18 +198,16 @@ function OrderedEditor<T>({
                   <Icon name="arrowDown" size={14} />
                 </button>
                 {canEdit(item) ? (
-                  <button
-                    type="button"
-                    className="btn btn-small"
+                  <Button
+                    size="small"
                     aria-label={`Edit ${title}`}
                     onClick={() => onEdit(item)}
                   >
                     Edit...
-                  </button>
+                  </Button>
                 ) : null}
-                <button
-                  type="button"
-                  className="btn btn-small"
+                <Button
+                  size="small"
                   aria-label={`Remove ${title}`}
                   disabled={items.length <= minimum}
                   onClick={() =>
@@ -214,22 +215,16 @@ function OrderedEditor<T>({
                   }
                 >
                   Remove
-                </button>
+                </Button>
               </ItemRow>
             );
           })}
         </ItemList>
       )}
       <div className="settings__actions">
-        <button
-          type="button"
-          className="btn"
-          aria-label={addLabel}
-          disabled={addDisabled}
-          onClick={onAdd}
-        >
+        <Button aria-label={addLabel} disabled={addDisabled} onClick={onAdd}>
           Add...
-        </button>
+        </Button>
         {children}
       </div>
     </fieldset>
@@ -288,34 +283,31 @@ function GroupByEditor({
               >
                 <Icon name="arrowDown" size={14} />
               </button>
-              <button
-                type="button"
-                className="btn btn-small"
+              <Button
+                size="small"
                 aria-label={`Remove ${name} from the grouping`}
                 onClick={() => onChange(value.filter((item) => item !== name))}
               >
                 Remove
-              </button>
+              </Button>
             </ItemRow>
           ))}
         </ItemList>
       )}
       <div className="settings__actions">
-        <select
+        <Select
           aria-label="Add a grouping property"
           value={selected}
           disabled={available.length === 0 || value.length >= MAX_GROUP_BY}
-          onChange={(event) => setPending(event.target.value)}
+          onValueChange={(next) => setPending(next)}
         >
           {available.map((name) => (
-            <option key={name} value={name}>
+            <SelectOption key={name} value={name}>
               {name}
-            </option>
+            </SelectOption>
           ))}
-        </select>
-        <button
-          type="button"
-          className="btn"
+        </Select>
+        <Button
           disabled={
             !selected || available.length === 0 || value.length >= MAX_GROUP_BY
           }
@@ -326,7 +318,7 @@ function GroupByEditor({
           }}
         >
           Add level
-        </button>
+        </Button>
       </div>
     </fieldset>
   );
@@ -352,22 +344,20 @@ function TitleEditor({
     <fieldset className="settings__section">
       <legend className="settings__heading">Block titles</legend>
       {propertyNames.map((property) => (
-        <label key={property} className="settings__field">
+        <FieldLabel layout="row" key={property}>
           {property}
-          <input
+          <Input
             type="text"
             maxLength={MAX_TITLE_LENGTH}
             placeholder={property}
             value={titles[property] ?? ''}
             onChange={(event) => setTitle(property, event.target.value)}
           />
-        </label>
+        </FieldLabel>
       ))}
       {Object.keys(titles).length > 0 ? (
         <div className="settings__actions">
-          <button type="button" className="btn" onClick={() => onChange({})}>
-            Reset block titles
-          </button>
+          <Button onClick={() => onChange({})}>Reset block titles</Button>
         </div>
       ) : null}
     </fieldset>
@@ -470,9 +460,7 @@ function SummaryFields({
         addDisabled={columnsFull}
       >
         {view.columns.some((column) => column.property === null) ? null : (
-          <button
-            type="button"
-            className="btn"
+          <Button
             disabled={columnsFull}
             onClick={() =>
               onView((prev) => ({
@@ -482,7 +470,7 @@ function SummaryFields({
             }
           >
             Add element count
-          </button>
+          </Button>
         )}
       </OrderedEditor>
       <SettingsForm form={SUMMARY_FORM} value={value} onChange={onChange} />
@@ -499,47 +487,18 @@ function SummaryFields({
         onChange={(titles) => onView((prev) => ({ ...prev, titles }))}
       />
       <div className="settings__actions">
-        <button type="button" className="btn" onClick={onReset}>
-          Reset view
-        </button>
+        <Button onClick={onReset}>Reset view</Button>
       </div>
     </>
   );
 }
 
-function GlobalSummarySettings({ adapter }: { adapter: ViewerAdapter | null }) {
-  const [view, setView, resetView] = usePersisted(PANE_SETTINGS.summary.view);
-  const [action, setAction, resetAction] = usePersisted(
-    PANE_SETTINGS.summary.action,
+export function SummarySettingsBody() {
+  const target = usePaneSettingsTarget();
+  const adapter = useResolvedAdapter(usePublishedAdapter());
+  const { spec, setSpec } = useSummarySpec(
+    paneKind(target) === 'modelSummary' && target ? target : SUMMARY_PANEL,
   );
-  const [properties, setProperties] = usePersisted(
-    PANE_SETTINGS.summary.properties,
-  );
-  return (
-    <SummaryFields
-      view={view}
-      action={action}
-      adapter={adapter}
-      propertyNames={properties}
-      onProperties={setProperties}
-      onView={setView}
-      onAction={setAction}
-      onReset={() => {
-        resetView();
-        resetAction();
-      }}
-    />
-  );
-}
-
-function InstanceSummarySettings({
-  target,
-  adapter,
-}: {
-  target: PanelId;
-  adapter: ViewerAdapter | null;
-}) {
-  const [spec, setSpec] = usePersisted(summarySetting(target));
   return (
     <SummaryFields
       view={spec.view}
@@ -567,20 +526,10 @@ function InstanceSummarySettings({
   );
 }
 
-export function SummarySettingsBody() {
-  const target = useSummarySettingsTarget();
-  const adapter = useResolvedAdapter(usePublishedAdapter());
-  return target ? (
-    <InstanceSummarySettings target={target} adapter={adapter} />
-  ) : (
-    <GlobalSummarySettings adapter={adapter} />
-  );
-}
-
 export const SUMMARY_SETTINGS_MODAL: ModalDefinition = {
   id: SUMMARY_SETTINGS_ID,
   title: 'Summary settings',
   size: 'lg',
   Body: SummarySettingsBody,
-  onClose: () => setSummarySettingsTarget(null),
+  onClose: () => setPaneSettingsTarget(null),
 };

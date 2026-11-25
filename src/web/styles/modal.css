@@ -1,60 +1,3 @@
-.modal {
-  padding: 0;
-  border: var(--border-hairline);
-  border-radius: var(--radius-button);
-  background: var(--color-graphite);
-  color: var(--color-snow);
-  font-size: var(--text-14);
-  line-height: 1.5;
-  box-shadow: var(--shadow-float);
-  max-height: min(80vh, 720px);
-  width: min(100vw - 32px, 480px);
-}
-
-.modal--sm {
-  width: min(100vw - 32px, 360px);
-}
-
-.modal--lg {
-  width: min(100vw - 32px, 720px);
-}
-
-.modal--xl {
-  width: min(100vw - 32px, 880px);
-  height: min(80vh, 720px);
-}
-
-.modal::backdrop {
-  background: var(--color-scrim);
-}
-
-.modal__panel {
-  display: flex;
-  flex-direction: column;
-  max-height: inherit;
-}
-
-.modal--xl .modal__panel {
-  height: 100%;
-}
-
-.modal__head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  justify-content: space-between;
-  padding: var(--space-3) var(--space-4);
-  border-bottom: var(--border-hairline);
-}
-
-.modal__title {
-  flex: 1;
-  margin: 0;
-  font-size: var(--text-16);
-  font-weight: var(--weight-strong);
-}
-
-.modal__body,
 .settings-nav__options {
   padding: var(--space-4);
   overflow: auto;
@@ -76,7 +19,7 @@
   gap: var(--space-4);
 }
 
-.modal__body:has(> .settings-nav) {
+[data-slot="dialog-body"]:has(> .settings-nav) {
   flex: 1;
   min-height: 0;
   padding: 0;
@@ -102,43 +45,10 @@
 }
 
 .settings-nav__item {
-  display: flex;
   flex: none;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: var(--hit-target);
-  padding: 0 var(--space-2);
-  border: 0;
-  border-radius: var(--radius-tile);
-  background: transparent;
-  color: var(--color-chalk);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.settings-nav__item:hover {
-  background: var(--color-ghost-fill);
-  color: var(--color-snow);
-}
-
-.settings-nav__item[aria-selected="true"] {
-  background: var(--color-ghost-fill-hover);
-  color: var(--color-snow);
-  box-shadow: inset 2px 0 0 var(--color-signal-blue);
-}
-
-.settings-nav__item:focus-visible {
-  outline-offset: -2px;
-}
-
-@media (forced-colors: active) {
-  .settings-nav__item[aria-selected="true"] {
-    forced-color-adjust: none;
-    background: Highlight;
-    color: HighlightText;
-    box-shadow: none;
-  }
+  justify-content: flex-start;
+  padding-inline: var(--space-2);
+  text-align: start;
 }
 
 .settings-nav__label {
@@ -222,7 +132,7 @@
   white-space: nowrap;
 }
 
-.settings__shortcuts .btn {
+.settings__shortcuts :is([data-slot="button"], [data-slot="toggle-button"]) {
   margin-left: var(--space-2);
 }
 
@@ -233,75 +143,6 @@
   font-weight: inherit;
 }
 
-.switch-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-.switch-row__text {
-  display: flex;
-  flex-direction: column;
-}
-
-.switch-row__hint {
-  color: var(--color-ash);
-  font-size: var(--text-13);
-}
-
-.switch-row {
-  min-height: var(--hit-target);
-  cursor: pointer;
-}
-
-.switch-row input[role="switch"] {
-  position: relative;
-  flex: none;
-  width: 2.25rem;
-  height: 1.25rem;
-  margin: 0;
-  border: var(--border-field);
-  border-radius: var(--radius-pill);
-  background: var(--color-charcoal);
-  appearance: none;
-  cursor: pointer;
-  transition: background-color var(--transition-ui);
-}
-
-.switch-row input[role="switch"]::before {
-  position: absolute;
-  top: 50%;
-  left: var(--space-0-5);
-  width: 0.875rem;
-  height: 0.875rem;
-  border-radius: var(--radius-pill);
-  background: var(--color-fog);
-  content: "";
-  transform: translateY(-50%);
-  transition: transform var(--transition-ui);
-}
-
-.switch-row input[role="switch"]:checked {
-  border-color: var(--color-signal-blue);
-  background: var(--color-signal-blue);
-}
-
-.switch-row input[role="switch"]:checked::before {
-  background: var(--color-on-accent);
-  transform: translate(1rem, -50%);
-}
-
-.switch-row:has(input:disabled) {
-  color: var(--color-ash);
-  cursor: not-allowed;
-}
-
-.switch-row input[role="switch"]:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 .settings__entry {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(5.5rem, auto);
@@ -309,7 +150,7 @@
   gap: var(--space-3);
 }
 
-.settings__entry > .btn {
+.settings__entry > :is([data-slot="button"], [data-slot="toggle-button"]) {
   grid-column: 2;
 }
 
@@ -319,7 +160,7 @@
   flex-direction: column;
 }
 
-.settings__entry .switch-row {
+.settings__entry > [data-slot="field-label"] {
   grid-column: 1;
   min-width: 0;
 }
@@ -338,7 +179,8 @@
   color: var(--color-snow);
 }
 
-.settings__field > .btn {
+:is([data-slot="field"], [data-slot="field-label"])
+  > :is([data-slot="button"], [data-slot="toggle-button"]) {
   justify-self: start;
 }
 
@@ -356,12 +198,6 @@
   color: var(--color-snow);
 }
 
-fieldset.settings__field {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1) var(--space-4);
-}
-
 .settings
   input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"]),
 .settings select,
@@ -375,10 +211,6 @@ fieldset.settings__field {
   background: var(--color-charcoal);
   color: var(--color-snow);
   font-size: var(--text-14);
-}
-
-.settings input[type="range"] {
-  min-height: var(--hit-target);
 }
 
 .settings input[type="number"] {
@@ -395,20 +227,10 @@ fieldset.settings__field {
   cursor: pointer;
 }
 
-.settings__check {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
 .settings__hint {
   font-size: var(--text-13);
   color: var(--color-ash);
   margin: 0;
-}
-
-.settings__field > .settings__hint {
-  grid-column: 2;
 }
 
 .settings__palette {
@@ -480,31 +302,6 @@ fieldset.settings__field {
   .settings__field {
     grid-template-columns: minmax(0, 1fr);
   }
-
-  .settings__field > .settings__hint {
-    grid-column: 1;
-  }
-}
-
-.item-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.item-list__row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-1) var(--space-2);
-}
-
-.item-list__row > :first-child {
-  flex: 1 1 10rem;
-  min-width: 0;
 }
 
 .ifc-batch__list {

@@ -11,6 +11,7 @@ import {
   waitFor,
   within,
 } from '../test/render.js';
+import { withSummaryProperties } from '../test/summaryProperties.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
 import { buildMockElements } from '../viewer/mockModel.js';
 import { DashboardPanel } from './DashboardPanel.js';
@@ -65,10 +66,17 @@ afterEach(() => {
 });
 
 describe('ModelSummaryPanel', () => {
+  beforeEach(() => {
+    installMemoryStorage();
+  });
+
   it('renders counts in a table', async () => {
     const adapter = await loaded();
     render(
-      <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />,
+      <ModelSummaryPanel
+        adapter={adapter}
+        {...withSummaryProperties(['Category'])}
+      />,
     );
     const walls = await screen.findByRole('cell', { name: 'Walls' });
     const row = walls.closest('tr');
@@ -84,7 +92,12 @@ describe('ModelSummaryPanel', () => {
     const { container } = render(
       <ModelSummaryPanel
         adapter={adapter}
-        propertyNames={['Category', 'Name', 'Level', 'Assembly Code']}
+        {...withSummaryProperties([
+          'Category',
+          'Name',
+          'Level',
+          'Assembly Code',
+        ])}
       />,
     );
     const toggle = await screen.findByRole('button', {
@@ -112,7 +125,7 @@ describe('ModelSummaryPanel collapse and counts', () => {
     render(
       <ModelSummaryPanel
         adapter={adapter}
-        propertyNames={['Category']}
+        {...withSummaryProperties(['Category'])}
         onCollapsedChange={onChange}
       />,
     );
@@ -320,7 +333,9 @@ describe('Feedback states', () => {
       new Promise(() => undefined),
     );
     const { container } = render(<ModelSummaryPanel adapter={adapter} />);
-    expect(container.querySelectorAll('.state-block__bar').length).toBe(5);
+    expect(
+      container.querySelectorAll('[data-slot="skeleton-bar"]').length,
+    ).toBe(5);
   });
 
   it('maps summary errors to friendly copy with retry and raw detail in a title', async () => {
@@ -365,7 +380,10 @@ describe('model scope in combined views', () => {
     ]);
     adapters.push(adapter);
     render(
-      <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />,
+      <ModelSummaryPanel
+        adapter={adapter}
+        {...withSummaryProperties(['Category'])}
+      />,
     );
     expect(
       await screen.findByText(/Properties unavailable for Broken DB/),
@@ -380,7 +398,10 @@ describe('every model hidden', () => {
     adapters.push(adapter);
     render(
       <>
-        <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />
+        <ModelSummaryPanel
+          adapter={adapter}
+          {...withSummaryProperties(['Category'])}
+        />
         <DashboardPanel adapter={adapter} />
       </>,
     );
@@ -405,7 +426,10 @@ describe('summary view, copy and row actions', () => {
   it('filters rows by text and resets', async () => {
     const adapter = await loaded();
     render(
-      <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />,
+      <ModelSummaryPanel
+        adapter={adapter}
+        {...withSummaryProperties(['Category'])}
+      />,
     );
     await screen.findByRole('cell', { name: 'Walls' });
     fireEvent.change(screen.getByLabelText('Filter summary rows'), {
@@ -426,7 +450,10 @@ describe('summary view, copy and row actions', () => {
     const adapter = await loaded();
     const { container } = render(
       <>
-        <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />
+        <ModelSummaryPanel
+          adapter={adapter}
+          {...withSummaryProperties(['Category'])}
+        />
         <SummarySettingsBody />
       </>,
     );
@@ -460,7 +487,10 @@ describe('summary view, copy and row actions', () => {
     });
     const adapter = await loaded();
     render(
-      <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />,
+      <ModelSummaryPanel
+        adapter={adapter}
+        {...withSummaryProperties(['Category'])}
+      />,
     );
     expect(
       await screen.findByRole('columnheader', {
@@ -480,7 +510,10 @@ describe('summary view, copy and row actions', () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal('navigator', { clipboard: { writeText } });
     render(
-      <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />,
+      <ModelSummaryPanel
+        adapter={adapter}
+        {...withSummaryProperties(['Category'])}
+      />,
     );
     await screen.findByRole('cell', { name: 'Walls' });
     fireEvent.click(screen.getByRole('button', { name: 'Summary actions' }));
@@ -496,7 +529,10 @@ describe('summary view, copy and row actions', () => {
     const adapter = await loaded();
     render(
       <>
-        <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />
+        <ModelSummaryPanel
+          adapter={adapter}
+          {...withSummaryProperties(['Category'])}
+        />
         <SummarySettingsBody />
       </>,
     );
@@ -715,7 +751,10 @@ describe('summary settings entry points', () => {
     const adapter = await loaded();
     const { container } = render(
       <>
-        <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />
+        <ModelSummaryPanel
+          adapter={adapter}
+          {...withSummaryProperties(['Category'])}
+        />
         <SummarySettingsBody />
         <SummarySettingsBody />
       </>,
@@ -754,7 +793,10 @@ describe('summary Add property', () => {
   it('adds a column from the pane header and reads its property', async () => {
     const adapter = await loaded();
     render(
-      <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />,
+      <ModelSummaryPanel
+        adapter={adapter}
+        {...withSummaryProperties(['Category'])}
+      />,
     );
     await screen.findByRole('cell', { name: 'Walls' });
     fireEvent.click(screen.getByRole('button', { name: 'Add property' }));
@@ -781,7 +823,10 @@ describe('summary Add property', () => {
     });
     const adapter = await loaded();
     render(
-      <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />,
+      <ModelSummaryPanel
+        adapter={adapter}
+        {...withSummaryProperties(['Category'])}
+      />,
     );
     expect(
       await screen.findByText('Add a column to count or total these values.'),
@@ -807,7 +852,7 @@ describe('summary Add property', () => {
     render(
       <ModelSummaryPanel
         adapter={adapter}
-        propertyNames={['Category', 'Mark']}
+        {...withSummaryProperties(['Category', 'Mark'])}
       />,
     );
     fireEvent.click(

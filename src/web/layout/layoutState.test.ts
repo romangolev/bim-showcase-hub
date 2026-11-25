@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   adoptArrangement,
   defaultModel,
+  groupKindsOf,
+  isGroupCollapsed,
   layoutReducer,
   loadWithFallback,
   PREVIOUS_VIEWER,
@@ -88,14 +90,40 @@ describe('layoutReducer', () => {
     expect(layoutReducer(custom, { type: 'reset' })).toEqual(defaultModel());
   });
 
+  it('collapses and expands every pane of the group together', () => {
+    const dock = sampleDock();
+    const grid = dock.grid.root.data as { data: unknown }[];
+    const inner = grid[1]?.data as { data: { views: string[] } }[];
+    (inner[1] as { data: { views: string[] } }).data.views = [
+      'dashboard',
+      'chart:a',
+    ];
+    dock.panels['chart:a'] = { id: 'chart:a' };
+    const docked = layoutReducer(defaultModel(), { type: 'dock', dock });
+    expect(groupKindsOf(docked.dock, 'dashboard')).toEqual([
+      'dashboard',
+      'chart',
+    ]);
+    expect(isGroupCollapsed(docked, 'chart')).toBe(true);
+    const open = layoutReducer(docked, {
+      type: 'setCollapsed',
+      id: 'chart',
+      collapsed: false,
+    });
+    expect(open.collapsed).toEqual([]);
+    expect(isGroupCollapsed(open, 'dashboard')).toBe(false);
+    const shut = layoutReducer(open, {
+      type: 'setCollapsed',
+      id: 'dashboard',
+      collapsed: true,
+    });
+    expect(shut.collapsed).toEqual(['dashboard', 'chart']);
+  });
+
   it('starts with the dashboard collapsed and the optional panes closed', () => {
     expect(defaultModel().collapsed).toEqual(['dashboard']);
     expect(defaultModel().dock).toBeNull();
-    expect(defaultModel().dismissed).toEqual([
-      'measurements',
-      'views',
-      'versions',
-    ]);
+    expect(defaultModel().dismissed).toEqual(['measurements', 'views']);
   });
 
   it('keeps the Documents width the user resized to, within limits', () => {
@@ -121,21 +149,61 @@ describe('layoutReducer', () => {
       id: 'summary',
       dismissed: true,
     });
-    expect(twice.dismissed).toEqual([
-      'measurements',
-      'views',
-      'versions',
-      'summary',
-    ]);
+    expect(twice.dismissed).toEqual(['measurements', 'views', 'summary']);
     expect(twice).toBe(once);
     expect(
       layoutReducer(twice, { type: 'dismiss', id: 'summary', dismissed: false })
         .dismissed,
-    ).toEqual(['measurements', 'views', 'versions']);
+    ).toEqual(['measurements', 'views']);
   });
 });
 
 describe('serialize and parse', () => {
+  it('drops the removed version history pane from a stored layout', () => {
+    const stored = JSON.stringify({
+      version: JSON.parse(serializeLayout(defaultModel())).version,
+      layout: {
+        dock: {
+          ...sampleDock(),
+          grid: {
+            ...sampleDock().grid,
+            root: {
+              type: 'branch',
+              size: 900,
+              data: [
+                {
+                  type: 'leaf',
+                  data: {
+                    id: '1',
+                    views: ['tree', 'versions'],
+                    activeView: 'versions',
+                  },
+                  size: 320,
+                },
+                leaf('2', ['viewer:m1'], 600),
+                leaf('5', ['versions'], 200),
+              ],
+            },
+          },
+          panels: panels(['tree', 'viewer:m1', 'versions']),
+        },
+        collapsed: ['versions'],
+        dismissed: ['views', 'versions'],
+        treeWidth: 320,
+      },
+    });
+    const model = parseLayout(stored);
+    expect(model).not.toBeNull();
+    const dock = model?.dock;
+    expect(dock && Object.keys(dock.panels).sort()).toEqual([
+      'tree',
+      'viewer:m1',
+    ]);
+    expect(JSON.stringify(dock?.grid)).not.toContain('versions');
+    expect(model?.collapsed).toEqual([]);
+    expect(model?.dismissed).toEqual(['views']);
+  });
+
   it('round trips a layout with a version field', () => {
     const model = {
       dock: sampleDock(),

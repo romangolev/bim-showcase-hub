@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSession, useSessionExpiry, useSignIn } from '../api/hooks.js';
 import { useSettings } from '../settings/SettingsContext.js';
+import { Button } from '../ui/Button.js';
 import { Icon } from './icons.js';
 
 const TICK_MS = 15_000;
@@ -42,14 +43,13 @@ export function SessionBanner() {
           ? 'Your session has ended. Your open models stay as they are.'
           : `Your session ends in ${minutesLeft(expiresAt as number, now)} min.`}
       </span>
-      <button
-        type="button"
-        className="btn btn-primary"
+      <Button
+        variant="primary"
         onClick={() => signIn.mutate()}
         disabled={signIn.isPending}
       >
         Sign in again
-      </button>
+      </Button>
     </div>
   );
 }

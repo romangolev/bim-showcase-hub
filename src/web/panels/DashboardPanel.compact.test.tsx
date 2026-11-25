@@ -27,7 +27,9 @@ vi.mock('chart.js', () => {
   };
 });
 
-type Listener = (entries: { contentRect: DOMRectReadOnly }[]) => void;
+type Listener = (
+  entries: { borderBoxSize: { inlineSize: number; blockSize: number }[] }[],
+) => void;
 const listeners: Listener[] = [];
 const disconnect = vi.fn();
 const adapters: MockViewerAdapter[] = [];
@@ -35,7 +37,7 @@ const adapters: MockViewerAdapter[] = [];
 function resize(width: number, height: number) {
   act(() => {
     for (const listener of listeners) {
-      listener([{ contentRect: { width, height } as DOMRectReadOnly }]);
+      listener([{ borderBoxSize: [{ inlineSize: width, blockSize: height }] }]);
     }
   });
 }
@@ -192,6 +194,32 @@ describe('DashboardPanel auto-collapsing controls', () => {
     fireEvent.click(
       screen.getByRole('menuitemcheckbox', { name: 'Model health' }),
     );
+    expect(stored().controls).toBe(true);
+    expect(toggle()).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('keeps the manual choice over a saved preset that carries one', async () => {
+    window.localStorage.setItem(
+      'bsh.saved.v1',
+      JSON.stringify({
+        version: 1,
+        items: [
+          {
+            id: 'old',
+            kind: 'dashboard-preset',
+            name: 'Old',
+            version: 1,
+            updatedAt: 1,
+            data: { charts: [{ property: 'Level' }], controls: false },
+          },
+        ],
+      }),
+    );
+    await open();
+    resize(700, 180);
+    fireEvent.click(toggle());
+    fireEvent.click(screen.getByRole('button', { name: 'Dashboard presets' }));
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Old' }));
     expect(stored().controls).toBe(true);
     expect(toggle()).toHaveAttribute('aria-expanded', 'true');
   });

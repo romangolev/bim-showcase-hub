@@ -2,6 +2,8 @@ import { useId, useState } from 'react';
 import type { Vec3 } from '../../shared/combined.js';
 import { useSettings } from '../settings/SettingsContext.js';
 import type { Language } from '../settings/settings.js';
+import { Button } from '../ui/Button.js';
+import { ToggleButton } from '../ui/ToggleButton.js';
 import { nudgeOffset, resetOffset, snapToAnchor } from '../viewer/alignment.js';
 import { formatKm, type ModelInfo, metersPerUnit } from '../viewer/modelSet.js';
 import type { PlacementInfo } from '../viewer/placement.js';
@@ -69,15 +71,14 @@ export function ModelAlignment({
   };
   return (
     <div className="bsh-models__alignment">
-      <button
-        type="button"
-        className="btn"
+      <Button
+        size="small"
         aria-expanded={open}
         aria-controls={bodyId}
         onClick={() => setOpen((current) => !current)}
       >
         Alignment for {model.name}
-      </button>
+      </Button>
       {open ? (
         <div id={bodyId} className="bsh-models__alignment-body">
           <p id={noteId} className="settings__hint">
@@ -96,24 +97,22 @@ export function ModelAlignment({
             <>
               <div className="bsh-models__tools">
                 {ALIGNMENT_STEPS.map((meters) => (
-                  <button
+                  <ToggleButton
+                    size="small"
                     key={meters}
-                    type="button"
-                    className="btn"
-                    aria-pressed={step === meters}
+                    pressed={step === meters}
                     aria-describedby={noteId}
                     onClick={() => setStep(meters)}
                   >
                     {stepLabel(meters)}
-                  </button>
+                  </ToggleButton>
                 ))}
               </div>
               <div className="bsh-models__tools">
                 {AXES.map(({ axis, name }) => (
                   <span key={name} className="bsh-models__tools">
-                    <button
-                      type="button"
-                      className="btn"
+                    <Button
+                      size="small"
                       aria-label={`Move -${name} ${stepLabel(step)}`}
                       aria-describedby={noteId}
                       disabled={disabled}
@@ -130,10 +129,9 @@ export function ModelAlignment({
                       }
                     >
                       -{name}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn"
+                    </Button>
+                    <Button
+                      size="small"
                       aria-label={`Move +${name} ${stepLabel(step)}`}
                       aria-describedby={noteId}
                       disabled={disabled}
@@ -150,14 +148,13 @@ export function ModelAlignment({
                       }
                     >
                       +{name}
-                    </button>
+                    </Button>
                   </span>
                 ))}
               </div>
               <div className="bsh-models__tools">
-                <button
-                  type="button"
-                  className="btn"
+                <Button
+                  size="small"
                   aria-describedby={noteId}
                   disabled={disabled || !adapter}
                   onClick={() => {
@@ -172,16 +169,15 @@ export function ModelAlignment({
                   }}
                 >
                   Snap centre to anchor
-                </button>
-                <button
-                  type="button"
-                  className="btn"
+                </Button>
+                <Button
+                  size="small"
                   aria-describedby={noteId}
                   disabled={disabled}
                   onClick={() => change(resetOffset(offsets, model.id))}
                 >
                   Reset
-                </button>
+                </Button>
               </div>
             </>
           )}

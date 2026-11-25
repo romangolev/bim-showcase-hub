@@ -15,11 +15,11 @@ import {
   seedInstanceSetting,
   summarySetting,
 } from './instanceSettings.js';
-import { SummaryInstancePane } from './panes.js';
+import { SummaryPane } from './panes.js';
 import {
-  setSummarySettingsTarget,
-  useSummarySettingsTarget,
-} from './summaryTarget.js';
+  setPaneSettingsTarget,
+  usePaneSettingsTarget,
+} from './settingsTarget.js';
 
 vi.mock('./layoutContext.js', () => ({
   useLayout: () => ({ paneTitle: (id: string) => ({ label: id }) }),
@@ -43,8 +43,8 @@ describe('summary instance spec', () => {
   const mountThree = () =>
     render(
       <ModelViewerContext.Provider value={adapter}>
-        <SummaryInstancePane instance="1" />
-        <SummaryInstancePane instance="2" />
+        <SummaryPane instance="1" />
+        <SummaryPane instance="2" />
         <ModelSummaryPanel />
         <SummarySettingsBody />
       </ModelViewerContext.Provider>,
@@ -57,7 +57,7 @@ describe('summary instance spec', () => {
   it('edits view and action of the targeted instance only', async () => {
     seedInstanceSetting('modelSummary:1', 'urn');
     seedInstanceSetting('modelSummary:2', 'urn');
-    setSummarySettingsTarget('modelSummary:1');
+    setPaneSettingsTarget('modelSummary:1');
     mountThree();
     await screen.findAllByRole('button', { name: 'Add property' });
     fireEvent.change(screen.getByLabelText('Density'), {
@@ -90,12 +90,12 @@ describe('summary instance spec', () => {
         'comfortable',
       ]),
     );
-    setSummarySettingsTarget(null);
+    setPaneSettingsTarget(null);
   });
 
   it('edits the global values when no instance is targeted', async () => {
     seedInstanceSetting('modelSummary:1', 'urn');
-    setSummarySettingsTarget(null);
+    setPaneSettingsTarget(null);
     mountThree();
     await screen.findAllByRole('button', { name: 'Add property' });
     fireEvent.change(screen.getByLabelText('Density'), {
@@ -156,11 +156,11 @@ describe('summary instance spec', () => {
   });
 
   it('clears the target when the settings modal closes', () => {
-    setSummarySettingsTarget('modelSummary:2');
+    setPaneSettingsTarget('modelSummary:2');
     SUMMARY_SETTINGS_MODAL.onClose?.();
     let seen: string | null = 'unset';
     const Probe = () => {
-      seen = useSummarySettingsTarget();
+      seen = usePaneSettingsTarget();
       return null;
     };
     render(<Probe />);
@@ -169,7 +169,7 @@ describe('summary instance spec', () => {
 
   it('drops the target and does not recreate the key when its instance is forgotten', async () => {
     seedInstanceSetting('modelSummary:2', 'urn');
-    setSummarySettingsTarget('modelSummary:2');
+    setPaneSettingsTarget('modelSummary:2');
     const key = 'bsh.pane.modelSummary.2.v1';
     render(
       <ModelViewerContext.Provider value={adapter}>
@@ -189,7 +189,7 @@ describe('summary instance spec', () => {
     seedInstanceSetting('modelSummary:1', 'urn');
     render(
       <ModelViewerContext.Provider value={adapter}>
-        <SummaryInstancePane instance="1" />
+        <SummaryPane instance="1" />
       </ModelViewerContext.Provider>,
     );
     await screen.findByRole('button', { name: 'Add property' });
@@ -208,7 +208,7 @@ describe('summary instance spec', () => {
 
   it('adds a column to the targeted instance from settings', async () => {
     seedInstanceSetting('modelSummary:4', 'urn');
-    setSummarySettingsTarget('modelSummary:4');
+    setPaneSettingsTarget('modelSummary:4');
     render(<SummarySettingsBody />);
     fireEvent.click(screen.getByRole('button', { name: 'Add a column' }));
     const box = within(document.querySelector('dialog[open]') as HTMLElement);
@@ -225,6 +225,6 @@ describe('summary instance spec', () => {
       ).toEqual(['count', 'count:Area']),
     );
     expect(PANE_SETTINGS.summary.view.has()).toBe(false);
-    setSummarySettingsTarget(null);
+    setPaneSettingsTarget(null);
   });
 });

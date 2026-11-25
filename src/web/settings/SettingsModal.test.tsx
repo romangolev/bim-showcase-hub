@@ -1,4 +1,3 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { COMMANDS } from '../commands/registry.js';
 import { ModalProvider } from '../modal/ModalContext.js';
@@ -6,6 +5,7 @@ import { MODALS } from '../modal/registry.js';
 import { dismissHint, isHintDismissed } from '../onboarding/hints.js';
 import { CHART_SETTINGS } from '../panels/chartSettings.js';
 import { installMemoryStorage } from '../test/mockApi.js';
+import { fireEvent, render, screen, within } from '../test/render.js';
 import { ThemeProvider } from '../theme/ThemeContext.js';
 import { TOOLS } from '../tools/index.js';
 import {

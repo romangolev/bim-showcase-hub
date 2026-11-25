@@ -5,6 +5,8 @@ import { useT } from '../i18n/i18n.js';
 import { useModal } from '../modal/ModalContext.js';
 import { resetHints } from '../onboarding/hints.js';
 import { notify } from '../tasks/notifications.js';
+import { Button } from '../ui/Button.js';
+import { Field, FieldHint, FieldTitle } from '../ui/Field.js';
 import { useSettings } from './SettingsContext.js';
 
 export function DefaultsSettings() {
@@ -21,27 +23,21 @@ export function DefaultsSettings() {
       <h3 id="settings-defaults" className="settings__heading">
         {t('settings.defaults')}
       </h3>
-      <div className="settings__field">
-        <span>{t('settings.appSettings')}</span>
-        <button
-          type="button"
-          className="btn"
+      <Field layout="row">
+        <FieldTitle>{t('settings.appSettings')}</FieldTitle>
+        <Button
           onClick={() => {
             resetSettings();
             setNotice(t('settings.resetSettingsDone'));
           }}
         >
           {t('settings.resetSettings')}
-        </button>
-        <span className="settings__hint">
-          {t('settings.resetSettingsHint')}
-        </span>
-      </div>
-      <div className="settings__field">
-        <span>{t('settings.layout')}</span>
-        <button
-          type="button"
-          className="btn"
+        </Button>
+        <FieldHint>{t('settings.resetSettingsHint')}</FieldHint>
+      </Field>
+      <Field layout="row">
+        <FieldTitle>{t('settings.layout')}</FieldTitle>
+        <Button
           disabled={!resetCommand || Boolean(resetCommand.disabled)}
           onClick={() => {
             resetCommand?.run({ openModal: modal.open });
@@ -49,27 +45,25 @@ export function DefaultsSettings() {
           }}
         >
           {t('settings.resetLayout')}
-        </button>
-        <span className="settings__hint">
+        </Button>
+        <FieldHint>
           {resetCommand
             ? (resetCommand.disabled ?? t('settings.layoutHint'))
             : t('settings.layoutUnavailable')}
-        </span>
-      </div>
-      <div className="settings__field">
-        <span>{t('settings.hints')}</span>
-        <button
-          type="button"
-          className="btn"
+        </FieldHint>
+      </Field>
+      <Field layout="row">
+        <FieldTitle>{t('settings.hints')}</FieldTitle>
+        <Button
           onClick={() => {
             resetHints();
             notify(t('help.hintsWillShow'));
           }}
         >
           {t('settings.showHintsAgain')}
-        </button>
-        <span className="settings__hint">{t('settings.hintsHint')}</span>
-      </div>
+        </Button>
+        <FieldHint>{t('settings.hintsHint')}</FieldHint>
+      </Field>
       <p role="status" className="settings__hint">
         {notice}
       </p>

@@ -1,6 +1,6 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { installMemoryStorage } from '../test/mockApi.js';
+import { fireEvent, render, screen, waitFor, within } from '../test/render.js';
 import { type LayoutApi, LayoutContext } from './layoutContext.js';
 import { defaultModel } from './layoutState.js';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher.js';
@@ -204,5 +204,72 @@ describe('workspace switcher', () => {
   it('is hidden outside the dock layout', () => {
     renderSwitcher(fakeWorkspaces(), { mode: 'stacked' });
     expect(screen.queryByRole('button', { name: 'Workspaces' })).toBeNull();
+  });
+
+  it('opens from the keyboard, moves with the arrows and closes on Escape', async () => {
+    renderSwitcher(fakeWorkspaces());
+    const trigger = screen.getByRole('button', { name: 'Workspaces' });
+    trigger.focus();
+    fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+    const menu = screen.getByRole('dialog', { name: 'Workspaces' });
+    expect(menu).toHaveAttribute('data-slot', 'popover-popup');
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    const buttons = within(menu).getAllByRole('button');
+    await waitFor(() => expect(buttons[0]).toHaveFocus());
+    fireEvent.keyDown(buttons[0] as HTMLElement, { key: 'ArrowDown' });
+    expect(buttons[1]).toHaveFocus();
+    fireEvent.keyDown(buttons[1] as HTMLElement, { key: 'Escape' });
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'Workspaces' })).toBeNull(),
+    );
+    await waitFor(() => expect(trigger).toHaveFocus());
+  });
+
+  it('closes on an outside click', async () => {
+    render(
+      <>
+        <button type="button">Outside</button>
+        <LayoutContext.Provider
+          value={
+            {
+              mode: 'dock',
+              locked: false,
+              canPresent: true,
+              workspaces: fakeWorkspaces(),
+            } as unknown as LayoutApi
+          }
+        >
+          <WorkspaceSwitcher />
+        </LayoutContext.Provider>
+      </>,
+    );
+    openSwitcher();
+    const outside = screen.getByRole('button', { name: 'Outside' });
+    fireEvent.pointerDown(outside);
+    fireEvent.mouseDown(outside);
+    fireEvent.click(outside);
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'Workspaces' })).toBeNull(),
+    );
+  });
+
+  it('opens inside a native dialog when its trigger sits there', () => {
+    render(
+      <dialog open aria-label="Host">
+        <LayoutContext.Provider
+          value={
+            {
+              mode: 'dock',
+              locked: false,
+              canPresent: true,
+              workspaces: fakeWorkspaces(),
+            } as unknown as LayoutApi
+          }
+        >
+          <WorkspaceSwitcher />
+        </LayoutContext.Provider>
+      </dialog>,
+    );
+    expect(openSwitcher().closest('dialog')).not.toBeNull();
   });
 });

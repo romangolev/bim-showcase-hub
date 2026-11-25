@@ -7,6 +7,7 @@ import {
   waitFor,
   within,
 } from '@testing-library/react';
+import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../App.js';
 import { createAppRouter } from '../routes/router.js';
@@ -81,14 +82,21 @@ describe('model switcher keyboard', () => {
   function setup() {
     const onSelect = vi.fn();
     const onClose = vi.fn();
-    render(
-      <ModelSwitcher
-        models={state}
-        titles={titles}
-        onSelect={onSelect}
-        onClose={onClose}
-      />,
-    );
+    function Switcher() {
+      const [active, setActive] = useState(state.active);
+      return (
+        <ModelSwitcher
+          models={{ ...state, active }}
+          titles={titles}
+          onSelect={(urn) => {
+            setActive(urn);
+            onSelect(urn);
+          }}
+          onClose={onClose}
+        />
+      );
+    }
+    render(<Switcher />);
     return { onSelect, onClose };
   }
 
@@ -101,22 +109,25 @@ describe('model switcher keyboard', () => {
     expect(tabs[0]).toHaveAttribute('aria-selected', 'true');
   });
 
-  it('moves with the arrow keys, Home and End, and wraps', () => {
+  it('moves with the arrow keys, Home and End, and wraps', async () => {
     const { onSelect } = setup();
     const [a, b, c] = screen.getAllByRole('tab');
+    const press = async (
+      from: HTMLElement | undefined,
+      key: string,
+      to: HTMLElement | undefined,
+      urn: string,
+    ) => {
+      fireEvent.keyDown(from as HTMLElement, { key });
+      await waitFor(() => expect(to).toHaveFocus());
+      expect(onSelect).toHaveBeenLastCalledWith(urn);
+    };
     a?.focus();
-    fireEvent.keyDown(a as HTMLElement, { key: 'ArrowRight' });
-    expect(onSelect).toHaveBeenLastCalledWith('b');
-    expect(b).toHaveFocus();
-    fireEvent.keyDown(b as HTMLElement, { key: 'End' });
-    expect(onSelect).toHaveBeenLastCalledWith('c');
-    expect(c).toHaveFocus();
-    fireEvent.keyDown(c as HTMLElement, { key: 'ArrowRight' });
-    expect(onSelect).toHaveBeenLastCalledWith('a');
-    fireEvent.keyDown(a as HTMLElement, { key: 'ArrowLeft' });
-    expect(onSelect).toHaveBeenLastCalledWith('c');
-    fireEvent.keyDown(c as HTMLElement, { key: 'Home' });
-    expect(onSelect).toHaveBeenLastCalledWith('a');
+    await press(a, 'ArrowRight', b, 'b');
+    await press(b, 'End', c, 'c');
+    await press(c, 'ArrowRight', a, 'a');
+    await press(a, 'ArrowLeft', c, 'c');
+    await press(c, 'Home', a, 'a');
   });
 
   it('closes the focused tab with Delete', () => {

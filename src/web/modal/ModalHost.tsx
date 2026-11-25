@@ -1,5 +1,12 @@
-import { useEffect, useId, useRef, useState } from 'react';
 import { Icon } from '../components/icons.js';
+import {
+  Dialog,
+  DialogBody,
+  DialogClose,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/Dialog.js';
+import { IconButton } from '../ui/IconButton.js';
 import type { ModalBack } from './modalApi.js';
 import type { ModalDefinition } from './types.js';
 
@@ -10,75 +17,29 @@ export interface ModalHostProps {
 }
 
 export function ModalHost({ definition, back, onClose }: ModalHostProps) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
-  const titleId = useId();
   const { Body } = definition;
 
-  const [opener] = useState(() => document.activeElement as HTMLElement | null);
-
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    let pressedOnDialog = false;
-    const onPress = (event: MouseEvent) => {
-      pressedOnDialog = event.target === dialog;
-    };
-    const onBackdropClick = (event: MouseEvent) => {
-      const closing = pressedOnDialog && event.target === dialog;
-      pressedOnDialog = false;
-      if (closing) onCloseRef.current();
-    };
-    const onNativeClose = () => {
-      if (dialog && !dialog.open) onCloseRef.current();
-    };
-    dialog?.addEventListener('mousedown', onPress);
-    dialog?.addEventListener('click', onBackdropClick);
-    dialog?.addEventListener('close', onNativeClose);
-    if (dialog && !dialog.open) dialog.showModal();
-    return () => {
-      dialog?.removeEventListener('mousedown', onPress);
-      dialog?.removeEventListener('click', onBackdropClick);
-      dialog?.removeEventListener('close', onNativeClose);
-      opener?.focus();
-    };
-  }, [opener]);
-
   return (
-    <dialog
-      ref={dialogRef}
-      className={`modal modal--${definition.size}`}
-      aria-labelledby={titleId}
-    >
-      <div className="modal__panel">
-        <header className="modal__head">
-          {back ? (
-            <button
-              type="button"
-              className="icon-button settings-nav__back"
-              aria-label={back.label}
-              onClick={back.go}
-            >
-              <Icon name="chevron" size={16} />
-            </button>
-          ) : null}
-          <h2 id={titleId} className="modal__title">
-            {definition.title}
-          </h2>
-          <button
-            type="button"
-            className="icon-button"
-            aria-label="Close"
-            onClick={onClose}
+    <Dialog size={definition.size} onClose={onClose}>
+      <DialogHeader>
+        {back ? (
+          <IconButton
+            className="settings-nav__back"
+            label={back.label}
+            tooltip
+            onClick={back.go}
           >
-            <Icon name="close" size={16} />
-          </button>
-        </header>
-        <div className="modal__body settings">
-          <Body close={onClose} />
-        </div>
-      </div>
-    </dialog>
+            <Icon name="chevron" size={16} />
+          </IconButton>
+        ) : null}
+        <DialogTitle>{definition.title}</DialogTitle>
+        <DialogClose>
+          <Icon name="close" size={16} />
+        </DialogClose>
+      </DialogHeader>
+      <DialogBody className="settings">
+        <Body close={onClose} />
+      </DialogBody>
+    </Dialog>
   );
 }

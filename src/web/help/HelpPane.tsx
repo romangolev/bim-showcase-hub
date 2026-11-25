@@ -2,6 +2,7 @@ import { DOCS_URL } from '../components/HelpMenu.js';
 import { useT } from '../i18n/i18n.js';
 import { resetHints } from '../onboarding/hints.js';
 import { notify } from '../tasks/notifications.js';
+import { Button } from '../ui/Button.js';
 import { ShortcutList } from './ShortcutList.js';
 
 export function HelpPane() {
@@ -26,16 +27,15 @@ export function HelpPane() {
         </a>
       </p>
       <p style={{ margin: 0 }}>
-        <button
-          type="button"
-          className="btn btn-small"
+        <Button
+          size="small"
           onClick={() => {
             resetHints();
             notify(t('help.hintsWillShow'));
           }}
         >
           {t('help.showHintsAgain')}
-        </button>
+        </Button>
       </p>
     </div>
   );

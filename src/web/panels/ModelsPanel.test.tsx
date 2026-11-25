@@ -1,26 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { rememberModel } from '../api/modelStore.js';
-import { createOpenModelsStore } from '../api/openModels.js';
-import { OpenModelsContext } from '../api/useOpenModels.js';
 import { MODEL_SETS } from '../store/modelSets.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { act, fireEvent, render, screen, waitFor } from '../test/render.js';
+import {
+  publishActiveAdapter,
+  releaseActiveAdapter,
+} from '../viewer/activeAdapterStore.js';
 import { colorLayersFor } from '../viewer/colorLayers.js';
 import { createMockViewerAdapter } from '../viewer/MockViewerAdapter.js';
 import { buildMockElements } from '../viewer/mockModel.js';
 import type { ModelInfo } from '../viewer/modelSet.js';
-import { FEDERATIONS } from '../viewer/savedFederations.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { ModelsPanel } from './ModelsPanel.js';
+import { ModelsSettingsBody } from './ModelsSettings.js';
 import { isolatedModel, isolateVisibility } from './modelRows.js';
 import { MODEL_TINTS } from './modelTint.js';
-
-const COMBINATION = {
-  members: [
-    { urn: 'urn-a', context: {}, latest: false, hidden: false },
-    { urn: 'urn-b', context: {}, latest: false, hidden: false },
-  ],
-};
 
 function info(id: string, patch: Partial<ModelInfo> = {}): ModelInfo {
   return { id, urn: id, name: id, visible: true, status: 'ready', ...patch };
@@ -69,7 +64,9 @@ describe('ModelsPanel', () => {
     expect(screen.getAllByRole('img', { name: 'Ready' })).toHaveLength(2);
     expect(screen.getByRole('img', { name: 'Failed' })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Hide urn-a' }));
+    const hide = screen.getByRole('button', { name: 'Hide urn-a' });
+    expect(hide).not.toHaveAttribute('aria-pressed');
+    fireEvent.click(hide);
     await waitFor(() =>
       expect(adapter.getModels().find((m) => m.id === 'urn-a')?.visible).toBe(
         false,
@@ -244,23 +241,20 @@ describe('ModelsPanel', () => {
     expect(painted('bsh-mock__el--hidden')).toBe(0);
   });
 
-  it('saves the open viewer models as a model set', async () => {
+  it('saves the open viewer models as a model set from Models settings', async () => {
     const adapter = await load(['urn-a', 'urn-b']);
     rememberModel('urn-a', { file: 'A.rvt' });
     rememberModel('urn-b', { file: 'B.rvt' });
-    const store = createOpenModelsStore(null);
-    store.open('urn-a', { file: 'A.rvt' });
-    store.addTo('urn-a', 'urn-b');
-    render(
-      <OpenModelsContext.Provider value={store}>
-        <ModelsPanel adapter={adapter} />
-      </OpenModelsContext.Provider>,
-    );
+    publishActiveAdapter(adapter);
+    const close = vi.fn();
+    render(<ModelsSettingsBody close={close} />);
     fireEvent.click(screen.getByRole('button', { name: 'Save as model set' }));
+    expect(close).toHaveBeenCalled();
     fireEvent.change(screen.getByLabelText('Model set name'), {
       target: { value: 'Open viewer' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Save model set' }));
+    releaseActiveAdapter(adapter);
     const [set] = MODEL_SETS.list();
     expect(set?.name).toBe('Open viewer');
     expect(
@@ -271,68 +265,38 @@ describe('ModelsPanel', () => {
     ]);
   });
 
-  it('saves the open models as a named combination', async () => {
+  it('keeps model sets and saved combinations out of the pane itself', async () => {
     const adapter = await load(['urn-a', 'urn-b']);
-    const onSaveFederation = vi.fn();
-    render(
-      <ModelsPanel adapter={adapter} onSaveFederation={onSaveFederation} />,
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Save combination…' }));
-    fireEvent.change(screen.getByLabelText('Combination name'), {
-      target: { value: 'Site' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Save combination' }));
-    expect(onSaveFederation).toHaveBeenCalledWith('Site');
+    const onOpenSettings = vi.fn();
+    render(<ModelsPanel adapter={adapter} onOpenSettings={onOpenSettings} />);
     expect(
-      screen.queryByRole('button', { name: 'Save combination' }),
+      screen.queryByRole('button', { name: 'Save as model set' }),
     ).toBeNull();
-  });
-
-  it('offers no save with a single model', async () => {
-    const adapter = await load(['urn-a']);
-    render(<ModelsPanel adapter={adapter} onSaveFederation={vi.fn()} />);
+    expect(screen.queryByText('Saved combinations')).toBeNull();
     expect(
-      screen.queryByRole('button', { name: 'Save combination…' }),
+      screen.queryByRole('button', { name: /Save combination/ }),
     ).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Models settings' }));
+    expect(onOpenSettings).toHaveBeenCalled();
   });
 
-  it('lists saved combinations and opens, renames and deletes them', async () => {
+  it('puts the alignment under the quick settings toggle', async () => {
     const adapter = await load(['urn-a', 'urn-b']);
-    const saved = FEDERATIONS.save('Site', COMBINATION);
-    const onOpenFederation = vi.fn();
-    render(
-      <ModelsPanel adapter={adapter} onOpenFederation={onOpenFederation} />,
+    render(<ModelsPanel adapter={adapter} onOffsetsChange={vi.fn()} />);
+    const toggle = screen.getByRole('button', { name: 'Models controls' });
+    const panel = document.getElementById(
+      toggle.getAttribute('aria-controls') ?? '',
     );
-    expect(screen.getByText('Saved combinations')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Open Site' }));
-    expect(onOpenFederation).toHaveBeenCalledWith(saved?.id);
-    const input = screen.getByLabelText('Rename Site');
-    fireEvent.change(input, { target: { value: 'Site B' } });
-    fireEvent.blur(input);
-    await waitFor(() => expect(FEDERATIONS.list()[0]?.name).toBe('Site B'));
-    fireEvent.click(screen.getByRole('button', { name: 'Delete Site B' }));
-    await waitFor(() => expect(FEDERATIONS.list()).toHaveLength(0));
-  });
-
-  it('clears the rename error when the combination is deleted', async () => {
-    const adapter = await load(['urn-a', 'urn-b']);
-    FEDERATIONS.save('Site', COMBINATION);
-    render(<ModelsPanel adapter={adapter} onOpenFederation={vi.fn()} />);
-    const input = screen.getByLabelText('Rename Site');
-    fireEvent.change(input, { target: { value: '' } });
-    fireEvent.blur(input);
-    expect(await screen.findByRole('alert')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Delete Site' }));
-    expect(screen.queryByRole('alert')).toBeNull();
-  });
-
-  it('shows a combination saved while the pane is open', async () => {
-    const adapter = await load(['urn-a', 'urn-b']);
-    render(<ModelsPanel adapter={adapter} onOpenFederation={vi.fn()} />);
-    FEDERATIONS.save('Later', COMBINATION);
     expect(
-      await screen.findByRole('button', { name: 'Open Later' }),
-    ).toBeInTheDocument();
+      panel?.querySelector('[aria-label="Model alignment"]'),
+    ).not.toBeNull();
+  });
+
+  it('disables Save as model set without open models', () => {
+    render(<ModelsSettingsBody close={vi.fn()} />);
+    expect(
+      screen.getByRole('button', { name: 'Save as model set' }),
+    ).toBeDisabled();
   });
 
   it('nudges one model in metres and keeps the other offsets', async () => {

@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { MAX_COMBINED_MODELS } from '../../shared/combined.js';
@@ -8,9 +8,11 @@ import { childrenQueryOptions } from '../api/hooks.js';
 import { type ModelContext, versionTag } from '../api/modelContext.js';
 import { Icon } from '../components/icons.js';
 import { Menu, type MenuEntry } from '../components/Menu.js';
+import type { ItemRef } from '../components/tree/treeState.js';
 import type { ModelOpeners } from '../components/tree/useModelOpeners.js';
 import { pickLatest } from '../components/tree/versionPick.js';
 import { writeClipboard } from '../extensions/clipboard.js';
+import { DetachedUIStrings } from '../i18n/CatalogUIStrings.js';
 import {
   MAX_SET_MEMBERS,
   MODEL_SETS,
@@ -26,13 +28,22 @@ import {
 import { MAX_NAME_LENGTH } from '../store/savedStore.js';
 import { notify } from '../tasks/notifications.js';
 import { startTask } from '../tasks/taskStore.js';
+import { Button } from '../ui/Button.js';
+import {
+  Dialog,
+  DialogBody,
+  DialogClose,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/Dialog.js';
+import { FieldLabel } from '../ui/Field.js';
+import { Input } from '../ui/Input.js';
 import { openableUrn } from '../viewer/openLimits.js';
-import type { VersionTarget } from './versionHistory.js';
 
 export interface ModelSetDraft {
   urn: string;
   context: ModelContext;
-  ref?: VersionTarget | null;
+  ref?: ItemRef | null;
 }
 
 export interface ModelSetItem {
@@ -79,14 +90,7 @@ function SaveSetDialog({
   drafts: readonly ModelSetDraft[];
   onDone: () => void;
 }) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
-  const titleId = useId();
   const [name, setName] = useState('');
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (dialog && !dialog.open) dialog.showModal();
-  }, []);
 
   const save = () => {
     const trimmed = name.trim();
@@ -102,62 +106,39 @@ function SaveSetDialog({
   };
 
   return (
-    <dialog
-      ref={dialogRef}
-      className="modal modal--sm"
-      aria-labelledby={titleId}
-      onClose={onDone}
-    >
-      <div className="modal__panel">
-        <header className="modal__head">
-          <h2 id={titleId} className="modal__title">
+    <Dialog size="sm" onClose={onDone}>
+      <DialogHeader>
+        <DialogTitle>Save model set</DialogTitle>
+        <DialogClose>
+          <Icon name="close" size={16} />
+        </DialogClose>
+      </DialogHeader>
+      <DialogBody>
+        <FieldLabel layout="inline" variant="quiet">
+          <span>Model set name</span>
+          <Input
+            type="text"
+            aria-label="Model set name"
+            placeholder="Name this model set"
+            maxLength={MAX_NAME_LENGTH}
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') save();
+            }}
+          />
+        </FieldLabel>
+        <p className="settings__hint">
+          {plural(Math.min(drafts.length, MAX_SET_MEMBERS), 'model')} in the set
+        </p>
+        <div className="bsh-presets">
+          <Button onClick={onDone}>Cancel</Button>
+          <Button disabled={!name.trim()} onClick={save}>
             Save model set
-          </h2>
-          <button
-            type="button"
-            className="icon-button"
-            aria-label="Close"
-            onClick={onDone}
-          >
-            <Icon name="close" size={16} />
-          </button>
-        </header>
-        <div className="modal__body">
-          <label className="bsh-field">
-            <span>Model set name</span>
-            <input
-              type="text"
-              className="field"
-              aria-label="Model set name"
-              placeholder="Name this model set"
-              maxLength={MAX_NAME_LENGTH}
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') save();
-              }}
-            />
-          </label>
-          <p className="settings__hint">
-            {plural(Math.min(drafts.length, MAX_SET_MEMBERS), 'model')} in the
-            set
-          </p>
-          <div className="bsh-presets">
-            <button type="button" className="btn" onClick={onDone}>
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="btn"
-              disabled={!name.trim()}
-              onClick={save}
-            >
-              Save model set
-            </button>
-          </div>
+          </Button>
         </div>
-      </div>
-    </dialog>
+      </DialogBody>
+    </Dialog>
   );
 }
 
@@ -174,7 +155,13 @@ export function saveModelSetPrompt(models: readonly ModelSetDraft[]): void {
     root.unmount();
     host.remove();
   };
-  flushSync(() => root.render(<SaveSetDialog drafts={drafts} onDone={done} />));
+  flushSync(() =>
+    root.render(
+      <DetachedUIStrings>
+        <SaveSetDialog drafts={drafts} onDone={done} />
+      </DetachedUIStrings>,
+    ),
+  );
 }
 
 function RenameField({
@@ -191,10 +178,9 @@ function RenameField({
   }, []);
 
   return (
-    <input
+    <Input
       ref={inputRef}
       type="text"
-      className="field"
       aria-label={`Rename ${set.name}`}
       maxLength={MAX_NAME_LENGTH}
       defaultValue={set.name}
@@ -442,21 +428,15 @@ export function ModelSets({ openers }: { openers: ModelOpeners }) {
                 {stale > 0 ? (
                   <p className="docs-home__note">
                     {staleText(stale)}
-                    <button
-                      type="button"
-                      className="btn"
-                      onClick={() => void updateToLatest(set)}
-                    >
+                    <Button onClick={() => void updateToLatest(set)}>
                       Update to latest
-                    </button>
+                    </Button>
                   </p>
                 ) : null}
                 {confirming === set.id ? (
                   <p className="docs-home__note">
                     {`Delete "${set.name}"?`}
-                    <button
-                      type="button"
-                      className="btn"
+                    <Button
                       aria-label="Confirm delete"
                       onClick={() => {
                         MODEL_SETS.remove(set.id);
@@ -464,15 +444,13 @@ export function ModelSets({ openers }: { openers: ModelOpeners }) {
                       }}
                     >
                       Delete
-                    </button>
-                    <button
-                      type="button"
-                      className="btn"
+                    </Button>
+                    <Button
                       aria-label="Cancel delete"
                       onClick={() => setConfirming(null)}
                     >
                       Cancel
-                    </button>
+                    </Button>
                   </p>
                 ) : null}
               </li>

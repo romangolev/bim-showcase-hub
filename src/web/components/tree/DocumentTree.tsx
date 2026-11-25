@@ -10,33 +10,29 @@ import {
   type DragEvent,
   type KeyboardEvent,
   type MouseEvent,
-  useContext,
   useEffect,
   useRef,
   useState,
 } from 'react';
 import type { TreeNode } from '../../../shared/types.js';
-import { ApiError, thumbnailPath } from '../../api/client.js';
-import { friendlyError } from '../../api/friendlyError.js';
+import { thumbnailPath } from '../../api/client.js';
 import type { ModelContext } from '../../api/modelContext.js';
 import { listRecentModels } from '../../api/modelStore.js';
 import { EMPTY_OPEN_MODELS } from '../../api/openModels.js';
 import type { NodeScope } from '../../api/scope.js';
 import { COMMANDS } from '../../commands/registry.js';
 import { writeClipboard } from '../../extensions/clipboard.js';
-import { LayoutContext } from '../../layout/layoutContext.js';
 import { saveModelSetPrompt } from '../../panels/ModelSets.js';
-import { openVersionHistory } from '../../panels/VersionHistoryPanel.js';
-import type { VersionTarget } from '../../panels/versionHistory.js';
 import { PANE_SETTINGS } from '../../settings/paneSettings.js';
 import { usePersisted } from '../../storage.js';
 import { notify } from '../../tasks/notifications.js';
-import { startTask, type TaskHandle } from '../../tasks/taskStore.js';
+import { Button } from '../../ui/Button.js';
+import { Input } from '../../ui/Input.js';
 import { previewOpen } from '../../viewer/openModels.js';
 import { Icon } from '../icons.js';
 import { Menu, type MenuEntry } from '../Menu.js';
 import { StateBlock } from '../StateBlock.js';
-import { CRAWL_LIMITS, type CrawlResult } from './crawl.js';
+import type { DeepSearchView } from './deepSearch.js';
 import { onDeepSearch } from './deepSearchSignal.js';
 import { startModelDrag } from './docDrag.js';
 import { DEFAULT_TREE_ROOT, type TreeRoot } from './docRoot.js';
@@ -54,6 +50,7 @@ import {
 import { INDENT, rowHeightFor, TreeRowView } from './TreeRowView.js';
 import { treeCommands } from './treeCommands.js';
 import {
+  type ItemRef,
   openableUrn,
   type PickedModel,
   skippedNotice,
@@ -165,15 +162,7 @@ const PREVIEW_HOVER_MS = 600;
 
 const PICK_PROJECT = 'Pick a project in the switcher to search all of it';
 
-interface CrawlView {
-  status: 'running' | 'done' | 'warning' | 'cancelled';
-  folders: number;
-  nodes: number;
-  failed: number;
-  detail: string | null;
-}
-
-function crawlText(view: CrawlView): string {
+function crawlText(view: DeepSearchView): string {
   if (view.status === 'running') {
     return `Searched ${view.folders} folders, ${view.nodes} files and folders found`;
   }
@@ -182,28 +171,6 @@ function crawlText(view: CrawlView): string {
     return view.detail ?? `${view.failed} folders could not be read`;
   }
   return `Searched ${view.folders} folders`;
-}
-
-function warningText(result: CrawlResult): string | null {
-  if (result.stop === 'unauthorized') {
-    return friendlyError(new ApiError(401, 'Unauthorized')).message;
-  }
-  const parts: string[] = [];
-  if (result.stop === 'folders') {
-    parts.push(
-      `Stopped at the ${CRAWL_LIMITS.maxFolders} folder limit. Narrow the search to a folder.`,
-    );
-  } else if (result.stop === 'time' || result.stop === 'nodes') {
-    parts.push(
-      'Stopped before every folder was read. Narrow the search to a folder.',
-    );
-  }
-  if (result.failed > 0) {
-    parts.push(
-      `${result.failed} folder${result.failed === 1 ? '' : 's'} could not be read`,
-    );
-  }
-  return parts.length > 0 ? parts.join('. ') : null;
 }
 
 export function DocumentTree({
@@ -224,10 +191,6 @@ export function DocumentTree({
   const rootScope = root.scope;
   const copy = rootCopy(rootScope);
   const [filter, setFilter] = useState('');
-  const [crawl, setCrawl] = useState<CrawlView | null>(null);
-  const crawlRef = useRef<AbortController | null>(null);
-  const crawlTask = useRef<TaskHandle | null>(null);
-  const crawlRun = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const typeahead = useRef({
@@ -271,7 +234,11 @@ export function DocumentTree({
 
   const viewRef = useRef(view);
   viewRef.current = view;
-  const { state, snapshot } = useTreeState({
+  const {
+    state,
+    snapshot,
+    search: crawl,
+  } = useTreeState({
     root,
     sort: () => viewRef.current.sort,
   });
@@ -289,111 +256,8 @@ export function DocumentTree({
   const { errors, picked, notice } = snapshot;
   const { contextFor, resolved, needsCheck, parentName } = state;
 
-  const finishCrawl = (result: CrawlResult, task: TaskHandle) => {
-    const base = {
-      folders: result.folders,
-      nodes: result.nodes,
-      failed: result.failed,
-    };
-    if (result.stop === 'cancelled') {
-      setCrawl({ status: 'cancelled', ...base, detail: null });
-      task.cancel();
-      return;
-    }
-    const warning = warningText(result);
-    if (warning) {
-      setCrawl({ status: 'warning', ...base, detail: warning });
-      task.warn(warning);
-      return;
-    }
-    setCrawl({ status: 'done', ...base, detail: null });
-    task.finish(`Searched ${result.folders} folders`);
-  };
-
-  const stopCrawl = () => {
-    crawlRun.current += 1;
-    crawlRef.current?.abort();
-    crawlRef.current = null;
-    const task = crawlTask.current;
-    crawlTask.current = null;
-    return task;
-  };
-
-  const cancelCrawl = () => {
-    if (!crawlRef.current) return;
-    const task = stopCrawl();
-    setCrawl((current) => ({
-      status: 'cancelled',
-      folders: current?.folders ?? 0,
-      nodes: current?.nodes ?? 0,
-      failed: current?.failed ?? 0,
-      detail: null,
-    }));
-    task?.cancel();
-  };
-
-  const startCrawl = () => {
-    if (crawlRef.current || !state.crawlRoot()) return;
-    const controller = new AbortController();
-    crawlRef.current = controller;
-    const runId = crawlRun.current + 1;
-    crawlRun.current = runId;
-    setCrawl({
-      status: 'running',
-      folders: 0,
-      nodes: 0,
-      failed: 0,
-      detail: null,
-    });
-    let lastProgress = 0;
-    const task = startTask({
-      label: 'Searching project files',
-      cancel: cancelCrawl,
-    });
-    crawlTask.current = task;
-    void state
-      .crawl(controller.signal, (progress) => {
-        if (runId !== crawlRun.current) return;
-        const at = Date.now();
-        if (at - lastProgress < 250) return;
-        lastProgress = at;
-        setCrawl({
-          status: 'running',
-          folders: progress.folders,
-          nodes: progress.nodes,
-          failed: progress.failed,
-          detail: null,
-        });
-        task.progress(
-          null,
-          `Searched ${progress.folders} folders, ${progress.nodes} files and folders found`,
-        );
-      })
-      .then((result) => {
-        if (runId !== crawlRun.current) return;
-        crawlRef.current = null;
-        crawlTask.current = null;
-        finishCrawl(result, task);
-      })
-      .catch((error: unknown) => {
-        if (runId !== crawlRun.current) return;
-        crawlRef.current = null;
-        crawlTask.current = null;
-        setCrawl((current) =>
-          current
-            ? {
-                ...current,
-                status: 'warning',
-                detail: 'The search stopped before it finished.',
-              }
-            : null,
-        );
-        task.fail(error);
-      });
-  };
-
   const searchProject = () => {
-    if (!state.crawled()) startCrawl();
+    if (!state.crawled()) state.deepSearch.start();
   };
 
   const clearSearch = () => {
@@ -545,12 +409,6 @@ export function DocumentTree({
 
   const pinsApi = usePins();
   const rowMenu = useRowMenu();
-  const layout = useContext(LayoutContext);
-
-  const openHistory = (node: TreeNode) => {
-    const ref = state.itemRef(node);
-    if (ref && layout) openVersionHistory(layout, ref);
-  };
 
   const focusItem = (id: string) => {
     const item = tree.getItemInstance(id);
@@ -625,7 +483,6 @@ export function DocumentTree({
           onOpenLastOpened: () => void openItem(node, 'last'),
           onShowVersions: () => showItemVersions(node),
           onPreview: () => openPreview(node),
-          onVersionHistory: layout ? () => openHistory(node) : undefined,
         }),
       );
     }
@@ -650,7 +507,6 @@ export function DocumentTree({
         onCopyLink: urn ? () => void copyLink(urn, context) : undefined,
         onRevealPath: () => revealPath(node),
         onShowVersions: () => showVersions(node),
-        onVersionHistory: layout ? () => openHistory(node) : undefined,
       });
     });
   };
@@ -783,13 +639,7 @@ export function DocumentTree({
     [],
   );
 
-  useEffect(
-    () => () => {
-      stopCrawl()?.discard();
-      setCrawl(null);
-    },
-    [state],
-  );
+  useEffect(() => () => state.deepSearch.dispose(), [state]);
 
   const query = filter.trim().toLowerCase();
   const searching = query !== '';
@@ -1012,7 +862,7 @@ export function DocumentTree({
   const filterDisabled = !searching && !rows.some((row) => row.type === 'node');
 
   const savePickedAsSet = () => {
-    const refs = new Map<string, VersionTarget | null>();
+    const refs = new Map<string, ItemRef | null>();
     for (const item of tree.getItems()) {
       const node = resolved(item.getItemData());
       const urn = openableUrn(node);
@@ -1239,7 +1089,7 @@ export function DocumentTree({
       <PersonalHubNotice onCheckAgain={() => refresh(rootId)} />
       <div className="doc-tree__search">
         <Icon name="search" size={14} />
-        <input
+        <Input
           ref={searchRef}
           type="search"
           value={filter}
@@ -1300,25 +1150,23 @@ export function DocumentTree({
             <span className="doc-tree__crawl-text" />
           )}
           {crawl?.status === 'running' ? (
-            <button
-              type="button"
-              className="btn doc-tree__crawl-action"
-              onClick={cancelCrawl}
+            <Button
+              className="doc-tree__crawl-action"
+              onClick={state.deepSearch.cancel}
             >
               Cancel
-            </button>
+            </Button>
           ) : (
-            <button
-              type="button"
-              className="btn doc-tree__crawl-action"
+            <Button
+              className="doc-tree__crawl-action"
               disabled={!crawlRootId}
               title={
                 crawlRootId ? 'Read every folder in this project' : PICK_PROJECT
               }
-              onClick={startCrawl}
+              onClick={state.deepSearch.start}
             >
               Search whole project
-            </button>
+            </Button>
           )}
           {!crawlRootId ? (
             <span className="doc-tree__crawl-hint">{PICK_PROJECT}</span>
@@ -1386,13 +1234,9 @@ export function DocumentTree({
             }
           >
             {notice.itemId ? (
-              <button
-                type="button"
-                className="btn btn-small"
-                onClick={state.dismissNotice}
-              >
+              <Button size="small" onClick={state.dismissNotice}>
                 Dismiss
-              </button>
+              </Button>
             ) : null}
           </StateBlock>
         ) : null}

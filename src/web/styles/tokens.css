@@ -1,3 +1,5 @@
+@layer properties, theme, base, utilities, effects;
+
 :root,
 :root[data-theme="dark"] {
   color-scheme: dark;
@@ -185,7 +187,59 @@
   --shadow-inset: inset 0 1px 0 var(--color-inset-highlight);
   --ring-width: 2px;
   --ring-offset: 2px;
-  --transition-ui: 120ms ease;
+  --transition-ui: var(--ui-motion) ease;
+
+  --ui-surface: var(--color-graphite);
+  --ui-surface-raised: var(--color-charcoal);
+  --ui-surface-sunken: var(--color-void);
+  --ui-fill: var(--color-ghost-fill);
+  --ui-fill-hover: var(--color-ghost-fill-hover);
+  --ui-fill-active: var(--color-ghost-fill-active);
+  --ui-text: var(--color-snow);
+  --ui-text-muted: var(--color-chalk);
+  --ui-text-subtle: var(--color-fog);
+  --ui-text-disabled: var(--color-ash);
+  --ui-border: var(--color-hairline);
+  --ui-border-strong: var(--color-field-border);
+  --ui-accent: var(--color-arc-blue);
+  --ui-accent-fill: var(--color-signal-blue);
+  --ui-accent-tint: color-mix(in srgb, var(--ui-accent) 18%, transparent);
+  --ui-on-accent: var(--color-on-accent);
+  --ui-solid: var(--color-bone);
+  --ui-solid-hover: var(--color-snow);
+  --ui-on-solid: var(--color-ink);
+  --ui-danger: var(--color-coral);
+  --ui-success: var(--color-mint);
+  --ui-focus: var(--color-ring-blue);
+  --ui-scrim: var(--color-scrim);
+  --ui-radius-control: var(--radius-button);
+  --ui-radius-surface: var(--radius-card);
+  --ui-radius-item: var(--radius-tile);
+  --ui-shadow-control: var(--shadow-button);
+  --ui-shadow-float: var(--shadow-float);
+  --ui-shadow-inset: var(--shadow-inset);
+  --ui-z-popup: var(--z-modal);
+  --ui-menu-min: 200px;
+  --ui-menu-hint-max: 260px;
+  --ui-motion: 120ms;
+  --ui-dialog-sm: min(100vw - 32px, 360px);
+  --ui-dialog-md: min(100vw - 32px, 480px);
+  --ui-dialog-lg: min(100vw - 32px, 720px);
+  --ui-dialog-xl: min(100vw - 32px, 880px);
+  --ui-dialog-command: min(100vw - 32px, 560px);
+  --ui-dialog-height: min(80vh, 720px);
+  --ui-dialog-height-compact: min(70vh, 520px);
+  --ui-dialog-top: 12vh;
+  --ui-glow-color: var(--ui-accent);
+  --ui-glow-size: 8px;
+  --ui-field-label-min: 10rem;
+  --ui-field-label-max: 16rem;
+
+  --ui-z-sticky: var(--z-sticky);
+  --ui-drawer-body: 136px;
+  --ui-warning: var(--color-ember);
+  --ui-toast-width: min(100vw - 32px, 360px);
+  --ui-z-toast: 1100;
 
   --z-raised: 1;
   --z-sticky: 2;

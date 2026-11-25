@@ -6,6 +6,7 @@ import {
   useRef,
 } from 'react';
 import { Icon } from '../components/icons.js';
+import { IconButton } from '../ui/IconButton.js';
 import { useAutoCompact } from './useAutoCompact.js';
 
 export function useQuickSettings(
@@ -55,18 +56,17 @@ export function QuickSettings({
       >
         <div className="bsh-quick__inner">{children}</div>
       </div>
-      <button
+      <IconButton
         ref={toggleRef}
-        type="button"
-        className="icon-button bsh-quick__toggle"
-        aria-label={label}
+        className="bsh-quick__toggle"
+        label={label}
         aria-expanded={open}
         aria-controls={id}
         title={open ? 'Hide controls' : 'Show controls'}
         onClick={onToggle}
       >
         <Icon name="sliders" size={16} />
-      </button>
+      </IconButton>
     </>
   );
 }

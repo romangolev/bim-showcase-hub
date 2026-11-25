@@ -386,8 +386,8 @@ describe('Share menu links', () => {
     expect(screen.queryByText(SHARE_ACCESS_HINT)).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Share' }));
     const hint = screen.getByRole('menuitem', { name: SHARE_ACCESS_HINT });
-    expect(hint).toBeVisible();
-    expect(hint).toBeDisabled();
+    expect(hint).toBeInTheDocument();
+    expect(hint).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('offers the full view as a JSON file when the link is too long', async () => {
@@ -679,6 +679,12 @@ describe('Share menu report', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(print).not.toHaveBeenCalled();
+  });
+
+  it('focuses the report title when the options open', async () => {
+    renderShareMenu(linkAdapter());
+    await openReportDialog();
+    expect(screen.getByLabelText('Title')).toHaveFocus();
   });
 
   it('saves the report options as a template and applies it next time', async () => {

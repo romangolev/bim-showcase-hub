@@ -4,7 +4,6 @@ import {
   useCallback,
   useEffect,
   useId,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -14,6 +13,9 @@ import type { ModelContext } from '../api/modelContext.js';
 import { useModal } from '../modal/index.js';
 import { notify } from '../tasks/notifications.js';
 import { startTask } from '../tasks/taskStore.js';
+import { Dialog } from '../ui/Dialog.js';
+import { Input } from '../ui/Input.js';
+import { Kbd } from '../ui/Kbd.js';
 import { filterCommands } from './fuzzy.js';
 import { PIN_LIMIT, readPins, togglePin } from './pins.js';
 import { recentModelCommands } from './recentModels.js';
@@ -82,7 +84,6 @@ function PaletteDialog({ error, onClose, onRun }: DialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const baseId = useId();
-  const [opener] = useState(() => document.activeElement as HTMLElement | null);
   const [recents] = useState(readRecents);
   const [pins, setPins] = useState(readPins);
   const [query, setQuery] = useState('');
@@ -95,20 +96,9 @@ function PaletteDialog({ error, onClose, onRun }: DialogProps) {
   const current = Math.min(active, Math.max(items.length - 1, 0));
   const optionId = (index: number) => `${baseId}-option-${index}`;
 
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
-
-  useLayoutEffect(() => {
-    const dialog = dialogRef.current;
-    const onNativeClose = () => onCloseRef.current();
-    dialog?.addEventListener('close', onNativeClose);
-    if (dialog && !dialog.open) dialog.showModal();
-    dialog?.querySelector('input')?.focus();
-    return () => {
-      dialog?.removeEventListener('close', onNativeClose);
-      opener?.focus();
-    };
-  }, [opener]);
+  useEffect(() => {
+    dialogRef.current?.querySelector('input')?.focus();
+  }, []);
 
   useEffect(() => {
     listRef.current
@@ -155,96 +145,93 @@ function PaletteDialog({ error, onClose, onRun }: DialogProps) {
 
   let previous = '';
   return (
-    <dialog
+    <Dialog
       ref={dialogRef}
       className="cmdk"
+      size="command"
       aria-label="Command palette"
-      onMouseDown={(event) => {
-        if (event.target === dialogRef.current) onClose();
-      }}
+      onClose={onClose}
     >
-      <div className="cmdk__panel">
-        <input
-          className="cmdk__input"
-          type="text"
-          role="combobox"
-          aria-label="Search commands"
-          aria-expanded="true"
-          aria-controls={`${baseId}-list`}
-          aria-autocomplete="list"
-          aria-activedescendant={items.length ? optionId(current) : undefined}
-          placeholder="Type a command"
-          autoComplete="off"
-          spellCheck={false}
-          value={query}
-          onChange={(event) => {
-            setQuery(event.target.value);
-            setActive(0);
-          }}
-          onKeyDown={onKeyDown}
-        />
-        <div
-          ref={listRef}
-          id={`${baseId}-list`}
-          className="cmdk__list"
-          role="listbox"
-          aria-label="Commands"
-        >
-          {items.map(({ command, group }, index) => {
-            const heading = !query.trim() && group !== previous;
-            previous = group;
-            return (
-              <Fragment key={`${group}:${command.id}`}>
-                {heading ? (
-                  <div className="cmdk__group" role="presentation">
-                    {group}
-                  </div>
-                ) : null}
-                <div
-                  id={optionId(index)}
-                  role="option"
-                  tabIndex={-1}
-                  aria-selected={index === current}
-                  aria-disabled={command.disabled ? true : undefined}
-                  className="cmdk__option"
-                  data-active={index === current}
-                  onMouseDown={(event) => event.preventDefault()}
-                  onMouseMove={() => setActive(index)}
-                  onClick={() => {
-                    if (!command.disabled) onRun(command);
-                  }}
-                  onKeyDown={onKeyDown}
-                >
-                  <span className="cmdk__title">{command.title}</span>
-                  {command.disabled ? (
-                    <span className="cmdk__reason">{command.disabled}</span>
-                  ) : command.keys?.[0] ? (
-                    <kbd className="cmdk__reason">
-                      {formatShortcut(command.keys[0])}
-                    </kbd>
-                  ) : null}
+      <Input
+        className="cmdk__input"
+        type="text"
+        role="combobox"
+        aria-label="Search commands"
+        aria-expanded="true"
+        aria-controls={`${baseId}-list`}
+        aria-autocomplete="list"
+        aria-activedescendant={items.length ? optionId(current) : undefined}
+        placeholder="Type a command"
+        autoComplete="off"
+        spellCheck={false}
+        value={query}
+        onChange={(event) => {
+          setQuery(event.target.value);
+          setActive(0);
+        }}
+        onKeyDown={onKeyDown}
+      />
+      <div
+        ref={listRef}
+        id={`${baseId}-list`}
+        className="cmdk__list"
+        role="listbox"
+        aria-label="Commands"
+      >
+        {items.map(({ command, group }, index) => {
+          const heading = !query.trim() && group !== previous;
+          previous = group;
+          return (
+            <Fragment key={`${group}:${command.id}`}>
+              {heading ? (
+                <div className="cmdk__group" role="presentation">
+                  {group}
                 </div>
-              </Fragment>
-            );
-          })}
-        </div>
-        {error ? (
-          <p className="cmdk__error" role="alert">
-            {error}
-          </p>
-        ) : null}
-        {items.length === 0 ? (
-          <p className="cmdk__empty">No matching commands</p>
-        ) : (
-          <p className="cmdk__empty">
-            Enter runs · Shift+Enter pins · Esc closes
-          </p>
-        )}
-        <div className="visually-hidden" role="status">
-          {items.length === 1 ? '1 command' : `${items.length} commands`}
-        </div>
+              ) : null}
+              <div
+                id={optionId(index)}
+                role="option"
+                tabIndex={-1}
+                aria-selected={index === current}
+                aria-disabled={command.disabled ? true : undefined}
+                className="cmdk__option"
+                data-active={index === current}
+                onMouseDown={(event) => event.preventDefault()}
+                onMouseMove={() => setActive(index)}
+                onClick={() => {
+                  if (!command.disabled) onRun(command);
+                }}
+                onKeyDown={onKeyDown}
+              >
+                <span className="cmdk__title">{command.title}</span>
+                {command.disabled ? (
+                  <span className="cmdk__reason">{command.disabled}</span>
+                ) : command.keys?.[0] ? (
+                  <Kbd className="cmdk__reason">
+                    {formatShortcut(command.keys[0])}
+                  </Kbd>
+                ) : null}
+              </div>
+            </Fragment>
+          );
+        })}
       </div>
-    </dialog>
+      {error ? (
+        <p className="cmdk__error" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {items.length === 0 ? (
+        <p className="cmdk__empty">No matching commands</p>
+      ) : (
+        <p className="cmdk__empty">
+          Enter runs · Shift+Enter pins · Esc closes
+        </p>
+      )}
+      <div className="visually-hidden" role="status">
+        {items.length === 1 ? '1 command' : `${items.length} commands`}
+      </div>
+    </Dialog>
   );
 }
 

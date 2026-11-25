@@ -13,6 +13,15 @@ const UNBOUNDED = Number.POSITIVE_INFINITY;
 
 type Counter = { current: number };
 
+function stripHeight(group: DockviewGroupPanel, siblings: number) {
+  const probe = document.createElement('div');
+  probe.style.height = 'var(--hit-target)';
+  group.element.append(probe);
+  const header = probe.getBoundingClientRect().height || HEADER_SIZE - 3;
+  probe.remove();
+  return header + 2 + (GAP * (siblings - 1)) / siblings;
+}
+
 function relax(group: DockviewGroupPanel) {
   const active = activeKind(group);
   if (!active) return;
@@ -118,7 +127,12 @@ export function applyCollapse(
     if (!active) continue;
     const axis =
       group.api.location.type === 'grid' ? splitAxisOf(json, group.id) : null;
-    const want = axis !== null && collapsed.includes(active);
+    const want =
+      axis !== null &&
+      group.panels.some((panel) => {
+        const kind = paneKind(panel.id);
+        return kind !== null && collapsed.includes(kind);
+      });
     const current = group.element.dataset.collapsed as
       | 'width'
       | 'height'
@@ -149,12 +163,16 @@ export function applyCollapse(
               );
             }
             group.element.dataset.collapsed = axis;
+            const strip = stripHeight(
+              group,
+              siblingCountOf(json, group.id) ?? 1,
+            );
             constrain(
               group,
               axis === 'height'
                 ? {
-                    minimumHeight: HEADER_SIZE,
-                    maximumHeight: HEADER_SIZE,
+                    minimumHeight: strip,
+                    maximumHeight: strip,
                     minimumWidth: min.width,
                     maximumWidth: UNBOUNDED,
                   }
@@ -166,9 +184,7 @@ export function applyCollapse(
                   },
             );
             group.api.setSize(
-              axis === 'height'
-                ? { height: HEADER_SIZE }
-                : { width: HEADER_SIZE },
+              axis === 'height' ? { height: strip } : { width: HEADER_SIZE },
             );
           } else {
             delete group.element.dataset.collapsed;

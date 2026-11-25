@@ -4,6 +4,7 @@ import {
 } from '../components/SettingsForm.js';
 import type { TreeView } from '../components/tree/treeView.js';
 import { usePersisted } from '../storage.js';
+import { Kbd } from '../ui/Kbd.js';
 import { PANE_SETTINGS } from './paneSettings.js';
 
 const TREE_SETTINGS_FORM: FormDefinition<TreeView> = {
@@ -130,7 +131,7 @@ export function TreeSettingsForm({ heading = true }: { heading?: boolean }) {
           {TREE_SHORTCUTS.map(([keys, action]) => (
             <li key={keys} className="settings__readout-row">
               <span>{action}</span>
-              <kbd className="settings__readout-name">{keys}</kbd>
+              <Kbd className="settings__readout-name">{keys}</Kbd>
             </li>
           ))}
         </ul>

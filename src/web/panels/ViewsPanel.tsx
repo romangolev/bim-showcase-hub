@@ -14,6 +14,10 @@ import {
 } from '../viewer/views.js';
 import { useResolvedAdapter } from './useScopedRows.js';
 import './panels.css';
+import { Button } from '../ui/Button.js';
+import { Card, CardHeader, CardTitle } from '../ui/Card.js';
+import { Select, SelectOption } from '../ui/Select.js';
+import { ToggleButton } from '../ui/ToggleButton.js';
 
 export interface ViewsPanelProps {
   adapter?: ViewerAdapter | null;
@@ -67,19 +71,17 @@ export function ViewsPanel({ adapter: override }: ViewsPanelProps) {
 
   if (!adapter || !model) {
     return (
-      <section className="bsh-card bsh-views" aria-labelledby={titleId}>
-        <header className="bsh-card__header">
-          <h2 id={titleId} className="bsh-card__title">
-            Sheets and views
-          </h2>
-        </header>
+      <Card className="bsh-views" aria-labelledby={titleId}>
+        <CardHeader>
+          <CardTitle id={titleId}>Sheets and views</CardTitle>
+        </CardHeader>
         <StateBlock
           variant="empty"
           title="No model loaded"
           message="Open a model to browse its sheets and views."
           compact
         />
-      </section>
+      </Card>
     );
   }
 
@@ -130,9 +132,7 @@ export function ViewsPanel({ adapter: override }: ViewsPanelProps) {
           </span>
         </span>
         <span className="bsh-models__actions">
-          <button
-            type="button"
-            className="btn"
+          <Button
             aria-label={`Open ${view.name}`}
             disabled={view.current || hidden}
             onClick={() => {
@@ -141,34 +141,28 @@ export function ViewsPanel({ adapter: override }: ViewsPanelProps) {
             }}
           >
             Open
-          </button>
-          <button
-            type="button"
-            className="btn"
+          </Button>
+          <ToggleButton
             aria-label={`${favorite ? 'Remove favorite' : 'Favorite'} ${view.name}`}
-            aria-pressed={favorite}
+            pressed={favorite}
             onClick={() => toggleFavorite(view, !favorite)}
           >
             {favorite ? 'Unfavorite' : 'Favorite'}
-          </button>
-          <button
-            type="button"
-            className="btn"
+          </ToggleButton>
+          <ToggleButton
             aria-label={`${hidden ? 'Show' : 'Hide'} ${view.name}`}
-            aria-pressed={hidden}
+            pressed={hidden}
             onClick={() => toggleHidden(view, !hidden)}
           >
             {hidden ? 'Show' : 'Hide'}
-          </button>
-          <button
-            type="button"
-            className="btn"
+          </ToggleButton>
+          <ToggleButton
             aria-label={`${start ? 'Clear start view' : 'Set as start view'} ${view.name}`}
-            aria-pressed={start}
+            pressed={start}
             onClick={() => toggleStart(view)}
           >
             {start ? 'Clear start view' : 'Set as start view'}
-          </button>
+          </ToggleButton>
         </span>
       </li>
     );
@@ -181,31 +175,29 @@ export function ViewsPanel({ adapter: override }: ViewsPanelProps) {
   ];
 
   return (
-    <section className="bsh-card bsh-views" aria-labelledby={titleId}>
-      <header className="bsh-card__header">
-        <h2 id={titleId} className="bsh-card__title">
-          Sheets and views
-        </h2>
-      </header>
+    <Card className="bsh-views" aria-labelledby={titleId}>
+      <CardHeader>
+        <CardTitle id={titleId}>Sheets and views</CardTitle>
+      </CardHeader>
       {ready.length > 1 ? (
         <label className="bsh-models__ghost">
           <span>Model</span>
-          <select
-            className="field"
+          <Select
+            className="bsh-select"
             aria-label="Model"
             value={model.id}
-            onChange={(event) => {
-              setSelected(event.target.value);
+            onValueChange={(next) => {
+              setSelected(next);
               setPending(null);
               setNotice('');
             }}
           >
             {ready.map((entry) => (
-              <option key={entry.id} value={entry.id}>
+              <SelectOption key={entry.id} value={entry.id}>
                 {entry.name}
-              </option>
+              </SelectOption>
             ))}
-          </select>
+          </Select>
         </label>
       ) : null}
       {pending ? (
@@ -213,16 +205,8 @@ export function ViewsPanel({ adapter: override }: ViewsPanelProps) {
           <p className="bsh-muted" role="alert">
             {SWITCH_WARNING} Open {pending.name}?
           </p>
-          <button type="button" className="btn" onClick={() => void confirm()}>
-            Switch view
-          </button>
-          <button
-            type="button"
-            className="btn"
-            onClick={() => setPending(null)}
-          >
-            Cancel
-          </button>
+          <Button onClick={() => void confirm()}>Switch view</Button>
+          <Button onClick={() => setPending(null)}>Cancel</Button>
         </div>
       ) : null}
       {notice ? (
@@ -252,16 +236,14 @@ export function ViewsPanel({ adapter: override }: ViewsPanelProps) {
           {ordered.hidden.length > 0 ? (
             <>
               <div className="bsh-models__tools">
-                <button
-                  type="button"
-                  className="btn"
+                <Button
                   aria-expanded={showHidden}
                   onClick={() => setShowHidden((on) => !on)}
                 >
                   {showHidden
                     ? `Hide hidden (${ordered.hidden.length})`
                     : `Show hidden (${ordered.hidden.length})`}
-                </button>
+                </Button>
               </div>
               {showHidden ? (
                 <ul className="bsh-models__list">{ordered.hidden.map(row)}</ul>
@@ -274,6 +256,6 @@ export function ViewsPanel({ adapter: override }: ViewsPanelProps) {
         A start view is used the next time this tab loads. Switching a view
         resets the selection and colours of that model.
       </p>
-    </section>
+    </Card>
   );
 }

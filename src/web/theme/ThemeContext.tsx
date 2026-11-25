@@ -16,10 +16,13 @@ import {
   resolveTheme,
   type Theme,
   type ThemePreference,
+  type ThemeScheme,
+  themeScheme,
 } from './theme.js';
 
 export interface ThemeContextValue {
   theme: Theme;
+  scheme: ThemeScheme;
   preference: ThemePreference;
   setTheme: (preference: ThemePreference) => void;
   toggleTheme: () => void;
@@ -30,8 +33,9 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const { settings, setSetting } = useSettings();
   const preference = settings.theme;
-  const [system, setSystem] = useState<Theme>(readSystemTheme);
+  const [system, setSystem] = useState<ThemeScheme>(readSystemTheme);
   const theme = resolveTheme(preference, system);
+  const scheme = themeScheme(theme);
 
   useLayoutEffect(() => {
     applyTheme(theme, document.documentElement);
@@ -52,18 +56,19 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   );
 
   const toggleTheme = useCallback(
-    () => setTheme(theme === 'dark' ? 'light' : 'dark'),
-    [theme, setTheme],
+    () => setTheme(scheme === 'dark' ? 'light' : 'dark'),
+    [scheme, setTheme],
   );
 
   const value = useMemo<ThemeContextValue>(
     () => ({
       theme,
+      scheme,
       preference,
       setTheme,
       toggleTheme,
     }),
-    [theme, preference, setTheme, toggleTheme],
+    [theme, scheme, preference, setTheme, toggleTheme],
   );
 
   return (

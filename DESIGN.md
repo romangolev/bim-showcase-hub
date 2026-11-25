@@ -42,6 +42,33 @@ Green and red are reserved for success and destructive signals. Never decorative
 
 Form fields (inputs, selects) draw a `field-border` hairline, white at 0.36 in dark and black at 0.48 in light, so their edge reaches 3:1. Pane colour tags use `tag-red`, `tag-orange`, `tag-yellow`, `tag-green`, `tag-blue` and `tag-purple`: #e5534b, #e08a3c, #d6b64a, #4caf7d, #4a8fd6, #9a72d6 in dark and #c9382f, #b45f12, #8a6d0a, #2c7a4f, #2f6db3, #7449b8 in light, each at least 3:1 on every surface.
 
+### Role tokens
+
+Components in `src/web/ui` never name a palette colour. They use role tokens (`--ui-*`), which alias the palette once and can be overridden by a theme.
+
+| Role | Token | Default |
+|---|---|---|
+| Surfaces | `--ui-surface`, `--ui-surface-raised`, `--ui-surface-sunken` | graphite, charcoal, void |
+| Control fill | `--ui-fill`, `--ui-fill-hover`, `--ui-fill-active` | ghost fill and its hover and active steps |
+| Text | `--ui-text`, `--ui-text-muted`, `--ui-text-subtle`, `--ui-text-disabled` | snow, chalk, fog, ash |
+| Borders | `--ui-border`, `--ui-border-strong` | hairline, field-border |
+| Accent | `--ui-accent` (text, borders, pressed state), `--ui-accent-fill` with `--ui-on-accent` (checked fills) | arc-blue, signal-blue, on-accent |
+| Primary action | `--ui-solid`, `--ui-solid-hover`, `--ui-on-solid` | bone, snow, ink |
+| Status | `--ui-danger`, `--ui-success` | coral, mint |
+| Focus | `--ui-focus` | ring-blue |
+| Scrim | `--ui-scrim` | scrim |
+| Shape | `--ui-radius-control`, `--ui-radius-surface` | button radius, card radius |
+| Elevation | `--ui-shadow-control`, `--ui-shadow-float` | button shadow, float shadow |
+| Motion | `--ui-motion` | 120ms |
+| Dialog | `--ui-dialog-sm`, `-md`, `-lg`, `-xl`, `-command` (widths), `--ui-dialog-height`, `--ui-dialog-height-compact`, `--ui-dialog-top` | 360, 480, 720, 880, 560px, each capped at the viewport minus 32px; 80vh up to 720px; 70vh up to 520px; 12vh |
+| Effects | `--ui-glow-color`, `--ui-glow-size` | accent, 8px |
+| Drawer | `--ui-drawer-body` (open body height), `--ui-z-sticky` (sticky header layer) | 136px, `--z-sticky` |
+| Field | `--ui-field-label-min`, `--ui-field-label-max` | 10rem, 16rem: the label column of a row field |
+| Warning | `--ui-warning` (icons and UI parts, 3:1) | ember |
+| Toast | `--ui-toast-width`, `--ui-z-toast` | 360px, capped at the viewport minus 32px; 1100, above popovers and below popups and modals |
+
+Text roles reach 4.5:1 on every surface role, `--ui-on-solid` reaches 4.5:1 on `--ui-solid`, and `--ui-on-accent` and `--ui-focus` reach 3:1 as UI parts.
+
 ## Typography
 
 - Family: Inter variable, with `font-feature-settings: "ss01", "ss03"`.

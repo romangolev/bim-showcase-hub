@@ -1,6 +1,7 @@
-import { NumberField } from '../components/NumberField.js';
 import { SettingsField } from '../components/SettingsForm.js';
 import { SwitchRow } from '../components/SwitchRow.js';
+import { NumberField } from '../ui/NumberField.js';
+import { Select, SelectOption } from '../ui/Select.js';
 import {
   TOAST_POSITIONS,
   type ToastPosition,
@@ -20,22 +21,22 @@ export function NotificationSettingsSection() {
     <div className="settings__section">
       <SettingsField label="Toast position">
         {(id) => (
-          <select
+          <Select
             id={id}
             value={settings.position}
-            onChange={(event) =>
+            onValueChange={(next) =>
               update((prev) => ({
                 ...prev,
-                position: event.target.value as ToastPosition,
+                position: next as ToastPosition,
               }))
             }
           >
             {TOAST_POSITIONS.map((position) => (
-              <option key={position} value={position}>
+              <SelectOption key={position} value={position}>
                 {POSITION_LABELS[position]}
-              </option>
+              </SelectOption>
             ))}
-          </select>
+          </Select>
         )}
       </SettingsField>
       <SettingsField
@@ -49,7 +50,7 @@ export function NotificationSettingsSection() {
             min={0}
             max={60}
             value={Math.round(settings.durationMs / 1000)}
-            onCommit={(seconds) =>
+            onValueCommitted={(seconds) =>
               update((prev) => ({ ...prev, durationMs: seconds * 1000 }))
             }
           />

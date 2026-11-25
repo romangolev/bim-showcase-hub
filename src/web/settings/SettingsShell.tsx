@@ -1,5 +1,4 @@
 import {
-  type KeyboardEvent,
   useEffect,
   useId,
   useRef,
@@ -10,6 +9,8 @@ import { Icon } from '../components/icons.js';
 import { useMediaQuery } from '../components/useMediaQuery.js';
 import { useT } from '../i18n/i18n.js';
 import { STACKED_QUERY } from '../layout/breakpoint.js';
+import { Button } from '../ui/Button.js';
+import { Tab, TabPanel, Tabs, TabsList } from '../ui/Tabs.js';
 import {
   consumeSettingsLink,
   listSettingsSections,
@@ -17,13 +18,6 @@ import {
   settingsSelection,
   subscribeSettingsSelection,
 } from './settingsSections.js';
-
-const KEY_STEPS: Record<string, (at: number, count: number) => number> = {
-  ArrowDown: (at, count) => (at + 1) % count,
-  ArrowUp: (at, count) => (at - 1 + count) % count,
-  Home: () => 0,
-  End: (_, count) => count - 1,
-};
 
 function focusOnOpen(element: HTMLElement | null) {
   element?.setAttribute('autofocus', '');
@@ -63,27 +57,12 @@ export function SettingsShell() {
   const current =
     sections.find((section) => section.id === selected) ?? sections[0];
   if (!current) return null;
-  const panelId = `${baseId}-panel`;
   const titleId = `${baseId}-title`;
 
   const drill = (id: string, into: boolean) => {
     refocus.current = narrow && into !== drilled;
     selectSettingsSection(id);
     setDrilled(into);
-  };
-
-  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    const step = KEY_STEPS[event.key];
-    const items = [
-      ...event.currentTarget.querySelectorAll<HTMLElement>('[role="tab"]'),
-    ];
-    const at = items.indexOf(event.target as HTMLElement);
-    if (!step || at < 0) return;
-    event.preventDefault();
-    const next = step(at, items.length);
-    items[next]?.focus();
-    const section = sections[next];
-    if (section) selectSettingsSection(section.id);
   };
 
   const title = (
@@ -103,18 +82,17 @@ export function SettingsShell() {
         {drilled ? (
           <section className="settings-nav__pane" aria-labelledby={titleId}>
             <div className="settings-nav__head">
-              <button
+              <Button
                 ref={(element) => {
                   backRef.current = element;
                   focusOnOpen(element);
                 }}
-                type="button"
-                className="btn settings-nav__back"
+                className="settings-nav__back"
                 onClick={() => drill(current.id, false)}
               >
                 <Icon name="chevron" size={14} />
                 {t('settings.back')}
-              </button>
+              </Button>
               {title}
             </div>
             {options}
@@ -126,10 +104,10 @@ export function SettingsShell() {
             aria-label={t('settings.sections')}
           >
             {sections.map((section) => (
-              <button
+              <Button
                 key={section.id}
                 ref={section.id === current.id ? focusOnOpen : undefined}
-                type="button"
+                variant="ghost"
                 className="settings-nav__item"
                 data-current={section.id === current.id}
                 onClick={() => drill(section.id, true)}
@@ -137,7 +115,7 @@ export function SettingsShell() {
                 <Icon name={section.icon} size={16} />
                 <span className="settings-nav__label">{section.label()}</span>
                 <Icon name="chevron" size={14} />
-              </button>
+              </Button>
             ))}
           </nav>
         )}
@@ -146,43 +124,36 @@ export function SettingsShell() {
   }
 
   return (
-    <div className="settings-nav">
-      <div
+    <Tabs
+      className="settings-nav"
+      orientation="vertical"
+      value={current.id}
+      onValueChange={(id) => selectSettingsSection(id as string)}
+    >
+      <TabsList
         className="settings-nav__list"
-        role="tablist"
-        aria-orientation="vertical"
         aria-label={t('settings.sections')}
-        onKeyDown={onKeyDown}
+        activateOnFocus
       >
-        {sections.map((section) => {
-          const active = section.id === current.id;
-          return (
-            <button
-              key={section.id}
-              ref={active ? focusOnOpen : undefined}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              aria-controls={panelId}
-              tabIndex={active ? 0 : -1}
-              className="settings-nav__item"
-              onClick={() => drill(section.id, true)}
-            >
-              <Icon name={section.icon} size={16} />
-              <span className="settings-nav__label">{section.label()}</span>
-            </button>
-          );
-        })}
-      </div>
-      <div
-        id={panelId}
+        {sections.map((section) => (
+          <Tab
+            key={section.id}
+            ref={section.id === current.id ? focusOnOpen : undefined}
+            value={section.id}
+          >
+            <Icon name={section.icon} size={16} />
+            <span className="settings-nav__label">{section.label()}</span>
+          </Tab>
+        ))}
+      </TabsList>
+      <TabPanel
+        value={current.id}
         className="settings-nav__pane"
-        role="tabpanel"
         aria-labelledby={titleId}
       >
         <div className="settings-nav__head">{title}</div>
         {options}
-      </div>
-    </div>
+      </TabPanel>
+    </Tabs>
   );
 }

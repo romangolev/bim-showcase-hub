@@ -16,6 +16,7 @@ import {
 } from '../extensions/dashboardPresets.js';
 import { localeOf } from '../i18n/format.js';
 import type { Language } from '../settings/settings.js';
+import { Input } from '../ui/Input.js';
 import { ChartCanvas, type ChartKind, ChartTable } from './ChartCanvas.js';
 
 const CANVAS_KIND: Record<Exclude<ChartType, 'table'>, ChartKind> = {
@@ -137,9 +138,9 @@ export function ChartTile({
     remove: onRemove,
   });
   const heading = renaming ? (
-    <input
+    <Input
       type="text"
-      className="field bsh-chart__rename"
+      className="bsh-chart__rename"
       aria-label="Chart name"
       maxLength={MAX_CHART_NAME}
       defaultValue={title}

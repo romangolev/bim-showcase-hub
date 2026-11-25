@@ -4,7 +4,6 @@ import type { IconName } from '../components/icons.js';
 import { requestDeepSearch } from '../components/tree/deepSearchSignal.js';
 import { currentAdapter } from '../viewer/activeAdapterStore.js';
 import { clearColoring } from '../viewer/modelColoring.js';
-import { federationCommands } from '../viewer/savedFederations.js';
 import { PANEL_SEPARATOR, type PanelId } from './panelIds.js';
 
 export type PaneId =
@@ -13,7 +12,6 @@ export type PaneId =
   | 'summary'
   | 'dashboard'
   | 'models'
-  | 'versions'
   | 'colors'
   | 'export'
   | 'measurements'
@@ -189,7 +187,6 @@ export const PANES: readonly PaneDefinition[] = [
     defaultPlacement: { kind: 'tab', reference: 'tree' },
     closable: true,
     requires: 'viewer',
-    commands: () => federationCommands(),
   },
   {
     id: 'measurements',
@@ -217,21 +214,6 @@ export const PANES: readonly PaneDefinition[] = [
     defaultPlacement: { kind: 'tab', reference: 'models' },
     closable: true,
     requires: 'viewer',
-  },
-  {
-    id: 'versions',
-    title: 'Version history',
-    description:
-      'Versions of one file, newest first. Open, pin or compare them.',
-    category: 'Workspace',
-    keywords: 'versions history revisions compare latest file',
-    icon: 'layers',
-    component: lazyPane(() => loadPanes().then((m) => m.VersionsPane)),
-    minSize: { width: 260, height: 160 },
-    defaultPlacement: { kind: 'tab', reference: 'tree' },
-    closable: true,
-    requires: 'none',
-    startsClosed: true,
   },
   {
     id: 'colors',
@@ -331,7 +313,7 @@ export const PANES: readonly PaneDefinition[] = [
     closable: true,
     requires: 'viewer',
     instances: {
-      component: lazyPane(() => loadPanes().then((m) => m.ChartInstancePane)),
+      component: lazyPane(() => loadPanes().then((m) => m.DashboardPane)),
       source: 'user',
     },
   },
@@ -353,7 +335,7 @@ export const PANES: readonly PaneDefinition[] = [
     closable: true,
     requires: 'viewer',
     instances: {
-      component: lazyPane(() => loadPanes().then((m) => m.SummaryInstancePane)),
+      component: lazyPane(() => loadPanes().then((m) => m.SummaryPane)),
       source: 'user',
     },
   },

@@ -1,4 +1,3 @@
-import { NumberField } from '../components/NumberField.js';
 import { SwitchRow } from '../components/SwitchRow.js';
 import {
   AGGREGATE_LABELS,
@@ -13,7 +12,6 @@ import {
   MIN_CATEGORIES,
   viewSpec,
 } from '../extensions/dashboardPresets.js';
-
 import {
   ACTION_LABELS,
   ELEMENT_ACTIONS,
@@ -25,14 +23,21 @@ import {
   MAX_KPI_THRESHOLD,
 } from '../extensions/healthKpis.js';
 import {
-  setDashboardSettingsTarget,
-  useDashboardSettingsTarget,
-} from '../layout/dashboardTarget.js';
-import { chartSetting } from '../layout/instanceSettings.js';
-import type { PanelId } from '../layout/paneRegistry.js';
+  DASHBOARD_PANEL,
+  useDashboardSpec,
+} from '../layout/instanceSettings.js';
+import { paneKind } from '../layout/paneRegistry.js';
+import {
+  setPaneSettingsTarget,
+  usePaneSettingsTarget,
+} from '../layout/settingsTarget.js';
 import type { ModalDefinition } from '../modal/types.js';
-import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import { usePersisted } from '../storage.js';
+import { Button } from '../ui/Button.js';
+import { FieldLabel } from '../ui/Field.js';
+import { Input } from '../ui/Input.js';
+import { NumberField } from '../ui/NumberField.js';
+import { Select, SelectOption } from '../ui/Select.js';
 import { usePublishedAdapter } from '../viewer/activeAdapterStore.js';
 import { useModels } from '../viewer/useModels.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
@@ -47,10 +52,6 @@ export const DASHBOARD_SETTINGS_ID = 'dashboard-settings';
 type ViewSetter = (
   next: DashboardView | ((prev: DashboardView) => DashboardView),
 ) => void;
-
-export function useDashboardView() {
-  return usePersisted(PANE_SETTINGS.dashboard.view);
-}
 
 interface DashboardFieldsProps {
   adapter: ViewerAdapter | null;
@@ -87,9 +88,9 @@ function PropertyListField({
 }) {
   const joined = value.join(', ');
   return (
-    <label className="settings__field">
+    <FieldLabel layout="row">
       {label}
-      <input
+      <Input
         key={joined}
         type="text"
         defaultValue={joined}
@@ -98,7 +99,7 @@ function PropertyListField({
           if (e.key === 'Enter') e.currentTarget.blur();
         }}
       />
-    </label>
+    </FieldLabel>
   );
 }
 
@@ -157,26 +158,26 @@ function DashboardFields({
       </fieldset>
       <fieldset className="settings__section">
         <legend className="settings__heading">All charts</legend>
-        <label className="settings__field">
+        <FieldLabel layout="row">
           Aggregation
-          <select
+          <Select
             value={spec.aggregate}
-            onChange={(e) => setAggregate(e.target.value as Aggregate)}
+            onValueChange={(next) => setAggregate(next as Aggregate)}
           >
             {AGGREGATES.map((aggregate) => (
-              <option key={aggregate} value={aggregate}>
+              <SelectOption key={aggregate} value={aggregate}>
                 {AGGREGATE_LABELS[aggregate]}
-              </option>
+              </SelectOption>
             ))}
-          </select>
-        </label>
+          </Select>
+        </FieldLabel>
         {numeric ? (
-          <label className="settings__field">
+          <FieldLabel layout="row">
             Measure
-            <select
+            <Select
               value={names.includes(spec.measure) ? spec.measure : ''}
-              onChange={(e) => {
-                const measure = e.target.value;
+              onValueChange={(next) => {
+                const measure = next;
                 patch({
                   measure,
                   properties:
@@ -186,29 +187,29 @@ function DashboardFields({
                 });
               }}
             >
-              <option value="">Choose a property</option>
+              <SelectOption value="">Choose a property</SelectOption>
               {names.map((name) => (
-                <option key={name} value={name}>
+                <SelectOption key={name} value={name}>
                   {name}
-                </option>
+                </SelectOption>
               ))}
-            </select>
-          </label>
+            </Select>
+          </FieldLabel>
         ) : null}
-        <label className="settings__field">
+        <FieldLabel layout="row">
           Maximum categories
           <NumberField
             min={Math.max(MIN_CATEGORIES, TOP_N_MIN)}
             max={Math.min(MAX_CATEGORIES, TOP_N_MAX)}
             value={spec.topN}
-            onCommit={(topN) =>
+            onValueCommitted={(topN) =>
               patch({
                 topN,
                 maxCategories: Math.min(topN, MAX_CATEGORIES),
               })
             }
           />
-        </label>
+        </FieldLabel>
         <SwitchRow
           label="Fold values beyond the top into Other"
           checked={spec.otherBucket}
@@ -219,19 +220,19 @@ function DashboardFields({
           unit family. Different families are reported, not summed.
         </p>
         {action !== undefined && setAction ? (
-          <label className="settings__field">
+          <FieldLabel layout="row">
             Chart click
-            <select
+            <Select
               value={action}
-              onChange={(e) => setAction(sanitizeAction(e.target.value))}
+              onValueChange={(next) => setAction(sanitizeAction(next))}
             >
               {ELEMENT_ACTIONS.map((name) => (
-                <option key={name} value={name}>
+                <SelectOption key={name} value={name}>
                   {ACTION_LABELS[name]}
-                </option>
+                </SelectOption>
               ))}
-            </select>
-          </label>
+            </Select>
+          </FieldLabel>
         ) : null}
         <SwitchRow
           label="Split by model"
@@ -265,15 +266,17 @@ function DashboardFields({
             checked={health.enabled}
             onChange={() => setHealth({ ...health, enabled: !health.enabled })}
           />
-          <label className="settings__field">
+          <FieldLabel layout="row">
             Health threshold (%)
             <NumberField
               min={0}
               max={MAX_KPI_THRESHOLD}
               value={health.threshold}
-              onCommit={(threshold) => setHealth({ ...health, threshold })}
+              onValueCommitted={(threshold) =>
+                setHealth({ ...health, threshold })
+              }
             />
-          </label>
+          </FieldLabel>
           <PropertyListField
             label="Must-have properties"
             value={health.mustHave}
@@ -284,57 +287,49 @@ function DashboardFields({
             value={health.unique}
             onCommit={(unique) => setHealth({ ...health, unique })}
           />
-          <label className="settings__field">
+          <FieldLabel layout="row">
             Numeric property
-            <select
+            <Select
               value={names.includes(health.measure) ? health.measure : ''}
-              onChange={(e) =>
-                setHealth({ ...health, measure: e.target.value })
-              }
+              onValueChange={(next) => setHealth({ ...health, measure: next })}
             >
-              <option value="">Not checked</option>
+              <SelectOption value="">Not checked</SelectOption>
               {names.map((name) => (
-                <option key={name} value={name}>
+                <SelectOption key={name} value={name}>
                   {name}
-                </option>
+                </SelectOption>
               ))}
-            </select>
-          </label>
+            </Select>
+          </FieldLabel>
           {resetHealth ? (
             <div className="settings__actions">
-              <button type="button" className="btn" onClick={resetHealth}>
-                Reset health checks
-              </button>
+              <Button onClick={resetHealth}>Reset health checks</Button>
             </div>
           ) : null}
         </fieldset>
       ) : null}
       <div className="settings__actions">
-        <button
-          type="button"
-          className="btn"
+        <Button
           onClick={() => {
             resetView();
             resetAction?.();
             resetHealth?.();
           }}
         >
-          {resetAction ? 'Reset dashboard' : 'Reset chart'}
-        </button>
+          {health ? 'Reset dashboard' : 'Reset chart'}
+        </Button>
       </div>
     </>
   );
 }
 
-function GlobalDashboardSettings({
-  adapter,
-}: {
-  adapter: ViewerAdapter | null;
-}) {
-  const [view, setView, resetView] = useDashboardView();
-  const [action, setAction, resetAction] = usePersisted(
-    PANE_SETTINGS.dashboard.action,
-  );
+export function DashboardSettingsBody() {
+  const target = usePaneSettingsTarget();
+  const adapter = useResolvedAdapter(usePublishedAdapter());
+  const { main, view, setView, resetView, action, setAction, resetAction } =
+    useDashboardSpec(
+      paneKind(target) === 'chart' && target ? target : DASHBOARD_PANEL,
+    );
   const [health, setHealth, resetHealth] = usePersisted(HEALTH_KPI_SETTINGS);
   return (
     <DashboardFields
@@ -345,38 +340,8 @@ function GlobalDashboardSettings({
       action={action}
       setAction={setAction}
       resetAction={resetAction}
-      health={health}
-      setHealth={setHealth}
-      resetHealth={resetHealth}
+      {...(main ? { health, setHealth, resetHealth } : {})}
     />
-  );
-}
-
-function InstanceDashboardSettings({
-  target,
-  adapter,
-}: {
-  target: PanelId;
-  adapter: ViewerAdapter | null;
-}) {
-  const [view, setView, resetView] = usePersisted(chartSetting(target));
-  return (
-    <DashboardFields
-      adapter={adapter}
-      view={view}
-      setView={setView}
-      resetView={resetView}
-    />
-  );
-}
-
-export function DashboardSettingsBody() {
-  const target = useDashboardSettingsTarget();
-  const adapter = useResolvedAdapter(usePublishedAdapter());
-  return target ? (
-    <InstanceDashboardSettings target={target} adapter={adapter} />
-  ) : (
-    <GlobalDashboardSettings adapter={adapter} />
   );
 }
 
@@ -385,5 +350,5 @@ export const DASHBOARD_SETTINGS_MODAL: ModalDefinition = {
   title: 'Dashboard settings',
   size: 'lg',
   Body: DashboardSettingsBody,
-  onClose: () => setDashboardSettingsTarget(null),
+  onClose: () => setPaneSettingsTarget(null),
 };

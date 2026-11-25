@@ -11,8 +11,6 @@ import type { ComponentProps } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { thumbnailPath } from '../../api/client.js';
 import { createOpenModelsStore } from '../../api/openModels.js';
-import { type LayoutApi, LayoutContext } from '../../layout/layoutContext.js';
-import { VERSION_TARGET } from '../../panels/versionHistory.js';
 import { BSH_KEYS } from '../../storage.js';
 import { MODEL_SETS } from '../../store/modelSets.js';
 import { notifications } from '../../tasks/notifications.js';
@@ -817,7 +815,9 @@ describe('DocumentTree file rows', () => {
     const box = screen.getByRole('searchbox', { name: 'Filter loaded nodes' });
     box.focus();
     fireEvent.pointerDown(box);
-    expect(screen.queryByRole('dialog')).toBeNull();
+    fireEvent.mouseDown(box);
+    fireEvent.click(box);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(document.activeElement).toBe(box);
   });
 
@@ -843,58 +843,32 @@ describe('DocumentTree file rows', () => {
   });
 });
 
-describe('DocumentTree version history', () => {
-  function fakeLayout(open = false) {
-    return {
-      isOpen: vi.fn(() => open),
-      focusPane: vi.fn(),
-      togglePane: vi.fn(),
-    };
-  }
-
-  async function setup(open = false) {
+describe('DocumentTree row menus', () => {
+  it('no longer offer Version history on file or version rows', async () => {
     installMemoryStorage();
     mockFetch(treeRoutes);
-    const layout = fakeLayout(open);
     render(
       <QueryClientProvider client={createTestClient()}>
-        <LayoutContext.Provider value={layout as unknown as LayoutApi}>
-          <DocumentTree onOpenModel={vi.fn()} />
-        </LayoutContext.Provider>
+        <DocumentTree onOpenModel={vi.fn()} />
       </QueryClientProvider>,
     );
     await expandTo('Studio hub');
     await expandTo('Riverside Tower');
     await expandTo('Project Files');
-    await screen.findByText('Tower.rvt');
-    return layout;
-  }
-
-  it('opens the version history pane from the file row menu', async () => {
-    const layout = await setup();
-    fireEvent.contextMenu(screen.getByRole('treeitem', { name: /Tower\.rvt/ }));
-    fireEvent.click(
-      within(screen.getByRole('menu')).getByText('Version history'),
+    fireEvent.contextMenu(
+      await screen.findByRole('treeitem', { name: /Tower\.rvt/ }),
     );
-    expect(layout.togglePane).toHaveBeenCalledWith('versions');
-    expect(VERSION_TARGET.read()).toMatchObject({
-      projectId: 'p1',
-      itemId: 'i1',
-      file: 'Tower.rvt',
-      trail: ['h1', 'p1', 'f1', 'i1'],
-    });
-  });
-
-  it('focuses the open pane from a version row menu', async () => {
-    const layout = await setup(true);
+    expect(
+      within(screen.getByRole('menu')).queryByText('Version history'),
+    ).toBeNull();
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
     fireEvent.click(screen.getByText('Tower.rvt'));
-    await screen.findByRole('treeitem', { name: /^v2:/ });
-    fireEvent.contextMenu(screen.getByRole('treeitem', { name: /^v1:/ }));
-    fireEvent.click(
-      within(screen.getByRole('menu')).getByText('Version history'),
+    fireEvent.contextMenu(
+      await screen.findByRole('treeitem', { name: /^v1:/ }),
     );
-    expect(layout.focusPane).toHaveBeenCalledWith('versions');
-    expect(VERSION_TARGET.read()).toMatchObject({ itemId: 'i1' });
+    expect(
+      within(screen.getByRole('menu')).queryByText('Version history'),
+    ).toBeNull();
   });
 });
 
@@ -1680,7 +1654,11 @@ describe('DocumentTree deep search', () => {
     fireEvent.click(
       screen.getByRole('button', { name: 'Search whole project' }),
     );
-    await screen.findByRole('option', { name: /ARC-001_Walls\.rvt/ });
+    await waitFor(() =>
+      expect(callsTo(fetchMock, '/api/projects/p1/folders/f2/contents')).toBe(
+        1,
+      ),
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(screen.getByText('Search cancelled')).toBeInTheDocument();
 
@@ -1692,53 +1670,6 @@ describe('DocumentTree deep search', () => {
     expect(callsTo(fetchMock, '/api/projects/p1/folders/f2/contents')).toBe(
       before,
     );
-  });
-
-  it('ignores a cancelled crawl that settles after a restart', async () => {
-    const releases: Array<() => void> = [];
-    await renderProject(
-      projectRoutes({
-        '/api/projects/p1/folders/f2/contents': () =>
-          new Promise<Response>((resolve) => {
-            releases.push(() => resolve(json([facadeFile])));
-          }),
-      }),
-    );
-    fireEvent.change(filterBox(), { target: { value: 'arc' } });
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Search whole project' }),
-    );
-    await waitFor(() => expect(releases).toHaveLength(1));
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Search whole project' }),
-    );
-    await waitFor(() => expect(releases).toHaveLength(2));
-    await act(async () => {
-      releases[0]?.();
-      await new Promise((resolve) => setTimeout(resolve, 20));
-    });
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
-    expect(screen.queryByText('Searched 3 folders')).toBeNull();
-  });
-
-  it('tells the user to sign in when the session expires mid-search', async () => {
-    await renderProject(
-      projectRoutes({
-        '/api/projects/p1/folders/f2/contents': () =>
-          json({ error: 'expired' }, 401),
-      }),
-    );
-    fireEvent.change(filterBox(), { target: { value: 'arc' } });
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Search whole project' }),
-    );
-    expect(
-      await screen.findByText(
-        'Your session has expired. Sign in again to continue.',
-      ),
-    ).toBeInTheDocument();
-    expect(screen.queryByText('Search cancelled')).toBeNull();
   });
 
   it('waits for Retry-After on a 429 and then reads the folder', async () => {

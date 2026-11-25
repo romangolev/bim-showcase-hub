@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ModalProvider } from '../modal/index.js';
 import { isHintDismissed } from '../onboarding/hints.js';
@@ -146,15 +152,18 @@ describe('Panes menu', () => {
     ).toEqual(['Workspace', 'Viewer', 'Analysis', 'Data']);
   });
 
-  it('opens from the keyboard, moves to the rows and closes with Escape', () => {
+  it('opens from the keyboard, moves to the rows and closes with Escape', async () => {
     renderMenu();
     const trigger = screen.getByRole('button', { name: 'Panes' });
+    trigger.focus();
     fireEvent.keyDown(trigger, { key: 'ArrowDown' });
     const menu = screen.getByRole('dialog', { name: 'Panes' });
+    expect(menu).toHaveAttribute('data-slot', 'popover-popup');
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
     const search = within(menu).getByRole('searchbox', {
       name: 'Search panes',
     });
-    expect(search).toHaveFocus();
+    await waitFor(() => expect(search).toHaveFocus());
     fireEvent.keyDown(search, { key: 'ArrowDown' });
     expect(document.activeElement).toBe(
       within(menu).getByRole('menuitem', { name: 'Go to Documents' }),
@@ -164,7 +173,37 @@ describe('Panes menu', () => {
       within(menu).getByRole('menuitem', { name: 'Reset layout' }),
     );
     fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'Escape' });
-    expect(screen.queryByRole('dialog', { name: 'Panes' })).toBeNull();
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'Panes' })).toBeNull(),
+    );
+    expect(trigger).toHaveFocus();
+  });
+
+  it('closes on an outside click without taking focus back', async () => {
+    renderMenu();
+    const outside = document.createElement('button');
+    document.body.append(outside);
+    openMenu();
+    fireEvent.pointerDown(outside);
+    fireEvent.mouseDown(outside);
+    fireEvent.click(outside);
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'Panes' })).toBeNull(),
+    );
+    expect(screen.getByRole('button', { name: 'Panes' })).not.toHaveFocus();
+    outside.remove();
+  });
+
+  it('returns focus to the trigger after running a row', async () => {
+    renderMenu();
+    const trigger = screen.getByRole('button', { name: 'Panes' });
+    const menu = openMenu();
+    fireEvent.click(
+      within(menu).getByRole('menuitemcheckbox', { name: 'Dashboard' }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'Panes' })).toBeNull(),
+    );
     expect(trigger).toHaveFocus();
   });
 

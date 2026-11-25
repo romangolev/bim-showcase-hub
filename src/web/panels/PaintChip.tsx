@@ -1,5 +1,7 @@
 import type { PaintPreset } from '../extensions/paintBrushes.js';
 import './panels.css';
+import { cn } from '../ui/cn.js';
+import { iconButtonClasses } from '../ui/IconButton.js';
 
 export function PaintSwatch({ preset }: { preset: PaintPreset }) {
   return (
@@ -14,7 +16,7 @@ export function PaintSwatch({ preset }: { preset: PaintPreset }) {
 export function StaticPaintChip({ preset }: { preset: PaintPreset }) {
   return (
     <span
-      className="icon-button bsh-paint__chip"
+      className={cn(iconButtonClasses, 'bsh-paint__chip')}
       role="img"
       aria-label={`${preset.colorName} paint`}
       title={`${preset.colorName} paint`}

@@ -74,20 +74,32 @@
 }
 
 .bsh-viewer-surface .bsh-ico-ifc {
-  background: url("./ifc-logo.svg") center / 22px 22px no-repeat;
-  -webkit-mask: none;
-  mask: none;
-}
-.bsh-viewer-surface .bsh-ico-ifc-batch {
-  background: url("./ifc-batch.png") center / 22px 22px no-repeat;
+  background: url("./ifc-logo-dark.svg") center / 22px 22px no-repeat;
   -webkit-mask: none;
   mask: none;
 }
 
-.bsh-viewer-surface .bsh-ico-ifc-settings {
-  background: url("./ifc-settings.png") center / 22px 22px no-repeat;
+:root[data-theme="light"] .bsh-viewer-surface .bsh-ico-ifc {
+  background-image: url("./ifc-logo-light.svg");
+}
+.bsh-viewer-surface .bsh-ico-ifc-batch {
+  background: url("./ifc-batch-dark.png") center / 22px 22px no-repeat;
   -webkit-mask: none;
   mask: none;
+}
+
+:root[data-theme="light"] .bsh-viewer-surface .bsh-ico-ifc-batch {
+  background-image: url("./ifc-batch-light.png");
+}
+
+.bsh-viewer-surface .bsh-ico-ifc-settings {
+  background: url("./ifc-settings-dark.png") center / 22px 22px no-repeat;
+  -webkit-mask: none;
+  mask: none;
+}
+
+:root[data-theme="light"] .bsh-viewer-surface .bsh-ico-ifc-settings {
+  background-image: url("./ifc-settings-light.png");
 }
 
 .bsh-ico-paint-swatch {

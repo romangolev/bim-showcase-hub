@@ -8,7 +8,9 @@ describe('StateBlock', () => {
       <StateBlock variant="loading" message="Reading elements" rows={4} />,
     );
     expect(screen.getByRole('status')).toHaveTextContent('Reading elements');
-    expect(container.querySelectorAll('.state-block__bar')).toHaveLength(4);
+    expect(
+      container.querySelectorAll('[data-slot="skeleton-bar"]'),
+    ).toHaveLength(4);
     expect(container.querySelector('svg')).toBeNull();
   });
 
@@ -58,8 +60,9 @@ describe('StateBlock', () => {
     expect(
       screen.getByRole('heading', { level: 1, name: 'Page not found' }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Go back' })).toHaveClass(
-      'btn-primary',
+    expect(screen.getByRole('button', { name: 'Go back' })).toHaveAttribute(
+      'data-variant',
+      'primary',
     );
   });
 });

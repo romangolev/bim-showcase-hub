@@ -1,19 +1,13 @@
-import {
-  type KeyboardEvent,
-  useId,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
-import { createPortal } from 'react-dom';
+import { type KeyboardEvent, useId, useMemo, useRef, useState } from 'react';
 import type { Command } from '../commands/types.js';
 import { Hint } from '../components/Hint.js';
 import { Icon } from '../components/icons.js';
 import type { MenuEntry } from '../components/Menu.js';
-import { moveFocus, onEscape, usePopover } from '../components/usePopover.js';
+import { moveFocus } from '../components/moveFocus.js';
 import { useT } from '../i18n/i18n.js';
 import { useModal } from '../modal/index.js';
+import { IconButton } from '../ui/IconButton.js';
+import { Popover, PopoverPopup, PopoverTrigger } from '../ui/Popover.js';
 import { layoutCommands, paneCommandContext } from './layoutCommandList.js';
 import { type LayoutApi, useLayout } from './layoutContext.js';
 import { layoutMenuEntries } from './PaneMenu.js';
@@ -199,16 +193,16 @@ function FooterEntry({
       type="button"
       role={checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
       aria-checked={checked}
-      className="menu__item"
+      className="panes-menu__command"
       disabled={entry.disabled}
       title={entry.description}
       onClick={() => onRun(entry)}
     >
-      <span className="menu__check">
+      <span className="panes-menu__command-check">
         {checked ? <Icon name="check" size={14} /> : null}
       </span>
       {entry.icon ? (
-        <Icon name={entry.icon} size={14} className="menu__icon" />
+        <Icon name={entry.icon} size={14} className="menu-icon" />
       ) : null}
       {entry.label}
     </button>
@@ -222,8 +216,7 @@ export function PanesMenu() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const popoverRef = useRef<HTMLDivElement>(null);
-  const popoverId = useId();
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const rows = useMemo(() => rowsOf(layout), [layout]);
   const visiblePanes = useMemo(() => rows.map((row) => row.pane), [rows]);
@@ -249,19 +242,6 @@ export function PanesMenu() {
     if (restore) triggerRef.current?.focus();
   };
 
-  const position = usePopover({
-    open,
-    triggerRef,
-    popoverRef,
-    onDismiss: () => setOpen(false),
-  });
-
-  useLayoutEffect(() => {
-    if (open) {
-      popoverRef.current?.querySelector<HTMLInputElement>('input')?.focus();
-    }
-  }, [open]);
-
   const run = (command: Command) => {
     close(true);
     void command.run({ openModal: modal.open });
@@ -274,9 +254,7 @@ export function PanesMenu() {
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (onEscape(event, () => close(true))) return;
-    const box = popoverRef.current;
-    if (!box) return;
+    const box = event.currentTarget;
     const buttons = Array.from(
       box.querySelectorAll<HTMLButtonElement>(
         '[role^="menuitem"]:not(:disabled)',
@@ -295,116 +273,98 @@ export function PanesMenu() {
   };
 
   return (
-    <div className="menu">
-      <button
+    <Popover
+      open={open}
+      onOpenChange={(next, details) =>
+        next ? setOpen(true) : close(details.reason === 'escape-key')
+      }
+    >
+      <PopoverTrigger
         ref={triggerRef}
-        type="button"
-        className="icon-button"
-        aria-label={t('panes.title')}
-        title={t('panes.title')}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        aria-controls={open ? popoverId : undefined}
-        onClick={() => (open ? close(false) : setOpen(true))}
+        render={
+          <IconButton label={t('panes.title')} title={t('panes.title')} />
+        }
         onKeyDown={(event) => {
-          if (open) return;
-          if (event.key === 'ArrowDown' || event.key === 'Enter') {
-            event.preventDefault();
-            setOpen(true);
-          }
+          if (open || event.key !== 'ArrowDown') return;
+          event.preventDefault();
+          setOpen(true);
         }}
       >
         <Icon name="dock" size={18} />
-      </button>
-      {open
-        ? createPortal(
-            <div
-              ref={popoverRef}
-              id={popoverId}
-              className="panes-menu__popover"
-              role="dialog"
-              aria-label={t('panes.title')}
-              style={
-                position
-                  ? { top: position.top, left: position.left }
-                  : { top: 0, left: 0, visibility: 'hidden' }
-              }
-              onKeyDown={onKeyDown}
-            >
-              <div className="panes-menu__search">
-                <Icon name="search" size={14} className="panes-menu__icon" />
-                <input
-                  type="search"
-                  aria-label={t('panes.search')}
-                  placeholder={t('panes.search')}
-                  autoComplete="off"
-                  spellCheck={false}
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                />
-              </div>
-              <Hint id="panes-menu">{t('panes.hint')}</Hint>
-              <div
-                className="panes-menu__body"
-                role="menu"
-                aria-label={t('panes.title')}
+      </PopoverTrigger>
+      <PopoverPopup
+        className="panes-menu__popover"
+        aria-label={t('panes.title')}
+        initialFocus={searchRef}
+        finalFocus={false}
+        onKeyDown={onKeyDown}
+      >
+        <div className="panes-menu__search">
+          <Icon name="search" size={14} className="panes-menu__icon" />
+          <input
+            ref={searchRef}
+            type="search"
+            aria-label={t('panes.search')}
+            placeholder={t('panes.search')}
+            autoComplete="off"
+            spellCheck={false}
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </div>
+        <Hint id="panes-menu">{t('panes.hint')}</Hint>
+        <div
+          className="panes-menu__body"
+          role="menu"
+          aria-label={t('panes.title')}
+        >
+          <div className="panes-menu__list">
+            {groups.map((group) => (
+              <fieldset
+                key={group.category || 'matches'}
+                className="panes-menu__group"
+                aria-label={group.category || t('panes.matching')}
               >
-                <div className="panes-menu__list">
-                  {groups.map((group) => (
-                    <fieldset
-                      key={group.category || 'matches'}
-                      className="panes-menu__group"
-                      aria-label={group.category || t('panes.matching')}
-                    >
-                      {group.category ? (
-                        <h3 className="panes-menu__heading">
-                          {group.category}
-                        </h3>
-                      ) : null}
-                      <ul role="none" className="panes-menu__rows">
-                        {group.panes.map((pane) => {
-                          const row = rowById.get(pane.id);
-                          if (!row) return null;
-                          return (
-                            <PaneRowItem
-                              key={pane.id}
-                              row={row}
-                              onRun={run}
-                              onFocus={() => {
-                                close(true);
-                                layout.focusPane(pane.id);
-                              }}
-                            />
-                          );
-                        })}
-                      </ul>
-                    </fieldset>
-                  ))}
-                  {groups.length === 0 ? (
-                    <p className="panes-menu__empty">{t('panes.empty')}</p>
-                  ) : null}
-                </div>
-                {footer.length > 0 ? (
-                  <div className="panes-menu__footer">
-                    {footer.map((entry) =>
-                      entry.kind === 'separator' ? (
-                        <hr key={entry.id} className="menu__separator" />
-                      ) : (
-                        <FooterEntry
-                          key={entry.id}
-                          entry={entry}
-                          onRun={runEntry}
-                        />
-                      ),
-                    )}
-                  </div>
+                {group.category ? (
+                  <h3 className="panes-menu__heading">{group.category}</h3>
                 ) : null}
-              </div>
-            </div>,
-            document.body,
-          )
-        : null}
-    </div>
+                <ul role="none" className="panes-menu__rows">
+                  {group.panes.map((pane) => {
+                    const row = rowById.get(pane.id);
+                    if (!row) return null;
+                    return (
+                      <PaneRowItem
+                        key={pane.id}
+                        row={row}
+                        onRun={run}
+                        onFocus={() => {
+                          close(true);
+                          layout.focusPane(pane.id);
+                        }}
+                      />
+                    );
+                  })}
+                </ul>
+              </fieldset>
+            ))}
+            {groups.length === 0 ? (
+              <p className="panes-menu__empty">{t('panes.empty')}</p>
+            ) : null}
+          </div>
+          {footer.length > 0 ? (
+            <div className="panes-menu__footer">
+              {footer.map((entry) =>
+                entry.kind === 'separator' ? (
+                  <hr key={entry.id} className="panes-menu__separator" />
+                ) : (
+                  <FooterEntry key={entry.id} entry={entry} onRun={runEntry} />
+                ),
+              )}
+            </div>
+          ) : null}
+        </div>
+      </PopoverPopup>
+    </Popover>
   );
 }
 

@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useT } from '../i18n/i18n.js';
+import { Button } from '../ui/Button.js';
+import { Checkbox } from '../ui/Checkbox.js';
+import { FieldLabel } from '../ui/Field.js';
 import {
   clearLocalData,
   formatStorageBytes,
@@ -106,9 +109,8 @@ export function LocalDataSettings() {
             open-model list are removed. Open tabs stay open until a reload. You
             stay signed in.
           </p>
-          <label className="settings__check">
-            <input
-              type="checkbox"
+          <FieldLabel layout="inline">
+            <Checkbox
               checked={preferences}
               disabled={report.preference.keys === 0}
               onChange={(event) => setPreferences(event.target.checked)}
@@ -116,36 +118,23 @@ export function LocalDataSettings() {
             Also reset preferences ({report.preference.keys}{' '}
             {report.preference.keys === 1 ? 'key' : 'keys'},{' '}
             {formatStorageBytes(report.preference.bytes)})
-          </label>
+          </FieldLabel>
           <div className="settings__actions">
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={!canClear}
-              onClick={clear}
-            >
+            <Button variant="primary" disabled={!canClear} onClick={clear}>
               Clear all local data
-            </button>
-            <button
-              type="button"
-              className="btn"
-              onClick={() => setConfirming(false)}
-            >
-              Cancel
-            </button>
+            </Button>
+            <Button onClick={() => setConfirming(false)}>Cancel</Button>
           </div>
         </fieldset>
       ) : (
         <div className="settings__actions">
-          <button
+          <Button
             ref={triggerRef}
-            type="button"
-            className="btn"
             disabled={report.total.keys === 0}
             onClick={() => setConfirming(true)}
           >
             Clear all local data…
-          </button>
+          </Button>
         </div>
       )}
       <p ref={statusRef} role="status" tabIndex={-1} className="settings__hint">

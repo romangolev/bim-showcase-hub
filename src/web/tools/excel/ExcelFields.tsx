@@ -1,5 +1,4 @@
 import { useContext } from 'react';
-import { NumberField } from '../../components/NumberField.js';
 import { SettingsField } from '../../components/SettingsForm.js';
 import { SwitchRow } from '../../components/SwitchRow.js';
 import {
@@ -23,6 +22,10 @@ import { PropertyPicker } from '../../panels/PropertyPicker.js';
 import { SelectionSets } from '../../panels/SelectionSets.js';
 import { usePropertyCatalog } from '../../panels/usePropertyCatalog.js';
 import { usePersisted } from '../../storage.js';
+import { Button } from '../../ui/Button.js';
+import { Input } from '../../ui/Input.js';
+import { NumberField } from '../../ui/NumberField.js';
+import { Select, SelectOption } from '../../ui/Select.js';
 import { usePublishedAdapter } from '../../viewer/activeAdapterStore.js';
 import { useModelColoring } from '../../viewer/modelColoring.js';
 import { modelScopeOptions, resolveScope } from '../../viewer/modelScope.js';
@@ -50,17 +53,17 @@ function SelectField<T extends string>({
     <SettingsField label={label}>
       {(id) => (
         <>
-          <select
+          <Select
             id={id}
             value={value}
-            onChange={(event) => onChange(event.target.value as T)}
+            onValueChange={(next) => onChange(next as T)}
           >
             {(Object.keys(labels) as T[]).map((key) => (
-              <option key={key} value={key}>
+              <SelectOption key={key} value={key}>
                 {labels[key]}
-              </option>
+              </SelectOption>
             ))}
-          </select>
+          </Select>
         </>
       )}
     </SettingsField>
@@ -130,13 +133,9 @@ export function ExcelFields() {
       </h3>
       {layout && !layout.isOpen('export') ? (
         <div className="settings__actions">
-          <button
-            type="button"
-            className="btn"
-            onClick={() => layout.togglePane('export')}
-          >
+          <Button onClick={() => layout.togglePane('export')}>
             Open Export pane
-          </button>
+          </Button>
         </div>
       ) : null}
       <p className="settings__hint">
@@ -196,25 +195,25 @@ export function ExcelFields() {
             <SettingsField key={name} label={<>Format of {name}</>}>
               {(id) => (
                 <>
-                  <select
+                  <Select
                     id={id}
                     value={excel.columnFormats[name] ?? 'auto'}
-                    onChange={(event) =>
+                    onValueChange={(next) =>
                       update({
                         columnFormats: withFormat(
                           excel.columnFormats,
                           name,
-                          event.target.value as ColumnFormat,
+                          next as ColumnFormat,
                         ),
                       })
                     }
                   >
                     {COLUMN_FORMATS.map((format) => (
-                      <option key={format} value={format}>
+                      <SelectOption key={format} value={format}>
                         {COLUMN_FORMAT_LABELS[format]}
-                      </option>
+                      </SelectOption>
                     ))}
-                  </select>
+                  </Select>
                 </>
               )}
             </SettingsField>
@@ -243,20 +242,18 @@ export function ExcelFields() {
       >
         {(id) => (
           <>
-            <select
+            <Select
               id={id}
               value={groupBy}
-              onChange={(event) =>
-                update({ groupBy: event.target.value || null })
-              }
+              onValueChange={(next) => update({ groupBy: next || null })}
             >
-              <option value="">One sheet</option>
+              <SelectOption value="">One sheet</SelectOption>
               {excel.properties.map((name) => (
-                <option key={name} value={name}>
+                <SelectOption key={name} value={name}>
                   {name}
-                </option>
+                </SelectOption>
               ))}
-            </select>
+            </Select>
           </>
         )}
       </SettingsField>
@@ -270,7 +267,7 @@ export function ExcelFields() {
       >
         {(id) => (
           <>
-            <input
+            <Input
               id={id}
               type="text"
               value={excel.namePattern}
@@ -294,7 +291,7 @@ export function ExcelFields() {
               min={0}
               max={CONFIRM_ABOVE_MAX}
               value={excel.confirmAbove}
-              onCommit={(confirmAbove) => update({ confirmAbove })}
+              onValueCommitted={(confirmAbove) => update({ confirmAbove })}
             />
           </>
         )}

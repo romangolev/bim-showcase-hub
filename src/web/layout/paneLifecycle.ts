@@ -507,11 +507,14 @@ export function createPaneLifecycle(deps: LifecycleDeps): PaneLifecycle {
       if (state.locked) return;
       remember();
       const kind = paneKind(id);
-      if (kind) dispatch({ type: 'setCollapsed', id: kind, collapsed: false });
       deps.dock()?.movePane(id, target);
       const message = MOVE_MESSAGES[target];
       if (message) announce(`${label(id)} ${message}`);
-      deps.later(() => deps.dock()?.focusPane(id));
+      deps.later(() => {
+        if (kind)
+          dispatch({ type: 'setCollapsed', id: kind, collapsed: false });
+        deps.dock()?.focusPane(id);
+      });
     },
     resetLayout: () => {
       if (state.locked) return;

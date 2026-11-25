@@ -4,6 +4,7 @@ import {
   SUMMARY_PRESETS,
   type SummaryPresetData,
 } from '../extensions/summaryPresets.js';
+import { translateNow } from '../i18n/i18n.js';
 import { MODALS } from '../modal/registry.js';
 import {
   listSettingsSections,
@@ -75,7 +76,9 @@ export function appCommands(state: AppCommandState): Command[] {
   const sections = listSettingsSections().map(
     (section): Command => ({
       id: `settings.section.${section.id}`,
-      title: `${section.label()} settings`,
+      title: translateNow('settings.sectionCommand', {
+        section: section.label(),
+      }),
       group: 'Settings',
       icon: section.icon,
       ...(section.keywords ? { keywords: section.keywords } : {}),

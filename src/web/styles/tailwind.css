@@ -1,0 +1,173 @@
+@import "tailwindcss/theme" layer(theme);
+@import "tailwindcss/utilities" layer(utilities) source(none);
+
+@source "../ui/**/*.tsx";
+@source not "../ui/**/*.test.tsx";
+
+@theme inline reference {
+  --color-*: initial;
+  --color-void: var(--color-void);
+  --color-graphite: var(--color-graphite);
+  --color-charcoal: var(--color-charcoal);
+  --color-smoke: var(--color-smoke);
+  --color-steel: var(--color-steel);
+  --color-fog: var(--color-fog);
+  --color-ash: var(--color-ash);
+  --color-chalk: var(--color-chalk);
+  --color-snow: var(--color-snow);
+  --color-bone: var(--color-bone);
+  --color-ink: var(--color-ink);
+  --color-signal-blue: var(--color-signal-blue);
+  --color-arc-blue: var(--color-arc-blue);
+  --color-ring-blue: var(--color-ring-blue);
+  --color-mint: var(--color-mint);
+  --color-fern: var(--color-fern);
+  --color-coral: var(--color-coral);
+  --color-ember: var(--color-ember);
+  --color-iris: var(--color-iris);
+  --color-tag-red: var(--color-tag-red);
+  --color-tag-orange: var(--color-tag-orange);
+  --color-tag-yellow: var(--color-tag-yellow);
+  --color-tag-green: var(--color-tag-green);
+  --color-tag-blue: var(--color-tag-blue);
+  --color-tag-purple: var(--color-tag-purple);
+  --color-hairline: var(--color-hairline);
+  --color-hairline-faint: var(--color-hairline-faint);
+  --color-field-border: var(--color-field-border);
+  --color-ghost-fill: var(--color-ghost-fill);
+  --color-ghost-fill-hover: var(--color-ghost-fill-hover);
+  --color-ghost-fill-active: var(--color-ghost-fill-active);
+  --color-mint-wash: var(--color-mint-wash);
+  --color-accent-pressed: var(--color-accent-pressed);
+  --color-scrim: var(--color-scrim);
+  --color-match: var(--color-match);
+  --color-swatch-ring: var(--color-swatch-ring);
+  --color-surface: var(--ui-surface);
+  --color-surface-raised: var(--ui-surface-raised);
+  --color-surface-sunken: var(--ui-surface-sunken);
+  --color-fill: var(--ui-fill);
+  --color-fill-hover: var(--ui-fill-hover);
+  --color-fill-active: var(--ui-fill-active);
+  --color-fg: var(--ui-text);
+  --color-fg-muted: var(--ui-text-muted);
+  --color-fg-subtle: var(--ui-text-subtle);
+  --color-fg-disabled: var(--ui-text-disabled);
+  --color-line: var(--ui-border);
+  --color-line-strong: var(--ui-border-strong);
+  --color-accent: var(--ui-accent);
+  --color-accent-fill: var(--ui-accent-fill);
+  --color-accent-tint: var(--ui-accent-tint);
+  --color-on-accent: var(--ui-on-accent);
+  --color-solid: var(--ui-solid);
+  --color-solid-hover: var(--ui-solid-hover);
+  --color-on-solid: var(--ui-on-solid);
+  --color-danger: var(--ui-danger);
+  --color-success: var(--ui-success);
+  --color-focus: var(--ui-focus);
+  --color-overlay: var(--ui-scrim);
+
+  --radius-*: initial;
+  --radius-badge: var(--radius-badge);
+  --radius-tile: var(--radius-tile);
+  --radius-button: var(--radius-button);
+  --radius-card: var(--radius-card);
+  --radius-container: var(--radius-container);
+  --radius-pill: var(--radius-pill);
+  --radius-control: var(--ui-radius-control);
+  --radius-surface: var(--ui-radius-surface);
+  --radius-item: var(--ui-radius-item);
+
+  --text-*: initial;
+  --text-8: var(--text-8);
+  --text-12: var(--text-12);
+  --text-13: var(--text-13);
+  --text-14: var(--text-14);
+  --text-16: var(--text-16);
+  --text-18: var(--text-18);
+  --text-24: var(--text-24);
+  --text-32: var(--text-32);
+  --text-42: var(--text-42);
+  --text-52: var(--text-52);
+  --text-64: var(--text-64);
+
+  --font-*: initial;
+  --font-sans: var(--font-sans);
+
+  --font-weight-*: initial;
+  --font-weight-light: var(--weight-light);
+  --font-weight-body: var(--weight-body);
+  --font-weight-ui: var(--weight-ui);
+  --font-weight-label: var(--weight-label);
+  --font-weight-strong: var(--weight-strong);
+
+  --tracking-*: initial;
+  --tracking-body: var(--tracking-body);
+  --tracking-tight: var(--tracking-tight);
+  --tracking-display: var(--tracking-display);
+
+  --shadow-*: initial;
+  --shadow-control: var(--ui-shadow-control);
+  --shadow-float: var(--ui-shadow-float);
+  --shadow-inset: var(--ui-shadow-inset);
+
+  --z-index-popup: var(--ui-z-popup);
+
+  --spacing: var(--space-unit);
+  --spacing-hit: var(--hit-target);
+  --spacing-dialog: var(--ui-dialog-height);
+  --spacing-dialog-compact: var(--ui-dialog-height-compact);
+  --spacing-dialog-top: var(--ui-dialog-top);
+
+  --container-*: initial;
+  --container-menu: var(--ui-menu-min);
+  --container-menu-hint: var(--ui-menu-hint-max);
+  --container-dialog-sm: var(--ui-dialog-sm);
+  --container-dialog-md: var(--ui-dialog-md);
+  --container-dialog-lg: var(--ui-dialog-lg);
+  --container-dialog-xl: var(--ui-dialog-xl);
+  --container-dialog-command: var(--ui-dialog-command);
+
+  --color-warning: var(--ui-warning);
+
+  --default-border-width: 0.5px;
+  --default-transition-duration: var(--ui-motion);
+  --default-transition-timing-function: ease;
+
+  --z-index-sticky: var(--ui-z-sticky);
+}
+
+@utility scroll-shadow {
+  background:
+    linear-gradient(var(--ui-surface) 30%, transparent) top / 100% 24px
+    no-repeat local,
+    linear-gradient(transparent, var(--ui-surface) 70%) bottom / 100% 24px
+    no-repeat local,
+    linear-gradient(var(--ui-border), transparent) top / 100% 8px no-repeat
+    scroll,
+    linear-gradient(transparent, var(--ui-border)) bottom / 100% 8px no-repeat
+    scroll;
+}
+
+@utility field-row {
+  grid-template-columns:
+    minmax(var(--ui-field-label-min), var(--ui-field-label-max))
+    minmax(0, 1fr);
+
+  & > [data-slot="field-hint"],
+  & > [data-slot="field-error"] {
+    grid-column: 2;
+  }
+
+  @container (max-width: 32rem) {
+    grid-template-columns: minmax(0, 1fr);
+
+    & > [data-slot="field-hint"],
+    & > [data-slot="field-error"] {
+      grid-column: 1;
+    }
+  }
+}
+
+@theme inline reference {
+  --z-index-raised: var(--z-raised);
+}

@@ -1,14 +1,6 @@
-import {
-  type KeyboardEvent,
-  useEffect,
-  useId,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from 'react';
-import { createPortal } from 'react-dom';
+import { type KeyboardEvent, useEffect, useId, useRef, useState } from 'react';
 import { Icon } from '../components/icons.js';
-import { moveFocus, onEscape, usePopover } from '../components/usePopover.js';
+import { moveFocus } from '../components/moveFocus.js';
 import { ModalHost } from '../modal/ModalHost.js';
 import { LOCKED_REASON } from './layoutApply.js';
 import { useLayout } from './layoutContext.js';
@@ -19,6 +11,9 @@ import {
   type WorkspaceApi,
 } from './workspaces.js';
 import './workspaces.css';
+import { Button } from '../ui/Button.js';
+import { IconButton } from '../ui/IconButton.js';
+import { Popover, PopoverPopup, PopoverTrigger } from '../ui/Popover.js';
 
 interface FormProps {
   close: () => void;
@@ -90,12 +85,10 @@ function NameForm({
         </p>
       ) : null}
       <div className="settings__actions">
-        <button className="btn btn-primary" type="submit">
+        <Button variant="primary" type="submit">
           {confirm === name ? 'Replace workspace' : submitLabel}
-        </button>
-        <button className="btn" type="button" onClick={close}>
-          Cancel
-        </button>
+        </Button>
+        <Button onClick={close}>Cancel</Button>
       </div>
     </form>
   );
@@ -162,16 +155,10 @@ function ImportForm({
         </p>
       ) : null}
       <div className="settings__actions">
-        <button
-          className="btn btn-primary"
-          type="submit"
-          disabled={!text.trim()}
-        >
+        <Button variant="primary" type="submit" disabled={!text.trim()}>
           Apply layout
-        </button>
-        <button className="btn" type="button" onClick={close}>
-          Cancel
-        </button>
+        </Button>
+        <Button onClick={close}>Cancel</Button>
       </div>
     </form>
   );
@@ -182,22 +169,8 @@ export function WorkspaceSwitcher() {
   const workspace = layout.workspaces;
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const popoverRef = useRef<HTMLDivElement>(null);
   const popoverId = useId();
   const locked = layout.locked;
-
-  const position = usePopover({
-    open,
-    triggerRef,
-    popoverRef,
-    onDismiss: () => setOpen(false),
-  });
-
-  useLayoutEffect(() => {
-    if (open) {
-      popoverRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
-    }
-  }, [open]);
 
   if (layout.mode !== 'dock') return null;
 
@@ -212,11 +185,10 @@ export function WorkspaceSwitcher() {
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (onEscape(event, () => close(true))) return;
     const buttons = Array.from(
-      popoverRef.current?.querySelectorAll<HTMLButtonElement>(
+      event.currentTarget.querySelectorAll<HTMLButtonElement>(
         'button:not(:disabled)',
-      ) ?? [],
+      ),
     );
     if (buttons.length === 0) return;
     moveFocus(event, buttons);
@@ -269,155 +241,134 @@ export function WorkspaceSwitcher() {
   );
 
   return (
-    <div className="menu">
-      <button
-        ref={triggerRef}
-        type="button"
-        className="icon-button"
-        aria-label="Workspaces"
-        title="Workspaces"
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        aria-controls={open ? popoverId : undefined}
-        onClick={() => (open ? close(false) : setOpen(true))}
-        onKeyDown={(event) => {
-          if (open) return;
-          if (event.key === 'ArrowDown' || event.key === 'Enter') {
+    <>
+      <Popover
+        open={open}
+        onOpenChange={(next, details) =>
+          next ? setOpen(true) : close(details.reason === 'escape-key')
+        }
+      >
+        <PopoverTrigger
+          ref={triggerRef}
+          render={<IconButton label="Workspaces" title="Workspaces" />}
+          onKeyDown={(event) => {
+            if (open || event.key !== 'ArrowDown') return;
             event.preventDefault();
             setOpen(true);
-          }
-        }}
-      >
-        <Icon name="layers" size={18} />
-      </button>
-      {open
-        ? createPortal(
-            <div
-              ref={popoverRef}
-              id={popoverId}
-              className="workspaces settings"
-              role="dialog"
-              aria-label="Workspaces"
-              style={
-                position
-                  ? { top: position.top, left: position.left }
-                  : { top: 0, left: 0, visibility: 'hidden' }
-              }
-              onKeyDown={onKeyDown}
+          }}
+        >
+          <Icon name="layers" size={18} />
+        </PopoverTrigger>
+        <PopoverPopup
+          className="workspaces settings"
+          aria-label="Workspaces"
+          finalFocus={false}
+          onKeyDown={onKeyDown}
+        >
+          <section aria-label="Built-in workspaces">
+            <h3 className="workspaces__heading">Built in</h3>
+            <ul className="workspaces__rows">
+              {workspace.presets.map((preset) => {
+                const disabled =
+                  locked || (preset.id === 'present' && !workspace.canPresent);
+                const reason = locked
+                  ? lockReason
+                  : preset.id === 'present' && !workspace.canPresent
+                    ? 'Open a model first'
+                    : undefined;
+                return (
+                  <li key={preset.id} className="workspaces__row">
+                    <button
+                      type="button"
+                      className="workspaces__main"
+                      data-preset={preset.id}
+                      aria-describedby={`${popoverId}-${preset.id}`}
+                      aria-pressed={workspace.active === `preset:${preset.id}`}
+                      disabled={disabled}
+                      title={reason ?? `Apply ${preset.name}`}
+                      onClick={() =>
+                        run(() => workspace.applyPreset(preset.id))
+                      }
+                    >
+                      <span className="workspaces__title">{preset.name}</span>
+                      <span
+                        id={`${popoverId}-${preset.id}`}
+                        className="workspaces__description"
+                      >
+                        {reason ?? preset.description}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+          <section aria-label="Saved workspaces">
+            <h3 className="workspaces__heading">Saved</h3>
+            {workspace.items.length === 0 ? (
+              <p className="workspaces__empty">
+                Save the current arrangement to reuse it later.
+              </p>
+            ) : (
+              <ul className="workspaces__rows">
+                {workspace.items.map(savedRow)}
+              </ul>
+            )}
+          </section>
+          <div className="workspaces__footer">
+            <button
+              type="button"
+              className="workspaces__command"
+              onClick={() => run(() => workspace.openDialog({ kind: 'save' }))}
             >
-              <section aria-label="Built-in workspaces">
-                <h3 className="workspaces__heading">Built in</h3>
-                <ul className="workspaces__rows">
-                  {workspace.presets.map((preset) => {
-                    const disabled =
-                      locked ||
-                      (preset.id === 'present' && !workspace.canPresent);
-                    const reason = locked
-                      ? lockReason
-                      : preset.id === 'present' && !workspace.canPresent
-                        ? 'Open a model first'
-                        : undefined;
-                    return (
-                      <li key={preset.id} className="workspaces__row">
-                        <button
-                          type="button"
-                          className="workspaces__main"
-                          data-preset={preset.id}
-                          aria-describedby={`${popoverId}-${preset.id}`}
-                          aria-pressed={
-                            workspace.active === `preset:${preset.id}`
-                          }
-                          disabled={disabled}
-                          title={reason ?? `Apply ${preset.name}`}
-                          onClick={() =>
-                            run(() => workspace.applyPreset(preset.id))
-                          }
-                        >
-                          <span className="workspaces__title">
-                            {preset.name}
-                          </span>
-                          <span
-                            id={`${popoverId}-${preset.id}`}
-                            className="workspaces__description"
-                          >
-                            {reason ?? preset.description}
-                          </span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </section>
-              <section aria-label="Saved workspaces">
-                <h3 className="workspaces__heading">Saved</h3>
-                {workspace.items.length === 0 ? (
-                  <p className="workspaces__empty">
-                    Save the current arrangement to reuse it later.
-                  </p>
-                ) : (
-                  <ul className="workspaces__rows">
-                    {workspace.items.map(savedRow)}
-                  </ul>
-                )}
-              </section>
-              <div className="workspaces__footer">
-                <button
-                  type="button"
-                  className="workspaces__command"
-                  onClick={() =>
-                    run(() => workspace.openDialog({ kind: 'save' }))
-                  }
-                >
-                  Save current as…
-                </button>
-                <button
-                  type="button"
-                  className="workspaces__command"
-                  disabled={locked}
-                  title={lockReason}
-                  onClick={() =>
-                    run(() => workspace.openDialog({ kind: 'import' }))
-                  }
-                >
-                  Import layout…
-                </button>
-                <button
-                  type="button"
-                  className="workspaces__command"
-                  onClick={() => run(workspace.download)}
-                >
-                  Download layout
-                </button>
-                <button
-                  type="button"
-                  className="workspaces__command"
-                  onClick={() => run(workspace.copyJson)}
-                >
-                  Copy layout JSON
-                </button>
-                <button
-                  type="button"
-                  className="workspaces__command"
-                  onClick={() => run(workspace.copyLink)}
-                >
-                  Copy share link
-                </button>
-                {workspace.canRevert ? (
-                  <button
-                    type="button"
-                    className="workspaces__command"
-                    disabled={locked}
-                    title={lockReason}
-                    onClick={() => run(workspace.revert)}
-                  >
-                    Revert layout
-                  </button>
-                ) : null}
-              </div>
-            </div>,
-            document.body,
-          )
-        : null}
+              Save current as…
+            </button>
+            <button
+              type="button"
+              className="workspaces__command"
+              disabled={locked}
+              title={lockReason}
+              onClick={() =>
+                run(() => workspace.openDialog({ kind: 'import' }))
+              }
+            >
+              Import layout…
+            </button>
+            <button
+              type="button"
+              className="workspaces__command"
+              onClick={() => run(workspace.download)}
+            >
+              Download layout
+            </button>
+            <button
+              type="button"
+              className="workspaces__command"
+              onClick={() => run(workspace.copyJson)}
+            >
+              Copy layout JSON
+            </button>
+            <button
+              type="button"
+              className="workspaces__command"
+              onClick={() => run(workspace.copyLink)}
+            >
+              Copy share link
+            </button>
+            {workspace.canRevert ? (
+              <button
+                type="button"
+                className="workspaces__command"
+                disabled={locked}
+                title={lockReason}
+                onClick={() => run(workspace.revert)}
+              >
+                Revert layout
+              </button>
+            ) : null}
+          </div>
+        </PopoverPopup>
+      </Popover>
       {dialog?.kind === 'save' ? (
         <ModalHost
           definition={{
@@ -487,6 +438,6 @@ export function WorkspaceSwitcher() {
           onClose={workspace.closeDialog}
         />
       ) : null}
-    </div>
+    </>
   );
 }

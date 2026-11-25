@@ -123,7 +123,8 @@ export function DashboardPresetMenu({ view, apply }: DashboardPresetMenuProps) {
   return (
     <Menu
       label="Dashboard presets"
-      triggerClassName="btn bsh-presets-trigger"
+      triggerVariant="button"
+      triggerClassName="bsh-presets-trigger"
       align="start"
       trigger={
         <>

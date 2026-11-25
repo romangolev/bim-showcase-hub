@@ -1,4 +1,6 @@
 import fs from 'node:fs';
+import http from 'node:http';
+import type { AddressInfo } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import request from 'supertest';
@@ -438,6 +440,40 @@ describe('session and auth', () => {
     await signIn(agent);
     await agent.get('/api/hubs');
     expect(listHubs).toHaveBeenCalledWith('access-1');
+  });
+});
+
+describe('thumbnails', () => {
+  it('aborts the upstream fetch when the browser closes the request', async () => {
+    let seen: AbortSignal | undefined;
+    const data = {
+      ...createMockDataService(),
+      versionThumbnail: (
+        _token: string,
+        _urn: string,
+        _size: number,
+        signal?: AbortSignal,
+      ) => {
+        seen = signal;
+        return new Promise<null>(() => {});
+      },
+    } satisfies DataService;
+    const app = createApp(loadConfig({ MOCK_APS: '1' }), {
+      auth: fakeAuth(),
+      data,
+    });
+    const server = app.listen(0);
+    const { port } = server.address() as AddressInfo;
+    const urn = Buffer.from('urn:adsk.wipprod:dm.lineage:abc').toString(
+      'base64url',
+    );
+    const req = http.get(`http://127.0.0.1:${port}/api/thumbnails/${urn}`);
+    req.on('error', () => {});
+    await vi.waitFor(() => expect(seen).toBeDefined());
+    expect(seen?.aborted).toBe(false);
+    req.destroy();
+    await vi.waitFor(() => expect(seen?.aborted).toBe(true));
+    server.close();
   });
 });
 

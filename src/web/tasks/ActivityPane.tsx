@@ -2,6 +2,7 @@ import { StateBlock } from '../components/StateBlock.js';
 import { saveBlob } from '../extensions/download.js';
 import { formatDateTime } from '../i18n/format.js';
 import { useSettings } from '../settings/SettingsContext.js';
+import { Button } from '../ui/Button.js';
 import { activityFile } from './activityExport.js';
 import {
   type Notification,
@@ -45,9 +46,8 @@ export function ActivityPane({
           borderBottom: 'var(--border-hairline)',
         }}
       >
-        <button
-          type="button"
-          className="btn btn-small"
+        <Button
+          size="small"
           disabled={empty}
           onClick={() => {
             const file = activityFile(log);
@@ -58,15 +58,10 @@ export function ActivityPane({
           }}
         >
           Download log
-        </button>
-        <button
-          type="button"
-          className="btn btn-small"
-          disabled={empty}
-          onClick={() => store.clearLog()}
-        >
+        </Button>
+        <Button size="small" disabled={empty} onClick={() => store.clearLog()}>
           Clear log
-        </button>
+        </Button>
       </div>
       {empty ? (
         <StateBlock

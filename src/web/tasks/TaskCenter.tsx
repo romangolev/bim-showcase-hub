@@ -1,5 +1,10 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { Icon } from '../components/icons.js';
+import { Button } from '../ui/Button.js';
+import { IconButton } from '../ui/IconButton.js';
+import { List, ListItem } from '../ui/List.js';
+import { Progress } from '../ui/Progress.js';
+import { Spinner } from '../ui/Spinner.js';
 import { NotificationHost } from './NotificationHost.js';
 import {
   type NotificationStore,
@@ -30,7 +35,7 @@ function TaskRow({
   const percent =
     task.progress === null ? null : Math.round(task.progress * 100);
   return (
-    <li className="task-row" data-state={task.state}>
+    <ListItem className="task-row" data-state={task.state}>
       <div className="task-row__text">
         <span className="task-row__label">{task.label}</span>
         <span className="task-row__detail">
@@ -38,35 +43,29 @@ function TaskRow({
           {task.detail ? `: ${task.detail}` : ''}
         </span>
         {task.state === 'running' ? (
-          <progress
-            className="task-row__bar"
-            aria-label={`${task.label} progress`}
-            max={100}
-            {...(percent === null ? {} : { value: percent })}
-          />
+          <Progress label={`${task.label} progress`} value={percent} />
         ) : null}
       </div>
       {task.state === 'running' && task.cancellable ? (
-        <button type="button" className="btn btn-small" onClick={onCancel}>
+        <Button size="small" onClick={onCancel}>
           Cancel
-        </button>
+        </Button>
       ) : null}
       {task.state === 'failed' && task.retryable ? (
-        <button type="button" className="btn btn-small" onClick={onRetry}>
+        <Button size="small" onClick={onRetry}>
           Retry
-        </button>
+        </Button>
       ) : null}
       {task.state !== 'running' ? (
-        <button
-          type="button"
-          className="icon-button task-row__dismiss"
-          aria-label={`Dismiss ${task.label}`}
+        <IconButton
+          className="task-row__dismiss"
+          label={`Dismiss ${task.label}`}
           onClick={onDismiss}
         >
           <Icon name="close" size={14} />
-        </button>
+        </IconButton>
       ) : null}
-    </li>
+    </ListItem>
   );
 }
 
@@ -111,10 +110,9 @@ export function TaskCenter({
     <div className="task-center" ref={root}>
       <NotificationHost store={notificationStore} />
       {center.tasks.length > 0 ? (
-        <button
-          type="button"
-          className="icon-button task-center__trigger"
-          aria-label={
+        <IconButton
+          className="task-center__trigger"
+          label={
             center.running > 0 ? `Tasks, ${center.running} running` : 'Tasks'
           }
           aria-expanded={open}
@@ -123,23 +121,17 @@ export function TaskCenter({
           data-warning={warned && !failed}
           onClick={() => setOpen((value) => !value)}
         >
-          <Icon
-            name={
-              center.running > 0
-                ? 'spinner'
-                : failed || warned
-                  ? 'alert'
-                  : 'check'
-            }
-            size={18}
-            className={center.running > 0 ? 'spin' : undefined}
-          />
+          {center.running > 0 ? (
+            <Spinner size={18} />
+          ) : (
+            <Icon name={failed || warned ? 'alert' : 'check'} size={18} />
+          )}
           {center.running > 0 ? (
             <span className="task-center__count" aria-hidden="true">
               {center.running}
             </span>
           ) : null}
-        </button>
+        </IconButton>
       ) : null}
       {open && center.tasks.length > 0 ? (
         <section
@@ -147,7 +139,7 @@ export function TaskCenter({
           className="task-center__popover"
           aria-label="Tasks"
         >
-          <ul className="task-center__list">
+          <List className="task-center__list">
             {shown.map((task) => (
               <TaskRow
                 key={task.id}
@@ -157,15 +149,11 @@ export function TaskCenter({
                 onDismiss={() => center.dismiss(task.id)}
               />
             ))}
-          </ul>
+          </List>
           {finished.length > 0 ? (
-            <button
-              type="button"
-              className="btn btn-small"
-              onClick={center.clearFinished}
-            >
+            <Button size="small" onClick={center.clearFinished}>
               Clear finished
-            </button>
+            </Button>
           ) : null}
         </section>
       ) : null}

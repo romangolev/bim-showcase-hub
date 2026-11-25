@@ -4,6 +4,8 @@ import { useModal } from '../modal/ModalContext.js';
 import { usePersisted } from '../storage.js';
 import { TOOLS } from '../tools/index.js';
 import type { AnyViewerTool } from '../tools/kernel/ToolRegistry.js';
+import { Button } from '../ui/Button.js';
+import { FieldContent, FieldHint, FieldTitle } from '../ui/Field.js';
 import {
   PANE_SETTINGS_ORDER,
   PANE_SETTINGS_SCHEMA,
@@ -48,20 +50,15 @@ function EntryRow({
           onChange={toggle.onChange}
         />
       ) : (
-        <span className="settings__entry-text">
-          <span className="switch-row__label">{title}</span>
-          <span className="switch-row__hint">{description}</span>
-        </span>
+        <FieldContent className="settings__entry-text">
+          <FieldTitle>{title}</FieldTitle>
+          <FieldHint>{description}</FieldHint>
+        </FieldContent>
       )}
       {modalId ? (
-        <button
-          type="button"
-          className="btn"
-          aria-label={windowTitle}
-          onClick={() => openWithBack(modalId)}
-        >
+        <Button aria-label={windowTitle} onClick={() => openWithBack(modalId)}>
           Settings
-        </button>
+        </Button>
       ) : null}
     </div>
   );

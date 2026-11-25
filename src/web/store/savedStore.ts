@@ -22,6 +22,7 @@ export const MAX_TOTAL_BYTES = 4_000_000;
 export const MAX_NAME_LENGTH = 80;
 
 const BLOCKED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+const RETIRED_KINDS = new Set(['federation']);
 
 export interface SavedItem {
   id: string;
@@ -56,6 +57,7 @@ export function sanitizeItem(raw: unknown): SavedItem | null {
   const { id, kind, name, version, updatedAt, data } = raw;
   if (typeof id !== 'string' || !id || id.length > 64) return null;
   if (typeof kind !== 'string' || !SAVED_KIND_PATTERN.test(kind)) return null;
+  if (RETIRED_KINDS.has(kind)) return null;
   if (typeof name !== 'string' || !name.trim()) return null;
   if (!isRecord(data)) return null;
   const item: SavedItem = {

@@ -1,8 +1,9 @@
-import { NumberField } from '../components/NumberField.js';
 import { SettingsField } from '../components/SettingsForm.js';
 import { SwitchRow } from '../components/SwitchRow.js';
 import { useT } from '../i18n/i18n.js';
 import { usePersisted } from '../storage.js';
+import { NumberField } from '../ui/NumberField.js';
+import { Select, SelectOption } from '../ui/Select.js';
 import {
   MAX_ADVANCE_SECONDS,
   MAX_SIDE,
@@ -30,22 +31,22 @@ export function SnapshotSettings() {
         hint={`Sizes above ${MAX_SIDE} pixels on a side or 30 megapixels are refused.`}
       >
         {(id) => (
-          <select
+          <Select
             id={id}
             value={settings.resolution}
-            onChange={(event) =>
+            onValueChange={(next) =>
               update((prev) => ({
                 ...prev,
-                resolution: event.target.value as SnapshotResolution,
+                resolution: next as SnapshotResolution,
               }))
             }
           >
             {RESOLUTIONS.map((item) => (
-              <option key={item.id} value={item.id}>
+              <SelectOption key={item.id} value={item.id}>
                 {item.label}
-              </option>
+              </SelectOption>
             ))}
-          </select>
+          </Select>
         )}
       </SettingsField>
       {settings.resolution === 'custom' ? (
@@ -57,7 +58,7 @@ export function SnapshotSettings() {
               min={MIN_CUSTOM_WIDTH}
               max={MAX_SIDE}
               value={settings.customWidth}
-              onCommit={(customWidth) =>
+              onValueCommitted={(customWidth) =>
                 update((prev) => ({ ...prev, customWidth }))
               }
             />
@@ -81,7 +82,7 @@ export function SnapshotSettings() {
             min={0}
             max={MAX_ADVANCE_SECONDS}
             value={settings.advanceSeconds}
-            onCommit={(advanceSeconds) =>
+            onValueCommitted={(advanceSeconds) =>
               update((prev) => ({ ...prev, advanceSeconds }))
             }
           />

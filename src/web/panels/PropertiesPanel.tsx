@@ -8,6 +8,7 @@ import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { groupProperties, MAX_SELECTED, valueText } from './propertiesView.js';
 import { useResolvedAdapter } from './useScopedRows.js';
 import './panels.css';
+import { Card, CardHeader, CardTitle } from '../ui/Card.js';
 
 export interface PropertiesPanelProps {
   adapter?: ViewerAdapter | null;
@@ -111,10 +112,10 @@ export function PropertiesPanel({
   const matches = sections.some((section) => section.groups.length > 0);
 
   return (
-    <section className="bsh-card bsh-props" aria-label={title}>
-      <header className="bsh-card__header">
-        <h2 className="bsh-card__title">{title}</h2>
-      </header>
+    <Card className="bsh-props" aria-label={title}>
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+      </CardHeader>
       {!model ? (
         <StateBlock
           variant="empty"
@@ -226,6 +227,6 @@ export function PropertiesPanel({
           </div>
         </>
       )}
-    </section>
+    </Card>
   );
 }

@@ -1,3 +1,5 @@
+import { notify } from './notifications.js';
+
 export type TaskState = 'running' | 'done' | 'warning' | 'failed' | 'cancelled';
 
 export interface Task {
@@ -22,7 +24,10 @@ export interface TaskOptions {
   label: string;
   cancel?: () => void;
   retry?: () => void;
+  notify?: boolean;
 }
+
+export type TaskOutcome = (task: Task, message: string) => void;
 
 export interface TaskHandle {
   id: number;
@@ -52,11 +57,17 @@ function messageOf(error: unknown): string | null {
   return typeof error === 'string' && error ? error : null;
 }
 
-export function createTaskStore(now: () => number = Date.now): TaskStore {
+export function createTaskStore(
+  now: () => number = Date.now,
+  onOutcome?: TaskOutcome,
+): TaskStore {
   let nextId = 1;
   let snapshot: TaskSnapshot = { tasks: [], running: 0, announcement: '' };
   const listeners = new Set<() => void>();
-  const hooks = new Map<number, Pick<TaskOptions, 'cancel' | 'retry'>>();
+  const hooks = new Map<
+    number,
+    Pick<TaskOptions, 'cancel' | 'retry' | 'notify'>
+  >();
 
   const find = (id: number) => snapshot.tasks.find((task) => task.id === id);
 
@@ -99,6 +110,7 @@ export function createTaskStore(now: () => number = Date.now): TaskStore {
     const task = find(id);
     if (task?.state !== 'running') return;
     const message = `${task.label} ${verb}`;
+    const outcome = state !== 'cancelled' && hooks.get(id)?.notify;
     patch(
       id,
       {
@@ -107,9 +119,15 @@ export function createTaskStore(now: () => number = Date.now): TaskStore {
         progress: state === 'done' || state === 'warning' ? 1 : task.progress,
         endedAt: now(),
       },
-      snapshot.announcement === message ? `${message} ` : message,
+      outcome
+        ? snapshot.announcement
+        : snapshot.announcement === message
+          ? `${message} `
+          : message,
     );
     if (state !== 'failed') hooks.delete(id);
+    const settled = find(id);
+    if (outcome && settled) onOutcome?.(settled, message);
   };
 
   const cancel = (id: number) => {
@@ -133,9 +151,9 @@ export function createTaskStore(now: () => number = Date.now): TaskStore {
   };
 
   return {
-    start({ label, cancel: onCancel, retry }) {
+    start({ label, cancel: onCancel, retry, notify: toast }) {
       const id = nextId++;
-      hooks.set(id, { cancel: onCancel, retry });
+      hooks.set(id, { cancel: onCancel, retry, notify: toast });
       commit(
         [
           ...snapshot.tasks,
@@ -206,7 +224,21 @@ export function createTaskStore(now: () => number = Date.now): TaskStore {
   };
 }
 
-export const tasks = createTaskStore();
+const OUTCOME_TONE = {
+  done: 'success',
+  warning: 'warning',
+  failed: 'error',
+} as const;
+
+export function notifyOutcome(task: Task, message: string): void {
+  if (task.state === 'running' || task.state === 'cancelled') return;
+  notify(message, {
+    tone: OUTCOME_TONE[task.state],
+    ...(task.detail ? { detail: task.detail } : {}),
+  });
+}
+
+export const tasks = createTaskStore(Date.now, notifyOutcome);
 
 export function startTask(options: TaskOptions): TaskHandle {
   return tasks.start(options);

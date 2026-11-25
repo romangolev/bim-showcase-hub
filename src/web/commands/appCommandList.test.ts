@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
+import '../settings/sections.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { TOOLS } from '../tools/index.js';
 import type { ToolContext } from '../tools/kernel/ViewerTool.js';
@@ -41,6 +42,18 @@ describe('appCommands', () => {
     list.find((c) => c.id === 'ifc.settings')?.run({ openModal });
     expect(openModal).toHaveBeenCalledWith('tool-ifc-settings');
     expect(list.find((c) => c.id === 'glb.settings')).toBeUndefined();
+  });
+
+  it('titles a settings section command in the interface language', () => {
+    const title = () =>
+      appCommands(state).find((c) => c.id === 'settings.section.shortcuts')
+        ?.title;
+    expect(title()).toBe('Settings: Shortcuts');
+    window.localStorage.setItem(
+      'bsh-settings-v1',
+      JSON.stringify({ language: 'ru' }),
+    );
+    expect(title()).toMatch(/^Настройки: /);
   });
 
   it('disables viewer exports without a model and sign out without a session', () => {

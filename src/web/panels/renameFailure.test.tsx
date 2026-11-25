@@ -7,10 +7,8 @@ import {
 } from '../extensions/dashboardPresets.js';
 import { notifications } from '../tasks/notifications.js';
 import { installMemoryStorage } from '../test/mockApi.js';
-import { FEDERATIONS } from '../viewer/savedFederations.js';
 import { saveSelectionSet } from '../viewer/selectionSets.js';
 import { DashboardSettingsBody } from './DashboardSettings.js';
-import { ModelsPanel } from './ModelsPanel.js';
 import { SelectionSets } from './SelectionSets.js';
 
 beforeEach(() => {
@@ -39,21 +37,6 @@ describe('rename failures revert the input and tell the user', () => {
   });
 });
 
-describe('saved combinations in the models panel', () => {
-  it('reverts a blank rename and tells the user', () => {
-    FEDERATIONS.save('Site', {
-      members: [
-        { urn: 'urn-a', context: {}, latest: false, hidden: false },
-        { urn: 'urn-b', context: {}, latest: false, hidden: false },
-      ],
-    });
-    render(<ModelsPanel adapter={null} onOpenFederation={() => {}} />);
-    const input = blankRename('Rename Site');
-    expect(input.value).toBe('Site');
-    expect(screen.getByRole('alert').textContent).toMatch(/Could not rename/);
-  });
-});
-
 describe('a failed delete is reported', () => {
   const messages = () =>
     notifications.getSnapshot().items.map((entry) => entry.message);
@@ -65,18 +48,5 @@ describe('a failed delete is reported', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Dashboard presets' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
     expect(messages()).toContain('Could not delete the preset.');
-  });
-
-  it('in saved combinations', () => {
-    FEDERATIONS.save('Site', {
-      members: [
-        { urn: 'urn-a', context: {}, latest: false, hidden: false },
-        { urn: 'urn-b', context: {}, latest: false, hidden: false },
-      ],
-    });
-    vi.spyOn(FEDERATIONS, 'remove').mockReturnValue(false);
-    render(<ModelsPanel adapter={null} onOpenFederation={() => {}} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Delete Site' }));
-    expect(messages()).toContain('Could not delete the combination.');
   });
 });

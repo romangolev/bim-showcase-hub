@@ -10,6 +10,8 @@ import type {
 } from '../viewer/ViewerAdapter.js';
 import { useResolvedAdapter } from './useScopedRows.js';
 import './panels.css';
+import { Button } from '../ui/Button.js';
+import { Card, CardHeader, CardTitle } from '../ui/Card.js';
 
 export interface MeasurementsPanelProps {
   adapter?: ViewerAdapter | null;
@@ -67,22 +69,17 @@ export function MeasurementsPanel({
   };
 
   return (
-    <section className="bsh-card bsh-measures" aria-label="Measurements">
-      <header className="bsh-card__header">
-        <h2 className="bsh-card__title">Measurements</h2>
-      </header>
+    <Card className="bsh-measures" aria-label="Measurements">
+      <CardHeader>
+        <CardTitle>Measurements</CardTitle>
+      </CardHeader>
       {adapter ? (
         <>
           <div className="bsh-measures__tools">
             {MODES.map(({ mode, label }) => (
-              <button
-                key={mode}
-                type="button"
-                className="btn"
-                onClick={() => void measure(mode)}
-              >
+              <Button key={mode} onClick={() => void measure(mode)}>
                 {label}
-              </button>
+              </Button>
             ))}
           </div>
           {list.length === 0 ? (
@@ -103,15 +100,9 @@ export function MeasurementsPanel({
             </ul>
           )}
           <div className="bsh-measures__tools">
-            <button type="button" className="btn" onClick={() => void copy()}>
-              Copy CSV
-            </button>
-            <button type="button" className="btn" onClick={clear}>
-              Clear
-            </button>
-            <button type="button" className="btn" onClick={read}>
-              Refresh
-            </button>
+            <Button onClick={() => void copy()}>Copy CSV</Button>
+            <Button onClick={clear}>Clear</Button>
+            <Button onClick={read}>Refresh</Button>
           </div>
           {notice ? (
             <p className="bsh-measures__notice" role="status">
@@ -131,6 +122,6 @@ export function MeasurementsPanel({
         Measurements are not saved with the tab, a viewpoint or a share link.
         Units and precision follow the Measure tool's own settings.
       </p>
-    </section>
+    </Card>
   );
 }

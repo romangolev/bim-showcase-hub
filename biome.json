@@ -17,6 +17,7 @@
     ]
   },
   "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2 },
+  "css": { "parser": { "tailwindDirectives": true } },
   "javascript": { "formatter": { "quoteStyle": "single" } },
   "linter": {
     "enabled": true,
@@ -24,7 +25,18 @@
       "a11y": {
         "noLabelWithoutControl": {
           "level": "error",
-          "options": { "inputComponents": ["NumberField"] }
+          "options": {
+            "inputComponents": [
+              "NumberField",
+              "Input",
+              "Textarea",
+              "Select",
+              "Checkbox",
+              "Radio",
+              "Switch",
+              "Slider"
+            ]
+          }
         }
       }
     }
@@ -37,6 +49,127 @@
           "correctness": { "noUnknownTypeSelector": "off" },
           "complexity": { "noImportantStyles": "off" },
           "style": { "noDescendingSpecificity": "off" }
+        }
+      }
+    },
+    {
+      "includes": ["src/web/**", "!src/web/ui/**", "!src/web/viewer/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["@base-ui/react", "@base-ui/react/**"],
+                    "message": "Only src/web/ui imports Base UI. Use a primitive from src/web/ui. See docs/design-system.md, Import boundaries."
+                  },
+                  {
+                    "group": ["sonner", "sonner/**"],
+                    "message": "Only src/web/ui imports sonner. Use the Toast primitive from src/web/ui. See docs/design-system.md, Import boundaries."
+                  },
+                  {
+                    "group": [
+                      "**/viewer/RealViewerAdapter.js",
+                      "**/viewer/autodesk.js",
+                      "**/viewer/autodeskTools.js",
+                      "**/viewer/fakeFederatedViewer.js"
+                    ],
+                    "message": "Reach the viewer through ViewerAdapter and createViewerAdapter. See docs/design-system.md, Import boundaries."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/web/viewer/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["@base-ui/react", "@base-ui/react/**"],
+                    "message": "Only src/web/ui imports Base UI. Use a primitive from src/web/ui. See docs/design-system.md, Import boundaries."
+                  },
+                  {
+                    "group": ["sonner", "sonner/**"],
+                    "message": "Only src/web/ui imports sonner. Use the Toast primitive from src/web/ui. See docs/design-system.md, Import boundaries."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/web/ui/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**",
+                      "!react",
+                      "!react/**",
+                      "!react-dom",
+                      "!@base-ui/react/**",
+                      "!clsx",
+                      "!tailwind-merge",
+                      "!sonner",
+                      "!./**",
+                      "**/../**"
+                    ],
+                    "message": "src/web/ui imports only react, react-dom, @base-ui/react, clsx, tailwind-merge, sonner and its own files. See docs/design-system.md, Import boundaries."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/web/ui/**/*.test.ts", "src/web/ui/**/*.test.tsx"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**",
+                      "!react",
+                      "!react/**",
+                      "!react-dom",
+                      "!@base-ui/react/**",
+                      "!clsx",
+                      "!tailwind-merge",
+                      "!sonner",
+                      "!./**",
+                      "**/../**",
+                      "!vitest",
+                      "!@testing-library/**"
+                    ],
+                    "message": "src/web/ui imports only react, react-dom, @base-ui/react, clsx, tailwind-merge, sonner and its own files. See docs/design-system.md, Import boundaries."
+                  }
+                ]
+              }
+            }
+          }
         }
       }
     }

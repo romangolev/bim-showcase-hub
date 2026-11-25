@@ -4,7 +4,6 @@ import { PaneActionsMenu } from '../components/PaneActionsMenu.js';
 import { StateBlock } from '../components/StateBlock.js';
 import { writeClipboard } from '../extensions/clipboard.js';
 import { saveBlob } from '../extensions/download.js';
-import type { ElementAction } from '../extensions/elementActions.js';
 import {
   itemsWithValues,
   runElementAction,
@@ -25,26 +24,22 @@ import {
   viewEntries,
   viewPropertyNames,
 } from '../extensions/modelSummary.js';
-import { formatCount } from '../i18n/format.js';
-import { PANE_SETTINGS } from '../settings/paneSettings.js';
+import { SUMMARY_PANEL, useSummarySpec } from '../layout/instanceSettings.js';
+import type { PanelId } from '../layout/paneRegistry.js';
 import { useSettings } from '../settings/SettingsContext.js';
-import { usePersisted } from '../storage.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
-import {
-  FailedModels,
-  ModelScopeSelect,
-  UnavailableModels,
-} from './ModelScope.js';
+import { ModelScopeSelect } from './ModelScope.js';
 import { QuickSettings, useQuickSettings } from './QuickSettings.js';
+import { ScopedRowsStatus } from './ScopedRowsStatus.js';
 import { openSummaryProperty } from './SummaryPropertyDialog.js';
 import { SummaryTable } from './SummaryTable.js';
-import {
-  HIDDEN_MESSAGE,
-  HIDDEN_TITLE,
-  useResolvedAdapter,
-  useScopedRows,
-} from './useScopedRows.js';
+import { useResolvedAdapter, useScopedRows } from './useScopedRows.js';
 import './panels.css';
+import { Badge } from '../ui/Badge.js';
+import { Button } from '../ui/Button.js';
+import { Card, CardHeader, CardTitle } from '../ui/Card.js';
+import { IconButton } from '../ui/IconButton.js';
+import { Input } from '../ui/Input.js';
 
 export interface SummaryModel {
   label: string;
@@ -54,8 +49,7 @@ export interface SummaryModel {
 export interface ModelSummaryPanelProps {
   adapter?: ViewerAdapter | null;
   model?: SummaryModel | null;
-  propertyNames?: readonly string[];
-  onPropertiesChange?: (names: readonly string[]) => void;
+  panel?: PanelId;
   title?: string;
   className?: string;
   collapsed?: boolean;
@@ -63,9 +57,6 @@ export interface ModelSummaryPanelProps {
   onCollapsedChange?: (collapsed: boolean) => void;
   toggleable?: boolean;
   onOpenSettings?: () => void;
-  scope?: { value: string; onChange: (scope: string) => void };
-  view?: { value: SummaryView; onChange: (view: SummaryView) => void };
-  action?: ElementAction;
 }
 
 const EMPTY: SummaryEntry[] = [];
@@ -74,8 +65,7 @@ export const STACKED_ROW_LIMIT = 12;
 export function ModelSummaryPanel({
   adapter,
   model,
-  propertyNames: propertyNamesOverride,
-  onPropertiesChange,
+  panel = SUMMARY_PANEL,
   title = 'Model summary',
   className,
   collapsed,
@@ -83,9 +73,6 @@ export function ModelSummaryPanel({
   onCollapsedChange,
   toggleable = true,
   onOpenSettings,
-  scope: controlledScope,
-  view: controlledView,
-  action: controlledAction,
 }: ModelSummaryPanelProps) {
   const uid = useId();
   const { language } = useSettings().settings;
@@ -93,13 +80,10 @@ export function ModelSummaryPanel({
   const isCollapsed = collapsed ?? innerCollapsed;
   const [showAll, setShowAll] = useState(false);
   const resolved = useResolvedAdapter(adapter);
-  const [savedProperties, setSavedProperties] = usePersisted(
-    PANE_SETTINGS.summary.properties,
-  );
-  const propertyNames = propertyNamesOverride ?? savedProperties;
-  const setProperties = onPropertiesChange ?? setSavedProperties;
-  const [savedView, setSavedView] = usePersisted(PANE_SETTINGS.summary.view);
-  const view = controlledView?.value ?? savedView;
+  const { spec, setSpec, scope } = useSummarySpec(panel);
+  const { properties: propertyNames, view, action } = spec;
+  const setProperties = (properties: readonly string[]) =>
+    setSpec((prev) => ({ ...prev, properties }));
   const readNames = useMemo(
     () => viewPropertyNames(propertyNames, view.columns),
     [propertyNames, view.columns],
@@ -107,7 +91,7 @@ export function ModelSummaryPanel({
   const state = useScopedRows(resolved, {
     names: readNames,
     autoRefresh: view.autoRefresh,
-    ...(controlledScope ? { models: controlledScope } : {}),
+    ...(scope ? { models: scope } : {}),
   });
   const partialEntries = useMemo(
     () =>
@@ -125,8 +109,6 @@ export function ModelSummaryPanel({
   );
   const sourceRows = state.rows.length > 0 ? state.rows : state.partialRows;
 
-  const [savedAction] = usePersisted(PANE_SETTINGS.summary.action);
-  const action = controlledAction ?? savedAction;
   const [active, setActive] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
   const shown = useMemo(() => viewEntries(entries, view), [entries, view]);
@@ -134,10 +116,8 @@ export function ModelSummaryPanel({
     () => emptyShares(entries).filter((share) => share.percent > 0),
     [entries],
   );
-  const setView = (next: SummaryView) => {
-    if (controlledView) controlledView.onChange(next);
-    else setSavedView(next);
-  };
+  const setView = (next: SummaryView) =>
+    setSpec((prev) => ({ ...prev, view: next }));
   const patch = (next: Partial<SummaryView>) => setView({ ...view, ...next });
   const full =
     propertyNames.length >= MAX_SUMMARY_ROWS &&
@@ -202,9 +182,9 @@ export function ModelSummaryPanel({
   const toggleLabel = isCollapsed ? `Expand ${title}` : `Collapse ${title}`;
 
   return (
-    <section
+    <Card
       ref={sectionRef}
-      className={`bsh-card bsh-summary ${className ?? ''}`.trim()}
+      className={`bsh-summary ${className ?? ''}`.trim()}
       aria-labelledby={titleId}
       data-collapsed={isCollapsed}
       data-compact={!isCollapsed && !quick.open}
@@ -214,8 +194,8 @@ export function ModelSummaryPanel({
         (view.layout === 'pivot' ? false : shown.length > STACKED_ROW_LIMIT)
       }
     >
-      <header className="bsh-card__header bsh-summary__header">
-        <h2 id={titleId} className="bsh-card__title bsh-summary__title">
+      <CardHeader className="bsh-summary__header">
+        <CardTitle id={titleId} className="bsh-summary__title">
           {title}
           {model ? (
             <span className="bsh-summary__model" title={model.tooltip}>
@@ -223,11 +203,12 @@ export function ModelSummaryPanel({
               {model.label}
             </span>
           ) : null}
-        </h2>
+        </CardTitle>
         {toggleable ? (
-          <button
-            type="button"
-            className="icon-button bsh-summary__toggle"
+          <IconButton
+            label={toggleLabel}
+            tooltip
+            className="bsh-summary__toggle"
             aria-expanded={!isCollapsed}
             aria-controls={bodyId}
             onClick={toggle}
@@ -238,8 +219,7 @@ export function ModelSummaryPanel({
               className="bsh-summary__toggle-icon"
               data-expanded={!isCollapsed}
             />
-            <span className="bsh-sr-only">{toggleLabel}</span>
-          </button>
+          </IconButton>
         ) : null}
         {isCollapsed ? null : (
           <QuickSettings
@@ -248,9 +228,8 @@ export function ModelSummaryPanel({
             onToggle={quick.toggle}
           >
             <ModelScopeSelect state={state.models} label="Summarize models" />
-            <button
-              type="button"
-              className="btn bsh-summary__add"
+            <Button
+              className="bsh-summary__add"
               disabled={full}
               title={
                 full
@@ -261,28 +240,26 @@ export function ModelSummaryPanel({
             >
               <Icon name="plus" size={14} />
               <span className="bsh-summary__add-label">Add property</span>
-            </button>
-            <button
-              type="button"
-              className="btn bsh-summary__refresh"
+            </Button>
+            <Button
+              className="bsh-summary__refresh"
               onClick={state.refresh}
               disabled={!resolved}
             >
               Refresh
-            </button>
+            </Button>
             {onOpenSettings ? (
-              <button
-                type="button"
-                className="icon-button"
+              <IconButton
+                label="Summary settings"
+                tooltip
                 onClick={onOpenSettings}
               >
                 <Icon name="settings" size={16} />
-                <span className="bsh-sr-only">Summary settings</span>
-              </button>
+              </IconButton>
             ) : null}
           </QuickSettings>
         )}
-      </header>
+      </CardHeader>
       <div
         id={bodyId}
         className="bsh-summary__wrap"
@@ -290,15 +267,6 @@ export function ModelSummaryPanel({
         aria-hidden={isCollapsed || undefined}
       >
         <div className="bsh-summary__body">
-          {state.status === 'ready' ? (
-            <>
-              <UnavailableModels models={state.models.unavailable} />
-              <FailedModels
-                names={state.failed}
-                unavailable={state.models.unavailable}
-              />
-            </>
-          ) : null}
           {!resolved && (
             <StateBlock
               variant="empty"
@@ -306,67 +274,11 @@ export function ModelSummaryPanel({
               message="Select a viewable version in the document tree and its element summary appears here."
             />
           )}
-          {state.status === 'hidden' && (
-            <StateBlock
-              variant="empty"
-              title={HIDDEN_TITLE}
-              message={HIDDEN_MESSAGE}
-            />
-          )}
-          {state.status === 'ready' && state.stale ? (
-            <div className="bsh-summary__partial" role="status">
-              <span>Data may be stale.</span>
-              <button type="button" className="btn" onClick={state.refresh}>
-                Refresh
-              </button>
-            </div>
-          ) : null}
-          {resolved && state.status === 'loading' && (
-            <div className="bsh-summary__progress">
-              <progress
-                aria-label="Reading element properties"
-                max={state.progress?.total || undefined}
-                value={state.progress ? state.progress.loaded : undefined}
-              />
-              <span role="status">
-                {state.progress && state.progress.total > 0
-                  ? `Reading element properties: ${formatCount(state.progress.loaded, language)} of ${formatCount(state.progress.total, language)}${state.progress.partial ? ' (partial data)' : ''}`
-                  : 'Reading element properties'}
-              </span>
-              {state.partialRows.length > 0 && state.progress ? (
-                <span role="status">
-                  {`Partial: ${formatCount(state.partialRows.length, language)} of ${formatCount(state.progress.total, language)} elements`}
-                </span>
-              ) : null}
-              <button type="button" className="btn" onClick={state.cancel}>
-                Cancel
-              </button>
-            </div>
-          )}
+          <ScopedRowsStatus state={state} resolved={resolved} />
           {resolved &&
             state.status === 'loading' &&
             state.total === 0 &&
             entries.length === 0 && <StateBlock variant="loading" rows={5} />}
-          {state.status === 'cancelled' && (
-            <div className="bsh-summary__partial" role="status">
-              <span>
-                {state.total > 0
-                  ? 'Partial data: the read was cancelled, so these counts may be out of date.'
-                  : 'The read was cancelled, so there is nothing to summarize yet.'}
-              </span>
-              <button type="button" className="btn" onClick={state.refresh}>
-                Read again
-              </button>
-            </div>
-          )}
-          {state.status === 'error' && (
-            <StateBlock
-              variant="error"
-              message="We could not read this model's properties. Try again."
-              detail={state.message}
-              action={{ label: 'Retry', onClick: state.refresh }}
-            />
-          )}
           {state.status === 'ready' &&
             entries.length === 0 &&
             !state.pending && (
@@ -380,9 +292,8 @@ export function ModelSummaryPanel({
           {entries.length > 0 && (
             <div className="bsh-summary__tools">
               {view.layout === 'pivot' ? null : (
-                <input
+                <Input
                   type="search"
-                  className="field"
                   aria-label="Filter summary rows"
                   placeholder="Filter"
                   value={view.text}
@@ -410,9 +321,10 @@ export function ModelSummaryPanel({
                 <ul className="bsh-summary__shares" aria-label="Empty values">
                   {shares.map((share) => (
                     <li key={share.property}>
-                      <button
-                        type="button"
-                        className="bsh-badge bsh-badge--action"
+                      <Badge
+                        variant="chip"
+                        render={<button type="button" />}
+                        className="bsh-summary__share"
                         title="Add as column"
                         onClick={() =>
                           openAdd({
@@ -423,7 +335,7 @@ export function ModelSummaryPanel({
                       >
                         <span className="bsh-sr-only">Add as column: </span>
                         {share.property}: {formatPercent(share.percent)} empty
-                      </button>
+                      </Badge>
                     </li>
                   ))}
                 </ul>
@@ -433,9 +345,7 @@ export function ModelSummaryPanel({
           {entries.length > 0 && view.columns.length === 0 ? (
             <p className="bsh-summary__hint">
               <span>Add a column to count or total these values.</span>
-              <button type="button" className="btn" onClick={() => openAdd()}>
-                Add a column
-              </button>
+              <Button onClick={() => openAdd()}>Add a column</Button>
             </p>
           ) : null}
           {entries.length > 0 &&
@@ -466,17 +376,16 @@ export function ModelSummaryPanel({
             />
           )}
           {shown.length > STACKED_ROW_LIMIT && (
-            <button
-              type="button"
-              className="btn summary-toggle"
+            <Button
+              className="summary-toggle"
               aria-expanded={showAll}
               onClick={() => setShowAll((value) => !value)}
             >
               {showAll ? 'Show fewer rows' : `Show all ${shown.length} rows`}
-            </button>
+            </Button>
           )}
         </div>
       </div>
-    </section>
+    </Card>
   );
 }

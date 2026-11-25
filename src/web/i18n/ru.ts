@@ -111,6 +111,7 @@ export const RU: Partial<Record<MessageId, string>> = {
   'settings.sections': 'Разделы настроек',
   'settings.back': 'Назад',
   'settings.backToSettings': 'Назад к настройкам',
+  'settings.sectionCommand': 'Настройки: {section}',
   'panes.title': 'Панели',
   'panes.search': 'Поиск панелей',
   'panes.matching': 'Подходящие панели',
@@ -129,4 +130,11 @@ export const RU: Partial<Record<MessageId, string>> = {
     'Перетащите вкладку, чтобы переместить панель, или используйте её меню. Ctrl+Z внутри дока отменяет перемещение.',
   'tree.noMatches':
     'Нет совпадений для «{query}» в загруженных папках. Раскройте больше папок, чтобы искать глубже.',
+  'ui.close': 'Закрыть',
+  'ui.dismiss': 'Скрыть',
+  'ui.increase': 'Увеличить',
+  'ui.decrease': 'Уменьшить',
+  'ui.loading': 'Загрузка',
+  'ui.clear': 'Очистить',
+  'ui.more': 'Ещё',
 };

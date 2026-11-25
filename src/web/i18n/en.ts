@@ -108,6 +108,7 @@ export const EN = {
   'settings.sections': 'Settings sections',
   'settings.back': 'Back',
   'settings.backToSettings': 'Back to Settings',
+  'settings.sectionCommand': 'Settings: {section}',
   'panes.title': 'Panes',
   'panes.search': 'Search panes',
   'panes.matching': 'Matching panes',
@@ -125,6 +126,13 @@ export const EN = {
     'Drag a tab to move a pane, or use its menu. Ctrl+Z inside the dock undoes a move.',
   'tree.noMatches':
     'No matches for “{query}” in loaded folders. Expand more folders to search deeper.',
+  'ui.close': 'Close',
+  'ui.dismiss': 'Dismiss',
+  'ui.increase': 'Increase',
+  'ui.decrease': 'Decrease',
+  'ui.loading': 'Loading',
+  'ui.clear': 'Clear',
+  'ui.more': 'More',
 } as const;
 
 export type MessageId = keyof typeof EN;

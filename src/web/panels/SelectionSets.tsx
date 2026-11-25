@@ -5,6 +5,10 @@ import { useSettings } from '../settings/SettingsContext.js';
 import type { Language } from '../settings/settings.js';
 import { MAX_NAME_LENGTH } from '../store/savedStore.js';
 import { notify } from '../tasks/notifications.js';
+import { Button } from '../ui/Button.js';
+import { FieldLabel } from '../ui/Field.js';
+import { Input } from '../ui/Input.js';
+import { Select, SelectOption } from '../ui/Select.js';
 import {
   deleteSet,
   MAX_SET_ELEMENTS,
@@ -123,7 +127,7 @@ export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
     <fieldset className="settings__section">
       <legend className="settings__heading">Selection sets</legend>
       <div className="settings__actions">
-        <input
+        <Input
           type="text"
           aria-label="Selection set name"
           placeholder="Name the current selection"
@@ -134,14 +138,9 @@ export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
             if (event.key === 'Enter') void save();
           }}
         />
-        <button
-          type="button"
-          className="btn"
-          disabled={!adapter || !name.trim()}
-          onClick={() => void save()}
-        >
+        <Button disabled={!adapter || !name.trim()} onClick={() => void save()}>
           Save selection as set
-        </button>
+        </Button>
       </div>
       {problem ? (
         <p role="alert" className="settings__hint">
@@ -150,53 +149,46 @@ export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
       ) : null}
       {sets.length > 0 ? (
         <>
-          <label className="settings__field">
+          <FieldLabel layout="row">
             Merge set A
-            <select
+            <Select
               aria-label="Merge set A"
               value={first}
-              onChange={(event) => setFirstId(event.target.value)}
+              onValueChange={(next) => setFirstId(next)}
             >
-              <option value="">Choose a set</option>
+              <SelectOption value="">Choose a set</SelectOption>
               {sets.map((set) => (
-                <option key={set.id} value={set.id}>
+                <SelectOption key={set.id} value={set.id}>
                   {set.name}
-                </option>
+                </SelectOption>
               ))}
-            </select>
-          </label>
-          <label className="settings__field">
+            </Select>
+          </FieldLabel>
+          <FieldLabel layout="row">
             Merge set B
-            <select
+            <Select
               aria-label="Merge set B"
               value={second}
-              onChange={(event) => setSecondId(event.target.value)}
+              onValueChange={(next) => setSecondId(next)}
             >
-              <option value="">Choose a set</option>
+              <SelectOption value="">Choose a set</SelectOption>
               {sets.map((set) => (
-                <option key={set.id} value={set.id}>
+                <SelectOption key={set.id} value={set.id}>
                   {set.name}
-                </option>
+                </SelectOption>
               ))}
-            </select>
-          </label>
+            </Select>
+          </FieldLabel>
           <div className="settings__actions">
-            <button
-              type="button"
-              className="btn"
-              disabled={!canMerge}
-              onClick={() => void merge('union')}
-            >
+            <Button disabled={!canMerge} onClick={() => void merge('union')}>
               Union
-            </button>
-            <button
-              type="button"
-              className="btn"
+            </Button>
+            <Button
               disabled={!canMerge}
               onClick={() => void merge('intersect')}
             >
               Intersect
-            </button>
+            </Button>
           </div>
           <p className="settings__hint">
             {MERGE_MESSAGES.union} {MERGE_MESSAGES.intersect}
@@ -209,7 +201,7 @@ export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
         <ItemList>
           {sets.map((set) => (
             <ItemRow key={`${set.id}:${set.name}`}>
-              <input
+              <Input
                 type="text"
                 aria-label={`Rename ${set.name}`}
                 maxLength={MAX_NAME_LENGTH}
@@ -230,9 +222,8 @@ export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
               <span className="settings__hint">
                 {formatCount(set.items.length, language)} elements
               </span>
-              <button
-                type="button"
-                className="btn btn-small"
+              <Button
+                size="small"
                 aria-label={`Select ${set.name}`}
                 disabled={!adapter}
                 onClick={() => {
@@ -240,15 +231,14 @@ export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
                 }}
               >
                 Select
-              </button>
-              <button
-                type="button"
-                className="btn btn-small"
+              </Button>
+              <Button
+                size="small"
                 aria-label={`Delete ${set.name}`}
                 onClick={() => deleteSet(set.id)}
               >
                 Delete
-              </button>
+              </Button>
             </ItemRow>
           ))}
         </ItemList>

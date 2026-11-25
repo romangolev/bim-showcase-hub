@@ -1,3 +1,4 @@
+import { Button } from '../../ui/Button.js';
 import type { PickedModel } from './treeState.js';
 
 export function IfcBatchBubble({
@@ -22,17 +23,14 @@ export function IfcBatchBubble({
             ? 'Nothing selected'
             : `${picked.length} selected`}
         </span>
-        <button
-          type="button"
-          className="btn btn-primary"
+        <Button
+          variant="primary"
           disabled={picked.length === 0}
           onClick={() => onExport(picked)}
         >
           Export IFC
-        </button>
-        <button type="button" className="btn" onClick={onCancel}>
-          Cancel
-        </button>
+        </Button>
+        <Button onClick={onCancel}>Cancel</Button>
       </div>
     </section>
   );

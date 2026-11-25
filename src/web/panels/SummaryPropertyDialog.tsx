@@ -33,6 +33,19 @@ import { groupCatalog } from '../viewer/propertyCatalog.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { usePropertyCatalog } from './usePropertyCatalog.js';
 import './panels.css';
+import { DetachedUIStrings } from '../i18n/CatalogUIStrings.js';
+import { Button, buttonClasses } from '../ui/Button.js';
+import {
+  Dialog,
+  DialogBody,
+  DialogClose,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/Dialog.js';
+import { FieldLabel } from '../ui/Field.js';
+import { Input } from '../ui/Input.js';
+import { Radio, RadioGroup } from '../ui/Radio.js';
+import { Select, SelectOption } from '../ui/Select.js';
 
 export interface SummaryPropertyOptions {
   adapter: ViewerAdapter | null;
@@ -63,10 +76,8 @@ function SummaryPropertyDialog({
   onSubmit,
   onDone,
 }: SummaryPropertyOptions & { onDone: () => void }) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const uid = useId();
-  const titleId = `${uid}-title`;
   const problemId = `${uid}-problem`;
   const start = editing?.role === 'column' ? editing.column : null;
   const [role, setRole] = useState<SummaryAddition['role']>(
@@ -125,8 +136,6 @@ function SummaryPropertyDialog({
     : 'Column title';
 
   useEffect(() => {
-    const dialog = dialogRef.current;
-    if (dialog && !dialog.open) dialog.showModal();
     searchRef.current?.focus();
   }, []);
 
@@ -138,10 +147,8 @@ function SummaryPropertyDialog({
   };
 
   return (
-    <dialog
-      ref={dialogRef}
-      className="modal bsh-add-property"
-      aria-labelledby={titleId}
+    <Dialog
+      className="bsh-add-property"
       onClose={onDone}
       onKeyDown={(event) => {
         if (event.key !== 'Escape') return;
@@ -149,33 +156,27 @@ function SummaryPropertyDialog({
         onDone();
       }}
     >
-      <form className="modal__panel" noValidate onSubmit={submit}>
-        <header className="modal__head">
-          <h2 id={titleId} className="modal__title">
+      <form className="bsh-add-property__form" noValidate onSubmit={submit}>
+        <DialogHeader>
+          <DialogTitle>
             {editing ? 'Edit property' : 'Add property'}
-          </h2>
-          <button
-            type="button"
-            className="icon-button"
-            aria-label="Close"
-            onClick={onDone}
-          >
+          </DialogTitle>
+          <DialogClose>
             <Icon name="close" size={16} />
-          </button>
-        </header>
-        <div className="modal__body bsh-add-property__body">
-          <label className="bsh-field">
+          </DialogClose>
+        </DialogHeader>
+        <DialogBody className="bsh-add-property__body">
+          <FieldLabel layout="inline" variant="quiet">
             <span>Search properties</span>
-            <input
+            <Input
               ref={searchRef}
               type="search"
-              className="field"
               placeholder="Property name"
               maxLength={MAX_PROPERTY_NAME}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />
-          </label>
+          </FieldLabel>
           {!adapter ? (
             <StateBlock
               variant="empty"
@@ -196,9 +197,7 @@ function SummaryPropertyDialog({
                 }
                 rows={2}
               />
-              <button type="button" className="btn" onClick={catalog.cancel}>
-                Cancel
-              </button>
+              <Button onClick={catalog.cancel}>Cancel</Button>
             </>
           ) : null}
           {catalog.status === 'cancelled' || catalog.status === 'error' ? (
@@ -215,29 +214,27 @@ function SummaryPropertyDialog({
             </p>
           ) : null}
           {typed && !known?.has(typed) ? (
-            <button
-              type="button"
-              className="btn"
+            <Button
               onClick={() => {
                 setProperty(typed);
                 setCategory(null);
               }}
             >
               {`Use "${typed}"`}
-            </button>
+            </Button>
           ) : null}
           <div className="bsh-picker__groups bsh-add-property__results">
             {groups.map((group) => (
               <fieldset key={group.category} className="bsh-picker__group">
                 <legend>{group.category}</legend>
                 {group.properties.slice(0, GROUP_CAP).map((info) => (
-                  <label
+                  <FieldLabel
+                    layout="inline"
                     key={`${info.category}\u0000${info.name}`}
-                    className="settings__check"
                   >
-                    <input
-                      type="radio"
+                    <Radio
                       name={`${uid}-property`}
+                      value={info.name}
                       checked={
                         property === info.name && info.category === owner
                       }
@@ -247,7 +244,7 @@ function SummaryPropertyDialog({
                       }}
                     />
                     {info.name}
-                  </label>
+                  </FieldLabel>
                 ))}
                 {group.properties.length > GROUP_CAP ? (
                   <p className="bsh-picker__none">
@@ -269,70 +266,65 @@ function SummaryPropertyDialog({
               ) : null}
             </p>
           ) : null}
-          <fieldset
+          <RadioGroup
             className="bsh-add-property__roles"
             disabled={editing !== undefined}
+            name={`${uid}-role`}
+            value={role}
+            onValueChange={(next) =>
+              setRole(next === 'column' ? 'column' : 'rows')
+            }
           >
             <legend>Show as</legend>
             <div className="bsh-kinds">
-              <label className="btn">
-                <input
-                  type="radio"
-                  name={`${uid}-role`}
-                  checked={role === 'rows'}
-                  onChange={() => setRole('rows')}
-                />
+              <label className={buttonClasses({})}>
+                <Radio value="rows" />
                 Rows
               </label>
-              <label className="btn">
-                <input
-                  type="radio"
-                  name={`${uid}-role`}
-                  checked={role === 'column'}
-                  onChange={() => setRole('column')}
-                />
+              <label className={buttonClasses({})}>
+                <Radio value="column" />
                 Column
               </label>
             </div>
-          </fieldset>
+          </RadioGroup>
           {role === 'column' ? (
             <>
-              <label className="settings__field">
+              <FieldLabel layout="row">
                 Aggregate
-                <select
+                <Select
                   value={aggregate}
-                  onChange={(event) =>
-                    setAggregate(sanitizeSummaryAggregate(event.target.value))
+                  onValueChange={(next) =>
+                    setAggregate(sanitizeSummaryAggregate(next))
                   }
                 >
                   {SUMMARY_AGGREGATES.map((name) => (
-                    <option key={name} value={name}>
+                    <SelectOption key={name} value={name}>
                       {SUMMARY_AGGREGATE_LABELS[name]}
-                    </option>
+                    </SelectOption>
                   ))}
-                </select>
-              </label>
+                </Select>
+              </FieldLabel>
               {numeric ? (
                 <p className="settings__hint">
                   Reads the trailing unit; different unit families are reported,
                   not summed.
                 </p>
               ) : null}
-              <label className="settings__field">
+              <FieldLabel layout="row">
                 Title
-                <input
+                <Input
                   type="text"
                   maxLength={MAX_TITLE_LENGTH}
                   placeholder={generated}
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
                 />
-              </label>
+              </FieldLabel>
               {numeric ? (
                 <>
-                  <label className="settings__field">
+                  <FieldLabel layout="row">
                     Decimal places
-                    <input
+                    <Input
                       type="number"
                       min={0}
                       max={MAX_PRECISION}
@@ -340,17 +332,17 @@ function SummaryPropertyDialog({
                       onChange={(event) => setPrecisionText(event.target.value)}
                       onBlur={() => setPrecisionText(String(precision))}
                     />
-                  </label>
-                  <label className="settings__field">
+                  </FieldLabel>
+                  <FieldLabel layout="row">
                     Unit label
-                    <input
+                    <Input
                       type="text"
                       maxLength={MAX_UNIT_LABEL}
                       placeholder="Unit read from the values"
                       value={unitLabel}
                       onChange={(event) => setUnitLabel(event.target.value)}
                     />
-                  </label>
+                  </FieldLabel>
                 </>
               ) : null}
             </>
@@ -361,21 +353,18 @@ function SummaryPropertyDialog({
             </p>
           ) : null}
           <div className="bsh-presets">
-            <button type="button" className="btn" onClick={onDone}>
-              Cancel
-            </button>
-            <button
+            <Button onClick={onDone}>Cancel</Button>
+            <Button
               type="submit"
-              className="btn"
               disabled={problem !== null}
               aria-describedby={problem ? problemId : undefined}
             >
               {editing ? 'Save' : 'Add property'}
-            </button>
+            </Button>
           </div>
-        </div>
+        </DialogBody>
       </form>
-    </dialog>
+    </Dialog>
   );
 }
 
@@ -415,6 +404,10 @@ export function promptSummaryProperty(options: SummaryPropertyOptions): void {
     if (opener?.isConnected) opener.focus();
   };
   flushSync(() =>
-    root.render(<SummaryPropertyDialog {...options} onDone={done} />),
+    root.render(
+      <DetachedUIStrings>
+        <SummaryPropertyDialog {...options} onDone={done} />
+      </DetachedUIStrings>,
+    ),
   );
 }

@@ -3,7 +3,6 @@ import type { TreeNode, VersionViewState } from '../../../shared/types.js';
 import { friendlyError } from '../../api/friendlyError.js';
 import { type ModelContext, versionTag } from '../../api/modelContext.js';
 import { childScope, type NodeScope } from '../../api/scope.js';
-import type { VersionTarget } from '../../panels/versionHistory.js';
 import { openableUrn } from '../../viewer/openLimits.js';
 
 export { openableUrn } from '../../viewer/openLimits.js';
@@ -13,6 +12,7 @@ import {
   type CrawlResult,
   crawl as runCrawl,
 } from './crawl.js';
+import { createDeepSearch, type DeepSearch } from './deepSearch.js';
 import type { TreeRoot } from './docRoot.js';
 import { sortChildren, type TreeSort } from './treeView.js';
 import {
@@ -27,6 +27,14 @@ export const TRAIL_SEPARATOR = '|';
 export const REVEAL_TIMEOUT_MS = 5000;
 const UNCHECKED_POLL_LIMIT = 3;
 const ANCESTOR_LIMIT = 64;
+
+export interface ItemRef {
+  projectId: string;
+  itemId: string;
+  file: string;
+  trail: string[];
+  crumbs: string[];
+}
 
 export interface TreeData {
   children: (scope: NodeScope, signal?: AbortSignal) => Promise<TreeNode[]>;
@@ -78,7 +86,7 @@ export interface TreeState {
   search: (query: string) => TreeNode[];
   parentName: (node: TreeNode) => string | undefined;
   contextFor: (node: TreeNode) => ModelContext;
-  itemRef: (node: TreeNode) => VersionTarget | null;
+  itemRef: (node: TreeNode) => ItemRef | null;
   ancestorIds: (node: TreeNode) => string[];
   children: (id: string) => Promise<TreeNode[]>;
   versionsOf: (item: TreeNode) => Promise<TreeNode[]>;
@@ -88,6 +96,7 @@ export interface TreeState {
     signal: AbortSignal,
     onProgress?: (progress: CrawlProgress) => void,
   ) => Promise<CrawlResult>;
+  deepSearch: DeepSearch;
   resolved: (node: TreeNode) => TreeNode;
   needsCheck: (node: TreeNode) => boolean;
   ensureChecked: (node: TreeNode) => Promise<TreeNode>;
@@ -478,6 +487,41 @@ export function createTreeState({
     return projects.length === 1 ? (projects[0]?.id ?? null) : null;
   };
 
+  const crawl: TreeState['crawl'] = (signal, onProgress) => {
+    const start = crawlRoot();
+    if (!start) {
+      return Promise.resolve<CrawlResult>({
+        stop: 'done',
+        folders: 0,
+        queued: 0,
+        nodes: 0,
+        failed: 0,
+        failedIds: [],
+      });
+    }
+    return runCrawl({
+      start: [start],
+      signal,
+      onProgress,
+      children: async (id, crawlSignal) => {
+        const scope = scopes.get(id);
+        if (!scope) return [];
+        const fetched = await data.children(scope, crawlSignal);
+        loaded.add(id);
+        clearError(id);
+        return register(scope, fetched);
+      },
+    }).then((result) => {
+      if (result.stop === 'done') crawledRoot = start;
+      return result;
+    });
+  };
+
+  const deepSearch = createDeepSearch({
+    canStart: () => crawlRoot() !== null,
+    crawl,
+  });
+
   return {
     subscribe: (listener) => {
       listeners.add(listener);
@@ -539,35 +583,8 @@ export function createTreeState({
     },
     crawlRoot,
     crawled: () => crawledRoot !== null && crawledRoot === crawlRoot(),
-    crawl: (signal, onProgress) => {
-      const start = crawlRoot();
-      if (!start) {
-        return Promise.resolve<CrawlResult>({
-          stop: 'done',
-          folders: 0,
-          queued: 0,
-          nodes: 0,
-          failed: 0,
-          failedIds: [],
-        });
-      }
-      return runCrawl({
-        start: [start],
-        signal,
-        onProgress,
-        children: async (id, crawlSignal) => {
-          const scope = scopes.get(id);
-          if (!scope) return [];
-          const fetched = await data.children(scope, crawlSignal);
-          loaded.add(id);
-          clearError(id);
-          return register(scope, fetched);
-        },
-      }).then((result) => {
-        if (result.stop === 'done') crawledRoot = start;
-        return result;
-      });
-    },
+    crawl,
+    deepSearch,
     resolved,
     needsCheck,
     ensureChecked,

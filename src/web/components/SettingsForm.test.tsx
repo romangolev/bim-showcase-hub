@@ -122,6 +122,58 @@ describe('SettingsForm', () => {
     expect(onChange).toHaveBeenLastCalledWith({ tags: ['q'] });
   });
 
+  it('gives multi and list rows unique ids and describes the group once', () => {
+    const form: FormDefinition<Demo> = {
+      fields: [
+        {
+          key: 'shown',
+          kind: 'multi',
+          label: 'Columns',
+          hint: 'Pick columns',
+          options: [
+            { value: 'w', label: 'W' },
+            { value: 'x', label: 'X' },
+            { value: 'y', label: 'Y' },
+            { value: 'z', label: 'Z' },
+          ],
+        },
+        {
+          key: 'tags',
+          kind: 'list',
+          label: 'Tags',
+          hint: 'Tag hint',
+          itemType: 'text',
+          newItem: 'new',
+          addLabel: 'Add tag',
+          itemLabel: (i) => `Tag ${i + 1}`,
+          removeLabel: (i) => `Remove tag ${i + 1}`,
+        },
+      ],
+    };
+    const { container } = render(
+      <SettingsForm
+        form={form}
+        value={{ ...VALUE, tags: ['a', 'b', 'c'] }}
+        onChange={vi.fn()}
+      />,
+    );
+    const ids = [...container.querySelectorAll('[id]')].map((el) => el.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    const boxes = screen.getAllByRole('checkbox');
+    expect(boxes).toHaveLength(4);
+    for (const box of boxes) {
+      expect(box).not.toHaveAttribute('aria-describedby');
+    }
+    expect(
+      screen.getByRole('group', { name: 'Columns' }),
+    ).toHaveAccessibleDescription('Pick columns');
+    const tags = screen.getByRole('group', { name: 'Tags' });
+    expect(tags).toHaveAccessibleDescription('Tag hint');
+    for (const input of screen.getAllByRole('textbox')) {
+      expect(input).not.toHaveAttribute('aria-describedby');
+    }
+  });
+
   it('applies the reset patch', () => {
     const onChange = setup();
     fireEvent.click(screen.getByRole('button', { name: 'Reset demo' }));

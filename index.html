@@ -18,25 +18,21 @@
         } catch {
           stored = null;
         }
-        let preference = null;
-        if (stored) {
-          if (stored.theme === "light" || stored.theme === "dark") {
-            preference = stored.theme;
-          } else if (stored.theme === "system") {
-            preference = "system";
-          }
+        const themes = { dark: ["dark", "#131416"], light: ["light", "#ffffff"] };
+        let theme = null;
+        if (stored && typeof stored.theme === "string" && Object.hasOwn(themes, stored.theme)) {
+          theme = stored.theme;
         }
-        let theme = preference;
-        if (theme !== "light" && theme !== "dark") {
+        if (!theme) {
           const light = window.matchMedia?.("(prefers-color-scheme: light)");
           theme = light?.matches ? "light" : "dark";
         }
         const root = document.documentElement;
         root.dataset.theme = theme;
-        root.style.colorScheme = theme;
+        root.style.colorScheme = themes[theme][0];
         document
           .querySelector('meta[name="theme-color"]')
-          ?.setAttribute("content", theme === "light" ? "#ffffff" : "#131416");
+          ?.setAttribute("content", themes[theme][1]);
         if (stored && (stored.density === "compact" || stored.density === "comfortable")) {
           root.dataset.density = stored.density;
         }

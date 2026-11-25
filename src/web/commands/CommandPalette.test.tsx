@@ -1,10 +1,3 @@
-import {
-  act,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { rememberModel } from '../api/modelStore.js';
 import { ModalProvider } from '../modal/index.js';
@@ -12,6 +5,7 @@ import type { ModalDefinition } from '../modal/types.js';
 import { notifications } from '../tasks/notifications.js';
 import { tasks } from '../tasks/taskStore.js';
 import { installMemoryStorage } from '../test/mockApi.js';
+import { act, fireEvent, render, screen, waitFor } from '../test/render.js';
 import { arrange, CommandPalette } from './CommandPalette.js';
 import { PIN_LIMIT, readPins } from './pins.js';
 import { readRecents } from './recents.js';
@@ -175,7 +169,7 @@ describe('CommandPalette', () => {
     openPalette();
     expect(screen.getByRole('combobox')).toHaveFocus();
     act(() => {
-      document.querySelector('dialog')?.dispatchEvent(new Event('close'));
+      document.querySelector('dialog')?.close();
     });
     expect(screen.queryByRole('combobox')).toBeNull();
     expect(opener).toHaveFocus();

@@ -1,5 +1,5 @@
 import { useRouter, useSearch } from '@tanstack/react-router';
-import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
+import { useMemo, useSyncExternalStore } from 'react';
 import { type ModelContext, withUrns } from '../api/modelContext.js';
 import {
   modelStoreVersion,
@@ -12,7 +12,6 @@ import { useOpenModels, useOpenModelsStore } from '../api/useOpenModels.js';
 import { StateBlock } from '../components/StateBlock.js';
 import { useTreeControl } from '../components/TreeControl.js';
 import { TreePanel } from '../components/TreePanel.js';
-import { useModelOpeners } from '../components/tree/useModelOpeners.js';
 import { DEFAULT_FILE_NAME } from '../extensions/excelExport.js';
 import { useModal } from '../modal/ModalContext.js';
 import { DASHBOARD_SETTINGS_ID } from '../panels/DashboardSettings.js';
@@ -25,41 +24,24 @@ import {
   ModelsPanel,
   PropertiesPanel,
   SearchResultsPanel,
-  VersionHistoryPanel,
   ViewsPanel,
 } from '../panels/index.js';
-import { MODEL_TINTS } from '../panels/modelTint.js';
+import { MODELS_SETTINGS_ID } from '../panels/ModelsSettings.js';
 import { SUMMARY_SETTINGS_ID } from '../panels/SummarySettings.js';
 import { VIEWPOINTS_MODAL_ID } from '../panels/Viewpoints.js';
 import { useModelUrn } from '../routes/useModelUrn.js';
 import { usePersisted } from '../storage.js';
-import { notify } from '../tasks/notifications.js';
 import { exportFileName, exportStem } from '../tools/kernel/exportKit.js';
 import { page } from '../viewer/region.js';
-import {
-  captureFederation,
-  FEDERATIONS,
-  federationOpenPlan,
-  latestVersionUrn,
-  resolveFederation,
-  setFederationOpener,
-  withFederationHidden,
-  withFederationTints,
-} from '../viewer/savedFederations.js';
-import {
-  HIDDEN_MODELS,
-  MAX_HIDDEN_URNS,
-} from '../viewer/useModelVisibilityMemory.js';
 import { ViewerPane } from '../viewer/ViewerPane.js';
-import { setDashboardSettingsTarget } from './dashboardTarget.js';
 import {
-  chartSetting,
+  DASHBOARD_PANEL,
   propertiesSetting,
-  summarySetting,
+  SUMMARY_PANEL,
 } from './instanceSettings.js';
 import { useLayout, useMainContent } from './layoutContext.js';
 import { instancePanelId, modelPanelId } from './panelIds.js';
-import { setSummarySettingsTarget } from './summaryTarget.js';
+import { setPaneSettingsTarget } from './settingsTarget.js';
 
 export function exportNameOf(
   context: ModelContext | null,
@@ -247,90 +229,58 @@ function useActiveModelTitle() {
   return active ? layout.paneTitle(modelPanelId(active)) : null;
 }
 
-export function SummaryPane() {
+export function SummaryPane({ instance }: { instance?: string }) {
   const layout = useLayout();
   const model = useActiveModelTitle();
   const modal = useModal();
+  const panel = instance
+    ? instancePanelId('modelSummary', instance)
+    : SUMMARY_PANEL;
+  const stackable = !instance && layout.mode === 'stacked';
   return (
     <aside className="pane-summary" aria-label="Model summary">
       <ModelSummaryPanel
-        model={model}
+        panel={panel}
+        {...(instance ? { title: layout.paneTitle(panel).label } : { model })}
+        toggleable={stackable}
         onOpenSettings={() => {
-          setSummarySettingsTarget(null);
+          setPaneSettingsTarget(instance ? panel : null);
           modal.open(SUMMARY_SETTINGS_ID);
         }}
-        collapsed={layout.mode === 'stacked' && layout.isCollapsed('summary')}
-        toggleable={layout.mode === 'stacked'}
-        onCollapsedChange={(next) => layout.setCollapsed('summary', next)}
+        {...(stackable
+          ? {
+              collapsed: layout.isCollapsed('summary'),
+              onCollapsedChange: (next: boolean) =>
+                layout.setCollapsed('summary', next),
+            }
+          : {})}
       />
     </aside>
   );
 }
 
-export function SummaryInstancePane({ instance }: { instance: string }) {
+export function DashboardPane({ instance }: { instance?: string }) {
   const layout = useLayout();
   const modal = useModal();
-  const panel = instancePanelId('modelSummary', instance);
-  const [spec, setSpec] = usePersisted(summarySetting(panel));
-  return (
-    <aside className="pane-summary" aria-label="Model summary">
-      <ModelSummaryPanel
-        title={layout.paneTitle(panel).label}
-        toggleable={false}
-        onOpenSettings={() => {
-          setSummarySettingsTarget(panel);
-          modal.open(SUMMARY_SETTINGS_ID);
-        }}
-        propertyNames={spec.properties}
-        onPropertiesChange={(properties) =>
-          setSpec((prev) => ({ ...prev, properties }))
-        }
-        view={{
-          value: spec.view,
-          onChange: (view) => setSpec((prev) => ({ ...prev, view })),
-        }}
-        action={spec.action}
-        scope={{
-          value: spec.scope,
-          onChange: (scope) => setSpec((prev) => ({ ...prev, scope })),
-        }}
-      />
-    </aside>
-  );
-}
-
-export function DashboardPane() {
-  const layout = useLayout();
-  const modal = useModal();
+  const panel = instance ? instancePanelId('chart', instance) : DASHBOARD_PANEL;
+  const stackable = !instance && layout.mode === 'stacked';
   return (
     <div className="pane-dashboard">
       <DashboardPanel
+        panel={panel}
+        {...(instance ? { title: layout.paneTitle(panel).label } : {})}
+        toggleable={stackable}
         onOpenSettings={() => {
-          setDashboardSettingsTarget(null);
+          setPaneSettingsTarget(instance ? panel : null);
           modal.open(DASHBOARD_SETTINGS_ID);
         }}
-        collapsed={layout.mode === 'stacked' && layout.isCollapsed('dashboard')}
-        toggleable={layout.mode === 'stacked'}
-        onCollapsedChange={(next) => layout.setCollapsed('dashboard', next)}
-      />
-    </div>
-  );
-}
-
-export function ChartInstancePane({ instance }: { instance: string }) {
-  const layout = useLayout();
-  const modal = useModal();
-  const panel = instancePanelId('chart', instance);
-  return (
-    <div className="pane-dashboard">
-      <DashboardPanel
-        setting={chartSetting(panel)}
-        title={layout.paneTitle(panel).label}
-        toggleable={false}
-        onOpenSettings={() => {
-          setDashboardSettingsTarget(panel);
-          modal.open(DASHBOARD_SETTINGS_ID);
-        }}
+        {...(stackable
+          ? {
+              collapsed: layout.isCollapsed('dashboard'),
+              onCollapsedChange: (next: boolean) =>
+                layout.setCollapsed('dashboard', next),
+            }
+          : {})}
       />
     </div>
   );
@@ -375,79 +325,16 @@ export function ModelsPane() {
   const tree = useTreeControl();
   const active = state.active;
   const entry = state.models.find((model) => model.urn === active) ?? null;
-  const open = useCallback(
-    (id: string) => {
-      if (!store) return;
-      const item = FEDERATIONS.get(id);
-      if (!item) return;
-      void (async () => {
-        const { data, stale } = await resolveFederation(
-          item.data,
-          latestVersionUrn,
-        );
-        const plan = federationOpenPlan(data);
-        const tints = withFederationTints(MODEL_TINTS.read(), data);
-        if (
-          JSON.stringify(tints.tints) !==
-          JSON.stringify(MODEL_TINTS.read().tints)
-        ) {
-          MODEL_TINTS.write(tints);
-        }
-        const hidden = withFederationHidden(
-          HIDDEN_MODELS.read(),
-          data,
-          MAX_HIDDEN_URNS,
-        );
-        if (JSON.stringify(hidden) !== JSON.stringify(HIDDEN_MODELS.read())) {
-          HIDDEN_MODELS.write(hidden);
-        }
-        store.open(plan.urn, plan.context);
-        store.setView(plan.urn, { offsets: plan.offsets ?? null });
-        notify(
-          stale.length > 0
-            ? `Opened ${item.name} with the saved version of ${stale.join(', ')}.`
-            : `Opened ${item.name}.`,
-          { tone: stale.length > 0 ? 'warning' : 'success' },
-        );
-      })();
-    },
-    [store],
-  );
-  useEffect(() => setFederationOpener(open), [open]);
-  const save = (name: string) => {
-    if (!entry) return;
-    const data = captureFederation(
-      entry,
-      (urn) => recallModel(urn) ?? {},
-      MODEL_TINTS.read(),
-      HIDDEN_MODELS.read(),
-    );
-    if (!data) {
-      notify('Open two or more models to save a combination.', {
-        tone: 'error',
-      });
-      return;
-    }
-    const saved = FEDERATIONS.save(name, data);
-    if (saved) {
-      notify(`Saved ${name}.`, { tone: 'success' });
-    } else {
-      notify(
-        'Could not save the combination. Saved items hold up to 4 MB; delete some and try again.',
-        { tone: 'error' },
-      );
-    }
-  };
+  const modal = useModal();
   return (
     <div className="pane-models">
       <ModelsPanel
         setKey={active}
+        onOpenSettings={() => modal.open(MODELS_SETTINGS_ID)}
         onRemove={
           store && active ? (urn) => store.removeFrom(active, urn) : undefined
         }
         onAdd={tree ? () => tree.reveal() : undefined}
-        onSaveFederation={save}
-        onOpenFederation={open}
         offsets={entry?.offsets}
         onOffsetsChange={
           store && active
@@ -463,15 +350,6 @@ export function ColorsPane() {
   return (
     <div className="pane-colors">
       <ColorsPanel />
-    </div>
-  );
-}
-
-export function VersionsPane() {
-  const openers = useModelOpeners();
-  return (
-    <div className="pane-versions">
-      <VersionHistoryPanel openers={openers} />
     </div>
   );
 }

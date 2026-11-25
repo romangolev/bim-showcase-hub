@@ -1,28 +1,25 @@
 import { useSyncExternalStore } from 'react';
 import type { PanelId } from './paneRegistry.js';
 
-export function createTarget() {
-  let current: PanelId | null = null;
-  const listeners = new Set<() => void>();
+let current: PanelId | null = null;
+const listeners = new Set<() => void>();
 
-  const set = (id: PanelId | null): void => {
-    current = id;
-    for (const listener of listeners) listener();
-  };
+export function setPaneSettingsTarget(id: PanelId | null): void {
+  current = id;
+  for (const listener of listeners) listener();
+}
 
-  return {
-    set,
-    drop: (id: PanelId): void => {
-      if (current === id) set(null);
+export function dropPaneSettingsTarget(id: PanelId): void {
+  if (current === id) setPaneSettingsTarget(null);
+}
+
+export function usePaneSettingsTarget(): PanelId | null {
+  return useSyncExternalStore(
+    (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
     },
-    use: (): PanelId | null =>
-      useSyncExternalStore(
-        (listener) => {
-          listeners.add(listener);
-          return () => listeners.delete(listener);
-        },
-        () => current,
-        () => null,
-      ),
-  };
+    () => current,
+    () => null,
+  );
 }

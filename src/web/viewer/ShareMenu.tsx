@@ -8,6 +8,19 @@ import { type LayoutApi, LayoutContext } from '../layout/layoutContext.js';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import { usePersisted } from '../storage.js';
 import { useSavedKindItems } from '../store/savedKinds.js';
+import { Button } from '../ui/Button.js';
+import { Checkbox } from '../ui/Checkbox.js';
+import {
+  Dialog,
+  DialogBody,
+  DialogClose,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/Dialog.js';
+import { FieldLabel } from '../ui/Field.js';
+import { Input } from '../ui/Input.js';
+import { Select, SelectOption } from '../ui/Select.js';
+import { Textarea } from '../ui/Textarea.js';
 import {
   blobToDataUrl,
   collectReport,
@@ -111,16 +124,9 @@ function ReportDialog({ initial, onPrint, onClose }: ReportDialogProps) {
   const [templateId, setTemplateId] = useState('');
   const [templateName, setTemplateName] = useState('');
   const templates = useSavedKindItems(REPORT_TEMPLATES);
-  const dialogRef = useRef<HTMLDialogElement>(null);
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
+  const titleRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
-    const dialog = dialogRef.current;
-    const onNativeClose = () => onCloseRef.current();
-    dialog?.addEventListener('close', onNativeClose);
-    if (dialog && !dialog.open) dialog.showModal();
-    dialog?.querySelector('input')?.focus();
-    return () => dialog?.removeEventListener('close', onNativeClose);
+    titleRef.current?.focus();
   }, []);
   const patch = (next: Partial<ReportOptions>) =>
     setOptions((current) => ({ ...current, ...next }));
@@ -143,125 +149,101 @@ function ReportDialog({ initial, onPrint, onClose }: ReportDialogProps) {
     setTemplateName('');
   };
   return (
-    <dialog
-      ref={dialogRef}
-      className="modal modal--sm"
-      aria-label="Report options"
-    >
-      <div className="modal__panel">
-        <header className="modal__head">
-          <h2 className="modal__title">Print report</h2>
-          <button
-            type="button"
-            className="icon-button"
-            aria-label="Close"
-            onClick={onClose}
-          >
-            <Icon name="close" size={16} />
-          </button>
-        </header>
-        <div className="modal__body settings">
-          <div className="settings__section">
-            <h3 className="settings__heading">Template</h3>
-            <label className="settings__field">
-              <span>Template</span>
-              <select
-                value={templateId}
-                aria-label="Template"
-                onChange={(event) => applyTemplate(event.target.value)}
-              >
-                <option value="">None</option>
-                {templates.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="settings__field">
-              <span>Template name</span>
-              <input
-                type="text"
-                value={templateName}
-                onChange={(event) => setTemplateName(event.target.value)}
-              />
-            </label>
-            <div className="settings__actions">
-              <button
-                type="button"
-                className="btn"
-                disabled={templateName.trim() === ''}
-                onClick={saveTemplate}
-              >
-                Save template
-              </button>
-            </div>
-          </div>
-          <label className="settings__field">
-            <span>Title</span>
-            <input
+    <Dialog size="sm" aria-label="Report options" onClose={onClose}>
+      <DialogHeader>
+        <DialogTitle>Print report</DialogTitle>
+        <DialogClose>
+          <Icon name="close" size={16} />
+        </DialogClose>
+      </DialogHeader>
+      <DialogBody className="settings">
+        <div className="settings__section">
+          <h3 className="settings__heading">Template</h3>
+          <FieldLabel layout="row">
+            <span>Template</span>
+            <Select
+              value={templateId}
+              aria-label="Template"
+              onValueChange={(next) => applyTemplate(next)}
+            >
+              <SelectOption value="">None</SelectOption>
+              {templates.map((item) => (
+                <SelectOption key={item.id} value={item.id}>
+                  {item.name}
+                </SelectOption>
+              ))}
+            </Select>
+          </FieldLabel>
+          <FieldLabel layout="row">
+            <span>Template name</span>
+            <Input
               type="text"
-              value={options.title}
-              maxLength={REPORT_TITLE_MAX}
-              onChange={(event) => patch({ title: event.target.value })}
+              value={templateName}
+              onChange={(event) => setTemplateName(event.target.value)}
             />
-          </label>
-          <label className="settings__field">
-            <span>Notes</span>
-            <textarea
-              rows={3}
-              value={options.notes}
-              maxLength={REPORT_NOTES_MAX}
-              onChange={(event) => patch({ notes: event.target.value })}
-            />
-          </label>
-          <div className="settings__section">
-            <h3 className="settings__heading">Sections</h3>
-            {REPORT_SECTION_LABELS.map(([key, label]) => (
-              <label key={key} className="settings__field">
-                <span>{label}</span>
-                <input
-                  type="checkbox"
-                  checked={options.sections[key]}
-                  aria-label={label}
-                  onChange={(event) => patchSection(key, event.target.checked)}
-                />
-              </label>
-            ))}
-          </div>
-          <label className="settings__field">
-            <span>Orientation</span>
-            <select
-              value={options.orientation}
-              aria-label="Orientation"
-              onChange={(event) =>
-                patch({
-                  orientation:
-                    event.target.value === 'landscape'
-                      ? 'landscape'
-                      : 'portrait',
-                })
-              }
-            >
-              <option value="portrait">Portrait</option>
-              <option value="landscape">Landscape</option>
-            </select>
-          </label>
+          </FieldLabel>
           <div className="settings__actions">
-            <button type="button" className="btn" onClick={onClose}>
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="btn"
-              onClick={() => onPrint(options)}
+            <Button
+              disabled={templateName.trim() === ''}
+              onClick={saveTemplate}
             >
-              Print
-            </button>
+              Save template
+            </Button>
           </div>
         </div>
-      </div>
-    </dialog>
+        <FieldLabel layout="row">
+          <span>Title</span>
+          <Input
+            ref={titleRef}
+            type="text"
+            value={options.title}
+            maxLength={REPORT_TITLE_MAX}
+            onChange={(event) => patch({ title: event.target.value })}
+          />
+        </FieldLabel>
+        <FieldLabel layout="row">
+          <span>Notes</span>
+          <Textarea
+            rows={3}
+            value={options.notes}
+            maxLength={REPORT_NOTES_MAX}
+            onChange={(event) => patch({ notes: event.target.value })}
+          />
+        </FieldLabel>
+        <div className="settings__section">
+          <h3 className="settings__heading">Sections</h3>
+          {REPORT_SECTION_LABELS.map(([key, label]) => (
+            <FieldLabel layout="row" key={key}>
+              <span>{label}</span>
+              <Checkbox
+                checked={options.sections[key]}
+                aria-label={label}
+                onChange={(event) => patchSection(key, event.target.checked)}
+              />
+            </FieldLabel>
+          ))}
+        </div>
+        <FieldLabel layout="row">
+          <span>Orientation</span>
+          <Select
+            value={options.orientation}
+            aria-label="Orientation"
+            onValueChange={(next) =>
+              patch({
+                orientation: next === 'landscape' ? 'landscape' : 'portrait',
+              })
+            }
+          >
+            <SelectOption value="portrait">Portrait</SelectOption>
+            <SelectOption value="landscape">Landscape</SelectOption>
+          </Select>
+        </FieldLabel>
+        <div className="settings__actions">
+          <Button onClick={onClose}>Cancel</Button>
+          <Button onClick={() => onPrint(options)}>Print</Button>
+        </div>
+      </DialogBody>
+    </Dialog>
   );
 }
 

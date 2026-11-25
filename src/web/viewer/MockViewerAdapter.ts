@@ -1,7 +1,7 @@
 import { fold } from '../../shared/text.js';
 import type { PropertyRow } from '../../shared/types.js';
 import type { IfcSourceRead } from '../ifc/types.js';
-import type { Theme } from '../theme/theme.js';
+import type { ThemeScheme } from '../theme/theme.js';
 import {
   PAINT_ICON_CLASS,
   RESET_ICON_CLASS,
@@ -336,7 +336,7 @@ export class MockViewerAdapter implements ViewerAdapter {
   } | null = null;
   private controller: ToolGroupController | null = null;
   private disposeGroup: (() => void) | null = null;
-  private theme: Theme = 'dark';
+  private theme: ThemeScheme = 'dark';
   private camera: CameraState | null = {
     eye: [0, 0, 10],
     target: [0, 0, 0],
@@ -860,7 +860,7 @@ export class MockViewerAdapter implements ViewerAdapter {
     this.selectModelIds(ids.map((dbId) => ({ modelId: primary, dbId })));
   }
 
-  setTheme(theme: Theme): void {
+  setTheme(theme: ThemeScheme): void {
     this.theme = theme;
     if (this.root) this.root.dataset.viewerTheme = theme;
   }

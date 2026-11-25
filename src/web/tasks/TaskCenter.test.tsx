@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen } from '../test/render.js';
+import { act, fireEvent, render, screen, within } from '../test/render.js';
+import { notifications } from './notifications.js';
 import { TaskCenter } from './TaskCenter.js';
-import { createTaskStore } from './taskStore.js';
+import { createTaskStore, notifyOutcome } from './taskStore.js';
 
 describe('TaskCenter', () => {
   it('renders nothing but the live region while no task exists', () => {
@@ -21,12 +22,14 @@ describe('TaskCenter', () => {
     });
     const trigger = screen.getByRole('button', { name: 'Tasks, 1 running' });
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(trigger.querySelector('[data-slot="spinner"]')).not.toBeNull();
     fireEvent.click(trigger);
+    expect(screen.getByRole('list')).toHaveAttribute('data-slot', 'list');
     expect(screen.getByText('Exporting')).toBeInTheDocument();
     expect(screen.getByText('Running: Reading')).toBeInTheDocument();
     expect(
       screen.getByRole('progressbar', { name: 'Exporting progress' }),
-    ).toHaveAttribute('value', '50');
+    ).toHaveAttribute('aria-valuenow', '50');
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(cancel).toHaveBeenCalledTimes(1);
     expect(screen.getByText('Cancelled: Reading')).toBeInTheDocument();
@@ -64,6 +67,32 @@ describe('TaskCenter', () => {
     expect(screen.queryByText('Failed: offline')).toBeNull();
   });
 
+  it('raises one toast for an export outcome and still lists the task', async () => {
+    const store = createTaskStore(Date.now, notifyOutcome);
+    render(<TaskCenter store={store} />);
+    act(() => {
+      store
+        .start({ label: 'Exporting Excel', notify: true })
+        .fail(new Error('disk full'));
+    });
+    const region = await screen.findByRole('region', {
+      name: 'Notifications',
+    });
+    expect(
+      await within(region).findByText('Exporting Excel failed'),
+    ).toBeInTheDocument();
+    expect(within(region).getByText('disk full')).toBeInTheDocument();
+    expect(screen.getAllByRole('status')).toHaveLength(1);
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Exporting Excel failed',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Tasks' }));
+    expect(screen.getByText('Failed: disk full')).toBeInTheDocument();
+    act(() => {
+      notifications.clear();
+    });
+  });
+
   it('closes on Escape and on an outside press', () => {
     const store = createTaskStore();
     render(<TaskCenter store={store} />);
@@ -73,6 +102,9 @@ describe('TaskCenter', () => {
     const trigger = screen.getByRole('button', { name: 'Tasks, 1 running' });
     fireEvent.click(trigger);
     expect(screen.getByRole('region', { name: 'Tasks' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('progressbar', { name: 'A progress' }),
+    ).toHaveAttribute('data-indeterminate');
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.queryByRole('region', { name: 'Tasks' })).toBeNull();
     fireEvent.click(trigger);

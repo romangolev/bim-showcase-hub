@@ -1,4 +1,23 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import {
+  type ColumnDef,
+  columnResizingFeature,
+  columnSizingFeature,
+  FlexRender,
+  metaHelper,
+  type Row,
+  tableFeatures,
+  useTable,
+} from '@tanstack/react-table';
+import {
+  type CSSProperties,
+  memo,
+  type ReactNode,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { PropertyRow } from '../../shared/types.js';
 import { Icon } from '../components/icons.js';
 import {
@@ -24,8 +43,20 @@ import {
   summaryBlocks,
 } from '../extensions/modelSummary.js';
 import { useSettings } from '../settings/SettingsContext.js';
+import type { Language } from '../settings/settings.js';
 import { useScrollable } from './useScrollable.js';
 import './panels.css';
+import { Button } from '../ui/Button.js';
+import { IconButton } from '../ui/IconButton.js';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableResizeHandle,
+  TableRow,
+} from '../ui/Table.js';
 
 export const ENTRY_CAP = 500;
 
@@ -68,76 +99,344 @@ function TitleInput({
   );
 }
 
-function CountCell({ count, max }: { count: number; max: number }) {
-  const share = countShare(count, max);
-  return (
-    <td className="bsh-num" title={formatCount(count)}>
-      <span
-        className="bsh-count-bar"
-        aria-hidden="true"
-        style={{ width: `${share}%` }}
-      />
-      <span className="bsh-clamp bsh-count-value">{formatCount(count)}</span>
-    </td>
-  );
+interface Line {
+  key: string;
+  cells: readonly SummaryCell[];
+  entry?: SummaryEntry;
+  node?: PivotNode;
+  depth?: number;
+  collapsed?: boolean;
 }
 
-function ColumnCell({
-  column,
-  cell,
-  max,
-}: {
-  column: SummaryColumnSpec;
-  cell: SummaryCell;
-  max: number | null;
-}) {
-  const { language } = useSettings().settings;
-  if (max !== null && column.property === null && cell.status === 'ok') {
-    return <CountCell count={cell.value} max={max} />;
-  }
-  const text = formatCell(cell, column, language);
-  return (
-    <td
-      className="bsh-num"
-      title={
-        cell.status === 'mixed' ? `Mixed units: ${cell.units.join(', ')}` : text
+interface CellAttrs {
+  title?: string;
+  style?: CSSProperties;
+}
+
+interface ColumnMeta {
+  label: string;
+  className: string;
+  cellClassName?: string;
+  title?: string;
+  rowHeader?: boolean;
+  attrs?: (line: Line) => CellAttrs;
+}
+
+const features = tableFeatures({
+  columnMeta: metaHelper<ColumnMeta>(),
+  columnSizingFeature,
+  columnResizingFeature,
+});
+
+type GridColumn = ColumnDef<typeof features, Line>;
+
+const NO_ATTRS: CellAttrs = {};
+const COLUMN_LIMITS = { minSize: 48, maxSize: 1600 };
+const RESIZE_STEP = 16;
+const NO_CELLS: readonly SummaryCell[] = [];
+const PROPERTY_COLUMN: GridColumn = {
+  id: 'bsh:property',
+  header: 'Property',
+  cell: ({ row }) => (
+    <span className="bsh-clamp">{row.original.entry?.property}</span>
+  ),
+  meta: {
+    label: 'Property',
+    className: 'bsh-col-property',
+    attrs: (line) => ({ title: line.entry?.property }),
+  },
+};
+
+function specColumns(
+  specs: readonly SummaryColumnSpec[],
+  blank: ReadonlySet<string>,
+  max: number | null,
+  language: Language,
+): GridColumn[] {
+  return specs.map((spec, index) => {
+    const title = columnTitle(spec);
+    const empty = spec.property !== null && blank.has(spec.property);
+    const format = (line: Line) => {
+      const cell = line.cells[index] ?? NO_CELL;
+      if (max !== null && spec.property === null && cell.status === 'ok') {
+        const text = formatCount(cell.value);
+        return { text, title: text, share: countShare(cell.value, max) };
       }
-    >
-      <span className="bsh-clamp bsh-measure">{text}</span>
-    </td>
-  );
+      const text = formatCell(cell, spec, language);
+      return {
+        text,
+        title:
+          cell.status === 'mixed'
+            ? `Mixed units: ${cell.units.join(', ')}`
+            : text,
+        share: null,
+      };
+    };
+    const seen = new WeakMap<Line, ReturnType<typeof format>>();
+    const read = (line: Line) => {
+      const known = seen.get(line);
+      if (known) return known;
+      const fresh = format(line);
+      seen.set(line, fresh);
+      return fresh;
+    };
+    return {
+      id: spec.id,
+      header: () => (
+        <>
+          {title}
+          {empty ? (
+            <>
+              <Icon name="alert" size={12} />
+              <span className="bsh-sr-only">, {BLANK_NOTE}</span>
+            </>
+          ) : null}
+        </>
+      ),
+      cell: ({ row }) => {
+        const { text, share } = read(row.original);
+        return share === null ? (
+          <span className="bsh-clamp bsh-measure">{text}</span>
+        ) : (
+          <>
+            <span
+              className="bsh-count-bar"
+              aria-hidden="true"
+              style={{ width: `${share}%` }}
+            />
+            <span className="bsh-clamp bsh-count-value">{text}</span>
+          </>
+        );
+      },
+      meta: {
+        label: empty ? `${title}, ${BLANK_NOTE}` : title,
+        className: 'bsh-num',
+        title: empty ? `${title}: ${BLANK_NOTE}` : title,
+        attrs: (line) => ({ title: read(line).title }),
+      },
+    };
+  });
 }
 
-function ColumnHeaders({
-  columns,
-  blank,
+const GridRow = memo(function GridRow({
+  row,
+  active,
 }: {
-  columns: readonly SummaryColumnSpec[];
-  blank: ReadonlySet<string>;
+  row: Row<typeof features, Line>;
+  columns: GridColumn[];
+  active: boolean;
 }) {
   return (
-    <>
-      {columns.map((column) => {
-        const title = columnTitle(column);
-        const empty = column.property !== null && blank.has(column.property);
+    <TableRow data-active={active ? 'true' : undefined}>
+      {row.getAllCells().map((cell) => {
+        const meta = cell.column.columnDef.meta;
         return (
-          <th
-            key={column.id}
-            scope="col"
-            className="bsh-num"
-            title={empty ? `${title}: ${BLANK_NOTE}` : title}
+          <TableCell
+            key={cell.id}
+            rowHeader={meta?.rowHeader}
+            className={meta?.cellClassName ?? meta?.className}
+            {...(meta?.attrs?.(row.original) ?? NO_ATTRS)}
           >
-            {title}
-            {empty ? (
-              <>
-                <Icon name="alert" size={12} />
-                <span className="bsh-sr-only">, {BLANK_NOTE}</span>
-              </>
-            ) : null}
-          </th>
+            <FlexRender cell={cell} />
+          </TableCell>
         );
       })}
-    </>
+    </TableRow>
+  );
+});
+
+function Grid({
+  columns,
+  lines,
+  className,
+  label,
+  activeKey,
+  resizable,
+  children,
+}: {
+  columns: GridColumn[];
+  lines: Line[];
+  className: string;
+  label?: string;
+  activeKey?: string | null;
+  resizable: boolean;
+  children?: ReactNode;
+}) {
+  const table = useTable({
+    features,
+    columns,
+    data: lines,
+    getRowId: (line) => line.key,
+    columnResizeMode: 'onChange',
+    defaultColumn: COLUMN_LIMITS,
+  });
+  const sized = Object.keys(table.state.columnSizing).length > 0;
+  const freeze = (handle: Element) => {
+    if (sized) return;
+    const cells = handle.closest('tr')?.children;
+    const widths: Record<string, number> = {};
+    table.getAllLeafColumns().forEach((column, index) => {
+      widths[column.id] = cells?.[index]?.getBoundingClientRect().width ?? 0;
+    });
+    table.setColumnSizing(widths);
+  };
+  return (
+    <Table
+      className={className}
+      aria-label={label}
+      fixed={sized}
+      style={sized ? { width: table.getTotalSize() } : undefined}
+    >
+      <TableHeader>
+        {table.getHeaderGroups().map((group) => (
+          <TableRow key={group.id}>
+            {group.headers.map((header) => {
+              const { column } = header;
+              const meta = column.columnDef.meta;
+              const start = (event: { currentTarget: Element }) => {
+                freeze(event.currentTarget);
+                header.getResizeHandler()(event);
+              };
+              return (
+                <TableHead
+                  key={header.id}
+                  className={meta?.className}
+                  title={meta?.title}
+                  aria-label={resizable ? meta?.label : undefined}
+                  style={sized ? { width: header.getSize() } : undefined}
+                >
+                  <table.FlexRender header={header} />
+                  {resizable ? (
+                    <TableResizeHandle
+                      label={`Resize ${meta?.label} column`}
+                      value={sized ? Math.round(header.getSize()) : undefined}
+                      active={column.getIsResizing()}
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                        start(event);
+                      }}
+                      onTouchStart={start}
+                      onDoubleClick={() => table.resetColumnSizing(true)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          table.resetColumnSizing(true);
+                          return;
+                        }
+                        const step =
+                          event.key === 'ArrowRight'
+                            ? RESIZE_STEP
+                            : event.key === 'ArrowLeft'
+                              ? -RESIZE_STEP
+                              : 0;
+                        if (!step) return;
+                        event.preventDefault();
+                        freeze(event.currentTarget);
+                        table.setColumnSizing((old) => ({
+                          ...old,
+                          [column.id]: Math.min(
+                            COLUMN_LIMITS.maxSize,
+                            Math.max(
+                              COLUMN_LIMITS.minSize,
+                              (old[column.id] ?? 0) + step,
+                            ),
+                          ),
+                        }));
+                      }}
+                    />
+                  ) : null}
+                </TableHead>
+              );
+            })}
+          </TableRow>
+        ))}
+      </TableHeader>
+      <TableBody>
+        {table.getRowModel().rows.map((row) => (
+          <GridRow
+            key={row.id}
+            row={row}
+            columns={columns}
+            active={activeKey === row.id}
+          />
+        ))}
+        {children}
+      </TableBody>
+    </Table>
+  );
+}
+
+function MoreRow({
+  span,
+  count,
+  onShow,
+}: {
+  span: number;
+  count: number;
+  onShow: () => void;
+}) {
+  return (
+    <TableRow>
+      <TableCell colSpan={span}>
+        <Button onClick={onShow}>Show {formatCount(count)} more</Button>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+function BlockGrid({
+  entries,
+  expanded,
+  cells,
+  valueColumn,
+  specs,
+  blank,
+  language,
+  title,
+  activeKey,
+  resizable,
+  onExpand,
+}: {
+  entries: readonly SummaryEntry[];
+  expanded: boolean;
+  cells: ReadonlyMap<string, readonly SummaryCell[]>;
+  valueColumn: GridColumn;
+  specs: readonly SummaryColumnSpec[];
+  blank: ReadonlySet<string>;
+  language: Language;
+  title: string;
+  activeKey?: string | null;
+  resizable: boolean;
+  onExpand: () => void;
+}) {
+  const columns = useMemo(() => {
+    const max = entries.reduce((most, entry) => Math.max(most, entry.count), 0);
+    return [valueColumn, ...specColumns(specs, blank, max, language)];
+  }, [entries, valueColumn, specs, blank, language]);
+  const lines = useMemo(
+    () =>
+      (expanded ? entries : entries.slice(0, ENTRY_CAP)).map((entry): Line => {
+        const key = entryKey(entry);
+        return { key, entry, cells: cells.get(key) ?? NO_CELLS };
+      }),
+    [entries, expanded, cells],
+  );
+  return (
+    <Grid
+      columns={columns}
+      lines={lines}
+      className="bsh-table bsh-table--summary"
+      label={title}
+      activeKey={activeKey}
+      resizable={resizable}
+    >
+      {!expanded && entries.length > ENTRY_CAP ? (
+        <MoreRow
+          span={columns.length}
+          count={entries.length - ENTRY_CAP}
+          onShow={onExpand}
+        />
+      ) : null}
+    </Grid>
   );
 }
 
@@ -197,6 +496,7 @@ export function SummaryTable({
   onTitleChange?: (property: string, title: string) => void;
 }) {
   const uid = useId();
+  const { language } = useSettings().settings;
   const wrapRef = useRef<HTMLDivElement>(null);
   const scrollable = useScrollable(wrapRef);
   const [collapsedBlocks, setCollapsedBlocks] = useState<ReadonlySet<string>>(
@@ -264,7 +564,6 @@ export function SummaryTable({
         : cellsByEntry(rows ?? NO_ROWS, flat.shown, columns),
     [layout, rows, flat.shown, columns],
   );
-  const cellsFor = (entry: SummaryEntry) => cells.get(entryKey(entry)) ?? [];
   const hiddenTotal = [...flat.hidden.values()].reduce((a, b) => a + b, 0);
   const expandProps = (properties: Iterable<string>) =>
     setExpandedProps((previous) => new Set([...previous, ...properties]));
@@ -276,7 +575,10 @@ export function SummaryTable({
     () => flattenPivot(tree, collapsedNodes, '', 0, []),
     [tree, collapsedNodes],
   );
-  const pivotShown = pivotAll ? pivotRows : pivotRows.slice(0, ENTRY_CAP);
+  const pivotShown = useMemo(
+    () => (pivotAll ? pivotRows : pivotRows.slice(0, ENTRY_CAP)),
+    [pivotAll, pivotRows],
+  );
   const pivotMax = useMemo(
     () => tree.reduce((max, node) => Math.max(max, node.count), 0),
     [tree],
@@ -306,18 +608,117 @@ export function SummaryTable({
     setCollapsedBlocks(new Set(blocks.map((block) => block.property)));
     setCollapsedNodes(new Set(allPivotKeys(tree)));
   };
-  const valueLabel = (entry: SummaryEntry) =>
-    onPick ? (
-      <button
-        type="button"
-        className="bsh-row-pick"
-        onClick={() => onPick(entry)}
-      >
-        <span className="bsh-clamp">{entry.value}</span>
-      </button>
-    ) : (
-      <span className="bsh-clamp">{entry.value}</span>
-    );
+  const actions = useRef({ onPick, toggleNode });
+  actions.current = { onPick, toggleNode };
+  const pickable = Boolean(onPick);
+  const valueColumns = useMemo(() => {
+    const column = (rowHeader: boolean): GridColumn => ({
+      id: 'bsh:value',
+      header: 'Value',
+      cell: ({ row }) => {
+        const entry = row.original.entry;
+        if (!entry) return null;
+        return pickable ? (
+          <button
+            type="button"
+            className="bsh-row-pick"
+            onClick={() => actions.current.onPick?.(entry)}
+          >
+            <span className="bsh-clamp">{entry.value}</span>
+          </button>
+        ) : (
+          <span className="bsh-clamp">{entry.value}</span>
+        );
+      },
+      meta: {
+        label: 'Value',
+        className: 'bsh-col-value',
+        rowHeader,
+        attrs: (line) => ({ title: line.entry?.value }),
+      },
+    });
+    return { cell: column(false), rowHeader: column(true) };
+  }, [pickable]);
+  const flatColumns = useMemo(
+    () => [
+      ...(showProperty ? [PROPERTY_COLUMN] : []),
+      valueColumns.cell,
+      ...specColumns(columns, blank, null, language),
+    ],
+    [showProperty, valueColumns, columns, blank, language],
+  );
+  const flatLines = useMemo(
+    () =>
+      flat.shown.map((entry): Line => {
+        const key = entryKey(entry);
+        return { key, entry, cells: cells.get(key) ?? NO_CELLS };
+      }),
+    [flat.shown, cells],
+  );
+  const pivotColumns = useMemo(
+    (): GridColumn[] => [
+      {
+        id: 'bsh:value',
+        header: 'Value',
+        cell: ({ row }) => {
+          const { node, collapsed, key } = row.original;
+          if (!node) return null;
+          return (
+            <>
+              {node.children.length > 0 ? (
+                <IconButton
+                  label={
+                    collapsed
+                      ? `Expand ${node.value}`
+                      : `Collapse ${node.value}`
+                  }
+                  className="bsh-pivot__toggle"
+                  aria-expanded={!collapsed}
+                  onClick={() => actions.current.toggleNode(key)}
+                >
+                  <Icon
+                    name="chevron"
+                    size={14}
+                    className="bsh-pivot__chevron"
+                    data-expanded={!collapsed}
+                  />
+                </IconButton>
+              ) : (
+                <span className="bsh-pivot__spacer" aria-hidden="true" />
+              )}
+              <span className="bsh-clamp">{node.value}</span>
+            </>
+          );
+        },
+        meta: {
+          label: 'Value',
+          className: 'bsh-col-value',
+          cellClassName: 'bsh-col-value bsh-pivot__value',
+          rowHeader: true,
+          attrs: (line) => ({
+            style: {
+              paddingInlineStart: `${0.5 + (line.depth ?? 0) * 0.9}rem`,
+            },
+          }),
+        },
+      },
+      ...specColumns(columns, blank, pivotMax, language),
+    ],
+    [columns, blank, pivotMax, language],
+  );
+  const pivotLines = useMemo(
+    () =>
+      pivotShown.map(
+        ({ node, depth, key }): Line => ({
+          key,
+          node,
+          depth,
+          collapsed: collapsedNodes.has(key),
+          cells: node.cells,
+        }),
+      ),
+    [pivotShown, collapsedNodes],
+  );
   const regionProps =
     scrollable && !decorative
       ? {
@@ -329,70 +730,27 @@ export function SummaryTable({
   const tools = (show: boolean) =>
     show ? (
       <div className="bsh-summary-blocks__tools">
-        <button type="button" className="btn" onClick={expandAll}>
-          Expand all
-        </button>
-        <button type="button" className="btn" onClick={collapseAll}>
-          Collapse all
-        </button>
+        <Button onClick={expandAll}>Expand all</Button>
+        <Button onClick={collapseAll}>Collapse all</Button>
       </div>
     ) : null;
 
   const flatTable = (
-    <table className="bsh-table bsh-table--summary">
-      <thead>
-        <tr>
-          {showProperty ? (
-            <th scope="col" className="bsh-col-property">
-              Property
-            </th>
-          ) : null}
-          <th scope="col" className="bsh-col-value">
-            Value
-          </th>
-          <ColumnHeaders columns={columns} blank={blank} />
-        </tr>
-      </thead>
-      <tbody>
-        {flat.shown.map((entry) => {
-          const key = entryKey(entry);
-          const list = cellsFor(entry);
-          return (
-            <tr key={key} data-active={activeKey === key ? 'true' : undefined}>
-              {showProperty ? (
-                <td className="bsh-col-property" title={entry.property}>
-                  <span className="bsh-clamp">{entry.property}</span>
-                </td>
-              ) : null}
-              <td className="bsh-col-value" title={entry.value}>
-                {valueLabel(entry)}
-              </td>
-              {columns.map((column, index) => (
-                <ColumnCell
-                  key={column.id}
-                  column={column}
-                  cell={list[index] ?? NO_CELL}
-                  max={null}
-                />
-              ))}
-            </tr>
-          );
-        })}
-        {hiddenTotal > 0 ? (
-          <tr>
-            <td colSpan={(showProperty ? 2 : 1) + columns.length}>
-              <button
-                type="button"
-                className="btn"
-                onClick={() => expandProps(flat.hidden.keys())}
-              >
-                Show {formatCount(hiddenTotal)} more
-              </button>
-            </td>
-          </tr>
-        ) : null}
-      </tbody>
-    </table>
+    <Grid
+      columns={flatColumns}
+      lines={flatLines}
+      className="bsh-table bsh-table--summary"
+      activeKey={activeKey}
+      resizable={!decorative}
+    >
+      {hiddenTotal > 0 ? (
+        <MoreRow
+          span={flatColumns.length}
+          count={hiddenTotal}
+          onShow={() => expandProps(flat.hidden.keys())}
+        />
+      ) : null}
+    </Grid>
   );
 
   const groupedTable = (
@@ -401,10 +759,6 @@ export function SummaryTable({
       {blocks.map((block, index) => {
         const title = blockTitle(titles, block.property);
         const collapsed = collapsedBlocks.has(block.property);
-        const max = block.entries.reduce(
-          (largest, entry) => Math.max(largest, entry.count),
-          0,
-        );
         const bodyId = `${uid}-block-${index}`;
         return (
           <section
@@ -414,9 +768,9 @@ export function SummaryTable({
             aria-labelledby={`${bodyId}-title`}
           >
             <div className="bsh-table-block__header">
-              <button
-                type="button"
-                className="icon-button bsh-table-block__toggle"
+              <IconButton
+                label={collapsed ? `Expand ${title}` : `Collapse ${title}`}
+                className="bsh-table-block__toggle"
                 aria-expanded={!collapsed}
                 aria-controls={bodyId}
                 onClick={() => toggleBlock(block.property)}
@@ -427,10 +781,7 @@ export function SummaryTable({
                   className="bsh-table-block__chevron"
                   data-expanded={!collapsed}
                 />
-                <span className="bsh-sr-only">
-                  {collapsed ? `Expand ${title}` : `Collapse ${title}`}
-                </span>
-              </button>
+              </IconButton>
               <h3 id={`${bodyId}-title`} className="bsh-table-block__title">
                 {title}
               </h3>
@@ -446,13 +797,12 @@ export function SummaryTable({
                     onCancel={() => setEditing(null)}
                   />
                 ) : (
-                  <button
-                    type="button"
-                    className="btn bsh-table-block__rename"
+                  <Button
+                    className="bsh-table-block__rename"
                     onClick={() => setEditing(block.property)}
                   >
                     Rename
-                  </button>
+                  </Button>
                 )
               ) : null}
             </div>
@@ -461,65 +811,19 @@ export function SummaryTable({
               className="bsh-table-block__body"
               hidden={collapsed}
             >
-              <table
-                className="bsh-table bsh-table--summary"
-                aria-label={title}
-              >
-                <thead>
-                  <tr>
-                    <th scope="col" className="bsh-col-value">
-                      Value
-                    </th>
-                    <ColumnHeaders columns={columns} blank={blank} />
-                  </tr>
-                </thead>
-                <tbody>
-                  {(expandedProps.has(block.property)
-                    ? block.entries
-                    : block.entries.slice(0, ENTRY_CAP)
-                  ).map((entry) => {
-                    const key = entryKey(entry);
-                    const list = cellsFor(entry);
-                    return (
-                      <tr
-                        key={key}
-                        data-active={activeKey === key ? 'true' : undefined}
-                      >
-                        <th
-                          scope="row"
-                          className="bsh-col-value"
-                          title={entry.value}
-                        >
-                          {valueLabel(entry)}
-                        </th>
-                        {columns.map((column, columnIndex) => (
-                          <ColumnCell
-                            key={column.id}
-                            column={column}
-                            cell={list[columnIndex] ?? NO_CELL}
-                            max={max}
-                          />
-                        ))}
-                      </tr>
-                    );
-                  })}
-                  {!expandedProps.has(block.property) &&
-                  block.entries.length > ENTRY_CAP ? (
-                    <tr>
-                      <td colSpan={1 + columns.length}>
-                        <button
-                          type="button"
-                          className="btn"
-                          onClick={() => expandProps([block.property])}
-                        >
-                          Show {formatCount(block.entries.length - ENTRY_CAP)}{' '}
-                          more
-                        </button>
-                      </td>
-                    </tr>
-                  ) : null}
-                </tbody>
-              </table>
+              <BlockGrid
+                entries={block.entries}
+                expanded={expandedProps.has(block.property)}
+                cells={cells}
+                valueColumn={valueColumns.rowHeader}
+                specs={columns}
+                blank={blank}
+                language={language}
+                title={title}
+                activeKey={activeKey}
+                resizable={!decorative}
+                onExpand={() => expandProps([block.property])}
+              />
             </div>
           </section>
         );
@@ -530,79 +834,21 @@ export function SummaryTable({
   const pivotTable = (
     <>
       {tools(true)}
-      <table
+      <Grid
+        columns={pivotColumns}
+        lines={pivotLines}
         className="bsh-table bsh-table--summary bsh-table--pivot"
-        aria-label={`Pivot by ${groupBy.join(', ')}`}
+        label={`Pivot by ${groupBy.join(', ')}`}
+        resizable={!decorative}
       >
-        <thead>
-          <tr>
-            <th scope="col" className="bsh-col-value">
-              Value
-            </th>
-            <ColumnHeaders columns={columns} blank={blank} />
-          </tr>
-        </thead>
-        <tbody>
-          {pivotShown.map(({ node, depth, key }) => {
-            const collapsed = collapsedNodes.has(key);
-            const hasChildren = node.children.length > 0;
-            return (
-              <tr key={key}>
-                <th
-                  scope="row"
-                  className="bsh-col-value bsh-pivot__value"
-                  style={{ paddingInlineStart: `${0.5 + depth * 0.9}rem` }}
-                >
-                  {hasChildren ? (
-                    <button
-                      type="button"
-                      className="icon-button bsh-pivot__toggle"
-                      aria-expanded={!collapsed}
-                      onClick={() => toggleNode(key)}
-                    >
-                      <Icon
-                        name="chevron"
-                        size={14}
-                        className="bsh-pivot__chevron"
-                        data-expanded={!collapsed}
-                      />
-                      <span className="bsh-sr-only">
-                        {collapsed
-                          ? `Expand ${node.value}`
-                          : `Collapse ${node.value}`}
-                      </span>
-                    </button>
-                  ) : (
-                    <span className="bsh-pivot__spacer" aria-hidden="true" />
-                  )}
-                  <span className="bsh-clamp">{node.value}</span>
-                </th>
-                {columns.map((column, index) => (
-                  <ColumnCell
-                    key={column.id}
-                    column={column}
-                    cell={node.cells[index] ?? NO_CELL}
-                    max={pivotMax}
-                  />
-                ))}
-              </tr>
-            );
-          })}
-          {pivotShown.length < pivotRows.length ? (
-            <tr>
-              <td colSpan={1 + columns.length}>
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => setPivotAll(true)}
-                >
-                  Show {formatCount(pivotRows.length - pivotShown.length)} more
-                </button>
-              </td>
-            </tr>
-          ) : null}
-        </tbody>
-      </table>
+        {pivotShown.length < pivotRows.length ? (
+          <MoreRow
+            span={pivotColumns.length}
+            count={pivotRows.length - pivotShown.length}
+            onShow={() => setPivotAll(true)}
+          />
+        ) : null}
+      </Grid>
     </>
   );
 

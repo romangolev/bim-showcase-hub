@@ -9,6 +9,9 @@ import {
   type PaneSettingsSchema,
   paneSettingsSchema,
 } from '../settings/paneSettingsSchema.js';
+import { Button } from '../ui/Button.js';
+import { FieldLabel } from '../ui/Field.js';
+import { Input } from '../ui/Input.js';
 import { layoutCommands, paneCommandContext } from './layoutCommandList.js';
 import { type LayoutApi, useLayout } from './layoutContext.js';
 import {
@@ -243,9 +246,9 @@ function RenamePaneDialog({
         close();
       }}
     >
-      <label className="settings__field">
+      <FieldLabel layout="row">
         Title
-        <input
+        <Input
           ref={inputRef}
           type="text"
           aria-label="Pane title"
@@ -254,27 +257,23 @@ function RenamePaneDialog({
           value={value}
           onChange={(event) => setValue(event.target.value)}
         />
-      </label>
+      </FieldLabel>
       <p className="settings__hint">
         Leave empty to use {fallback}. The title survives closing and reload.
       </p>
       <div className="settings__actions">
-        <button className="btn btn-primary" type="submit">
+        <Button variant="primary" type="submit">
           Save title
-        </button>
-        <button
-          className="btn"
-          type="button"
+        </Button>
+        <Button
           onClick={() => {
             setPaneTitle(pane, null);
             close();
           }}
         >
           Reset title
-        </button>
-        <button className="btn" type="button" onClick={close}>
-          Cancel
-        </button>
+        </Button>
+        <Button onClick={close}>Cancel</Button>
       </div>
     </form>
   );
@@ -314,19 +313,15 @@ function ColorPaneDialog({
         ))}
       </fieldset>
       <div className="settings__actions">
-        <button
-          className="btn"
-          type="button"
+        <Button
           onClick={() => {
             setPaneColor(pane, null);
             close();
           }}
         >
           Remove tag
-        </button>
-        <button className="btn" type="button" onClick={close}>
-          Cancel
-        </button>
+        </Button>
+        <Button onClick={close}>Cancel</Button>
       </div>
     </div>
   );

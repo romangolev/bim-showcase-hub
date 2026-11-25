@@ -105,7 +105,7 @@ export abstract class ViewerTool<S extends ToolSettings = ToolSettings> {
   }
 
   get hasSettings(): boolean {
-    return this.form !== undefined;
+    return this.renderFields() !== null;
   }
 
   renderSettings(): ReactNode {

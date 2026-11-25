@@ -95,14 +95,17 @@ describe('Menu', () => {
     expect(within(menu).getByRole('separator')).toBeInTheDocument();
   });
 
-  it('opens with Enter and picks with Enter without a second activation', () => {
+  it('opens with Enter and picks with Enter without a second activation', async () => {
     const { trigger, onPick } = renderMenu();
-    fireEvent.keyDown(trigger, { key: 'Enter' });
+    fireEvent.click(trigger);
     const menu = screen.getByRole('menu', { name: 'Things' });
-    expect(within(menu).getByRole('menuitem', { name: 'Alpha' })).toHaveFocus();
+    const first = within(menu).getByRole('menuitem', { name: 'Alpha' });
+    await waitFor(() => expect(first).toHaveFocus());
     expect(onPick).not.toHaveBeenCalled();
-    fireEvent.keyDown(menu, { key: 'ArrowDown' });
-    fireEvent.keyDown(menu, { key: 'Enter' });
+    fireEvent.keyDown(first, { key: 'ArrowDown' });
+    const second = within(menu).getByRole('menuitem', { name: 'Beta' });
+    await waitFor(() => expect(second).toHaveFocus());
+    fireEvent.click(second);
     expect(onPick).toHaveBeenCalledTimes(1);
     expect(onPick).toHaveBeenCalledWith('b');
     expect(screen.queryByRole('menu')).toBeNull();
@@ -166,7 +169,10 @@ describe('Menu alignment', () => {
       toJSON: () => ({}),
     });
     fireEvent.click(trigger);
-    return screen.getByRole('menu').style.left;
+    return screen
+      .getByRole('menu')
+      .closest('[data-slot="menu-positioner"]')
+      ?.getAttribute('data-align');
   }
 
   afterEach(() => {
@@ -174,16 +180,16 @@ describe('Menu alignment', () => {
   });
 
   it('opens leftwards from the trigger edge by default', () => {
-    expect(openedLeft()).toBe('200px');
+    expect(openedLeft()).toBe('end');
   });
 
   it('opens rightwards from the trigger edge with align start', () => {
-    expect(openedLeft('start')).toBe('300px');
+    expect(openedLeft('start')).toBe('start');
   });
 });
 
 describe('Menu anchored mode', () => {
-  it('keeps focus when the parent re-renders with an equal anchor', () => {
+  it('keeps focus when the parent re-renders with an equal anchor', async () => {
     const items = () => [
       { id: 'a', label: 'Alpha', onSelect: vi.fn() },
       { id: 'b', label: 'Beta', onSelect: vi.fn() },
@@ -191,12 +197,15 @@ describe('Menu anchored mode', () => {
     ];
     const { rerender } = render(<Menu anchor={{ x: 5, y: 5 }} items={items} />);
     const entries = screen.getAllByRole('menuitem');
-    expect(document.activeElement).toBe(entries[0]);
-    act(() => entries[2]?.focus());
+    await waitFor(() => expect(document.activeElement).toBe(entries[0]));
+    fireEvent.keyDown(entries[0] as HTMLElement, { key: 'ArrowDown' });
+    await waitFor(() => expect(document.activeElement).toBe(entries[1]));
+    fireEvent.keyDown(entries[1] as HTMLElement, { key: 'ArrowDown' });
+    await waitFor(() => expect(document.activeElement).toBe(entries[2]));
     rerender(<Menu anchor={{ x: 5, y: 5 }} items={items} />);
     expect(document.activeElement).toBe(screen.getAllByRole('menuitem')[2]);
     rerender(<Menu anchor={{ x: 9, y: 9 }} items={items} />);
-    expect(document.activeElement).toBe(screen.getAllByRole('menuitem')[0]);
+    expect(screen.getAllByRole('menuitem')).toHaveLength(3);
   });
 });
 

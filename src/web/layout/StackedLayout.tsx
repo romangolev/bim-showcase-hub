@@ -1,6 +1,7 @@
 import { Fragment, type KeyboardEvent, useEffect, useRef } from 'react';
 import type { OpenModelsState } from '../api/openModels.js';
 import { Icon } from '../components/icons.js';
+import { Tab, Tabs, TabsList } from '../ui/Tabs.js';
 import type { PaneTags, PaneTitles } from './layoutContext.js';
 import { modelPanelId } from './panelIds.js';
 import {
@@ -54,13 +55,6 @@ export function stackTabId(index: number): string {
   return `stack-model-tab-${index}`;
 }
 
-const MOVES: Record<string, (index: number, count: number) => number> = {
-  ArrowRight: (index, count) => (index + 1) % count,
-  ArrowLeft: (index, count) => (index - 1 + count) % count,
-  Home: () => 0,
-  End: (_index, count) => count - 1,
-};
-
 export function ModelSwitcher({
   models,
   titles,
@@ -77,63 +71,47 @@ export function ModelSwitcher({
     tabs.current.get(active)?.focus();
   }, [active]);
   if (models.models.length === 0) return null;
-  const urns = models.models.map((model) => model.urn);
   const labelOf = (urn: string) => titles[modelPanelId(urn)]?.label ?? urn;
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const urn = (event.target as HTMLElement).dataset.urn;
-    if (!urn) return;
-    const index = urns.indexOf(urn);
-    const move = MOVES[event.key];
-    if (move) {
-      event.preventDefault();
-      const next = urns[move(index, urns.length)];
-      if (!next) return;
-      onSelect(next);
-      tabs.current.get(next)?.focus();
-      return;
-    }
-    if (event.key === 'Delete') {
-      event.preventDefault();
-      refocus.current = true;
-      onClose(urn);
-    }
+    if (!urn || event.key !== 'Delete') return;
+    event.preventDefault();
+    refocus.current = true;
+    onClose(urn);
   };
   return (
-    <div className="stack__models">
-      <div
+    <Tabs
+      className="stack__models"
+      value={active}
+      onValueChange={(urn) => onSelect(urn as string)}
+    >
+      <TabsList
         className="stack__tabs"
-        role="tablist"
         aria-label="Open models"
+        activateOnFocus
         onKeyDown={onKeyDown}
       >
-        {models.models.map(({ urn }, index) => {
-          const selected = urn === active;
-          return (
-            <button
-              key={urn}
-              ref={(element) => {
-                if (element) tabs.current.set(urn, element);
-                else tabs.current.delete(urn);
-              }}
-              id={stackTabId(index)}
-              type="button"
-              role="tab"
-              aria-selected={selected}
-              aria-controls={STACK_MODEL_PANEL}
-              aria-keyshortcuts="Delete"
-              tabIndex={selected ? 0 : -1}
-              className="stack__model-tab"
-              data-active={selected}
-              data-urn={urn}
-              data-tag={tags[modelPanelId(urn)]}
-              title={titles[modelPanelId(urn)]?.tooltip}
-              onClick={() => onSelect(urn)}
-            >
-              {labelOf(urn)}
-            </button>
-          );
-        })}
-      </div>
+        {models.models.map(({ urn }, index) => (
+          <Tab
+            key={urn}
+            ref={(element) => {
+              if (element) tabs.current.set(urn, element);
+              else tabs.current.delete(urn);
+            }}
+            value={urn}
+            variant="outline"
+            id={stackTabId(index)}
+            aria-controls={STACK_MODEL_PANEL}
+            aria-keyshortcuts="Delete"
+            className="stack__model-tab"
+            data-urn={urn}
+            data-tag={tags[modelPanelId(urn)]}
+            title={titles[modelPanelId(urn)]?.tooltip}
+          >
+            {labelOf(urn)}
+          </Tab>
+        ))}
+      </TabsList>
       {active ? (
         <button
           type="button"
@@ -145,7 +123,7 @@ export function ModelSwitcher({
           <Icon name="close" size={12} />
         </button>
       ) : null}
-    </div>
+    </Tabs>
   );
 }
 

@@ -57,8 +57,11 @@ export function toHttpError(err: unknown): HttpError {
   if (status === 429) {
     return new RateLimited(retryAfterOf(err));
   }
-  if (status === 401 || status === 403) {
+  if (status === 401) {
     return new HttpError(401, 'Not authorized');
+  }
+  if (status === 403) {
+    return new HttpError(403, 'Forbidden');
   }
   return new HttpError(502, 'Upstream service error');
 }

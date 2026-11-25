@@ -74,6 +74,14 @@ describe('sign-out', () => {
     });
   });
 
+  it('clears retired personal keys left by older builds', () => {
+    window.localStorage.setItem('bsh.summary.scope.v1', '"set:a"');
+    window.sessionStorage.setItem('bsh.summary.scope.v1', '"set:a"');
+    forgetPersonal();
+    expect(window.localStorage.getItem('bsh.summary.scope.v1')).toBeNull();
+    expect(window.sessionStorage.getItem('bsh.summary.scope.v1')).toBeNull();
+  });
+
   it('clears the user pane instances', () => {
     writeJson(BSH_KEYS.personal.layoutInstances, { chart: [] });
     forgetPersonal();

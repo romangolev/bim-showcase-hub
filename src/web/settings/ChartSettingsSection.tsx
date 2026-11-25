@@ -7,6 +7,7 @@ import {
   CHART_PALETTE_LABELS,
   useChartSettings,
 } from '../panels/chartSettings.js';
+import { Select, SelectOption } from '../ui/Select.js';
 
 export function ChartSettingsSection() {
   const t = useT();
@@ -22,22 +23,22 @@ export function ChartSettingsSection() {
       >
         {(id) => (
           <>
-            <select
+            <Select
               id={id}
               value={settings.palette}
-              onChange={(event) =>
+              onValueChange={(next) =>
                 update((prev) => ({
                   ...prev,
-                  palette: event.target.value as ChartPaletteId,
+                  palette: next as ChartPaletteId,
                 }))
               }
             >
               {CHART_PALETTE_IDS.map((id) => (
-                <option key={id} value={id}>
+                <SelectOption key={id} value={id}>
                   {CHART_PALETTE_LABELS[id]}
-                </option>
+                </SelectOption>
               ))}
-            </select>
+            </Select>
           </>
         )}
       </SettingsField>

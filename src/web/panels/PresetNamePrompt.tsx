@@ -1,8 +1,19 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { Icon } from '../components/icons.js';
+import { DetachedUIStrings } from '../i18n/CatalogUIStrings.js';
 import { MAX_NAME_LENGTH } from '../store/savedStore.js';
+import { Button } from '../ui/Button.js';
+import {
+  Dialog,
+  DialogBody,
+  DialogClose,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/Dialog.js';
+import { FieldLabel } from '../ui/Field.js';
+import { Input } from '../ui/Input.js';
 
 interface PresetNamePromptOptions {
   title: string;
@@ -18,14 +29,10 @@ function PresetNameDialog({
   onSubmit,
   onDone,
 }: PresetNamePromptOptions & { onDone: () => void }) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const titleId = useId();
   const [name, setName] = useState(initial);
 
   useEffect(() => {
-    const dialog = dialogRef.current;
-    if (dialog && !dialog.open) dialog.showModal();
     inputRef.current?.select();
   }, []);
 
@@ -37,59 +44,37 @@ function PresetNameDialog({
   };
 
   return (
-    <dialog
-      ref={dialogRef}
-      className="modal modal--sm"
-      aria-labelledby={titleId}
-      onClose={onDone}
-    >
-      <div className="modal__panel">
-        <header className="modal__head">
-          <h2 id={titleId} className="modal__title">
-            {title}
-          </h2>
-          <button
-            type="button"
-            className="icon-button"
-            aria-label="Close"
-            onClick={onDone}
-          >
-            <Icon name="close" size={16} />
-          </button>
-        </header>
-        <div className="modal__body">
-          <label className="bsh-field">
-            <span>Preset name</span>
-            <input
-              ref={inputRef}
-              type="text"
-              className="field"
-              aria-label="Preset name"
-              placeholder="Name this preset"
-              maxLength={MAX_NAME_LENGTH}
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') submit();
-              }}
-            />
-          </label>
-          <div className="bsh-presets">
-            <button type="button" className="btn" onClick={onDone}>
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="btn"
-              disabled={!name.trim()}
-              onClick={submit}
-            >
-              {confirm}
-            </button>
-          </div>
+    <Dialog size="sm" onClose={onDone}>
+      <DialogHeader>
+        <DialogTitle>{title}</DialogTitle>
+        <DialogClose>
+          <Icon name="close" size={16} />
+        </DialogClose>
+      </DialogHeader>
+      <DialogBody>
+        <FieldLabel layout="inline" variant="quiet">
+          <span>Preset name</span>
+          <Input
+            ref={inputRef}
+            type="text"
+            aria-label="Preset name"
+            placeholder="Name this preset"
+            maxLength={MAX_NAME_LENGTH}
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') submit();
+            }}
+          />
+        </FieldLabel>
+        <div className="bsh-presets">
+          <Button onClick={onDone}>Cancel</Button>
+          <Button disabled={!name.trim()} onClick={submit}>
+            {confirm}
+          </Button>
         </div>
-      </div>
-    </dialog>
+      </DialogBody>
+    </Dialog>
   );
 }
 
@@ -104,5 +89,11 @@ export function promptPresetName(options: PresetNamePromptOptions): void {
     root.unmount();
     host.remove();
   };
-  flushSync(() => root.render(<PresetNameDialog {...options} onDone={done} />));
+  flushSync(() =>
+    root.render(
+      <DetachedUIStrings>
+        <PresetNameDialog {...options} onDone={done} />
+      </DetachedUIStrings>,
+    ),
+  );
 }

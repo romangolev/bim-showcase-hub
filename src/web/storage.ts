@@ -42,6 +42,10 @@ export const BSH_KEYS = {
   },
 } as const;
 
+export const BSH_RETIRED_PERSONAL_KEYS: readonly string[] = [
+  'bsh.summary.scope.v1',
+];
+
 export const BSH_PREFIXES = {
   pane: 'bsh.pane.',
   paint: 'bsh.paint.',
@@ -73,7 +77,10 @@ export function getStorageAdapter(): StorageAdapter {
   return adapter;
 }
 
-const personalKeys = new Set<string>(Object.values(BSH_KEYS.personal));
+const personalKeys = new Set<string>([
+  ...Object.values(BSH_KEYS.personal),
+  ...BSH_RETIRED_PERSONAL_KEYS,
+]);
 const preferenceKeys = new Set<string>(Object.values(BSH_KEYS.preference));
 
 export function isPersonalKey(key: string): boolean {
@@ -118,6 +125,7 @@ export interface PersistedRecord<T> {
   readonly key: string;
   readonly initial: T;
   readonly sanitize: (raw: unknown) => T;
+  readonly watch?: readonly string[];
   read(): T;
   has(): boolean;
   write(value: T): boolean;
@@ -281,13 +289,28 @@ export function usePersisted<T>(
       }
     };
     const onStorage = (event: StorageEvent) => {
-      if (event.key === record.key) setValue(record.read());
+      if (
+        event.key === record.key ||
+        (event.key !== null && record.watch?.includes(event.key))
+      ) {
+        setValue(record.read());
+      }
     };
-    const off = subscribe(record.key, (next) => setValue(next as T));
+    const offs = [subscribe(record.key, (next) => setValue(next as T))];
+    for (const key of record.watch ?? []) {
+      offs.push(
+        subscribe(key, () => {
+          const next = record.read();
+          if (JSON.stringify(next) !== JSON.stringify(valueRef.current)) {
+            setValue(next);
+          }
+        }),
+      );
+    }
     window.addEventListener('storage', onStorage);
     window.addEventListener(FORGET_EVENT, onForget);
     return () => {
-      off();
+      for (const off of offs) off();
       window.removeEventListener('storage', onStorage);
       window.removeEventListener(FORGET_EVENT, onForget);
     };

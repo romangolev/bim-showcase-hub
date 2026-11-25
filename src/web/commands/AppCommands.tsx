@@ -5,7 +5,7 @@ import { type AppCommandState, appCommands } from './appCommandList.js';
 import { COMMANDS } from './registry.js';
 
 export function AppCommands() {
-  const { theme, toggleTheme } = useTheme();
+  const { scheme: theme, toggleTheme } = useTheme();
   const signedIn = Boolean(useSession().data);
   const signOut = useSignOut();
   const state: AppCommandState = {

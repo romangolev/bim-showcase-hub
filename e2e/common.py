@@ -173,6 +173,7 @@ def download_ifc(page, target, timeout_ms=180000):
 
 
 def download_ifc_batch(page, target, timeout_ms=180000):
+    expand_to_viewable(page)
     toolbar_button = page.locator(f"{ACTIVE_MODEL} [id^='export-ifc-']:not([id$='-tooltip'])")
     button = toolbar_button if toolbar_button.count() else page.get_by_role("button", name=IFC_EXPORT_NAME).first
     button.first.click(timeout=8000)

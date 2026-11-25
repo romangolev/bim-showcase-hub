@@ -1,4 +1,11 @@
 import { useId } from 'react';
+import {
+  FieldContent,
+  FieldHint,
+  FieldLabel,
+  FieldTitle,
+} from '../ui/Field.js';
+import { Switch } from '../ui/Switch.js';
 
 export interface SwitchRowProps {
   label: string;
@@ -17,25 +24,18 @@ export function SwitchRow({
 }: SwitchRowProps) {
   const hintId = useId();
   return (
-    <label className="switch-row">
-      <span className="switch-row__text">
-        <span className="switch-row__label">{label}</span>
-        {description ? (
-          <span id={hintId} className="switch-row__hint">
-            {description}
-          </span>
-        ) : null}
-      </span>
-      <input
-        type="checkbox"
-        role="switch"
+    <FieldLabel layout="between">
+      <FieldContent>
+        <FieldTitle>{label}</FieldTitle>
+        {description ? <FieldHint id={hintId}>{description}</FieldHint> : null}
+      </FieldContent>
+      <Switch
         checked={checked}
-        aria-checked={checked}
         disabled={disabled}
         aria-label={label}
         aria-describedby={description ? hintId : undefined}
-        onChange={onChange}
+        onCheckedChange={onChange}
       />
-    </label>
+    </FieldLabel>
   );
 }

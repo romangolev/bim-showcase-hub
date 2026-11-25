@@ -1,3 +1,4 @@
+import { IconButton } from '../ui/IconButton.js';
 import { useTheme } from './ThemeContext.js';
 
 function SunIcon() {
@@ -40,18 +41,17 @@ function MoonIcon() {
 }
 
 export function ThemeToggle() {
-  const { theme, toggleTheme } = useTheme();
+  const { scheme, toggleTheme } = useTheme();
   const label =
-    theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';
+    scheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';
   return (
-    <button
-      type="button"
-      className="icon-button theme-toggle"
-      aria-label={label}
+    <IconButton
+      className="theme-toggle"
+      label={label}
       title={label}
       onClick={toggleTheme}
     >
-      {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
-    </button>
+      {scheme === 'dark' ? <SunIcon /> : <MoonIcon />}
+    </IconButton>
   );
 }

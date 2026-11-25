@@ -1,5 +1,4 @@
 import { useEffect, useId, useMemo, useState } from 'react';
-import { NumberField } from '../components/NumberField.js';
 import { StateBlock } from '../components/StateBlock.js';
 import {
   COLOR_TOP_N_MAX,
@@ -9,6 +8,7 @@ import {
 import { colorByRules, ruleProperties } from '../extensions/colorRules.js';
 import { readChartTheme, seriesColors } from '../extensions/dashboardData.js';
 import { usePersisted } from '../storage.js';
+import { NumberField } from '../ui/NumberField.js';
 import {
   applyColoring,
   currentColoring,
@@ -23,6 +23,12 @@ import { ScopedRowsStatus } from './ScopedRowsStatus.js';
 import { usePropertyCatalog } from './usePropertyCatalog.js';
 import { useResolvedAdapter, useScopedRows } from './useScopedRows.js';
 import './panels.css';
+import { Button, buttonClasses } from '../ui/Button.js';
+import { CardTitle } from '../ui/Card.js';
+import { Drawer, DrawerBody, DrawerHeader } from '../ui/Drawer.js';
+import { FieldLabel } from '../ui/Field.js';
+import { Radio, RadioGroup } from '../ui/Radio.js';
+import { Select, SelectOption } from '../ui/Select.js';
 
 export interface ColorsPanelProps {
   adapter?: ViewerAdapter | null;
@@ -93,35 +99,31 @@ export function ColorsPanel({ adapter }: ColorsPanelProps) {
       : undefined;
 
   return (
-    <section className="bsh-card bsh-drawer" aria-labelledby={`${uid}-title`}>
-      <header className="bsh-card__header bsh-drawer__header">
-        <h2 id={`${uid}-title`} className="bsh-card__title">
-          Colors
-        </h2>
-      </header>
-      <div className="bsh-drawer__body">
+    <Drawer aria-labelledby={`${uid}-title`}>
+      <DrawerHeader>
+        <CardTitle id={`${uid}-title`}>Colors</CardTitle>
+      </DrawerHeader>
+      <DrawerBody>
         {resolved ? (
           <>
-            <fieldset className="bsh-kinds" aria-label="Colour by">
-              <label className="btn">
-                <input
-                  type="radio"
-                  name={uid}
-                  checked={!rulesMode}
-                  onChange={() => update({ source: 'property' })}
-                />
+            <RadioGroup
+              className="bsh-kinds"
+              aria-label="Colour by"
+              name={uid}
+              value={rulesMode ? 'rules' : 'property'}
+              onValueChange={(next) =>
+                update({ source: next === 'rules' ? 'rules' : 'property' })
+              }
+            >
+              <label className={buttonClasses({})}>
+                <Radio value="property" />
                 By property
               </label>
-              <label className="btn">
-                <input
-                  type="radio"
-                  name={uid}
-                  checked={rulesMode}
-                  onChange={() => update({ source: 'rules' })}
-                />
+              <label className={buttonClasses({})}>
+                <Radio value="rules" />
                 By rules
               </label>
-            </fieldset>
+            </RadioGroup>
             {rulesMode ? (
               <ColorRules
                 value={settings.rules}
@@ -130,63 +132,58 @@ export function ColorsPanel({ adapter }: ColorsPanelProps) {
               />
             ) : (
               <>
-                <select
-                  className="field"
+                <Select
+                  className="bsh-select"
                   aria-label="Property"
                   value={settings.spec.property}
-                  onChange={(event) =>
+                  onValueChange={(next) =>
                     update({
-                      spec: { ...settings.spec, property: event.target.value },
+                      spec: { ...settings.spec, property: next },
                     })
                   }
                 >
                   {properties.map((name) => (
-                    <option key={name} value={name}>
+                    <SelectOption key={name} value={name}>
                       {name}
-                    </option>
+                    </SelectOption>
                   ))}
-                </select>
-                <select
-                  className="field"
+                </Select>
+                <Select
+                  className="bsh-select"
                   aria-label="Mode"
                   value={settings.spec.mode}
-                  onChange={(event) =>
+                  onValueChange={(next) =>
                     update({
                       spec: {
                         ...settings.spec,
-                        mode:
-                          event.target.value === 'range' ? 'range' : 'category',
+                        mode: next === 'range' ? 'range' : 'category',
                       },
                     })
                   }
                 >
-                  <option value="category">Values</option>
-                  <option value="range">Ranges</option>
-                </select>
+                  <SelectOption value="category">Values</SelectOption>
+                  <SelectOption value="range">Ranges</SelectOption>
+                </Select>
                 {settings.spec.mode === 'category' ? (
-                  <label className="bsh-field">
+                  <FieldLabel layout="inline" variant="quiet">
                     Top values
                     <NumberField
                       value={settings.spec.topN}
                       min={COLOR_TOP_N_MIN}
                       max={COLOR_TOP_N_MAX}
-                      onCommit={(topN) =>
+                      onValueCommitted={(topN) =>
                         update({ spec: { ...settings.spec, topN } })
                       }
-                      className="field field--narrow"
+                      className="field--narrow"
                     />
-                  </label>
+                  </FieldLabel>
                 ) : null}
               </>
             )}
             <div className="bsh-presets">
-              <button
-                type="button"
-                className="btn"
-                onClick={() => setRequested(true)}
-              >
+              <Button onClick={() => setRequested(true)}>
                 Color the model
-              </button>
+              </Button>
             </div>
             {state.status === 'idle' ? (
               <StateBlock
@@ -213,7 +210,7 @@ export function ColorsPanel({ adapter }: ColorsPanelProps) {
             message="Open a viewable version to colour its elements."
           />
         )}
-      </div>
-    </section>
+      </DrawerBody>
+    </Drawer>
   );
 }

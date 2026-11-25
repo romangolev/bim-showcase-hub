@@ -1,7 +1,8 @@
 import v8 from 'node:v8';
 import vm from 'node:vm';
 import { describe, expect, it, vi } from 'vitest';
-import { createTaskStore, HISTORY_LIMIT } from './taskStore.js';
+import { notifications } from './notifications.js';
+import { createTaskStore, HISTORY_LIMIT, notifyOutcome } from './taskStore.js';
 
 describe('task store', () => {
   it('tracks a task from start to finish with progress', () => {
@@ -195,5 +196,56 @@ describe('task store', () => {
     expect(tasks).toHaveLength(HISTORY_LIMIT + 1);
     expect(tasks[0]?.label).toBe('T5');
     expect(tasks.at(-1)?.id).toBe(live.id);
+  });
+});
+
+describe('task outcomes', () => {
+  it('reports a finished, warned or failed opt-in task once and leaves the announcement to it', () => {
+    const onOutcome = vi.fn();
+    const store = createTaskStore(() => 1, onOutcome);
+    store.start({ label: 'Excel', notify: true }).finish('12 rows');
+    store.start({ label: 'IFC', notify: true }).warn('2 skipped');
+    const failing = store.start({ label: 'GLB', notify: true, retry: vi.fn() });
+    failing.fail(new Error('offline'));
+    failing.fail(new Error('again'));
+    expect(
+      onOutcome.mock.calls.map(([task, message]) => [
+        task.state,
+        task.detail,
+        message,
+      ]),
+    ).toEqual([
+      ['done', '12 rows', 'Excel finished'],
+      ['warning', '2 skipped', 'IFC finished with warnings'],
+      ['failed', 'offline', 'GLB failed'],
+    ]);
+    expect(store.getSnapshot().announcement).toBe('');
+  });
+
+  it('stays silent for a cancelled task and for a task that did not opt in', () => {
+    const onOutcome = vi.fn();
+    const store = createTaskStore(() => 1, onOutcome);
+    store.start({ label: 'Excel', notify: true }).cancel();
+    store.start({ label: 'Loading' }).finish();
+    expect(onOutcome).not.toHaveBeenCalled();
+    expect(store.getSnapshot().announcement).toBe('Loading finished');
+  });
+});
+
+describe('notifyOutcome', () => {
+  it('raises a toast with the outcome tone and detail', () => {
+    const before = notifications.getSnapshot().items.length;
+    const store = createTaskStore(() => 1, notifyOutcome);
+    store.start({ label: 'Export', notify: true }).fail(new Error('disk full'));
+    store.start({ label: 'Export B', notify: true }).finish();
+    const added = notifications.getSnapshot().items.slice(before);
+    expect(
+      added.map(({ message, tone, detail }) => [message, tone, detail]),
+    ).toEqual([
+      ['Export failed', 'error', 'disk full'],
+      ['Export B finished', 'success', null],
+    ]);
+    expect(notifications.getSnapshot().announcement).toBe('Export B finished');
+    notifications.clear();
   });
 });
