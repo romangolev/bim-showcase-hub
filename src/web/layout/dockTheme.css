@@ -163,6 +163,13 @@
 }
 
 .bsh-dock
+  .dv-groupview[data-collapsed="height"]
+  > .dv-tabs-and-actions-container {
+  height: var(--hit-target);
+  border-bottom: 0;
+}
+
+.bsh-dock
   .dv-groupview[data-collapsed="width"]
   > .dv-tabs-and-actions-container {
   flex-direction: column;
