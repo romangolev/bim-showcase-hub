@@ -44,10 +44,6 @@ class FakeTool extends ViewerTool<FakeSettings> {
     this.settings = fakeSettings(key);
   }
 
-  override get hasSettings(): boolean {
-    return true;
-  }
-
   override onSettingsChanged(
     adapter: ViewerAdapter,
     previous: FakeSettings | undefined,

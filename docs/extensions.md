@@ -129,7 +129,7 @@ A tool is a viewer toolbar entry with its own settings window.
 2. Add `src/web/tools/<id>/<Name>Tool.tsx`, a class extending `ViewerTool<Settings>`:
    - Set `id`, `title`, `description` and `settings`: a `defineRecord` under `bsh.tool.<id>.v1`, with `enabled: readEnabled(raw)` in the sanitizer.
    - Implement `contribute(ctx, settings)` to return toolbar entries.
-   - For options, set `form` (a `FormDefinition`) or override `renderFields()`.
+   - For options, set `form` (a `FormDefinition`) or override `renderFields()`. A tool with neither has no settings window or settings command (`hasSettings`).
    - For exports, use `exportEntry`, `exportStem`, `exportFileName`, `confirmLargeExport` and `statusReporter` from `tools/kernel/exportKit.ts`. Set `exportTitle` to get a palette command.
    - `ctx.current(this)` returns the settings run through the record's sanitizer, so an export never sees a field the user has just cleared. Storage keeps the raw text while the field is edited.
    - Override `toolbarSignature`, `onDisabled`, `onSettingsChanged` and `scrub` only when needed. `onSettingsChanged(adapter, previous, next)` runs when the toolbar-relevant settings change, and once on the first run with `previous` undefined. Put adapter side effects there, never in `contribute`. `scrub` blanks personal text on sign-out. If the scrubbed write fails, the record is removed.
