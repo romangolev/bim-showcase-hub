@@ -218,13 +218,14 @@ function MultiRow({ field, value, set }: RowProps<MultiField>) {
 function ListRow({ field, value, set }: RowProps<ListField>) {
   const items = strings(value);
   const min = field.min ?? 0;
+  const Item = field.itemType === 'color' ? 'input' : Input;
   return (
     <Field layout="row">
       <FieldTitle>{field.label}</FieldTitle>
       <ul className="settings__palette">
         {items.map((item, index) => (
           <li key={index} className="settings__palette-item">
-            <Input
+            <Item
               type={field.itemType}
               value={item}
               aria-label={field.itemLabel(index)}
