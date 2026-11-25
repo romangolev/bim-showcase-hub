@@ -160,7 +160,7 @@ function ImportForm({
           Apply layout
         </Button>
         <Button onClick={close}>Cancel</Button>
-      </div>{' '}
+      </div>
     </form>
   );
 }
