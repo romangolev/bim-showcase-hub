@@ -142,15 +142,17 @@ describe('App shell', () => {
     await waitFor(() => expect(item).toHaveFocus());
 
     fireEvent.keyDown(item, { key: 'ArrowDown' });
-    expect(last).toHaveFocus();
+    await waitFor(() => expect(last).toHaveFocus());
     fireEvent.keyDown(last, { key: 'End' });
-    expect(last).toHaveFocus();
+    await waitFor(() => expect(last).toHaveFocus());
     fireEvent.keyDown(last, { key: 'Home' });
-    expect(item).toHaveFocus();
+    await waitFor(() => expect(item).toHaveFocus());
 
     fireEvent.keyDown(item, { key: 'Escape' });
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
-    expect(trigger).toHaveFocus();
+    await waitFor(() =>
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument(),
+    );
+    await waitFor(() => expect(trigger).toHaveFocus());
   });
 
   it('opens the settings dialog from the user menu', async () => {
