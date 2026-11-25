@@ -64,6 +64,10 @@
   font-family: var(--font-sans);
 }
 
+.bsh-dock .dv-dockview {
+  background: var(--color-void);
+}
+
 .bsh-dock .dv-groupview {
   overflow: hidden;
   border: var(--border-hairline);
