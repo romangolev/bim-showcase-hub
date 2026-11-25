@@ -2,7 +2,9 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { Icon } from '../components/icons.js';
 import { Button } from '../ui/Button.js';
 import { IconButton } from '../ui/IconButton.js';
+import { List, ListItem } from '../ui/List.js';
 import { Progress } from '../ui/Progress.js';
+import { Spinner } from '../ui/Spinner.js';
 import { NotificationHost } from './NotificationHost.js';
 import {
   type NotificationStore,
@@ -33,7 +35,7 @@ function TaskRow({
   const percent =
     task.progress === null ? null : Math.round(task.progress * 100);
   return (
-    <li className="task-row" data-state={task.state}>
+    <ListItem className="task-row" data-state={task.state}>
       <div className="task-row__text">
         <span className="task-row__label">{task.label}</span>
         <span className="task-row__detail">
@@ -63,7 +65,7 @@ function TaskRow({
           <Icon name="close" size={14} />
         </IconButton>
       ) : null}
-    </li>
+    </ListItem>
   );
 }
 
@@ -119,17 +121,11 @@ export function TaskCenter({
           data-warning={warned && !failed}
           onClick={() => setOpen((value) => !value)}
         >
-          <Icon
-            name={
-              center.running > 0
-                ? 'spinner'
-                : failed || warned
-                  ? 'alert'
-                  : 'check'
-            }
-            size={18}
-            className={center.running > 0 ? 'spin' : undefined}
-          />
+          {center.running > 0 ? (
+            <Spinner size={18} />
+          ) : (
+            <Icon name={failed || warned ? 'alert' : 'check'} size={18} />
+          )}
           {center.running > 0 ? (
             <span className="task-center__count" aria-hidden="true">
               {center.running}
@@ -143,7 +139,7 @@ export function TaskCenter({
           className="task-center__popover"
           aria-label="Tasks"
         >
-          <ul className="task-center__list">
+          <List className="task-center__list">
             {shown.map((task) => (
               <TaskRow
                 key={task.id}
@@ -153,7 +149,7 @@ export function TaskCenter({
                 onDismiss={() => center.dismiss(task.id)}
               />
             ))}
-          </ul>
+          </List>
           {finished.length > 0 ? (
             <Button size="small" onClick={center.clearFinished}>
               Clear finished

@@ -85,16 +85,6 @@
   background: var(--color-mint);
 }
 
-.spin {
-  animation: spin 900ms linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 .app-shell {
   display: flex;
   flex-direction: column;
@@ -449,10 +439,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .spin {
-    animation: none;
-  }
-
   .user-menu__trigger {
     transition: none;
   }
@@ -984,20 +970,11 @@ html[data-presenting] .stack .stack__pane--viewer .model-viewer {
 }
 
 .task-center__list {
-  display: flex;
   max-height: 50vh;
-  margin: 0;
-  padding: 0;
-  flex-direction: column;
-  gap: var(--space-2);
   overflow-y: auto;
-  list-style: none;
 }
 
 .task-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
   font-size: var(--text-13);
 }
 

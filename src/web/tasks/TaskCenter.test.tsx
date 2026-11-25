@@ -22,7 +22,9 @@ describe('TaskCenter', () => {
     });
     const trigger = screen.getByRole('button', { name: 'Tasks, 1 running' });
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(trigger.querySelector('[data-slot="spinner"]')).not.toBeNull();
     fireEvent.click(trigger);
+    expect(screen.getByRole('list')).toHaveAttribute('data-slot', 'list');
     expect(screen.getByText('Exporting')).toBeInTheDocument();
     expect(screen.getByText('Running: Reading')).toBeInTheDocument();
     expect(
