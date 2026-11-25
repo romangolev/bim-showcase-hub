@@ -1,6 +1,7 @@
 import { render } from '@testing-library/react';
 import type { ReactElement, Ref } from 'react';
 import { describe, expect, it } from 'vitest';
+import { Alert, AlertDescription } from './Alert.js';
 import { Badge } from './Badge.js';
 import { Button } from './Button.js';
 import { Card, CardHeader, CardTitle } from './Card.js';
@@ -12,8 +13,16 @@ import {
   DialogTitle,
 } from './Dialog.js';
 import { Drawer, DrawerBody, DrawerHeader } from './Drawer.js';
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyMedia,
+  EmptyTitle,
+} from './Empty.js';
 import { IconButton } from './IconButton.js';
 import { Kbd } from './Kbd.js';
+import { List, ListItem } from './List.js';
 import {
   Menu,
   MenuCheckboxItem,
@@ -33,6 +42,7 @@ import {
   PopoverTitle,
   PopoverTrigger,
 } from './Popover.js';
+import { Skeleton } from './Skeleton.js';
 import { Spinner } from './Spinner.js';
 import { Tab, TabPanel, Tabs, TabsList } from './Tabs.js';
 import { ToggleButton } from './ToggleButton.js';
@@ -264,6 +274,52 @@ const ENTRIES: Entry[] = [
       render: (props) => <Part {...props} />,
     }),
   ),
+  ...(
+    [
+      ['empty', Empty],
+      ['empty-media', EmptyMedia],
+      ['empty-content', EmptyContent],
+      ['empty-title', EmptyTitle],
+      ['empty-description', EmptyDescription],
+    ] as const
+  ).map(
+    ([slot, Part]): Entry => ({
+      file: 'Empty',
+      slot,
+      render: (props) => <Part {...props} />,
+    }),
+  ),
+  {
+    file: 'Skeleton',
+    slot: 'skeleton',
+    render: (props) => <Skeleton {...props} />,
+  },
+  ...(
+    [
+      ['alert', Alert],
+      ['alert-description', AlertDescription],
+    ] as const
+  ).map(
+    ([slot, Part]): Entry => ({
+      file: 'Alert',
+      slot,
+      render: (props) => <Part {...props} />,
+    }),
+  ),
+  {
+    file: 'List',
+    slot: 'list',
+    render: (props) => <List {...props} />,
+  },
+  {
+    file: 'List',
+    slot: 'list-item',
+    render: (props) => (
+      <ul>
+        <ListItem {...props} />
+      </ul>
+    ),
+  },
 ];
 
 describe('primitive contract', () => {
