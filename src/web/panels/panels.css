@@ -8,7 +8,6 @@
   color: var(--color-coral);
 }
 
-select.field,
 .bsh-select {
   max-width: 240px;
   text-overflow: ellipsis;
