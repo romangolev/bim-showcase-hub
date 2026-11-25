@@ -14,6 +14,7 @@ import type { MenuEntry } from '../components/Menu.js';
 import { moveFocus, onEscape, usePopover } from '../components/usePopover.js';
 import { useT } from '../i18n/i18n.js';
 import { useModal } from '../modal/index.js';
+import { IconButton } from '../ui/IconButton.js';
 import { layoutCommands, paneCommandContext } from './layoutCommandList.js';
 import { type LayoutApi, useLayout } from './layoutContext.js';
 import { layoutMenuEntries } from './PaneMenu.js';
@@ -296,11 +297,9 @@ export function PanesMenu() {
 
   return (
     <div className="menu">
-      <button
+      <IconButton
         ref={triggerRef}
-        type="button"
-        className="icon-button"
-        aria-label={t('panes.title')}
+        label={t('panes.title')}
         title={t('panes.title')}
         aria-haspopup="dialog"
         aria-expanded={open}
@@ -315,7 +314,7 @@ export function PanesMenu() {
         }}
       >
         <Icon name="dock" size={18} />
-      </button>
+      </IconButton>
       {open
         ? createPortal(
             <div

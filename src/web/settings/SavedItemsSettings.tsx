@@ -13,6 +13,7 @@ import {
   savedBytes,
 } from '../store/savedStore.js';
 import { notify } from '../tasks/notifications.js';
+import { Button } from '../ui/Button.js';
 
 export const SAVED_EXPORT_FILE = 'bsh-saved.json';
 
@@ -97,9 +98,7 @@ export function SavedItemsSettings() {
         {bytesLabel(savedBytes())} of {bytesLabel(MAX_TOTAL_BYTES)} used.
       </p>
       <div className="settings__actions">
-        <button
-          type="button"
-          className="btn"
+        <Button
           onClick={() =>
             saveBlob(
               new Blob([exportSaved()], { type: 'application/json' }),
@@ -108,14 +107,10 @@ export function SavedItemsSettings() {
           }
         >
           Export saved items
-        </button>
-        <button
-          type="button"
-          className="btn"
-          onClick={() => input.current?.click()}
-        >
+        </Button>
+        <Button onClick={() => input.current?.click()}>
           Import saved items
-        </button>
+        </Button>
         <input
           ref={input}
           type="file"

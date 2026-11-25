@@ -8,6 +8,8 @@ import { type LayoutApi, LayoutContext } from '../layout/layoutContext.js';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import { usePersisted } from '../storage.js';
 import { useSavedKindItems } from '../store/savedKinds.js';
+import { Button } from '../ui/Button.js';
+import { IconButton } from '../ui/IconButton.js';
 import {
   blobToDataUrl,
   collectReport,
@@ -151,14 +153,9 @@ function ReportDialog({ initial, onPrint, onClose }: ReportDialogProps) {
       <div className="modal__panel">
         <header className="modal__head">
           <h2 className="modal__title">Print report</h2>
-          <button
-            type="button"
-            className="icon-button"
-            aria-label="Close"
-            onClick={onClose}
-          >
+          <IconButton label="Close" onClick={onClose}>
             <Icon name="close" size={16} />
-          </button>
+          </IconButton>
         </header>
         <div className="modal__body settings">
           <div className="settings__section">
@@ -187,14 +184,12 @@ function ReportDialog({ initial, onPrint, onClose }: ReportDialogProps) {
               />
             </label>
             <div className="settings__actions">
-              <button
-                type="button"
-                className="btn"
+              <Button
                 disabled={templateName.trim() === ''}
                 onClick={saveTemplate}
               >
                 Save template
-              </button>
+              </Button>
             </div>
           </div>
           <label className="settings__field">
@@ -248,16 +243,8 @@ function ReportDialog({ initial, onPrint, onClose }: ReportDialogProps) {
             </select>
           </label>
           <div className="settings__actions">
-            <button type="button" className="btn" onClick={onClose}>
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="btn"
-              onClick={() => onPrint(options)}
-            >
-              Print
-            </button>
+            <Button onClick={onClose}>Cancel</Button>
+            <Button onClick={() => onPrint(options)}>Print</Button>
           </div>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { Icon } from '../components/icons.js';
+import { IconButton } from '../ui/IconButton.js';
 import type { ModalBack } from './modalApi.js';
 import type { ModalDefinition } from './types.js';
 
@@ -54,26 +55,20 @@ export function ModalHost({ definition, back, onClose }: ModalHostProps) {
       <div className="modal__panel">
         <header className="modal__head">
           {back ? (
-            <button
-              type="button"
-              className="icon-button settings-nav__back"
-              aria-label={back.label}
+            <IconButton
+              className="settings-nav__back"
+              label={back.label}
               onClick={back.go}
             >
               <Icon name="chevron" size={16} />
-            </button>
+            </IconButton>
           ) : null}
           <h2 id={titleId} className="modal__title">
             {definition.title}
           </h2>
-          <button
-            type="button"
-            className="icon-button"
-            aria-label="Close"
-            onClick={onClose}
-          >
+          <IconButton label="Close" onClick={onClose}>
             <Icon name="close" size={16} />
-          </button>
+          </IconButton>
         </header>
         <div className="modal__body settings">
           <Body close={onClose} />

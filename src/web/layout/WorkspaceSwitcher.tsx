@@ -19,6 +19,8 @@ import {
   type WorkspaceApi,
 } from './workspaces.js';
 import './workspaces.css';
+import { Button } from '../ui/Button.js';
+import { IconButton } from '../ui/IconButton.js';
 
 interface FormProps {
   close: () => void;
@@ -90,12 +92,10 @@ function NameForm({
         </p>
       ) : null}
       <div className="settings__actions">
-        <button className="btn btn-primary" type="submit">
+        <Button variant="primary" type="submit">
           {confirm === name ? 'Replace workspace' : submitLabel}
-        </button>
-        <button className="btn" type="button" onClick={close}>
-          Cancel
-        </button>
+        </Button>
+        <Button onClick={close}>Cancel</Button>
       </div>
     </form>
   );
@@ -162,16 +162,10 @@ function ImportForm({
         </p>
       ) : null}
       <div className="settings__actions">
-        <button
-          className="btn btn-primary"
-          type="submit"
-          disabled={!text.trim()}
-        >
+        <Button variant="primary" type="submit" disabled={!text.trim()}>
           Apply layout
-        </button>
-        <button className="btn" type="button" onClick={close}>
-          Cancel
-        </button>
+        </Button>
+        <Button onClick={close}>Cancel</Button>
       </div>
     </form>
   );
@@ -270,11 +264,9 @@ export function WorkspaceSwitcher() {
 
   return (
     <div className="menu">
-      <button
+      <IconButton
         ref={triggerRef}
-        type="button"
-        className="icon-button"
-        aria-label="Workspaces"
+        label="Workspaces"
         title="Workspaces"
         aria-haspopup="dialog"
         aria-expanded={open}
@@ -289,7 +281,7 @@ export function WorkspaceSwitcher() {
         }}
       >
         <Icon name="layers" size={18} />
-      </button>
+      </IconButton>
       {open
         ? createPortal(
             <div

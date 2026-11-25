@@ -5,6 +5,7 @@ import { useT } from '../i18n/i18n.js';
 import { useModal } from '../modal/ModalContext.js';
 import { resetHints } from '../onboarding/hints.js';
 import { notify } from '../tasks/notifications.js';
+import { Button } from '../ui/Button.js';
 import { useSettings } from './SettingsContext.js';
 
 export function DefaultsSettings() {
@@ -23,25 +24,21 @@ export function DefaultsSettings() {
       </h3>
       <div className="settings__field">
         <span>{t('settings.appSettings')}</span>
-        <button
-          type="button"
-          className="btn"
+        <Button
           onClick={() => {
             resetSettings();
             setNotice(t('settings.resetSettingsDone'));
           }}
         >
           {t('settings.resetSettings')}
-        </button>
+        </Button>
         <span className="settings__hint">
           {t('settings.resetSettingsHint')}
         </span>
       </div>
       <div className="settings__field">
         <span>{t('settings.layout')}</span>
-        <button
-          type="button"
-          className="btn"
+        <Button
           disabled={!resetCommand || Boolean(resetCommand.disabled)}
           onClick={() => {
             resetCommand?.run({ openModal: modal.open });
@@ -49,7 +46,7 @@ export function DefaultsSettings() {
           }}
         >
           {t('settings.resetLayout')}
-        </button>
+        </Button>
         <span className="settings__hint">
           {resetCommand
             ? (resetCommand.disabled ?? t('settings.layoutHint'))
@@ -58,16 +55,14 @@ export function DefaultsSettings() {
       </div>
       <div className="settings__field">
         <span>{t('settings.hints')}</span>
-        <button
-          type="button"
-          className="btn"
+        <Button
           onClick={() => {
             resetHints();
             notify(t('help.hintsWillShow'));
           }}
         >
           {t('settings.showHintsAgain')}
-        </button>
+        </Button>
         <span className="settings__hint">{t('settings.hintsHint')}</span>
       </div>
       <p role="status" className="settings__hint">

@@ -21,6 +21,7 @@ import {
   resolvePaintPalette,
 } from '../../extensions/paintBrushes.js';
 import { usePersisted } from '../../storage.js';
+import { Button } from '../../ui/Button.js';
 import { usePublishedAdapter } from '../../viewer/activeAdapterStore.js';
 import { claimGhosting, releaseGhosting } from '../../viewer/ghosting.js';
 import type { Rgba, ViewerAdapter } from '../../viewer/ViewerAdapter.js';
@@ -264,22 +265,12 @@ function PaintFields() {
         {adapter ? (
           <>
             <div className="settings__actions">
-              <button
-                type="button"
-                className="btn"
-                disabled={!undoable}
-                onClick={() => apply(undoPaint)}
-              >
+              <Button disabled={!undoable} onClick={() => apply(undoPaint)}>
                 Undo paint
-              </button>
-              <button
-                type="button"
-                className="btn"
-                disabled={!redoable}
-                onClick={() => apply(redoPaint)}
-              >
+              </Button>
+              <Button disabled={!redoable} onClick={() => apply(redoPaint)}>
                 Redo paint
-              </button>
+              </Button>
             </div>
             {history.length > 0 ? (
               <ul className="settings__palette">
@@ -334,13 +325,9 @@ function PaintFields() {
           ))}
         </ul>
         <div className="settings__actions">
-          <button
-            type="button"
-            className="btn"
-            onClick={() => resetViewerShortcuts()}
-          >
+          <Button onClick={() => resetViewerShortcuts()}>
             Reset shortcuts
-          </button>
+          </Button>
         </div>
         <p className="settings__hint">
           Isolate, hide, show all and invert use plain keys only while the

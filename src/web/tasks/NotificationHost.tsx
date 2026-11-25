@@ -2,6 +2,8 @@ import { type CSSProperties, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon, type IconName } from '../components/icons.js';
 import { FORGET_EVENT } from '../storage.js';
+import { Button } from '../ui/Button.js';
+import { IconButton } from '../ui/IconButton.js';
 import {
   type NotificationSettings,
   type ToastPosition,
@@ -161,25 +163,22 @@ export function NotificationHost({
                 ) : null}
               </div>
               {item.action ? (
-                <button
-                  type="button"
-                  className="btn btn-small"
+                <Button
+                  size="small"
                   onClick={() => {
                     item.action?.run();
                     store.dismiss(item.id);
                   }}
                 >
                   {item.action.label}
-                </button>
+                </Button>
               ) : null}
-              <button
-                type="button"
-                className="icon-button"
-                aria-label={`Dismiss ${item.message}`}
+              <IconButton
+                label={`Dismiss ${item.message}`}
                 onClick={() => store.dismiss(item.id)}
               >
                 <Icon name="close" size={14} />
-              </button>
+              </IconButton>
             </div>
           ))}
         </section>

@@ -3,6 +3,7 @@ import { ItemList, ItemRow } from '../../components/ItemList.js';
 import { SettingsField } from '../../components/SettingsForm.js';
 import { ALLOWED_CLASSES, PROXY_CLASS } from '../../ifc/classTable.js';
 import { usePersisted } from '../../storage.js';
+import { Button } from '../../ui/Button.js';
 import { IFC_SETTINGS, type IfcToolSettings } from './ifcSettings.js';
 
 type TextKey =
@@ -99,9 +100,8 @@ function OverrideEditor({
             <ItemRow key={name}>
               <span>{name}</span>
               <span>{target}</span>
-              <button
-                type="button"
-                className="btn btn-small"
+              <Button
+                size="small"
                 aria-label={`Remove ${name}`}
                 onClick={() => {
                   const { [name]: _removed, ...rest } = overrides;
@@ -109,7 +109,7 @@ function OverrideEditor({
                 }}
               >
                 Remove
-              </button>
+              </Button>
             </ItemRow>
           ))}
         </ItemList>
@@ -144,9 +144,7 @@ function OverrideEditor({
         )}
       </SettingsField>
       <div className="settings__actions">
-        <button type="button" className="btn" onClick={add}>
-          Add override
-        </button>
+        <Button onClick={add}>Add override</Button>
       </div>
     </section>
   );

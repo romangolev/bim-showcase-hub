@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useT } from '../i18n/i18n.js';
+import { Button } from '../ui/Button.js';
 import {
   clearLocalData,
   formatStorageBytes,
@@ -118,34 +119,21 @@ export function LocalDataSettings() {
             {formatStorageBytes(report.preference.bytes)})
           </label>
           <div className="settings__actions">
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={!canClear}
-              onClick={clear}
-            >
+            <Button variant="primary" disabled={!canClear} onClick={clear}>
               Clear all local data
-            </button>
-            <button
-              type="button"
-              className="btn"
-              onClick={() => setConfirming(false)}
-            >
-              Cancel
-            </button>
+            </Button>
+            <Button onClick={() => setConfirming(false)}>Cancel</Button>
           </div>
         </fieldset>
       ) : (
         <div className="settings__actions">
-          <button
+          <Button
             ref={triggerRef}
-            type="button"
-            className="btn"
             disabled={report.total.keys === 0}
             onClick={() => setConfirming(true)}
           >
             Clear all local data…
-          </button>
+          </Button>
         </div>
       )}
       <p ref={statusRef} role="status" tabIndex={-1} className="settings__hint">

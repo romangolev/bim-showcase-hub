@@ -23,6 +23,7 @@ import { PropertyPicker } from '../../panels/PropertyPicker.js';
 import { SelectionSets } from '../../panels/SelectionSets.js';
 import { usePropertyCatalog } from '../../panels/usePropertyCatalog.js';
 import { usePersisted } from '../../storage.js';
+import { Button } from '../../ui/Button.js';
 import { usePublishedAdapter } from '../../viewer/activeAdapterStore.js';
 import { useModelColoring } from '../../viewer/modelColoring.js';
 import { modelScopeOptions, resolveScope } from '../../viewer/modelScope.js';
@@ -130,13 +131,9 @@ export function ExcelFields() {
       </h3>
       {layout && !layout.isOpen('export') ? (
         <div className="settings__actions">
-          <button
-            type="button"
-            className="btn"
-            onClick={() => layout.togglePane('export')}
-          >
+          <Button onClick={() => layout.togglePane('export')}>
             Open Export pane
-          </button>
+          </Button>
         </div>
       ) : null}
       <p className="settings__hint">

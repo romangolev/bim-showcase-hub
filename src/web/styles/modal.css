@@ -222,7 +222,7 @@
   white-space: nowrap;
 }
 
-.settings__shortcuts .btn {
+.settings__shortcuts :is([data-slot="button"], [data-slot="toggle-button"]) {
   margin-left: var(--space-2);
 }
 
@@ -309,7 +309,7 @@
   gap: var(--space-3);
 }
 
-.settings__entry > .btn {
+.settings__entry > :is([data-slot="button"], [data-slot="toggle-button"]) {
   grid-column: 2;
 }
 
@@ -338,7 +338,7 @@
   color: var(--color-snow);
 }
 
-.settings__field > .btn {
+.settings__field > :is([data-slot="button"], [data-slot="toggle-button"]) {
   justify-self: start;
 }
 

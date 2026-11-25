@@ -9,6 +9,7 @@ import {
   type PaneSettingsSchema,
   paneSettingsSchema,
 } from '../settings/paneSettingsSchema.js';
+import { Button } from '../ui/Button.js';
 import { layoutCommands, paneCommandContext } from './layoutCommandList.js';
 import { type LayoutApi, useLayout } from './layoutContext.js';
 import {
@@ -259,22 +260,18 @@ function RenamePaneDialog({
         Leave empty to use {fallback}. The title survives closing and reload.
       </p>
       <div className="settings__actions">
-        <button className="btn btn-primary" type="submit">
+        <Button variant="primary" type="submit">
           Save title
-        </button>
-        <button
-          className="btn"
-          type="button"
+        </Button>
+        <Button
           onClick={() => {
             setPaneTitle(pane, null);
             close();
           }}
         >
           Reset title
-        </button>
-        <button className="btn" type="button" onClick={close}>
-          Cancel
-        </button>
+        </Button>
+        <Button onClick={close}>Cancel</Button>
       </div>
     </form>
   );
@@ -314,19 +311,15 @@ function ColorPaneDialog({
         ))}
       </fieldset>
       <div className="settings__actions">
-        <button
-          className="btn"
-          type="button"
+        <Button
           onClick={() => {
             setPaneColor(pane, null);
             close();
           }}
         >
           Remove tag
-        </button>
-        <button className="btn" type="button" onClick={close}>
-          Cancel
-        </button>
+        </Button>
+        <Button onClick={close}>Cancel</Button>
       </div>
     </div>
   );

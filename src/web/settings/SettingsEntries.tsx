@@ -4,6 +4,7 @@ import { useModal } from '../modal/ModalContext.js';
 import { usePersisted } from '../storage.js';
 import { TOOLS } from '../tools/index.js';
 import type { AnyViewerTool } from '../tools/kernel/ToolRegistry.js';
+import { Button } from '../ui/Button.js';
 import {
   PANE_SETTINGS_ORDER,
   PANE_SETTINGS_SCHEMA,
@@ -54,14 +55,9 @@ function EntryRow({
         </span>
       )}
       {modalId ? (
-        <button
-          type="button"
-          className="btn"
-          aria-label={windowTitle}
-          onClick={() => openWithBack(modalId)}
-        >
+        <Button aria-label={windowTitle} onClick={() => openWithBack(modalId)}>
           Settings
-        </button>
+        </Button>
       ) : null}
     </div>
   );

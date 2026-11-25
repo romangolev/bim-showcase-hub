@@ -10,6 +10,7 @@ import { Icon } from '../components/icons.js';
 import { useMediaQuery } from '../components/useMediaQuery.js';
 import { useT } from '../i18n/i18n.js';
 import { STACKED_QUERY } from '../layout/breakpoint.js';
+import { Button } from '../ui/Button.js';
 import {
   consumeSettingsLink,
   listSettingsSections,
@@ -103,18 +104,17 @@ export function SettingsShell() {
         {drilled ? (
           <section className="settings-nav__pane" aria-labelledby={titleId}>
             <div className="settings-nav__head">
-              <button
+              <Button
                 ref={(element) => {
                   backRef.current = element;
                   focusOnOpen(element);
                 }}
-                type="button"
-                className="btn settings-nav__back"
+                className="settings-nav__back"
                 onClick={() => drill(current.id, false)}
               >
                 <Icon name="chevron" size={14} />
                 {t('settings.back')}
-              </button>
+              </Button>
               {title}
             </div>
             {options}

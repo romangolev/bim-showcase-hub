@@ -1,5 +1,7 @@
 import { type KeyboardEvent, useState } from 'react';
 import { usePersisted } from '../storage.js';
+import { Button } from '../ui/Button.js';
+import { ToggleButton } from '../ui/ToggleButton.js';
 import { formatShortcut, shortcutFromEvent } from './shortcuts.js';
 import {
   checkViewerShortcut,
@@ -58,11 +60,9 @@ export function ShortcutEditor() {
                 <kbd>{formatShortcut(shortcut.keys)}</kbd>
               </td>
               <td>
-                <button
-                  type="button"
-                  className="btn"
+                <ToggleButton
                   aria-label={`Change ${shortcut.label}`}
-                  aria-pressed={capturing === shortcut.command}
+                  pressed={capturing === shortcut.command}
                   onClick={() => {
                     setMessage('');
                     setCapturing(shortcut.command);
@@ -71,15 +71,13 @@ export function ShortcutEditor() {
                   onBlur={() => setCapturing(null)}
                 >
                   {capturing === shortcut.command ? 'Press keys…' : 'Change'}
-                </button>
-                <button
-                  type="button"
-                  className="btn"
+                </ToggleButton>
+                <Button
                   aria-label={`Reset ${shortcut.label}`}
                   onClick={() => resetViewerShortcut(shortcut.command)}
                 >
                   Reset
-                </button>
+                </Button>
               </td>
             </tr>
           ))}
@@ -89,9 +87,7 @@ export function ShortcutEditor() {
         {message}
       </p>
       <div className="settings__actions">
-        <button type="button" className="btn" onClick={resetViewerShortcuts}>
-          Reset all shortcuts
-        </button>
+        <Button onClick={resetViewerShortcuts}>Reset all shortcuts</Button>
       </div>
     </div>
   );

@@ -1,5 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { Icon } from '../components/icons.js';
+import { Button } from '../ui/Button.js';
+import { IconButton } from '../ui/IconButton.js';
 import { NotificationHost } from './NotificationHost.js';
 import {
   type NotificationStore,
@@ -47,24 +49,23 @@ function TaskRow({
         ) : null}
       </div>
       {task.state === 'running' && task.cancellable ? (
-        <button type="button" className="btn btn-small" onClick={onCancel}>
+        <Button size="small" onClick={onCancel}>
           Cancel
-        </button>
+        </Button>
       ) : null}
       {task.state === 'failed' && task.retryable ? (
-        <button type="button" className="btn btn-small" onClick={onRetry}>
+        <Button size="small" onClick={onRetry}>
           Retry
-        </button>
+        </Button>
       ) : null}
       {task.state !== 'running' ? (
-        <button
-          type="button"
-          className="icon-button task-row__dismiss"
-          aria-label={`Dismiss ${task.label}`}
+        <IconButton
+          className="task-row__dismiss"
+          label={`Dismiss ${task.label}`}
           onClick={onDismiss}
         >
           <Icon name="close" size={14} />
-        </button>
+        </IconButton>
       ) : null}
     </li>
   );
@@ -111,10 +112,9 @@ export function TaskCenter({
     <div className="task-center" ref={root}>
       <NotificationHost store={notificationStore} />
       {center.tasks.length > 0 ? (
-        <button
-          type="button"
-          className="icon-button task-center__trigger"
-          aria-label={
+        <IconButton
+          className="task-center__trigger"
+          label={
             center.running > 0 ? `Tasks, ${center.running} running` : 'Tasks'
           }
           aria-expanded={open}
@@ -139,7 +139,7 @@ export function TaskCenter({
               {center.running}
             </span>
           ) : null}
-        </button>
+        </IconButton>
       ) : null}
       {open && center.tasks.length > 0 ? (
         <section
@@ -159,13 +159,9 @@ export function TaskCenter({
             ))}
           </ul>
           {finished.length > 0 ? (
-            <button
-              type="button"
-              className="btn btn-small"
-              onClick={center.clearFinished}
-            >
+            <Button size="small" onClick={center.clearFinished}>
               Clear finished
-            </button>
+            </Button>
           ) : null}
         </section>
       ) : null}
