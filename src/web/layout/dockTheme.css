@@ -204,7 +204,6 @@
   box-shadow: none;
 }
 
-.bsh-dock .dv-groupview[data-collapsed="width"] .dv-default-tab-action,
 .bsh-dock .dv-groupview[data-collapsed="width"] .dv-scrollbar,
 .bsh-dock .dv-groupview[data-collapsed="width"] .dv-pre-actions-container,
 .bsh-dock .dv-groupview[data-collapsed="width"] .dv-left-actions-container {
@@ -213,6 +212,13 @@
 
 .bsh-dock .dv-groupview[data-collapsed="width"] .dv-void-container {
   flex: 1;
+}
+
+.bsh-dock .dv-groupview[data-collapsed="width"] .dv-default-tab-action {
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  aspect-ratio: 1;
 }
 
 .dock-action {
