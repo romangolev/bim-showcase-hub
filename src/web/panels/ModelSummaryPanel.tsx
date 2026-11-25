@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from 'react';
+import { useId, useMemo, useRef, useState } from 'react';
 import { Icon } from '../components/icons.js';
 import { PaneActionsMenu } from '../components/PaneActionsMenu.js';
 import { StateBlock } from '../components/StateBlock.js';
@@ -35,6 +35,7 @@ import {
   ModelScopeSelect,
   UnavailableModels,
 } from './ModelScope.js';
+import { QuickSettings, useQuickSettings } from './QuickSettings.js';
 import { openSummaryProperty } from './SummaryPropertyDialog.js';
 import { SummaryTable } from './SummaryTable.js';
 import {
@@ -192,15 +193,21 @@ export function ModelSummaryPanel({
     onCollapsedChange?.(next);
   };
 
+  const sectionRef = useRef<HTMLElement>(null);
+  const [controls, setControls] = useState<boolean>();
+  const quick = useQuickSettings(sectionRef, controls, setControls);
+
   const bodyId = `${uid}-body`;
   const titleId = `${uid}-title`;
   const toggleLabel = isCollapsed ? `Expand ${title}` : `Collapse ${title}`;
 
   return (
     <section
+      ref={sectionRef}
       className={`bsh-card bsh-summary ${className ?? ''}`.trim()}
       aria-labelledby={titleId}
       data-collapsed={isCollapsed}
+      data-compact={!isCollapsed && !quick.open}
       data-density={view.density}
       data-rows-collapsed={
         !showAll &&
@@ -217,39 +224,6 @@ export function ModelSummaryPanel({
             </span>
           ) : null}
         </h2>
-        <ModelScopeSelect state={state.models} label="Summarize models" />
-        <button
-          type="button"
-          className="btn bsh-summary__add"
-          disabled={full}
-          title={
-            full
-              ? `The summary already has ${MAX_SUMMARY_ROWS} rows and ${MAX_SUMMARY_COLUMNS} columns`
-              : undefined
-          }
-          onClick={() => openAdd()}
-        >
-          <Icon name="plus" size={14} />
-          <span className="bsh-summary__add-label">Add property</span>
-        </button>
-        <button
-          type="button"
-          className="btn bsh-summary__refresh"
-          onClick={state.refresh}
-          disabled={!resolved}
-        >
-          Refresh
-        </button>
-        {onOpenSettings ? (
-          <button
-            type="button"
-            className="icon-button"
-            onClick={onOpenSettings}
-          >
-            <Icon name="settings" size={16} />
-            <span className="bsh-sr-only">Summary settings</span>
-          </button>
-        ) : null}
         {toggleable ? (
           <button
             type="button"
@@ -267,6 +241,47 @@ export function ModelSummaryPanel({
             <span className="bsh-sr-only">{toggleLabel}</span>
           </button>
         ) : null}
+        {isCollapsed ? null : (
+          <QuickSettings
+            label="Summary controls"
+            open={quick.open}
+            onToggle={quick.toggle}
+          >
+            <ModelScopeSelect state={state.models} label="Summarize models" />
+            <button
+              type="button"
+              className="btn bsh-summary__add"
+              disabled={full}
+              title={
+                full
+                  ? `The summary already has ${MAX_SUMMARY_ROWS} rows and ${MAX_SUMMARY_COLUMNS} columns`
+                  : undefined
+              }
+              onClick={() => openAdd()}
+            >
+              <Icon name="plus" size={14} />
+              <span className="bsh-summary__add-label">Add property</span>
+            </button>
+            <button
+              type="button"
+              className="btn bsh-summary__refresh"
+              onClick={state.refresh}
+              disabled={!resolved}
+            >
+              Refresh
+            </button>
+            {onOpenSettings ? (
+              <button
+                type="button"
+                className="icon-button"
+                onClick={onOpenSettings}
+              >
+                <Icon name="settings" size={16} />
+                <span className="bsh-sr-only">Summary settings</span>
+              </button>
+            ) : null}
+          </QuickSettings>
+        )}
       </header>
       <div
         id={bodyId}

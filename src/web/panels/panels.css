@@ -438,6 +438,7 @@ select.field {
 .bsh-summary__header {
   flex-wrap: wrap;
   justify-content: flex-start;
+  row-gap: 0;
 }
 
 .bsh-summary__header .bsh-card__title {
@@ -510,10 +511,6 @@ select.field {
   transition:
     grid-template-rows 160ms ease,
     visibility 0s linear 160ms;
-}
-
-.bsh-summary[data-collapsed="true"] .bsh-summary__refresh {
-  display: none;
 }
 
 .summary-toggle {

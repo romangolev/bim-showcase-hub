@@ -316,8 +316,35 @@
   box-shadow: none;
 }
 
+.pane-slot--dock .bsh-summary {
+  position: relative;
+}
+
+.pane-slot--dock .bsh-summary[data-compact="true"] {
+  gap: 0;
+}
+
 .pane-slot--dock .bsh-summary__header {
   justify-content: flex-end;
+}
+
+.pane-slot--dock .bsh-summary .bsh-quick__inner {
+  justify-content: flex-end;
+  padding: 0 calc(var(--hit-target) + var(--space-2)) 0 0;
+}
+
+.pane-slot--dock .bsh-summary .bsh-quick__toggle {
+  position: absolute;
+  top: var(--padding-panel);
+  right: var(--padding-panel);
+  z-index: var(--z-sticky);
+}
+
+.pane-slot--dock
+  .bsh-summary[data-compact="true"]
+  .bsh-summary__body
+  > :first-child {
+  padding-inline-end: calc(var(--hit-target) + var(--space-2));
 }
 
 .pane-slot--dock .bsh-drawer__header {

@@ -461,6 +461,15 @@ def ifc_check(checks, path, label="IFC", expected_elements=None, min_storey_shar
     return info
 
 
+def show_controls(scope, label):
+    toggles = scope.get_by_role("button", name=label)
+    for index in range(toggles.count()):
+        toggle = toggles.nth(index)
+        if toggle.get_attribute("aria-expanded") == "false":
+            toggle.click()
+            getattr(scope, "page", scope).wait_for_timeout(300)
+
+
 def expand_to_viewable(page, max_depth=8, per_level=4):
     viewable = page.locator("[role=treeitem][data-viewable=true]")
     for depth in range(1, max_depth + 1):

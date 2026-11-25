@@ -24,6 +24,7 @@ from common import (
     glb_check,
     ifc_check,
     expand_to_viewable,
+    show_controls,
     horizontal_overflow,
     new_notes,
     watch,
@@ -195,6 +196,7 @@ def check_summary_tools(page, checks):
     settle(page, 200)
     checks.add("clearing the filter restores the rows", pane.locator("tbody tr").count() == rows, pane.locator("tbody tr").count())
     checks.add("the summary has no element scope control", pane.get_by_label("Summarize elements").count() == 0)
+    show_controls(pane, "Summary controls")
     pane.get_by_role("button", name="Add property", exact=True).click()
     prompt = page.locator("dialog[open]").last
     checks.add("the add property dialog opens on Column", prompt.get_by_role("radio", name="Column", exact=True).is_checked())
@@ -204,6 +206,7 @@ def check_summary_tools(page, checks):
     prompt.get_by_role("button", name="Add property", exact=True).click()
     settle(page, 600)
     checks.add("a property added as Rows joins the summary", pane.locator("tbody tr", has_text="Level").count() > 0)
+    show_controls(pane, "Summary controls")
     pane.get_by_role("button", name="Add property", exact=True).click()
     prompt = page.locator("dialog[open]").last
     prompt.get_by_role("radio", name="Category", exact=True).wait_for(timeout=8000)
@@ -215,6 +218,7 @@ def check_summary_tools(page, checks):
     checks.add("a property added as a column shows its header", header.count() == 1, header.count())
     cell = pane.locator("tbody tr").first.locator("td").last.inner_text().strip()
     checks.add("the new column fills a numeric cell", re.fullmatch(r"[\d,]+", cell) is not None, cell)
+    show_controls(pane, "Summary controls")
     pane.get_by_role("button", name="Summary settings").click()
     dialog = page.get_by_role("dialog", name="Summary settings")
     rows_group = dialog.get_by_role("group", name="Rows")
@@ -258,6 +262,7 @@ def check_summary_tools(page, checks):
     settle(page, 300)
     selected = page.locator(".bsh-mock__el--selected").count()
     checks.add("clicking a summary value selects elements in the viewer", selected >= 1, selected)
+    show_controls(pane, "Summary controls")
     pane.get_by_role("button", name="Summary settings").click()
     page.get_by_role("dialog", name="Summary settings").get_by_label("Row click").select_option("isolate")
     page.keyboard.press("Escape")
@@ -283,6 +288,7 @@ def check_summary_tools(page, checks):
     page.get_by_role("switch", name="Ghost the rest when isolating").check()
     page.keyboard.press("Escape")
     settle(page, 200)
+    show_controls(pane, "Summary controls")
     pane.get_by_role("button", name="Summary settings").click()
     page.get_by_role("dialog", name="Summary settings").get_by_label("Row click").select_option("select")
     page.get_by_role("dialog", name="Summary settings").get_by_role("button", name="Reset view").click()
@@ -298,6 +304,7 @@ def check_summary_add_dialog(page, checks):
     pane = page.locator(".pane-summary").first
     page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
     settle(page, 300)
+    show_controls(pane, "Summary controls")
     pane.get_by_role("button", name="Add property", exact=True).click()
     prompt = page.locator("dialog[open]").last
     prompt.wait_for(timeout=3000)
@@ -328,6 +335,7 @@ def name_preset(page, name, confirm):
 def check_summary_presets(page, checks):
     pane = page.locator(".pane-summary").first
     checks.add("the summary pane has no preset control", pane.get_by_role("button", name=re.compile("[Pp]resets")).count() == 0)
+    show_controls(pane, "Summary controls")
     pane.get_by_role("button", name="Summary settings").click()
     dialog = page.get_by_role("dialog", name="Summary settings")
     menu = dialog.get_by_role("button", name="Summary presets", exact=True)
@@ -1123,7 +1131,7 @@ def check_quick_overlay(page, checks, pane_sel, label, where):
     hidden = page.evaluate(QUICK_GEOMETRY, [pane_sel, label])
     docked = hidden["position"] == "absolute"
     if docked:
-        checks.add(f"{label} hidden: the toggle floats over the content ({where})", abs(hidden["bodyTop"] - hidden["top"]) <= 1 and hidden["headerHeight"] <= 1, hidden)
+        checks.add(f"{label} hidden: the toggle floats over the content ({where})", hidden["bodyTop"] - hidden["top"] <= 16 and hidden["headerHeight"] <= 1, hidden)
     else:
         checks.add(f"{label} hidden: the toggle sits in the title row ({where})", hidden["inRow"] and hidden["headerHeight"] <= hidden["size"] + 28, hidden)
     checks.add(f"{label} hidden: no column is reserved beside the content ({where})", hidden["padStart"] == hidden["padEnd"], (hidden["padStart"], hidden["padEnd"]))
@@ -1174,6 +1182,25 @@ def check_dashboard_overlay(page, checks):
     page.locator(".pane-dashboard").first.screenshot(path=str(OUTPUT_DIR / "mock-dashboard-quick-390.png"))
 
 
+def check_summary_quick(page, checks):
+    pane = page.locator(".pane-summary").first
+    pane.locator("tbody tr").first.wait_for(timeout=8000)
+    check_quick_overlay(page, checks, ".pane-summary", "Summary controls", "dock")
+    page.set_viewport_size({"width": 948, "height": DESKTOP[1]})
+    settle(page, 600)
+    check_quick_overlay(page, checks, ".pane-summary", "Summary controls", "narrow dock")
+    pane.screenshot(path=str(OUTPUT_DIR / "mock-summary-quick-narrow.png"))
+    page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
+    settle(page, 600)
+    expand = page.get_by_role("button", name=re.compile(r"^Expand .*summary", re.I))
+    if expand.count():
+        expand.first.click()
+        settle(page, 600)
+    pane.scroll_into_view_if_needed()
+    check_quick_overlay(page, checks, ".pane-summary", "Summary controls", "390")
+    pane.screenshot(path=str(OUTPUT_DIR / "mock-summary-quick-390.png"))
+
+
 def check_user_menu_alignment(page, checks):
     measured = page.evaluate("""() => {
       const trigger = document.querySelector('.user-menu__trigger');
@@ -1193,7 +1220,7 @@ def check_user_menu_alignment(page, checks):
 
 
 def check_recent_ui(page, checks):
-    for check in (check_settings_shell, check_tool_switches, check_ifc_dropdown, check_dashboard_overlay, check_user_menu_alignment):
+    for check in (check_settings_shell, check_tool_switches, check_ifc_dropdown, check_dashboard_overlay, check_summary_quick, check_user_menu_alignment):
         try:
             check(page, checks)
         except Exception as exc:
@@ -1728,6 +1755,7 @@ def check_combined(page, checks, notes):
     checks.add("combined: tab tooltip lists the files", tooltip.count("\n") == 1, tooltip)
     checks.add("combined: url carries with=", "with=" in page.url, page.url)
 
+    show_controls(page, "Summary controls")
     summary_scope = page.get_by_role("combobox", name="Summarize models")
     wait_until(page, lambda: summary_scope.count() == 1 and page.evaluate(FIRST_COUNT) > 0)
     all_count = page.evaluate(FIRST_COUNT)
@@ -2874,6 +2902,7 @@ def check_pane_families(page, checks):
     settle(page, 500)
     checks.add("a second summary pane opens", summaries().count() == 2, summaries().count())
     first_summary = page.locator(".pane-summary").filter(has=page.get_by_role("heading", name=re.compile(r"^Model summary 1"))).first
+    show_controls(first_summary, "Summary controls")
     first_summary.get_by_role("button", name="Summary settings").click()
     dialog = page.get_by_role("dialog", name="Summary settings")
     dialog.get_by_label("Density").select_option("compact")

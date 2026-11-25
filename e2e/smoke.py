@@ -20,6 +20,7 @@ from common import (
     horizontal_overflow,
     main_canvas_width,
     new_notes,
+    show_controls,
     wait_for_canvas_width,
     watch,
     wrapped_count_cells,
@@ -443,6 +444,7 @@ ACTIVE_TAB_SCRIPT = """() => {
 
 
 def summary_item_titles(page):
+    show_controls(page.locator(".pane-summary").first, "Summary controls")
     page.locator(".pane-summary").first.get_by_role("button", name="Summary settings").click()
     dialog = page.get_by_role("dialog", name="Summary settings")
     labels = dialog.locator("button[aria-label^='Remove ']").evaluate_all("els => els.map(e => e.getAttribute('aria-label'))")
@@ -453,6 +455,7 @@ def summary_item_titles(page):
 
 def drop_summary_items(page, names):
     pane = page.locator(".pane-summary").first
+    show_controls(pane, "Summary controls")
     pane.get_by_role("button", name="Summary settings").click()
     dialog = page.get_by_role("dialog", name="Summary settings")
     for name in names:
@@ -466,6 +469,7 @@ def drop_summary_items(page, names):
 
 def add_summary_property(page, name, role, aggregate=None):
     pane = page.locator(".pane-summary").first
+    show_controls(pane, "Summary controls")
     pane.get_by_role("button", name="Add property", exact=True).click()
     prompt = page.locator("dialog[open]").last
     prompt.get_by_role("radio", name=role, exact=True).check()
@@ -1267,6 +1271,7 @@ def check_combined(page, context, checks, notes):
     checks.add("combined: selecting an object in a later model works", picked, selection)
     page.evaluate("mw:() => document.querySelector(\"[data-active='true'] [data-bsh-viewer]\")?.bshViewer?.clearSelection()")
 
+    show_controls(page, "Summary controls")
     scope = page.get_by_role("combobox", name="Summarize models")
     scope.wait_for(timeout=VIEWER_TIMEOUT_MS)
     options = scope.locator("option").all_inner_texts()
