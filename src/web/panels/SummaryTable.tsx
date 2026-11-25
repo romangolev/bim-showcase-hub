@@ -28,6 +28,14 @@ import { useScrollable } from './useScrollable.js';
 import './panels.css';
 import { Button } from '../ui/Button.js';
 import { IconButton } from '../ui/IconButton.js';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../ui/Table.js';
 
 export const ENTRY_CAP = 500;
 
@@ -73,14 +81,14 @@ function TitleInput({
 function CountCell({ count, max }: { count: number; max: number }) {
   const share = countShare(count, max);
   return (
-    <td className="bsh-num" title={formatCount(count)}>
+    <TableCell className="bsh-num" title={formatCount(count)}>
       <span
         className="bsh-count-bar"
         aria-hidden="true"
         style={{ width: `${share}%` }}
       />
       <span className="bsh-clamp bsh-count-value">{formatCount(count)}</span>
-    </td>
+    </TableCell>
   );
 }
 
@@ -99,14 +107,14 @@ function ColumnCell({
   }
   const text = formatCell(cell, column, language);
   return (
-    <td
+    <TableCell
       className="bsh-num"
       title={
         cell.status === 'mixed' ? `Mixed units: ${cell.units.join(', ')}` : text
       }
     >
       <span className="bsh-clamp bsh-measure">{text}</span>
-    </td>
+    </TableCell>
   );
 }
 
@@ -123,9 +131,8 @@ function ColumnHeaders({
         const title = columnTitle(column);
         const empty = column.property !== null && blank.has(column.property);
         return (
-          <th
+          <TableHead
             key={column.id}
-            scope="col"
             className="bsh-num"
             title={empty ? `${title}: ${BLANK_NOTE}` : title}
           >
@@ -136,7 +143,7 @@ function ColumnHeaders({
                 <span className="bsh-sr-only">, {BLANK_NOTE}</span>
               </>
             ) : null}
-          </th>
+          </TableHead>
         );
       })}
     </>
@@ -337,34 +344,33 @@ export function SummaryTable({
     ) : null;
 
   const flatTable = (
-    <table className="bsh-table bsh-table--summary">
-      <thead>
-        <tr>
+    <Table className="bsh-table bsh-table--summary">
+      <TableHeader>
+        <TableRow>
           {showProperty ? (
-            <th scope="col" className="bsh-col-property">
-              Property
-            </th>
+            <TableHead className="bsh-col-property">Property</TableHead>
           ) : null}
-          <th scope="col" className="bsh-col-value">
-            Value
-          </th>
+          <TableHead className="bsh-col-value">Value</TableHead>
           <ColumnHeaders columns={columns} blank={blank} />
-        </tr>
-      </thead>
-      <tbody>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {flat.shown.map((entry) => {
           const key = entryKey(entry);
           const list = cellsFor(entry);
           return (
-            <tr key={key} data-active={activeKey === key ? 'true' : undefined}>
+            <TableRow
+              key={key}
+              data-active={activeKey === key ? 'true' : undefined}
+            >
               {showProperty ? (
-                <td className="bsh-col-property" title={entry.property}>
+                <TableCell className="bsh-col-property" title={entry.property}>
                   <span className="bsh-clamp">{entry.property}</span>
-                </td>
+                </TableCell>
               ) : null}
-              <td className="bsh-col-value" title={entry.value}>
+              <TableCell className="bsh-col-value" title={entry.value}>
                 {valueLabel(entry)}
-              </td>
+              </TableCell>
               {columns.map((column, index) => (
                 <ColumnCell
                   key={column.id}
@@ -373,20 +379,20 @@ export function SummaryTable({
                   max={null}
                 />
               ))}
-            </tr>
+            </TableRow>
           );
         })}
         {hiddenTotal > 0 ? (
-          <tr>
-            <td colSpan={(showProperty ? 2 : 1) + columns.length}>
+          <TableRow>
+            <TableCell colSpan={(showProperty ? 2 : 1) + columns.length}>
               <Button onClick={() => expandProps(flat.hidden.keys())}>
                 Show {formatCount(hiddenTotal)} more
               </Button>
-            </td>
-          </tr>
+            </TableCell>
+          </TableRow>
         ) : null}
-      </tbody>
-    </table>
+      </TableBody>
+    </Table>
   );
 
   const groupedTable = (
@@ -451,19 +457,17 @@ export function SummaryTable({
               className="bsh-table-block__body"
               hidden={collapsed}
             >
-              <table
+              <Table
                 className="bsh-table bsh-table--summary"
                 aria-label={title}
               >
-                <thead>
-                  <tr>
-                    <th scope="col" className="bsh-col-value">
-                      Value
-                    </th>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="bsh-col-value">Value</TableHead>
                     <ColumnHeaders columns={columns} blank={blank} />
-                  </tr>
-                </thead>
-                <tbody>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {(expandedProps.has(block.property)
                     ? block.entries
                     : block.entries.slice(0, ENTRY_CAP)
@@ -471,17 +475,17 @@ export function SummaryTable({
                     const key = entryKey(entry);
                     const list = cellsFor(entry);
                     return (
-                      <tr
+                      <TableRow
                         key={key}
                         data-active={activeKey === key ? 'true' : undefined}
                       >
-                        <th
-                          scope="row"
+                        <TableCell
+                          rowHeader
                           className="bsh-col-value"
                           title={entry.value}
                         >
                           {valueLabel(entry)}
-                        </th>
+                        </TableCell>
                         {columns.map((column, columnIndex) => (
                           <ColumnCell
                             key={column.id}
@@ -490,22 +494,22 @@ export function SummaryTable({
                             max={max}
                           />
                         ))}
-                      </tr>
+                      </TableRow>
                     );
                   })}
                   {!expandedProps.has(block.property) &&
                   block.entries.length > ENTRY_CAP ? (
-                    <tr>
-                      <td colSpan={1 + columns.length}>
+                    <TableRow>
+                      <TableCell colSpan={1 + columns.length}>
                         <Button onClick={() => expandProps([block.property])}>
                           Show {formatCount(block.entries.length - ENTRY_CAP)}{' '}
                           more
                         </Button>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ) : null}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           </section>
         );
@@ -516,26 +520,24 @@ export function SummaryTable({
   const pivotTable = (
     <>
       {tools(true)}
-      <table
+      <Table
         className="bsh-table bsh-table--summary bsh-table--pivot"
         aria-label={`Pivot by ${groupBy.join(', ')}`}
       >
-        <thead>
-          <tr>
-            <th scope="col" className="bsh-col-value">
-              Value
-            </th>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="bsh-col-value">Value</TableHead>
             <ColumnHeaders columns={columns} blank={blank} />
-          </tr>
-        </thead>
-        <tbody>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {pivotShown.map(({ node, depth, key }) => {
             const collapsed = collapsedNodes.has(key);
             const hasChildren = node.children.length > 0;
             return (
-              <tr key={key}>
-                <th
-                  scope="row"
+              <TableRow key={key}>
+                <TableCell
+                  rowHeader
                   className="bsh-col-value bsh-pivot__value"
                   style={{ paddingInlineStart: `${0.5 + depth * 0.9}rem` }}
                 >
@@ -561,7 +563,7 @@ export function SummaryTable({
                     <span className="bsh-pivot__spacer" aria-hidden="true" />
                   )}
                   <span className="bsh-clamp">{node.value}</span>
-                </th>
+                </TableCell>
                 {columns.map((column, index) => (
                   <ColumnCell
                     key={column.id}
@@ -570,20 +572,20 @@ export function SummaryTable({
                     max={pivotMax}
                   />
                 ))}
-              </tr>
+              </TableRow>
             );
           })}
           {pivotShown.length < pivotRows.length ? (
-            <tr>
-              <td colSpan={1 + columns.length}>
+            <TableRow>
+              <TableCell colSpan={1 + columns.length}>
                 <Button onClick={() => setPivotAll(true)}>
                   Show {formatCount(pivotRows.length - pivotShown.length)} more
                 </Button>
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           ) : null}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </>
   );
 
