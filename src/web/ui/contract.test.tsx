@@ -53,6 +53,7 @@ import {
 } from './Popover.js';
 import { Skeleton } from './Skeleton.js';
 import { Spinner } from './Spinner.js';
+import { Switch } from './Switch.js';
 import { Tab, TabPanel, Tabs, TabsList } from './Tabs.js';
 import { Textarea } from './Textarea.js';
 import { ToggleButton } from './ToggleButton.js';
@@ -355,6 +356,11 @@ const ENTRIES: Entry[] = [
     file: 'Textarea',
     slot: 'textarea',
     render: (props) => <Textarea aria-label="label" {...props} />,
+  },
+  {
+    file: 'Switch',
+    slot: 'switch',
+    render: (props) => <Switch aria-label="label" {...props} />,
   },
 ];
 

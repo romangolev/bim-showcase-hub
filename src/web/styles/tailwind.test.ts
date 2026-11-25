@@ -142,13 +142,18 @@ describe('cn', () => {
   });
 });
 
+const ROLES = new Set(
+  mapped
+    .filter((match) => (match[2] as string).startsWith('--ui-'))
+    .map((match) => (match[1] as string).replace('--color-', '')),
+);
 const PALETTE = [
   ...new Set(
     [...tokens.matchAll(/--color-([a-z-]+)\s*:/g)].map(
       (match) => match[1] as string,
     ),
   ),
-];
+].filter((name) => !ROLES.has(name));
 const COLOR_PREFIXES =
   'bg|text|border|border-[stbexy]|outline|ring|fill|stroke|decoration|accent|caret|divide|placeholder|from|via|to';
 const PALETTE_UTILITY = new RegExp(

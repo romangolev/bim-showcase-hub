@@ -201,8 +201,8 @@ STRUCTURE = """() => {
   const body = dialog.querySelector('[data-slot=dialog-body] > *');
   return {
     headings: sig('h3, legend', ['fontSize', 'fontWeight', 'color']),
-    labels: sig('label, .switch-row__label', ['fontSize', 'color']),
-    hints: sig('.settings__hint, .switch-row__hint, .bsh-muted, small', ['fontSize', 'color']),
+    labels: sig('label, [data-slot=field-title]', ['fontSize', 'color']),
+    hints: sig('.settings__hint, [data-slot=field-hint], .bsh-muted, small', ['fontSize', 'color']),
     selects: sig('select', ['height', 'borderRadius', 'backgroundColor', 'fontSize']),
     textInputs: sig('input[type=text], input[type=number], input[type=search], input:not([type])', ['height', 'borderRadius', 'backgroundColor', 'fontSize']),
     buttons: sig('[data-slot=dialog-body] button:not([role=switch]):not([role=tab])', ['height', 'borderRadius', 'backgroundColor', 'fontSize', 'fontWeight']),
