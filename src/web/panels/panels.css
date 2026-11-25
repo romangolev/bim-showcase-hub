@@ -55,7 +55,7 @@
   background: var(--color-graphite);
   color: var(--color-fog);
   font-weight: var(--weight-label);
-  text-align: left;
+  text-align: start;
   white-space: nowrap;
   border-bottom: var(--border-hairline);
 }
@@ -95,10 +95,11 @@
   width: auto;
 }
 
-.bsh-table .bsh-num {
+.bsh-table .bsh-num,
+.bsh-table [data-numeric] {
   width: 1%;
   min-width: 9ch;
-  text-align: right;
+  text-align: end;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
@@ -109,7 +110,8 @@
   white-space: nowrap;
 }
 
-.bsh-table[data-fixed] .bsh-num {
+.bsh-table[data-fixed] .bsh-num,
+.bsh-table[data-fixed] [data-numeric] {
   min-width: 0;
 }
 

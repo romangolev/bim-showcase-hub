@@ -104,6 +104,7 @@ export function TableHead({
       scope="col"
       {...props}
       data-slot="table-head"
+      data-numeric={numeric ? '' : undefined}
       data-effect={effect}
       className={cn(
         cell,
@@ -141,6 +142,7 @@ export function TableSortHead({
       {...props}
       aria-sort={sort}
       data-slot="table-sort-head"
+      data-numeric={numeric ? '' : undefined}
       data-effect={effect}
       className={cn(
         cell,
@@ -182,6 +184,7 @@ export function TableCell({
       scope={rowHeader ? 'row' : undefined}
       {...props}
       data-slot="table-cell"
+      data-numeric={numeric ? '' : undefined}
       data-effect={effect}
       className={cn(
         cell,
