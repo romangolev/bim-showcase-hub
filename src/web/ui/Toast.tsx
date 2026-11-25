@@ -147,7 +147,12 @@ export function Toaster({
         containerAriaLabel={label}
         offset="var(--space-4)"
         mobileOffset="var(--space-4)"
-        style={{ '--width': 'var(--ui-toast-width)' } as CSSProperties}
+        style={
+          {
+            '--width': 'var(--ui-toast-width)',
+            zIndex: 'var(--ui-z-toast)',
+          } as CSSProperties
+        }
       />
     </div>,
     target,

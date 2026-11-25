@@ -65,7 +65,7 @@ Components in `src/web/ui` never name a palette colour. They use role tokens (`-
 | Drawer | `--ui-drawer-body` (open body height), `--ui-z-sticky` (sticky header layer) | 136px, `--z-sticky` |
 | Field | `--ui-field-label-min`, `--ui-field-label-max` | 10rem, 16rem: the label column of a row field |
 | Warning | `--ui-warning` (icons and UI parts, 3:1) | ember |
-| Toast | `--ui-toast-width` | 360px, capped at the viewport minus 32px |
+| Toast | `--ui-toast-width`, `--ui-z-toast` | 360px, capped at the viewport minus 32px; 1100, above popovers and below popups and modals |
 
 Text roles reach 4.5:1 on every surface role, `--ui-on-solid` reaches 4.5:1 on `--ui-solid`, and `--ui-on-accent` and `--ui-focus` reach 3:1 as UI parts.
 

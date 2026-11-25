@@ -113,6 +113,9 @@ describe('Toaster', () => {
     await screen.findByText('Note');
     expect(region()).toHaveAttribute('aria-live', 'off');
     expect(region()).toHaveAttribute('aria-label', 'Alerts');
+    expect(document.querySelector('[data-sonner-toaster]')).toHaveStyle({
+      zIndex: 'var(--ui-z-toast)',
+    });
   });
 
   it('keeps a toast through a StrictMode remount without reporting a dismissal', async () => {

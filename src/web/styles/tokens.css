@@ -239,6 +239,7 @@
   --ui-drawer-body: 136px;
   --ui-warning: var(--color-ember);
   --ui-toast-width: min(100vw - 32px, 360px);
+  --ui-z-toast: 1100;
 
   --z-raised: 1;
   --z-sticky: 2;
