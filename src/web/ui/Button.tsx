@@ -2,13 +2,13 @@ import { Button as ButtonPrimitive } from '@base-ui/react/button';
 import { cn } from './cn.js';
 
 const base =
-  'inline-flex min-h-hit cursor-pointer items-center justify-center gap-2 rounded-button border px-3 font-ui text-14 tracking-body transition-colors motion-reduce:transition-none data-disabled:cursor-not-allowed';
+  'inline-flex min-h-hit cursor-pointer items-center justify-center gap-2 rounded-control border px-3 font-ui text-14 tracking-body transition-colors motion-reduce:transition-none data-disabled:cursor-not-allowed';
 
 const variants = {
   default:
-    'border-hairline bg-ghost-fill text-snow not-data-disabled:hover:bg-ghost-fill-hover not-data-disabled:active:bg-ghost-fill-active data-disabled:text-ash',
+    'border-line bg-fill text-fg not-data-disabled:hover:bg-fill-hover not-data-disabled:active:bg-fill-active data-disabled:text-fg-disabled',
   primary:
-    'border-transparent bg-bone text-ink shadow-button not-data-disabled:hover:bg-snow data-disabled:opacity-60',
+    'border-transparent bg-solid text-on-solid shadow-control not-data-disabled:hover:bg-solid-hover data-disabled:opacity-60',
 };
 
 const sizes = {

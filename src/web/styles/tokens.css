@@ -185,7 +185,35 @@
   --shadow-inset: inset 0 1px 0 var(--color-inset-highlight);
   --ring-width: 2px;
   --ring-offset: 2px;
-  --transition-ui: 120ms ease;
+  --transition-ui: var(--ui-motion) ease;
+
+  --ui-surface: var(--color-graphite);
+  --ui-surface-raised: var(--color-charcoal);
+  --ui-surface-sunken: var(--color-void);
+  --ui-fill: var(--color-ghost-fill);
+  --ui-fill-hover: var(--color-ghost-fill-hover);
+  --ui-fill-active: var(--color-ghost-fill-active);
+  --ui-text: var(--color-snow);
+  --ui-text-muted: var(--color-chalk);
+  --ui-text-subtle: var(--color-fog);
+  --ui-text-disabled: var(--color-ash);
+  --ui-border: var(--color-hairline);
+  --ui-border-strong: var(--color-field-border);
+  --ui-accent: var(--color-arc-blue);
+  --ui-accent-fill: var(--color-signal-blue);
+  --ui-on-accent: var(--color-on-accent);
+  --ui-solid: var(--color-bone);
+  --ui-solid-hover: var(--color-snow);
+  --ui-on-solid: var(--color-ink);
+  --ui-danger: var(--color-coral);
+  --ui-success: var(--color-mint);
+  --ui-focus: var(--color-ring-blue);
+  --ui-scrim: var(--color-scrim);
+  --ui-radius-control: var(--radius-button);
+  --ui-radius-surface: var(--radius-card);
+  --ui-shadow-control: var(--shadow-button);
+  --ui-shadow-float: var(--shadow-float);
+  --ui-motion: 120ms;
 
   --z-raised: 1;
   --z-sticky: 2;

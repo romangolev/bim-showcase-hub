@@ -51,6 +51,31 @@ const UI = [
   'tag-purple',
 ];
 
+const ROLES = Object.fromEntries(
+  [...css.matchAll(/--ui-([a-z-]+):\s*var\(--color-([a-z-]+)\)/g)].map(
+    (match) => [match[1] as string, match[2] as string],
+  ),
+);
+const ROLE_SURFACES = ['surface', 'surface-raised', 'surface-sunken'];
+const ROLE_TEXT = [
+  'text',
+  'text-muted',
+  'text-subtle',
+  'text-disabled',
+  'accent',
+  'danger',
+  'success',
+];
+const ROLE_PAIRS: [string, string, number][] = [
+  ...ROLE_SURFACES.flatMap((surface) => [
+    ...ROLE_TEXT.map((text): [string, string, number] => [text, surface, 4.5]),
+    ['focus', surface, 3] as [string, string, number],
+  ]),
+  ['on-solid', 'solid', 4.5],
+  ['on-solid', 'solid-hover', 4.5],
+  ['on-accent', 'accent-fill', 3],
+];
+
 const THEMES = {
   dark: block(':root[data-theme="dark"]'),
   light: block(':root[data-theme="light"]'),
@@ -73,6 +98,18 @@ describe('theme contrast', () => {
           ).toBeGreaterThanOrEqual(3);
         });
       }
+    }
+    for (const [front, back, ratio] of ROLE_PAIRS) {
+      it(`${theme}: role ${front} on ${back} is at least ${ratio}:1`, () => {
+        expect(ROLES[front], front).toBeDefined();
+        expect(ROLES[back], back).toBeDefined();
+        expect(
+          contrast(
+            tokens[ROLES[front] as string] as string,
+            tokens[ROLES[back] as string] as string,
+          ),
+        ).toBeGreaterThanOrEqual(ratio);
+      });
     }
   }
 });

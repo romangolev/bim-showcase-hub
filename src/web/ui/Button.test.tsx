@@ -10,7 +10,7 @@ describe('Button', () => {
     expect(button.tagName).toBe('BUTTON');
     expect(button).toHaveAttribute('type', 'button');
     expect(button).toHaveAttribute('data-slot', 'button');
-    expect(button).toHaveClass('min-h-hit', 'border-hairline', 'bg-ghost-fill');
+    expect(button).toHaveClass('min-h-hit', 'border-line', 'bg-fill');
     fireEvent.click(button);
     expect(onClick).toHaveBeenCalledTimes(1);
   });
@@ -37,13 +37,13 @@ describe('Button', () => {
     );
     const button = screen.getByRole('button', { name: 'Open' });
     expect(button).toHaveClass(
-      'bg-bone',
-      'text-ink',
+      'bg-solid',
+      'text-on-solid',
       'text-13',
       'rounded-pill',
     );
     expect(button).not.toHaveClass('text-14');
-    expect(button).not.toHaveClass('rounded-button');
-    expect(button).not.toHaveClass('bg-ghost-fill');
+    expect(button).not.toHaveClass('rounded-control');
+    expect(button).not.toHaveClass('bg-fill');
   });
 });

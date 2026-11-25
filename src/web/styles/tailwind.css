@@ -37,11 +37,32 @@
   --color-ghost-fill-hover: var(--color-ghost-fill-hover);
   --color-ghost-fill-active: var(--color-ghost-fill-active);
   --color-mint-wash: var(--color-mint-wash);
-  --color-on-accent: var(--color-on-accent);
   --color-accent-pressed: var(--color-accent-pressed);
   --color-scrim: var(--color-scrim);
   --color-match: var(--color-match);
   --color-swatch-ring: var(--color-swatch-ring);
+  --color-surface: var(--ui-surface);
+  --color-surface-raised: var(--ui-surface-raised);
+  --color-surface-sunken: var(--ui-surface-sunken);
+  --color-fill: var(--ui-fill);
+  --color-fill-hover: var(--ui-fill-hover);
+  --color-fill-active: var(--ui-fill-active);
+  --color-fg: var(--ui-text);
+  --color-fg-muted: var(--ui-text-muted);
+  --color-fg-subtle: var(--ui-text-subtle);
+  --color-fg-disabled: var(--ui-text-disabled);
+  --color-line: var(--ui-border);
+  --color-line-strong: var(--ui-border-strong);
+  --color-accent: var(--ui-accent);
+  --color-accent-fill: var(--ui-accent-fill);
+  --color-on-accent: var(--ui-on-accent);
+  --color-solid: var(--ui-solid);
+  --color-solid-hover: var(--ui-solid-hover);
+  --color-on-solid: var(--ui-on-solid);
+  --color-danger: var(--ui-danger);
+  --color-success: var(--ui-success);
+  --color-focus: var(--ui-focus);
+  --color-overlay: var(--ui-scrim);
 
   --radius-*: initial;
   --radius-badge: var(--radius-badge);
@@ -50,6 +71,8 @@
   --radius-card: var(--radius-card);
   --radius-container: var(--radius-container);
   --radius-pill: var(--radius-pill);
+  --radius-control: var(--ui-radius-control);
+  --radius-surface: var(--ui-radius-surface);
 
   --text-*: initial;
   --text-8: var(--text-8);
@@ -80,13 +103,13 @@
   --tracking-display: var(--tracking-display);
 
   --shadow-*: initial;
-  --shadow-button: var(--shadow-button);
-  --shadow-float: var(--shadow-float);
+  --shadow-control: var(--ui-shadow-control);
+  --shadow-float: var(--ui-shadow-float);
 
   --spacing: var(--space-unit);
   --spacing-hit: var(--hit-target);
 
   --default-border-width: 0.5px;
-  --default-transition-duration: 120ms;
+  --default-transition-duration: var(--ui-motion);
   --default-transition-timing-function: ease;
 }
