@@ -341,3 +341,106 @@ describe('SummaryTable entry cap', () => {
     expect(container.querySelectorAll('tbody tr')).toHaveLength(ENTRY_CAP + 25);
   });
 });
+
+describe('SummaryTable column resizing', () => {
+  const sized = (name: string) =>
+    screen.getByRole('columnheader', { name }).style.width;
+
+  it('adds a named handle per column and keeps the header names', () => {
+    render(
+      <SummaryTable
+        entries={entries}
+        rows={rows}
+        view={view({
+          columns: [COUNT_COLUMN, summaryColumn('Missing', 'sum')],
+        })}
+      />,
+    );
+    expect(
+      screen.getAllByRole('columnheader').map((cell) => cell.ariaLabel),
+    ).toEqual([
+      'Property',
+      'Value',
+      'Count',
+      'Sum of Missing, no values in these elements',
+    ]);
+    expect(
+      screen.getAllByRole('separator').map((handle) => handle.ariaLabel),
+    ).toEqual([
+      'Resize Property column',
+      'Resize Value column',
+      'Resize Count column',
+      'Resize Sum of Missing, no values in these elements column',
+    ]);
+    expect(screen.getByRole('table')).not.toHaveAttribute('data-fixed');
+    expect(sized('Value')).toBe('');
+  });
+
+  it('has no handle on a decorative table', () => {
+    render(<SummaryTable entries={entries} decorative />);
+    expect(screen.queryByRole('separator')).toBeNull();
+    expect(screen.getByRole('columnheader', { name: 'Value' })).toBeVisible();
+  });
+
+  it('drags from the measured width and resets on a double click', () => {
+    const measure = vi
+      .spyOn(Element.prototype, 'getBoundingClientRect')
+      .mockReturnValue({ width: 120 } as DOMRect);
+    render(<SummaryTable entries={entries} />);
+    const handle = screen.getByRole('separator', {
+      name: 'Resize Value column',
+    });
+    fireEvent.mouseDown(handle, { clientX: 300 });
+    fireEvent.mouseMove(document, { clientX: 340 });
+    fireEvent.mouseUp(document, { clientX: 340 });
+    measure.mockRestore();
+    const table = screen.getByRole('table');
+    expect(table).toHaveAttribute('data-fixed');
+    expect(sized('Value')).toBe('160px');
+    expect(sized('Property')).toBe('120px');
+    expect(sized('Count')).toBe('120px');
+    expect(table.style.width).toBe('400px');
+    expect(handle).toHaveAttribute('aria-valuenow', '160');
+    fireEvent.doubleClick(handle);
+    expect(table).not.toHaveAttribute('data-fixed');
+    expect(table.style.width).toBe('');
+    expect(sized('Value')).toBe('');
+  });
+
+  it('resizes with the arrow keys within the limits and resets on Enter', () => {
+    const measure = vi
+      .spyOn(Element.prototype, 'getBoundingClientRect')
+      .mockReturnValue({ width: 56 } as DOMRect);
+    render(<SummaryTable entries={entries} />);
+    const handle = screen.getByRole('separator', {
+      name: 'Resize Count column',
+    });
+    fireEvent.keyDown(handle, { key: 'ArrowRight' });
+    expect(sized('Count')).toBe('72px');
+    fireEvent.keyDown(handle, { key: 'ArrowLeft' });
+    fireEvent.keyDown(handle, { key: 'ArrowLeft' });
+    fireEvent.keyDown(handle, { key: 'ArrowLeft' });
+    expect(sized('Count')).toBe('48px');
+    fireEvent.keyDown(handle, { key: 'Enter' });
+    measure.mockRestore();
+    expect(sized('Count')).toBe('');
+  });
+
+  it('keeps sizes per table in the grouped layout', () => {
+    render(
+      <SummaryTable
+        entries={groupedEntries}
+        rows={rows}
+        view={view({ layout: 'grouped' })}
+      />,
+    );
+    const first = screen.getByRole('table', { name: 'Category' });
+    fireEvent.keyDown(within(first).getAllByRole('separator')[0] as Element, {
+      key: 'ArrowRight',
+    });
+    expect(first).toHaveAttribute('data-fixed');
+    expect(screen.getByRole('table', { name: 'Level' })).not.toHaveAttribute(
+      'data-fixed',
+    );
+  });
+});

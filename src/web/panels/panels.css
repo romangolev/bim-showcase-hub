@@ -110,6 +110,20 @@ select.field,
   white-space: nowrap;
 }
 
+.bsh-table[data-fixed] .bsh-num {
+  min-width: 0;
+}
+
+.bsh-table[data-fixed] .bsh-num .bsh-clamp,
+.bsh-table[data-fixed] .bsh-col-property .bsh-clamp {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stack [data-slot="table-resize-handle"] {
+  display: none;
+}
+
 .bsh-dashboard__toggle {
   display: inline-flex;
   align-items: center;
@@ -1044,7 +1058,7 @@ select.field,
 }
 
 .bsh-summary .bsh-table-block__body .bsh-table thead th {
-  position: static;
+  position: relative;
   background: var(--color-charcoal);
 }
 

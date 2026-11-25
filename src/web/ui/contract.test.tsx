@@ -66,6 +66,7 @@ import {
   TableCell,
   TableHead,
   TableHeader,
+  TableResizeHandle,
   TableRow,
   TableSortHead,
 } from './Table.js';
@@ -512,6 +513,21 @@ const ENTRIES: Entry[] = [
             <TableCell {...props}>label</TableCell>
           </TableRow>
         </TableBody>
+      </Table>
+    ),
+  },
+  {
+    file: 'Table',
+    slot: 'table-resize-handle',
+    render: (props) => (
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>
+              <TableResizeHandle label="label" {...props} />
+            </TableHead>
+          </TableRow>
+        </TableHeader>
       </Table>
     ),
   },

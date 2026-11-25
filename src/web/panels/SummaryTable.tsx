@@ -1,5 +1,7 @@
 import {
   type ColumnDef,
+  columnResizingFeature,
+  columnSizingFeature,
   metaHelper,
   tableFeatures,
   useTable,
@@ -49,6 +51,7 @@ import {
   TableCell,
   TableHead,
   TableHeader,
+  TableResizeHandle,
   TableRow,
 } from '../ui/Table.js';
 
@@ -108,6 +111,7 @@ interface CellAttrs {
 }
 
 interface ColumnMeta {
+  label: string;
   className: string;
   cellClassName?: string;
   title?: string;
@@ -115,11 +119,17 @@ interface ColumnMeta {
   attrs?: (line: Line) => CellAttrs;
 }
 
-const features = tableFeatures({ columnMeta: metaHelper<ColumnMeta>() });
+const features = tableFeatures({
+  columnMeta: metaHelper<ColumnMeta>(),
+  columnSizingFeature,
+  columnResizingFeature,
+});
 
 type GridColumn = ColumnDef<typeof features, Line>;
 
 const NO_ATTRS: CellAttrs = {};
+const COLUMN_LIMITS = { minSize: 48, maxSize: 1600 };
+const RESIZE_STEP = 16;
 const NO_CELLS: readonly SummaryCell[] = [];
 const PROPERTY_COLUMN: GridColumn = {
   id: 'bsh:property',
@@ -128,6 +138,7 @@ const PROPERTY_COLUMN: GridColumn = {
     <span className="bsh-clamp">{row.original.entry?.property}</span>
   ),
   meta: {
+    label: 'Property',
     className: 'bsh-col-property',
     attrs: (line) => ({ title: line.entry?.property }),
   },
@@ -187,6 +198,7 @@ function specColumns(
         );
       },
       meta: {
+        label: empty ? `${title}, ${BLANK_NOTE}` : title,
         className: 'bsh-num',
         title: empty ? `${title}: ${BLANK_NOTE}` : title,
         attrs: (line) => ({ title: read(line).title }),
@@ -201,6 +213,7 @@ function Grid({
   className,
   label,
   activeKey,
+  resizable,
   children,
 }: {
   columns: GridColumn[];
@@ -208,6 +221,7 @@ function Grid({
   className: string;
   label?: string;
   activeKey?: string | null;
+  resizable: boolean;
   children?: ReactNode;
 }) {
   const table = useTable({
@@ -215,21 +229,80 @@ function Grid({
     columns,
     data: lines,
     getRowId: (line) => line.key,
+    columnResizeMode: 'onChange',
+    defaultColumn: COLUMN_LIMITS,
   });
+  const sized = Object.keys(table.state.columnSizing).length > 0;
+  const freeze = (handle: Element) => {
+    if (sized) return;
+    const cells = handle.closest('tr')?.children;
+    const widths: Record<string, number> = {};
+    table.getAllLeafColumns().forEach((column, index) => {
+      widths[column.id] = cells?.[index]?.getBoundingClientRect().width ?? 0;
+    });
+    table.setColumnSizing(widths);
+  };
   return (
-    <Table className={className} aria-label={label}>
+    <Table
+      className={className}
+      aria-label={label}
+      fixed={sized}
+      style={sized ? { width: table.getTotalSize() } : undefined}
+    >
       <TableHeader>
         {table.getHeaderGroups().map((group) => (
           <TableRow key={group.id}>
             {group.headers.map((header) => {
-              const meta = header.column.columnDef.meta;
+              const { column } = header;
+              const meta = column.columnDef.meta;
+              const start = (event: { currentTarget: Element }) => {
+                freeze(event.currentTarget);
+                header.getResizeHandler()(event);
+              };
               return (
                 <TableHead
                   key={header.id}
                   className={meta?.className}
                   title={meta?.title}
+                  aria-label={resizable ? meta?.label : undefined}
+                  style={sized ? { width: header.getSize() } : undefined}
                 >
                   <table.FlexRender header={header} />
+                  {resizable ? (
+                    <TableResizeHandle
+                      label={`Resize ${meta?.label} column`}
+                      value={sized ? Math.round(header.getSize()) : undefined}
+                      active={column.getIsResizing()}
+                      onMouseDown={start}
+                      onTouchStart={start}
+                      onDoubleClick={() => table.resetColumnSizing(true)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          table.resetColumnSizing(true);
+                          return;
+                        }
+                        const step =
+                          event.key === 'ArrowRight'
+                            ? RESIZE_STEP
+                            : event.key === 'ArrowLeft'
+                              ? -RESIZE_STEP
+                              : 0;
+                        if (!step) return;
+                        event.preventDefault();
+                        freeze(event.currentTarget);
+                        table.setColumnSizing((old) => ({
+                          ...old,
+                          [column.id]: Math.min(
+                            COLUMN_LIMITS.maxSize,
+                            Math.max(
+                              COLUMN_LIMITS.minSize,
+                              (old[column.id] ?? 0) + step,
+                            ),
+                          ),
+                        }));
+                      }}
+                    />
+                  ) : null}
                 </TableHead>
               );
             })}
@@ -291,6 +364,7 @@ function BlockGrid({
   language,
   title,
   activeKey,
+  resizable,
   onExpand,
 }: {
   entries: readonly SummaryEntry[];
@@ -302,6 +376,7 @@ function BlockGrid({
   language: Language;
   title: string;
   activeKey?: string | null;
+  resizable: boolean;
   onExpand: () => void;
 }) {
   const columns = useMemo(() => {
@@ -323,6 +398,7 @@ function BlockGrid({
       className="bsh-table bsh-table--summary"
       label={title}
       activeKey={activeKey}
+      resizable={resizable}
     >
       {!expanded && entries.length > ENTRY_CAP ? (
         <MoreRow
@@ -526,6 +602,7 @@ export function SummaryTable({
         );
       },
       meta: {
+        label: 'Value',
         className: 'bsh-col-value',
         rowHeader,
         attrs: (line) => ({ title: line.entry?.value }),
@@ -585,6 +662,7 @@ export function SummaryTable({
           );
         },
         meta: {
+          label: 'Value',
           className: 'bsh-col-value',
           cellClassName: 'bsh-col-value bsh-pivot__value',
           rowHeader: true,
@@ -634,6 +712,7 @@ export function SummaryTable({
       lines={flatLines}
       className="bsh-table bsh-table--summary"
       activeKey={activeKey}
+      resizable={!decorative}
     >
       {hiddenTotal > 0 ? (
         <MoreRow
@@ -713,6 +792,7 @@ export function SummaryTable({
                 language={language}
                 title={title}
                 activeKey={activeKey}
+                resizable={!decorative}
                 onExpand={() => expandProps([block.property])}
               />
             </div>
@@ -730,6 +810,7 @@ export function SummaryTable({
         lines={pivotLines}
         className="bsh-table bsh-table--summary bsh-table--pivot"
         label={`Pivot by ${groupBy.join(', ')}`}
+        resizable={!decorative}
       >
         {pivotShown.length < pivotRows.length ? (
           <MoreRow
