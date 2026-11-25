@@ -73,7 +73,7 @@ Form controls are primitives in `src/web/ui/`, and each one is a styled native e
 
 - `Field` lays a control out and wires it: `layout` is `stack`, `row` (the settings grid, columns from `--ui-field-label-min` and `--ui-field-label-max`), `inline`, `between` (the switch row) or `wrap`; `variant="quiet"` is the small pane label. Inside a `Field`, `FieldLabel` points at the control, and `FieldHint` and `FieldError` are added to its `aria-describedby`; `invalid` sets `aria-invalid`. `controlId` passes an id the caller already has. A `Field` that holds several controls (a checkbox set, a list of inputs) takes `group`: its controls keep their own ids, and the hint and error describe the field root, which is a `fieldset` or a `role="group"` element.
 - A `FieldLabel` with a `layout` is itself the row and wraps its text and its control, as `<label>` did before. `FieldContent` and `FieldTitle` are the text column of a switch row.
-- Checked and disabled states are styled with `checked:` and `disabled:`; a controlled `Checkbox`, `Radio` or `Switch` also writes `data-checked`, which the forced-colours rule reads.
+- Checked and disabled states are styled with `checked:` and `disabled:`, and the forced-colours rule reads `:checked`, so an uncontrolled control is covered too; a controlled `Checkbox`, `Radio` or `Switch` also writes `data-checked`.
 - Colour and file inputs stay native `input` elements.
 - A width or a flex rule for a control is app CSS on `[data-slot="input"]`, `[data-slot="select"]` or `[data-slot="number-field"]` in its container (`.bsh-select` caps a pane select at 240px).
 - `noLabelWithoutControl` knows the primitives through `inputComponents` in `biome.json`.

@@ -37,6 +37,15 @@ describe('Switch', () => {
     expect(control).toHaveClass('checked:bg-accent-fill', 'app-switch');
   });
 
+  it('leaves the state of an uncontrolled switch to the native input', () => {
+    render(<Switch aria-label="Show grid" defaultChecked />);
+    const control = screen.getByRole('switch', { name: 'Show grid' });
+    expect(control).toBeChecked();
+    expect(control).not.toHaveAttribute('aria-checked');
+    fireEvent.click(control);
+    expect(control).not.toBeChecked();
+  });
+
   it('toggles from its label and is disabled through the native attribute', () => {
     const onCheckedChange = vi.fn();
     const { rerender } = render(

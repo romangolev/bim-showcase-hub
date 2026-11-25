@@ -7,6 +7,7 @@
 
   [data-slot][data-pressed],
   [data-slot][data-checked],
+  [data-slot]:checked,
   [data-slot][data-highlighted],
   [data-slot][aria-checked="true"],
   [data-slot][aria-selected="true"] {
