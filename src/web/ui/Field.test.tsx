@@ -57,6 +57,27 @@ describe('Field', () => {
     expect(input.closest('[data-slot="field"]')?.tagName).toBe('FIELDSET');
   });
 
+  it('describes a group field on its root and leaves its controls alone', () => {
+    render(
+      <Field group render={<fieldset />} layout="wrap">
+        <legend>Columns</legend>
+        <FieldLabel layout="inline">
+          <Input aria-label="A" />
+        </FieldLabel>
+        <FieldLabel layout="inline">
+          <Input aria-label="B" />
+        </FieldLabel>
+        <FieldHint>Pick any</FieldHint>
+      </Field>,
+    );
+    const group = screen.getByRole('group', { name: 'Columns' });
+    expect(group).toHaveAccessibleDescription('Pick any');
+    for (const input of screen.getAllByRole('textbox')) {
+      expect(input).not.toHaveAttribute('id');
+      expect(input).not.toHaveAttribute('aria-describedby');
+    }
+  });
+
   it('keeps the ids a caller wrote on the control and on the hint', () => {
     render(
       <Field>

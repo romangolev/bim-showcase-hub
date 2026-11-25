@@ -40,6 +40,7 @@ interface FieldState {
   hint: boolean;
   error: boolean;
   invalid: boolean;
+  group: boolean;
   mark: (part: Part, present: boolean) => void;
 }
 
@@ -50,6 +51,7 @@ export type FieldProps = Omit<ComponentProps<'div'>, 'className'> &
   FieldStyleProps & {
     controlId?: string;
     invalid?: boolean;
+    group?: boolean;
     render?: useRender.RenderProp;
   };
 
@@ -60,6 +62,7 @@ export function Field({
   variant = 'default',
   controlId,
   invalid = false,
+  group = false,
   render,
   ref,
   ...props
@@ -81,15 +84,19 @@ export function Field({
       hint: parts.hint,
       error: parts.error,
       invalid,
+      group,
       mark,
     }),
-    [controlId, id, parts.hint, parts.error, invalid, mark],
+    [controlId, id, parts.hint, parts.error, invalid, group, mark],
   );
   const element = useRender({
     render,
     ref,
     props: {
       ...props,
+      'aria-describedby': group
+        ? describe(props['aria-describedby'], state)
+        : props['aria-describedby'],
       'data-slot': 'field',
       'data-layout': layout,
       'data-variant': variant,
@@ -118,7 +125,9 @@ export function FieldLabel({
     // biome-ignore lint/a11y/noLabelWithoutControl: the caller passes the text and the control, or the field wires htmlFor
     <label
       {...props}
-      htmlFor={htmlFor ?? (layout ? undefined : field?.controlId)}
+      htmlFor={
+        htmlFor ?? (layout || field?.group ? undefined : field?.controlId)
+      }
       data-slot="field-label"
       data-layout={layout}
       data-variant={variant}
@@ -200,20 +209,25 @@ interface ControlProps {
   'aria-invalid'?: ComponentProps<'input'>['aria-invalid'];
 }
 
+function describe(own: string | undefined, field: FieldState) {
+  return (
+    [
+      own,
+      field.hint ? field.hintId : undefined,
+      field.error ? field.errorId : undefined,
+    ]
+      .filter(Boolean)
+      .join(' ') || undefined
+  );
+}
+
 export function useFieldControl<P extends ControlProps>(props: P): P {
   const field = useContext(FieldContext);
-  if (!field) return props;
-  const describedBy = [
-    props['aria-describedby'],
-    field.hint ? field.hintId : undefined,
-    field.error ? field.errorId : undefined,
-  ]
-    .filter(Boolean)
-    .join(' ');
+  if (!field || field.group) return props;
   return {
     ...props,
     id: props.id ?? field.controlId,
-    'aria-describedby': describedBy || undefined,
+    'aria-describedby': describe(props['aria-describedby'], field),
     'aria-invalid': props['aria-invalid'] ?? (field.invalid || undefined),
   };
 }

@@ -189,7 +189,7 @@ function TextRow({ field, value, set }: RowProps<TextField>) {
 function MultiRow({ field, value, set }: RowProps<MultiField>) {
   const chosen = strings(value);
   return (
-    <Field layout="wrap" render={<fieldset />}>
+    <Field group layout="wrap" render={<fieldset />}>
       <legend>{field.label}</legend>
       {field.options.map((option) => (
         <FieldLabel layout="inline" key={option.value}>
@@ -219,9 +219,10 @@ function ListRow({ field, value, set }: RowProps<ListField>) {
   const items = strings(value);
   const min = field.min ?? 0;
   const Item = field.itemType === 'color' ? 'input' : Input;
+  const titleId = useId();
   return (
-    <Field layout="row">
-      <FieldTitle>{field.label}</FieldTitle>
+    <Field group layout="row" role="group" aria-labelledby={titleId}>
+      <FieldTitle id={titleId}>{field.label}</FieldTitle>
       <ul className="settings__palette">
         {items.map((item, index) => (
           <li key={index} className="settings__palette-item">
