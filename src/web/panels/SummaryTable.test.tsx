@@ -362,6 +362,42 @@ describe('SummaryTable entry cap', () => {
   });
 });
 
+describe('SummaryTable sort before the cap', () => {
+  const many = Array.from({ length: ENTRY_CAP + 5 }, (_, i) => ({
+    property: 'Name',
+    value: `v${String(i).padStart(4, '0')}`,
+    count: i + 1,
+  }));
+  const top = String(ENTRY_CAP + 4).padStart(4, '0');
+
+  const descending = (table: HTMLElement, name: string) => {
+    const head = within(table).getByRole('columnheader', { name });
+    fireEvent.click(within(head).getByRole('button', { name }));
+    expect(within(table).getByRole('columnheader', { name })).toHaveAttribute(
+      'aria-sort',
+      'descending',
+    );
+  };
+
+  it('shows the true top row of a descending flat sort', () => {
+    render(<SummaryTable entries={many} />);
+    const table = screen.getByRole('table');
+    descending(table, 'Count');
+    expect(within(table).getAllByRole('row')[1]?.children[1]?.textContent).toBe(
+      `v${top}`,
+    );
+  });
+
+  it('shows the true top row of a descending grouped block', () => {
+    render(<SummaryTable entries={many} view={view({ layout: 'grouped' })} />);
+    const table = screen.getByRole('table', { name: 'Name' });
+    descending(table, 'Count');
+    expect(within(table).getAllByRole('row')[1]?.children[0]?.textContent).toBe(
+      `v${top}`,
+    );
+  });
+});
+
 describe('SummaryTable sorting', () => {
   const values = (table: HTMLElement) =>
     within(table)

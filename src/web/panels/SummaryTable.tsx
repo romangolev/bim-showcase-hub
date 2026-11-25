@@ -285,6 +285,37 @@ const GridRow = memo(function GridRow({
   );
 });
 
+interface GridCap {
+  limit: number;
+  expanded?: ReadonlySet<string>;
+  key?: (row: Row<typeof features, Line>) => string;
+}
+
+function cappedRows(
+  rows: Row<typeof features, Line>[],
+  cap?: GridCap,
+): { rows: Row<typeof features, Line>[]; hidden: number } {
+  if (!cap) return { rows, hidden: 0 };
+  const seen = new Map<string, number>();
+  const visible: Row<typeof features, Line>[] = [];
+  let hidden = 0;
+  for (const row of rows) {
+    const key = cap.key?.(row) ?? '';
+    if (cap.expanded?.has(key)) {
+      visible.push(row);
+      continue;
+    }
+    const count = seen.get(key) ?? 0;
+    if (count < cap.limit) {
+      seen.set(key, count + 1);
+      visible.push(row);
+    } else {
+      hidden += 1;
+    }
+  }
+  return { rows: visible, hidden };
+}
+
 function Grid({
   columns,
   lines,
@@ -293,7 +324,8 @@ function Grid({
   activeKey,
   resizable,
   sortable = true,
-  children,
+  cap,
+  more,
 }: {
   columns: GridColumn[];
   lines: Line[];
@@ -302,7 +334,8 @@ function Grid({
   activeKey?: string | null;
   resizable: boolean;
   sortable?: boolean;
-  children?: ReactNode;
+  cap?: GridCap;
+  more?: (hidden: number) => ReactNode;
 }) {
   const gridColumns = useMemo(() => columns.map(sortableColumn), [columns]);
   const table = useTable({
@@ -317,6 +350,7 @@ function Grid({
     enableMultiSort: false,
   });
   const { sized, tableStyle, headStyle, resizeProps } = useColumnResize(table);
+  const capped = cappedRows(table.getRowModel().rows, cap);
   return (
     <Table
       className={className}
@@ -382,7 +416,7 @@ function Grid({
         ))}
       </TableHeader>
       <TableBody>
-        {table.getRowModel().rows.map((row) => (
+        {capped.rows.map((row) => (
           <GridRow
             key={row.id}
             row={row}
@@ -390,7 +424,7 @@ function Grid({
             active={activeKey === row.id}
           />
         ))}
-        {children}
+        {capped.hidden > 0 && more ? more(capped.hidden) : null}
       </TableBody>
     </Table>
   );
@@ -447,11 +481,11 @@ function BlockGrid({
   }, [entries, valueColumn, specs, blank, language]);
   const lines = useMemo(
     () =>
-      (expanded ? entries : entries.slice(0, ENTRY_CAP)).map((entry): Line => {
+      entries.map((entry): Line => {
         const key = entryKey(entry);
         return { key, entry, cells: cells.get(key) ?? NO_CELLS };
       }),
-    [entries, expanded, cells],
+    [entries, cells],
   );
   return (
     <Grid
@@ -462,15 +496,11 @@ function BlockGrid({
       activeKey={activeKey}
       resizable={resizable}
       sortable={sortable}
-    >
-      {!expanded && entries.length > ENTRY_CAP ? (
-        <MoreRow
-          span={columns.length}
-          count={entries.length - ENTRY_CAP}
-          onShow={onExpand}
-        />
-      ) : null}
-    </Grid>
+      cap={expanded ? undefined : { limit: ENTRY_CAP }}
+      more={(hidden) => (
+        <MoreRow span={columns.length} count={hidden} onShow={onExpand} />
+      )}
+    />
   );
 }
 
@@ -576,29 +606,25 @@ export function SummaryTable({
     return names;
   }, [rows, columns]);
   const blocks = useMemo(() => summaryBlocks(entries), [entries]);
-  const flat = useMemo(() => {
+  const hiddenByProperty = useMemo(() => {
     const seen = new Map<string, number>();
     const hidden = new Map<string, number>();
-    const shown: SummaryEntry[] = [];
     for (const entry of entries) {
       const index = seen.get(entry.property) ?? 0;
       seen.set(entry.property, index + 1);
-      if (index < ENTRY_CAP || expandedProps.has(entry.property)) {
-        shown.push(entry);
-      } else {
+      if (index >= ENTRY_CAP && !expandedProps.has(entry.property)) {
         hidden.set(entry.property, (hidden.get(entry.property) ?? 0) + 1);
       }
     }
-    return { shown, hidden };
+    return hidden;
   }, [entries, expandedProps]);
   const cells = useMemo(
     () =>
       layout === 'pivot'
         ? new Map<string, SummaryCell[]>()
-        : cellsByEntry(rows ?? NO_ROWS, flat.shown, columns),
-    [layout, rows, flat.shown, columns],
+        : cellsByEntry(rows ?? NO_ROWS, entries, columns),
+    [layout, rows, entries, columns],
   );
-  const hiddenTotal = [...flat.hidden.values()].reduce((a, b) => a + b, 0);
   const expandProps = (properties: Iterable<string>) =>
     setExpandedProps((previous) => new Set([...previous, ...properties]));
   const tree = useMemo(() => {
@@ -608,10 +634,6 @@ export function SummaryTable({
   const pivotRows = useMemo(
     () => flattenPivot(tree, collapsedNodes, '', 0, []),
     [tree, collapsedNodes],
-  );
-  const pivotShown = useMemo(
-    () => (pivotAll ? pivotRows : pivotRows.slice(0, ENTRY_CAP)),
-    [pivotAll, pivotRows],
   );
   const pivotMax = useMemo(
     () => tree.reduce((max, node) => Math.max(max, node.count), 0),
@@ -684,11 +706,11 @@ export function SummaryTable({
   );
   const flatLines = useMemo(
     () =>
-      flat.shown.map((entry): Line => {
+      entries.map((entry): Line => {
         const key = entryKey(entry);
         return { key, entry, cells: cells.get(key) ?? NO_CELLS };
       }),
-    [flat.shown, cells],
+    [entries, cells],
   );
   const pivotColumns = useMemo(
     (): GridColumn[] => [
@@ -743,7 +765,7 @@ export function SummaryTable({
   );
   const pivotLines = useMemo(
     () =>
-      pivotShown.map(
+      pivotRows.map(
         ({ node, depth, key }): Line => ({
           key,
           node,
@@ -752,7 +774,7 @@ export function SummaryTable({
           cells: node.cells,
         }),
       ),
-    [pivotShown, collapsedNodes],
+    [pivotRows, collapsedNodes],
   );
   const regionProps =
     scrollable && !decorative
@@ -778,15 +800,19 @@ export function SummaryTable({
       activeKey={activeKey}
       resizable={!decorative}
       sortable={!decorative}
-    >
-      {hiddenTotal > 0 ? (
+      cap={{
+        limit: ENTRY_CAP,
+        key: (row) => row.original.entry?.property ?? '',
+        expanded: expandedProps,
+      }}
+      more={(hidden) => (
         <MoreRow
           span={flatColumns.length}
-          count={hiddenTotal}
-          onShow={() => expandProps(flat.hidden.keys())}
+          count={hidden}
+          onShow={() => expandProps(hiddenByProperty.keys())}
         />
-      ) : null}
-    </Grid>
+      )}
+    />
   );
 
   const groupedTable = (
@@ -878,15 +904,15 @@ export function SummaryTable({
         label={`Pivot by ${groupBy.join(', ')}`}
         resizable={!decorative}
         sortable={false}
-      >
-        {pivotShown.length < pivotRows.length ? (
+        cap={pivotAll ? undefined : { limit: ENTRY_CAP }}
+        more={(hidden) => (
           <MoreRow
             span={pivotColumns.length}
-            count={pivotRows.length - pivotShown.length}
+            count={hidden}
             onShow={() => setPivotAll(true)}
           />
-        ) : null}
-      </Grid>
+        )}
+      />
     </>
   );
 
