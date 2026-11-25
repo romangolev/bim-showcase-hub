@@ -2,8 +2,7 @@ import { useRender } from '@base-ui/react/use-render';
 import { cn } from './cn.js';
 import type { CommonProps, Size, Tone } from './types.js';
 
-const base =
-  'inline-flex min-w-0 items-center gap-1.5 border whitespace-nowrap text-13';
+const base = 'inline-flex min-w-0 items-center gap-1.5 border text-13';
 
 const variants = {
   outline: 'rounded-badge font-label',

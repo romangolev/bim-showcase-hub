@@ -2,6 +2,8 @@ import { type HTMLAttributes, type ReactNode, type Ref, useId } from 'react';
 import { fold } from '../../../shared/text.js';
 import type { TreeNodeKind } from '../../../shared/types.js';
 import { type ViewState, viewableFor } from '../../../shared/viewState.js';
+import { Badge } from '../../ui/Badge.js';
+import { Spinner } from '../../ui/Spinner.js';
 import { Icon, type IconName } from '../icons.js';
 import type { TreeRows } from './treeView.js';
 import { reasonFor, VIEW_STATE_COPY, viewStateOf } from './viewStateCopy.js';
@@ -26,6 +28,15 @@ const BADGE_KIND: Record<ViewState, string> = {
   failed: 'failed',
   'no-geometry': 'muted',
   'not-translated': 'muted',
+};
+
+const BADGE_TONE: Record<ViewState, 'accent' | 'danger' | 'neutral'> = {
+  ready: 'accent',
+  unknown: 'neutral',
+  processing: 'neutral',
+  failed: 'danger',
+  'no-geometry': 'neutral',
+  'not-translated': 'neutral',
 };
 
 const VERSION_PATTERN = /^(v\S+?):\s*(.*?)\s+by\s+(.+)$/;
@@ -241,11 +252,7 @@ export function TreeRowView({
         data-expanded={expanded}
         data-visible={expandable}
       >
-        {busy ? (
-          <Icon name="spinner" size={12} className="spin" />
-        ) : (
-          <Icon name="chevron" size={12} />
-        )}
+        {busy ? <Spinner size={12} /> : <Icon name="chevron" size={12} />}
       </span>
       {checkbox ? (
         <input
@@ -271,25 +278,29 @@ export function TreeRowView({
             )}
           </span>
           {latest ? (
-            <span
+            <Badge
+              variant="soft"
+              tone="accent"
+              size="small"
               className="tree-row__latest"
               role="note"
               aria-label="Latest version"
             >
               Latest
-            </span>
+            </Badge>
           ) : null}
           {isVersion ? (
-            <span
+            <Badge
+              variant={BADGE_KIND[state] === 'muted' ? 'plain' : 'outline'}
+              tone={BADGE_TONE[state]}
+              size="small"
               className="tree-row__state"
               data-state={BADGE_KIND[state]}
               title={reason}
             >
-              {state === 'processing' ? (
-                <Icon name="spinner" size={10} className="spin" />
-              ) : null}
+              {state === 'processing' ? <Spinner size={10} /> : null}
               <span className="tree-row__state-text">{copy.label}</span>
-            </span>
+            </Badge>
           ) : null}
         </span>
         {second ? (

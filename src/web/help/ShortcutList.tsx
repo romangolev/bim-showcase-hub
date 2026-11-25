@@ -2,6 +2,7 @@ import { COMMANDS } from '../commands/registry.js';
 import { formatShortcut } from '../commands/shortcuts.js';
 import type { MessageId } from '../i18n/en.js';
 import { useT, type Vars } from '../i18n/i18n.js';
+import { Kbd } from '../ui/Kbd.js';
 import { type ShortcutRow, shortcutRows } from './shortcutRows.js';
 
 const FIXED_ROWS: readonly {
@@ -92,7 +93,7 @@ export function ShortcutList() {
               <th scope="row">{row.title}</th>
               <td>
                 {row.keys.map((keys) => (
-                  <kbd key={keys}>{labelOf(keys)}</kbd>
+                  <Kbd key={keys}>{labelOf(keys)}</Kbd>
                 ))}
               </td>
             </tr>

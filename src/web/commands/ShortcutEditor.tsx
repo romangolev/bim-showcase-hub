@@ -1,6 +1,7 @@
 import { type KeyboardEvent, useState } from 'react';
 import { usePersisted } from '../storage.js';
 import { Button } from '../ui/Button.js';
+import { Kbd } from '../ui/Kbd.js';
 import { ToggleButton } from '../ui/ToggleButton.js';
 import { formatShortcut, shortcutFromEvent } from './shortcuts.js';
 import {
@@ -57,7 +58,7 @@ export function ShortcutEditor() {
             <tr key={shortcut.command}>
               <th scope="row">{shortcut.label}</th>
               <td>
-                <kbd>{formatShortcut(shortcut.keys)}</kbd>
+                <Kbd>{formatShortcut(shortcut.keys)}</Kbd>
               </td>
               <td>
                 <ToggleButton

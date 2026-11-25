@@ -2179,7 +2179,7 @@ def check_view_states(page, checks):
         page.wait_for_timeout(400)
         checks.add(f"{state}: Enter opens no tab", page.url == start_url and not models(page)["models"], page.url)
         if state == "processing":
-            checks.add("processing: badge has a spinner", row.locator(".tree-row__state svg.spin").count() == 1)
+            checks.add("processing: badge has a spinner", row.locator(".tree-row__state [data-slot=\"spinner\"]").count() == 1)
     page.screenshot(path=str(OUTPUT_DIR / "mock-view-states.png"))
     check_badge_layout(page, checks, "desktop")
     page.get_by_role("button", name=THEME_TOGGLE).first.click()

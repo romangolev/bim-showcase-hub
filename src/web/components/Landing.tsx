@@ -4,6 +4,7 @@ import type { SummaryEntry } from '../extensions/modelSummary.js';
 import { PAINT_PRESETS } from '../extensions/paintBrushes.js';
 import { StaticPaintChip } from '../panels/PaintChip.js';
 import { SummaryTable } from '../panels/SummaryTable.js';
+import { Badge } from '../ui/Badge.js';
 import { Button, buttonClasses } from '../ui/Button.js';
 import { cn } from '../ui/cn.js';
 import { iconButtonClasses } from '../ui/IconButton.js';
@@ -275,10 +276,10 @@ function ExportPanel() {
           Export to Excel
         </span>
       </div>
-      <span className="badge">
+      <Badge tone="success">
         <span className="badge__dot" />
         Exported 1,284 elements
-      </span>
+      </Badge>
       <SummaryTable entries={SAMPLE_ENTRIES.slice(0, 5)} />
     </div>
   );

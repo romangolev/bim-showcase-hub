@@ -22,6 +22,7 @@ import {
 } from '../../extensions/paintBrushes.js';
 import { usePersisted } from '../../storage.js';
 import { Button } from '../../ui/Button.js';
+import { Kbd } from '../../ui/Kbd.js';
 import { usePublishedAdapter } from '../../viewer/activeAdapterStore.js';
 import { claimGhosting, releaseGhosting } from '../../viewer/ghosting.js';
 import type { Rgba, ViewerAdapter } from '../../viewer/ViewerAdapter.js';
@@ -318,9 +319,9 @@ function PaintFields() {
           {shortcuts.map((shortcut) => (
             <li key={shortcut.command} className="settings__readout-row">
               <span>{shortcut.label}</span>
-              <kbd className="settings__readout-name">
+              <Kbd className="settings__readout-name">
                 {formatShortcut(shortcut.keys)}
-              </kbd>
+              </Kbd>
             </li>
           ))}
         </ul>

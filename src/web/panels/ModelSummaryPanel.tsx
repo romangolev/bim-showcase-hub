@@ -45,6 +45,7 @@ import {
   useScopedRows,
 } from './useScopedRows.js';
 import './panels.css';
+import { Badge } from '../ui/Badge.js';
 import { Button } from '../ui/Button.js';
 import { IconButton } from '../ui/IconButton.js';
 
@@ -398,9 +399,10 @@ export function ModelSummaryPanel({
                 <ul className="bsh-summary__shares" aria-label="Empty values">
                   {shares.map((share) => (
                     <li key={share.property}>
-                      <button
-                        type="button"
-                        className="bsh-badge bsh-badge--action"
+                      <Badge
+                        variant="chip"
+                        render={<button type="button" />}
+                        className="bsh-summary__share"
                         title="Add as column"
                         onClick={() =>
                           openAdd({
@@ -411,7 +413,7 @@ export function ModelSummaryPanel({
                       >
                         <span className="bsh-sr-only">Add as column: </span>
                         {share.property}: {formatPercent(share.percent)} empty
-                      </button>
+                      </Badge>
                     </li>
                   ))}
                 </ul>

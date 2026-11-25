@@ -14,6 +14,7 @@ import { useModal } from '../modal/index.js';
 import { notify } from '../tasks/notifications.js';
 import { startTask } from '../tasks/taskStore.js';
 import { Dialog } from '../ui/Dialog.js';
+import { Kbd } from '../ui/Kbd.js';
 import { filterCommands } from './fuzzy.js';
 import { PIN_LIMIT, readPins, togglePin } from './pins.js';
 import { recentModelCommands } from './recentModels.js';
@@ -205,9 +206,9 @@ function PaletteDialog({ error, onClose, onRun }: DialogProps) {
                 {command.disabled ? (
                   <span className="cmdk__reason">{command.disabled}</span>
                 ) : command.keys?.[0] ? (
-                  <kbd className="cmdk__reason">
+                  <Kbd className="cmdk__reason">
                     {formatShortcut(command.keys[0])}
-                  </kbd>
+                  </Kbd>
                 ) : null}
               </div>
             </Fragment>

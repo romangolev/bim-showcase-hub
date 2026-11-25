@@ -78,18 +78,6 @@
   box-shadow: var(--shadow-inset);
 }
 
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1-5);
-  padding: var(--space-0-5) var(--space-2);
-  border: 0.5px solid var(--color-mint);
-  border-radius: var(--radius-badge);
-  color: var(--color-mint);
-  font-size: var(--text-13);
-  font-weight: var(--weight-label);
-}
-
 .badge__dot {
   width: 6px;
   height: 6px;

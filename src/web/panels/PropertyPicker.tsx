@@ -6,6 +6,7 @@ import { groupCatalog } from '../viewer/propertyCatalog.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { usePropertyCatalog } from './usePropertyCatalog.js';
 import './panels.css';
+import { Badge } from '../ui/Badge.js';
 import { Button } from '../ui/Button.js';
 
 export interface PropertyPickerProps {
@@ -52,7 +53,7 @@ export function PropertyPicker({
     <div className="bsh-picker">
       <ul className="bsh-picker__chosen" aria-label="Chosen properties">
         {value.map((name, index) => (
-          <li key={name} className="bsh-badge">
+          <Badge key={name} variant="chip" render={<li />}>
             {name}
             <span className="bsh-picker__arrange">
               <button
@@ -83,7 +84,7 @@ export function PropertyPicker({
             >
               <Icon name="close" size={12} />
             </button>
-          </li>
+          </Badge>
         ))}
       </ul>
       <label htmlFor={searchId} className="bsh-sr-only">

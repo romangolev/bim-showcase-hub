@@ -559,14 +559,6 @@ select.field {
   list-style: none;
 }
 
-.bsh-badge {
-  padding: var(--space-0-5) var(--space-2);
-  border: var(--border-hairline);
-  border-radius: var(--radius-pill);
-  color: var(--color-fog);
-  font-size: var(--text-13);
-}
-
 .field--narrow {
   width: 5.5rem;
 }
@@ -1587,7 +1579,7 @@ button.bsh-kpi:focus-visible {
     flex-direction: column;
   }
 
-  .bsh-picker__chosen .bsh-badge {
+  .bsh-picker__chosen [data-slot="badge"] {
     display: flex;
     align-items: center;
     border-radius: var(--radius-card);
@@ -1759,14 +1751,14 @@ button.bsh-kpi:focus-visible {
   color: var(--color-coral);
 }
 
-.bsh-badge--action {
+.bsh-summary__share {
   min-height: var(--hit-target);
   background: none;
   font-family: inherit;
   cursor: pointer;
 }
 
-.bsh-badge--action:hover {
+.bsh-summary__share:hover {
   color: var(--color-snow);
 }
 
