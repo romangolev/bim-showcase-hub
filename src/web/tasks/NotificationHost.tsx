@@ -1,42 +1,27 @@
-import { type CSSProperties, useEffect } from 'react';
+import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon, type IconName } from '../components/icons.js';
 import { FORGET_EVENT } from '../storage.js';
 import { Button } from '../ui/Button.js';
 import { IconButton } from '../ui/IconButton.js';
+import { Toast, Toaster, type ToastTone } from '../ui/Toast.js';
 import {
   type NotificationSettings,
-  type ToastPosition,
   useNotificationSettings,
 } from './notificationSettings.js';
 import {
+  MAX_LIVE_NOTIFICATIONS,
   type Notification,
   type NotificationStore,
   notifications,
 } from './notifications.js';
 import { useNotifications } from './useNotifications.js';
 
-const POSITION_STYLE: Record<ToastPosition, CSSProperties> = {
-  'bottom-right': {
-    right: 'var(--space-4)',
-    bottom: 'var(--space-4)',
-    alignItems: 'flex-end',
-  },
-  'bottom-left': {
-    left: 'var(--space-4)',
-    bottom: 'var(--space-4)',
-    alignItems: 'flex-start',
-  },
-  'top-right': {
-    right: 'var(--space-4)',
-    top: 'var(--space-4)',
-    alignItems: 'flex-end',
-  },
-  'top-left': {
-    left: 'var(--space-4)',
-    top: 'var(--space-4)',
-    alignItems: 'flex-start',
-  },
+const TONE: Record<Notification['tone'], ToastTone> = {
+  info: 'accent',
+  success: 'success',
+  warning: 'warning',
+  error: 'danger',
 };
 
 const TONE_ICON: Record<Notification['tone'], IconName> = {
@@ -44,13 +29,6 @@ const TONE_ICON: Record<Notification['tone'], IconName> = {
   success: 'check',
   warning: 'alert',
   error: 'alert',
-};
-
-const TONE_COLOR: Record<Notification['tone'], string> = {
-  info: 'var(--color-arc-blue)',
-  success: 'var(--color-mint)',
-  warning: 'var(--color-ember)',
-  error: 'var(--color-coral)',
 };
 
 function durationOf(
@@ -94,74 +72,35 @@ export function NotificationHost({
     return () => window.removeEventListener(FORGET_EVENT, forget);
   }, [store]);
 
-  return createPortal(
+  return (
     <>
-      <div
-        className="visually-hidden"
-        role="status"
-        aria-live="polite"
-        aria-atomic="true"
-      >
-        {center.announcement}
-      </div>
+      {createPortal(
+        <div
+          className="visually-hidden"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          {center.announcement}
+        </div>,
+        document.body,
+      )}
       {!settings.quiet && center.items.length > 0 ? (
-        <section
-          aria-label="Notifications"
-          style={{
-            position: 'fixed',
-            zIndex: 1100,
-            display: 'flex',
-            width: 'min(360px, calc(100vw - 2 * var(--space-4)))',
-            flexDirection: 'column',
-            gap: 'var(--space-2)',
-            pointerEvents: 'none',
-            ...POSITION_STYLE[settings.position],
-          }}
+        <Toaster
+          label="Notifications"
+          position={settings.position}
+          visible={MAX_LIVE_NOTIFICATIONS}
+          live="off"
+          onDismiss={(key) => store.dismiss(Number(key))}
         >
           {center.items.map((item) => (
-            <div
+            <Toast
               key={item.id}
-              data-tone={item.tone}
-              style={{
-                display: 'flex',
-                width: '100%',
-                alignItems: 'flex-start',
-                gap: 'var(--space-2)',
-                padding: 'var(--space-3)',
-                border: 'var(--border-hairline)',
-                borderRadius: 'var(--radius-card)',
-                background: 'var(--color-graphite)',
-                boxShadow: 'var(--shadow-float)',
-                color: 'var(--color-chalk)',
-                fontSize: 'var(--text-13)',
-                pointerEvents: 'auto',
-              }}
+              tone={TONE[item.tone]}
+              icon={<Icon name={TONE_ICON[item.tone]} size={16} />}
+              title={item.message}
+              description={item.detail}
             >
-              <span
-                style={{
-                  display: 'inline-flex',
-                  flex: '0 0 auto',
-                  color: TONE_COLOR[item.tone],
-                  paddingTop: 1,
-                }}
-              >
-                <Icon name={TONE_ICON[item.tone]} size={16} />
-              </span>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <p style={{ margin: 0, color: 'var(--color-snow)' }}>
-                  {item.message}
-                </p>
-                {item.detail ? (
-                  <p
-                    style={{
-                      margin: '2px 0 0',
-                      color: 'var(--color-fog)',
-                    }}
-                  >
-                    {item.detail}
-                  </p>
-                ) : null}
-              </div>
               {item.action ? (
                 <Button
                   size="small"
@@ -179,11 +118,10 @@ export function NotificationHost({
               >
                 <Icon name="close" size={14} />
               </IconButton>
-            </div>
+            </Toast>
           ))}
-        </section>
+        </Toaster>
       ) : null}
-    </>,
-    document.body,
+    </>
   );
 }

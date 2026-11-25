@@ -10,6 +10,12 @@ function toasts() {
   return screen.queryByRole('region', { name: 'Notifications' });
 }
 
+function show() {
+  act(() => {
+    vi.advanceTimersByTime(1);
+  });
+}
+
 beforeEach(() => {
   installMemoryStorage();
   vi.useFakeTimers();
@@ -29,6 +35,7 @@ describe('NotificationHost', () => {
         detail: 'Viewpoint 2',
       });
     });
+    show();
     const region = toasts();
     expect(region).not.toBeNull();
     if (!region) throw new Error('expected a toast region');
@@ -86,6 +93,33 @@ describe('NotificationHost', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Quiet note');
   });
 
+  it('places toasts by the position setting and colours them by tone', () => {
+    NOTIFICATION_SETTINGS.write({
+      position: 'top-left',
+      durationMs: 6000,
+      quiet: false,
+    });
+    const store = createNotificationStore();
+    render(<NotificationHost store={store} />);
+    act(() => {
+      store.notify('Could not copy', { tone: 'error' });
+      store.notify('Half done', { tone: 'warning' });
+    });
+    show();
+    const list = document.querySelector('[data-sonner-toaster]');
+    expect(list).toHaveAttribute('data-y-position', 'top');
+    expect(list).toHaveAttribute('data-x-position', 'left');
+    const region = toasts();
+    if (!region) throw new Error('expected a toast region');
+    expect(region).toHaveAttribute('aria-live', 'off');
+    expect(
+      within(region).getByText('Could not copy').closest('[data-slot="toast"]'),
+    ).toHaveAttribute('data-tone', 'danger');
+    expect(
+      within(region).getByText('Half done').closest('[data-slot="toast"]'),
+    ).toHaveAttribute('data-tone', 'warning');
+  });
+
   it('runs a notification action and closes the toast', () => {
     const store = createNotificationStore();
     const run = vi.fn();
@@ -95,6 +129,7 @@ describe('NotificationHost', () => {
         action: { label: 'Undo', run },
       });
     });
+    show();
     fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
     expect(run).toHaveBeenCalledTimes(1);
     expect(toasts()).toBeNull();
