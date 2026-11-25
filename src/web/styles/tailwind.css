@@ -75,6 +75,7 @@
   --radius-pill: var(--radius-pill);
   --radius-control: var(--ui-radius-control);
   --radius-surface: var(--ui-radius-surface);
+  --radius-item: var(--ui-radius-item);
 
   --text-*: initial;
   --text-8: var(--text-8);
@@ -107,6 +108,9 @@
   --shadow-*: initial;
   --shadow-control: var(--ui-shadow-control);
   --shadow-float: var(--ui-shadow-float);
+  --shadow-inset: var(--ui-shadow-inset);
+
+  --z-index-popup: var(--ui-z-popup);
 
   --spacing: var(--space-unit);
   --spacing-hit: var(--hit-target);
@@ -115,6 +119,8 @@
   --spacing-dialog-top: var(--ui-dialog-top);
 
   --container-*: initial;
+  --container-menu: var(--ui-menu-min);
+  --container-menu-hint: var(--ui-menu-hint-max);
   --container-dialog-sm: var(--ui-dialog-sm);
   --container-dialog-md: var(--ui-dialog-md);
   --container-dialog-lg: var(--ui-dialog-lg);

@@ -10,6 +10,19 @@ import {
   DialogTitle,
 } from './Dialog.js';
 import { IconButton } from './IconButton.js';
+import {
+  Menu,
+  MenuCheckboxItem,
+  MenuGroup,
+  MenuGroupLabel,
+  MenuHint,
+  MenuInertItem,
+  MenuItem,
+  MenuItemIndicator,
+  MenuPopup,
+  MenuSeparator,
+  MenuTrigger,
+} from './Menu.js';
 import { ToggleButton } from './ToggleButton.js';
 
 interface ContractProps {
@@ -56,6 +69,59 @@ const ENTRIES: Entry[] = [
       ),
     }),
   ),
+  {
+    file: 'Menu',
+    slot: 'menu-trigger',
+    render: (props) => (
+      <Menu>
+        <MenuTrigger {...props}>label</MenuTrigger>
+      </Menu>
+    ),
+  },
+  {
+    file: 'Menu',
+    slot: 'menu-popup',
+    render: (props) => (
+      <Menu open>
+        <MenuPopup {...props} />
+      </Menu>
+    ),
+  },
+  ...(
+    [
+      ['menu-item', MenuItem],
+      ['menu-checkbox-item', MenuCheckboxItem],
+      ['menu-separator', MenuSeparator],
+      ['menu-hint', MenuHint],
+      ['menu-inert-item', MenuInertItem],
+      ['menu-item-indicator', MenuItemIndicator],
+    ] as const
+  ).map(
+    ([slot, Part]): Entry => ({
+      file: 'Menu',
+      slot,
+      render: (props) => (
+        <Menu open>
+          <MenuPopup>
+            <Part {...props} />
+          </MenuPopup>
+        </Menu>
+      ),
+    }),
+  ),
+  {
+    file: 'Menu',
+    slot: 'menu-group-label',
+    render: (props) => (
+      <Menu open>
+        <MenuPopup>
+          <MenuGroup>
+            <MenuGroupLabel {...props}>label</MenuGroupLabel>
+          </MenuGroup>
+        </MenuPopup>
+      </Menu>
+    ),
+  },
   {
     file: 'IconButton',
     slot: 'icon-button',

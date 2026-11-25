@@ -214,8 +214,13 @@
   --ui-scrim: var(--color-scrim);
   --ui-radius-control: var(--radius-button);
   --ui-radius-surface: var(--radius-card);
+  --ui-radius-item: var(--radius-tile);
   --ui-shadow-control: var(--shadow-button);
   --ui-shadow-float: var(--shadow-float);
+  --ui-shadow-inset: var(--shadow-inset);
+  --ui-z-popup: var(--z-modal);
+  --ui-menu-min: 200px;
+  --ui-menu-hint-max: 260px;
   --ui-motion: 120ms;
   --ui-dialog-sm: min(100vw - 32px, 360px);
   --ui-dialog-md: min(100vw - 32px, 480px);
