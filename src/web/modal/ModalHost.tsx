@@ -1,13 +1,15 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { Icon } from '../components/icons.js';
+import type { ModalBack } from './modalApi.js';
 import type { ModalDefinition } from './types.js';
 
 export interface ModalHostProps {
   definition: ModalDefinition;
+  back?: ModalBack;
   onClose: () => void;
 }
 
-export function ModalHost({ definition, onClose }: ModalHostProps) {
+export function ModalHost({ definition, back, onClose }: ModalHostProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const { Body } = definition;
@@ -51,6 +53,16 @@ export function ModalHost({ definition, onClose }: ModalHostProps) {
     >
       <div className="modal__panel">
         <header className="modal__head">
+          {back ? (
+            <button
+              type="button"
+              className="icon-button settings-nav__back"
+              aria-label={back.label}
+              onClick={back.go}
+            >
+              <Icon name="chevron" size={16} />
+            </button>
+          ) : null}
           <h2 id={titleId} className="modal__title">
             {definition.title}
           </h2>

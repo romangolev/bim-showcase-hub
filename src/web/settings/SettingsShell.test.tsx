@@ -1,9 +1,10 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { appCommands } from '../commands/appCommandList.js';
-import { ModalProvider } from '../modal/ModalContext.js';
+import { ModalProvider, useModal } from '../modal/ModalContext.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { ThemeProvider } from '../theme/ThemeContext.js';
+import { TOOLS } from '../tools/index.js';
 import {
   listSettingsSections,
   openSettingsSection,
@@ -203,4 +204,72 @@ describe('SettingsShell', () => {
       screen.getByRole('navigation', { name: 'Settings sections' }),
     ).toBeTruthy();
   });
+
+  it.each([
+    ['wide', false],
+    ['narrow', true],
+  ])(
+    'leads back to Settings on Tools only from the main settings (%s)',
+    (_, narrow) => {
+      if (narrow) narrowScreen();
+      const paint = TOOLS.all().find((tool) => tool.id === 'paint');
+      function Open({ id }: { id: string }) {
+        const modal = useModal();
+        return (
+          <button type="button" onClick={() => modal.open(id)}>
+            Open {id}
+          </button>
+        );
+      }
+      render(
+        <SettingsProvider>
+          <ThemeProvider>
+            <ModalProvider>
+              <Open id="settings" />
+              <Open id={paint?.modalId ?? ''} />
+            </ModalProvider>
+          </ThemeProvider>
+        </SettingsProvider>,
+      );
+      const back = () =>
+        screen.queryByRole('button', { name: 'Back to Settings' });
+
+      fireEvent.click(screen.getByText(`Open ${paint?.modalId}`));
+      expect(
+        screen.getByRole('dialog', { name: 'Paint brushes settings' }),
+      ).toBeTruthy();
+      expect(back()).toBeNull();
+      fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+
+      fireEvent.click(screen.getByText('Open settings'));
+      fireEvent.click(
+        screen.getByRole(narrow ? 'button' : 'tab', {
+          name: 'Tools and panes',
+        }),
+      );
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Paint brushes settings' }),
+      );
+      expect(
+        screen.getByRole('dialog', { name: 'Paint brushes settings' }),
+      ).toBeTruthy();
+      fireEvent.click(back() as HTMLElement);
+      expect(screen.getByRole('dialog', { name: 'Settings' })).toBeTruthy();
+      expect(
+        screen.getByRole(narrow ? 'region' : 'tabpanel', {
+          name: 'Tools and panes',
+        }),
+      ).toBeTruthy();
+      expect(
+        screen.getByRole('button', { name: 'Paint brushes settings' }),
+      ).toBeTruthy();
+      expect(back()).toBeNull();
+
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Paint brushes settings' }),
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+      expect(screen.queryByRole('dialog')).toBeNull();
+    },
+  );
 });

@@ -1064,6 +1064,36 @@ def check_tool_switches(page, checks):
     settle(page, 300)
 
 
+def check_tool_back_arrow(page, checks):
+    for label, size in (("desktop", DESKTOP), ("390", MOBILE)):
+        page.set_viewport_size({"width": size[0], "height": size[1]})
+        settle(page, 400)
+        open_tool_settings(page, "IFC export")
+        own = page.get_by_role("dialog", name="IFC export settings")
+        back = own.get_by_role("button", name="Back to Settings")
+        checks.add(f"a tool window opened from settings shows a back arrow ({label})", back.count() == 1)
+        page.screenshot(path=str(OUTPUT_DIR / f"mock-tool-back-{label}.png"))
+        if back.count():
+            sizes = [back.bounding_box(), own.get_by_role("button", name="Close").bounding_box()]
+            checks.add(f"the back arrow is as large as the close button ({label})", sizes[0]["height"] == sizes[1]["height"] and sizes[0]["width"] == sizes[1]["width"], sizes)
+            back.click()
+            settle(page, 300)
+        main = page.get_by_role("dialog", name="Settings", exact=True)
+        checks.add(f"the back arrow returns to Settings on Tools and panes ({label})", main.count() == 1 and main.get_by_role("button", name="IFC export settings").count() == 1)
+        page.keyboard.press("Escape")
+        settle(page, 300)
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page, 400)
+    open_palette(page).fill("IFC export settings")
+    settle(page, 200)
+    palette(page).get_by_role("option", name=re.compile("IFC export settings")).first.click()
+    settle(page, 400)
+    own = page.get_by_role("dialog", name="IFC export settings")
+    checks.add("the palette opens the IFC settings window without a back arrow", own.count() == 1 and own.get_by_role("button", name="Back to Settings").count() == 0)
+    page.keyboard.press("Escape")
+    settle(page, 300)
+
+
 def check_ifc_dropdown(page, checks):
     trigger = page.get_by_role("button", name=re.compile(r"^Export IFC$", re.I)).first
     trigger.click()
@@ -1074,6 +1104,7 @@ def check_ifc_dropdown(page, checks):
     page.get_by_role("button", name="IFC settings", exact=True).click()
     settle(page, 400)
     checks.add("the IFC settings item opens the IFC settings window", page.get_by_role("dialog", name="IFC export settings").count() == 1)
+    checks.add("the IFC settings item shows no back arrow", page.get_by_role("button", name="Back to Settings").count() == 0)
     page.keyboard.press("Escape")
     settle(page, 300)
     trigger.click()
@@ -1220,7 +1251,7 @@ def check_user_menu_alignment(page, checks):
 
 
 def check_recent_ui(page, checks):
-    for check in (check_settings_shell, check_tool_switches, check_ifc_dropdown, check_dashboard_overlay, check_summary_quick, check_user_menu_alignment):
+    for check in (check_settings_shell, check_tool_switches, check_ifc_dropdown, check_tool_back_arrow, check_dashboard_overlay, check_summary_quick, check_user_menu_alignment):
         try:
             check(page, checks)
         except Exception as exc:

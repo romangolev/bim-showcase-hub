@@ -9,6 +9,7 @@ import {
   PANE_SETTINGS_SCHEMA,
   type PaneSettingsSchema,
 } from './paneSettingsSchema.js';
+import { openSettingsSection, settingsSelection } from './settingsSections.js';
 
 interface EntryRowProps {
   title: string;
@@ -26,6 +27,17 @@ function EntryRow({
   windowTitle,
 }: EntryRowProps) {
   const modal = useModal();
+  const t = useT();
+  const openWithBack = (id: string) => {
+    const { selected } = settingsSelection();
+    modal.open(id, {
+      label: t('settings.backToSettings'),
+      go: () => {
+        if (selected) openSettingsSection(selected);
+        modal.open('settings');
+      },
+    });
+  };
   return (
     <div className="settings__entry">
       {toggle ? (
@@ -46,7 +58,7 @@ function EntryRow({
           type="button"
           className="btn"
           aria-label={windowTitle}
-          onClick={() => modal.open(modalId)}
+          onClick={() => openWithBack(modalId)}
         >
           Settings
         </button>

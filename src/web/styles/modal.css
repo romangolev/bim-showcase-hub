@@ -41,12 +41,14 @@
 .modal__head {
   display: flex;
   align-items: center;
+  gap: var(--space-2);
   justify-content: space-between;
   padding: var(--space-3) var(--space-4);
   border-bottom: var(--border-hairline);
 }
 
 .modal__title {
+  flex: 1;
   margin: 0;
   font-size: var(--text-16);
   font-weight: var(--weight-strong);

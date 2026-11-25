@@ -1,6 +1,11 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { ModalHost } from './ModalHost.js';
-import { type ModalApi, ModalContext, useModalApi } from './modalApi.js';
+import {
+  type ModalApi,
+  type ModalBack,
+  ModalContext,
+  useModalApi,
+} from './modalApi.js';
 import { MODALS } from './registry.js';
 import type { ModalDefinition } from './types.js';
 
@@ -13,19 +18,22 @@ export function ModalProvider({
   definitions = MODALS,
   children,
 }: ModalProviderProps) {
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [opened, setOpened] = useState<{
+    id: string;
+    back?: ModalBack;
+  } | null>(null);
   const api = useMemo<ModalApi>(
     () => ({
-      open: (id) => {
+      open: (id, back) => {
         if (definitions.some((definition) => definition.id === id)) {
-          setOpenId(id);
+          setOpened({ id, back });
         }
       },
-      close: () => setOpenId(null),
+      close: () => setOpened(null),
     }),
     [definitions],
   );
-  const active = definitions.find((definition) => definition.id === openId);
+  const active = definitions.find((definition) => definition.id === opened?.id);
   const definitionsRef = useRef(definitions);
   definitionsRef.current = definitions;
   const activeId = active?.id;
@@ -39,7 +47,12 @@ export function ModalProvider({
     <ModalContext.Provider value={api}>
       {children}
       {active ? (
-        <ModalHost key={active.id} definition={active} onClose={api.close} />
+        <ModalHost
+          key={active.id}
+          definition={active}
+          back={opened?.back}
+          onClose={api.close}
+        />
       ) : null}
     </ModalContext.Provider>
   );

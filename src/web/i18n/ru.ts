@@ -110,6 +110,7 @@ export const RU: Partial<Record<MessageId, string>> = {
   'settings.data': 'Данные и хранилище',
   'settings.sections': 'Разделы настроек',
   'settings.back': 'Назад',
+  'settings.backToSettings': 'Назад к настройкам',
   'panes.title': 'Панели',
   'panes.search': 'Поиск панелей',
   'panes.matching': 'Подходящие панели',

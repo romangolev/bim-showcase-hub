@@ -107,6 +107,7 @@ export const EN = {
   'settings.data': 'Data and storage',
   'settings.sections': 'Settings sections',
   'settings.back': 'Back',
+  'settings.backToSettings': 'Back to Settings',
   'panes.title': 'Panes',
   'panes.search': 'Search panes',
   'panes.matching': 'Matching panes',
