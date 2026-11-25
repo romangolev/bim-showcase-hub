@@ -168,13 +168,19 @@ export function WorkspaceSwitcher() {
   const layout = useLayout();
   const workspace = layout.workspaces;
   const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverId = useId();
   const locked = layout.locked;
 
   if (layout.mode !== 'dock') return null;
 
-  const run = (action: () => void) => {
+  const close = (restore: boolean) => {
     setOpen(false);
+    if (restore) triggerRef.current?.focus();
+  };
+
+  const run = (action: () => void) => {
+    close(true);
     action();
   };
 
@@ -236,8 +242,14 @@ export function WorkspaceSwitcher() {
 
   return (
     <>
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover
+        open={open}
+        onOpenChange={(next, details) =>
+          next ? setOpen(true) : close(details.reason === 'escape-key')
+        }
+      >
         <PopoverTrigger
+          ref={triggerRef}
           render={<IconButton label="Workspaces" title="Workspaces" />}
           onKeyDown={(event) => {
             if (open || event.key !== 'ArrowDown') return;
@@ -250,6 +262,7 @@ export function WorkspaceSwitcher() {
         <PopoverPopup
           className="workspaces settings"
           aria-label="Workspaces"
+          finalFocus={false}
           onKeyDown={onKeyDown}
         >
           <section aria-label="Built-in workspaces">

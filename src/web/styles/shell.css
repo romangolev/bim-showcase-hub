@@ -586,20 +586,11 @@
 }
 
 .panes-menu__popover {
-  position: fixed;
-  z-index: var(--z-popover);
   display: flex;
   flex-direction: column;
   width: min(380px, calc(100vw - 8px));
   max-height: min(560px, calc(100vh - 8px));
   padding: var(--space-1);
-  border: var(--border-hairline);
-  border-radius: var(--radius-card);
-  background: var(--color-graphite);
-  box-shadow: var(--shadow-inset);
-  color: var(--color-chalk);
-  font-family: var(--font-sans);
-  font-size: var(--text-13);
 }
 
 .panes-menu__search {
