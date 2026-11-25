@@ -1107,6 +1107,7 @@ def check_ifc_dropdown(page, checks):
     checks.add("the IFC settings item shows no back arrow", page.get_by_role("button", name="Back to Settings").count() == 0)
     page.keyboard.press("Escape")
     settle(page, 300)
+    expand_to_viewable(page)
     trigger.click()
     settle(page, 300)
     page.get_by_role("button", name="Batch export IFC", exact=True).click()
