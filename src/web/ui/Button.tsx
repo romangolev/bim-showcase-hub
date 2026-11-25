@@ -32,10 +32,10 @@ export function Button({
 }: ButtonProps) {
   return (
     <ButtonPrimitive
+      {...props}
       data-slot="button"
       data-effect={effect}
       className={cn(base, variants[variant], sizes[size], className)}
-      {...props}
     />
   );
 }

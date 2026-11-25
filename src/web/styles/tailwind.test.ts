@@ -1,4 +1,5 @@
 import { readdirSync, readFileSync } from 'node:fs';
+import { compile } from 'tailwindcss';
 import { describe, expect, it } from 'vitest';
 import { cn } from '../ui/cn.js';
 
@@ -43,6 +44,56 @@ describe('tailwind.css', () => {
 
   it('has no raw colour and no dark variant', () => {
     expect(tailwind).not.toMatch(/#[0-9a-f]{3,8}\b|rgb\(|oklch\(|dark:/i);
+  });
+
+  it('scans the primitives and never their tests', () => {
+    expect(tailwind).toContain('@source "../ui/**/*.tsx";');
+    expect(tailwind).toContain('@source not "../ui/**/*.test.tsx";');
+  });
+});
+
+describe('cascade layers', () => {
+  const global = readFileSync('src/web/styles/global.css', 'utf8');
+  const main = readFileSync('src/web/main.tsx', 'utf8');
+
+  it('declares the order once, in the first stylesheet the app loads', () => {
+    expect(
+      tokens.startsWith('@layer properties, theme, base, utilities;'),
+    ).toBe(true);
+    const sheets = [...main.matchAll(/import '(\.[^']+\.css)'/g)].map(
+      (match) => match[1],
+    );
+    expect(sheets[0]).toBe('./styles/tokens.css');
+  });
+
+  it('keeps the element rules of global.css in the base layer, below the utilities', () => {
+    const unlayered = global.slice(global.indexOf('\n}\n') + 3);
+    expect(global.startsWith('@layer base {')).toBe(true);
+    expect(global.slice(0, global.indexOf('\n}\n'))).toMatch(
+      /button,\s*input,\s*select,\s*textarea\s*\{/,
+    );
+    expect(unlayered).not.toMatch(/^(\*|html|body|button|a|h1)[\s,{:]/m);
+  });
+
+  it('compiles utilities into the utilities layer with the hairline border width', async () => {
+    const compiler = await compile(tailwind, {
+      base: 'src/web/styles',
+      loadStylesheet: async (id) => {
+        const path = `node_modules/${id}.css`;
+        return {
+          path,
+          base: 'node_modules',
+          content: readFileSync(path, 'utf8'),
+        };
+      },
+    });
+    const css = compiler.build(['border', 'min-h-hit', 'bg-surface']);
+    const layer = css.slice(css.indexOf('@layer utilities {'));
+    expect(css).toContain('@layer utilities {');
+    expect(layer).toMatch(/\.border \{[^}]*border-width: 0\.5px;/);
+    expect(layer).toMatch(/\.min-h-hit \{[^}]*var\(--hit-target\)/);
+    expect(layer).toMatch(/\.bg-surface \{[^}]*var\(--ui-surface\)/);
+    expect(compiler.build(['bg-red-500', 'rounded-lg'])).toBe(css);
   });
 });
 
