@@ -84,9 +84,8 @@ export function createThumbnailFetcher(
         },
       );
       if (res.status === 404 || res.status === 202) return null;
-      if (res.status === 401 || res.status === 403) {
-        throw new HttpError(401, 'Not authorized');
-      }
+      if (res.status === 401) throw new HttpError(401, 'Not authorized');
+      if (res.status === 403) throw new HttpError(403, 'Forbidden');
       if (res.status === 429) {
         throw new RateLimited(
           retryAfterSeconds(res.headers.get('retry-after')),

@@ -191,12 +191,17 @@ describe('createThumbnailFetcher', () => {
     expect(pulls).toBeLessThan(10);
   });
 
-  it('maps 401 and 403 to 401 and 429 to 429 with retry after', async () => {
+  it('passes 401 and 403 through and maps 429 with retry after', async () => {
+    await expect(
+      createThumbnailFetcher({
+        fetchImpl: vi.fn().mockResolvedValue(reply(401)),
+      }).fetch('t', URN, 100),
+    ).rejects.toMatchObject({ status: 401 });
     await expect(
       createThumbnailFetcher({
         fetchImpl: vi.fn().mockResolvedValue(reply(403)),
       }).fetch('t', URN, 100),
-    ).rejects.toMatchObject({ status: 401 });
+    ).rejects.toMatchObject({ status: 403, message: 'Forbidden' });
     await expect(
       createThumbnailFetcher({
         fetchImpl: vi
