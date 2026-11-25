@@ -13,7 +13,6 @@ export type PaneId =
   | 'summary'
   | 'dashboard'
   | 'models'
-  | 'versions'
   | 'colors'
   | 'export'
   | 'measurements'
@@ -217,21 +216,6 @@ export const PANES: readonly PaneDefinition[] = [
     defaultPlacement: { kind: 'tab', reference: 'models' },
     closable: true,
     requires: 'viewer',
-  },
-  {
-    id: 'versions',
-    title: 'Version history',
-    description:
-      'Versions of one file, newest first. Open, pin or compare them.',
-    category: 'Workspace',
-    keywords: 'versions history revisions compare latest file',
-    icon: 'layers',
-    component: lazyPane(() => loadPanes().then((m) => m.VersionsPane)),
-    minSize: { width: 260, height: 160 },
-    defaultPlacement: { kind: 'tab', reference: 'tree' },
-    closable: true,
-    requires: 'none',
-    startsClosed: true,
   },
   {
     id: 'colors',

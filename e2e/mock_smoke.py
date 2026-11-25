@@ -2563,62 +2563,6 @@ def check_latest_badge(page, checks):
     )
 
 
-def check_version_history(page, checks):
-    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
-    close_all_models(page)
-    group = expand_until_version_group(page)
-    if not group:
-        checks.add("version history: a file with two openable versions expands", False)
-        return
-    row = page.locator(f"[role=treeitem][data-kind='item'][aria-expanded='true'][title='{group['file']}']").first
-    row.scroll_into_view_if_needed()
-    row.click(button="right")
-    page.get_by_role("menuitem", name="Version history").click()
-    settle(page, 800)
-    table = page.locator("table.bsh-table--versions")
-    table.wait_for(timeout=10000)
-    rows = table.locator("tbody tr")
-    listed = rows.evaluate_all("(els) => els.map((el) => el.innerText)")
-    order = []
-    for text in listed:
-        match = re.search(r"\bv(\d+):", text)
-        if match:
-            order.append(int(match.group(1)))
-    checks.add("version history: the pane lists the versions newest first", bool(order) and order == sorted(order, reverse=True), order)
-    checks.add(
-        "version history: the first row is the latest version",
-        rows.count() > 0 and rows.first.get_attribute("data-latest") == "true",
-        rows.first.get_attribute("data-latest") if rows.count() else "",
-    )
-    picked = 0
-    for index in range(rows.count()):
-        candidate = rows.nth(index)
-        box = candidate.get_by_role("checkbox")
-        opener = candidate.locator("button[aria-label^='Open ']").first
-        if box.is_disabled() or opener.is_disabled():
-            continue
-        box.check()
-        picked += 1
-        if picked == 2:
-            break
-    checks.add("version history: two openable versions can be picked", picked == 2, picked)
-    compare = page.get_by_role("button", name="Compare as tabs")
-    if not compare.is_enabled():
-        checks.add("version history: Compare as tabs opens two viewer tabs", False, "Compare as tabs stayed disabled")
-        close_all_models(page)
-        close_pane(page, "versions")
-        focus_documents(page)
-        return
-    before = page.locator(".dv-tab").filter(has_text="·").count()
-    compare.click()
-    wait_until(page, lambda: page.locator(".dv-tab").filter(has_text="·").count() >= before + 2)
-    after = page.locator(".dv-tab").filter(has_text="·").count()
-    checks.add("version history: Compare as tabs opens two viewer tabs", after >= before + 2, f"{before} -> {after}")
-    close_all_models(page)
-    close_pane(page, "versions")
-    focus_documents(page)
-
-
 def check_search_pane(page, checks):
     page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
     close_all_models(page)
@@ -3180,7 +3124,7 @@ def run_interaction_checks(page, checks, notes):
     except Exception as exc:
         page.screenshot(path=str(OUTPUT_DIR / "mock-documents-failure.png"))
         checks.add("check_documents_return", False, f"{type(exc).__name__}: {str(exc)[:160]}")
-    for check in (check_latest_badge, check_version_history, check_search_pane, check_model_sets, check_deep_search, check_thumbnails):
+    for check in (check_latest_badge, check_search_pane, check_model_sets, check_deep_search, check_thumbnails):
         try:
             check(page, checks)
         except Exception as exc:

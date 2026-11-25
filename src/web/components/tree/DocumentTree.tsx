@@ -10,7 +10,6 @@ import {
   type DragEvent,
   type KeyboardEvent,
   type MouseEvent,
-  useContext,
   useEffect,
   useRef,
   useState,
@@ -24,10 +23,7 @@ import { EMPTY_OPEN_MODELS } from '../../api/openModels.js';
 import type { NodeScope } from '../../api/scope.js';
 import { COMMANDS } from '../../commands/registry.js';
 import { writeClipboard } from '../../extensions/clipboard.js';
-import { LayoutContext } from '../../layout/layoutContext.js';
 import { saveModelSetPrompt } from '../../panels/ModelSets.js';
-import { openVersionHistory } from '../../panels/VersionHistoryPanel.js';
-import type { VersionTarget } from '../../panels/versionHistory.js';
 import { PANE_SETTINGS } from '../../settings/paneSettings.js';
 import { usePersisted } from '../../storage.js';
 import { notify } from '../../tasks/notifications.js';
@@ -55,6 +51,7 @@ import {
 import { INDENT, rowHeightFor, TreeRowView } from './TreeRowView.js';
 import { treeCommands } from './treeCommands.js';
 import {
+  type ItemRef,
   openableUrn,
   type PickedModel,
   skippedNotice,
@@ -546,12 +543,6 @@ export function DocumentTree({
 
   const pinsApi = usePins();
   const rowMenu = useRowMenu();
-  const layout = useContext(LayoutContext);
-
-  const openHistory = (node: TreeNode) => {
-    const ref = state.itemRef(node);
-    if (ref && layout) openVersionHistory(layout, ref);
-  };
 
   const focusItem = (id: string) => {
     const item = tree.getItemInstance(id);
@@ -626,7 +617,6 @@ export function DocumentTree({
           onOpenLastOpened: () => void openItem(node, 'last'),
           onShowVersions: () => showItemVersions(node),
           onPreview: () => openPreview(node),
-          onVersionHistory: layout ? () => openHistory(node) : undefined,
         }),
       );
     }
@@ -651,7 +641,6 @@ export function DocumentTree({
         onCopyLink: urn ? () => void copyLink(urn, context) : undefined,
         onRevealPath: () => revealPath(node),
         onShowVersions: () => showVersions(node),
-        onVersionHistory: layout ? () => openHistory(node) : undefined,
       });
     });
   };
@@ -1013,7 +1002,7 @@ export function DocumentTree({
   const filterDisabled = !searching && !rows.some((row) => row.type === 'node');
 
   const savePickedAsSet = () => {
-    const refs = new Map<string, VersionTarget | null>();
+    const refs = new Map<string, ItemRef | null>();
     for (const item of tree.getItems()) {
       const node = resolved(item.getItemData());
       const urn = openableUrn(node);

@@ -50,9 +50,9 @@ describe('default layout', () => {
   });
 
   it('starts the optional viewer panes closed', () => {
-    expect(DEFAULT_DISMISSED).toEqual(['measurements', 'views', 'versions']);
+    expect(DEFAULT_DISMISSED).toEqual(['measurements', 'views']);
     expect(defaultSteps(320).map((step) => step.id)).toEqual(
-      expect.not.arrayContaining(['measurements', 'views', 'versions']),
+      expect.not.arrayContaining(['measurements', 'views']),
     );
   });
 

@@ -8,6 +8,7 @@ import { childrenQueryOptions } from '../api/hooks.js';
 import { type ModelContext, versionTag } from '../api/modelContext.js';
 import { Icon } from '../components/icons.js';
 import { Menu, type MenuEntry } from '../components/Menu.js';
+import type { ItemRef } from '../components/tree/treeState.js';
 import type { ModelOpeners } from '../components/tree/useModelOpeners.js';
 import { pickLatest } from '../components/tree/versionPick.js';
 import { writeClipboard } from '../extensions/clipboard.js';
@@ -36,12 +37,11 @@ import {
   DialogTitle,
 } from '../ui/Dialog.js';
 import { openableUrn } from '../viewer/openLimits.js';
-import type { VersionTarget } from './versionHistory.js';
 
 export interface ModelSetDraft {
   urn: string;
   context: ModelContext;
-  ref?: VersionTarget | null;
+  ref?: ItemRef | null;
 }
 
 export interface ModelSetItem {

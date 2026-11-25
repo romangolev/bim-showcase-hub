@@ -91,11 +91,7 @@ describe('layoutReducer', () => {
   it('starts with the dashboard collapsed and the optional panes closed', () => {
     expect(defaultModel().collapsed).toEqual(['dashboard']);
     expect(defaultModel().dock).toBeNull();
-    expect(defaultModel().dismissed).toEqual([
-      'measurements',
-      'views',
-      'versions',
-    ]);
+    expect(defaultModel().dismissed).toEqual(['measurements', 'views']);
   });
 
   it('keeps the Documents width the user resized to, within limits', () => {
@@ -121,21 +117,61 @@ describe('layoutReducer', () => {
       id: 'summary',
       dismissed: true,
     });
-    expect(twice.dismissed).toEqual([
-      'measurements',
-      'views',
-      'versions',
-      'summary',
-    ]);
+    expect(twice.dismissed).toEqual(['measurements', 'views', 'summary']);
     expect(twice).toBe(once);
     expect(
       layoutReducer(twice, { type: 'dismiss', id: 'summary', dismissed: false })
         .dismissed,
-    ).toEqual(['measurements', 'views', 'versions']);
+    ).toEqual(['measurements', 'views']);
   });
 });
 
 describe('serialize and parse', () => {
+  it('drops the removed version history pane from a stored layout', () => {
+    const stored = JSON.stringify({
+      version: JSON.parse(serializeLayout(defaultModel())).version,
+      layout: {
+        dock: {
+          ...sampleDock(),
+          grid: {
+            ...sampleDock().grid,
+            root: {
+              type: 'branch',
+              size: 900,
+              data: [
+                {
+                  type: 'leaf',
+                  data: {
+                    id: '1',
+                    views: ['tree', 'versions'],
+                    activeView: 'versions',
+                  },
+                  size: 320,
+                },
+                leaf('2', ['viewer:m1'], 600),
+                leaf('5', ['versions'], 200),
+              ],
+            },
+          },
+          panels: panels(['tree', 'viewer:m1', 'versions']),
+        },
+        collapsed: ['versions'],
+        dismissed: ['views', 'versions'],
+        treeWidth: 320,
+      },
+    });
+    const model = parseLayout(stored);
+    expect(model).not.toBeNull();
+    const dock = model?.dock;
+    expect(dock && Object.keys(dock.panels).sort()).toEqual([
+      'tree',
+      'viewer:m1',
+    ]);
+    expect(JSON.stringify(dock?.grid)).not.toContain('versions');
+    expect(model?.collapsed).toEqual([]);
+    expect(model?.dismissed).toEqual(['views']);
+  });
+
   it('round trips a layout with a version field', () => {
     const model = {
       dock: sampleDock(),

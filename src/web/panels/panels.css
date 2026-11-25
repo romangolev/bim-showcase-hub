@@ -1346,8 +1346,7 @@ button.bsh-kpi:focus-visible {
 
 .pane-colors,
 .pane-export,
-.pane-search,
-.pane-versions {
+.pane-search {
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -1448,46 +1447,6 @@ button.bsh-kpi:focus-visible {
 
 .bsh-color-rules__fields .field {
   flex: 1 1 6rem;
-}
-
-.bsh-versions {
-  flex: 1;
-  min-height: 0;
-}
-
-.bsh-versions__tools {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.bsh-versions__tools .field {
-  flex: 1 1 10rem;
-}
-
-.bsh-versions__label {
-  margin-inline-end: var(--space-2);
-}
-
-.bsh-versions__latest {
-  border-color: var(--color-arc-blue);
-  color: var(--color-snow);
-}
-
-.bsh-versions__actions,
-.bsh-versions__footer {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-}
-
-.bsh-versions__footer {
-  gap: var(--space-2);
-}
-
-.bsh-versions__actions [data-slot="button"] {
-  padding: 0 var(--space-2);
 }
 
 .bsh-search {

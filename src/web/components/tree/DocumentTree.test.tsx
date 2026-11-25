@@ -11,8 +11,6 @@ import type { ComponentProps } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { thumbnailPath } from '../../api/client.js';
 import { createOpenModelsStore } from '../../api/openModels.js';
-import { type LayoutApi, LayoutContext } from '../../layout/layoutContext.js';
-import { VERSION_TARGET } from '../../panels/versionHistory.js';
 import { BSH_KEYS } from '../../storage.js';
 import { MODEL_SETS } from '../../store/modelSets.js';
 import { notifications } from '../../tasks/notifications.js';
@@ -843,58 +841,32 @@ describe('DocumentTree file rows', () => {
   });
 });
 
-describe('DocumentTree version history', () => {
-  function fakeLayout(open = false) {
-    return {
-      isOpen: vi.fn(() => open),
-      focusPane: vi.fn(),
-      togglePane: vi.fn(),
-    };
-  }
-
-  async function setup(open = false) {
+describe('DocumentTree row menus', () => {
+  it('no longer offer Version history on file or version rows', async () => {
     installMemoryStorage();
     mockFetch(treeRoutes);
-    const layout = fakeLayout(open);
     render(
       <QueryClientProvider client={createTestClient()}>
-        <LayoutContext.Provider value={layout as unknown as LayoutApi}>
-          <DocumentTree onOpenModel={vi.fn()} />
-        </LayoutContext.Provider>
+        <DocumentTree onOpenModel={vi.fn()} />
       </QueryClientProvider>,
     );
     await expandTo('Studio hub');
     await expandTo('Riverside Tower');
     await expandTo('Project Files');
-    await screen.findByText('Tower.rvt');
-    return layout;
-  }
-
-  it('opens the version history pane from the file row menu', async () => {
-    const layout = await setup();
-    fireEvent.contextMenu(screen.getByRole('treeitem', { name: /Tower\.rvt/ }));
-    fireEvent.click(
-      within(screen.getByRole('menu')).getByText('Version history'),
+    fireEvent.contextMenu(
+      await screen.findByRole('treeitem', { name: /Tower\.rvt/ }),
     );
-    expect(layout.togglePane).toHaveBeenCalledWith('versions');
-    expect(VERSION_TARGET.read()).toMatchObject({
-      projectId: 'p1',
-      itemId: 'i1',
-      file: 'Tower.rvt',
-      trail: ['h1', 'p1', 'f1', 'i1'],
-    });
-  });
-
-  it('focuses the open pane from a version row menu', async () => {
-    const layout = await setup(true);
+    expect(
+      within(screen.getByRole('menu')).queryByText('Version history'),
+    ).toBeNull();
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
     fireEvent.click(screen.getByText('Tower.rvt'));
-    await screen.findByRole('treeitem', { name: /^v2:/ });
-    fireEvent.contextMenu(screen.getByRole('treeitem', { name: /^v1:/ }));
-    fireEvent.click(
-      within(screen.getByRole('menu')).getByText('Version history'),
+    fireEvent.contextMenu(
+      await screen.findByRole('treeitem', { name: /^v1:/ }),
     );
-    expect(layout.focusPane).toHaveBeenCalledWith('versions');
-    expect(VERSION_TARGET.read()).toMatchObject({ itemId: 'i1' });
+    expect(
+      within(screen.getByRole('menu')).queryByText('Version history'),
+    ).toBeNull();
   });
 });
 

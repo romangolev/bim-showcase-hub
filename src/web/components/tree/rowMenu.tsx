@@ -35,7 +35,6 @@ export interface ModelMenuSource {
   onCopyLink?: () => void;
   onRevealPath?: () => void;
   onShowVersions?: () => void;
-  onVersionHistory?: () => void;
 }
 
 export function modelMenuEntries(source: ModelMenuSource): MenuEntry[] {
@@ -97,12 +96,7 @@ export function modelMenuEntries(source: ModelMenuSource): MenuEntry[] {
       });
     }
   }
-  if (
-    source.onCopyLink ||
-    source.onRevealPath ||
-    source.onShowVersions ||
-    source.onVersionHistory
-  ) {
+  if (source.onCopyLink || source.onRevealPath || source.onShowVersions) {
     entries.push({ kind: 'separator', id: 'locate-separator' });
     if (urn && source.onCopyLink) {
       entries.push({
@@ -127,14 +121,6 @@ export function modelMenuEntries(source: ModelMenuSource): MenuEntry[] {
         onSelect: source.onShowVersions,
       });
     }
-    if (source.onVersionHistory) {
-      entries.push({
-        id: 'version-history',
-        label: 'Version history',
-        description: 'List the versions in their own pane',
-        onSelect: source.onVersionHistory,
-      });
-    }
   }
   return entries;
 }
@@ -145,7 +131,6 @@ export interface ItemMenuSource {
   onOpenLastOpened?: () => void;
   onShowVersions: () => void;
   onPreview?: () => void;
-  onVersionHistory?: () => void;
 }
 
 export function itemMenuEntries(source: ItemMenuSource): MenuEntry[] {
@@ -177,14 +162,6 @@ export function itemMenuEntries(source: ItemMenuSource): MenuEntry[] {
     label: 'Show versions',
     onSelect: source.onShowVersions,
   });
-  if (source.onVersionHistory) {
-    entries.push({
-      id: 'version-history',
-      label: 'Version history',
-      description: 'List the versions in their own pane',
-      onSelect: source.onVersionHistory,
-    });
-  }
   return entries;
 }
 

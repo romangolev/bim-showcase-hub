@@ -3,7 +3,6 @@ import type { TreeNode, VersionViewState } from '../../../shared/types.js';
 import { friendlyError } from '../../api/friendlyError.js';
 import { type ModelContext, versionTag } from '../../api/modelContext.js';
 import { childScope, type NodeScope } from '../../api/scope.js';
-import type { VersionTarget } from '../../panels/versionHistory.js';
 import { openableUrn } from '../../viewer/openLimits.js';
 
 export { openableUrn } from '../../viewer/openLimits.js';
@@ -27,6 +26,14 @@ export const TRAIL_SEPARATOR = '|';
 export const REVEAL_TIMEOUT_MS = 5000;
 const UNCHECKED_POLL_LIMIT = 3;
 const ANCESTOR_LIMIT = 64;
+
+export interface ItemRef {
+  projectId: string;
+  itemId: string;
+  file: string;
+  trail: string[];
+  crumbs: string[];
+}
 
 export interface TreeData {
   children: (scope: NodeScope, signal?: AbortSignal) => Promise<TreeNode[]>;
@@ -78,7 +85,7 @@ export interface TreeState {
   search: (query: string) => TreeNode[];
   parentName: (node: TreeNode) => string | undefined;
   contextFor: (node: TreeNode) => ModelContext;
-  itemRef: (node: TreeNode) => VersionTarget | null;
+  itemRef: (node: TreeNode) => ItemRef | null;
   ancestorIds: (node: TreeNode) => string[];
   children: (id: string) => Promise<TreeNode[]>;
   versionsOf: (item: TreeNode) => Promise<TreeNode[]>;

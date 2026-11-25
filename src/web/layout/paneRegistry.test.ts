@@ -51,18 +51,9 @@ describe('pane registry', () => {
     expect(hasPlainPanel('tree')).toBe(true);
   });
 
-  it('registers the version history pane as a closable workspace pane', () => {
-    expect(isPaneId('versions')).toBe(true);
-    expect(paneById('versions')).toMatchObject({
-      title: 'Version history',
-      category: 'Workspace',
-      closable: true,
-      requires: 'none',
-    });
-    expect(isRequired('versions')).toBe(false);
-    expect(PANES.filter((pane) => isRequired(pane.id))).toEqual([
-      paneById('tree'),
-    ]);
+  it('has no version history pane', () => {
+    expect(isPaneId('versions')).toBe(false);
+    expect(PANES.some((pane) => pane.title === 'Version history')).toBe(false);
   });
 
   it('registers the element search pane as a viewer follower', () => {

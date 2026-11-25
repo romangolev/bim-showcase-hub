@@ -280,7 +280,6 @@ def full_dialog(page, path):
 PANES = [
     "Measurements",
     "Sheets and views",
-    "Version history",
     "Colors",
     "Export",
     "Search elements",
