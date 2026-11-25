@@ -12,6 +12,7 @@ import {
 import { createPortal } from 'react-dom';
 import { Toaster as SonnerToaster, toast } from 'sonner';
 import { cn } from './cn.js';
+import { topLayerHost } from './topLayer.js';
 import type { CommonProps, Tone } from './types.js';
 
 export type ToastTone = Tone | 'warning';
@@ -36,22 +37,6 @@ const NO_HOTKEY = ['noHotkey'];
 
 const itemClasses =
   'focus-visible:outline-2! focus-visible:outline-offset-2! focus-visible:outline-focus!';
-
-function isModal(dialog: Element): boolean {
-  try {
-    return dialog.matches(':modal');
-  } catch {
-    return true;
-  }
-}
-
-function topLayerHost(): HTMLElement {
-  const dialogs = [...document.querySelectorAll('dialog[open]')].filter(
-    isModal,
-  );
-  const top = dialogs.at(-1) ?? document.fullscreenElement;
-  return top instanceof HTMLElement ? top : document.body;
-}
 
 function subscribeTopLayer(onChange: () => void): () => void {
   const observer = new MutationObserver(onChange);

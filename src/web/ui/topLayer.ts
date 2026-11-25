@@ -11,6 +11,22 @@ export function topLayerContainer(origin: Element | null): HTMLElement {
   return host instanceof HTMLElement ? host : document.body;
 }
 
+function isModal(dialog: Element): boolean {
+  try {
+    return dialog.matches(':modal');
+  } catch {
+    return true;
+  }
+}
+
+export function topLayerHost(): HTMLElement {
+  const dialogs = [...document.querySelectorAll('dialog[open]')].filter(
+    isModal,
+  );
+  const top = dialogs.at(-1) ?? document.fullscreenElement;
+  return top instanceof HTMLElement ? top : document.body;
+}
+
 export interface TriggerScopeValue {
   trigger: HTMLElement | null;
   setTrigger: (node: HTMLElement | null) => void;
@@ -38,5 +54,6 @@ export function usePopupContainer(
   container: HTMLElement | null | undefined,
 ): HTMLElement {
   const scope = useContext(TriggerScope);
-  return container ?? topLayerContainer(scope?.trigger ?? null);
+  if (container) return container;
+  return scope?.trigger ? topLayerContainer(scope.trigger) : topLayerHost();
 }

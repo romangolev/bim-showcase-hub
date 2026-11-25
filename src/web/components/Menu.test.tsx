@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { Menu } from './Menu.js';
 
 const items = () => [{ id: 'a', label: 'Alpha', onSelect: () => {} }];
@@ -21,6 +21,19 @@ describe('Menu', () => {
     const menu = screen.getByRole('menu');
     expect(menu.closest('dialog')).toBeNull();
     expect(document.body.contains(menu)).toBe(true);
+  });
+
+  it('opens a context menu inside the open modal dialog', () => {
+    const dialog = document.createElement('dialog');
+    const matches = dialog.matches.bind(dialog);
+    vi.spyOn(dialog, 'matches').mockImplementation(
+      (selector) => selector === ':modal' || matches(selector),
+    );
+    dialog.setAttribute('open', '');
+    document.body.append(dialog);
+    render(<Menu label="Things" anchor={{ x: 5, y: 5 }} items={items} />);
+    expect(dialog).toContainElement(screen.getByRole('menu'));
+    dialog.remove();
   });
 
   it('shows a description on a checkable entry too', () => {
