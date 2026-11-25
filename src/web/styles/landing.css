@@ -286,17 +286,14 @@
   font-size: var(--text-13);
 }
 
-.preview__toolbar .btn,
-.preview__toolbar .icon-button {
+.preview__toolbar .bsh-paint__chip,
+.preview__toolbar .bsh-paint__reset,
+.preview__export-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
   white-space: nowrap;
-}
-
-.preview__toolbar .btn,
-.preview__toolbar .icon-button {
   cursor: default;
 }
 

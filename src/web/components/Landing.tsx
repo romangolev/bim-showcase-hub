@@ -4,6 +4,9 @@ import type { SummaryEntry } from '../extensions/modelSummary.js';
 import { PAINT_PRESETS } from '../extensions/paintBrushes.js';
 import { StaticPaintChip } from '../panels/PaintChip.js';
 import { SummaryTable } from '../panels/SummaryTable.js';
+import { Button, buttonClasses } from '../ui/Button.js';
+import { cn } from '../ui/cn.js';
+import { iconButtonClasses } from '../ui/IconButton.js';
 import { Icon, type IconName } from './icons.js';
 import { StateBlock } from './StateBlock.js';
 import { TreeRowView } from './tree/TreeRowView.js';
@@ -259,14 +262,14 @@ function ExportPanel() {
           <StaticPaintChip key={preset.id} preset={preset} />
         ))}
         <span
-          className="icon-button bsh-paint__reset"
+          className={cn(iconButtonClasses, 'bsh-paint__reset')}
           role="img"
           aria-label="Reset appearance"
           title="Reset appearance"
         >
           <Icon name="refresh" size={16} />
         </span>
-        <span className="btn preview__export-button">
+        <span className={cn(buttonClasses({}), 'preview__export-button')}>
           <Icon name="table" size={16} />
           Export to Excel
         </span>
@@ -386,14 +389,13 @@ export function Landing() {
               open a model in the viewer, and see its properties as charts and a
               summary.
             </p>
-            <button
-              type="button"
-              className="btn btn-primary"
+            <Button
+              variant="primary"
               onClick={() => signIn.mutate()}
               disabled={signIn.isPending}
             >
               Sign in with Autodesk
-            </button>
+            </Button>
             {signIn.isError ? (
               <p className="hero__error" role="alert">
                 Could not start sign-in. Try again.

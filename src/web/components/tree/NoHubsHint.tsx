@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { childrenQueryOptions, sessionQueryOptions } from '../../api/hooks.js';
 import { ROOT_SCOPE } from '../../api/scope.js';
 import { BSH_KEYS, defineRecord } from '../../storage.js';
+import { Button } from '../../ui/Button.js';
 import { Icon } from '../icons.js';
 import { StateBlock } from '../StateBlock.js';
 
@@ -60,15 +61,14 @@ function ClientIdField({ clientId }: { clientId: string }) {
       </span>
       <div className="no-hubs__client-row">
         <code className="no-hubs__client-id">{clientId}</code>
-        <button
-          type="button"
-          className="btn btn-small"
+        <Button
+          size="small"
           onClick={() => void copy()}
           aria-describedby="no-hubs-client-label"
         >
           <Icon name={status === 'copied' ? 'check' : 'item'} size={14} />
           Copy
-        </button>
+        </Button>
         {status === 'copied' ? (
           <span className="no-hubs__copied" aria-hidden="true">
             Copied
@@ -117,9 +117,9 @@ export function NoHubsHint({ onCheckAgain }: NoHubsHintProps) {
       </ol>
       {clientId ? <ClientIdField clientId={clientId} /> : null}
       <div className="no-hubs__actions">
-        <button type="button" className="btn btn-small" onClick={onCheckAgain}>
+        <Button size="small" onClick={onCheckAgain}>
           Check again
-        </button>
+        </Button>
         <a
           className="no-hubs__link"
           href={CUSTOM_INTEGRATION_HELP_URL}
@@ -186,9 +186,9 @@ export function PersonalHubNotice({ onCheckAgain }: PersonalHubNoticeProps) {
         <h3 id="hub-notice-title" className="hub-notice__title">
           Looking for projects from ACC, BIM 360 or Forma?
         </h3>
-        <button type="button" className="btn btn-small" onClick={dismiss}>
+        <Button size="small" onClick={dismiss}>
           Dismiss
-        </button>
+        </Button>
       </div>
       <ol className="no-hubs__steps">
         <li>
@@ -199,9 +199,9 @@ export function PersonalHubNotice({ onCheckAgain }: PersonalHubNoticeProps) {
       </ol>
       {clientId ? <ClientIdField clientId={clientId} /> : null}
       <div className="no-hubs__actions">
-        <button type="button" className="btn btn-small" onClick={onCheckAgain}>
+        <Button size="small" onClick={onCheckAgain}>
           Check again
-        </button>
+        </Button>
         <a
           className="no-hubs__link"
           href={CUSTOM_INTEGRATION_HELP_URL}

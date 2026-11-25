@@ -32,6 +32,7 @@ import { PANE_SETTINGS } from '../../settings/paneSettings.js';
 import { usePersisted } from '../../storage.js';
 import { notify } from '../../tasks/notifications.js';
 import { startTask, type TaskHandle } from '../../tasks/taskStore.js';
+import { Button } from '../../ui/Button.js';
 import { previewOpen } from '../../viewer/openModels.js';
 import { Icon } from '../icons.js';
 import { Menu, type MenuEntry } from '../Menu.js';
@@ -1300,17 +1301,12 @@ export function DocumentTree({
             <span className="doc-tree__crawl-text" />
           )}
           {crawl?.status === 'running' ? (
-            <button
-              type="button"
-              className="btn doc-tree__crawl-action"
-              onClick={cancelCrawl}
-            >
+            <Button className="doc-tree__crawl-action" onClick={cancelCrawl}>
               Cancel
-            </button>
+            </Button>
           ) : (
-            <button
-              type="button"
-              className="btn doc-tree__crawl-action"
+            <Button
+              className="doc-tree__crawl-action"
               disabled={!crawlRootId}
               title={
                 crawlRootId ? 'Read every folder in this project' : PICK_PROJECT
@@ -1318,7 +1314,7 @@ export function DocumentTree({
               onClick={startCrawl}
             >
               Search whole project
-            </button>
+            </Button>
           )}
           {!crawlRootId ? (
             <span className="doc-tree__crawl-hint">{PICK_PROJECT}</span>
@@ -1386,13 +1382,9 @@ export function DocumentTree({
             }
           >
             {notice.itemId ? (
-              <button
-                type="button"
-                className="btn btn-small"
-                onClick={state.dismissNotice}
-              >
+              <Button size="small" onClick={state.dismissNotice}>
                 Dismiss
-              </button>
+              </Button>
             ) : null}
           </StateBlock>
         ) : null}

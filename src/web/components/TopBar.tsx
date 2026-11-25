@@ -4,6 +4,8 @@ import { useT } from '../i18n/i18n.js';
 import { useModal } from '../modal/index.js';
 import { TaskCenter } from '../tasks/TaskCenter.js';
 import { ThemeToggle } from '../theme/ThemeToggle.js';
+import { Button } from '../ui/Button.js';
+import { IconButton } from '../ui/IconButton.js';
 import { HelpMenu } from './HelpMenu.js';
 import { Icon } from './icons.js';
 import type { MenuEntry } from './Menu.js';
@@ -36,19 +38,15 @@ export function TopBar({
     <header className="topbar">
       <div className="topbar__inner">
         {user && onToggleTree ? (
-          <button
+          <IconButton
             ref={toggleRef}
-            type="button"
-            className="icon-button"
-            aria-label={
-              treeOpen ? t('topbar.collapseTree') : t('topbar.expandTree')
-            }
+            label={treeOpen ? t('topbar.collapseTree') : t('topbar.expandTree')}
             aria-expanded={treeOpen}
             aria-controls="document-panel"
             onClick={onToggleTree}
           >
             <Icon name="panel" size={18} />
-          </button>
+          </IconButton>
         ) : null}
         <a className="brand" href="/">
           <span className="brand__mark">
@@ -69,28 +67,25 @@ export function TopBar({
         {user ? <TaskCenter /> : null}
         {user ? <HelpMenu extra={helpExtra} /> : null}
         {user ? (
-          <button
-            type="button"
-            className="icon-button"
-            aria-label={t('topbar.settings')}
+          <IconButton
+            label={t('topbar.settings')}
             title={t('topbar.settings')}
             onClick={() => modal.open('settings')}
           >
             <Icon name="settings" size={18} />
-          </button>
+          </IconButton>
         ) : null}
         <ThemeToggle />
         {user ? (
           <UserMenu user={user} />
         ) : session.isPending ? null : (
-          <button
-            type="button"
-            className="btn btn-primary"
+          <Button
+            variant="primary"
             onClick={() => signIn.mutate()}
             disabled={signIn.isPending}
           >
             {t('topbar.signIn')}
-          </button>
+          </Button>
         )}
       </div>
     </header>

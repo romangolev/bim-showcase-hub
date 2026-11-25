@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Icon, type IconName } from './icons.js';
 import './state-block.css';
+import { Button } from '../ui/Button.js';
 
 export interface StateBlockAction {
   label: string;
@@ -88,13 +89,14 @@ export function StateBlock({
         {children}
       </div>
       {action ? (
-        <button
-          type="button"
-          className={`btn btn-small state-block__action${action.primary ? ' btn-primary' : ''}`}
+        <Button
+          size="small"
+          variant={action.primary ? 'primary' : 'default'}
+          className="state-block__action"
           onClick={action.onClick}
         >
           {action.label}
-        </button>
+        </Button>
       ) : null}
     </div>
   );

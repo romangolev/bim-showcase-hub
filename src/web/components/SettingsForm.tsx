@@ -1,4 +1,5 @@
 import { type ReactNode, useId } from 'react';
+import { Button } from '../ui/Button.js';
 import { NumberField } from './NumberField.js';
 import { SwitchRow } from './SwitchRow.js';
 
@@ -240,27 +241,23 @@ function ListRow({ field, value, set }: RowProps<ListField>) {
                 )
               }
             />
-            <button
-              type="button"
-              className="btn"
+            <Button
               aria-label={field.removeLabel(index)}
               disabled={items.length <= min}
               onClick={() => set(items.filter((_, at) => at !== index))}
             >
               Remove
-            </button>
+            </Button>
           </li>
         ))}
       </ul>
       <div className="settings__actions">
-        <button
-          type="button"
-          className="btn"
+        <Button
           disabled={field.max !== undefined && items.length >= field.max}
           onClick={() => set([...items, field.newItem])}
         >
           {field.addLabel}
-        </button>
+        </Button>
       </div>
       <Hint>{field.hint}</Hint>
     </div>
@@ -316,13 +313,9 @@ export function SettingsForm<V extends object>({
       ))}
       {form.reset ? (
         <div className="settings__actions">
-          <button
-            type="button"
-            className="btn"
-            onClick={() => onChange(form.reset?.patch ?? {})}
-          >
+          <Button onClick={() => onChange(form.reset?.patch ?? {})}>
             {form.reset.label}
-          </button>
+          </Button>
         </div>
       ) : null}
     </section>

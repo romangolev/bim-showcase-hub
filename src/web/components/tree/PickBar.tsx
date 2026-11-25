@@ -1,4 +1,5 @@
 import { MAX_SET_MEMBERS } from '../../store/modelSets.js';
+import { Button } from '../../ui/Button.js';
 import type { OpenMode, OpenPreview } from '../../viewer/openModels.js';
 import type { AddTarget } from './DocumentTree.js';
 import type { PickedModel } from './treeState.js';
@@ -55,28 +56,25 @@ export function PickBar({
       {picked.length > 0 ? (
         <>
           {onOpenTabs ? (
-            <button
-              type="button"
-              className="btn doc-tree__pick-action"
+            <Button
+              className="doc-tree__pick-action"
               disabled={tabs.blocked}
               title={picked.map(pickLabel).join('\n')}
               onClick={() => onOpenTabs(picked)}
             >
               Open {picked.length} in viewer
-            </button>
+            </Button>
           ) : null}
-          <button
-            type="button"
-            className="btn doc-tree__pick-action"
+          <Button
+            className="doc-tree__pick-action"
             disabled={picked.length < 2 || together.blocked}
             title={picked.map(pickLabel).join('\n')}
             onClick={() => onOpenTogether(picked)}
           >
             Open together
-          </button>
-          <button
-            type="button"
-            className="btn doc-tree__pick-action"
+          </Button>
+          <Button
+            className="doc-tree__pick-action"
             disabled={picked.length > MAX_SET_MEMBERS}
             title={
               picked.length > MAX_SET_MEMBERS
@@ -86,21 +84,19 @@ export function PickBar({
             onClick={onSaveSet}
           >
             Save as model set
-          </button>
+          </Button>
           {onExportIfc ? (
-            <button
-              type="button"
-              className="btn doc-tree__pick-action"
+            <Button
+              className="doc-tree__pick-action"
               title={picked.map(pickLabel).join('\n')}
               onClick={() => onExportIfc(picked)}
             >
               Export IFC
-            </button>
+            </Button>
           ) : null}
           {addTarget ? (
-            <button
-              type="button"
-              className="btn doc-tree__pick-action"
+            <Button
+              className="doc-tree__pick-action"
               disabled={addable.length === 0}
               onClick={() => {
                 addTarget.onAdd(addable);
@@ -108,15 +104,11 @@ export function PickBar({
               }}
             >
               Add to {addTarget.label}
-            </button>
+            </Button>
           ) : null}
-          <button
-            type="button"
-            className="btn doc-tree__pick-action"
-            onClick={onClear}
-          >
+          <Button className="doc-tree__pick-action" onClick={onClear}>
             Clear
-          </button>
+          </Button>
           {message ? (
             <span className="doc-tree__picks-limit" role="alert">
               {message}

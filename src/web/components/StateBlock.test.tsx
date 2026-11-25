@@ -58,8 +58,9 @@ describe('StateBlock', () => {
     expect(
       screen.getByRole('heading', { level: 1, name: 'Page not found' }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Go back' })).toHaveClass(
-      'btn-primary',
+    expect(screen.getByRole('button', { name: 'Go back' })).toHaveAttribute(
+      'data-variant',
+      'primary',
     );
   });
 });

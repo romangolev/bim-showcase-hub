@@ -244,17 +244,18 @@
   color: var(--color-coral);
 }
 
-.session-banner .btn-primary {
+.session-banner [data-slot="button"][data-variant="primary"] {
   border-color: var(--color-iris);
   background: var(--color-iris);
   color: var(--color-on-accent);
 }
 
-.session-banner .btn-primary:hover:not(:disabled) {
+.session-banner
+  [data-slot="button"][data-variant="primary"]:hover:not(:disabled) {
   background: color-mix(in srgb, var(--color-iris) 85%, var(--color-snow));
 }
 
-.session-banner .btn-primary:disabled {
+.session-banner [data-slot="button"][data-variant="primary"]:disabled {
   color: var(--color-on-accent);
 }
 
