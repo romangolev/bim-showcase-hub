@@ -119,6 +119,18 @@ Dark and light share every token role and change only values, so components neve
 - The choice is `theme` in app settings (`bsh-settings-v1`): `system`, `light` or `dark`. `system` follows `prefers-color-scheme` live; the top bar toggle stores an explicit choice. An inline script in `index.html` reads the setting, and the legacy `bsh-theme` key until it is migrated, then sets the theme before first paint.
 - Tests that render themed components import `render` from `src/web/test/render.tsx`.
 
+### Theme packs
+
+Primitives read role tokens (`--ui-*`, listed in DESIGN.md), which alias the palette on `:root`. A theme overrides palette tokens, role tokens or both, and no component changes.
+
+To add a theme:
+
+1. `src/web/styles/themes/<id>.css` with one block `:root[data-theme="<id>"] { color-scheme: dark; ... }`. `main.tsx` loads every file in that folder eagerly.
+2. One entry in `THEMES` in `theme/theme.ts` (`id`, `scheme`, `color` for the browser chrome) and the same entry in the `themes` literal of the prepaint script in `index.html`; `theme/prepaint.test.ts` compares the two.
+3. A label for the settings option in `i18n/en.ts` and `i18n/ru.ts`, wired in `THEME_LABELS` in `settings/sections.tsx` (the type makes it required).
+
+`scheme` is what the Autodesk Viewer, the charts and the top bar toggle follow (`useTheme().scheme`); `theme` is the pack id. `styles/themes.test.tsx` builds a throwaway third theme and asserts that every role resolves, that the contrast pairs pass (`styles/roleContrast.ts`), and that primitives render the same DOM under it. It also checks every shipped pack against `THEMES`.
+
 ## Viewer styling
 
 The Autodesk Viewer follows the app theme: `dark-theme` or `light-theme`, plus a scene background from `--color-graphite` and `--color-void`. `viewer/viewer.css` holds pane, overlay and tool icon styles. The paint and export controls are a group in the native toolbar.
