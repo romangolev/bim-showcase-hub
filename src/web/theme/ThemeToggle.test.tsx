@@ -42,7 +42,7 @@ describe('ThemeToggle in the top bar', () => {
     const toggle = await screen.findByRole('button', {
       name: 'Switch to light theme',
     });
-    expect(toggle).toHaveAttribute('title', 'Switch to light theme');
+    expect(toggle).not.toHaveAttribute('title');
     expect(toggle).not.toHaveAttribute('aria-pressed');
     expect(toggle.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
     const menu = await screen.findByRole('button', { name: /Ada/ });
@@ -50,12 +50,17 @@ describe('ThemeToggle in the top bar', () => {
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
     toggle.focus();
+    fireEvent.focus(toggle);
     expect(toggle).toHaveFocus();
+    expect(await screen.findByText('Switch to light theme')).toHaveAttribute(
+      'data-slot',
+      'tooltip-popup',
+    );
     fireEvent.click(toggle);
     const back = await screen.findByRole('button', {
       name: 'Switch to dark theme',
     });
-    expect(back).toHaveAttribute('title', 'Switch to dark theme');
+    expect(back).not.toHaveAttribute('title');
     expect(document.documentElement.dataset.theme).toBe('light');
     fireEvent.click(back);
     await waitFor(() =>
