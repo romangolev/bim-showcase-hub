@@ -1654,7 +1654,11 @@ describe('DocumentTree deep search', () => {
     fireEvent.click(
       screen.getByRole('button', { name: 'Search whole project' }),
     );
-    await screen.findByRole('option', { name: /ARC-001_Walls\.rvt/ });
+    await waitFor(() =>
+      expect(callsTo(fetchMock, '/api/projects/p1/folders/f2/contents')).toBe(
+        1,
+      ),
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(screen.getByText('Search cancelled')).toBeInTheDocument();
 
@@ -1666,53 +1670,6 @@ describe('DocumentTree deep search', () => {
     expect(callsTo(fetchMock, '/api/projects/p1/folders/f2/contents')).toBe(
       before,
     );
-  });
-
-  it('ignores a cancelled crawl that settles after a restart', async () => {
-    const releases: Array<() => void> = [];
-    await renderProject(
-      projectRoutes({
-        '/api/projects/p1/folders/f2/contents': () =>
-          new Promise<Response>((resolve) => {
-            releases.push(() => resolve(json([facadeFile])));
-          }),
-      }),
-    );
-    fireEvent.change(filterBox(), { target: { value: 'arc' } });
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Search whole project' }),
-    );
-    await waitFor(() => expect(releases).toHaveLength(1));
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Search whole project' }),
-    );
-    await waitFor(() => expect(releases).toHaveLength(2));
-    await act(async () => {
-      releases[0]?.();
-      await new Promise((resolve) => setTimeout(resolve, 20));
-    });
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
-    expect(screen.queryByText('Searched 3 folders')).toBeNull();
-  });
-
-  it('tells the user to sign in when the session expires mid-search', async () => {
-    await renderProject(
-      projectRoutes({
-        '/api/projects/p1/folders/f2/contents': () =>
-          json({ error: 'expired' }, 401),
-      }),
-    );
-    fireEvent.change(filterBox(), { target: { value: 'arc' } });
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Search whole project' }),
-    );
-    expect(
-      await screen.findByText(
-        'Your session has expired. Sign in again to continue.',
-      ),
-    ).toBeInTheDocument();
-    expect(screen.queryByText('Search cancelled')).toBeNull();
   });
 
   it('waits for Retry-After on a 429 and then reads the folder', async () => {

@@ -700,6 +700,25 @@ describe('treeState crawl', () => {
     });
   });
 
+  it('runs a deep search over the registry and remembers it', async () => {
+    const { state } = makeProject();
+    state.deepSearch.start();
+    expect(state.deepSearch.getSnapshot()?.status).toBe('running');
+    await vi.waitFor(() =>
+      expect(state.deepSearch.getSnapshot()?.status).toBe('done'),
+    );
+    expect(state.crawled()).toBe(true);
+    expect(state.node('doc.rvt')?.kind).toBe('item');
+    state.deepSearch.dispose();
+    expect(state.deepSearch.getSnapshot()).toBeNull();
+  });
+
+  it('does not start a deep search without a single project', () => {
+    const { state } = make();
+    state.deepSearch.start();
+    expect(state.deepSearch.getSnapshot()).toBeNull();
+  });
+
   it('crawlRoot is the project for a project root and null with two projects', async () => {
     const { state } = makeProject();
     expect(state.crawlRoot()).toBe('p');
