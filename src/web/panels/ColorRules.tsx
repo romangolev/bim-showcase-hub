@@ -243,6 +243,7 @@ export function ColorRules({ value, onChange, properties }: ColorRulesProps) {
       </div>
       <div className="bsh-color-rules__presets">
         <Select
+          className="bsh-select"
           aria-label="Preset"
           value=""
           onChange={(event) => {

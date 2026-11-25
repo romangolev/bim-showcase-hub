@@ -20,6 +20,7 @@ import {
 import { FieldLabel } from '../ui/Field.js';
 import { Input } from '../ui/Input.js';
 import { Select, SelectOption } from '../ui/Select.js';
+import { Textarea } from '../ui/Textarea.js';
 import {
   blobToDataUrl,
   collectReport,
@@ -206,7 +207,7 @@ function ReportDialog({ initial, onPrint, onClose }: ReportDialogProps) {
         </FieldLabel>
         <FieldLabel layout="row">
           <span>Notes</span>
-          <textarea
+          <Textarea
             rows={3}
             value={options.notes}
             maxLength={REPORT_NOTES_MAX}

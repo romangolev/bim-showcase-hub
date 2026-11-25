@@ -54,7 +54,27 @@ Every modal is the `Dialog` primitive (`ui/Dialog.tsx`): a native `<dialog>` ope
 
 The main Settings window is two parts (`settings/SettingsShell.tsx`, `.settings-nav`): a vertical tab list of sections on the left and the selected section's options on the right, in a fixed-size `xl` dialog so it does not jump between sections. In the stacked layout it shows the section list first and a section opens with a Back button. The list is the `Tabs` primitive, vertical: the selected tab uses the tree row highlight (ghost fill and a signal-blue start bar) and `Highlight` under forced colours. Sections come from `registerSettingsSection` (`settings/settingsSections.ts`), never from the shell.
 
-Every settings window body is a `.settings` block of `.settings__section` groups (a `fieldset` with a `legend.settings__heading` where the controls form a group). A field is a `.settings__field` row: label on the left, control on the right, hint under the control; below 32rem of window width the row stacks. On and off settings use `SwitchRow` (label and hint on the left, switch on the right). Buttons are `Button` in a `.settings__actions` row, and lists of rows (saved items, overrides, grouping levels) use `ItemList` and `ItemRow`, whose rows wrap on narrow widths. Inputs and selects outside a settings window use the same `.field` style. Do not use the pane label wrapper `.bsh-field` inside a settings window. The in-viewer badge (`.bsh-viewer-badge`) is for Share results only. Slow work reports in the Task Center.
+Every settings window body is a `.settings` block of `.settings__section` groups (a `fieldset` with a `legend.settings__heading` where the controls form a group). A field is a `Field` with `layout="row"` (`SettingsField` wraps it): label on the left, control on the right, hint under the control; below 32rem of window width the row stacks. On and off settings use `SwitchRow` (label and hint on the left, `Switch` on the right). Buttons are `Button` in a `.settings__actions` row, and lists of rows (saved items, overrides, grouping levels) use `ItemList` and `ItemRow`, whose rows wrap on narrow widths. Inputs and selects outside a settings window are the same `Input` and `Select` primitives. Do not use the quiet pane label (`variant="quiet"`) inside a settings window. The in-viewer badge (`.bsh-viewer-badge`) is for Share results only. Slow work reports in the Task Center.
+
+### Form controls
+
+Form controls are primitives in `src/web/ui/`, and each one is a styled native element, so roles, accessible names, label clicks, the keyboard and form behaviour are the browser's own.
+
+| Primitive | Element | Value API |
+|---|---|---|
+| `Input`, `Textarea` | `input`, `textarea` | native `value` and `onChange` |
+| `NumberField` | `input type="number"` | `value`, `min`, `max`, `onValueCommitted` (a whole clamped number, on blur or Enter) |
+| `Select`, `SelectOption` | `select`, `option` | `value`, `onValueChange(value)` |
+| `Checkbox`, `Switch` | `input type="checkbox"` (the switch has `role="switch"`) | `checked`, `onCheckedChange(checked)` |
+| `Radio`, `RadioGroup` | `input type="radio"`, `fieldset` | the group takes `name`, `value`, `onValueChange(value)`; a radio alone takes native props |
+| `Slider` | `input type="range"` | `value`, `onValueChange(number)` |
+
+- `Field` lays a control out and wires it: `layout` is `stack`, `row` (the settings grid, columns from `--ui-field-label-min` and `--ui-field-label-max`), `inline`, `between` (the switch row) or `wrap`; `variant="quiet"` is the small pane label. Inside a `Field`, `FieldLabel` points at the control, and `FieldHint` and `FieldError` are added to its `aria-describedby`; `invalid` sets `aria-invalid`. `controlId` passes an id the caller already has.
+- A `FieldLabel` with a `layout` is itself the row and wraps its text and its control, as `<label>` did before. `FieldContent` and `FieldTitle` are the text column of a switch row.
+- Checked and disabled states are styled with `checked:` and `disabled:`; a controlled `Checkbox`, `Radio` or `Switch` also writes `data-checked`, which the forced-colours rule reads.
+- Colour and file inputs stay native `input` elements.
+- A width or a flex rule for a control is app CSS on `[data-slot="input"]`, `[data-slot="select"]` or `[data-slot="number-field"]` in its container (`.bsh-select` caps a pane select at 240px).
+- `noLabelWithoutControl` knows the primitives through `inputComponents` in `biome.json`.
 
 ### Display primitives
 
@@ -65,7 +85,7 @@ Every settings window body is a `.settings` block of `.settings__section` groups
 
 ## Tailwind and `src/web/ui`
 
-New UI is built from the components in `src/web/ui/`. They are shadcn/ui components on Base UI (`@base-ui/react`), styled with Tailwind v4 utilities. The `.field` and pane styles stay until each one is migrated; the migration status is the table in the design-system skill.
+New UI is built from the components in `src/web/ui/`. They are shadcn/ui components on Base UI (`@base-ui/react`), styled with Tailwind v4 utilities. Pane styles stay until each one is migrated; the migration status is the table in the design-system skill.
 
 - `src/web/styles/tailwind.css` imports only `tailwindcss/theme` and `tailwindcss/utilities`. There is no Preflight: `global.css` stays the base layer.
 - Cascade layers: `tokens.css` declares `@layer properties, theme, base, utilities, effects;` as the first line of the first stylesheet. The element rules of `global.css` (`button { font: inherit }`, `:focus-visible`, `body`) sit in `base`, the utilities in `utilities`, and every other app stylesheet is unlayered. So a primitive's utilities always beat the element rules, and an app class always beats a primitive's utilities, whatever order the chunks load in (pane CSS arrives in lazy chunks after the entry stylesheet). `e2e/bundle_size.py` checks this on the production build after `npm run build`.

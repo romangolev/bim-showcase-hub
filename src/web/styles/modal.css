@@ -179,7 +179,7 @@
   color: var(--color-snow);
 }
 
-:is(.settings__field, [data-slot="field"], [data-slot="field-label"])
+:is([data-slot="field"], [data-slot="field-label"])
   > :is([data-slot="button"], [data-slot="toggle-button"]) {
   justify-self: start;
 }
@@ -198,12 +198,6 @@
   color: var(--color-snow);
 }
 
-fieldset.settings__field {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1) var(--space-4);
-}
-
 .settings
   input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"]),
 .settings select,
@@ -217,10 +211,6 @@ fieldset.settings__field {
   background: var(--color-charcoal);
   color: var(--color-snow);
   font-size: var(--text-14);
-}
-
-.settings input[type="range"] {
-  min-height: var(--hit-target);
 }
 
 .settings input[type="number"] {
@@ -237,20 +227,10 @@ fieldset.settings__field {
   cursor: pointer;
 }
 
-.settings__check {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
 .settings__hint {
   font-size: var(--text-13);
   color: var(--color-ash);
   margin: 0;
-}
-
-.settings__field > .settings__hint {
-  grid-column: 2;
 }
 
 .settings__palette {
@@ -321,10 +301,6 @@ fieldset.settings__field {
 @container (max-width: 32rem) {
   .settings__field {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .settings__field > .settings__hint {
-    grid-column: 1;
   }
 }
 
