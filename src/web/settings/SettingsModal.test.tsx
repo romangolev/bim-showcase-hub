@@ -121,8 +121,18 @@ describe('SettingsBody', () => {
     expect(
       JSON.parse(window.localStorage.getItem('bsh-settings-v1') ?? '{}'),
     ).toMatchObject({ sessionWarnMinutes: 120 });
+    fireEvent.change(warn, { target: { value: '10.5' } });
+    fireEvent.blur(warn);
+    expect(
+      JSON.parse(window.localStorage.getItem('bsh-settings-v1') ?? '{}'),
+    ).toMatchObject({ sessionWarnMinutes: 10.5 });
     section('Documents');
     const recents = screen.getByLabelText('Recent models to list');
+    fireEvent.change(recents, { target: { value: '2.8' } });
+    fireEvent.blur(recents);
+    expect(
+      JSON.parse(window.localStorage.getItem('bsh-settings-v1') ?? '{}'),
+    ).toMatchObject({ recentsLength: 3 });
     fireEvent.change(recents, { target: { value: '99' } });
     fireEvent.blur(recents);
     expect(

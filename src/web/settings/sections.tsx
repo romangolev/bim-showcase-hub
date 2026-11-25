@@ -128,6 +128,7 @@ function GeneralSection() {
               id={id}
               min={0}
               max={120}
+              integer={false}
               value={settings.sessionWarnMinutes}
               onValueCommitted={(sessionWarnMinutes) =>
                 setSetting('sessionWarnMinutes', sessionWarnMinutes)
@@ -266,6 +267,7 @@ function DocumentsSection() {
               id={id}
               min={0}
               max={20}
+              round="nearest"
               value={settings.recentsLength}
               onValueCommitted={(recentsLength) =>
                 setSetting('recentsLength', recentsLength)

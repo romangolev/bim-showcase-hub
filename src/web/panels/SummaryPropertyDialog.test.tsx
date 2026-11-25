@@ -2,6 +2,7 @@ import { act, fireEvent, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   COUNT_COLUMN,
+  DEFAULT_PRECISION,
   MAX_SUMMARY_COLUMNS,
   summaryColumn,
 } from '../extensions/modelSummary.js';
@@ -168,6 +169,58 @@ describe('Add property dialog', () => {
     expect(onSubmit).toHaveBeenCalledWith({
       role: 'column',
       column: summaryColumn('Area', 'sum', { precision: 0 }),
+    });
+  });
+
+  it('submits the decimal places typed without waiting for a blur', () => {
+    const { onSubmit, box } = open();
+    pickTyped(box, 'Area');
+    fireEvent.change(box.getByLabelText('Aggregate'), {
+      target: { value: 'sum' },
+    });
+    fireEvent.change(box.getByLabelText('Decimal places'), {
+      target: { value: '4' },
+    });
+    fireEvent.click(box.getByRole('button', { name: 'Add property' }));
+    expect(onSubmit).toHaveBeenCalledWith({
+      role: 'column',
+      column: summaryColumn('Area', 'sum', { precision: 4 }),
+    });
+  });
+
+  it('submits the decimal places typed when Enter submits the form', () => {
+    const { onSubmit, box } = open();
+    pickTyped(box, 'Area');
+    fireEvent.change(box.getByLabelText('Aggregate'), {
+      target: { value: 'sum' },
+    });
+    const field = box.getByLabelText('Decimal places');
+    fireEvent.change(field, { target: { value: '4' } });
+    fireEvent.keyDown(field, { key: 'Enter' });
+    fireEvent.submit(field.closest('form') as HTMLFormElement);
+    expect(onSubmit).toHaveBeenCalledWith({
+      role: 'column',
+      column: summaryColumn('Area', 'sum', { precision: 4 }),
+    });
+  });
+
+  it('falls back to the default decimal places when the field is emptied', () => {
+    const { onSubmit, box } = open();
+    pickTyped(box, 'Area');
+    fireEvent.change(box.getByLabelText('Aggregate'), {
+      target: { value: 'sum' },
+    });
+    const field = box.getByLabelText('Decimal places');
+    fireEvent.change(field, { target: { value: '1' } });
+    fireEvent.blur(field);
+    fireEvent.change(field, { target: { value: '' } });
+    fireEvent.blur(field);
+    fireEvent.click(box.getByRole('button', { name: 'Add property' }));
+    expect(onSubmit).toHaveBeenCalledWith({
+      role: 'column',
+      column: summaryColumn('Area', 'sum', {
+        precision: DEFAULT_PRECISION,
+      }),
     });
   });
 

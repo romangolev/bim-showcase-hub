@@ -112,17 +112,19 @@ function SummaryPropertyDialog({
     )?.category;
   const typed = query.trim().slice(0, MAX_PROPERTY_NAME);
   const numeric = NUMERIC_AGGREGATES.includes(aggregate);
-  const addition: SummaryAddition =
+  const precisionDraft = useRef(precision);
+  const buildAddition = (precisionValue: number): SummaryAddition =>
     role === 'rows'
       ? { role: 'rows', property: property.trim() }
       : {
           role: 'column',
           column: summaryColumn(property, aggregate, {
             title,
-            precision,
+            precision: precisionValue,
             unitLabel,
           }),
         };
+  const addition = buildAddition(precision);
   const problem = additionProblem(addition, rows, columns, editing);
   const generated = property.trim()
     ? columnTitle(summaryColumn(property, aggregate))
@@ -135,7 +137,7 @@ function SummaryPropertyDialog({
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (problem) return;
-    onSubmit(addition);
+    onSubmit(buildAddition(precisionDraft.current));
     onDone();
   };
 
@@ -321,7 +323,14 @@ function SummaryPropertyDialog({
                       min={0}
                       max={MAX_PRECISION}
                       value={precision}
-                      onValueCommitted={setPrecision}
+                      emptyValue={DEFAULT_PRECISION}
+                      onDraftChange={(next) => {
+                        precisionDraft.current = next ?? DEFAULT_PRECISION;
+                      }}
+                      onValueCommitted={(next) => {
+                        precisionDraft.current = next;
+                        setPrecision(next);
+                      }}
                     />
                   </FieldLabel>
                   <FieldLabel layout="row">

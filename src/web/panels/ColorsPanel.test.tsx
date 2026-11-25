@@ -139,4 +139,48 @@ describe('ColorsPanel', () => {
       'Mine copy',
     ]);
   });
+
+  it('keeps decimal thresholds in a range rule', async () => {
+    const adapter = await loadedMockAdapter();
+    COLORS_SETTINGS.write({
+      ...COLORS_SETTINGS.read(),
+      source: 'rules',
+      rules: {
+        rules: [
+          {
+            id: 'thickness',
+            property: 'Category',
+            op: 'range',
+            value: '',
+            min: null,
+            max: null,
+            color: '#ff0000',
+            label: 'Thickness',
+          },
+        ],
+        fallback: null,
+        ghostRest: false,
+      },
+    });
+    render(<ColorsPanel adapter={adapter} />);
+    const min = screen.getByLabelText('Min');
+    fireEvent.change(min, { target: { value: '0.5' } });
+    fireEvent.blur(min);
+    const max = screen.getByLabelText('Max');
+    fireEvent.change(max, { target: { value: '2.5' } });
+    fireEvent.blur(max);
+    expect(COLORS_SETTINGS.read().rules.rules[0]).toMatchObject({
+      min: 0.5,
+      max: 2.5,
+    });
+  });
+
+  it('keeps the top values an integer', async () => {
+    const adapter = await loadedMockAdapter();
+    render(<ColorsPanel adapter={adapter} />);
+    const top = screen.getByLabelText('Top values');
+    fireEvent.change(top, { target: { value: '6.8' } });
+    fireEvent.blur(top);
+    expect(COLORS_SETTINGS.read().spec.topN).toBe(6);
+  });
 });

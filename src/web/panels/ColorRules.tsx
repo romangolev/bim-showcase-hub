@@ -131,6 +131,7 @@ export function ColorRules({ value, onChange, properties }: ColorRulesProps) {
                     <NumberField
                       value={rule.min ?? 0}
                       min={Number.MIN_SAFE_INTEGER}
+                      integer={false}
                       onValueCommitted={(min) => update(rule.id, { min })}
                       className="bsh-number--narrow"
                     />
@@ -140,6 +141,7 @@ export function ColorRules({ value, onChange, properties }: ColorRulesProps) {
                     <NumberField
                       value={rule.max ?? 0}
                       min={Number.MIN_SAFE_INTEGER}
+                      integer={false}
                       onValueCommitted={(max) => update(rule.id, { max })}
                       className="bsh-number--narrow"
                     />
