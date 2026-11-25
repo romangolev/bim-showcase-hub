@@ -97,8 +97,6 @@
     outline-color: Highlight;
   }
 
-  .btn,
-  .icon-button,
   .menu__item[aria-checked="true"],
   .tree-row[data-selected="true"] {
     border: 1px solid ButtonText;
@@ -106,7 +104,6 @@
 
   .tree-row[data-selected="true"],
   .menu__item[aria-checked="true"],
-  .btn[aria-pressed="true"],
   .switch-row input[role="switch"]:checked {
     forced-color-adjust: none;
     background: Highlight;
@@ -115,8 +112,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .btn,
-  .icon-button,
   .switch-row input[role="switch"],
   .switch-row input[role="switch"]::before {
     transition: none;
