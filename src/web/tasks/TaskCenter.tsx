@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Icon } from '../components/icons.js';
 import { Button } from '../ui/Button.js';
 import { IconButton } from '../ui/IconButton.js';
@@ -79,22 +79,17 @@ export function TaskCenter({
 }) {
   const center = useTasks(store);
   const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
   const listId = useId();
   const failed = center.tasks.some((task) => task.state === 'failed');
   const warned = center.tasks.some((task) => task.state === 'warning');
 
   useEffect(() => {
-    if (center.tasks.length === 0) setOpen(false);
-  }, [center.tasks.length]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [open]);
+    if (center.tasks.length > 0) return;
+    setOpen(false);
+    if (!open || document.activeElement !== document.body) return;
+    rootRef.current?.focus();
+  }, [center.tasks.length, open]);
 
   useEffect(() => {
     if (center.announcement) notificationStore.announce(center.announcement);
@@ -104,7 +99,7 @@ export function TaskCenter({
   const shown = [...center.tasks].reverse();
 
   return (
-    <div className="task-center">
+    <div className="task-center" ref={rootRef} tabIndex={-1}>
       <NotificationHost store={notificationStore} />
       <Popover open={open} onOpenChange={(next) => setOpen(next)}>
         {center.tasks.length > 0 ? (

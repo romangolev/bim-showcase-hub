@@ -119,4 +119,19 @@ describe('TaskCenter', () => {
     fireEvent.click(outside);
     expect(screen.queryByRole('region', { name: 'Tasks' })).toBeNull();
   });
+
+  it('keeps focus in the top bar when the last task leaves the open list', () => {
+    const store = createTaskStore();
+    render(<TaskCenter store={store} />);
+    act(() => {
+      store.start({ label: 'Exporting' }).fail(new Error('offline'));
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Tasks' }));
+    expect(screen.getByRole('region', { name: 'Tasks' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss Exporting' }));
+    expect(screen.queryByRole('region', { name: 'Tasks' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Tasks' })).toBeNull();
+    expect(document.activeElement).not.toBe(document.body);
+    expect(document.activeElement?.closest('.task-center')).not.toBeNull();
+  });
 });
