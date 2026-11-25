@@ -127,7 +127,12 @@ export function applyCollapse(
     if (!active) continue;
     const axis =
       group.api.location.type === 'grid' ? splitAxisOf(json, group.id) : null;
-    const want = axis !== null && collapsed.includes(active);
+    const want =
+      axis !== null &&
+      group.panels.some((panel) => {
+        const kind = paneKind(panel.id);
+        return kind !== null && collapsed.includes(kind);
+      });
     const current = group.element.dataset.collapsed as
       | 'width'
       | 'height'

@@ -92,6 +92,46 @@ function toggled(list: PaneId[], id: PaneId, on: boolean): PaneId[] {
   return on ? [...list, id] : list.filter((entry) => entry !== id);
 }
 
+function groupViews(dock: SerializedDock, kind: PaneId): string[] | null {
+  const visit = (node: SerializedNode): string[] | null => {
+    if (node.type === 'leaf') {
+      const data = node.data;
+      return isRecord(data) &&
+        Array.isArray(data.views) &&
+        data.views.some((view) => paneKind(view) === kind)
+        ? (data.views as string[])
+        : null;
+    }
+    if (!Array.isArray(node.data)) return null;
+    for (const child of node.data as SerializedNode[]) {
+      const found = visit(child);
+      if (found) return found;
+    }
+    return null;
+  };
+  return visit(dock.grid.root);
+}
+
+export function groupKindsOf(
+  dock: SerializedDock | null,
+  id: PaneId,
+): PaneId[] {
+  const views = dock ? groupViews(dock, id) : null;
+  const kinds = (views ?? [id])
+    .map(paneKind)
+    .filter((kind): kind is PaneId => kind !== null);
+  return kinds.length > 0 ? kinds : [id];
+}
+
+export function isGroupCollapsed(
+  model: Pick<LayoutModel, 'dock' | 'collapsed'>,
+  id: PaneId,
+): boolean {
+  return groupKindsOf(model.dock, id).some((kind) =>
+    model.collapsed.includes(kind),
+  );
+}
+
 export function layoutReducer(
   model: LayoutModel,
   action: LayoutAction,
@@ -104,7 +144,10 @@ export function layoutReducer(
         ? { ...model, dock: action.dock, lastViewerArrangement: model.dock }
         : { ...model, dock: action.dock };
     case 'setCollapsed': {
-      const collapsed = toggled(model.collapsed, action.id, action.collapsed);
+      const collapsed = groupKindsOf(model.dock, action.id).reduce(
+        (list, kind) => toggled(list, kind, action.collapsed),
+        model.collapsed,
+      );
       return collapsed === model.collapsed ? model : { ...model, collapsed };
     }
     case 'dismiss': {

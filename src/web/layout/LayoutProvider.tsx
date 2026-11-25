@@ -66,6 +66,7 @@ import {
 import { shareLinkFor, shareParamIn } from './layoutShare.js';
 import {
   defaultModel,
+  isGroupCollapsed,
   LAYOUT_KEY,
   type LayoutModel,
   parseLayout,
@@ -575,7 +576,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
       mode,
       openPanes,
       isOpen: (id) => openPanes.includes(id),
-      isCollapsed: (id) => model.collapsed.includes(id),
+      isCollapsed: (id) => isGroupCollapsed(model, id),
       setCollapsed: lifecycle.setCollapsed,
       canAddInstance: view.canAddInstance,
       canPresent: view.canPresent,
