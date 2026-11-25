@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { MAX_COMBINED_MODELS } from '../../shared/combined.js';
@@ -11,6 +11,7 @@ import { Menu, type MenuEntry } from '../components/Menu.js';
 import type { ModelOpeners } from '../components/tree/useModelOpeners.js';
 import { pickLatest } from '../components/tree/versionPick.js';
 import { writeClipboard } from '../extensions/clipboard.js';
+import { DetachedUIStrings } from '../i18n/CatalogUIStrings.js';
 import {
   MAX_SET_MEMBERS,
   MODEL_SETS,
@@ -27,7 +28,13 @@ import { MAX_NAME_LENGTH } from '../store/savedStore.js';
 import { notify } from '../tasks/notifications.js';
 import { startTask } from '../tasks/taskStore.js';
 import { Button } from '../ui/Button.js';
-import { IconButton } from '../ui/IconButton.js';
+import {
+  Dialog,
+  DialogBody,
+  DialogClose,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/Dialog.js';
 import { openableUrn } from '../viewer/openLimits.js';
 import type { VersionTarget } from './versionHistory.js';
 
@@ -81,14 +88,7 @@ function SaveSetDialog({
   drafts: readonly ModelSetDraft[];
   onDone: () => void;
 }) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
-  const titleId = useId();
   const [name, setName] = useState('');
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (dialog && !dialog.open) dialog.showModal();
-  }, []);
 
   const save = () => {
     const trimmed = name.trim();
@@ -104,50 +104,40 @@ function SaveSetDialog({
   };
 
   return (
-    <dialog
-      ref={dialogRef}
-      className="modal modal--sm"
-      aria-labelledby={titleId}
-      onClose={onDone}
-    >
-      <div className="modal__panel">
-        <header className="modal__head">
-          <h2 id={titleId} className="modal__title">
+    <Dialog size="sm" onClose={onDone}>
+      <DialogHeader>
+        <DialogTitle>Save model set</DialogTitle>
+        <DialogClose>
+          <Icon name="close" size={16} />
+        </DialogClose>
+      </DialogHeader>
+      <DialogBody>
+        <label className="bsh-field">
+          <span>Model set name</span>
+          <input
+            type="text"
+            className="field"
+            aria-label="Model set name"
+            placeholder="Name this model set"
+            maxLength={MAX_NAME_LENGTH}
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') save();
+            }}
+          />
+        </label>
+        <p className="settings__hint">
+          {plural(Math.min(drafts.length, MAX_SET_MEMBERS), 'model')} in the set
+        </p>
+        <div className="bsh-presets">
+          <Button onClick={onDone}>Cancel</Button>
+          <Button disabled={!name.trim()} onClick={save}>
             Save model set
-          </h2>
-          <IconButton label="Close" onClick={onDone}>
-            <Icon name="close" size={16} />
-          </IconButton>
-        </header>
-        <div className="modal__body">
-          <label className="bsh-field">
-            <span>Model set name</span>
-            <input
-              type="text"
-              className="field"
-              aria-label="Model set name"
-              placeholder="Name this model set"
-              maxLength={MAX_NAME_LENGTH}
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') save();
-              }}
-            />
-          </label>
-          <p className="settings__hint">
-            {plural(Math.min(drafts.length, MAX_SET_MEMBERS), 'model')} in the
-            set
-          </p>
-          <div className="bsh-presets">
-            <Button onClick={onDone}>Cancel</Button>
-            <Button disabled={!name.trim()} onClick={save}>
-              Save model set
-            </Button>
-          </div>
+          </Button>
         </div>
-      </div>
-    </dialog>
+      </DialogBody>
+    </Dialog>
   );
 }
 
@@ -164,7 +154,13 @@ export function saveModelSetPrompt(models: readonly ModelSetDraft[]): void {
     root.unmount();
     host.remove();
   };
-  flushSync(() => root.render(<SaveSetDialog drafts={drafts} onDone={done} />));
+  flushSync(() =>
+    root.render(
+      <DetachedUIStrings>
+        <SaveSetDialog drafts={drafts} onDone={done} />
+      </DetachedUIStrings>,
+    ),
+  );
 }
 
 function RenameField({

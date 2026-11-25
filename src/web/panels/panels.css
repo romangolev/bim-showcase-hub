@@ -1720,6 +1720,10 @@ button.bsh-kpi:focus-visible {
   font-size: var(--text-13);
 }
 
+.bsh-add-property__form {
+  display: contents;
+}
+
 .bsh-add-property__body {
   display: grid;
   gap: var(--space-3);

@@ -33,8 +33,15 @@ import { groupCatalog } from '../viewer/propertyCatalog.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { usePropertyCatalog } from './usePropertyCatalog.js';
 import './panels.css';
+import { DetachedUIStrings } from '../i18n/CatalogUIStrings.js';
 import { Button, buttonClasses } from '../ui/Button.js';
-import { IconButton } from '../ui/IconButton.js';
+import {
+  Dialog,
+  DialogBody,
+  DialogClose,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/Dialog.js';
 
 export interface SummaryPropertyOptions {
   adapter: ViewerAdapter | null;
@@ -65,10 +72,8 @@ function SummaryPropertyDialog({
   onSubmit,
   onDone,
 }: SummaryPropertyOptions & { onDone: () => void }) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const uid = useId();
-  const titleId = `${uid}-title`;
   const problemId = `${uid}-problem`;
   const start = editing?.role === 'column' ? editing.column : null;
   const [role, setRole] = useState<SummaryAddition['role']>(
@@ -127,8 +132,6 @@ function SummaryPropertyDialog({
     : 'Column title';
 
   useEffect(() => {
-    const dialog = dialogRef.current;
-    if (dialog && !dialog.open) dialog.showModal();
     searchRef.current?.focus();
   }, []);
 
@@ -140,10 +143,8 @@ function SummaryPropertyDialog({
   };
 
   return (
-    <dialog
-      ref={dialogRef}
-      className="modal bsh-add-property"
-      aria-labelledby={titleId}
+    <Dialog
+      className="bsh-add-property"
       onClose={onDone}
       onKeyDown={(event) => {
         if (event.key !== 'Escape') return;
@@ -151,16 +152,16 @@ function SummaryPropertyDialog({
         onDone();
       }}
     >
-      <form className="modal__panel" noValidate onSubmit={submit}>
-        <header className="modal__head">
-          <h2 id={titleId} className="modal__title">
+      <form className="bsh-add-property__form" noValidate onSubmit={submit}>
+        <DialogHeader>
+          <DialogTitle>
             {editing ? 'Edit property' : 'Add property'}
-          </h2>
-          <IconButton label="Close" onClick={onDone}>
+          </DialogTitle>
+          <DialogClose>
             <Icon name="close" size={16} />
-          </IconButton>
-        </header>
-        <div className="modal__body bsh-add-property__body">
+          </DialogClose>
+        </DialogHeader>
+        <DialogBody className="bsh-add-property__body">
           <label className="bsh-field">
             <span>Search properties</span>
             <input
@@ -363,9 +364,9 @@ function SummaryPropertyDialog({
               {editing ? 'Save' : 'Add property'}
             </Button>
           </div>
-        </div>
+        </DialogBody>
       </form>
-    </dialog>
+    </Dialog>
   );
 }
 
@@ -405,6 +406,10 @@ export function promptSummaryProperty(options: SummaryPropertyOptions): void {
     if (opener?.isConnected) opener.focus();
   };
   flushSync(() =>
-    root.render(<SummaryPropertyDialog {...options} onDone={done} />),
+    root.render(
+      <DetachedUIStrings>
+        <SummaryPropertyDialog {...options} onDone={done} />
+      </DetachedUIStrings>,
+    ),
   );
 }
