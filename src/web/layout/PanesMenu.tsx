@@ -284,9 +284,7 @@ export function PanesMenu() {
       >
         <MenuTrigger
           ref={triggerRef}
-          render={
-            <IconButton label={t('panes.title')} title={t('panes.title')} />
-          }
+          render={<IconButton label={t('panes.title')} tooltip />}
         >
           <Icon name="dock" size={18} />
         </MenuTrigger>

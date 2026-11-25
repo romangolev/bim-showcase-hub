@@ -1,8 +1,9 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { Icon } from '../components/icons.js';
 import { Button } from '../ui/Button.js';
 import { IconButton } from '../ui/IconButton.js';
 import { List, ListItem } from '../ui/List.js';
+import { Popover, PopoverPopup, PopoverTrigger } from '../ui/Popover.js';
 import { Progress } from '../ui/Progress.js';
 import { Spinner } from '../ui/Spinner.js';
 import { NotificationHost } from './NotificationHost.js';
@@ -78,25 +79,21 @@ export function TaskCenter({
 }) {
   const center = useTasks(store);
   const [open, setOpen] = useState(false);
-  const root = useRef<HTMLDivElement>(null);
   const listId = useId();
   const failed = center.tasks.some((task) => task.state === 'failed');
   const warned = center.tasks.some((task) => task.state === 'warning');
 
   useEffect(() => {
+    if (center.tasks.length === 0) setOpen(false);
+  }, [center.tasks.length]);
+
+  useEffect(() => {
     if (!open) return;
-    const onPointer = (event: PointerEvent) => {
-      if (!root.current?.contains(event.target as Node)) setOpen(false);
-    };
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setOpen(false);
     };
-    document.addEventListener('pointerdown', onPointer);
     document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('pointerdown', onPointer);
-      document.removeEventListener('keydown', onKey);
-    };
+    return () => document.removeEventListener('keydown', onKey);
   }, [open]);
 
   useEffect(() => {
@@ -107,56 +104,57 @@ export function TaskCenter({
   const shown = [...center.tasks].reverse();
 
   return (
-    <div className="task-center" ref={root}>
+    <div className="task-center">
       <NotificationHost store={notificationStore} />
-      {center.tasks.length > 0 ? (
-        <IconButton
-          className="task-center__trigger"
-          label={
-            center.running > 0 ? `Tasks, ${center.running} running` : 'Tasks'
-          }
-          aria-expanded={open}
-          aria-controls={listId}
-          data-failed={failed}
-          data-warning={warned && !failed}
-          onClick={() => setOpen((value) => !value)}
-        >
-          {center.running > 0 ? (
-            <Spinner size={18} />
-          ) : (
-            <Icon name={failed || warned ? 'alert' : 'check'} size={18} />
-          )}
-          {center.running > 0 ? (
-            <span className="task-center__count" aria-hidden="true">
-              {center.running}
-            </span>
-          ) : null}
-        </IconButton>
-      ) : null}
-      {open && center.tasks.length > 0 ? (
-        <section
-          id={listId}
-          className="task-center__popover"
-          aria-label="Tasks"
-        >
-          <List className="task-center__list">
-            {shown.map((task) => (
-              <TaskRow
-                key={task.id}
-                task={task}
-                onCancel={() => center.cancel(task.id)}
-                onRetry={() => center.retry(task.id)}
-                onDismiss={() => center.dismiss(task.id)}
+      <Popover open={open} onOpenChange={(next) => setOpen(next)}>
+        {center.tasks.length > 0 ? (
+          <PopoverTrigger
+            render={
+              <IconButton
+                className="task-center__trigger"
+                label={
+                  center.running > 0
+                    ? `Tasks, ${center.running} running`
+                    : 'Tasks'
+                }
+                data-failed={failed}
+                data-warning={warned && !failed}
               />
-            ))}
-          </List>
-          {finished.length > 0 ? (
-            <Button size="small" onClick={center.clearFinished}>
-              Clear finished
-            </Button>
-          ) : null}
-        </section>
-      ) : null}
+            }
+          >
+            {center.running > 0 ? (
+              <Spinner size={18} />
+            ) : (
+              <Icon name={failed || warned ? 'alert' : 'check'} size={18} />
+            )}
+            {center.running > 0 ? (
+              <span className="task-center__count" aria-hidden="true">
+                {center.running}
+              </span>
+            ) : null}
+          </PopoverTrigger>
+        ) : null}
+        <PopoverPopup className="task-center__popover">
+          <section id={listId} aria-label="Tasks">
+            <List className="task-center__list">
+              {shown.map((task) => (
+                <TaskRow
+                  key={task.id}
+                  task={task}
+                  onCancel={() => center.cancel(task.id)}
+                  onRetry={() => center.retry(task.id)}
+                  onDismiss={() => center.dismiss(task.id)}
+                />
+              ))}
+            </List>
+            {finished.length > 0 ? (
+              <Button size="small" onClick={center.clearFinished}>
+                Clear finished
+              </Button>
+            ) : null}
+          </section>
+        </PopoverPopup>
+      </Popover>
     </div>
   );
 }

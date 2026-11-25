@@ -95,7 +95,12 @@ describe('TaskCenter', () => {
 
   it('closes on Escape and on an outside press', () => {
     const store = createTaskStore();
-    render(<TaskCenter store={store} />);
+    render(
+      <>
+        <TaskCenter store={store} />
+        <button type="button">Outside</button>
+      </>,
+    );
     act(() => {
       store.start({ label: 'A' });
     });
@@ -108,7 +113,10 @@ describe('TaskCenter', () => {
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.queryByRole('region', { name: 'Tasks' })).toBeNull();
     fireEvent.click(trigger);
-    fireEvent.pointerDown(document.body);
+    const outside = screen.getByRole('button', { name: 'Outside' });
+    fireEvent.pointerDown(outside);
+    fireEvent.mouseDown(outside);
+    fireEvent.click(outside);
     expect(screen.queryByRole('region', { name: 'Tasks' })).toBeNull();
   });
 });

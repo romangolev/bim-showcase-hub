@@ -70,7 +70,7 @@ export function TopBar({
         {user ? (
           <IconButton
             label={t('topbar.settings')}
-            title={t('topbar.settings')}
+            tooltip
             onClick={() => modal.open('settings')}
           >
             <Icon name="settings" size={18} />

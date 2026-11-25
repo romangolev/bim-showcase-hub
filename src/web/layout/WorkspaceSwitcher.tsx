@@ -251,7 +251,7 @@ export function WorkspaceSwitcher() {
       >
         <PopoverTrigger
           ref={triggerRef}
-          render={<IconButton label="Workspaces" title="Workspaces" />}
+          render={<IconButton label="Workspaces" tooltip />}
           onKeyDown={(event) => {
             if (open || event.key !== 'ArrowDown') return;
             event.preventDefault();

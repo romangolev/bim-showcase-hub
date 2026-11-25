@@ -800,12 +800,6 @@
   content: "";
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .panes-menu__command {
-    transition: none;
-  }
-}
-
 html[data-presenting] .topbar,
 html[data-presenting] .session-banner,
 html[data-presenting] .dv-tabs-and-actions-container,
@@ -907,19 +901,13 @@ html[data-presenting] .stack .stack__pane--viewer .model-viewer {
 }
 
 .task-center__popover {
-  position: absolute;
-  top: calc(100% + var(--space-1));
-  right: 0;
-  z-index: var(--z-popover);
-  display: flex;
   width: min(360px, calc(100vw - 2 * var(--space-4)));
+}
+
+.task-center__popover > section {
+  display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  padding: var(--space-2);
-  border: var(--border-hairline);
-  border-radius: var(--radius-card);
-  background: var(--color-graphite);
-  box-shadow: var(--shadow-float);
 }
 
 .task-center__list {

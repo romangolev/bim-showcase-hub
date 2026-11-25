@@ -123,6 +123,13 @@
   display: none;
 }
 
+.stack__tree-body {
+  height: auto;
+  padding: 0;
+  overflow: visible;
+  border-top: 0;
+}
+
 .stack .model-viewer {
   flex: none;
   height: max(360px, 55vh);
