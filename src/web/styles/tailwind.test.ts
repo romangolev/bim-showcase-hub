@@ -77,14 +77,51 @@ describe('cn', () => {
   });
 });
 
+const PALETTE = [
+  ...new Set(
+    [...tokens.matchAll(/--color-([a-z-]+)\s*:/g)].map(
+      (match) => match[1] as string,
+    ),
+  ),
+];
+const COLOR_PREFIXES =
+  'bg|text|border|border-[stbexy]|outline|ring|fill|stroke|decoration|accent|caret|divide|placeholder|from|via|to';
+const PALETTE_UTILITY = new RegExp(
+  `(?<![\\w-])(${COLOR_PREFIXES})-(${PALETTE.join('|')})(?![\\w-])`,
+);
+const PHYSICAL_UTILITY =
+  /(?<![\w-])-?((p|m|scroll-p|scroll-m|border-|rounded-|rounded-[tb])[lr]|left|right)(-[\w./]+)?(?![\w-])|(?<![\w-])(text|float|clear)-(left|right)(?![\w-])/;
+const LITERAL_ATTRIBUTE = /\b(aria-label|title|placeholder|alt)="[^"]/;
+const LITERAL_TEXT = />\s*[A-Za-z][A-Za-z ,.'!?:-]*\s*<\//;
+
+const UI_LINTS: [string, RegExp, string[]][] = [
+  ['a hex colour', /#[0-9a-f]{3,8}\b/i, ['text-#fff']],
+  ['an arbitrary value', /-\[[^\]]+\]/, ['p-[3px]']],
+  ['a palette utility', PALETTE_UTILITY, ['bg-graphite', 'hover:text-snow']],
+  [
+    'a physical utility',
+    PHYSICAL_UTILITY,
+    ['pl-2', '-mr-1', 'left-0', 'text-right', 'border-l', 'rounded-tl-control'],
+  ],
+  ['a literal attribute', LITERAL_ATTRIBUTE, ['<button aria-label="Close" />']],
+  ['a literal text node', LITERAL_TEXT, ['<span>Close</span>']],
+];
+const GOOD =
+  '<span className="bg-surface text-fg border-line ps-2 -me-1 start-0 text-start rounded-s-control data-highlighted:bg-fill">{label}</span>';
+
 describe('src/web/ui', () => {
-  it('uses no hex colour and no arbitrary value', () => {
-    const files = readdirSync('src/web/ui').filter(
-      (file) => file.endsWith('.tsx') && !file.includes('.test.'),
-    );
-    for (const file of files) {
-      const source = readFileSync(`src/web/ui/${file}`, 'utf8');
-      expect(source, file).not.toMatch(/#[0-9a-f]{3,8}\b|-\[[^\]]+\]/i);
-    }
-  });
+  const files = readdirSync('src/web/ui').filter(
+    (file) => file.endsWith('.tsx') && !file.includes('.test.'),
+  );
+
+  for (const [what, pattern, bad] of UI_LINTS) {
+    it(`has no file with ${what}`, () => {
+      for (const sample of bad) expect(sample).toMatch(pattern);
+      expect(GOOD).not.toMatch(pattern);
+      for (const file of files) {
+        const source = readFileSync(`src/web/ui/${file}`, 'utf8');
+        expect(source, file).not.toMatch(pattern);
+      }
+    });
+  }
 });
