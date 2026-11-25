@@ -1,6 +1,6 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
 import { StrictMode, useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen } from '../test/render.js';
 import { ModalProvider, useModal } from './index.js';
 import type { ModalDefinition } from './types.js';
 

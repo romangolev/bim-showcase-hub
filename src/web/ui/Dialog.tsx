@@ -68,7 +68,11 @@ export function Dialog({
 
   useEffect(() => {
     const dialog = dialogRef.current;
-    if (!dialog || !open) return;
+    if (!dialog) return;
+    if (!open) {
+      if (dialog.open) dialog.close();
+      return;
+    }
     let pressedOnDialog = false;
     const onPress = (event: MouseEvent) => {
       pressedOnDialog = event.target === dialog;
@@ -89,7 +93,6 @@ export function Dialog({
       dialog.removeEventListener('mousedown', onPress);
       dialog.removeEventListener('click', onBackdropClick);
       dialog.removeEventListener('close', onNativeClose);
-      if (dialog.open) dialog.close();
       openerRef.current?.focus();
     };
   }, [open]);

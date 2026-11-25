@@ -1,6 +1,6 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { installMemoryStorage } from '../test/mockApi.js';
+import { fireEvent, render, screen, within } from '../test/render.js';
 import { type LayoutApi, LayoutContext } from './layoutContext.js';
 import { defaultModel } from './layoutState.js';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher.js';

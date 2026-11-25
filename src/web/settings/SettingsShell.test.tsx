@@ -1,8 +1,8 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { appCommands } from '../commands/appCommandList.js';
 import { ModalProvider, useModal } from '../modal/ModalContext.js';
 import { installMemoryStorage } from '../test/mockApi.js';
+import { act, fireEvent, render, screen } from '../test/render.js';
 import { ThemeProvider } from '../theme/ThemeContext.js';
 import { TOOLS } from '../tools/index.js';
 import {

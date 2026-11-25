@@ -189,7 +189,7 @@ TABS_CUT = """() => [...document.querySelectorAll('.dv-tabs-container')].flatMap
 })"""
 
 DIALOG_OVERFLOW = """() => {
-  const body = document.querySelector('dialog[open] .modal__body');
+  const body = document.querySelector('dialog[open] [data-slot=dialog-body]');
   return body ? body.scrollWidth - body.clientWidth : 0;
 }"""
 
@@ -198,14 +198,14 @@ STRUCTURE = """() => {
   if (!dialog) return null;
   const pick = (el, keys) => { const s = getComputedStyle(el); return keys.map((k) => s[k]).join(' '); };
   const sig = (selector, keys) => [...new Set([...dialog.querySelectorAll(selector)].filter((el) => el.getBoundingClientRect().height > 0).map((el) => pick(el, keys)))];
-  const body = dialog.querySelector('.modal__body > *');
+  const body = dialog.querySelector('[data-slot=dialog-body] > *');
   return {
     headings: sig('h3, legend', ['fontSize', 'fontWeight', 'color']),
     labels: sig('label, .switch-row__label', ['fontSize', 'color']),
     hints: sig('.settings__hint, .switch-row__hint, .bsh-muted, small', ['fontSize', 'color']),
     selects: sig('select', ['height', 'borderRadius', 'backgroundColor', 'fontSize']),
     textInputs: sig('input[type=text], input[type=number], input[type=search], input:not([type])', ['height', 'borderRadius', 'backgroundColor', 'fontSize']),
-    buttons: sig('.modal__body button:not([role=switch]):not([role=tab])', ['height', 'borderRadius', 'backgroundColor', 'fontSize', 'fontWeight']),
+    buttons: sig('[data-slot=dialog-body] button:not([role=switch]):not([role=tab])', ['height', 'borderRadius', 'backgroundColor', 'fontSize', 'fontWeight']),
     sectionGap: body ? getComputedStyle(body).rowGap : '',
     classes: [...new Set([...dialog.querySelectorAll('[class]')].flatMap((el) => [...el.classList]).filter((c) => /^(settings|bsh-|btn|field|switch-row|item-list|inline-action)/.test(c)))].sort(),
   };
@@ -263,7 +263,7 @@ def measure(page, scope, label, results, shots, focus_stops=0):
     results[label] = entry
 
 
-UNCLAMP = "dialog[open], dialog[open] .modal__panel { max-height: none !important; }"
+UNCLAMP = "dialog[open] { max-height: none !important; }"
 
 
 def full_dialog(page, path):

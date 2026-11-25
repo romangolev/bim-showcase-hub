@@ -76,7 +76,7 @@
   gap: var(--space-4);
 }
 
-.modal__body:has(> .settings-nav) {
+[data-slot="dialog-body"]:has(> .settings-nav) {
   flex: 1;
   min-height: 0;
   padding: 0;
