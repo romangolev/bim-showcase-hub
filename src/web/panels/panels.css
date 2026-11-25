@@ -845,7 +845,7 @@ select.field,
   gap: var(--space-2);
 }
 
-.bsh-props__tools .field {
+.bsh-props__tools :is([data-slot="input"], [data-slot="select"]) {
   flex: 1;
   min-width: 8rem;
 }
@@ -876,32 +876,35 @@ select.field,
   cursor: pointer;
 }
 
-.bsh-props__list {
-  margin: 0;
+.bsh-props__table {
+  width: 100%;
+  margin-bottom: var(--space-2);
 }
 
-.bsh-props__row {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) auto;
-  align-items: baseline;
-  gap: var(--space-2);
-  padding: var(--space-1) 0;
-  border-bottom: var(--border-hairline);
-  font-size: var(--text-13);
-}
-
-.bsh-props__row dt {
-  color: var(--color-ash);
+.bsh-props__key-cell {
+  width: 40%;
+  text-align: left;
+  white-space: normal;
   overflow-wrap: anywhere;
 }
 
-.bsh-props__row dd {
-  margin: 0;
-  color: var(--color-chalk);
+.bsh-props__value-cell {
+  white-space: normal;
+}
+
+.bsh-props__value-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.bsh-props__value {
   overflow-wrap: anywhere;
 }
 
 .bsh-props__copy {
+  flex: none;
   min-height: var(--hit-target);
   padding: 0 var(--space-2);
   background: none;
@@ -912,7 +915,7 @@ select.field,
   opacity: 0;
 }
 
-.bsh-props__row:hover .bsh-props__copy,
+.bsh-props__table tr:hover .bsh-props__copy,
 .bsh-props__copy:focus-visible {
   opacity: 1;
 }
