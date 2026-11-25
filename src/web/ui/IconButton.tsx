@@ -1,5 +1,6 @@
 import { Button as ButtonPrimitive } from '@base-ui/react/button';
 import { cn } from './cn.js';
+import { Tooltip, TooltipPopup, TooltipTrigger } from './Tooltip.js';
 import type { CommonProps } from './types.js';
 
 export const iconButtonClasses =
@@ -9,15 +10,16 @@ export type IconButtonProps = Omit<
   ButtonPrimitive.Props,
   'className' | 'aria-label'
 > &
-  CommonProps & { label: string };
+  CommonProps & { label: string; tooltip?: boolean };
 
 export function IconButton({
   className,
   effect,
   label,
+  tooltip = false,
   ...props
 }: IconButtonProps) {
-  return (
+  const button = (
     <ButtonPrimitive
       {...props}
       aria-label={label}
@@ -25,5 +27,12 @@ export function IconButton({
       data-effect={effect}
       className={cn(iconButtonClasses, className)}
     />
+  );
+  if (!tooltip) return button;
+  return (
+    <Tooltip>
+      <TooltipTrigger render={button} />
+      <TooltipPopup>{label}</TooltipPopup>
+    </Tooltip>
   );
 }

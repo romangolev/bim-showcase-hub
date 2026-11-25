@@ -23,7 +23,14 @@ import {
   MenuSeparator,
   MenuTrigger,
 } from './Menu.js';
+import {
+  Popover,
+  PopoverPopup,
+  PopoverTitle,
+  PopoverTrigger,
+} from './Popover.js';
 import { ToggleButton } from './ToggleButton.js';
+import { Tooltip, TooltipPopup, TooltipTrigger } from './Tooltip.js';
 
 interface ContractProps {
   className: string;
@@ -120,6 +127,54 @@ const ENTRIES: Entry[] = [
           </MenuGroup>
         </MenuPopup>
       </Menu>
+    ),
+  },
+  {
+    file: 'Popover',
+    slot: 'popover-trigger',
+    render: (props) => (
+      <Popover>
+        <PopoverTrigger {...props}>label</PopoverTrigger>
+      </Popover>
+    ),
+  },
+  {
+    file: 'Popover',
+    slot: 'popover-popup',
+    render: (props) => (
+      <Popover open>
+        <PopoverPopup {...props} />
+      </Popover>
+    ),
+  },
+  {
+    file: 'Popover',
+    slot: 'popover-title',
+    render: (props) => (
+      <Popover open>
+        <PopoverPopup>
+          <PopoverTitle {...props}>label</PopoverTitle>
+        </PopoverPopup>
+      </Popover>
+    ),
+  },
+  {
+    file: 'Tooltip',
+    slot: 'tooltip-trigger',
+    render: (props) => (
+      <Tooltip>
+        <TooltipTrigger {...props}>label</TooltipTrigger>
+      </Tooltip>
+    ),
+  },
+  {
+    file: 'Tooltip',
+    slot: 'tooltip-popup',
+    render: (props) => (
+      <Tooltip open>
+        <TooltipTrigger>label</TooltipTrigger>
+        <TooltipPopup {...props}>label</TooltipPopup>
+      </Tooltip>
     ),
   },
   {

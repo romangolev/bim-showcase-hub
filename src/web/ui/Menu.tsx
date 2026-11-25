@@ -1,32 +1,21 @@
 import { Menu as MenuPrimitive } from '@base-ui/react/menu';
-import {
-  type ComponentProps,
-  createContext,
-  type ReactNode,
-  useContext,
-  useMemo,
-  useState,
-} from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { cn } from './cn.js';
-import { topLayerContainer } from './topLayer.js';
+import {
+  TriggerScope,
+  usePopupContainer,
+  useTriggerRef,
+  useTriggerScopeValue,
+} from './topLayer.js';
 import type { CommonProps } from './types.js';
-
-interface MenuContextValue {
-  trigger: HTMLElement | null;
-  setTrigger: (node: HTMLElement | null) => void;
-}
-
-const MenuContext = createContext<MenuContextValue | null>(null);
 
 export type MenuProps = MenuPrimitive.Root.Props;
 
 export function Menu(props: MenuProps) {
-  const [trigger, setTrigger] = useState<HTMLElement | null>(null);
-  const value = useMemo(() => ({ trigger, setTrigger }), [trigger]);
   return (
-    <MenuContext.Provider value={value}>
+    <TriggerScope.Provider value={useTriggerScopeValue()}>
       <MenuPrimitive.Root {...props} />
-    </MenuContext.Provider>
+    </TriggerScope.Provider>
   );
 }
 
@@ -39,15 +28,11 @@ export function MenuTrigger({
   ref,
   ...props
 }: MenuTriggerProps) {
-  const context = useContext(MenuContext);
+  const triggerRef = useTriggerRef(ref);
   return (
     <MenuPrimitive.Trigger
       {...props}
-      ref={(node: HTMLElement | null) => {
-        context?.setTrigger(node);
-        if (typeof ref === 'function') ref(node as never);
-        else if (ref) (ref as { current: unknown }).current = node;
-      }}
+      ref={triggerRef}
       data-slot={props.render ? undefined : 'menu-trigger'}
       data-effect={effect}
       className={className}
@@ -78,11 +63,9 @@ export function MenuPopup({
   sideOffset = 4,
   ...props
 }: MenuPopupProps) {
-  const context = useContext(MenuContext);
+  const host = usePopupContainer(container);
   return (
-    <MenuPrimitive.Portal
-      container={container ?? topLayerContainer(context?.trigger ?? null)}
-    >
+    <MenuPrimitive.Portal container={host}>
       <MenuPrimitive.Positioner
         anchor={anchor}
         side={side}
