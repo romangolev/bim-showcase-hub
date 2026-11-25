@@ -64,7 +64,9 @@ describe('ModelsPanel', () => {
     expect(screen.getAllByRole('img', { name: 'Ready' })).toHaveLength(2);
     expect(screen.getByRole('img', { name: 'Failed' })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Hide urn-a' }));
+    const hide = screen.getByRole('button', { name: 'Hide urn-a' });
+    expect(hide).not.toHaveAttribute('aria-pressed');
+    fireEvent.click(hide);
     await waitFor(() =>
       expect(adapter.getModels().find((m) => m.id === 'urn-a')?.visible).toBe(
         false,

@@ -232,7 +232,6 @@ export function ModelsPanel({
                   <IconButton
                     label={`${model.visible ? 'Hide' : 'Show'} ${model.name}`}
                     tooltip
-                    aria-pressed={model.visible}
                     disabled={model.status !== 'ready'}
                     onClick={() =>
                       resolved.setModelVisible(model.id, !model.visible)
