@@ -106,6 +106,7 @@ const UI_LINTS: [string, RegExp, string[]][] = [
   ['a literal attribute', LITERAL_ATTRIBUTE, ['<button aria-label="Close" />']],
   ['a literal text node', LITERAL_TEXT, ['<span>Close</span>']],
 ];
+const NOT_PRIMITIVES = ['strings'];
 const GOOD =
   '<span className="bg-surface text-fg border-line ps-2 -me-1 start-0 text-start rounded-s-control data-highlighted:bg-fill">{label}</span>';
 
@@ -113,6 +114,15 @@ describe('src/web/ui', () => {
   const files = readdirSync('src/web/ui').filter(
     (file) => file.endsWith('.tsx') && !file.includes('.test.'),
   );
+
+  it('lists every primitive file in the contract test', () => {
+    const contract = readFileSync('src/web/ui/contract.test.tsx', 'utf8');
+    const missing = files
+      .map((file) => file.replace('.tsx', ''))
+      .filter((file) => !NOT_PRIMITIVES.includes(file))
+      .filter((file) => !contract.includes(`file: '${file}'`));
+    expect(missing).toEqual([]);
+  });
 
   for (const [what, pattern, bad] of UI_LINTS) {
     it(`has no file with ${what}`, () => {
