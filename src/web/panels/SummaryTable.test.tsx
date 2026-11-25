@@ -398,6 +398,44 @@ describe('SummaryTable sort before the cap', () => {
   });
 });
 
+describe('SummaryTable sort values', () => {
+  const sortRows: PropertyRow[] = [
+    { dbId: 1, name: 'a', properties: { Category: 'A', Area: '2 m²' } },
+    { dbId: 2, name: 'b', properties: { Category: 'B', Area: '10 m²' } },
+    { dbId: 3, name: 'c', properties: { Category: 'C', Area: '' } },
+  ];
+
+  const sortBy = (table: HTMLElement, name: string, want: string) => {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const head = within(table).getByRole('columnheader', { name });
+      if (head.getAttribute('aria-sort') === want) return;
+      fireEvent.click(within(head).getByRole('button', { name }));
+    }
+    throw new Error(`could not sort ${name} ${want}`);
+  };
+
+  const column = (table: HTMLElement, index: number) =>
+    within(table)
+      .getAllByRole('row')
+      .slice(1)
+      .map((row) => row.children[index]?.textContent ?? '');
+
+  it('orders numbers numerically and keeps blanks last both ways', () => {
+    render(
+      <SummaryTable
+        entries={summarize(sortRows, ['Category'])}
+        rows={sortRows}
+        view={view({ columns: [area] })}
+      />,
+    );
+    const table = screen.getByRole('table');
+    sortBy(table, 'Sum of Area', 'descending');
+    expect(column(table, 2)).toEqual(['10 m²', '2 m²', 'n/a']);
+    sortBy(table, 'Sum of Area', 'ascending');
+    expect(column(table, 2)).toEqual(['2 m²', '10 m²', 'n/a']);
+  });
+});
+
 describe('SummaryTable sorting', () => {
   const values = (table: HTMLElement) =>
     within(table)

@@ -125,16 +125,16 @@ interface ColumnMeta {
   title?: string;
   rowHeader?: boolean;
   numeric?: boolean;
-  sortValue?: (line: Line) => string | number | null;
+  sortValue?: (line: Line) => string | number | null | undefined;
   attrs?: (line: Line) => CellAttrs;
 }
 
 function compareValues(
-  a: string | number | null,
-  b: string | number | null,
+  a: string | number | null | undefined,
+  b: string | number | null | undefined,
 ): number {
-  if (a === null) return b === null ? 0 : 1;
-  if (b === null) return -1;
+  if (a == null) return b == null ? 0 : 1;
+  if (b == null) return -1;
   if (typeof a === 'number' && typeof b === 'number') return a - b;
   return String(a).localeCompare(String(b), undefined, {
     numeric: true,
@@ -164,6 +164,7 @@ const features = tableFeatures({
 type GridColumn = ColumnDef<typeof features, Line>;
 
 const NO_ATTRS: CellAttrs = {};
+const COLUMN_DEFAULTS = { ...COLUMN_LIMITS, sortUndefined: 'last' as const };
 const NO_CELLS: readonly SummaryCell[] = [];
 const PROPERTY_COLUMN: GridColumn = {
   id: 'bsh:property',
@@ -249,7 +250,7 @@ function specColumns(
           const cell = line.cells[index] ?? NO_CELL;
           return cell.status === 'ok' && typeof cell.value === 'number'
             ? cell.value
-            : read(line).text;
+            : undefined;
         },
         attrs: (line) => ({ title: read(line).title }),
       },
@@ -344,7 +345,7 @@ function Grid({
     data: lines,
     getRowId: (line) => line.key,
     columnResizeMode: 'onChange',
-    defaultColumn: COLUMN_LIMITS,
+    defaultColumn: COLUMN_DEFAULTS,
     enableSorting: sortable,
     enableSortingRemoval: true,
     enableMultiSort: false,
