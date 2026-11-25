@@ -1,4 +1,4 @@
-import { type KeyboardEvent, useId, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useSignIn } from '../api/hooks.js';
 import type { SummaryEntry } from '../extensions/modelSummary.js';
 import { PAINT_PRESETS } from '../extensions/paintBrushes.js';
@@ -7,6 +7,7 @@ import { SummaryTable } from '../panels/SummaryTable.js';
 import { Button, buttonClasses } from '../ui/Button.js';
 import { cn } from '../ui/cn.js';
 import { iconButtonClasses } from '../ui/IconButton.js';
+import { Tab, TabPanel, Tabs, TabsList } from '../ui/Tabs.js';
 import { Icon, type IconName } from './icons.js';
 import { StateBlock } from './StateBlock.js';
 import { TreeRowView } from './tree/TreeRowView.js';
@@ -284,91 +285,40 @@ function ExportPanel() {
 }
 
 function FeatureTabs() {
-  const baseId = useId();
   const [active, setActive] = useState<FeatureTab['id']>('browse');
-  const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
-
-  const select = (index: number) => {
-    const next = TABS[(index + TABS.length) % TABS.length];
-    if (!next) {
-      return;
-    }
-    setActive(next.id);
-    tabRefs.current[next.id]?.focus();
-  };
-
-  const onKeyDown = (event: KeyboardEvent, index: number) => {
-    switch (event.key) {
-      case 'ArrowDown':
-      case 'ArrowRight':
-        event.preventDefault();
-        select(index + 1);
-        break;
-      case 'ArrowUp':
-      case 'ArrowLeft':
-        event.preventDefault();
-        select(index - 1);
-        break;
-      case 'Home':
-        event.preventDefault();
-        select(0);
-        break;
-      case 'End':
-        event.preventDefault();
-        select(TABS.length - 1);
-        break;
-    }
-  };
 
   return (
-    <div className="tabs">
-      <div
-        role="tablist"
+    <Tabs
+      className="tabs"
+      orientation="vertical"
+      value={active}
+      onValueChange={(id) => setActive(id as FeatureTab['id'])}
+    >
+      <TabsList
         aria-label="Product features"
-        aria-orientation="vertical"
         className="tabs__list"
+        activateOnFocus
       >
-        {TABS.map((tab, index) => (
-          <button
-            key={tab.id}
-            ref={(node) => {
-              tabRefs.current[tab.id] = node;
-            }}
-            type="button"
-            role="tab"
-            id={`${baseId}-tab-${tab.id}`}
-            aria-selected={active === tab.id}
-            aria-controls={`${baseId}-panel-${tab.id}`}
-            tabIndex={active === tab.id ? 0 : -1}
-            className="tabs__tab"
-            onClick={() => setActive(tab.id)}
-            onKeyDown={(event) => onKeyDown(event, index)}
-          >
+        {TABS.map((tab) => (
+          <Tab key={tab.id} value={tab.id} className="tabs__tab">
             <span className="tabs__tab-title">
               <Icon name={tab.icon} size={16} />
               {tab.title}
             </span>
             <span className="tabs__tab-copy">{tab.copy}</span>
-          </button>
+          </Tab>
         ))}
-      </div>
+      </TabsList>
       <div className="tabs__stage">
         {TABS.map((tab) => (
-          <div
-            key={tab.id}
-            role="tabpanel"
-            id={`${baseId}-panel-${tab.id}`}
-            aria-labelledby={`${baseId}-tab-${tab.id}`}
-            hidden={active !== tab.id}
-            className="preview"
-          >
+          <TabPanel key={tab.id} value={tab.id} keepMounted className="preview">
             {tab.id === 'browse' ? <BrowsePanel /> : null}
             {tab.id === 'inspect' ? <InspectPanel /> : null}
             {tab.id === 'export' ? <ExportPanel /> : null}
-          </div>
+          </TabPanel>
         ))}
       </div>
-    </div>
+    </Tabs>
   );
 }
 

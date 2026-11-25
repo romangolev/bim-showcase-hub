@@ -13,7 +13,7 @@ const listOrientations: Record<Orientation, string> = {
 };
 
 const tabBase =
-  'cursor-pointer font-ui transition-colors motion-reduce:transition-none focus-visible:-outline-offset-2 data-disabled:cursor-not-allowed data-disabled:text-fg-disabled';
+  'cursor-pointer transition-colors motion-reduce:transition-none focus-visible:-outline-offset-2 data-disabled:cursor-not-allowed data-disabled:text-fg-disabled';
 
 const variants = {
   default:

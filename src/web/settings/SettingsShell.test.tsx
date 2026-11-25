@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { appCommands } from '../commands/appCommandList.js';
 import { ModalProvider, useModal } from '../modal/ModalContext.js';
 import { installMemoryStorage } from '../test/mockApi.js';
-import { act, fireEvent, render, screen } from '../test/render.js';
+import { act, fireEvent, render, screen, waitFor } from '../test/render.js';
 import { ThemeProvider } from '../theme/ThemeContext.js';
 import { TOOLS } from '../tools/index.js';
 import {
@@ -90,27 +90,24 @@ describe('SettingsShell', () => {
     expect(screen.getAllByRole('tabpanel')).toHaveLength(1);
   });
 
-  it('moves with the arrow keys, Home and End', () => {
+  it('moves with the arrow keys, Home and End', async () => {
     renderShell();
-    const press = (key: string) =>
+    const press = async (key: string, label: string) => {
       fireEvent.keyDown(document.activeElement as HTMLElement, { key });
+      await waitFor(() => expect(selectedTab()).toHaveTextContent(label));
+      expect(selectedTab()).toHaveFocus();
+    };
     selectedTab().focus();
-    press('ArrowDown');
-    expect(selectedTab()).toHaveTextContent('Appearance');
-    expect(selectedTab()).toHaveFocus();
+    await press('ArrowDown', 'Appearance');
     expect(selectedTab()).toHaveAttribute('tabindex', '0');
     expect(screen.getByRole('tab', { name: 'General' })).toHaveAttribute(
       'tabindex',
       '-1',
     );
-    press('End');
-    expect(selectedTab()).toHaveTextContent('Data and storage');
-    press('ArrowDown');
-    expect(selectedTab()).toHaveTextContent('General');
-    press('ArrowUp');
-    expect(selectedTab()).toHaveTextContent('Data and storage');
-    press('Home');
-    expect(selectedTab()).toHaveTextContent('General');
+    await press('End', 'Data and storage');
+    await press('ArrowDown', 'General');
+    await press('ArrowUp', 'Data and storage');
+    await press('Home', 'General');
     expect(screen.getByLabelText('Language')).toBeTruthy();
   });
 

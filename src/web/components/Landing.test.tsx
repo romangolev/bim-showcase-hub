@@ -1,5 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createTestClient } from '../test/mockApi.js';
 import { Landing } from './Landing.js';
@@ -40,7 +40,7 @@ describe('Landing', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
-  it('exposes the feature tabs with roving keyboard focus', () => {
+  it('exposes the feature tabs with roving keyboard focus', async () => {
     renderLanding();
     const tabs = screen.getAllByRole('tab');
     expect(tabs.map((tab) => tab.textContent)).toEqual([
@@ -53,18 +53,19 @@ describe('Landing', () => {
     const panel = screen.getByRole('tabpanel');
     expect(panel).toHaveAttribute('aria-labelledby', tabs[0]?.id);
 
+    tabs[0]?.focus();
     fireEvent.keyDown(tabs[0] as HTMLElement, { key: 'ArrowDown' });
+    await waitFor(() => expect(tabs[1]).toHaveFocus());
     expect(tabs[1]).toHaveAttribute('aria-selected', 'true');
-    expect(tabs[1]).toHaveFocus();
     expect(screen.getByRole('tabpanel')).toHaveAttribute(
       'aria-labelledby',
       tabs[1]?.id,
     );
 
     fireEvent.keyDown(tabs[1] as HTMLElement, { key: 'End' });
-    expect(tabs[2]).toHaveFocus();
+    await waitFor(() => expect(tabs[2]).toHaveFocus());
     fireEvent.keyDown(tabs[2] as HTMLElement, { key: 'ArrowDown' });
-    expect(tabs[0]).toHaveFocus();
+    await waitFor(() => expect(tabs[0]).toHaveFocus());
   });
 
   it('links to the APS developer site and the repository', () => {

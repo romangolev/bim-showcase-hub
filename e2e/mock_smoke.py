@@ -83,7 +83,7 @@ VIEWER_FILL = """() => {
         breadcrumb: document.querySelectorAll("nav[aria-label^='Breadcrumb']").length,
     };
 }"""
-STACKED_LABEL = "() => document.querySelector(\".stack__model-tab[data-active='true']\")?.textContent || ''"
+STACKED_LABEL = "() => document.querySelector(\".stack__model-tab[aria-selected='true']\")?.textContent || ''"
 STORED_LAYOUT = "() => JSON.parse(localStorage.getItem('bsh.layout.v2') || 'null')"
 MODELS = "mw:() => window.__bshLayout.models()"
 VIEWERS = """() => [...document.querySelectorAll('.pane-model')].map((body) => {

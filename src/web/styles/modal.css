@@ -45,43 +45,10 @@
 }
 
 .settings-nav__item {
-  display: flex;
   flex: none;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: var(--hit-target);
-  padding: 0 var(--space-2);
-  border: 0;
-  border-radius: var(--radius-tile);
-  background: transparent;
-  color: var(--color-chalk);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.settings-nav__item:hover {
-  background: var(--color-ghost-fill);
-  color: var(--color-snow);
-}
-
-.settings-nav__item[aria-selected="true"] {
-  background: var(--color-ghost-fill-hover);
-  color: var(--color-snow);
-  box-shadow: inset 2px 0 0 var(--color-signal-blue);
-}
-
-.settings-nav__item:focus-visible {
-  outline-offset: -2px;
-}
-
-@media (forced-colors: active) {
-  .settings-nav__item[aria-selected="true"] {
-    forced-color-adjust: none;
-    background: Highlight;
-    color: HighlightText;
-    box-shadow: none;
-  }
+  justify-content: flex-start;
+  padding-inline: var(--space-2);
+  text-align: start;
 }
 
 .settings-nav__label {

@@ -438,7 +438,7 @@ ACTIVE_TAB_SCRIPT = """() => {
     const group = body && body.closest('.dv-groupview');
     const tab = group && group.querySelector('.dv-tab.dv-active-tab');
     if (tab) return tab.textContent.trim();
-    const stacked = document.querySelector(".stack__model-tab[data-active='true']");
+    const stacked = document.querySelector(".stack__model-tab[aria-selected='true']");
     return stacked ? stacked.textContent.trim() : '';
 }"""
 
