@@ -29,6 +29,7 @@ import {
   PopoverTitle,
   PopoverTrigger,
 } from './Popover.js';
+import { Tab, TabPanel, Tabs, TabsList } from './Tabs.js';
 import { ToggleButton } from './ToggleButton.js';
 import { Tooltip, TooltipPopup, TooltipTrigger } from './Tooltip.js';
 
@@ -187,6 +188,36 @@ const ENTRIES: Entry[] = [
     slot: 'toggle-button',
     render: (props) => <ToggleButton {...props}>label</ToggleButton>,
   },
+  {
+    file: 'Tabs',
+    slot: 'tabs',
+    render: (props) => <Tabs defaultValue="a" {...props} />,
+  },
+  ...(
+    [
+      ['tabs-list', (props: ContractProps) => <TabsList {...props} />],
+      [
+        'tab',
+        (props: ContractProps) => (
+          <TabsList>
+            <Tab value="a" {...props}>
+              label
+            </Tab>
+          </TabsList>
+        ),
+      ],
+      [
+        'tab-panel',
+        (props: ContractProps) => <TabPanel value="a" {...props} />,
+      ],
+    ] as const
+  ).map(
+    ([slot, part]): Entry => ({
+      file: 'Tabs',
+      slot,
+      render: (props) => <Tabs defaultValue="a">{part(props)}</Tabs>,
+    }),
+  ),
 ];
 
 describe('primitive contract', () => {
