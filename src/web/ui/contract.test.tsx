@@ -60,6 +60,15 @@ import { Skeleton } from './Skeleton.js';
 import { Slider } from './Slider.js';
 import { Spinner } from './Spinner.js';
 import { Switch } from './Switch.js';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  TableSortHead,
+} from './Table.js';
 import { Tab, TabPanel, Tabs, TabsList } from './Tabs.js';
 import { Textarea } from './Textarea.js';
 import { Toast, Toaster } from './Toast.js';
@@ -430,6 +439,81 @@ const ENTRIES: Entry[] = [
     file: 'Toast',
     slot: 'toaster',
     render: (props) => <Toaster label="label" {...props} />,
+  },
+  {
+    file: 'Table',
+    slot: 'table',
+    render: (props) => <Table {...props} />,
+  },
+  {
+    file: 'Table',
+    slot: 'table-header',
+    render: (props) => (
+      <Table>
+        <TableHeader {...props} />
+      </Table>
+    ),
+  },
+  {
+    file: 'Table',
+    slot: 'table-body',
+    render: (props) => (
+      <Table>
+        <TableBody {...props} />
+      </Table>
+    ),
+  },
+  {
+    file: 'Table',
+    slot: 'table-row',
+    render: (props) => (
+      <Table>
+        <TableBody>
+          <TableRow {...props} />
+        </TableBody>
+      </Table>
+    ),
+  },
+  {
+    file: 'Table',
+    slot: 'table-head',
+    render: (props) => (
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead {...props}>label</TableHead>
+          </TableRow>
+        </TableHeader>
+      </Table>
+    ),
+  },
+  {
+    file: 'Table',
+    slot: 'table-sort-head',
+    render: (props) => (
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableSortHead sort="none" onSort={() => undefined} {...props}>
+              label
+            </TableSortHead>
+          </TableRow>
+        </TableHeader>
+      </Table>
+    ),
+  },
+  {
+    file: 'Table',
+    slot: 'table-cell',
+    render: (props) => (
+      <Table>
+        <TableBody>
+          <TableRow>
+            <TableCell {...props}>label</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
+    ),
   },
 ];
 

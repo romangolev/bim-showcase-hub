@@ -167,3 +167,7 @@
     }
   }
 }
+
+@theme inline reference {
+  --z-index-raised: var(--z-raised);
+}
