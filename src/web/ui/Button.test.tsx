@@ -42,8 +42,58 @@ describe('Button', () => {
       'text-13',
       'rounded-pill',
     );
+    expect(button).toHaveAttribute('data-variant', 'primary');
+    expect(button).toHaveAttribute('data-size', 'small');
     expect(button).not.toHaveClass('text-14');
     expect(button).not.toHaveClass('rounded-control');
     expect(button).not.toHaveClass('bg-fill');
+  });
+
+  it('writes the tone as data and as a text role', () => {
+    render(<Button tone="danger">Delete</Button>);
+    const button = screen.getByRole('button', { name: 'Delete' });
+    expect(button).toHaveAttribute('data-tone', 'danger');
+    expect(button).toHaveClass('not-data-disabled:text-danger');
+  });
+
+  it('stays focusable and busy while loading, and blocks activation', () => {
+    const onClick = vi.fn();
+    render(
+      <Button loading onClick={onClick}>
+        Export
+      </Button>,
+    );
+    const button = screen.getByRole('button', { name: 'Export' });
+    expect(button).toHaveAttribute('aria-busy', 'true');
+    expect(button).toHaveAttribute('data-loading');
+    expect(button).toHaveAttribute('aria-disabled', 'true');
+    expect(button).not.toHaveAttribute('disabled');
+    button.focus();
+    expect(button).toHaveFocus();
+    fireEvent.click(button);
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it('keeps its slot when a caller passes one, and submits when asked', () => {
+    render(
+      <Button type="submit" data-slot="other">
+        Send
+      </Button>,
+    );
+    const button = screen.getByRole('button', { name: 'Send' });
+    expect(button).toHaveAttribute('data-slot', 'button');
+    expect(button).toHaveAttribute('type', 'submit');
+  });
+
+  it('renders another element through render and keeps the button role', () => {
+    render(
+      <Button nativeButton={false} render={<a href="/docs" />}>
+        Docs
+      </Button>,
+    );
+    const link = screen.getByRole('button', { name: 'Docs' });
+    expect(link.tagName).toBe('A');
+    expect(link).toHaveAttribute('href', '/docs');
+    expect(link).toHaveAttribute('data-slot', 'button');
   });
 });

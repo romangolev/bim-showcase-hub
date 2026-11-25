@@ -2,6 +2,8 @@ import { render } from '@testing-library/react';
 import type { ReactElement, Ref } from 'react';
 import { describe, expect, it } from 'vitest';
 import { Button } from './Button.js';
+import { IconButton } from './IconButton.js';
+import { ToggleButton } from './ToggleButton.js';
 
 interface ContractProps {
   className: string;
@@ -21,6 +23,16 @@ const ENTRIES: Entry[] = [
     file: 'Button',
     slot: 'button',
     render: (props) => <Button {...props}>label</Button>,
+  },
+  {
+    file: 'IconButton',
+    slot: 'icon-button',
+    render: (props) => <IconButton label="label" {...props} />,
+  },
+  {
+    file: 'ToggleButton',
+    slot: 'toggle-button',
+    render: (props) => <ToggleButton {...props}>label</ToggleButton>,
   },
 ];
 
