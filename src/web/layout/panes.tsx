@@ -34,15 +34,14 @@ import { usePersisted } from '../storage.js';
 import { exportFileName, exportStem } from '../tools/kernel/exportKit.js';
 import { page } from '../viewer/region.js';
 import { ViewerPane } from '../viewer/ViewerPane.js';
-import { setDashboardSettingsTarget } from './dashboardTarget.js';
 import {
-  chartSetting,
+  DASHBOARD_PANEL,
   propertiesSetting,
-  summarySetting,
+  SUMMARY_PANEL,
 } from './instanceSettings.js';
 import { useLayout, useMainContent } from './layoutContext.js';
 import { instancePanelId, modelPanelId } from './panelIds.js';
-import { setSummarySettingsTarget } from './summaryTarget.js';
+import { setPaneSettingsTarget } from './settingsTarget.js';
 
 export function exportNameOf(
   context: ModelContext | null,
@@ -230,90 +229,58 @@ function useActiveModelTitle() {
   return active ? layout.paneTitle(modelPanelId(active)) : null;
 }
 
-export function SummaryPane() {
+export function SummaryPane({ instance }: { instance?: string }) {
   const layout = useLayout();
   const model = useActiveModelTitle();
   const modal = useModal();
+  const panel = instance
+    ? instancePanelId('modelSummary', instance)
+    : SUMMARY_PANEL;
+  const stackable = !instance && layout.mode === 'stacked';
   return (
     <aside className="pane-summary" aria-label="Model summary">
       <ModelSummaryPanel
-        model={model}
+        panel={panel}
+        {...(instance ? { title: layout.paneTitle(panel).label } : { model })}
+        toggleable={stackable}
         onOpenSettings={() => {
-          setSummarySettingsTarget(null);
+          setPaneSettingsTarget(instance ? panel : null);
           modal.open(SUMMARY_SETTINGS_ID);
         }}
-        collapsed={layout.mode === 'stacked' && layout.isCollapsed('summary')}
-        toggleable={layout.mode === 'stacked'}
-        onCollapsedChange={(next) => layout.setCollapsed('summary', next)}
+        {...(stackable
+          ? {
+              collapsed: layout.isCollapsed('summary'),
+              onCollapsedChange: (next: boolean) =>
+                layout.setCollapsed('summary', next),
+            }
+          : {})}
       />
     </aside>
   );
 }
 
-export function SummaryInstancePane({ instance }: { instance: string }) {
+export function DashboardPane({ instance }: { instance?: string }) {
   const layout = useLayout();
   const modal = useModal();
-  const panel = instancePanelId('modelSummary', instance);
-  const [spec, setSpec] = usePersisted(summarySetting(panel));
-  return (
-    <aside className="pane-summary" aria-label="Model summary">
-      <ModelSummaryPanel
-        title={layout.paneTitle(panel).label}
-        toggleable={false}
-        onOpenSettings={() => {
-          setSummarySettingsTarget(panel);
-          modal.open(SUMMARY_SETTINGS_ID);
-        }}
-        propertyNames={spec.properties}
-        onPropertiesChange={(properties) =>
-          setSpec((prev) => ({ ...prev, properties }))
-        }
-        view={{
-          value: spec.view,
-          onChange: (view) => setSpec((prev) => ({ ...prev, view })),
-        }}
-        action={spec.action}
-        scope={{
-          value: spec.scope,
-          onChange: (scope) => setSpec((prev) => ({ ...prev, scope })),
-        }}
-      />
-    </aside>
-  );
-}
-
-export function DashboardPane() {
-  const layout = useLayout();
-  const modal = useModal();
+  const panel = instance ? instancePanelId('chart', instance) : DASHBOARD_PANEL;
+  const stackable = !instance && layout.mode === 'stacked';
   return (
     <div className="pane-dashboard">
       <DashboardPanel
+        panel={panel}
+        {...(instance ? { title: layout.paneTitle(panel).label } : {})}
+        toggleable={stackable}
         onOpenSettings={() => {
-          setDashboardSettingsTarget(null);
+          setPaneSettingsTarget(instance ? panel : null);
           modal.open(DASHBOARD_SETTINGS_ID);
         }}
-        collapsed={layout.mode === 'stacked' && layout.isCollapsed('dashboard')}
-        toggleable={layout.mode === 'stacked'}
-        onCollapsedChange={(next) => layout.setCollapsed('dashboard', next)}
-      />
-    </div>
-  );
-}
-
-export function ChartInstancePane({ instance }: { instance: string }) {
-  const layout = useLayout();
-  const modal = useModal();
-  const panel = instancePanelId('chart', instance);
-  return (
-    <div className="pane-dashboard">
-      <DashboardPanel
-        setting={chartSetting(panel)}
-        title={layout.paneTitle(panel).label}
-        toggleable={false}
-        onOpenSettings={() => {
-          setDashboardSettingsTarget(panel);
-          modal.open(DASHBOARD_SETTINGS_ID);
-        }}
+        {...(stackable
+          ? {
+              collapsed: layout.isCollapsed('dashboard'),
+              onCollapsedChange: (next: boolean) =>
+                layout.setCollapsed('dashboard', next),
+            }
+          : {})}
       />
     </div>
   );

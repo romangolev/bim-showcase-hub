@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { chartSetting } from '../layout/instanceSettings.js';
 import { BSH_KEYS } from '../storage.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { fireEvent, render, screen, waitFor } from '../test/render.js';
@@ -97,13 +96,12 @@ describe('DashboardPanel chart stability', () => {
 describe('DashboardPanel PNG flags', () => {
   it('exports an instance pane with its own flags, not the global ones', async () => {
     seed({ pngTitle: true });
-    const setting = chartSetting('chart:1');
     window.localStorage.setItem(
       'bsh.pane.chart.1.v1',
       JSON.stringify({ pngTitle: false }),
     );
     const adapter = await loaded();
-    render(<DashboardPanel adapter={adapter} setting={setting} />);
+    render(<DashboardPanel adapter={adapter} panel="chart:1" />);
     await screen.findByRole('img', {
       name: 'Bar chart of element counts by Category',
     });

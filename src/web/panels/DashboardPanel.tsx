@@ -15,7 +15,6 @@ import {
   addChart,
   chartTitle,
   type DashboardOrientation,
-  type DashboardView,
   MAX_CHARTS,
   ORIENTATION_LABELS,
   patchChart,
@@ -28,16 +27,19 @@ import {
   runElementAction,
 } from '../extensions/elementActions.js';
 import { type HealthKpiTile, healthKpis } from '../extensions/healthKpis.js';
-import { PANE_SETTINGS } from '../settings/paneSettings.js';
+import {
+  DASHBOARD_PANEL,
+  useDashboardSpec,
+} from '../layout/instanceSettings.js';
+import type { PanelId } from '../layout/paneRegistry.js';
 import { useSettings } from '../settings/SettingsContext.js';
-import { type PersistedRecord, usePersisted } from '../storage.js';
+import { usePersisted } from '../storage.js';
 import { notify } from '../tasks/notifications.js';
 import {
   applyColoring,
   clearColoring,
   useModelColoring,
 } from '../viewer/modelColoring.js';
-import { ALL_MODELS } from '../viewer/modelScope.js';
 import { splitByModel } from '../viewer/modelSeries.js';
 import type { ModelDbId } from '../viewer/modelSet.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
@@ -70,7 +72,7 @@ export interface DashboardPanelProps {
   toggleable?: boolean;
   title?: string;
   className?: string;
-  setting?: PersistedRecord<DashboardView>;
+  panel?: PanelId;
 }
 
 export function DashboardPanel({
@@ -82,12 +84,12 @@ export function DashboardPanel({
   toggleable = true,
   title = 'Dashboard',
   className,
-  setting,
+  panel = DASHBOARD_PANEL,
 }: DashboardPanelProps) {
   const uid = useId();
   const { language } = useSettings().settings;
   const resolved = useResolvedAdapter(adapter);
-  const [view, setView] = usePersisted(setting ?? PANE_SETTINGS.dashboard.view);
+  const { main, view, setView, scope, action } = useDashboardSpec(panel);
   const [health] = usePersisted(HEALTH_KPI_SETTINGS);
   const [chartSettings] = usePersisted(CHART_SETTINGS);
   const spec = viewSpec(view);
@@ -96,32 +98,17 @@ export function DashboardPanel({
     const names = new Set(view.properties);
     for (const item of chartSpecs) names.add(item.property);
     if (spec.aggregate !== 'count' && spec.measure) names.add(spec.measure);
-    if (!setting) {
+    if (main) {
       for (const name of health.mustHave) names.add(name);
       for (const name of health.unique) names.add(name);
       if (health.measure) names.add(health.measure);
     }
     return [...names];
-  }, [
-    view.properties,
-    chartSpecs,
-    spec.aggregate,
-    spec.measure,
-    setting,
-    health,
-  ]);
+  }, [view.properties, chartSpecs, spec.aggregate, spec.measure, main, health]);
   const state = useScopedRows(resolved, {
     names: readNames,
     autoRefresh: false,
-    ...(setting
-      ? {
-          models: {
-            value: view.scope ?? ALL_MODELS,
-            onChange: (next: string) =>
-              setView((prev) => ({ ...prev, scope: next })),
-          },
-        }
-      : {}),
+    ...(scope ? { models: scope } : {}),
   });
   const [innerCollapsed, setInnerCollapsed] = useState(defaultCollapsed);
   const isCollapsed = collapsed ?? innerCollapsed;
@@ -170,7 +157,6 @@ export function DashboardPanel({
     [built],
   );
 
-  const [action] = usePersisted(PANE_SETTINGS.dashboard.action);
   const settled = usable && !state.pending;
   const hasRows = settled && state.rows.length > 0;
   const emptyBoard = hasRows && chartSpecs.length > 0 && shown.length === 0;
@@ -246,10 +232,10 @@ export function DashboardPanel({
 
   const kpiTiles = useMemo(
     () =>
-      settled && !setting && state.rows.length > 0
+      settled && main && state.rows.length > 0
         ? healthKpis(state.rows, health)
         : [],
-    [settled, setting, state.rows, health],
+    [settled, main, state.rows, health],
   );
   const pickKpi = (tile: HealthKpiTile) => {
     if (!resolved) return;

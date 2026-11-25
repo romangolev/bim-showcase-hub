@@ -23,13 +23,15 @@ import {
   MAX_KPI_THRESHOLD,
 } from '../extensions/healthKpis.js';
 import {
-  setDashboardSettingsTarget,
-  useDashboardSettingsTarget,
-} from '../layout/dashboardTarget.js';
-import { chartSetting } from '../layout/instanceSettings.js';
-import type { PanelId } from '../layout/paneRegistry.js';
+  DASHBOARD_PANEL,
+  useDashboardSpec,
+} from '../layout/instanceSettings.js';
+import { paneKind } from '../layout/paneRegistry.js';
+import {
+  setPaneSettingsTarget,
+  usePaneSettingsTarget,
+} from '../layout/settingsTarget.js';
 import type { ModalDefinition } from '../modal/types.js';
-import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import { usePersisted } from '../storage.js';
 import { Button } from '../ui/Button.js';
 import { FieldLabel } from '../ui/Field.js';
@@ -50,10 +52,6 @@ export const DASHBOARD_SETTINGS_ID = 'dashboard-settings';
 type ViewSetter = (
   next: DashboardView | ((prev: DashboardView) => DashboardView),
 ) => void;
-
-export function useDashboardView() {
-  return usePersisted(PANE_SETTINGS.dashboard.view);
-}
 
 interface DashboardFieldsProps {
   adapter: ViewerAdapter | null;
@@ -318,22 +316,20 @@ function DashboardFields({
             resetHealth?.();
           }}
         >
-          {resetAction ? 'Reset dashboard' : 'Reset chart'}
+          {health ? 'Reset dashboard' : 'Reset chart'}
         </Button>
       </div>
     </>
   );
 }
 
-function GlobalDashboardSettings({
-  adapter,
-}: {
-  adapter: ViewerAdapter | null;
-}) {
-  const [view, setView, resetView] = useDashboardView();
-  const [action, setAction, resetAction] = usePersisted(
-    PANE_SETTINGS.dashboard.action,
-  );
+export function DashboardSettingsBody() {
+  const target = usePaneSettingsTarget();
+  const adapter = useResolvedAdapter(usePublishedAdapter());
+  const { main, view, setView, resetView, action, setAction, resetAction } =
+    useDashboardSpec(
+      paneKind(target) === 'chart' && target ? target : DASHBOARD_PANEL,
+    );
   const [health, setHealth, resetHealth] = usePersisted(HEALTH_KPI_SETTINGS);
   return (
     <DashboardFields
@@ -344,38 +340,8 @@ function GlobalDashboardSettings({
       action={action}
       setAction={setAction}
       resetAction={resetAction}
-      health={health}
-      setHealth={setHealth}
-      resetHealth={resetHealth}
+      {...(main ? { health, setHealth, resetHealth } : {})}
     />
-  );
-}
-
-function InstanceDashboardSettings({
-  target,
-  adapter,
-}: {
-  target: PanelId;
-  adapter: ViewerAdapter | null;
-}) {
-  const [view, setView, resetView] = usePersisted(chartSetting(target));
-  return (
-    <DashboardFields
-      adapter={adapter}
-      view={view}
-      setView={setView}
-      resetView={resetView}
-    />
-  );
-}
-
-export function DashboardSettingsBody() {
-  const target = useDashboardSettingsTarget();
-  const adapter = useResolvedAdapter(usePublishedAdapter());
-  return target ? (
-    <InstanceDashboardSettings target={target} adapter={adapter} />
-  ) : (
-    <GlobalDashboardSettings adapter={adapter} />
   );
 }
 
@@ -384,5 +350,5 @@ export const DASHBOARD_SETTINGS_MODAL: ModalDefinition = {
   title: 'Dashboard settings',
   size: 'lg',
   Body: DashboardSettingsBody,
-  onClose: () => setDashboardSettingsTarget(null),
+  onClose: () => setPaneSettingsTarget(null),
 };

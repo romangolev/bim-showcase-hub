@@ -4,7 +4,6 @@ import { PaneActionsMenu } from '../components/PaneActionsMenu.js';
 import { StateBlock } from '../components/StateBlock.js';
 import { writeClipboard } from '../extensions/clipboard.js';
 import { saveBlob } from '../extensions/download.js';
-import type { ElementAction } from '../extensions/elementActions.js';
 import {
   itemsWithValues,
   runElementAction,
@@ -25,9 +24,9 @@ import {
   viewEntries,
   viewPropertyNames,
 } from '../extensions/modelSummary.js';
-import { PANE_SETTINGS } from '../settings/paneSettings.js';
+import { SUMMARY_PANEL, useSummarySpec } from '../layout/instanceSettings.js';
+import type { PanelId } from '../layout/paneRegistry.js';
 import { useSettings } from '../settings/SettingsContext.js';
-import { usePersisted } from '../storage.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { ModelScopeSelect } from './ModelScope.js';
 import { QuickSettings, useQuickSettings } from './QuickSettings.js';
@@ -50,8 +49,7 @@ export interface SummaryModel {
 export interface ModelSummaryPanelProps {
   adapter?: ViewerAdapter | null;
   model?: SummaryModel | null;
-  propertyNames?: readonly string[];
-  onPropertiesChange?: (names: readonly string[]) => void;
+  panel?: PanelId;
   title?: string;
   className?: string;
   collapsed?: boolean;
@@ -59,9 +57,6 @@ export interface ModelSummaryPanelProps {
   onCollapsedChange?: (collapsed: boolean) => void;
   toggleable?: boolean;
   onOpenSettings?: () => void;
-  scope?: { value: string; onChange: (scope: string) => void };
-  view?: { value: SummaryView; onChange: (view: SummaryView) => void };
-  action?: ElementAction;
 }
 
 const EMPTY: SummaryEntry[] = [];
@@ -70,8 +65,7 @@ export const STACKED_ROW_LIMIT = 12;
 export function ModelSummaryPanel({
   adapter,
   model,
-  propertyNames: propertyNamesOverride,
-  onPropertiesChange,
+  panel = SUMMARY_PANEL,
   title = 'Model summary',
   className,
   collapsed,
@@ -79,9 +73,6 @@ export function ModelSummaryPanel({
   onCollapsedChange,
   toggleable = true,
   onOpenSettings,
-  scope: controlledScope,
-  view: controlledView,
-  action: controlledAction,
 }: ModelSummaryPanelProps) {
   const uid = useId();
   const { language } = useSettings().settings;
@@ -89,13 +80,10 @@ export function ModelSummaryPanel({
   const isCollapsed = collapsed ?? innerCollapsed;
   const [showAll, setShowAll] = useState(false);
   const resolved = useResolvedAdapter(adapter);
-  const [savedProperties, setSavedProperties] = usePersisted(
-    PANE_SETTINGS.summary.properties,
-  );
-  const propertyNames = propertyNamesOverride ?? savedProperties;
-  const setProperties = onPropertiesChange ?? setSavedProperties;
-  const [savedView, setSavedView] = usePersisted(PANE_SETTINGS.summary.view);
-  const view = controlledView?.value ?? savedView;
+  const { spec, setSpec, scope } = useSummarySpec(panel);
+  const { properties: propertyNames, view, action } = spec;
+  const setProperties = (properties: readonly string[]) =>
+    setSpec((prev) => ({ ...prev, properties }));
   const readNames = useMemo(
     () => viewPropertyNames(propertyNames, view.columns),
     [propertyNames, view.columns],
@@ -103,7 +91,7 @@ export function ModelSummaryPanel({
   const state = useScopedRows(resolved, {
     names: readNames,
     autoRefresh: view.autoRefresh,
-    ...(controlledScope ? { models: controlledScope } : {}),
+    ...(scope ? { models: scope } : {}),
   });
   const partialEntries = useMemo(
     () =>
@@ -121,8 +109,6 @@ export function ModelSummaryPanel({
   );
   const sourceRows = state.rows.length > 0 ? state.rows : state.partialRows;
 
-  const [savedAction] = usePersisted(PANE_SETTINGS.summary.action);
-  const action = controlledAction ?? savedAction;
   const [active, setActive] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
   const shown = useMemo(() => viewEntries(entries, view), [entries, view]);
@@ -130,10 +116,8 @@ export function ModelSummaryPanel({
     () => emptyShares(entries).filter((share) => share.percent > 0),
     [entries],
   );
-  const setView = (next: SummaryView) => {
-    if (controlledView) controlledView.onChange(next);
-    else setSavedView(next);
-  };
+  const setView = (next: SummaryView) =>
+    setSpec((prev) => ({ ...prev, view: next }));
   const patch = (next: Partial<SummaryView>) => setView({ ...view, ...next });
   const full =
     propertyNames.length >= MAX_SUMMARY_ROWS &&

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { PropertyRow } from '../../shared/types.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { fireEvent, render, screen, waitFor, within } from '../test/render.js';
+import { withSummaryProperties } from '../test/summaryProperties.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
 import { abortError, type ReadOptions } from '../viewer/propertyReads.js';
 import { ModelSummaryPanel } from './ModelSummaryPanel.js';
@@ -84,7 +85,10 @@ describe('summary progress and cancel', () => {
     await adapter.load('urn');
     adapters.push(adapter);
     render(
-      <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />,
+      <ModelSummaryPanel
+        adapter={adapter}
+        {...withSummaryProperties(['Category'])}
+      />,
     );
     await screen.findByText(
       'Reading element properties: 2,000 of 8,000 (partial data)',
@@ -109,7 +113,10 @@ describe('summary progress and cancel', () => {
     await adapter.load('urn');
     adapters.push(adapter);
     render(
-      <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />,
+      <ModelSummaryPanel
+        adapter={adapter}
+        {...withSummaryProperties(['Category'])}
+      />,
     );
     await screen.findByText('Partial: 2 of 5 elements');
     const table = screen.getByRole('table');
@@ -122,7 +129,10 @@ describe('summary progress and cancel', () => {
     await adapter.load('urn');
     adapters.push(adapter);
     render(
-      <ModelSummaryPanel adapter={adapter} propertyNames={['Category']} />,
+      <ModelSummaryPanel
+        adapter={adapter}
+        {...withSummaryProperties(['Category'])}
+      />,
     );
     await waitFor(() =>
       expect(screen.getByLabelText('Filter summary rows')).toBeInTheDocument(),

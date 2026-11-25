@@ -1,18 +1,25 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DASHBOARD_PROPERTIES } from '../extensions/dashboardData.js';
+import { DEFAULT_DASHBOARD_VIEW } from '../extensions/dashboardPresets.js';
 import { DashboardPanel } from '../panels/DashboardPanel.js';
+import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import { forgetPersonal, usePersisted } from '../storage.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { fireEvent, render, screen } from '../test/render.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
 import {
+  chartInstanceIds,
   chartSetting,
+  DASHBOARD_PANEL,
   forgetInstanceSetting,
   instanceSettingKey,
+  SUMMARY_PANEL,
   sanitizeSummarySpec,
   seedInstanceSetting,
   summarySetting,
+  useDashboardSpec,
+  useSummarySpec,
 } from './instanceSettings.js';
 
 vi.mock('chart.js', () => {
@@ -127,10 +134,10 @@ describe('instance settings', () => {
     render(
       <>
         <section aria-label="first">
-          <DashboardPanel adapter={adapter} setting={chartSetting('chart:1')} />
+          <DashboardPanel adapter={adapter} panel="chart:1" />
         </section>
         <section aria-label="second">
-          <DashboardPanel adapter={adapter} setting={chartSetting('chart:2')} />
+          <DashboardPanel adapter={adapter} panel="chart:2" />
         </section>
       </>,
     );
@@ -174,10 +181,10 @@ describe('instance settings', () => {
     const charts = () => (
       <>
         <section aria-label="first">
-          <DashboardPanel adapter={adapter} setting={chartSetting('chart:1')} />
+          <DashboardPanel adapter={adapter} panel="chart:1" />
         </section>
         <section aria-label="second">
-          <DashboardPanel adapter={adapter} setting={chartSetting('chart:2')} />
+          <DashboardPanel adapter={adapter} panel="chart:2" />
         </section>
       </>
     );
@@ -209,5 +216,70 @@ describe('instance settings', () => {
         .properties,
     ).toEqual(['Name']);
     adapter.destroy();
+  });
+
+  it('reads and writes the main Summary spec through the legacy keys', async () => {
+    PANE_SETTINGS.summary.properties.write(['Name']);
+    const view = renderHook(() => useSummarySpec(SUMMARY_PANEL));
+    expect(view.result.current.spec.properties).toEqual(['Name']);
+    expect(view.result.current.scope).toBeUndefined();
+    act(() =>
+      view.result.current.setSpec((prev) => ({ ...prev, action: 'hide' })),
+    );
+    expect(PANE_SETTINGS.summary.action.read()).toBe('hide');
+    await act(async () => {
+      PANE_SETTINGS.summary.properties.write(['Level']);
+      await Promise.resolve();
+    });
+    expect(view.result.current.spec.properties).toEqual(['Level']);
+  });
+
+  it('controls the scope of a Summary instance only', () => {
+    seedInstanceSetting('modelSummary:1', 'urn-a');
+    const view = renderHook(() => useSummarySpec('modelSummary:1'));
+    expect(view.result.current.scope?.value).toBe('urn-a');
+    act(() => view.result.current.scope?.onChange('urn-b'));
+    expect(summarySetting('modelSummary:1').read().scope).toBe('urn-b');
+  });
+
+  it('lets a chart override the click action and inherit it otherwise', () => {
+    PANE_SETTINGS.dashboard.action.write('isolate');
+    const chart = renderHook(() => useDashboardSpec('chart:1'));
+    expect(chart.result.current.action).toBe('isolate');
+    expect(chart.result.current.main).toBe(false);
+    act(() => chart.result.current.setAction('hide'));
+    expect(chart.result.current.action).toBe('hide');
+    expect(PANE_SETTINGS.dashboard.action.read()).toBe('isolate');
+    act(() =>
+      chart.result.current.setView((prev) => ({ ...prev, scope: 'u' })),
+    );
+    expect(chartSetting('chart:1').read()).toMatchObject({
+      action: 'hide',
+      scope: 'u',
+    });
+    act(() => chart.result.current.resetAction());
+    expect(chartSetting('chart:1').read()).not.toHaveProperty('action');
+    expect(chart.result.current.action).toBe('isolate');
+  });
+
+  it('keeps the main Dashboard action and view in their own keys', () => {
+    const main = renderHook(() => useDashboardSpec(DASHBOARD_PANEL));
+    expect(main.result.current.main).toBe(true);
+    expect(main.result.current.scope).toBeUndefined();
+    act(() => main.result.current.setAction('zoom'));
+    act(() =>
+      main.result.current.setView((prev) => ({ ...prev, pngTitle: true })),
+    );
+    expect(PANE_SETTINGS.dashboard.action.read()).toBe('zoom');
+    expect(PANE_SETTINGS.dashboard.view.read().pngTitle).toBe(true);
+    expect(PANE_SETTINGS.dashboard.view.read()).not.toHaveProperty('action');
+  });
+
+  it('lists chart instances from the stored specs in numeric order', () => {
+    chartSetting('chart:10').write({ ...DEFAULT_DASHBOARD_VIEW });
+    chartSetting('chart:2').write({ ...DEFAULT_DASHBOARD_VIEW });
+    window.localStorage.setItem('bsh.pane.chart.x.y.v1', '{}');
+    window.localStorage.setItem('bsh.pane.properties.4.v1', '{}');
+    expect(chartInstanceIds()).toEqual(['chart:2', 'chart:10', 'chart:x.y']);
   });
 });

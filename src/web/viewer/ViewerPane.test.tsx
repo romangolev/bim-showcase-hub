@@ -6,6 +6,7 @@ import { type PersistedRecord, usePersisted } from '../storage.js';
 import { tasks } from '../tasks/taskStore.js';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { act, fireEvent, render, screen, waitFor } from '../test/render.js';
+import { withSummaryProperties } from '../test/summaryProperties.js';
 import { useTheme } from '../theme/ThemeContext.js';
 import { EXCEL_SETTINGS } from '../tools/excel/excelSettings.js';
 import { GLB_SETTINGS } from '../tools/glb/GlbExportTool.js';
@@ -190,11 +191,12 @@ describe('ViewerPane', () => {
   });
 
   it('feeds panels through the shared provider', async () => {
+    installMemoryStorage();
     const { factory } = trackedFactory();
     render(
       <ViewerProvider active="abc">
         <ViewerPane urn="abc" factory={factory} />
-        <ModelSummaryPanel propertyNames={['Level']} />
+        <ModelSummaryPanel {...withSummaryProperties(['Level'])} />
       </ViewerProvider>,
     );
     expect(await screen.findByText('Level 1')).toBeInTheDocument();

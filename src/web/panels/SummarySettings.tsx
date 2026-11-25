@@ -26,15 +26,14 @@ import {
   type SummaryView,
   sanitizeLayout,
 } from '../extensions/modelSummary.js';
-import { summarySetting } from '../layout/instanceSettings.js';
-import type { PanelId } from '../layout/paneRegistry.js';
+import { SUMMARY_PANEL, useSummarySpec } from '../layout/instanceSettings.js';
+import { paneKind } from '../layout/paneRegistry.js';
 import {
-  setSummarySettingsTarget,
-  useSummarySettingsTarget,
-} from '../layout/summaryTarget.js';
+  setPaneSettingsTarget,
+  usePaneSettingsTarget,
+} from '../layout/settingsTarget.js';
 import type { ModalDefinition } from '../modal/types.js';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
-import { usePersisted } from '../storage.js';
 import { announce } from '../tasks/notifications.js';
 import { Button } from '../ui/Button.js';
 import { FieldLabel } from '../ui/Field.js';
@@ -494,39 +493,12 @@ function SummaryFields({
   );
 }
 
-function GlobalSummarySettings({ adapter }: { adapter: ViewerAdapter | null }) {
-  const [view, setView, resetView] = usePersisted(PANE_SETTINGS.summary.view);
-  const [action, setAction, resetAction] = usePersisted(
-    PANE_SETTINGS.summary.action,
+export function SummarySettingsBody() {
+  const target = usePaneSettingsTarget();
+  const adapter = useResolvedAdapter(usePublishedAdapter());
+  const { spec, setSpec } = useSummarySpec(
+    paneKind(target) === 'modelSummary' && target ? target : SUMMARY_PANEL,
   );
-  const [properties, setProperties] = usePersisted(
-    PANE_SETTINGS.summary.properties,
-  );
-  return (
-    <SummaryFields
-      view={view}
-      action={action}
-      adapter={adapter}
-      propertyNames={properties}
-      onProperties={setProperties}
-      onView={setView}
-      onAction={setAction}
-      onReset={() => {
-        resetView();
-        resetAction();
-      }}
-    />
-  );
-}
-
-function InstanceSummarySettings({
-  target,
-  adapter,
-}: {
-  target: PanelId;
-  adapter: ViewerAdapter | null;
-}) {
-  const [spec, setSpec] = usePersisted(summarySetting(target));
   return (
     <SummaryFields
       view={spec.view}
@@ -554,20 +526,10 @@ function InstanceSummarySettings({
   );
 }
 
-export function SummarySettingsBody() {
-  const target = useSummarySettingsTarget();
-  const adapter = useResolvedAdapter(usePublishedAdapter());
-  return target ? (
-    <InstanceSummarySettings target={target} adapter={adapter} />
-  ) : (
-    <GlobalSummarySettings adapter={adapter} />
-  );
-}
-
 export const SUMMARY_SETTINGS_MODAL: ModalDefinition = {
   id: SUMMARY_SETTINGS_ID,
   title: 'Summary settings',
   size: 'lg',
   Body: SummarySettingsBody,
-  onClose: () => setSummarySettingsTarget(null),
+  onClose: () => setPaneSettingsTarget(null),
 };

@@ -16,12 +16,12 @@ import { fireEvent, render, screen, waitFor } from '../test/render.js';
 import { publishActiveAdapter } from '../viewer/activeAdapterStore.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
 import { ModelViewerContext } from '../viewer/ViewerContext.js';
-import {
-  setDashboardSettingsTarget,
-  useDashboardSettingsTarget,
-} from './dashboardTarget.js';
 import { chartSetting, forgetInstanceSetting } from './instanceSettings.js';
-import { ChartInstancePane, DashboardPane } from './panes.js';
+import { DashboardPane } from './panes.js';
+import {
+  setPaneSettingsTarget,
+  usePaneSettingsTarget,
+} from './settingsTarget.js';
 
 const modal = vi.hoisted(() => ({ open: vi.fn() }));
 
@@ -62,13 +62,13 @@ let adapter: MockViewerAdapter;
 let seen: string | null = 'unset';
 
 function Probe() {
-  seen = useDashboardSettingsTarget();
+  seen = usePaneSettingsTarget();
   return null;
 }
 
 beforeEach(async () => {
   installMemoryStorage();
-  setDashboardSettingsTarget(null);
+  setPaneSettingsTarget(null);
   seen = 'unset';
   modal.open.mockClear();
   adapter = new MockViewerAdapter(document.createElement('div'));
@@ -79,7 +79,7 @@ beforeEach(async () => {
 afterEach(() => {
   publishActiveAdapter(null);
   adapter.destroy();
-  setDashboardSettingsTarget(null);
+  setPaneSettingsTarget(null);
 });
 
 describe('chart instance settings', () => {
@@ -95,7 +95,7 @@ describe('chart instance settings', () => {
     });
     render(
       <ModelViewerContext.Provider value={adapter}>
-        <ChartInstancePane instance="1" />
+        <DashboardPane instance="1" />
         <DashboardPanel adapter={adapter} />
         <DashboardSettingsBody />
         <Probe />
@@ -124,14 +124,14 @@ describe('chart instance settings', () => {
   });
 
   it('clears the target when the settings modal closes', () => {
-    setDashboardSettingsTarget('chart:2');
+    setPaneSettingsTarget('chart:2');
     DASHBOARD_SETTINGS_MODAL.onClose?.();
     render(<Probe />);
     expect(seen).toBeNull();
   });
 
   it('clears the target when the main dashboard opens its settings', async () => {
-    setDashboardSettingsTarget('chart:1');
+    setPaneSettingsTarget('chart:1');
     render(
       <ModelViewerContext.Provider value={adapter}>
         <DashboardPane />
@@ -156,7 +156,7 @@ describe('chart instance settings', () => {
       charts: chartsFromProperties(['Name']),
       properties: ['Name'],
     });
-    setDashboardSettingsTarget('chart:5');
+    setPaneSettingsTarget('chart:5');
     render(
       <ModelViewerContext.Provider value={adapter}>
         <DashboardSettingsBody />
@@ -178,10 +178,29 @@ describe('chart instance settings', () => {
 
   it('drops the target when its chart instance is forgotten', async () => {
     chartSetting('chart:3').write({ ...DEFAULT_DASHBOARD_VIEW });
-    setDashboardSettingsTarget('chart:3');
+    setPaneSettingsTarget('chart:3');
     render(<Probe />);
     expect(seen).toBe('chart:3');
     forgetInstanceSetting('chart:3');
     await waitFor(() => expect(seen).toBeNull());
+  });
+
+  it('stores a chart click action on the instance only', async () => {
+    chartSetting('chart:6').write({ ...DEFAULT_DASHBOARD_VIEW });
+    setPaneSettingsTarget('chart:6');
+    render(
+      <ModelViewerContext.Provider value={adapter}>
+        <DashboardSettingsBody />
+      </ModelViewerContext.Provider>,
+    );
+    fireEvent.change(await screen.findByLabelText('Chart click'), {
+      target: { value: 'isolate' },
+    });
+    await waitFor(() =>
+      expect(chartSetting('chart:6').read()).toMatchObject({
+        action: 'isolate',
+      }),
+    );
+    expect(PANE_SETTINGS.dashboard.action.has()).toBe(false);
   });
 });

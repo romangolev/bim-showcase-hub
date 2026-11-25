@@ -2,6 +2,7 @@ import { act } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { installMemoryStorage } from '../test/mockApi.js';
 import { fireEvent, render, screen } from '../test/render.js';
+import { withSummaryProperties } from '../test/summaryProperties.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
 import { ModelSummaryPanel } from './ModelSummaryPanel.js';
 
@@ -26,7 +27,7 @@ async function open() {
   render(
     <ModelSummaryPanel
       adapter={adapter}
-      propertyNames={['Category']}
+      {...withSummaryProperties(['Category'])}
       onOpenSettings={vi.fn()}
     />,
   );

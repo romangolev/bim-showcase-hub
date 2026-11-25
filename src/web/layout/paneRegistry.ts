@@ -313,7 +313,7 @@ export const PANES: readonly PaneDefinition[] = [
     closable: true,
     requires: 'viewer',
     instances: {
-      component: lazyPane(() => loadPanes().then((m) => m.ChartInstancePane)),
+      component: lazyPane(() => loadPanes().then((m) => m.DashboardPane)),
       source: 'user',
     },
   },
@@ -335,7 +335,7 @@ export const PANES: readonly PaneDefinition[] = [
     closable: true,
     requires: 'viewer',
     instances: {
-      component: lazyPane(() => loadPanes().then((m) => m.SummaryInstancePane)),
+      component: lazyPane(() => loadPanes().then((m) => m.SummaryPane)),
       source: 'user',
     },
   },

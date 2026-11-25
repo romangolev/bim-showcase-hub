@@ -7,11 +7,10 @@ import {
   type ViewPanes,
 } from '../api/viewLink.js';
 import { withControls } from '../extensions/dashboardPresets.js';
-import { chartSetting } from '../layout/instanceSettings.js';
+import { chartInstanceIds, chartSetting } from '../layout/instanceSettings.js';
 import type { LayoutApi } from '../layout/layoutContext.js';
 import type { PaneId } from '../layout/paneRegistry.js';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
-import { getStorageAdapter } from '../storage.js';
 import type { ViewerAdapter, ViewerState } from './ViewerAdapter.js';
 
 export const LINK_DEGRADED_TEXT =
@@ -25,24 +24,6 @@ export const COLLAPSED_PANES: readonly PaneId[] = [
   'dashboard',
   'models',
 ];
-const CHART_INSTANCE_KEY = /^bsh\.pane\.chart\.(.+)\.v1$/;
-const CHART_PANEL = /^chart:([A-Za-z0-9]{1,8})$/;
-
-function chartInstanceIds(): string[] {
-  const ids: string[] = [];
-  for (const key of getStorageAdapter().keys('local')) {
-    const instance = CHART_INSTANCE_KEY.exec(key)?.[1];
-    if (instance) ids.push(`chart:${instance}`);
-  }
-  return ids.sort((a, b) =>
-    (CHART_PANEL.exec(a)?.[1] ?? a).localeCompare(
-      CHART_PANEL.exec(b)?.[1] ?? b,
-      undefined,
-      { numeric: true },
-    ),
-  );
-}
-
 export function captureCharts(): ViewChart[] {
   const charts: ViewChart[] = [
     {
@@ -51,10 +32,8 @@ export function captureCharts(): ViewChart[] {
     },
   ];
   for (const id of chartInstanceIds()) {
-    charts.push({
-      id,
-      view: withControls(chartSetting(id as PaneId).read(), undefined),
-    });
+    const { action: _action, ...view } = chartSetting(id).read();
+    charts.push({ id, view: withControls(view, undefined) });
   }
   return charts.slice(0, MAX_LINK_CHARTS);
 }
