@@ -101,6 +101,26 @@ New UI is built from the components in `src/web/ui/`. They are shadcn/ui compone
 
 To add a component, run `npx shadcn@latest add <name>`. `components.json` puts it in `src/web/ui/`. Then, by hand: rename the file to PascalCase, rewrite the imports to relative paths with `.js` extensions (`./cn.js`; the repo has no `@/` alias), replace shadcn's colour classes (`bg-primary`, `ring-ring`, `dark:`) and arbitrary values with token-mapped utilities, and add a render test. `ui/Button.tsx` is the reference.
 
+### Tables
+
+`ui/Table.tsx` holds the table family. Every part is the native element, so the roles and the e2e selectors (`table`, `tbody tr`, `columnheader`) stay what they were.
+
+| Part | Element | Props beyond the contract |
+|---|---|---|
+| `Table` | `table` | `size` (`small` is the compact density), `fixed` (fixed layout, cells clip with an ellipsis) |
+| `TableHeader`, `TableBody` | `thead`, `tbody` | |
+| `TableRow` | `tr` | `selected` (`aria-selected` and a fill) |
+| `TableHead` | `th scope="col"` | `sticky`, `numeric` |
+| `TableSortHead` | `th` with `aria-sort` and a button | `sort` (`ascending`, `descending`, `none`), `onSort`, `indicator` (the caller's icon) |
+| `TableCell` | `td`, or `th scope="row"` with `rowHeader` | `numeric` |
+| `TableResizeHandle` | `hr` (a focusable separator) at the end edge of a `TableHead` | `label` (required), `value` (width in px), `active` |
+
+- The Summary tables are the only user so far. They keep the `bsh-table` app classes, because `.bsh-table` is shared with the Dashboard tile, the Export preview, the shortcut lists and the printed report. Those app classes win over the primitive's utilities through the layers, so the look did not change.
+- The column model comes from `@tanstack/react-table` v9 (`useTable`, with `columnSizingFeature` and `columnResizingFeature` only). Each layout builds a column list (`id`, header, cell, and a `meta` with the cell classes and attributes) and a list of lines in display order; one `Grid` component renders any of them.
+- Sorting is not a table feature. `view.sort` (`count` or `value`) is applied in `viewEntries()` and `pivotTree()`, because copy, CSV and the Excel export read the same entries. `TableSortHead` exists for a table that sorts itself; the Summary does not use it.
+- Column resizing: every Summary header has a handle named `Resize <column> column`. Until a handle is used the table keeps the automatic layout. The first drag or arrow key measures every column, switches the table to the fixed layout at those widths and then changes the one column (16 px per arrow key, 48 to 1600 px). A double click or Enter on any handle returns the table to automatic widths. Widths live in the table instance only: they are not stored and each grouped block has its own. The header cell carries its name in `aria-label`, so the handle does not become part of the column name. The stacked layout hides the handles, and a `decorative` table has none.
+- Rows are not virtualised. The Summary caps a table at 500 rows per property and shows the rest on request.
+
 ### Effects
 
 An effect is a name in a primitive's `effect` prop, written to the DOM as `data-effect`. Its CSS lives in `src/web/ui/effects.css` (the `effects` layer, above the utilities and below app CSS) and reads `--ui-*` tokens. No primitive changes to gain an effect.
