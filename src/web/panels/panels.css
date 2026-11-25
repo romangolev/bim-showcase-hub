@@ -882,7 +882,7 @@
 
 .bsh-props__key-cell {
   width: 40%;
-  text-align: left;
+  text-align: start;
   white-space: normal;
   overflow-wrap: anywhere;
 }
