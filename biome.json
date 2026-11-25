@@ -25,7 +25,18 @@
       "a11y": {
         "noLabelWithoutControl": {
           "level": "error",
-          "options": { "inputComponents": ["NumberField"] }
+          "options": {
+            "inputComponents": [
+              "NumberField",
+              "Input",
+              "Textarea",
+              "Select",
+              "Checkbox",
+              "Radio",
+              "Switch",
+              "Slider"
+            ]
+          }
         }
       }
     }

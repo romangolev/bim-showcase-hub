@@ -5,6 +5,7 @@ import { Alert, AlertDescription } from './Alert.js';
 import { Badge } from './Badge.js';
 import { Button } from './Button.js';
 import { Card, CardHeader, CardTitle } from './Card.js';
+import { Checkbox } from './Checkbox.js';
 import {
   Dialog,
   DialogBody,
@@ -51,6 +52,7 @@ import {
   PopoverTitle,
   PopoverTrigger,
 } from './Popover.js';
+import { Radio, RadioGroup } from './Radio.js';
 import { Skeleton } from './Skeleton.js';
 import { Spinner } from './Spinner.js';
 import { Switch } from './Switch.js';
@@ -361,6 +363,21 @@ const ENTRIES: Entry[] = [
     file: 'Switch',
     slot: 'switch',
     render: (props) => <Switch aria-label="label" {...props} />,
+  },
+  {
+    file: 'Checkbox',
+    slot: 'checkbox',
+    render: (props) => <Checkbox aria-label="label" {...props} />,
+  },
+  {
+    file: 'Radio',
+    slot: 'radio',
+    render: (props) => <Radio aria-label="label" {...props} />,
+  },
+  {
+    file: 'Radio',
+    slot: 'radio-group',
+    render: (props) => <RadioGroup aria-label="label" {...props} />,
   },
 ];
 
