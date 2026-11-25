@@ -16,6 +16,7 @@ from common import (
     expand_to_viewable,
     horizontal_overflow,
     new_notes,
+    show_controls,
     watch,
 )
 
@@ -377,6 +378,8 @@ def run(browser, theme, width, language, results, notes):
             ("summary-add-property", "Add property", "dialog[open]"),
         ):
             try:
+                if key == "summary-add-property":
+                    show_controls(page, "Summary controls")
                 page.get_by_role("button", name=name, exact=True).first.click(timeout=5000)
                 page.locator(scope).first.wait_for(timeout=3000)
                 measure(page, scope, f"{prefix}-{key}", results, shots)

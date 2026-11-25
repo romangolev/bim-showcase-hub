@@ -12,6 +12,7 @@ from common import (
     HOST_OS,
     OUTPUT_DIR,
     app_reachable,
+    show_controls,
 )
 import mock_smoke as smoke
 
@@ -91,7 +92,9 @@ def refresh_dashboard(page):
     if expand.count():
         expand.first.click()
         smoke.settle(page, 600)
-    page.get_by_role("button", name="Refresh").first.click()
+    pane = page.locator(".pane-dashboard").first
+    show_controls(pane, "Dashboard controls")
+    pane.get_by_role("button", name="Refresh").first.click()
     page.locator(".bsh-chart canvas").first.wait_for(
         state="visible", timeout=STEP_TIMEOUT_MS
     )
