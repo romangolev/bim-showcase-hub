@@ -4,6 +4,8 @@ import { SettingsField } from '../../components/SettingsForm.js';
 import { ALLOWED_CLASSES, PROXY_CLASS } from '../../ifc/classTable.js';
 import { usePersisted } from '../../storage.js';
 import { Button } from '../../ui/Button.js';
+import { Input } from '../../ui/Input.js';
+import { Select, SelectOption } from '../../ui/Select.js';
 import { IFC_SETTINGS, type IfcToolSettings } from './ifcSettings.js';
 
 type TextKey =
@@ -26,7 +28,7 @@ function TextField({ label, value, onCommit }: TextFieldProps) {
     <SettingsField label={label}>
       {(id) => (
         <>
-          <input
+          <Input
             id={id}
             type="text"
             value={value}
@@ -50,7 +52,7 @@ function ListField({ label, values, onCommit }: ListFieldProps) {
     <SettingsField label={label}>
       {(id) => (
         <>
-          <input
+          <Input
             id={id}
             type="text"
             value={text}
@@ -117,7 +119,7 @@ function OverrideEditor({
       <SettingsField label="Category">
         {(id) => (
           <>
-            <input
+            <Input
               id={id}
               type="text"
               value={category}
@@ -129,17 +131,17 @@ function OverrideEditor({
       <SettingsField label="IFC class">
         {(id) => (
           <>
-            <select
+            <Select
               id={id}
               value={ifcClass}
-              onChange={(event) => setIfcClass(event.target.value)}
+              onValueChange={(next) => setIfcClass(next)}
             >
               {ALLOWED_CLASSES.map((name) => (
-                <option key={name} value={name}>
+                <SelectOption key={name} value={name}>
                   {name}
-                </option>
+                </SelectOption>
               ))}
-            </select>
+            </Select>
           </>
         )}
       </SettingsField>
@@ -181,18 +183,18 @@ export function IfcFields() {
         <SettingsField label="Length unit">
           {(id) => (
             <>
-              <select
+              <Select
                 id={id}
                 value={ifc.lengthUnit}
-                onChange={(event) =>
+                onValueChange={(next) =>
                   update({
-                    lengthUnit: event.target.value === 'mm' ? 'mm' : 'm',
+                    lengthUnit: next === 'mm' ? 'mm' : 'm',
                   })
                 }
               >
-                <option value="m">Metres</option>
-                <option value="mm">Millimetres</option>
-              </select>
+                <SelectOption value="m">Metres</SelectOption>
+                <SelectOption value="mm">Millimetres</SelectOption>
+              </Select>
             </>
           )}
         </SettingsField>

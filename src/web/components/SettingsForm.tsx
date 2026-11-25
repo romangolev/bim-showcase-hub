@@ -1,6 +1,11 @@
 import { type ReactNode, useId } from 'react';
 import { Button } from '../ui/Button.js';
+import { Checkbox } from '../ui/Checkbox.js';
+import { Field, FieldHint, FieldLabel, FieldTitle } from '../ui/Field.js';
+import { Input } from '../ui/Input.js';
 import { NumberField } from '../ui/NumberField.js';
+import { Select, SelectOption } from '../ui/Select.js';
+import { Slider } from '../ui/Slider.js';
 import { SwitchRow } from './SwitchRow.js';
 
 interface FieldBase {
@@ -68,10 +73,6 @@ interface SettingsFormProps<V extends object> {
   className?: string;
 }
 
-function Hint({ children }: { children?: ReactNode }) {
-  return children ? <span className="settings__hint">{children}</span> : null;
-}
-
 export interface SettingsFieldProps {
   label: ReactNode;
   hint?: ReactNode;
@@ -81,11 +82,11 @@ export interface SettingsFieldProps {
 export function SettingsField({ label, hint, children }: SettingsFieldProps) {
   const id = useId();
   return (
-    <div className="settings__field">
-      <label htmlFor={id}>{label}</label>
+    <Field layout="row" controlId={id}>
+      <FieldLabel>{label}</FieldLabel>
       {children(id)}
-      <Hint>{hint}</Hint>
-    </div>
+      {hint ? <FieldHint>{hint}</FieldHint> : null}
+    </Field>
   );
 }
 
@@ -123,14 +124,13 @@ function NumberRow({ field, value, set }: RowProps<NumberFieldDef>) {
         hint={field.hint}
       >
         {(id) => (
-          <input
+          <Slider
             id={id}
-            type="range"
             min={field.min}
             max={field.max}
             step={step}
             value={current}
-            onChange={(event) => set(Number(event.target.value))}
+            onValueChange={set}
           />
         )}
       </SettingsField>
@@ -158,13 +158,13 @@ function SelectRow({ field, value, set }: RowProps<SelectField>) {
   return (
     <SettingsField label={field.label} hint={field.hint}>
       {(id) => (
-        <select id={id} value={selected} onChange={(e) => set(e.target.value)}>
+        <Select id={id} value={selected} onValueChange={set}>
           {field.options.map((option) => (
-            <option key={option.value} value={option.value}>
+            <SelectOption key={option.value} value={option.value}>
               {option.label}
-            </option>
+            </SelectOption>
           ))}
-        </select>
+        </Select>
       )}
     </SettingsField>
   );
@@ -174,7 +174,7 @@ function TextRow({ field, value, set }: RowProps<TextField>) {
   return (
     <SettingsField label={field.label} hint={field.hint}>
       {(id) => (
-        <input
+        <Input
           id={id}
           type="text"
           maxLength={field.maxLength}
@@ -189,12 +189,11 @@ function TextRow({ field, value, set }: RowProps<TextField>) {
 function MultiRow({ field, value, set }: RowProps<MultiField>) {
   const chosen = strings(value);
   return (
-    <fieldset className="settings__field">
+    <Field layout="wrap" render={<fieldset />}>
       <legend>{field.label}</legend>
       {field.options.map((option) => (
-        <label key={option.value} className="settings__check">
-          <input
-            type="checkbox"
+        <FieldLabel layout="inline" key={option.value}>
+          <Checkbox
             checked={chosen.includes(option.value)}
             onChange={() =>
               set(
@@ -209,10 +208,10 @@ function MultiRow({ field, value, set }: RowProps<MultiField>) {
             }
           />
           {option.label}
-        </label>
+        </FieldLabel>
       ))}
-      <Hint>{field.hint}</Hint>
-    </fieldset>
+      {field.hint ? <FieldHint>{field.hint}</FieldHint> : null}
+    </Field>
   );
 }
 
@@ -220,12 +219,12 @@ function ListRow({ field, value, set }: RowProps<ListField>) {
   const items = strings(value);
   const min = field.min ?? 0;
   return (
-    <div className="settings__field">
-      <span>{field.label}</span>
+    <Field layout="row">
+      <FieldTitle>{field.label}</FieldTitle>
       <ul className="settings__palette">
         {items.map((item, index) => (
           <li key={index} className="settings__palette-item">
-            <input
+            <Input
               type={field.itemType}
               value={item}
               aria-label={field.itemLabel(index)}
@@ -259,8 +258,8 @@ function ListRow({ field, value, set }: RowProps<ListField>) {
           {field.addLabel}
         </Button>
       </div>
-      <Hint>{field.hint}</Hint>
-    </div>
+      {field.hint ? <FieldHint>{field.hint}</FieldHint> : null}
+    </Field>
   );
 }
 

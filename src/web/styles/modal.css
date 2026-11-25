@@ -179,7 +179,8 @@
   color: var(--color-snow);
 }
 
-.settings__field > :is([data-slot="button"], [data-slot="toggle-button"]) {
+:is(.settings__field, [data-slot="field"], [data-slot="field-label"])
+  > :is([data-slot="button"], [data-slot="toggle-button"]) {
   justify-self: start;
 }
 

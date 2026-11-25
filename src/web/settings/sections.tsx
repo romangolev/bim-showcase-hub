@@ -9,6 +9,8 @@ import { translateNow, useT } from '../i18n/i18n.js';
 import { usePersisted } from '../storage.js';
 import { NotificationSettingsSection } from '../tasks/NotificationSettingsSection.js';
 import { THEME_PREFERENCES, type ThemePreference } from '../theme/theme.js';
+import { Input } from '../ui/Input.js';
+import { Select, SelectOption } from '../ui/Select.js';
 import { ChartSettingsSection } from './ChartSettingsSection.js';
 import { DefaultsSettings } from './DefaultsSettings.js';
 import { LocalDataSettings } from './LocalDataSettings.js';
@@ -81,19 +83,17 @@ function GeneralSection() {
           hint={t('settings.languageHint')}
         >
           {(id) => (
-            <select
+            <Select
               id={id}
               value={settings.language}
-              onChange={(event) =>
-                setSetting('language', event.target.value as Language)
-              }
+              onValueChange={(next) => setSetting('language', next as Language)}
             >
               {LANGUAGES.map((language) => (
-                <option key={language} value={language}>
+                <SelectOption key={language} value={language}>
                   {LANGUAGE_LABELS[language]}
-                </option>
+                </SelectOption>
               ))}
-            </select>
+            </Select>
           )}
         </SettingsField>
         <SettingsField
@@ -101,19 +101,17 @@ function GeneralSection() {
           hint={t('settings.unitsHint')}
         >
           {(id) => (
-            <select
+            <Select
               id={id}
               value={settings.units}
-              onChange={(event) =>
-                setSetting('units', event.target.value as Units)
-              }
+              onValueChange={(next) => setSetting('units', next as Units)}
             >
               {UNITS.map((units) => (
-                <option key={units} value={units}>
+                <SelectOption key={units} value={units}>
                   {t(UNITS_LABELS[units])}
-                </option>
+                </SelectOption>
               ))}
-            </select>
+            </Select>
           )}
         </SettingsField>
       </section>
@@ -126,7 +124,7 @@ function GeneralSection() {
           hint={t('settings.warnBeforeEndHint')}
         >
           {(id) => (
-            <input
+            <Input
               id={id}
               type="number"
               min={0}
@@ -168,19 +166,19 @@ function AppearanceSection() {
           hint={t('settings.themeHint')}
         >
           {(id) => (
-            <select
+            <Select
               id={id}
               value={settings.theme}
-              onChange={(event) =>
-                setSetting('theme', event.target.value as Settings['theme'])
+              onValueChange={(next) =>
+                setSetting('theme', next as Settings['theme'])
               }
             >
               {THEME_PREFERENCES.map((theme) => (
-                <option key={theme} value={theme}>
+                <SelectOption key={theme} value={theme}>
                   {t(THEME_LABELS[theme])}
-                </option>
+                </SelectOption>
               ))}
-            </select>
+            </Select>
           )}
         </SettingsField>
         <SettingsField
@@ -188,21 +186,21 @@ function AppearanceSection() {
           hint={t('settings.topBarHint')}
         >
           {(id) => (
-            <select
+            <Select
               id={id}
               value={topbar.breadcrumb}
-              onChange={(event) =>
+              onValueChange={(next) =>
                 setTopbar({
-                  breadcrumb: event.target.value as BreadcrumbMode,
+                  breadcrumb: next as BreadcrumbMode,
                 })
               }
             >
               {BREADCRUMB_MODES.map((mode) => (
-                <option key={mode} value={mode}>
+                <SelectOption key={mode} value={mode}>
                   {t(BREADCRUMB_LABELS[mode])}
-                </option>
+                </SelectOption>
               ))}
-            </select>
+            </Select>
           )}
         </SettingsField>
         <SettingsField
@@ -210,19 +208,19 @@ function AppearanceSection() {
           hint={t('settings.densityHint')}
         >
           {(id) => (
-            <select
+            <Select
               id={id}
               value={settings.density}
-              onChange={(event) =>
-                setSetting('density', event.target.value as Settings['density'])
+              onValueChange={(next) =>
+                setSetting('density', next as Settings['density'])
               }
             >
               {DENSITIES.map((density) => (
-                <option key={density} value={density}>
+                <SelectOption key={density} value={density}>
                   {t(DENSITY_LABELS[density])}
-                </option>
+                </SelectOption>
               ))}
-            </select>
+            </Select>
           )}
         </SettingsField>
         <SettingsField
@@ -230,19 +228,19 @@ function AppearanceSection() {
           hint={t('settings.textSizeHint')}
         >
           {(id) => (
-            <select
+            <Select
               id={id}
               value={settings.textSize}
-              onChange={(event) =>
-                setSetting('textSize', Number(event.target.value) as TextSize)
+              onValueChange={(next) =>
+                setSetting('textSize', Number(next) as TextSize)
               }
             >
               {TEXT_SIZES.map((size) => (
-                <option key={size} value={size}>
+                <SelectOption key={size} value={size}>
                   {TEXT_SIZE_LABELS[size]}
-                </option>
+                </SelectOption>
               ))}
-            </select>
+            </Select>
           )}
         </SettingsField>
         <SwitchRow
@@ -268,7 +266,7 @@ function DocumentsSection() {
           hint={t('settings.recentsLengthHint')}
         >
           {(id) => (
-            <input
+            <Input
               id={id}
               type="number"
               min={0}

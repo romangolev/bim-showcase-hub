@@ -6,6 +6,7 @@ import { useModal } from '../modal/ModalContext.js';
 import { resetHints } from '../onboarding/hints.js';
 import { notify } from '../tasks/notifications.js';
 import { Button } from '../ui/Button.js';
+import { Field, FieldHint, FieldTitle } from '../ui/Field.js';
 import { useSettings } from './SettingsContext.js';
 
 export function DefaultsSettings() {
@@ -22,8 +23,8 @@ export function DefaultsSettings() {
       <h3 id="settings-defaults" className="settings__heading">
         {t('settings.defaults')}
       </h3>
-      <div className="settings__field">
-        <span>{t('settings.appSettings')}</span>
+      <Field layout="row">
+        <FieldTitle>{t('settings.appSettings')}</FieldTitle>
         <Button
           onClick={() => {
             resetSettings();
@@ -32,12 +33,10 @@ export function DefaultsSettings() {
         >
           {t('settings.resetSettings')}
         </Button>
-        <span className="settings__hint">
-          {t('settings.resetSettingsHint')}
-        </span>
-      </div>
-      <div className="settings__field">
-        <span>{t('settings.layout')}</span>
+        <FieldHint>{t('settings.resetSettingsHint')}</FieldHint>
+      </Field>
+      <Field layout="row">
+        <FieldTitle>{t('settings.layout')}</FieldTitle>
         <Button
           disabled={!resetCommand || Boolean(resetCommand.disabled)}
           onClick={() => {
@@ -47,14 +46,14 @@ export function DefaultsSettings() {
         >
           {t('settings.resetLayout')}
         </Button>
-        <span className="settings__hint">
+        <FieldHint>
           {resetCommand
             ? (resetCommand.disabled ?? t('settings.layoutHint'))
             : t('settings.layoutUnavailable')}
-        </span>
-      </div>
-      <div className="settings__field">
-        <span>{t('settings.hints')}</span>
+        </FieldHint>
+      </Field>
+      <Field layout="row">
+        <FieldTitle>{t('settings.hints')}</FieldTitle>
         <Button
           onClick={() => {
             resetHints();
@@ -63,8 +62,8 @@ export function DefaultsSettings() {
         >
           {t('settings.showHintsAgain')}
         </Button>
-        <span className="settings__hint">{t('settings.hintsHint')}</span>
-      </div>
+        <FieldHint>{t('settings.hintsHint')}</FieldHint>
+      </Field>
       <p role="status" className="settings__hint">
         {notice}
       </p>

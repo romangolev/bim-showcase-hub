@@ -3,6 +3,7 @@ import { ItemList, ItemRow } from '../../components/ItemList.js';
 import { useSavedKindItems } from '../../store/savedKinds.js';
 import { MAX_NAME_LENGTH } from '../../store/savedStore.js';
 import { Button } from '../../ui/Button.js';
+import { Input } from '../../ui/Input.js';
 import {
   BUILT_IN_EXPORT_PRESETS,
   builtInSettings,
@@ -39,7 +40,7 @@ export function PresetFields({
     <fieldset className="settings__section">
       <legend className="settings__heading">Presets</legend>
       <div className="settings__actions">
-        <input
+        <Input
           type="text"
           aria-label="Export preset name"
           placeholder="Name this setup"

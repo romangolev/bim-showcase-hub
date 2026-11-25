@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useT } from '../i18n/i18n.js';
 import { Button } from '../ui/Button.js';
+import { Checkbox } from '../ui/Checkbox.js';
+import { FieldLabel } from '../ui/Field.js';
 import {
   clearLocalData,
   formatStorageBytes,
@@ -107,9 +109,8 @@ export function LocalDataSettings() {
             open-model list are removed. Open tabs stay open until a reload. You
             stay signed in.
           </p>
-          <label className="settings__check">
-            <input
-              type="checkbox"
+          <FieldLabel layout="inline">
+            <Checkbox
               checked={preferences}
               disabled={report.preference.keys === 0}
               onChange={(event) => setPreferences(event.target.checked)}
@@ -117,7 +118,7 @@ export function LocalDataSettings() {
             Also reset preferences ({report.preference.keys}{' '}
             {report.preference.keys === 1 ? 'key' : 'keys'},{' '}
             {formatStorageBytes(report.preference.bytes)})
-          </label>
+          </FieldLabel>
           <div className="settings__actions">
             <Button variant="primary" disabled={!canClear} onClick={clear}>
               Clear all local data
