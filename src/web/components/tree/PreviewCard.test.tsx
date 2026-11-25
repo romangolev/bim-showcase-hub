@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { TreeNode } from '../../../shared/types.js';
 import { thumbnailPath } from '../../api/client.js';
@@ -76,15 +76,28 @@ describe('PreviewCard', () => {
     expect(outer).not.toHaveBeenCalled();
   });
 
-  it('asks to restore focus only for Escape', () => {
+  it('asks to restore focus only for Escape', async () => {
     const onClose = vi.fn();
     render(
       <PreviewCard node={node()} anchor={anchor} showImage onClose={onClose} />,
     );
     fireEvent.pointerDown(document.body);
-    expect(onClose).toHaveBeenLastCalledWith(false);
+    fireEvent.mouseDown(document.body);
+    fireEvent.click(document.body);
+    await waitFor(() => expect(onClose).toHaveBeenLastCalledWith(false));
     fireEvent.keyDown(document.body, { key: 'Escape' });
     expect(onClose).toHaveBeenLastCalledWith(true);
+  });
+
+  it('renders through the Popover primitive without taking focus', () => {
+    const before = document.activeElement;
+    render(
+      <PreviewCard node={node()} anchor={anchor} showImage onClose={vi.fn()} />,
+    );
+    const card = screen.getByRole('dialog', { name: 'Preview of a.rvt' });
+    expect(card).toHaveAttribute('data-slot', 'popover-popup');
+    expect(card).toHaveClass('tree-preview');
+    expect(document.activeElement).toBe(before);
   });
 
   it('marks the latest version and shows its label', () => {

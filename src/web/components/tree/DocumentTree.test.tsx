@@ -815,7 +815,9 @@ describe('DocumentTree file rows', () => {
     const box = screen.getByRole('searchbox', { name: 'Filter loaded nodes' });
     box.focus();
     fireEvent.pointerDown(box);
-    expect(screen.queryByRole('dialog')).toBeNull();
+    fireEvent.mouseDown(box);
+    fireEvent.click(box);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(document.activeElement).toBe(box);
   });
 

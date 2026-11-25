@@ -292,20 +292,11 @@
 }
 
 .tree-preview {
-  position: fixed;
-  z-index: var(--z-modal);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   width: 280px;
   padding: var(--space-2);
-  border: var(--border-hairline);
-  border-radius: var(--radius-card);
-  background: var(--color-graphite);
-  box-shadow: var(--shadow-inset);
-  color: var(--color-chalk);
-  font-family: var(--font-sans);
-  font-size: var(--text-13);
   pointer-events: none;
 }
 
