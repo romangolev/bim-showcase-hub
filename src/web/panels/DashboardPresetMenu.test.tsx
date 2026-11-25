@@ -125,6 +125,27 @@ describe('dashboard preset menu in settings', () => {
     expect(readSaved('dashboard-preset')).toHaveLength(0);
   });
 
+  it('saves and updates a preset without the pane-local controls state', async () => {
+    window.localStorage.setItem(
+      'bsh.dashboard.view.v1',
+      JSON.stringify({ controls: false }),
+    );
+    render(<DashboardSettingsBody />);
+    await saveAs('Mine');
+    expect(readSaved('dashboard-preset')[0]?.data).not.toHaveProperty(
+      'controls',
+    );
+    open();
+    fireEvent.click(
+      screen.getByRole('menuitem', {
+        name: 'Update "Mine" with current charts',
+      }),
+    );
+    expect(readSaved('dashboard-preset')[0]?.data).not.toHaveProperty(
+      'controls',
+    );
+  });
+
   it('will not save with an empty name', () => {
     render(<DashboardSettingsBody />);
     open();

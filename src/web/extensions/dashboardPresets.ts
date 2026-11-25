@@ -347,7 +347,7 @@ export const DASHBOARD_USER_PRESETS = defineSavedKind<DashboardPresetData>({
   kind: DASHBOARD_PRESET_KIND,
   version: 1,
   label: 'Dashboard preset',
-  sanitize: (raw) => sanitizeDashboardView(raw),
+  sanitize: (raw) => withControls(sanitizeDashboardView(raw), undefined),
 });
 
 export function saveDashboardPreset(

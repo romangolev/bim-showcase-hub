@@ -196,6 +196,32 @@ describe('DashboardPanel auto-collapsing controls', () => {
     expect(toggle()).toHaveAttribute('aria-expanded', 'true');
   });
 
+  it('keeps the manual choice over a saved preset that carries one', async () => {
+    window.localStorage.setItem(
+      'bsh.saved.v1',
+      JSON.stringify({
+        version: 1,
+        items: [
+          {
+            id: 'old',
+            kind: 'dashboard-preset',
+            name: 'Old',
+            version: 1,
+            updatedAt: 1,
+            data: { charts: [{ property: 'Level' }], controls: false },
+          },
+        ],
+      }),
+    );
+    await open();
+    resize(700, 180);
+    fireEvent.click(toggle());
+    fireEvent.click(screen.getByRole('button', { name: 'Dashboard presets' }));
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Old' }));
+    expect(stored().controls).toBe(true);
+    expect(toggle()).toHaveAttribute('aria-expanded', 'true');
+  });
+
   it('moves focus to the toggle when the focused control collapses away', async () => {
     await open();
     const button = addChart();

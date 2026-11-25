@@ -6,6 +6,7 @@ import {
   type ViewNodes,
   type ViewPanes,
 } from '../api/viewLink.js';
+import { withControls } from '../extensions/dashboardPresets.js';
 import { chartSetting } from '../layout/instanceSettings.js';
 import type { LayoutApi } from '../layout/layoutContext.js';
 import type { PaneId } from '../layout/paneRegistry.js';
@@ -46,13 +47,13 @@ export function captureCharts(): ViewChart[] {
   const charts: ViewChart[] = [
     {
       id: 'dashboard',
-      view: PANE_SETTINGS.dashboard.view.read(),
+      view: withControls(PANE_SETTINGS.dashboard.view.read(), undefined),
     },
   ];
   for (const id of chartInstanceIds()) {
     charts.push({
       id,
-      view: chartSetting(id as PaneId).read(),
+      view: withControls(chartSetting(id as PaneId).read(), undefined),
     });
   }
   return charts.slice(0, MAX_LINK_CHARTS);
