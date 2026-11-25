@@ -2883,9 +2883,22 @@ def check_task_center(page, checks):
     popover = page.get_by_role("region", name="Tasks")
     checks.add("the task list names the model load as done", popover.get_by_text("Done").count() >= 1 and popover.get_by_text(re.compile(r"^Loading ")).count() >= 1, popover.inner_text())
     page.keyboard.press("Escape")
-    checks.add("Escape closes the task list", page.get_by_role("region", name="Tasks").count() == 0)
+    closed = wait_until(page, lambda: page.get_by_role("region", name="Tasks").count() == 0)
+    checks.add("Escape closes the task list", bool(closed))
+    focused = page.evaluate("() => document.activeElement?.getAttribute('aria-label') || ''")
+    checks.add("Escape returns focus to the task trigger", focused.startswith("Tasks"), focused)
     live = page.locator("[role=status][aria-live=polite]").filter(has_text=re.compile(r"Loading .* finished"))
     checks.add("one live region announces the finished load", live.count() == 1, live.count())
+    trigger.click()
+    settle(page, 300)
+    dismiss = page.get_by_role("region", name="Tasks").get_by_role("button", name=re.compile(r"^Dismiss "))
+    dismissed = 0
+    while dismiss.count():
+        dismiss.first.click()
+        settle(page, 300)
+        dismissed += 1
+    kept = page.evaluate("() => Boolean(document.activeElement && document.activeElement.closest('.task-center'))")
+    checks.add("the last dismissed task keeps focus in the top bar", dismissed > 0 and kept, (dismissed, kept))
 
 
 def check_export_tasks(page, checks):
