@@ -91,6 +91,57 @@ describe('createThumbnailFetcher', () => {
     expect(peak).toBe(2);
   });
 
+  it('never fetches for a request closed while it waited for a slot', async () => {
+    let finish: (value: unknown) => void = () => {};
+    const fetchImpl = vi.fn(async () => {
+      if (fetchImpl.mock.calls.length === 1) {
+        await new Promise((resolve) => {
+          finish = resolve;
+        });
+      }
+      return png();
+    });
+    const thumbs = createThumbnailFetcher({
+      fetchImpl,
+      perTokenConcurrency: 1,
+    });
+    const first = thumbs.fetch('t', URN, 100);
+    const closed = new AbortController();
+    const queued = thumbs.fetch('t', URN, 100, closed.signal);
+    await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(1));
+    closed.abort();
+    finish(null);
+    await first;
+    await expect(queued).rejects.toBeDefined();
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    await expect(thumbs.fetch('t', URN, 100)).resolves.not.toBeNull();
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it('releases the slot of an aborted in-flight request', async () => {
+    const fetchImpl = vi.fn(
+      (_url: string, init: { signal: AbortSignal }) =>
+        new Promise<ReturnType<typeof png>>((resolve, reject) => {
+          if (fetchImpl.mock.calls.length > 1) resolve(png());
+          init.signal.addEventListener('abort', () =>
+            reject(new Error('aborted')),
+          );
+        }),
+    );
+    const thumbs = createThumbnailFetcher({
+      fetchImpl,
+      perTokenConcurrency: 1,
+    });
+    const closed = new AbortController();
+    const inFlight = thumbs.fetch('t', URN, 100, closed.signal);
+    const next = thumbs.fetch('t', URN, 100);
+    await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(1));
+    closed.abort();
+    await expect(inFlight).rejects.toBeDefined();
+    await expect(next).resolves.not.toBeNull();
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
   it('refuses bodies over 512 KB', async () => {
     const big = reply(
       200,

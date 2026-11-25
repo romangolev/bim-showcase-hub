@@ -138,7 +138,7 @@ export function createApsDataService(
         const viewState = await views.check(token, version.urn);
         return { viewState, viewable: viewableFor(viewState) };
       }),
-    versionThumbnail: (token, urn, size) =>
-      guarded(() => thumbnails.fetch(token, urn, size)),
+    versionThumbnail: (token, urn, size, signal) =>
+      guarded(() => thumbnails.fetch(token, urn, size, signal)),
   };
 }

@@ -29,5 +29,6 @@ export interface DataService {
     token: string,
     urn: string,
     size: ThumbnailSize,
+    signal?: AbortSignal,
   ): Promise<Thumbnail | null>;
 }

@@ -85,7 +85,7 @@ A derivative URN does not prove a model opens: the manifest can hold only a thum
 
 ### Thumbnails
 
-`GET /api/thumbnails/:urn?size=100|200|400` proxies Model Derivative "Fetch Thumbnail" (`data/thumbnails.ts`). `size` defaults to 200. The route decodes the URN, sends the user's access token and the URN's region header, and relays only `image/png` or `image/jpeg` bodies up to 512 KB as `Cache-Control: private, max-age=3600` with `X-Content-Type-Options: nosniff`. An invalid URN or size is 400, an upstream 401 or 403 is 401, an upstream 429 is 429 with `Retry-After`, and anything else upstream is 502.
+`GET /api/thumbnails/:urn?size=100|200|400` proxies Model Derivative "Fetch Thumbnail" (`data/thumbnails.ts`). `size` defaults to 200. The route decodes the URN, sends the user's access token and the URN's region header, and relays only `image/png` or `image/jpeg` bodies up to 512 KB as `Cache-Control: private, max-age=3600` with `X-Content-Type-Options: nosniff`. An invalid URN or size is 400, an upstream 401 or 403 is 401, an upstream 429 is 429 with `Retry-After`, and anything else upstream is 502. Each user has at most four thumbnail downloads running; when the browser closes a request, its upstream download is aborted, and a request that is still waiting for a slot is dropped without one.
 
 A 404 means there is no thumbnail, usually because the version has not translated; the client shows a placeholder instead of retrying. Only rows the virtualizer renders mount an `img` with `loading="lazy"`, so a folder scrolls without a request per file. Mock mode serves an SVG per translated version, which is the one place `image/svg+xml` is allowed.
 
