@@ -34,7 +34,7 @@ The app has:
 | `GET /api/thumbnails/:urn` | Model Derivative thumbnail as image bytes, `?size=100\|200\|400` ([Thumbnails](#thumbnails)) |
 | `POST /api/csp-report` | CSP violation reports, see [deployment.md](deployment.md#csp-reports) |
 
-Upstream errors pass through `toHttpError`: 404 stays 404, 401 and 403 become 401, 429 stays 429 with `Retry-After` (5 seconds when upstream gives none, capped at 120), the rest become 502. A 429 is never retried inside the server; the caller waits.
+Upstream errors pass through `toHttpError`: 404 stays 404, 401 stays 401, 403 stays 403 (no access, which the client shows as such and never treats as a sign-out), 429 stays 429 with `Retry-After` (5 seconds when upstream gives none, capped at 120), the rest become 502. A 429 is never retried inside the server; the caller waits.
 
 ### Auth flow
 

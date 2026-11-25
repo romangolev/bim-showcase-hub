@@ -267,6 +267,9 @@ describe('createApsDataService', () => {
     await expect(service.listHubs('t')).rejects.toMatchObject({ status: 404 });
 
     client.getHubs.mockRejectedValueOnce(upstream(403));
+    await expect(service.listHubs('t')).rejects.toMatchObject({ status: 403 });
+
+    client.getHubs.mockRejectedValueOnce(upstream(401));
     await expect(service.listHubs('t')).rejects.toMatchObject({ status: 401 });
 
     client.getHubs.mockRejectedValueOnce(upstream(500));

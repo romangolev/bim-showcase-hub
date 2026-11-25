@@ -57,6 +57,22 @@ describe('unauthorized notifications', () => {
     unsubscribe();
   });
 
+  it('neither retries nor notifies on a 403', async () => {
+    await primeSignedIn();
+    const fetchMock = vi.fn(
+      async () => new Response('{"error":"Forbidden"}', { status: 403 }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const listener = vi.fn();
+    const unsubscribe = subscribeUnauthorized(listener);
+    await expect(fetchChildren(ROOT_SCOPE)).rejects.toMatchObject({
+      status: 403,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(listener).not.toHaveBeenCalled();
+    unsubscribe();
+  });
+
   it('never retries a POST', async () => {
     await primeSignedIn();
     const fetchMock = vi.fn(async () => new Response('{}', { status: 401 }));
