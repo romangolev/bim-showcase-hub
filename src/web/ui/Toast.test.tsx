@@ -196,6 +196,27 @@ describe('Toaster', () => {
     dialog.remove();
   });
 
+  it('returns to the body when an open modal dialog is removed', async () => {
+    const dialog = document.createElement('dialog');
+    const matches = dialog.matches.bind(dialog);
+    vi.spyOn(dialog, 'matches').mockImplementation(
+      (selector) => selector === ':modal' || matches(selector),
+    );
+    dialog.setAttribute('open', '');
+    document.body.append(dialog);
+    render(
+      <Toaster label="Alerts">
+        <Toast key="1" title="Kept" />
+      </Toaster>,
+    );
+    await waitFor(() => expect(dialog).toContainElement(region()));
+    act(() => {
+      dialog.remove();
+    });
+    await waitFor(() => expect(document.body).toContainElement(region()));
+    await screen.findByText('Kept');
+  });
+
   it('renders into a given container', async () => {
     const host = document.createElement('div');
     document.body.append(host);
