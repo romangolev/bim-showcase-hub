@@ -134,6 +134,31 @@ describe('SettingsShell', () => {
     expect(screen.getByRole('button', { name: 'Appearance' })).toHaveFocus();
   });
 
+  it('shows the section list after a wide click when the window narrows', () => {
+    let matches = false;
+    const notify = new Set<() => void>();
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({
+        get matches() {
+          return matches;
+        },
+        addEventListener: (_: string, fn: () => void) => notify.add(fn),
+        removeEventListener: (_: string, fn: () => void) => notify.delete(fn),
+      })),
+    );
+    renderShell();
+    fireEvent.click(screen.getByRole('tab', { name: 'Appearance' }));
+    act(() => {
+      matches = true;
+      for (const fn of notify) fn();
+    });
+    expect(
+      screen.getByRole('navigation', { name: 'Settings sections' }),
+    ).toBeTruthy();
+    expect(screen.queryByLabelText('Theme')).toBeNull();
+  });
+
   it('shows a section registered from outside the shell', () => {
     const off = registerSettingsSection({
       id: 'test-extra',

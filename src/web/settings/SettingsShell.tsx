@@ -166,7 +166,7 @@ export function SettingsShell() {
               aria-controls={panelId}
               tabIndex={active ? 0 : -1}
               className="settings-nav__item"
-              onClick={() => drill(section.id, true)}
+              onClick={() => selectSettingsSection(section.id)}
             >
               <Icon name={section.icon} size={16} />
               <span className="settings-nav__label">{section.label()}</span>
