@@ -14,6 +14,7 @@ import { useModal } from '../modal/index.js';
 import { notify } from '../tasks/notifications.js';
 import { startTask } from '../tasks/taskStore.js';
 import { Dialog } from '../ui/Dialog.js';
+import { Input } from '../ui/Input.js';
 import { Kbd } from '../ui/Kbd.js';
 import { filterCommands } from './fuzzy.js';
 import { PIN_LIMIT, readPins, togglePin } from './pins.js';
@@ -151,7 +152,7 @@ function PaletteDialog({ error, onClose, onRun }: DialogProps) {
       aria-label="Command palette"
       onClose={onClose}
     >
-      <input
+      <Input
         className="cmdk__input"
         type="text"
         role="combobox"

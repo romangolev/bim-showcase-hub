@@ -24,6 +24,7 @@ import { useResolvedAdapter } from './useScopedRows.js';
 import './panels.css';
 import { Button } from '../ui/Button.js';
 import { Card, CardHeader, CardTitle } from '../ui/Card.js';
+import { Input } from '../ui/Input.js';
 
 export interface SearchResultsPanelProps {
   adapter?: ViewerAdapter | null;
@@ -150,9 +151,8 @@ export function SearchResultsPanel({ adapter }: SearchResultsPanelProps) {
           void search();
         }}
       >
-        <input
+        <Input
           type="search"
-          className="field"
           aria-label="Search elements"
           placeholder="Name or property value"
           value={spec.text}
@@ -208,9 +208,8 @@ export function SearchResultsPanel({ adapter }: SearchResultsPanelProps) {
             void save();
           }}
         >
-          <input
+          <Input
             type="text"
-            className="field"
             aria-label="Selection set name"
             placeholder="Name the results"
             value={saveName}

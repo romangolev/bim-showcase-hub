@@ -36,6 +36,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../ui/Dialog.js';
+import { FieldLabel } from '../ui/Field.js';
+import { Input } from '../ui/Input.js';
 import { openableUrn } from '../viewer/openLimits.js';
 
 export interface ModelSetDraft {
@@ -112,11 +114,10 @@ function SaveSetDialog({
         </DialogClose>
       </DialogHeader>
       <DialogBody>
-        <label className="bsh-field">
+        <FieldLabel layout="inline" variant="quiet">
           <span>Model set name</span>
-          <input
+          <Input
             type="text"
-            className="field"
             aria-label="Model set name"
             placeholder="Name this model set"
             maxLength={MAX_NAME_LENGTH}
@@ -126,7 +127,7 @@ function SaveSetDialog({
               if (event.key === 'Enter') save();
             }}
           />
-        </label>
+        </FieldLabel>
         <p className="settings__hint">
           {plural(Math.min(drafts.length, MAX_SET_MEMBERS), 'model')} in the set
         </p>
@@ -177,10 +178,9 @@ function RenameField({
   }, []);
 
   return (
-    <input
+    <Input
       ref={inputRef}
       type="text"
-      className="field"
       aria-label={`Rename ${set.name}`}
       maxLength={MAX_NAME_LENGTH}
       defaultValue={set.name}

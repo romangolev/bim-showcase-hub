@@ -8,7 +8,8 @@
   color: var(--color-coral);
 }
 
-select.field {
+select.field,
+.bsh-select {
   max-width: 240px;
   text-overflow: ellipsis;
 }
@@ -32,16 +33,6 @@ select.field {
 
 .bsh-paint__reset:hover:not(:disabled):not([aria-disabled="true"]) {
   color: var(--color-snow);
-}
-
-.bsh-field {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-  color: var(--color-fog);
-  font-size: var(--text-13);
-  font-weight: var(--weight-label);
 }
 
 .bsh-table-wrap {
@@ -422,7 +413,7 @@ select.field {
   align-self: flex-start;
 }
 
-.bsh-scope .field {
+.bsh-scope [data-slot="select"] {
   max-width: 180px;
 }
 
@@ -440,7 +431,7 @@ select.field {
   padding-bottom: var(--space-2);
 }
 
-.bsh-summary__tools > .field {
+.bsh-summary__tools > [data-slot="input"] {
   flex: 1 1 8rem;
   min-width: 0;
 }
@@ -1383,13 +1374,15 @@ button.bsh-kpi:focus-visible {
   align-items: center;
 }
 
-.bsh-color-rules__fields .field {
+.bsh-color-rules__fields
+  :is([data-slot="input"], [data-slot="select"], [data-slot="number-field"]) {
   max-width: none;
   min-width: 0;
   flex: 1 1 8rem;
 }
 
-.bsh-color-rules__fields .field {
+.bsh-color-rules__fields
+  :is([data-slot="input"], [data-slot="select"], [data-slot="number-field"]) {
   flex: 1 1 6rem;
 }
 
@@ -1405,8 +1398,8 @@ button.bsh-kpi:focus-visible {
   gap: var(--space-2);
 }
 
-.bsh-search__form .field,
-.bsh-search__save .field {
+.bsh-search__form [data-slot="input"],
+.bsh-search__save [data-slot="input"] {
   flex: 1 1 10rem;
 }
 
@@ -1664,8 +1657,9 @@ button.bsh-kpi:focus-visible {
   color: var(--color-snow);
 }
 
-.bsh-add-property .settings__field select,
-.bsh-add-property .settings__field input {
+.bsh-add-property
+  [data-slot="field-label"]
+  :is([data-slot="select"], [data-slot="input"]) {
   box-sizing: border-box;
   min-height: var(--hit-target);
 }

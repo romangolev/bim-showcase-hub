@@ -32,7 +32,10 @@ import type { ModalDefinition } from '../modal/types.js';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import { usePersisted } from '../storage.js';
 import { Button } from '../ui/Button.js';
+import { FieldLabel } from '../ui/Field.js';
+import { Input } from '../ui/Input.js';
 import { NumberField } from '../ui/NumberField.js';
+import { Select, SelectOption } from '../ui/Select.js';
 import { usePublishedAdapter } from '../viewer/activeAdapterStore.js';
 import { useModels } from '../viewer/useModels.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
@@ -87,9 +90,9 @@ function PropertyListField({
 }) {
   const joined = value.join(', ');
   return (
-    <label className="settings__field">
+    <FieldLabel layout="row">
       {label}
-      <input
+      <Input
         key={joined}
         type="text"
         defaultValue={joined}
@@ -98,7 +101,7 @@ function PropertyListField({
           if (e.key === 'Enter') e.currentTarget.blur();
         }}
       />
-    </label>
+    </FieldLabel>
   );
 }
 
@@ -157,26 +160,26 @@ function DashboardFields({
       </fieldset>
       <fieldset className="settings__section">
         <legend className="settings__heading">All charts</legend>
-        <label className="settings__field">
+        <FieldLabel layout="row">
           Aggregation
-          <select
+          <Select
             value={spec.aggregate}
-            onChange={(e) => setAggregate(e.target.value as Aggregate)}
+            onValueChange={(next) => setAggregate(next as Aggregate)}
           >
             {AGGREGATES.map((aggregate) => (
-              <option key={aggregate} value={aggregate}>
+              <SelectOption key={aggregate} value={aggregate}>
                 {AGGREGATE_LABELS[aggregate]}
-              </option>
+              </SelectOption>
             ))}
-          </select>
-        </label>
+          </Select>
+        </FieldLabel>
         {numeric ? (
-          <label className="settings__field">
+          <FieldLabel layout="row">
             Measure
-            <select
+            <Select
               value={names.includes(spec.measure) ? spec.measure : ''}
-              onChange={(e) => {
-                const measure = e.target.value;
+              onValueChange={(next) => {
+                const measure = next;
                 patch({
                   measure,
                   properties:
@@ -186,16 +189,16 @@ function DashboardFields({
                 });
               }}
             >
-              <option value="">Choose a property</option>
+              <SelectOption value="">Choose a property</SelectOption>
               {names.map((name) => (
-                <option key={name} value={name}>
+                <SelectOption key={name} value={name}>
                   {name}
-                </option>
+                </SelectOption>
               ))}
-            </select>
-          </label>
+            </Select>
+          </FieldLabel>
         ) : null}
-        <label className="settings__field">
+        <FieldLabel layout="row">
           Maximum categories
           <NumberField
             min={Math.max(MIN_CATEGORIES, TOP_N_MIN)}
@@ -208,7 +211,7 @@ function DashboardFields({
               })
             }
           />
-        </label>
+        </FieldLabel>
         <SwitchRow
           label="Fold values beyond the top into Other"
           checked={spec.otherBucket}
@@ -219,19 +222,19 @@ function DashboardFields({
           unit family. Different families are reported, not summed.
         </p>
         {action !== undefined && setAction ? (
-          <label className="settings__field">
+          <FieldLabel layout="row">
             Chart click
-            <select
+            <Select
               value={action}
-              onChange={(e) => setAction(sanitizeAction(e.target.value))}
+              onValueChange={(next) => setAction(sanitizeAction(next))}
             >
               {ELEMENT_ACTIONS.map((name) => (
-                <option key={name} value={name}>
+                <SelectOption key={name} value={name}>
                   {ACTION_LABELS[name]}
-                </option>
+                </SelectOption>
               ))}
-            </select>
-          </label>
+            </Select>
+          </FieldLabel>
         ) : null}
         <SwitchRow
           label="Split by model"
@@ -265,7 +268,7 @@ function DashboardFields({
             checked={health.enabled}
             onChange={() => setHealth({ ...health, enabled: !health.enabled })}
           />
-          <label className="settings__field">
+          <FieldLabel layout="row">
             Health threshold (%)
             <NumberField
               min={0}
@@ -275,7 +278,7 @@ function DashboardFields({
                 setHealth({ ...health, threshold })
               }
             />
-          </label>
+          </FieldLabel>
           <PropertyListField
             label="Must-have properties"
             value={health.mustHave}
@@ -286,22 +289,20 @@ function DashboardFields({
             value={health.unique}
             onCommit={(unique) => setHealth({ ...health, unique })}
           />
-          <label className="settings__field">
+          <FieldLabel layout="row">
             Numeric property
-            <select
+            <Select
               value={names.includes(health.measure) ? health.measure : ''}
-              onChange={(e) =>
-                setHealth({ ...health, measure: e.target.value })
-              }
+              onValueChange={(next) => setHealth({ ...health, measure: next })}
             >
-              <option value="">Not checked</option>
+              <SelectOption value="">Not checked</SelectOption>
               {names.map((name) => (
-                <option key={name} value={name}>
+                <SelectOption key={name} value={name}>
                   {name}
-                </option>
+                </SelectOption>
               ))}
-            </select>
-          </label>
+            </Select>
+          </FieldLabel>
           {resetHealth ? (
             <div className="settings__actions">
               <Button onClick={resetHealth}>Reset health checks</Button>

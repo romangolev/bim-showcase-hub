@@ -10,6 +10,8 @@ import {
   paneSettingsSchema,
 } from '../settings/paneSettingsSchema.js';
 import { Button } from '../ui/Button.js';
+import { FieldLabel } from '../ui/Field.js';
+import { Input } from '../ui/Input.js';
 import { layoutCommands, paneCommandContext } from './layoutCommandList.js';
 import { type LayoutApi, useLayout } from './layoutContext.js';
 import {
@@ -244,9 +246,9 @@ function RenamePaneDialog({
         close();
       }}
     >
-      <label className="settings__field">
+      <FieldLabel layout="row">
         Title
-        <input
+        <Input
           ref={inputRef}
           type="text"
           aria-label="Pane title"
@@ -255,7 +257,7 @@ function RenamePaneDialog({
           value={value}
           onChange={(event) => setValue(event.target.value)}
         />
-      </label>
+      </FieldLabel>
       <p className="settings__hint">
         Leave empty to use {fallback}. The title survives closing and reload.
       </p>

@@ -8,6 +8,9 @@ import { usePropertyCatalog } from './usePropertyCatalog.js';
 import './panels.css';
 import { Badge } from '../ui/Badge.js';
 import { Button } from '../ui/Button.js';
+import { Checkbox } from '../ui/Checkbox.js';
+import { FieldLabel } from '../ui/Field.js';
+import { Input } from '../ui/Input.js';
 
 export interface PropertyPickerProps {
   adapter: ViewerAdapter | null;
@@ -90,10 +93,9 @@ export function PropertyPicker({
       <label htmlFor={searchId} className="bsh-sr-only">
         Search properties
       </label>
-      <input
+      <Input
         id={searchId}
         type="search"
-        className="field"
         placeholder="Search properties"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
@@ -154,18 +156,17 @@ export function PropertyPicker({
             <fieldset key={group.category} className="bsh-picker__group">
               <legend>{group.category}</legend>
               {visible.map((info) => (
-                <label
+                <FieldLabel
+                  layout="inline"
                   key={`${info.category}\u0000${info.name}`}
-                  className="settings__check"
                 >
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={chosen.has(info.name)}
                     disabled={locked(info.name)}
                     onChange={() => toggle(info.name)}
                   />
                   {info.name}
-                </label>
+                </FieldLabel>
               ))}
               {hidden > 0 && (
                 <p className="bsh-picker__none">

@@ -15,7 +15,11 @@ import { OTHER_COLOR } from '../extensions/dashboardData.js';
 import { useSavedKindItems } from '../store/savedKinds.js';
 import { MAX_NAME_LENGTH } from '../store/savedStore.js';
 import { Button } from '../ui/Button.js';
+import { Checkbox } from '../ui/Checkbox.js';
+import { FieldLabel } from '../ui/Field.js';
+import { Input } from '../ui/Input.js';
 import { NumberField } from '../ui/NumberField.js';
+import { Select, SelectOption } from '../ui/Select.js';
 
 export interface ColorRulesProps {
   value: RuleSet;
@@ -91,40 +95,38 @@ export function ColorRules({ value, onChange, properties }: ColorRulesProps) {
         {value.rules.map((rule, index) => (
           <li key={rule.id} className="bsh-color-rules__row">
             <div className="bsh-color-rules__fields">
-              <select
-                className="field"
+              <Select
                 aria-label={`Property for ${rule.label}`}
                 value={rule.property}
-                onChange={(event) =>
-                  update(rule.id, { property: event.target.value })
-                }
+                onValueChange={(next) => update(rule.id, { property: next })}
               >
                 {!properties.includes(rule.property) ? (
-                  <option value={rule.property}>{rule.property}</option>
+                  <SelectOption value={rule.property}>
+                    {rule.property}
+                  </SelectOption>
                 ) : null}
                 {properties.map((name) => (
-                  <option key={name} value={name}>
+                  <SelectOption key={name} value={name}>
                     {name}
-                  </option>
+                  </SelectOption>
                 ))}
-              </select>
-              <select
-                className="field"
+              </Select>
+              <Select
                 aria-label={`Operator for ${rule.label}`}
                 value={rule.op}
-                onChange={(event) =>
-                  update(rule.id, { op: event.target.value as RuleOp })
+                onValueChange={(next) =>
+                  update(rule.id, { op: next as RuleOp })
                 }
               >
                 {OPS.map((op) => (
-                  <option key={op.id} value={op.id}>
+                  <SelectOption key={op.id} value={op.id}>
                     {op.label}
-                  </option>
+                  </SelectOption>
                 ))}
-              </select>
+              </Select>
               {rule.op === 'range' ? (
                 <>
-                  <label className="bsh-field">
+                  <FieldLabel layout="inline" variant="quiet">
                     Min
                     <NumberField
                       value={rule.min ?? 0}
@@ -132,8 +134,8 @@ export function ColorRules({ value, onChange, properties }: ColorRulesProps) {
                       onValueCommitted={(min) => update(rule.id, { min })}
                       className="field--narrow"
                     />
-                  </label>
-                  <label className="bsh-field">
+                  </FieldLabel>
+                  <FieldLabel layout="inline" variant="quiet">
                     Max
                     <NumberField
                       value={rule.max ?? 0}
@@ -141,12 +143,11 @@ export function ColorRules({ value, onChange, properties }: ColorRulesProps) {
                       onValueCommitted={(max) => update(rule.id, { max })}
                       className="field--narrow"
                     />
-                  </label>
+                  </FieldLabel>
                 </>
               ) : rule.op === 'empty' ? null : (
-                <input
+                <Input
                   type="text"
-                  className="field"
                   aria-label={`Value for ${rule.label}`}
                   value={rule.value}
                   onChange={(event) =>
@@ -162,9 +163,8 @@ export function ColorRules({ value, onChange, properties }: ColorRulesProps) {
                   update(rule.id, { color: event.target.value })
                 }
               />
-              <input
+              <Input
                 type="text"
-                className="field"
                 aria-label={`Label for ${rule.label}`}
                 maxLength={80}
                 value={rule.label}
@@ -209,9 +209,8 @@ export function ColorRules({ value, onChange, properties }: ColorRulesProps) {
         </Button>
       </div>
       <div className="bsh-color-rules__fields">
-        <label className="bsh-field">
-          <input
-            type="checkbox"
+        <FieldLabel layout="inline" variant="quiet">
+          <Checkbox
             checked={value.fallback !== null}
             onChange={(event) =>
               onChange({
@@ -221,7 +220,7 @@ export function ColorRules({ value, onChange, properties }: ColorRulesProps) {
             }
           />
           {FALLBACK_LABEL}
-        </label>
+        </FieldLabel>
         {value.fallback !== null ? (
           <input
             type="color"
@@ -232,20 +231,18 @@ export function ColorRules({ value, onChange, properties }: ColorRulesProps) {
             }
           />
         ) : null}
-        <label className="bsh-field">
-          <input
-            type="checkbox"
+        <FieldLabel layout="inline" variant="quiet">
+          <Checkbox
             checked={value.ghostRest}
             onChange={(event) =>
               onChange({ ...value, ghostRest: event.target.checked })
             }
           />
           Ghost the rest
-        </label>
+        </FieldLabel>
       </div>
       <div className="bsh-color-rules__presets">
-        <select
-          className="field"
+        <Select
           aria-label="Preset"
           value=""
           onChange={(event) => {
@@ -257,16 +254,15 @@ export function ColorRules({ value, onChange, properties }: ColorRulesProps) {
             if (next) onChange(next);
           }}
         >
-          <option value="">Load a preset…</option>
+          <SelectOption value="">Load a preset…</SelectOption>
           {presets.map((item) => (
-            <option key={item.id} value={item.id}>
+            <SelectOption key={item.id} value={item.id}>
               {item.name}
-            </option>
+            </SelectOption>
           ))}
-        </select>
-        <input
+        </Select>
+        <Input
           type="text"
-          className="field"
           aria-label="Preset name"
           placeholder="Name these rules"
           maxLength={MAX_NAME_LENGTH}

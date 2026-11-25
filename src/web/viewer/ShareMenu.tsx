@@ -9,6 +9,7 @@ import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import { usePersisted } from '../storage.js';
 import { useSavedKindItems } from '../store/savedKinds.js';
 import { Button } from '../ui/Button.js';
+import { Checkbox } from '../ui/Checkbox.js';
 import {
   Dialog,
   DialogBody,
@@ -16,6 +17,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../ui/Dialog.js';
+import { FieldLabel } from '../ui/Field.js';
+import { Input } from '../ui/Input.js';
+import { Select, SelectOption } from '../ui/Select.js';
 import {
   blobToDataUrl,
   collectReport,
@@ -159,29 +163,29 @@ function ReportDialog({ initial, onPrint, onClose }: ReportDialogProps) {
       <DialogBody className="settings">
         <div className="settings__section">
           <h3 className="settings__heading">Template</h3>
-          <label className="settings__field">
+          <FieldLabel layout="row">
             <span>Template</span>
-            <select
+            <Select
               value={templateId}
               aria-label="Template"
-              onChange={(event) => applyTemplate(event.target.value)}
+              onValueChange={(next) => applyTemplate(next)}
             >
-              <option value="">None</option>
+              <SelectOption value="">None</SelectOption>
               {templates.map((item) => (
-                <option key={item.id} value={item.id}>
+                <SelectOption key={item.id} value={item.id}>
                   {item.name}
-                </option>
+                </SelectOption>
               ))}
-            </select>
-          </label>
-          <label className="settings__field">
+            </Select>
+          </FieldLabel>
+          <FieldLabel layout="row">
             <span>Template name</span>
-            <input
+            <Input
               type="text"
               value={templateName}
               onChange={(event) => setTemplateName(event.target.value)}
             />
-          </label>
+          </FieldLabel>
           <div className="settings__actions">
             <Button
               disabled={templateName.trim() === ''}
@@ -191,16 +195,16 @@ function ReportDialog({ initial, onPrint, onClose }: ReportDialogProps) {
             </Button>
           </div>
         </div>
-        <label className="settings__field">
+        <FieldLabel layout="row">
           <span>Title</span>
-          <input
+          <Input
             type="text"
             value={options.title}
             maxLength={REPORT_TITLE_MAX}
             onChange={(event) => patch({ title: event.target.value })}
           />
-        </label>
-        <label className="settings__field">
+        </FieldLabel>
+        <FieldLabel layout="row">
           <span>Notes</span>
           <textarea
             rows={3}
@@ -208,37 +212,35 @@ function ReportDialog({ initial, onPrint, onClose }: ReportDialogProps) {
             maxLength={REPORT_NOTES_MAX}
             onChange={(event) => patch({ notes: event.target.value })}
           />
-        </label>
+        </FieldLabel>
         <div className="settings__section">
           <h3 className="settings__heading">Sections</h3>
           {REPORT_SECTION_LABELS.map(([key, label]) => (
-            <label key={key} className="settings__field">
+            <FieldLabel layout="row" key={key}>
               <span>{label}</span>
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={options.sections[key]}
                 aria-label={label}
                 onChange={(event) => patchSection(key, event.target.checked)}
               />
-            </label>
+            </FieldLabel>
           ))}
         </div>
-        <label className="settings__field">
+        <FieldLabel layout="row">
           <span>Orientation</span>
-          <select
+          <Select
             value={options.orientation}
             aria-label="Orientation"
-            onChange={(event) =>
+            onValueChange={(next) =>
               patch({
-                orientation:
-                  event.target.value === 'landscape' ? 'landscape' : 'portrait',
+                orientation: next === 'landscape' ? 'landscape' : 'portrait',
               })
             }
           >
-            <option value="portrait">Portrait</option>
-            <option value="landscape">Landscape</option>
-          </select>
-        </label>
+            <SelectOption value="portrait">Portrait</SelectOption>
+            <SelectOption value="landscape">Landscape</SelectOption>
+          </Select>
+        </FieldLabel>
         <div className="settings__actions">
           <Button onClick={onClose}>Cancel</Button>
           <Button onClick={() => onPrint(options)}>Print</Button>

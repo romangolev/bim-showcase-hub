@@ -5,6 +5,7 @@ import type { ModalDefinition } from '../modal/types.js';
 import { MAX_NAME_LENGTH } from '../store/savedStore.js';
 import { notify } from '../tasks/notifications.js';
 import { Button } from '../ui/Button.js';
+import { Input } from '../ui/Input.js';
 import { usePublishedAdapter } from '../viewer/activeAdapterStore.js';
 import {
   deleteViewpoint,
@@ -50,7 +51,7 @@ export function ViewpointsBody() {
   return (
     <>
       <div className="settings__actions">
-        <input
+        <Input
           type="text"
           aria-label="Viewpoint name"
           placeholder="Name this view"
@@ -76,7 +77,7 @@ export function ViewpointsBody() {
         <ItemList>
           {points.map((point, index) => (
             <ItemRow key={`${point.id}:${point.name}`}>
-              <input
+              <Input
                 type="text"
                 aria-label={`Rename ${point.name}`}
                 maxLength={MAX_NAME_LENGTH}

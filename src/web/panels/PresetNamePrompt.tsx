@@ -12,6 +12,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../ui/Dialog.js';
+import { FieldLabel } from '../ui/Field.js';
+import { Input } from '../ui/Input.js';
 
 interface PresetNamePromptOptions {
   title: string;
@@ -50,12 +52,11 @@ function PresetNameDialog({
         </DialogClose>
       </DialogHeader>
       <DialogBody>
-        <label className="bsh-field">
+        <FieldLabel layout="inline" variant="quiet">
           <span>Preset name</span>
-          <input
+          <Input
             ref={inputRef}
             type="text"
-            className="field"
             aria-label="Preset name"
             placeholder="Name this preset"
             maxLength={MAX_NAME_LENGTH}
@@ -65,7 +66,7 @@ function PresetNameDialog({
               if (event.key === 'Enter') submit();
             }}
           />
-        </label>
+        </FieldLabel>
         <div className="bsh-presets">
           <Button onClick={onDone}>Cancel</Button>
           <Button disabled={!name.trim()} onClick={submit}>

@@ -1,4 +1,6 @@
 import { useId } from 'react';
+import { Field } from '../ui/Field.js';
+import { Select, SelectOption } from '../ui/Select.js';
 import type { ModelInfo } from '../viewer/modelSet.js';
 import type { ModelScopeControl } from './useScopedRows.js';
 
@@ -12,23 +14,22 @@ export function ModelScopeSelect({
   const id = useId();
   if (state.options.length === 0) return null;
   return (
-    <div className="bsh-field bsh-scope">
+    <Field layout="inline" variant="quiet" className="bsh-scope">
       <label htmlFor={id} className="bsh-sr-only">
         {label}
       </label>
-      <select
+      <Select
         id={id}
-        className="field"
         value={state.scope}
-        onChange={(event) => state.setScope(event.target.value)}
+        onValueChange={(next) => state.setScope(next)}
       >
         {state.options.map((option) => (
-          <option key={option.id} value={option.id}>
+          <SelectOption key={option.id} value={option.id}>
             {option.label}
-          </option>
+          </SelectOption>
         ))}
-      </select>
-    </div>
+      </Select>
+    </Field>
   );
 }
 

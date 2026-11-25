@@ -31,6 +31,7 @@ import { useResolvedAdapter } from './useScopedRows.js';
 import './panels.css';
 import { Button } from '../ui/Button.js';
 import { Card, CardHeader, CardTitle } from '../ui/Card.js';
+import { Checkbox } from '../ui/Checkbox.js';
 import { IconButton } from '../ui/IconButton.js';
 import { ToggleButton } from '../ui/ToggleButton.js';
 
@@ -171,11 +172,7 @@ export function ModelsPanel({
           >
             {ready.length > 1 ? (
               <label className="bsh-models__ghost">
-                <input
-                  type="checkbox"
-                  checked={tints.ghostOthers}
-                  onChange={toggleGhost}
-                />
+                <Checkbox checked={tints.ghostOthers} onChange={toggleGhost} />
                 Ghost others
               </label>
             ) : null}

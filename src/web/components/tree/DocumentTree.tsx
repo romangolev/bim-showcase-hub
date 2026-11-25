@@ -29,6 +29,7 @@ import { usePersisted } from '../../storage.js';
 import { notify } from '../../tasks/notifications.js';
 import { startTask, type TaskHandle } from '../../tasks/taskStore.js';
 import { Button } from '../../ui/Button.js';
+import { Input } from '../../ui/Input.js';
 import { previewOpen } from '../../viewer/openModels.js';
 import { Icon } from '../icons.js';
 import { Menu, type MenuEntry } from '../Menu.js';
@@ -1229,7 +1230,7 @@ export function DocumentTree({
       <PersonalHubNotice onCheckAgain={() => refresh(rootId)} />
       <div className="doc-tree__search">
         <Icon name="search" size={14} />
-        <input
+        <Input
           ref={searchRef}
           type="search"
           value={filter}

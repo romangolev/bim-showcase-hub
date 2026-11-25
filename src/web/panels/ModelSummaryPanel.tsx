@@ -49,6 +49,7 @@ import { Badge } from '../ui/Badge.js';
 import { Button } from '../ui/Button.js';
 import { Card, CardHeader, CardTitle } from '../ui/Card.js';
 import { IconButton } from '../ui/IconButton.js';
+import { Input } from '../ui/Input.js';
 
 export interface SummaryModel {
   label: string;
@@ -370,9 +371,8 @@ export function ModelSummaryPanel({
           {entries.length > 0 && (
             <div className="bsh-summary__tools">
               {view.layout === 'pivot' ? null : (
-                <input
+                <Input
                   type="search"
-                  className="field"
                   aria-label="Filter summary rows"
                   placeholder="Filter"
                   value={view.text}

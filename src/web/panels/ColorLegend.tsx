@@ -3,6 +3,7 @@ import { saveBlob } from '../extensions/download.js';
 import { runElementAction } from '../extensions/elementActions.js';
 import { formatCount } from '../extensions/exportCommon.js';
 import { Button } from '../ui/Button.js';
+import { Checkbox } from '../ui/Checkbox.js';
 import {
   clearColoring,
   toggleColoringGroup,
@@ -55,8 +56,7 @@ export function ColorLegend({
             <span className="bsh-color-legend__count">
               {formatCount(entry.count)}
             </span>
-            <input
-              type="checkbox"
+            <Checkbox
               aria-label={`Show ${entry.label}`}
               checked={!hidden.has(entry.key)}
               onChange={() => toggleColoringGroup(adapter, entry.key)}

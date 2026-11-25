@@ -3,6 +3,7 @@ import { fold } from '../../../shared/text.js';
 import type { TreeNodeKind } from '../../../shared/types.js';
 import { type ViewState, viewableFor } from '../../../shared/viewState.js';
 import { Badge } from '../../ui/Badge.js';
+import { Checkbox } from '../../ui/Checkbox.js';
 import { Spinner } from '../../ui/Spinner.js';
 import { Icon, type IconName } from '../icons.js';
 import type { TreeRows } from './treeView.js';
@@ -255,8 +256,7 @@ export function TreeRowView({
         {busy ? <Spinner size={12} /> : <Icon name="chevron" size={12} />}
       </span>
       {checkbox ? (
-        <input
-          type="checkbox"
+        <Checkbox
           className="tree-row__check"
           checked={Boolean(picked)}
           disabled={disabled}

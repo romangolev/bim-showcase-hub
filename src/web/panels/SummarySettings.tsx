@@ -37,6 +37,9 @@ import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import { usePersisted } from '../storage.js';
 import { announce } from '../tasks/notifications.js';
 import { Button } from '../ui/Button.js';
+import { FieldLabel } from '../ui/Field.js';
+import { Input } from '../ui/Input.js';
+import { Select, SelectOption } from '../ui/Select.js';
 import { usePublishedAdapter } from '../viewer/activeAdapterStore.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { SummaryPresetSection } from './SummaryPresetMenu.js';
@@ -293,18 +296,18 @@ function GroupByEditor({
         </ItemList>
       )}
       <div className="settings__actions">
-        <select
+        <Select
           aria-label="Add a grouping property"
           value={selected}
           disabled={available.length === 0 || value.length >= MAX_GROUP_BY}
-          onChange={(event) => setPending(event.target.value)}
+          onValueChange={(next) => setPending(next)}
         >
           {available.map((name) => (
-            <option key={name} value={name}>
+            <SelectOption key={name} value={name}>
               {name}
-            </option>
+            </SelectOption>
           ))}
-        </select>
+        </Select>
         <Button
           disabled={
             !selected || available.length === 0 || value.length >= MAX_GROUP_BY
@@ -342,16 +345,16 @@ function TitleEditor({
     <fieldset className="settings__section">
       <legend className="settings__heading">Block titles</legend>
       {propertyNames.map((property) => (
-        <label key={property} className="settings__field">
+        <FieldLabel layout="row" key={property}>
           {property}
-          <input
+          <Input
             type="text"
             maxLength={MAX_TITLE_LENGTH}
             placeholder={property}
             value={titles[property] ?? ''}
             onChange={(event) => setTitle(property, event.target.value)}
           />
-        </label>
+        </FieldLabel>
       ))}
       {Object.keys(titles).length > 0 ? (
         <div className="settings__actions">

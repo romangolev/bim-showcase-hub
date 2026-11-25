@@ -26,6 +26,9 @@ import './panels.css';
 import { Button, buttonClasses } from '../ui/Button.js';
 import { CardTitle } from '../ui/Card.js';
 import { Drawer, DrawerBody, DrawerHeader } from '../ui/Drawer.js';
+import { FieldLabel } from '../ui/Field.js';
+import { Radio, RadioGroup } from '../ui/Radio.js';
+import { Select, SelectOption } from '../ui/Select.js';
 
 export interface ColorsPanelProps {
   adapter?: ViewerAdapter | null;
@@ -103,26 +106,24 @@ export function ColorsPanel({ adapter }: ColorsPanelProps) {
       <DrawerBody>
         {resolved ? (
           <>
-            <fieldset className="bsh-kinds" aria-label="Colour by">
+            <RadioGroup
+              className="bsh-kinds"
+              aria-label="Colour by"
+              name={uid}
+              value={rulesMode ? 'rules' : 'property'}
+              onValueChange={(next) =>
+                update({ source: next === 'rules' ? 'rules' : 'property' })
+              }
+            >
               <label className={buttonClasses({})}>
-                <input
-                  type="radio"
-                  name={uid}
-                  checked={!rulesMode}
-                  onChange={() => update({ source: 'property' })}
-                />
+                <Radio value="property" />
                 By property
               </label>
               <label className={buttonClasses({})}>
-                <input
-                  type="radio"
-                  name={uid}
-                  checked={rulesMode}
-                  onChange={() => update({ source: 'rules' })}
-                />
+                <Radio value="rules" />
                 By rules
               </label>
-            </fieldset>
+            </RadioGroup>
             {rulesMode ? (
               <ColorRules
                 value={settings.rules}
@@ -131,41 +132,40 @@ export function ColorsPanel({ adapter }: ColorsPanelProps) {
               />
             ) : (
               <>
-                <select
-                  className="field"
+                <Select
+                  className="bsh-select"
                   aria-label="Property"
                   value={settings.spec.property}
-                  onChange={(event) =>
+                  onValueChange={(next) =>
                     update({
-                      spec: { ...settings.spec, property: event.target.value },
+                      spec: { ...settings.spec, property: next },
                     })
                   }
                 >
                   {properties.map((name) => (
-                    <option key={name} value={name}>
+                    <SelectOption key={name} value={name}>
                       {name}
-                    </option>
+                    </SelectOption>
                   ))}
-                </select>
-                <select
-                  className="field"
+                </Select>
+                <Select
+                  className="bsh-select"
                   aria-label="Mode"
                   value={settings.spec.mode}
-                  onChange={(event) =>
+                  onValueChange={(next) =>
                     update({
                       spec: {
                         ...settings.spec,
-                        mode:
-                          event.target.value === 'range' ? 'range' : 'category',
+                        mode: next === 'range' ? 'range' : 'category',
                       },
                     })
                   }
                 >
-                  <option value="category">Values</option>
-                  <option value="range">Ranges</option>
-                </select>
+                  <SelectOption value="category">Values</SelectOption>
+                  <SelectOption value="range">Ranges</SelectOption>
+                </Select>
                 {settings.spec.mode === 'category' ? (
-                  <label className="bsh-field">
+                  <FieldLabel layout="inline" variant="quiet">
                     Top values
                     <NumberField
                       value={settings.spec.topN}
@@ -176,7 +176,7 @@ export function ColorsPanel({ adapter }: ColorsPanelProps) {
                       }
                       className="field--narrow"
                     />
-                  </label>
+                  </FieldLabel>
                 ) : null}
               </>
             )}

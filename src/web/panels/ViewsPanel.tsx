@@ -16,6 +16,7 @@ import { useResolvedAdapter } from './useScopedRows.js';
 import './panels.css';
 import { Button } from '../ui/Button.js';
 import { Card, CardHeader, CardTitle } from '../ui/Card.js';
+import { Select, SelectOption } from '../ui/Select.js';
 import { ToggleButton } from '../ui/ToggleButton.js';
 
 export interface ViewsPanelProps {
@@ -181,22 +182,22 @@ export function ViewsPanel({ adapter: override }: ViewsPanelProps) {
       {ready.length > 1 ? (
         <label className="bsh-models__ghost">
           <span>Model</span>
-          <select
-            className="field"
+          <Select
+            className="bsh-select"
             aria-label="Model"
             value={model.id}
-            onChange={(event) => {
-              setSelected(event.target.value);
+            onValueChange={(next) => {
+              setSelected(next);
               setPending(null);
               setNotice('');
             }}
           >
             {ready.map((entry) => (
-              <option key={entry.id} value={entry.id}>
+              <SelectOption key={entry.id} value={entry.id}>
                 {entry.name}
-              </option>
+              </SelectOption>
             ))}
-          </select>
+          </Select>
         </label>
       ) : null}
       {pending ? (
