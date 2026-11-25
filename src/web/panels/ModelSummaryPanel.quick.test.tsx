@@ -5,14 +5,16 @@ import { fireEvent, render, screen } from '../test/render.js';
 import { MockViewerAdapter } from '../viewer/MockViewerAdapter.js';
 import { ModelSummaryPanel } from './ModelSummaryPanel.js';
 
-type Listener = (entries: { contentRect: DOMRectReadOnly }[]) => void;
+type Listener = (
+  entries: { borderBoxSize: { inlineSize: number; blockSize: number }[] }[],
+) => void;
 const listeners: Listener[] = [];
 const adapters: MockViewerAdapter[] = [];
 
 function resize(width: number, height: number) {
   act(() => {
     for (const listener of listeners) {
-      listener([{ contentRect: { width, height } as DOMRectReadOnly }]);
+      listener([{ borderBoxSize: [{ inlineSize: width, blockSize: height }] }]);
     }
   });
 }

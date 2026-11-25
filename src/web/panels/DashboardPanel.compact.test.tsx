@@ -27,7 +27,9 @@ vi.mock('chart.js', () => {
   };
 });
 
-type Listener = (entries: { contentRect: DOMRectReadOnly }[]) => void;
+type Listener = (
+  entries: { borderBoxSize: { inlineSize: number; blockSize: number }[] }[],
+) => void;
 const listeners: Listener[] = [];
 const disconnect = vi.fn();
 const adapters: MockViewerAdapter[] = [];
@@ -35,7 +37,7 @@ const adapters: MockViewerAdapter[] = [];
 function resize(width: number, height: number) {
   act(() => {
     for (const listener of listeners) {
-      listener([{ contentRect: { width, height } as DOMRectReadOnly }]);
+      listener([{ borderBoxSize: [{ inlineSize: width, blockSize: height }] }]);
     }
   });
 }

@@ -25,10 +25,10 @@ export function useAutoCompact(ref: RefObject<HTMLElement | null>): boolean {
     measure(box.width, box.height);
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver((entries) => {
-      const rect = entries[entries.length - 1]?.contentRect;
-      if (rect) measure(rect.width, rect.height);
+      const box = entries[entries.length - 1]?.borderBoxSize?.[0];
+      if (box) measure(box.inlineSize, box.blockSize);
     });
-    observer.observe(node);
+    observer.observe(node, { box: 'border-box' });
     return () => observer.disconnect();
   }, [ref]);
 
