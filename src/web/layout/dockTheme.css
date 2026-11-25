@@ -281,7 +281,7 @@
 }
 
 .pane-slot--dock .tree-panel__head,
-.pane-slot--dock .bsh-card__title {
+.pane-slot--dock [data-slot="card-title"] {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -309,7 +309,7 @@
   min-height: 0;
 }
 
-.pane-slot--dock .bsh-card {
+.pane-slot--dock :is([data-slot="card"], [data-slot="drawer"]) {
   flex: 1;
   border: 0;
   border-radius: 0;
@@ -347,27 +347,29 @@
   padding-inline-end: calc(var(--hit-target) + var(--space-2));
 }
 
-.pane-slot--dock .bsh-drawer__header {
+.pane-slot--dock [data-slot="drawer-header"] {
   position: static;
   min-height: 0;
   padding: 0;
   border-radius: 0;
 }
 
-.pane-slot--dock .bsh-drawer__body {
+.pane-slot--dock
+  [data-slot="drawer"]:not([data-collapsed])
+  [data-slot="drawer-body"] {
   flex: 1;
   height: auto;
   min-height: 0;
 }
 
-.pane-slot--dock .bsh-drawer .bsh-quick__inner {
+.pane-slot--dock [data-slot="drawer"] .bsh-quick__inner {
   justify-content: flex-end;
   padding: var(--space-2)
     calc(var(--padding-panel) + var(--hit-target) + var(--space-2))
     var(--space-2) var(--padding-panel);
 }
 
-.pane-slot--dock .bsh-drawer .bsh-quick__toggle {
+.pane-slot--dock [data-slot="drawer"] .bsh-quick__toggle {
   position: absolute;
   top: var(--space-2);
   right: var(--padding-panel);
@@ -375,11 +377,13 @@
   background: var(--color-graphite);
 }
 
-.pane-slot--dock .bsh-drawer[data-compact="true"] .bsh-drawer__body {
+.pane-slot--dock
+  [data-slot="drawer"][data-compact="true"]
+  [data-slot="drawer-body"] {
   border-top-width: 0;
 }
 
-.pane-slot--dock .bsh-drawer[data-compact="true"] .bsh-chart__tools {
+.pane-slot--dock [data-slot="drawer"][data-compact="true"] .bsh-chart__tools {
   padding-inline-end: calc(var(--hit-target) + var(--space-2));
 }
 

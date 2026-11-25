@@ -369,7 +369,7 @@ COLLAPSED_RING = """() => [...document.querySelectorAll('.dv-groupview[data-coll
 LEGEND_BOXES = """() => {
     const box = (el) => el && el.getBoundingClientRect().toJSON();
     const frame = document.querySelector('.pane-dashboard .bsh-chart--doughnut');
-    const body = document.querySelector('.pane-dashboard .bsh-drawer__body');
+    const body = document.querySelector('.pane-dashboard [data-slot="drawer-body"]');
     const legend = frame?.querySelector('.bsh-legend');
     body.scrollTop = body.scrollHeight;
     return {
@@ -474,7 +474,7 @@ def check_dashboard_auto_collapse(page, checks, pane):
     checks.add("dashboard controls collapse on their own in a short pane", (toggle.get_attribute("aria-expanded") == "false") == short, pane.bounding_box())
     if short:
         checks.add("collapsed dashboard shows only its controls toggle", pane.get_by_role("button", name="Dashboard actions").count() == 0 and pane.get_by_role("button", name="Add chart").count() == 0)
-        header = (pane.locator(".bsh-drawer__header").bounding_box() or {"height": 0})["height"]
+        header = (pane.locator("[data-slot=\"drawer-header\"]").bounding_box() or {"height": 0})["height"]
         checks.add("collapsed dashboard header is one row", header <= 56, header)
     show_dashboard_controls(pane)
     checks.add("showing the controls by hand wins over the automatic rule", toggle.get_attribute("aria-expanded") == "true" and pane.get_by_role("button", name="Add chart").count() == 1)
@@ -1135,7 +1135,7 @@ QUICK_GEOMETRY = """([paneSel, label]) => {
   const sec = document.querySelector(paneSel + ' section');
   const box = sec.getBoundingClientRect();
   const header = sec.querySelector('header');
-  const body = sec.querySelector('.bsh-drawer__body, .bsh-summary__body');
+  const body = sec.querySelector('[data-slot="drawer-body"], .bsh-summary__body');
   const panel = sec.querySelector('.bsh-quick');
   const toggle = sec.querySelector(`[aria-label="${label}"]`);
   const t = toggle.getBoundingClientRect();

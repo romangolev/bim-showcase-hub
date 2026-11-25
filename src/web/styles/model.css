@@ -129,7 +129,7 @@
   transition: height 160ms ease;
 }
 
-.stack:has(.bsh-drawer[data-collapsed="true"]) .model-viewer {
+.stack:has([data-slot="drawer"][data-collapsed]) .model-viewer {
   height: max(360px, 62vh);
 }
 

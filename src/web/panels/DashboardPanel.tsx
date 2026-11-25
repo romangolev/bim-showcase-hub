@@ -60,6 +60,8 @@ import {
 } from './useScopedRows.js';
 import './panels.css';
 import { Button } from '../ui/Button.js';
+import { CardTitle } from '../ui/Card.js';
+import { Drawer, DrawerBody, DrawerHeader } from '../ui/Drawer.js';
 import { IconButton } from '../ui/IconButton.js';
 import { ToggleButton } from '../ui/ToggleButton.js';
 
@@ -274,20 +276,18 @@ export function DashboardPanel({
   const bodyId = `${uid}-body`;
 
   return (
-    <section
+    <Drawer
       ref={sectionRef}
-      className={`bsh-card bsh-drawer ${className ?? ''}`.trim()}
+      className={className}
       aria-labelledby={`${uid}-title`}
-      data-collapsed={isCollapsed}
+      collapsed={isCollapsed}
       data-compact={compact}
     >
-      <header className="bsh-card__header bsh-drawer__header">
-        <h2 id={`${uid}-title`} className="bsh-card__title">
-          {title}
-        </h2>
+      <DrawerHeader>
+        <CardTitle id={`${uid}-title`}>{title}</CardTitle>
         {toggleable ? (
           <Button
-            className="bsh-drawer__toggle"
+            className="bsh-dashboard__toggle"
             aria-expanded={!isCollapsed}
             aria-controls={bodyId}
             onClick={toggle}
@@ -295,10 +295,10 @@ export function DashboardPanel({
             <Icon
               name="chevron"
               size={16}
-              className="bsh-drawer__toggle-icon"
+              className="bsh-dashboard__toggle-icon"
               data-expanded={!isCollapsed}
             />
-            <span className="bsh-drawer__toggle-label">
+            <span className="bsh-dashboard__toggle-label">
               {isCollapsed ? 'Expand' : 'Collapse'}
             </span>
           </Button>
@@ -366,10 +366,9 @@ export function DashboardPanel({
             ) : null}
           </QuickSettings>
         )}
-      </header>
-      <div
+      </DrawerHeader>
+      <DrawerBody
         id={bodyId}
-        className="bsh-drawer__body"
         inert={isCollapsed}
         aria-hidden={isCollapsed || undefined}
       >
@@ -442,7 +441,7 @@ export function DashboardPanel({
             message="Add a chart to group elements by a property."
           />
         )}
-      </div>
-    </section>
+      </DrawerBody>
+    </Drawer>
   );
 }

@@ -11,6 +11,7 @@ import type {
 import { useResolvedAdapter } from './useScopedRows.js';
 import './panels.css';
 import { Button } from '../ui/Button.js';
+import { Card, CardHeader, CardTitle } from '../ui/Card.js';
 
 export interface MeasurementsPanelProps {
   adapter?: ViewerAdapter | null;
@@ -68,10 +69,10 @@ export function MeasurementsPanel({
   };
 
   return (
-    <section className="bsh-card bsh-measures" aria-label="Measurements">
-      <header className="bsh-card__header">
-        <h2 className="bsh-card__title">Measurements</h2>
-      </header>
+    <Card className="bsh-measures" aria-label="Measurements">
+      <CardHeader>
+        <CardTitle>Measurements</CardTitle>
+      </CardHeader>
       {adapter ? (
         <>
           <div className="bsh-measures__tools">
@@ -121,6 +122,6 @@ export function MeasurementsPanel({
         Measurements are not saved with the tab, a viewpoint or a share link.
         Units and precision follow the Measure tool's own settings.
       </p>
-    </section>
+    </Card>
   );
 }

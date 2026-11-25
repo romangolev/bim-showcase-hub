@@ -17,6 +17,8 @@ import { ScopedRowsStatus } from './ScopedRowsStatus.js';
 import { useResolvedAdapter, useScopedRows } from './useScopedRows.js';
 import './panels.css';
 import { Button } from '../ui/Button.js';
+import { CardTitle } from '../ui/Card.js';
+import { Drawer, DrawerBody, DrawerHeader } from '../ui/Drawer.js';
 
 export interface ExportPanelProps {
   adapter?: ViewerAdapter | null;
@@ -49,13 +51,11 @@ export function ExportPanel({ adapter, fileName }: ExportPanelProps) {
         )
       : null;
   return (
-    <section className="bsh-card bsh-drawer" aria-labelledby="export-panel">
-      <header className="bsh-card__header bsh-drawer__header">
-        <h2 id="export-panel" className="bsh-card__title">
-          Export
-        </h2>
-      </header>
-      <div className="bsh-drawer__body">
+    <Drawer aria-labelledby="export-panel">
+      <DrawerHeader>
+        <CardTitle id="export-panel">Export</CardTitle>
+      </DrawerHeader>
+      <DrawerBody>
         <div className="settings">
           <ExcelFields />
         </div>
@@ -110,7 +110,7 @@ export function ExportPanel({ adapter, fileName }: ExportPanelProps) {
             </div>
           </>
         ) : null}
-      </div>
-    </section>
+      </DrawerBody>
+    </Drawer>
   );
 }

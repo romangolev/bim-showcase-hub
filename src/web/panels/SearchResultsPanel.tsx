@@ -23,6 +23,7 @@ import { setMessages } from './SelectionSets.js';
 import { useResolvedAdapter } from './useScopedRows.js';
 import './panels.css';
 import { Button } from '../ui/Button.js';
+import { Card, CardHeader, CardTitle } from '../ui/Card.js';
 
 export interface SearchResultsPanelProps {
   adapter?: ViewerAdapter | null;
@@ -135,13 +136,13 @@ export function SearchResultsPanel({ adapter }: SearchResultsPanelProps) {
   const failed = outcome?.failedModels ?? [];
 
   return (
-    <section className="bsh-card bsh-search" aria-label="Search elements">
-      <header className="bsh-card__header bsh-search__header">
-        <h2 className="bsh-card__title">Search elements</h2>
+    <Card className="bsh-search" aria-label="Search elements">
+      <CardHeader className="bsh-search__header">
+        <CardTitle>Search elements</CardTitle>
         <span className="bsh-muted">
           {outcome ? `${formatCount(items.length, language)} results` : ''}
         </span>
-      </header>
+      </CardHeader>
       <form
         className="bsh-search__form"
         onSubmit={(event) => {
@@ -325,6 +326,6 @@ export function SearchResultsPanel({ adapter }: SearchResultsPanelProps) {
           </div>
         </div>
       ) : null}
-    </section>
+    </Card>
   );
 }

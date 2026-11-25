@@ -47,6 +47,7 @@ import {
 import './panels.css';
 import { Badge } from '../ui/Badge.js';
 import { Button } from '../ui/Button.js';
+import { Card, CardHeader, CardTitle } from '../ui/Card.js';
 import { IconButton } from '../ui/IconButton.js';
 
 export interface SummaryModel {
@@ -205,9 +206,9 @@ export function ModelSummaryPanel({
   const toggleLabel = isCollapsed ? `Expand ${title}` : `Collapse ${title}`;
 
   return (
-    <section
+    <Card
       ref={sectionRef}
-      className={`bsh-card bsh-summary ${className ?? ''}`.trim()}
+      className={`bsh-summary ${className ?? ''}`.trim()}
       aria-labelledby={titleId}
       data-collapsed={isCollapsed}
       data-compact={!isCollapsed && !quick.open}
@@ -217,8 +218,8 @@ export function ModelSummaryPanel({
         (view.layout === 'pivot' ? false : shown.length > STACKED_ROW_LIMIT)
       }
     >
-      <header className="bsh-card__header bsh-summary__header">
-        <h2 id={titleId} className="bsh-card__title bsh-summary__title">
+      <CardHeader className="bsh-summary__header">
+        <CardTitle id={titleId} className="bsh-summary__title">
           {title}
           {model ? (
             <span className="bsh-summary__model" title={model.tooltip}>
@@ -226,7 +227,7 @@ export function ModelSummaryPanel({
               {model.label}
             </span>
           ) : null}
-        </h2>
+        </CardTitle>
         {toggleable ? (
           <IconButton
             label={toggleLabel}
@@ -277,7 +278,7 @@ export function ModelSummaryPanel({
             ) : null}
           </QuickSettings>
         )}
-      </header>
+      </CardHeader>
       <div
         id={bodyId}
         className="bsh-summary__wrap"
@@ -464,6 +465,6 @@ export function ModelSummaryPanel({
           )}
         </div>
       </div>
-    </section>
+    </Card>
   );
 }

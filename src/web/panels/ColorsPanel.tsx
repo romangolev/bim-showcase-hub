@@ -24,6 +24,8 @@ import { usePropertyCatalog } from './usePropertyCatalog.js';
 import { useResolvedAdapter, useScopedRows } from './useScopedRows.js';
 import './panels.css';
 import { Button, buttonClasses } from '../ui/Button.js';
+import { CardTitle } from '../ui/Card.js';
+import { Drawer, DrawerBody, DrawerHeader } from '../ui/Drawer.js';
 
 export interface ColorsPanelProps {
   adapter?: ViewerAdapter | null;
@@ -94,13 +96,11 @@ export function ColorsPanel({ adapter }: ColorsPanelProps) {
       : undefined;
 
   return (
-    <section className="bsh-card bsh-drawer" aria-labelledby={`${uid}-title`}>
-      <header className="bsh-card__header bsh-drawer__header">
-        <h2 id={`${uid}-title`} className="bsh-card__title">
-          Colors
-        </h2>
-      </header>
-      <div className="bsh-drawer__body">
+    <Drawer aria-labelledby={`${uid}-title`}>
+      <DrawerHeader>
+        <CardTitle id={`${uid}-title`}>Colors</CardTitle>
+      </DrawerHeader>
+      <DrawerBody>
         {resolved ? (
           <>
             <fieldset className="bsh-kinds" aria-label="Colour by">
@@ -210,7 +210,7 @@ export function ColorsPanel({ adapter }: ColorsPanelProps) {
             message="Open a viewable version to colour its elements."
           />
         )}
-      </div>
-    </section>
+      </DrawerBody>
+    </Drawer>
   );
 }

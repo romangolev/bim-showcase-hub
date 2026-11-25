@@ -15,6 +15,7 @@ import {
 import { useResolvedAdapter } from './useScopedRows.js';
 import './panels.css';
 import { Button } from '../ui/Button.js';
+import { Card, CardHeader, CardTitle } from '../ui/Card.js';
 import { ToggleButton } from '../ui/ToggleButton.js';
 
 export interface ViewsPanelProps {
@@ -69,19 +70,17 @@ export function ViewsPanel({ adapter: override }: ViewsPanelProps) {
 
   if (!adapter || !model) {
     return (
-      <section className="bsh-card bsh-views" aria-labelledby={titleId}>
-        <header className="bsh-card__header">
-          <h2 id={titleId} className="bsh-card__title">
-            Sheets and views
-          </h2>
-        </header>
+      <Card className="bsh-views" aria-labelledby={titleId}>
+        <CardHeader>
+          <CardTitle id={titleId}>Sheets and views</CardTitle>
+        </CardHeader>
         <StateBlock
           variant="empty"
           title="No model loaded"
           message="Open a model to browse its sheets and views."
           compact
         />
-      </section>
+      </Card>
     );
   }
 
@@ -175,12 +174,10 @@ export function ViewsPanel({ adapter: override }: ViewsPanelProps) {
   ];
 
   return (
-    <section className="bsh-card bsh-views" aria-labelledby={titleId}>
-      <header className="bsh-card__header">
-        <h2 id={titleId} className="bsh-card__title">
-          Sheets and views
-        </h2>
-      </header>
+    <Card className="bsh-views" aria-labelledby={titleId}>
+      <CardHeader>
+        <CardTitle id={titleId}>Sheets and views</CardTitle>
+      </CardHeader>
       {ready.length > 1 ? (
         <label className="bsh-models__ghost">
           <span>Model</span>
@@ -258,6 +255,6 @@ export function ViewsPanel({ adapter: override }: ViewsPanelProps) {
         A start view is used the next time this tab loads. Switching a view
         resets the selection and colours of that model.
       </p>
-    </section>
+    </Card>
   );
 }

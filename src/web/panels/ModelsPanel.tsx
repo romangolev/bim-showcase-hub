@@ -30,6 +30,7 @@ import { QuickSettings, useQuickSettings } from './QuickSettings.js';
 import { useResolvedAdapter } from './useScopedRows.js';
 import './panels.css';
 import { Button } from '../ui/Button.js';
+import { Card, CardHeader, CardTitle } from '../ui/Card.js';
 import { IconButton } from '../ui/IconButton.js';
 import { ToggleButton } from '../ui/ToggleButton.js';
 
@@ -148,16 +149,14 @@ export function ModelsPanel({
     });
   };
   return (
-    <section
+    <Card
       ref={sectionRef}
-      className="bsh-card bsh-models"
+      className="bsh-models"
       aria-labelledby={titleId}
       data-compact={!(resolved && models.length > 0 && quick.open)}
     >
-      <header className="bsh-card__header bsh-models__header">
-        <h2 id={titleId} className="bsh-card__title">
-          Models
-        </h2>
+      <CardHeader className="bsh-models__header">
+        <CardTitle id={titleId}>Models</CardTitle>
         {onAdd ? (
           <Button size="small" onClick={onAdd}>
             <Icon name="plus" size={14} />
@@ -219,7 +218,7 @@ export function ModelsPanel({
             ) : null}
           </QuickSettings>
         ) : null}
-      </header>
+      </CardHeader>
       {resolved && models.length > 0 ? (
         <>
           <CostMeter adapter={resolved} models={models} />
@@ -360,6 +359,6 @@ export function ModelsPanel({
           compact
         />
       )}
-    </section>
+    </Card>
   );
 }
