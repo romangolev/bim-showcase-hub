@@ -170,15 +170,6 @@
   font-size: var(--text-13);
 }
 
-.settings__field {
-  display: grid;
-  grid-template-columns: minmax(10rem, 16rem) minmax(0, 1fr);
-  align-items: center;
-  column-gap: var(--space-4);
-  row-gap: var(--space-1);
-  color: var(--color-snow);
-}
-
 :is([data-slot="field"], [data-slot="field-label"])
   > :is([data-slot="button"], [data-slot="toggle-button"]) {
   justify-self: start;
@@ -296,12 +287,6 @@
   margin: 0;
   font-size: var(--text-13);
   color: var(--color-chalk);
-}
-
-@container (max-width: 32rem) {
-  .settings__field {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 .ifc-batch__list {

@@ -3,9 +3,13 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   Menu,
   MenuCheckboxItem,
+  MenuEmpty,
+  MenuFilterProvider,
   MenuHint,
   MenuInertItem,
+  MenuInput,
   MenuItem,
+  MenuList,
   MenuPopup,
   MenuSeparator,
   MenuTrigger,
@@ -30,6 +34,25 @@ function Sample({
         </MenuCheckboxItem>
       </MenuPopup>
     </Menu>
+  );
+}
+
+function FilterSample() {
+  return (
+    <MenuFilterProvider>
+      <Menu>
+        <MenuTrigger>Actions</MenuTrigger>
+        <MenuPopup aria-label="Actions">
+          <MenuInput aria-label="Search actions" placeholder="Search actions" />
+          <MenuList>
+            <MenuItem>Copy</MenuItem>
+            <MenuItem>Paste</MenuItem>
+            <MenuItem>Grid</MenuItem>
+          </MenuList>
+          <MenuEmpty>No actions match</MenuEmpty>
+        </MenuPopup>
+      </Menu>
+    </MenuFilterProvider>
   );
 }
 
@@ -110,6 +133,22 @@ describe('Menu', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Actions' }));
     expect(screen.getByRole('menu').closest('dialog')).not.toBeNull();
+  });
+
+  it('filters its items from the search field and names the empty state', async () => {
+    render(<FilterSample />);
+    fireEvent.click(screen.getByRole('button', { name: 'Actions' }));
+    const search = screen.getByRole('searchbox', { name: 'Search actions' });
+    expect(screen.getByRole('menuitem', { name: 'Copy' })).toBeInTheDocument();
+    fireEvent.change(search, { target: { value: 'pa' } });
+    expect(screen.getByRole('menuitem', { name: 'Paste' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Copy' })).toBeNull();
+    fireEvent.change(search, { target: { value: 'zzz' } });
+    expect(screen.queryAllByRole('menuitem')).toHaveLength(0);
+    expect(await screen.findByText('No actions match')).toHaveAttribute(
+      'data-slot',
+      'menu-empty',
+    );
   });
 });
 

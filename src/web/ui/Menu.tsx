@@ -237,3 +237,50 @@ export function MenuHint({ className, effect, ...props }: PlainProps<'div'>) {
 }
 
 export const MenuGroup = MenuPrimitive.Group;
+
+export const MenuFilterProvider = MenuPrimitive.FilterProvider;
+
+export type MenuInputProps = Omit<MenuPrimitive.Input.Props, 'className'> &
+  CommonProps;
+
+export function MenuInput({ className, effect, ...props }: MenuInputProps) {
+  return (
+    <MenuPrimitive.Input
+      {...props}
+      data-slot="menu-input"
+      data-effect={effect}
+      className={cn(
+        'min-h-hit w-full rounded-item bg-transparent px-2 text-14 text-fg outline-none placeholder:text-fg-disabled',
+        className,
+      )}
+    />
+  );
+}
+
+export type MenuListProps = Omit<MenuPrimitive.List.Props, 'className'> &
+  CommonProps;
+
+export function MenuList({ className, effect, ...props }: MenuListProps) {
+  return (
+    <MenuPrimitive.List
+      {...props}
+      data-slot="menu-list"
+      data-effect={effect}
+      className={cn('outline-none', className)}
+    />
+  );
+}
+
+export type MenuEmptyProps = Omit<MenuPrimitive.Empty.Props, 'className'> &
+  CommonProps;
+
+export function MenuEmpty({ className, effect, ...props }: MenuEmptyProps) {
+  return (
+    <MenuPrimitive.Empty
+      {...props}
+      data-slot="menu-empty"
+      data-effect={effect}
+      className={cn('px-2 py-2 text-13 text-fg-disabled', className)}
+    />
+  );
+}
