@@ -62,7 +62,7 @@ export function QuickSettings({
         label={label}
         aria-expanded={open}
         aria-controls={id}
-        tooltip
+        tooltip={open ? 'Hide controls' : 'Show controls'}
         onClick={onToggle}
       >
         <Icon name="sliders" size={16} />

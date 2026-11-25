@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { IconButton } from './IconButton.js';
 
@@ -43,5 +43,37 @@ describe('IconButton', () => {
     expect(button).toHaveAttribute('aria-expanded', 'false');
     expect(button).toHaveAttribute('aria-haspopup', 'menu');
     expect(button).toHaveClass('app-class', 'size-hit');
+  });
+
+  it('shows the label in the tooltip, or the text it is given', async () => {
+    const { unmount } = render(
+      <IconButton label="Close" tooltip>
+        <svg aria-hidden="true" />
+      </IconButton>,
+    );
+    const button = screen.getByRole('button', { name: 'Close' });
+    await act(async () => {
+      button.focus();
+      fireEvent.focus(button);
+    });
+    expect(await screen.findByText('Close')).toHaveAttribute(
+      'data-slot',
+      'tooltip-popup',
+    );
+    unmount();
+    render(
+      <IconButton label="Close" tooltip="Hide the panel">
+        <svg aria-hidden="true" />
+      </IconButton>,
+    );
+    const described = screen.getByRole('button', { name: 'Close' });
+    await act(async () => {
+      described.focus();
+      fireEvent.focus(described);
+    });
+    expect(await screen.findByText('Hide the panel')).toHaveAttribute(
+      'data-slot',
+      'tooltip-popup',
+    );
   });
 });

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { QuickSettings } from './QuickSettings.js';
 
 describe('QuickSettings', () => {
-  it('names its toggle and shows that name as a tooltip', async () => {
+  it('names its toggle and tells what a click does in the tooltip', async () => {
     render(
       <QuickSettings label="Summary controls" open onToggle={vi.fn()}>
         <span>Controls</span>
@@ -16,7 +16,24 @@ describe('QuickSettings', () => {
       toggle.focus();
       fireEvent.focus(toggle);
     });
-    expect(await screen.findByText('Summary controls')).toHaveAttribute(
+    expect(await screen.findByText('Hide controls')).toHaveAttribute(
+      'data-slot',
+      'tooltip-popup',
+    );
+  });
+
+  it('offers the opposite action while the controls are hidden', async () => {
+    render(
+      <QuickSettings label="Summary controls" open={false} onToggle={vi.fn()}>
+        <span>Controls</span>
+      </QuickSettings>,
+    );
+    const toggle = screen.getByRole('button', { name: 'Summary controls' });
+    await act(async () => {
+      toggle.focus();
+      fireEvent.focus(toggle);
+    });
+    expect(await screen.findByText('Show controls')).toHaveAttribute(
       'data-slot',
       'tooltip-popup',
     );

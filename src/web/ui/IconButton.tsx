@@ -10,7 +10,7 @@ export type IconButtonProps = Omit<
   ButtonPrimitive.Props,
   'className' | 'aria-label'
 > &
-  CommonProps & { label: string; tooltip?: boolean };
+  CommonProps & { label: string; tooltip?: boolean | string };
 
 export function IconButton({
   className,
@@ -32,7 +32,7 @@ export function IconButton({
   return (
     <Tooltip>
       <TooltipTrigger render={button} />
-      <TooltipPopup>{label}</TooltipPopup>
+      <TooltipPopup>{tooltip === true ? label : tooltip}</TooltipPopup>
     </Tooltip>
   );
 }
