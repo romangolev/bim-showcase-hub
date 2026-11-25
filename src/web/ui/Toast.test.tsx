@@ -6,6 +6,7 @@ import {
   waitFor,
   within,
 } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { Toast, Toaster } from './Toast.js';
 
@@ -111,7 +112,41 @@ describe('Toaster', () => {
     );
     await screen.findByText('Note');
     expect(region()).toHaveAttribute('aria-live', 'off');
-    expect(region().getAttribute('aria-label')?.trim()).toBe('Alerts');
+    expect(region()).toHaveAttribute('aria-label', 'Alerts');
+  });
+
+  it('keeps a toast through a StrictMode remount without reporting a dismissal', async () => {
+    const onDismiss = vi.fn();
+    render(
+      <StrictMode>
+        <Toaster label="Alerts" onDismiss={onDismiss}>
+          <Toast key="1" title="Strict" />
+        </Toaster>
+      </StrictMode>,
+    );
+    await screen.findByText('Strict');
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(screen.getByText('Strict')).toBeInTheDocument();
+    expect(onDismiss).not.toHaveBeenCalled();
+  });
+
+  it('leaves focus where it is when a key is pressed', async () => {
+    render(
+      <>
+        <input aria-label="Name" />
+        <Toaster label="Alerts">
+          <Toast key="1" title="Note" />
+        </Toaster>
+      </>,
+    );
+    await screen.findByText('Note');
+    const input = screen.getByRole('textbox', { name: 'Name' });
+    input.focus();
+    for (const key of ['z', 't', 'Escape']) {
+      fireEvent.keyDown(input, { key, code: `Key${key}`, ctrlKey: true });
+      fireEvent.keyDown(input, { key, code: 'KeyT', altKey: true });
+    }
+    expect(input).toHaveFocus();
   });
 
   it('runs children with their handlers inside the toast', async () => {

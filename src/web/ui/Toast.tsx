@@ -32,6 +32,8 @@ const iconTones: Record<ToastTone, string> = {
   danger: 'text-danger',
 };
 
+const NO_HOTKEY = ['noHotkey'];
+
 const itemClasses =
   'focus-visible:outline-2! focus-visible:outline-offset-2! focus-visible:outline-focus!';
 
@@ -124,14 +126,6 @@ export function Toaster({
     shown.current = next;
   }, [children, target, toasterId]);
 
-  useEffect(
-    () => () => {
-      for (const key of shown.current) toast.dismiss(`${toasterId}${key}`);
-      shown.current = new Set();
-    },
-    [toasterId],
-  );
-
   if (!target) return null;
   return createPortal(
     <div
@@ -141,12 +135,15 @@ export function Toaster({
       className={cn('contents', className)}
     >
       <SonnerToaster
-        ref={(node) => node?.setAttribute('aria-live', live)}
+        ref={(node) => {
+          node?.setAttribute('aria-live', live);
+          node?.setAttribute('aria-label', label);
+        }}
         id={toasterId}
         position={position}
         visibleToasts={visible}
         expand
-        hotkey={[]}
+        hotkey={NO_HOTKEY}
         containerAriaLabel={label}
         offset="var(--space-4)"
         mobileOffset="var(--space-4)"
