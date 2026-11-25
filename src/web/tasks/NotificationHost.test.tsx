@@ -93,6 +93,50 @@ describe('NotificationHost', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Quiet note');
   });
 
+  it('shows only new toasts after quiet mode hid and dropped the old ones', async () => {
+    const quiet = (on: boolean) =>
+      act(async () => {
+        NOTIFICATION_SETTINGS.write({
+          position: 'bottom-right',
+          durationMs: 6000,
+          quiet: on,
+        });
+      });
+    const settle = () =>
+      act(() => {
+        vi.advanceTimersByTime(500);
+      });
+    const store = createNotificationStore();
+    render(<NotificationHost store={store} />);
+    const old = ['One', 'Two', 'Three'].map((text) => {
+      let id = 0;
+      act(() => {
+        id = store.notify(text, { duration: 0 });
+      });
+      return id;
+    });
+    settle();
+    expect(document.querySelectorAll('[data-sonner-toast]')).toHaveLength(3);
+    await quiet(true);
+    settle();
+    expect(toasts()).toBeNull();
+    act(() => {
+      for (const id of old) store.dismiss(id);
+    });
+    await quiet(false);
+    act(() => {
+      store.notify('Four', { duration: 0 });
+    });
+    settle();
+    const region = toasts();
+    if (!region) throw new Error('expected a toast region');
+    expect(within(region).getByText('Four')).toBeInTheDocument();
+    expect(document.querySelectorAll('[data-sonner-toast]')).toHaveLength(1);
+    for (const text of ['One', 'Two', 'Three']) {
+      expect(screen.queryByText(text)).toBeNull();
+    }
+  });
+
   it('places toasts by the position setting and colours them by tone', () => {
     NOTIFICATION_SETTINGS.write({
       position: 'top-left',
