@@ -174,7 +174,7 @@ export function ColorsPanel({ adapter }: ColorsPanelProps) {
                       onValueCommitted={(topN) =>
                         update({ spec: { ...settings.spec, topN } })
                       }
-                      className="field--narrow"
+                      className="bsh-number--narrow"
                     />
                   </FieldLabel>
                 ) : null}

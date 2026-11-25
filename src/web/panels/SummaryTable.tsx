@@ -50,6 +50,7 @@ import { useScrollable } from './useScrollable.js';
 import './panels.css';
 import { Button } from '../ui/Button.js';
 import { IconButton } from '../ui/IconButton.js';
+import { Input } from '../ui/Input.js';
 import {
   Table,
   TableBody,
@@ -85,10 +86,10 @@ function TitleInput({
     ref.current?.select();
   }, []);
   return (
-    <input
+    <Input
       ref={ref}
       type="text"
-      className="field bsh-table-block__input"
+      className="bsh-table-block__input"
       aria-label={`Title for ${property}`}
       maxLength={MAX_TITLE_LENGTH}
       value={value}

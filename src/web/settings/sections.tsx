@@ -9,7 +9,7 @@ import { translateNow, useT } from '../i18n/i18n.js';
 import { usePersisted } from '../storage.js';
 import { NotificationSettingsSection } from '../tasks/NotificationSettingsSection.js';
 import { THEME_PREFERENCES, type ThemePreference } from '../theme/theme.js';
-import { Input } from '../ui/Input.js';
+import { NumberField } from '../ui/NumberField.js';
 import { Select, SelectOption } from '../ui/Select.js';
 import { ChartSettingsSection } from './ChartSettingsSection.js';
 import { DefaultsSettings } from './DefaultsSettings.js';
@@ -124,17 +124,13 @@ function GeneralSection() {
           hint={t('settings.warnBeforeEndHint')}
         >
           {(id) => (
-            <Input
+            <NumberField
               id={id}
-              type="number"
               min={0}
               max={120}
               value={settings.sessionWarnMinutes}
-              onChange={(event) =>
-                setSetting(
-                  'sessionWarnMinutes',
-                  Math.min(120, Math.max(0, Number(event.target.value) || 0)),
-                )
+              onValueCommitted={(sessionWarnMinutes) =>
+                setSetting('sessionWarnMinutes', sessionWarnMinutes)
               }
             />
           )}
@@ -266,20 +262,13 @@ function DocumentsSection() {
           hint={t('settings.recentsLengthHint')}
         >
           {(id) => (
-            <Input
+            <NumberField
               id={id}
-              type="number"
               min={0}
               max={20}
               value={settings.recentsLength}
-              onChange={(event) =>
-                setSetting(
-                  'recentsLength',
-                  Math.min(
-                    20,
-                    Math.max(0, Math.round(Number(event.target.value) || 0)),
-                  ),
-                )
+              onValueCommitted={(recentsLength) =>
+                setSetting('recentsLength', recentsLength)
               }
             />
           )}

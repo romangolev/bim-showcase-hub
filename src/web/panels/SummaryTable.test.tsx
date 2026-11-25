@@ -153,9 +153,29 @@ describe('SummaryTable grouped layout', () => {
       screen.getAllByRole('button', { name: 'Rename' })[0] as HTMLElement,
     );
     const input = screen.getByLabelText('Title for Category');
+    expect(input).toHaveAttribute('data-slot', 'input');
     fireEvent.change(input, { target: { value: 'Types' } });
     fireEvent.keyDown(input, { key: 'Enter' });
     expect(onTitleChange).toHaveBeenCalledWith('Category', 'Types');
+  });
+
+  it('cancels a block rename on Escape without committing', () => {
+    const onTitleChange = vi.fn();
+    render(
+      <SummaryTable
+        entries={entries}
+        rows={rows}
+        view={grouped}
+        onTitleChange={onTitleChange}
+      />,
+    );
+    fireEvent.click(
+      screen.getAllByRole('button', { name: 'Rename' })[0] as HTMLElement,
+    );
+    const input = screen.getByLabelText('Title for Category');
+    fireEvent.change(input, { target: { value: 'Types' } });
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(onTitleChange).not.toHaveBeenCalled();
   });
 
   it('keeps collapse state per table instance', () => {

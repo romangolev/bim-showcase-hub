@@ -111,6 +111,25 @@ describe('SettingsBody', () => {
     expect(stored).toMatchObject({ language: 'ru', units: 'imperial' });
   });
 
+  it('commits the numeric settings on blur and clamps them', () => {
+    renderBody();
+    section('General');
+    const warn = screen.getByLabelText(/Warn me before the session ends/);
+    expect(warn).toHaveAttribute('data-slot', 'number-field');
+    fireEvent.change(warn, { target: { value: '500' } });
+    fireEvent.blur(warn);
+    expect(
+      JSON.parse(window.localStorage.getItem('bsh-settings-v1') ?? '{}'),
+    ).toMatchObject({ sessionWarnMinutes: 120 });
+    section('Documents');
+    const recents = screen.getByLabelText('Recent models to list');
+    fireEvent.change(recents, { target: { value: '99' } });
+    fireEvent.blur(recents);
+    expect(
+      JSON.parse(window.localStorage.getItem('bsh-settings-v1') ?? '{}'),
+    ).toMatchObject({ recentsLength: 20 });
+  });
+
   it('resets app settings to their defaults', () => {
     renderBody();
     section('Appearance');

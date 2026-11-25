@@ -152,16 +152,18 @@ describe('Add property dialog', () => {
     });
   });
 
-  it('keeps decimal places as typed and clamps them on submit', () => {
+  it('keeps decimal places as typed and clamps them when committed', () => {
     const { onSubmit, box } = open();
     pickTyped(box, 'Area');
     fireEvent.change(box.getByLabelText('Aggregate'), {
       target: { value: 'sum' },
     });
     const field = box.getByLabelText('Decimal places');
+    expect(field).toHaveAttribute('data-slot', 'number-field');
     fireEvent.change(field, { target: { value: '' } });
     expect(field).toHaveValue(null);
     fireEvent.change(field, { target: { value: '-3' } });
+    fireEvent.blur(field);
     fireEvent.click(box.getByRole('button', { name: 'Add property' }));
     expect(onSubmit).toHaveBeenCalledWith({
       role: 'column',

@@ -6,6 +6,7 @@ import {
   PopoverTitle,
   PopoverTrigger,
 } from '../ui/Popover.js';
+import { Slider } from '../ui/Slider.js';
 import {
   clampTintStrength,
   MAX_TINT_STRENGTH,
@@ -81,16 +82,13 @@ export function ModelTintSwatch({
           </div>
           <label className="bsh-tint__strength">
             <span>Tint strength</span>
-            <input
-              type="range"
+            <Slider
               min={MIN_TINT_STRENGTH}
               max={MAX_TINT_STRENGTH}
               step={TINT_STRENGTH_STEP}
               value={value}
               aria-label={`Tint strength for ${modelName}`}
-              onChange={(event) =>
-                onStrength(clampTintStrength(Number(event.target.value)))
-              }
+              onValueChange={(next) => onStrength(clampTintStrength(next))}
             />
             <span>{Math.round(value * 100)}%</span>
           </label>

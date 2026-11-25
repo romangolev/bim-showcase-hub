@@ -213,7 +213,7 @@
   font-size: var(--text-14);
 }
 
-.settings input[type="number"] {
+.settings [data-slot="number-field"] {
   width: 8rem;
 }
 
