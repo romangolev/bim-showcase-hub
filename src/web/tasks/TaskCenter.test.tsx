@@ -26,7 +26,7 @@ describe('TaskCenter', () => {
     expect(screen.getByText('Running: Reading')).toBeInTheDocument();
     expect(
       screen.getByRole('progressbar', { name: 'Exporting progress' }),
-    ).toHaveAttribute('value', '50');
+    ).toHaveAttribute('aria-valuenow', '50');
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(cancel).toHaveBeenCalledTimes(1);
     expect(screen.getByText('Cancelled: Reading')).toBeInTheDocument();
@@ -73,6 +73,9 @@ describe('TaskCenter', () => {
     const trigger = screen.getByRole('button', { name: 'Tasks, 1 running' });
     fireEvent.click(trigger);
     expect(screen.getByRole('region', { name: 'Tasks' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('progressbar', { name: 'A progress' }),
+    ).toHaveAttribute('data-indeterminate');
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.queryByRole('region', { name: 'Tasks' })).toBeNull();
     fireEvent.click(trigger);

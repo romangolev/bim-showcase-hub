@@ -91,7 +91,7 @@ describe('summary progress and cancel', () => {
     );
     expect(
       screen.getByRole('progressbar', { name: 'Reading element properties' }),
-    ).toHaveAttribute('value', '2000');
+    ).toHaveAttribute('aria-valuenow', '2000');
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     await waitFor(() =>
       expect(

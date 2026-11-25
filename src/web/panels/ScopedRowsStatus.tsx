@@ -2,6 +2,7 @@ import { StateBlock } from '../components/StateBlock.js';
 import { formatCount } from '../i18n/format.js';
 import { useSettings } from '../settings/SettingsContext.js';
 import { Button } from '../ui/Button.js';
+import { Progress } from '../ui/Progress.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import {
   HIDDEN_MESSAGE,
@@ -29,10 +30,10 @@ export function ScopedRowsStatus({
       ) : null}
       {resolved && state.status === 'loading' ? (
         <div className="bsh-summary__progress">
-          <progress
-            aria-label="Reading element properties"
-            max={state.progress?.total || undefined}
-            value={state.progress ? state.progress.loaded : undefined}
+          <Progress
+            label="Reading element properties"
+            max={state.progress?.total || 100}
+            value={state.progress?.total ? state.progress.loaded : null}
           />
           <span role="status">
             {state.progress && state.progress.total > 0

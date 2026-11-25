@@ -1027,8 +1027,3 @@ html[data-presenting] .stack .stack__pane--viewer .model-viewer {
 .task-row[data-state="warning"] .task-row__detail {
   color: var(--color-ember);
 }
-
-.task-row__bar {
-  width: 100%;
-  height: 4px;
-}

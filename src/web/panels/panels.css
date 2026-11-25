@@ -807,7 +807,7 @@ select.field,
   gap: var(--space-2);
 }
 
-.bsh-summary__progress progress {
+.bsh-summary__progress [data-slot="progress"] {
   flex: 1 1 8rem;
 }
 

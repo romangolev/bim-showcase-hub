@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { Icon } from '../components/icons.js';
 import { Button } from '../ui/Button.js';
 import { IconButton } from '../ui/IconButton.js';
+import { Progress } from '../ui/Progress.js';
 import { NotificationHost } from './NotificationHost.js';
 import {
   type NotificationStore,
@@ -40,12 +41,7 @@ function TaskRow({
           {task.detail ? `: ${task.detail}` : ''}
         </span>
         {task.state === 'running' ? (
-          <progress
-            className="task-row__bar"
-            aria-label={`${task.label} progress`}
-            max={100}
-            {...(percent === null ? {} : { value: percent })}
-          />
+          <Progress label={`${task.label} progress`} value={percent} />
         ) : null}
       </div>
       {task.state === 'running' && task.cancellable ? (

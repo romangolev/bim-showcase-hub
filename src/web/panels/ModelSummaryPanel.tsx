@@ -50,6 +50,7 @@ import { Button } from '../ui/Button.js';
 import { Card, CardHeader, CardTitle } from '../ui/Card.js';
 import { IconButton } from '../ui/IconButton.js';
 import { Input } from '../ui/Input.js';
+import { Progress } from '../ui/Progress.js';
 
 export interface SummaryModel {
   label: string;
@@ -323,10 +324,10 @@ export function ModelSummaryPanel({
           ) : null}
           {resolved && state.status === 'loading' && (
             <div className="bsh-summary__progress">
-              <progress
-                aria-label="Reading element properties"
-                max={state.progress?.total || undefined}
-                value={state.progress ? state.progress.loaded : undefined}
+              <Progress
+                label="Reading element properties"
+                max={state.progress?.total || 100}
+                value={state.progress?.total ? state.progress.loaded : null}
               />
               <span role="status">
                 {state.progress && state.progress.total > 0
