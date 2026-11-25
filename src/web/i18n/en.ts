@@ -108,6 +108,7 @@ export const EN = {
   'settings.sections': 'Settings sections',
   'settings.back': 'Back',
   'settings.backToSettings': 'Back to Settings',
+  'settings.sectionCommand': 'Settings: {section}',
   'panes.title': 'Panes',
   'panes.search': 'Search panes',
   'panes.matching': 'Matching panes',

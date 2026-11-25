@@ -215,7 +215,7 @@ describe('SettingsShell', () => {
       signingOut: false,
       signOut: () => undefined,
     }).find((item) => item.id === 'settings.section.shortcuts');
-    expect(command?.title).toBe('Shortcuts settings');
+    expect(command?.title).toBe('Settings: Shortcuts');
     command?.run({ openModal });
     expect(openModal).toHaveBeenCalledWith('settings');
     const { unmount } = renderShell();

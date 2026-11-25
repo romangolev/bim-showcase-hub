@@ -111,6 +111,7 @@ export const RU: Partial<Record<MessageId, string>> = {
   'settings.sections': 'Разделы настроек',
   'settings.back': 'Назад',
   'settings.backToSettings': 'Назад к настройкам',
+  'settings.sectionCommand': 'Настройки: {section}',
   'panes.title': 'Панели',
   'panes.search': 'Поиск панелей',
   'panes.matching': 'Подходящие панели',
