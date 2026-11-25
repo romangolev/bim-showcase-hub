@@ -1,7 +1,11 @@
-import { useEffect, useId, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { onEscape, usePopover } from '../components/usePopover.js';
+import { useRef, useState } from 'react';
 import { Button } from '../ui/Button.js';
+import {
+  Popover,
+  PopoverPopup,
+  PopoverTitle,
+  PopoverTrigger,
+} from '../ui/Popover.js';
 import {
   clampTintStrength,
   MAX_TINT_STRENGTH,
@@ -35,123 +39,91 @@ export function ModelTintSwatch({
   onResetPalette,
 }: ModelTintSwatchProps) {
   const [open, setOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const popoverRef = useRef<HTMLDivElement>(null);
-  const labelId = useId();
-  const position = usePopover({
-    open,
-    triggerRef,
-    popoverRef,
-    onDismiss: () => setOpen(false),
-  });
-  useEffect(() => {
-    if (!open) return;
-    popoverRef.current?.focus();
-  }, [open]);
+  const popupRef = useRef<HTMLDivElement>(null);
   const value = tint?.strength ?? strength;
   return (
     <span className="bsh-models__tint">
-      <button
-        ref={triggerRef}
-        type="button"
-        className="bsh-models__swatch"
-        style={tint ? { backgroundColor: tint.color } : undefined}
-        aria-label={`Tint ${modelName}`}
-        title={
-          tint
-            ? `${tintName(tint.color)}, ${Math.round(tint.strength * 100)}%`
-            : 'Add a colour'
-        }
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        onClick={() => setOpen((current) => !current)}
-      />
-      {open
-        ? createPortal(
-            <div
-              ref={popoverRef}
-              className="bsh-tint"
-              role="dialog"
-              aria-labelledby={labelId}
-              tabIndex={-1}
-              style={
-                position
-                  ? { top: position.top, left: position.left }
-                  : { top: 0, left: 0, visibility: 'hidden' }
-              }
-              onKeyDown={(event) =>
-                onEscape(event, () => {
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger
+          className="bsh-models__swatch"
+          style={tint ? { backgroundColor: tint.color } : undefined}
+          aria-label={`Tint ${modelName}`}
+          title={
+            tint
+              ? `${tintName(tint.color)}, ${Math.round(tint.strength * 100)}%`
+              : 'Add a colour'
+          }
+        />
+        <PopoverPopup
+          ref={popupRef}
+          className="bsh-tint"
+          align="end"
+          initialFocus={popupRef}
+        >
+          <PopoverTitle className="bsh-tint__title" render={<p />}>
+            {modelName}
+          </PopoverTitle>
+          <div className="bsh-tint__swatches">
+            {palette.map((hex) => (
+              <button
+                key={hex}
+                type="button"
+                className="bsh-tint__swatch"
+                style={{ backgroundColor: hex }}
+                aria-label={`Tint ${modelName} in ${tintName(hex)}`}
+                aria-pressed={tint?.color === hex}
+                onClick={() => {
+                  onPick(hex);
                   setOpen(false);
-                  triggerRef.current?.focus();
-                })
+                }}
+              />
+            ))}
+          </div>
+          <label className="bsh-tint__strength">
+            <span>Tint strength</span>
+            <input
+              type="range"
+              min={MIN_TINT_STRENGTH}
+              max={MAX_TINT_STRENGTH}
+              step={TINT_STRENGTH_STEP}
+              value={value}
+              aria-label={`Tint strength for ${modelName}`}
+              onChange={(event) =>
+                onStrength(clampTintStrength(Number(event.target.value)))
               }
+            />
+            <span>{Math.round(value * 100)}%</span>
+          </label>
+          <div className="bsh-tint__actions">
+            <Button
+              disabled={!tint}
+              onClick={() => {
+                onClear();
+                setOpen(false);
+              }}
             >
-              <p id={labelId} className="bsh-tint__title">
-                {modelName}
-              </p>
-              <div className="bsh-tint__swatches">
-                {palette.map((hex) => (
-                  <button
-                    key={hex}
-                    type="button"
-                    className="bsh-tint__swatch"
-                    style={{ backgroundColor: hex }}
-                    aria-label={`Tint ${modelName} in ${tintName(hex)}`}
-                    aria-pressed={tint?.color === hex}
-                    onClick={() => {
-                      onPick(hex);
-                      setOpen(false);
-                    }}
-                  />
-                ))}
-              </div>
-              <label className="bsh-tint__strength">
-                <span>Tint strength</span>
+              Clear colour
+            </Button>
+          </div>
+          <details className="bsh-tint__palette">
+            <summary>Edit palette</summary>
+            <div className="bsh-tint__inputs">
+              {palette.map((hex, index) => (
                 <input
-                  type="range"
-                  min={MIN_TINT_STRENGTH}
-                  max={MAX_TINT_STRENGTH}
-                  step={TINT_STRENGTH_STEP}
-                  value={value}
-                  aria-label={`Tint strength for ${modelName}`}
+                  key={index}
+                  type="color"
+                  value={hex}
+                  aria-label={`Palette colour ${index + 1}`}
                   onChange={(event) =>
-                    onStrength(clampTintStrength(Number(event.target.value)))
+                    onPaletteColor(index, event.target.value.toLowerCase())
                   }
                 />
-                <span>{Math.round(value * 100)}%</span>
-              </label>
-              <div className="bsh-tint__actions">
-                <Button
-                  disabled={!tint}
-                  onClick={() => {
-                    onClear();
-                    setOpen(false);
-                  }}
-                >
-                  Clear colour
-                </Button>
-              </div>
-              <details className="bsh-tint__palette">
-                <summary>Edit palette</summary>
-                <div className="bsh-tint__inputs">
-                  {palette.map((hex, index) => (
-                    <input
-                      key={index}
-                      type="color"
-                      value={hex}
-                      aria-label={`Palette colour ${index + 1}`}
-                      onChange={(event) =>
-                        onPaletteColor(index, event.target.value.toLowerCase())
-                      }
-                    />
-                  ))}
-                </div>
-                <Button onClick={onResetPalette}>Use default palette</Button>
-              </details>
-            </div>,
-            document.body,
-          )
-        : null}
+              ))}
+            </div>
+            <Button onClick={onResetPalette}>Use default palette</Button>
+          </details>
+        </PopoverPopup>
+      </Popover>
     </span>
   );
 }
