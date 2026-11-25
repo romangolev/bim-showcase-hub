@@ -60,6 +60,7 @@ Components in `src/web/ui` never name a palette colour. They use role tokens (`-
 | Shape | `--ui-radius-control`, `--ui-radius-surface` | button radius, card radius |
 | Elevation | `--ui-shadow-control`, `--ui-shadow-float` | button shadow, float shadow |
 | Motion | `--ui-motion` | 120ms |
+| Dialog | `--ui-dialog-sm`, `-md`, `-lg`, `-xl`, `-command` (widths), `--ui-dialog-height`, `--ui-dialog-height-compact`, `--ui-dialog-top` | 360, 480, 720, 880, 560px, each capped at the viewport minus 32px; 80vh up to 720px; 70vh up to 520px; 12vh |
 | Effects | `--ui-glow-color`, `--ui-glow-size` | accent, 8px |
 
 Text roles reach 4.5:1 on every surface role, `--ui-on-solid` reaches 4.5:1 on `--ui-solid`, and `--ui-on-accent` and `--ui-focus` reach 3:1 as UI parts.
