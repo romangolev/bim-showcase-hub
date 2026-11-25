@@ -143,6 +143,9 @@ Shared helpers live in `e2e/common.py`. To read page globals, launch with `main_
 |---|---|---|
 | `e2e/mock_smoke.py` | `npm run dev:mock`, no sign-in | The whole app in mock mode: tree, viewer, exports, layout, themes, panes, Task Center |
 | `e2e/a11y_audit.py` | `npm run dev:mock`, no sign-in | Accessible names, clipped text, 200% zoom, 125% text, forced colors, keyboard pane moves and 44px touch targets |
+| `e2e/visual_shots.py` | `npm run dev:mock`, no sign-in | Screenshots of a fixed list of screens (documents, model, menus, command palette, Share, Task Center, every settings section) at 1440x900 and 390x844 in both themes into `e2e/output/shots/<label>/`. `visual_shots.py --diff <before> <after>` prints the changed-pixel percentage per image. The baseline is a run on `dev`, nothing is stored in git |
+| `e2e/a11y_names.py` | `npm run dev:mock`, no sign-in | The ARIA snapshot (role and accessible name) of the same screens into `e2e/output/names/<label>.txt`; `diff` two labels to prove a UI change kept roles and names |
+| `e2e/bundle_size.py` | `npm run build` | Raw and gzip size of the built JS and CSS against the budget, and the cascade layer order of the production stylesheet; exits non-zero on a failure |
 | `e2e/ux_audit.py` (`e2e:ux`) | `npm run dev:mock`, no sign-in | Contrast, 3:1 field edges, focus rings, touch targets (44px stacked, 32px desktop, 24px for compact row actions), clipping and overflow for every settings window, menu, pane and loading, empty and error state, in both themes at 320, 768 and 1440, plus forced colours, where only focus presence and targets are checked because the colours are the system's; exits non-zero on any failure |
 | `signin.py` (`e2e:signin`) | A visible window | You sign in to Autodesk by hand. It polls `/api/session` for up to 15 minutes |
 | `smoke.py` (`e2e:smoke`) | A signed-in profile | The real app: session, tree, viewer, summary, Excel export, native viewer styling |
