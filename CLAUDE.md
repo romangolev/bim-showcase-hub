@@ -27,6 +27,7 @@ The longer guides are `docs/architecture.md`, `docs/layout.md`, `docs/extensions
 - **Browser storage goes through `src/web/storage.ts` only** (`defineRecord`, `defineRecordFamily`, `usePersisted`, with a browser adapter and an in-memory one for tests). Every key is personal (cleared by `forgetPersonal()` on sign-out) or a preference. A new personal key must be listed in `BSH_KEYS.personal` or live under a registered prefix, or it survives sign-out.
 - **Tools and commands are registries.** Toolbar tools are `ViewerTool` classes in `src/web/tools`, each owning its settings and its settings window; app settings hold only app-level fields, and the app shell depends on the registry, never on a concrete tool. The Ctrl/Cmd+K palette merges command lists from the shell, the layout and the active viewer (`COMMANDS`). Long-running work (model loads, exports) reports into the Task Center through `startTask`.
 - **User-made items** (dashboard presets, selection sets, viewpoints) are saved items in `store/savedStore.ts`, one personal record with JSON import and export.
+- **UI is three layers with checked imports.** Tokens, primitives in `src/web/ui/` (the only code that imports `@base-ui/react`, and it imports nothing from the app, i18n included) and app components. Biome's `noRestrictedImports` and `src/web/importBoundaries.test.ts` enforce it; the rules are in `docs/design-system.md` under Import boundaries.
 
 ## Browser testing
 

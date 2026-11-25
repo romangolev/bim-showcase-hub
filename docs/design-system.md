@@ -69,6 +69,20 @@ New UI is built from the components in `src/web/ui/`. They are shadcn/ui compone
 
 To add a component, run `npx shadcn@latest add <name>`. `components.json` puts it in `src/web/ui/`. Then, by hand: rename the file to PascalCase, rewrite the imports to relative paths with `.js` extensions (`./cn.js`; the repo has no `@/` alias), replace shadcn's colour classes (`bg-primary`, `ring-ring`, `dark:`) and arbitrary values with token-mapped utilities, and add a render test. `ui/Button.tsx` is the reference.
 
+### Import boundaries
+
+The UI has three layers: tokens (`styles/tokens.css`, mapped in `styles/tailwind.css`), primitives (`src/web/ui/`) and app components (`components/`, `panels/` and the other feature folders). A primitive knows nothing about the app, so any of them can be restyled, themed or replaced without touching a feature. Biome enforces this with `noRestrictedImports` overrides in `biome.json`:
+
+| Where | Rule |
+|---|---|
+| `src/web/ui/**` | Imports only `react`, `@base-ui/react/*`, `clsx`, `tailwind-merge` and files inside `src/web/ui/`. Nothing from the app: no `components`, `panels`, `layout`, `viewer`, `api`, `store`, `settings`, `tools`, `commands`, `modal`, `i18n`, `storage`. Type-only imports count too. Tests there may also import `vitest` and `@testing-library/*`. |
+| Everything else in `src/web/**` | Never imports `@base-ui/react`. Use a primitive from `src/web/ui/`, or add one. |
+| `src/web/**` outside `src/web/viewer/` | Never imports `viewer/RealViewerAdapter.js`, `viewer/autodesk.js`, `viewer/autodeskTools.js` or `viewer/fakeFederatedViewer.js`. The viewer is reached through `ViewerAdapter` and `createViewerAdapter`. Tests may use `MockViewerAdapter` and `mockModel`. |
+
+A primitive therefore gets every user-visible string as a prop, and its colours, radii and motion from tokens.
+
+`npx biome check src` reports a violation with the rule's message. `src/web/importBoundaries.test.ts` runs the same rule over `src/web` inside `npm test`, and lints probe files against a copy of `biome.json` to prove that each rule still fires. When a rule changes, change `biome.json`, the probe lists in that test and this table together. Biome applies only the last override that matches a file, so the four overrides cover disjoint sets of files: keep them that way.
+
 ## Layout breakpoint
 
 One breakpoint: `STACKED_QUERY` in `src/web/layout/breakpoint.ts` (`STACKED_MAX_WIDTH = 875`), re-exported by `LayoutProvider.tsx`. From 876 px wide panes are docked. Up to 875 px they stack in one column. Stacked-only rules use the `.stack` class.
