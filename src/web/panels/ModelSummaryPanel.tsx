@@ -25,32 +25,22 @@ import {
   viewEntries,
   viewPropertyNames,
 } from '../extensions/modelSummary.js';
-import { formatCount } from '../i18n/format.js';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import { useSettings } from '../settings/SettingsContext.js';
 import { usePersisted } from '../storage.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
-import {
-  FailedModels,
-  ModelScopeSelect,
-  UnavailableModels,
-} from './ModelScope.js';
+import { ModelScopeSelect } from './ModelScope.js';
 import { QuickSettings, useQuickSettings } from './QuickSettings.js';
+import { ScopedRowsStatus } from './ScopedRowsStatus.js';
 import { openSummaryProperty } from './SummaryPropertyDialog.js';
 import { SummaryTable } from './SummaryTable.js';
-import {
-  HIDDEN_MESSAGE,
-  HIDDEN_TITLE,
-  useResolvedAdapter,
-  useScopedRows,
-} from './useScopedRows.js';
+import { useResolvedAdapter, useScopedRows } from './useScopedRows.js';
 import './panels.css';
 import { Badge } from '../ui/Badge.js';
 import { Button } from '../ui/Button.js';
 import { Card, CardHeader, CardTitle } from '../ui/Card.js';
 import { IconButton } from '../ui/IconButton.js';
 import { Input } from '../ui/Input.js';
-import { Progress } from '../ui/Progress.js';
 
 export interface SummaryModel {
   label: string;
@@ -293,15 +283,6 @@ export function ModelSummaryPanel({
         aria-hidden={isCollapsed || undefined}
       >
         <div className="bsh-summary__body">
-          {state.status === 'ready' ? (
-            <>
-              <UnavailableModels models={state.models.unavailable} />
-              <FailedModels
-                names={state.failed}
-                unavailable={state.models.unavailable}
-              />
-            </>
-          ) : null}
           {!resolved && (
             <StateBlock
               variant="empty"
@@ -309,61 +290,11 @@ export function ModelSummaryPanel({
               message="Select a viewable version in the document tree and its element summary appears here."
             />
           )}
-          {state.status === 'hidden' && (
-            <StateBlock
-              variant="empty"
-              title={HIDDEN_TITLE}
-              message={HIDDEN_MESSAGE}
-            />
-          )}
-          {state.status === 'ready' && state.stale ? (
-            <div className="bsh-summary__partial" role="status">
-              <span>Data may be stale.</span>
-              <Button onClick={state.refresh}>Refresh</Button>
-            </div>
-          ) : null}
-          {resolved && state.status === 'loading' && (
-            <div className="bsh-summary__progress">
-              <Progress
-                label="Reading element properties"
-                max={state.progress?.total || 100}
-                value={state.progress?.total ? state.progress.loaded : null}
-              />
-              <span role="status">
-                {state.progress && state.progress.total > 0
-                  ? `Reading element properties: ${formatCount(state.progress.loaded, language)} of ${formatCount(state.progress.total, language)}${state.progress.partial ? ' (partial data)' : ''}`
-                  : 'Reading element properties'}
-              </span>
-              {state.partialRows.length > 0 && state.progress ? (
-                <span role="status">
-                  {`Partial: ${formatCount(state.partialRows.length, language)} of ${formatCount(state.progress.total, language)} elements`}
-                </span>
-              ) : null}
-              <Button onClick={state.cancel}>Cancel</Button>
-            </div>
-          )}
+          <ScopedRowsStatus state={state} resolved={resolved} />
           {resolved &&
             state.status === 'loading' &&
             state.total === 0 &&
             entries.length === 0 && <StateBlock variant="loading" rows={5} />}
-          {state.status === 'cancelled' && (
-            <div className="bsh-summary__partial" role="status">
-              <span>
-                {state.total > 0
-                  ? 'Partial data: the read was cancelled, so these counts may be out of date.'
-                  : 'The read was cancelled, so there is nothing to summarize yet.'}
-              </span>
-              <Button onClick={state.refresh}>Read again</Button>
-            </div>
-          )}
-          {state.status === 'error' && (
-            <StateBlock
-              variant="error"
-              message="We could not read this model's properties. Try again."
-              detail={state.message}
-              action={{ label: 'Retry', onClick: state.refresh }}
-            />
-          )}
           {state.status === 'ready' &&
             entries.length === 0 &&
             !state.pending && (

@@ -46,11 +46,7 @@ import { CHART_SETTINGS } from './chartSettings.js';
 import { DashboardPresetMenu } from './DashboardPresetMenu.js';
 import { ChartTile } from './DashboardTile.js';
 import { HEALTH_KPI_SETTINGS, HealthKpis } from './HealthKpis.js';
-import {
-  FailedModels,
-  ModelScopeSelect,
-  UnavailableModels,
-} from './ModelScope.js';
+import { ModelScopeSelect } from './ModelScope.js';
 import { QuickSettings, useQuickSettings } from './QuickSettings.js';
 import { ScopedRowsStatus } from './ScopedRowsStatus.js';
 import {
@@ -385,15 +381,6 @@ export function DashboardPanel({
           />
         )}
         <ScopedRowsStatus state={state} resolved={resolved} />
-        {usable ? (
-          <>
-            <UnavailableModels models={state.models.unavailable} />
-            <FailedModels
-              names={state.failed}
-              unavailable={state.models.unavailable}
-            />
-          </>
-        ) : null}
         {emptyBoard && (
           <StateBlock
             variant="empty"
