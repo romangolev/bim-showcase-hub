@@ -1,4 +1,5 @@
 .cmdk__input {
+  flex: none;
   padding: var(--space-3) var(--space-4);
   border: 0;
   border-radius: 0;
