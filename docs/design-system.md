@@ -68,7 +68,7 @@ Form controls are primitives in `src/web/ui/`, and each one is a styled native e
 | `NumberField` | `input type="number"` | `value`, `min`, `max`, `onValueCommitted` (a whole clamped number, on blur or Enter) |
 | `Select`, `SelectOption` | `select`, `option` | `value`, `onValueChange(value)` |
 | `Checkbox`, `Switch` | `input type="checkbox"` (the switch has `role="switch"`) | `checked`, `onCheckedChange(checked)` |
-| `Radio`, `RadioGroup` | `input type="radio"`, `fieldset` | the group takes `name`, `value`, `onValueChange(value)`; a radio alone takes native props |
+| `Radio`, `RadioGroup` | `input type="radio"`, `fieldset` | the group takes `name`, `value`, `onValueChange(value)`; every radio needs a string `value`, and a radio alone otherwise takes native props |
 | `Slider` | `input type="range"` | `value`, `onValueChange(number)` |
 
 - `Field` lays a control out and wires it: `layout` is `stack`, `row` (the settings grid, columns from `--ui-field-label-min` and `--ui-field-label-max`), `inline`, `between` (the switch row) or `wrap`; `variant="quiet"` is the small pane label. Inside a `Field`, `FieldLabel` points at the control, and `FieldHint` and `FieldError` are added to its `aria-describedby`; `invalid` sets `aria-invalid`. `controlId` passes an id the caller already has. A `Field` that holds several controls (a checkbox set, a list of inputs) takes `group`: its controls keep their own ids, and the hint and error describe the field root, which is a `fieldset` or a `role="group"` element.

@@ -50,8 +50,11 @@ export function RadioGroup({
   return <GroupContext.Provider value={state}>{element}</GroupContext.Provider>;
 }
 
-export type RadioProps = Omit<ComponentProps<'input'>, 'className' | 'type'> &
-  CommonProps;
+export type RadioProps = Omit<
+  ComponentProps<'input'>,
+  'className' | 'type' | 'value'
+> &
+  CommonProps & { value: string };
 
 export function Radio({
   className,
@@ -72,7 +75,7 @@ export function Radio({
       checked={checked}
       onChange={(event) => {
         onChange?.(event);
-        if (event.target.checked) group?.onValueChange?.(String(value));
+        if (event.target.checked) group?.onValueChange?.(value);
       }}
       data-slot="radio"
       data-checked={checked ? '' : undefined}

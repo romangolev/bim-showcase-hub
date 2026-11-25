@@ -54,6 +54,7 @@ describe('Radio', () => {
     render(
       <Radio
         aria-label="By rules"
+        value="rules"
         name="source"
         checked={false}
         onChange={onChange}
@@ -66,5 +67,16 @@ describe('Radio', () => {
     expect(radio).toHaveClass('accent-accent-fill', 'app-radio');
     fireEvent.click(radio);
     expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it('requires a value, so a group never reports undefined', () => {
+    const onValueChange = vi.fn();
+    render(
+      <RadioGroup value="a" onValueChange={onValueChange}>
+        {/* @ts-expect-error value is required */}
+        <Radio aria-label="Blank" />
+      </RadioGroup>,
+    );
+    expect(screen.getByRole('radio', { name: 'Blank' })).not.toBeChecked();
   });
 });

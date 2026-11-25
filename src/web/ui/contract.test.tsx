@@ -377,7 +377,7 @@ const ENTRIES: Entry[] = [
   {
     file: 'Radio',
     slot: 'radio',
-    render: (props) => <Radio aria-label="label" {...props} />,
+    render: (props) => <Radio aria-label="label" value="v" {...props} />,
   },
   {
     file: 'Radio',

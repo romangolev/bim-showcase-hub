@@ -234,6 +234,7 @@ function SummaryPropertyDialog({
                   >
                     <Radio
                       name={`${uid}-property`}
+                      value={info.name}
                       checked={
                         property === info.name && info.category === owner
                       }
