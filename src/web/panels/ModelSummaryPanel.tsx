@@ -232,6 +232,7 @@ export function ModelSummaryPanel({
         {toggleable ? (
           <IconButton
             label={toggleLabel}
+            tooltip
             className="bsh-summary__toggle"
             aria-expanded={!isCollapsed}
             aria-controls={bodyId}
@@ -273,7 +274,11 @@ export function ModelSummaryPanel({
               Refresh
             </Button>
             {onOpenSettings ? (
-              <IconButton label="Summary settings" onClick={onOpenSettings}>
+              <IconButton
+                label="Summary settings"
+                tooltip
+                onClick={onOpenSettings}
+              >
                 <Icon name="settings" size={16} />
               </IconButton>
             ) : null}

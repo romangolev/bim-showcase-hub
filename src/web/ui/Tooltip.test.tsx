@@ -47,4 +47,20 @@ describe('Tooltip', () => {
     expect(screen.getByRole('button', { name: 'Close' })).toBeTruthy();
     expect(document.querySelector('[data-slot="tooltip-popup"]')).toBeNull();
   });
+
+  it('lets the pointer through and portals into the surrounding dialog', async () => {
+    render(
+      <dialog open aria-label="Host">
+        <IconButton label="Back" tooltip />
+      </dialog>,
+    );
+    const button = screen.getByRole('button', { name: 'Back' });
+    await act(async () => {
+      button.focus();
+      fireEvent.focus(button);
+    });
+    const popup = await screen.findByText('Back');
+    expect(popup).toHaveClass('pointer-events-none');
+    expect(popup.closest('dialog')).not.toBeNull();
+  });
 });

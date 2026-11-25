@@ -81,7 +81,7 @@ export function TooltipPopup({
           data-slot="tooltip-popup"
           data-effect={effect}
           className={cn(
-            'rounded-item border border-line bg-surface-raised px-2 py-1 font-sans text-12 text-fg shadow-inset',
+            'pointer-events-none rounded-item border border-line bg-surface-raised px-2 py-1 font-sans text-12 text-fg shadow-inset',
             className,
           )}
         />

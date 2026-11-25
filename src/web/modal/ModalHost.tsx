@@ -26,6 +26,7 @@ export function ModalHost({ definition, back, onClose }: ModalHostProps) {
           <IconButton
             className="settings-nav__back"
             label={back.label}
+            tooltip
             onClick={back.go}
           >
             <Icon name="chevron" size={16} />

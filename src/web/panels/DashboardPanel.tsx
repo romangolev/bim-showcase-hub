@@ -360,7 +360,11 @@ export function DashboardPanel({
               Refresh
             </Button>
             {onOpenSettings ? (
-              <IconButton label="Dashboard settings" onClick={onOpenSettings}>
+              <IconButton
+                label="Dashboard settings"
+                tooltip
+                onClick={onOpenSettings}
+              >
                 <Icon name="settings" size={16} />
               </IconButton>
             ) : null}

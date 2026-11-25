@@ -40,6 +40,7 @@ export function TopBar({
         {user && onToggleTree ? (
           <IconButton
             ref={toggleRef}
+            tooltip
             label={treeOpen ? t('topbar.collapseTree') : t('topbar.expandTree')}
             aria-expanded={treeOpen}
             aria-controls="document-panel"
