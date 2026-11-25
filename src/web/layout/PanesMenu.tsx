@@ -200,16 +200,16 @@ function FooterEntry({
       type="button"
       role={checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
       aria-checked={checked}
-      className="menu__item"
+      className="panes-menu__command"
       disabled={entry.disabled}
       title={entry.description}
       onClick={() => onRun(entry)}
     >
-      <span className="menu__check">
+      <span className="panes-menu__command-check">
         {checked ? <Icon name="check" size={14} /> : null}
       </span>
       {entry.icon ? (
-        <Icon name={entry.icon} size={14} className="menu__icon" />
+        <Icon name={entry.icon} size={14} className="menu-icon" />
       ) : null}
       {entry.label}
     </button>
@@ -387,7 +387,7 @@ export function PanesMenu() {
                   <div className="panes-menu__footer">
                     {footer.map((entry) =>
                       entry.kind === 'separator' ? (
-                        <hr key={entry.id} className="menu__separator" />
+                        <hr key={entry.id} className="panes-menu__separator" />
                       ) : (
                         <FooterEntry
                           key={entry.id}

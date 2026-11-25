@@ -97,11 +97,13 @@
     outline-color: Highlight;
   }
 
+  .panes-menu__command[aria-checked="true"],
   .tree-row[data-selected="true"] {
     border: 1px solid ButtonText;
   }
 
   .tree-row[data-selected="true"],
+  .panes-menu__command[aria-checked="true"],
   .switch-row input[role="switch"]:checked {
     forced-color-adjust: none;
     background: Highlight;
