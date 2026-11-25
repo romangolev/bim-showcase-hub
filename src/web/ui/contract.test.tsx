@@ -54,7 +54,9 @@ import {
   PopoverTrigger,
 } from './Popover.js';
 import { Radio, RadioGroup } from './Radio.js';
+import { Select, SelectOption } from './Select.js';
 import { Skeleton } from './Skeleton.js';
+import { Slider } from './Slider.js';
 import { Spinner } from './Spinner.js';
 import { Switch } from './Switch.js';
 import { Tab, TabPanel, Tabs, TabsList } from './Tabs.js';
@@ -392,6 +394,25 @@ const ENTRIES: Entry[] = [
         {...props}
       />
     ),
+  },
+  {
+    file: 'Select',
+    slot: 'select',
+    render: (props) => <Select aria-label="label" {...props} />,
+  },
+  {
+    file: 'Select',
+    slot: 'select-option',
+    render: (props) => (
+      <Select aria-label="label">
+        <SelectOption {...props}>label</SelectOption>
+      </Select>
+    ),
+  },
+  {
+    file: 'Slider',
+    slot: 'slider',
+    render: (props) => <Slider aria-label="label" {...props} />,
   },
 ];
 
