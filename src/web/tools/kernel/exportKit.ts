@@ -34,6 +34,7 @@ export function runOnce(
   const controller = new AbortController();
   const task = startTask({
     label,
+    notify: true,
     ...(cancellable ? { cancel: () => controller.abort() } : {}),
     retry: () => runOnce(adapter, kind, label, start, cancellable),
   });

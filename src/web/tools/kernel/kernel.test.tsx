@@ -278,6 +278,12 @@ describe('export tasks', () => {
         detail: 'no',
       }),
     );
+    const { notifications } = await import('../../tasks/notifications.js');
+    expect(notifications.getSnapshot().items.at(-1)).toMatchObject({
+      message: 'Rejecting failed',
+      tone: 'error',
+      detail: 'no',
+    });
     const again = vi.fn(() => new Promise<void>(() => undefined));
     runOnce(adapter, 'r', 'Rejecting', again);
     expect(again).toHaveBeenCalledTimes(1);

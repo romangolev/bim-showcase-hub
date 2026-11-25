@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PickedModel } from '../../components/tree/treeState.js';
 import type { BatchResult } from '../../extensions/ifcBatch.js';
+import { notifications } from '../../tasks/notifications.js';
 import { tasks } from '../../tasks/taskStore.js';
 import { installMemoryStorage } from '../../test/mockApi.js';
 
@@ -86,6 +87,10 @@ describe('exportPickedAsIfcBatch', () => {
     expect(exportPickedAsIfcBatch(picked(MAX_BATCH + 1))).toBe(false);
     expect(runIfcBatch).not.toHaveBeenCalled();
     expect(last()?.detail).toContain(`${MAX_BATCH}`);
+    expect(notifications.getSnapshot().items.at(-1)).toMatchObject({
+      message: 'Exporting IFC batch finished with warnings',
+      tone: 'warning',
+    });
   });
 
   it('asks to confirm above the threshold', () => {

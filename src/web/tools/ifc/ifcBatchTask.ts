@@ -23,13 +23,13 @@ export function exportPickedAsIfcBatch(
 ): boolean {
   if (models.length === 0) return false;
   if (running) {
-    startTask({ label: 'Exporting IFC batch' }).warn(
+    startTask({ label: 'Exporting IFC batch', notify: true }).warn(
       'A batch is already running. Wait for it to finish.',
     );
     return false;
   }
   if (models.length > MAX_BATCH) {
-    startTask({ label: 'Exporting IFC batch' }).warn(
+    startTask({ label: 'Exporting IFC batch', notify: true }).warn(
       `A batch holds up to ${MAX_BATCH} models. Select fewer versions.`,
     );
     return false;
@@ -47,6 +47,7 @@ export function exportPickedAsIfcBatch(
   const total = models.length;
   const task = startTask({
     label: 'Exporting IFC batch',
+    notify: true,
     cancel: () => controller.abort(),
     retry: () => exportPickedAsIfcBatch(models),
   });
