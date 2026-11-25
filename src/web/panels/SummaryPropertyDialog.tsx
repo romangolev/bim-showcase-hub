@@ -33,6 +33,8 @@ import { groupCatalog } from '../viewer/propertyCatalog.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { usePropertyCatalog } from './usePropertyCatalog.js';
 import './panels.css';
+import { Button, buttonClasses } from '../ui/Button.js';
+import { IconButton } from '../ui/IconButton.js';
 
 export interface SummaryPropertyOptions {
   adapter: ViewerAdapter | null;
@@ -154,14 +156,9 @@ function SummaryPropertyDialog({
           <h2 id={titleId} className="modal__title">
             {editing ? 'Edit property' : 'Add property'}
           </h2>
-          <button
-            type="button"
-            className="icon-button"
-            aria-label="Close"
-            onClick={onDone}
-          >
+          <IconButton label="Close" onClick={onDone}>
             <Icon name="close" size={16} />
-          </button>
+          </IconButton>
         </header>
         <div className="modal__body bsh-add-property__body">
           <label className="bsh-field">
@@ -196,9 +193,7 @@ function SummaryPropertyDialog({
                 }
                 rows={2}
               />
-              <button type="button" className="btn" onClick={catalog.cancel}>
-                Cancel
-              </button>
+              <Button onClick={catalog.cancel}>Cancel</Button>
             </>
           ) : null}
           {catalog.status === 'cancelled' || catalog.status === 'error' ? (
@@ -215,16 +210,14 @@ function SummaryPropertyDialog({
             </p>
           ) : null}
           {typed && !known?.has(typed) ? (
-            <button
-              type="button"
-              className="btn"
+            <Button
               onClick={() => {
                 setProperty(typed);
                 setCategory(null);
               }}
             >
               {`Use "${typed}"`}
-            </button>
+            </Button>
           ) : null}
           <div className="bsh-picker__groups bsh-add-property__results">
             {groups.map((group) => (
@@ -275,7 +268,7 @@ function SummaryPropertyDialog({
           >
             <legend>Show as</legend>
             <div className="bsh-kinds">
-              <label className="btn">
+              <label className={buttonClasses({})}>
                 <input
                   type="radio"
                   name={`${uid}-role`}
@@ -284,7 +277,7 @@ function SummaryPropertyDialog({
                 />
                 Rows
               </label>
-              <label className="btn">
+              <label className={buttonClasses({})}>
                 <input
                   type="radio"
                   name={`${uid}-role`}
@@ -361,17 +354,14 @@ function SummaryPropertyDialog({
             </p>
           ) : null}
           <div className="bsh-presets">
-            <button type="button" className="btn" onClick={onDone}>
-              Cancel
-            </button>
-            <button
+            <Button onClick={onDone}>Cancel</Button>
+            <Button
               type="submit"
-              className="btn"
               disabled={problem !== null}
               aria-describedby={problem ? problemId : undefined}
             >
               {editing ? 'Save' : 'Add property'}
-            </button>
+            </Button>
           </div>
         </div>
       </form>

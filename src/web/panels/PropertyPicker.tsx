@@ -6,6 +6,7 @@ import { groupCatalog } from '../viewer/propertyCatalog.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { usePropertyCatalog } from './usePropertyCatalog.js';
 import './panels.css';
+import { Button } from '../ui/Button.js';
 
 export interface PropertyPickerProps {
   adapter: ViewerAdapter | null;
@@ -116,9 +117,7 @@ export function PropertyPicker({
             }
             rows={3}
           />
-          <button type="button" className="btn" onClick={state.cancel}>
-            Cancel
-          </button>
+          <Button onClick={state.cancel}>Cancel</Button>
         </>
       )}
       {state.status === 'cancelled' && (

@@ -3,6 +3,8 @@ import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { Icon } from '../components/icons.js';
 import { MAX_NAME_LENGTH } from '../store/savedStore.js';
+import { Button } from '../ui/Button.js';
+import { IconButton } from '../ui/IconButton.js';
 
 interface PresetNamePromptOptions {
   title: string;
@@ -48,14 +50,9 @@ function PresetNameDialog({
           <h2 id={titleId} className="modal__title">
             {title}
           </h2>
-          <button
-            type="button"
-            className="icon-button"
-            aria-label="Close"
-            onClick={onDone}
-          >
+          <IconButton label="Close" onClick={onDone}>
             <Icon name="close" size={16} />
-          </button>
+          </IconButton>
         </header>
         <div className="modal__body">
           <label className="bsh-field">
@@ -75,17 +72,10 @@ function PresetNameDialog({
             />
           </label>
           <div className="bsh-presets">
-            <button type="button" className="btn" onClick={onDone}>
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="btn"
-              disabled={!name.trim()}
-              onClick={submit}
-            >
+            <Button onClick={onDone}>Cancel</Button>
+            <Button disabled={!name.trim()} onClick={submit}>
               {confirm}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

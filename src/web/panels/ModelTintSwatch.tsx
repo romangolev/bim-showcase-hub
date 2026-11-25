@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { onEscape, usePopover } from '../components/usePopover.js';
+import { Button } from '../ui/Button.js';
 import {
   clampTintStrength,
   MAX_TINT_STRENGTH,
@@ -120,9 +121,7 @@ export function ModelTintSwatch({
                 <span>{Math.round(value * 100)}%</span>
               </label>
               <div className="bsh-tint__actions">
-                <button
-                  type="button"
-                  className="btn"
+                <Button
                   disabled={!tint}
                   onClick={() => {
                     onClear();
@@ -130,7 +129,7 @@ export function ModelTintSwatch({
                   }}
                 >
                   Clear colour
-                </button>
+                </Button>
               </div>
               <details className="bsh-tint__palette">
                 <summary>Edit palette</summary>
@@ -147,9 +146,7 @@ export function ModelTintSwatch({
                     />
                   ))}
                 </div>
-                <button type="button" className="btn" onClick={onResetPalette}>
-                  Use default palette
-                </button>
+                <Button onClick={onResetPalette}>Use default palette</Button>
               </details>
             </div>,
             document.body,

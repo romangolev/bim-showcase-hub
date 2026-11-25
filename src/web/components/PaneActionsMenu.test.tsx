@@ -25,7 +25,7 @@ describe('PaneActionsMenu', () => {
     const { trigger } = setup();
     expect(trigger).toHaveAttribute('aria-haspopup', 'menu');
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
-    expect(trigger).toHaveClass('icon-button');
+    expect(trigger).toHaveAttribute('data-slot', 'icon-button');
     fireEvent.click(trigger);
     expect(trigger).toHaveAttribute('aria-expanded', 'true');
     expect(
@@ -83,7 +83,7 @@ describe('PaneActionsMenu', () => {
       />,
     );
     const trigger = screen.getByRole('button', { name: 'Dashboard actions' });
-    expect(trigger).toHaveClass('btn');
+    expect(trigger).toHaveAttribute('data-slot', 'button');
     expect(trigger).toHaveTextContent('Actions');
     fireEvent.click(trigger);
     expect(

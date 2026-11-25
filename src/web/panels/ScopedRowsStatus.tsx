@@ -1,6 +1,7 @@
 import { StateBlock } from '../components/StateBlock.js';
 import { formatCount } from '../i18n/format.js';
 import { useSettings } from '../settings/SettingsContext.js';
+import { Button } from '../ui/Button.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import {
   HIDDEN_MESSAGE,
@@ -38,9 +39,7 @@ export function ScopedRowsStatus({
               ? `Reading element properties: ${formatCount(state.progress.loaded, language)} of ${formatCount(state.progress.total, language)}${state.progress.partial ? ' (partial data)' : ''}`
               : 'Reading element properties'}
           </span>
-          <button type="button" className="btn" onClick={state.cancel}>
-            Cancel
-          </button>
+          <Button onClick={state.cancel}>Cancel</Button>
         </div>
       ) : null}
       {resolved && state.status === 'ready' && state.pending ? (
@@ -54,9 +53,7 @@ export function ScopedRowsStatus({
       {state.status === 'ready' && state.stale ? (
         <div className="bsh-summary__partial" role="status">
           <span>Data may be stale.</span>
-          <button type="button" className="btn" onClick={state.refresh}>
-            Refresh
-          </button>
+          <Button onClick={state.refresh}>Refresh</Button>
         </div>
       ) : null}
       {state.status === 'error' ? (
@@ -71,9 +68,7 @@ export function ScopedRowsStatus({
       {state.status === 'cancelled' ? (
         <div className="bsh-summary__partial" role="status">
           <span>Partial data: the read was cancelled.</span>
-          <button type="button" className="btn" onClick={state.refresh}>
-            Read again
-          </button>
+          <Button onClick={state.refresh}>Read again</Button>
         </div>
       ) : null}
     </>

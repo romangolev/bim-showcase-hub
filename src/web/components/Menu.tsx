@@ -9,6 +9,9 @@ import {
   useState,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { buttonClasses } from '../ui/Button.js';
+import { cn } from '../ui/cn.js';
+import { iconButtonClasses } from '../ui/IconButton.js';
 import { Icon, type IconName } from './icons.js';
 import { moveFocus, onEscape, usePopover } from './usePopover.js';
 
@@ -31,6 +34,7 @@ interface MenuBaseProps {
   hint?: string;
   className?: string;
   triggerClassName?: string;
+  triggerVariant?: 'icon' | 'button' | 'unstyled';
   align?: 'start' | 'end';
   onClose?: (restoreFocus: boolean) => void;
 }
@@ -44,6 +48,17 @@ export type MenuProps = MenuBaseProps &
         anchor: { x: number; y: number } | null;
       }
   );
+
+const TRIGGER_CLASSES = {
+  icon: iconButtonClasses,
+  button: buttonClasses({}),
+  unstyled: '',
+};
+const TRIGGER_SLOTS = {
+  icon: 'icon-button',
+  button: 'button',
+  unstyled: undefined,
+};
 
 function CheckMark({ checked }: { checked?: boolean }) {
   return (
@@ -60,7 +75,8 @@ export function Menu({
   items,
   hint,
   className,
-  triggerClassName = 'icon-button',
+  triggerClassName,
+  triggerVariant = triggerClassName ? 'unstyled' : 'icon',
   align = 'end',
   anchor,
   onClose,
@@ -154,7 +170,8 @@ export function Menu({
         <button
           ref={triggerRef}
           type="button"
-          className={triggerClassName}
+          className={cn(TRIGGER_CLASSES[triggerVariant], triggerClassName)}
+          data-slot={TRIGGER_SLOTS[triggerVariant]}
           aria-label={label}
           title={title ?? label}
           aria-haspopup="menu"

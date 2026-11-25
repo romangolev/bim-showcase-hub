@@ -23,7 +23,7 @@ export function PaneActionsMenu({
       label={label}
       title={title}
       align={align}
-      triggerClassName={text ? 'btn' : 'icon-button'}
+      triggerVariant={text ? 'button' : 'icon'}
       trigger={
         <>
           <Icon name="more" size={16} />

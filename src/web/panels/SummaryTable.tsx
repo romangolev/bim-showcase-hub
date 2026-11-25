@@ -26,6 +26,8 @@ import {
 import { useSettings } from '../settings/SettingsContext.js';
 import { useScrollable } from './useScrollable.js';
 import './panels.css';
+import { Button } from '../ui/Button.js';
+import { IconButton } from '../ui/IconButton.js';
 
 export const ENTRY_CAP = 500;
 
@@ -329,12 +331,8 @@ export function SummaryTable({
   const tools = (show: boolean) =>
     show ? (
       <div className="bsh-summary-blocks__tools">
-        <button type="button" className="btn" onClick={expandAll}>
-          Expand all
-        </button>
-        <button type="button" className="btn" onClick={collapseAll}>
-          Collapse all
-        </button>
+        <Button onClick={expandAll}>Expand all</Button>
+        <Button onClick={collapseAll}>Collapse all</Button>
       </div>
     ) : null;
 
@@ -381,13 +379,9 @@ export function SummaryTable({
         {hiddenTotal > 0 ? (
           <tr>
             <td colSpan={(showProperty ? 2 : 1) + columns.length}>
-              <button
-                type="button"
-                className="btn"
-                onClick={() => expandProps(flat.hidden.keys())}
-              >
+              <Button onClick={() => expandProps(flat.hidden.keys())}>
                 Show {formatCount(hiddenTotal)} more
-              </button>
+              </Button>
             </td>
           </tr>
         ) : null}
@@ -414,9 +408,9 @@ export function SummaryTable({
             aria-labelledby={`${bodyId}-title`}
           >
             <div className="bsh-table-block__header">
-              <button
-                type="button"
-                className="icon-button bsh-table-block__toggle"
+              <IconButton
+                label={collapsed ? `Expand ${title}` : `Collapse ${title}`}
+                className="bsh-table-block__toggle"
                 aria-expanded={!collapsed}
                 aria-controls={bodyId}
                 onClick={() => toggleBlock(block.property)}
@@ -427,10 +421,7 @@ export function SummaryTable({
                   className="bsh-table-block__chevron"
                   data-expanded={!collapsed}
                 />
-                <span className="bsh-sr-only">
-                  {collapsed ? `Expand ${title}` : `Collapse ${title}`}
-                </span>
-              </button>
+              </IconButton>
               <h3 id={`${bodyId}-title`} className="bsh-table-block__title">
                 {title}
               </h3>
@@ -446,13 +437,12 @@ export function SummaryTable({
                     onCancel={() => setEditing(null)}
                   />
                 ) : (
-                  <button
-                    type="button"
-                    className="btn bsh-table-block__rename"
+                  <Button
+                    className="bsh-table-block__rename"
                     onClick={() => setEditing(block.property)}
                   >
                     Rename
-                  </button>
+                  </Button>
                 )
               ) : null}
             </div>
@@ -507,14 +497,10 @@ export function SummaryTable({
                   block.entries.length > ENTRY_CAP ? (
                     <tr>
                       <td colSpan={1 + columns.length}>
-                        <button
-                          type="button"
-                          className="btn"
-                          onClick={() => expandProps([block.property])}
-                        >
+                        <Button onClick={() => expandProps([block.property])}>
                           Show {formatCount(block.entries.length - ENTRY_CAP)}{' '}
                           more
-                        </button>
+                        </Button>
                       </td>
                     </tr>
                   ) : null}
@@ -554,9 +540,13 @@ export function SummaryTable({
                   style={{ paddingInlineStart: `${0.5 + depth * 0.9}rem` }}
                 >
                   {hasChildren ? (
-                    <button
-                      type="button"
-                      className="icon-button bsh-pivot__toggle"
+                    <IconButton
+                      label={
+                        collapsed
+                          ? `Expand ${node.value}`
+                          : `Collapse ${node.value}`
+                      }
+                      className="bsh-pivot__toggle"
                       aria-expanded={!collapsed}
                       onClick={() => toggleNode(key)}
                     >
@@ -566,12 +556,7 @@ export function SummaryTable({
                         className="bsh-pivot__chevron"
                         data-expanded={!collapsed}
                       />
-                      <span className="bsh-sr-only">
-                        {collapsed
-                          ? `Expand ${node.value}`
-                          : `Collapse ${node.value}`}
-                      </span>
-                    </button>
+                    </IconButton>
                   ) : (
                     <span className="bsh-pivot__spacer" aria-hidden="true" />
                   )}
@@ -591,13 +576,9 @@ export function SummaryTable({
           {pivotShown.length < pivotRows.length ? (
             <tr>
               <td colSpan={1 + columns.length}>
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => setPivotAll(true)}
-                >
+                <Button onClick={() => setPivotAll(true)}>
                   Show {formatCount(pivotRows.length - pivotShown.length)} more
-                </button>
+                </Button>
               </td>
             </tr>
           ) : null}

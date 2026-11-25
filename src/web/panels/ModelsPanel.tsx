@@ -39,6 +39,9 @@ import {
 } from './modelTint.js';
 import { useResolvedAdapter } from './useScopedRows.js';
 import './panels.css';
+import { Button } from '../ui/Button.js';
+import { IconButton } from '../ui/IconButton.js';
+import { ToggleButton } from '../ui/ToggleButton.js';
 
 export interface ModelsPanelProps {
   adapter?: ViewerAdapter | null;
@@ -190,15 +193,9 @@ export function ModelsPanel({
           Models
         </h2>
         {resolved && models.length > 0 && active ? (
-          <button type="button" className="btn" onClick={saveAsModelSet}>
-            Save as model set
-          </button>
+          <Button onClick={saveAsModelSet}>Save as model set</Button>
         ) : null}
-        {onAdd ? (
-          <button type="button" className="btn" onClick={onAdd}>
-            Add model
-          </button>
-        ) : null}
+        {onAdd ? <Button onClick={onAdd}>Add model</Button> : null}
       </header>
       {resolved && models.length > 0 ? (
         <>
@@ -216,9 +213,7 @@ export function ModelsPanel({
                 </label>
               ) : null}
               {tinted.length > 0 ? (
-                <button type="button" className="btn" onClick={resetTints}>
-                  Reset tints
-                </button>
+                <Button onClick={resetTints}>Reset tints</Button>
               ) : null}
             </div>
           ) : null}
@@ -232,10 +227,8 @@ export function ModelsPanel({
                   className="bsh-models__row bsh-models__row--model"
                   data-status={model.status}
                 >
-                  <button
-                    type="button"
-                    className="icon-button"
-                    aria-label={`${model.visible ? 'Hide' : 'Show'} ${model.name}`}
+                  <IconButton
+                    label={`${model.visible ? 'Hide' : 'Show'} ${model.name}`}
                     aria-pressed={model.visible}
                     disabled={model.status !== 'ready'}
                     onClick={() =>
@@ -243,7 +236,7 @@ export function ModelsPanel({
                     }
                   >
                     <Icon name={model.visible ? 'layers' : 'ban'} size={14} />
-                  </button>
+                  </IconButton>
                   <span className="bsh-models__main">
                     <span className="bsh-models__name">
                       <span
@@ -301,9 +294,8 @@ export function ModelsPanel({
                     (model.status === 'ready' && models.length > 1) ? (
                       <span className="bsh-models__more">
                         {failure?.retry ? (
-                          <button
-                            type="button"
-                            className="btn btn-small"
+                          <Button
+                            size="small"
                             aria-label={`Retry ${model.name}`}
                             onClick={() =>
                               void resolved
@@ -312,18 +304,17 @@ export function ModelsPanel({
                             }
                           >
                             Retry
-                          </button>
+                          </Button>
                         ) : null}
                         {model.status === 'ready' && models.length > 1 ? (
-                          <button
-                            type="button"
-                            className="btn btn-small"
+                          <ToggleButton
+                            size="small"
                             aria-label={
                               isolated === model.id
                                 ? 'Show all models'
                                 : `Isolate ${model.name}`
                             }
-                            aria-pressed={isolated === model.id}
+                            pressed={isolated === model.id}
                             onClick={() => {
                               for (const [id, visible] of Object.entries(
                                 isolateVisibility(models, model.id),
@@ -333,15 +324,13 @@ export function ModelsPanel({
                             }}
                           >
                             {isolated === model.id ? 'Show all' : 'Isolate'}
-                          </button>
+                          </ToggleButton>
                         ) : null}
                       </span>
                     ) : null}
                   </span>
                   <span className="bsh-models__actions">
-                    <button
-                      type="button"
-                      className="btn"
+                    <Button
                       aria-label={`Remove ${model.name}`}
                       onClick={() => {
                         colorLayersFor(resolved).forgetModel(model.id);
@@ -350,7 +339,7 @@ export function ModelsPanel({
                       }}
                     >
                       Remove
-                    </button>
+                    </Button>
                   </span>
                 </li>
               );
@@ -395,9 +384,7 @@ export function ModelsPanel({
           <div className="bsh-models__tools">
             <h3 className="bsh-models__subtitle">Saved combinations</h3>
             {canSave ? (
-              <button type="button" className="btn" onClick={startNaming}>
-                Save combination…
-              </button>
+              <Button onClick={startNaming}>Save combination…</Button>
             ) : null}
           </div>
           {naming ? (
@@ -414,12 +401,8 @@ export function ModelsPanel({
                   if (event.key === 'Escape') cancelNaming();
                 }}
               />
-              <button type="button" className="btn" onClick={saveCombination}>
-                Save combination
-              </button>
-              <button type="button" className="btn" onClick={cancelNaming}>
-                Cancel
-              </button>
+              <Button onClick={saveCombination}>Save combination</Button>
+              <Button onClick={cancelNaming}>Cancel</Button>
             </div>
           ) : null}
           {renameFailed ? (
@@ -452,18 +435,14 @@ export function ModelsPanel({
                       if (event.key === 'Enter') event.currentTarget.blur();
                     }}
                   />
-                  <button
-                    type="button"
-                    className="btn"
+                  <Button
                     aria-label={`Open ${item.name}`}
                     disabled={!onOpenFederation}
                     onClick={() => onOpenFederation?.(item.id)}
                   >
                     Open
-                  </button>
-                  <button
-                    type="button"
-                    className="btn"
+                  </Button>
+                  <Button
                     aria-label={`Delete ${item.name}`}
                     onClick={() => {
                       setRenameFailed(false);
@@ -475,7 +454,7 @@ export function ModelsPanel({
                     }}
                   >
                     Delete
-                  </button>
+                  </Button>
                 </li>
               ))}
             </ul>

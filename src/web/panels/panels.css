@@ -614,7 +614,7 @@ select.field {
   height: var(--target-min);
 }
 
-.bsh-chart__tools .icon-button {
+.bsh-chart__tools [data-slot="icon-button"] {
   width: var(--target-min);
   height: var(--target-min);
   padding: 0;
@@ -1023,8 +1023,6 @@ select.field {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .btn,
-  .icon-button,
   .bsh-summary,
   .bsh-summary__wrap,
   .bsh-summary[data-collapsed="true"] .bsh-summary__wrap,
@@ -1488,7 +1486,7 @@ button.bsh-kpi:focus-visible {
   gap: var(--space-2);
 }
 
-.bsh-versions__actions .btn {
+.bsh-versions__actions [data-slot="button"] {
   padding: 0 var(--space-2);
 }
 

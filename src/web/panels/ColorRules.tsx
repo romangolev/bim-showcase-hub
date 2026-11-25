@@ -15,6 +15,7 @@ import {
 import { OTHER_COLOR } from '../extensions/dashboardData.js';
 import { useSavedKindItems } from '../store/savedKinds.js';
 import { MAX_NAME_LENGTH } from '../store/savedStore.js';
+import { Button } from '../ui/Button.js';
 
 export interface ColorRulesProps {
   value: RuleSet;
@@ -173,27 +174,21 @@ export function ColorRules({ value, onChange, properties }: ColorRulesProps) {
               />
             </div>
             <div className="bsh-color-rules__actions">
-              <button
-                type="button"
-                className="btn"
+              <Button
                 aria-label={`Move ${rule.label} up`}
                 disabled={index === 0}
                 onClick={() => move(index, -1)}
               >
                 Move up
-              </button>
-              <button
-                type="button"
-                className="btn"
+              </Button>
+              <Button
                 aria-label={`Move ${rule.label} down`}
                 disabled={index === value.rules.length - 1}
                 onClick={() => move(index, 1)}
               >
                 Move down
-              </button>
-              <button
-                type="button"
-                className="btn"
+              </Button>
+              <Button
                 aria-label={`Remove ${rule.label}`}
                 onClick={() =>
                   onChange({
@@ -203,20 +198,15 @@ export function ColorRules({ value, onChange, properties }: ColorRulesProps) {
                 }
               >
                 Remove
-              </button>
+              </Button>
             </div>
           </li>
         ))}
       </ul>
       <div className="bsh-color-rules__actions">
-        <button
-          type="button"
-          className="btn"
-          disabled={value.rules.length >= MAX_RULES}
-          onClick={add}
-        >
+        <Button disabled={value.rules.length >= MAX_RULES} onClick={add}>
           Add rule
-        </button>
+        </Button>
       </div>
       <div className="bsh-color-rules__fields">
         <label className="bsh-field">
@@ -283,36 +273,27 @@ export function ColorRules({ value, onChange, properties }: ColorRulesProps) {
           value={presetName}
           onChange={(event) => setPresetName(event.target.value)}
         />
-        <button
-          type="button"
-          className="btn"
-          disabled={!presetName.trim()}
-          onClick={savePreset}
-        >
+        <Button disabled={!presetName.trim()} onClick={savePreset}>
           Save preset
-        </button>
+        </Button>
       </div>
       {presets.length > 0 ? (
         <ul className="bsh-color-rules__presets">
           {presets.map((item) => (
             <li key={item.id} className="bsh-color-rules__presets">
               <span>{item.name}</span>
-              <button
-                type="button"
-                className="btn"
+              <Button
                 aria-label={`Duplicate ${item.name}`}
                 onClick={() => duplicateRulePreset(item.id)}
               >
                 Duplicate
-              </button>
-              <button
-                type="button"
-                className="btn"
+              </Button>
+              <Button
                 aria-label={`Delete ${item.name}`}
                 onClick={() => COLOR_RULE_PRESETS.remove(item.id)}
               >
                 Delete
-              </button>
+              </Button>
             </li>
           ))}
         </ul>

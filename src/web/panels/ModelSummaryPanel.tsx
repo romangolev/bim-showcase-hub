@@ -45,6 +45,8 @@ import {
   useScopedRows,
 } from './useScopedRows.js';
 import './panels.css';
+import { Button } from '../ui/Button.js';
+import { IconButton } from '../ui/IconButton.js';
 
 export interface SummaryModel {
   label: string;
@@ -225,9 +227,9 @@ export function ModelSummaryPanel({
           ) : null}
         </h2>
         {toggleable ? (
-          <button
-            type="button"
-            className="icon-button bsh-summary__toggle"
+          <IconButton
+            label={toggleLabel}
+            className="bsh-summary__toggle"
             aria-expanded={!isCollapsed}
             aria-controls={bodyId}
             onClick={toggle}
@@ -238,8 +240,7 @@ export function ModelSummaryPanel({
               className="bsh-summary__toggle-icon"
               data-expanded={!isCollapsed}
             />
-            <span className="bsh-sr-only">{toggleLabel}</span>
-          </button>
+          </IconButton>
         ) : null}
         {isCollapsed ? null : (
           <QuickSettings
@@ -248,9 +249,8 @@ export function ModelSummaryPanel({
             onToggle={quick.toggle}
           >
             <ModelScopeSelect state={state.models} label="Summarize models" />
-            <button
-              type="button"
-              className="btn bsh-summary__add"
+            <Button
+              className="bsh-summary__add"
               disabled={full}
               title={
                 full
@@ -261,24 +261,18 @@ export function ModelSummaryPanel({
             >
               <Icon name="plus" size={14} />
               <span className="bsh-summary__add-label">Add property</span>
-            </button>
-            <button
-              type="button"
-              className="btn bsh-summary__refresh"
+            </Button>
+            <Button
+              className="bsh-summary__refresh"
               onClick={state.refresh}
               disabled={!resolved}
             >
               Refresh
-            </button>
+            </Button>
             {onOpenSettings ? (
-              <button
-                type="button"
-                className="icon-button"
-                onClick={onOpenSettings}
-              >
+              <IconButton label="Summary settings" onClick={onOpenSettings}>
                 <Icon name="settings" size={16} />
-                <span className="bsh-sr-only">Summary settings</span>
-              </button>
+              </IconButton>
             ) : null}
           </QuickSettings>
         )}
@@ -316,9 +310,7 @@ export function ModelSummaryPanel({
           {state.status === 'ready' && state.stale ? (
             <div className="bsh-summary__partial" role="status">
               <span>Data may be stale.</span>
-              <button type="button" className="btn" onClick={state.refresh}>
-                Refresh
-              </button>
+              <Button onClick={state.refresh}>Refresh</Button>
             </div>
           ) : null}
           {resolved && state.status === 'loading' && (
@@ -338,9 +330,7 @@ export function ModelSummaryPanel({
                   {`Partial: ${formatCount(state.partialRows.length, language)} of ${formatCount(state.progress.total, language)} elements`}
                 </span>
               ) : null}
-              <button type="button" className="btn" onClick={state.cancel}>
-                Cancel
-              </button>
+              <Button onClick={state.cancel}>Cancel</Button>
             </div>
           )}
           {resolved &&
@@ -354,9 +344,7 @@ export function ModelSummaryPanel({
                   ? 'Partial data: the read was cancelled, so these counts may be out of date.'
                   : 'The read was cancelled, so there is nothing to summarize yet.'}
               </span>
-              <button type="button" className="btn" onClick={state.refresh}>
-                Read again
-              </button>
+              <Button onClick={state.refresh}>Read again</Button>
             </div>
           )}
           {state.status === 'error' && (
@@ -433,9 +421,7 @@ export function ModelSummaryPanel({
           {entries.length > 0 && view.columns.length === 0 ? (
             <p className="bsh-summary__hint">
               <span>Add a column to count or total these values.</span>
-              <button type="button" className="btn" onClick={() => openAdd()}>
-                Add a column
-              </button>
+              <Button onClick={() => openAdd()}>Add a column</Button>
             </p>
           ) : null}
           {entries.length > 0 &&
@@ -466,14 +452,13 @@ export function ModelSummaryPanel({
             />
           )}
           {shown.length > STACKED_ROW_LIMIT && (
-            <button
-              type="button"
-              className="btn summary-toggle"
+            <Button
+              className="summary-toggle"
               aria-expanded={showAll}
               onClick={() => setShowAll((value) => !value)}
             >
               {showAll ? 'Show fewer rows' : `Show all ${shown.length} rows`}
-            </button>
+            </Button>
           )}
         </div>
       </div>

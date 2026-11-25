@@ -22,6 +22,7 @@ import { PropertyPicker } from './PropertyPicker.js';
 import { setMessages } from './SelectionSets.js';
 import { useResolvedAdapter } from './useScopedRows.js';
 import './panels.css';
+import { Button } from '../ui/Button.js';
 
 export interface SearchResultsPanelProps {
   adapter?: ViewerAdapter | null;
@@ -158,58 +159,44 @@ export function SearchResultsPanel({ adapter }: SearchResultsPanelProps) {
             setSpec((current) => ({ ...current, text: event.target.value }))
           }
         />
-        <button
-          type="submit"
-          className="btn"
-          disabled={!resolved || !spec.text.trim()}
-        >
+        <Button type="submit" disabled={!resolved || !spec.text.trim()}>
           Search
-        </button>
-        <button
-          type="button"
-          className="btn"
+        </Button>
+        <Button
           aria-expanded={showAttributes}
           disabled={!resolved}
           onClick={() => setShowAttributes((open) => !open)}
         >
           Attributes
-        </button>
+        </Button>
       </form>
       <div className="bsh-search__actions">
-        <button
-          type="button"
-          className="btn"
+        <Button
           disabled={!resolved || none}
           onClick={() => resolved?.selectModelIds(items)}
         >
           Select all
-        </button>
-        <button
-          type="button"
-          className="btn"
+        </Button>
+        <Button
           disabled={!resolved || none}
           onClick={() => resolved?.isolateModelIds(items)}
         >
           Isolate
-        </button>
-        <button
-          type="button"
-          className="btn"
+        </Button>
+        <Button
           disabled={!resolved || none}
           onClick={() => resolved?.fitToView(items)}
         >
           Fit
-        </button>
-        <button
-          type="button"
-          className="btn"
+        </Button>
+        <Button
           disabled={!resolved || none}
           onClick={() =>
             setSaveName((current) => (current === null ? '' : null))
           }
         >
           Save as selection set
-        </button>
+        </Button>
       </div>
       {saveName !== null ? (
         <form
@@ -228,9 +215,9 @@ export function SearchResultsPanel({ adapter }: SearchResultsPanelProps) {
             value={saveName}
             onChange={(event) => setSaveName(event.target.value)}
           />
-          <button type="submit" className="btn" disabled={!saveName.trim()}>
+          <Button type="submit" disabled={!saveName.trim()}>
             Save
-          </button>
+          </Button>
         </form>
       ) : null}
       {showAttributes && resolved ? (
@@ -288,9 +275,7 @@ export function SearchResultsPanel({ adapter }: SearchResultsPanelProps) {
       {stale ? (
         <div className="bsh-search__stale" role="status">
           <span>Results may be out of date.</span>
-          <button type="button" className="btn" onClick={() => void search()}>
-            Search again
-          </button>
+          <Button onClick={() => void search()}>Search again</Button>
         </div>
       ) : null}
       {items.length > 0 ? (

@@ -5,6 +5,7 @@ import { useSettings } from '../settings/SettingsContext.js';
 import type { Language } from '../settings/settings.js';
 import { MAX_NAME_LENGTH } from '../store/savedStore.js';
 import { notify } from '../tasks/notifications.js';
+import { Button } from '../ui/Button.js';
 import {
   deleteSet,
   MAX_SET_ELEMENTS,
@@ -134,14 +135,9 @@ export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
             if (event.key === 'Enter') void save();
           }}
         />
-        <button
-          type="button"
-          className="btn"
-          disabled={!adapter || !name.trim()}
-          onClick={() => void save()}
-        >
+        <Button disabled={!adapter || !name.trim()} onClick={() => void save()}>
           Save selection as set
-        </button>
+        </Button>
       </div>
       {problem ? (
         <p role="alert" className="settings__hint">
@@ -181,22 +177,15 @@ export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
             </select>
           </label>
           <div className="settings__actions">
-            <button
-              type="button"
-              className="btn"
-              disabled={!canMerge}
-              onClick={() => void merge('union')}
-            >
+            <Button disabled={!canMerge} onClick={() => void merge('union')}>
               Union
-            </button>
-            <button
-              type="button"
-              className="btn"
+            </Button>
+            <Button
               disabled={!canMerge}
               onClick={() => void merge('intersect')}
             >
               Intersect
-            </button>
+            </Button>
           </div>
           <p className="settings__hint">
             {MERGE_MESSAGES.union} {MERGE_MESSAGES.intersect}
@@ -230,9 +219,8 @@ export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
               <span className="settings__hint">
                 {formatCount(set.items.length, language)} elements
               </span>
-              <button
-                type="button"
-                className="btn btn-small"
+              <Button
+                size="small"
                 aria-label={`Select ${set.name}`}
                 disabled={!adapter}
                 onClick={() => {
@@ -240,15 +228,14 @@ export function SelectionSets({ adapter }: { adapter: ViewerAdapter | null }) {
                 }}
               >
                 Select
-              </button>
-              <button
-                type="button"
-                className="btn btn-small"
+              </Button>
+              <Button
+                size="small"
                 aria-label={`Delete ${set.name}`}
                 onClick={() => deleteSet(set.id)}
               >
                 Delete
-              </button>
+              </Button>
             </ItemRow>
           ))}
         </ItemList>

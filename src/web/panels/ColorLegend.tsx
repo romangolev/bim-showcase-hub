@@ -2,6 +2,7 @@ import { type Coloring, entryItems, legendCsv } from '../extensions/colorBy.js';
 import { saveBlob } from '../extensions/download.js';
 import { runElementAction } from '../extensions/elementActions.js';
 import { formatCount } from '../extensions/exportCommon.js';
+import { Button } from '../ui/Button.js';
 import {
   clearColoring,
   toggleColoringGroup,
@@ -60,9 +61,7 @@ export function ColorLegend({
               checked={!hidden.has(entry.key)}
               onChange={() => toggleColoringGroup(adapter, entry.key)}
             />
-            <button
-              type="button"
-              className="btn"
+            <Button
               aria-label={`Isolate ${entry.label}`}
               onClick={() =>
                 runElementAction(
@@ -73,21 +72,13 @@ export function ColorLegend({
               }
             >
               Isolate
-            </button>
+            </Button>
           </li>
         ))}
       </ul>
       <div className="bsh-color-legend__actions">
-        <button
-          type="button"
-          className="btn"
-          onClick={() => clearColoring(adapter)}
-        >
-          Clear colours
-        </button>
-        <button
-          type="button"
-          className="btn"
+        <Button onClick={() => clearColoring(adapter)}>Clear colours</Button>
+        <Button
           onClick={() =>
             saveBlob(
               new Blob([legendCsv(coloring)], {
@@ -98,7 +89,7 @@ export function ColorLegend({
           }
         >
           Download legend (CSV)
-        </button>
+        </Button>
       </div>
     </div>
   );

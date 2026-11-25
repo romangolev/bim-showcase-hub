@@ -59,6 +59,9 @@ import {
   useScopedRows,
 } from './useScopedRows.js';
 import './panels.css';
+import { Button } from '../ui/Button.js';
+import { IconButton } from '../ui/IconButton.js';
+import { ToggleButton } from '../ui/ToggleButton.js';
 
 export interface DashboardPanelProps {
   adapter?: ViewerAdapter | null;
@@ -283,9 +286,8 @@ export function DashboardPanel({
           {title}
         </h2>
         {toggleable ? (
-          <button
-            type="button"
-            className="btn bsh-drawer__toggle"
+          <Button
+            className="bsh-drawer__toggle"
             aria-expanded={!isCollapsed}
             aria-controls={bodyId}
             onClick={toggle}
@@ -299,7 +301,7 @@ export function DashboardPanel({
             <span className="bsh-drawer__toggle-label">
               {isCollapsed ? 'Expand' : 'Collapse'}
             </span>
-          </button>
+          </Button>
         ) : null}
         {isCollapsed ? null : (
           <QuickSettings
@@ -311,28 +313,24 @@ export function DashboardPanel({
             {chartSpecs.length > 1 ? (
               <fieldset className="bsh-kinds" aria-label="Chart layout">
                 {orientations.map((orientation) => (
-                  <button
+                  <ToggleButton
                     key={orientation}
-                    type="button"
-                    className="btn"
-                    aria-pressed={view.orientation === orientation}
+                    pressed={view.orientation === orientation}
                     onClick={() =>
                       setView((prev) => ({ ...prev, orientation }))
                     }
                   >
                     {ORIENTATION_LABELS[orientation]}
-                  </button>
+                  </ToggleButton>
                 ))}
               </fieldset>
             ) : null}
-            <button
-              type="button"
-              className="btn"
+            <Button
               disabled={chartSpecs.length >= MAX_CHARTS}
               onClick={() => setView(addChart)}
             >
               Add chart
-            </button>
+            </Button>
             {resolved ? (
               <DashboardPresetMenu
                 view={view}
@@ -341,10 +339,8 @@ export function DashboardPanel({
                 }
               />
             ) : null}
-            <button
-              type="button"
-              className="icon-button"
-              aria-label="Colour the model by this chart"
+            <IconButton
+              label="Colour the model by this chart"
               aria-pressed={primaryColored}
               title={
                 !resolved
@@ -359,24 +355,14 @@ export function DashboardPanel({
               disabled={!resolved || !primary}
             >
               <Icon name="palette" size={16} />
-            </button>
-            <button
-              type="button"
-              className="btn"
-              onClick={state.refresh}
-              disabled={!resolved}
-            >
+            </IconButton>
+            <Button onClick={state.refresh} disabled={!resolved}>
               Refresh
-            </button>
+            </Button>
             {onOpenSettings ? (
-              <button
-                type="button"
-                className="icon-button"
-                onClick={onOpenSettings}
-              >
+              <IconButton label="Dashboard settings" onClick={onOpenSettings}>
                 <Icon name="settings" size={16} />
-                <span className="bsh-sr-only">Dashboard settings</span>
-              </button>
+              </IconButton>
             ) : null}
           </QuickSettings>
         )}

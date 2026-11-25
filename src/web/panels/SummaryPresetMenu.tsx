@@ -23,6 +23,7 @@ import {
   MAX_IMPORT_BYTES,
 } from '../store/savedStore.js';
 import { notify } from '../tasks/notifications.js';
+import { Button } from '../ui/Button.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { promptPresetName } from './PresetNamePrompt.js';
 import { usePropertyCatalog } from './usePropertyCatalog.js';
@@ -182,7 +183,8 @@ export function SummaryPresetMenu({
   return (
     <Menu
       label="Summary presets"
-      triggerClassName="btn bsh-presets-trigger"
+      triggerVariant="button"
+      triggerClassName="bsh-presets-trigger"
       align="start"
       trigger={
         <>
@@ -255,9 +257,7 @@ export function SummaryPresetSection({
         </p>
       ) : null}
       <div className="settings__actions">
-        <button
-          type="button"
-          className="btn"
+        <Button
           onClick={() =>
             saveBlob(
               new Blob([exportSaved(SUMMARY_PRESET_KIND)], {
@@ -268,14 +268,10 @@ export function SummaryPresetSection({
           }
         >
           Export presets
-        </button>
-        <button
-          type="button"
-          className="btn"
-          onClick={() => fileInput.current?.click()}
-        >
+        </Button>
+        <Button onClick={() => fileInput.current?.click()}>
           Import presets
-        </button>
+        </Button>
         <input
           ref={fileInput}
           type="file"

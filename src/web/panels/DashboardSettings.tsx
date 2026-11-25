@@ -33,6 +33,7 @@ import type { PanelId } from '../layout/paneRegistry.js';
 import type { ModalDefinition } from '../modal/types.js';
 import { PANE_SETTINGS } from '../settings/paneSettings.js';
 import { usePersisted } from '../storage.js';
+import { Button } from '../ui/Button.js';
 import { usePublishedAdapter } from '../viewer/activeAdapterStore.js';
 import { useModels } from '../viewer/useModels.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
@@ -302,17 +303,13 @@ function DashboardFields({
           </label>
           {resetHealth ? (
             <div className="settings__actions">
-              <button type="button" className="btn" onClick={resetHealth}>
-                Reset health checks
-              </button>
+              <Button onClick={resetHealth}>Reset health checks</Button>
             </div>
           ) : null}
         </fieldset>
       ) : null}
       <div className="settings__actions">
-        <button
-          type="button"
-          className="btn"
+        <Button
           onClick={() => {
             resetView();
             resetAction?.();
@@ -320,7 +317,7 @@ function DashboardFields({
           }}
         >
           {resetAction ? 'Reset dashboard' : 'Reset chart'}
-        </button>
+        </Button>
       </div>
     </>
   );

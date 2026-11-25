@@ -26,6 +26,8 @@ import {
 import { MAX_NAME_LENGTH } from '../store/savedStore.js';
 import { notify } from '../tasks/notifications.js';
 import { startTask } from '../tasks/taskStore.js';
+import { Button } from '../ui/Button.js';
+import { IconButton } from '../ui/IconButton.js';
 import { openableUrn } from '../viewer/openLimits.js';
 import type { VersionTarget } from './versionHistory.js';
 
@@ -113,14 +115,9 @@ function SaveSetDialog({
           <h2 id={titleId} className="modal__title">
             Save model set
           </h2>
-          <button
-            type="button"
-            className="icon-button"
-            aria-label="Close"
-            onClick={onDone}
-          >
+          <IconButton label="Close" onClick={onDone}>
             <Icon name="close" size={16} />
-          </button>
+          </IconButton>
         </header>
         <div className="modal__body">
           <label className="bsh-field">
@@ -143,17 +140,10 @@ function SaveSetDialog({
             set
           </p>
           <div className="bsh-presets">
-            <button type="button" className="btn" onClick={onDone}>
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="btn"
-              disabled={!name.trim()}
-              onClick={save}
-            >
+            <Button onClick={onDone}>Cancel</Button>
+            <Button disabled={!name.trim()} onClick={save}>
               Save model set
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -442,21 +432,15 @@ export function ModelSets({ openers }: { openers: ModelOpeners }) {
                 {stale > 0 ? (
                   <p className="docs-home__note">
                     {staleText(stale)}
-                    <button
-                      type="button"
-                      className="btn"
-                      onClick={() => void updateToLatest(set)}
-                    >
+                    <Button onClick={() => void updateToLatest(set)}>
                       Update to latest
-                    </button>
+                    </Button>
                   </p>
                 ) : null}
                 {confirming === set.id ? (
                   <p className="docs-home__note">
                     {`Delete "${set.name}"?`}
-                    <button
-                      type="button"
-                      className="btn"
+                    <Button
                       aria-label="Confirm delete"
                       onClick={() => {
                         MODEL_SETS.remove(set.id);
@@ -464,15 +448,13 @@ export function ModelSets({ openers }: { openers: ModelOpeners }) {
                       }}
                     >
                       Delete
-                    </button>
-                    <button
-                      type="button"
-                      className="btn"
+                    </Button>
+                    <Button
                       aria-label="Cancel delete"
                       onClick={() => setConfirming(null)}
                     >
                       Cancel
-                    </button>
+                    </Button>
                   </p>
                 ) : null}
               </li>

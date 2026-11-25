@@ -23,6 +23,7 @@ import {
   visibleVersions,
 } from './versionHistory.js';
 import './panels.css';
+import { Button } from '../ui/Button.js';
 
 export interface VersionHistoryPanelProps {
   openers: Pick<ModelOpeners, 'open' | 'openTabs' | 'openTogether'>;
@@ -258,27 +259,21 @@ export function VersionHistoryPanel({ openers }: VersionHistoryPanelProps) {
                     </td>
                     <td>
                       <div className="bsh-versions__actions">
-                        <button
-                          type="button"
-                          className="btn"
+                        <Button
                           aria-label={`Open ${label}`}
                           disabled={!version.urn}
                           onClick={() => void openRow(version)}
                         >
                           Open
-                        </button>
-                        <button
-                          type="button"
-                          className="btn"
+                        </Button>
+                        <Button
                           aria-label={`Open ${label} in a new tab`}
                           disabled={!version.urn}
                           onClick={() => void openInTab(version)}
                         >
                           Open in new tab
-                        </button>
-                        <button
-                          type="button"
-                          className="btn"
+                        </Button>
+                        <Button
                           aria-label={`${pinned ? 'Unpin' : 'Pin'} ${label}`}
                           disabled={!version.urn}
                           onClick={() => {
@@ -291,7 +286,7 @@ export function VersionHistoryPanel({ openers }: VersionHistoryPanelProps) {
                           }}
                         >
                           {pinned ? 'Unpin' : 'Pin'}
-                        </button>
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -303,24 +298,20 @@ export function VersionHistoryPanel({ openers }: VersionHistoryPanelProps) {
       ) : null}
       {query.status === 'success' ? (
         <div className="bsh-versions__footer">
-          <button
-            type="button"
-            className="btn"
+          <Button
             title={compareReason}
             disabled={!compareReady}
             onClick={() => openers.openTabs(pickedModels())}
           >
             Compare as tabs
-          </button>
-          <button
-            type="button"
-            className="btn"
+          </Button>
+          <Button
             title={compareReason}
             disabled={!compareReady}
             onClick={() => openers.openTogether(pickedModels())}
           >
             Compare in one viewer
-          </button>
+          </Button>
         </div>
       ) : null}
     </section>

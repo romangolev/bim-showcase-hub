@@ -4,6 +4,7 @@ import { Icon } from '../components/icons.js';
 import type { ModalDefinition } from '../modal/types.js';
 import { MAX_NAME_LENGTH } from '../store/savedStore.js';
 import { notify } from '../tasks/notifications.js';
+import { Button } from '../ui/Button.js';
 import { usePublishedAdapter } from '../viewer/activeAdapterStore.js';
 import {
   deleteViewpoint,
@@ -60,14 +61,9 @@ export function ViewpointsBody() {
             if (event.key === 'Enter') save();
           }}
         />
-        <button
-          type="button"
-          className="btn"
-          disabled={!adapter}
-          onClick={save}
-        >
+        <Button disabled={!adapter} onClick={save}>
           Save viewpoint
-        </button>
+        </Button>
       </div>
       {problem ? (
         <p role="alert" className="settings__hint">
@@ -96,15 +92,14 @@ export function ViewpointsBody() {
                   if (event.key === 'Enter') event.currentTarget.blur();
                 }}
               />
-              <button
-                type="button"
-                className="btn btn-small"
+              <Button
+                size="small"
                 aria-label={`Go to ${point.name}`}
                 disabled={!adapter}
                 onClick={() => void go(point.id)}
               >
                 Go to
-              </button>
+              </Button>
               <button
                 type="button"
                 className="inline-action"
@@ -123,14 +118,13 @@ export function ViewpointsBody() {
               >
                 <Icon name="arrowDown" size={14} />
               </button>
-              <button
-                type="button"
-                className="btn btn-small"
+              <Button
+                size="small"
                 aria-label={`Delete ${point.name}`}
                 onClick={() => deleteViewpoint(point.id)}
               >
                 Delete
-              </button>
+              </Button>
             </ItemRow>
           ))}
         </ItemList>

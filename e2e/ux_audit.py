@@ -22,7 +22,7 @@ from common import (
 
 SETTINGS_KEY = "bsh-settings-v1"
 STACKED_MAX = int(re.search(r"STACKED_MAX_WIDTH = (\d+)", (ROOT.parent / "src/web/layout/breakpoint.ts").read_text()).group(1))
-COMPACT = ".inline-action, .panes-menu__action, .dv-default-tab-action, .dock-action, .bsh-models__swatch, .tree-row__action, .bsh-chart__tools .icon-button, .bsh-table-block__toggle"
+COMPACT = ".inline-action, .panes-menu__action, .dv-default-tab-action, .dock-action, .bsh-models__swatch, .tree-row__action, .bsh-chart__tools [data-slot=icon-button], .bsh-table-block__toggle"
 WIDTHS = {320: 640, 768: 1024, 1440: 900}
 THEMES = ("dark", "light")
 WINDOWS = [

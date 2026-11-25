@@ -16,6 +16,7 @@ import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
 import { ScopedRowsStatus } from './ScopedRowsStatus.js';
 import { useResolvedAdapter, useScopedRows } from './useScopedRows.js';
 import './panels.css';
+import { Button } from '../ui/Button.js';
 
 export interface ExportPanelProps {
   adapter?: ViewerAdapter | null;
@@ -62,16 +63,15 @@ export function ExportPanel({ adapter, fileName }: ExportPanelProps) {
           File: {excelFileNameFrom(fileName, excel)}
         </p>
         <div className="settings__actions">
-          <button
-            type="button"
-            className="btn btn-primary"
+          <Button
+            variant="primary"
             onClick={() => {
               if (resolved) startExcelExport(resolved, fileName);
             }}
             disabled={!resolved}
           >
             Export
-          </button>
+          </Button>
         </div>
         {status ? (
           <p className="settings__hint">{describeStatus(status)}</p>

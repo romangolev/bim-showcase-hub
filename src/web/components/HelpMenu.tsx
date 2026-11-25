@@ -14,7 +14,6 @@ export function HelpMenu({ extra = () => [] }: { extra?: () => MenuEntry[] }) {
       label={t('topbar.help')}
       title={t('topbar.help')}
       trigger={<Icon name="help" size={18} />}
-      triggerClassName="icon-button"
       align="end"
       items={() => [
         {

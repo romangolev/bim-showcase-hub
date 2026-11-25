@@ -23,6 +23,7 @@ import { ScopedRowsStatus } from './ScopedRowsStatus.js';
 import { usePropertyCatalog } from './usePropertyCatalog.js';
 import { useResolvedAdapter, useScopedRows } from './useScopedRows.js';
 import './panels.css';
+import { Button, buttonClasses } from '../ui/Button.js';
 
 export interface ColorsPanelProps {
   adapter?: ViewerAdapter | null;
@@ -103,7 +104,7 @@ export function ColorsPanel({ adapter }: ColorsPanelProps) {
         {resolved ? (
           <>
             <fieldset className="bsh-kinds" aria-label="Colour by">
-              <label className="btn">
+              <label className={buttonClasses({})}>
                 <input
                   type="radio"
                   name={uid}
@@ -112,7 +113,7 @@ export function ColorsPanel({ adapter }: ColorsPanelProps) {
                 />
                 By property
               </label>
-              <label className="btn">
+              <label className={buttonClasses({})}>
                 <input
                   type="radio"
                   name={uid}
@@ -180,13 +181,9 @@ export function ColorsPanel({ adapter }: ColorsPanelProps) {
               </>
             )}
             <div className="bsh-presets">
-              <button
-                type="button"
-                className="btn"
-                onClick={() => setRequested(true)}
-              >
+              <Button onClick={() => setRequested(true)}>
                 Color the model
-              </button>
+              </Button>
             </div>
             {state.status === 'idle' ? (
               <StateBlock
