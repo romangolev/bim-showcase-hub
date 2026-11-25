@@ -3,6 +3,7 @@ import type { ReactElement, Ref } from 'react';
 import { describe, expect, it } from 'vitest';
 import { Badge } from './Badge.js';
 import { Button } from './Button.js';
+import { Card, CardHeader, CardTitle } from './Card.js';
 import {
   Dialog,
   DialogBody,
@@ -10,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from './Dialog.js';
+import { Drawer, DrawerBody, DrawerHeader } from './Drawer.js';
 import { IconButton } from './IconButton.js';
 import { Kbd } from './Kbd.js';
 import {
@@ -236,6 +238,32 @@ const ENTRIES: Entry[] = [
     slot: 'spinner',
     render: (props) => <Spinner {...props} />,
   },
+  ...(
+    [
+      ['card', Card],
+      ['card-header', CardHeader],
+      ['card-title', CardTitle],
+    ] as const
+  ).map(
+    ([slot, Part]): Entry => ({
+      file: 'Card',
+      slot,
+      render: (props) => <Part {...props} />,
+    }),
+  ),
+  ...(
+    [
+      ['drawer', Drawer],
+      ['drawer-header', DrawerHeader],
+      ['drawer-body', DrawerBody],
+    ] as const
+  ).map(
+    ([slot, Part]): Entry => ({
+      file: 'Drawer',
+      slot,
+      render: (props) => <Part {...props} />,
+    }),
+  ),
 ];
 
 describe('primitive contract', () => {

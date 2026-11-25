@@ -233,6 +233,9 @@
   --ui-glow-color: var(--ui-accent);
   --ui-glow-size: 8px;
 
+  --ui-z-sticky: var(--z-sticky);
+  --ui-drawer-body: 136px;
+
   --z-raised: 1;
   --z-sticky: 2;
   --z-float: 6;

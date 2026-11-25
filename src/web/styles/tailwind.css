@@ -130,6 +130,8 @@
   --default-border-width: 0.5px;
   --default-transition-duration: var(--ui-motion);
   --default-transition-timing-function: ease;
+
+  --z-index-sticky: var(--ui-z-sticky);
 }
 
 @utility scroll-shadow {
