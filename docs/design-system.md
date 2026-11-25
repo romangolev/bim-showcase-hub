@@ -65,7 +65,7 @@ Form controls are primitives in `src/web/ui/`, and each one is a styled native e
 | Primitive | Element | Value API |
 |---|---|---|
 | `Input`, `Textarea` | `input`, `textarea` | native `value` and `onChange` |
-| `NumberField` | `input type="number"` | `value`, `min`, `max`, `onValueCommitted` (a whole clamped number, on blur or Enter) |
+| `NumberField` | `input type="number"` | `value`, `min`, `max`, `onValueCommitted` (a clamped number, on blur or Enter); `integer` (default true, whole numbers) with `round` (`floor` or `nearest`), `emptyValue` (committed when the draft is emptied) and `onDraftChange` (the live typed value) |
 | `Select`, `SelectOption` | `select`, `option` | `value`, `onValueChange(value)` |
 | `Checkbox`, `Switch` | `input type="checkbox"` (the switch has `role="switch"`) | `checked`, `onCheckedChange(checked)` |
 | `Radio`, `RadioGroup` | `input type="radio"`, `fieldset` | the group takes `name`, `value`, `onValueChange(value)`; every radio needs a string `value`, and a radio alone otherwise takes native props |
