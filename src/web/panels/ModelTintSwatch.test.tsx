@@ -34,6 +34,7 @@ describe('ModelTintSwatch', () => {
     fireEvent.click(trigger);
     const dialog = screen.getByRole('dialog', { name: 'House' });
     expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText('House')).toHaveAttribute('title', 'House');
     expect(dialog).toHaveAttribute('data-slot', 'popover-popup');
     await waitFor(() => expect(dialog).toHaveFocus());
   });

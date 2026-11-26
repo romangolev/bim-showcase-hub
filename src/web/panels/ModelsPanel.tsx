@@ -240,7 +240,7 @@ export function ModelsPanel({
                     <Icon name={model.visible ? 'layers' : 'ban'} size={14} />
                   </IconButton>
                   <span className="bsh-models__main">
-                    <span className="bsh-models__name">
+                    <span className="bsh-models__name" title={model.name}>
                       <span
                         className="bsh-models__dot"
                         data-status={model.status}

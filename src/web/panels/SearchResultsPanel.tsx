@@ -313,7 +313,10 @@ export function SearchResultsPanel({ adapter }: SearchResultsPanelProps) {
                     resolved.fitToView([item]);
                   }}
                 >
-                  <span className="bsh-search__name">
+                  <span
+                    className="bsh-search__name"
+                    title={name ?? `#${item.dbId}`}
+                  >
                     {name ?? `#${item.dbId}`}
                   </span>
                   <span className="bsh-search__model">

@@ -49,6 +49,7 @@ describe('SearchResultsPanel', () => {
     const adapter = await loaded();
     await search(adapter);
     expect((await screen.findAllByText(name)).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(name)[0]).toHaveAttribute('title', name);
   });
 
   it('selects every result from Select all', async () => {
