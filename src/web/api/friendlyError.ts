@@ -3,6 +3,7 @@ import { ApiError } from './client.js';
 export interface FriendlyError {
   message: string;
   detail?: string;
+  code?: string;
 }
 
 export function friendlyError(
@@ -19,7 +20,11 @@ export function friendlyError(
       };
     }
     if (error.status === 403) {
-      return { message: 'Your account does not have access to this.', detail };
+      return {
+        message: 'Your account does not have access to this.',
+        detail,
+        code: error.code,
+      };
     }
     if (error.status === 404) {
       return { message: 'We could not find this. It may have moved.', detail };

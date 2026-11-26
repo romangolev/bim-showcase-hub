@@ -63,6 +63,24 @@ describe('NoHubsHint', () => {
     expect(screen.getByText('client-abc')).toBeInTheDocument();
   });
 
+  it('shows the callback URL from the session', () => {
+    const client = createTestClient();
+    client.setQueryData(sessionQueryKey, {
+      name: 'Sam',
+      picture: null,
+      appClientId: 'client-abc',
+      appCallbackUrl: 'https://example.test/api/auth/callback',
+    });
+    render(
+      <QueryClientProvider client={client}>
+        <NoHubsHint onCheckAgain={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    expect(
+      screen.getByText('https://example.test/api/auth/callback'),
+    ).toBeInTheDocument();
+  });
+
   it('omits the client id block when the session has none', () => {
     renderHint();
     expect(screen.queryByText('Client ID')).toBeNull();
@@ -134,6 +152,32 @@ describe('NoHubsHint in the document tree', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Check again' }));
     expect(await screen.findByText('Studio hub')).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText('No projects to show yet')).toBeNull();
+  });
+
+  it('appears when the hubs call says the app is not provisioned', async () => {
+    mockFetch({
+      '/api/hubs': () =>
+        json(
+          { error: 'App not provisioned', code: 'app_not_provisioned' },
+          403,
+        ),
+    });
+    renderTree();
+    expect(
+      await screen.findByText('No projects to show yet'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Check again' }),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps a plain 403 as an error', async () => {
+    mockFetch({ '/api/hubs': () => json({ error: 'Forbidden' }, 403) });
+    renderTree();
+    expect(
+      await screen.findByRole('button', { name: 'Retry' }),
+    ).toBeInTheDocument();
     expect(screen.queryByText('No projects to show yet')).toBeNull();
   });
 

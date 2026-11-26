@@ -1,4 +1,5 @@
 import { DataManagementClient } from '@aps_sdk/data-management';
+import { APP_NOT_PROVISIONED } from '../../shared/types.js';
 import { viewableFor } from '../../shared/viewState.js';
 import { HttpError, toHttpError } from '../errors.js';
 import {
@@ -66,14 +67,22 @@ export function createApsDataService(
   > = createThumbnailFetcher(),
 ): DataService {
   return {
-    listHubs: (token) =>
-      guarded(async () => {
-        const data = await allPages(
-          () => client.getHubs({ accessToken: token }),
-          false,
-        );
-        return mapHubs(data);
-      }),
+    listHubs: async (token) => {
+      try {
+        return await guarded(async () => {
+          const data = await allPages(
+            () => client.getHubs({ accessToken: token }),
+            false,
+          );
+          return mapHubs(data);
+        });
+      } catch (err) {
+        if (err instanceof HttpError && err.status === 403) {
+          throw new HttpError(403, 'App not provisioned', APP_NOT_PROVISIONED);
+        }
+        throw err;
+      }
+    },
     listProjects: (token, hubId) =>
       guarded(async () => {
         const data = await allPages((pageNumber) =>

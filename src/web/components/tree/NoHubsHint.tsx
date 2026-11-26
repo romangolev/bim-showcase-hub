@@ -42,14 +42,22 @@ async function writeClipboard(text: string): Promise<boolean> {
   return legacyCopy(text);
 }
 
-function ClientIdField({ clientId }: { clientId: string }) {
+function CopyField({
+  label,
+  value,
+  id,
+}: {
+  label: string;
+  value: string;
+  id: string;
+}) {
   const [status, setStatus] = useState<CopyStatus>('idle');
   const timer = useRef<number | undefined>(undefined);
 
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
   const copy = async () => {
-    const ok = await writeClipboard(clientId);
+    const ok = await writeClipboard(value);
     setStatus(ok ? 'copied' : 'failed');
     window.clearTimeout(timer.current);
     timer.current = window.setTimeout(() => setStatus('idle'), 2500);
@@ -57,16 +65,12 @@ function ClientIdField({ clientId }: { clientId: string }) {
 
   return (
     <div className="no-hubs__client">
-      <span id="no-hubs-client-label" className="no-hubs__client-label">
-        Client ID
+      <span id={id} className="no-hubs__client-label">
+        {label}
       </span>
       <div className="no-hubs__client-row">
-        <code className="no-hubs__client-id">{clientId}</code>
-        <Button
-          size="small"
-          onClick={() => void copy()}
-          aria-describedby="no-hubs-client-label"
-        >
+        <code className="no-hubs__client-id">{value}</code>
+        <Button size="small" onClick={() => void copy()} aria-describedby={id}>
           <Icon name={status === 'copied' ? 'check' : 'item'} size={14} />
           Copy
         </Button>
@@ -80,12 +84,38 @@ function ClientIdField({ clientId }: { clientId: string }) {
         {status === 'copied'
           ? 'Copied'
           : status === 'failed'
-            ? 'Could not copy. Select the Client ID and copy it by hand.'
+            ? `Could not copy. Select the ${label} and copy it by hand.`
             : ''}
       </span>
     </div>
   );
 }
+
+function ProvisionFields({
+  clientId,
+  callbackUrl,
+}: {
+  clientId?: string;
+  callbackUrl?: string;
+}) {
+  return (
+    <>
+      {clientId ? (
+        <CopyField label="Client ID" value={clientId} id="no-hubs-client" />
+      ) : null}
+      {callbackUrl ? (
+        <CopyField
+          label="Callback URL"
+          value={callbackUrl}
+          id="no-hubs-callback"
+        />
+      ) : null}
+    </>
+  );
+}
+
+const ADMIN_STEP =
+  'A hub admin has added this app under Custom Integrations, using the Client ID below. In Forma Hub Admin this is Settings, Custom Integrations. In ACC and BIM 360 it is Account Admin, Settings, Custom Integrations.';
 
 export interface NoHubsHintProps {
   onCheckAgain: () => void;
@@ -110,13 +140,13 @@ export function NoHubsHint({ onCheckAgain }: NoHubsHintProps) {
         Projects show up here once two things are true.
       </EmptyDescription>
       <ol className="no-hubs__steps">
-        <li>
-          A hub admin has added this app in Forma Hub Admin, under Settings,
-          Custom Integrations, using the Client ID below.
-        </li>
+        <li>{ADMIN_STEP}</li>
         <li>You are a member of a project in that hub with access to Files.</li>
       </ol>
-      {clientId ? <ClientIdField clientId={clientId} /> : null}
+      <ProvisionFields
+        clientId={clientId}
+        callbackUrl={session?.appCallbackUrl}
+      />
       <div className="no-hubs__actions">
         <Button size="small" onClick={onCheckAgain}>
           Check again
@@ -192,13 +222,13 @@ export function PersonalHubNotice({ onCheckAgain }: PersonalHubNoticeProps) {
         </Button>
       </div>
       <ol className="no-hubs__steps">
-        <li>
-          A hub admin adds this app in Forma Hub Admin, under Settings, Custom
-          Integrations, with the Client ID below.
-        </li>
+        <li>{ADMIN_STEP}</li>
         <li>You are a member of a project in that hub with access to Files.</li>
       </ol>
-      {clientId ? <ClientIdField clientId={clientId} /> : null}
+      <ProvisionFields
+        clientId={clientId}
+        callbackUrl={session?.appCallbackUrl}
+      />
       <div className="no-hubs__actions">
         <Button size="small" onClick={onCheckAgain}>
           Check again

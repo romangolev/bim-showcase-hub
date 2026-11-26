@@ -3,11 +3,13 @@ import type { ApiError } from '../shared/types.js';
 
 export class HttpError extends Error {
   readonly status: number;
+  readonly code?: string;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, code?: string) {
     super(message);
     this.name = 'HttpError';
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -106,5 +108,6 @@ export function errorHandler(
     res.set('Retry-After', String(err.retryAfterSeconds));
   }
   const body: ApiError = { error: message };
+  if (err instanceof HttpError && err.code) body.code = err.code;
   res.status(status).json(body);
 }

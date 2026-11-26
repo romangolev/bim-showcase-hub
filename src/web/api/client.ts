@@ -10,16 +10,19 @@ export type Session = SessionUser;
 export class ApiError extends Error {
   readonly status: number;
   readonly retryAfterMs: number | null;
+  readonly code?: string;
 
   constructor(
     status: number,
     message: string,
     retryAfterMs: number | null = null,
+    code?: string,
   ) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.retryAfterMs = retryAfterMs;
+    this.code = code;
   }
 }
 
@@ -39,7 +42,9 @@ export function notifyUnauthorized(): void {
   for (const listener of [...unauthorizedListeners]) listener();
 }
 
-async function readError(res: Response): Promise<string> {
+async function readError(
+  res: Response,
+): Promise<{ message: string; code?: string }> {
   const fallback = res.statusText || `Request failed with status ${res.status}`;
   try {
     const body: unknown = await res.json();
@@ -47,13 +52,16 @@ async function readError(res: Response): Promise<string> {
       const record = body as Record<string, unknown>;
       const message = record.error ?? record.message;
       if (typeof message === 'string') {
-        return message;
+        return {
+          message,
+          code: typeof record.code === 'string' ? record.code : undefined,
+        };
       }
     }
   } catch {
-    return fallback;
+    return { message: fallback };
   }
-  return fallback;
+  return { message: fallback };
 }
 
 const SESSION_PATH = '/api/session';
@@ -94,10 +102,12 @@ async function request(path: string, init?: RequestInit): Promise<Response> {
     notifyUnauthorized();
   }
   if (!res.ok) {
+    const { message, code } = await readError(res);
     throw new ApiError(
       res.status,
-      await readError(res),
+      message,
       res.status === 429 ? retryAfterMsOf(res) : null,
+      code,
     );
   }
   return res;
@@ -115,7 +125,7 @@ export async function fetchSession(
     return null;
   }
   if (!res.ok) {
-    throw new ApiError(res.status, await readError(res));
+    throw new ApiError(res.status, (await readError(res)).message);
   }
   return (await res.json()) as Session;
 }

@@ -33,6 +33,7 @@ export interface SessionUser {
   name: string;
   picture: string | null;
   appClientId?: string;
+  appCallbackUrl?: string;
   expiresAt?: number;
   expiresInMs?: number;
 }
@@ -42,8 +43,11 @@ export interface ViewerToken {
   expires_in: number;
 }
 
+export const APP_NOT_PROVISIONED = 'app_not_provisioned';
+
 export interface ApiError {
   error: string;
+  code?: string;
 }
 
 export interface HealthResponse {

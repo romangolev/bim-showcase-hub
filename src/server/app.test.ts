@@ -92,6 +92,7 @@ describe('session and auth', () => {
       name: 'Sam Smith',
       picture: null,
       appClientId: realConfig.aps.clientId,
+      appCallbackUrl: realConfig.aps.callbackUrl,
       expiresAt: expect.any(Number),
       expiresInMs: expect.any(Number),
     });

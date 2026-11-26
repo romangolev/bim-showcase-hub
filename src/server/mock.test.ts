@@ -98,6 +98,7 @@ describe('mock mode', () => {
       name: 'Alex Rivera',
       picture: null,
       appClientId: MOCK_APP_CLIENT_ID,
+      appCallbackUrl: expect.any(String),
     });
   });
 

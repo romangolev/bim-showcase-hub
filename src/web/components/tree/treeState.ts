@@ -56,6 +56,7 @@ export interface TreeHost {
 export interface NodeError {
   message: string;
   detail?: string;
+  code?: string;
 }
 
 export interface PickedModel {

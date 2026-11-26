@@ -15,6 +15,7 @@ import {
   useState,
 } from 'react';
 import type { TreeNode } from '../../../shared/types.js';
+import { APP_NOT_PROVISIONED } from '../../../shared/types.js';
 import { thumbnailPath } from '../../api/client.js';
 import type { ModelContext } from '../../api/modelContext.js';
 import { listRecentModels } from '../../api/modelStore.js';
@@ -773,7 +774,16 @@ export function DocumentTree({
       }
     }
     if (items.length === 0) {
-      if (errors[rootId]) {
+      if (errors[rootId]?.code === APP_NOT_PROVISIONED) {
+        rows.push({
+          type: 'status',
+          key: 'status:root',
+          variant: 'empty',
+          level: 0,
+          parentId: rootId,
+          noHubs: true,
+        });
+      } else if (errors[rootId]) {
         rows.push({
           type: 'status',
           key: 'status:root',
