@@ -308,7 +308,7 @@ function specColumns(
       },
       meta: {
         label: empty ? `${title}, ${BLANK_NOTE}` : title,
-        className: 'bsh-num',
+        className: spec.property === null ? 'bsh-num bsh-col-count' : 'bsh-num',
         numeric: true,
         title: empty ? `${title}: ${BLANK_NOTE}` : title,
         sortValue: (line) => cellSortValue(line.cells[index] ?? NO_CELL),

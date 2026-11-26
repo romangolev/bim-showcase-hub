@@ -81,13 +81,8 @@
   opacity: 1;
 }
 
-.bsh-props__copy:hover:not(:disabled) {
+.bsh-props__copy:hover {
   color: var(--color-snow);
-}
-
-.bsh-props__copy:disabled {
-  cursor: default;
-  color: var(--ui-text-disabled);
 }
 
 .bsh-measures__tools {

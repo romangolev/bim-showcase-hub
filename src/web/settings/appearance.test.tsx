@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { STACKED_MAX_WIDTH } from '../layout/breakpoint.js';
@@ -12,7 +12,11 @@ import {
 
 const tokens = readFileSync('src/web/styles/tokens.css', 'utf8');
 const dockTheme = readFileSync('src/web/layout/dockTheme.css', 'utf8');
-const panels = readFileSync('src/web/panels/panelsBase.css', 'utf8');
+const panels = readdirSync('src/web/panels')
+  .filter((file) => file.endsWith('.css'))
+  .sort()
+  .map((file) => readFileSync(`src/web/panels/${file}`, 'utf8'))
+  .join('\n');
 
 function AppearanceProbe() {
   const { setSetting } = useSettings();

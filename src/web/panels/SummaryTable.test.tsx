@@ -114,6 +114,25 @@ describe('SummaryTable flat layout', () => {
     );
     expect(headers(container)).toEqual(['Property', 'Value']);
   });
+
+  it('pins the count column wherever it sits in the order', () => {
+    render(
+      <SummaryTable
+        entries={entries}
+        rows={rows}
+        view={view({ showProperty: false, columns: [COUNT_COLUMN, area] })}
+      />,
+    );
+    expect(screen.getByRole('columnheader', { name: 'Count' })).toHaveClass(
+      'bsh-col-count',
+    );
+    expect(
+      screen.getByRole('columnheader', { name: 'Sum of Area' }),
+    ).not.toHaveClass('bsh-col-count');
+    const body = screen.getAllByRole('row')[1];
+    expect(body?.children[1]).toHaveClass('bsh-col-count');
+    expect(body?.children[2]).not.toHaveClass('bsh-col-count');
+  });
 });
 
 describe('SummaryTable grouped layout', () => {

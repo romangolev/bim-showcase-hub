@@ -156,13 +156,8 @@
   cursor: pointer;
 }
 
-.bsh-summary__share:hover:not(:disabled) {
+.bsh-summary__share:hover {
   color: var(--color-snow);
-}
-
-.bsh-summary__share:disabled {
-  cursor: default;
-  color: var(--ui-text-disabled);
 }
 
 .bsh-add-property

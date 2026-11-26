@@ -208,32 +208,3 @@
 .pane-slot--dock [data-slot="drawer"] {
   position: relative;
 }
-
-.bsh-summary {
-  transition: gap 160ms ease;
-}
-
-.bsh-summary__header {
-  flex-wrap: wrap;
-  justify-content: flex-start;
-  row-gap: 0;
-}
-
-.bsh-summary__header [data-slot="card-title"] {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.bsh-summary__title {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-0-5);
-}
-
-.bsh-summary__model {
-  overflow: hidden;
-  color: var(--color-fog);
-  font-size: var(--text-13);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}

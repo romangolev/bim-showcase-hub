@@ -45,13 +45,8 @@ button.bsh-kpi {
   cursor: pointer;
 }
 
-button.bsh-kpi:hover:not(:disabled) {
+button.bsh-kpi:hover {
   background: var(--color-ghost-fill-hover);
-}
-
-button.bsh-kpi:disabled {
-  cursor: default;
-  color: var(--ui-text-disabled);
 }
 
 button.bsh-kpi:focus-visible {
@@ -137,12 +132,7 @@ button.bsh-kpi:focus-visible {
   cursor: pointer;
 }
 
-.bsh-chart-table__pick:hover:not(:disabled) {
+.bsh-chart-table__pick:hover {
   color: var(--color-snow);
   text-decoration: underline;
-}
-
-.bsh-chart-table__pick:disabled {
-  cursor: default;
-  color: var(--ui-text-disabled);
 }

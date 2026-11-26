@@ -46,7 +46,7 @@
   font-size: var(--text-13);
 }
 
-.docs-root__trigger:hover:not(:disabled) {
+.docs-root__trigger:hover {
   background: var(--color-ghost-fill-hover);
   color: var(--color-snow);
 }
@@ -131,7 +131,7 @@
   text-align: start;
 }
 
-.docs-home__set:hover:not(:disabled) {
+.docs-home__set:hover {
   background: var(--color-ghost-fill-hover);
 }
 
@@ -626,9 +626,9 @@
   right: calc(2 * var(--hit-target) + var(--space-1));
 }
 
-.doc-tree__clear:hover:not(:disabled),
-.doc-tree__refresh:hover:not(:disabled),
-.doc-tree__view:hover:not(:disabled) {
+.doc-tree__clear:hover,
+.doc-tree__refresh:hover,
+.doc-tree__view:hover {
   background: var(--color-ghost-fill-hover);
   color: var(--color-snow);
 }
@@ -838,7 +838,7 @@
   }
 }
 
-.tree-row__action:hover:not(:disabled) {
+.tree-row__action:hover {
   background: var(--color-ghost-fill-hover);
   color: var(--color-snow);
 }
@@ -987,7 +987,7 @@
   cursor: pointer;
 }
 
-.recent-strip__toggle:hover:not(:disabled),
+.recent-strip__toggle:hover,
 .recent-strip[data-open="true"] .recent-strip__toggle {
   background: var(--color-ghost-fill-hover);
   color: var(--color-snow);
@@ -1057,8 +1057,8 @@
   cursor: pointer;
 }
 
-.recent-strip__open:hover:not(:disabled),
-.recent-strip__pin:hover:not(:disabled) {
+.recent-strip__open:hover,
+.recent-strip__pin:hover {
   background: var(--color-ghost-fill-hover);
 }
 
@@ -1080,8 +1080,8 @@
   cursor: pointer;
 }
 
-.recent-strip__more:hover:not(:disabled),
-.recent-strip__remove:hover:not(:disabled) {
+.recent-strip__more:hover,
+.recent-strip__remove:hover {
   background: var(--color-ghost-fill-hover);
   color: var(--color-snow);
 }
@@ -1226,20 +1226,4 @@
   margin: 0;
   accent-color: var(--color-arc-blue);
   pointer-events: none;
-}
-
-.docs-root__trigger:disabled,
-.docs-home__set:disabled,
-.doc-tree__clear:disabled,
-.doc-tree__refresh:disabled,
-.doc-tree__view:disabled,
-.tree-row__action:disabled,
-.recent-strip__toggle:disabled,
-.recent-strip__open:disabled,
-.recent-strip__pin:disabled,
-.recent-strip__more:disabled,
-.recent-strip__remove:disabled {
-  color: var(--color-ash);
-  cursor: not-allowed;
-  opacity: 0.5;
 }

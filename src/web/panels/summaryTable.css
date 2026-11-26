@@ -24,7 +24,7 @@
   color: var(--color-fog);
 }
 
-.bsh-table-block__toggle:hover:not(:disabled) {
+.bsh-table-block__toggle:hover {
   color: var(--color-snow);
 }
 
@@ -116,12 +116,12 @@
   text-overflow: ellipsis;
 }
 
-.bsh-summary .bsh-table.bsh-table--summary thead th:last-child {
+.bsh-summary .bsh-table.bsh-table--summary thead th.bsh-col-count {
   position: sticky;
   inset-inline-end: 0;
 }
 
-.bsh-summary .bsh-table.bsh-table--summary td:last-child {
+.bsh-summary .bsh-table.bsh-table--summary td.bsh-col-count {
   position: sticky;
   inset-inline-end: 0;
   background: var(--color-graphite);
@@ -130,7 +130,7 @@
 .bsh-summary
   .bsh-table.bsh-table--summary
   tr[data-active="true"]
-  td:last-child {
+  td.bsh-col-count {
   background-color: var(--color-graphite);
   background-image: linear-gradient(
     var(--color-hairline-faint),
@@ -180,10 +180,4 @@
   .bsh-pivot__chevron {
     transition: none;
   }
-}
-
-.bsh-picker__arrange {
-  display: inline-flex;
-  gap: var(--space-0-5);
-  margin-left: var(--space-1-5);
 }

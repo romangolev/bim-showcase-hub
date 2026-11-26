@@ -240,7 +240,7 @@
   cursor: pointer;
 }
 
-.topbar__crumb:hover:not(:disabled) {
+.topbar__crumb:hover {
   color: var(--color-snow);
   text-decoration: underline;
 }
@@ -334,11 +334,11 @@
   transition: background-color var(--transition-ui);
 }
 
-.user-menu__trigger:hover:not(:disabled) {
+.user-menu__trigger:hover {
   background: var(--color-ghost-fill-hover);
 }
 
-.user-menu__trigger:active:not(:disabled) {
+.user-menu__trigger:active {
   background: var(--color-ghost-fill-active);
 }
 
@@ -743,7 +743,7 @@
   box-shadow: inset 0 0 0 1px var(--color-snow);
 }
 
-.pane-appearance__color:hover:not(:disabled) {
+.pane-appearance__color:hover {
   background: var(--color-ghost-fill-hover);
 }
 
@@ -863,7 +863,7 @@ html[data-presenting] .stack .stack__pane--viewer .model-viewer {
   cursor: pointer;
 }
 
-.present-exit:hover:not(:disabled),
+.present-exit:hover,
 .present-exit:focus-visible {
   opacity: 1;
 }
@@ -943,13 +943,4 @@ html[data-presenting] .stack .stack__pane--viewer .model-viewer {
 
 .task-row[data-state="warning"] .task-row__detail {
   color: var(--color-ember);
-}
-
-.topbar__crumb:disabled,
-.user-menu__trigger:disabled,
-.pane-appearance__color:disabled,
-.present-exit:disabled {
-  color: var(--color-ash);
-  cursor: not-allowed;
-  opacity: 0.5;
 }
