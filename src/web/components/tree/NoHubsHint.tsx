@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { childrenQueryOptions, sessionQueryOptions } from '../../api/hooks.js';
 import { ROOT_SCOPE } from '../../api/scope.js';
 import { BSH_KEYS, defineRecord } from '../../storage.js';
@@ -42,15 +42,8 @@ async function writeClipboard(text: string): Promise<boolean> {
   return legacyCopy(text);
 }
 
-function CopyField({
-  label,
-  value,
-  id,
-}: {
-  label: string;
-  value: string;
-  id: string;
-}) {
+function CopyField({ label, value }: { label: string; value: string }) {
+  const id = useId();
   const [status, setStatus] = useState<CopyStatus>('idle');
   const timer = useRef<number | undefined>(undefined);
 
@@ -100,22 +93,16 @@ function ProvisionFields({
 }) {
   return (
     <>
-      {clientId ? (
-        <CopyField label="Client ID" value={clientId} id="no-hubs-client" />
-      ) : null}
+      {clientId ? <CopyField label="Client ID" value={clientId} /> : null}
       {callbackUrl ? (
-        <CopyField
-          label="Callback URL"
-          value={callbackUrl}
-          id="no-hubs-callback"
-        />
+        <CopyField label="Callback URL" value={callbackUrl} />
       ) : null}
     </>
   );
 }
 
 const ADMIN_STEP =
-  'A hub admin has added this app under Custom Integrations, using the Client ID below. In Forma Hub Admin this is Settings, Custom Integrations. In ACC and BIM 360 it is Account Admin, Settings, Custom Integrations.';
+  'A hub admin has added this app under Custom Integrations, using the Client ID and Callback URL below. In Forma Hub Admin this is Settings, Custom Integrations. In ACC and BIM 360 it is Account Admin, Settings, Custom Integrations.';
 
 export interface NoHubsHintProps {
   onCheckAgain: () => void;

@@ -13,6 +13,10 @@ describe('children query retries', () => {
     expect(retry(0, new ApiError(429, 'Rate limited', 3000))).toBe(false);
   });
 
+  it('skips a retry when the account has no access', () => {
+    expect(retry(0, new ApiError(403, 'Forbidden'))).toBe(false);
+  });
+
   it('retries another error once', () => {
     expect(retry(0, new ApiError(502, 'Upstream service error'))).toBe(true);
     expect(retry(1, new ApiError(502, 'Upstream service error'))).toBe(false);

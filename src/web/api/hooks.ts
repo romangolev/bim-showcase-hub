@@ -72,7 +72,10 @@ export function childrenQueryOptions(scope: NodeScope) {
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
     retry: (count, error) =>
-      !(error instanceof ApiError && error.status === 429) && count < 1,
+      !(
+        error instanceof ApiError &&
+        (error.status === 429 || error.status === 403)
+      ) && count < 1,
     retryDelay: 400,
   });
 }
