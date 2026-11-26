@@ -61,6 +61,8 @@ interface PropertyMeta {
   className: string;
 }
 
+const NO_ELEMENTS: ElementProperties[] = [];
+
 const features = tableFeatures({
   columnMeta: metaHelper<PropertyMeta>(),
   columnSizingFeature,
@@ -266,11 +268,15 @@ export function PropertiesPanel({
   }, []);
 
   const current = read?.key === key ? read : null;
-  const elements = current?.status === 'ready' ? current.elements : [];
-  const sections = elements.map((element) => ({
-    element,
-    groups: groupProperties(element.properties, filter),
-  }));
+  const elements = current?.status === 'ready' ? current.elements : NO_ELEMENTS;
+  const sections = useMemo(
+    () =>
+      elements.map((element) => ({
+        element,
+        groups: groupProperties(element.properties, filter),
+      })),
+    [elements, filter],
+  );
   const matches = sections.some((section) => section.groups.length > 0);
 
   return (
