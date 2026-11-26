@@ -108,7 +108,10 @@ ACTIVE_MODEL_TAB = """() => {
     const tab = group?.querySelector('.dv-tab.dv-active-tab .dv-default-tab-content');
     return tab ? {text: tab.textContent, width: tab.clientWidth, scroll: tab.scrollWidth} : null;
 }"""
-STORED_LAYOUT = "() => JSON.parse(localStorage.getItem('bsh.layout.v2') || 'null')"
+RAIL_TAB_TITLES = """() => [...document.querySelectorAll('.dv-groupview[data-collapsed="width"] .dv-default-tab-content')].map((title) => ({
+    text: title.textContent, client: title.clientHeight, scroll: title.scrollHeight,
+}))"""
+STORED_LAYOUT ="() => JSON.parse(localStorage.getItem('bsh.layout.v2') || 'null')"
 MODELS = "mw:() => window.__bshLayout.models()"
 VIEWERS = """() => [...document.querySelectorAll('.pane-model')].map((body) => {
     const viewer = body.querySelector('.model-viewer')?.getBoundingClientRect();
@@ -198,6 +201,12 @@ def check_summary_rail(page, checks):
     settle(page)
     collapsed = viewer_width(page)
     checks.add("collapsing the summary widens the viewer", collapsed > before + 20, f"{before} -> {collapsed}")
+    rail = page.evaluate(RAIL_TAB_TITLES)
+    checks.add(
+        "a collapsed rail tab shows its full name",
+        bool(rail) and all(tab["scroll"] <= tab["client"] for tab in rail),
+        rail,
+    )
     page.get_by_role("button", name=SUMMARY_TOGGLE).first.click()
     settle(page)
     restored = viewer_width(page)

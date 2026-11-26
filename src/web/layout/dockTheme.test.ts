@@ -19,4 +19,12 @@ describe('dock tab titles', () => {
       /\.bsh-dock \.dv-default-tab-content \{[^}]*overflow: hidden;[^}]*text-overflow: ellipsis;/s,
     );
   });
+
+  it('keeps the close button of a collapsed rail tab at its own size', () => {
+    const rule = dockTheme.match(
+      /\.bsh-dock \.dv-groupview\[data-collapsed="width"\] \.dv-default-tab-action \{[^}]*\}/,
+    )?.[0];
+    expect(rule).toBeDefined();
+    expect(rule).not.toMatch(/width: \d+%|aspect-ratio/);
+  });
 });
