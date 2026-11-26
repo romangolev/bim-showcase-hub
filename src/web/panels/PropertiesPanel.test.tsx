@@ -273,6 +273,38 @@ describe('PropertiesPanel', () => {
     ).toBe('120px');
   });
 
+  it('gives truncated cells and column labels the full text as a title', async () => {
+    const adapter = await load(['urn-a']);
+    const modelId = adapter.getModels()[0]?.id ?? '';
+    const long =
+      'A very long comment value that does not fit in a narrow column';
+    vi.spyOn(adapter, 'getElementsProperties').mockResolvedValue([
+      {
+        dbId: first?.dbId ?? 0,
+        name: 'Wall',
+        properties: [
+          { category: 'Identity Data', name: 'Mark', value: 'W-1' },
+          { category: 'Identity Data', name: 'Comments', value: long },
+        ],
+      },
+    ]);
+    render(<PropertiesPanel adapter={adapter} />);
+    act(() => {
+      adapter.selectModelIds([{ modelId, dbId: first?.dbId ?? 0 }]);
+    });
+    const table = await screen.findByRole('table', {
+      name: 'Identity Data properties',
+    });
+    expect(
+      within(table).getByRole('columnheader', { name: 'Property' }),
+    ).toHaveAttribute('title', 'Property');
+    expect(
+      within(table).getByRole('columnheader', { name: 'Value' }),
+    ).toHaveAttribute('title', 'Value');
+    expect(screen.getByText('Comments')).toHaveAttribute('title', 'Comments');
+    expect(screen.getByText(long)).toHaveAttribute('title', long);
+  });
+
   it('switches the model through the select', async () => {
     const adapter = await load(['urn-a', 'urn-b']);
     const [a, b] = adapter.getModels();

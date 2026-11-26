@@ -102,7 +102,10 @@ function PropertyGrid({
       {
         id: 'property',
         header: 'Property',
-        cell: ({ row }) => row.original.property.name,
+        cell: ({ row }) => {
+          const name = row.original.property.name;
+          return <span title={name}>{name}</span>;
+        },
         meta: { label: 'Property', className: 'bsh-props__key-cell' },
       },
       {
@@ -112,7 +115,9 @@ function PropertyGrid({
           const text = valueText(row.original.property.value);
           return (
             <span className="bsh-props__value-row">
-              <span className="bsh-props__value">{text}</span>
+              <span className="bsh-props__value" title={text}>
+                {text}
+              </span>
               <button
                 type="button"
                 className="bsh-props__copy"
@@ -166,6 +171,7 @@ function PropertyGrid({
                   key={header.id}
                   className={meta?.className}
                   aria-label={meta?.label}
+                  title={meta?.label}
                   style={headStyle(header)}
                 >
                   <table.FlexRender header={header} />
