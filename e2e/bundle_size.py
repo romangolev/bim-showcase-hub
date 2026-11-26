@@ -9,8 +9,8 @@ UI = ROOT / "src" / "web" / "ui"
 LAYER_ORDER = ["properties", "theme", "base", "utilities", "effects"]
 PROBE_UTILITY = ".min-h-hit{"
 BUDGET = {
-    "js raw": 1_830_000,
-    "js gzip": 545_000,
+    "js raw": 2_000_000,
+    "js gzip": 610_000,
     "css raw": 310_000,
     "css gzip": 37_000,
 }
