@@ -12,7 +12,7 @@ import {
 
 const tokens = readFileSync('src/web/styles/tokens.css', 'utf8');
 const dockTheme = readFileSync('src/web/layout/dockTheme.css', 'utf8');
-const panels = readFileSync('src/web/panels/panels.css', 'utf8');
+const panels = readFileSync('src/web/panels/panelsBase.css', 'utf8');
 
 function AppearanceProbe() {
   const { setSetting } = useSettings();

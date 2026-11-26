@@ -1,0 +1,239 @@
+.bsh-dashboard__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  order: 3;
+  margin-left: auto;
+}
+
+[data-slot="drawer-header"] .bsh-field {
+  order: 2;
+}
+
+.bsh-dashboard__toggle-icon {
+  display: none;
+}
+
+.bsh-dashboard__toggle-icon[data-expanded="true"] {
+  transform: rotate(-90deg);
+}
+
+.bsh-dashboard__toggle-icon[data-expanded="false"] {
+  transform: rotate(90deg);
+}
+
+[data-slot="drawer-header"] > [data-slot="card-title"] {
+  margin-inline-end: auto;
+}
+
+.bsh-quick {
+  display: grid;
+  flex: 1 1 100%;
+  order: 5;
+  grid-template-rows: minmax(0, 1fr);
+  min-width: 0;
+  overflow: clip;
+  overflow-clip-margin: 4px;
+  transition:
+    grid-template-rows 160ms ease,
+    opacity 160ms ease,
+    visibility 0s linear 0s;
+}
+
+.bsh-quick[data-open="false"] {
+  grid-template-rows: minmax(0, 0fr);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    grid-template-rows 160ms ease,
+    opacity 160ms ease,
+    visibility 0s linear 160ms;
+}
+
+.bsh-quick__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 0;
+  padding-top: var(--space-2);
+  transition: translate 160ms ease;
+}
+
+.bsh-quick[data-open="false"] > .bsh-quick__inner {
+  translate: 0 -100%;
+}
+
+.bsh-quick__toggle {
+  flex: none;
+  order: 4;
+}
+
+.bsh-chart {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.bsh-chart--doughnut {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-4);
+  min-height: 0;
+}
+
+.bsh-chart__plot {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+}
+
+.bsh-chart--bar .bsh-chart__plot {
+  width: 100%;
+}
+
+.bsh-legend {
+  display: flex;
+  flex: 0 1 12rem;
+  flex-direction: column;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: var(--space-0-5) var(--space-4);
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  margin: 0;
+  padding: 0;
+  color: var(--color-chalk);
+  font-size: var(--text-13);
+  list-style: none;
+}
+
+.bsh-legend__item {
+  display: flex;
+  max-width: 14ch;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.bsh-legend__swatch {
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--radius-badge);
+}
+
+.bsh-legend__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bsh-legend__more {
+  color: var(--color-fog);
+}
+
+.bsh-details {
+  margin-top: var(--space-2);
+}
+
+.bsh-details summary {
+  width: fit-content;
+  cursor: pointer;
+  color: var(--color-fog);
+  font-size: var(--text-13);
+}
+
+.bsh-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  [data-slot="drawer"]:not([data-collapsed]) [data-slot="drawer-body"] {
+    height: auto;
+  }
+
+  [data-slot="drawer-header"] [data-slot="card-title"] {
+    flex: 1;
+    order: -1;
+  }
+
+  .bsh-dashboard__toggle {
+    order: 2;
+    width: var(--hit-target);
+    padding: 0;
+    justify-content: center;
+    margin-left: 0;
+  }
+
+  [data-slot="drawer-header"] .bsh-field {
+    flex: 1 0 100%;
+  }
+
+  .bsh-dashboard__toggle-icon {
+    display: block;
+  }
+
+  .bsh-dashboard__toggle-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+.stack [data-slot="drawer"] {
+  --ui-drawer-body: 200px;
+}
+
+.stack [data-slot="drawer-header"] {
+  position: static;
+}
+
+.stack [data-slot="drawer"]:not([data-collapsed]) [data-slot="drawer-body"] {
+  height: auto;
+  overflow: visible;
+}
+
+.pane-slot--dock [data-slot="drawer"] {
+  position: relative;
+}
+
+.bsh-summary {
+  transition: gap 160ms ease;
+}
+
+.bsh-summary__header {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  row-gap: 0;
+}
+
+.bsh-summary__header [data-slot="card-title"] {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.bsh-summary__title {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0-5);
+}
+
+.bsh-summary__model {
+  overflow: hidden;
+  color: var(--color-fog);
+  font-size: var(--text-13);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
