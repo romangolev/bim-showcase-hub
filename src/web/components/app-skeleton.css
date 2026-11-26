@@ -1,3 +1,10 @@
+.app-skeleton__body {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
 .app-skeleton__main {
   display: flex;
   flex: 1;
@@ -43,6 +50,10 @@
   overflow: hidden;
   background: var(--color-graphite);
   border-radius: var(--radius-card);
+}
+
+.app-skeleton__pane [data-slot="skeleton"] {
+  padding-inline: var(--space-4);
 }
 
 .app-skeleton__tabs {

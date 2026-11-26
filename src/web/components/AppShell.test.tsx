@@ -37,6 +37,49 @@ function renderShellPending() {
   renderApp();
 }
 
+function leaf(id: string, views: string[], size: number) {
+  return { type: 'leaf', size, data: { id, views, activeView: views[0] } };
+}
+
+function twoPaneDock() {
+  return {
+    grid: {
+      root: {
+        type: 'branch',
+        data: [leaf('g1', ['tree'], 300), leaf('g2', ['summary'], 700)],
+      },
+      width: 1000,
+      height: 600,
+      orientation: 'HORIZONTAL',
+    },
+    panels: {
+      tree: { id: 'tree', title: 'Documents' },
+      summary: { id: 'summary', title: 'Summary' },
+    },
+  };
+}
+
+function writeSavedLayout(dock: unknown) {
+  window.localStorage.setItem(
+    BSH_KEYS.personal.layout,
+    JSON.stringify({
+      version: LAYOUT_VERSION,
+      layout: { dock, treeWidth: 300 },
+    }),
+  );
+}
+
+async function findSkeleton(): Promise<HTMLElement> {
+  const status = await screen.findByRole('status');
+  expect(screen.queryAllByRole('status')).toHaveLength(1);
+  expect(status).toHaveTextContent('Loading');
+  const skeleton = status.closest('.app-skeleton');
+  if (!(skeleton instanceof HTMLElement)) {
+    throw new Error('Skeleton container is missing');
+  }
+  return skeleton;
+}
+
 beforeEach(() => {
   resetSessionEnded();
   stubLayout();
@@ -55,77 +98,69 @@ afterEach(() => {
 describe('AppShell loading', () => {
   it('shows the dock skeleton while the session loads', async () => {
     renderShellPending();
-    expect(await screen.findByRole('status', { name: 'Loading' })).toBeTruthy();
-    expect(document.querySelector('[data-slot="skeleton"]')).not.toBeNull();
+    const skeleton = await findSkeleton();
+    expect(skeleton.querySelector('[data-slot="skeleton"]')).not.toBeNull();
   });
 
   it('draws the skeleton from the saved dock grid', async () => {
-    const leaf = (id: string, views: string[], size: number) => ({
-      type: 'leaf',
-      size,
-      data: { id, views, activeView: views[0] },
-    });
-    window.localStorage.setItem(
-      BSH_KEYS.personal.layout,
-      JSON.stringify({
-        version: LAYOUT_VERSION,
-        layout: {
-          dock: {
-            grid: {
-              root: {
-                type: 'branch',
-                data: [leaf('g1', ['tree'], 300), leaf('g2', ['summary'], 700)],
-              },
-              width: 1000,
-              height: 600,
-              orientation: 'HORIZONTAL',
-            },
-            panels: {
-              tree: { id: 'tree', title: 'Documents' },
-              summary: { id: 'summary', title: 'Summary' },
-            },
-          },
-          treeWidth: 300,
-        },
-      }),
-    );
+    writeSavedLayout(twoPaneDock());
     renderShellPending();
-    const dock = await screen.findByRole('status', { name: 'Loading' });
-    const cells = dock.querySelectorAll<HTMLElement>('.app-skeleton__cell');
+    const skeleton = await findSkeleton();
+    const cells = skeleton.querySelectorAll<HTMLElement>('.app-skeleton__cell');
     expect([...cells].map((cell) => cell.style.flexGrow)).toEqual([
       '300',
       '700',
     ]);
-    expect(dock.textContent).toContain('Documents');
-    expect(dock.textContent).toContain('Summary');
+    expect(skeleton).toHaveTextContent('Documents');
+    expect(skeleton).toHaveTextContent('Summary');
+  });
+
+  it('draws one column in the stacked layout', async () => {
+    mockMatchMedia(800);
+    writeSavedLayout(twoPaneDock());
+    renderShellPending();
+    const skeleton = await findSkeleton();
+    expect(skeleton.querySelectorAll('.app-skeleton__pane')).toHaveLength(1);
+    expect(skeleton.querySelectorAll('.app-skeleton__cell')).toHaveLength(0);
+    expect(skeleton).toHaveTextContent('Documents');
+    expect(skeleton).not.toHaveTextContent('Summary');
+  });
+
+  it('shows the move-panes hint when only the last session has models', async () => {
+    window.localStorage.setItem(
+      BSH_KEYS.personal.lastSession,
+      JSON.stringify({ models: [{ urn: 'abc123' }], active: 'abc123' }),
+    );
+    renderShellPending();
+    expect(
+      await screen.findByText(/Drag a tab to move a pane/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Press Ctrl\+K/)).toBeNull();
   });
 });
 
 describe('AppShell skeleton resilience', () => {
   it('falls back to one Documents pane when the saved layout is malformed', async () => {
-    window.localStorage.setItem(
-      BSH_KEYS.personal.layout,
-      JSON.stringify({
-        version: LAYOUT_VERSION,
-        layout: {
-          dock: {
-            grid: {
-              root: {
-                type: 'branch',
-                data: [{ type: 'leaf', size: 0, data: { id: 'g1' } }],
-              },
-              width: 1,
-              height: 1,
-              orientation: 'HORIZONTAL',
-            },
-            panels: { viewer: { id: 'viewer' } },
-          },
+    writeSavedLayout({
+      grid: {
+        root: {
+          type: 'branch',
+          data: [
+            { type: 'leaf', size: 0, data: { id: 'g1', views: ['ghost'] } },
+          ],
         },
-      }),
-    );
+        width: 1,
+        height: 1,
+        orientation: 'HORIZONTAL',
+      },
+      panels: { ghost: { id: 'ghost', title: 'Ghost pane' } },
+    });
     renderShellPending();
-    const shell = await screen.findByRole('status', { name: 'Loading' });
-    expect(shell.textContent).toContain('Documents');
+    const skeleton = await findSkeleton();
+    expect(skeleton.querySelectorAll('.app-skeleton__pane')).toHaveLength(1);
+    expect(skeleton.querySelectorAll('.app-skeleton__cell')).toHaveLength(0);
+    expect(skeleton).toHaveTextContent('Documents');
+    expect(skeleton).not.toHaveTextContent('Ghost pane');
   });
 });
 

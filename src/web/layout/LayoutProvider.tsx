@@ -22,7 +22,7 @@ import {
   ownerKey,
 } from '../api/openModels.js';
 import { OpenModelsContext } from '../api/useOpenModels.js';
-import { SkeletonDock } from '../components/AppSkeleton.js';
+import { LAYOUT_LOCKED, SkeletonDock } from '../components/AppSkeleton.js';
 import { Hint } from '../components/Hint.js';
 import type { MenuEntry } from '../components/Menu.js';
 import { ModelBreadcrumb } from '../components/ModelBreadcrumb.js';
@@ -125,12 +125,6 @@ const DockLayout = lazy(() =>
 export { STACKED_MAX_WIDTH, STACKED_QUERY } from './breakpoint.js';
 export const LAYOUT_WRITE_DELAY_MS = 300;
 export const LOCK_KEY = BSH_KEYS.preference.layoutLocked;
-
-const LOCKED = defineRecord<boolean>({
-  key: LOCK_KEY,
-  initial: false,
-  sanitize: (raw) => raw === true,
-});
 
 const USER_INSTANCES = defineRecord<UserInstances>({
   key: BSH_KEYS.personal.layoutInstances,
@@ -301,7 +295,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
   const stacked = useMediaQuery(STACKED_QUERY);
   const mode: LayoutMode = stacked ? 'stacked' : 'dock';
   const [userState, setUserState] = usePersisted(USER_INSTANCES);
-  const [locked, setLockedState] = usePersisted(LOCKED);
+  const [locked, setLockedState] = usePersisted(LAYOUT_LOCKED);
   const [workspaces, setWorkspaces] = usePersisted(WORKSPACES_RECORD);
   const [workspaceDialog, setWorkspaceDialog] = useState<WorkspaceDialog>(null);
   const appearances = usePaneAppearances();
@@ -819,7 +813,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
                 />
               ) : (
                 <div className="app-body app-body--dock">
-                  <Suspense fallback={<SkeletonDock />}>
+                  <Suspense fallback={<SkeletonDock dock={model.dock} />}>
                     <DockLayout
                       hosts={hosts}
                       dock={model.dock}
