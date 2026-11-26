@@ -1,6 +1,7 @@
 import { type KeyboardEvent, useEffect, useId, useRef, useState } from 'react';
 import { Icon } from '../components/icons.js';
 import { moveFocus } from '../components/moveFocus.js';
+import { StateBlock } from '../components/StateBlock.js';
 import { ModalHost } from '../modal/ModalHost.js';
 import { LOCKED_REASON } from './layoutApply.js';
 import { useLayout } from './layoutContext.js';
@@ -309,9 +310,11 @@ export function WorkspaceSwitcher() {
           <section aria-label="Saved workspaces">
             <h3 className="workspaces__heading">Saved</h3>
             {workspace.items.length === 0 ? (
-              <p className="workspaces__empty">
-                Save the current arrangement to reuse it later.
-              </p>
+              <StateBlock
+                variant="empty"
+                compact
+                message="Save the current arrangement to reuse it later."
+              />
             ) : (
               <ul className="workspaces__rows">
                 {workspace.items.map(savedRow)}

@@ -143,6 +143,17 @@ describe('SummaryTable grouped layout', () => {
     expect(screen.getByRole('table', { name: 'Level' })).toBeInTheDocument();
   });
 
+  it('gives clamped value and block title the full text on hover', () => {
+    const { container } = render(
+      <SummaryTable entries={groupedEntries} rows={rows} view={grouped} />,
+    );
+    expect(
+      screen.getByRole('heading', { name: 'Element categories' }),
+    ).toHaveAttribute('title', 'Element categories');
+    const clamp = container.querySelector('.bsh-clamp[title="Walls"]');
+    expect(clamp).not.toBeNull();
+  });
+
   it('has no hard-coded Count header', () => {
     render(
       <SummaryTable
