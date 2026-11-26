@@ -103,6 +103,11 @@ VIEWER_FILL = """() => {
     };
 }"""
 STACKED_LABEL = "() => document.querySelector(\".stack__model-tab[aria-selected='true']\")?.textContent || ''"
+ACTIVE_MODEL_TAB = """() => {
+    const group = document.querySelector("[data-active='true'] .model-viewer")?.closest('.dv-groupview');
+    const tab = group?.querySelector('.dv-tab.dv-active-tab .dv-default-tab-content');
+    return tab ? {text: tab.textContent, width: tab.clientWidth, scroll: tab.scrollWidth} : null;
+}"""
 STORED_LAYOUT = "() => JSON.parse(localStorage.getItem('bsh.layout.v2') || 'null')"
 MODELS = "mw:() => window.__bshLayout.models()"
 VIEWERS = """() => [...document.querySelectorAll('.pane-model')].map((body) => {
@@ -1708,6 +1713,17 @@ def check_multi_model(page, checks, notes):
         second_summary.get("model") == second_label and second_summary.get("rows") != first_summary.get("rows"),
         f"{first_summary.get('model')} -> {second_summary.get('model')}",
     )
+
+    page.set_viewport_size({"width": 1000, "height": DESKTOP[1]})
+    settle(page, 700)
+    tab = page.evaluate(ACTIVE_MODEL_TAB)
+    checks.add(
+        "the active model tab keeps its full name in a narrow dock",
+        bool(tab) and tab["scroll"] <= tab["width"] + 1,
+        tab,
+    )
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page, 700)
 
     target.click()
     settle(page)

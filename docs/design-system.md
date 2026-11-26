@@ -165,7 +165,7 @@ Each docked pane body is a `pane` size container, so pane CSS uses `@container p
 
 ## Dock theme
 
-`src/web/layout/dockTheme.css` maps dockview's `--dv-*` variables to our tokens, so both themes work without a theme branch.
+`src/web/layout/dockTheme.css` maps dockview's `--dv-*` variables to our tokens, so both themes work without a theme branch. An inactive tab gives up its width before the active one (`flex-shrink` 100000 against 1), so the active tab keeps its whole title while the strip has room for it. A title is ellipsized only inside a tab that is genuinely too narrow, and the full path and URN stay in its tooltip.
 
 ## Themes
 
