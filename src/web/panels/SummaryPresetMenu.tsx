@@ -190,7 +190,9 @@ export function SummaryPresetMenu({
         <>
           <Icon name="layers" size={13} />
           <span>Presets</span>
-          <span className="bsh-presets-trigger__value">{label}</span>
+          <span className="bsh-presets-trigger__value" title={label}>
+            {label}
+          </span>
           <Icon name="chevron" size={11} />
         </>
       }

@@ -36,7 +36,7 @@ export function ModelBreadcrumb() {
               <button
                 type="button"
                 className="topbar__crumb"
-                title={t('topbar.showInDocuments')}
+                title={`${crumb.label}. ${t('topbar.showInDocuments')}`}
                 onClick={() => tree?.reveal()}
               >
                 {crumb.label}

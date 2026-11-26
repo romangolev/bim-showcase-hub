@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { APP_NOT_PROVISIONED } from '../../../shared/types.js';
+import { ApiError } from '../../api/client.js';
 import { childrenQueryOptions } from '../../api/hooks.js';
 import { ROOT_SCOPE } from '../../api/scope.js';
 import { usePersisted } from '../../storage.js';
@@ -22,11 +24,19 @@ interface HubProjectSwitcherProps {
 export function HubProjectSwitcher({ onChange }: HubProjectSwitcherProps) {
   const [stored, setStored] = usePersisted(DOC_ROOT);
   const hubs = useQuery(childrenQueryOptions(ROOT_SCOPE));
+  const unprovisioned =
+    hubs.error instanceof ApiError && hubs.error.code === APP_NOT_PROVISIONED;
+  const [provisioningBlocked, setProvisioningBlocked] = useState(false);
+  useEffect(() => {
+    if (unprovisioned) setProvisioningBlocked(true);
+    else if (hubs.data !== undefined) setProvisioningBlocked(false);
+  }, [unprovisioned, hubs.data]);
+  const storedRoot = provisioningBlocked || unprovisioned ? ALL_HUBS : stored;
   const projects = useQuery({
-    ...childrenQueryOptions(hubScope(stored.hubId || 'none')),
-    enabled: stored.hubId !== '',
+    ...childrenQueryOptions(hubScope(storedRoot.hubId || 'none')),
+    enabled: storedRoot.hubId !== '',
   });
-  const root = effectiveDocRoot(stored, hubs.data, projects.data);
+  const root = effectiveDocRoot(storedRoot, hubs.data, projects.data);
   const treeRoot = treeRootOf(root, hubs.data, projects.data);
   const key = `${treeRoot.scope.kind}:${treeRoot.node.id}`;
   const latest = useRef(treeRoot);

@@ -23,4 +23,15 @@ describe('friendlyError', () => {
       'Custom fallback',
     );
   });
+
+  it('passes the api error code through', () => {
+    const coded = new ApiError(
+      403,
+      'App not provisioned',
+      null,
+      'app_not_provisioned',
+    );
+    expect(friendlyError(coded).code).toBe('app_not_provisioned');
+    expect(friendlyError(new ApiError(404, 'x')).code).toBeUndefined();
+  });
 });

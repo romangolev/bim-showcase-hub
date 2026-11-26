@@ -66,6 +66,8 @@ describe('dashboard preset menu in settings', () => {
     ).toHaveLength(1);
     expect(screen.queryByLabelText('Preset name')).toBeNull();
     expect(screen.queryByText('My presets')).toBeNull();
+    const value = document.querySelector('.bsh-presets-trigger__value');
+    expect(value?.getAttribute('title')).toBe(value?.textContent);
   });
 
   it('applies a built-in and offers no update, rename or delete for it', () => {

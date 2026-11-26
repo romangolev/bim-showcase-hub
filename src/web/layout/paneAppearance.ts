@@ -1,5 +1,5 @@
 import { defineRecord, usePersisted } from '../storage.js';
-import type { PaneTitles } from './layoutContext.js';
+import type { PaneTitle, PaneTitles } from './layoutContext.js';
 import { type PanelId, parsePanelId } from './paneRegistry.js';
 
 export const PANE_APPEARANCE_KEY = 'bsh.pane.appearance.v1';
@@ -138,9 +138,10 @@ export function withPaneTitles(
   titles: PaneTitles,
   appearances: PaneAppearances,
 ): PaneTitles {
-  const out: Record<PanelId, { label: string; tooltip: string }> = {
-    ...titles,
-  };
+  const out: Record<PanelId, PaneTitle> = {};
+  for (const [id, title] of Object.entries(titles)) {
+    out[id] = { label: title.label, tooltip: title.tooltip || title.label };
+  }
   for (const [id, appearance] of Object.entries(appearances)) {
     if (!appearance.title) continue;
     const current = out[id];

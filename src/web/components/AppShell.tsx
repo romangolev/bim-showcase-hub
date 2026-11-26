@@ -1,30 +1,16 @@
 import { lazy, type ReactNode, Suspense } from 'react';
 import { useSession } from '../api/hooks.js';
+import { loadLayoutProvider } from '../layout/preload.js';
+import { AppSkeleton } from './AppSkeleton.js';
 import { Landing } from './Landing.js';
 import { SessionBanner } from './SessionBanner.js';
-import { StateBlock } from './StateBlock.js';
 import { TopBar } from './TopBar.js';
 
 const LayoutProvider = lazy(() =>
-  import('../layout/LayoutProvider.js').then((module) => ({
+  loadLayoutProvider().then((module) => ({
     default: module.LayoutProvider,
   })),
 );
-
-function ShellMessage() {
-  return (
-    <>
-      <TopBar />
-      <div className="app-body">
-        <main id="main" className="app-main" tabIndex={-1}>
-          <div className="app-loading">
-            <StateBlock variant="loading" message="Loading" rows={6} />
-          </div>
-        </main>
-      </div>
-    </>
-  );
-}
 
 export function AppShell({ children }: { children: ReactNode }) {
   const session = useSession();
@@ -36,11 +22,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         Skip to content
       </a>
       {session.isPending ? (
-        <ShellMessage />
+        <AppSkeleton />
       ) : signedIn ? (
         <>
           <SessionBanner />
-          <Suspense fallback={<ShellMessage />}>
+          <Suspense fallback={<AppSkeleton hints />}>
             <LayoutProvider main={children} />
           </Suspense>
         </>

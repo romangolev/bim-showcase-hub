@@ -11,7 +11,9 @@
 - The density values are tighter than the published spec so the viewer gets more of the screen.
 - Text size sets the root font size (`100%`, `112%` or `125%`). Text, spacing, control and row tokens are rem values, so the shell and the dock scale with it. Density multiplies the same tokens through `--density`.
 
-Other stylesheets (`src/web/styles/*.css`, `panels/panels.css`, `layout/dockTheme.css`) read these variables. Components do not use raw hex colors or pixel values that have a token.
+Other stylesheets (`src/web/styles/*.css`, `panels/panels.css`, `layout/dockTheme.css`) read these variables. Components do not use raw hex colors or pixel values that have a token. `src/web/panels/panels.css` holds no rules: it is ordered `@import` lines for ten files in `src/web/panels/` (`panelsBase.css` first, then the dashboard, summary, models, properties, summary table, KPIs and charts, colours, search and board files). Everything there is unlayered app CSS, so a later file wins; a new pane stylesheet goes at the end of the list.
+
+User data is exempt: colours a person picks or saves (paint palettes, model tints, colour rules and chart colours) are stored and shown as raw hex values, because they are content and not interface chrome. Check their contrast in both themes when they sit next to text.
 
 ## Rules
 
@@ -165,7 +167,7 @@ Each docked pane body is a `pane` size container, so pane CSS uses `@container p
 
 ## Dock theme
 
-`src/web/layout/dockTheme.css` maps dockview's `--dv-*` variables to our tokens, so both themes work without a theme branch. An inactive tab gives up its width before the active one (`flex-shrink` 100000 against 1), so the active tab keeps its whole title while the strip has room for it. A title is ellipsized only inside a tab that is genuinely too narrow, and the full path and URN stay in its tooltip.
+`src/web/layout/dockTheme.css` maps dockview's `--dv-*` variables to our tokens, so both themes work without a theme branch. An inactive tab gives up its width before the active one (`flex-shrink` 100000 against 1) down to a 4rem floor, while an active tab keeps a 6.5rem floor, so the active tab keeps its whole title while the strip has room for it. A title is ellipsized only inside a tab that is genuinely too narrow, the strip scrolls with its thin scrollbar once every tab is at its floor, and the full path stays in its tooltip.
 
 ## Themes
 

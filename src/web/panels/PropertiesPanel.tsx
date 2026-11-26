@@ -102,7 +102,10 @@ function PropertyGrid({
       {
         id: 'property',
         header: 'Property',
-        cell: ({ row }) => row.original.property.name,
+        cell: ({ row }) => {
+          const name = row.original.property.name;
+          return <span>{name}</span>;
+        },
         meta: { label: 'Property', className: 'bsh-props__key-cell' },
       },
       {

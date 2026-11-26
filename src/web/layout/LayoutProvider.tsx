@@ -22,6 +22,11 @@ import {
   ownerKey,
 } from '../api/openModels.js';
 import { OpenModelsContext } from '../api/useOpenModels.js';
+import {
+  isHomeLayout,
+  LAYOUT_LOCKED,
+  SkeletonDock,
+} from '../components/AppSkeleton.js';
 import { Hint } from '../components/Hint.js';
 import type { MenuEntry } from '../components/Menu.js';
 import { ModelBreadcrumb } from '../components/ModelBreadcrumb.js';
@@ -92,6 +97,7 @@ import {
   paneKind,
   parsePanelId,
 } from './paneRegistry.js';
+import { loadDockLayout } from './preload.js';
 import { StackedLayout } from './StackedLayout.js';
 import {
   sanitizeUserInstances,
@@ -115,7 +121,7 @@ import {
 } from './workspaces.js';
 
 const DockLayout = lazy(() =>
-  import('./DockLayout.js').then((module) => ({
+  loadDockLayout().then((module) => ({
     default: module.DockLayout,
   })),
 );
@@ -123,12 +129,6 @@ const DockLayout = lazy(() =>
 export { STACKED_MAX_WIDTH, STACKED_QUERY } from './breakpoint.js';
 export const LAYOUT_WRITE_DELAY_MS = 300;
 export const LOCK_KEY = BSH_KEYS.preference.layoutLocked;
-
-const LOCKED = defineRecord<boolean>({
-  key: LOCK_KEY,
-  initial: false,
-  sanitize: (raw) => raw === true,
-});
 
 const USER_INSTANCES = defineRecord<UserInstances>({
   key: BSH_KEYS.personal.layoutInstances,
@@ -299,7 +299,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
   const stacked = useMediaQuery(STACKED_QUERY);
   const mode: LayoutMode = stacked ? 'stacked' : 'dock';
   const [userState, setUserState] = usePersisted(USER_INSTANCES);
-  const [locked, setLockedState] = usePersisted(LOCKED);
+  const [locked, setLockedState] = usePersisted(LAYOUT_LOCKED);
   const [workspaces, setWorkspaces] = usePersisted(WORKSPACES_RECORD);
   const [workspaceDialog, setWorkspaceDialog] = useState<WorkspaceDialog>(null);
   const appearances = usePaneAppearances();
@@ -794,7 +794,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
                 }
               />
               {!stacked && !state.locked ? (
-                view.home ? (
+                isHomeLayout(models.models) ? (
                   <Hint id="palette">{t('hints.palette')}</Hint>
                 ) : (
                   <Hint id="move-panes">{t('hints.movePanes')}</Hint>
@@ -817,17 +817,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
                 />
               ) : (
                 <div className="app-body app-body--dock">
-                  <Suspense
-                    fallback={
-                      <div className="app-loading">
-                        <StateBlock
-                          variant="loading"
-                          message="Loading layout"
-                          rows={6}
-                        />
-                      </div>
-                    }
-                  >
+                  <Suspense fallback={<SkeletonDock dock={model.dock} />}>
                     <DockLayout
                       hosts={hosts}
                       dock={model.dock}

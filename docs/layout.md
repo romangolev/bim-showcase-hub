@@ -31,6 +31,7 @@ Everything lives in `src/web/layout`.
 | `layoutHistory.ts` | The bounded undo and redo stack of `LayoutModel` snapshots |
 | `breakpoint.ts` | `STACKED_MAX_WIDTH` and `STACKED_QUERY`, shared by the provider and the CSS tests |
 | `LayoutProvider.tsx` | Adapts the lifecycle to React: persistence, open-models store, dock or stacked switch, top bar, `useLayout()` |
+| `preload.ts` | Called from `main.tsx`: prefetches the session, imports `LayoutProvider` at once and, after a signed-in session arrives and the viewport is not stacked, imports `DockLayout` |
 | `DockLayout.tsx` | The dockview adapter. The only file that imports `dockview-react`. Loaded lazily |
 | `StackedLayout.tsx` | The single column below 876 px |
 | `ViewerHost.tsx` | `PaneHosts` renders each panel once into a detached element. `PaneSlot` attaches it to a slot |
@@ -45,6 +46,8 @@ Everything lives in `src/web/layout`.
 | `dockTheme.css` | The `bsh-dock` theme, see [design-system.md](design-system.md#dock-theme) |
 
 Layouts never render pane content. They attach host elements to slots, so React never sees a move. A pane is unmounted only when it is closed. A viewer is destroyed only when its tab closes, when it is paused for the loaded-model budget, or on sign-out.
+
+While either chunk loads, `components/AppSkeleton.tsx` draws the top bar and a static copy of the saved dock grid, with each leaf's saved tabs, so the first paint already has the shape that follows. With no saved layout, or in the stacked layout, it draws one Documents pane.
 
 ## Model tabs
 

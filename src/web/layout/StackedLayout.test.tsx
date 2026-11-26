@@ -191,7 +191,7 @@ describe('stacked layout', () => {
     const tab = await within(strip).findByRole('tab', {
       name: 'Tower.rvt · v2',
     });
-    expect(tab).toHaveAttribute('title', 'Hub / Docs / Tower.rvt · v2\nabc123');
+    expect(tab).toHaveAttribute('title', 'Hub / Docs / Tower.rvt · v2');
     const panel = screen.getByRole('tabpanel', { name: 'Tower.rvt · v2' });
     expect(tab).toHaveAttribute('aria-controls', panel.id);
     expect(panel.querySelector('[data-slot]')?.getAttribute('data-slot')).toBe(

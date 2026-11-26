@@ -114,6 +114,25 @@ describe('SummaryTable flat layout', () => {
     );
     expect(headers(container)).toEqual(['Property', 'Value']);
   });
+
+  it('pins the count column wherever it sits in the order', () => {
+    render(
+      <SummaryTable
+        entries={entries}
+        rows={rows}
+        view={view({ showProperty: false, columns: [COUNT_COLUMN, area] })}
+      />,
+    );
+    expect(screen.getByRole('columnheader', { name: 'Count' })).toHaveClass(
+      'bsh-col-count',
+    );
+    expect(
+      screen.getByRole('columnheader', { name: 'Sum of Area' }),
+    ).not.toHaveClass('bsh-col-count');
+    const body = screen.getAllByRole('row')[1];
+    expect(body?.children[1]).toHaveClass('bsh-col-count');
+    expect(body?.children[2]).not.toHaveClass('bsh-col-count');
+  });
 });
 
 describe('SummaryTable grouped layout', () => {
@@ -141,6 +160,17 @@ describe('SummaryTable grouped layout', () => {
     expect(bars[3]).toHaveStyle({ width: '33%' });
     expect(within(table).getAllByText('2')).toHaveLength(2);
     expect(screen.getByRole('table', { name: 'Level' })).toBeInTheDocument();
+  });
+
+  it('gives clamped value and block title the full text on hover', () => {
+    const { container } = render(
+      <SummaryTable entries={groupedEntries} rows={rows} view={grouped} />,
+    );
+    expect(
+      screen.getByRole('heading', { name: 'Element categories' }),
+    ).toHaveAttribute('title', 'Element categories');
+    const clamp = container.querySelector('.bsh-clamp[title="Walls"]');
+    expect(clamp).not.toBeNull();
   });
 
   it('has no hard-coded Count header', () => {

@@ -56,6 +56,7 @@ export function authRouter(
       res.json({
         ...MOCK_USER,
         appClientId: MOCK_APP_CLIENT_ID,
+        appCallbackUrl: config.aps.callbackUrl,
       } satisfies SessionUser);
       return;
     }
@@ -68,6 +69,7 @@ export function authRouter(
     res.json({
       ...user,
       appClientId: config.aps.clientId,
+      appCallbackUrl: config.aps.callbackUrl,
       expiresAt,
       expiresInMs: Math.max(0, expiresAt - Date.now()),
     } satisfies SessionUser);

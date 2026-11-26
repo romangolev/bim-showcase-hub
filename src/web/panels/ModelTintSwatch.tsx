@@ -61,7 +61,11 @@ export function ModelTintSwatch({
           align="end"
           initialFocus={popupRef}
         >
-          <PopoverTitle className="bsh-tint__title" render={<p />}>
+          <PopoverTitle
+            className="bsh-tint__title"
+            render={<p />}
+            title={modelName}
+          >
             {modelName}
           </PopoverTitle>
           <div className="bsh-tint__swatches">

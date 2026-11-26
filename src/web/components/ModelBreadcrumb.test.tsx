@@ -32,6 +32,17 @@ describe('ModelBreadcrumb', () => {
     );
   });
 
+  it('puts the full path and crumb label in titles for truncated text', () => {
+    renderWith();
+    expect(
+      screen.getByRole('navigation', { name: 'Model location' }),
+    ).toHaveAttribute('title', 'Hub / Project / A.rvt · v2');
+    expect(screen.getByRole('button', { name: 'Project' })).toHaveAttribute(
+      'title',
+      'Project. Show in Documents',
+    );
+  });
+
   it('reveals the model in Documents from a folder crumb', () => {
     const reveal = renderWith();
     fireEvent.click(screen.getByRole('button', { name: 'Project' }));

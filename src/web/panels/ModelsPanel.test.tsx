@@ -60,6 +60,9 @@ describe('ModelsPanel', () => {
     const onRemove = vi.fn();
     render(<ModelsPanel adapter={adapter} onRemove={onRemove} />);
     expect(screen.getByText('urn-a')).toBeInTheDocument();
+    expect(
+      screen.getByText('urn-a').closest('.bsh-models__name'),
+    ).toHaveAttribute('title', 'urn-a');
     expect(screen.getByText(/Still processing/)).toBeInTheDocument();
     expect(screen.getAllByRole('img', { name: 'Ready' })).toHaveLength(2);
     expect(screen.getByRole('img', { name: 'Failed' })).toBeInTheDocument();

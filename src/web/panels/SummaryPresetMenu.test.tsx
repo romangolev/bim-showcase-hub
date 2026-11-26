@@ -71,6 +71,8 @@ describe('summary preset menu in settings', () => {
     ).toBe(false);
     expect(screen.queryByRole('button', { name: 'Presets' })).toBeNull();
     expect(screen.queryByLabelText('Summary preset name')).toBeNull();
+    const value = document.querySelector('.bsh-presets-trigger__value');
+    expect(value?.getAttribute('title')).toBe(value?.textContent);
   });
 
   it('applies a starter, which becomes the checked choice', () => {

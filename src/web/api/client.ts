@@ -1,8 +1,10 @@
 import type {
+  ApiErrorCode,
   SessionUser,
   TreeNode,
   VersionViewState,
 } from '../../shared/types.js';
+import { APP_NOT_PROVISIONED } from '../../shared/types.js';
 import { childrenPath, type NodeScope } from './scope.js';
 
 export type Session = SessionUser;
@@ -10,16 +12,19 @@ export type Session = SessionUser;
 export class ApiError extends Error {
   readonly status: number;
   readonly retryAfterMs: number | null;
+  readonly code?: ApiErrorCode;
 
   constructor(
     status: number,
     message: string,
     retryAfterMs: number | null = null,
+    code?: ApiErrorCode,
   ) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.retryAfterMs = retryAfterMs;
+    this.code = code;
   }
 }
 
@@ -39,7 +44,9 @@ export function notifyUnauthorized(): void {
   for (const listener of [...unauthorizedListeners]) listener();
 }
 
-async function readError(res: Response): Promise<string> {
+async function readError(
+  res: Response,
+): Promise<{ message: string; code?: ApiErrorCode }> {
   const fallback = res.statusText || `Request failed with status ${res.status}`;
   try {
     const body: unknown = await res.json();
@@ -47,13 +54,19 @@ async function readError(res: Response): Promise<string> {
       const record = body as Record<string, unknown>;
       const message = record.error ?? record.message;
       if (typeof message === 'string') {
-        return message;
+        return {
+          message,
+          code:
+            record.code === APP_NOT_PROVISIONED
+              ? APP_NOT_PROVISIONED
+              : undefined,
+        };
       }
     }
   } catch {
-    return fallback;
+    return { message: fallback };
   }
-  return fallback;
+  return { message: fallback };
 }
 
 const SESSION_PATH = '/api/session';
@@ -94,10 +107,12 @@ async function request(path: string, init?: RequestInit): Promise<Response> {
     notifyUnauthorized();
   }
   if (!res.ok) {
+    const { message, code } = await readError(res);
     throw new ApiError(
       res.status,
-      await readError(res),
+      message,
       res.status === 429 ? retryAfterMsOf(res) : null,
+      code,
     );
   }
   return res;
@@ -115,7 +130,7 @@ export async function fetchSession(
     return null;
   }
   if (!res.ok) {
-    throw new ApiError(res.status, await readError(res));
+    throw new ApiError(res.status, (await readError(res)).message);
   }
   return (await res.json()) as Session;
 }

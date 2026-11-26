@@ -92,6 +92,7 @@ describe('session and auth', () => {
       name: 'Sam Smith',
       picture: null,
       appClientId: realConfig.aps.clientId,
+      appCallbackUrl: realConfig.aps.callbackUrl,
       expiresAt: expect.any(Number),
       expiresInMs: expect.any(Number),
     });
@@ -507,6 +508,41 @@ describe('error handler', () => {
     const res = await request(app).get('/api/hubs');
     expect(res.status).toBe(404);
     expect(res.body).toEqual({ error: 'Gone' });
+  });
+
+  it('returns the provisioning code when hubs answers 403', async () => {
+    const data = {
+      ...createMockDataService(),
+      listHubs: () =>
+        Promise.reject(
+          new HttpError(403, 'App not provisioned', 'app_not_provisioned'),
+        ),
+    } satisfies DataService;
+    const app = createApp(loadConfig({ MOCK_APS: '1' }), {
+      auth: fakeAuth(),
+      data,
+    });
+    const res = await request(app).get('/api/hubs');
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual({
+      error: 'App not provisioned',
+      code: 'app_not_provisioned',
+    });
+  });
+
+  it('omits the code for a plain 403', async () => {
+    const data = {
+      ...createMockDataService(),
+      listHubs: () => Promise.reject(new HttpError(403, 'Forbidden')),
+    } satisfies DataService;
+    const app = createApp(loadConfig({ MOCK_APS: '1' }), {
+      auth: fakeAuth(),
+      data,
+    });
+    const res = await request(app).get('/api/hubs');
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual({ error: 'Forbidden' });
+    expect(res.body).not.toHaveProperty('code');
   });
 
   it('sets Retry-After when a route is rate limited', async () => {

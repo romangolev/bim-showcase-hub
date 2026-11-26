@@ -1,0 +1,138 @@
+.bsh-kpis {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.bsh-kpis__title {
+  margin: 0;
+  color: var(--color-ash);
+  font-size: var(--text-13);
+  font-weight: var(--weight-label);
+}
+
+.bsh-kpis__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bsh-kpis__item {
+  display: flex;
+  min-width: 0;
+}
+
+.bsh-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0-5);
+  min-width: 12rem;
+  max-width: 18rem;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-charcoal);
+  color: var(--color-chalk);
+  border: var(--border-hairline);
+  border-radius: var(--radius-card);
+  font: inherit;
+  text-align: left;
+}
+
+button.bsh-kpi {
+  cursor: pointer;
+}
+
+button.bsh-kpi:hover {
+  background: var(--color-ghost-fill-hover);
+}
+
+button.bsh-kpi:focus-visible {
+  outline: 2px solid var(--color-signal-blue);
+  outline-offset: 2px;
+}
+
+.bsh-kpi[data-tone="bad"] {
+  border-color: var(--color-coral);
+}
+
+.bsh-kpi[data-tone="good"] {
+  border-color: var(--color-fern);
+}
+
+.bsh-kpi__label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--color-fog);
+  font-size: var(--text-13);
+}
+
+.bsh-kpi[data-tone="bad"] .bsh-kpi__icon {
+  color: var(--color-coral);
+}
+
+.bsh-kpi[data-tone="good"] .bsh-kpi__icon {
+  color: var(--color-fern);
+}
+
+.bsh-kpi__value {
+  color: var(--color-snow);
+  font-size: var(--text-18);
+  font-variant-numeric: tabular-nums;
+}
+
+.bsh-kpi__detail {
+  color: var(--color-fog);
+  font-size: var(--text-13);
+}
+
+.bsh-chart-table__wrap {
+  min-height: 0;
+  overflow: auto;
+}
+
+.bsh-chart-table {
+  width: 100%;
+}
+
+.bsh-chart-table__caption {
+  padding-bottom: var(--space-2);
+  color: var(--color-ash);
+  font-size: var(--text-13);
+  text-align: left;
+}
+
+.bsh-chart-table__label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  font-weight: var(--weight-body, 420);
+  text-align: left;
+}
+
+.bsh-chart-table tbody tr[data-active] {
+  background: var(--color-ghost-fill-active);
+}
+
+.bsh-chart-table__pick {
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+  background: none;
+  color: inherit;
+  border: 0;
+  font: inherit;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.bsh-chart-table__pick:hover {
+  color: var(--color-snow);
+  text-decoration: underline;
+}

@@ -66,6 +66,27 @@ describe('pane appearance', () => {
     expect(paneTags(appearances)).toEqual({});
   });
 
+  it('passes pane tooltips through and falls back to the label', () => {
+    const titles = withPaneTitles(
+      {
+        'viewer:a': {
+          label: 'Tower.rvt · v2',
+          tooltip: 'Hub / Docs / Tower.rvt · v2\nModels are 1.2 km apart',
+        },
+        'viewer:b': { label: 'Core.rvt', tooltip: '' },
+      },
+      {},
+    );
+    expect(titles['viewer:a']).toEqual({
+      label: 'Tower.rvt · v2',
+      tooltip: 'Hub / Docs / Tower.rvt · v2\nModels are 1.2 km apart',
+    });
+    expect(titles['viewer:b']).toEqual({
+      label: 'Core.rvt',
+      tooltip: 'Core.rvt',
+    });
+  });
+
   it('layers custom titles over pane titles and keeps tooltips', () => {
     const titles = withPaneTitles(
       {

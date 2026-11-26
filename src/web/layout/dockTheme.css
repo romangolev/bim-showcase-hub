@@ -95,11 +95,16 @@
   border-bottom: var(--border-hairline);
 }
 
+.bsh-dock .dv-scrollable > .dv-tabs-container:not(.dv-tabs-container-vertical) {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
 .bsh-dock .dv-tab {
   display: flex;
   flex-shrink: 1;
   align-items: center;
-  min-width: 4rem;
+  min-width: 6.5rem;
   gap: var(--space-2);
   padding: 0 var(--space-3);
   font-weight: var(--weight-label);
@@ -108,6 +113,7 @@
 
 .bsh-dock .dv-tab.dv-inactive-tab {
   flex-shrink: 100000;
+  min-width: 4rem;
 }
 
 .bsh-dock .dv-tab.dv-active-tab {

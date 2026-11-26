@@ -23,22 +23,20 @@ describe('viewerTabTitle', () => {
     expect(viewerTabTitle(LONG_URN).label).toBe('Untitled model · v2');
   });
 
-  it('puts the full path and the urn in the tooltip', () => {
-    expect(
-      viewerTabTitle(LONG_URN, 'Tower.rvt', 'v2', [
-        'Studio hub',
-        'Riverside Tower',
-        'Project Files',
-      ]).tooltip,
-    ).toBe(
-      `Studio hub / Riverside Tower / Project Files / Tower.rvt · v2\n${LONG_URN}`,
+  it('puts the full path in the tooltip and never the urn', () => {
+    const tooltip = viewerTabTitle(LONG_URN, 'Tower.rvt', 'v2', [
+      'Studio hub',
+      'Riverside Tower',
+      'Project Files',
+    ]).tooltip;
+    expect(tooltip).toBe(
+      'Studio hub / Riverside Tower / Project Files / Tower.rvt · v2',
     );
+    expect(tooltip).not.toContain(LONG_URN);
   });
 
-  it('shows the urn alone below the name when there are no crumbs', () => {
-    expect(viewerTabTitle(LONG_URN, 'Tower.rvt').tooltip).toBe(
-      `Tower.rvt\n${LONG_URN}`,
-    );
+  it('uses the name alone as the tooltip when there are no crumbs', () => {
+    expect(viewerTabTitle(LONG_URN, 'Tower.rvt').tooltip).toBe('Tower.rvt');
   });
 });
 
@@ -48,7 +46,7 @@ describe('model titles', () => {
       modelTabTitle(LONG_URN, { file: 'Tower.rvt', v: 'v2', crumbs: ['Hub'] }),
     ).toEqual({
       label: 'Tower.rvt · v2',
-      tooltip: `Hub / Tower.rvt · v2\n${LONG_URN}`,
+      tooltip: 'Hub / Tower.rvt · v2',
     });
   });
 

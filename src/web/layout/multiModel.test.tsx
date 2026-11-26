@@ -517,6 +517,14 @@ describe('hosts under StrictMode', () => {
 });
 
 describe('Documents first', () => {
+  it('gives every dock tab a title with its full name', async () => {
+    renderPath('/');
+    await dockReady();
+    const tab = screen.getByRole('tab', { name: 'Documents' });
+    const surface = tab.querySelector('.dv-default-tab');
+    expect(surface).toHaveAttribute('title', 'Documents');
+  });
+
   it('keeps Documents required: no close button and no Close item', async () => {
     renderPath('/');
     await dockReady();

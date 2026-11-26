@@ -10,7 +10,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../App.js';
 import { notifyUnauthorized } from '../api/client.js';
 import { resetSessionEnded } from '../api/hooks.js';
+import { LAYOUT_VERSION } from '../layout/layoutState.js';
 import { createAppRouter } from '../routes/router.js';
+import { BSH_KEYS } from '../storage.js';
 import {
   createTestClient,
   installMemoryStorage,
@@ -35,6 +37,49 @@ function renderShellPending() {
   renderApp();
 }
 
+function leaf(id: string, views: string[], size: number) {
+  return { type: 'leaf', size, data: { id, views, activeView: views[0] } };
+}
+
+function twoPaneDock() {
+  return {
+    grid: {
+      root: {
+        type: 'branch',
+        data: [leaf('g1', ['tree'], 300), leaf('g2', ['summary'], 700)],
+      },
+      width: 1000,
+      height: 600,
+      orientation: 'HORIZONTAL',
+    },
+    panels: {
+      tree: { id: 'tree', title: 'Documents' },
+      summary: { id: 'summary', title: 'Summary' },
+    },
+  };
+}
+
+function writeSavedLayout(dock: unknown) {
+  window.localStorage.setItem(
+    BSH_KEYS.personal.layout,
+    JSON.stringify({
+      version: LAYOUT_VERSION,
+      layout: { dock, treeWidth: 300 },
+    }),
+  );
+}
+
+async function findSkeleton(): Promise<HTMLElement> {
+  const status = await screen.findByRole('status');
+  expect(screen.queryAllByRole('status')).toHaveLength(1);
+  expect(status).toHaveTextContent('Loading');
+  const skeleton = status.closest('.app-skeleton');
+  if (!(skeleton instanceof HTMLElement)) {
+    throw new Error('Skeleton container is missing');
+  }
+  return skeleton;
+}
+
 beforeEach(() => {
   resetSessionEnded();
   stubLayout();
@@ -51,12 +96,82 @@ afterEach(() => {
 });
 
 describe('AppShell loading', () => {
-  it('shows skeleton rows while the session loads', async () => {
+  it('shows the dock skeleton while the session loads', async () => {
     renderShellPending();
-    expect((await screen.findByRole('status')).textContent).toContain(
-      'Loading',
-    );
-    expect(document.querySelector('[data-slot="skeleton"]')).not.toBeNull();
+    const skeleton = await findSkeleton();
+    expect(skeleton.querySelector('[data-slot="skeleton"]')).not.toBeNull();
+    expect(screen.queryByRole('note')).toBeNull();
+  });
+
+  it('draws the skeleton from the saved dock grid', async () => {
+    writeSavedLayout(twoPaneDock());
+    renderShellPending();
+    const skeleton = await findSkeleton();
+    const cells = skeleton.querySelectorAll<HTMLElement>('.app-skeleton__cell');
+    expect([...cells].map((cell) => cell.style.flexGrow)).toEqual([
+      '300',
+      '700',
+    ]);
+    expect(skeleton).toHaveTextContent('Documents');
+    expect(skeleton).toHaveTextContent('Model summary');
+  });
+
+  it('draws one column in the stacked layout', async () => {
+    mockMatchMedia(800);
+    writeSavedLayout(twoPaneDock());
+    renderShellPending();
+    const skeleton = await findSkeleton();
+    expect(skeleton.querySelectorAll('.app-skeleton__pane')).toHaveLength(1);
+    expect(skeleton.querySelectorAll('.app-skeleton__cell')).toHaveLength(0);
+    expect(skeleton).toHaveTextContent('Documents');
+    expect(skeleton).not.toHaveTextContent('Model summary');
+  });
+
+  it('labels saved viewer tabs from the pane registry, not saved model titles', async () => {
+    writeSavedLayout({
+      grid: {
+        root: {
+          type: 'branch',
+          data: [leaf('g1', ['tree', 'viewer:abc123'], 1000)],
+        },
+        width: 1000,
+        height: 600,
+        orientation: 'HORIZONTAL',
+      },
+      panels: {
+        tree: { id: 'tree', title: 'Documents' },
+        'viewer:abc123': { id: 'viewer:abc123', title: 'Riverside Tower.rvt' },
+      },
+    });
+    renderShellPending();
+    const skeleton = await findSkeleton();
+    expect(skeleton).toHaveTextContent('Viewer');
+    expect(skeleton).not.toHaveTextContent('Riverside Tower');
+  });
+});
+
+describe('AppShell skeleton resilience', () => {
+  it('falls back to one Documents pane when the saved layout is malformed', async () => {
+    writeSavedLayout({
+      grid: {
+        root: {
+          type: 'branch',
+          data: [
+            { type: 'leaf', size: 0, data: { id: 'g1', views: ['ghost'] } },
+          ],
+        },
+        width: 1,
+        height: 1,
+        orientation: 'HORIZONTAL',
+      },
+      panels: { ghost: { id: 'ghost', title: 'Ghost pane' } },
+    });
+    renderShellPending();
+    const skeleton = await findSkeleton();
+    expect(skeleton.querySelectorAll('.app-skeleton__pane')).toHaveLength(1);
+    expect(skeleton.querySelectorAll('.app-skeleton__cell')).toHaveLength(0);
+    expect(skeleton).toHaveTextContent('Documents');
+    expect(skeleton).not.toHaveTextContent('Ghost pane');
   });
 });
 

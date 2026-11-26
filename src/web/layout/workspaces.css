@@ -94,12 +94,6 @@
   cursor: default;
 }
 
-.workspaces__empty {
-  margin: 0;
-  padding: var(--space-2);
-  color: var(--color-fog);
-}
-
 .workspaces__footer {
   display: flex;
   flex-direction: column;

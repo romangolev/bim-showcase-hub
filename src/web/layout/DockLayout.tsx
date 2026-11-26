@@ -129,11 +129,12 @@ function PaneTab(props: IDockviewPanelHeaderProps) {
     if (instance) slot?.onCloseInstance(id);
     else if (isPaneId(id)) slot?.onClosePane(id);
   };
+  const titles = slot?.titles[id];
   return (
     <DockviewDefaultTab
       {...props}
       hideClose={!isPanelClosable(id) || slot?.locked}
-      title={slot?.titles[id]?.tooltip}
+      title={titles?.tooltip || titles?.label || props.api.title}
       data-tag={slot?.tags[id]}
       onDoubleClick={() => slot?.onToggleMaximize(id)}
       closeActionOverride={close}

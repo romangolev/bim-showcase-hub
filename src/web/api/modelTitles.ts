@@ -16,7 +16,7 @@ export function viewerTabTitle(
     ? `${identity.title} · ${identity.version}`
     : identity.title;
   const path = [...crumbs, label].join(' / ');
-  return { label, tooltip: `${path}\n${urn}` };
+  return { label, tooltip: path };
 }
 
 export function memberLabel(

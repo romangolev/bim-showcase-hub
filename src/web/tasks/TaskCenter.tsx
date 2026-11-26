@@ -38,7 +38,9 @@ function TaskRow({
   return (
     <ListItem className="task-row" data-state={task.state}>
       <div className="task-row__text">
-        <span className="task-row__label">{task.label}</span>
+        <span className="task-row__label" title={task.label}>
+          {task.label}
+        </span>
         <span className="task-row__detail">
           {STATE_TEXT[task.state]}
           {task.detail ? `: ${task.detail}` : ''}

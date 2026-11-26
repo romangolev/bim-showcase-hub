@@ -108,6 +108,9 @@ function FloorPlan() {
       className="mockup__plan"
       role="presentation"
       aria-hidden="true"
+      focusable="false"
+      strokeLinecap="round"
+      strokeLinejoin="round"
     >
       <rect x="40" y="30" width="240" height="140" />
       <path d="M40 90h110M200 90h80M150 30v60M200 90v80" />

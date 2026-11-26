@@ -233,7 +233,9 @@ const PROPERTY_COLUMN: GridColumn = {
   id: 'bsh:property',
   header: 'Property',
   cell: ({ row }) => (
-    <span className="bsh-clamp">{row.original.entry?.property}</span>
+    <span className="bsh-clamp" title={row.original.entry?.property}>
+      {row.original.entry?.property}
+    </span>
   ),
   meta: {
     label: 'Property',
@@ -306,7 +308,7 @@ function specColumns(
       },
       meta: {
         label: empty ? `${title}, ${BLANK_NOTE}` : title,
-        className: 'bsh-num',
+        className: spec.property === null ? 'bsh-num bsh-col-count' : 'bsh-num',
         numeric: true,
         title: empty ? `${title}: ${BLANK_NOTE}` : title,
         sortValue: (line) => cellSortValue(line.cells[index] ?? NO_CELL),
@@ -767,10 +769,14 @@ export function SummaryTable({
             className="bsh-row-pick"
             onClick={() => actions.current.onPick?.(entry)}
           >
-            <span className="bsh-clamp">{entry.value}</span>
+            <span className="bsh-clamp" title={entry.value}>
+              {entry.value}
+            </span>
           </button>
         ) : (
-          <span className="bsh-clamp">{entry.value}</span>
+          <span className="bsh-clamp" title={entry.value}>
+            {entry.value}
+          </span>
         );
       },
       meta: {
@@ -855,7 +861,9 @@ export function SummaryTable({
               ) : (
                 <span className="bsh-pivot__spacer" aria-hidden="true" />
               )}
-              <span className="bsh-clamp">{node.value}</span>
+              <span className="bsh-clamp" title={node.value}>
+                {node.value}
+              </span>
             </>
           );
         },
@@ -955,7 +963,11 @@ export function SummaryTable({
                   data-expanded={!collapsed}
                 />
               </IconButton>
-              <h3 id={`${bodyId}-title`} className="bsh-table-block__title">
+              <h3
+                id={`${bodyId}-title`}
+                className="bsh-table-block__title"
+                title={title}
+              >
                 {title}
               </h3>
               {onTitleChange ? (
