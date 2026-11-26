@@ -8,7 +8,7 @@ import {
   summarize,
   summaryColumn,
 } from '../extensions/modelSummary.js';
-import { ENTRY_CAP, SummaryTable } from './SummaryTable.js';
+import { compareValues, ENTRY_CAP, SummaryTable } from './SummaryTable.js';
 
 const rows: PropertyRow[] = [
   {
@@ -46,6 +46,22 @@ const headers = (scope: HTMLElement) =>
   within(scope)
     .getAllByRole('columnheader')
     .map((cell) => cell.textContent);
+
+describe('SummaryTable sort comparison', () => {
+  it('orders strings by the given locale', () => {
+    expect(compareValues('ä', 'z', 'sv')).toBeGreaterThan(0);
+    expect(compareValues('å', 'z', 'sv')).toBeGreaterThan(0);
+    expect(compareValues('ä', 'z', 'de')).toBeLessThan(0);
+    expect(compareValues('å', 'z', 'de')).toBeLessThan(0);
+  });
+
+  it('compares equal infinities as equal', () => {
+    expect(compareValues(Infinity, Infinity, 'en-US')).toBe(0);
+    expect(compareValues(-Infinity, -Infinity, 'en-US')).toBe(0);
+    expect(compareValues(-Infinity, Infinity, 'en-US')).toBeLessThan(0);
+    expect(compareValues(Infinity, -Infinity, 'en-US')).toBeGreaterThan(0);
+  });
+});
 
 describe('SummaryTable flat layout', () => {
   it('renders Property, Value and Count when no view is given', () => {

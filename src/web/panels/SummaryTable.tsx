@@ -44,6 +44,7 @@ import {
   type SummaryView,
   summaryBlocks,
 } from '../extensions/modelSummary.js';
+import { localeOf } from '../i18n/format.js';
 import { useSettings } from '../settings/SettingsContext.js';
 import type { Language } from '../settings/settings.js';
 import { COLUMN_LIMITS, useColumnResize } from './useColumnResize.js';
@@ -129,27 +130,40 @@ interface ColumnMeta {
   attrs?: (line: Line) => CellAttrs;
 }
 
-function compareValues(
-  a: string | number | null | undefined,
-  b: string | number | null | undefined,
-): number {
-  if (a == null) return b == null ? 0 : 1;
-  if (b == null) return -1;
-  if (typeof a === 'number' && typeof b === 'number') return a - b;
-  return String(a).localeCompare(String(b), undefined, {
+const collators = new Map<string, Intl.Collator>();
+
+function collator(locale: string): Intl.Collator {
+  const cached = collators.get(locale);
+  if (cached) return cached;
+  const created = new Intl.Collator(locale, {
     numeric: true,
     sensitivity: 'base',
   });
+  collators.set(locale, created);
+  return created;
 }
 
-function sortableColumn(column: GridColumn): GridColumn {
+export function compareValues(
+  a: string | number | null | undefined,
+  b: string | number | null | undefined,
+  locale: string,
+): number {
+  if (a == null) return b == null ? 0 : 1;
+  if (b == null) return -1;
+  if (typeof a === 'number' && typeof b === 'number') {
+    return a < b ? -1 : a > b ? 1 : 0;
+  }
+  return collator(locale).compare(String(a), String(b));
+}
+
+function sortableColumn(column: GridColumn, locale: string): GridColumn {
   const sortValue = column.meta?.sortValue;
   if (!sortValue) return column;
   return {
     ...column,
     accessorFn: sortValue,
     sortFn: (rowA, rowB) =>
-      compareValues(sortValue(rowA.original), sortValue(rowB.original)),
+      compareValues(sortValue(rowA.original), sortValue(rowB.original), locale),
   };
 }
 
@@ -322,6 +336,7 @@ function Grid({
   lines,
   className,
   label,
+  locale,
   activeKey,
   resizable,
   sortable = true,
@@ -332,13 +347,17 @@ function Grid({
   lines: Line[];
   className: string;
   label?: string;
+  locale: string;
   activeKey?: string | null;
   resizable: boolean;
   sortable?: boolean;
   cap?: GridCap;
   more?: (hidden: number) => ReactNode;
 }) {
-  const gridColumns = useMemo(() => columns.map(sortableColumn), [columns]);
+  const gridColumns = useMemo(
+    () => columns.map((column) => sortableColumn(column, locale)),
+    [columns, locale],
+  );
   const table = useTable({
     features,
     columns: gridColumns,
@@ -457,6 +476,7 @@ function BlockGrid({
   specs,
   blank,
   language,
+  locale,
   title,
   activeKey,
   resizable,
@@ -470,6 +490,7 @@ function BlockGrid({
   specs: readonly SummaryColumnSpec[];
   blank: ReadonlySet<string>;
   language: Language;
+  locale: string;
   title: string;
   activeKey?: string | null;
   resizable: boolean;
@@ -494,6 +515,7 @@ function BlockGrid({
       lines={lines}
       className="bsh-table bsh-table--summary"
       label={title}
+      locale={locale}
       activeKey={activeKey}
       resizable={resizable}
       sortable={sortable}
@@ -562,6 +584,7 @@ export function SummaryTable({
 }) {
   const uid = useId();
   const { language } = useSettings().settings;
+  const locale = localeOf(language);
   const wrapRef = useRef<HTMLDivElement>(null);
   const scrollable = useScrollable(wrapRef);
   const [collapsedBlocks, setCollapsedBlocks] = useState<ReadonlySet<string>>(
@@ -798,6 +821,7 @@ export function SummaryTable({
       columns={flatColumns}
       lines={flatLines}
       className="bsh-table bsh-table--summary"
+      locale={locale}
       activeKey={activeKey}
       resizable={!decorative}
       sortable={!decorative}
@@ -882,6 +906,7 @@ export function SummaryTable({
                 specs={columns}
                 blank={blank}
                 language={language}
+                locale={locale}
                 title={title}
                 activeKey={activeKey}
                 resizable={!decorative}
@@ -903,6 +928,7 @@ export function SummaryTable({
         lines={pivotLines}
         className="bsh-table bsh-table--summary bsh-table--pivot"
         label={`Pivot by ${groupBy.join(', ')}`}
+        locale={locale}
         resizable={!decorative}
         sortable={false}
         cap={pivotAll ? undefined : { limit: ENTRY_CAP }}
