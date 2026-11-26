@@ -206,6 +206,42 @@ describe('PropertiesPanel', () => {
     expect(table).not.toHaveAttribute('data-fixed');
   });
 
+  it('names each table by its element when several are selected', async () => {
+    const adapter = await load(['urn-a']);
+    const modelId = adapter.getModels()[0]?.id ?? '';
+    const [one, two] = buildMockElements();
+    vi.spyOn(adapter, 'getElementsProperties').mockResolvedValue([
+      {
+        dbId: one?.dbId ?? 0,
+        name: 'Wall A',
+        properties: [{ category: 'Identity Data', name: 'Mark', value: 'A' }],
+      },
+      {
+        dbId: two?.dbId ?? 0,
+        name: 'Wall B',
+        properties: [{ category: 'Identity Data', name: 'Mark', value: 'B' }],
+      },
+    ]);
+    render(<PropertiesPanel adapter={adapter} />);
+    act(() => {
+      adapter.selectModelIds([
+        { modelId, dbId: one?.dbId ?? 0 },
+        { modelId, dbId: two?.dbId ?? 0 },
+      ]);
+    });
+    expect(await screen.findByText('Wall A')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('table', {
+        name: 'Identity Data properties for Wall A',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('table', {
+        name: 'Identity Data properties for Wall B',
+      }),
+    ).toBeInTheDocument();
+  });
+
   it('resizes with mirrored arrow keys in a right-to-left container', async () => {
     const adapter = await load(['urn-a']);
     const modelId = adapter.getModels()[0]?.id ?? '';

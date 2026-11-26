@@ -90,9 +90,11 @@ const PropertyRow = memo(function PropertyRow({
 
 function PropertyGrid({
   group,
+  label,
   onCopy,
 }: {
   group: PropertyGroup;
+  label: string;
   onCopy: (value: string) => void;
 }) {
   const columns = useMemo<ColumnDef<typeof features, PropertyLine>[]>(
@@ -149,7 +151,7 @@ function PropertyGrid({
   return (
     <Table
       className="bsh-table bsh-props__table"
-      aria-label={`${group.category} properties`}
+      aria-label={label}
       fixed={sized}
       style={tableStyle}
     >
@@ -362,7 +364,15 @@ export function PropertiesPanel({
                       <summary className="bsh-props__category">
                         {group.category}
                       </summary>
-                      <PropertyGrid group={group} onCopy={copy} />
+                      <PropertyGrid
+                        group={group}
+                        label={
+                          elements.length > 1
+                            ? `${group.category} properties for ${element.name}`
+                            : `${group.category} properties`
+                        }
+                        onCopy={copy}
+                      />
                     </details>
                   ))}
                 </div>
