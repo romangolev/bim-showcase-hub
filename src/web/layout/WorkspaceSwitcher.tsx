@@ -12,8 +12,11 @@ import {
 } from './workspaces.js';
 import './workspaces.css';
 import { Button } from '../ui/Button.js';
+import { Field, FieldError, FieldLabel } from '../ui/Field.js';
 import { IconButton } from '../ui/IconButton.js';
+import { Input } from '../ui/Input.js';
 import { Popover, PopoverPopup, PopoverTrigger } from '../ui/Popover.js';
+import { Textarea } from '../ui/Textarea.js';
 
 interface FormProps {
   close: () => void;
@@ -63,9 +66,9 @@ function NameForm({
         close();
       }}
     >
-      <label className="settings__field">
-        {title}
-        <input
+      <Field>
+        <FieldLabel>{title}</FieldLabel>
+        <Input
           ref={inputRef}
           type="text"
           aria-label="Workspace name"
@@ -78,12 +81,8 @@ function NameForm({
             setConfirm(null);
           }}
         />
-      </label>
-      {error ? (
-        <p className="settings__hint" role="alert">
-          {error}
-        </p>
-      ) : null}
+        {error ? <FieldError role="alert">{error}</FieldError> : null}
+      </Field>
       <div className="settings__actions">
         <Button variant="primary" type="submit">
           {confirm === name ? 'Replace workspace' : submitLabel}
@@ -100,6 +99,7 @@ function ImportForm({
 }: FormProps & { workspace: WorkspaceApi }) {
   const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const fileId = useId();
   const readFile = async (file: File | undefined) => {
     if (!file) return;
     setText(await file.text());
@@ -114,9 +114,9 @@ function ImportForm({
         if (message) setError(message);
       }}
     >
-      <label className="settings__field">
-        Workspace JSON
-        <textarea
+      <Field>
+        <FieldLabel>Workspace JSON</FieldLabel>
+        <Textarea
           aria-label="Workspace JSON"
           rows={7}
           spellCheck={false}
@@ -126,18 +126,21 @@ function ImportForm({
             setError(null);
           }}
         />
-      </label>
-      <label className="settings__field">
-        Open a file
-        <input
-          type="file"
-          accept=".json,application/json"
-          aria-label="Import a workspace file"
-          onChange={(event) => {
-            void readFile(event.target.files?.[0]);
-          }}
-        />
-      </label>
+      </Field>
+      <Field controlId={fileId}>
+        <FieldLabel>
+          Open a file
+          <input
+            id={fileId}
+            type="file"
+            accept=".json,application/json"
+            aria-label="Import a workspace file"
+            onChange={(event) => {
+              void readFile(event.target.files?.[0]);
+            }}
+          />
+        </FieldLabel>
+      </Field>
       <fieldset
         className="workspaces__drop"
         onDragOver={(event) => event.preventDefault()}
@@ -250,7 +253,7 @@ export function WorkspaceSwitcher() {
       >
         <PopoverTrigger
           ref={triggerRef}
-          render={<IconButton label="Workspaces" title="Workspaces" />}
+          render={<IconButton label="Workspaces" tooltip />}
           onKeyDown={(event) => {
             if (open || event.key !== 'ArrowDown') return;
             event.preventDefault();

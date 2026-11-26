@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '../test/render.js';
 import { ModelTintSwatch } from './ModelTintSwatch.js';
 
-function renderSwatch(onPick = vi.fn()) {
+function renderSwatch(onPick = vi.fn(), onStrength = vi.fn()) {
   render(
     <>
       <button type="button">Outside</button>
@@ -12,7 +12,7 @@ function renderSwatch(onPick = vi.fn()) {
         tint={null}
         strength={0.5}
         onPick={onPick}
-        onStrength={vi.fn()}
+        onStrength={onStrength}
         onClear={vi.fn()}
         onPaletteColor={vi.fn()}
         onResetPalette={vi.fn()}
@@ -21,6 +21,7 @@ function renderSwatch(onPick = vi.fn()) {
   );
   return {
     onPick,
+    onStrength,
     trigger: screen.getByRole('button', { name: 'Tint House' }),
   };
 }
@@ -67,5 +68,18 @@ describe('ModelTintSwatch', () => {
     );
     expect(onPick).toHaveBeenCalledWith('#4f8cff');
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('reports the tint strength from a labelled slider', () => {
+    const { onStrength, trigger } = renderSwatch();
+    fireEvent.click(trigger);
+    const slider = screen.getByRole('slider', {
+      name: 'Tint strength for House',
+    });
+    expect(slider).toHaveAttribute('data-slot', 'slider');
+    expect(slider).toHaveValue('0.5');
+    expect(slider.closest('label')).toBeNull();
+    fireEvent.change(slider, { target: { value: '0.75' } });
+    expect(onStrength).toHaveBeenCalledWith(0.75);
   });
 });

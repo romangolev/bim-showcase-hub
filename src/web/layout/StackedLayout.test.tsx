@@ -218,4 +218,26 @@ describe('stacked layout', () => {
       document.querySelectorAll('.stack__column > .pane-slot'),
     ).toHaveLength(1);
   });
+
+  it('opens the document sheet as a drawer and closes it with Escape', async () => {
+    mockMatchMedia(800);
+    renderPath('/model/abc123');
+    const toggle = await screen.findByRole('button', {
+      name: 'Expand document tree',
+    });
+    fireEvent.click(toggle);
+    const sheet = document.querySelector('.stack__tree');
+    expect(sheet).toHaveAttribute('data-slot', 'drawer');
+    expect(sheet).not.toHaveAttribute('hidden');
+    await waitFor(() =>
+      expect(
+        sheet?.querySelector('[data-slot="drawer-body"] #document-panel'),
+      ).not.toBeNull(),
+    );
+    expect(
+      screen.getByRole('button', { name: 'Close document tree' }),
+    ).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(sheet).toHaveAttribute('hidden'));
+  });
 });

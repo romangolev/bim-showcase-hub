@@ -170,15 +170,6 @@
   font-size: var(--text-13);
 }
 
-.settings__field {
-  display: grid;
-  grid-template-columns: minmax(10rem, 16rem) minmax(0, 1fr);
-  align-items: center;
-  column-gap: var(--space-4);
-  row-gap: var(--space-1);
-  color: var(--color-snow);
-}
-
 :is([data-slot="field"], [data-slot="field-label"])
   > :is([data-slot="button"], [data-slot="toggle-button"]) {
   justify-self: start;
@@ -198,22 +189,7 @@
   color: var(--color-snow);
 }
 
-.settings
-  input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"]),
-.settings select,
-.settings textarea,
-.field {
-  min-width: 0;
-  min-height: var(--hit-target);
-  padding: 0 var(--space-2);
-  border: var(--border-field);
-  border-radius: var(--radius-tile);
-  background: var(--color-charcoal);
-  color: var(--color-snow);
-  font-size: var(--text-14);
-}
-
-.settings input[type="number"] {
+.settings [data-slot="number-field"] {
   width: 8rem;
 }
 
@@ -296,12 +272,6 @@
   margin: 0;
   font-size: var(--text-13);
   color: var(--color-chalk);
-}
-
-@container (max-width: 32rem) {
-  .settings__field {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 .ifc-batch__list {

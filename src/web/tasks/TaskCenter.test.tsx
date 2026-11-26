@@ -95,7 +95,12 @@ describe('TaskCenter', () => {
 
   it('closes on Escape and on an outside press', () => {
     const store = createTaskStore();
-    render(<TaskCenter store={store} />);
+    render(
+      <>
+        <TaskCenter store={store} />
+        <button type="button">Outside</button>
+      </>,
+    );
     act(() => {
       store.start({ label: 'A' });
     });
@@ -108,7 +113,25 @@ describe('TaskCenter', () => {
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.queryByRole('region', { name: 'Tasks' })).toBeNull();
     fireEvent.click(trigger);
-    fireEvent.pointerDown(document.body);
+    const outside = screen.getByRole('button', { name: 'Outside' });
+    fireEvent.pointerDown(outside);
+    fireEvent.mouseDown(outside);
+    fireEvent.click(outside);
     expect(screen.queryByRole('region', { name: 'Tasks' })).toBeNull();
+  });
+
+  it('keeps focus in the top bar when the last task leaves the open list', () => {
+    const store = createTaskStore();
+    render(<TaskCenter store={store} />);
+    act(() => {
+      store.start({ label: 'Exporting' }).fail(new Error('offline'));
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Tasks' }));
+    expect(screen.getByRole('region', { name: 'Tasks' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss Exporting' }));
+    expect(screen.queryByRole('region', { name: 'Tasks' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Tasks' })).toBeNull();
+    expect(document.activeElement).not.toBe(document.body);
+    expect(document.activeElement?.closest('.task-center')).not.toBeNull();
   });
 });

@@ -36,12 +36,16 @@ import { List, ListItem } from './List.js';
 import {
   Menu,
   MenuCheckboxItem,
+  MenuEmpty,
+  MenuFilterProvider,
   MenuGroup,
   MenuGroupLabel,
   MenuHint,
   MenuInertItem,
+  MenuInput,
   MenuItem,
   MenuItemIndicator,
+  MenuList,
   MenuPopup,
   MenuSeparator,
   MenuTrigger,
@@ -171,6 +175,45 @@ const ENTRIES: Entry[] = [
           </MenuGroup>
         </MenuPopup>
       </Menu>
+    ),
+  },
+  {
+    file: 'Menu',
+    slot: 'menu-input',
+    render: (props) => (
+      <MenuFilterProvider filter={null}>
+        <Menu open>
+          <MenuPopup>
+            <MenuInput aria-label="label" {...props} />
+          </MenuPopup>
+        </Menu>
+      </MenuFilterProvider>
+    ),
+  },
+  {
+    file: 'Menu',
+    slot: 'menu-list',
+    render: (props) => (
+      <MenuFilterProvider filter={null}>
+        <Menu open>
+          <MenuPopup>
+            <MenuList {...props} />
+          </MenuPopup>
+        </Menu>
+      </MenuFilterProvider>
+    ),
+  },
+  {
+    file: 'Menu',
+    slot: 'menu-empty',
+    render: (props) => (
+      <MenuFilterProvider filter={null}>
+        <Menu open>
+          <MenuPopup>
+            <MenuEmpty {...props} />
+          </MenuPopup>
+        </Menu>
+      </MenuFilterProvider>
     ),
   },
   {

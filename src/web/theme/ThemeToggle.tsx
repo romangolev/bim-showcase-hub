@@ -48,7 +48,7 @@ export function ThemeToggle() {
     <IconButton
       className="theme-toggle"
       label={label}
-      title={label}
+      tooltip
       onClick={toggleTheme}
     >
       {scheme === 'dark' ? <SunIcon /> : <MoonIcon />}

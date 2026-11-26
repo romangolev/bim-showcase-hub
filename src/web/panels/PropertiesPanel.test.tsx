@@ -1,5 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen, waitFor } from '../test/render.js';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '../test/render.js';
 import { createMockViewerAdapter } from '../viewer/MockViewerAdapter.js';
 import { buildMockElements } from '../viewer/mockModel.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
@@ -160,5 +167,125 @@ describe('PropertiesPanel', () => {
     );
     expect(error).not.toHaveBeenCalled();
     error.mockRestore();
+  });
+
+  it('renders each category as a table with named, resizable columns', async () => {
+    const adapter = await load(['urn-a']);
+    const modelId = adapter.getModels()[0]?.id ?? '';
+    const measure = vi
+      .spyOn(Element.prototype, 'getBoundingClientRect')
+      .mockReturnValue({ width: 120 } as DOMRect);
+    render(<PropertiesPanel adapter={adapter} />);
+    act(() => {
+      adapter.selectModelIds([{ modelId, dbId: first?.dbId ?? 0 }]);
+    });
+    const table = await screen.findByRole('table', {
+      name: 'Identity Data properties',
+    });
+    expect(within(table).getAllByRole('columnheader')).toHaveLength(2);
+    expect(
+      within(table)
+        .getAllByRole('columnheader')
+        .map((head) => head.textContent),
+    ).toEqual(['Property', 'Value']);
+    expect(
+      within(table)
+        .getAllByRole('separator')
+        .map((handle) => handle.ariaLabel),
+    ).toEqual(['Resize Property column', 'Resize Value column']);
+    const handle = within(table).getByRole('separator', {
+      name: 'Resize Value column',
+    });
+    fireEvent.keyDown(handle, { key: 'ArrowRight' });
+    measure.mockRestore();
+    expect(table).toHaveAttribute('data-fixed');
+    expect(
+      within(table).getByRole('columnheader', { name: 'Value' }).style.width,
+    ).toBe('136px');
+    fireEvent.keyDown(handle, { key: 'Enter' });
+    expect(table).not.toHaveAttribute('data-fixed');
+  });
+
+  it('names each table by its element when several are selected', async () => {
+    const adapter = await load(['urn-a']);
+    const modelId = adapter.getModels()[0]?.id ?? '';
+    const [one, two] = buildMockElements();
+    vi.spyOn(adapter, 'getElementsProperties').mockResolvedValue([
+      {
+        dbId: one?.dbId ?? 0,
+        name: 'Wall A',
+        properties: [{ category: 'Identity Data', name: 'Mark', value: 'A' }],
+      },
+      {
+        dbId: two?.dbId ?? 0,
+        name: 'Wall B',
+        properties: [{ category: 'Identity Data', name: 'Mark', value: 'B' }],
+      },
+    ]);
+    render(<PropertiesPanel adapter={adapter} />);
+    act(() => {
+      adapter.selectModelIds([
+        { modelId, dbId: one?.dbId ?? 0 },
+        { modelId, dbId: two?.dbId ?? 0 },
+      ]);
+    });
+    expect(await screen.findByText('Wall A')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('table', {
+        name: 'Identity Data properties for Wall A',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('table', {
+        name: 'Identity Data properties for Wall B',
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('resizes with mirrored arrow keys in a right-to-left container', async () => {
+    const adapter = await load(['urn-a']);
+    const modelId = adapter.getModels()[0]?.id ?? '';
+    const measure = vi
+      .spyOn(Element.prototype, 'getBoundingClientRect')
+      .mockReturnValue({ width: 120 } as DOMRect);
+    render(
+      <div dir="rtl">
+        <PropertiesPanel adapter={adapter} />
+      </div>,
+    );
+    act(() => {
+      adapter.selectModelIds([{ modelId, dbId: first?.dbId ?? 0 }]);
+    });
+    const table = await screen.findByRole('table', {
+      name: 'Identity Data properties',
+    });
+    const handle = within(table).getByRole('separator', {
+      name: 'Resize Value column',
+    });
+    fireEvent.keyDown(handle, { key: 'ArrowLeft' });
+    measure.mockRestore();
+    expect(
+      within(table).getByRole('columnheader', { name: 'Value' }).style.width,
+    ).toBe('136px');
+    fireEvent.keyDown(handle, { key: 'ArrowRight' });
+    expect(
+      within(table).getByRole('columnheader', { name: 'Value' }).style.width,
+    ).toBe('120px');
+  });
+
+  it('switches the model through the select', async () => {
+    const adapter = await load(['urn-a', 'urn-b']);
+    const [a, b] = adapter.getModels();
+    const onChange = vi.fn();
+    render(
+      <PropertiesPanel
+        adapter={adapter}
+        scope={{ value: a?.id ?? '', onChange }}
+      />,
+    );
+    fireEvent.change(screen.getByRole('combobox', { name: 'Model' }), {
+      target: { value: b?.id ?? '' },
+    });
+    expect(onChange).toHaveBeenCalledWith(b?.id);
   });
 });

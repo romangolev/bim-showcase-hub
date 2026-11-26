@@ -1,6 +1,7 @@
 import { Fragment, type KeyboardEvent, useEffect, useRef } from 'react';
 import type { OpenModelsState } from '../api/openModels.js';
 import { Icon } from '../components/icons.js';
+import { Drawer, DrawerBody } from '../ui/Drawer.js';
 import { Tab, Tabs, TabsList } from '../ui/Tabs.js';
 import type { PaneTags, PaneTitles } from './layoutContext.js';
 import { modelPanelId } from './panelIds.js';
@@ -159,9 +160,11 @@ export function StackedLayout({
   const viewerSlot = modelPanelId(models.active as string);
   return (
     <div className="app-body stack">
-      <div className="stack__tree" hidden={!treeOpen}>
-        <PaneSlot hosts={hosts} id="tree" onAttach={onAttach} />
-      </div>
+      <Drawer className="stack__tree" hidden={!treeOpen}>
+        <DrawerBody className="stack__tree-body">
+          <PaneSlot hosts={hosts} id="tree" onAttach={onAttach} />
+        </DrawerBody>
+      </Drawer>
       <button
         type="button"
         className="tree-backdrop"

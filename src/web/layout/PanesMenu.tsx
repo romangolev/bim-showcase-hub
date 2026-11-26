@@ -1,13 +1,25 @@
-import { type KeyboardEvent, useId, useMemo, useRef, useState } from 'react';
+import { useId, useMemo, useRef, useState } from 'react';
 import type { Command } from '../commands/types.js';
 import { Hint } from '../components/Hint.js';
 import { Icon } from '../components/icons.js';
 import type { MenuEntry } from '../components/Menu.js';
-import { moveFocus } from '../components/moveFocus.js';
 import { useT } from '../i18n/i18n.js';
 import { useModal } from '../modal/index.js';
 import { IconButton } from '../ui/IconButton.js';
-import { Popover, PopoverPopup, PopoverTrigger } from '../ui/Popover.js';
+import {
+  MenuCheckboxItem,
+  MenuFilterProvider,
+  MenuGroup,
+  MenuGroupLabel,
+  MenuInput,
+  MenuItem,
+  MenuItemIndicator,
+  MenuList,
+  MenuPopup,
+  Menu as MenuRoot,
+  MenuSeparator,
+  MenuTrigger,
+} from '../ui/Menu.js';
 import { layoutCommands, paneCommandContext } from './layoutCommandList.js';
 import { type LayoutApi, useLayout } from './layoutContext.js';
 import { layoutMenuEntries } from './PaneMenu.js';
@@ -105,66 +117,72 @@ function PaneRowItem({ row, onRun, onFocus }: RowProps) {
     : create
       ? t('panes.new')
       : null;
+  const label = toggle ? pane.title : (primary?.title ?? pane.title);
+  const description = primary?.disabled
+    ? primary.disabled
+    : toggle
+      ? t(row.open ? 'panes.closePane' : 'panes.openPane', {
+          title: pane.title,
+        })
+      : primary?.title;
+  const content = (
+    <>
+      <Icon name={pane.icon} size={16} className="panes-menu__icon" />
+      <span className="panes-menu__text">
+        <span className="panes-menu__title">{pane.title}</span>
+        <span id={descriptionId} className="panes-menu__description">
+          {pane.description}
+        </span>
+      </span>
+      {state ? <span className="panes-menu__state">{state}</span> : null}
+    </>
+  );
   return (
-    <li className="panes-menu__row" role="none" data-kind={pane.id}>
+    <div className="panes-menu__row" role="none" data-kind={pane.id}>
       {primary ? (
-        // biome-ignore lint/a11y/useAriaPropsSupportedByRole: the role follows the command kind
-        <button
-          type="button"
-          role={toggle ? 'menuitemcheckbox' : 'menuitem'}
-          aria-checked={toggle ? row.open : undefined}
-          aria-label={toggle ? pane.title : primary.title}
-          aria-describedby={descriptionId}
-          className="panes-menu__main"
-          disabled={Boolean(primary.disabled)}
-          title={
-            primary.disabled ??
-            (toggle
-              ? t(row.open ? 'panes.closePane' : 'panes.openPane', {
-                  title: pane.title,
-                })
-              : primary.title)
-          }
-          onClick={() => onRun(primary)}
-        >
-          <Icon name={pane.icon} size={16} className="panes-menu__icon" />
-          <span className="panes-menu__text">
-            <span className="panes-menu__title">{pane.title}</span>
-            <span id={descriptionId} className="panes-menu__description">
-              {pane.description}
-            </span>
-          </span>
-          {state ? <span className="panes-menu__state">{state}</span> : null}
-        </button>
+        toggle ? (
+          <MenuCheckboxItem
+            checked={row.open}
+            aria-label={label}
+            aria-describedby={descriptionId}
+            className="panes-menu__main"
+            disabled={Boolean(primary.disabled)}
+            title={description}
+            onClick={() => onRun(primary)}
+          >
+            {content}
+          </MenuCheckboxItem>
+        ) : (
+          <MenuItem
+            aria-label={label}
+            aria-describedby={descriptionId}
+            className="panes-menu__main"
+            disabled={Boolean(primary.disabled)}
+            title={description}
+            onClick={() => onRun(primary)}
+          >
+            {content}
+          </MenuItem>
+        )
       ) : (
         <div className="panes-menu__main panes-menu__main--static">
-          <Icon name={pane.icon} size={16} className="panes-menu__icon" />
-          <span className="panes-menu__text">
-            <span className="panes-menu__title">{pane.title}</span>
-            <span id={descriptionId} className="panes-menu__description">
-              {pane.description}
-            </span>
-          </span>
+          {content}
         </div>
       )}
       <div className="panes-menu__actions">
         {toggle && row.open ? (
-          <button
-            type="button"
-            role="menuitem"
+          <MenuItem
             className="panes-menu__action"
             aria-label={t('panes.focusPane', { title: pane.title })}
             title={t('panes.focusPane', { title: pane.title })}
             onClick={onFocus}
           >
             <Icon name="locate" size={14} />
-          </button>
+          </MenuItem>
         ) : null}
         {extras.map((command) => (
-          <button
+          <MenuItem
             key={command.id}
-            type="button"
-            role="menuitem"
             className="panes-menu__action"
             aria-label={command.title}
             title={command.disabled ?? command.title}
@@ -172,10 +190,10 @@ function PaneRowItem({ row, onRun, onFocus }: RowProps) {
             onClick={() => onRun(command)}
           >
             {command.icon ? <Icon name={command.icon} size={14} /> : null}
-          </button>
+          </MenuItem>
         ))}
       </div>
-    </li>
+    </div>
   );
 }
 
@@ -187,25 +205,28 @@ function FooterEntry({
   onRun: (entry: MenuEntry) => void;
 }) {
   const checked = entry.checked;
-  return (
-    // biome-ignore lint/a11y/useAriaPropsSupportedByRole: the role follows the command kind
-    <button
-      type="button"
-      role={checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
-      aria-checked={checked}
-      className="panes-menu__command"
-      disabled={entry.disabled}
-      title={entry.description}
-      onClick={() => onRun(entry)}
-    >
-      <span className="panes-menu__command-check">
+  const content = (
+    <>
+      <MenuItemIndicator>
         {checked ? <Icon name="check" size={14} /> : null}
-      </span>
+      </MenuItemIndicator>
       {entry.icon ? (
         <Icon name={entry.icon} size={14} className="menu-icon" />
       ) : null}
       {entry.label}
-    </button>
+    </>
+  );
+  const shared = {
+    title: entry.description,
+    disabled: Boolean(entry.disabled),
+    onClick: () => onRun(entry),
+  };
+  return checked === undefined ? (
+    <MenuItem {...shared}>{content}</MenuItem>
+  ) : (
+    <MenuCheckboxItem {...shared} checked={checked}>
+      {content}
+    </MenuCheckboxItem>
   );
 }
 
@@ -216,7 +237,6 @@ export function PanesMenu() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const searchRef = useRef<HTMLInputElement>(null);
 
   const rows = useMemo(() => rowsOf(layout), [layout]);
   const visiblePanes = useMemo(() => rows.map((row) => row.pane), [rows]);
@@ -253,118 +273,82 @@ export function PanesMenu() {
     entry.onSelect();
   };
 
-  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    const box = event.currentTarget;
-    const buttons = Array.from(
-      box.querySelectorAll<HTMLButtonElement>(
-        '[role^="menuitem"]:not(:disabled)',
-      ),
-    );
-    if (buttons.length === 0) return;
-    const target = event.target as HTMLElement;
-    const item = target.closest<HTMLButtonElement>('[role^="menuitem"]');
-    const index = item ? buttons.indexOf(item) : -1;
-    if (!item && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
-      event.preventDefault();
-      buttons[event.key === 'ArrowDown' ? 0 : buttons.length - 1]?.focus();
-      return;
-    }
-    if (item) moveFocus(event, buttons, index);
-  };
-
   return (
-    <Popover
-      open={open}
-      onOpenChange={(next, details) =>
-        next ? setOpen(true) : close(details.reason === 'escape-key')
-      }
-    >
-      <PopoverTrigger
-        ref={triggerRef}
-        render={
-          <IconButton label={t('panes.title')} title={t('panes.title')} />
+    <MenuFilterProvider filter={null} value={query} onValueChange={setQuery}>
+      <MenuRoot
+        open={open}
+        modal={false}
+        onOpenChange={(next, details) =>
+          next ? setOpen(true) : close(details.reason === 'escape-key')
         }
-        onKeyDown={(event) => {
-          if (open || event.key !== 'ArrowDown') return;
-          event.preventDefault();
-          setOpen(true);
-        }}
       >
-        <Icon name="dock" size={18} />
-      </PopoverTrigger>
-      <PopoverPopup
-        className="panes-menu__popover"
-        aria-label={t('panes.title')}
-        initialFocus={searchRef}
-        finalFocus={false}
-        onKeyDown={onKeyDown}
-      >
-        <div className="panes-menu__search">
-          <Icon name="search" size={14} className="panes-menu__icon" />
-          <input
-            ref={searchRef}
-            type="search"
-            aria-label={t('panes.search')}
-            placeholder={t('panes.search')}
-            autoComplete="off"
-            spellCheck={false}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </div>
-        <Hint id="panes-menu">{t('panes.hint')}</Hint>
-        <div
-          className="panes-menu__body"
-          role="menu"
-          aria-label={t('panes.title')}
+        <MenuTrigger
+          ref={triggerRef}
+          render={<IconButton label={t('panes.title')} tooltip />}
         >
-          <div className="panes-menu__list">
+          <Icon name="dock" size={18} />
+        </MenuTrigger>
+        <MenuPopup
+          className="panes-menu__popover"
+          aria-label={t('panes.title')}
+          finalFocus={false}
+          align="end"
+        >
+          <div className="panes-menu__search">
+            <Icon name="search" size={14} className="panes-menu__icon" />
+            <MenuInput
+              aria-label={t('panes.search')}
+              placeholder={t('panes.search')}
+            />
+          </div>
+          <Hint id="panes-menu">{t('panes.hint')}</Hint>
+          <MenuList className="panes-menu__body" aria-label={t('panes.title')}>
             {groups.map((group) => (
-              <fieldset
+              <MenuGroup
                 key={group.category || 'matches'}
                 className="panes-menu__group"
                 aria-label={group.category || t('panes.matching')}
               >
                 {group.category ? (
-                  <h3 className="panes-menu__heading">{group.category}</h3>
+                  <MenuGroupLabel className="panes-menu__heading">
+                    {group.category}
+                  </MenuGroupLabel>
                 ) : null}
-                <ul role="none" className="panes-menu__rows">
-                  {group.panes.map((pane) => {
-                    const row = rowById.get(pane.id);
-                    if (!row) return null;
-                    return (
-                      <PaneRowItem
-                        key={pane.id}
-                        row={row}
-                        onRun={run}
-                        onFocus={() => {
-                          close(true);
-                          layout.focusPane(pane.id);
-                        }}
-                      />
-                    );
-                  })}
-                </ul>
-              </fieldset>
+                {group.panes.map((pane) => {
+                  const row = rowById.get(pane.id);
+                  if (!row) return null;
+                  return (
+                    <PaneRowItem
+                      key={pane.id}
+                      row={row}
+                      onRun={run}
+                      onFocus={() => {
+                        close(true);
+                        layout.focusPane(pane.id);
+                      }}
+                    />
+                  );
+                })}
+              </MenuGroup>
             ))}
             {groups.length === 0 ? (
               <p className="panes-menu__empty">{t('panes.empty')}</p>
             ) : null}
-          </div>
+          </MenuList>
           {footer.length > 0 ? (
             <div className="panes-menu__footer">
               {footer.map((entry) =>
                 entry.kind === 'separator' ? (
-                  <hr key={entry.id} className="panes-menu__separator" />
+                  <MenuSeparator key={entry.id} />
                 ) : (
                   <FooterEntry key={entry.id} entry={entry} onRun={runEntry} />
                 ),
               )}
             </div>
           ) : null}
-        </div>
-      </PopoverPopup>
-    </Popover>
+        </MenuPopup>
+      </MenuRoot>
+    </MenuFilterProvider>
   );
 }
 

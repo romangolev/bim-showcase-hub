@@ -116,6 +116,44 @@ describe('Table', () => {
     );
   });
 
+  it('keeps a trailing control beside the sort button, outside it', () => {
+    render(
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableSortHead
+              sort="none"
+              onSort={() => undefined}
+              trailing={<span data-testid="handle" />}
+            >
+              Value
+            </TableSortHead>
+          </TableRow>
+        </TableHeader>
+      </Table>,
+    );
+    expect(screen.getByTestId('handle')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Value' })).not.toContainElement(
+      screen.getByTestId('handle'),
+    );
+  });
+
+  it('marks numeric heads and cells for logical end alignment', () => {
+    render(<Sample />);
+    expect(screen.getByRole('columnheader', { name: 'Count' })).toHaveAttribute(
+      'data-numeric',
+    );
+    expect(screen.getByRole('cell', { name: '12' })).toHaveAttribute(
+      'data-numeric',
+    );
+    expect(
+      screen.getByRole('columnheader', { name: 'Value' }),
+    ).not.toHaveAttribute('data-numeric');
+    expect(
+      screen.getByRole('rowheader', { name: 'Basic Wall' }),
+    ).not.toHaveAttribute('data-numeric');
+  });
+
   it('lets an app class win and keeps a caller scope', () => {
     render(
       <Table>

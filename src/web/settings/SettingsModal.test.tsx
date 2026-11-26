@@ -13,6 +13,7 @@ import {
   SettingsProvider,
   selectSettingsSection,
 } from './index.js';
+import { readSettings } from './settings.js';
 
 beforeEach(() => {
   installMemoryStorage();
@@ -109,6 +110,49 @@ describe('SettingsBody', () => {
       window.localStorage.getItem('bsh-settings-v1') ?? '{}',
     );
     expect(stored).toMatchObject({ language: 'ru', units: 'imperial' });
+  });
+
+  it('commits the numeric settings on blur and clamps them', () => {
+    renderBody();
+    section('General');
+    const warn = screen.getByLabelText(/Warn me before the session ends/);
+    expect(warn).toHaveAttribute('data-slot', 'number-field');
+    fireEvent.change(warn, { target: { value: '500' } });
+    fireEvent.blur(warn);
+    expect(
+      JSON.parse(window.localStorage.getItem('bsh-settings-v1') ?? '{}'),
+    ).toMatchObject({ sessionWarnMinutes: 120 });
+    fireEvent.change(warn, { target: { value: '10.5' } });
+    fireEvent.blur(warn);
+    expect(
+      JSON.parse(window.localStorage.getItem('bsh-settings-v1') ?? '{}'),
+    ).toMatchObject({ sessionWarnMinutes: 11 });
+    section('Documents');
+    const recents = screen.getByLabelText('Recent models to list');
+    fireEvent.change(recents, { target: { value: '2.8' } });
+    fireEvent.blur(recents);
+    expect(
+      JSON.parse(window.localStorage.getItem('bsh-settings-v1') ?? '{}'),
+    ).toMatchObject({ recentsLength: 3 });
+    fireEvent.change(recents, { target: { value: '99' } });
+    fireEvent.blur(recents);
+    expect(
+      JSON.parse(window.localStorage.getItem('bsh-settings-v1') ?? '{}'),
+    ).toMatchObject({ recentsLength: 20 });
+  });
+
+  it('keeps the session warning in whole minutes across a reload', () => {
+    renderBody();
+    section('General');
+    const warn = screen.getByLabelText(/Warn me before the session ends/);
+    fireEvent.change(warn, { target: { value: '2.5' } });
+    fireEvent.blur(warn);
+    expect(warn).toHaveValue(3);
+    expect(readSettings().sessionWarnMinutes).toBe(3);
+    fireEvent.change(warn, { target: { value: '0.4' } });
+    fireEvent.blur(warn);
+    expect(warn).toHaveValue(0);
+    expect(readSettings().sessionWarnMinutes).toBe(0);
   });
 
   it('resets app settings to their defaults', () => {

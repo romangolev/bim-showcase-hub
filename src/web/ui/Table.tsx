@@ -104,6 +104,7 @@ export function TableHead({
       scope="col"
       {...props}
       data-slot="table-head"
+      data-numeric={numeric ? '' : undefined}
       data-effect={effect}
       className={cn(
         cell,
@@ -120,6 +121,7 @@ export type TableSortHeadProps = Omit<TableHeadProps, 'aria-sort'> & {
   sort: TableSort;
   onSort: () => void;
   indicator?: ReactNode;
+  trailing?: ReactNode;
 };
 
 export function TableSortHead({
@@ -130,6 +132,7 @@ export function TableSortHead({
   sort,
   onSort,
   indicator,
+  trailing,
   children,
   ...props
 }: TableSortHeadProps) {
@@ -139,6 +142,7 @@ export function TableSortHead({
       {...props}
       aria-sort={sort}
       data-slot="table-sort-head"
+      data-numeric={numeric ? '' : undefined}
       data-effect={effect}
       className={cn(
         cell,
@@ -157,6 +161,7 @@ export function TableSortHead({
         {children}
         {indicator}
       </button>
+      {trailing}
     </th>
   );
 }
@@ -179,6 +184,7 @@ export function TableCell({
       scope={rowHeader ? 'row' : undefined}
       {...props}
       data-slot="table-cell"
+      data-numeric={numeric ? '' : undefined}
       data-effect={effect}
       className={cn(
         cell,

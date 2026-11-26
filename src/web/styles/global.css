@@ -97,13 +97,13 @@
     outline-color: Highlight;
   }
 
-  .panes-menu__command[aria-checked="true"],
+  .panes-menu__popover [role="menuitemcheckbox"][aria-checked="true"],
   .tree-row[data-selected="true"] {
     border: 1px solid ButtonText;
   }
 
   .tree-row[data-selected="true"],
-  .panes-menu__command[aria-checked="true"] {
+  .panes-menu__popover [role="menuitemcheckbox"][aria-checked="true"] {
     forced-color-adjust: none;
     background: Highlight;
     color: HighlightText;

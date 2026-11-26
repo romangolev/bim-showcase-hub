@@ -44,6 +44,7 @@ import {
 } from '../ui/Dialog.js';
 import { FieldLabel } from '../ui/Field.js';
 import { Input } from '../ui/Input.js';
+import { NumberField } from '../ui/NumberField.js';
 import { Radio, RadioGroup } from '../ui/Radio.js';
 import { Select, SelectOption } from '../ui/Select.js';
 
@@ -58,13 +59,6 @@ export interface SummaryPropertyOptions {
 }
 
 const GROUP_CAP = 100;
-
-function parsePrecision(text: string): number {
-  const value = Number(text);
-  return text.trim() === '' || Number.isNaN(value)
-    ? DEFAULT_PRECISION
-    : Math.min(MAX_PRECISION, Math.max(0, Math.floor(value)));
-}
 
 function SummaryPropertyDialog({
   adapter,
@@ -92,8 +86,8 @@ function SummaryPropertyDialog({
     start?.aggregate ?? initial?.aggregate ?? 'count',
   );
   const [title, setTitle] = useState(start?.title ?? '');
-  const [precisionText, setPrecisionText] = useState(
-    String(start?.precision ?? DEFAULT_PRECISION),
+  const [precision, setPrecision] = useState(
+    start?.precision ?? DEFAULT_PRECISION,
   );
   const [category, setCategory] = useState<string | null>(null);
   const [unitLabel, setUnitLabel] = useState(start?.unitLabel ?? '');
@@ -117,19 +111,20 @@ function SummaryPropertyDialog({
       group.properties.some((info) => info.name === property),
     )?.category;
   const typed = query.trim().slice(0, MAX_PROPERTY_NAME);
-  const precision = parsePrecision(precisionText);
   const numeric = NUMERIC_AGGREGATES.includes(aggregate);
-  const addition: SummaryAddition =
+  const precisionDraft = useRef(precision);
+  const buildAddition = (precisionValue: number): SummaryAddition =>
     role === 'rows'
       ? { role: 'rows', property: property.trim() }
       : {
           role: 'column',
           column: summaryColumn(property, aggregate, {
             title,
-            precision,
+            precision: precisionValue,
             unitLabel,
           }),
         };
+  const addition = buildAddition(precision);
   const problem = additionProblem(addition, rows, columns, editing);
   const generated = property.trim()
     ? columnTitle(summaryColumn(property, aggregate))
@@ -142,7 +137,7 @@ function SummaryPropertyDialog({
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (problem) return;
-    onSubmit(addition);
+    onSubmit(buildAddition(precisionDraft.current));
     onDone();
   };
 
@@ -324,13 +319,18 @@ function SummaryPropertyDialog({
                 <>
                   <FieldLabel layout="row">
                     Decimal places
-                    <Input
-                      type="number"
+                    <NumberField
                       min={0}
                       max={MAX_PRECISION}
-                      value={precisionText}
-                      onChange={(event) => setPrecisionText(event.target.value)}
-                      onBlur={() => setPrecisionText(String(precision))}
+                      value={precision}
+                      emptyValue={DEFAULT_PRECISION}
+                      onDraftChange={(next) => {
+                        precisionDraft.current = next ?? DEFAULT_PRECISION;
+                      }}
+                      onValueCommitted={(next) => {
+                        precisionDraft.current = next;
+                        setPrecision(next);
+                      }}
                     />
                   </FieldLabel>
                   <FieldLabel layout="row">

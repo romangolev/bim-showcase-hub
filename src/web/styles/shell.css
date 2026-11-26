@@ -522,55 +522,6 @@
   color: var(--color-fog);
 }
 
-.panes-menu__command {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  width: 100%;
-  min-height: var(--hit-target);
-  padding: 0 var(--space-3) 0 var(--space-2);
-  border: 0;
-  border-radius: var(--radius-tile);
-  background: transparent;
-  color: var(--color-chalk);
-  font: inherit;
-  text-align: start;
-  cursor: pointer;
-  transition:
-    background-color var(--transition-ui),
-    color var(--transition-ui);
-}
-
-.panes-menu__command:hover:not(:disabled),
-.panes-menu__command:focus-visible {
-  background: var(--color-ghost-fill-hover);
-  color: var(--color-snow);
-}
-
-.panes-menu__command:focus-visible {
-  outline-offset: -2px;
-}
-
-.panes-menu__command:disabled {
-  color: var(--color-ash);
-  cursor: not-allowed;
-}
-
-.panes-menu__command-check {
-  display: inline-grid;
-  flex: none;
-  place-items: center;
-  width: 16px;
-  color: var(--color-arc-blue);
-}
-
-.panes-menu__separator {
-  height: 0;
-  margin: var(--space-1) 0;
-  border: 0;
-  border-top: var(--border-hairline);
-}
-
 .panes-menu__popover {
   display: flex;
   flex-direction: column;
@@ -611,11 +562,6 @@
   flex: 1 1 auto;
   flex-direction: column;
   min-height: 0;
-}
-
-.panes-menu__list {
-  flex: 1 1 auto;
-  min-height: 0;
   overflow: auto;
   padding: var(--space-1) 0;
 }
@@ -648,7 +594,8 @@
   border-radius: var(--radius-tile);
 }
 
-.panes-menu__row:hover {
+.panes-menu__row:hover,
+.panes-menu__row:has([data-highlighted]) {
   background: var(--color-ghost-fill-hover);
 }
 
@@ -673,7 +620,8 @@
   cursor: default;
 }
 
-.panes-menu__main:disabled {
+.panes-menu__main:disabled,
+.panes-menu__main[data-disabled] {
   color: var(--color-ash);
   cursor: not-allowed;
 }
@@ -847,12 +795,6 @@
   content: "";
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .panes-menu__command {
-    transition: none;
-  }
-}
-
 html[data-presenting] .topbar,
 html[data-presenting] .session-banner,
 html[data-presenting] .dv-tabs-and-actions-container,
@@ -954,19 +896,13 @@ html[data-presenting] .stack .stack__pane--viewer .model-viewer {
 }
 
 .task-center__popover {
-  position: absolute;
-  top: calc(100% + var(--space-1));
-  right: 0;
-  z-index: var(--z-popover);
-  display: flex;
   width: min(360px, calc(100vw - 2 * var(--space-4)));
+}
+
+.task-center__popover > section {
+  display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  padding: var(--space-2);
-  border: var(--border-hairline);
-  border-radius: var(--radius-card);
-  background: var(--color-graphite);
-  box-shadow: var(--shadow-float);
 }
 
 .task-center__list {

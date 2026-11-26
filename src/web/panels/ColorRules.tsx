@@ -131,8 +131,9 @@ export function ColorRules({ value, onChange, properties }: ColorRulesProps) {
                     <NumberField
                       value={rule.min ?? 0}
                       min={Number.MIN_SAFE_INTEGER}
+                      integer={false}
                       onValueCommitted={(min) => update(rule.id, { min })}
-                      className="field--narrow"
+                      className="bsh-number--narrow"
                     />
                   </FieldLabel>
                   <FieldLabel layout="inline" variant="quiet">
@@ -140,8 +141,9 @@ export function ColorRules({ value, onChange, properties }: ColorRulesProps) {
                     <NumberField
                       value={rule.max ?? 0}
                       min={Number.MIN_SAFE_INTEGER}
+                      integer={false}
                       onValueCommitted={(max) => update(rule.id, { max })}
-                      className="field--narrow"
+                      className="bsh-number--narrow"
                     />
                   </FieldLabel>
                 </>

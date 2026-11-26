@@ -3,6 +3,14 @@ import { formatShortcut } from '../commands/shortcuts.js';
 import type { MessageId } from '../i18n/en.js';
 import { useT, type Vars } from '../i18n/i18n.js';
 import { Kbd } from '../ui/Kbd.js';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../ui/Table.js';
 import { type ShortcutRow, shortcutRows } from './shortcutRows.js';
 
 const FIXED_ROWS: readonly {
@@ -73,33 +81,33 @@ export function ShortcutList() {
     (a, b) => a.group.localeCompare(b.group) || a.title.localeCompare(b.title),
   );
   return (
-    <table className="shortcut-list">
+    <Table className="shortcut-list">
       <caption>{t('help.shortcuts')}</caption>
-      <thead>
-        <tr>
-          <th scope="col">{t('help.action')}</th>
-          <th scope="col">{t('help.keys')}</th>
-        </tr>
-      </thead>
+      <TableHeader>
+        <TableRow>
+          <TableHead>{t('help.action')}</TableHead>
+          <TableHead>{t('help.keys')}</TableHead>
+        </TableRow>
+      </TableHeader>
       {grouped(rows).map(([group, entries]) => (
-        <tbody key={group}>
-          <tr>
-            <th scope="rowgroup" colSpan={2}>
+        <TableBody key={group}>
+          <TableRow>
+            <TableHead scope="rowgroup" colSpan={2}>
               {group}
-            </th>
-          </tr>
+            </TableHead>
+          </TableRow>
           {entries.map((row) => (
-            <tr key={row.id}>
-              <th scope="row">{row.title}</th>
-              <td>
+            <TableRow key={row.id}>
+              <TableCell rowHeader>{row.title}</TableCell>
+              <TableCell>
                 {row.keys.map((keys) => (
                   <Kbd key={keys}>{labelOf(keys)}</Kbd>
                 ))}
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           ))}
-        </tbody>
+        </TableBody>
       ))}
-    </table>
+    </Table>
   );
 }

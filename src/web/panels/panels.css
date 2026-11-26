@@ -8,7 +8,6 @@
   color: var(--color-coral);
 }
 
-select.field,
 .bsh-select {
   max-width: 240px;
   text-overflow: ellipsis;
@@ -56,7 +55,7 @@ select.field,
   background: var(--color-graphite);
   color: var(--color-fog);
   font-weight: var(--weight-label);
-  text-align: left;
+  text-align: start;
   white-space: nowrap;
   border-bottom: var(--border-hairline);
 }
@@ -96,10 +95,11 @@ select.field,
   width: auto;
 }
 
-.bsh-table .bsh-num {
+.bsh-table .bsh-num,
+.bsh-table [data-numeric] {
   width: 1%;
   min-width: 9ch;
-  text-align: right;
+  text-align: end;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
@@ -110,7 +110,8 @@ select.field,
   white-space: nowrap;
 }
 
-.bsh-table[data-fixed] .bsh-num {
+.bsh-table[data-fixed] .bsh-num,
+.bsh-table[data-fixed] [data-numeric] {
   min-width: 0;
 }
 
@@ -304,11 +305,6 @@ select.field,
     flex: 1 0 100%;
   }
 
-  [data-slot="drawer-header"] .field {
-    flex: 1;
-    max-width: none;
-  }
-
   .bsh-dashboard__toggle-icon {
     display: block;
   }
@@ -468,7 +464,7 @@ select.field,
   list-style: none;
 }
 
-.field--narrow {
+.bsh-number--narrow {
   width: 5.5rem;
 }
 
@@ -845,7 +841,7 @@ select.field,
   gap: var(--space-2);
 }
 
-.bsh-props__tools .field {
+.bsh-props__tools :is([data-slot="input"], [data-slot="select"]) {
   flex: 1;
   min-width: 8rem;
 }
@@ -876,32 +872,35 @@ select.field,
   cursor: pointer;
 }
 
-.bsh-props__list {
-  margin: 0;
+.bsh-props__table {
+  width: 100%;
+  margin-bottom: var(--space-2);
 }
 
-.bsh-props__row {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) auto;
-  align-items: baseline;
-  gap: var(--space-2);
-  padding: var(--space-1) 0;
-  border-bottom: var(--border-hairline);
-  font-size: var(--text-13);
-}
-
-.bsh-props__row dt {
-  color: var(--color-ash);
+.bsh-props__key-cell {
+  width: 40%;
+  text-align: start;
+  white-space: normal;
   overflow-wrap: anywhere;
 }
 
-.bsh-props__row dd {
-  margin: 0;
-  color: var(--color-chalk);
+.bsh-props__value-cell {
+  white-space: normal;
+}
+
+.bsh-props__value-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.bsh-props__value {
   overflow-wrap: anywhere;
 }
 
 .bsh-props__copy {
+  flex: none;
   min-height: var(--hit-target);
   padding: 0 var(--space-2);
   background: none;
@@ -912,7 +911,7 @@ select.field,
   opacity: 0;
 }
 
-.bsh-props__row:hover .bsh-props__copy,
+.bsh-props__table tr:hover .bsh-props__copy,
 .bsh-props__copy:focus-visible {
   opacity: 1;
 }

@@ -40,6 +40,25 @@ THEME_TOGGLE = re.compile(r"Switch to (light|dark) theme", re.I)
 SUMMARY_TOGGLE = re.compile(r"(Collapse|Expand) .*summary", re.I)
 TREE_TOGGLE = re.compile(r"(Collapse|Expand) document tree", re.I)
 STRIP_TOGGLE = re.compile(r"^Pinned and Recent")
+TREE_SHEET = """() => {
+    const panel = document.querySelector('#document-panel');
+    const body = document.querySelector('.stack__tree-body');
+    const nav = document.querySelector('.topbar');
+    if (!panel || !body || !nav) return null;
+    const box = panel.getBoundingClientRect();
+    const navBottom = nav.getBoundingClientRect().bottom;
+    const hit = document.elementFromPoint(
+        Math.min(box.left + box.width / 2, window.innerWidth - 2),
+        Math.max(box.top + 32, navBottom + 32),
+    );
+    return {
+        top: Math.round(box.top), bottom: Math.round(box.bottom), left: Math.round(box.left),
+        width: Math.round(box.width), navBottom: Math.round(navBottom),
+        viewport: window.innerHeight, viewportWidth: window.innerWidth,
+        container: getComputedStyle(body).containerType,
+        inPanel: Boolean(hit && panel.contains(hit)), hit: hit ? hit.className : null,
+    };
+}"""
 VIEWER_WIDTH = "() => document.querySelector(\"[data-active='true'] .model-viewer\").getBoundingClientRect().width"
 SCENE_FIT_WIDTH = "() => Number(document.querySelector(\"[data-active='true'] .bsh-mock__scene\")?.dataset.fitWidth || 0)"
 ROOT_THEME = "() => document.documentElement.dataset.theme"
@@ -84,7 +103,15 @@ VIEWER_FILL = """() => {
     };
 }"""
 STACKED_LABEL = "() => document.querySelector(\".stack__model-tab[aria-selected='true']\")?.textContent || ''"
-STORED_LAYOUT = "() => JSON.parse(localStorage.getItem('bsh.layout.v2') || 'null')"
+ACTIVE_MODEL_TAB = """() => {
+    const group = document.querySelector("[data-active='true'] .model-viewer")?.closest('.dv-groupview');
+    const tab = group?.querySelector('.dv-tab.dv-active-tab .dv-default-tab-content');
+    return tab ? {text: tab.textContent, width: tab.clientWidth, scroll: tab.scrollWidth} : null;
+}"""
+RAIL_TAB_TITLES = """() => [...document.querySelectorAll('.dv-groupview[data-collapsed="width"] .dv-default-tab-content')].map((title) => ({
+    text: title.textContent, client: title.clientHeight, scroll: title.scrollHeight,
+}))"""
+STORED_LAYOUT ="() => JSON.parse(localStorage.getItem('bsh.layout.v2') || 'null')"
 MODELS = "mw:() => window.__bshLayout.models()"
 VIEWERS = """() => [...document.querySelectorAll('.pane-model')].map((body) => {
     const viewer = body.querySelector('.model-viewer')?.getBoundingClientRect();
@@ -174,6 +201,12 @@ def check_summary_rail(page, checks):
     settle(page)
     collapsed = viewer_width(page)
     checks.add("collapsing the summary widens the viewer", collapsed > before + 20, f"{before} -> {collapsed}")
+    rail = page.evaluate(RAIL_TAB_TITLES)
+    checks.add(
+        "a collapsed rail tab shows its full name",
+        bool(rail) and all(tab["scroll"] <= tab["client"] for tab in rail),
+        rail,
+    )
     page.get_by_role("button", name=SUMMARY_TOGGLE).first.click()
     settle(page)
     restored = viewer_width(page)
@@ -719,6 +752,36 @@ def pointer_drag(page, source, target_x, target_y):
     settle(page)
 
 
+def check_tree_sheet(page, checks, where):
+    sheet = page.evaluate(TREE_SHEET)
+    checks.add(
+        f"stacked tree sheet is no size container, so the fixed sheet keeps the viewport ({where})",
+        bool(sheet) and sheet["container"] == "normal",
+        sheet and sheet["container"],
+    )
+    checks.add(
+        f"stacked tree sheet starts right under the nav ({where})",
+        bool(sheet) and abs(sheet["top"] - sheet["navBottom"]) <= 1,
+        sheet,
+    )
+    checks.add(
+        f"stacked tree sheet reaches the bottom of the viewport ({where})",
+        bool(sheet) and abs(sheet["bottom"] - sheet["viewport"]) <= 1,
+        sheet,
+    )
+    expected = min(320, sheet["viewportWidth"] * 0.88) if sheet else 0
+    checks.add(
+        f"stacked tree sheet keeps its own width ({where})",
+        bool(sheet) and abs(sheet["width"] - expected) <= 1,
+        (sheet and sheet["width"], expected),
+    )
+    checks.add(
+        f"stacked tree sheet paints above the backdrop and takes the press ({where})",
+        bool(sheet) and sheet["inPanel"],
+        sheet and sheet["hit"],
+    )
+
+
 def check_layout(page, checks, notes):
     page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
     settle(page)
@@ -830,9 +893,17 @@ def check_layout(page, checks, notes):
     tree_toggle.click()
     settle(page, 400)
     checks.add("stacked tree opens as an overlay", page.locator(".stack__tree:not([hidden]) #document-panel").count() == 1)
+    check_tree_sheet(page, checks, "800")
     page.keyboard.press("Escape")
     settle(page, 400)
     checks.add("Escape closes the tree overlay", page.locator(".stack__tree[hidden]").count() == 1)
+    page.set_viewport_size({"width": MOBILE[0], "height": MOBILE[1]})
+    settle(page, 900)
+    page.get_by_role("button", name=TREE_TOGGLE).first.click()
+    settle(page, 600)
+    check_tree_sheet(page, checks, "390")
+    page.keyboard.press("Escape")
+    settle(page, 400)
     page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
     settle(page, 1500)
     found = groups(page)
@@ -1651,6 +1722,17 @@ def check_multi_model(page, checks, notes):
         second_summary.get("model") == second_label and second_summary.get("rows") != first_summary.get("rows"),
         f"{first_summary.get('model')} -> {second_summary.get('model')}",
     )
+
+    page.set_viewport_size({"width": 1000, "height": DESKTOP[1]})
+    settle(page, 700)
+    tab = page.evaluate(ACTIVE_MODEL_TAB)
+    checks.add(
+        "the active model tab keeps its full name in a narrow dock",
+        bool(tab) and tab["scroll"] <= tab["width"] + 1,
+        tab,
+    )
+    page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+    settle(page, 700)
 
     target.click()
     settle(page)
@@ -2826,9 +2908,22 @@ def check_task_center(page, checks):
     popover = page.get_by_role("region", name="Tasks")
     checks.add("the task list names the model load as done", popover.get_by_text("Done").count() >= 1 and popover.get_by_text(re.compile(r"^Loading ")).count() >= 1, popover.inner_text())
     page.keyboard.press("Escape")
-    checks.add("Escape closes the task list", page.get_by_role("region", name="Tasks").count() == 0)
+    closed = wait_until(page, lambda: page.get_by_role("region", name="Tasks").count() == 0)
+    checks.add("Escape closes the task list", bool(closed))
+    focused = page.evaluate("() => document.activeElement?.getAttribute('aria-label') || ''")
+    checks.add("Escape returns focus to the task trigger", focused.startswith("Tasks"), focused)
     live = page.locator("[role=status][aria-live=polite]").filter(has_text=re.compile(r"Loading .* finished"))
     checks.add("one live region announces the finished load", live.count() == 1, live.count())
+    trigger.click()
+    settle(page, 300)
+    dismiss = page.get_by_role("region", name="Tasks").get_by_role("button", name=re.compile(r"^Dismiss "))
+    dismissed = 0
+    while dismiss.count():
+        dismiss.first.click()
+        settle(page, 300)
+        dismissed += 1
+    kept = page.evaluate("() => Boolean(document.activeElement && document.activeElement.closest('.task-center'))")
+    checks.add("the last dismissed task keeps focus in the top bar", dismissed > 0 and kept, (dismissed, kept))
 
 
 def check_export_tasks(page, checks):

@@ -19,8 +19,18 @@ export type NumberFieldProps = Omit<
     value: number;
     min: number;
     max?: number;
+    integer?: boolean;
+    round?: 'floor' | 'nearest';
+    emptyValue?: number;
+    onDraftChange?: (value: number | null) => void;
     onValueCommitted: (value: number) => void;
   };
+
+function readDraft(text: string): number | null {
+  if (text.trim() === '') return null;
+  const parsed = Number(text);
+  return Number.isFinite(parsed) ? parsed : null;
+}
 
 export function NumberField({
   className,
@@ -28,17 +38,39 @@ export function NumberField({
   value,
   min,
   max = Number.POSITIVE_INFINITY,
+  integer = true,
+  round = 'floor',
+  emptyValue,
+  step,
+  onDraftChange,
   onValueCommitted,
   ...props
 }: NumberFieldProps) {
   const [draft, setDraft] = useState<string | null>(null);
 
+  const normalize = (input: number) => {
+    const rounded = integer
+      ? round === 'nearest'
+        ? Math.round(input)
+        : Math.floor(input)
+      : input;
+    return Math.min(max, Math.max(min, rounded));
+  };
+
+  const report = (text: string): number | null => {
+    const parsed = readDraft(text);
+    return parsed === null
+      ? emptyValue === undefined
+        ? null
+        : normalize(emptyValue)
+      : normalize(parsed);
+  };
+
   const commit = () => {
     if (draft === null) return;
-    const parsed = Math.floor(Number(draft));
+    const draftValue = report(draft);
     setDraft(null);
-    if (draft.trim() === '' || !Number.isFinite(parsed)) return;
-    onValueCommitted(Math.min(max, Math.max(min, parsed)));
+    if (draftValue !== null) onValueCommitted(draftValue);
   };
 
   return (
@@ -47,8 +79,12 @@ export function NumberField({
       type="number"
       min={min}
       max={Number.isFinite(max) ? max : undefined}
+      step={step ?? (integer ? 1 : 'any')}
       value={draft ?? String(value)}
-      onChange={(event) => setDraft(event.target.value)}
+      onChange={(event) => {
+        setDraft(event.target.value);
+        onDraftChange?.(report(event.target.value));
+      }}
       onBlur={commit}
       onKeyDown={(event) => {
         if (event.key === 'Enter') commit();

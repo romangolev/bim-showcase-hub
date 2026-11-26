@@ -1,14 +1,44 @@
-import { useEffect, useMemo, useState } from 'react';
+import {
+  type ColumnDef,
+  columnResizingFeature,
+  columnSizingFeature,
+  FlexRender,
+  metaHelper,
+  type Row,
+  tableFeatures,
+  useTable,
+} from '@tanstack/react-table';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { StateBlock } from '../components/StateBlock.js';
 import { writeClipboard } from '../extensions/clipboard.js';
 import type { ModelDbId } from '../viewer/modelSet.js';
-import type { ElementProperties } from '../viewer/propertyReads.js';
+import type {
+  ElementProperties,
+  ElementProperty,
+} from '../viewer/propertyReads.js';
 import { useModels } from '../viewer/useModels.js';
 import type { ViewerAdapter } from '../viewer/ViewerAdapter.js';
-import { groupProperties, MAX_SELECTED, valueText } from './propertiesView.js';
+import {
+  groupProperties,
+  MAX_SELECTED,
+  type PropertyGroup,
+  valueText,
+} from './propertiesView.js';
+import { COLUMN_LIMITS, useColumnResize } from './useColumnResize.js';
 import { useResolvedAdapter } from './useScopedRows.js';
 import './panels.css';
 import { Card, CardHeader, CardTitle } from '../ui/Card.js';
+import { Input } from '../ui/Input.js';
+import { Select, SelectOption } from '../ui/Select.js';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableResizeHandle,
+  TableRow,
+} from '../ui/Table.js';
 
 export interface PropertiesPanelProps {
   adapter?: ViewerAdapter | null;
@@ -20,6 +50,142 @@ type Read =
   | { key: string; status: 'loading' }
   | { key: string; status: 'ready'; elements: ElementProperties[] }
   | { key: string; status: 'error'; message: string };
+
+interface PropertyLine {
+  key: string;
+  property: ElementProperty;
+}
+
+interface PropertyMeta {
+  label: string;
+  className: string;
+}
+
+const NO_ELEMENTS: ElementProperties[] = [];
+
+const features = tableFeatures({
+  columnMeta: metaHelper<PropertyMeta>(),
+  columnSizingFeature,
+  columnResizingFeature,
+});
+
+const PropertyRow = memo(function PropertyRow({
+  row,
+}: {
+  row: Row<typeof features, PropertyLine>;
+}) {
+  return (
+    <TableRow>
+      {row.getAllCells().map((cell) => (
+        <TableCell
+          key={cell.id}
+          className={cell.column.columnDef.meta?.className}
+        >
+          <FlexRender cell={cell} />
+        </TableCell>
+      ))}
+    </TableRow>
+  );
+});
+
+function PropertyGrid({
+  group,
+  label,
+  onCopy,
+}: {
+  group: PropertyGroup;
+  label: string;
+  onCopy: (value: string) => void;
+}) {
+  const columns = useMemo<ColumnDef<typeof features, PropertyLine>[]>(
+    () => [
+      {
+        id: 'property',
+        header: 'Property',
+        cell: ({ row }) => row.original.property.name,
+        meta: { label: 'Property', className: 'bsh-props__key-cell' },
+      },
+      {
+        id: 'value',
+        header: 'Value',
+        cell: ({ row }) => {
+          const text = valueText(row.original.property.value);
+          return (
+            <span className="bsh-props__value-row">
+              <span className="bsh-props__value">{text}</span>
+              <button
+                type="button"
+                className="bsh-props__copy"
+                aria-label={`Copy ${row.original.property.name}`}
+                onClick={() => onCopy(text)}
+              >
+                Copy
+              </button>
+            </span>
+          );
+        },
+        meta: { label: 'Value', className: 'bsh-props__value-cell' },
+      },
+    ],
+    [onCopy],
+  );
+  const lines = useMemo(
+    () =>
+      group.items.map(
+        (property, index): PropertyLine => ({
+          key: `${index}\u0000${property.name}`,
+          property,
+        }),
+      ),
+    [group.items],
+  );
+  const table = useTable({
+    features,
+    columns,
+    data: lines,
+    getRowId: (line) => line.key,
+    columnResizeMode: 'onChange',
+    defaultColumn: COLUMN_LIMITS,
+  });
+  const { sized, tableStyle, headStyle, resizeProps } = useColumnResize(table);
+  return (
+    <Table
+      className="bsh-table bsh-props__table"
+      aria-label={label}
+      fixed={sized}
+      style={tableStyle}
+    >
+      <TableHeader>
+        {table.getHeaderGroups().map((group) => (
+          <TableRow key={group.id}>
+            {group.headers.map((header) => {
+              const { column } = header;
+              const meta = column.columnDef.meta;
+              return (
+                <TableHead
+                  key={header.id}
+                  className={meta?.className}
+                  aria-label={meta?.label}
+                  style={headStyle(header)}
+                >
+                  <table.FlexRender header={header} />
+                  <TableResizeHandle
+                    {...resizeProps(header, `Resize ${meta?.label} column`)}
+                  />
+                </TableHead>
+              );
+            })}
+          </TableRow>
+        ))}
+      </TableHeader>
+      <TableBody>
+        {table.getRowModel().rows.map((row) => (
+          <PropertyRow key={row.id} row={row} />
+        ))}
+      </TableBody>
+    </Table>
+  );
+}
 
 export function PropertiesPanel({
   adapter: override,
@@ -95,20 +261,24 @@ export function PropertiesPanel({
     };
   }, [adapter, modelId, ids, key]);
 
-  const copy = async (value: string) => {
+  const copy = useCallback(async (value: string) => {
     setNotice(
       (await writeClipboard(value))
         ? 'Copied'
         : 'Could not copy to the clipboard',
     );
-  };
+  }, []);
 
   const current = read?.key === key ? read : null;
-  const elements = current?.status === 'ready' ? current.elements : [];
-  const sections = elements.map((element) => ({
-    element,
-    groups: groupProperties(element.properties, filter),
-  }));
+  const elements = current?.status === 'ready' ? current.elements : NO_ELEMENTS;
+  const sections = useMemo(
+    () =>
+      elements.map((element) => ({
+        element,
+        groups: groupProperties(element.properties, filter),
+      })),
+    [elements, filter],
+  );
   const matches = sections.some((section) => section.groups.length > 0);
 
   return (
@@ -127,22 +297,21 @@ export function PropertiesPanel({
         <>
           <div className="bsh-props__tools">
             {ready.length > 1 && (
-              <select
-                className="field"
+              <Select
+                className="bsh-select"
                 aria-label="Model"
                 value={model.id}
-                onChange={(event) => scope?.onChange(event.target.value)}
+                onValueChange={(value) => scope?.onChange(value)}
               >
                 {ready.map((m) => (
-                  <option key={m.id} value={m.id}>
+                  <SelectOption key={m.id} value={m.id}>
                     {m.name}
-                  </option>
+                  </SelectOption>
                 ))}
-              </select>
+              </Select>
             )}
-            <input
+            <Input
               type="search"
-              className="field"
               aria-label="Filter properties"
               placeholder="Filter"
               value={filter}
@@ -195,25 +364,15 @@ export function PropertiesPanel({
                       <summary className="bsh-props__category">
                         {group.category}
                       </summary>
-                      <dl className="bsh-props__list">
-                        {group.items.map((prop, index) => (
-                          <div
-                            key={`${index}\u0000${prop.name}`}
-                            className="bsh-props__row"
-                          >
-                            <dt>{prop.name}</dt>
-                            <dd>{valueText(prop.value)}</dd>
-                            <button
-                              type="button"
-                              className="bsh-props__copy"
-                              aria-label={`Copy ${prop.name}`}
-                              onClick={() => copy(valueText(prop.value))}
-                            >
-                              Copy
-                            </button>
-                          </div>
-                        ))}
-                      </dl>
+                      <PropertyGrid
+                        group={group}
+                        label={
+                          elements.length > 1
+                            ? `${group.category} properties for ${element.name}`
+                            : `${group.category} properties`
+                        }
+                        onCopy={copy}
+                      />
                     </details>
                   ))}
                 </div>

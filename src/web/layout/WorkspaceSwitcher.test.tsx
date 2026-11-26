@@ -144,6 +144,8 @@ describe('workspace switcher', () => {
     const workspaces = fakeWorkspaces({ dialog: { kind: 'save' }, save });
     renderSwitcher(workspaces);
     const field = screen.getByRole('textbox', { name: 'Workspace name' });
+    expect(field).toHaveAttribute('data-slot', 'input');
+    expect(field).toHaveFocus();
     fireEvent.change(field, { target: { value: 'House' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save workspace' }));
     expect(save).toHaveBeenCalledWith('House');
@@ -184,6 +186,16 @@ describe('workspace switcher', () => {
     expect(screen.getByRole('alert').textContent).toContain('Delete one');
   });
 
+  it('opens the file picker from the label text', () => {
+    renderSwitcher(fakeWorkspaces({ dialog: { kind: 'import' } }));
+    const input = screen.getByLabelText('Import a workspace file');
+    const label = screen.getByText('Open a file').closest('label');
+    const clicked = vi.fn();
+    input.addEventListener('click', clicked);
+    fireEvent.click(label as HTMLLabelElement);
+    expect(clicked).toHaveBeenCalled();
+  });
+
   it('reports a rejected import inline', () => {
     const importText = vi.fn(() => 'This is not valid JSON.');
     const workspaces = fakeWorkspaces({
@@ -191,9 +203,9 @@ describe('workspace switcher', () => {
       importText,
     });
     renderSwitcher(workspaces);
-    fireEvent.change(screen.getByRole('textbox', { name: 'Workspace JSON' }), {
-      target: { value: '{nope' },
-    });
+    const json = screen.getByRole('textbox', { name: 'Workspace JSON' });
+    expect(json).toHaveAttribute('data-slot', 'textarea');
+    fireEvent.change(json, { target: { value: '{nope' } });
     fireEvent.click(screen.getByRole('button', { name: 'Apply layout' }));
     expect(importText).toHaveBeenCalledWith('{nope');
     expect(screen.getByRole('alert')).toHaveTextContent(

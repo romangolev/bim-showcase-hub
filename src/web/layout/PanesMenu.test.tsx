@@ -158,21 +158,32 @@ describe('Panes menu', () => {
     trigger.focus();
     fireEvent.keyDown(trigger, { key: 'ArrowDown' });
     const menu = screen.getByRole('dialog', { name: 'Panes' });
-    expect(menu).toHaveAttribute('data-slot', 'popover-popup');
+    expect(menu).toHaveAttribute('data-slot', 'menu-popup');
     expect(trigger).toHaveAttribute('aria-expanded', 'true');
     const search = within(menu).getByRole('searchbox', {
       name: 'Search panes',
     });
     await waitFor(() => expect(search).toHaveFocus());
+    const first = within(menu).getByRole('menuitem', {
+      name: 'Go to Documents',
+    });
+    await waitFor(() =>
+      expect(search).toHaveAttribute('aria-activedescendant', first.id),
+    );
+    expect(first).toHaveAttribute('data-highlighted');
     fireEvent.keyDown(search, { key: 'ArrowDown' });
-    expect(document.activeElement).toBe(
-      within(menu).getByRole('menuitem', { name: 'Go to Documents' }),
+    const second = within(menu).getAllByRole('menuitem', {
+      name: 'Search project files',
+    })[0] as HTMLElement;
+    await waitFor(() =>
+      expect(search).toHaveAttribute('aria-activedescendant', second.id),
     );
-    fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'End' });
-    expect(document.activeElement).toBe(
-      within(menu).getByRole('menuitem', { name: 'Reset layout' }),
+    fireEvent.keyDown(search, { key: 'End' });
+    const last = within(menu).getByRole('menuitem', { name: 'Reset layout' });
+    await waitFor(() =>
+      expect(search).toHaveAttribute('aria-activedescendant', last.id),
     );
-    fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'Escape' });
+    fireEvent.keyDown(search, { key: 'Escape' });
     await waitFor(() =>
       expect(screen.queryByRole('dialog', { name: 'Panes' })).toBeNull(),
     );
@@ -233,8 +244,17 @@ describe('Panes menu', () => {
       within(menu).getByRole('menuitemcheckbox', { name: 'Unlock layout' }),
     ).toBeInTheDocument();
     const reset = within(menu).getByRole('menuitem', { name: 'Reset layout' });
-    expect(reset).toBeDisabled();
+    expect(reset).toHaveAttribute('aria-disabled', 'true');
     expect(reset).toHaveAccessibleDescription('Unlock the layout first');
+  });
+
+  it('toggles the lock from its checked menu item', () => {
+    const { layout } = renderMenu();
+    const menu = openMenu();
+    fireEvent.click(
+      within(menu).getByRole('menuitemcheckbox', { name: 'Lock layout' }),
+    );
+    expect(layout.setLocked).toHaveBeenCalledWith(true);
   });
 
   it('hints about the Panes menu in the popover and remembers the dismissal', () => {
