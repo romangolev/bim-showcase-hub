@@ -1,5 +1,6 @@
+import { decodeBase64UrlText } from '../../shared/urn.js';
 import { defineRecord, usePersisted } from '../storage.js';
-import type { PaneTitles } from './layoutContext.js';
+import type { PaneTitle, PaneTitles } from './layoutContext.js';
 import { type PanelId, parsePanelId } from './paneRegistry.js';
 
 export const PANE_APPEARANCE_KEY = 'bsh.pane.appearance.v1';
@@ -134,13 +135,28 @@ export function paneTags(
   return tags;
 }
 
+function isUrnLine(line: string): boolean {
+  const text = line.trim();
+  if (text.startsWith('urn:')) return true;
+  if (text.length < 8 || !/^[A-Za-z0-9_+/=-]+$/.test(text)) return false;
+  return decodeBase64UrlText(text)?.startsWith('urn:') ?? false;
+}
+
+function readableTooltip(tooltip: string): string {
+  return tooltip
+    .split('\n')
+    .filter((line) => !isUrnLine(line))
+    .join('\n');
+}
+
 export function withPaneTitles(
   titles: PaneTitles,
   appearances: PaneAppearances,
 ): PaneTitles {
-  const out: Record<PanelId, { label: string; tooltip: string }> = {
-    ...titles,
-  };
+  const out: Record<PanelId, PaneTitle> = {};
+  for (const [id, title] of Object.entries(titles)) {
+    out[id] = { label: title.label, tooltip: readableTooltip(title.tooltip) };
+  }
   for (const [id, appearance] of Object.entries(appearances)) {
     if (!appearance.title) continue;
     const current = out[id];
