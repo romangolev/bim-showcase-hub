@@ -26,6 +26,7 @@ describe('TaskCenter', () => {
     fireEvent.click(trigger);
     expect(screen.getByRole('list')).toHaveAttribute('data-slot', 'list');
     expect(screen.getByText('Exporting')).toBeInTheDocument();
+    expect(screen.getByText('Exporting')).toHaveAttribute('title', 'Exporting');
     expect(screen.getByText('Running: Reading')).toBeInTheDocument();
     expect(
       screen.getByRole('progressbar', { name: 'Exporting progress' }),
