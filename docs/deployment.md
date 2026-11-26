@@ -45,7 +45,7 @@ Sessions are sealed cookies, so the function needs no database. See [architectur
 
 ### ACC and BIM 360 Docs
 
-An account administrator must add the app's Client ID as a custom integration in the account administration of Autodesk Docs or ACC. Without it, sign-in works but the account shows no hubs. Personal hubs need no setup.
+An account administrator must add the app's Client ID as a custom integration in the account administration of Autodesk Docs or ACC. Without it, sign-in works but the account shows no hubs: the hubs route answers 403 with the code `app_not_provisioned`, and the no-hubs checklist shows the Client ID and the callback URL (`session.appCallbackUrl`) to copy into the integration. Personal hubs need no setup.
 
 ## CSP reports
 
@@ -66,5 +66,5 @@ Thumbnails need no CSP change: they are same-origin `img` requests under `/api/t
 | `/?auth_error=invalid_state` | The sign-in cookie was lost, for example sign-in started on another host | Start again from the host that receives the callback |
 | `/?auth_error=upstream_error` | Code exchange or user lookup failed, or the session did not fit in the cookie | Try again. The log has a `sign-in failed` line |
 | The app says the session has ended | The 12 hour window ran out or the 7 day cap was reached | Use Sign in again in the banner |
-| Signed in but no hubs | The account has not added the app as a custom integration | See ACC and BIM 360 Docs above |
+| Signed in but no hubs | The account has not added the app as a custom integration (the hubs route answers 403 `app_not_provisioned`) | See ACC and BIM 360 Docs above, and copy the Client ID and callback URL from the checklist |
 | A model says it could not be loaded | The version is still translating, or the account has no access | Open another version, or retry later |
