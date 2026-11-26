@@ -13,7 +13,11 @@ export function ThemeToggle() {
       tooltip
       onClick={toggleTheme}
     >
-      {scheme === 'dark' ? <Icon name="sun" /> : <Icon name="moon" />}
+      {scheme === 'dark' ? (
+        <Icon name="sun" size={18} />
+      ) : (
+        <Icon name="moon" size={18} />
+      )}
     </IconButton>
   );
 }

@@ -521,9 +521,8 @@ describe('Documents first', () => {
     renderPath('/');
     await dockReady();
     const tab = screen.getByRole('tab', { name: 'Documents' });
-    expect(tab.querySelector('[title]')?.getAttribute('title')).toBe(
-      'Documents',
-    );
+    const surface = tab.querySelector('.dv-default-tab');
+    expect(surface).toHaveAttribute('title', 'Documents');
   });
 
   it('keeps Documents required: no close button and no Close item', async () => {

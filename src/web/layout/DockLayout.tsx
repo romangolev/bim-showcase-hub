@@ -131,18 +131,14 @@ function PaneTab(props: IDockviewPanelHeaderProps) {
   };
   const titles = slot?.titles[id];
   return (
-    <div
+    <DockviewDefaultTab
+      {...props}
+      hideClose={!isPanelClosable(id) || slot?.locked}
       title={titles?.tooltip || titles?.label || props.api.title}
-      style={{ display: 'contents' }}
-    >
-      <DockviewDefaultTab
-        {...props}
-        hideClose={!isPanelClosable(id) || slot?.locked}
-        data-tag={slot?.tags[id]}
-        onDoubleClick={() => slot?.onToggleMaximize(id)}
-        closeActionOverride={close}
-      />
-    </div>
+      data-tag={slot?.tags[id]}
+      onDoubleClick={() => slot?.onToggleMaximize(id)}
+      closeActionOverride={close}
+    />
   );
 }
 

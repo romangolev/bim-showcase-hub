@@ -215,7 +215,7 @@ describe('dock layout', () => {
     });
     expect(tab.querySelector('[title]')).toHaveAttribute(
       'title',
-      'Hub / Docs / FILI_20170810_01.nwd · v1\nabc123',
+      'Hub / Docs / FILI_20170810_01.nwd · v1',
     );
     expect(screen.queryByRole('tab', { name: 'Viewer' })).toBeNull();
     await waitFor(() =>
