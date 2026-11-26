@@ -6,6 +6,7 @@ import {
   waitFor,
   within,
 } from '@testing-library/react';
+import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { childrenQueryOptions } from '../../api/hooks.js';
 import { type NodeScope, ROOT_SCOPE } from '../../api/scope.js';
@@ -16,9 +17,17 @@ import {
   json,
   mockFetch,
   project,
+  stubLayout,
   treeRoutes,
 } from '../../test/mockApi.js';
-import { DOC_ROOT_KEY, hubScope } from './docRoot.js';
+import { DocumentTree } from './DocumentTree.js';
+import {
+  DOC_ROOT,
+  DOC_ROOT_KEY,
+  hubScope,
+  type TreeRoot,
+  treeRootOf,
+} from './docRoot.js';
 import { HubProjectSwitcher } from './HubProjectSwitcher.js';
 
 async function renderSwitcher(
@@ -216,5 +225,54 @@ describe('HubProjectSwitcher', () => {
       }),
     ).not.toBeInTheDocument();
     view.unmount();
+  });
+});
+
+function DocumentsHarness() {
+  const [root, setRoot] = useState<TreeRoot>(() =>
+    treeRootOf(DOC_ROOT.read(), undefined, undefined),
+  );
+  return (
+    <>
+      <HubProjectSwitcher onChange={setRoot} />
+      <DocumentTree
+        key={`${root.scope.kind}:${root.node.id}`}
+        root={root}
+        onOpenModel={vi.fn()}
+      />
+    </>
+  );
+}
+
+describe('HubProjectSwitcher with a persisted root', () => {
+  it('reaches the checklist when the app is not provisioned', async () => {
+    stubLayout();
+    window.localStorage.setItem(
+      DOC_ROOT_KEY,
+      JSON.stringify({ hubId: 'h1', projectId: null }),
+    );
+    mockFetch({
+      '/api/hubs': () =>
+        json(
+          { error: 'App not provisioned', code: 'app_not_provisioned' },
+          403,
+        ),
+    });
+    render(
+      <QueryClientProvider client={createTestClient()}>
+        <DocumentsHarness />
+      </QueryClientProvider>,
+    );
+    expect(
+      await screen.findByText('No projects to show yet'),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('button', { name: 'Documents hub' })).getByText(
+        'All hubs',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      JSON.parse(window.localStorage.getItem(DOC_ROOT_KEY) ?? 'null'),
+    ).toEqual({ hubId: 'h1', projectId: null });
   });
 });
