@@ -12,6 +12,7 @@ import { notifyUnauthorized } from '../api/client.js';
 import { resetSessionEnded } from '../api/hooks.js';
 import { LAYOUT_VERSION } from '../layout/layoutState.js';
 import { createAppRouter } from '../routes/router.js';
+import { BSH_KEYS } from '../storage.js';
 import {
   createTestClient,
   installMemoryStorage,
@@ -58,19 +59,73 @@ describe('AppShell loading', () => {
     expect(document.querySelector('[data-slot="skeleton"]')).not.toBeNull();
   });
 
-  it('sizes the tree column of the skeleton from the saved layout', async () => {
+  it('draws the skeleton from the saved dock grid', async () => {
+    const leaf = (id: string, views: string[], size: number) => ({
+      type: 'leaf',
+      size,
+      data: { id, views, activeView: views[0] },
+    });
     window.localStorage.setItem(
-      'bsh.layout.v2',
+      BSH_KEYS.personal.layout,
       JSON.stringify({
         version: LAYOUT_VERSION,
-        layout: { dock: null, treeWidth: 400 },
+        layout: {
+          dock: {
+            grid: {
+              root: {
+                type: 'branch',
+                data: [leaf('g1', ['tree'], 300), leaf('g2', ['summary'], 700)],
+              },
+              width: 1000,
+              height: 600,
+              orientation: 'HORIZONTAL',
+            },
+            panels: {
+              tree: { id: 'tree', title: 'Documents' },
+              summary: { id: 'summary', title: 'Summary' },
+            },
+          },
+          treeWidth: 300,
+        },
       }),
     );
     renderShellPending();
     const dock = await screen.findByRole('status', { name: 'Loading' });
-    expect(
-      (dock as HTMLElement).style.getPropertyValue('--skeleton-tree'),
-    ).toBe('400px');
+    const cells = dock.querySelectorAll<HTMLElement>('.app-skeleton__cell');
+    expect([...cells].map((cell) => cell.style.flexGrow)).toEqual([
+      '300',
+      '700',
+    ]);
+    expect(dock.textContent).toContain('Documents');
+    expect(dock.textContent).toContain('Summary');
+  });
+});
+
+describe('AppShell skeleton resilience', () => {
+  it('falls back to one Documents pane when the saved layout is malformed', async () => {
+    window.localStorage.setItem(
+      BSH_KEYS.personal.layout,
+      JSON.stringify({
+        version: LAYOUT_VERSION,
+        layout: {
+          dock: {
+            grid: {
+              root: {
+                type: 'branch',
+                data: [{ type: 'leaf', size: 0, data: { id: 'g1' } }],
+              },
+              width: 1,
+              height: 1,
+              orientation: 'HORIZONTAL',
+            },
+            panels: { viewer: { id: 'viewer' } },
+          },
+        },
+      }),
+    );
+    renderShellPending();
+    const shell = await screen.findByRole('status', { name: 'Loading' });
+    expect(shell.textContent).toContain('Documents');
   });
 });
 
