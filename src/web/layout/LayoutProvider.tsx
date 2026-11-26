@@ -22,7 +22,11 @@ import {
   ownerKey,
 } from '../api/openModels.js';
 import { OpenModelsContext } from '../api/useOpenModels.js';
-import { LAYOUT_LOCKED, SkeletonDock } from '../components/AppSkeleton.js';
+import {
+  isHomeLayout,
+  LAYOUT_LOCKED,
+  SkeletonDock,
+} from '../components/AppSkeleton.js';
 import { Hint } from '../components/Hint.js';
 import type { MenuEntry } from '../components/Menu.js';
 import { ModelBreadcrumb } from '../components/ModelBreadcrumb.js';
@@ -790,7 +794,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
                 }
               />
               {!stacked && !state.locked ? (
-                view.home ? (
+                isHomeLayout(models.models) ? (
                   <Hint id="palette">{t('hints.palette')}</Hint>
                 ) : (
                   <Hint id="move-panes">{t('hints.movePanes')}</Hint>

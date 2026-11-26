@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import { isRecord } from '../../shared/guards.js';
-import { LAST_SESSION, OPEN_MODELS } from '../api/openModels.js';
+import {
+  LAST_SESSION,
+  OPEN_MODELS,
+  type OpenModel,
+} from '../api/openModels.js';
 import { useT } from '../i18n/i18n.js';
 import { STACKED_QUERY } from '../layout/breakpoint.js';
 import {
@@ -8,7 +12,7 @@ import {
   type SerializedDock,
   type SerializedNode,
 } from '../layout/layoutState.js';
-import { paneById } from '../layout/paneRegistry.js';
+import { paneById, paneKind } from '../layout/paneRegistry.js';
 import { readSettings } from '../settings/settings.js';
 import { BSH_KEYS, defineRecord, getStorageAdapter } from '../storage.js';
 import { Skeleton } from '../ui/Skeleton.js';
@@ -25,6 +29,10 @@ export const LAYOUT_LOCKED = defineRecord<boolean>({
   sanitize: (raw) => raw === true,
 });
 
+export function isHomeLayout(models: readonly unknown[]): boolean {
+  return models.length === 0;
+}
+
 function savedDock(): SerializedDock | null {
   try {
     return (
@@ -36,18 +44,24 @@ function savedDock(): SerializedDock | null {
   }
 }
 
-function homeFromSeed(): boolean {
-  if (OPEN_MODELS.read().models.length > 0) return false;
-  if (!readSettings().restoreSession) return true;
-  return LAST_SESSION.read().models.length === 0;
+function seededModels(): readonly OpenModel[] {
+  const open = OPEN_MODELS.read().models;
+  if (open.length > 0 || !readSettings().restoreSession) return open;
+  const last = LAST_SESSION.read().models;
+  return last.length > 0 ? last : open;
 }
 
-function tabsOf(dock: SerializedDock, views: unknown): string[] {
+function tabTitleOf(view: unknown): string | null {
+  if (typeof view !== 'string') return null;
+  const kind = paneKind(view);
+  return kind ? paneById(kind).title : null;
+}
+
+function tabsOf(views: unknown): string[] {
   if (!Array.isArray(views)) return FALLBACK_TABS;
-  const titles = views.map((id) => {
-    const panel = typeof id === 'string' ? dock.panels[id] : undefined;
-    return typeof panel?.title === 'string' ? panel.title : String(id);
-  });
+  const titles = views
+    .map(tabTitleOf)
+    .filter((title): title is string => title !== null);
   return titles.length > 0 ? titles : FALLBACK_TABS;
 }
 
@@ -73,11 +87,9 @@ function Pane({ tabs, active }: { tabs: string[]; active: number }) {
 function Branch({
   nodes,
   horizontal,
-  dock,
 }: {
   nodes: SerializedNode[];
   horizontal: boolean;
-  dock: SerializedDock;
 }) {
   return (
     <div className="app-skeleton__branch" data-horizontal={horizontal}>
@@ -93,10 +105,9 @@ function Branch({
               <Branch
                 nodes={node.data as SerializedNode[]}
                 horizontal={!horizontal}
-                dock={dock}
               />
             ) : (
-              <Leaf node={node} dock={dock} />
+              <Leaf node={node} />
             )}
           </div>
         ))}
@@ -104,9 +115,9 @@ function Branch({
   );
 }
 
-function Leaf({ node, dock }: { node: SerializedNode; dock: SerializedDock }) {
+function Leaf({ node }: { node: SerializedNode }) {
   const group = isRecord(node.data) ? node.data : {};
-  const tabs = tabsOf(dock, group.views);
+  const tabs = tabsOf(group.views);
   const active =
     typeof group.activeView === 'string' && Array.isArray(group.views)
       ? Math.max(0, group.views.indexOf(group.activeView))
@@ -128,7 +139,6 @@ export function SkeletonDock({ dock }: { dock: SerializedDock | null }) {
         <Branch
           nodes={root.data as SerializedNode[]}
           horizontal={shown.grid.orientation === 'HORIZONTAL'}
-          dock={shown}
         />
       ) : (
         <Pane tabs={FALLBACK_TABS} active={0} />
@@ -137,16 +147,16 @@ export function SkeletonDock({ dock }: { dock: SerializedDock | null }) {
   );
 }
 
-export function AppSkeleton() {
+export function AppSkeleton({ hints = false }: { hints?: boolean }) {
   const t = useT();
   const stacked = useMediaQuery(STACKED_QUERY);
   const [saved] = useState(savedDock);
   const [locked] = useState(() => LAYOUT_LOCKED.read());
-  const home = homeFromSeed();
+  const home = isHomeLayout(seededModels());
   return (
     <>
       <TopBar />
-      {!stacked && !locked ? (
+      {hints && !stacked && !locked ? (
         home ? (
           <Hint id="palette">{t('hints.palette')}</Hint>
         ) : (

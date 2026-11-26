@@ -100,6 +100,7 @@ describe('AppShell loading', () => {
     renderShellPending();
     const skeleton = await findSkeleton();
     expect(skeleton.querySelector('[data-slot="skeleton"]')).not.toBeNull();
+    expect(screen.queryByRole('note')).toBeNull();
   });
 
   it('draws the skeleton from the saved dock grid', async () => {
@@ -112,7 +113,7 @@ describe('AppShell loading', () => {
       '700',
     ]);
     expect(skeleton).toHaveTextContent('Documents');
-    expect(skeleton).toHaveTextContent('Summary');
+    expect(skeleton).toHaveTextContent('Model summary');
   });
 
   it('draws one column in the stacked layout', async () => {
@@ -123,19 +124,29 @@ describe('AppShell loading', () => {
     expect(skeleton.querySelectorAll('.app-skeleton__pane')).toHaveLength(1);
     expect(skeleton.querySelectorAll('.app-skeleton__cell')).toHaveLength(0);
     expect(skeleton).toHaveTextContent('Documents');
-    expect(skeleton).not.toHaveTextContent('Summary');
+    expect(skeleton).not.toHaveTextContent('Model summary');
   });
 
-  it('shows the move-panes hint when only the last session has models', async () => {
-    window.localStorage.setItem(
-      BSH_KEYS.personal.lastSession,
-      JSON.stringify({ models: [{ urn: 'abc123' }], active: 'abc123' }),
-    );
+  it('labels saved viewer tabs from the pane registry, not saved model titles', async () => {
+    writeSavedLayout({
+      grid: {
+        root: {
+          type: 'branch',
+          data: [leaf('g1', ['tree', 'viewer:abc123'], 1000)],
+        },
+        width: 1000,
+        height: 600,
+        orientation: 'HORIZONTAL',
+      },
+      panels: {
+        tree: { id: 'tree', title: 'Documents' },
+        'viewer:abc123': { id: 'viewer:abc123', title: 'Riverside Tower.rvt' },
+      },
+    });
     renderShellPending();
-    expect(
-      await screen.findByText(/Drag a tab to move a pane/),
-    ).toBeInTheDocument();
-    expect(screen.queryByText(/Press Ctrl\+K/)).toBeNull();
+    const skeleton = await findSkeleton();
+    expect(skeleton).toHaveTextContent('Viewer');
+    expect(skeleton).not.toHaveTextContent('Riverside Tower');
   });
 });
 

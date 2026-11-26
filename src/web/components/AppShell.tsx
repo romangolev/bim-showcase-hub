@@ -26,7 +26,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       ) : signedIn ? (
         <>
           <SessionBanner />
-          <Suspense fallback={<AppSkeleton />}>
+          <Suspense fallback={<AppSkeleton hints />}>
             <LayoutProvider main={children} />
           </Suspense>
         </>
