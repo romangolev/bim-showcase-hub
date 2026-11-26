@@ -1,11 +1,11 @@
 import type { NextFunction, Request, Response } from 'express';
-import type { ApiError } from '../shared/types.js';
+import type { ApiError, ApiErrorCode } from '../shared/types.js';
 
 export class HttpError extends Error {
   readonly status: number;
-  readonly code?: string;
+  readonly code?: ApiErrorCode;
 
-  constructor(status: number, message: string, code?: string) {
+  constructor(status: number, message: string, code?: ApiErrorCode) {
     super(message);
     this.name = 'HttpError';
     this.status = status;

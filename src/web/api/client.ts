@@ -1,8 +1,10 @@
 import type {
+  ApiErrorCode,
   SessionUser,
   TreeNode,
   VersionViewState,
 } from '../../shared/types.js';
+import { APP_NOT_PROVISIONED } from '../../shared/types.js';
 import { childrenPath, type NodeScope } from './scope.js';
 
 export type Session = SessionUser;
@@ -10,13 +12,13 @@ export type Session = SessionUser;
 export class ApiError extends Error {
   readonly status: number;
   readonly retryAfterMs: number | null;
-  readonly code?: string;
+  readonly code?: ApiErrorCode;
 
   constructor(
     status: number,
     message: string,
     retryAfterMs: number | null = null,
-    code?: string,
+    code?: ApiErrorCode,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -44,7 +46,7 @@ export function notifyUnauthorized(): void {
 
 async function readError(
   res: Response,
-): Promise<{ message: string; code?: string }> {
+): Promise<{ message: string; code?: ApiErrorCode }> {
   const fallback = res.statusText || `Request failed with status ${res.status}`;
   try {
     const body: unknown = await res.json();
@@ -54,7 +56,10 @@ async function readError(
       if (typeof message === 'string') {
         return {
           message,
-          code: typeof record.code === 'string' ? record.code : undefined,
+          code:
+            record.code === APP_NOT_PROVISIONED
+              ? APP_NOT_PROVISIONED
+              : undefined,
         };
       }
     }

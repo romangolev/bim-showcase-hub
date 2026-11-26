@@ -1,9 +1,10 @@
+import type { ApiErrorCode } from '../../shared/types.js';
 import { ApiError } from './client.js';
 
 export interface FriendlyError {
   message: string;
   detail?: string;
-  code?: string;
+  code?: ApiErrorCode;
 }
 
 export function friendlyError(
@@ -13,35 +14,43 @@ export function friendlyError(
   const detail =
     error instanceof Error && error.message ? error.message : undefined;
   if (error instanceof ApiError) {
+    const code = error.code;
     if (error.status === 401) {
       return {
         message: 'Your session has expired. Sign in again to continue.',
         detail,
+        code,
       };
     }
     if (error.status === 403) {
       return {
         message: 'Your account does not have access to this.',
         detail,
-        code: error.code,
+        code,
       };
     }
     if (error.status === 404) {
-      return { message: 'We could not find this. It may have moved.', detail };
+      return {
+        message: 'We could not find this. It may have moved.',
+        detail,
+        code,
+      };
     }
     if (error.status === 429) {
       return {
         message: 'Too many requests. Wait a moment and try again.',
         detail,
+        code,
       };
     }
     if (error.status >= 500) {
       return {
         message: 'The service had a problem. Try again in a moment.',
         detail,
+        code,
       };
     }
-    return { message: fallback, detail };
+    return { message: fallback, detail, code };
   }
   if (error instanceof TypeError) {
     return {

@@ -45,9 +45,11 @@ export interface ViewerToken {
 
 export const APP_NOT_PROVISIONED = 'app_not_provisioned';
 
+export type ApiErrorCode = typeof APP_NOT_PROVISIONED;
+
 export interface ApiError {
   error: string;
-  code?: string;
+  code?: ApiErrorCode;
 }
 
 export interface HealthResponse {

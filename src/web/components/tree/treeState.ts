@@ -1,5 +1,9 @@
 import { fold } from '../../../shared/text.js';
-import type { TreeNode, VersionViewState } from '../../../shared/types.js';
+import type {
+  ApiErrorCode,
+  TreeNode,
+  VersionViewState,
+} from '../../../shared/types.js';
 import { friendlyError } from '../../api/friendlyError.js';
 import { type ModelContext, versionTag } from '../../api/modelContext.js';
 import { childScope, type NodeScope } from '../../api/scope.js';
@@ -56,7 +60,7 @@ export interface TreeHost {
 export interface NodeError {
   message: string;
   detail?: string;
-  code?: string;
+  code?: ApiErrorCode;
 }
 
 export interface PickedModel {
