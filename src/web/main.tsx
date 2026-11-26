@@ -13,6 +13,7 @@ import './styles/tailwind.css';
 import './ui/effects.css';
 import './ui/forced-colors.css';
 import { App } from './App.js';
+import { preloadApp } from './layout/preload.js';
 import { installErrorCapture } from './tasks/errorCapture.js';
 
 import.meta.glob('./styles/themes/*.css', { eager: true });
@@ -23,6 +24,7 @@ if (!container) {
 }
 
 installErrorCapture();
+preloadApp();
 
 createRoot(container).render(
   <StrictMode>

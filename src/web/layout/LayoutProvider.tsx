@@ -22,6 +22,7 @@ import {
   ownerKey,
 } from '../api/openModels.js';
 import { OpenModelsContext } from '../api/useOpenModels.js';
+import { SkeletonDock } from '../components/AppSkeleton.js';
 import { Hint } from '../components/Hint.js';
 import type { MenuEntry } from '../components/Menu.js';
 import { ModelBreadcrumb } from '../components/ModelBreadcrumb.js';
@@ -92,6 +93,7 @@ import {
   paneKind,
   parsePanelId,
 } from './paneRegistry.js';
+import { loadDockLayout } from './preload.js';
 import { StackedLayout } from './StackedLayout.js';
 import {
   sanitizeUserInstances,
@@ -115,7 +117,7 @@ import {
 } from './workspaces.js';
 
 const DockLayout = lazy(() =>
-  import('./DockLayout.js').then((module) => ({
+  loadDockLayout().then((module) => ({
     default: module.DockLayout,
   })),
 );
@@ -817,17 +819,7 @@ export function LayoutProvider({ main, openModels }: LayoutProviderProps) {
                 />
               ) : (
                 <div className="app-body app-body--dock">
-                  <Suspense
-                    fallback={
-                      <div className="app-loading">
-                        <StateBlock
-                          variant="loading"
-                          message="Loading layout"
-                          rows={6}
-                        />
-                      </div>
-                    }
-                  >
+                  <Suspense fallback={<SkeletonDock />}>
                     <DockLayout
                       hosts={hosts}
                       dock={model.dock}

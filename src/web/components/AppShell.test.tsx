@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../App.js';
 import { notifyUnauthorized } from '../api/client.js';
 import { resetSessionEnded } from '../api/hooks.js';
+import { LAYOUT_VERSION } from '../layout/layoutState.js';
 import { createAppRouter } from '../routes/router.js';
 import {
   createTestClient,
@@ -51,12 +52,25 @@ afterEach(() => {
 });
 
 describe('AppShell loading', () => {
-  it('shows skeleton rows while the session loads', async () => {
+  it('shows the dock skeleton while the session loads', async () => {
     renderShellPending();
-    expect((await screen.findByRole('status')).textContent).toContain(
-      'Loading',
-    );
+    expect(await screen.findByRole('status', { name: 'Loading' })).toBeTruthy();
     expect(document.querySelector('[data-slot="skeleton"]')).not.toBeNull();
+  });
+
+  it('sizes the tree column of the skeleton from the saved layout', async () => {
+    window.localStorage.setItem(
+      'bsh.layout.v2',
+      JSON.stringify({
+        version: LAYOUT_VERSION,
+        layout: { dock: null, treeWidth: 400 },
+      }),
+    );
+    renderShellPending();
+    const dock = await screen.findByRole('status', { name: 'Loading' });
+    expect(
+      (dock as HTMLElement).style.getPropertyValue('--skeleton-tree'),
+    ).toBe('400px');
   });
 });
 
