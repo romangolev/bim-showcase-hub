@@ -95,6 +95,16 @@
   border-bottom: var(--border-hairline);
 }
 
+.bsh-dock .dv-scrollable > .dv-tabs-container.dv-horizontal {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.bsh-dock .dv-scrollable > .dv-tabs-container.dv-horizontal::-webkit-scrollbar {
+  display: none;
+}
+
 .bsh-dock .dv-tab {
   display: flex;
   flex-shrink: 1;
@@ -104,6 +114,11 @@
   padding: 0 var(--space-3);
   font-weight: var(--weight-label);
   letter-spacing: var(--tracking-body);
+}
+
+.bsh-dock .dv-tabs-container.dv-horizontal > .dv-tab {
+  flex-shrink: 0;
+  min-width: 6.5rem;
 }
 
 .bsh-dock .dv-tab.dv-inactive-tab {
