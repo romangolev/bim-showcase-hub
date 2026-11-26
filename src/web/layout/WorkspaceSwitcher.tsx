@@ -99,6 +99,7 @@ function ImportForm({
 }: FormProps & { workspace: WorkspaceApi }) {
   const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const fileId = useId();
   const readFile = async (file: File | undefined) => {
     if (!file) return;
     setText(await file.text());
@@ -126,10 +127,11 @@ function ImportForm({
           }}
         />
       </Field>
-      <Field>
+      <Field controlId={fileId}>
         <FieldLabel>
           Open a file
           <input
+            id={fileId}
             type="file"
             accept=".json,application/json"
             aria-label="Import a workspace file"

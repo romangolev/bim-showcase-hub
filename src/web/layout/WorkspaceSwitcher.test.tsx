@@ -186,6 +186,16 @@ describe('workspace switcher', () => {
     expect(screen.getByRole('alert').textContent).toContain('Delete one');
   });
 
+  it('opens the file picker from the label text', () => {
+    renderSwitcher(fakeWorkspaces({ dialog: { kind: 'import' } }));
+    const input = screen.getByLabelText('Import a workspace file');
+    const label = screen.getByText('Open a file').closest('label');
+    const clicked = vi.fn();
+    input.addEventListener('click', clicked);
+    fireEvent.click(label as HTMLLabelElement);
+    expect(clicked).toHaveBeenCalled();
+  });
+
   it('reports a rejected import inline', () => {
     const importText = vi.fn(() => 'This is not valid JSON.');
     const workspaces = fakeWorkspaces({
