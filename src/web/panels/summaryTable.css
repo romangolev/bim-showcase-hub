@@ -105,6 +105,39 @@
   white-space: nowrap;
 }
 
+.bsh-summary .bsh-table.bsh-table--summary .bsh-clamp {
+  display: -webkit-box;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  text-overflow: ellipsis;
+}
+
+.bsh-summary .bsh-table.bsh-table--summary thead th:last-child {
+  position: sticky;
+  inset-inline-end: 0;
+}
+
+.bsh-summary .bsh-table.bsh-table--summary td:last-child {
+  position: sticky;
+  inset-inline-end: 0;
+  background: var(--color-graphite);
+}
+
+.bsh-summary
+  .bsh-table.bsh-table--summary
+  tr[data-active="true"]
+  td:last-child {
+  background-color: var(--color-graphite);
+  background-image: linear-gradient(
+    var(--color-hairline-faint),
+    var(--color-hairline-faint)
+  );
+}
+
 .bsh-table--pivot th.bsh-col-value {
   white-space: normal;
 }
