@@ -128,7 +128,7 @@ function GeneralSection() {
               id={id}
               min={0}
               max={120}
-              integer={false}
+              round="nearest"
               value={settings.sessionWarnMinutes}
               onValueCommitted={(sessionWarnMinutes) =>
                 setSetting('sessionWarnMinutes', sessionWarnMinutes)
