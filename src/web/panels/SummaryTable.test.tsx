@@ -414,6 +414,31 @@ describe('SummaryTable sort before the cap', () => {
   });
 });
 
+describe('SummaryTable sorted cap', () => {
+  it('keeps the full descending order in the capped slice', () => {
+    const many = Array.from({ length: ENTRY_CAP + 100 }, (_, i) => ({
+      property: 'Name',
+      value: `v${String(i).padStart(4, '0')}`,
+      count: i % 7,
+    }));
+    render(<SummaryTable entries={many} />);
+    const table = screen.getByRole('table');
+    const head = within(table).getByRole('columnheader', { name: 'Count' });
+    fireEvent.click(within(head).getByRole('button', { name: 'Count' }));
+    expect(head).toHaveAttribute('aria-sort', 'descending');
+    const shown = within(table)
+      .getAllByRole('row')
+      .slice(1, ENTRY_CAP + 1)
+      .map((row) => row.children[1]?.textContent ?? '');
+    const expected = many
+      .map((entry, index) => ({ entry, index }))
+      .sort((a, b) => b.entry.count - a.entry.count || a.index - b.index)
+      .slice(0, ENTRY_CAP)
+      .map(({ entry }) => entry.value);
+    expect(shown).toEqual(expected);
+  });
+});
+
 describe('SummaryTable sort values', () => {
   const sortRows: PropertyRow[] = [
     { dbId: 1, name: 'a', properties: { Category: 'A', Area: '2 m²' } },

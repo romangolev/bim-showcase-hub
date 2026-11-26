@@ -5,8 +5,10 @@ import {
   createSortedRowModel,
   FlexRender,
   metaHelper,
+  type OnChangeFn,
   type Row,
   rowSortingFeature,
+  type SortingState,
   tableFeatures,
   useTable,
 } from '@tanstack/react-table';
@@ -25,6 +27,7 @@ import { Icon } from '../components/icons.js';
 import {
   blockTitle,
   COUNT_COLUMN,
+  type ColumnRef,
   cellsByEntry,
   columnTitle,
   countShare,
@@ -127,6 +130,7 @@ interface ColumnMeta {
   rowHeader?: boolean;
   numeric?: boolean;
   sortValue?: (line: Line) => string | number | null | undefined;
+  sortCell?: ColumnRef;
   attrs?: (line: Line) => CellAttrs;
 }
 
@@ -156,6 +160,12 @@ export function compareValues(
   return collator(locale).compare(String(a), String(b));
 }
 
+function cellSortValue(cell: SummaryCell): number | undefined {
+  return cell.status === 'ok' && typeof cell.value === 'number'
+    ? cell.value
+    : undefined;
+}
+
 function sortableColumn(column: GridColumn, locale: string): GridColumn {
   const sortValue = column.meta?.sortValue;
   if (!sortValue) return column;
@@ -176,6 +186,45 @@ const features = tableFeatures({
 });
 
 type GridColumn = ColumnDef<typeof features, Line>;
+
+function compareSortKeys(
+  a: string | number | null | undefined,
+  b: string | number | null | undefined,
+  desc: boolean,
+  locale: string,
+): number {
+  if (a === undefined) return b === undefined ? 0 : 1;
+  if (b === undefined) return -1;
+  const result = compareValues(a, b, locale);
+  return desc ? -result : result;
+}
+
+function sortEntries(
+  entries: readonly SummaryEntry[],
+  sorting: SortingState,
+  columns: readonly GridColumn[],
+  rows: readonly PropertyRow[],
+  locale: string,
+): readonly SummaryEntry[] {
+  const sort = sorting[0];
+  const column = sort ? columns.find((item) => item.id === sort.id) : undefined;
+  const meta = column?.meta;
+  if (!sort || !meta) return entries;
+
+  const read = meta.sortCell
+    ? (() => {
+        const cells = cellsByEntry(rows, entries, [meta.sortCell]);
+        return (entry: SummaryEntry) =>
+          cellSortValue(cells.get(entryKey(entry))?.[0] ?? NO_CELL);
+      })()
+    : (entry: SummaryEntry) =>
+        meta.sortValue?.({ key: entryKey(entry), entry, cells: NO_CELLS });
+
+  return entries
+    .map((entry) => ({ entry, key: read(entry) }))
+    .sort((a, b) => compareSortKeys(a.key, b.key, sort.desc, locale))
+    .map((item) => item.entry);
+}
 
 const NO_ATTRS: CellAttrs = {};
 const COLUMN_DEFAULTS = { ...COLUMN_LIMITS, sortUndefined: 'last' as const };
@@ -260,12 +309,8 @@ function specColumns(
         className: 'bsh-num',
         numeric: true,
         title: empty ? `${title}: ${BLANK_NOTE}` : title,
-        sortValue: (line) => {
-          const cell = line.cells[index] ?? NO_CELL;
-          return cell.status === 'ok' && typeof cell.value === 'number'
-            ? cell.value
-            : undefined;
-        },
+        sortValue: (line) => cellSortValue(line.cells[index] ?? NO_CELL),
+        sortCell: spec,
         attrs: (line) => ({ title: read(line).title }),
       },
     };
@@ -340,6 +385,9 @@ function Grid({
   activeKey,
   resizable,
   sortable = true,
+  sorting,
+  onSortingChange,
+  hiddenCount,
   cap,
   more,
 }: {
@@ -351,6 +399,9 @@ function Grid({
   activeKey?: string | null;
   resizable: boolean;
   sortable?: boolean;
+  sorting?: SortingState;
+  onSortingChange?: OnChangeFn<SortingState>;
+  hiddenCount?: number;
   cap?: GridCap;
   more?: (hidden: number) => ReactNode;
 }) {
@@ -368,9 +419,12 @@ function Grid({
     enableSorting: sortable,
     enableSortingRemoval: true,
     enableMultiSort: false,
+    manualSorting: Boolean(sorting),
+    ...(sorting ? { state: { sorting }, onSortingChange } : {}),
   });
   const { sized, tableStyle, headStyle, resizeProps } = useColumnResize(table);
   const capped = cappedRows(table.getRowModel().rows, cap);
+  const hidden = hiddenCount ?? capped.hidden;
   return (
     <Table
       className={className}
@@ -444,7 +498,7 @@ function Grid({
             active={activeKey === row.id}
           />
         ))}
-        {capped.hidden > 0 && more ? more(capped.hidden) : null}
+        {hidden > 0 && more ? more(hidden) : null}
       </TableBody>
     </Table>
   );
@@ -471,7 +525,7 @@ function MoreRow({
 function BlockGrid({
   entries,
   expanded,
-  cells,
+  rows,
   valueColumn,
   specs,
   blank,
@@ -485,7 +539,7 @@ function BlockGrid({
 }: {
   entries: readonly SummaryEntry[];
   expanded: boolean;
-  cells: ReadonlyMap<string, readonly SummaryCell[]>;
+  rows: readonly PropertyRow[];
   valueColumn: GridColumn;
   specs: readonly SummaryColumnSpec[];
   blank: ReadonlySet<string>;
@@ -497,17 +551,30 @@ function BlockGrid({
   sortable: boolean;
   onExpand: () => void;
 }) {
+  const [sorting, setSorting] = useState<SortingState>([]);
   const columns = useMemo(() => {
     const max = entries.reduce((most, entry) => Math.max(most, entry.count), 0);
     return [valueColumn, ...specColumns(specs, blank, max, language)];
   }, [entries, valueColumn, specs, blank, language]);
+  const ordered = useMemo(
+    () => sortEntries(entries, sorting, columns, rows, locale),
+    [entries, sorting, columns, rows, locale],
+  );
+  const visible = useMemo(
+    () => (expanded ? ordered : ordered.slice(0, ENTRY_CAP)),
+    [ordered, expanded],
+  );
+  const cells = useMemo(
+    () => cellsByEntry(rows, visible, specs),
+    [rows, visible, specs],
+  );
   const lines = useMemo(
     () =>
-      entries.map((entry): Line => {
+      visible.map((entry): Line => {
         const key = entryKey(entry);
         return { key, entry, cells: cells.get(key) ?? NO_CELLS };
       }),
-    [entries, cells],
+    [visible, cells],
   );
   return (
     <Grid
@@ -519,7 +586,9 @@ function BlockGrid({
       activeKey={activeKey}
       resizable={resizable}
       sortable={sortable}
-      cap={expanded ? undefined : { limit: ENTRY_CAP }}
+      sorting={sorting}
+      onSortingChange={setSorting}
+      hiddenCount={ordered.length - visible.length}
       more={(hidden) => (
         <MoreRow span={columns.length} count={hidden} onShow={onExpand} />
       )}
@@ -598,6 +667,7 @@ export function SummaryTable({
   const [expandedProps, setExpandedProps] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
+  const [flatSorting, setFlatSorting] = useState<SortingState>([]);
 
   const layout = view?.layout ?? 'flat';
   const columns = view?.columns ?? DEFAULT_COLUMNS;
@@ -642,13 +712,6 @@ export function SummaryTable({
     }
     return hidden;
   }, [entries, expandedProps]);
-  const cells = useMemo(
-    () =>
-      layout === 'pivot'
-        ? new Map<string, SummaryCell[]>()
-        : cellsByEntry(rows ?? NO_ROWS, entries, columns),
-    [layout, rows, entries, columns],
-  );
   const expandProps = (properties: Iterable<string>) =>
     setExpandedProps((previous) => new Set([...previous, ...properties]));
   const tree = useMemo(() => {
@@ -728,14 +791,39 @@ export function SummaryTable({
     ],
     [showProperty, valueColumns, columns, blank, language],
   );
-  const flatLines = useMemo(
-    () =>
-      entries.map((entry): Line => {
+  const flat = useMemo(() => {
+    const ordered = sortEntries(
+      entries,
+      flatSorting,
+      flatColumns,
+      rows ?? NO_ROWS,
+      locale,
+    );
+    const kept: SummaryEntry[] = [];
+    const seen = new Map<string, number>();
+    let hidden = 0;
+    for (const entry of ordered) {
+      if (expandedProps.has(entry.property)) {
+        kept.push(entry);
+        continue;
+      }
+      const count = seen.get(entry.property) ?? 0;
+      if (count < ENTRY_CAP) {
+        seen.set(entry.property, count + 1);
+        kept.push(entry);
+      } else {
+        hidden += 1;
+      }
+    }
+    const cells = cellsByEntry(rows ?? NO_ROWS, kept, columns);
+    return {
+      hidden,
+      lines: kept.map((entry): Line => {
         const key = entryKey(entry);
         return { key, entry, cells: cells.get(key) ?? NO_CELLS };
       }),
-    [entries, cells],
-  );
+    };
+  }, [entries, flatSorting, flatColumns, rows, locale, expandedProps, columns]);
   const pivotColumns = useMemo(
     (): GridColumn[] => [
       {
@@ -819,17 +907,15 @@ export function SummaryTable({
   const flatTable = (
     <Grid
       columns={flatColumns}
-      lines={flatLines}
+      lines={flat.lines}
       className="bsh-table bsh-table--summary"
       locale={locale}
       activeKey={activeKey}
       resizable={!decorative}
       sortable={!decorative}
-      cap={{
-        limit: ENTRY_CAP,
-        key: (row) => row.original.entry?.property ?? '',
-        expanded: expandedProps,
-      }}
+      sorting={flatSorting}
+      onSortingChange={setFlatSorting}
+      hiddenCount={flat.hidden}
       more={(hidden) => (
         <MoreRow
           span={flatColumns.length}
@@ -901,7 +987,7 @@ export function SummaryTable({
               <BlockGrid
                 entries={block.entries}
                 expanded={expandedProps.has(block.property)}
-                cells={cells}
+                rows={rows ?? NO_ROWS}
                 valueColumn={valueColumns.rowHeader}
                 specs={columns}
                 blank={blank}
