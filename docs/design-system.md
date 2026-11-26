@@ -13,6 +13,8 @@
 
 Other stylesheets (`src/web/styles/*.css`, `panels/panels.css`, `layout/dockTheme.css`) read these variables. Components do not use raw hex colors or pixel values that have a token.
 
+User data is exempt: colours a person picks or saves (paint palettes, model tints, colour rules and chart colours) are stored and shown as raw hex values, because they are content and not interface chrome. Check their contrast in both themes when they sit next to text.
+
 ## Rules
 
 - Change a value in DESIGN.md first, then in `tokens.css`. No one-off values in components.
